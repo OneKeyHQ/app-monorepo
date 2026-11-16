@@ -49,6 +49,18 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isEtherFiProvider = createProviderCheck(EEarnProviderEnum.EtherFi);
+
+function resolveEarnWithdrawAll({
+  providerName,
+  withdrawAll,
+}: {
+  providerName: string;
+  withdrawAll: boolean;
+}) {
+  return isEtherFiProvider({ providerName }) ? false : withdrawAll;
+}
+
 const isSparkProvider = createProviderCheck(EEarnProviderEnum.Spark);
 
 const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
@@ -72,6 +84,7 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
     isMorphoProvider({ providerName }) ||
+    isEtherFiProvider({ providerName }) ||
     isSparkProvider({ providerName }) ||
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
@@ -86,6 +99,7 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
 const requiresEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
   isSparkProvider({ providerName }) ||
   isBitwayProvider({ providerName }) ||
+  isEtherFiProvider({ providerName }) ||
   isUnitasProvider({ providerName });
 
 // Unitas (OK-66931): the protocol submits the deposit itself once the allowance
@@ -144,6 +158,9 @@ function resolveEarnApproveSpenderAddress({
   protocolVault?: string;
   backendApproveTarget?: string;
 }) {
+  if (isEtherFiProvider({ providerName })) {
+    return backendApproveTarget ?? '';
+  }
   const providerKey = getEarnProviderEnumKey(providerName);
   if (providerKey && providerApproveSpenderOverrides[providerKey]) {
     return providerApproveSpenderOverrides[providerKey];
@@ -172,6 +189,9 @@ function resolveEarnApproveType({
   // ERC20 approve only applies to EVM networks
   if (!networkUtils.isEvmNetwork({ networkId })) {
     return undefined;
+  }
+  if (isEtherFiProvider({ providerName })) {
+    return EApproveType.Legacy;
   }
   const providerKey = getEarnProviderEnumKey(providerName);
   if (providerKey && providerApproveTypeOverrides[providerKey]) {
@@ -403,6 +423,8 @@ export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
+  isEtherFiProvider,
+  resolveEarnWithdrawAll,
   isSparkProvider,
   isPendleProvider,
   isNativeProvider,

@@ -45,6 +45,7 @@ import type {
 
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 import { EarnAmountText } from './EarnAmountText';
@@ -571,6 +572,7 @@ function BasicEarnActionIcon({
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
   const { copyText } = useClipboard();
+  const handleWithdrawAction = useHandleWithdraw();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
@@ -581,6 +583,19 @@ function BasicEarnActionIcon({
       protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
 
     if (!protocolInfo?.earnAccount?.accountId || !provider || !symbol) {
+      return;
+    }
+    if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+      await handleWithdrawAction({
+        withdrawType: EStakingActionType.CancelWithdrawal,
+        tokenInfo,
+        protocolInfo,
+        accountId: protocolInfo.earnAccount.accountId,
+        networkId: protocolInfo.networkId,
+        symbol,
+        provider,
+        onSuccess: onActionSuccess,
+      });
       return;
     }
     setCancelLoading(true);
@@ -606,7 +621,14 @@ function BasicEarnActionIcon({
     } finally {
       setCancelLoading(false);
     }
-  }, [handleUniversalWithdraw, protocolInfo, token, tokenInfo]);
+  }, [
+    handleUniversalWithdraw,
+    handleWithdrawAction,
+    onActionSuccess,
+    protocolInfo,
+    token,
+    tokenInfo,
+  ]);
 
   if (!actionIcon) {
     return null;

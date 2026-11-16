@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Alert } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -36,13 +37,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { isAllowedEtherFiAsset } from '@onekeyhq/shared/src/utils/etherFiVaults';
 import {
   EApproveType,
   type EBorrowActionsEnum,
   EEarnLabels,
   type IBorrowAsset,
   type IBorrowAssetsList,
-  type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
   type IEarnUtmParams,
@@ -53,6 +54,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { useEtherFiWithdrawApproval } from '../../../hooks/useEtherFiWithdrawApproval';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
 import {
@@ -60,6 +62,7 @@ import {
   normalizeStakeTokenAddress,
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
+import { resolveWithdrawShareToken } from '../../Withdraw/withdrawShareTokenUtils';
 import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
 
 import {
@@ -146,9 +149,39 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
+  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
+  const etherFiWithdrawal = useEtherFiWithdrawApproval({
+    enabled: isEtherFiProvider && !useBorrowApi,
+    accountId,
+    networkId,
+    provider: providerName,
+    symbol: protocolInfo?.symbol,
+    vault: protocolInfo?.vault,
+  });
+  const effectiveProtocolInfo = useMemo(
+    () =>
+      isEtherFiProvider && protocolInfo
+        ? { ...protocolInfo, withdrawApprove: etherFiWithdrawal.approval }
+        : protocolInfo,
+    [etherFiWithdrawal.approval, isEtherFiProvider, protocolInfo],
+  );
+  const shareToken = useMemo(
+    () =>
+      resolveWithdrawShareToken({
+        accountId,
+        networkId,
+        provider: providerName,
+        protocolInfo: effectiveProtocolInfo,
+        tokenInfo,
+      }),
+    [accountId, effectiveProtocolInfo, networkId, providerName, tokenInfo],
+  );
+  const effectiveEarnTokenInfo = isEtherFiProvider
+    ? shareToken.tokenInfo
+    : tokenInfo;
   const hasWithdrawApprove = Boolean(
-    protocolInfo?.withdrawApprove?.approveTarget &&
-    protocolInfo.withdrawApprove.tokenAddress,
+    effectiveProtocolInfo?.withdrawApprove?.approveTarget &&
+    effectiveProtocolInfo.withdrawApprove.tokenAddress,
   );
   const borrowProviderDisplayName = useMemo(() => {
     if (
@@ -163,8 +196,11 @@ export const WithdrawSection = ({
   }, [protocolInfo?.providerDetail.name, providerName]);
 
   const token = useMemo(
-    () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
-    [tokenInfo],
+    () =>
+      effectiveEarnTokenInfo?.token
+        ? (effectiveEarnTokenInfo.token as IToken)
+        : undefined,
+    [effectiveEarnTokenInfo],
   );
   const borrowAssetSelectionScopeKey = useMemo(
     () =>
@@ -365,10 +401,11 @@ export const WithdrawSection = ({
   const approveAssetToken =
     fetchedApproveAssetToken ?? fallbackApproveAssetToken;
   const withdrawApproveToken = useMemo(() => {
-    const withdrawApprove = protocolInfo?.withdrawApprove;
+    const withdrawApprove = effectiveProtocolInfo?.withdrawApprove;
     if (!withdrawApprove?.tokenAddress || !token) {
       return token;
     }
+    if (isEtherFiProvider) return token;
     return {
       ...token,
       address: withdrawApprove.tokenAddress,
@@ -383,7 +420,8 @@ export const WithdrawSection = ({
     };
   }, [
     protocolInfo?.protocolInputDecimals,
-    protocolInfo?.withdrawApprove,
+    effectiveProtocolInfo?.withdrawApprove,
+    isEtherFiProvider,
     token,
   ]);
   const approvalToken = useMemo(() => {
@@ -424,7 +462,7 @@ export const WithdrawSection = ({
     }
 
     if (hasWithdrawApprove) {
-      return protocolInfo?.withdrawApprove?.approveTarget ?? '';
+      return effectiveProtocolInfo?.withdrawApprove?.approveTarget ?? '';
     }
 
     return earnUtils.resolveEarnApproveSpenderAddress({
@@ -437,7 +475,7 @@ export const WithdrawSection = ({
     borrowMarketAddress,
     effectiveBorrowApproveInfo?.approveTarget,
     hasWithdrawApprove,
-    protocolInfo?.withdrawApprove?.approveTarget,
+    effectiveProtocolInfo?.withdrawApprove?.approveTarget,
     useApproveTarget,
     useBorrowApi,
     providerName,
@@ -468,48 +506,74 @@ export const WithdrawSection = ({
     useBorrowApi,
   ]);
 
-  const { result: initialAllowanceResult } = usePromiseResult(
-    async () => {
-      if (
-        !effectiveApproveType ||
-        !approveSpenderAddress ||
-        !accountId ||
-        !networkId ||
-        !approvalToken ||
-        approvalToken?.isNative
-      ) {
-        return undefined;
-      }
-      // While a protocol switch is in flight (confirm button force-loading),
-      // networkId is already the new chain but token/spender still come from
-      // the previous protocol's stale data — skip to avoid a mismatched
-      // allowance request. Re-runs automatically once fresh data lands.
-      if (footerActionOverride?.loading) {
-        return undefined;
-      }
-      const { allowanceParsed } =
-        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-          accountId,
-          networkId,
-          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-            networkId,
-            approveType: effectiveApproveType,
-            approveSpenderAddress,
-          }),
-          tokenAddress: approvalToken?.address || '',
-        });
-      return { allowanceParsed };
-    },
-    [
-      effectiveApproveType,
-      approveSpenderAddress,
-      accountId,
-      networkId,
-      approvalToken,
-      footerActionOverride?.loading,
-    ],
-    { watchLoading: true, undefinedResultIfReRun: true },
-  );
+  const allowanceScopeKey = JSON.stringify([
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    effectiveApproveType,
+    protocolInfo?.earnAccount?.accountAddress,
+    approveSpenderAddress,
+    approvalToken?.address,
+  ]);
+  const { result: initialAllowanceResult, run: retryAllowance } =
+    usePromiseResult(
+      async () => {
+        if (
+          !effectiveApproveType ||
+          !approveSpenderAddress ||
+          !accountId ||
+          !networkId ||
+          !approvalToken ||
+          approvalToken?.isNative
+        ) {
+          return undefined;
+        }
+        // While a protocol switch is in flight (confirm button force-loading),
+        // networkId is already the new chain but token/spender still come from
+        // the previous protocol's stale data — skip to avoid a mismatched
+        // allowance request. Re-runs automatically once fresh data lands.
+        if (footerActionOverride?.loading) {
+          return undefined;
+        }
+        try {
+          const { allowanceParsed } =
+            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+              accountId,
+              networkId,
+              expectedAccountAddress: isEtherFiProvider
+                ? protocolInfo?.earnAccount?.accountAddress
+                : undefined,
+              spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+                networkId,
+                approveType: effectiveApproveType,
+                approveSpenderAddress,
+              }),
+              tokenAddress: approvalToken.address,
+            });
+          return { allowanceParsed, scopeKey: allowanceScopeKey, error: false };
+        } catch (error) {
+          if (!isEtherFiProvider) throw error;
+          return {
+            allowanceParsed: undefined,
+            scopeKey: allowanceScopeKey,
+            error: true,
+          };
+        }
+      },
+      [
+        effectiveApproveType,
+        approveSpenderAddress,
+        accountId,
+        networkId,
+        approvalToken,
+        footerActionOverride?.loading,
+        allowanceScopeKey,
+        protocolInfo?.earnAccount?.accountAddress,
+        isEtherFiProvider,
+      ],
+      { watchLoading: true, undefinedResultIfReRun: true },
+    );
 
   const approveTarget = useMemo(() => {
     if (!effectiveApproveType || !approveSpenderAddress || !approvalToken) {
@@ -609,49 +673,115 @@ export const WithdrawSection = ({
     });
   }, [assetsListLoading, borrowAssetSelectionScopeKey, selectableBorrowAssets]);
 
-  const { result: unstakeAssetsList } = usePromiseResult<
-    IEarnAssetsList | undefined
-  >(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !isPendleProvider ||
-        useBorrowApi ||
-        !accountId ||
-        !protocolInfo?.symbol
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
+  const unstakeAssetsScopeKey = JSON.stringify([
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.symbol,
+    protocolInfo?.vault,
+  ]);
+  const { result: unstakeAssetsList, run: retryUnstakeAssets } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !(isPendleProvider || isEtherFiProvider) ||
+          useBorrowApi ||
+          !accountId ||
+          !protocolInfo?.symbol
+        ) {
+          return undefined;
+        }
+        try {
+          const response =
+            await backgroundApiProxy.serviceStaking.getEarnAssetsList({
+              accountId,
+              networkId,
+              provider: providerName,
+              symbol: protocolInfo.symbol,
+              vault: protocolInfo.vault || undefined,
+              action: 'unstake',
+            });
+          const assets = isEtherFiProvider
+            ? response.assets.filter((asset) =>
+                isAllowedEtherFiAsset({
+                  vault: protocolInfo?.vault,
+                  networkId,
+                  direction: 'unstake',
+                  token: asset.info,
+                }),
+              )
+            : response.assets;
+          return {
+            ...response,
+            assets,
+            scopeKey: unstakeAssetsScopeKey,
+            error:
+              isEtherFiProvider &&
+              response.assets.length > 0 &&
+              assets.length === 0,
+          };
+        } catch (error) {
+          if (!isEtherFiProvider) throw error;
+          return { assets: [], scopeKey: unstakeAssetsScopeKey, error: true };
+        }
+      },
+      [
+        hasRequiredData,
+        isPendleProvider,
+        isEtherFiProvider,
+        useBorrowApi,
         accountId,
         networkId,
-        provider: providerName,
-        symbol: protocolInfo.symbol,
-        vault: protocolInfo.vault || undefined,
-        action: 'unstake',
-      });
-    },
-    [
-      hasRequiredData,
-      isPendleProvider,
-      useBorrowApi,
-      accountId,
-      networkId,
-      providerName,
-      protocolInfo?.symbol,
-      protocolInfo?.vault,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
+        providerName,
+        protocolInfo?.symbol,
+        protocolInfo?.vault,
+        unstakeAssetsScopeKey,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
 
   const selectableReceiveAssets = useMemo(() => {
+    if (
+      isEtherFiProvider &&
+      unstakeAssetsList?.scopeKey !== unstakeAssetsScopeKey
+    ) {
+      return [];
+    }
     return unstakeAssetsList?.assets ?? [];
-  }, [unstakeAssetsList?.assets]);
+  }, [isEtherFiProvider, unstakeAssetsList, unstakeAssetsScopeKey]);
+  const selectedReceiveAssetIsCurrent = Boolean(
+    selectedReceiveAsset &&
+    (!isEtherFiProvider ||
+      isAllowedEtherFiAsset({
+        vault: protocolInfo?.vault,
+        networkId,
+        direction: 'unstake',
+        token: selectedReceiveAsset.info,
+      })) &&
+    selectableReceiveAssets.some(
+      (asset) =>
+        normalizeStakeTokenAddress(asset.info) ===
+          normalizeStakeTokenAddress(selectedReceiveAsset.info) &&
+        asset.info.symbol.toLowerCase() ===
+          selectedReceiveAsset.info.symbol.toLowerCase(),
+    ),
+  );
+  const etherFiWithdrawalReady = Boolean(
+    etherFiWithdrawal.approval &&
+    shareToken.ready &&
+    protocolInfo?.earnAccount?.accountId === accountId &&
+    protocolInfo?.earnAccount?.networkId === networkId &&
+    Boolean(protocolInfo?.earnAccount?.accountAddress) &&
+    selectedReceiveAssetIsCurrent &&
+    initialAllowanceResult?.scopeKey === allowanceScopeKey &&
+    initialAllowanceResult.allowanceParsed !== undefined,
+  );
 
   useEffect(() => {
-    if (!isPendleProvider || useBorrowApi) {
+    if (!(isPendleProvider || isEtherFiProvider) || useBorrowApi) {
       setSelectedReceiveAsset(undefined);
       return;
     }
@@ -685,7 +815,12 @@ export const WithdrawSection = ({
 
       return selectableReceiveAssets[0];
     });
-  }, [isPendleProvider, selectableReceiveAssets, useBorrowApi]);
+  }, [
+    isEtherFiProvider,
+    isPendleProvider,
+    selectableReceiveAssets,
+    useBorrowApi,
+  ]);
 
   const handleOpenReceiveTokenSelector = useCallback(() => {
     if (!accountId || !protocolInfo?.symbol) return;
@@ -703,6 +838,16 @@ export const WithdrawSection = ({
         action: 'unstake' as const,
         currentTokenAddress: currentAddress,
         onSelect: (item: IEarnTokenItem) => {
+          if (
+            isEtherFiProvider &&
+            !isAllowedEtherFiAsset({
+              vault: protocolInfo?.vault,
+              networkId,
+              direction: 'unstake',
+              token: item.info,
+            })
+          )
+            return;
           setSelectedReceiveAsset(item);
         },
       },
@@ -715,10 +860,15 @@ export const WithdrawSection = ({
     protocolInfo?.vault,
     selectedReceiveAsset?.info,
     navigation,
+    isEtherFiProvider,
   ]);
 
   const receiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!isPendleProvider || useBorrowApi || !selectableReceiveAssets.length) {
+    if (
+      !(isPendleProvider || isEtherFiProvider) ||
+      useBorrowApi ||
+      !selectableReceiveAssets.length
+    ) {
       return undefined;
     }
 
@@ -731,6 +881,7 @@ export const WithdrawSection = ({
     };
   }, [
     isPendleProvider,
+    isEtherFiProvider,
     useBorrowApi,
     selectableReceiveAssets.length,
     handleOpenReceiveTokenSelector,
@@ -739,7 +890,7 @@ export const WithdrawSection = ({
   const effectiveReceiveInputConfig = useMemo<
     IManagePageV2ReceiveInputConfig | undefined
   >(() => {
-    if (!isPendleProvider || useBorrowApi) {
+    if (!(isPendleProvider || isEtherFiProvider) || useBorrowApi) {
       return receiveInputConfig;
     }
 
@@ -766,6 +917,7 @@ export const WithdrawSection = ({
     };
   }, [
     isPendleProvider,
+    isEtherFiProvider,
     useBorrowApi,
     receiveInputConfig,
     selectedReceiveAsset?.balanceParsed,
@@ -1025,6 +1177,9 @@ export const WithdrawSection = ({
   const onConfirm = useCallback(
     async ({
       amount,
+      actionSignal,
+      verifyEtherFiLegacyApproval,
+      onTransactionSubmitted,
       withdrawAll,
       effectiveApy,
       useEthenaCooldown,
@@ -1034,6 +1189,9 @@ export const WithdrawSection = ({
       withdrawType,
     }: {
       amount: string;
+      actionSignal?: AbortSignal;
+      verifyEtherFiLegacyApproval?: () => Promise<boolean>;
+      onTransactionSubmitted?: () => void;
       withdrawAll: boolean;
       effectiveApy?: string | number;
       useEthenaCooldown?: boolean;
@@ -1046,6 +1204,7 @@ export const WithdrawSection = ({
       if (!hasRequiredData) return false;
 
       if (borrowApiCtx.isBorrow) return false;
+      if (isEtherFiProvider && !etherFiWithdrawalReady) return false;
 
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
@@ -1054,6 +1213,9 @@ export const WithdrawSection = ({
       return handleWithdraw({
         amount,
         // identity,
+        expectedAccountAddress: isEtherFiProvider
+          ? protocolInfo?.earnAccount?.accountAddress
+          : undefined,
         protocolVault: earnUtils.shouldSendEarnProtocolVault({
           providerName,
         })
@@ -1061,9 +1223,9 @@ export const WithdrawSection = ({
           : undefined,
         symbol: withdrawRequestSymbol,
         provider: providerName,
-        inputTokenAddress: tokenInfo?.token?.isNative
+        inputTokenAddress: effectiveEarnTokenInfo?.token?.isNative
           ? ''
-          : (tokenInfo?.token?.address ?? ''),
+          : (effectiveEarnTokenInfo?.token?.address ?? ''),
         outputTokenAddress: selectedReceiveTokenAddress,
         slippage: pendleSlippage,
         effectiveApy,
@@ -1073,7 +1235,8 @@ export const WithdrawSection = ({
         withdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
-        signal: abortController.signal,
+        signal: actionSignal ?? abortController.signal,
+        verifyEtherFiLegacyApproval,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Sell : EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
@@ -1085,6 +1248,7 @@ export const WithdrawSection = ({
         },
         withdrawAll,
         onSuccess: () => {
+          onTransactionSubmitted?.();
           onSuccess?.();
           defaultLogger.staking.page.unstaking({
             token,
@@ -1101,12 +1265,15 @@ export const WithdrawSection = ({
       providerName,
       vault,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.earnAccount?.accountAddress,
       onSuccess,
       token,
       protocolInfo?.stakeTag,
       withdrawRequestSymbol,
-      tokenInfo?.token?.address,
-      tokenInfo?.token?.isNative,
+      effectiveEarnTokenInfo?.token?.address,
+      effectiveEarnTokenInfo?.token?.isNative,
+      etherFiWithdrawalReady,
+      isEtherFiProvider,
       selectedReceiveTokenAddress,
       borrowApiCtx.isBorrow,
       pendleSlippage,
@@ -1505,9 +1672,21 @@ export const WithdrawSection = ({
       ) : (
         <UniversalWithdraw
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
-          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
-          decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
-          balance={protocolInfo?.activeBalance || '0'}
+          price={
+            effectiveEarnTokenInfo?.price
+              ? String(effectiveEarnTokenInfo.price)
+              : '0'
+          }
+          decimals={
+            isEtherFiProvider
+              ? token?.decimals
+              : (protocolInfo?.protocolInputDecimals ?? token?.decimals)
+          }
+          balance={
+            isEtherFiProvider
+              ? (shareToken.balance ?? '0')
+              : protocolInfo?.activeBalance || '0'
+          }
           accountId={accountId}
           networkId={networkId}
           tokenSymbol={effectiveTokenSymbol}
@@ -1515,8 +1694,8 @@ export const WithdrawSection = ({
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
-          protocolInfo={protocolInfo}
-          tokenInfo={tokenInfo}
+          protocolInfo={effectiveProtocolInfo}
+          tokenInfo={effectiveEarnTokenInfo}
           onConfirm={onConfirm}
           inputTitle={
             isPendleProvider
@@ -1530,13 +1709,50 @@ export const WithdrawSection = ({
           }
           protocolVault={protocolInfo?.vault ?? ''}
           isDisabled={isDisabled}
-          beforeFooter={beforeFooter}
+          isActionDisabled={isEtherFiProvider && !etherFiWithdrawalReady}
+          beforeFooter={
+            <>
+              {beforeFooter}
+              {isEtherFiProvider &&
+              (etherFiWithdrawal.error ||
+                initialAllowanceResult?.error ||
+                unstakeAssetsList?.error ||
+                (unstakeAssetsList?.scopeKey === unstakeAssetsScopeKey &&
+                  !unstakeAssetsList.error &&
+                  !unstakeAssetsList.assets.length)) ? (
+                <Alert
+                  type="critical"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  })}
+                  action={{
+                    primary: intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    }),
+                    onPrimaryPress: () => {
+                      if (etherFiWithdrawal.error)
+                        void etherFiWithdrawal.retry();
+                      if (initialAllowanceResult?.error) void retryAllowance();
+                      if (
+                        unstakeAssetsList?.error ||
+                        !unstakeAssetsList?.assets.length
+                      ) {
+                        void retryUnstakeAssets();
+                      }
+                    },
+                  }}
+                />
+              ) : null}
+            </>
+          }
           footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           receiveInputConfig={effectiveReceiveInputConfig}
           transactionInputTokenAddress={
-            tokenInfo?.token?.isNative ? '' : (tokenInfo?.token?.address ?? '')
+            effectiveEarnTokenInfo?.token?.isNative
+              ? ''
+              : (effectiveEarnTokenInfo?.token?.address ?? '')
           }
           transactionOutputTokenAddress={selectedReceiveTokenAddress}
           isQuoteExpired={isQuoteExpired}
@@ -1545,7 +1761,12 @@ export const WithdrawSection = ({
           onQuoteRefreshingChange={onQuoteRefreshingChange}
           approveType={effectiveApproveType}
           approveTarget={approveTarget}
-          currentAllowance={initialAllowanceResult?.allowanceParsed}
+          currentAllowance={
+            !isEtherFiProvider ||
+            initialAllowanceResult?.scopeKey === allowanceScopeKey
+              ? initialAllowanceResult?.allowanceParsed
+              : undefined
+          }
           receiptTokenRate={
             protocolInfo?.withdrawApprove?.receiptTokenRate ??
             protocolInfo?.receiptTokenRate ??

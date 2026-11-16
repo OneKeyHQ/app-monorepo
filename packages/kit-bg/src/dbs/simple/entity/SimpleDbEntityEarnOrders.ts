@@ -15,6 +15,8 @@ export interface IEarnOrderItem {
   stakingLabel?: IEarnOrderTrackingInfo['stakingLabel'];
   stakingProtocol?: IEarnOrderTrackingInfo['stakingProtocol'];
   stakingTags?: IEarnOrderTrackingInfo['stakingTags'];
+  etherFiSyncStatus?: 'notSent' | 'pending' | 'synced' | 'unknown';
+  etherFiAccountId?: string;
 }
 
 export interface IEarnOrderDBStructure {
@@ -24,7 +26,11 @@ export interface IEarnOrderDBStructure {
 
 export type IAddEarnOrderParams = Omit<
   IEarnOrderItem,
-  'updatedAt' | 'createdAt' | 'previousTxIds'
+  | 'updatedAt'
+  | 'createdAt'
+  | 'previousTxIds'
+  | 'etherFiSyncStatus'
+  | 'etherFiAccountId'
 > &
   IEarnOrderTrackingInfo;
 
@@ -50,6 +56,124 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       data.txIdToOrderIdMap[order.txId] = order.orderId;
       return data;
     });
+  }
+
+  async addOrderIfAbsent(
+    order: IAddEarnOrderParams,
+    accountId: string,
+  ): Promise<'inserted' | 'existing' | 'conflict' | 'unavailable'> {
+    let outcome: 'inserted' | 'existing' | 'conflict' = 'inserted';
+    const saved = await this.setRawData((rawData) => {
+      const data: IEarnOrderDBStructure = {
+        data: { ...rawData?.data },
+        txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
+      };
+      const existing = data.data[order.orderId];
+      const mappedOrderId = data.txIdToOrderIdMap[order.txId];
+      if (existing || mappedOrderId) {
+        outcome =
+          existing?.networkId === order.networkId &&
+          existing.etherFiAccountId === accountId &&
+          existing.txId === order.txId &&
+          (!mappedOrderId || mappedOrderId === order.orderId)
+            ? 'existing'
+            : 'conflict';
+        return data;
+      }
+      const now = Date.now();
+      data.data[order.orderId] = {
+        ...order,
+        previousTxIds: [],
+        etherFiSyncStatus: 'notSent',
+        etherFiAccountId: accountId,
+        updatedAt: now,
+        createdAt: now,
+      };
+      data.txIdToOrderIdMap[order.txId] = order.orderId;
+      return data;
+    });
+    return saved ? outcome : 'unavailable';
+  }
+
+  async getUnsentEtherFiOrders({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<IEarnOrderItem[]> {
+    const rawData = await this.getRawData();
+    return Object.values(rawData?.data ?? {})
+      .filter(
+        (order) =>
+          order.etherFiAccountId === accountId &&
+          order.networkId === networkId &&
+          order.etherFiSyncStatus === 'notSent',
+      )
+      .slice(0, 20);
+  }
+
+  async updateEtherFiSyncStatus({
+    orderId,
+    networkId,
+    txId,
+    status,
+  }: {
+    orderId: string;
+    networkId: string;
+    txId: string;
+    status: 'notSent' | 'synced' | 'unknown';
+  }): Promise<boolean> {
+    let updated = false;
+    const saved = await this.setRawData((rawData) => {
+      const data: IEarnOrderDBStructure = {
+        data: { ...rawData?.data },
+        txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
+      };
+      const current = data.data[orderId];
+      if (
+        current?.networkId === networkId &&
+        current.txId === txId &&
+        current.etherFiSyncStatus &&
+        (current.etherFiSyncStatus !== 'synced' || status === 'synced') &&
+        data.txIdToOrderIdMap[txId] === orderId
+      ) {
+        updated = true;
+        data.data[orderId] = { ...current, etherFiSyncStatus: status };
+      }
+      return data;
+    });
+    return Boolean(saved && updated);
+  }
+
+  async claimEtherFiOrderRetry({
+    orderId,
+    networkId,
+    txId,
+  }: {
+    orderId: string;
+    networkId: string;
+    txId: string;
+  }): Promise<boolean> {
+    let claimed = false;
+    const saved = await this.setRawData((rawData) => {
+      const data: IEarnOrderDBStructure = {
+        data: { ...rawData?.data },
+        txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
+      };
+      const current = data.data[orderId];
+      if (
+        current?.networkId === networkId &&
+        current.txId === txId &&
+        current.etherFiSyncStatus === 'notSent' &&
+        data.txIdToOrderIdMap[txId] === orderId
+      ) {
+        claimed = true;
+        data.data[orderId] = { ...current, etherFiSyncStatus: 'pending' };
+      }
+      return data;
+    });
+    return Boolean(saved && claimed);
   }
 
   @backgroundMethod()
@@ -95,6 +219,9 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
           txId: newTxId,
           previousTxIds,
           status,
+          ...(order.etherFiSyncStatus
+            ? { etherFiSyncStatus: 'unknown' as const }
+            : undefined),
           updatedAt: Date.now(),
         };
       } else {

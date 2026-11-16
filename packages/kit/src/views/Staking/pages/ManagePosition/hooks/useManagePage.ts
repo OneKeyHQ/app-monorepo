@@ -171,6 +171,9 @@ export const useManagePage = ({
   const isStaleData = !!result && result.requestKey !== requestKey;
 
   const resolvedProtocolVault = useMemo(() => {
+    if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+      return vault;
+    }
     if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
       return vault;
     }

@@ -331,6 +331,20 @@ export function resolveNativeEarnStakeType({
   return tokenIsNative ? 'wrap' : 'normal';
 }
 
+export function resolveEtherFiStakeType({
+  tokenSymbol,
+  tokenIsNative,
+}: {
+  tokenSymbol?: string;
+  tokenIsNative?: boolean;
+}): IEarnStakeType | undefined {
+  const symbol = tokenSymbol?.toUpperCase();
+  if (symbol !== 'ETH' && symbol !== 'WETH') {
+    return undefined;
+  }
+  return tokenIsNative ? 'wrap' : 'normal';
+}
+
 export function resolveNativeEarnProtocolSymbol({
   isNativeProvider,
   protocolSymbol,

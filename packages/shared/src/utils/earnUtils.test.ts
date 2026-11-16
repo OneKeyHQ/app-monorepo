@@ -73,6 +73,65 @@ describe('earnUtils permit allowance spender', () => {
   );
 });
 
+describe('EtherFi withdrawal path', () => {
+  it('keeps the confirmed share amount for Max without changing other providers', () => {
+    expect(
+      earnUtils.resolveEarnWithdrawAll({
+        providerName: 'etherfi',
+        withdrawAll: true,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.resolveEarnWithdrawAll({
+        providerName: 'EtherFi',
+        withdrawAll: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.resolveEarnWithdrawAll({
+        providerName: 'lido',
+        withdrawAll: true,
+      }),
+    ).toBe(true);
+    expect(
+      earnUtils.resolveEarnWithdrawAll({
+        providerName: 'lido',
+        withdrawAll: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('waits for the selected path and its quote', () => {
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'etherfi',
+        isLoading: true,
+        withdrawType: 'queued',
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'etherfi',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'etherfi',
+        isLoading: false,
+        withdrawType: 'queued',
+      }),
+    ).toBe(true);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'etherfi',
+        isLoading: false,
+        withdrawType: 'cancel',
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('earnUtils Bitway provider behavior', () => {
   it('normalizes Bitway and forwards its vault-scoped contract identity', () => {
     expect(earnUtils.getEarnProviderEnumKey('bitway')).toBe('Bitway');

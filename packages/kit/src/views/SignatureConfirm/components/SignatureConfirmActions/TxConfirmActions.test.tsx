@@ -6,6 +6,7 @@ import { act, cleanup, render } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
+import type { IBroadcastAcceptedFact } from '@onekeyhq/shared/types/tx';
 
 import TxConfirmActions from './TxConfirmActions';
 
@@ -17,6 +18,16 @@ type IFooterActions = {
 
 const mockFooterActions = jest.fn<null, [IFooterActions]>(() => null);
 const mockBatchSend = jest.fn<Promise<unknown>, [unknown]>();
+const mockGetWallet = jest.fn<Promise<unknown>, [unknown]>();
+const mockGetAcceptance = jest.fn<
+  Promise<
+    ({ status: 'accepted' } & IBroadcastAcceptedFact) | { status: 'unknown' }
+  >,
+  [unknown]
+>();
+const mockBroadcastListeners = new Set<
+  (fact: IBroadcastAcceptedFact) => void
+>();
 const mockCurrentRoute = jest.fn(() => ({ name: 'Confirm' }));
 const mockNavigation = { pop: jest.fn(), popStack: jest.fn() };
 const mockDappApprove = { resolve: jest.fn(), reject: jest.fn() };
@@ -73,6 +84,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceAccount: {
       getAccountAddressForApi: jest.fn(async () => '0xpayer'),
+      getWallet: (params: unknown) => mockGetWallet(params),
+      getAccountDeviceSafe: jest.fn(async () => undefined),
     },
     serviceSignatureConfirm: {
       preActionsBeforeSending: jest.fn(async () => undefined),
@@ -82,6 +95,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       precheckUnsignedTxs: jest.fn(async () => undefined),
       updateUnSignedTxBeforeSending: jest.fn(async () => mockUnsignedTxs),
       batchSignAndSendTransaction: (params: unknown) => mockBatchSend(params),
+      getBroadcastAcceptanceFactByUuid: (params: unknown) =>
+        mockGetAcceptance(params),
       abortGasAccountSubmit: jest.fn(async () => undefined),
     },
   },
@@ -142,8 +157,22 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {},
-  appEventBus: { on: jest.fn(), off: jest.fn(), emit: jest.fn() },
+  EAppEventBusNames: { BatchSendTxBroadcasted: 'BatchSendTxBroadcasted' },
+  appEventBus: {
+    on: jest.fn(
+      (name: string, callback: (fact: IBroadcastAcceptedFact) => void) => {
+        if (name === 'BatchSendTxBroadcasted')
+          mockBroadcastListeners.add(callback);
+      },
+    ),
+    off: jest.fn(
+      (name: string, callback: (fact: IBroadcastAcceptedFact) => void) => {
+        if (name === 'BatchSendTxBroadcasted')
+          mockBroadcastListeners.delete(callback);
+      },
+    ),
+    emit: jest.fn(),
+  },
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -187,6 +216,9 @@ describe('TxConfirmActions Gas Account failure exit', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockBroadcastListeners.clear();
+    mockGetAcceptance.mockReset().mockResolvedValue({ status: 'unknown' });
+    mockGetWallet.mockReset().mockResolvedValue(undefined);
   });
   afterEach(() => {
     cleanup();
@@ -334,6 +366,272 @@ describe('TxConfirmActions Gas Account failure exit', () => {
       expect(mockNavigation.pop).not.toHaveBeenCalled();
     },
   );
+
+  it.each(['resolve', 'reject'] as const)(
+    'does not fail again when cancelled during before-send verification and it later %s',
+    async (outcome) => {
+      let resolve: () => void = () => undefined;
+      let reject: (error: Error) => void = () => undefined;
+      const onBeforeSend = jest.fn(
+        () =>
+          new Promise<void>((res, rej) => {
+            resolve = res;
+            reject = rej;
+          }),
+      );
+      const onBroadcastStart = jest.fn();
+      const onFail = jest.fn();
+      const onCancel = jest.fn();
+      const screen = render(
+        <TxConfirmActions
+          accountId="hd-1--0"
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          onBeforeSend={onBeforeSend}
+          onBroadcastStart={onBroadcastStart}
+          onFail={onFail}
+          onCancel={onCancel}
+        />,
+      );
+      let pending: Promise<void> | undefined;
+      await act(async () => {
+        pending = getFooterActions().onConfirm?.();
+      });
+      expect(onBeforeSend).toHaveBeenCalledTimes(1);
+      act(() => getFooterActions().onCancel(jest.fn(), jest.fn()));
+      await act(async () => {
+        if (outcome === 'resolve') resolve();
+        else reject(new Error('verification failed'));
+        await pending;
+      });
+      expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(onFail).not.toHaveBeenCalled();
+      expect(onBroadcastStart).not.toHaveBeenCalled();
+      expect(mockBatchSend).not.toHaveBeenCalled();
+      expect(mockDappApprove.reject).toHaveBeenCalledTimes(1);
+      screen.unmount();
+    },
+  );
+
+  it.each(['before', 'after'] as const)(
+    'reports a verified late broadcast when its event arrives %s cancellation',
+    async (timing) => {
+      let resolveSend: (value: unknown) => void = () => undefined;
+      mockBatchSend.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSend = resolve;
+          }),
+      );
+      const fact = {
+        uuid: 'tx-uuid-1',
+        accountId: 'hd-1--0',
+        networkId: 'evm--1',
+        txid: `0x${'a'.repeat(64)}`,
+      };
+      const onLate = jest.fn();
+      const onSuccess = jest.fn();
+      const screen = render(
+        <TxConfirmActions
+          accountId={fact.accountId}
+          networkId={fact.networkId}
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          onSuccess={onSuccess}
+          onLateBroadcastAccepted={onLate}
+        />,
+      );
+      let pending: Promise<void> | undefined;
+      await act(async () => {
+        pending = getFooterActions().onConfirm?.();
+      });
+      expect(mockBatchSend).toHaveBeenCalledTimes(1);
+      expect(mockBroadcastListeners.size).toBe(1);
+      if (timing === 'before') {
+        act(() => mockBroadcastListeners.forEach((listener) => listener(fact)));
+        expect(onLate).not.toHaveBeenCalled();
+      }
+      mockGetAcceptance.mockResolvedValue({ status: 'accepted', ...fact });
+      act(() => getFooterActions().onCancel(jest.fn(), jest.fn()));
+      if (timing === 'after') {
+        act(() => mockBroadcastListeners.forEach((listener) => listener(fact)));
+      }
+      await act(async () => {
+        resolveSend([]);
+        await pending;
+      });
+      expect(onLate).toHaveBeenCalledTimes(1);
+      expect(onLate).toHaveBeenCalledWith({ status: 'accepted', ...fact });
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(mockBroadcastListeners.size).toBe(0);
+      screen.unmount();
+    },
+  );
+
+  it('ignores a late event that the background record does not confirm', async () => {
+    let rejectSend: (error: Error) => void = () => undefined;
+    mockBatchSend.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSend = reject;
+        }),
+    );
+    const onLate = jest.fn();
+    const screen = render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onLateBroadcastAccepted={onLate}
+      />,
+    );
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = getFooterActions().onConfirm?.();
+    });
+    act(() => getFooterActions().onCancel(jest.fn(), jest.fn()));
+    act(() =>
+      mockBroadcastListeners.forEach((listener) =>
+        listener({
+          uuid: 'tx-uuid-1',
+          accountId: 'hd-1--0',
+          networkId: 'evm--1',
+          txid: `0x${'b'.repeat(64)}`,
+        }),
+      ),
+    );
+    await act(async () => {
+      rejectSend(new Error('history failed'));
+      await pending;
+    });
+    expect(onLate).not.toHaveBeenCalled();
+    expect(mockBroadcastListeners.size).toBe(1);
+    await act(async () => {
+      jest.advanceTimersByTime(5 * 60 * 1000);
+      await Promise.resolve();
+    });
+    expect(mockBroadcastListeners.size).toBe(0);
+    screen.unmount();
+  });
+
+  it('observes an accepted broadcast after the sending IPC rejects', async () => {
+    let rejectSend: (error: Error) => void = () => undefined;
+    mockBatchSend.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSend = reject;
+        }),
+    );
+    const fact = {
+      uuid: 'tx-uuid-1',
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      txid: `0x${'c'.repeat(64)}`,
+    };
+    const onLate = jest.fn();
+    const screen = render(
+      <TxConfirmActions
+        accountId={fact.accountId}
+        networkId={fact.networkId}
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onLateBroadcastAccepted={onLate}
+      />,
+    );
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = getFooterActions().onConfirm?.();
+    });
+    act(() => getFooterActions().onCancel(jest.fn(), jest.fn()));
+    await act(async () => {
+      rejectSend(new Error('bridge closed'));
+      await pending;
+    });
+    expect(mockBroadcastListeners.size).toBe(1);
+    mockGetAcceptance.mockResolvedValue({ status: 'accepted', ...fact });
+    await act(async () => {
+      mockBroadcastListeners.forEach((listener) => listener(fact));
+      await Promise.resolve();
+    });
+    expect(onLate).toHaveBeenCalledTimes(1);
+    expect(mockBroadcastListeners.size).toBe(0);
+    screen.unmount();
+  });
+
+  it('stops observing a cancelled request that never settles without claiming success', async () => {
+    mockBatchSend.mockImplementation(() => new Promise(() => undefined));
+    const onLate = jest.fn();
+    const screen = render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onLateBroadcastAccepted={onLate}
+      />,
+    );
+    await act(async () => {
+      void getFooterActions().onConfirm?.();
+    });
+    expect(mockBroadcastListeners.size).toBe(1);
+    act(() => getFooterActions().onCancel(jest.fn(), jest.fn()));
+    await act(async () => {
+      jest.advanceTimersByTime(5 * 60 * 1000);
+      await Promise.resolve();
+    });
+    expect(mockBroadcastListeners.size).toBe(0);
+    expect(onLate).not.toHaveBeenCalled();
+    screen.unmount();
+  });
+
+  it('reconciles acceptance instead of running success UI after cancellation during wallet lookup', async () => {
+    let resolveWallet: (value: unknown) => void = () => undefined;
+    mockGetWallet.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveWallet = resolve;
+        }),
+    );
+    const fact = {
+      uuid: 'tx-uuid-1',
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      txid: `0x${'a'.repeat(64)}`,
+    };
+    mockGetAcceptance.mockResolvedValue({ status: 'accepted', ...fact });
+    mockBatchSend.mockResolvedValue([
+      { signedTx: { txid: fact.txid }, decodedTx: { actions: [] } },
+    ]);
+    const onLate = jest.fn();
+    const onSuccess = jest.fn();
+    const screen = render(
+      <TxConfirmActions
+        accountId={fact.accountId}
+        networkId={fact.networkId}
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onSuccess={onSuccess}
+        onLateBroadcastAccepted={onLate}
+      />,
+    );
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = getFooterActions().onConfirm?.();
+    });
+    expect(mockGetWallet).toHaveBeenCalledTimes(1);
+    act(() => getFooterActions().onCancel(jest.fn(), jest.fn()));
+    await act(async () => {
+      resolveWallet(undefined);
+      await pending;
+    });
+    expect(onLate).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
+    expect(mockNavigation.popStack).not.toHaveBeenCalled();
+    screen.unmount();
+  });
 
   it.each([
     { legacyScanner: false, userCancelled: false },

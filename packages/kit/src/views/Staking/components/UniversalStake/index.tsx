@@ -1,5 +1,12 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -49,6 +56,8 @@ import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnA
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -75,16 +84,22 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { etherFiDepositRecovery } from '../../hooks/etherFiDepositRecovery';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
+import { useEtherFiLegacyApproval } from '../../hooks/useEtherFiLegacyApproval';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
-import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
+import {
+  trackEtherFiApproval,
+  useTrackTokenAllowance,
+} from '../../hooks/useUtilsHooks';
 import {
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
+import { waitForCurrentAction } from '../../utils/waitForCurrentAction';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
 import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
@@ -92,6 +107,7 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { EtherFiLegacyApprovalAlert } from '../EtherFiLegacyApprovalAlert';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
@@ -120,6 +136,9 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
+import { requiresEtherFiUsdtReset } from './etherFiStakeFee';
+
+import type { IEtherFiDepositRecovery } from '../../hooks/etherFiDepositRecovery';
 import type {
   IManagePositionFooterAction,
   IManagePositionProtocolSwitchConfig,
@@ -446,6 +465,7 @@ type IUniversalStakeProps = {
   apr?: string;
 
   isDisabled?: boolean;
+  isActionDisabled?: boolean;
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
@@ -457,6 +477,9 @@ type IUniversalStakeProps = {
   // Deliberately not `boolean | void`: a caller that forgets to return the
   // hook's result would silently reset the form.
   onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean>;
+  etherFiNativeRecovery?: { id: symbol; owner: symbol; amount: string };
+  etherFiNativeRecoveryRecords?: IEtherFiDepositRecovery[];
+  onAbandonEtherFiNativeRecovery?: () => void;
   onFeeRateChange?: (rate: string) => void;
 
   tokenInfo?: IEarnTokenInfo;
@@ -509,7 +532,11 @@ export function UniversalStake({
   providerLogo,
   estimateFeeUTXO,
   isDisabled,
+  isActionDisabled,
   onConfirm,
+  etherFiNativeRecovery,
+  etherFiNativeRecoveryRecords,
+  onAbandonEtherFiNativeRecovery,
   onFeeRateChange,
   protocolInfo,
   tokenInfo,
@@ -543,7 +570,28 @@ export function UniversalStake({
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const [amountValue, setAmountValue] = useState('');
+  const [amountValue, setAmountValue] = useState(
+    etherFiNativeRecovery?.amount ?? '',
+  );
+  const appliedRecoveryRef = useRef(etherFiNativeRecovery?.id);
+  useEffect(() => {
+    if (
+      etherFiNativeRecovery &&
+      appliedRecoveryRef.current !== etherFiNativeRecovery.id
+    ) {
+      appliedRecoveryRef.current = etherFiNativeRecovery.id;
+      setAmountValue(etherFiNativeRecovery.amount);
+    }
+  }, [etherFiNativeRecovery]);
+  const [etherFiSubmitted, setEtherFiSubmitted] = useState(false);
+  const etherFiSubmitLock = useRef<symbol | undefined>(undefined);
+  const etherFiGasDialogOpen = useRef<symbol | undefined>(undefined);
+  const etherFiApproveLock = useRef(false);
+  const etherFiContinuationRef = useRef<symbol | undefined>(undefined);
+  const [etherFiContinuing, setEtherFiContinuing] = useState(false);
+  const etherFiActionController = useRef<AbortController | undefined>(
+    undefined,
+  );
   const transactionConfirmationAmountRef = useRef(amountValue);
   transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
@@ -580,6 +628,14 @@ export function UniversalStake({
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     undefined | IEarnEstimateFeeResp
   >();
+  const etherFiPostApproveFeeRef = useRef<
+    | {
+        fee: IEarnEstimateFeeResp;
+        scope: object;
+        requestId: number;
+      }
+    | undefined
+  >(undefined);
 
   const { getPermitSignature } = useEarnPermitApprove();
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -601,6 +657,38 @@ export function UniversalStake({
     () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
     [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
   );
+  const legacyApproval = useEtherFiLegacyApproval({
+    accountId,
+    accountAddress: protocolInfo?.earnAccount?.accountAddress,
+    networkId,
+    provider: providerName,
+    vault: protocolInfo?.vault,
+  });
+  const { verifyBeforeAction: verifyLegacyBeforeAction } = legacyApproval;
+  const verifyEtherFiLegacyApproval = useCallback(
+    () => verifyLegacyBeforeAction({ allowRevoke: false }),
+    [verifyLegacyBeforeAction],
+  );
+  useLayoutEffect(() => {
+    const controller = new AbortController();
+    etherFiActionController.current = controller;
+    return () => controller.abort();
+  }, [
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    protocolInfo?.earnAccount?.accountAddress,
+    tokenInfo?.token?.address,
+    approveTarget.spenderAddress,
+    amountValue,
+    isActionDisabled,
+    actionSymbol,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    stakeType,
+    etherFiNativeRecovery?.id,
+  ]);
   const isStakefishEthStake = useMemo(
     () => isStakefishProvider && actionSymbol.toUpperCase() === 'ETH',
     [actionSymbol, isStakefishProvider],
@@ -647,13 +735,28 @@ export function UniversalStake({
     loading: loadingAllowance,
     trackAllowance,
     fetchAllowanceResponse,
+    applyVerifiedAllowance,
   } = useTrackTokenAllowance({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token?.address || '',
     spenderAddress: approveTarget.spenderAddress,
     initialValue: currentAllowance ?? '0',
+    refreshOnMount:
+      earnUtils.isEtherFiProvider({ providerName }) &&
+      approveType === EApproveType.Legacy &&
+      Boolean(approveTarget.token?.address) &&
+      !approveTarget.token?.isNative,
+    refreshTrackedEtherFiApproval:
+      earnUtils.isEtherFiProvider({ providerName }) &&
+      approveType === EApproveType.Legacy &&
+      Boolean(approveTarget.token?.address) &&
+      !approveTarget.token?.isNative,
+    etherFiApprovalTrackingActive: isFocus,
     approveType,
+    expectedAccountAddress: earnUtils.isEtherFiProvider({ providerName })
+      ? protocolInfo?.earnAccount?.accountAddress
+      : undefined,
   });
   const shouldApproveWhenFocused = useMemo(() => {
     if (!useApprove) {
@@ -696,6 +799,104 @@ export function UniversalStake({
   const shouldApprove = isFocus
     ? shouldApproveWhenFocused
     : useApprove && lastFocusedShouldApproveRef.current;
+  const etherFiUsdtReset = requiresEtherFiUsdtReset({
+    isEtherFi: earnUtils.isEtherFiProvider({ providerName }),
+    isUsdt: Boolean(
+      tokenInfo?.token && earnUtils.isUSDTonETHNetwork(tokenInfo.token),
+    ),
+    loadingAllowance,
+    allowance,
+    amount: amountValue,
+  });
+  const etherFiFeeScope = useMemo(
+    () => ({
+      accountId,
+      networkId,
+      providerName,
+      vault: protocolInfo?.vault,
+      accountAddress: protocolInfo?.earnAccount?.accountAddress,
+      tokenAddress: tokenInfo?.token?.address,
+      spenderAddress: approveTarget.spenderAddress,
+      amountValue,
+      isActionDisabled,
+      shouldApprove,
+      etherFiUsdtReset,
+      actionSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      stakeType,
+    }),
+    [
+      accountId,
+      networkId,
+      providerName,
+      protocolInfo?.vault,
+      protocolInfo?.earnAccount?.accountAddress,
+      tokenInfo?.token?.address,
+      approveTarget.spenderAddress,
+      amountValue,
+      isActionDisabled,
+      shouldApprove,
+      etherFiUsdtReset,
+      actionSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      stakeType,
+    ],
+  );
+  const etherFiContinuationScope = useMemo(
+    () => ({
+      accountId,
+      networkId,
+      providerName,
+      vault: protocolInfo?.vault,
+      accountAddress: protocolInfo?.earnAccount?.accountAddress,
+      tokenAddress: tokenInfo?.token?.address,
+      spenderAddress: approveTarget.spenderAddress,
+      amountValue,
+      isActionDisabled,
+      actionSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      stakeType,
+    }),
+    [
+      accountId,
+      networkId,
+      providerName,
+      protocolInfo?.vault,
+      protocolInfo?.earnAccount?.accountAddress,
+      tokenInfo?.token?.address,
+      approveTarget.spenderAddress,
+      amountValue,
+      isActionDisabled,
+      actionSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      stakeType,
+    ],
+  );
+  const etherFiContinuationScopeRef = useRef(etherFiContinuationScope);
+  etherFiContinuationScopeRef.current = etherFiContinuationScope;
+  const etherFiFeeScopeRef = useRef(etherFiFeeScope);
+  etherFiFeeScopeRef.current = etherFiFeeScope;
+  const etherFiFeeRequestIdRef = useRef(0);
+  const [etherFiFeeState, setEtherFiFeeState] = useState<{
+    scope: typeof etherFiFeeScope;
+    status: 'success' | 'failed';
+  }>();
+  const isEtherFiFeeCurrent = etherFiFeeState?.scope === etherFiFeeScope;
+  const etherFiFeeFailed =
+    earnUtils.isEtherFiProvider({ providerName }) &&
+    !etherFiUsdtReset &&
+    isEtherFiFeeCurrent &&
+    etherFiFeeState?.status === 'failed';
+  const etherFiFeeBlocked = etherFiFeeFailed;
+  const displayedEstimateFeeResp =
+    !earnUtils.isEtherFiProvider({ providerName }) ||
+    (isEtherFiFeeCurrent && etherFiFeeState?.status === 'success')
+      ? estimateFeeResp
+      : undefined;
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
@@ -781,8 +982,8 @@ export function UniversalStake({
     : undefined;
 
   const fetchEstimateFeeResp = useCallback(
-    async (amount?: string) => {
-      if (shouldApprove && usePermit2Approve) {
+    async (amount?: string, actionOverride?: 'stake', postWrap = false) => {
+      if (shouldApprove && usePermit2Approve && !postWrap) {
         return undefined;
       }
       if (!amount) {
@@ -798,7 +999,7 @@ export function UniversalStake({
         permitSignature?: string;
       } = {};
 
-      if (usePermit2Approve && !shouldApprove) {
+      if (usePermit2Approve && !shouldApprove && !postWrap) {
         permitParams.approveType = EApproveType.Permit;
         if (permitSignatureRef.current) {
           const amountBN = BigNumber(amount);
@@ -813,17 +1014,26 @@ export function UniversalStake({
         accountId,
         networkId,
       });
+      if (
+        earnUtils.isEtherFiProvider({ providerName }) &&
+        (!protocolInfo?.earnAccount?.accountAddress ||
+          account.address.toLowerCase() !==
+            protocolInfo.earnAccount.accountAddress.toLowerCase())
+      )
+        throw new OneKeyLocalError('Fee estimate account changed');
       const resp = await backgroundApiProxy.serviceStaking.estimateFee({
         networkId,
         provider: providerName,
         symbol: actionSymbol,
-        action: shouldApprove ? 'approve' : 'stake',
+        action: actionOverride ?? (shouldApprove ? 'approve' : 'stake'),
         amount: amountNumber.toFixed(),
         protocolVault,
         accountAddress: account?.address,
-        inputTokenAddress: transactionInputTokenAddress,
+        inputTokenAddress: postWrap
+          ? EthereumWETH
+          : transactionInputTokenAddress,
         outputTokenAddress: transactionOutputTokenAddress,
-        stakeType,
+        stakeType: postWrap ? 'normal' : stakeType,
         ...permitParams,
       });
       return resp;
@@ -840,28 +1050,191 @@ export function UniversalStake({
       transactionOutputTokenAddress,
       stakeType,
       usePermit2Approve,
+      protocolInfo?.earnAccount?.accountAddress,
     ],
+  );
+
+  const beforeEtherFiPostWrapDeposit = useCallback(
+    async (signal?: AbortSignal) => {
+      let fee: IEarnEstimateFeeResp | undefined;
+      try {
+        fee = await waitForCurrentAction(
+          fetchEstimateFeeResp(amountValue, 'stake', true),
+          signal,
+        );
+      } catch {
+        if (!signal?.aborted)
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        return false;
+      }
+      if (!fee || signal?.aborted) {
+        if (!signal?.aborted)
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        return false;
+      }
+      const days = Number(fee.coverFeeSeconds || 0) / 3600 / 24;
+      if (!days || days <= 5) return true;
+      return new Promise<boolean>((resolve) => {
+        let settled = false;
+        let confirming = false;
+        function finish(value: boolean) {
+          if (settled) return;
+          settled = true;
+          signal?.removeEventListener('abort', onAbort);
+          resolve(value);
+        }
+        function onAbort() {
+          finish(false);
+        }
+        if (signal?.aborted) return finish(false);
+        signal?.addEventListener('abort', onAbort, { once: true });
+        try {
+          showEstimateGasAlert({
+            daysConsumed: formatStakingDistanceToNowStrict(fee.coverFeeSeconds),
+            estFiatValue: fee.feeFiatValue,
+            onConfirm: async (dialog) => {
+              confirming = true;
+              try {
+                await dialog.close();
+                finish(!signal?.aborted);
+              } catch {
+                finish(false);
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  }),
+                });
+              }
+            },
+            onCancel: () => finish(false),
+            onClose: () => {
+              if (!confirming) finish(false);
+            },
+          });
+        } catch {
+          finish(false);
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        }
+      });
+    },
+    [amountValue, fetchEstimateFeeResp, showEstimateGasAlert, intl],
   );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
     async (amount?: string) => {
-      const resp = await fetchEstimateFeeResp(amount);
-      setEstimateFeeResp(resp);
+      const isEtherFi = earnUtils.isEtherFiProvider({ providerName });
+      if (
+        isEtherFi &&
+        (etherFiContinuationRef.current || etherFiSubmitLock.current)
+      )
+        return;
+      const signal = isEtherFi
+        ? etherFiActionController.current?.signal
+        : undefined;
+      const feeScope = etherFiFeeScopeRef.current;
+      if (isEtherFi) etherFiFeeRequestIdRef.current += 1;
+      const requestId = isEtherFi ? etherFiFeeRequestIdRef.current : 0;
+      if (isEtherFi) setEtherFiFeeState(undefined);
+      try {
+        const resp = await fetchEstimateFeeResp(amount);
+        if (
+          isEtherFi &&
+          (!signal ||
+            signal.aborted ||
+            feeScope !== etherFiFeeScopeRef.current ||
+            requestId !== etherFiFeeRequestIdRef.current)
+        )
+          return;
+        setEstimateFeeResp(resp);
+        if (isEtherFi && amount && new BigNumber(amount).gt(0)) {
+          setEtherFiFeeState({
+            scope: feeScope,
+            status: resp ? 'success' : 'failed',
+          });
+        }
+      } catch (error) {
+        if (!isEtherFi) throw error;
+        if (
+          signal &&
+          !signal.aborted &&
+          feeScope === etherFiFeeScopeRef.current &&
+          requestId === etherFiFeeRequestIdRef.current
+        ) {
+          setEstimateFeeResp(undefined);
+          setEtherFiFeeState({ scope: feeScope, status: 'failed' });
+        }
+      }
     },
     350,
   );
 
+  useEffect(() => {
+    const {
+      providerName: scopeProvider,
+      isActionDisabled: scopeDisabled,
+      amountValue: scopeAmount,
+      etherFiUsdtReset: scopeUsdtReset,
+    } = etherFiFeeScope;
+    if (
+      earnUtils.isEtherFiProvider({ providerName: scopeProvider }) &&
+      (etherFiContinuationRef.current ||
+        etherFiSubmitLock.current ||
+        etherFiContinuing ||
+        submitting)
+    )
+      return undefined;
+    if (scopeUsdtReset) {
+      debouncedFetchEstimateFeeResp.cancel();
+      etherFiFeeRequestIdRef.current += 1;
+      setEstimateFeeResp(undefined);
+      setEtherFiFeeState(undefined);
+      return undefined;
+    }
+    if (
+      !earnUtils.isEtherFiProvider({ providerName: scopeProvider }) ||
+      scopeDisabled ||
+      isInvalidAmount(scopeAmount) ||
+      !new BigNumber(scopeAmount).gt(0)
+    )
+      return undefined;
+    void debouncedFetchEstimateFeeResp(scopeAmount);
+    return () => debouncedFetchEstimateFeeResp.cancel();
+  }, [
+    etherFiFeeScope,
+    debouncedFetchEstimateFeeResp,
+    etherFiContinuing,
+    submitting,
+  ]);
+
   const checkEstimateGasAlert = useCallback(
-    async (onNext: () => Promise<void> | undefined) => {
+    async (
+      onNext: () => Promise<void> | undefined,
+      preparedFee?: IEarnEstimateFeeResp,
+    ) => {
       if (usePermit2Approve) {
         return onNext();
       }
 
       setApproving(true);
 
-      const response = await fetchEstimateFeeResp(amountValue).finally(() => {
-        setApproving(false);
-      });
+      const response =
+        preparedFee ??
+        (await fetchEstimateFeeResp(amountValue).finally(() => {
+          setApproving(false);
+        }));
+      if (preparedFee) setApproving(false);
       if (!response) {
         return onNext();
       }
@@ -914,6 +1287,9 @@ export function UniversalStake({
       await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
         accountId,
         networkId,
+        expectedAccountAddress: earnUtils.isEtherFiProvider({ providerName })
+          ? protocolInfo?.earnAccount?.accountAddress
+          : undefined,
         spenderAddress: postWrapApproveTarget.spenderAddress,
         tokenAddress: postWrapApproveTarget.token.address,
       });
@@ -923,6 +1299,8 @@ export function UniversalStake({
     accountId,
     isWrapStake,
     networkId,
+    providerName,
+    protocolInfo?.earnAccount?.accountAddress,
     postWrapApproveTarget?.spenderAddress,
     postWrapApproveTarget?.token?.address,
   ]);
@@ -1045,6 +1423,51 @@ export function UniversalStake({
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmountRequestIdRef = useRef(0);
+  const stakeCheckScope = useMemo(
+    () => ({
+      accountId,
+      networkId,
+      accountAddress: protocolInfo?.earnAccount?.accountAddress,
+      providerName,
+      actionSymbol,
+      amountValue,
+      protocolVault,
+      stakefishIdentity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      pendleSlippage,
+      stakeType,
+    }),
+    [
+      accountId,
+      networkId,
+      protocolInfo?.earnAccount?.accountAddress,
+      providerName,
+      actionSymbol,
+      amountValue,
+      protocolVault,
+      stakefishIdentity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      pendleSlippage,
+      stakeType,
+    ],
+  );
+  const activeEtherFiCheckScope = earnUtils.isEtherFiProvider({ providerName })
+    ? stakeCheckScope
+    : undefined;
+  const stakeCheckScopeRef = useRef(activeEtherFiCheckScope);
+  stakeCheckScopeRef.current = activeEtherFiCheckScope;
+  const [verifiedStakeCheckScope, setVerifiedStakeCheckScope] =
+    useState<typeof activeEtherFiCheckScope>();
+  const [failedStakeCheckScope, setFailedStakeCheckScope] =
+    useState<typeof activeEtherFiCheckScope>();
+  const [stakeCheckRetryNonce, setStakeCheckRetryNonce] = useState(0);
+  const etherFiStakeCheckReady =
+    !activeEtherFiCheckScope ||
+    verifiedStakeCheckScope === activeEtherFiCheckScope;
+  const etherFiStakeCheckReadyRef = useRef(etherFiStakeCheckReady);
+  etherFiStakeCheckReadyRef.current = etherFiStakeCheckReady;
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
@@ -1053,13 +1476,16 @@ export function UniversalStake({
       amount,
       identity,
       requestId,
+      requestScope,
     }: {
       amount: string;
       identity?: string;
       requestId: number;
+      requestScope?: typeof stakeCheckScope;
     }) => {
       if (
         requestId !== checkAmountRequestIdRef.current ||
+        (requestScope && requestScope !== stakeCheckScopeRef.current) ||
         isInvalidAmount(amount)
       ) {
         return;
@@ -1073,6 +1499,9 @@ export function UniversalStake({
         const response = await backgroundApiProxy.serviceStaking.checkAmount({
           accountId,
           networkId,
+          expectedAccountAddress: requestScope
+            ? requestScope.accountAddress || ''
+            : undefined,
           symbol: actionSymbol,
           provider: providerName,
           action: identity
@@ -1087,19 +1516,65 @@ export function UniversalStake({
           slippage: pendleSlippage,
           stakeType,
         });
-        if (requestId !== checkAmountRequestIdRef.current) {
+        if (
+          requestId !== checkAmountRequestIdRef.current ||
+          (requestScope && requestScope !== stakeCheckScopeRef.current)
+        ) {
           return;
         }
 
-        if (Number(response.code) === 0) {
+        const responseCode: unknown = response.code;
+        if (
+          requestScope &&
+          !(
+            (typeof responseCode === 'number' &&
+              Number.isSafeInteger(responseCode)) ||
+            (typeof responseCode === 'string' && /^\d+$/.test(responseCode))
+          )
+        )
+          throw new OneKeyLocalError('Invalid stake amount check result');
+        if (
+          requestScope &&
+          response.data?.alerts !== undefined &&
+          !Array.isArray(response.data.alerts)
+        )
+          throw new OneKeyLocalError('Invalid stake amount check alerts');
+        if (Number(responseCode) === 0) {
+          const alerts = response.data?.alerts || [];
+          if (requestScope)
+            setVerifiedStakeCheckScope(
+              alerts.length ? undefined : requestScope,
+            );
           setCheckoutAmountMessage('');
-          setCheckAmountAlerts(response.data?.alerts || []);
+          setCheckAmountAlerts(alerts);
         } else {
-          setCheckoutAmountMessage(response.message);
+          if (requestScope) setVerifiedStakeCheckScope(undefined);
+          setCheckoutAmountMessage(
+            requestScope && !response.message
+              ? intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })
+              : response.message,
+          );
+          setCheckAmountAlerts([]);
+        }
+        if (requestScope) setFailedStakeCheckScope(undefined);
+      } catch (error) {
+        if (!requestScope) throw error;
+        if (
+          requestId === checkAmountRequestIdRef.current &&
+          requestScope === stakeCheckScopeRef.current
+        ) {
+          setVerifiedStakeCheckScope(undefined);
+          setFailedStakeCheckScope(requestScope);
+          setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
         }
       } finally {
-        if (requestId === checkAmountRequestIdRef.current) {
+        if (
+          requestId === checkAmountRequestIdRef.current &&
+          (!requestScope || requestScope === stakeCheckScopeRef.current)
+        ) {
           setCheckAmountLoading(false);
         }
       }
@@ -1128,18 +1603,39 @@ export function UniversalStake({
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
       setCheckAmountLoading(false);
+      if (activeEtherFiCheckScope) {
+        setVerifiedStakeCheckScope(undefined);
+        setFailedStakeCheckScope(undefined);
+      }
       return cleanup;
     }
 
     setCheckAmountLoading(true);
-    void checkAmount({ amount, identity: stakefishIdentity, requestId });
+    void checkAmount({
+      amount,
+      identity: stakefishIdentity,
+      requestId,
+      requestScope: activeEtherFiCheckScope,
+    });
     return cleanup;
-  }, [checkAmount, stakefishIdentity, amountValue]);
+  }, [
+    checkAmount,
+    stakefishIdentity,
+    amountValue,
+    activeEtherFiCheckScope,
+    stakeCheckRetryNonce,
+  ]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
+      }
+      if (
+        etherFiNativeRecovery &&
+        (!value || !new BigNumber(value).eq(etherFiNativeRecovery.amount))
+      ) {
+        onAbandonEtherFiNativeRecovery?.();
       }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
@@ -1161,7 +1657,12 @@ export function UniversalStake({
         void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp],
+    [
+      decimals,
+      debouncedFetchEstimateFeeResp,
+      etherFiNativeRecovery,
+      onAbandonEtherFiNativeRecovery,
+    ],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -1308,6 +1809,7 @@ export function UniversalStake({
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
       isStakingCapFull ||
+      !etherFiStakeCheckReady ||
       checkAmountLoading
     );
   }, [
@@ -1316,221 +1818,402 @@ export function UniversalStake({
     checkAmountAlerts.length,
     isInsufficientBalance,
     isStakingCapFull,
+    etherFiStakeCheckReady,
     checkAmountLoading,
   ]);
 
   const daysSpent = useMemo(() => {
-    if (estimateFeeResp?.coverFeeSeconds) {
-      return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
+    if (displayedEstimateFeeResp?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(
+        displayedEstimateFeeResp.coverFeeSeconds,
+      );
     }
-  }, [estimateFeeResp?.coverFeeSeconds]);
+  }, [displayedEstimateFeeResp?.coverFeeSeconds]);
 
-  const onSubmit = useCallback(async () => {
-    Keyboard.dismiss();
-
-    // Bot Wallet deactivated warning
-    const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
-      accountId,
-    });
-    if (isDeactivatedBot) {
-      const confirmed = await showBotWalletDeactivatedWarningDialog();
-      if (!confirmed) {
+  const onSubmitImpl = useCallback(
+    async (allowFeeBlocked = false) => {
+      if (
+        isActionDisabled ||
+        etherFiSubmitted ||
+        (etherFiFeeBlocked && !allowFeeBlocked) ||
+        !etherFiStakeCheckReady
+      )
         return;
-      }
-    }
-
-    // OK-59196: Stakefish signs a provider-facing message before any hook runs,
-    // so the disclaimer has to gate this pre-transaction step. Not a duplicate
-    // of the gate inside useUniversalStake — that one only covers the transaction
-    // itself, and once accepted this call resolves immediately. Only create-new
-    // validator stakes sign, so a top up never reaches this dialog.
-    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
-      const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
-        provider: providerName,
-        symbol: actionSymbol,
-        networkId,
-        title: intl.formatMessage({ id: ETranslations.global_warning }),
-      });
-      if (!riskAcceptedBeforeSigning) {
-        return;
-      }
-    }
-
-    // Stakefish ETH: sign before building the staking transaction. Only the
-    // create-new-validator flow needs it; the Earn API routes a top up by
-    // publicKey (the selected validator) and the signature would take priority
-    // over it in the stake build, so signing a top up only blocks the build.
-    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
-      setApproving(true);
-      try {
-        const { signature, message } = await signPersonalMessage({
-          networkId,
-          accountId,
-          provider: providerName,
-          symbol: actionSymbol,
-          amount: new BigNumber(amountValue).toFixed(),
-          action: 'stake',
-        });
-        stakefishPermitSignatureRef.current = signature;
-        stakefishPermitMessageRef.current = message;
-      } catch (error) {
-        console.error('Stakefish permit sign error:', error);
-        setApproving(false);
-        return;
-      }
-      setApproving(false);
-    }
-
-    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef.
-    // Stakefish only attaches it for a new validator; a top up must stay
-    // signature-free so the Earn API routes it by publicKey.
-    let finalPermitSignature: string | undefined;
-    let finalMessage: string | undefined;
-    let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
-    if (usePermit2Approve) {
-      finalPermitSignature = permitSignatureRef.current;
-      finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishCreateNewValidator) {
-      finalPermitSignature = stakefishPermitSignatureRef.current;
-      finalMessage = stakefishPermitMessageRef.current;
-    }
-
-    const permitSignatureParams = finalPermitSignature
-      ? {
-          approveType: usePermit2Approve ? approveType : undefined,
-          permitSignature: finalPermitSignature,
-          unsignedMessage: finalUnsignedMessage,
-          message: finalMessage,
-        }
-      : undefined;
-
-    // Stakefish specific params: validatorPubkey only for existing validator.
-    const stakefishParams =
-      isStakefishProvider && !isStakefishCreateNewValidator && selectedValidator
-        ? { validatorPubkey: selectedValidator }
+      const isEtherFi = earnUtils.isEtherFiProvider({ providerName });
+      const actionSignal = isEtherFi
+        ? etherFiActionController.current?.signal
         : undefined;
-
-    const resetAmount = () => {
-      setAmountValue('');
-      setCheckoutAmountMessage('');
-      setCheckAmountAlerts([]);
-      // Reset stakefish permit signature and message
-      stakefishPermitSignatureRef.current = undefined;
-      stakefishPermitMessageRef.current = undefined;
-    };
-    const handleConfirm = async () => {
-      setSubmitting(true);
-      try {
-        if (isWrapStake) {
-          let shouldShowApproveStep = true;
-          try {
-            const allowanceValue = await fetchPostWrapAllowance();
-            shouldShowApproveStep =
-              getShouldShowPostWrapApproveStep(allowanceValue);
-          } catch {
-            shouldShowApproveStep = true;
+      const isCurrent = () =>
+        !isEtherFi ||
+        Boolean(
+          actionSignal &&
+          !actionSignal.aborted &&
+          etherFiStakeCheckReadyRef.current,
+        );
+      if (!isCurrent()) return;
+      if (isEtherFi && !(await verifyEtherFiLegacyApproval())) return;
+      if (!isCurrent()) return;
+      const lease = isEtherFi ? etherFiSubmitLock.current : undefined;
+      const release = () => {
+        if (lease && etherFiSubmitLock.current === lease) {
+          etherFiSubmitLock.current = undefined;
+          if (etherFiGasDialogOpen.current === lease) {
+            etherFiGasDialogOpen.current = undefined;
           }
-          setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
-          setStakeProgressStep(EStakeProgressStep.approve);
         }
+      };
+      const postApproveSnapshot = isEtherFi
+        ? etherFiPostApproveFeeRef.current
+        : undefined;
+      const feeScope = etherFiFeeScopeRef.current;
+      const postApproveFee =
+        postApproveSnapshot?.scope === etherFiContinuationScopeRef.current &&
+        postApproveSnapshot.requestId === etherFiFeeRequestIdRef.current
+          ? postApproveSnapshot.fee
+          : undefined;
+      etherFiPostApproveFeeRef.current = undefined;
+      Keyboard.dismiss();
 
-        const started = await onConfirm?.({
-          amount: amountValue,
-          effectiveApy: transactionConfirmation?.effectiveApy,
-          stakeType,
-          onStepChange: handleStakeProgressChange,
-          ...permitSignatureParams,
-          ...stakefishParams,
-        });
-        if (started === false) {
+      // Bot Wallet deactivated warning
+      const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+        accountId,
+      });
+      if (!isCurrent()) return;
+      if (isDeactivatedBot) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed) {
           return;
         }
-        resetAmount();
-        // Auto-refresh quote countdown after swap completes
-        onQuoteReset?.();
-      } finally {
-        setSubmitting(false);
       }
-    };
 
-    // Check high price impact (Pendle only)
-    if (isPendleProvider) {
-      const payFiatValue =
-        Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
-          ? new BigNumber(amountValue)
-              .multipliedBy(tokenInfo?.price ?? '0')
-              .toFixed()
+      // OK-59196: Stakefish signs a provider-facing message before any hook runs,
+      // so the disclaimer has to gate this pre-transaction step. Not a duplicate
+      // of the gate inside useUniversalStake — that one only covers the transaction
+      // itself, and once accepted this call resolves immediately. Only create-new
+      // validator stakes sign, so a top up never reaches this dialog.
+      if (
+        isStakefishCreateNewValidator &&
+        !stakefishPermitSignatureRef.current
+      ) {
+        const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
+          provider: providerName,
+          symbol: actionSymbol,
+          networkId,
+          title: intl.formatMessage({ id: ETranslations.global_warning }),
+        });
+        if (!riskAcceptedBeforeSigning) {
+          return;
+        }
+      }
+
+      // Stakefish ETH: sign before building the staking transaction. Only the
+      // create-new-validator flow needs it; the Earn API routes a top up by
+      // publicKey (the selected validator) and the signature would take priority
+      // over it in the stake build, so signing a top up only blocks the build.
+      if (
+        isStakefishCreateNewValidator &&
+        !stakefishPermitSignatureRef.current
+      ) {
+        setApproving(true);
+        try {
+          const { signature, message } = await signPersonalMessage({
+            networkId,
+            accountId,
+            provider: providerName,
+            symbol: actionSymbol,
+            amount: new BigNumber(amountValue).toFixed(),
+            action: 'stake',
+          });
+          stakefishPermitSignatureRef.current = signature;
+          stakefishPermitMessageRef.current = message;
+        } catch (error) {
+          console.error('Stakefish permit sign error:', error);
+          setApproving(false);
+          return;
+        }
+        setApproving(false);
+      }
+
+      // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef.
+      // Stakefish only attaches it for a new validator; a top up must stay
+      // signature-free so the Earn API routes it by publicKey.
+      let finalPermitSignature: string | undefined;
+      let finalMessage: string | undefined;
+      let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
+      if (usePermit2Approve) {
+        finalPermitSignature = permitSignatureRef.current;
+        finalUnsignedMessage = permit2DataRef.current;
+      } else if (isStakefishCreateNewValidator) {
+        finalPermitSignature = stakefishPermitSignatureRef.current;
+        finalMessage = stakefishPermitMessageRef.current;
+      }
+
+      const permitSignatureParams = finalPermitSignature
+        ? {
+            approveType: usePermit2Approve ? approveType : undefined,
+            permitSignature: finalPermitSignature,
+            unsignedMessage: finalUnsignedMessage,
+            message: finalMessage,
+          }
+        : undefined;
+
+      // Stakefish specific params: validatorPubkey only for existing validator.
+      const stakefishParams =
+        isStakefishProvider &&
+        !isStakefishCreateNewValidator &&
+        selectedValidator
+          ? { validatorPubkey: selectedValidator }
           : undefined;
-      const impactInfo = calcPriceImpactInfo({
-        payFiatValue,
-        receiveConfig: receiveInputConfig,
-        receiveDescription: transactionConfirmation?.receive,
-      });
-      if (impactInfo) {
-        const userConfirmed = await showHighPriceImpactDialog(intl, {
-          percent: impactInfo.percent,
-          lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
+
+      const resetAmount = () => {
+        setAmountValue('');
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts([]);
+        // Reset stakefish permit signature and message
+        stakefishPermitSignatureRef.current = undefined;
+        stakefishPermitMessageRef.current = undefined;
+      };
+      const handleConfirm = async () => {
+        if (!isCurrent()) return;
+        setSubmitting(true);
+        try {
+          if (isWrapStake) {
+            let shouldShowApproveStep = true;
+            try {
+              const allowanceValue = await fetchPostWrapAllowance();
+              shouldShowApproveStep =
+                getShouldShowPostWrapApproveStep(allowanceValue);
+            } catch {
+              shouldShowApproveStep = true;
+            }
+            if (!isCurrent()) return;
+            setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
+            setStakeProgressStep(EStakeProgressStep.approve);
+          }
+
+          const started = await onConfirm?.({
+            amount: amountValue,
+            actionSignal,
+            verifyEtherFiLegacyApproval: isEtherFi
+              ? verifyEtherFiLegacyApproval
+              : undefined,
+            etherFiNativeRecovery,
+            beforeEtherFiPostWrapDeposit:
+              isEtherFi && (isWrapStake || etherFiNativeRecovery)
+                ? beforeEtherFiPostWrapDeposit
+                : undefined,
+            onTransactionSubmitted: isEtherFi
+              ? () => setEtherFiSubmitted(true)
+              : undefined,
+            onTransactionRecorded: isEtherFi
+              ? () => {
+                  resetAmount();
+                  setEtherFiSubmitted(false);
+                  onAbandonEtherFiNativeRecovery?.();
+                }
+              : undefined,
+            effectiveApy: transactionConfirmation?.effectiveApy,
+            stakeType,
+            onStepChange: handleStakeProgressChange,
+            ...permitSignatureParams,
+            ...stakefishParams,
+          });
+          if (started === false) {
+            return;
+          }
+          if (!isEtherFi) resetAmount();
+          // Auto-refresh quote countdown after swap completes
+          onQuoteReset?.();
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      // Check high price impact (Pendle only)
+      if (isPendleProvider) {
+        const payFiatValue =
+          Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
+            ? new BigNumber(amountValue)
+                .multipliedBy(tokenInfo?.price ?? '0')
+                .toFixed()
+            : undefined;
+        const impactInfo = calcPriceImpactInfo({
+          payFiatValue,
+          receiveConfig: receiveInputConfig,
+          receiveDescription: transactionConfirmation?.receive,
         });
-        if (!userConfirmed) return;
+        if (impactInfo) {
+          const userConfirmed = await showHighPriceImpactDialog(intl, {
+            percent: impactInfo.percent,
+            lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
+          });
+          if (!userConfirmed) return;
+        }
       }
-    }
 
-    if (estimateFeeResp) {
-      const daySpent =
-        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
+      let feeToReview = postApproveFee ?? displayedEstimateFeeResp;
+      if (
+        isEtherFi &&
+        !postApproveFee &&
+        !(etherFiNativeRecovery && shouldApprove)
+      ) {
+        debouncedFetchEstimateFeeResp.cancel();
+        etherFiFeeRequestIdRef.current += 1;
+        const feeRequestId = etherFiFeeRequestIdRef.current;
+        setSubmitting(true);
+        setEtherFiFeeState(undefined);
+        try {
+          feeToReview = await waitForCurrentAction(
+            fetchEstimateFeeResp(amountValue, 'stake'),
+            actionSignal,
+          );
+          if (
+            !isCurrent() ||
+            feeScope !== etherFiFeeScopeRef.current ||
+            feeRequestId !== etherFiFeeRequestIdRef.current
+          )
+            return;
+          if (!feeToReview)
+            throw new OneKeyLocalError('Deposit fee unavailable');
+          setEstimateFeeResp(feeToReview);
+          setEtherFiFeeState({ scope: feeScope, status: 'success' });
+        } catch {
+          if (
+            isCurrent() &&
+            feeScope === etherFiFeeScopeRef.current &&
+            feeRequestId === etherFiFeeRequestIdRef.current
+          ) {
+            setEtherFiFeeState({ scope: feeScope, status: 'failed' });
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          }
+          return;
+        } finally {
+          if (!lease || etherFiSubmitLock.current === lease) {
+            setSubmitting(false);
+          }
+        }
+      }
+      if (feeToReview) {
+        const daySpent = Number(feeToReview.coverFeeSeconds || 0) / 3600 / 24;
 
-      if (daySpent && daySpent > 5) {
-        showEstimateGasAlert({
-          daysConsumed: formatStakingDistanceToNowStrict(
-            estimateFeeResp.coverFeeSeconds,
-          ),
-          estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: async (dialogInstance: IDialogInstance) => {
-            await dialogInstance.close();
-            await handleConfirm();
-          },
-        });
+        if (daySpent && daySpent > 5) {
+          if (isEtherFi) etherFiGasDialogOpen.current = lease;
+          let confirmationStarted = false;
+          showEstimateGasAlert({
+            daysConsumed: formatStakingDistanceToNowStrict(
+              feeToReview.coverFeeSeconds,
+            ),
+            estFiatValue: feeToReview.feeFiatValue,
+            onConfirm: async (dialogInstance: IDialogInstance) => {
+              confirmationStarted = true;
+              try {
+                await dialogInstance.close();
+                await handleConfirm();
+              } finally {
+                release();
+              }
+            },
+            onCancel: isEtherFi ? release : undefined,
+            onClose: isEtherFi
+              ? () => {
+                  if (!confirmationStarted) release();
+                }
+              : undefined,
+          });
+          return;
+        }
+      }
+
+      if (isEtherFi) {
+        await handleConfirm();
         return;
       }
-    }
+      if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
+        await checkEstimateGasAlert(
+          handleConfirm,
+          isEtherFi ? feeToReview : undefined,
+        );
+        return;
+      }
 
-    if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
-      await checkEstimateGasAlert(handleConfirm);
-      return;
-    }
+      await handleConfirm();
+    },
+    [
+      usePermit2Approve,
+      approveType,
+      displayedEstimateFeeResp,
+      shouldApprove,
+      onConfirm,
+      amountValue,
+      showEstimateGasAlert,
+      checkEstimateGasAlert,
+      isStakefishProvider,
+      isPendleProvider,
+      selectedValidator,
+      isStakefishCreateNewValidator,
+      signPersonalMessage,
+      networkId,
+      accountId,
+      actionSymbol,
+      providerName,
+      onQuoteReset,
+      intl,
+      currencySymbol,
+      tokenInfo?.price,
+      receiveInputConfig,
+      transactionConfirmation?.effectiveApy,
+      transactionConfirmation?.receive,
+      stakeType,
+      isWrapStake,
+      fetchPostWrapAllowance,
+      getShouldShowPostWrapApproveStep,
+      handleStakeProgressChange,
+      isActionDisabled,
+      etherFiSubmitted,
+      etherFiFeeBlocked,
+      etherFiStakeCheckReady,
+      fetchEstimateFeeResp,
+      debouncedFetchEstimateFeeResp,
+      verifyEtherFiLegacyApproval,
+      etherFiNativeRecovery,
+      onAbandonEtherFiNativeRecovery,
+      beforeEtherFiPostWrapDeposit,
+    ],
+  );
 
-    await handleConfirm();
-  }, [
-    usePermit2Approve,
-    approveType,
-    estimateFeeResp,
-    shouldApprove,
-    onConfirm,
-    amountValue,
-    showEstimateGasAlert,
-    checkEstimateGasAlert,
-    isStakefishProvider,
-    isPendleProvider,
-    selectedValidator,
-    isStakefishCreateNewValidator,
-    signPersonalMessage,
-    networkId,
-    accountId,
-    actionSymbol,
-    providerName,
-    onQuoteReset,
-    intl,
-    currencySymbol,
-    tokenInfo?.price,
-    receiveInputConfig,
-    transactionConfirmation?.effectiveApy,
-    transactionConfirmation?.receive,
-    stakeType,
-    isWrapStake,
-    fetchPostWrapAllowance,
-    getShouldShowPostWrapApproveStep,
-    handleStakeProgressChange,
-  ]);
+  const submitWithContinuation = useCallback(
+    async (continuation?: symbol) => {
+      if (!earnUtils.isEtherFiProvider({ providerName })) return onSubmitImpl();
+      if (
+        (continuation
+          ? etherFiContinuationRef.current !== continuation
+          : Boolean(etherFiContinuationRef.current)) ||
+        etherFiSubmitLock.current
+      )
+        return;
+      const lease = Symbol('etherFiSubmit');
+      etherFiSubmitLock.current = lease;
+      try {
+        await onSubmitImpl(Boolean(continuation || etherFiNativeRecovery));
+      } finally {
+        if (
+          etherFiGasDialogOpen.current !== lease &&
+          etherFiSubmitLock.current === lease
+        ) {
+          etherFiSubmitLock.current = undefined;
+        }
+      }
+    },
+    [onSubmitImpl, providerName, etherFiNativeRecovery],
+  );
+  const onSubmit = useCallback(
+    () => submitWithContinuation(),
+    [submitWithContinuation],
+  );
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
@@ -1544,123 +2227,225 @@ export function UniversalStake({
   // press event would otherwise land in the options slot.
   const usdtResetReentryRef = useRef(false);
 
-  const resetUSDTApproveValue = useCallback(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const approveResetInfo: IApproveInfo = {
-      owner: account.address,
-      spender: approveTarget.spenderAddress,
-      amount: '0',
-      isMax: false,
-      tokenInfo: {
-        ...tokenInfo?.token,
-        address: tokenInfo?.token.address ?? '',
-        symbol: tokenInfo?.token.symbol ?? '',
-        decimals: tokenInfo?.token.decimals ?? 0,
-        isNative: !!tokenInfo?.token.isNative,
-        name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
-      },
-    };
-    const approvesInfo = [approveResetInfo];
-    await navigationToTxConfirm({
-      approvesInfo,
-      onSuccess() {
-        // Poll for allowance updates until it becomes 0
-        const pollAllowanceUntilZero = async () => {
-          try {
-            let attempts = 0;
-            const maxAttempts = 10; // Prevent infinite polling
-            const pollInterval = 3000; // 3 seconds between polls
+  const resetUSDTApproveValue = useCallback(
+    async (actionSignal?: AbortSignal) => {
+      const isCurrent = () => !actionSignal || !actionSignal.aborted;
+      if (!isCurrent()) {
+        setApproving(false);
+        return;
+      }
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      if (!isCurrent()) {
+        setApproving(false);
+        return;
+      }
+      if (
+        earnUtils.isEtherFiProvider({ providerName }) &&
+        (!protocolInfo?.earnAccount?.accountAddress ||
+          account.address.toLowerCase() !==
+            protocolInfo.earnAccount.accountAddress.toLowerCase())
+      ) {
+        throw new OneKeyLocalError('Approval account changed');
+      }
+      const approveResetInfo: IApproveInfo = {
+        owner: account.address,
+        spender: approveTarget.spenderAddress,
+        amount: '0',
+        isMax: false,
+        tokenInfo: {
+          ...tokenInfo?.token,
+          address: tokenInfo?.token.address ?? '',
+          symbol: tokenInfo?.token.symbol ?? '',
+          decimals: tokenInfo?.token.decimals ?? 0,
+          isNative: !!tokenInfo?.token.isNative,
+          name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
+        },
+      };
+      const approvesInfo = [approveResetInfo];
+      await navigationToTxConfirm({
+        approvesInfo,
+        isNavigationCurrent: actionSignal ? isCurrent : undefined,
+        onNavigationSkipped: actionSignal
+          ? () => setApproving(false)
+          : undefined,
+        onBeforeSend: actionSignal
+          ? async () => {
+              if (!isCurrent())
+                throw new OneKeyLocalError('Approval context expired');
+              if (!(await verifyEtherFiLegacyApproval()) || !isCurrent())
+                throw new OneKeyLocalError('Legacy approval changed');
+              const currentAccount =
+                await backgroundApiProxy.serviceAccount.getAccount({
+                  accountId: approveTarget.accountId,
+                  networkId: approveTarget.networkId,
+                });
+              if (
+                !isCurrent() ||
+                currentAccount.address.toLowerCase() !==
+                  account.address.toLowerCase()
+              )
+                throw new OneKeyLocalError('Approval account changed');
+            }
+          : undefined,
+        onSuccess() {
+          if (!isCurrent()) {
+            setApproving(false);
+            return;
+          }
+          // Poll for allowance updates until it becomes 0
+          const pollAllowanceUntilZero = async () => {
+            try {
+              let attempts = 0;
+              const maxAttempts = 10; // Prevent infinite polling
+              const pollInterval = 3000; // 3 seconds between polls
 
-            const checkAllowance = async () => {
-              // Fetch latest allowance
-              const allowanceInfo = await fetchAllowanceResponse();
-
-              if (allowanceInfo) {
-                // Allowance is now 0: the USDT reset landed on-chain. Re-enter
-                // the approve step to continue the flow (approve the new amount
-                // then submit the stake). onApprove re-reads the allowance, sees
-                // 0, and skips the reset branch — no loop. Without this the flow
-                // dead-ended right after the reset tx, so the stake never fired
-                // (OK-58027). Keep approving=true; onApprove owns the state from
-                // here — but observe rejections: onApprove awaits getAccount /
-                // navigationToTxConfirm outside any try/catch, and a swallowed
-                // reject would leave the confirm button stuck loading+disabled.
-                if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
-                  // Bypass the approving-reentry guard: this deliberate
-                  // re-entry runs with approving === true (OK-58027)
-                  usdtResetReentryRef.current = true;
-                  void onApproveRef.current?.().catch((e) => {
-                    console.error(
-                      'Re-enter approve after USDT reset failed:',
-                      e,
-                    );
-                    setApproving(false);
-                  });
+              const checkAllowance = async () => {
+                if (!isCurrent()) {
+                  setApproving(false);
                   return;
                 }
-              }
+                // Fetch latest allowance
+                const allowanceInfo = await fetchAllowanceResponse().catch(
+                  (error) => {
+                    if (!actionSignal) throw error;
+                    if (isCurrent())
+                      Toast.error({
+                        title: intl.formatMessage({
+                          id: ETranslations.global_an_error_occurred,
+                        }),
+                      });
+                    setApproving(false);
+                    return undefined;
+                  },
+                );
+                if (!isCurrent()) {
+                  setApproving(false);
+                  return;
+                }
+                if (!allowanceInfo) return;
 
-              attempts += 1;
+                if (allowanceInfo) {
+                  // Allowance is now 0: the USDT reset landed on-chain. Re-enter
+                  // the approve step to continue the flow (approve the new amount
+                  // then submit the stake). onApprove re-reads the allowance, sees
+                  // 0, and skips the reset branch — no loop. Without this the flow
+                  // dead-ended right after the reset tx, so the stake never fired
+                  // (OK-58027). Keep approving=true; onApprove owns the state from
+                  // here — but observe rejections: onApprove awaits getAccount /
+                  // navigationToTxConfirm outside any try/catch, and a swallowed
+                  // reject would leave the confirm button stuck loading+disabled.
+                  if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                    if (
+                      !actionSignal ||
+                      applyVerifiedAllowance(
+                        allowanceInfo.allowanceParsed,
+                        allowanceInfo.allowanceRequestSequence,
+                      )
+                    ) {
+                      // Bypass the approving-reentry guard: this deliberate
+                      // re-entry runs with approving === true (OK-58027)
+                      usdtResetReentryRef.current = true;
+                      void onApproveRef.current?.().catch((e) => {
+                        console.error(
+                          'Re-enter approve after USDT reset failed:',
+                          e,
+                        );
+                        setApproving(false);
+                      });
+                      return;
+                    }
+                  }
+                }
 
-              if (attempts < maxAttempts) {
-                setTimeout(checkAllowance, pollInterval);
-              } else {
-                setApproving(false);
-              }
-            };
+                attempts += 1;
 
-            // Start the recursive polling
-            setTimeout(checkAllowance, pollInterval);
-          } catch (error) {
-            console.error('Error polling for allowance:', error);
-            setApproving(false);
+                if (attempts < maxAttempts) {
+                  setTimeout(checkAllowance, pollInterval);
+                } else {
+                  setApproving(false);
+                }
+              };
+
+              // Start the recursive polling
+              setTimeout(checkAllowance, pollInterval);
+            } catch (error) {
+              console.error('Error polling for allowance:', error);
+              setApproving(false);
+            }
+          };
+
+          // Start polling for USDT reset
+          void pollAllowanceUntilZero();
+        },
+        onFail() {
+          setApproving(false);
+        },
+        onCancel() {
+          setApproving(false);
+        },
+      });
+    },
+    [
+      approveTarget.accountId,
+      approveTarget.networkId,
+      approveTarget.spenderAddress,
+      fetchAllowanceResponse,
+      applyVerifiedAllowance,
+      navigationToTxConfirm,
+      tokenInfo?.token,
+      providerName,
+      verifyEtherFiLegacyApproval,
+      protocolInfo?.earnAccount?.accountAddress,
+      intl,
+    ],
+  );
+
+  const showResetUSDTApproveValueDialog = useCallback(
+    (actionSignal?: AbortSignal) => {
+      let confirmationStarted = false;
+      Dialog.show({
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        showExitButton: false,
+        dismissOnOverlayPress: false,
+        onCancel: () => {
+          setApproving(false);
+        },
+        onConfirm: () => {
+          confirmationStarted = true;
+          if (!actionSignal) {
+            void resetUSDTApproveValue();
+            return;
           }
-        };
-
-        // Start polling for USDT reset
-        void pollAllowanceUntilZero();
-      },
-      onFail() {
-        setApproving(false);
-      },
-      onCancel() {
-        setApproving(false);
-      },
-    });
-  }, [
-    approveTarget.accountId,
-    approveTarget.networkId,
-    approveTarget.spenderAddress,
-    fetchAllowanceResponse,
-    navigationToTxConfirm,
-    tokenInfo?.token,
-  ]);
-
-  const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.show({
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_continue,
-      }),
-      showExitButton: false,
-      dismissOnOverlayPress: false,
-      onCancel: () => {
-        setApproving(false);
-      },
-      onConfirm: () => {
-        void resetUSDTApproveValue();
-      },
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-      }),
-      icon: 'ErrorOutline',
-    });
-  }, [intl, resetUSDTApproveValue]);
+          void resetUSDTApproveValue(actionSignal).catch(() => {
+            setApproving(false);
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          });
+        },
+        onClose: actionSignal
+          ? () => {
+              if (!confirmationStarted) setApproving(false);
+            }
+          : undefined,
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+        }),
+        icon: 'ErrorOutline',
+      });
+    },
+    [intl, resetUSDTApproveValue],
+  );
 
   const waitForAllowanceAfterApprove = useCallback(
     async ({
@@ -1694,11 +2479,19 @@ export function UniversalStake({
         }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
+          if (signal?.aborted) return false;
           const allowanceBN = new BigNumber(
             allowanceInfo.allowanceParsed || '0',
           );
           if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
-            return true;
+            if (
+              !earnUtils.isEtherFiProvider({ providerName }) ||
+              applyVerifiedAllowance(
+                allowanceInfo.allowanceParsed,
+                allowanceInfo.allowanceRequestSequence,
+              )
+            )
+              return true;
           }
         } catch (error) {
           defaultLogger.staking.page.permitSignError({
@@ -1720,10 +2513,27 @@ export function UniversalStake({
       usePermit2Approve,
       tokenInfo?.token?.isNative,
       fetchAllowanceResponse,
+      applyVerifiedAllowance,
+      providerName,
     ],
   );
 
-  const onApprove = useCallback(async () => {
+  const onApproveImpl = useCallback(async () => {
+    if (isActionDisabled || etherFiSubmitted || !etherFiStakeCheckReady) return;
+    const isEtherFi = earnUtils.isEtherFiProvider({ providerName });
+    const actionSignal = isEtherFi
+      ? etherFiActionController.current?.signal
+      : undefined;
+    const isCurrent = () =>
+      !isEtherFi ||
+      Boolean(
+        actionSignal &&
+        !actionSignal.aborted &&
+        etherFiStakeCheckReadyRef.current,
+      );
+    if (!isCurrent()) return;
+    if (isEtherFi && !(await verifyEtherFiLegacyApproval())) return;
+    if (!isCurrent()) return;
     Keyboard.dismiss();
     // Take the approving lock synchronously BEFORE any await (review P1):
     // the confirm button's loading derives from `approving`, so awaiting
@@ -1747,16 +2557,55 @@ export function UniversalStake({
       networkId: approveTarget.networkId,
       title: intl.formatMessage({ id: ETranslations.global_warning }),
     });
-    if (!riskConfirmed) {
+    if (!riskConfirmed || !isCurrent()) {
       setApproving(false);
       return;
     }
     let approveAllowance = allowance;
+    let appliedAllowance = !isEtherFi;
     try {
-      const allowanceInfo = await fetchAllowanceResponse();
-      approveAllowance = allowanceInfo.allowanceParsed;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const allowanceInfo = await fetchAllowanceResponse();
+        if (!isCurrent()) {
+          setApproving(false);
+          return;
+        }
+        approveAllowance = allowanceInfo.allowanceParsed;
+        if (
+          !isEtherFi ||
+          applyVerifiedAllowance(
+            approveAllowance,
+            allowanceInfo.allowanceRequestSequence,
+          )
+        ) {
+          appliedAllowance = true;
+          break;
+        }
+      }
     } catch (e) {
       console.error(e);
+      if (isEtherFi) {
+        setApproving(false);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return;
+      }
+    }
+    if (!isCurrent()) {
+      setApproving(false);
+      return;
+    }
+    if (!appliedAllowance) {
+      setApproving(false);
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      });
+      return;
     }
     permitSignatureRef.current = undefined;
     permit2DataRef.current = undefined;
@@ -1767,7 +2616,7 @@ export function UniversalStake({
 
     if (tokenInfo?.token && earnUtils.isUSDTonETHNetwork(tokenInfo?.token)) {
       if (allowanceBN.gt(0) && amountBN.gt(allowanceBN)) {
-        showResetUSDTApproveValueDialog();
+        showResetUSDTApproveValueDialog(actionSignal);
         return;
       }
     }
@@ -1835,7 +2684,40 @@ export function UniversalStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+    if (
+      isEtherFi &&
+      (!protocolInfo?.earnAccount?.accountAddress ||
+        account.address.toLowerCase() !==
+          protocolInfo.earnAccount.accountAddress.toLowerCase())
+    ) {
+      setApproving(false);
+      throw new OneKeyLocalError('Approval account changed');
+    }
+    if (!isCurrent()) {
+      setApproving(false);
+      return;
+    }
 
+    let successConsumed = false;
+    const rememberEtherFiApproval = (txid: string) => {
+      if (
+        isEtherFi &&
+        approveTarget.token?.address &&
+        approveTarget.spenderAddress
+      ) {
+        trackEtherFiApproval(
+          {
+            accountId: approveTarget.accountId,
+            networkId: approveTarget.networkId,
+            accountAddress: account.address,
+            tokenAddress: approveTarget.token.address,
+            spenderAddress: approveTarget.spenderAddress,
+          },
+          txid,
+          amountValue,
+        );
+      }
+    };
     await navigationToTxConfirm({
       approvesInfo: [
         {
@@ -1845,28 +2727,126 @@ export function UniversalStake({
           tokenInfo: approveTarget.token,
         },
       ],
+      isNavigationCurrent: isEtherFi ? isCurrent : undefined,
+      onNavigationSkipped: isEtherFi ? () => setApproving(false) : undefined,
+      onBeforeSend: isEtherFi
+        ? async () => {
+            if (!isCurrent())
+              throw new OneKeyLocalError('Approval context expired');
+            if (!(await verifyEtherFiLegacyApproval()) || !isCurrent())
+              throw new OneKeyLocalError('Legacy approval changed');
+            const currentAccount =
+              await backgroundApiProxy.serviceAccount.getAccount({
+                accountId: approveTarget.accountId,
+                networkId: approveTarget.networkId,
+              });
+            if (
+              !isCurrent() ||
+              currentAccount.address.toLowerCase() !==
+                account.address.toLowerCase()
+            ) {
+              throw new OneKeyLocalError('Approval account changed');
+            }
+          }
+        : undefined,
       onSuccess(data) {
-        trackAllowance(data[0].decodedTx.txid);
+        if (isEtherFi && successConsumed) return;
+        if (data[0]?.decodedTx?.txid)
+          rememberEtherFiApproval(data[0].decodedTx.txid);
+        if (!isCurrent()) {
+          setApproving(false);
+          return;
+        }
+        successConsumed = true;
+        if (isEtherFi && etherFiContinuationRef.current) return;
+        const continuation = isEtherFi ? Symbol('etherFiApproval') : undefined;
+        if (continuation) {
+          etherFiContinuationRef.current = continuation;
+          setEtherFiContinuing(true);
+          debouncedFetchEstimateFeeResp.cancel();
+          etherFiFeeRequestIdRef.current += 1;
+        }
+        const continuationScope = etherFiContinuationScopeRef.current;
+        if (!isEtherFi) trackAllowance(data[0].decodedTx.txid);
         allowanceAbortRef.current?.abort();
         const abortController = new AbortController();
         allowanceAbortRef.current = abortController;
         void (async () => {
           try {
-            const allowanceReady = await waitForAllowanceAfterApprove({
-              requiredAmount: amountValue,
-              signal: abortController.signal,
-            });
-            if (!allowanceReady) {
+            const allowanceReady = await waitForCurrentAction(
+              waitForAllowanceAfterApprove({
+                requiredAmount: amountValue,
+                signal: abortController.signal,
+              }),
+              actionSignal,
+            );
+            if (!allowanceReady || !isCurrent()) {
               return;
             }
-            const freshFee = await fetchEstimateFeeResp(amountValue);
+            if (isEtherFi) etherFiFeeRequestIdRef.current += 1;
+            const feeRequestId = etherFiFeeRequestIdRef.current;
+            const freshFee = await waitForCurrentAction(
+              fetchEstimateFeeResp(
+                amountValue,
+                isEtherFi ? 'stake' : undefined,
+              ),
+              actionSignal,
+            );
+            if (
+              !isCurrent() ||
+              (isEtherFi &&
+                (continuationScope !== etherFiContinuationScopeRef.current ||
+                  feeRequestId !== etherFiFeeRequestIdRef.current))
+            )
+              return;
+            if (isEtherFi && !freshFee) return;
+            if (isEtherFi && freshFee) {
+              etherFiPostApproveFeeRef.current = {
+                fee: freshFee,
+                scope: continuationScope,
+                requestId: feeRequestId,
+              };
+            }
             setEstimateFeeResp(freshFee);
-            await onSubmit();
+            if (continuation) {
+              await submitWithContinuation(continuation);
+            } else {
+              await onSubmit();
+            }
+          } catch (error) {
+            if (!isEtherFi) throw error;
+            if (isCurrent()) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+              });
+            }
           } finally {
-            setApproving(false);
+            if (
+              continuation &&
+              etherFiContinuationRef.current === continuation
+            ) {
+              etherFiContinuationRef.current = undefined;
+              setEtherFiContinuing(false);
+              setApproving(false);
+            } else if (!continuation) {
+              setApproving(false);
+            }
+            abortController.abort();
           }
         })();
       },
+      onLateBroadcastAccepted: isEtherFi
+        ? (fact) => {
+            if (
+              fact.accountId === approveTarget.accountId &&
+              fact.networkId === approveTarget.networkId &&
+              fact.txid
+            )
+              rememberEtherFiApproval(fact.txid);
+          }
+        : undefined,
       onFail() {
         setApproving(false);
       },
@@ -1876,6 +2856,9 @@ export function UniversalStake({
     });
   }, [
     approving,
+    isActionDisabled,
+    etherFiSubmitted,
+    etherFiStakeCheckReady,
     allowance,
     amountValue,
     tokenInfo?.token,
@@ -1886,19 +2869,35 @@ export function UniversalStake({
     approveTarget.token,
     navigationToTxConfirm,
     fetchAllowanceResponse,
+    applyVerifiedAllowance,
     showResetUSDTApproveValueDialog,
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
     providerName,
+    verifyEtherFiLegacyApproval,
+    protocolInfo?.earnAccount?.accountAddress,
     actionSymbol,
     updatePermitCache,
     onSubmit,
+    submitWithContinuation,
+    debouncedFetchEstimateFeeResp,
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
     intl,
   ]);
+
+  const onApprove = useCallback(async () => {
+    const isEtherFi = earnUtils.isEtherFiProvider({ providerName });
+    if (isEtherFi && etherFiApproveLock.current) return;
+    if (isEtherFi) etherFiApproveLock.current = true;
+    try {
+      await onApproveImpl();
+    } finally {
+      if (isEtherFi) etherFiApproveLock.current = false;
+    }
+  }, [onApproveImpl, providerName]);
 
   // Keep the ref pointing at the latest onApprove so the earlier-defined USDT
   // reset flow can re-enter it after the allowance is zeroed.
@@ -1968,16 +2967,16 @@ export function UniversalStake({
         </CalculationListItem>,
       );
     }
-    if (estimateFeeResp) {
+    if (displayedEstimateFeeResp) {
       items.push(
         <EstimateNetworkFee
           key="network-fee"
           isVisible
-          estimateFeeResp={estimateFeeResp}
+          estimateFeeResp={displayedEstimateFeeResp}
           onPress={() => {
             showEstimateGasAlert({
               daysConsumed: daysSpent,
-              estFiatValue: estimateFeeResp.feeFiatValue,
+              estFiatValue: displayedEstimateFeeResp.feeFiatValue,
             });
           }}
         />,
@@ -2000,7 +2999,7 @@ export function UniversalStake({
   }, [
     amountValue,
     daysSpent,
-    estimateFeeResp,
+    displayedEstimateFeeResp,
     estimateFeeUTXO,
     isPendleLikeLayout,
     onFeeRateChange,
@@ -2030,6 +3029,8 @@ export function UniversalStake({
   }, [isDisable, isWrapStake, shouldApprove, stakeProgressStep]);
 
   const onConfirmText = useMemo(() => {
+    if (etherFiNativeRecovery)
+      return intl.formatMessage({ id: ETranslations.global_continue });
     if (effectiveShowExpiredRefresh) {
       return intl.formatMessage({ id: ETranslations.global_refresh });
     }
@@ -2074,10 +3075,12 @@ export function UniversalStake({
     amountValue,
     tokenInfo?.token.symbol,
     isPendleProvider,
+    etherFiNativeRecovery,
   ]);
 
   const confirmOnPress = useMemo(() => {
     if (effectiveShowExpiredRefresh) return handleLocalRefreshQuote;
+    if (etherFiNativeRecovery) return onSubmit;
     if (shouldApprove) return onApprove;
     return onSubmit;
   }, [
@@ -2086,24 +3089,125 @@ export function UniversalStake({
     handleLocalRefreshQuote,
     onApprove,
     onSubmit,
+    etherFiNativeRecovery,
   ]);
 
   const effectiveOnConfirmText = isStakeAssetLoading
     ? ''
     : (footerActionOverride?.text ?? onConfirmText);
-  const effectiveConfirmOnPress =
+  const unguardedConfirmOnPress =
     footerActionOverride?.onPress ?? confirmOnPress;
+  const matchingRecoveryDialogOpen = useRef(false);
+  const matchingRecoveries =
+    isWrapStake ||
+    tokenInfo?.token.address?.toLowerCase() === EthereumWETH.toLowerCase()
+      ? etherFiNativeRecoveryRecords?.filter(
+          (record) =>
+            record.id !== etherFiNativeRecovery?.id &&
+            record.status !== 'completed' &&
+            !(record.status === 'failed' && record.phase === 'wrap') &&
+            Boolean(amountValue) &&
+            new BigNumber(amountValue).eq(record.amount),
+        )
+      : undefined;
+  const matchingRecovery =
+    matchingRecoveries?.find((record) =>
+      ['preparing', 'unknown', 'confirming'].includes(record.status),
+    ) ?? matchingRecoveries?.[0];
+  const effectiveConfirmOnPress = matchingRecovery
+    ? () => {
+        const signal = etherFiActionController.current?.signal;
+        if (!signal || signal.aborted || matchingRecoveryDialogOpen.current)
+          return;
+        matchingRecoveryDialogOpen.current = true;
+        let handled = false;
+        const uncertain = ['preparing', 'unknown', 'confirming'].includes(
+          matchingRecovery.status,
+        );
+        Dialog.show({
+          title: uncertain
+            ? intl.formatMessage({
+                id: ETranslations.tray_pending_transactions_title,
+              })
+            : `${intl.formatMessage(
+                { id: ETranslations.Limit_native_token_no_sell_wrap },
+                { token: 'WETH' },
+              )} · ${intl.formatMessage({ id: ETranslations.global_success })}`,
+          description: uncertain
+            ? intl.formatMessage({
+                id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+              })
+            : undefined,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_continue_anyway,
+          }),
+          onConfirm: () => {
+            if (handled) return undefined;
+            handled = true;
+            const currentRecords = etherFiDepositRecovery
+              .list(matchingRecovery.scope, true)
+              .filter(
+                (record) =>
+                  record.id !== etherFiNativeRecovery?.id &&
+                  record.status !== 'completed' &&
+                  !(record.status === 'failed' && record.phase === 'wrap') &&
+                  new BigNumber(amountValue).eq(record.amount),
+              );
+            const recordsUnchanged =
+              currentRecords.length === matchingRecoveries?.length &&
+              currentRecords.every((record) =>
+                matchingRecoveries?.some(
+                  (previous) =>
+                    previous.id === record.id &&
+                    previous.phase === record.phase &&
+                    previous.status === record.status &&
+                    previous.attemptId === record.attemptId &&
+                    previous.txid === record.txid,
+                ),
+              );
+            if (
+              !signal.aborted &&
+              etherFiActionController.current?.signal === signal &&
+              recordsUnchanged
+            )
+              return unguardedConfirmOnPress?.();
+            if (!signal.aborted && !recordsUnchanged)
+              Toast.message({
+                title: intl.formatMessage({ id: ETranslations.global_pending }),
+              });
+            return undefined;
+          },
+          onClose: () => {
+            handled = true;
+            matchingRecoveryDialogOpen.current = false;
+          },
+        });
+      }
+    : unguardedConfirmOnPress;
   const baseConfirmLoading = effectiveShowExpiredRefresh
     ? quoteRefreshing
     : loadingAllowance || approving || submitting || checkAmountLoading;
   const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
   const effectiveConfirmLoading =
     Boolean(isStakeAssetLoading) ||
+    legacyApproval.status === 'checking' ||
+    legacyApproval.status === 'submitting' ||
+    etherFiContinuing ||
     (footerActionOverride
       ? Boolean(footerActionOverride.loading)
       : baseConfirmLoading);
   const effectiveConfirmDisabled =
     Boolean(isStakeAssetLoading) ||
+    Boolean(isActionDisabled) ||
+    Boolean(
+      etherFiNativeRecovery &&
+      (!amountValue ||
+        !new BigNumber(amountValue).eq(etherFiNativeRecovery.amount)),
+    ) ||
+    legacyApproval.blocked ||
+    etherFiContinuing ||
+    etherFiSubmitted ||
+    (etherFiFeeBlocked && !shouldApprove) ||
     (footerActionOverride
       ? Boolean(footerActionOverride.disabled)
       : baseConfirmDisabled);
@@ -2655,6 +3759,39 @@ export function UniversalStake({
       ) : null}
       {platformBonusContent}
       {beforeFooter}
+      <EtherFiLegacyApprovalAlert approval={legacyApproval} />
+      {activeEtherFiCheckScope &&
+      failedStakeCheckScope === activeEtherFiCheckScope ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: () => setStakeCheckRetryNonce((value) => value + 1),
+          }}
+        />
+      ) : null}
+      {etherFiFeeFailed ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: () =>
+              void debouncedFetchEstimateFeeResp(amountValue),
+          }}
+        />
+      ) : null}
+      {etherFiSubmitted ? (
+        <Alert
+          type="info"
+          title={intl.formatMessage({ id: ETranslations.global_pending })}
+        />
+      ) : null}
       {isInModalContext ? (
         <Page.Footer>
           <Stack

@@ -24,6 +24,8 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { isAllowedEtherFiAsset } from '@onekeyhq/shared/src/utils/etherFiVaults';
 import type {
   IEarnAssetsList,
   IEarnTokenItem,
@@ -152,7 +154,18 @@ export default function EarnTokenSelectModal() {
     },
   );
 
-  const assets = assetsList.assets;
+  const assets = useMemo(() => {
+    if (!earnUtils.isEtherFiProvider({ providerName: provider }))
+      return assetsList.assets;
+    return assetsList.assets.filter((asset) =>
+      isAllowedEtherFiAsset({
+        vault,
+        networkId,
+        direction: action === 'unstake' ? 'unstake' : 'stake',
+        token: asset.info,
+      }),
+    );
+  }, [action, assetsList.assets, networkId, provider, vault]);
 
   const filteredAssets = useMemo(() => {
     const seen = new Set<string>();

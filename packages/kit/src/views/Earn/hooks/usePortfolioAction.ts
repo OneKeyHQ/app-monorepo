@@ -1,7 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
@@ -44,22 +50,34 @@ export const usePortfolioAction = ({
   onSuccess,
 }: IUsePortfolioActionParams) => {
   const [loading, setLoading] = useState(false);
+  const intl = useIntl();
+  const appNavigation = useAppNavigation();
 
   // Get earnAccount to use the correct accountId for claim. An indexed
   // account alone (all networks on an HD or hardware wallet, a network whose
   // address is not created yet) resolves too, as the detail page's
   // useEarnAccount does; the phone positions card claims from there.
-  const { result: earnAccount } = usePromiseResult(async () => {
+  const accountScope = useMemo(
+    () => ({ accountId, indexedAccountId, networkId }),
+    [accountId, indexedAccountId, networkId],
+  );
+  const { result: accountResult } = usePromiseResult(async () => {
     if (!accountId && !indexedAccountId) {
-      return null;
+      return { scope: accountScope, account: null };
     }
-    return backgroundApiProxy.serviceStaking.getEarnAccount({
+    const account = await backgroundApiProxy.serviceStaking.getEarnAccount({
       accountId,
       networkId,
       indexedAccountId,
       btcOnlyTaproot: true,
     });
-  }, [accountId, networkId, indexedAccountId]);
+    return { scope: accountScope, account };
+  }, [accountId, networkId, indexedAccountId, accountScope]);
+  const earnAccount =
+    earnUtils.isEtherFiProvider({ providerName: provider }) &&
+    accountResult?.scope !== accountScope
+      ? undefined
+      : accountResult?.account;
 
   const earnAccountId = useMemo(
     () => earnAccount?.accountId || accountId,
@@ -269,6 +287,43 @@ export const usePortfolioAction = ({
   );
 
   const handleCancelWithdrawalAction = useCallback(async () => {
+    if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+      if (
+        !vault ||
+        !earnAccountId ||
+        !earnAccount?.accountAddress ||
+        earnAccount.accountId !== earnAccountId ||
+        earnAccount.networkId !== networkId
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return;
+      }
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params: {
+          accountId: earnAccountId,
+          networkId,
+          symbol,
+          provider,
+          withdrawType: 'cancel',
+          protocolInfo: {
+            symbol,
+            provider,
+            vault,
+            networkId,
+            earnAccount,
+            stakeTag: stakeTag || '',
+            providerDetail: { name: provider, logoURI: providerLogoURI || '' },
+          },
+          onSuccess,
+        },
+      });
+      return;
+    }
     setLoading(true);
     try {
       await handleWithdraw({
@@ -303,6 +358,11 @@ export const usePortfolioAction = ({
     stakeTag,
     symbol,
     vault,
+    appNavigation,
+    earnAccount,
+    earnAccountId,
+    intl,
+    networkId,
   ]);
 
   const handleAction = useCallback(

@@ -1,5 +1,12 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,6 +25,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -41,6 +49,7 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -66,17 +75,23 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
+import { useEtherFiLegacyApproval } from '../../hooks/useEtherFiLegacyApproval';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
-import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
+import {
+  trackEtherFiApproval,
+  useTrackTokenAllowance,
+} from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import {
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
+import { waitForCurrentAction } from '../../utils/waitForCurrentAction';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import { EtherFiLegacyApprovalAlert } from '../EtherFiLegacyApprovalAlert';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
@@ -107,6 +122,7 @@ import {
   getCheckAmountRequestKey,
   isLatestCheckAmountRequest,
 } from './checkAmountRequestUtils';
+import { getEtherFiWithdrawEstimateAction } from './etherFiWithdrawEstimate';
 import {
   getWithdrawFormTips,
   isLatestTransactionConfirmationRequest,
@@ -150,11 +166,14 @@ type IUniversalWithdrawProps = {
   identity?: string;
 
   isDisabled?: boolean;
+  isActionDisabled?: boolean;
 
   inputTitle?: string;
 
   onConfirm?: ({
     amount,
+    actionSignal,
+    onTransactionSubmitted,
     withdrawAll,
     signature,
     message,
@@ -166,6 +185,9 @@ type IUniversalWithdrawProps = {
     withdrawType,
   }: {
     amount: string;
+    actionSignal?: AbortSignal;
+    verifyEtherFiLegacyApproval?: () => Promise<boolean>;
+    onTransactionSubmitted?: () => void;
     withdrawAll: boolean;
     // Stakefish: signature and message for withdraw all
     signature?: string;
@@ -430,6 +452,7 @@ export function UniversalWithdraw({
   protocolVault,
   identity,
   isDisabled,
+  isActionDisabled,
   inputTitle,
 
   onConfirm,
@@ -445,7 +468,7 @@ export function UniversalWithdraw({
   refreshKey,
   onQuoteRefreshingChange,
   approveTarget,
-  currentAllowance = '0',
+  currentAllowance,
   approveType = EApproveType.Legacy,
   pendleSlippage,
   initialWithdrawType,
@@ -453,6 +476,7 @@ export function UniversalWithdraw({
   protocolInfo,
   tokenInfo,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
+  const intl = useIntl();
   const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const navigation = useAppNavigation();
   const handleWithdrawAction = useHandleWithdraw();
@@ -465,9 +489,35 @@ export function UniversalWithdraw({
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
   const isCancelWithdrawal = initialWithdrawType === 'cancel';
+  const legacyApproval = useEtherFiLegacyApproval({
+    accountId: accountId ?? '',
+    accountAddress,
+    networkId: networkId ?? '',
+    provider: providerName ?? '',
+    vault: protocolVault,
+    skip: isCancelWithdrawal,
+  });
+  const { verifyBeforeAction: verifyLegacyBeforeAction } = legacyApproval;
+  const verifyEtherFiLegacyApproval = useCallback(
+    () => verifyLegacyBeforeAction({ allowRevoke: false }),
+    [verifyLegacyBeforeAction],
+  );
   const [amountValue, setAmountValue] = useState(
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
+  const etherFiActionController = useRef<AbortController | undefined>(
+    undefined,
+  );
+  const etherFiAmountCheckReadyRef = useRef(false);
+  const etherFiFeeReadyRef = useRef(true);
+  const etherFiApproveLock = useRef(false);
+  const etherFiWithdrawLock = useRef(false);
+  const etherFiContinuationRef = useRef<symbol | undefined>(undefined);
+  const [etherFiContinuation, setEtherFiContinuation] = useState<{
+    id: symbol;
+    signal: AbortSignal;
+    allowanceReady: boolean;
+  }>();
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
   const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
@@ -716,7 +766,12 @@ export function UniversalWithdraw({
   );
 
   const approveAmountValue = useMemo(() => {
-    if (!isQueuedWithdraw || !receiptTokenRate) {
+    if (
+      (earnUtils.isEtherFiProvider({ providerName: providerName ?? '' }) &&
+        protocolInfo?.withdrawApprove?.amountUnit === 'shares') ||
+      !isQueuedWithdraw ||
+      !receiptTokenRate
+    ) {
       return amountValue;
     }
 
@@ -751,7 +806,35 @@ export function UniversalWithdraw({
     decimals,
     isQueuedWithdraw,
     isWithdrawAll,
+    protocolInfo?.withdrawApprove?.amountUnit,
+    providerName,
     receiptTokenRate,
+  ]);
+
+  useLayoutEffect(() => {
+    const controller = new AbortController();
+    etherFiActionController.current = controller;
+    return () => controller.abort();
+  }, [
+    accountId,
+    networkId,
+    accountAddress,
+    providerName,
+    protocolVault,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    identity,
+    amountValue,
+    isActionDisabled,
+    selectedWithdrawType,
+    approveTarget?.accountId,
+    approveTarget?.networkId,
+    approveTarget?.spenderAddress,
+    approveTarget?.token?.address,
+    approveAmountValue,
+    isWithdrawAll,
+    requestSymbol,
+    tokenSymbol,
   ]);
 
   // --- Approve logic (Pendle sell and server-declared queued withdraw) ---
@@ -765,22 +848,41 @@ export function UniversalWithdraw({
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
   });
+  const isFocus = useIsFocused();
+  const trackEtherFiWithdrawApproval =
+    earnUtils.isEtherFiProvider({ providerName: providerName ?? '' }) &&
+    isQueuedWithdraw &&
+    approveType === EApproveType.Legacy &&
+    Boolean(approveTarget?.token?.address) &&
+    !approveTarget?.token?.isNative;
 
   const {
     allowance,
+    allowanceAvailable,
     loading: loadingAllowance,
     trackAllowance,
     fetchAllowanceResponse,
+    applyVerifiedAllowance,
   } = useTrackTokenAllowance({
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
-    initialValue: currentAllowance,
+    initialValue: earnUtils.isEtherFiProvider({
+      providerName: providerName ?? '',
+    })
+      ? currentAllowance
+      : (currentAllowance ?? '0'),
+    refreshOnMount: trackEtherFiWithdrawApproval,
+    refreshTrackedEtherFiApproval: trackEtherFiWithdrawApproval,
+    etherFiApprovalTrackingActive: isFocus,
     approveType,
+    expectedAccountAddress: earnUtils.isEtherFiProvider({
+      providerName: providerName ?? '',
+    })
+      ? accountAddress
+      : undefined,
   });
-
-  const isFocus = useIsFocused();
 
   const needsApproval = useMemo(() => {
     if (!useApprove) return false;
@@ -827,11 +929,21 @@ export function UniversalWithdraw({
         }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
+          if (signal?.aborted) return false;
           const allowanceBN = new BigNumber(
             allowanceInfo.allowanceParsed || '0',
           );
           if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
-            return true;
+            if (
+              !earnUtils.isEtherFiProvider({
+                providerName: providerName ?? '',
+              }) ||
+              applyVerifiedAllowance(
+                allowanceInfo.allowanceParsed,
+                allowanceInfo.allowanceRequestSequence,
+              )
+            )
+              return true;
           }
         } catch (error) {
           defaultLogger.staking.page.permitSignError({
@@ -846,7 +958,7 @@ export function UniversalWithdraw({
       }
       return false;
     },
-    [useApprove, fetchAllowanceResponse],
+    [useApprove, fetchAllowanceResponse, applyVerifiedAllowance, providerName],
   );
 
   // Refs to break circular dependency: onApprove needs onPress/fetchTransactionConfirmation
@@ -857,8 +969,21 @@ export function UniversalWithdraw({
       (amount: string) => Promise<IStakeTransactionConfirmation | undefined>
     >(undefined);
 
-  const onApprove = useCallback(async () => {
+  const onApproveImpl = useCallback(async () => {
+    if (isActionDisabled) return;
+    const isEtherFi = earnUtils.isEtherFiProvider({
+      providerName: providerName ?? '',
+    });
+    const actionSignal = isEtherFi
+      ? etherFiActionController.current?.signal
+      : undefined;
+    const isCurrent = () =>
+      !isEtherFi || Boolean(actionSignal && !actionSignal.aborted);
+    if (!isCurrent() || (isEtherFi && !etherFiAmountCheckReadyRef.current))
+      return;
     if (!approveTarget?.token || !approveAmountValue) return;
+    if (isEtherFi && !(await verifyEtherFiLegacyApproval())) return;
+    if (!isCurrent()) return;
     // OK-59196: the approve transaction is the user's first on-chain action in
     // the two-step withdraw flow and never reaches useUniversalWithdraw, so the
     // one-time disclaimer has to gate it here too. Before the approving lock:
@@ -872,15 +997,50 @@ export function UniversalWithdraw({
     ) {
       return;
     }
+    if (!isCurrent()) return;
     Keyboard.dismiss();
     setApproving(true);
 
     let approveAllowance = allowance;
+    let appliedAllowance = !isEtherFi;
     try {
-      const allowanceInfo = await fetchAllowanceResponse();
-      approveAllowance = allowanceInfo.allowanceParsed;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const allowanceInfo = await fetchAllowanceResponse();
+        if (!isCurrent()) {
+          setApproving(false);
+          return;
+        }
+        approveAllowance = allowanceInfo.allowanceParsed;
+        if (
+          !isEtherFi ||
+          applyVerifiedAllowance(
+            approveAllowance,
+            allowanceInfo.allowanceRequestSequence,
+          )
+        ) {
+          appliedAllowance = true;
+          break;
+        }
+      }
     } catch (_e) {
+      if (isEtherFi) {
+        setApproving(false);
+        return;
+      }
       // use cached allowance
+    }
+    if (!isCurrent()) {
+      setApproving(false);
+      return;
+    }
+    if (!appliedAllowance) {
+      setApproving(false);
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      });
+      return;
     }
 
     const allowanceBN = new BigNumber(approveAllowance);
@@ -895,7 +1055,39 @@ export function UniversalWithdraw({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+    if (
+      isEtherFi &&
+      (!accountAddress ||
+        account.address.toLowerCase() !== accountAddress.toLowerCase())
+    ) {
+      setApproving(false);
+      throw new OneKeyLocalError('Withdrawal approval account changed');
+    }
+    if (!isCurrent()) {
+      setApproving(false);
+      return;
+    }
 
+    let successConsumed = false;
+    const rememberEtherFiApproval = (txid: string) => {
+      if (
+        isEtherFi &&
+        approveTarget?.token?.address &&
+        approveTarget.spenderAddress
+      ) {
+        trackEtherFiApproval(
+          {
+            accountId: approveTarget.accountId,
+            networkId: approveTarget.networkId,
+            accountAddress: account.address,
+            tokenAddress: approveTarget.token.address,
+            spenderAddress: approveTarget.spenderAddress,
+          },
+          txid,
+          approveAmountValue,
+        );
+      }
+    };
     await navigationToTxConfirm({
       approvesInfo: [
         {
@@ -905,26 +1097,104 @@ export function UniversalWithdraw({
           tokenInfo: approveTarget.token,
         },
       ],
+      isNavigationCurrent: isEtherFi ? isCurrent : undefined,
+      onNavigationSkipped: isEtherFi ? () => setApproving(false) : undefined,
+      onBeforeSend: isEtherFi
+        ? async () => {
+            if (!isCurrent() || !etherFiAmountCheckReadyRef.current)
+              throw new OneKeyLocalError('Withdrawal approval context expired');
+            if (!(await verifyEtherFiLegacyApproval()) || !isCurrent())
+              throw new OneKeyLocalError('Legacy approval changed');
+            const currentAccount =
+              await backgroundApiProxy.serviceAccount.getAccount({
+                accountId: approveTarget.accountId,
+                networkId: approveTarget.networkId,
+              });
+            if (
+              !isCurrent() ||
+              !etherFiAmountCheckReadyRef.current ||
+              currentAccount.address.toLowerCase() !==
+                account.address.toLowerCase()
+            ) {
+              throw new OneKeyLocalError('Withdrawal approval account changed');
+            }
+          }
+        : undefined,
       onSuccess(data) {
-        trackAllowance(data[0].decodedTx.txid);
+        if (isEtherFi && successConsumed) return;
+        if (data[0]?.decodedTx?.txid)
+          rememberEtherFiApproval(data[0].decodedTx.txid);
+        if (!isCurrent()) {
+          setApproving(false);
+          return;
+        }
+        successConsumed = true;
+        const continuation =
+          isEtherFi && actionSignal
+            ? {
+                id: Symbol('etherFiWithdrawApproval'),
+                signal: actionSignal,
+                allowanceReady: false,
+              }
+            : undefined;
+        if (continuation) {
+          etherFiContinuationRef.current = continuation.id;
+          setEtherFiContinuation(continuation);
+        }
+        if (!isEtherFi) trackAllowance(data[0].decodedTx.txid);
         allowanceAbortRef.current?.abort();
         const abortController = new AbortController();
         allowanceAbortRef.current = abortController;
         void (async () => {
           try {
-            const allowanceReady = await waitForAllowanceAfterApprove({
-              requiredAmount: approveAmountValue,
-              signal: abortController.signal,
-            });
-            if (!allowanceReady) {
+            const allowanceReady = await waitForCurrentAction(
+              waitForAllowanceAfterApprove({
+                requiredAmount: approveAmountValue,
+                signal: actionSignal ?? abortController.signal,
+              }),
+              actionSignal,
+            );
+            if (!allowanceReady || !isCurrent()) {
+              if (
+                continuation &&
+                etherFiContinuationRef.current === continuation.id
+              ) {
+                etherFiContinuationRef.current = undefined;
+                setEtherFiContinuation(undefined);
+                setApproving(false);
+              }
               return;
             }
-            await onPressRef.current?.();
+            if (continuation) {
+              setEtherFiContinuation((current) =>
+                current?.id === continuation.id
+                  ? { ...current, allowanceReady: true }
+                  : current,
+              );
+            } else {
+              await onPressRef.current?.();
+            }
           } finally {
-            setApproving(false);
+            if (
+              !continuation ||
+              etherFiContinuationRef.current === continuation.id
+            ) {
+              setApproving(false);
+            }
+            abortController.abort();
           }
         })();
       },
+      onLateBroadcastAccepted: isEtherFi
+        ? (fact) => {
+            if (
+              fact.accountId === approveTarget.accountId &&
+              fact.networkId === approveTarget.networkId &&
+              fact.txid
+            )
+              rememberEtherFiApproval(fact.txid);
+          }
+        : undefined,
       onFail() {
         setApproving(false);
       },
@@ -933,18 +1203,36 @@ export function UniversalWithdraw({
       },
     });
   }, [
+    isActionDisabled,
     allowance,
+    accountAddress,
     approveAmountValue,
     approveTarget,
     ensureRiskAccepted,
     networkId,
     providerName,
+    verifyEtherFiLegacyApproval,
     tokenSymbol,
     navigationToTxConfirm,
     fetchAllowanceResponse,
+    applyVerifiedAllowance,
     trackAllowance,
     waitForAllowanceAfterApprove,
+    intl,
   ]);
+  const onApprove = useCallback(async () => {
+    const isEtherFi = earnUtils.isEtherFiProvider({
+      providerName: providerName ?? '',
+    });
+    if (isEtherFi && etherFiApproveLock.current) return;
+    if (isEtherFi && etherFiContinuationRef.current) return;
+    if (isEtherFi) etherFiApproveLock.current = true;
+    try {
+      await onApproveImpl();
+    } finally {
+      if (isEtherFi) etherFiApproveLock.current = false;
+    }
+  }, [onApproveImpl, providerName]);
   const actionSymbol = useMemo(
     () => requestSymbol || tokenSymbol || '',
     [requestSymbol, tokenSymbol],
@@ -953,68 +1241,192 @@ export function UniversalWithdraw({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
-
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    if (
-      !accountId ||
-      !networkId ||
-      !providerName ||
-      !actionSymbol ||
-      (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
-    ) {
-      return undefined;
-    }
-
-    if (earnUtils.isLidoProvider({ providerName })) {
-      return undefined;
-    }
-
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
+  const isEtherFiEstimate = earnUtils.isEtherFiProvider({
+    providerName: providerName ?? '',
+  });
+  const etherFiEstimateContext = useMemo(
+    () =>
+      isEtherFiEstimate
+        ? {
+            accountAddress,
+            action: getEtherFiWithdrawEstimateAction({
+              isActionDisabled: Boolean(isDisabled || isActionDisabled),
+              isCancel: isCancelWithdrawal,
+              hasIdentity: Boolean(identity),
+              pathCurrent: isTransactionConfirmationCurrent,
+              pathDisabled: Boolean(selectedWithdrawPath?.disabled),
+              withdrawType: selectedWithdrawType,
+              allowanceAvailable,
+              loadingAllowance,
+              allowance,
+              amount: approveAmountValue,
+            }),
+          }
+        : undefined,
+    [
+      isEtherFiEstimate,
+      accountAddress,
+      isDisabled,
+      isActionDisabled,
+      isCancelWithdrawal,
+      identity,
+      isTransactionConfirmationCurrent,
+      selectedWithdrawPath?.disabled,
+      selectedWithdrawType,
+      allowanceAvailable,
+      loadingAllowance,
+      allowance,
+      approveAmountValue,
+    ],
+  );
+  const etherFiFeeScope = useMemo(
+    () =>
+      etherFiEstimateContext
+        ? {
+            accountId,
+            networkId,
+            providerName,
+            actionSymbol,
+            amountValue,
+            balance,
+            identity,
+            protocolVault,
+            shouldSendProtocolVault,
+            isCancelWithdrawal,
+            transactionInputTokenAddress,
+            transactionOutputTokenAddress,
+            selectedWithdrawType,
+            context: etherFiEstimateContext,
+          }
+        : undefined,
+    [
+      etherFiEstimateContext,
       accountId,
       networkId,
-    });
-
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: actionSymbol,
-      action: 'unstake',
-      amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
-      txId: earnUtils.isBabylonProvider({ providerName })
-        ? identity
-        : undefined,
-      protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+      providerName,
+      actionSymbol,
+      amountValue,
+      balance,
       identity,
-      accountAddress: account.address,
-      withdrawAll: withdrawAllRef.current,
-      inputTokenAddress: transactionInputTokenAddress,
-      outputTokenAddress: transactionOutputTokenAddress,
-      withdrawType: selectedWithdrawType,
-    });
-    return resp;
-  }, [
-    amountValue,
-    accountId,
-    networkId,
-    providerName,
-    actionSymbol,
-    identity,
-    protocolVault,
-    shouldSendProtocolVault,
-    balance,
-    transactionInputTokenAddress,
-    transactionOutputTokenAddress,
-    selectedWithdrawType,
-    isCancelWithdrawal,
-  ]);
+      protocolVault,
+      shouldSendProtocolVault,
+      isCancelWithdrawal,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      selectedWithdrawType,
+    ],
+  );
+  const {
+    result: feeResult,
+    run: retryFee,
+    isLoading: etherFiFeeLoading,
+  } = usePromiseResult(
+    async () => {
+      if (
+        !accountId ||
+        !networkId ||
+        !providerName ||
+        !actionSymbol ||
+        (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
+      ) {
+        return undefined;
+      }
+
+      if (earnUtils.isLidoProvider({ providerName })) {
+        return undefined;
+      }
+
+      const action = etherFiEstimateContext
+        ? etherFiEstimateContext.action
+        : 'unstake';
+      if (!action) return undefined;
+
+      const requestScope = etherFiFeeScope;
+      try {
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
+        if (
+          etherFiEstimateContext &&
+          (!etherFiEstimateContext.accountAddress ||
+            account.address.toLowerCase() !==
+              etherFiEstimateContext.accountAddress.toLowerCase())
+        )
+          throw new OneKeyLocalError('Withdrawal fee account changed');
+        const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+          networkId,
+          provider: providerName,
+          symbol: actionSymbol,
+          action,
+          amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
+          txId: earnUtils.isBabylonProvider({ providerName })
+            ? identity
+            : undefined,
+          protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+          identity,
+          accountAddress: account.address,
+          withdrawAll: earnUtils.resolveEarnWithdrawAll({
+            providerName,
+            withdrawAll: withdrawAllRef.current,
+          }),
+          inputTokenAddress: transactionInputTokenAddress,
+          outputTokenAddress: transactionOutputTokenAddress,
+          withdrawType: selectedWithdrawType,
+        });
+        if (requestScope && !resp) {
+          throw new OneKeyLocalError('Withdrawal fee estimate unavailable');
+        }
+        return { scope: requestScope, fee: resp, failed: false };
+      } catch (error) {
+        if (!requestScope) throw error;
+        return { scope: requestScope, fee: undefined, failed: true };
+      }
+    },
+    [
+      amountValue,
+      accountId,
+      networkId,
+      providerName,
+      actionSymbol,
+      identity,
+      protocolVault,
+      shouldSendProtocolVault,
+      balance,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      selectedWithdrawType,
+      isCancelWithdrawal,
+      etherFiEstimateContext,
+      etherFiFeeScope,
+    ],
+    {
+      undefinedResultIfReRun: isEtherFiEstimate,
+      revalidateOnFocus: isEtherFiEstimate,
+      resumeOnEffectReconnect: isEtherFiEstimate,
+    },
+  );
+  const isCurrentEtherFiFee = Boolean(
+    etherFiFeeScope && feeResult?.scope === etherFiFeeScope,
+  );
+  const estimateFeeResp =
+    !isEtherFiEstimate || isCurrentEtherFiFee ? feeResult?.fee : undefined;
+  const etherFiFeeFailed = Boolean(isCurrentEtherFiFee && feeResult?.failed);
+  const etherFiFeeReady =
+    !isEtherFiEstimate ||
+    Boolean(
+      isCurrentEtherFiFee &&
+      etherFiEstimateContext?.action === 'unstake' &&
+      feeResult?.fee &&
+      !etherFiFeeFailed,
+    );
+  etherFiFeeReadyRef.current = etherFiFeeReady;
 
   const [
     {
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
-
-  const intl = useIntl();
 
   const network = usePromiseResult(
     () =>
@@ -1053,7 +1465,28 @@ export function UniversalWithdraw({
     [withdrawPathConfirmBoxes],
   );
 
-  const onPress = useCallback(async () => {
+  const onPressImpl = useCallback(async () => {
+    if (isActionDisabled) return;
+    const isEtherFi = earnUtils.isEtherFiProvider({
+      providerName: providerName ?? '',
+    });
+    const actionSignal = isEtherFi
+      ? etherFiActionController.current?.signal
+      : undefined;
+    const isCurrent = () =>
+      !isEtherFi || Boolean(actionSignal && !actionSignal.aborted);
+    if (
+      isEtherFi &&
+      !isCancelWithdrawal &&
+      !(await verifyEtherFiLegacyApproval())
+    )
+      return;
+    if (
+      !isCurrent() ||
+      (isEtherFi &&
+        (!etherFiAmountCheckReadyRef.current || !etherFiFeeReadyRef.current))
+    )
+      return;
     if (
       requiresEarnWithdrawPath &&
       (!isTransactionConfirmationCurrent || !selectedWithdrawType)
@@ -1120,8 +1553,20 @@ export function UniversalWithdraw({
         }
       }
 
+      if (
+        !isCurrent() ||
+        (isEtherFi &&
+          (!etherFiAmountCheckReadyRef.current || !etherFiFeeReadyRef.current))
+      )
+        return;
       const started = await onConfirm?.({
         amount: isCancelWithdrawal ? '0' : amountValue,
+        actionSignal,
+        verifyEtherFiLegacyApproval:
+          isEtherFi && !isCancelWithdrawal
+            ? verifyEtherFiLegacyApproval
+            : undefined,
+        onTransactionSubmitted: isEtherFi ? resetAmount : undefined,
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
@@ -1155,7 +1600,7 @@ export function UniversalWithdraw({
           setWithdrawProgressStep(EStakeProgressStep.approve);
           onQuoteReset?.();
         }
-      } else {
+      } else if (!isEtherFi) {
         resetAmount();
         setWithdrawProgressStep(EStakeProgressStep.approve);
         // Auto-refresh quote countdown after swap completes
@@ -1165,6 +1610,7 @@ export function UniversalWithdraw({
       setLoading(false);
     }
   }, [
+    isActionDisabled,
     amountValue,
     onConfirm,
     onQuoteReset,
@@ -1190,11 +1636,29 @@ export function UniversalWithdraw({
     isTransactionConfirmationCurrent,
     selectedWithdrawType,
     isCancelWithdrawal,
+    verifyEtherFiLegacyApproval,
   ]);
+
+  const onPress = useCallback(async () => {
+    const isEtherFi = earnUtils.isEtherFiProvider({
+      providerName: providerName ?? '',
+    });
+    if (isEtherFi && etherFiWithdrawLock.current) return;
+    if (isEtherFi && etherFiContinuationRef.current) return;
+    if (isEtherFi) etherFiWithdrawLock.current = true;
+    try {
+      await onPressImpl();
+    } finally {
+      if (isEtherFi) etherFiWithdrawLock.current = false;
+    }
+  }, [onPressImpl, providerName]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+  const [failedQuoteKey, setFailedQuoteKey] = useState<string | undefined>();
+  const [quoteRetryNonce, setQuoteRetryNonce] = useState(0);
+  const [checkRetryNonce, setCheckRetryNonce] = useState(0);
 
   const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
     providerName: providerName ?? '',
@@ -1205,10 +1669,14 @@ export function UniversalWithdraw({
   });
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
+  const checkExpectedAccountAddress = isEtherFiEstimate
+    ? accountAddress
+    : undefined;
 
   const checkAmountRequestParams = useMemo(
     () => ({
       accountId,
+      expectedAccountAddress: checkExpectedAccountAddress,
       action: ECheckAmountActionType.UNSTAKING,
       amount: amountValue,
       identity,
@@ -1219,11 +1687,15 @@ export function UniversalWithdraw({
       provider: providerName,
       slippage: pendleSlippage,
       symbol: actionSymbol,
-      withdrawAll: isWithdrawAll,
+      withdrawAll: earnUtils.resolveEarnWithdrawAll({
+        providerName: providerName ?? '',
+        withdrawAll: isWithdrawAll,
+      }),
       withdrawType: selectedWithdrawType,
     }),
     [
       accountId,
+      checkExpectedAccountAddress,
       actionSymbol,
       amountValue,
       identity,
@@ -1242,15 +1714,34 @@ export function UniversalWithdraw({
     [checkAmountRequestParams],
   );
   checkAmountRequestKeyRef.current = checkAmountRequestKey;
+  const checkAmountScope = useMemo(
+    () => ({ key: checkAmountRequestKey }),
+    [checkAmountRequestKey],
+  );
+  const checkAmountScopeRef = useRef(checkAmountScope);
+  checkAmountScopeRef.current = checkAmountScope;
+  const [verifiedCheckScope, setVerifiedCheckScope] = useState<
+    typeof checkAmountScope | undefined
+  >();
+  const [failedCheckScope, setFailedCheckScope] = useState<
+    typeof checkAmountScope | undefined
+  >();
+  const etherFiAmountCheckReady =
+    !isEtherFiEstimate ||
+    isCancelWithdrawal ||
+    verifiedCheckScope === checkAmountScope;
+  etherFiAmountCheckReadyRef.current = etherFiAmountCheckReady;
 
   const debouncedCheckAmount = useDebouncedCallback(
     async ({
       requestId,
       requestKey,
+      requestScope,
       params,
     }: {
       requestId: number;
       requestKey: string;
+      requestScope: typeof checkAmountScope;
       params: typeof checkAmountRequestParams;
     }) => {
       try {
@@ -1262,16 +1753,66 @@ export function UniversalWithdraw({
             latestRequestKey: checkAmountRequestKeyRef.current,
             requestId,
             requestKey,
+            requestScope: isEtherFiEstimate ? requestScope : undefined,
+            latestRequestScope: isEtherFiEstimate
+              ? checkAmountScopeRef.current
+              : undefined,
           })
         ) {
           return;
         }
 
-        if (Number(response.code) === 0) {
+        const responseCode: unknown = response.code;
+        if (
+          isEtherFiEstimate &&
+          !(
+            (typeof responseCode === 'number' &&
+              Number.isSafeInteger(responseCode)) ||
+            (typeof responseCode === 'string' && /^\d+$/.test(responseCode))
+          )
+        )
+          throw new OneKeyLocalError('Invalid withdrawal amount check result');
+        if (
+          isEtherFiEstimate &&
+          response.data?.alerts !== undefined &&
+          !Array.isArray(response.data.alerts)
+        )
+          throw new OneKeyLocalError('Invalid withdrawal amount check alerts');
+
+        if (Number(responseCode) === 0) {
+          const alerts = response.data?.alerts || [];
+          if (isEtherFiEstimate) {
+            setVerifiedCheckScope(alerts.length ? undefined : requestScope);
+          }
           setCheckoutAmountMessage('');
-          setCheckAmountAlerts(response.data?.alerts || []);
+          setCheckAmountAlerts(alerts);
         } else {
-          setCheckoutAmountMessage(response.message);
+          if (isEtherFiEstimate) setVerifiedCheckScope(undefined);
+          setCheckoutAmountMessage(
+            isEtherFiEstimate && !response.message
+              ? intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })
+              : response.message,
+          );
+          setCheckAmountAlerts([]);
+        }
+        if (isEtherFiEstimate) setFailedCheckScope(undefined);
+      } catch (error) {
+        if (!isEtherFiEstimate) throw error;
+        if (
+          isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+            requestScope,
+            latestRequestScope: checkAmountScopeRef.current,
+          })
+        ) {
+          setVerifiedCheckScope(undefined);
+          setFailedCheckScope(requestScope);
+          setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
         }
       } finally {
@@ -1281,6 +1822,10 @@ export function UniversalWithdraw({
             latestRequestKey: checkAmountRequestKeyRef.current,
             requestId,
             requestKey,
+            requestScope: isEtherFiEstimate ? requestScope : undefined,
+            latestRequestScope: isEtherFiEstimate
+              ? checkAmountScopeRef.current
+              : undefined,
           })
         ) {
           setCheckAmountLoading(false);
@@ -1303,6 +1848,10 @@ export function UniversalWithdraw({
       setCheckAmountLoading(false);
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
+      if (isEtherFiEstimate) {
+        setVerifiedCheckScope(undefined);
+        setFailedCheckScope(undefined);
+      }
       return undefined;
     }
 
@@ -1311,6 +1860,7 @@ export function UniversalWithdraw({
       params: checkAmountRequestParams,
       requestId,
       requestKey,
+      requestScope: checkAmountScope,
     });
 
     return () => {
@@ -1323,8 +1873,11 @@ export function UniversalWithdraw({
     amountValue,
     checkAmountRequestKey,
     checkAmountRequestParams,
+    checkAmountScope,
+    checkRetryNonce,
     debouncedCheckAmount,
     isCancelWithdrawal,
+    isEtherFiEstimate,
   ]);
 
   const fetchTransactionConfirmation = useCallback(
@@ -1367,6 +1920,42 @@ export function UniversalWithdraw({
 
   // Keep refs in sync for onApprove's async onSuccess handler
   onPressRef.current = onPress;
+  useEffect(() => {
+    if (!etherFiContinuation) return;
+    const { id, signal } = etherFiContinuation;
+    if (etherFiContinuationRef.current !== id) return;
+    if (
+      signal.aborted ||
+      (etherFiEstimateContext?.action === 'unstake' && etherFiFeeFailed)
+    ) {
+      etherFiContinuationRef.current = undefined;
+      setEtherFiContinuation(undefined);
+      setApproving(false);
+      return;
+    }
+    if (
+      !etherFiContinuation.allowanceReady ||
+      shouldApprove ||
+      loadingAllowance ||
+      etherFiEstimateContext?.action !== 'unstake' ||
+      !isCurrentEtherFiFee ||
+      !feeResult?.fee ||
+      !etherFiAmountCheckReady
+    )
+      return;
+    etherFiContinuationRef.current = undefined;
+    setEtherFiContinuation(undefined);
+    void onPressRef.current?.();
+  }, [
+    etherFiContinuation,
+    etherFiFeeFailed,
+    shouldApprove,
+    loadingAllowance,
+    etherFiEstimateContext,
+    isCurrentEtherFiFee,
+    feeResult,
+    etherFiAmountCheckReady,
+  ]);
   fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
@@ -1387,6 +1976,12 @@ export function UniversalWithdraw({
           withdrawType,
         );
         if (
+          !resp &&
+          earnUtils.isEtherFiProvider({ providerName: providerName ?? '' })
+        ) {
+          throw new OneKeyLocalError('Withdrawal quote unavailable');
+        }
+        if (
           !isLatestTransactionConfirmationRequest({
             requestId,
             requestKey,
@@ -1397,12 +1992,21 @@ export function UniversalWithdraw({
           return;
         }
         setTransactionConfirmation(resp);
+        setFailedQuoteKey(undefined);
         setResolvedRequestKey(requestKey);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
       } catch {
-        // The previous snapshot remains internal and cannot enable submission.
+        if (
+          isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        )
+          setFailedQuoteKey(requestKey);
       } finally {
         if (
           isLatestTransactionConfirmationRequest({
@@ -1461,6 +2065,7 @@ export function UniversalWithdraw({
     isCancelWithdrawal,
     selectedWithdrawType,
     transactionConfirmationRequestKey,
+    quoteRetryNonce,
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
@@ -1565,6 +2170,7 @@ export function UniversalWithdraw({
   const isDisable = useMemo<boolean>(
     () =>
       isDisabled ||
+      legacyApproval.blocked ||
       !!selectedWithdrawPath?.disabled ||
       (!isCancelWithdrawal &&
         (isInvalidAmount(amountValue) ||
@@ -1572,13 +2178,19 @@ export function UniversalWithdraw({
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
       checkAmountLoading ||
+      !etherFiAmountCheckReady ||
+      (!etherFiFeeReady && !shouldApprove) ||
       !isWithdrawPathReady,
     [
       isDisabled,
+      legacyApproval.blocked,
       amountValue,
       isCheckAmountMessageError,
       checkAmountAlerts.length,
       checkAmountLoading,
+      etherFiAmountCheckReady,
+      etherFiFeeReady,
+      shouldApprove,
       isCancelWithdrawal,
       isWithdrawPathReady,
       selectedWithdrawPath?.disabled,
@@ -1772,10 +2384,12 @@ export function UniversalWithdraw({
   ]);
 
   const confirmLoading = useMemo(() => {
+    if (etherFiContinuation) return true;
     if (shouldApprove) return loadingAllowance || approving;
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
     return (
       loading ||
+      (isEtherFiEstimate && etherFiFeeLoading) ||
       checkAmountLoading ||
       (requiresEarnWithdrawPath && transactionConfirmationLoading)
     );
@@ -1786,9 +2400,12 @@ export function UniversalWithdraw({
     approving,
     quoteRefreshing,
     loading,
+    isEtherFiEstimate,
+    etherFiFeeLoading,
     checkAmountLoading,
     requiresEarnWithdrawPath,
     transactionConfirmationLoading,
+    etherFiContinuation,
   ]);
 
   const confirmDisabled = useMemo(() => {
@@ -1801,12 +2418,19 @@ export function UniversalWithdraw({
     footerActionOverride?.text ?? intl.formatMessage({ id: confirmText });
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ?? confirmOnPress;
-  const effectiveConfirmLoading = footerActionOverride
-    ? Boolean(footerActionOverride.loading)
-    : confirmLoading;
-  const effectiveConfirmDisabled = footerActionOverride
-    ? Boolean(footerActionOverride.disabled)
-    : confirmDisabled;
+  const effectiveConfirmLoading =
+    Boolean(etherFiContinuation) ||
+    legacyApproval.status === 'checking' ||
+    legacyApproval.status === 'submitting' ||
+    (footerActionOverride
+      ? Boolean(footerActionOverride.loading)
+      : confirmLoading);
+  const effectiveConfirmDisabled =
+    Boolean(isActionDisabled) ||
+    Boolean(etherFiContinuation) ||
+    (footerActionOverride
+      ? Boolean(footerActionOverride.disabled)
+      : confirmDisabled);
 
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
     isDisabled,
@@ -2262,6 +2886,44 @@ export function UniversalWithdraw({
         </YStack>
       ) : null}
       {beforeFooter}
+      <EtherFiLegacyApprovalAlert approval={legacyApproval} />
+      {etherFiFeeFailed ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: () => void retryFee(),
+          }}
+        />
+      ) : null}
+      {isEtherFiEstimate && failedCheckScope === checkAmountScope ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: () => setCheckRetryNonce((value) => value + 1),
+          }}
+        />
+      ) : null}
+      {earnUtils.isEtherFiProvider({ providerName: providerName ?? '' }) &&
+      failedQuoteKey === transactionConfirmationRequestKey ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: () => setQuoteRetryNonce((value) => value + 1),
+          }}
+        />
+      ) : null}
       {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
           approveType={approveType}

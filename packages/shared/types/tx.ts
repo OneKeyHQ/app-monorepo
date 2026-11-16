@@ -313,6 +313,13 @@ export type ISendTxOnSuccessData = {
   isNetworkFeeSponsored?: boolean;
 };
 
+export type IBroadcastAcceptedFact = {
+  uuid: string;
+  accountId: string;
+  networkId: string;
+  txid: string;
+};
+
 export type IReplaceTxInfo = {
   replaceType: EReplaceTxType;
   replaceHistoryId: string;

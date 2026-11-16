@@ -9,6 +9,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -20,6 +21,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEtherFiVaultConfig } from '@onekeyhq/shared/src/utils/etherFiVaults';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -119,6 +121,12 @@ import { vaultFactory } from '../vaults/factory';
 import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 
 import ServiceBase from './ServiceBase';
+import { classifyEtherFiRecoveryTransaction } from './utils/etherFiRecoveryTransaction';
+import {
+  assertEtherFiStakeTransaction,
+  assertEtherFiWithdrawTransaction,
+  normalizeEtherFiAmount,
+} from './utils/etherFiTransactionValidation';
 import { pollSolTxFinalization } from './utils/pollSolTxFinalization';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
@@ -180,8 +188,20 @@ const loadBorrowActionServiceUtils = () =>
 // requested identity" (EEarnError.NoClaimableAmount).
 const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
+type IEtherFiOrderSyncResult =
+  | 'conflict'
+  | 'unavailable'
+  | 'localFailed'
+  | 'notSent'
+  | 'synced'
+  | 'remoteUnknown';
+
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private etherFiOrderSyncInFlight = new Map<
+    string,
+    Promise<IEtherFiOrderSyncResult>
+  >();
   private _abortControllersByRequestId: Record<string, Set<AbortController>> =
     {};
 
@@ -250,8 +270,9 @@ class ServiceStaking extends ServiceBase {
     tokenAddress: string;
     spenderAddress: string;
     blockNumber?: number;
+    expectedAccountAddress?: string;
   }) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, expectedAccountAddress, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -259,12 +280,31 @@ class ServiceStaking extends ServiceBase {
         accountId,
       });
 
+    if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress ||
+        accountAddress.toLowerCase() !== expectedAccountAddress.toLowerCase())
+    ) {
+      throw new OneKeyLocalError('Allowance account changed');
+    }
+
     const resp = await client.get<{
       data: IAllowanceOverview;
     }>(`/earn/v1/on-chain/allowance`, {
       params: { accountAddress, networkId, ...rest },
     });
 
+    if (expectedAccountAddress !== undefined) {
+      const parsed = resp.data.data?.allowanceParsed;
+      const value = new BigNumber(parsed ?? NaN);
+      if (
+        typeof parsed !== 'string' ||
+        !value.isFinite() ||
+        value.isNegative()
+      ) {
+        throw new OneKeyLocalError('Invalid allowance response');
+      }
+    }
     return resp.data.data;
   }
 
@@ -395,11 +435,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildStakeTransaction(
-    params: IStakeBaseParams,
+    params: IStakeBaseParams & { expectedAccountAddress?: string },
   ): Promise<IStakeTxResponse> {
     const {
       networkId,
       accountId,
+      expectedAccountAddress,
       provider,
       symbol,
       protocolVault,
@@ -414,6 +455,13 @@ class ServiceStaking extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress ||
+        account.address.toLowerCase() !== expectedAccountAddress.toLowerCase())
+    ) {
+      throw new OneKeyLocalError('Stake account changed');
+    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol,
@@ -458,6 +506,9 @@ class ServiceStaking extends ServiceBase {
       effectiveApy,
       ...rest,
     };
+    if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+      paramsToSend.amount = normalizeEtherFiAmount(params.amount);
+    }
 
     if (shouldSendProtocolVault) {
       paramsToSend.vault = protocolVault;
@@ -477,16 +528,43 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v2/stake`, paramsToSend);
+    if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+      assertEtherFiStakeTransaction({
+        tx: resp.data.data.tx,
+        networkId,
+        vault: protocolVault,
+        accountAddress: account.address,
+        symbol,
+        amount: params.amount,
+        inputTokenAddress: params.inputTokenAddress,
+        stakeType: params.stakeType,
+      });
+    }
     return resp.data.data;
   }
 
   @backgroundMethod()
-  async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
-      params;
+  async buildUnstakeTransaction(
+    params: IWithdrawBaseParams & { expectedAccountAddress?: string },
+  ) {
+    const {
+      networkId,
+      accountId,
+      protocolVault,
+      effectiveApy,
+      expectedAccountAddress,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress ||
+        account.address.toLowerCase() !== expectedAccountAddress.toLowerCase())
+    ) {
+      throw new OneKeyLocalError('Withdrawal account changed');
+    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol: params.symbol,
@@ -510,7 +588,22 @@ class ServiceStaking extends ServiceBase {
       vault: shouldSendProtocolVault ? protocolVault : undefined,
       effectiveApy,
       ...rest,
+      ...(earnUtils.isEtherFiProvider({ providerName: params.provider })
+        ? { amount: normalizeEtherFiAmount(params.amount) }
+        : {}),
     });
+    if (earnUtils.isEtherFiProvider({ providerName: params.provider })) {
+      assertEtherFiWithdrawTransaction({
+        tx: resp.data.data.tx,
+        networkId,
+        vault: protocolVault,
+        accountAddress: account.address,
+        amount: params.amount,
+        outputTokenAddress: params.outputTokenAddress,
+        withdrawType: params.withdrawType,
+        identity: params.identity,
+      });
+    }
     return resp.data.data;
   }
 
@@ -665,6 +758,14 @@ class ServiceStaking extends ServiceBase {
   async getStakeHistory(params: IStakeHistoryParams) {
     const { networkId, accountId, protocolVault, type, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
+    if (
+      networkId === getNetworkIdsMap().eth &&
+      earnUtils.isEtherFiProvider({ providerName: params.provider })
+    ) {
+      void this.retryUnsentEtherFiOrders({ accountId, networkId }).catch(() => {
+        console.warn('EtherFi order retry could not be started');
+      });
+    }
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
@@ -1184,10 +1285,19 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     provider: string;
     vault?: string;
+    expectedAccountAddress?: string;
   }) {
-    const { networkId, accountId, symbol, ...rest } = params;
+    const { networkId, accountId, symbol, expectedAccountAddress, ...rest } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
+    if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress ||
+        acc.address.toLowerCase() !== expectedAccountAddress.toLowerCase())
+    ) {
+      throw new OneKeyLocalError('Withdrawal account changed');
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
@@ -1765,6 +1875,7 @@ class ServiceStaking extends ServiceBase {
   async checkAmount({
     networkId,
     accountId,
+    expectedAccountAddress,
     symbol,
     provider,
     action,
@@ -1780,6 +1891,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId?: string;
     networkId?: string;
+    expectedAccountAddress?: string;
     symbol?: string;
     provider?: string;
     action: ECheckAmountActionType;
@@ -1803,6 +1915,13 @@ class ServiceStaking extends ServiceBase {
     });
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (
+      expectedAccountAddress !== undefined &&
+      (!expectedAccountAddress ||
+        account.address.toLowerCase() !== expectedAccountAddress.toLowerCase())
+    ) {
+      throw new OneKeyLocalError('Amount check account changed');
+    }
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(amount || 0);
     const result = await client.get<
@@ -2342,6 +2461,9 @@ class ServiceStaking extends ServiceBase {
     const sendParams: Record<string, string | number | boolean | undefined> = {
       symbol,
       ...rest,
+      ...(earnUtils.isEtherFiProvider({ providerName: params.provider })
+        ? { amount: normalizeEtherFiAmount(params.amount) }
+        : {}),
     };
     if (
       earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
@@ -2356,10 +2478,100 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/estimate-fee`, {
       params: sendParams,
     });
+    if (earnUtils.isEtherFiProvider({ providerName: params.provider })) {
+      const value = resp.data.data?.feeFiatValue;
+      const amount = new BigNumber(value ?? NaN);
+      if (
+        typeof value !== 'string' ||
+        !amount.isFinite() ||
+        amount.isNegative()
+      ) {
+        throw new OneKeyLocalError('EtherFi fee estimate unavailable');
+      }
+    }
     return {
       ...resp.data.data,
       feeFiatValue: resp.data.data.feeFiatValue ?? '0',
     };
+  }
+
+  @backgroundMethod()
+  async checkEtherFiNativeDepositTx(params: {
+    accountId: string;
+    accountAddress: string;
+    networkId: string;
+    vault: string;
+    amount: string;
+    txid: string;
+    phase: 'wrap' | 'approve' | 'deposit';
+  }) {
+    if (
+      params.networkId !== getNetworkIdsMap().eth ||
+      typeof params.accountId !== 'string' ||
+      !params.accountId ||
+      typeof params.accountAddress !== 'string' ||
+      !/^0x[0-9a-f]{40}$/i.test(params.accountAddress) ||
+      typeof params.vault !== 'string' ||
+      !/^0x[0-9a-f]{40}$/i.test(params.vault) ||
+      !getEtherFiVaultConfig(params.vault)?.inputs.some(
+        (asset) => asset.symbol === 'ETH' && !asset.address,
+      ) ||
+      typeof params.amount !== 'string' ||
+      !/^(?:\d{1,78}(?:\.\d{0,18})?|\.\d{1,18})$/.test(params.amount) ||
+      !new BigNumber(params.amount).isFinite() ||
+      new BigNumber(params.amount).lte(0) ||
+      !new BigNumber(params.amount).shiftedBy(18).isInteger() ||
+      new BigNumber(params.amount)
+        .shiftedBy(18)
+        .gt(new BigNumber(2).pow(256).minus(1)) ||
+      typeof params.txid !== 'string' ||
+      !/^0x[0-9a-f]{64}$/i.test(params.txid) ||
+      !['wrap', 'approve', 'deposit'].includes(params.phase)
+    ) {
+      throw new OneKeyLocalError('Invalid EtherFi recovery request');
+    }
+    const actualAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId: params.accountId,
+        networkId: params.networkId,
+      });
+    if (
+      !actualAddress ||
+      actualAddress.toLowerCase() !== params.accountAddress.toLowerCase()
+    ) {
+      throw new OneKeyLocalError(
+        'EtherFi recovery account or transaction changed',
+      );
+    }
+    const request = (method: string) =>
+      this.backgroundApi.serviceDApp.proxyRPCCall<unknown>({
+        networkId: params.networkId,
+        origin: 'onekey://earn',
+        request: { method, params: [params.txid] },
+      });
+    const [txResponse, receiptResponse] = await Promise.all([
+      request('eth_getTransactionByHash'),
+      request('eth_getTransactionReceipt'),
+    ]);
+    if (!txResponse.length || !receiptResponse.length) {
+      throw new OneKeyLocalError('EtherFi recovery RPC response unavailable');
+    }
+    const [tx, receipt] = await Promise.all([
+      txResponse[0],
+      receiptResponse[0],
+    ]);
+    const currentAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId: params.accountId,
+        networkId: params.networkId,
+      });
+    if (
+      !currentAddress ||
+      currentAddress.toLowerCase() !== params.accountAddress.toLowerCase()
+    ) {
+      throw new OneKeyLocalError('EtherFi recovery account changed');
+    }
+    return classifyEtherFiRecoveryTransaction({ ...params, tx, receipt });
   }
 
   @backgroundMethod()
@@ -2420,13 +2632,18 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addEarnOrder(order: IAddEarnOrderParams) {
+  async addEarnOrder(
+    order: IAddEarnOrderParams,
+    options?: { etherFiOnce: true; accountId: string },
+  ) {
     defaultLogger.staking.order.addOrder({
       status: order.status,
       stakingLabel: order.stakingLabel,
       stakingProtocol: order.stakingProtocol,
       stakingTags: order.stakingTags,
     });
+    if (options?.etherFiOnce)
+      return this.addEtherFiOrderOnce(order, options.accountId);
     await simpleDb.earnOrders.addOrder(order);
     try {
       await this.updateEarnOrderStatusToServer({
@@ -2438,6 +2655,194 @@ class ServiceStaking extends ServiceBase {
         status: order.status,
       });
     }
+  }
+
+  private async addEtherFiOrderOnce(
+    order: IAddEarnOrderParams,
+    accountId: string,
+  ): Promise<IEtherFiOrderSyncResult> {
+    if (
+      !order ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      order.networkId !== getNetworkIdsMap().eth ||
+      typeof order.orderId !== 'string' ||
+      !order.orderId.trim() ||
+      typeof order.txId !== 'string' ||
+      !/^0x[0-9a-f]{64}$/i.test(order.txId)
+    )
+      return 'conflict';
+    const normalizedOrder = { ...order, txId: order.txId.toLowerCase() };
+    const key = JSON.stringify([
+      normalizedOrder.orderId,
+      normalizedOrder.networkId,
+      normalizedOrder.txId,
+      accountId,
+    ]);
+    const existing = this.etherFiOrderSyncInFlight.get(key);
+    if (existing) return existing;
+    const request = this.persistEtherFiOrderOnce(normalizedOrder, accountId);
+    this.etherFiOrderSyncInFlight.set(key, request);
+    try {
+      return await request;
+    } finally {
+      if (this.etherFiOrderSyncInFlight.get(key) === request)
+        this.etherFiOrderSyncInFlight.delete(key);
+    }
+  }
+
+  private async persistEtherFiOrderOnce(
+    order: IAddEarnOrderParams,
+    accountId: string,
+  ): Promise<IEtherFiOrderSyncResult> {
+    let localResult: 'inserted' | 'existing' | 'conflict' | 'unavailable';
+    try {
+      localResult =
+        await this.backgroundApi.simpleDb.earnOrders.addOrderIfAbsent(
+          order,
+          accountId,
+        );
+      if (localResult === 'existing') {
+        const current =
+          await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(
+            order.txId,
+          );
+        if (current?.etherFiSyncStatus === 'synced') return 'synced';
+        if (current?.etherFiSyncStatus !== 'notSent') return 'remoteUnknown';
+      }
+    } catch {
+      return 'localFailed';
+    }
+    if (localResult !== 'inserted' && localResult !== 'existing')
+      return localResult;
+    const client = await this.getClient(EServiceEndpointEnum.Earn).catch(
+      () => undefined,
+    );
+    if (!client) return 'notSent';
+    let claimed: boolean;
+    try {
+      claimed =
+        await this.backgroundApi.simpleDb.earnOrders.claimEtherFiOrderRetry({
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+        });
+    } catch {
+      return 'localFailed';
+    }
+    if (!claimed) return 'remoteUnknown';
+    try {
+      const response = await client.post<{
+        code?: number;
+        data?: unknown;
+      }>('/earn/v1/orders', {
+        orderId: order.orderId,
+        networkId: order.networkId,
+        txId: order.txId,
+      });
+      if (
+        response.data?.code !== 0 ||
+        (response.data.data !== undefined && response.data.data !== null)
+      ) {
+        await this.backgroundApi.simpleDb.earnOrders.updateEtherFiSyncStatus({
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+          status: 'unknown',
+        });
+        return 'remoteUnknown';
+      }
+      const saved =
+        await this.backgroundApi.simpleDb.earnOrders.updateEtherFiSyncStatus({
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+          status: 'synced',
+        });
+      return saved ? 'synced' : 'remoteUnknown';
+    } catch {
+      try {
+        await this.backgroundApi.simpleDb.earnOrders.updateEtherFiSyncStatus({
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+          status: 'unknown',
+        });
+      } catch {
+        // A pending local record still preserves the uncertain outcome.
+      }
+      return 'remoteUnknown';
+    }
+  }
+
+  @backgroundMethod()
+  async recordLateEtherFiOrder({
+    uuid,
+    accountId,
+    networkId,
+    order,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    order: IAddEarnOrderParams;
+  }): Promise<
+    | 'unknown'
+    | 'conflict'
+    | 'unavailable'
+    | 'localFailed'
+    | 'notSent'
+    | 'synced'
+    | 'remoteUnknown'
+  > {
+    if (
+      typeof uuid !== 'string' ||
+      !uuid.trim() ||
+      uuid.length > 256 ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      networkId !== getNetworkIdsMap().eth ||
+      !order ||
+      typeof order.orderId !== 'string' ||
+      !order.orderId.trim() ||
+      order.orderId.length > 256 ||
+      order.networkId !== networkId ||
+      typeof order.txId !== 'string' ||
+      !/^0x[0-9a-f]{64}$/i.test(order.txId) ||
+      order.status !== EDecodedTxStatus.Pending
+    )
+      return 'unknown';
+    const fact =
+      await this.backgroundApi.serviceSend.getBroadcastAcceptanceFactByUuid({
+        uuid,
+        accountId,
+        networkId,
+      });
+    if (
+      fact.status !== 'accepted' ||
+      fact.uuid !== uuid ||
+      fact.accountId !== accountId ||
+      fact.networkId !== networkId ||
+      fact.txid.toLowerCase() !== order.txId.toLowerCase()
+    )
+      return 'unknown';
+    return this.addEtherFiOrderOnce(order, accountId);
+  }
+
+  private async retryUnsentEtherFiOrders({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const orders =
+      await this.backgroundApi.simpleDb.earnOrders.getUnsentEtherFiOrders({
+        accountId,
+        networkId,
+      });
+    for (const order of orders)
+      await this.addEtherFiOrderOnce(order, accountId);
   }
 
   @backgroundMethod()
@@ -2458,8 +2863,13 @@ class ServiceStaking extends ServiceBase {
       try {
         const order =
           await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
+        const matchesEtherFiScope =
+          !order?.etherFiSyncStatus ||
+          (order.etherFiAccountId === tx.accountId &&
+            order.networkId === tx.networkId);
         const shouldUpdate =
           Boolean(order) &&
+          matchesEtherFiScope &&
           tx.status !== EDecodedTxStatus.Pending &&
           order?.status !== tx.status;
         if (order && shouldUpdate) {
@@ -2467,7 +2877,18 @@ class ServiceStaking extends ServiceBase {
             ...order,
             status: tx.status,
           };
-          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
+          if (order.etherFiSyncStatus === 'notSent') {
+            if (order.etherFiAccountId)
+              await this.addEtherFiOrderOnce(
+                updatedOrder,
+                order.etherFiAccountId,
+              );
+          } else if (
+            order.etherFiSyncStatus !== 'pending' &&
+            order.etherFiSyncStatus !== 'unknown'
+          ) {
+            await this.updateEarnOrderStatusToServer({ order: updatedOrder });
+          }
           await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
             currentTxId: tx.txId,
             status: tx.status,

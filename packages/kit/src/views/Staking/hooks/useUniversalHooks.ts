@@ -10,9 +10,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EtherFiLiquidReferContract,
+  EthereumWETH,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -33,7 +38,11 @@ import {
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxStatus,
+  type IBroadcastAcceptedFact,
+  type ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import { runClaimConversion } from '../components/ClaimConversionDialog';
 import {
@@ -42,6 +51,12 @@ import {
 } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
 import { showServerExecutedOrderDialog } from '../components/ServerExecutedOrderDialog';
+
+import { etherFiDepositRecovery } from './etherFiDepositRecovery';
+import {
+  getEtherFiNativeRecoveryBalance,
+  refreshEtherFiNativeDepositRecovery,
+} from './useEtherFiNativeDepositRecovery';
 
 import type { IntlShape } from 'react-intl';
 
@@ -64,6 +79,56 @@ const getEarnOrderTrackingInfo = (stakingInfo?: IStakingInfo) => ({
   stakingProtocol: stakingInfo?.protocol,
   stakingTags: stakingInfo?.tags,
 });
+
+async function recordLateEtherFiOrder({
+  fact,
+  accountId,
+  networkId,
+  stakeInfo,
+  signal,
+  intl,
+}: {
+  fact: IBroadcastAcceptedFact;
+  accountId: string;
+  networkId: string;
+  stakeInfo?: IStakingInfo;
+  signal?: AbortSignal;
+  intl: IntlShape;
+}) {
+  if (
+    !stakeInfo?.orderId ||
+    fact.accountId !== accountId ||
+    fact.networkId !== networkId
+  )
+    return;
+  let result: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceStaking.recordLateEtherFiOrder>
+  >;
+  try {
+    result = await backgroundApiProxy.serviceStaking.recordLateEtherFiOrder({
+      uuid: fact.uuid,
+      accountId,
+      networkId,
+      order: {
+        orderId: stakeInfo.orderId,
+        networkId,
+        txId: fact.txid,
+        status: EDecodedTxStatus.Pending,
+        ...getEarnOrderTrackingInfo(stakeInfo),
+      },
+    });
+  } catch {
+    result = 'unknown';
+  }
+  if (result === 'synced') return;
+  if (!signal?.aborted) {
+    Toast.error({
+      title: intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
+    });
+  } else {
+    console.warn('EtherFi late order synchronization is incomplete');
+  }
+}
 
 type ITxConfirmResult =
   | {
@@ -126,21 +191,48 @@ const handleStakeSuccess = async ({
   stakeInfo,
   networkId,
   onSuccess,
+  etherFiOrder,
 }: {
   data: ISendTxOnSuccessData[];
   stakeInfo?: IStakingInfo;
   networkId: string;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+  etherFiOrder?: { signal?: AbortSignal; intl: IntlShape; accountId: string };
 }) => {
   const orderTx = Array.isArray(data) ? data[data.length - 1] : undefined;
   if (orderTx?.signedTx?.txid && stakeInfo?.orderId) {
-    await backgroundApiProxy.serviceStaking.addEarnOrder({
+    const order = {
       orderId: stakeInfo.orderId,
       networkId,
       txId: orderTx.signedTx.txid,
       status: orderTx.decodedTx.status,
       ...getEarnOrderTrackingInfo(stakeInfo),
-    });
+    };
+    if (!etherFiOrder) {
+      await backgroundApiProxy.serviceStaking.addEarnOrder(order);
+    } else {
+      let synced = false;
+      try {
+        synced =
+          (await backgroundApiProxy.serviceStaking.addEarnOrder(order, {
+            etherFiOnce: true,
+            accountId: etherFiOrder.accountId,
+          })) === 'synced';
+      } catch {
+        synced = false;
+      }
+      if (!synced) {
+        if (!etherFiOrder.signal?.aborted) {
+          Toast.error({
+            title: etherFiOrder.intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        } else {
+          console.warn('EtherFi order synchronization is incomplete');
+        }
+      }
+    }
   }
   onSuccess?.(data);
 };
@@ -164,12 +256,22 @@ export function useUniversalStake({
       approvesInfo,
       useFeeInTx,
       feeInfoEditable,
+      signal,
+      verifyAccount,
+      onAttemptStarted,
+      onTransactionSuccess,
+      onLateBroadcastAccepted,
     }: {
       encodedTx?: IEncodedTx;
       stakingInfo?: IStakingInfo;
       approvesInfo?: IApproveInfo[];
       useFeeInTx?: boolean;
       feeInfoEditable?: boolean;
+      signal?: AbortSignal;
+      verifyAccount?: () => Promise<void>;
+      onAttemptStarted?: (uuid: string) => void;
+      onTransactionSuccess?: (data: ISendTxOnSuccessData[]) => void;
+      onLateBroadcastAccepted?: (fact: IBroadcastAcceptedFact) => void;
     }): Promise<ITxConfirmResult> =>
       new Promise((resolve, reject) => {
         let settled = false;
@@ -179,6 +281,7 @@ export function useUniversalStake({
             return;
           }
           settled = true;
+          signal?.removeEventListener('abort', onAbort);
           resolve(result);
         };
 
@@ -187,8 +290,18 @@ export function useUniversalStake({
             return;
           }
           settled = true;
+          signal?.removeEventListener('abort', onAbort);
           reject(error);
         };
+
+        function onAbort() {
+          resolveOnce({ status: 'cancel' });
+        }
+        if (signal?.aborted) {
+          onAbort();
+          return;
+        }
+        signal?.addEventListener('abort', onAbort, { once: true });
 
         void navigationToTxConfirm({
           encodedTx,
@@ -196,9 +309,33 @@ export function useUniversalStake({
           approvesInfo,
           useFeeInTx,
           feeInfoEditable,
-          onSuccess: (data) => resolveOnce({ status: 'success', data }),
+          isNavigationCurrent: signal
+            ? () => !signal.aborted && !settled
+            : undefined,
+          onNavigationSkipped: signal ? onAbort : undefined,
+          onBeforeSend: signal
+            ? async () => {
+                if (signal.aborted || settled)
+                  throw new OneKeyLocalError('Stake context expired');
+                await verifyAccount?.();
+                if (signal.aborted || settled)
+                  throw new OneKeyLocalError('Stake context expired');
+              }
+            : undefined,
+          onBroadcastStart: signal
+            ? (uuid) => {
+                if (signal.aborted || settled)
+                  throw new OneKeyLocalError('Stake context expired');
+                onAttemptStarted?.(uuid);
+              }
+            : undefined,
+          onSuccess: (data) => {
+            onTransactionSuccess?.(data);
+            resolveOnce({ status: 'success', data });
+          },
           onFail: (error) => rejectOnce(error),
           onCancel: () => resolveOnce({ status: 'cancel' }),
+          onLateBroadcastAccepted,
         }).catch((error) => rejectOnce(error));
       }),
     [navigationToTxConfirm],
@@ -207,6 +344,12 @@ export function useUniversalStake({
   return useCallback(
     async ({
       amount,
+      actionSignal,
+      verifyEtherFiLegacyApproval,
+      etherFiNativeRecovery,
+      beforeEtherFiPostWrapDeposit,
+      onTransactionSubmitted,
+      expectedAccountAddress,
       symbol,
       term,
       feeRate,
@@ -232,6 +375,12 @@ export function useUniversalStake({
       utm,
     }: {
       amount: string;
+      actionSignal?: AbortSignal;
+      verifyEtherFiLegacyApproval?: () => Promise<boolean>;
+      etherFiNativeRecovery?: { id: symbol; owner: symbol; amount: string };
+      beforeEtherFiPostWrapDeposit?: (signal?: AbortSignal) => Promise<boolean>;
+      onTransactionSubmitted?: () => void;
+      expectedAccountAddress?: string;
       symbol: string;
       term?: number;
       feeRate?: number;
@@ -273,6 +422,33 @@ export function useUniversalStake({
       if (!riskConfirmed) {
         return false;
       }
+      if (actionSignal?.aborted) return false;
+      if (
+        earnUtils.isEtherFiProvider({ providerName: provider }) &&
+        !expectedAccountAddress
+      ) {
+        throw new OneKeyLocalError('Stake account unavailable');
+      }
+      const verifyAccount = expectedAccountAddress
+        ? async () => {
+            const account = await backgroundApiProxy.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            });
+            if (
+              account.address.toLowerCase() !==
+              expectedAccountAddress.toLowerCase()
+            ) {
+              throw new OneKeyLocalError('Stake account changed');
+            }
+            if (
+              verifyEtherFiLegacyApproval &&
+              !(await verifyEtherFiLegacyApproval())
+            ) {
+              throw new OneKeyLocalError('Legacy approval changed');
+            }
+          }
+        : undefined;
       const buildStakeConfirmPayload = async ({
         confirmStakeType = stakeType,
         confirmInputTokenAddress = inputTokenAddress,
@@ -287,6 +463,7 @@ export function useUniversalStake({
             amount,
             networkId,
             accountId,
+            expectedAccountAddress,
             symbol,
             term,
             provider,
@@ -354,207 +531,491 @@ export function useUniversalStake({
           );
         }
 
-        const wrapConfirmPayload = await buildStakeConfirmPayload({
-          confirmStakeType: 'wrap',
-          confirmStakingInfo: undefined,
+        const isEtherFi = earnUtils.isEtherFiProvider({
+          providerName: provider,
         });
-        if (wrapConfirmPayload.serverOrderId) {
-          throw new OneKeyLocalError(
-            'Native wrap staking cannot be executed by the protocol',
+        const recoverable =
+          isEtherFi &&
+          Boolean(actionSignal && expectedAccountAddress && protocolVault);
+        if (etherFiNativeRecovery && !recoverable)
+          throw new OneKeyLocalError('EtherFi recovery context unavailable');
+        let recoveryId: symbol | undefined = etherFiNativeRecovery?.id;
+        let recoveryOwner: symbol | undefined = etherFiNativeRecovery?.owner;
+        const wrapAttempt: { value?: symbol; uuid?: string } = {};
+        const approvalAttempt: { value?: symbol; uuid?: string } = {};
+        const depositAttempt: { value?: symbol; uuid?: string } = {};
+        let handedOff = false;
+        let preserveRecoveryOwner = false;
+        const detachRecovery = () => {
+          if (recoveryId && recoveryOwner)
+            etherFiDepositRecovery.detach(recoveryId, recoveryOwner);
+        };
+        actionSignal?.addEventListener('abort', detachRecovery, { once: true });
+        const startRecoveryAttempt = (
+          attempt: { value?: symbol; uuid?: string },
+          phase: 'wrap' | 'approve' | 'deposit',
+          uuid: string,
+        ) => {
+          if (!recoverable || !expectedAccountAddress || !protocolVault) return;
+          if (attempt.value) {
+            const record = recoveryId
+              ? etherFiDepositRecovery.get(recoveryId)
+              : undefined;
+            if (
+              attempt.uuid === uuid &&
+              record?.attemptId === attempt.value &&
+              record.owner === recoveryOwner &&
+              !record.detached &&
+              record.phase === phase &&
+              record.status === 'unknown'
+            )
+              return;
+            throw new OneKeyLocalError(
+              'EtherFi recovery step is already pending',
+            );
+          }
+          recoveryId ??= etherFiDepositRecovery.begin(
+            {
+              accountId,
+              accountAddress: expectedAccountAddress,
+              networkId,
+              vault: protocolVault,
+            },
+            amount,
+            'wrap',
           );
-        }
-
-        let wrapConfirmResult: ITxConfirmResult;
+          recoveryOwner ??= recoveryId;
+          const nextAttempt = etherFiDepositRecovery.markSending(
+            recoveryId,
+            recoveryOwner,
+            phase,
+          );
+          if (!nextAttempt)
+            throw new OneKeyLocalError(
+              'EtherFi recovery step is already pending',
+            );
+          attempt.value = nextAttempt;
+          attempt.uuid = uuid;
+        };
+        const recordRecoveryTransaction = (
+          attempt: { value?: symbol },
+          data: ISendTxOnSuccessData[],
+        ) => {
+          if (!recoveryId || !attempt.value) return;
+          const txid = data[0]?.signedTx?.txid || data[0]?.decodedTx?.txid;
+          if (txid)
+            etherFiDepositRecovery.recordTxid(recoveryId, attempt.value, txid);
+        };
+        const recordLateRecoveryTransaction = (
+          attempt: { value?: symbol },
+          fact: IBroadcastAcceptedFact,
+        ) => {
+          if (!recoveryId || !attempt.value) return;
+          if (
+            etherFiDepositRecovery.recordTxid(
+              recoveryId,
+              attempt.value,
+              fact.txid,
+            )
+          )
+            void refreshEtherFiNativeDepositRecovery(recoveryId).catch(
+              () => undefined,
+            );
+        };
+        const prepareRecoveryPhase = (phase: 'approve' | 'deposit') => {
+          if (!recoveryId || !recoveryOwner) return true;
+          const record = etherFiDepositRecovery.get(recoveryId);
+          if (!record || record.owner !== recoveryOwner || record.detached)
+            return false;
+          if (record.phase === phase && record.status === 'preparing')
+            return true;
+          if (
+            record.status === 'preparing' &&
+            record.completedPhases.includes('wrap')
+          ) {
+            return etherFiDepositRecovery.replanUnsent(
+              recoveryId,
+              recoveryOwner,
+              phase,
+            );
+          }
+          return etherFiDepositRecovery.advance(
+            recoveryId,
+            recoveryOwner,
+            phase,
+          );
+        };
         try {
-          wrapConfirmResult = await waitForTxConfirmResult({
-            encodedTx: wrapConfirmPayload.encodedTx,
-            stakingInfo: wrapConfirmPayload.stakeInfoWithOrderId,
-            useFeeInTx: wrapConfirmPayload.useFeeInTx,
-            feeInfoEditable: wrapConfirmPayload.feeInfoEditable,
-          });
-        } catch (error) {
-          onFail?.(error as Error);
-          return false;
-        }
-
-        if (wrapConfirmResult.status !== 'success') {
-          return false;
-        }
-
-        await handleStakeSuccess({
-          data: wrapConfirmResult.data,
-          stakeInfo: wrapConfirmPayload.stakeInfoWithOrderId,
-          networkId,
-        });
-
-        const wrapTxId =
-          wrapConfirmResult.data[0]?.signedTx?.txid ??
-          wrapConfirmResult.data[0]?.decodedTx?.txid;
-        if (!wrapTxId) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_failed,
-            }),
-          });
-          return false;
-        }
-
-        const wrapStatus = await waitForTxFinalStatus({
-          accountId,
-          networkId,
-          txid: wrapTxId,
-        });
-        if (wrapStatus !== EOnChainHistoryTxStatus.Success) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_failed,
-            }),
-          });
-          return false;
-        }
-
-        const postWrapStakingInfo = stakingInfo
-          ? {
-              ...stakingInfo,
-              send: stakingInfo.send
-                ? {
-                    ...stakingInfo.send,
-                    token: postWrapStakeToken,
-                  }
-                : undefined,
+          if (etherFiNativeRecovery) {
+            const record = etherFiDepositRecovery.get(etherFiNativeRecovery.id);
+            if (
+              !record ||
+              record.detached ||
+              record.owner !== etherFiNativeRecovery.owner ||
+              record.scope.accountId !== accountId ||
+              record.scope.networkId !== networkId ||
+              record.scope.accountAddress.toLowerCase() !==
+                expectedAccountAddress?.toLowerCase() ||
+              record.scope.vault.toLowerCase() !==
+                protocolVault?.toLowerCase() ||
+              !new BigNumber(record.amount).eq(amount) ||
+              !record.completedPhases.includes('wrap') ||
+              postWrapStakeToken.address.toLowerCase() !==
+                EthereumWETH.toLowerCase() ||
+              postWrapApproveSpenderAddress.toLowerCase() !==
+                EtherFiLiquidReferContract.toLowerCase()
+            )
+              throw new OneKeyLocalError('EtherFi recovery intent changed');
+          } else {
+            const wrapConfirmPayload = await buildStakeConfirmPayload({
+              confirmStakeType: 'wrap',
+              confirmStakingInfo: undefined,
+            });
+            if (actionSignal?.aborted) return false;
+            if (wrapConfirmPayload.serverOrderId) {
+              throw new OneKeyLocalError(
+                'Native wrap staking cannot be executed by the protocol',
+              );
             }
-          : undefined;
 
-        const amountBN = new BigNumber(amount);
-        const fetchPostWrapAllowance = async () => {
-          const allowanceInfo =
-            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+            let wrapConfirmResult: ITxConfirmResult;
+            try {
+              wrapConfirmResult = await waitForTxConfirmResult({
+                encodedTx: wrapConfirmPayload.encodedTx,
+                stakingInfo: wrapConfirmPayload.stakeInfoWithOrderId,
+                useFeeInTx: wrapConfirmPayload.useFeeInTx,
+                feeInfoEditable: wrapConfirmPayload.feeInfoEditable,
+                signal: actionSignal,
+                verifyAccount,
+                onAttemptStarted: (uuid) =>
+                  startRecoveryAttempt(wrapAttempt, 'wrap', uuid),
+                onTransactionSuccess: (data) =>
+                  recordRecoveryTransaction(wrapAttempt, data),
+                onLateBroadcastAccepted: recoverable
+                  ? (fact) => recordLateRecoveryTransaction(wrapAttempt, fact)
+                  : undefined,
+              });
+            } catch (error) {
+              onFail?.(error as Error);
+              return false;
+            }
+
+            if (wrapConfirmResult.status !== 'success') {
+              return false;
+            }
+            if (actionSignal?.aborted) return false;
+
+            await handleStakeSuccess({
+              data: wrapConfirmResult.data,
+              stakeInfo: wrapConfirmPayload.stakeInfoWithOrderId,
+              networkId,
+            });
+
+            const wrapTxId =
+              wrapConfirmResult.data[0]?.signedTx?.txid ||
+              wrapConfirmResult.data[0]?.decodedTx?.txid;
+            if (!wrapTxId) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_failed,
+                }),
+              });
+              return false;
+            }
+
+            const wrapStatus = await waitForTxFinalStatus({
               accountId,
               networkId,
-              spenderAddress: postWrapApproveSpenderAddress,
-              tokenAddress: postWrapStakeToken.address,
+              txid: wrapTxId,
+              signal: actionSignal,
             });
-          return new BigNumber(allowanceInfo.allowanceParsed || '0');
-        };
-        const waitForPostWrapAllowance = async ({
-          maxAttempts = 15,
-          intervalMs = 2000,
-        }: {
-          maxAttempts?: number;
-          intervalMs?: number;
-        } = {}) => {
-          if (amountBN.isNaN() || amountBN.lte(0)) {
-            return true;
+            if (actionSignal?.aborted) return false;
+            const verifiedWrapStatus = recoveryId
+              ? await refreshEtherFiNativeDepositRecovery(recoveryId).catch(
+                  () => 'pending' as const,
+                )
+              : undefined;
+            if (
+              (recoveryId && verifiedWrapStatus !== 'success') ||
+              (!recoveryId && wrapStatus !== EOnChainHistoryTxStatus.Success)
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id:
+                    recoveryId && verifiedWrapStatus !== 'failed'
+                      ? ETranslations.global_pending
+                      : ETranslations.global_failed,
+                }),
+              });
+              return false;
+            }
           }
 
-          for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-            try {
-              const latestAllowanceBN = await fetchPostWrapAllowance();
-              if (
-                !latestAllowanceBN.isNaN() &&
-                latestAllowanceBN.gte(amountBN)
-              ) {
-                return true;
+          if (recoveryId && expectedAccountAddress && protocolVault) {
+            await getEtherFiNativeRecoveryBalance({
+              scope: {
+                accountId,
+                accountAddress: expectedAccountAddress,
+                networkId,
+                vault: protocolVault,
+              },
+              amount,
+              isCurrent: () => Boolean(actionSignal && !actionSignal.aborted),
+            });
+          }
+
+          const postWrapStakingInfo = stakingInfo
+            ? {
+                ...stakingInfo,
+                send: stakingInfo.send
+                  ? {
+                      ...stakingInfo.send,
+                      token: postWrapStakeToken,
+                    }
+                  : undefined,
               }
-            } catch {
-              // Keep polling; a transient allowance read should not abort the
-              // post-approve stake step.
+            : undefined;
+
+          const amountBN = new BigNumber(amount);
+          const fetchPostWrapAllowance = async () => {
+            const allowanceInfo =
+              await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+                accountId,
+                networkId,
+                expectedAccountAddress: earnUtils.isEtherFiProvider({
+                  providerName: provider,
+                })
+                  ? expectedAccountAddress
+                  : undefined,
+                spenderAddress: postWrapApproveSpenderAddress,
+                tokenAddress: postWrapStakeToken.address,
+              });
+            return new BigNumber(allowanceInfo.allowanceParsed || '0');
+          };
+          const waitForPostWrapAllowance = async ({
+            maxAttempts = 15,
+            intervalMs = 2000,
+          }: {
+            maxAttempts?: number;
+            intervalMs?: number;
+          } = {}) => {
+            if (amountBN.isNaN() || amountBN.lte(0)) {
+              return true;
             }
 
-            if (attempt < maxAttempts - 1) {
-              await timerUtils.wait(intervalMs);
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+              try {
+                const latestAllowanceBN = await fetchPostWrapAllowance();
+                if (
+                  !latestAllowanceBN.isNaN() &&
+                  latestAllowanceBN.gte(amountBN)
+                ) {
+                  return true;
+                }
+              } catch {
+                // Keep polling; a transient allowance read should not abort the
+                // post-approve stake step.
+              }
+
+              if (attempt < maxAttempts - 1) {
+                await timerUtils.wait(intervalMs);
+              }
             }
-          }
 
-          return false;
-        };
+            return false;
+          };
 
-        const allowanceBN = await fetchPostWrapAllowance();
-        const shouldApprovePostWrapStake =
-          !amountBN.isNaN() && !allowanceBN.isNaN() && allowanceBN.lt(amountBN);
-        onStepChange?.(2, {
-          shouldShowPostWrapApproveStep: shouldApprovePostWrapStake,
-        });
-
-        await timerUtils.wait(150);
-
-        if (shouldApprovePostWrapStake) {
-          const account = await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
+          const allowanceBN = await fetchPostWrapAllowance();
+          if (actionSignal?.aborted) return false;
+          const shouldApprovePostWrapStake =
+            !amountBN.isNaN() &&
+            !allowanceBN.isNaN() &&
+            allowanceBN.lt(amountBN);
+          onStepChange?.(2, {
+            shouldShowPostWrapApproveStep: shouldApprovePostWrapStake,
           });
-
-          let approveConfirmResult: ITxConfirmResult;
-          try {
-            approveConfirmResult = await waitForTxConfirmResult({
-              approvesInfo: [
-                {
-                  owner: account.address,
-                  spender: postWrapApproveSpenderAddress,
-                  amount,
-                  tokenInfo: postWrapStakeToken,
-                },
-              ],
-            });
-          } catch (error) {
-            onFail?.(error as Error);
-            return false;
-          }
-
-          if (approveConfirmResult.status !== 'success') {
-            return false;
-          }
 
           await timerUtils.wait(150);
 
-          const allowanceReady = await waitForPostWrapAllowance();
-          if (!allowanceReady) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_failed,
-              }),
+          if (shouldApprovePostWrapStake) {
+            const account = await backgroundApiProxy.serviceAccount.getAccount({
+              accountId,
+              networkId,
             });
-            return false;
+            if (actionSignal?.aborted) return false;
+            if (!prepareRecoveryPhase('approve')) return false;
+
+            let approveConfirmResult: ITxConfirmResult;
+            try {
+              approveConfirmResult = await waitForTxConfirmResult({
+                approvesInfo: [
+                  {
+                    owner: account.address,
+                    spender: postWrapApproveSpenderAddress,
+                    amount,
+                    tokenInfo: postWrapStakeToken,
+                  },
+                ],
+                signal: actionSignal,
+                verifyAccount,
+                onAttemptStarted: (uuid) =>
+                  startRecoveryAttempt(approvalAttempt, 'approve', uuid),
+                onTransactionSuccess: (data) =>
+                  recordRecoveryTransaction(approvalAttempt, data),
+                onLateBroadcastAccepted: recoverable
+                  ? (fact) =>
+                      recordLateRecoveryTransaction(approvalAttempt, fact)
+                  : undefined,
+              });
+            } catch (error) {
+              onFail?.(error as Error);
+              return false;
+            }
+
+            if (approveConfirmResult.status !== 'success') {
+              return false;
+            }
+
+            if (recoveryId) {
+              const approvalTxId =
+                approveConfirmResult.data[0]?.signedTx?.txid ||
+                approveConfirmResult.data[0]?.decodedTx?.txid;
+              if (!approvalTxId) return false;
+              await waitForTxFinalStatus({
+                accountId,
+                networkId,
+                txid: approvalTxId,
+                signal: actionSignal,
+              });
+              if (actionSignal?.aborted) return false;
+              const verifiedApproval =
+                await refreshEtherFiNativeDepositRecovery(recoveryId).catch(
+                  () => 'pending' as const,
+                );
+              if (verifiedApproval !== 'success') return false;
+            }
+
+            await timerUtils.wait(150);
+
+            const allowanceReady = await waitForPostWrapAllowance();
+            if (actionSignal?.aborted) return false;
+            if (!allowanceReady) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_failed,
+                }),
+              });
+              return false;
+            }
+
+            onStepChange?.(3);
           }
 
-          onStepChange?.(3);
-        }
+          if (!prepareRecoveryPhase('deposit')) return false;
 
-        const normalConfirmPayload = await buildStakeConfirmPayload({
-          confirmStakeType: 'normal',
-          confirmInputTokenAddress: postWrapStakeToken.address,
-          confirmStakingInfo: postWrapStakingInfo,
-        });
-        if (normalConfirmPayload.serverOrderId) {
-          return handleServerExecutedOrder({
-            orderId: normalConfirmPayload.serverOrderId,
-            networkId,
-            accountId,
-            intl,
-            onSuccess,
-            onFail,
+          if (recoverable) {
+            const confirmed =
+              await beforeEtherFiPostWrapDeposit?.(actionSignal);
+            if (!confirmed || actionSignal?.aborted) {
+              preserveRecoveryOwner = Boolean(
+                etherFiNativeRecovery && !actionSignal?.aborted,
+              );
+              return false;
+            }
+          }
+
+          const normalConfirmPayload = await buildStakeConfirmPayload({
+            confirmStakeType: 'normal',
+            confirmInputTokenAddress: postWrapStakeToken.address,
+            confirmStakingInfo: postWrapStakingInfo,
           });
-        }
-
-        await navigationToTxConfirm({
-          encodedTx: normalConfirmPayload.encodedTx,
-          stakingInfo: normalConfirmPayload.stakeInfoWithOrderId,
-          onSuccess: async (data) => {
-            await handleStakeSuccess({
-              data,
-              stakeInfo: normalConfirmPayload.stakeInfoWithOrderId,
+          if (actionSignal?.aborted) return false;
+          if (normalConfirmPayload.serverOrderId) {
+            return handleServerExecutedOrder({
+              orderId: normalConfirmPayload.serverOrderId,
               networkId,
+              accountId,
+              intl,
               onSuccess,
+              onFail,
             });
-          },
-          onFail,
-          useFeeInTx: normalConfirmPayload.useFeeInTx,
-          feeInfoEditable: normalConfirmPayload.feeInfoEditable,
-        });
-        return true;
+          }
+
+          await navigationToTxConfirm({
+            encodedTx: normalConfirmPayload.encodedTx,
+            stakingInfo: normalConfirmPayload.stakeInfoWithOrderId,
+            onSuccess: async (data) => {
+              recordRecoveryTransaction(depositAttempt, data);
+              if (recoveryId)
+                void refreshEtherFiNativeDepositRecovery(recoveryId).catch(
+                  () => undefined,
+                );
+              detachRecovery();
+              if (!actionSignal?.aborted) onTransactionSubmitted?.();
+              await handleStakeSuccess({
+                data,
+                stakeInfo: normalConfirmPayload.stakeInfoWithOrderId,
+                networkId,
+                etherFiOrder: isEtherFi
+                  ? { signal: actionSignal, intl, accountId }
+                  : undefined,
+                onSuccess: actionSignal
+                  ? (result) => {
+                      if (!actionSignal.aborted) onSuccess?.(result);
+                    }
+                  : onSuccess,
+              });
+            },
+            onFail: (error) => {
+              detachRecovery();
+              onFail?.(error);
+            },
+            onCancel: detachRecovery,
+            onNavigationSkipped: detachRecovery,
+            onLateBroadcastAccepted: isEtherFi
+              ? async (fact) => {
+                  recordLateRecoveryTransaction(depositAttempt, fact);
+                  await recordLateEtherFiOrder({
+                    fact,
+                    accountId,
+                    networkId,
+                    stakeInfo: normalConfirmPayload.stakeInfoWithOrderId,
+                    signal: actionSignal,
+                    intl,
+                  });
+                }
+              : undefined,
+            useFeeInTx: normalConfirmPayload.useFeeInTx,
+            feeInfoEditable: normalConfirmPayload.feeInfoEditable,
+            isNavigationCurrent: actionSignal
+              ? () => !actionSignal.aborted
+              : undefined,
+            onBeforeSend: actionSignal
+              ? async () => {
+                  if (actionSignal.aborted)
+                    throw new OneKeyLocalError('Stake context expired');
+                  await verifyAccount?.();
+                  if (actionSignal.aborted)
+                    throw new OneKeyLocalError('Stake context expired');
+                }
+              : undefined,
+            onBroadcastStart: actionSignal
+              ? (uuid) => {
+                  if (actionSignal.aborted)
+                    throw new OneKeyLocalError('Stake context expired');
+                  startRecoveryAttempt(depositAttempt, 'deposit', uuid);
+                }
+              : undefined,
+          });
+          handedOff = true;
+          return true;
+        } finally {
+          if (!handedOff && !preserveRecoveryOwner) detachRecovery();
+        }
       }
 
       const stakeConfirmPayload = await buildStakeConfirmPayload();
+      if (actionSignal?.aborted) return false;
       if (stakeConfirmPayload.serverOrderId) {
         return handleServerExecutedOrder({
           orderId: stakeConfirmPayload.serverOrderId,
@@ -570,16 +1031,51 @@ export function useUniversalStake({
         encodedTx: stakeConfirmPayload.encodedTx,
         stakingInfo: stakeConfirmPayload.stakeInfoWithOrderId,
         onSuccess: async (data) => {
+          if (!actionSignal?.aborted) onTransactionSubmitted?.();
           await handleStakeSuccess({
             data,
             stakeInfo: stakeConfirmPayload.stakeInfoWithOrderId,
             networkId,
-            onSuccess,
+            etherFiOrder: earnUtils.isEtherFiProvider({
+              providerName: provider,
+            })
+              ? { signal: actionSignal, intl, accountId }
+              : undefined,
+            onSuccess: actionSignal
+              ? (result) => {
+                  if (!actionSignal.aborted) onSuccess?.(result);
+                }
+              : onSuccess,
           });
         },
         onFail,
+        onLateBroadcastAccepted: earnUtils.isEtherFiProvider({
+          providerName: provider,
+        })
+          ? (fact) =>
+              recordLateEtherFiOrder({
+                fact,
+                accountId,
+                networkId,
+                stakeInfo: stakeConfirmPayload.stakeInfoWithOrderId,
+                signal: actionSignal,
+                intl,
+              })
+          : undefined,
         useFeeInTx: stakeConfirmPayload.useFeeInTx,
         feeInfoEditable: stakeConfirmPayload.feeInfoEditable,
+        isNavigationCurrent: actionSignal
+          ? () => !actionSignal.aborted
+          : undefined,
+        onBeforeSend: actionSignal
+          ? async () => {
+              if (actionSignal.aborted)
+                throw new OneKeyLocalError('Stake context expired');
+              await verifyAccount?.();
+              if (actionSignal.aborted)
+                throw new OneKeyLocalError('Stake context expired');
+            }
+          : undefined,
       });
 
       return true;
@@ -654,6 +1150,7 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
+      expectedAccountAddress,
       inputTokenAddress,
       outputTokenAddress,
       protocolVault,
@@ -672,12 +1169,14 @@ export function useUniversalWithdraw({
       onStepChange,
       onEthenaCooldownUnstakeReady,
       signal,
+      verifyEtherFiLegacyApproval,
       utm,
     }: {
       amount: string;
       symbol: string;
       provider: string;
       identity?: string;
+      expectedAccountAddress?: string;
       inputTokenAddress?: string;
       outputTokenAddress?: string;
       protocolVault?: string;
@@ -696,9 +1195,20 @@ export function useUniversalWithdraw({
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
       signal?: AbortSignal;
+      verifyEtherFiLegacyApproval?: () => Promise<boolean>;
       // Campaign attribution, forwarded to the server unchanged
       utm?: IEarnUtmParams;
     }) => {
+      const isEtherFi = earnUtils.isEtherFiProvider({ providerName: provider });
+      if (
+        isEtherFi &&
+        (!expectedAccountAddress ||
+          !protocolVault ||
+          (withdrawType === 'cancel' && !identity))
+      ) {
+        throw new OneKeyLocalError('EtherFi withdrawal identity is missing');
+      }
+      if (isEtherFi && signal?.aborted) return false;
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returning false lets the caller tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -929,9 +1439,15 @@ export function useUniversalWithdraw({
             inputTokenAddress,
             outputTokenAddress,
             protocolVault,
-            withdrawAll,
+            withdrawAll: earnUtils.resolveEarnWithdrawAll({
+              providerName: provider,
+              withdrawAll,
+            }),
             signature: withdrawSignature,
             message: withdrawMessage,
+            expectedAccountAddress: isEtherFi
+              ? expectedAccountAddress
+              : undefined,
             slippage,
             effectiveApy,
             ...utm,
@@ -993,19 +1509,68 @@ export function useUniversalWithdraw({
         orderId: stakeTx.orderId,
       });
 
+      if (isEtherFi && signal?.aborted) return false;
       await navigationToTxConfirm({
         encodedTx,
         stakingInfo: stakeInfoWithOrderId,
         signOnly: stakingConfig?.withdrawSignOnly,
+        onLateBroadcastAccepted:
+          isEtherFi && !stakingConfig?.withdrawSignOnly
+            ? (fact) =>
+                recordLateEtherFiOrder({
+                  fact,
+                  accountId,
+                  networkId,
+                  stakeInfo: stakeInfoWithOrderId,
+                  signal,
+                  intl,
+                })
+            : undefined,
         useFeeInTx,
         feeInfoEditable,
+        isNavigationCurrent:
+          isEtherFi && signal ? () => !signal.aborted : undefined,
+        onBeforeSend:
+          isEtherFi && signal
+            ? async () => {
+                if (signal.aborted) {
+                  throw new OneKeyLocalError('Withdrawal context expired');
+                }
+                const account =
+                  await backgroundApiProxy.serviceAccount.getAccount({
+                    accountId,
+                    networkId,
+                  });
+                if (
+                  !expectedAccountAddress ||
+                  account.address.toLowerCase() !==
+                    expectedAccountAddress.toLowerCase() ||
+                  signal.aborted
+                ) {
+                  throw new OneKeyLocalError('Withdrawal account changed');
+                }
+                if (
+                  verifyEtherFiLegacyApproval &&
+                  !(await verifyEtherFiLegacyApproval())
+                ) {
+                  throw new OneKeyLocalError('Legacy approval changed');
+                }
+                if (signal.aborted)
+                  throw new OneKeyLocalError('Withdrawal context expired');
+              }
+            : undefined,
         onSuccess: async (data) => {
           if (!stakingConfig?.withdrawSignOnly) {
             await handleStakeSuccess({
               data,
               stakeInfo: stakeInfoWithOrderId,
               networkId,
-              onSuccess,
+              etherFiOrder: isEtherFi ? { signal, intl, accountId } : undefined,
+              onSuccess: isEtherFi
+                ? (result) => {
+                    if (!signal?.aborted) onSuccess?.(result);
+                  }
+                : onSuccess,
             });
           } else {
             const psbtHex = data[0].signedTx.finalizedPsbtHex;

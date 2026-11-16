@@ -30,7 +30,11 @@ import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeT
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
-import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type {
+  EReplaceTxType,
+  IBroadcastAcceptedFact,
+  ISendTxOnSuccessData,
+} from '../../types/tx';
 import type { IZcashMemoEncoding } from '../utils/zcashMemo';
 import type { IWcPayPreBroadcastRecord } from '../walletConnect/payTypes';
 
@@ -112,6 +116,10 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     onBeforeSend?: () => void | Promise<void>;
+    onBroadcastStart?: (uuid: string) => void;
+    onLateBroadcastAccepted?: (
+      fact: IBroadcastAcceptedFact,
+    ) => void | Promise<void>;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     // WalletConnect Pay only: durable pre-broadcast txid record identity
@@ -166,6 +174,10 @@ export type IModalSignatureConfirmParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     onBeforeSend?: () => void | Promise<void>;
+    onBroadcastStart?: (uuid: string) => void;
+    onLateBroadcastAccepted?: (
+      fact: IBroadcastAcceptedFact,
+    ) => void | Promise<void>;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;

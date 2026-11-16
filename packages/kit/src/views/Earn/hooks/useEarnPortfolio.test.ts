@@ -312,6 +312,53 @@ describe('useEarnPortfolio batch refresh', () => {
     expect(result.current.earnTotalFiatValue.toFixed()).toBe('25');
   });
 
+  it.each([
+    { name: 'confirmed empty', value: undefined, errors: [], expected: '15' },
+    {
+      name: 'vault error',
+      value: undefined,
+      errors: [{ symbol: 'sUSDe', vault: 'market-b', errorCode: 'TIMEOUT' }],
+      expected: '25',
+    },
+    { name: 'syncing zero', value: '0', errors: [], expected: '25' },
+  ])(
+    'handles an EtherFi $name batch result per vault',
+    async ({ value, errors, expected }) => {
+      const etherFi = (vault: string, amount = '10') => {
+        const item = investment(vault, amount);
+        return {
+          ...item,
+          protocol: {
+            ...item.protocol,
+            providerDetail: {
+              ...item.protocol.providerDetail,
+              code: 'etherfi',
+            },
+          },
+        };
+      };
+      mockStaking.getAvailableAssetsV2.mockResolvedValue(
+        assets.map((asset) => ({ ...asset, provider: 'etherfi' })),
+      );
+      mockStaking.fetchInvestmentBatchDetail
+        .mockResolvedValueOnce({
+          items: [etherFi('market-a'), etherFi('market-b')],
+          errors: [],
+        })
+        .mockResolvedValueOnce({
+          items: [
+            etherFi('market-a', '15'),
+            ...(value === undefined ? [] : [etherFi('market-b', value)]),
+          ],
+          errors,
+        });
+      const { result } = renderHook(() => useEarnPortfolio());
+      await act(async () => result.current.refresh());
+      await act(async () => result.current.refresh());
+      expect(result.current.earnTotalFiatValue.toFixed()).toBe(expected);
+    },
+  );
+
   it('keeps airdrop assets when the corresponding normal position disappears', async () => {
     const normal = investment('market-a');
     mockStaking.getAvailableAssetsV2.mockResolvedValue([

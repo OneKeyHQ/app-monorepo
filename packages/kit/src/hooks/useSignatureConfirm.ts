@@ -30,7 +30,10 @@ import type {
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import type {
+  IBroadcastAcceptedFact,
+  ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -54,7 +57,12 @@ type IBuildUnsignedTxParams = {
   onFail?: (error: Error) => void;
   onCancel?: () => void;
   onBeforeSend?: () => void | Promise<void>;
+  onBroadcastStart?: (uuid: string) => void;
+  onLateBroadcastAccepted?: (
+    fact: IBroadcastAcceptedFact,
+  ) => void | Promise<void>;
   isNavigationCurrent?: () => boolean;
+  onNavigationSkipped?: () => void;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sameModal?: boolean;
@@ -136,7 +144,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onFail,
         onCancel,
         onBeforeSend,
+        onBroadcastStart,
+        onLateBroadcastAccepted,
         isNavigationCurrent,
+        onNavigationSkipped,
         broadcastDeadline,
         beforeBroadcastAction,
         transferPayload: transferPayloadBase,
@@ -154,6 +165,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
       } = params;
       let transferPayload = transferPayloadBase;
       if (isNavigationCurrent && !isNavigationCurrent()) {
+        onNavigationSkipped?.();
         return;
       }
       try {
@@ -253,6 +265,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         }
 
         if (isNavigationCurrent && !isNavigationCurrent()) {
+          onNavigationSkipped?.();
           return;
         }
         const gasAccountScenario = resolveGasAccountScenario(params);
@@ -266,6 +279,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onFail,
             onCancel,
             onBeforeSend,
+            onBroadcastStart,
+            onLateBroadcastAccepted,
             broadcastDeadline,
             beforeBroadcastAction,
             transferPayload,
@@ -285,6 +300,8 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onFail,
               onCancel,
               onBeforeSend,
+              onBroadcastStart,
+              onLateBroadcastAccepted,
               broadcastDeadline,
               beforeBroadcastAction,
               transferPayload,

@@ -5,6 +5,7 @@ import {
 
 const baseParams = {
   accountId: 'hd-1--m/44/60/0/0/0',
+  expectedAccountAddress: '0xaccount-a',
   amount: '1',
   identity: 'position-1',
   inputTokenAddress: '0xinput',
@@ -21,6 +22,7 @@ const baseParams = {
 describe('check amount request guards', () => {
   it.each([
     ['accountId', 'hd-2--m/44/60/0/0/0'],
+    ['expectedAccountAddress', '0xaccount-b'],
     ['networkId', 'evm--137'],
     ['provider', 'Bitway'],
     ['protocolVault', '0xvault-b'],
@@ -54,6 +56,31 @@ describe('check amount request guards', () => {
         latestRequestKey: 'vault-b',
         requestId: 2,
         requestKey: 'vault-b',
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects a previous scope even when the account key returns to the same value', () => {
+    const firstScope = { key: 'account-a' };
+    const returnedScope = { key: 'account-a' };
+    expect(
+      isLatestCheckAmountRequest({
+        latestRequestId: 2,
+        latestRequestKey: 'account-a',
+        requestId: 2,
+        requestKey: 'account-a',
+        requestScope: firstScope,
+        latestRequestScope: returnedScope,
+      }),
+    ).toBe(false);
+    expect(
+      isLatestCheckAmountRequest({
+        latestRequestId: 2,
+        latestRequestKey: 'account-a',
+        requestId: 2,
+        requestKey: 'account-a',
+        requestScope: returnedScope,
+        latestRequestScope: returnedScope,
       }),
     ).toBe(true);
   });

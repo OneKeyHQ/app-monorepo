@@ -17,6 +17,7 @@ export enum EEarnProviderEnum {
   Aave = 'Aave',
   Native = 'Native',
   Spark = 'Spark',
+  EtherFi = 'EtherFi',
   Bitway = 'Bitway',
   Unitas = 'Unitas',
 }
@@ -53,6 +54,9 @@ export type ISupportedSymbol =
   | 'PlasmaUSD'
   | 'wstETH'
   | 'weETH'
+  | 'eETH'
+  | 'stETH'
+  | 'eBTC'
   | 'aUSDT0'
   | 'stcUSD'
   | 'kHYPE'

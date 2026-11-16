@@ -32,6 +32,7 @@ jest.mock('@onekeyhq/components', () => {
     onVisibilityStateChange: () => () => undefined,
     useDeferredPromise,
     useNetInfo: () => ({ isRawInternetReachable: true }),
+    Alert: () => null,
   };
 });
 jest.mock('react-intl', () => ({
@@ -82,6 +83,8 @@ jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
   default: {
     isNativeProvider: ({ providerName }: { providerName: string }) =>
       providerName.toLowerCase() === 'native',
+    isEtherFiProvider: ({ providerName }: { providerName: string }) =>
+      providerName.toLowerCase() === 'etherfi',
     isPendleProvider: ({ providerName }: { providerName: string }) =>
       providerName.toLowerCase() === 'pendle',
     getEarnProviderName: ({ providerName }: { providerName: string }) =>

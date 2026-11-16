@@ -1400,6 +1400,63 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(announcedBroadcasts()).toEqual([]);
   });
 
+  it('confirms only the recorded accepted transaction for the matching account and network', async () => {
+    const { service, vault, broadcastRecords } = makeService();
+    const signedTx = await vault.signTransaction({
+      unsignedTx: buildUnsignedTx('u0'),
+    });
+    broadcastRecords.records.set('u0', {
+      uuid: 'u0',
+      accountId,
+      networkId,
+      signedTx,
+      attemptedAt: Date.now(),
+      isBroadcast: true,
+      isSettled: false,
+    });
+    const params = { uuid: 'u0', accountId, networkId };
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid(params),
+    ).resolves.toEqual({
+      status: 'accepted',
+      ...params,
+      txid: signedTx.txid,
+    });
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid({
+        ...params,
+        accountId: 'different-account',
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid({
+        ...params,
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+    broadcastRecords.records.set('u0', {
+      ...broadcastRecords.records.get('u0'),
+      uuid: 'u0',
+      accountId,
+      networkId,
+      signedTx,
+      attemptedAt: Date.now(),
+      isBroadcast: false,
+      isSettled: false,
+    });
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid(params),
+    ).resolves.toEqual({
+      status: 'unknown',
+    });
+    broadcastRecords.getRecord.mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid(params),
+    ).resolves.toEqual({
+      status: 'unknown',
+    });
+  });
+
   it('attaches a uuid to every prepared tx so a retry can be matched', async () => {
     const { service } = makeService(createBroadcastRecordsStore(), {
       buildUnsignedTx: jest.fn(async () => ({ encodedTx: 'encoded' })),

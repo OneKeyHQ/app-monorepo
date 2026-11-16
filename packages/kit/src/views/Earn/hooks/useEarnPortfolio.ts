@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -36,6 +37,7 @@ import {
 import {
   buildEarnPortfolioBatchGroups,
   createEarnPortfolioRequestKey,
+  deduplicateEtherFiPortfolioPairs,
   matchEarnPortfolioBatchRequest,
   shouldUseEarnPortfolioBatchFetch,
 } from './earnPortfolioBatch';
@@ -253,7 +255,11 @@ function normalizeInvestmentResult(
   const normalizedProtocol = {
     ...result.protocol,
     ...(resolvedProtocolVault ? { vault: resolvedProtocolVault } : {}),
-    symbol: params.symbol,
+    symbol: earnUtils.isEtherFiProvider({
+      providerName: result.protocol.providerDetail.code,
+    })
+      ? result.protocol.symbol || params.symbol
+      : params.symbol,
   };
 
   const key = createEarnPortfolioRequestKey({
@@ -280,7 +286,14 @@ function normalizeInvestmentResult(
       ...asset,
       metadata: {
         protocol: resolvedAssetVault
-          ? { ...result.protocol, vault: resolvedAssetVault }
+          ? {
+              ...(earnUtils.isEtherFiProvider({
+                providerName: result.protocol.providerDetail.code,
+              })
+                ? normalizedProtocol
+                : result.protocol),
+              vault: resolvedAssetVault,
+            }
           : result.protocol,
         network: result.network,
         fiatValue: result.totalFiatValue,
@@ -699,7 +712,7 @@ export const useEarnPortfolio = ({
         const singlePairs: IAccountAssetPair[] = [];
         const batchCandidateRequests: IPortfolioFetchRequest[] = [];
 
-        pairsToFetch.forEach((pair) => {
+        deduplicateEtherFiPortfolioPairs(pairsToFetch).forEach((pair) => {
           const requestKey = createEarnPortfolioRequestKey(pair.params);
           if (pair.isAirdrop) {
             airdropKeysToFetch.add(requestKey);
@@ -870,17 +883,56 @@ export const useEarnPortfolio = ({
                   return;
                 }
 
+                if (
+                  earnUtils.isEtherFiProvider({
+                    providerName: group.provider,
+                  }) &&
+                  !hasPositiveFiatValue(item.totalFiatValue)
+                ) {
+                  const key = createEarnPortfolioRequestKey(matchedRequest);
+                  resolvedKeys.add(key);
+                  normalKeysFailedInThisSession.add(key);
+                  return;
+                }
+
                 applyResult(normalizeInvestmentResult(matchedRequest, item));
                 resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              // Pendle omits non-positive-value positions from successful batches.
+              const failedKeys = new Set<string>();
+              const isEtherFi = earnUtils.isEtherFiProvider({
+                providerName: group.provider,
+              });
+              let hasUnidentifiedError =
+                isEtherFi && !Array.isArray(response.errors);
+              if (isEtherFi && Array.isArray(response.errors)) {
+                response.errors.forEach((error) => {
+                  const failedRequest = matchEarnPortfolioBatchRequest({
+                    group,
+                    symbol: error.symbol,
+                    vault: error.vault,
+                  });
+                  if (failedRequest) {
+                    failedKeys.add(
+                      createEarnPortfolioRequestKey(failedRequest),
+                    );
+                  } else {
+                    hasUnidentifiedError = true;
+                  }
+                });
+              }
+              // Pendle and EtherFi omit confirmed empty positions from batches.
               group.requestsByKey.forEach((request, key) => {
                 if (!resolvedKeys.has(key)) {
                   if (
-                    group.provider === EEarnProviderEnum.Pendle.toLowerCase() &&
+                    ((group.provider ===
+                      EEarnProviderEnum.Pendle.toLowerCase() &&
+                      response.errors?.length === 0) ||
+                      (isEtherFi &&
+                        Boolean(request.vault) &&
+                        !hasUnidentifiedError &&
+                        !failedKeys.has(key))) &&
                     Array.isArray(response.errors) &&
-                    response.errors.length === 0 &&
                     !hasUnidentifiedItem &&
                     !ambiguousSymbols.has(request.symbol) &&
                     !unmatchedVaults.has(

@@ -118,6 +118,7 @@ export type IEarnWithdrawApproveInfo = {
   approveTarget?: string;
   tokenAddress?: string;
   allowance?: string;
+  amountUnit?: 'shares' | 'underlying';
   receiptTokenRate?: string;
   inputToken?: { symbol: string; logoURI?: string; price: string };
 };
@@ -2576,6 +2577,12 @@ export interface IVerifyRegisterSignMessageParams extends IBuildRegisterSignMess
 
 export type IApproveConfirmFnParams = {
   amount: string;
+  actionSignal?: AbortSignal;
+  verifyEtherFiLegacyApproval?: () => Promise<boolean>;
+  etherFiNativeRecovery?: { id: symbol; owner: symbol; amount: string };
+  beforeEtherFiPostWrapDeposit?: (signal?: AbortSignal) => Promise<boolean>;
+  onTransactionSubmitted?: () => void;
+  onTransactionRecorded?: () => void;
   approveType?: EApproveType;
   permitSignature?: string;
   unsignedMessage?: IEarnPermit2ApproveSignData;

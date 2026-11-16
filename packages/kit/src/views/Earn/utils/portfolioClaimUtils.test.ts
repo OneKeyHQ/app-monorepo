@@ -7,6 +7,24 @@ import {
   resolveUniquePortfolioClaimSourceIdentity,
 } from './portfolioClaimUtils';
 
+describe('EtherFi action identity', () => {
+  it('uses the protocol entry symbol and fails closed when it is absent', () => {
+    const identity = {
+      isAirdrop: false,
+      providerName: 'etherfi',
+      assetSymbol: 'liquidETH',
+      assetVault: '0xVault',
+    };
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        ...identity,
+        protocolSymbol: 'ETH',
+      }),
+    ).toEqual({ symbol: 'ETH', vault: '0xVault' });
+    expect(resolvePortfolioClaimProtocolIdentity(identity)).toBeNull();
+  });
+});
+
 describe('buildPortfolioClaimSymbolMap', () => {
   it('resolves the claim symbol from the normal protocol with the same identity', () => {
     const airdropAsset: IEarnAvailableAssetV2 = {

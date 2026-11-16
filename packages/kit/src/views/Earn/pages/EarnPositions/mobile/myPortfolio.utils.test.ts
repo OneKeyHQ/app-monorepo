@@ -1,3 +1,4 @@
+import { resolvePortfolioClaimProtocolIdentity } from '@onekeyhq/kit/src/views/Earn/utils/portfolioClaimUtils';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -128,6 +129,35 @@ describe('hasPositionDetailPage', () => {
 });
 
 describe('toPositionClaim', () => {
+  it('preserves the EtherFi protocol symbol for a mobile holding action', () => {
+    const vault = '0xf0bb20865277abd641a307ece5ee04e79073416c';
+    const claim = toPositionClaim({
+      ...lidoClaimable,
+      earn: {
+        ...lidoClaimable.earn,
+        symbol: 'liquidETH',
+        vault,
+        manage: {
+          ...lidoClaimable.earn.manage,
+          provider: 'etherfi',
+          symbol: 'ETH',
+        },
+      },
+    });
+    if (!claim || 'airdropAssets' in claim.asset) {
+      throw new OneKeyLocalError('Expected a normal holding action');
+    }
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: false,
+        providerName: claim.asset.metadata.protocol.providerDetail.code,
+        assetSymbol: claim.asset.token.info.symbol,
+        protocolSymbol: claim.asset.metadata.protocol.symbol,
+        assetVault: claim.asset.metadata.protocol.vault,
+      }),
+    ).toEqual({ symbol: 'ETH', vault });
+  });
+
   it('runs the detail row claim as a normal asset keyed on the protocol symbol and vault', () => {
     const claim = toPositionClaim({
       ...lidoClaimable,

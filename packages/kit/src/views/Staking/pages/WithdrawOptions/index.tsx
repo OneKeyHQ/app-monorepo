@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,10 +8,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
@@ -41,21 +43,78 @@ const WithdrawOptions = () => {
     tokenInfo,
     onSuccess: externalOnSuccess,
     isInModalContext,
+    withdrawType,
+    symbol: routeSymbol,
+    provider: routeProvider,
   } = appRoute.params;
-  const symbol = tokenInfo?.token.symbol || '';
-  const provider = protocolInfo?.provider || '';
-  const { result, isLoading, run } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getWithdrawList({
+  const symbol =
+    withdrawType === 'cancel'
+      ? routeSymbol || protocolInfo?.symbol || tokenInfo?.token.symbol || ''
+      : tokenInfo?.token.symbol || '';
+  const provider =
+    withdrawType === 'cancel'
+      ? protocolInfo?.provider || routeProvider || ''
+      : protocolInfo?.provider || '';
+  const isEtherFi = earnUtils.isEtherFiProvider({ providerName: provider });
+  const listScope = useMemo(
+    () => ({
+      accountId,
+      networkId,
+      symbol,
+      provider,
+      vault: protocolInfo?.vault,
+      accountAddress: protocolInfo?.earnAccount?.accountAddress,
+    }),
+    [
+      accountId,
+      networkId,
+      symbol,
+      provider,
+      protocolInfo?.vault,
+      protocolInfo?.earnAccount?.accountAddress,
+    ],
+  );
+  const {
+    result: listResult,
+    isLoading,
+    run,
+  } = usePromiseResult(
+    async () => {
+      const earnAccount = protocolInfo?.earnAccount;
+      if (
+        isEtherFi &&
+        (!earnAccount?.accountAddress ||
+          earnAccount.accountId !== accountId ||
+          earnAccount.networkId !== networkId)
+      ) {
+        throw new OneKeyLocalError('EtherFi withdrawal account is unavailable');
+      }
+      const data = await backgroundApiProxy.serviceStaking.getWithdrawList({
         networkId,
         accountId,
         symbol,
         provider,
         vault: protocolInfo?.vault,
-      }),
-    [accountId, networkId, symbol, provider, protocolInfo?.vault],
-    { watchLoading: true },
+        expectedAccountAddress: isEtherFi
+          ? earnAccount?.accountAddress
+          : undefined,
+      });
+      return { scope: listScope, data };
+    },
+    [
+      accountId,
+      networkId,
+      symbol,
+      provider,
+      protocolInfo?.vault,
+      protocolInfo?.earnAccount,
+      isEtherFi,
+      listScope,
+    ],
+    { watchLoading: true, undefinedResultIfReRun: isEtherFi },
   );
+  const result =
+    isEtherFi && listResult?.scope !== listScope ? undefined : listResult?.data;
 
   const { result: stakingConfig } = usePromiseResult(
     () =>
@@ -78,6 +137,9 @@ const WithdrawOptions = () => {
         amount: item.amount,
         fromPage: EModalStakingRoutes.WithdrawOptions,
         allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
+        withdrawType,
+        symbol,
+        provider,
         onSuccess: () => {
           if (!isInModalContext) {
             appNavigation.popStack();
@@ -95,13 +157,19 @@ const WithdrawOptions = () => {
       stakingConfig?.allowPartialWithdraw,
       externalOnSuccess,
       isInModalContext,
+      withdrawType,
+      symbol,
+      provider,
     ],
   );
 
   const babylonStatusMap = useBabylonStatusMap();
 
   let title = intl.formatMessage({
-    id: ETranslations.earn_select_an_order_to_withdraw,
+    id:
+      withdrawType === 'cancel'
+        ? ETranslations.earn_withdrawal_requested
+        : ETranslations.earn_select_an_order_to_withdraw,
   });
 
   let ListHeaderComponent:
@@ -141,7 +209,10 @@ const WithdrawOptions = () => {
               network={result.network}
               onPress={onPress}
               onConfirmText={intl.formatMessage({
-                id: ETranslations.global_withdraw,
+                id:
+                  withdrawType === 'cancel'
+                    ? ETranslations.global_cancel
+                    : ETranslations.global_withdraw,
               })}
               description={result.description}
               extraFields={

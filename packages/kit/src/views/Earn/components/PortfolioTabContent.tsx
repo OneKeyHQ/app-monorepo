@@ -185,6 +185,7 @@ const WrappedActionButtonCmp = ({
     isAirdrop,
     providerName,
     assetSymbol: asset.token.info.symbol,
+    protocolSymbol: isAirdrop ? undefined : asset.metadata.protocol.symbol,
     assetVault: asset.metadata.protocol.vault,
     claimSymbol: isAirdrop ? asset.metadata.protocol.claimSymbol : undefined,
     claimSymbolStatus: isAirdrop

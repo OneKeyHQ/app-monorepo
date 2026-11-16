@@ -46,6 +46,35 @@ export const useHandleWithdraw = () => {
       onSuccess?: () => void;
     }) => {
       if (!accountId) return;
+      if (
+        withdrawType === EStakingActionType.CancelWithdrawal &&
+        earnUtils.isEtherFiProvider({ providerName: provider })
+      ) {
+        if (
+          !protocolInfo?.vault ||
+          !protocolInfo.earnAccount?.accountAddress ||
+          protocolInfo.earnAccount.accountId !== accountId ||
+          protocolInfo.earnAccount.networkId !== networkId
+        ) {
+          throw new OneKeyLocalError(
+            'EtherFi withdrawal account is unavailable',
+          );
+        }
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId,
+            networkId,
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+            withdrawType: 'cancel',
+            onSuccess,
+          },
+        });
+        return;
+      }
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,

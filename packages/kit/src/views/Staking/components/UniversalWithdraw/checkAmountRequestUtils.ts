@@ -2,6 +2,7 @@ import type { IEarnWithdrawType } from '@onekeyhq/shared/types/staking';
 
 type ICheckAmountRequestKeyParams = {
   accountId?: string;
+  expectedAccountAddress?: string;
   amount: string;
   identity?: string;
   inputTokenAddress?: string;
@@ -20,6 +21,8 @@ type ILatestCheckAmountRequestParams = {
   latestRequestKey: string;
   requestId: number;
   requestKey: string;
+  requestScope?: object;
+  latestRequestScope?: object;
 };
 
 export function getCheckAmountRequestKey(params: ICheckAmountRequestKeyParams) {
@@ -31,6 +34,12 @@ export function isLatestCheckAmountRequest({
   latestRequestKey,
   requestId,
   requestKey,
+  requestScope,
+  latestRequestScope,
 }: ILatestCheckAmountRequestParams) {
-  return requestId === latestRequestId && requestKey === latestRequestKey;
+  return (
+    requestId === latestRequestId &&
+    requestKey === latestRequestKey &&
+    (requestScope === undefined || requestScope === latestRequestScope)
+  );
 }

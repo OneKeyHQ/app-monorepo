@@ -33,7 +33,10 @@ export const createEarnPortfolioRequestKey = (
         contractAddress: request.vault,
       })
     : request.vault;
-  return `${request.provider}_${request.symbol}_${vault || ''}_${request.networkId}`;
+  const isEtherFi = request.provider.toLowerCase() === 'etherfi';
+  const symbol = isEtherFi && vault ? '' : request.symbol;
+  const provider = isEtherFi ? 'etherfi' : request.provider;
+  return `${provider}_${symbol}_${vault || ''}_${request.networkId}`;
 };
 
 export const shouldUseEarnPortfolioBatchFetch = ({
@@ -43,6 +46,28 @@ export const shouldUseEarnPortfolioBatchFetch = ({
   enableBatch?: boolean;
   ptAddress?: string;
 }) => Boolean(enableBatch && !ptAddress);
+
+export function deduplicateEtherFiPortfolioPairs<
+  T extends { isAirdrop: boolean; params: IPortfolioFetchRequest },
+>(pairs: T[]): T[] {
+  const seen = new Set<string>();
+  return pairs.filter((pair) => {
+    if (
+      pair.isAirdrop ||
+      !pair.params.vault ||
+      pair.params.provider.toLowerCase() !== 'etherfi'
+    )
+      return true;
+    const scope = JSON.stringify([
+      createEarnPortfolioRequestKey(pair.params),
+      pair.params.accountAddress.toLowerCase(),
+      pair.params.publicKey ?? '',
+    ]);
+    if (seen.has(scope)) return false;
+    seen.add(scope);
+    return true;
+  });
+}
 
 export const addRequestToEarnPortfolioBatchGroup = ({
   group,
@@ -110,7 +135,9 @@ export const buildEarnPortfolioBatchGroups = ({
   requests.forEach((request) => {
     const key = createEarnPortfolioRequestKey(request);
     const groupKey = [
-      request.provider,
+      request.provider.toLowerCase() === 'etherfi'
+        ? 'etherfi'
+        : request.provider,
       request.networkId,
       request.accountAddress,
       request.publicKey || '',

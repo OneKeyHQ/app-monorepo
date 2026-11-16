@@ -48,6 +48,7 @@ import {
 import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EGasAccountRequestStage,
@@ -81,6 +82,7 @@ import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/p
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EReplaceTxType,
+  type IBroadcastAcceptedFact,
   type IReplaceTxInfo,
   type ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
@@ -108,9 +110,13 @@ type IProps = {
   accountId: string;
   networkId: string;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+  onLateBroadcastAccepted?: (
+    fact: IBroadcastAcceptedFact,
+  ) => void | Promise<void>;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
   onBeforeSend?: () => void | Promise<void>;
+  onBroadcastStart?: (uuid: string) => void;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
@@ -144,9 +150,11 @@ function TxConfirmActions(props: IProps) {
     accountId,
     networkId,
     onSuccess,
+    onLateBroadcastAccepted,
     onFail,
     onCancel,
     onBeforeSend,
+    onBroadcastStart,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
@@ -206,6 +214,9 @@ function TxConfirmActions(props: IProps) {
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
   const gasAccountSubmitIdRef = useRef<string | null>(null);
+  const abandonLateBroadcastObserverRef = useRef<(() => void) | undefined>(
+    undefined,
+  );
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
@@ -613,9 +624,18 @@ function TxConfirmActions(props: IProps) {
 
     if (gasAccountSubmitIdRef.current !== submitId) return;
     let transactionSubmitted = false;
+    let successCommitted = false;
+    let lateObserverAbandoned = false;
+    let checkLateBroadcastCandidates: (() => void) | undefined;
+    let disposeLateBroadcastObserver: (() => void) | undefined;
     try {
       await onBeforeSend?.();
     } catch (error) {
+      if (
+        (onLateBroadcastAccepted || onBroadcastStart) &&
+        gasAccountSubmitIdRef.current !== submitId
+      )
+        return;
       if (handleInfiniFailureExit(error)) return;
       const sendError = error as Error;
       updateSendTxStatus({ isSubmitting: false });
@@ -640,6 +660,11 @@ function TxConfirmActions(props: IProps) {
             accountId,
             networkId,
           });
+        if (
+          (onLateBroadcastAccepted || onBroadcastStart) &&
+          gasAccountSubmitIdRef.current !== submitId
+        )
+          return;
         const localPendingTxWithSameNonce = localPendingTxs.find((tx) =>
           new BigNumber(tx.decodedTx.nonce).isEqualTo(
             newUnsignedTxs[0].nonce as number,
@@ -657,6 +682,117 @@ function TxConfirmActions(props: IProps) {
         }
       }
 
+      if (
+        onLateBroadcastAccepted &&
+        !signOnly &&
+        newUnsignedTxs.length === 1 &&
+        newUnsignedTxs[0].uuid
+      ) {
+        const uuid = newUnsignedTxs[0].uuid;
+        const candidates = new Map<string, IBroadcastAcceptedFact>();
+        const checking = new Set<string>();
+        const delivered = new Set<string>();
+        let abandoned = false;
+        let observerTimeout: ReturnType<typeof setTimeout> | undefined;
+        const verify = (candidate: IBroadcastAcceptedFact) => {
+          const key = JSON.stringify([candidate.uuid, candidate.txid]);
+          if (
+            !abandoned ||
+            successCommitted ||
+            checking.has(key) ||
+            delivered.has(key)
+          )
+            return;
+          checking.add(key);
+          void serviceSend
+            .getBroadcastAcceptanceFactByUuid({ uuid, accountId, networkId })
+            .then(async (fact) => {
+              if (
+                fact.status !== 'accepted' ||
+                fact.uuid !== candidate.uuid ||
+                fact.accountId !== accountId ||
+                fact.networkId !== networkId ||
+                fact.txid !== candidate.txid ||
+                successCommitted ||
+                delivered.has(key)
+              )
+                return;
+              delivered.add(key);
+              try {
+                await onLateBroadcastAccepted(fact);
+                disposeLateBroadcastObserver?.();
+              } catch {
+                console.warn('Late broadcast reconciliation failed');
+              }
+            })
+            .catch(() => undefined)
+            .finally(() => checking.delete(key));
+        };
+        const observe = (candidate: IBroadcastAcceptedFact) => {
+          if (
+            candidate.uuid !== uuid ||
+            candidate.accountId !== accountId ||
+            candidate.networkId !== networkId ||
+            !candidate.txid
+          )
+            return;
+          const key = JSON.stringify([candidate.uuid, candidate.txid]);
+          candidates.set(key, candidate);
+          verify(candidate);
+        };
+        const markAbandoned = () => {
+          if (successCommitted) return;
+          abandoned = true;
+          lateObserverAbandoned = true;
+          candidates.forEach(verify);
+        };
+        const lookupAccepted = () => {
+          void serviceSend
+            .getBroadcastAcceptanceFactByUuid({ uuid, accountId, networkId })
+            .then((fact) => {
+              if (fact.status === 'accepted') observe(fact);
+            })
+            .catch(() => undefined);
+        };
+        const checkLateCandidates = () => {
+          markAbandoned();
+          lookupAccepted();
+          if (!observerTimeout) {
+            // A stalled IPC must not retain the page indefinitely. A missing
+            // acceptance after this window remains an unknown outcome.
+            observerTimeout = setTimeout(
+              () => {
+                lookupAccepted();
+                disposeLateBroadcastObserver?.();
+              },
+              5 * 60 * 1000,
+            );
+          }
+        };
+        checkLateBroadcastCandidates = checkLateCandidates;
+        abandonLateBroadcastObserverRef.current = checkLateCandidates;
+        appEventBus.on(EAppEventBusNames.BatchSendTxBroadcasted, observe);
+        disposeLateBroadcastObserver = () => {
+          if (observerTimeout) clearTimeout(observerTimeout);
+          appEventBus.off(EAppEventBusNames.BatchSendTxBroadcasted, observe);
+          if (abandonLateBroadcastObserverRef.current === checkLateCandidates)
+            abandonLateBroadcastObserverRef.current = undefined;
+        };
+      }
+
+      if (
+        (onLateBroadcastAccepted || onBroadcastStart) &&
+        gasAccountSubmitIdRef.current !== submitId
+      )
+        return;
+      if (onBroadcastStart) {
+        const uuid = newUnsignedTxs[0]?.uuid;
+        if (newUnsignedTxs.length !== 1 || !uuid)
+          throw new OneKeyLocalError(
+            'EtherFi transaction identity unavailable',
+          );
+        onBroadcastStart(uuid);
+      }
       const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
@@ -689,6 +825,7 @@ function TxConfirmActions(props: IProps) {
       // The tx may still land on chain — Prime idempotency prevents any
       // double-charge and the user will see it in their activity.
       if (gasAccountSubmitIdRef.current !== submitId) {
+        checkLateBroadcastCandidates?.();
         updateSendTxStatus({ isSubmitting: false });
         setGasAccountRetryState(null);
         isSubmitted.current = false;
@@ -704,6 +841,13 @@ function TxConfirmActions(props: IProps) {
           accountId,
           result,
         });
+        if (
+          onLateBroadcastAccepted &&
+          gasAccountSubmitIdRef.current !== submitId
+        ) {
+          checkLateBroadcastCandidates?.();
+          return;
+        }
       }
 
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
@@ -717,6 +861,14 @@ function TxConfirmActions(props: IProps) {
           .getAccountDeviceSafe({ accountId })
           .catch(() => undefined),
       ]);
+      if (
+        onLateBroadcastAccepted &&
+        gasAccountSubmitIdRef.current !== submitId
+      ) {
+        checkLateBroadcastCandidates?.();
+        return;
+      }
+      successCommitted = true;
       defaultLogger.transaction.send.sendConfirm({
         walletType: wallet?.type ?? 'unknown',
         deviceType: device?.deviceType,
@@ -844,6 +996,7 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
+      if (!transactionSubmitted) checkLateBroadcastCandidates?.();
       // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
       // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
       // skip dappApprove propagation — just unwind submit state.
@@ -890,6 +1043,8 @@ function TxConfirmActions(props: IProps) {
         void dappApprove.reject(e);
       }
       throw e;
+    } finally {
+      if (!lateObserverAbandoned) disposeLateBroadcastObserver?.();
     }
   }, [
     sourceInfo,
@@ -907,6 +1062,8 @@ function TxConfirmActions(props: IProps) {
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onBeforeSend,
+    onBroadcastStart,
+    onLateBroadcastAccepted,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
@@ -966,6 +1123,7 @@ function TxConfirmActions(props: IProps) {
   // Shared between the explicit Cancel button and `usePageUnMounted`, so
   // system-back / popStack paths also tear down the loop.
   const abortPendingGasAccountSubmit = useCallback(() => {
+    abandonLateBroadcastObserverRef.current?.();
     const pendingSubmitId = gasAccountSubmitIdRef.current;
     if (pendingSubmitId) {
       gasAccountSubmitIdRef.current = null;

@@ -105,6 +105,7 @@ export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop,
   providerName,
   assetSymbol,
+  protocolSymbol,
   assetVault,
   claimSymbol,
   claimSymbolStatus,
@@ -113,12 +114,18 @@ export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop: boolean;
   providerName: string;
   assetSymbol: string;
+  protocolSymbol?: string;
   assetVault?: string;
   claimSymbol?: string;
   claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
   sourceIdentity?: IPortfolioClaimProtocolIdentity | null;
 }): IPortfolioClaimProtocolIdentity | null {
   if (!isAirdrop) {
+    if (earnUtils.isEtherFiProvider({ providerName })) {
+      return protocolSymbol?.trim()
+        ? { symbol: protocolSymbol, vault: assetVault }
+        : null;
+    }
     return {
       symbol: assetSymbol,
       vault: assetVault,
