@@ -35,7 +35,7 @@ describe('web cold network fixtures', () => {
       url: 'https://utility.onekeycn.com/utility/v1/market/highlight',
     }).entry.json.data.data;
     const assets = highlights
-      .slice(0, 3)
+      .slice(0, 5)
       .flatMap((item) => item.assets.slice(0, 3));
     const requests = [
       {
@@ -47,7 +47,7 @@ describe('web cold network fixtures', () => {
             .map(({ chainId, contractAddress, isNative }) => ({
               chainId,
               contractAddress,
-              isNative,
+              isNative: isNative ?? contractAddress === '',
             })),
         },
       },
@@ -68,7 +68,19 @@ describe('web cold network fixtures', () => {
       };
       expect(recordRefusal(request)).toBeNull();
       expect(store.lookup(request).entry?.json.code).toBe(0);
+      expect(
+        recordRefusal({
+          ...request,
+          postData: JSON.stringify({ ...body, accountId: 'private' }),
+        }),
+      ).toBe('request body not allowed for this endpoint');
     }
+    const perpsRequest = {
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v2/market/perps/token-list?assetTypeVersion=3&category=all',
+    };
+    expect(recordRefusal(perpsRequest)).toBeNull();
+    expect(store.lookup(perpsRequest).entry?.json.code).toBe(0);
   });
 
   test.each([

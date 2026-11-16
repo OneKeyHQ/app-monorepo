@@ -74,10 +74,6 @@ const RECORDABLE_ENDPOINTS = [
     body: /^\{"stockIds":\["NVDA"\]\}$/,
   },
   {
-    route: 'POST utility.onekeycn.com/utility/v1/stocks/batch',
-    body: /^\{"stockIds":\["NVDA"\]\}$/,
-  },
-  {
     route: 'GET utility.onekeycn.com/utility/v1/market/tokens',
     query: ['category', 'ids', 'sparkline'],
   },
@@ -111,7 +107,12 @@ const RECORDABLE_ENDPOINTS = [
   },
   {
     route: 'POST utility.onekeycn.com/utility/v2/market/token/list/batch',
-    body: /^\{"currency":"usd","tokenAddressList":\[\{"chainId":"sol--101","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"","isNative":true\})?\]\}$/,
+    body: /^\{"currency":"usd","tokenAddressList":\[\{"chainId":"sol--101","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"0xdac17f958d2ee523a2206206994597c13d831ec7","isNative":false\})?)?\]\}$/,
+  },
+  {
+    route: 'GET utility.onekeycn.com/utility/v2/market/perps/token-list',
+    query: ['assetTypeVersion', 'category'],
+    values: { assetTypeVersion: /^3$/, category: /^all$/ },
   },
   {
     route: 'GET wallet.onekeycn.com/wallet/v1/health',
@@ -326,12 +327,20 @@ function recordRefusal({ method, url, postData, headers }) {
       return 'query parameter value not allowed for this endpoint';
     }
   }
-  if (
-    endpoint.body &&
-    !endpoint.body.test(bodyKey(postData)) &&
-    !hourlyCandleRequest({ method, url, postData })
-  ) {
-    return 'request body not allowed for this endpoint';
+  if (endpoint.body) {
+    let normalizedBody;
+    try {
+      normalizedBody = canonicalJson(JSON.parse(postData));
+    } catch {
+      return 'request body not allowed for this endpoint';
+    }
+    // Fixture keys hash long bodies; recording policy must inspect the JSON.
+    if (
+      !endpoint.body.test(normalizedBody) &&
+      !hourlyCandleRequest({ method, url, postData })
+    ) {
+      return 'request body not allowed for this endpoint';
+    }
   }
   return null;
 }
