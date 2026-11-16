@@ -19,6 +19,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
+import { resetIntercomVisitorStorage } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
@@ -197,6 +198,16 @@ class ServiceApp extends ServiceBase {
       console.error('servicePrivacyChain.dropAllLocalWalletData() error');
     }
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
+
+    if (platformEnv.isNative) {
+      try {
+        await resetIntercomVisitorStorage();
+      } catch {
+        // The general app-storage clear below also revokes a visitor reference
+        // if secure-store cleanup fails. Wallet erasure must still continue.
+        defaultLogger.app.error.log('Support visitor storage reset failed');
+      }
+    }
 
     // clean app storage
     try {
