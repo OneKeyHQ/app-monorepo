@@ -15,11 +15,15 @@ jest.mock('../states/jotai/atoms', () => ({
   settingsPersistAtom: {
     get: async () => ({ currencyInfo: { id: mockSettingsCurrencyId() } }),
   },
+  perpsDepositOrderAtom: { get: async () => ({ orders: [] }) },
 }));
 
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IAccountHistoryTx,
   IFetchHistoryTxDetailsParams,
+  IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
@@ -55,7 +59,9 @@ function row(
 
 function createService() {
   const fetchHistoryTxDetails = jest.fn(
-    async (_params: IFetchHistoryTxDetailsParams) => null,
+    async (
+      _params: IFetchHistoryTxDetailsParams,
+    ): Promise<IFetchHistoryTxDetailsResp | null> => null,
   );
   const post = jest.fn(async () => ({
     data: {
@@ -320,8 +326,127 @@ describe('ServiceHistory local pending detail routing', () => {
         txid,
         txInvolvedAddresses: expect.any(Array),
         privacyChainPoolId: undefined,
+        requestCurrency: 'usd',
       });
     }
+  });
+});
+
+describe('ServiceHistory pending row confirmed after a currency switch', () => {
+  const currencyMap = {
+    usd: { id: 'usd', value: '1' },
+    cny: { id: 'cny', value: '7' },
+  } as unknown as Record<string, ICurrencyItem>;
+
+  function pendingRow(fiatCurrency?: string) {
+    const base = row('evm--1', 'e1', { fiatCurrency });
+    return {
+      ...base,
+      decodedTx: {
+        ...base.decodedTx,
+        totalFeeFiatValue: '1',
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              from: '0xfrom',
+              to: '0xto',
+              sends: [{ amount: '1', price: '2' }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+  }
+
+  // Runs the history fetch up to the rows built from confirmed details, with
+  // the display currency already switched to CNY.
+  async function confirm(
+    pending: IAccountHistoryTx,
+    detail: { gasFeeFiatValue?: string },
+  ) {
+    mockSettingsCurrencyId.mockReturnValueOnce('cny');
+    const { service, fetchHistoryTxDetails } = createService();
+    fetchHistoryTxDetails.mockImplementation(
+      async ({ txid }) =>
+        ({
+          data: {
+            tx: txid,
+            status: EOnChainHistoryTxStatus.Success,
+            gasFee: '0.002',
+            ...detail,
+          },
+        }) as unknown as IFetchHistoryTxDetailsResp,
+    );
+    const stop = new Error('stop after confirmed rows');
+    let confirmed: IAccountHistoryTx[] = [];
+    Object.assign(service.backgroundApi.serviceAccount, {
+      getDBAccountSafe: async () => undefined,
+    });
+    Object.assign(service, {
+      getAccountsLocalHistoryPendingTxs: async () => [pending],
+      getDroppedPendingTxs: async () => [],
+      getAccountsLocalHistoryConfirmedTxs: async () => [],
+      fetchAccountOnChainHistory: async () => ({
+        txs: [],
+        addressMap: {},
+        hasMore: false,
+      }),
+      attachPrivateSendDisplayStatus: async (txs: IAccountHistoryTx[]) => {
+        confirmed = txs;
+        throw stop;
+      },
+    });
+    await expect(
+      service.fetchAccountHistory({
+        accountId: 'hd-1',
+        networkId: ALL,
+        currencyMap,
+      }),
+    ).rejects.toBe(stop);
+    const [tx] = confirmed;
+    return {
+      detailParams: fetchHistoryTxDetails.mock.calls[0][0],
+      status: tx.decodedTx.status,
+      fiatCurrency: tx.fiatCurrency,
+      fee: tx.decodedTx.totalFeeFiatValue,
+      sendPrice: tx.decodedTx.actions[0].assetTransfer?.sends[0].price,
+    };
+  }
+
+  it('prices the detail in one named currency', async () => {
+    const { detailParams } = await confirm(pendingRow('usd'), {});
+    expect(detailParams.requestCurrency).toBe('cny');
+  });
+
+  it('keeps the detail fee as priced and converts the rest of the row to its currency', async () => {
+    // Sent under USD, stamped USD by the switch, confirmed under CNY.
+    const result = await confirm(pendingRow('usd'), { gasFeeFiatValue: '21' });
+    expect(result).toMatchObject({
+      status: EDecodedTxStatus.Confirmed,
+      fiatCurrency: 'cny',
+      fee: '21',
+      sendPrice: '14',
+    });
+  });
+
+  it('converts the pending fee when the detail carries none', async () => {
+    const result = await confirm(pendingRow('usd'), {});
+    expect(result).toMatchObject({
+      fiatCurrency: 'cny',
+      fee: '7',
+      sendPrice: '14',
+    });
+  });
+
+  it('records the detail currency on a row that named none', async () => {
+    const result = await confirm(pendingRow(), { gasFeeFiatValue: '21' });
+    expect(result).toMatchObject({
+      fiatCurrency: 'cny',
+      fee: '21',
+      sendPrice: '2',
+    });
   });
 });
 

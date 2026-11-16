@@ -1535,6 +1535,11 @@ class ServiceHistory extends ServiceBase {
       }
     };
 
+    // The server prices each detail's fee in the request currency. Name one
+    // currency for the whole poll, so the confirmed rows built from these
+    // details can be brought to it whatever the setting does meanwhile.
+    const detailCurrency = (await settingsPersistAtom.get()).currencyInfo.id;
+
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
       localHistoryPendingTxs.map(
@@ -1543,6 +1548,7 @@ class ServiceHistory extends ServiceBase {
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            requestCurrency: detailCurrency,
             // the locally built decoded tx carries the complete input/output
             // set, so detail polling can narrow vault extra params to the
             // addresses this tx actually involves
@@ -1584,14 +1590,26 @@ class ServiceHistory extends ServiceBase {
             txid: remoteTxId,
           });
         }
+        // A pending row cached across a currency switch still carries the
+        // currency it was built in, while the detail fee is priced in the
+        // detail currency. Bring the row to that currency before the fee is
+        // merged, so the confirmed row holds one currency and its fee is not
+        // converted a second time on read (OK-67171).
+        const [pendingTxInDetailCurrency] =
+          await this.convertTxsToDisplayCurrency({
+            txs: [localHistoryPendingTx],
+            displayCurrency: detailCurrency,
+            currencyMap,
+          });
         confirmedTxs.push({
-          ...localHistoryPendingTx,
+          ...pendingTxInDetailCurrency,
+          fiatCurrency: detailCurrency,
           originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
             : localHistoryPendingTx.id,
           decodedTx: {
-            ...localHistoryPendingTx.decodedTx,
+            ...pendingTxInDetailCurrency.decodedTx,
             txid: vaultSettings.useRemoteTxId
               ? remoteTxId
               : localHistoryPendingTx.decodedTx.txid,
@@ -1604,7 +1622,7 @@ class ServiceHistory extends ServiceBase {
               ? localHistoryPendingTx.decodedTx.totalFeeInNative
               : confirmedTx.data.gasFee,
             totalFeeFiatValue: isNil(confirmedTx.data.gasFeeFiatValue)
-              ? localHistoryPendingTx.decodedTx.totalFeeFiatValue
+              ? pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue
               : confirmedTx.data.gasFeeFiatValue,
             isFinal: true,
           },
@@ -3310,6 +3328,9 @@ class ServiceHistory extends ServiceBase {
             xpub,
             accountAddress,
             privacyChainPoolId: params.privacyChainPoolId,
+            ...(params.requestCurrency
+              ? { requestCurrency: params.requestCurrency }
+              : {}),
             // skip account-scoped vault extras when the address lookup
             // failed: the server rejects `accountAddressArray` without an
             // accompanying `accountAddress`, and other vault extras (e.g.
