@@ -611,7 +611,10 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
         <Stack
           gap="$6"
           $gtMd={{
-            width: platformEnv.isNative ? undefined : '100%',
+            width:
+              platformEnv.isNative || platformEnv.isDesktop
+                ? undefined
+                : '100%',
             flexDirection: 'row-reverse',
             alignItems: 'center',
           }}

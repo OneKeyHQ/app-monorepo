@@ -477,17 +477,19 @@ function PrivacyChainSettingsProgress({
       </SectionTitle>
       <ListItem
         testID="privacy-sync-progress"
+        minHeight="$20"
         icon="RefreshCcwOutline"
         title={intl.formatMessage({ id: labelId })}
         subtitle={
-          <SizableText
-            testID="privacy-sync-progress-detail"
-            size="$bodyMd"
-            color={error ? '$textCaution' : '$textSubdued'}
-            minHeight="$10"
-          >
-            {detail}
-          </SizableText>
+          detail ? (
+            <SizableText
+              testID="privacy-sync-progress-detail"
+              size="$bodyMd"
+              color={error ? '$textCaution' : '$textSubdued'}
+            >
+              {detail}
+            </SizableText>
+          ) : undefined
         }
       >
         {canResume || canPause ? (
@@ -592,14 +594,14 @@ export default function PrivacyNetworkSettings({
     return network;
   }, [networkIdFilter]);
 
-  const { result: entries, run: refreshEntries } =
-    usePromiseResult(async (): Promise<IPrivacyAccountEntry[] | undefined> => {
+  const { result: accountListResult, run: refreshEntries } =
+    usePromiseResult(async () => {
       if (!isFocused) return undefined;
       const accounts =
         await backgroundApiProxy.servicePrivacyChain.listLocalWalletAccounts({
           walletId,
         });
-      return Promise.all(
+      const entries: IPrivacyAccountEntry[] = await Promise.all(
         accounts
           .filter(
             (account) =>
@@ -630,7 +632,13 @@ export default function PrivacyNetworkSettings({
             };
           }),
       );
+      return { walletId, networkIdFilter, entries };
     }, [isFocused, walletId, networkIdFilter]);
+  const entries =
+    accountListResult?.walletId === walletId &&
+    accountListResult?.networkIdFilter === networkIdFilter
+      ? accountListResult?.entries
+      : undefined;
 
   useEffect(() => {
     if (!isFocused) return;
@@ -662,16 +670,44 @@ export default function PrivacyNetworkSettings({
     soleNetworkId && entries ? groupByDeriveLabel(entries) : [];
   const showDeriveGroups = deriveGroups.some((group) => group.label);
 
-  const { result: networkInfo, run: refreshNetworkInfo } = usePromiseResult(
-    async () => {
-      if (!soleNetworkId) return undefined;
-      return backgroundApiProxy.servicePrivacyChain.getLocalWalletNetworkInfo({
-        networkId: soleNetworkId,
-      });
-    },
-    [soleNetworkId],
-    { revalidateOnFocus: true },
-  );
+  const { result: networkInfoResult, run: refreshNetworkInfo } =
+    usePromiseResult(
+      async () => {
+        if (!soleNetworkId) return undefined;
+        const info = await backgroundApiProxy.servicePrivacyChain
+          .getLocalWalletNetworkInfo({ networkId: soleNetworkId })
+          .catch(() => undefined);
+        return { networkId: soleNetworkId, info };
+      },
+      [soleNetworkId],
+      { revalidateOnFocus: true },
+    );
+  const lastSuccessfulNetworkInfoRef =
+    useRef<typeof networkInfoResult>(undefined);
+  useEffect(() => {
+    if (
+      networkInfoResult?.networkId === soleNetworkId &&
+      networkInfoResult?.info !== undefined
+    ) {
+      lastSuccessfulNetworkInfoRef.current = networkInfoResult;
+    } else if (
+      lastSuccessfulNetworkInfoRef.current?.networkId !== soleNetworkId
+    ) {
+      lastSuccessfulNetworkInfoRef.current = undefined;
+    }
+  }, [networkInfoResult, soleNetworkId]);
+  // A failed refresh settles loading without removing previously loaded sections.
+  const lastSuccessfulNetworkInfo =
+    lastSuccessfulNetworkInfoRef.current?.networkId === soleNetworkId
+      ? lastSuccessfulNetworkInfoRef.current?.info
+      : undefined;
+  const networkInfo =
+    networkInfoResult?.networkId === soleNetworkId
+      ? (networkInfoResult?.info ?? lastSuccessfulNetworkInfo)
+      : undefined;
+  // Commit the first list with its preceding network rows, not before they arrive.
+  const initialSectionsReady =
+    !soleNetworkId || networkInfoResult?.networkId === soleNetworkId;
 
   const askBirthdayAndEnable = useCallback(
     async (
@@ -1094,7 +1130,7 @@ export default function PrivacyNetworkSettings({
         }
       />
       <Page.Body>
-        {entries ? (
+        {entries && initialSectionsReady ? (
           <ScrollView>
             {soleNetworkId ? (
               <PrivacyChainSettingsProgress

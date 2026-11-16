@@ -93,7 +93,11 @@ jest.mock('@onekeyhq/components', () => {
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isExtensionUiPopup: true, isNative: false },
+  default: {
+    isExtensionUiPopup: true,
+    isNative: false,
+    isNativeAndroid: false,
+  },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
@@ -304,6 +308,7 @@ beforeEach(() => {
   mockCategoryRecord = mockRecord;
   fetchPerps.mockReset().mockResolvedValue({ tokens: [], updatedAt: 0 });
   jest.replaceProperty(platformEnv, 'isNative', false);
+  jest.replaceProperty(platformEnv, 'isNativeAndroid', false);
   jest.replaceProperty(platformEnv, 'isExtensionUiPopup', true);
   mockShowFavorites = false;
   mockRecommendationResult = undefined;
@@ -361,6 +366,31 @@ it('does not reserve table height for mobile recommendation cards', async () => 
     screen.getByTestId('home-header-actions-btn').hasAttribute('disabled'),
   ).toBe(false);
   view.unmount();
+});
+
+it('keeps Android category height unchanged when favorites become nonempty or empty', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+  jest.replaceProperty(platformEnv, 'isExtensionUiPopup', false);
+  mockRecommendationResult = [mockRecord];
+  render(<PopularTrading />);
+  await act(async () => mockRefreshFavorites());
+  const content = screen.getByTestId('home-market-content');
+  const initialMinHeight = content.style.minHeight;
+
+  for (const count of [1, 2, 0]) {
+    getWatchList.mockResolvedValue({
+      data: Array.from({ length: count }, (_, index) => ({
+        assetId: `asset-${index}`,
+        chainId: '',
+        contractAddress: '',
+      })),
+    });
+    await act(mockRefreshFavorites);
+    expect(screen.getByText('Open token')).toBeTruthy();
+    expect(screen.getByTestId('home-market-content')).toBe(content);
+    expect(content.style.minHeight).toBe(initialMinHeight);
+  }
 });
 
 it.each(

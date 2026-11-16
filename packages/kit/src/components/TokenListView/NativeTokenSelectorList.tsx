@@ -19,6 +19,7 @@ import {
   SizableText,
   Stack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   useCurrencyPersistAtom,
@@ -91,6 +92,10 @@ type IHomeCellValue = {
   fiat: ITokenFiat | undefined;
   memberFiatMap: Record<string, ITokenFiat>;
 };
+// Native retains its existing passive verification icon.
+type IWebLeadingBadge = NonNullable<
+  DataRow['columns'][number]['webLeadingBadge']
+>;
 const EMPTY_HOME_CELL_VALUES: Record<string, IHomeCellValue> = {};
 
 // Synchronous, non-reactive read of a row's cells (same resolution as
@@ -123,6 +128,11 @@ export type INativeTokenStatus = {
   networkId: string;
   label: string;
   loading: boolean;
+};
+
+export type INativeTokenVerification = {
+  networkId: string;
+  label: string;
 };
 
 function HomeTokenCellMirror({
@@ -224,6 +234,7 @@ export function NativeTokenSelectorList({
   useExternalWebScrollHost,
   ownerKey,
   nativeTokenStatus,
+  nativeTokenVerification,
 }: {
   rows: ITokenSelectorListRow[];
   networkId: string;
@@ -270,9 +281,23 @@ export function NativeTokenSelectorList({
   useExternalWebScrollHost?: boolean;
   ownerKey?: string;
   nativeTokenStatus?: INativeTokenStatus;
+  nativeTokenVerification?: INativeTokenVerification;
 }) {
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
+  const uiTheme = useTheme();
+  const verificationIconColor = uiTheme.iconCaution.val;
+  const verificationBadgeTextColor = uiTheme.textCaution.val;
+  const verificationBadgeBackgroundColor = uiTheme.bgCautionSubdued.val;
+  // The iOS table renderer keeps title icons on the primary line. Keep this
+  // network-scoped so sync state changes do not switch the list's layout.
+  const useIOSPrivacyTableLayout =
+    platformEnv.isNativeIOS &&
+    !isAllNetworks &&
+    !isTokenSelector &&
+    !crossNetworkGroupingActive &&
+    !!networkId &&
+    networkUtils.isLocalWalletNetwork({ networkId });
   const { gtMd } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
@@ -407,12 +432,17 @@ export function NativeTokenSelectorList({
       withSwapAction,
       withAggregateBadge,
       nativeTokenStatus,
+      nativeTokenVerification,
+      verificationIconColor,
+      verificationBadgeTextColor,
+      verificationBadgeBackgroundColor,
       intl,
       settings.currencyInfo?.id,
       settingsValue.hideValue,
       gtMd,
       currencyMap,
       theme,
+      useIOSPrivacyTableLayout,
     ];
     const previousCache = rowCacheRef.current;
     const canReuseRows =
@@ -436,6 +466,12 @@ export function NativeTokenSelectorList({
     const targetCurrency = settings.currencyInfo?.id ?? '';
     const iconSize = getTokenRowIconSize(gtMd);
     const columnWeights = getTokenTableColumnWeights(withSwapAction);
+    const dataRowContainerStyle = useIOSPrivacyTableLayout
+      ? {
+          ...TOKEN_ROW_CONTAINER_STYLE,
+          backgroundColor: theme.rowBackground ?? theme.background,
+        }
+      : TOKEN_ROW_CONTAINER_STYLE;
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
         switch (item.syntheticRowType) {
@@ -754,6 +790,33 @@ export function NativeTokenSelectorList({
               nativeTokenStatus?.networkId === networkId
                 ? nativeTokenStatus
                 : undefined;
+            const needsVerification =
+              !isTokenSelector &&
+              !isAllNetworks &&
+              !hideBalanceAndValue &&
+              token.isNative &&
+              token.networkId === networkId &&
+              nativeTokenVerification?.networkId === networkId;
+            const isCompactVerification =
+              needsVerification && !platformEnv.isNative && !gtMd;
+            const verificationIcon: IdentityRow['titleIcon'] =
+              needsVerification && (platformEnv.isNative || !gtMd)
+                ? {
+                    name: 'InfoCircleOutline',
+                    tintColor: verificationIconColor,
+                    accessibilityLabel: nativeTokenVerification?.label,
+                  }
+                : undefined;
+            const verificationBadge: IWebLeadingBadge | undefined =
+              needsVerification && !platformEnv.isNative && gtMd
+                ? {
+                    text: intl.formatMessage({
+                      id: ETranslations.global_unverified,
+                    }),
+                    textColor: verificationBadgeTextColor,
+                    backgroundColor: verificationBadgeBackgroundColor,
+                  }
+                : undefined;
             const trailing: TrailingAccessory[] = [];
             if (
               tokenStatus?.loading &&
@@ -875,15 +938,17 @@ export function NativeTokenSelectorList({
               },
             };
             if (
-              platformEnv.isNative &&
               !tableLayout &&
-              tokenStatus &&
+              ((platformEnv.isNative && tokenStatus) || needsVerification) &&
               !creatingAddress &&
               !currentProcessing
             ) {
               const balanceAccessory = trailing.find(
                 (accessory) => accessory.kind === 'valuePair',
               );
+              const nativeSyncStatus = platformEnv.isNative
+                ? tokenStatus
+                : undefined;
               // Native identity accessories stack vertically. Keep the balance
               // in a column so the spinner remains beside the two-line row.
               const statusRow: DataRow = {
@@ -894,52 +959,67 @@ export function NativeTokenSelectorList({
                 testID: nativeRow.testID,
                 accessibilityLabel: [
                   nativeRow.title,
-                  tokenStatus.label,
-                  nativeRow.subtitle,
+                  tokenStatus?.label,
+                  verificationBadge?.text ??
+                    verificationIcon?.accessibilityLabel,
+                  nativeSyncStatus ? undefined : nativeRow.subtitle,
                   balanceAccessory?.primary,
                   balanceAccessory?.secondary,
                 ]
                   .filter(Boolean)
                   .join(', '),
                 leading,
-                badges: nativeRow.badges,
+                badges: nativeSyncStatus
+                  ? nativeRow.badges?.filter(
+                      (badge) => badge.key !== 'sync-status',
+                    )
+                  : nativeRow.badges,
                 columns: [
                   {
                     key: 'asset',
                     text: nativeRow.title,
-                    secondaryText: nativeRow.subtitle,
-                    secondaryTextSegments: withPrice
-                      ? [
-                          ...(priceText.segments ?? [{ text: priceText.text }]),
-                          { text: ' ' },
-                          ...(priceChangeText.segments ?? [
-                            { text: priceChangeText.text },
-                          ]),
-                        ]
-                      : undefined,
+                    secondaryText:
+                      nativeSyncStatus?.label ?? nativeRow.subtitle,
+                    secondaryTextSegments:
+                      !nativeSyncStatus && withPrice
+                        ? [
+                            ...(priceText.segments ?? [
+                              { text: priceText.text },
+                            ]),
+                            { text: ' ' },
+                            ...(priceChangeText.segments ?? [
+                              { text: priceChangeText.text },
+                            ]),
+                          ]
+                        : undefined,
                     titleIcon,
-                    weight: 2,
+                    weight: isCompactVerification ? 1 : 2,
                   },
-                  ...(balanceAccessory
+                  ...(balanceAccessory || needsVerification
                     ? [
                         {
                           key: 'balance',
-                          text: balanceAccessory.primary,
-                          textSegments: balanceAccessory.primaryTextSegments,
-                          secondaryText: balanceAccessory.secondary,
-                          secondaryTextSegments:
-                            balanceAccessory.secondaryTextSegments,
+                          text: balanceText.text,
+                          titleIcon: verificationIcon,
+                          ...(verificationBadge
+                            ? { webLeadingBadge: verificationBadge }
+                            : {}),
+                          textSegments: balanceText.segments,
+                          secondaryText: valueText.text,
+                          secondaryTextSegments: valueText.segments,
                           alignment: 'end' as const,
-                          weight: 1 as const,
+                          weight: isCompactVerification
+                            ? (2 as const)
+                            : (1 as const),
                         },
                       ]
                     : []),
                 ],
-                trailing: tokenStatus.loading ? [{ kind: 'spinner' }] : [],
+                trailing: tokenStatus?.loading ? [{ kind: 'spinner' }] : [],
                 disabled: nativeRow.disabled,
                 opacity: nativeRow.opacity,
                 style: {
-                  container: TOKEN_ROW_CONTAINER_STYLE,
+                  container: dataRowContainerStyle,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,
@@ -1005,6 +1085,10 @@ export function NativeTokenSelectorList({
                   {
                     key: 'balance',
                     text: balanceText.text,
+                    titleIcon: verificationIcon,
+                    ...(verificationBadge
+                      ? { webLeadingBadge: verificationBadge }
+                      : {}),
                     textSegments: balanceText.segments,
                     secondaryText: valueText.text,
                     secondaryTextSegments: valueText.segments,
@@ -1035,7 +1119,7 @@ export function NativeTokenSelectorList({
                   ? [{ kind: 'spinner' }, ...swapAction]
                   : swapAction,
                 style: {
-                  container: TOKEN_ROW_CONTAINER_STYLE,
+                  container: dataRowContainerStyle,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,
@@ -1083,7 +1167,7 @@ export function NativeTokenSelectorList({
       schemaVersion: 1,
       generation: 1,
       layout: {
-        kind: 'linear',
+        kind: useIOSPrivacyTableLayout ? 'table' : 'linear',
         contentPaddingHorizontal: TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
       },
       rows: nativeRows,
@@ -1137,6 +1221,10 @@ export function NativeTokenSelectorList({
     withSwapAction,
     withAggregateBadge,
     nativeTokenStatus,
+    nativeTokenVerification,
+    verificationIconColor,
+    verificationBadgeTextColor,
+    verificationBadgeBackgroundColor,
     swapDisabled,
     structuralTransition,
     disclosure,
@@ -1148,6 +1236,7 @@ export function NativeTokenSelectorList({
     gtMd,
     currencyMap,
     theme,
+    useIOSPrivacyTableLayout,
   ]);
 
   useLayoutEffect(() => {

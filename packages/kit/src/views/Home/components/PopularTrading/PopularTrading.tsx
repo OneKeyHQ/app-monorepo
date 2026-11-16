@@ -174,11 +174,32 @@ async function loadHomeRecommendDisplayTokens(
   const stockIds = listingTokens.flatMap((item) =>
     !item.assetId?.trim() && item.stockId?.trim() ? [item.stockId.trim()] : [],
   );
+  const assetListingTokens = listingTokens.filter((item) =>
+    item.assetId?.trim(),
+  );
   const [assetQuotes, stockQuotes, chainResponse] = await Promise.all([
-    Promise.all(
-      listingTokens
-        .filter((item) => item.assetId?.trim())
-        .map(async (item) => {
+    (async () => {
+      if (assetListingTokens.length === 0) {
+        return [];
+      }
+      if (
+        typeof backgroundApiProxy.serviceMarketV2
+          .fetchMarketListingWatchlistQuotes === 'function'
+      ) {
+        const quotes = await backgroundApiProxy.serviceMarketV2
+          .fetchMarketListingWatchlistQuotes(
+            assetListingTokens.map((item) => ({
+              assetId: item.assetId,
+            })),
+          )
+          .catch(() => []);
+        return assetListingTokens.map((item, index) => ({
+          key: getTokenKey({ ...item.token, ...item }),
+          quote: quotes[index],
+        }));
+      }
+      return Promise.all(
+        assetListingTokens.map(async (item) => {
           try {
             const quote =
               await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
@@ -192,7 +213,8 @@ async function loadHomeRecommendDisplayTokens(
             };
           }
         }),
-    ),
+      );
+    })(),
     stockIds.length > 0
       ? backgroundApiProxy.serviceMarketV2
           .fetchMarketStockBatch({ stockIds })
@@ -450,6 +472,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       resumeOnEffectReconnect: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       revalidateOnFocus: true,
+      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
+        seconds: 15,
+      }),
       revalidateOnReconnect: true,
     },
   );
@@ -794,10 +819,27 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             perpsTargets.length > 0
               ? backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases()
               : null,
-            Promise.all(
-              targetItems
-                .filter((item) => item.assetId || item.stockId)
-                .map(async (item) => {
+            (async () => {
+              const listingTargets = targetItems.filter(
+                (item) => item.assetId || item.stockId,
+              );
+              if (listingTargets.length === 0) {
+                return [];
+              }
+              if (
+                typeof backgroundApiProxy.serviceMarketV2
+                  .fetchMarketListingWatchlistQuotes === 'function'
+              ) {
+                const quotes = await backgroundApiProxy.serviceMarketV2
+                  .fetchMarketListingWatchlistQuotes(listingTargets)
+                  .catch(() => []);
+                return listingTargets.map((item, index) => ({
+                  key: getMarketWatchlistKey(item),
+                  quote: quotes[index],
+                }));
+              }
+              return Promise.all(
+                listingTargets.map(async (item) => {
                   try {
                     return {
                       key: getMarketWatchlistKey(item),
@@ -813,7 +855,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                     };
                   }
                 }),
-            ),
+              );
+            })(),
           ]);
         if (refreshId !== favoriteRefreshIdRef.current) return;
         const spotResponse =
@@ -956,6 +999,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       resumeOnEffectReconnect: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       revalidateOnFocus: true,
+      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
+        seconds: 15,
+      }),
       revalidateOnReconnect: true,
     },
   );
@@ -1562,7 +1608,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
           32 +
           50;
-      } else if (hasUserFavorites && !showRecommendCards) {
+      } else if (
+        !platformEnv.isNativeAndroid &&
+        hasUserFavorites &&
+        !showRecommendCards
+      ) {
         contentMinHeight =
           HOME_MARKET_CATEGORY_REQUEST_LIMIT *
             HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
@@ -1592,9 +1642,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       //
       // Bug it triggers (iOS, RN 0.81.5, Fabric/New Arch): rendering the
       // skeleton on that first `undefined` frame and then swapping it for the
-      // real <RichTable> subtree happens WHILE the enclosing
-      // react-native-collapsible-tab-view <Tabs.ScrollView> is running its async
-      // Yoga measurement pass. That extra ListLoading→RichTable subtree swap
+      // real <RichTable> subtree happened while the former collapsible scroll
+      // container was running its async Yoga measurement pass. That extra
+      // ListLoading→RichTable subtree swap
       // mid-measure moves a shadow node to a new parent and trips the assertion
       // `react_native_assert(YGNodeGetOwner(child) == &yogaNode_)` →
       // hard crash on Home startup. (Confirmed via git bisect to #12008.)

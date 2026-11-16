@@ -2738,7 +2738,13 @@ class ServiceAppUpdate extends ServiceBase {
         return {
           ...prev,
           status: EAppUpdateStatus.ready,
-          readyAt: prev.readyAt ?? Date.now(),
+          readyAt:
+            platformEnv.isDesktop &&
+            getUpdateFileType(prev) === EUpdateFileType.appShell &&
+            prev.updateStrategy === EUpdateStrategy.manual &&
+            status === EAppUpdateStatus.ready
+              ? prev.readyAt
+              : (prev.readyAt ?? Date.now()),
           installSource:
             platformEnv.isDesktop &&
             getUpdateFileType(prev) === EUpdateFileType.appShell &&

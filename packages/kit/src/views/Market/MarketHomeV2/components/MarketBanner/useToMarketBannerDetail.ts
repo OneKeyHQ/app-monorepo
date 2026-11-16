@@ -24,7 +24,7 @@ export function useToMarketBannerDetail() {
   const toMarketBannerDetail = useCallback(
     (item: IMarketBannerItem) => {
       if (isMarketIndexQuoteBanner(item)) return;
-      defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id, ...item });
+      defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id });
 
       const params = {
         tokenListId: item.tokenListId,

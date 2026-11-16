@@ -16,6 +16,7 @@ import {
   EUpdateErrorCode,
   isRetryableUpdateError,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import type { IUpdateProgressUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 type IReceiptState = 'pending' | 'processing' | 'done' | 'failed';
 
 function ReceiptRow({
@@ -49,13 +50,17 @@ function ReceiptRow({
   }
   return (
     <XStack py="$3" alignItems="center" gap="$3">
-      <SizableText size="$bodyMd" flex={1}>
+      <SizableText
+        size="$bodyMd"
+        flex={1}
+        color={state === 'pending' ? '$textDisabled' : '$textSubdued'}
+      >
         {label}
       </SizableText>
       {result ? (
         <SizableText
           size="$bodyMd"
-          color="$textSubdued"
+          color={state === 'failed' ? '$textCritical' : '$text'}
           textAlign="right"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
@@ -82,11 +87,11 @@ function ReceiptRow({
 
 export function UpdateVerifyReceipt({
   data,
-  percent,
+  progress,
   reducedMotion,
 }: {
   data: IAppUpdateInfo;
-  percent: number;
+  progress: Pick<IUpdateProgressUpdate, 'percent' | 'total' | 'transferred'>;
   reducedMotion: boolean;
 }) {
   const intl = useIntl();
@@ -164,11 +169,13 @@ export function UpdateVerifyReceipt({
   } else if (status === EAppUpdateStatus.ready || postVerificationFailed) {
     contentState = 'done';
   }
-  const totalMb = data.fileSize
-    ? Math.round(data.fileSize / (1024 * 1024))
-    : undefined;
-  const downloadedMb =
-    totalMb === undefined ? undefined : Math.round((totalMb * percent) / 100);
+  let totalBytes = progress.total;
+  if (totalBytes <= 0 && downloadState === 'done') {
+    totalBytes = data.fileSize ?? 0;
+  }
+  const totalMb =
+    totalBytes > 0 ? Math.round(totalBytes / (1024 * 1024)) : undefined;
+  const downloadedMb = Math.round(progress.transferred / (1024 * 1024));
   let downloadResult: string | undefined;
   if (status === EAppUpdateStatus.downloadPackageFailed) {
     downloadResult = intl.formatMessage({
@@ -176,8 +183,11 @@ export function UpdateVerifyReceipt({
     });
   } else if (downloadState === 'done' && totalMb !== undefined) {
     downloadResult = `${intl.formatNumber(totalMb)} MB`;
-  } else if (downloadState === 'processing' && totalMb !== undefined) {
-    downloadResult = `${intl.formatNumber(downloadedMb ?? 0)}/${intl.formatNumber(totalMb)} MB`;
+  } else if (downloadState === 'processing') {
+    downloadResult =
+      totalMb === undefined
+        ? intl.formatNumber(progress.percent / 100, { style: 'percent' })
+        : `${intl.formatNumber(downloadedMb)}/${intl.formatNumber(totalMb)} MB`;
   }
   let signatureResult: string | undefined;
   if (signatureState === 'done') {
