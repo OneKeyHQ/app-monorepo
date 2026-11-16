@@ -439,9 +439,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
               }
             });
           tokenPromise = createdPromise;
-          if (!options?.forceRefresh) {
-            inFlightAccountTokenRequests.set(sharedRequestKey, createdPromise);
-          }
+          inFlightAccountTokenRequests.set(sharedRequestKey, createdPromise);
         }
         const tokens = await tokenPromise;
         const nonStockScopes = scopes.filter((scope) => !scope.stockOnly);
