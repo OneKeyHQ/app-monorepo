@@ -16,8 +16,15 @@ export interface ITradingViewNativeMultiChartPanel {
   source: ITradingViewNativeSource;
   /** Layout picker. The host places it in the first panel's controls. */
   layoutControl: ReactNode;
-  /** Changes an extra panel's token. The first panel follows the host. */
-  setSource: (source: ITradingViewNativeSource) => void;
+  /**
+   * Changes an extra panel's token. The first panel follows the host. With
+   * `replacing`, the change only applies while the panel still shows that
+   * token, so a late change cannot undo a newer pick.
+   */
+  setSource: (
+    source: ITradingViewNativeSource,
+    options?: { replacing?: ITradingViewNativeSource },
+  ) => void;
 }
 
 export interface ITradingViewNativeMultiChartProps {

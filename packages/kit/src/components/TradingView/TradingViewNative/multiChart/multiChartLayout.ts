@@ -8,6 +8,8 @@ import type {
   ITradingViewNativeSource,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSource';
+
 export const TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID = 'main';
 
 // Panel identity is positional and stable, so a panel keeps its token,
@@ -469,4 +471,26 @@ export function updateTradingViewNativeMultiChartPanel(
       [panelId]: { ...layout.panels[panelId], ...patch },
     },
   };
+}
+
+/**
+ * Changes an extra panel's token. With `replacing`, only while the panel still
+ * shows that token, so a change that lands late cannot undo a newer pick.
+ */
+export function setTradingViewNativeMultiChartPanelSource(
+  layout: ITradingViewNativeMultiChartLayout,
+  panelId: string,
+  source: ITradingViewNativeSource,
+  replacing?: ITradingViewNativeSource,
+): ITradingViewNativeMultiChartLayout {
+  const current = layout.panels[panelId]?.source;
+  if (
+    replacing &&
+    (!current ||
+      getTradingViewNativeSourceKey(current) !==
+        getTradingViewNativeSourceKey(replacing))
+  ) {
+    return layout;
+  }
+  return updateTradingViewNativeMultiChartPanel(layout, panelId, { source });
 }

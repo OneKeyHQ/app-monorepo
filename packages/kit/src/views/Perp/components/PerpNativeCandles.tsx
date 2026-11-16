@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -124,21 +124,35 @@ function PerpNativePanelCandles({
   const marks = usePerpsNativeChartMarks(instrument);
   const { priceDecimalPlaces } = usePerpsNativeChartMetadata(instrument);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
+  // Every pick, Trade press and unmount supersedes a Trade still switching,
+  // so one that finishes late cannot undo something newer.
+  const latestAction = useRef(0);
+  useEffect(
+    () => () => {
+      latestAction.current += 1;
+    },
+    [],
+  );
   const handleSelectToken = useCallback(
-    (selection: IPerpTokenSelection) =>
-      setSource(getHyperliquidSource(selection.coin)),
+    (selection: IPerpTokenSelection) => {
+      latestAction.current += 1;
+      setSource(getHyperliquidSource(selection.coin));
+    },
     [setSource],
   );
   const { mode } = instrument;
   const handleTrade = useCallback(async () => {
+    latestAction.current += 1;
+    const action = latestAction.current;
     const switched = await actions.current.switchTradeInstrument({
       mode,
       coin,
     });
+    if (switched === false || action !== latestAction.current) return;
     // Swap rather than duplicate: the token that was being traded stays on
-    // screen in this panel.
-    if (switched !== false) setSource(mainSource);
-  }, [actions, coin, mainSource, mode, setSource]);
+    // screen in this panel, unless the panel has moved on to another token.
+    setSource(mainSource, { replacing: source });
+  }, [actions, coin, mainSource, mode, setSource, source]);
   return (
     <TradingViewNative
       testID={`${PerpTestIDs.NativeChartPanel}-${id}`}

@@ -13,6 +13,7 @@ import {
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
+  setTradingViewNativeMultiChartPanelSource,
   updateTradingViewNativeMultiChartPanel,
 } from './multiChartLayout';
 
@@ -209,6 +210,34 @@ describe('panel state', () => {
     expect(
       hasUnfilledTradingViewNativeMultiChartPanel({ ...layout, preset: '1' }),
     ).toBe(false);
+  });
+
+  it('changes a token conditionally only while the panel still shows it', () => {
+    const layout: ITradingViewNativeMultiChartLayout = {
+      preset: '2h',
+      panels: { 'panel-2': { source: coin('SOL'), indicatorSettings } },
+    };
+    // A Trade started on ETH lands after the panel was switched to SOL.
+    expect(
+      setTradingViewNativeMultiChartPanelSource(
+        layout,
+        'panel-2',
+        coin('BTC'),
+        coin('ETH'),
+      ),
+    ).toBe(layout);
+    expect(
+      setTradingViewNativeMultiChartPanelSource(
+        layout,
+        'panel-2',
+        coin('BTC'),
+        coin('SOL'),
+      ).panels['panel-2'],
+    ).toEqual({ source: coin('BTC'), indicatorSettings });
+    expect(
+      setTradingViewNativeMultiChartPanelSource(layout, 'panel-2', coin('BTC'))
+        .panels['panel-2'],
+    ).toEqual({ source: coin('BTC'), indicatorSettings });
   });
 
   it('only updates the extra panels', () => {

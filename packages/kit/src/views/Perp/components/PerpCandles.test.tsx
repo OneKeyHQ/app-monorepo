@@ -4,6 +4,7 @@ import { act, render, waitFor } from '@testing-library/react-native';
 
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
+  type ITradingViewNativeMultiChartPanel,
   type ITradingViewNativeMultiChartProps,
   type ITradingViewNativeProps,
   type ITradingViewNativeSource,
@@ -18,6 +19,8 @@ import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
 
 import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
+
+import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
 
 let mockAccountAddress: string | undefined;
 let mockCoin = 'ETH';
@@ -41,7 +44,10 @@ const mockSetCustomSettings = jest.fn(
 );
 const mockNativeChart = jest.fn<null, [ITradingViewNativeProps]>(() => null);
 let mockMultiChartLayout: ITradingViewNativeMultiChartLayout;
-const mockSetPanelSource = jest.fn<void, [ITradingViewNativeSource]>();
+const mockSetPanelSource = jest.fn<
+  void,
+  Parameters<ITradingViewNativeMultiChartPanel['setSource']>
+>();
 const mockSwitchTradeInstrument = jest.fn<
   Promise<boolean>,
   [{ mode: 'perp' | 'spot'; coin: string }]
@@ -324,7 +330,10 @@ describe('split view', () => {
       mode: 'perp',
       coin: 'ETH',
     });
-    expect(mockSetPanelSource).toHaveBeenCalledWith(btcSource);
+    // Only while the panel still shows the token that was traded.
+    expect(mockSetPanelSource).toHaveBeenCalledWith(btcSource, {
+      replacing: ethSource,
+    });
   });
 
   it('leaves the panel alone when the switch is superseded', async () => {
@@ -336,6 +345,57 @@ describe('split view', () => {
 
     await act(() => trade.props.onPress());
 
+    expect(mockSetPanelSource).not.toHaveBeenCalled();
+  });
+
+  function startSlowTrade() {
+    let finishSwitch: (switched: boolean) => void = () => {};
+    mockSwitchTradeInstrument.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSwitch = resolve;
+        }),
+    );
+    const panel = getChartProps('ETH');
+    const trade = panel?.nativeControlsTrailing as ReactElement<{
+      onPress: () => Promise<void>;
+    }>;
+    let traded: Promise<void> = Promise.resolve();
+    act(() => {
+      traded = trade.props.onPress();
+    });
+    return {
+      picker: panel?.nativeControlsLeading as ReactElement<{
+        onSelectToken: (selection: IPerpTokenSelection) => void;
+      }>,
+      finish: () =>
+        act(async () => {
+          finishSwitch(true);
+          await traded;
+        }),
+    };
+  }
+
+  it('keeps a token picked in the panel while its Trade was switching', async () => {
+    renderTradingViewCandles();
+    const { picker, finish } = startSlowTrade();
+
+    act(() => picker.props.onSelectToken({ coin: 'SOL', mode: 'perp' }));
+    await finish();
+
+    expect(mockSetPanelSource.mock.calls).toEqual([
+      [{ ...ethSource, coin: 'SOL' }],
+    ]);
+  });
+
+  it('drops a Trade that finishes after its panel closed', async () => {
+    const { unmount } = renderTradingViewCandles();
+    const { finish } = startSlowTrade();
+
+    unmount();
+    await finish();
+
+    expect(mockSwitchTradeInstrument).toHaveBeenCalledTimes(1);
     expect(mockSetPanelSource).not.toHaveBeenCalled();
   });
 

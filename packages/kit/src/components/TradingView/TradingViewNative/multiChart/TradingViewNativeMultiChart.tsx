@@ -23,6 +23,7 @@ import {
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
+  setTradingViewNativeMultiChartPanelSource,
   setTradingViewNativeMultiChartSizes,
   updateTradingViewNativeMultiChartPanel,
 } from './multiChartLayout';
@@ -106,15 +107,21 @@ const Panel = memo(
     source: ITradingViewNativeSource;
   }) => {
     const isMain = index === 0;
-    const setSource = useCallback(
-      (nextSource: ITradingViewNativeSource) => {
-        onLayoutChange((current) =>
-          updateTradingViewNativeMultiChartPanel(
-            normalizeTradingViewNativeMultiChartLayout(current),
+    const setSource = useCallback<
+      ITradingViewNativeMultiChartPanel['setSource']
+    >(
+      (nextSource, options) => {
+        onLayoutChange((current) => {
+          const layout = normalizeTradingViewNativeMultiChartLayout(current);
+          const next = setTradingViewNativeMultiChartPanelSource(
+            layout,
             id,
-            { source: nextSource },
-          ),
-        );
+            nextSource,
+            options?.replacing,
+          );
+          // Nothing to save when the panel has moved on.
+          return next === layout ? current : next;
+        });
       },
       [id, onLayoutChange],
     );
