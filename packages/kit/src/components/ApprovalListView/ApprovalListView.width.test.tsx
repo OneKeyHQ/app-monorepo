@@ -38,7 +38,6 @@ jest.mock('@onekeyhq/components', () => {
   );
   return {
     ListView: List,
-    Tabs: { FlatList: List },
     Stack: ({ children }: { children?: ReactNode }) => <>{children}</>,
     YStack: ({ children }: { children?: ReactNode }) => <>{children}</>,
     useStyle: (value: unknown) => value,
