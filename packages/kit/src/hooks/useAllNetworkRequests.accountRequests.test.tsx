@@ -423,18 +423,20 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
     ]);
 
     // Once SUI settles and the cold fan-out finishes, the buffered ETH refresh
-    // is replayed under the same generation.
+    // is replayed under the same generation before publishing the run result.
     await ctx.settleRequests();
     await ctx.waitForPending(1);
     expect(ctx.requests[2]).toMatchObject({
       networkId: 'evm--1',
       allNetworkDataInit: false,
     });
+    expect(ctx.published).toHaveLength(0);
     await ctx.settleRequests();
     expect(ctx.settled).toEqual([
       ['evm--1', 1],
       ['sui--mainnet', 1],
       ['evm--1', 1],
     ]);
+    expect(ctx.published).toHaveLength(1);
   });
 });

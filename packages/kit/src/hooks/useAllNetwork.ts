@@ -793,21 +793,32 @@ function useAllNetworkRequests<T>(params: {
 
       perfTokenListView.markStart('useAllNetworkRequestsRun');
 
-      const scheduleQueuedRerun = () => {
+      const willQueuedRerunSupersedeResult = () => {
         const hasQueuedRerun = rerunAfterCurrentRef.current;
         if (!hasQueuedRerun) {
           return false;
         }
+        const rerunConfig = rerunConfigRef.current;
+        const hasQueuedMustRun =
+          !!rerunConfig?.alwaysSetState ||
+          !!rerunConfig?.skipAccountsCache ||
+          !!rerunConfig?.ignoreDisabled;
+        return clearRetainedResultOnAcceptedRun
+          ? hasQueuedMustRun
+          : hasQueuedRerun;
+      };
+
+      const scheduleQueuedRerun = () => {
+        if (!rerunAfterCurrentRef.current) {
+          return false;
+        }
+        const shouldSupersedeResult = willQueuedRerunSupersedeResult();
         rerunAfterCurrentRef.current = false;
         // Preserve the explicit refresh flags from runWithQueue. A queue set
         // by an internal dependency runner has no config and must still pass
         // through the redundant-run gate; otherwise every render churn could
         // be promoted to another forced fan-out.
         const rerunConfig = rerunConfigRef.current;
-        const hasQueuedMustRun =
-          !!rerunConfig?.alwaysSetState ||
-          !!rerunConfig?.skipAccountsCache ||
-          !!rerunConfig?.ignoreDisabled;
         rerunConfigRef.current = undefined;
         setTimeout(() => {
           void runWithQueueRef.current?.(rerunConfig);
@@ -815,9 +826,7 @@ function useAllNetworkRequests<T>(params: {
         // Only an explicit must-run refresh supersedes the result that just
         // completed. A dependency-triggered duplicate is still drained, but
         // its preceding result remains publishable while the gate skips it.
-        return clearRetainedResultOnAcceptedRun
-          ? hasQueuedMustRun
-          : hasQueuedRerun;
+        return shouldSupersedeResult;
       };
 
       // A runner resumed from the debounce window may belong to a previous
@@ -1490,6 +1499,34 @@ function useAllNetworkRequests<T>(params: {
         if (accountsInfo.length && accountsInfo.length > 0) {
           markDataInitialized();
         }
+        const pendingCold = pendingColdAccountRequestsRef.current;
+        if (
+          pendingCold &&
+          pendingCold.ownerKey === runnerOwnerKey &&
+          pendingCold.generation === runGeneration
+        ) {
+          pendingColdAccountRequestsRef.current = null;
+          const isFanOutExhausted =
+            clearRetainedResultOnAcceptedRun &&
+            isAllNetworkFanOutExhausted({
+              requestCount: fanOutRequestCount,
+              resultCount: completedResult?.length ?? 0,
+            });
+          if (
+            allNetworkDataInit.current &&
+            pendingCold.accounts.size > 0 &&
+            !isFanOutExhausted &&
+            !willQueuedRerunSupersedeResult()
+          ) {
+            await runAccountRequestsRef.current?.([
+              ...pendingCold.accounts.values(),
+            ]);
+            if (!isCurrentRun()) {
+              traceRunSkipped('stale-owner-after-live', runGeneration);
+              return;
+            }
+          }
+        }
 
         didComplete = !fanOutHadError;
 
@@ -1657,23 +1694,6 @@ function useAllNetworkRequests<T>(params: {
           runGeneration,
           getRunResult(),
         );
-        const pendingCold = pendingColdAccountRequestsRef.current;
-        if (
-          pendingCold &&
-          pendingCold.ownerKey === runnerOwnerKey &&
-          pendingCold.generation === runGeneration &&
-          pendingCold.accounts.size > 0 &&
-          allNetworkDataInit.current
-        ) {
-          pendingColdAccountRequestsRef.current = null;
-          void runAccountRequestsRef.current?.([
-            ...pendingCold.accounts.values(),
-          ]);
-        }
-      } else if (
-        pendingColdAccountRequestsRef.current?.generation === runGeneration
-      ) {
-        pendingColdAccountRequestsRef.current = null;
       }
       return resolved.publishedResult;
     },
