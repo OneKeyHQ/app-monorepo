@@ -29,7 +29,6 @@ import {
   Skeleton,
   Spinner,
   Stack,
-  Tabs,
   XStack,
   YStack,
   useInPageDialog,
@@ -37,6 +36,7 @@ import {
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
@@ -1234,7 +1234,7 @@ export function MobileLayout({
       bg="$bgApp"
       onLayout={handleContainerLayout}
     >
-      <Tabs.TabBar
+      <TabBar
         divider={false}
         onTabPress={handleTabChange}
         tabNames={tabNames}

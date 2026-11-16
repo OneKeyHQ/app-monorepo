@@ -9,10 +9,10 @@ import {
   Keyboard as DeviceKeyboard,
   Dialog,
   SizableText,
-  Tabs,
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -833,7 +833,7 @@ export function NormalManageContent({
   return (
     <>
       <XStack jc="space-between" px="$5">
-        <Tabs.TabBar
+        <TabBar
           divider={false}
           onTabPress={handleTabChange}
           tabNames={tabNames}

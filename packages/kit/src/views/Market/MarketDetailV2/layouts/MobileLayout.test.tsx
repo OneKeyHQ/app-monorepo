@@ -67,7 +67,7 @@ jest.mock('@onekeyhq/components', () => {
       }
       return <div>{children}</div>;
     },
-    Tabs: { TabBar: () => null },
+    TabBar: () => null,
     Skeleton: Stack,
     HeaderScrollGestureContext: React.createContext({
       excludeStartEdgeWidth: 0,
