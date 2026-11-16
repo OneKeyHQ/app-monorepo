@@ -10,6 +10,7 @@ import {
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
   getTradingViewNativeMultiChartSizes,
+  hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
   updateTradingViewNativeMultiChartPanel,
@@ -190,6 +191,24 @@ describe('panel state', () => {
     expect(fillTradingViewNativeMultiChartPanels(layout, defaults)).toBe(
       layout,
     );
+  });
+
+  it('gives a panel saved with only a token its own indicator settings', () => {
+    const layout: ITradingViewNativeMultiChartLayout = {
+      preset: '2h',
+      panels: { 'panel-2': { source: coin('DOGE') } },
+    };
+    // Otherwise the panel would keep following the main chart's indicators.
+    expect(hasUnfilledTradingViewNativeMultiChartPanel(layout)).toBe(true);
+    const filled = fillTradingViewNativeMultiChartPanels(layout, defaults);
+    expect(filled.panels).toEqual({
+      'panel-2': { source: coin('DOGE'), indicatorSettings },
+    });
+    expect(hasUnfilledTradingViewNativeMultiChartPanel(filled)).toBe(false);
+    // A panel the current preset does not show is not waited on.
+    expect(
+      hasUnfilledTradingViewNativeMultiChartPanel({ ...layout, preset: '1' }),
+    ).toBe(false);
   });
 
   it('only updates the extra panels', () => {

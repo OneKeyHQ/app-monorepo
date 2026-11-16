@@ -391,6 +391,24 @@ export interface ITradingViewNativeMultiChartPanelDefaults {
   }) => ITradingViewNativeSource;
 }
 
+function isPanelFilled(
+  panel: ITradingViewNativeMultiChartPanelState | undefined,
+) {
+  return Boolean(panel?.source && panel.indicatorSettings);
+}
+
+/**
+ * Whether a visible extra panel still lacks its token or its own indicator
+ * settings, e.g. in a layout saved by another build.
+ */
+export function hasUnfilledTradingViewNativeMultiChartPanel(
+  layout: ITradingViewNativeMultiChartLayout,
+) {
+  return getTradingViewNativeMultiChartPanelIds(layout.preset)
+    .slice(1)
+    .some((id) => !isPanelFilled(layout.panels[id]));
+}
+
 /**
  * Gives every visible extra panel a token and its own indicator settings. A new
  * panel starts from the main chart's indicators and then diverges; values a
@@ -415,7 +433,7 @@ export function fillTradingViewNativeMultiChartPanels(
   let panels = layout.panels;
   for (const id of panelIds) {
     const panel = layout.panels[id];
-    if (!panel?.source || !panel.indicatorSettings) {
+    if (!isPanelFilled(panel)) {
       let source = panel?.source;
       if (!source) {
         source = getDefaultPanelSource({ usedSources });

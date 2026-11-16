@@ -20,6 +20,7 @@ import {
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
   getTradingViewNativeMultiChartSizes,
+  hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
   setTradingViewNativeMultiChartSizes,
@@ -186,11 +187,10 @@ export function TradingViewNativeMultiChart({
     getDefaultPanelSource,
     indicatorSettings: defaultIndicatorSettings,
   };
-  // Covers a layout saved without a panel's token, e.g. by another build. The
-  // layout picker fills new panels itself.
-  const hasIncompletePanel = panelIds
-    .slice(1)
-    .some((id) => !layout.panels[id]?.source);
+  // Covers a layout saved without a panel's token or indicator settings, e.g.
+  // by another build. The layout picker fills new panels itself.
+  const hasIncompletePanel =
+    hasUnfilledTradingViewNativeMultiChartPanel(layout);
   useEffect(() => {
     if (!hasIncompletePanel) return;
     onLayoutChange((current) =>
