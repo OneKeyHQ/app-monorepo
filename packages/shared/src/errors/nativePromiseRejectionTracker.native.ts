@@ -10,7 +10,7 @@ const RNErrorUtils = ErrorUtils;
 
 let errorTracker: (error: Error) => void;
 let errorHandlerInstalled = false;
-let hermesTrackerPrepared = false;
+let promiseTrackerPrepared = false;
 let sdkOptions: IHermesRejectionOptions | undefined;
 
 export type IHermesRejectionOptions = {
@@ -65,31 +65,47 @@ let promiseRejectionHandler = __DEV__
 
 const getUnhandledPromiseRejectionTracker = () => promiseRejectionHandler;
 
-// Hermes implements tracker registration by mutating its Promise constructor.
-// Install the native hooks while the vetted shim window is still open. Later
-// RN/Sentry registrations only update callbacks, preserving the frozen Promise.
+function installFallbackPromise(options: IHermesRejectionOptions) {
+  const {
+    polyfillGlobal,
+  } = require('react-native/Libraries/Utilities/PolyfillFunctions');
+  polyfillGlobal('Promise', () => {
+    require('promise/setimmediate/done');
+    require('promise/setimmediate/finally');
+    const Promise =
+      require('promise/setimmediate/es6-extensions') as PromiseConstructor;
+    if (typeof Promise.withResolvers !== 'function') {
+      Promise.withResolvers = function withResolvers<T>() {
+        let resolve!: (value: T | PromiseLike<T>) => void;
+        let reject!: (reason?: unknown) => void;
+        const promise = new Promise<T>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { promise, resolve, reject };
+      };
+    }
+    require('promise/setimmediate/rejection-tracking').enable(options);
+    return Promise;
+  });
+  // RN installs a lazy global: materialize it before the shim window closes.
+  void Promise;
+}
+
+// Both Hermes and the fallback tracker mutate Promise to install their hooks.
+// Prepare the active constructor and hooks before hardening; later subscribers
+// only update callbacks, including Sentry on non-Hermes builds.
 export function prepareNativePromiseRejectionTracker() {
-  if (process.env.ONEKEY_MOBILE_LOCKDOWN === 'false' || hermesTrackerPrepared)
+  if (process.env.ONEKEY_MOBILE_LOCKDOWN === 'false' || promiseTrackerPrepared)
     return;
-  const hermes = getHermesPromiseAPI();
-  if (!hermes?.hasPromise?.()) return;
-  if (
-    typeof hermes.enablePromiseRejectionTracker !== 'function' ||
-    Object.isFrozen(Promise)
-  ) {
-    // eslint-disable-next-line onekey/no-raw-error, no-restricted-syntax -- the native API must be installed before intrinsics are hardened
+  if (Object.isFrozen(Promise)) {
+    // eslint-disable-next-line onekey/no-raw-error, no-restricted-syntax -- preparation must precede hardening
     throw new Error(
-      'Hermes Promise tracking must be prepared before lockdown.',
+      'Native Promise tracking must be prepared before lockdown.',
     );
   }
-  if (__DEV__) {
-    // RN installs these options during InitializeCore, before this shim runs.
-    sdkOptions =
-      require('react-native/Libraries/promiseRejectionTrackingOptions')
-        .default as IHermesRejectionOptions;
-  }
-  const nativeEnable = hermes.enablePromiseRejectionTracker;
-  nativeEnable.call(hermes, {
+  const hermes = getHermesPromiseAPI();
+  const options: IHermesRejectionOptions = {
     allRejections: true,
     onUnhandled: (id, error, promise) => {
       try {
@@ -104,17 +120,34 @@ export function prepareNativePromiseRejectionTracker() {
     onHandled: (id, error, promise) => {
       sdkOptions?.onHandled?.(id, error, promise);
     },
-  });
-  hermesTrackerPrepared = true;
+  };
+  if (hermes?.hasPromise?.()) {
+    if (typeof hermes.enablePromiseRejectionTracker !== 'function') {
+      // eslint-disable-next-line onekey/no-raw-error, no-restricted-syntax -- a supported native tracker is required before hardening
+      throw new Error(
+        'Hermes Promise tracking must be prepared before lockdown.',
+      );
+    }
+    if (__DEV__) {
+      // RN installs these options during InitializeCore, before this shim runs.
+      sdkOptions =
+        require('react-native/Libraries/promiseRejectionTrackingOptions')
+          .default as IHermesRejectionOptions;
+    }
+    hermes.enablePromiseRejectionTracker(options);
+  } else {
+    installFallbackPromise(options);
+  }
+  promiseTrackerPrepared = true;
 }
 
-// Sentry uses this observer instead of re-registering Hermes' native hooks after
+// Sentry uses this observer instead of re-registering Promise rejection hooks after
 // hardening. It retains the SDK's original unhandled-rejection capture path.
 export function setNativePromiseRejectionTrackingOptions(
   options: IHermesRejectionOptions,
 ) {
   if (
-    !hermesTrackerPrepared ||
+    !promiseTrackerPrepared ||
     options?.allRejections !== true ||
     Object.keys(options).some(
       (key) => !['allRejections', 'onUnhandled', 'onHandled'].includes(key),
@@ -125,7 +158,7 @@ export function setNativePromiseRejectionTrackingOptions(
   ) {
     // eslint-disable-next-line onekey/no-raw-error, no-restricted-syntax -- validate the native tracker compatibility contract
     throw new Error(
-      'Unsupported or unprepared Hermes Promise rejection tracking options.',
+      'Unsupported or unprepared native Promise rejection tracking options.',
     );
   }
   sdkOptions = options;
@@ -133,13 +166,11 @@ export function setNativePromiseRejectionTrackingOptions(
 
 const setErrorTracker = (tracker: (error: Error) => void) => {
   errorTracker = tracker;
-  const usesProtectedHermesPromise =
-    process.env.ONEKEY_MOBILE_LOCKDOWN !== 'false' &&
-    getHermesPromiseAPI()?.hasPromise?.() === true;
-  if (usesProtectedHermesPromise && !hermesTrackerPrepared) {
+  const usesProtectedPromise = process.env.ONEKEY_MOBILE_LOCKDOWN !== 'false';
+  if (usesProtectedPromise && !promiseTrackerPrepared) {
     // eslint-disable-next-line onekey/no-raw-error, no-restricted-syntax -- do not replace repaired intrinsics when the startup shim was omitted
     throw new Error(
-      'Hermes Promise tracking was not prepared before lockdown.',
+      'Native Promise tracking was not prepared before lockdown.',
     );
   }
 
@@ -165,35 +196,11 @@ const setErrorTracker = (tracker: (error: Error) => void) => {
       errorTracker(error as Error);
     }
   };
-  if (usesProtectedHermesPromise) return;
+  if (usesProtectedPromise) return;
 
-  const {
-    polyfillGlobal,
-  } = require('react-native/Libraries/Utilities/PolyfillFunctions');
-
-  polyfillGlobal('Promise', () => {
-    require('promise/setimmediate/done');
-    require('promise/setimmediate/finally');
-    const Promise = require('promise/setimmediate/es6-extensions');
-    if (typeof Promise.withResolvers !== 'function') {
-      Promise.withResolvers = function withResolvers() {
-        let resolve;
-        let reject;
-        // @ts-expect-error
-        const promise = new Promise((res, rej) => {
-          resolve = res;
-          reject = rej;
-        });
-        return { promise, resolve, reject };
-      };
-    }
-    const tracking = require('promise/setimmediate/rejection-tracking');
-
-    tracking.enable({
-      allRejections: true,
-      onUnhandled: promiseRejectionHandler,
-    });
-    return Promise;
+  installFallbackPromise({
+    allRejections: true,
+    onUnhandled: (id, error) => promiseRejectionHandler?.(String(id), error),
   });
 };
 

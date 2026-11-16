@@ -36,6 +36,7 @@ on:
       - 'apps/mobile/scripts/metro-dev-prebundle.js'
       - 'apps/mobile/scripts/native-dev-shell.js'
       - 'apps/mobile/src/security/finishMobileLockdown.ts'
+      - 'apps/mobile/src/security/repair.js'
       - 'apps/mobile/svgx-transformer.js'
       - 'development/babelTools.js'
       - 'development/developmentConsts.js'

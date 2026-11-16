@@ -7,6 +7,7 @@ import {
   SES_HARDEN_PATCH_WARNING_LIMIT,
   getSesHardenLevelFromRuntime,
   getSesHardenPatchWarnings,
+  getSesHardenRuntimeState,
   isSesHardenPatchWarningMonitorEnabled,
 } from './runtime';
 
@@ -216,6 +217,15 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       functionality: '检查 Intl.NumberFormat 金额格式化是否仍能正常工作。',
       hardening:
         '这是兼容性检查。当前 localeTaming 保持 unsafe，目的是避免金额和本地化显示被改坏。',
+    },
+    {
+      name: 'Locale comparison and formatting',
+      dimension: 'functionality',
+      title: 'Locale comparison and formatting / 地址比较与数字格式化',
+      functionality:
+        '检查忽略大小写的地址比较和 Number.toLocaleString 分组格式。',
+      hardening:
+        '确认 repair 阶段保留 locale 语义，避免缓存地址命中和金额显示被改变。',
     },
     {
       name: 'RegExp',
@@ -1254,11 +1264,13 @@ function runExtensionBridgeGlobalsCheck(
 export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckReport> {
   const g = getSesGlobal();
   const level = getSesHardenLevelFromRuntime();
-  const state = g.__ONEKEY_SES_HARDEN_STATE__;
+  const state = getSesHardenRuntimeState();
   const checks: ISesRuntimeCheckItem[] = [];
   const shouldBeLockedDown = level !== 'L0';
   const patchWarnings = getSesHardenPatchWarnings();
-  const patchWarningMonitorEnabled = isSesHardenPatchWarningMonitorEnabled();
+  const patchWarningMonitorEnabled =
+    !state?.runtime.startsWith('mobile-') &&
+    isSesHardenPatchWarningMonitorEnabled();
   const patchWarningMonitorInstalled =
     g.__ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__ === true;
   const shouldInstallPatchWarningMonitor =
@@ -1388,13 +1400,35 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
 
   try {
     const promiseValue = await Promise.resolve(42);
+    let finalized = false;
+    const chainedValue = await Promise.reject(new Error('SES check fixture'))
+      .catch(() => 41)
+      .then((value) => value + 1)
+      .finally(() => {
+        finalized = true;
+      });
+    const all = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+    const raced = await Promise.race([Promise.resolve(42)]);
+    const settled = await Promise.allSettled([
+      Promise.resolve(42),
+      Promise.reject(new Error('SES settled fixture')),
+    ]);
+    const passed =
+      promiseValue === 42 &&
+      chainedValue === 42 &&
+      finalized &&
+      all.join(',') === '1,2' &&
+      raced === 42 &&
+      settled[0].status === 'fulfilled' &&
+      settled[0].value === 42 &&
+      settled[1].status === 'rejected';
     checks.push(
       buildCheck(
         'Promise microtask',
         'functionality',
         '确认 harden 后 Promise.resolve 和微任务调度仍然可用。',
-        promiseValue === 42,
-        `value=${promiseValue}`,
+        passed,
+        `resolve=${promiseValue}, chain=${chainedValue}, finally=${String(finalized)}, all=${all.join(',')}, race=${raced}, allSettled=${settled.map((item) => item.status).join(',')}`,
       ),
     );
   } catch (error) {
@@ -1403,6 +1437,32 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
         'Promise microtask',
         'functionality',
         '确认 harden 后 Promise.resolve 和微任务调度仍然可用。',
+        false,
+        getErrorMessage(error),
+      ),
+    );
+  }
+
+  try {
+    const matches =
+      '0xAbCd'.localeCompare('0xabcd', undefined, { sensitivity: 'base' }) ===
+      0;
+    const formatted = (1_234_567.89).toLocaleString('en-US');
+    checks.push(
+      buildCheck(
+        'Locale comparison and formatting',
+        'functionality',
+        '确认 harden 后地址大小写比较和数字分组格式保持原有语义。',
+        matches && formatted === '1,234,567.89',
+        `addressMatches=${String(matches)}, formatted=${formatted}`,
+      ),
+    );
+  } catch (error) {
+    checks.push(
+      buildCheck(
+        'Locale comparison and formatting',
+        'functionality',
+        '确认 harden 后地址大小写比较和数字分组格式保持原有语义。',
         false,
         getErrorMessage(error),
       ),

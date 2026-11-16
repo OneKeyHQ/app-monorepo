@@ -64,7 +64,29 @@ export function normalizeSesHardenLevel(
 export function getSesHardenLevelFromRuntime(
   runtime?: ISesHardenRuntime,
 ): ISesHardenLevel {
+  const state = getSesHardenRuntimeState();
+  if (
+    state?.runtime.startsWith('mobile-') &&
+    (runtime === undefined || runtime === state.runtime)
+  ) {
+    return state.level;
+  }
   return getConfiguredSesHardenLevel(runtime);
+}
+
+export function getSesHardenRuntimeState(): ISesHardenRuntimeState | undefined {
+  const g = getSesGlobal();
+  const mobile = g.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
+  if (mobile) {
+    return {
+      level: mobile.enabled ? 'L1' : 'L0',
+      runtime: mobile.runtime === 'main' ? 'mobile-main' : 'mobile-background',
+      lockdownApplied: mobile.lockdownApplied,
+      evalTaming: mobile.evalTaming,
+      objectPrototypeFrozen: Object.isFrozen(Object.prototype),
+    };
+  }
+  return g.__ONEKEY_SES_HARDEN_STATE__;
 }
 
 function setSesHardenRuntimeState(state: ISesHardenRuntimeState): void {

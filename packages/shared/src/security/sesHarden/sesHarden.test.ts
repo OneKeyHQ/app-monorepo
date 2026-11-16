@@ -7,6 +7,7 @@ import {
   getSesHarden,
   getSesHardenLevelFromRuntime,
   getSesHardenPatchWarnings,
+  getSesHardenRuntimeState,
   getSesLockdownOptions,
   maybeLockdownOneKeyRuntime,
   normalizeSesHardenLevel,
@@ -65,6 +66,41 @@ test('normalizes supported harden levels', () => {
   expect(normalizeSesHardenLevel('L3')).toBeUndefined();
   expect(normalizeSesHardenLevel(undefined)).toBeUndefined();
 });
+
+test.each(['main', 'background'] as const)(
+  'mobile diagnostics read the actual %s build state without changing web levels',
+  (runtime) => {
+    const g = globalThis as unknown as ISesHardenGlobal;
+    try {
+      g.__ONEKEY_MOBILE_LOCKDOWN_STATE__ = {
+        enabled: true,
+        runtime,
+        lockdownApplied: true,
+        evalTaming: 'unsafe-eval',
+      };
+      expect(getSesHardenRuntimeState()).toEqual({
+        level: 'L1',
+        runtime: `mobile-${runtime}`,
+        lockdownApplied: true,
+        evalTaming: 'unsafe-eval',
+        objectPrototypeFrozen: Object.isFrozen(Object.prototype),
+      });
+      expect(getSesHardenLevelFromRuntime()).toBe('L1');
+      expect(getSesHardenLevelFromRuntime('web')).toBe(
+        getConfiguredSesHardenLevel('web'),
+      );
+      g.__ONEKEY_MOBILE_LOCKDOWN_STATE__ = {
+        enabled: false,
+        runtime,
+        lockdownApplied: false,
+      };
+      expect(getSesHardenLevelFromRuntime()).toBe('L0');
+      expect(getSesHardenRuntimeState()?.lockdownApplied).toBe(false);
+    } finally {
+      delete g.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
+    }
+  },
+);
 
 test('keeps L0 as no-lockdown', () => {
   const state = maybeLockdownOneKeyRuntime({

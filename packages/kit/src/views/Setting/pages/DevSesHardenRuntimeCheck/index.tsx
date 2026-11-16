@@ -22,8 +22,12 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getSesHardenLevelFromRuntime } from '@onekeyhq/shared/src/security/sesHarden';
+import {
+  getSesHardenLevelFromRuntime,
+  getSesHardenRuntimeState,
+} from '@onekeyhq/shared/src/security/sesHarden';
 import type {
   ISesHardenLevel,
   ISesHardenRuntime,
@@ -41,10 +45,6 @@ import type {
   ISesRuntimeCheckReport,
 } from '@onekeyhq/shared/src/security/sesHarden/runtimeCheck';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-
-type ISesHardenDevGlobal = typeof globalThis & {
-  __ONEKEY_SES_HARDEN_STATE__?: ISesHardenRuntimeState;
-};
 
 type ISesLevelMatrixRow = {
   item: string;
@@ -65,7 +65,7 @@ type IExtensionRuntimeCheckTarget = {
   unavailableMessage: string;
 };
 
-type IExtensionRuntimeCheckResult = {
+type IRuntimeCheckResult = {
   runtime: ISesHardenRuntime;
   status: ISesCheckStatus;
   report?: ISesRuntimeCheckReport;
@@ -73,7 +73,7 @@ type IExtensionRuntimeCheckResult = {
 };
 
 type IAggregatedSesRuntimeCheckReport = ISesRuntimeCheckReport & {
-  extensionRuntimeReports?: readonly IExtensionRuntimeCheckResult[];
+  additionalRuntimeReports?: readonly IRuntimeCheckResult[];
 };
 
 type ISesDimensionSummary =
@@ -516,10 +516,6 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
   },
 ] as const;
 
-function getSesGlobal(): ISesHardenDevGlobal {
-  return globalThis as ISesHardenDevGlobal;
-}
-
 function getCheckBadgeType(status: ISesCheckStatus): IBadgeType {
   if (status === 'pass') return 'success';
   if (status === 'fail') return 'critical';
@@ -707,7 +703,7 @@ function hasReportFailures(report?: IAggregatedSesRuntimeCheckReport): boolean {
   if (report.checks.some((check) => check.status === 'fail')) return true;
 
   return (
-    report.extensionRuntimeReports?.some(
+    report.additionalRuntimeReports?.some(
       (runtimeReport) =>
         runtimeReport.status === 'fail' ||
         runtimeReport.report?.checks.some((check) => check.status === 'fail'),
@@ -756,8 +752,8 @@ function buildCopyableReport(
 ): IAggregatedSesRuntimeCheckReport & {
   runtimeSummaries: readonly IRuntimeSummaryForCopy[];
 } {
-  const extensionRuntimeSummaries =
-    report.extensionRuntimeReports?.map((runtimeReport) =>
+  const additionalRuntimeSummaries =
+    report.additionalRuntimeReports?.map((runtimeReport) =>
       runtimeReport.report
         ? buildRuntimeSummaryForCopy(runtimeReport.report, runtimeReport.status)
         : {
@@ -771,14 +767,14 @@ function buildCopyableReport(
     ...report,
     runtimeSummaries: [
       buildRuntimeSummaryForCopy(report, getRuntimeResultStatus(report)),
-      ...extensionRuntimeSummaries,
+      ...additionalRuntimeSummaries,
     ],
   };
 }
 
 async function requestExtensionRuntimeCheckReport(
   target: IExtensionRuntimeCheckTarget,
-): Promise<IExtensionRuntimeCheckResult> {
+): Promise<IRuntimeCheckResult> {
   const chromeRuntime = getChromeRuntimeForSesCheck();
 
   if (!chromeRuntime?.sendMessage) {
@@ -794,7 +790,7 @@ async function requestExtensionRuntimeCheckReport(
     const timeoutRef: {
       current?: ReturnType<typeof setTimeout>;
     } = {};
-    const finish = (result: IExtensionRuntimeCheckResult) => {
+    const finish = (result: IRuntimeCheckResult) => {
       if (settled) return;
       settled = true;
       if (timeoutRef.current) {
@@ -866,7 +862,7 @@ async function requestExtensionRuntimeCheckReport(
 
 async function collectExtensionRuntimeReports(
   currentRuntime?: ISesHardenRuntime,
-): Promise<readonly IExtensionRuntimeCheckResult[] | undefined> {
+): Promise<readonly IRuntimeCheckResult[] | undefined> {
   if (!isExtensionRuntime(currentRuntime)) {
     return undefined;
   }
@@ -964,14 +960,37 @@ export default function DevSesHardenRuntimeCheck() {
     setIsRunning(true);
     try {
       const currentReport = await buildSesRuntimeCheckReport();
-      const extensionRuntimeReports = await collectExtensionRuntimeReports(
-        currentReport.state?.runtime,
-      );
+      let additionalRuntimeReports: readonly IRuntimeCheckResult[] | undefined;
+      if (platformEnv.isNative) {
+        try {
+          const backgroundReport =
+            await backgroundApiProxy.serviceDevSetting.runSesHardenRuntimeChecks();
+          additionalRuntimeReports = [
+            {
+              runtime: 'mobile-background',
+              status: getRuntimeResultStatus(backgroundReport),
+              report: backgroundReport,
+            },
+          ];
+        } catch (error) {
+          additionalRuntimeReports = [
+            {
+              runtime: 'mobile-background',
+              status: 'fail',
+              error: getErrorMessage(error),
+            },
+          ];
+        }
+      } else {
+        additionalRuntimeReports = await collectExtensionRuntimeReports(
+          currentReport.state?.runtime,
+        );
+      }
       const nextReport: IAggregatedSesRuntimeCheckReport =
-        extensionRuntimeReports?.length
+        additionalRuntimeReports?.length
           ? {
               ...currentReport,
-              extensionRuntimeReports,
+              additionalRuntimeReports,
             }
           : currentReport;
       setReport(nextReport);
@@ -1041,8 +1060,7 @@ export default function DevSesHardenRuntimeCheck() {
               Level: {getSesHardenLevelFromRuntime()}
             </SizableText>
             <SizableText color="$textSubdued">
-              State:{' '}
-              {JSON.stringify(getSesGlobal().__ONEKEY_SES_HARDEN_STATE__)}
+              State: {JSON.stringify(getSesHardenRuntimeState())}
             </SizableText>
           </YStack>
 
@@ -1109,7 +1127,7 @@ export default function DevSesHardenRuntimeCheck() {
                   <DimensionSummaryBadges runtimeReport={report} />
                 ) : null}
 
-                {report?.extensionRuntimeReports?.length ? (
+                {report?.additionalRuntimeReports?.length ? (
                   <YStack
                     gap="$2"
                     p="$3"
@@ -1120,7 +1138,7 @@ export default function DevSesHardenRuntimeCheck() {
                     <XStack alignItems="center" gap="$2" flexWrap="wrap">
                       <Badge
                         badgeType={
-                          report.extensionRuntimeReports.some(
+                          report.additionalRuntimeReports.some(
                             (item) => item.status === 'fail',
                           )
                             ? 'critical'
@@ -1130,30 +1148,35 @@ export default function DevSesHardenRuntimeCheck() {
                       >
                         <Badge.Text>
                           {
-                            report.extensionRuntimeReports.filter(
+                            report.additionalRuntimeReports.filter(
                               (item) => item.status === 'pass',
                             ).length
                           }
-                          /{report.extensionRuntimeReports.length}
+                          /{report.additionalRuntimeReports.length}
                         </Badge.Text>
                       </Badge>
                       <SizableText size="$bodyLgMedium">
-                        Extension 多 Runtime 结果
+                        {platformEnv.isNative ? 'Mobile' : 'Extension'} 多
+                        Runtime 结果
                       </SizableText>
                     </XStack>
                     <LabeledLine
                       label="功能："
-                      value="从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。"
+                      value={
+                        platformEnv.isNative
+                          ? '通过 background RPC 在独立 bg JS runtime 执行同一套 SES runtime checks。'
+                          : '从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。'
+                      }
                     />
                     <LabeledLine
                       label="硬化点："
-                      value="验证每个扩展 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
+                      value="验证每个 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
                     />
                     <LabeledLine
                       label="目的："
-                      value="避免只验证 UI runtime，却漏掉 background/offscreen/passkey 这些独立 JS heap 的 harden 和关键 patch 顺序。"
+                      value="确认 UI 和 background 等独立 JS heap 的 harden 和关键 patch 顺序。"
                     />
-                    {report.extensionRuntimeReports.map((runtimeReport) => (
+                    {report.additionalRuntimeReports.map((runtimeReport) => (
                       <YStack
                         key={runtimeReport.runtime}
                         gap="$1"

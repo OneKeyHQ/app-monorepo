@@ -22,6 +22,7 @@ module.exports = function (api) {
       ignore: [
         /[\\/]ses[\\/]dist[\\/]ses(?:-hermes)?\.cjs$/,
         /[\\/]react-native-lockdown[\\/]src[\\/]repair\.js$/,
+        path.resolve(__dirname, 'src/security/repair.js'),
       ],
       presets: [
         [

@@ -25,7 +25,9 @@ function createRuntime({
     globalThis.events = [];
     globalThis.console = { log(){}, warn(){ events.push('warning'); }, error(){} };
     globalThis.process = { env: {}, nextTick(){} };
-    globalThis.setTimeout = () => 1;
+    globalThis.scheduled = [];
+    globalThis.setTimeout = (callback) => { scheduled.push(callback); return scheduled.length; };
+    globalThis.setImmediate = (callback) => { scheduled.push(callback); return scheduled.length; };
     globalThis.clearTimeout = () => {};
     globalThis.ErrorUtils = {
       handler(){ events.push('initial'); },
@@ -40,7 +42,7 @@ function createRuntime({
   );
   for (const filename of [
     adapter.resolve('ses/hermes'),
-    adapter.resolve('@lavamoat/react-native-lockdown/repair'),
+    path.resolve(__dirname, '../../../../apps/mobile/src/security/repair.js'),
   ]) {
     vm.runInContext(fs.readFileSync(filename, 'utf8'), context);
   }
@@ -109,9 +111,55 @@ function createRuntime({
       'trackerModule.prepareNativePromiseRejectionTracker();',
       context,
     );
-  if (enabled) vm.runInContext('hardenIntrinsics();', context);
+  vm.runInContext('globalThis.preparedPromise = Promise;', context);
+  if (enabled) {
+    context.finishFile = path.resolve(
+      __dirname,
+      '../../../../apps/mobile/src/security/finishMobileLockdown.ts',
+    );
+    vm.runInContext(
+      "load(finishFile, finishFile).finishMobileLockdown('main');",
+      context,
+    );
+  }
   return (code) => vm.runInContext(code, context);
 }
+
+test('non-Hermes prepares the fallback before hardening and keeps it frozen when subscribing', () => {
+  const run = createRuntime({ hermes: false });
+  expect(run('preparedPromise !== originalPromise')).toBe(true);
+  expect(
+    run('Object.isFrozen(Promise) && Object.isFrozen(Promise.prototype)'),
+  ).toBe(true);
+  run(
+    'tracker.setErrorTracker(() => events.push("app")); tracker.setErrorTracker(() => events.push("new-app"));',
+  );
+  expect(run('Promise === preparedPromise')).toBe(true);
+  expect(
+    run('Object.isFrozen(Promise) && Object.isFrozen(Promise.prototype)'),
+  ).toBe(true);
+  run(`
+    trackerModule.setNativePromiseRejectionTrackingOptions({allRejections:true, onUnhandled(){ events.push('sdk'); }, onHandled(){ events.push('handled'); }});
+    globalThis.rejected = Promise.reject(new Error('fixture'));
+    scheduled.splice(0).forEach((callback) => callback());
+    rejected.catch(() => {});
+  `);
+  expect(run('JSON.stringify(events)')).toBe(
+    JSON.stringify(['sdk', 'warning', 'new-app', 'handled']),
+  );
+  run('trackerModule.prepareNativePromiseRejectionTracker();');
+  expect(run('Promise === preparedPromise')).toBe(true);
+});
+
+test('non-Hermes subscriptions fail closed if preparation was omitted', () => {
+  const run = createRuntime({ hermes: false, prepare: false });
+  expect(() => run('tracker.setErrorTracker(() => {});')).toThrow(
+    'not prepared',
+  );
+  expect(run('Promise === originalPromise && Object.isFrozen(Promise)')).toBe(
+    true,
+  );
+});
 
 test('Hermes subscriptions preserve the repaired Promise and report native rejections', () => {
   const run = createRuntime();

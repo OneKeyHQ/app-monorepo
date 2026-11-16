@@ -79,53 +79,56 @@ describe('initSentry', () => {
     else Reflect.deleteProperty(globalThis, 'HermesInternal');
   });
 
-  test('keeps Sentry rejection capture through the prepared Hermes observer', () => {
-    Object.defineProperty(globalThis, 'HermesInternal', {
-      configurable: true,
-      value: { hasPromise: () => true },
-    });
-    delete process.env.ONEKEY_MOBILE_LOCKDOWN;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { initSentry } =
-      require('./index.native') as typeof import('./index.native');
-    initSentry();
-    const integrations = initMock.mock.calls[0][0].integrations;
-    expect(Array.isArray(integrations)).toBe(true);
-    if (!Array.isArray(integrations)) return;
-    expect(integrations[0]).toMatchObject({
-      name: 'ReactNativeErrorHandlers',
-      options: { onunhandledrejection: false },
-    });
-    integrations
-      .find((integration) => integration.name === 'OneKeyHermesPromiseErrors')
-      ?.setupOnce?.();
-    expect(nativeRejectionOptionsMock).toHaveBeenCalledTimes(1);
-    const options = nativeRejectionOptionsMock.mock.calls[0][0] as {
-      allRejections: boolean;
-      onUnhandled: (id: number, error: unknown) => void;
-      onHandled: (id: number) => void;
-    };
-    expect(options.allRejections).toBe(true);
-    for (const rejection of [
-      new Error('fixture'),
-      { stack: 'fixture stack' },
-      'fixture',
-      undefined,
-    ]) {
-      options.onUnhandled(7, rejection);
-      expect(captureExceptionMock).toHaveBeenLastCalledWith(rejection, {
-        data: { id: 7 },
-        originalException: rejection,
-        syntheticException:
-          rejection && typeof rejection === 'object' && 'stack' in rejection
-            ? undefined
-            : expect.objectContaining({ framesToPop: 3 }),
-        mechanism: { handled: true, type: 'onunhandledrejection' },
+  test.each([true, false])(
+    'keeps Sentry rejection capture through the prepared native observer: hermes=%s',
+    (hermes) => {
+      Object.defineProperty(globalThis, 'HermesInternal', {
+        configurable: true,
+        value: { hasPromise: () => hermes },
       });
-    }
-    options.onHandled(7);
-    expect(captureExceptionMock).toHaveBeenCalledTimes(4);
-  });
+      delete process.env.ONEKEY_MOBILE_LOCKDOWN;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { initSentry } =
+        require('./index.native') as typeof import('./index.native');
+      initSentry();
+      const integrations = initMock.mock.calls[0][0].integrations;
+      expect(Array.isArray(integrations)).toBe(true);
+      if (!Array.isArray(integrations)) return;
+      expect(integrations[0]).toMatchObject({
+        name: 'ReactNativeErrorHandlers',
+        options: { onunhandledrejection: false },
+      });
+      integrations
+        .find((integration) => integration.name === 'OneKeyNativePromiseErrors')
+        ?.setupOnce?.();
+      expect(nativeRejectionOptionsMock).toHaveBeenCalledTimes(1);
+      const options = nativeRejectionOptionsMock.mock.calls[0][0] as {
+        allRejections: boolean;
+        onUnhandled: (id: number, error: unknown) => void;
+        onHandled: (id: number) => void;
+      };
+      expect(options.allRejections).toBe(true);
+      for (const rejection of [
+        new Error('fixture'),
+        { stack: 'fixture stack' },
+        'fixture',
+        undefined,
+      ]) {
+        options.onUnhandled(7, rejection);
+        expect(captureExceptionMock).toHaveBeenLastCalledWith(rejection, {
+          data: { id: 7 },
+          originalException: rejection,
+          syntheticException:
+            rejection && typeof rejection === 'object' && 'stack' in rejection
+              ? undefined
+              : expect.objectContaining({ framesToPop: 3 }),
+          mechanism: { handled: true, type: 'onunhandledrejection' },
+        });
+      }
+      options.onHandled(7);
+      expect(captureExceptionMock).toHaveBeenCalledTimes(4);
+    },
+  );
 
   test('rollback preserves the default Sentry integrations', () => {
     Object.defineProperty(globalThis, 'HermesInternal', {

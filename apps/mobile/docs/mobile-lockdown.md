@@ -9,13 +9,16 @@ remain in that follow-up PR.
 On iOS and Android, `main` and `background` have independent JavaScript heaps.
 Both Metro bundles load the adapter-local SES Hermes prelude and repair script
 before React Native initialization. Each entry then runs the existing synchronous
-OneKey polyfills, prepares Hermes Promise rejection tracking, and calls
+OneKey polyfills, prepares the active Promise and rejection tracking, and calls
 `finishMobileLockdown` before marking runtime capabilities ready or loading wallet
 services. A missing prelude or failed intrinsic integrity check aborts startup.
 
 `@lavamoat/react-native-lockdown@1.0.0` pins its own `ses@1.15.0`. The existing
 web SES helper continues using its current version and options. Mobile rejects a
 second/vanilla SES copy, and the native shared loader cannot initialize one.
+The local raw repair prelude retains the adapter's options and Hermes Promise
+restoration with `localeTaming: 'unsafe'`, preserving locale-aware address
+comparison and number formatting before intrinsic freezing.
 
 The adapter uses `unsafe-eval`. This freezes JavaScript intrinsics, including
 Object, Array, Function, and Promise prototypes. It is not package isolation,
@@ -38,7 +41,10 @@ restricted to their resolved files.
 
 Hermes Promise rejection hooks are registered before hardening. Sentry and the
 application update observers afterward instead of replacing the frozen Promise.
-The explicit rollback/non-Hermes path retains the existing Promise fallback.
+Non-Hermes builds install the npm Promise and rejection hooks before hardening;
+the finalizer also hardens this vetted replacement because SES collected its
+intrinsic graph during repair. Sentry uses the prepared observer on both engines.
+The explicit rollback path retains the existing late Promise fallback.
 
 ## Verification
 

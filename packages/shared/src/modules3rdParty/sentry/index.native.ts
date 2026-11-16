@@ -34,19 +34,13 @@ export * from './basicOptions';
 function getNativePromiseIntegrations(): ReturnType<
   typeof reactNativeErrorHandlersIntegration
 >[] {
-  const hermes = (
-    globalThis as typeof globalThis & {
-      HermesInternal?: { hasPromise?: () => boolean };
-    }
-  ).HermesInternal;
-  if (process.env.ONEKEY_MOBILE_LOCKDOWN === 'false' || !hermes?.hasPromise?.())
-    return [];
+  if (process.env.ONEKEY_MOBILE_LOCKDOWN === 'false') return [];
   return [
-    // Keep the SDK's synchronous/native error chain. Its default Hermes
+    // Keep the SDK's synchronous/native error chain. Its default native
     // rejection setup mutates Promise and cannot run after lockdown.
     reactNativeErrorHandlersIntegration({ onunhandledrejection: false }),
     {
-      name: 'OneKeyHermesPromiseErrors',
+      name: 'OneKeyNativePromiseErrors',
       setupOnce() {
         setNativePromiseRejectionTrackingOptions({
           allRejections: true,

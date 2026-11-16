@@ -53,6 +53,7 @@ const fingerprintFiles = [
   'apps/mobile/scripts/build-dev-vendor.js',
   'apps/mobile/svgx-transformer.js',
   'apps/mobile/src/security/finishMobileLockdown.ts',
+  'apps/mobile/src/security/repair.js',
   'development/babelTools.js',
   'development/developmentConsts.js',
   'development/env.js',

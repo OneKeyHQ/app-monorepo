@@ -1,6 +1,5 @@
 /* eslint-env jest */
 const fs = require('fs');
-const { createRequire } = require('module');
 const os = require('os');
 const path = require('path');
 const vm = require('vm');
@@ -35,13 +34,7 @@ function createRuntime({
     context.process.env.ONEKEY_MOBILE_LOCKDOWN = enabled;
   }
   if (repair) {
-    const adapterRequire = createRequire(
-      require.resolve('@lavamoat/react-native-lockdown/package.json'),
-    );
-    [
-      adapterRequire.resolve('ses/hermes'),
-      adapterRequire.resolve('@lavamoat/react-native-lockdown/repair'),
-    ].forEach((filename) => {
+    getMobileLockdownPolyfills().forEach((filename) => {
       vm.runInContext(fs.readFileSync(filename, 'utf8'), context);
     });
   }
@@ -153,9 +146,7 @@ describe('mobile lockdown bootstrap', () => {
     );
     const polyfills = config.serializer.getPolyfills({ platform: 'ios' });
     expect(polyfills[0]).toMatch(/ses-hermes\.cjs$/);
-    expect(polyfills[1]).toMatch(
-      /react-native-lockdown[\\/]src[\\/]repair\.js$/,
-    );
+    expect(polyfills[1]).toMatch(/mobile[\\/]src[\\/]security[\\/]repair\.js$/);
     expect(polyfills[2]).toBe('/rn/polyfills.js');
     expect(config.serializer.processModuleFilter({ path: polyfills[0] })).toBe(
       true,
@@ -211,6 +202,58 @@ describe('mobile lockdown bootstrap', () => {
       }),
     ).toThrow('second or vanilla SES');
   });
+
+  test.each(['main', 'background'])(
+    '%s preserves cached address search and locale formatting after hardening',
+    async (runtime) => {
+      const context = createRuntime();
+      // Load the entire provider module in the hardened realm. Unused wallet
+      // dependencies are stubbed; cache and RPC behavior are supplied below.
+      const providerPath = path.resolve(
+        mobileRoot,
+        '../../packages/kit-bg/src/vaults/impls/evm/sdkEvm/BaseApiProvider.ts',
+      );
+      const { code } = babel.transformFileSync(providerPath, {
+        babelrc: false,
+        configFile: false,
+        plugins: [
+          '@babel/plugin-transform-typescript',
+          '@babel/plugin-transform-modules-commonjs',
+        ],
+      });
+      context.exports.finishMobileLockdown(runtime);
+      vm.runInContext(
+        'globalThis.require = function () { return {}; };',
+        context,
+      );
+      vm.runInContext(code, context);
+      await expect(
+        vm.runInContext(
+          `
+        (async () => {
+          const cached = [{info: {address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'}}];
+          let rpcCalls = 0;
+          const provider = {
+            searchChainTokensFromDB: async () => cached,
+            searchChainTokensFromRpc: async () => { rpcCalls++; throw new Error('RPC unavailable'); }
+          };
+          const result = await exports.BaseApiProvider.prototype.searchChainTokens.call(provider, {
+            keywords: '0xABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD'
+          });
+          return result === cached && rpcCalls === 0;
+        })()
+      `,
+          context,
+        ),
+      ).resolves.toBe(true);
+      expect(
+        vm.runInContext("(1234567.89).toLocaleString('en-US')", context),
+      ).toBe('1,234,567.89');
+      expect(
+        vm.runInContext('Object.isFrozen(String.prototype)', context),
+      ).toBe(true);
+    },
+  );
 
   test.each(['main', 'background'])(
     '%s hardens after vetted shims and only once',

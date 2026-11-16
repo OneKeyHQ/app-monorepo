@@ -10,7 +10,7 @@ function getMobileLockdownPolyfills() {
     );
     adapterPolyfills = [
       adapterRequire.resolve('ses/hermes'),
-      adapterRequire.resolve('@lavamoat/react-native-lockdown/repair'),
+      require.resolve('../src/security/repair'),
     ];
   }
   return adapterPolyfills;

@@ -43,6 +43,7 @@
     "apps/mobile/src/backgroundThread/setupMainThreadBackgroundRunner.ts": 14979,
     "apps/mobile/src/iphoneDuo/orientation.ts": 4612,
     "apps/mobile/src/security/finishMobileLockdown.ts": 6090,
+    "apps/mobile/src/security/repair.js": 1739,
     "apps/mobile/src/splitBundle/healthCheck.ts": 13145,
     "apps/mobile/src/splitBundle/installProdBundleLoader.ts": 2161,
     "apps/mobile/src/splitBundle/nativeBridge.ts": 6019,

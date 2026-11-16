@@ -1,11 +1,8 @@
-type IMobileRuntime = 'main' | 'background';
+import type { IMobileLockdownState } from '@onekeyhq/shared/src/security/sesHarden/types';
 
-export type IMobileLockdownState = Readonly<{
-  enabled: boolean;
-  runtime: IMobileRuntime;
-  lockdownApplied: boolean;
-  evalTaming?: 'unsafe-eval';
-}>;
+type IMobileRuntime = IMobileLockdownState['runtime'];
+
+export type { IMobileLockdownState } from '@onekeyhq/shared/src/security/sesHarden/types';
 
 type IMobileLockdownGlobal = typeof globalThis & {
   hardenIntrinsics?: () => void;
@@ -44,11 +41,15 @@ export function finishMobileLockdown(
     // RN InitializeCore and the vetted synchronous OneKey shims have now run.
     // Exceptions intentionally propagate: a partly repaired realm cannot roll back.
     g.hardenIntrinsics();
+    // SES captured its intrinsic graph during repair. A vetted non-Hermes
+    // Promise installed afterward must also be included in the hardened graph.
+    g.harden?.(Promise);
     if (
       typeof g.harden !== 'function' ||
       !Object.isFrozen(Object.prototype) ||
       !Object.isFrozen(Array.prototype) ||
       !Object.isFrozen(Function.prototype) ||
+      !Object.isFrozen(Promise) ||
       !Object.isFrozen(Promise.prototype)
     ) {
       // eslint-disable-next-line onekey/no-raw-error, no-restricted-syntax -- startup integrity failure before app error infrastructure
