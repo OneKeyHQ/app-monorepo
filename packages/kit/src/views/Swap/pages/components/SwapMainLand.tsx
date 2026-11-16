@@ -1185,7 +1185,10 @@ const SwapMainLoad = ({
   );
 
   const onActionHandlerBefore = useCallback(
-    (isQuoteValid?: ISwapReviewQuoteValidity) => {
+    (
+      isQuoteValid?: ISwapReviewQuoteValidity,
+      onCancelConfirmation?: () => void,
+    ) => {
       if (isQuoteValid && !isQuoteValid()) {
         return;
       }
@@ -1228,6 +1231,7 @@ const SwapMainLoad = ({
             .toFixed(2);
         }
         const reviewGeneration = reviewGenerationRef.current;
+        let confirmed = false;
         Dialog.confirm({
           title: intl.formatMessage({
             id: ETranslations.swap_network_cost_dialog_title,
@@ -1257,8 +1261,12 @@ const SwapMainLoad = ({
               reviewGeneration === reviewGenerationRef.current &&
               quoteResultRef.current === reviewQuote
             ) {
+              confirmed = true;
               onActionHandler(isQuoteValid);
             }
+          },
+          onClose: () => {
+            if (!confirmed) onCancelConfirmation?.();
           },
         });
       } else {
@@ -1276,8 +1284,11 @@ const SwapMainLoad = ({
   );
 
   const handleConfirm = useCallback(
-    async (isQuoteValid?: ISwapReviewQuoteValidity) => {
-      onActionHandlerBefore(isQuoteValid);
+    async (
+      isQuoteValid?: ISwapReviewQuoteValidity,
+      onCancelConfirmation?: () => void,
+    ) => {
+      onActionHandlerBefore(isQuoteValid, onCancelConfirmation);
     },
     [onActionHandlerBefore],
   );

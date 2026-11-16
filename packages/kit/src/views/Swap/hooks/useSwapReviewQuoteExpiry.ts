@@ -7,10 +7,7 @@ import {
 } from 'react';
 
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
-import type {
-  IFetchQuoteResult,
-  ISwapReviewQuoteValidity,
-} from '@onekeyhq/shared/types/swap/types';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 const MAX_TIMER_DELAY = 2_147_483_647;
 
@@ -31,19 +28,12 @@ export function useSwapReviewQuoteExpiry({
     | {
         key: string | IFetchQuoteResult;
         deadline?: number;
+        confirmed?: boolean;
       }
     | undefined
   >(undefined);
   const [expired, setExpired] = useState(false);
   const [revision, setRevision] = useState(0);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   useLayoutEffect(() => {
     if (!enabled || !quoteResult || !ready) {
@@ -69,35 +59,42 @@ export function useSwapReviewQuoteExpiry({
   }, [enabled, expiredTime, expiryKey, quoteResult, ready]);
 
   const checkExpired = useCallback(() => {
-    const deadline = expiryRef.current?.deadline;
-    const isExpired = deadline !== undefined && Date.now() >= deadline;
+    const expiry = expiryRef.current;
+    const deadline = expiry?.deadline;
+    const isExpired =
+      !expiry?.confirmed && deadline !== undefined && Date.now() >= deadline;
     if (isExpired) {
       setExpired(true);
     }
     return isExpired;
   }, []);
 
-  const captureQuoteValidity = useCallback(() => {
+  const confirmQuote = useCallback(() => {
+    if (checkExpired()) return undefined;
     const expiry = expiryRef.current;
-    const isValid: ISwapReviewQuoteValidity = () => {
-      const deadline = expiry?.deadline;
-      const isExpired = deadline !== undefined && Date.now() >= deadline;
-      if (isExpired && mountedRef.current && expiryRef.current === expiry) {
-        setExpired(true);
-      }
-      return !isExpired;
+    if (!expiry || expiry.confirmed) return () => {};
+    expiry.confirmed = true;
+    setRevision((value) => value + 1);
+    return () => {
+      if (expiryRef.current !== expiry || !expiry.confirmed) return;
+      expiry.confirmed = false;
+      checkExpired();
+      setRevision((value) => value + 1);
     };
-    isValid.deadline = expiry?.deadline;
-    return isValid;
-  }, []);
+  }, [checkExpired]);
+
+  // Keep the execution guard present without carrying a post-confirm deadline.
+  const captureQuoteValidity = useCallback(() => () => true, []);
 
   useEffect(() => {
-    const deadline = expiryRef.current?.deadline;
-    if (!enabled || deadline === undefined) {
+    const expiry = expiryRef.current;
+    const deadline = expiry?.deadline;
+    if (!enabled || !expiry || expiry.confirmed || deadline === undefined) {
       return;
     }
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
+      if (expiryRef.current !== expiry || expiry.confirmed) return;
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
         setExpired(true);
@@ -114,5 +111,10 @@ export function useSwapReviewQuoteExpiry({
   }, [checkExpired]);
   useHandleAppStateActive(enabled ? onAppActive : undefined);
 
-  return { expired: enabled && expired, checkExpired, captureQuoteValidity };
+  return {
+    expired: enabled && expired,
+    checkExpired,
+    confirmQuote,
+    captureQuoteValidity,
+  };
 }

@@ -111,7 +111,10 @@ interface IPreSwapDialogContentProps {
   reviewAnalytics?: ISwapReviewAnalytics;
   analyticsCreateFrom?: string;
   analyticsInitialState?: ISwapReviewState;
-  onConfirm: (isQuoteValid?: ISwapReviewQuoteValidity) => void;
+  onConfirm: (
+    isQuoteValid?: ISwapReviewQuoteValidity,
+    onCancelConfirmation?: () => void,
+  ) => void;
   onDone: () => void;
   disableGlobalApproveSync?: boolean;
   preSwapBeforeStepActions: (
@@ -174,6 +177,7 @@ const PreSwapDialogContent = ({
   >(undefined);
   const [isRefreshingQuote, setIsRefreshingQuote] = useState(false);
   const isRefreshingQuoteRef = useRef(false);
+  const resumeQuoteAfterTipRef = useRef<(() => void) | undefined>(undefined);
   const isMountedRef = useRef(true);
   const analyticsPreparationCount = useRef(0);
   const [analyticsPreparationRevision, setAnalyticsPreparationRevision] =
@@ -435,6 +439,7 @@ const PreSwapDialogContent = ({
   const {
     expired: quoteExpired,
     checkExpired,
+    confirmQuote,
     captureQuoteValidity,
   } = useSwapReviewQuoteExpiry({
     enabled: Boolean(refreshReviewQuote),
@@ -638,17 +643,20 @@ const PreSwapDialogContent = ({
     ) {
       return;
     }
+    const resumeQuote = confirmQuote();
+    if (!resumeQuote) return;
     reviewAnalytics?.confirm(
       quoteResult?.quoteId,
       getSwapReviewOrderId(preSwapData.swapBuildResultData?.swapInfo),
     );
     if (validatedQuoteShowTip) {
+      resumeQuoteAfterTipRef.current = resumeQuote;
       setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
       if (refreshReviewQuote) {
-        onConfirm(captureQuoteValidity());
+        onConfirm(captureQuoteValidity(), resumeQuote);
       } else {
-        onConfirm();
+        onConfirm(undefined, resumeQuote);
       }
     }
   }, [
@@ -661,6 +669,7 @@ const PreSwapDialogContent = ({
     preSwapData.swapBuildResultData?.swapInfo,
     refreshReviewQuote,
     captureQuoteValidity,
+    confirmQuote,
   ]);
 
   const tipOnConfirm = useCallback(() => {
@@ -669,13 +678,17 @@ const PreSwapDialogContent = ({
       isPrimaryButtonDisabled ||
       !isQuoteValid()
     ) {
+      resumeQuoteAfterTipRef.current?.();
+      resumeQuoteAfterTipRef.current = undefined;
       setShowPreSwapTipInfo(undefined);
       return;
     }
+    const resumeQuote = resumeQuoteAfterTipRef.current;
+    resumeQuoteAfterTipRef.current = undefined;
     if (refreshReviewQuote) {
-      onConfirm(captureQuoteValidity());
+      onConfirm(captureQuoteValidity(), resumeQuote);
     } else {
-      onConfirm();
+      onConfirm(undefined, resumeQuote);
     }
     setShowPreSwapTipInfo(undefined);
   }, [
@@ -686,6 +699,8 @@ const PreSwapDialogContent = ({
     captureQuoteValidity,
   ]);
   const tipOnCancel = useCallback(() => {
+    resumeQuoteAfterTipRef.current?.();
+    resumeQuoteAfterTipRef.current = undefined;
     setShowPreSwapTipInfo(undefined);
   }, []);
   const handleRetry = useCallback(() => {
