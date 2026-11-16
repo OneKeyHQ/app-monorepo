@@ -184,6 +184,16 @@ export async function hydrateMarketBannerQuotes(
         previousById.get(banner._id),
       );
       await onHydrated?.(hydrated);
+      if (
+        hydrated.tokens &&
+        !isMarketIndexQuoteBanner(hydrated) &&
+        hydrated.type !== EMarketBannerType.Perps
+      ) {
+        return {
+          ...hydrated,
+          tokens: getMarketBannerTopTokens(hydrated.tokens),
+        };
+      }
       return hydrated;
     }),
   );
@@ -273,6 +283,9 @@ export function useMarketBannerList(): {
       watchLoading: true,
       revalidateOnReconnect: true,
       revalidateOnFocus: true,
+      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
+        seconds: 15,
+      }),
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
@@ -516,7 +529,6 @@ export function useMarketBannerList(): {
         };
       }
       if (
-        platformEnv.isDesktop &&
         banner.tokens &&
         (enableMockMarketBanner ||
           !canReuseBannerQuotes(banner, previousById.get(banner._id))) &&

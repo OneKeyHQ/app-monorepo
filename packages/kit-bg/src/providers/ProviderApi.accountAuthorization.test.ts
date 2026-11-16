@@ -201,6 +201,27 @@ it.each(['sui', 'bfc', 'stellar', 'scdo'] as const)(
     });
   },
 );
+it.each(['signTransaction', 'signAndExecuteTransaction'] as const)(
+  'Sui %s accepts the connected account in any address form',
+  async (method) => {
+    const address = `0x00${'12'.repeat(31)}`;
+    const h = setup('sui', address);
+    await h.rejects(method, {
+      transaction: '{}',
+      account: { address: fixtures.other },
+    });
+    for (const form of [
+      `0x00${'12'.repeat(31).toUpperCase()}`,
+      `0x${'12'.repeat(31)}`,
+      address.slice(2),
+    ]) {
+      await h.accepts(method, {
+        transaction: '{}',
+        account: { address: form },
+      });
+    }
+  },
+);
 it('checks optional Nostr keys and Stellar paths before approval', async () => {
   const h = setup('nostr');
   h.request.data = { params: { event: { pubkey: '34'.repeat(32) } } };

@@ -50,13 +50,17 @@ function ReceiptRow({
   }
   return (
     <XStack py="$3" alignItems="center" gap="$3">
-      <SizableText size="$bodyMd" flex={1}>
+      <SizableText
+        size="$bodyMd"
+        flex={1}
+        color={state === 'pending' ? '$textDisabled' : '$textSubdued'}
+      >
         {label}
       </SizableText>
       {result ? (
         <SizableText
           size="$bodyMd"
-          color="$textSubdued"
+          color={state === 'failed' ? '$textCritical' : '$text'}
           textAlign="right"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
