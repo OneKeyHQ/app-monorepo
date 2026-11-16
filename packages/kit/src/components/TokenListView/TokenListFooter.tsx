@@ -382,7 +382,7 @@ function TokenListFooter(props: IProps) {
 
   const { result: blockedTokensLength, run } = usePromiseResult(
     async () => {
-      if (!network) return filteredRiskyTokens?.length ?? 0;
+      if (!network || !filteredRiskyTokens?.length) return 0;
 
       const [unblockedTokensMap, blockedTokensMap, customTokens] =
         await Promise.all([
@@ -400,7 +400,7 @@ function TokenListFooter(props: IProps) {
         (tokenArray) => keyBy(tokenArray, 'address'),
       );
 
-      const blockedTokens = [];
+      let blockedTokensCount = 0;
 
       for (const token of filteredRiskyTokens) {
         const tokenNetworkId = token.networkId ?? network.id;
@@ -410,14 +410,11 @@ function TokenListFooter(props: IProps) {
           (!unblockedTokensMap?.[tokenNetworkId]?.[token.address] &&
             !customTokensMap?.[tokenNetworkId]?.[token.address])
         ) {
-          blockedTokens.push({
-            ...token,
-            isBlocked: true,
-          });
+          blockedTokensCount += 1;
         }
       }
 
-      return blockedTokens.length;
+      return blockedTokensCount;
     },
     [network, filteredRiskyTokens],
     {

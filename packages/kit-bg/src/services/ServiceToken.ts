@@ -918,6 +918,19 @@ class ServiceToken extends ServiceBase {
           currency: resolvedCurrency,
           hasAssets,
         });
+        if (flag === 'home-token-list') {
+          const mergedLocalTokens = [
+            ...resp.data.data.tokens.data,
+            ...resp.data.data.smallBalanceTokens.data,
+            ...resp.data.data.riskTokens.data,
+          ];
+          if (mergedLocalTokens.length) {
+            void this.updateLocalTokens({
+              networkId,
+              tokens: mergedLocalTokens,
+            });
+          }
+        }
       }
     }
     throwIfRequestAborted();
@@ -969,19 +982,23 @@ class ServiceToken extends ServiceBase {
         aggregateTokenMap: groups.aggregateTokenMap,
         mergeDeriveAssets: !!vaultSettings.mergeDeriveAssetsEnabled,
       };
-      const merged = getMergedTokenData(round);
-      if (merged.allTokens) {
-        merged.allTokens.data = merged.allTokens.data.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-          networkName: network?.name,
-          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-        }));
+      let mergedAllTokens: ITokenData | undefined;
+      if (mergeTokens) {
+        const merged = getMergedTokenData(round);
+        if (merged.allTokens) {
+          merged.allTokens.data = merged.allTokens.data.map((token) => ({
+            ...token,
+            accountId,
+            networkId,
+            networkName: network?.name,
+            mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+          }));
+        }
+        mergedAllTokens = merged.allTokens;
       }
       return {
         ...round,
-        allTokens: merged.allTokens,
+        allTokens: mergedAllTokens,
         homeTokenRoundRef:
           this.backgroundApi.serviceTokenViewModel.retainHomeTokenRound({
             homeRequest,
@@ -1351,7 +1368,7 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     tokens: IToken[];
   }) {
-    return this.backgroundApi.simpleDb.localTokens.updateTokens({
+    return this.backgroundApi.simpleDb?.localTokens?.updateTokens?.({
       networkId,
       tokens,
     });

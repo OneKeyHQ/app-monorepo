@@ -84,6 +84,7 @@ type ITokenFramePayloads = {
 
 /** The per-owner diff `prev` the domain feeds `buildFrames` (a pull-blob). */
 interface IDomainPrev {
+  slotId: string;
   lastStructure: IBuildFramesPrev['structure'];
   lastScalar: string;
   lastMetaByKey: Record<ITokenKey, IToken | undefined>;
@@ -189,19 +190,38 @@ export interface IIngestRoundParams {
   source?: string;
 }
 
+/**
+ * Known frame versions already cached in the UI's per-owner replay cache.
+ * When `slotId` matches the BG owner slot's incarnation and a frame's version
+ * matches what `main` already holds, `getTokenListFrames` omits the large frame
+ * payload and sets the corresponding `*Unchanged` flag to avoid re-serializing
+ * 100KB–350KB of identical frame JSON across the bridge.
+ */
+export interface ITokenListKnownVersions {
+  slotId?: string;
+  structureVersion?: number;
+  structureGeneration?: number;
+  valuationVersion?: number;
+  riskyVersion?: number;
+}
+
 /** Result of a PULL — the authoritative full frames for an owner. */
 export interface ITokenListFramesPullResult {
   ownerKey: string;
+  slotId?: string;
   structureVersion: number;
   valuationVersion: number;
   structure: IStructureSnapshot | undefined;
+  structureUnchanged?: boolean;
   valuation: IValuationFrame | undefined;
+  valuationUnchanged?: boolean;
   /** monotonic risky version (-1 when the owner is unknown / has no risky set). */
   riskyVersion: number;
   /** full current risky list (empty when unknown). */
   riskyTokens: IAccountToken[];
   /** full current risky `$key -> ITokenFiat` map (empty when unknown). */
   riskyMap: Record<ITokenKey, ITokenFiat>;
+  riskyUnchanged?: boolean;
   /** identity-check payload for the risky frame apply (undefined when unknown). */
   storeData: IJotaiContextStoreData | undefined;
 }
@@ -234,8 +254,9 @@ const PREV_BLOB_KEY = 'prev';
 const RAW_BLOB_KEY = 'raw';
 
 /** A fresh diff `prev` (generation starts at -1, like the UI producer). */
-function freshPrev(): IDomainPrev {
+function freshPrev(slotId: string): IDomainPrev {
   return {
+    slotId,
     lastStructure: {
       orderedIds: [],
       smallBalanceIds: [],
@@ -257,6 +278,8 @@ class ServiceTokenViewModel extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  private ownerSlotSequence = 0;
 
   private homeRounds:
     | {
@@ -499,9 +522,20 @@ class ServiceTokenViewModel extends ServiceBase {
     // whole current list, not one incremental round.
     this.frames.touchOwner(ownerKey);
 
-    const prevBlob =
-      this.frames.getPullBlob<IDomainPrev>(ownerKey, PREV_BLOB_KEY) ??
-      freshPrev();
+    const existingPrevBlob = this.frames.getPullBlob<IDomainPrev>(
+      ownerKey,
+      PREV_BLOB_KEY,
+    );
+    if (!existingPrevBlob) {
+      this.ownerSlotSequence += 1;
+    }
+    const slotId =
+      existingPrevBlob?.slotId ??
+      `${this.homeRoundPrefix}-slot-${this.ownerSlotSequence}`;
+    const prevBlob = existingPrevBlob ?? freshPrev(slotId);
+    if (!existingPrevBlob) {
+      this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, prevBlob);
+    }
 
     const input: IBuildFramesInput = {
       orderedTokens,
@@ -541,10 +575,16 @@ class ServiceTokenViewModel extends ServiceBase {
       this.frames.pushFrame(
         'structure',
         ownerKey,
-        (version) => ({ ownerKey, structureVersion: version, structure }),
+        (version) => ({
+          ownerKey,
+          slotId,
+          structureVersion: version,
+          structure,
+        }),
         { version: structure.generation },
       );
       this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, {
+        slotId,
         lastStructure: {
           orderedIds: structure.orderedIds,
           smallBalanceIds: structure.smallBalanceIds,
@@ -568,6 +608,7 @@ class ServiceTokenViewModel extends ServiceBase {
     // idempotent + self-healing); the increment kind bumps its version each time.
     this.frames.pushFrame('valuation', ownerKey, (version) => ({
       ownerKey,
+      slotId,
       valuationVersion: version,
       valuation,
     }));
@@ -598,6 +639,7 @@ class ServiceTokenViewModel extends ServiceBase {
     if (this.riskyChanged(prevRisky, riskyTokens, riskyMap)) {
       this.frames.pushFrame('risky', ownerKey, (version) => ({
         ownerKey,
+        slotId,
         riskyVersion: version,
         riskyTokens,
         riskyMap,
@@ -651,27 +693,62 @@ class ServiceTokenViewModel extends ServiceBase {
   @backgroundMethod()
   async getTokenListFrames({
     ownerKey,
+    knownVersions,
   }: {
     ownerKey: string;
+    knownVersions?: ITokenListKnownVersions;
   }): Promise<ITokenListFramesPullResult> {
     const frames = this.frames.getFrames(ownerKey);
+    const prevBlob = this.frames.getPullBlob<IDomainPrev>(
+      ownerKey,
+      PREV_BLOB_KEY,
+    );
+    const slotId = prevBlob?.slotId;
     const structureP = frames.structure.payload;
     const valuationP = frames.valuation.payload;
     const riskyP = frames.risky.payload;
+    const sameSlot = Boolean(
+      slotId && knownVersions?.slotId && knownVersions.slotId === slotId,
+    );
+    const structureUnchanged = Boolean(
+      sameSlot &&
+      frames.structure.version >= 0 &&
+      structureP?.structure &&
+      knownVersions?.structureVersion === frames.structure.version &&
+      knownVersions?.structureGeneration === structureP.structure.generation,
+    );
+    const valuationUnchanged = Boolean(
+      sameSlot &&
+      frames.valuation.version >= 0 &&
+      valuationP?.valuation &&
+      knownVersions?.valuationVersion === frames.valuation.version,
+    );
+    const riskyUnchanged = Boolean(
+      sameSlot &&
+      frames.risky.version >= 0 &&
+      riskyP &&
+      knownVersions?.riskyVersion === frames.risky.version,
+    );
     return {
       ownerKey,
+      ...(slotId ? { slotId } : undefined),
       structureVersion: frames.structure.version,
       valuationVersion: frames.valuation.version,
-      structure: structureP?.structure,
-      valuation: valuationP?.valuation,
+      structure: structureUnchanged ? undefined : structureP?.structure,
+      ...(structureUnchanged ? { structureUnchanged: true } : undefined),
+      valuation: valuationUnchanged ? undefined : valuationP?.valuation,
+      ...(valuationUnchanged ? { valuationUnchanged: true } : undefined),
       riskyVersion: frames.risky.version,
-      riskyTokens: riskyP?.riskyTokens ?? [],
-      riskyMap: riskyP?.riskyMap ?? {},
+      riskyTokens: riskyUnchanged ? [] : (riskyP?.riskyTokens ?? []),
+      riskyMap: riskyUnchanged ? {} : (riskyP?.riskyMap ?? {}),
+      ...(riskyUnchanged ? { riskyUnchanged: true } : undefined),
       // The risky frame apply needs the owner's storeData for the identity check;
       // the structure/valuation snapshots already carry it, so reuse whichever is
       // present (both are stamped for the same owner).
       storeData:
-        structureP?.structure.storeData ?? valuationP?.valuation.storeData,
+        riskyP?.storeData ??
+        structureP?.structure.storeData ??
+        valuationP?.valuation.storeData,
     };
   }
 

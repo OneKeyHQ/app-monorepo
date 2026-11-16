@@ -230,6 +230,9 @@ describe('ServiceToken native Home request lifetime', () => {
     for (const [params] of api.serviceCustomToken.getCustomTokens.mock.calls) {
       expect(params.customTokensRawData).toBe(first);
     }
+    for (const item of results) {
+      expect(item.allTokens).toBeUndefined();
+    }
     await service.prepareHomeTokenRequest(token(2));
     expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(2);
     expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(2);
