@@ -135,6 +135,24 @@ describe('PreSwapConfirmResult', () => {
     fireEvent.click(screen.getByText(ETranslations.global_done));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  it('shows processing before an order has a transaction hash', () => {
+    render(
+      <PreSwapConfirmResult
+        lastStep={{
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.PENDING,
+        }}
+        pendingTitle={ETranslations.global_processing}
+        showPendingHistoryHint={false}
+      />,
+    );
+    expect(screen.getByText(ETranslations.global_processing)).toBeTruthy();
+    expect(
+      screen.queryByText(ETranslations.feedback_transaction_submitted),
+    ).toBeNull();
+    expect(screen.queryByText(ETranslations.swap_review_tx_pending)).toBeNull();
+  });
 });
 
 describe('SwapTransactionResultStatus', () => {
