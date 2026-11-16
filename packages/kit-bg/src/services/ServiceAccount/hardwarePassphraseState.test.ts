@@ -79,4 +79,52 @@ describe('getHwHiddenWalletPassphraseState', () => {
       forceInputPassphrase: true,
     });
   });
+
+  it('forwards deriveCardano only when true and omits the key otherwise', async () => {
+    const getPassphraseState = jest.fn<
+      Promise<string | undefined>,
+      [
+        {
+          connectId: string;
+          forceInputPassphrase: boolean;
+          deriveCardano?: boolean;
+        },
+      ]
+    >(async () => 'PRO2_PASSPHRASE_STATE');
+    const serviceHardware = {
+      getPassphraseState,
+    };
+    const serviceThirdPartyHardware = {
+      getTrezorPassphraseState: jest.fn(),
+    };
+
+    await getHwHiddenWalletPassphraseState({
+      vendor: EHardwareVendor.onekey,
+      connectId: 'PRO2-USB',
+      deriveCardano: true,
+      serviceHardware,
+      serviceThirdPartyHardware,
+    });
+
+    expect(getPassphraseState).toHaveBeenNthCalledWith(1, {
+      connectId: 'PRO2-USB',
+      forceInputPassphrase: true,
+      deriveCardano: true,
+    });
+
+    await getHwHiddenWalletPassphraseState({
+      vendor: EHardwareVendor.onekey,
+      connectId: 'PRO2-USB',
+      deriveCardano: false,
+      serviceHardware,
+      serviceThirdPartyHardware,
+    });
+
+    const secondCallParams = getPassphraseState.mock.calls[1][0];
+    expect(secondCallParams).toEqual({
+      connectId: 'PRO2-USB',
+      forceInputPassphrase: true,
+    });
+    expect('deriveCardano' in secondCallParams).toBe(false);
+  });
 });

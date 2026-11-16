@@ -3798,11 +3798,13 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipDeviceCancel,
     hideCheckingDeviceLoading,
+    deriveCardano,
   }: {
     walletId: string;
     skipDeviceCancel?: boolean;
     hideCheckingDeviceLoading?: boolean;
     isAttachPinMode?: boolean;
+    deriveCardano?: boolean;
   }) {
     const wallet = await this.getWallet({ walletId });
     if (wallet.deprecated) {
@@ -3893,6 +3895,7 @@ class ServiceAccount extends ServiceBase {
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
           dbDevice: seededDbDevice,
+          ...(deriveCardano ? { deriveCardano: true } : {}),
           serviceHardware: this.backgroundApi.serviceHardware,
           serviceThirdPartyHardware:
             this.backgroundApi.serviceThirdPartyHardware,
