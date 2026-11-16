@@ -64,6 +64,7 @@ describe('txActionUtils', () => {
     appLocale.setLocale('en-US', {
       [ETranslations.global_asset]: 'Asset',
       [ETranslations.global_to]: 'To',
+      [ETranslations.receive_address__title]: 'Receiving address',
     } as Parameters<typeof appLocale.setLocale>[1]);
   });
 
@@ -115,6 +116,43 @@ describe('txActionUtils', () => {
     expect(addressComponents.map((component) => component.address)).toEqual([
       '0xrecipient1',
     ]);
+  });
+
+  describe('transfer that names no recipient', () => {
+    // BTC SIGHASH_SINGLE listing: the input is given up to no one in
+    // particular and the committed output comes back.
+    const buildListing = (): IDecodedTx => {
+      const decodedTx = buildDecodedTx([buildTransfer('')]);
+      const transfer = decodedTx.actions[0].assetTransfer;
+      if (transfer) {
+        transfer.receives = [
+          buildTransfer('bc1payout'),
+          buildTransfer('bc1payout'),
+        ];
+      }
+      return decodedTx;
+    };
+    const addressRows = (isUTXO: boolean) =>
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildListing(),
+        unsignedTx: {} as never,
+        isUTXO,
+      })
+        .filter(
+          (component): component is IDisplayComponentAddress =>
+            component.type === EParseTxComponentType.Address,
+        )
+        .map(({ label, address }) => ({ label, address }));
+
+    it('shows where a UTXO payout lands', () => {
+      expect(addressRows(true)).toEqual([
+        { label: 'Receiving address', address: 'bc1payout' },
+      ]);
+    });
+
+    it('adds no receiving row for account-model chains', () => {
+      expect(addressRows(false)).toEqual([]);
+    });
   });
 });
 

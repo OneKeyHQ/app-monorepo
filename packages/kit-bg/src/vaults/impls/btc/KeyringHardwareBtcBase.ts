@@ -9,6 +9,7 @@ import {
   getBtcForkNetwork,
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { findBtcPsbtSignPolicyViolation } from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
 import type {
   IBtcForkNetwork,
   IBtcInput,
@@ -311,6 +312,31 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     return { resolvePubkeyHexByAddress, resolvePathByAddress };
   }
 
+  // Last check before a device is asked to sign. The signed PSBT is handed
+  // back as the device produced it: the device decides which inputs it signs
+  // and with which sighash type. A SIGHASH_SINGLE request relies on both
+  // being exactly as requested, so it is refused here; the remaining sighash
+  // rules are the ones the software signer applies.
+  protected assertPsbtSignPolicy({
+    psbt,
+    btcNetwork,
+    inputsToSign,
+  }: {
+    psbt: BitcoinJS.Psbt;
+    btcNetwork: IBtcForkNetwork;
+    inputsToSign: NonNullable<IEncodedTxBtc['inputsToSign']>;
+  }) {
+    const violation = findBtcPsbtSignPolicyViolation({
+      psbt,
+      psbtNetwork: btcNetwork,
+      inputsToSign,
+      rejectSighashSingle: true,
+    });
+    if (violation) {
+      throw new OneKeyLocalError(violation.message);
+    }
+  }
+
   async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly } = params;
     const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -357,6 +383,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       network: btcNetwork,
       maximumFeeRate: btcNetwork.maximumFeeRate,
     });
+    this.assertPsbtSignPolicy({ psbt, btcNetwork, inputsToSign });
 
     // Resolve per-address paths/pubkeys instead of assuming every input
     // spends from the account's main address. Inputs from fresh or claimed

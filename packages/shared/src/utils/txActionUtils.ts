@@ -599,6 +599,26 @@ function convertAssetTransferActionToSignatureConfirmComponent({
     components.push(toAddressComponent);
   });
 
+  // A UTXO signature that commits only to its own payout (BTC SIGHASH_SINGLE)
+  // names no recipient, so no row above says where the received amount lands.
+  if (isUTXO && !isInternalSwap && !addressComponents.length) {
+    getUniqueAddresses(action.receives.map((receive) => receive.to)).forEach(
+      (address) => {
+        const receiveAddressComponent: IDisplayComponentAddress = {
+          type: EParseTxComponentType.Address,
+          label: appLocale.intl.formatMessage({
+            id: ETranslations.receive_address__title,
+          }),
+          address,
+          tags: [],
+          highlight: true,
+        };
+
+        components.push(receiveAddressComponent);
+      },
+    );
+  }
+
   return components;
 }
 

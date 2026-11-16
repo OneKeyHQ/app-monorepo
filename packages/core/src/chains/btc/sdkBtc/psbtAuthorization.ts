@@ -106,17 +106,27 @@ export function getBtcPsbtSighashFamily({
   return hasSingle ? EBtcPsbtSighashFamily.Single : EBtcPsbtSighashFamily.All;
 }
 
+export type IBtcPsbtSignPolicyParams = {
+  psbt: Psbt;
+  psbtNetwork: networks.Network;
+  inputsToSign: readonly Pick<ITxInputToSign, 'index'>[];
+  // Without it only the sighash rules are checked, for the signer layer that
+  // has no account context.
+  ownedAddresses?: string[];
+  // Set for a signer that may sign inputs outside `inputsToSign`, or with a
+  // sighash type other than the declared one. A SIGHASH_SINGLE summary stands
+  // for exactly the requested inputs signed as declared, so it cannot
+  // describe what such a signer authorizes.
+  rejectSighashSingle?: boolean;
+};
+
 function resolveBtcPsbtSignedInputs({
   psbt,
   psbtNetwork,
   inputsToSign,
   ownedAddresses,
-}: {
-  psbt: Psbt;
-  psbtNetwork: networks.Network;
-  inputsToSign: readonly Pick<ITxInputToSign, 'index'>[];
-  ownedAddresses?: string[];
-}):
+  rejectSighashSingle,
+}: IBtcPsbtSignPolicyParams):
   | { violation: IBtcPsbtSignPolicyViolation }
   | {
       violation?: undefined;
@@ -132,8 +142,21 @@ function resolveBtcPsbtSignedInputs({
   const signedInputs: Array<
     Pick<IBtcPsbtAuthorizedInput, 'index' | 'committedOutput'>
   > = [];
+  const requestedIndexes = new Set<number>();
 
   for (const { index } of inputsToSign) {
+    // An input is given up once. A repeated index would be summarized once
+    // per repeat and inflate what the request appears to pay and return.
+    if (requestedIndexes.has(index)) {
+      return {
+        violation: {
+          index,
+          message: `Input ${index} is requested for signing more than once`,
+        },
+      };
+    }
+    requestedIndexes.add(index);
+
     const sighashType = psbt.data.inputs[index]?.sighashType;
     const sighashClass = classifyBtcSighashType(sighashType);
     if (!sighashClass) {
@@ -168,6 +191,13 @@ function resolveBtcPsbtSignedInputs({
 
     if (sighashClass.family === EBtcPsbtSighashFamily.All) {
       signedInputs.push({ index });
+    } else if (rejectSighashSingle) {
+      return {
+        violation: {
+          index,
+          message: `SIGHASH_SINGLE is not supported by this wallet for input ${index}`,
+        },
+      };
     } else {
       // Without a matching output a legacy SIGHASH_SINGLE signature covers a
       // constant digest and is valid for any spend of that key.
@@ -212,24 +242,16 @@ function resolveBtcPsbtSignedInputs({
   };
 }
 
-// Returns the first input whose requested signature must be refused. Without
-// `ownedAddresses` only the sighash rules are checked, for the signer layer
-// that has no account context.
-export function findBtcPsbtSignPolicyViolation(params: {
-  psbt: Psbt;
-  psbtNetwork: networks.Network;
-  inputsToSign: readonly Pick<ITxInputToSign, 'index'>[];
-  ownedAddresses?: string[];
-}): IBtcPsbtSignPolicyViolation | undefined {
+// Returns the first input whose requested signature must be refused.
+export function findBtcPsbtSignPolicyViolation(
+  params: IBtcPsbtSignPolicyParams,
+): IBtcPsbtSignPolicyViolation | undefined {
   return resolveBtcPsbtSignedInputs(params).violation;
 }
 
-export function buildBtcPsbtAuthorization(params: {
-  psbt: Psbt;
-  psbtNetwork: networks.Network;
-  inputsToSign: readonly Pick<ITxInputToSign, 'index'>[];
-  ownedAddresses: string[];
-}): IBtcPsbtAuthorization {
+export function buildBtcPsbtAuthorization(
+  params: IBtcPsbtSignPolicyParams & { ownedAddresses: string[] },
+): IBtcPsbtAuthorization {
   const resolved = resolveBtcPsbtSignedInputs(params);
   if (resolved.violation) {
     throw new OneKeyLocalError(resolved.violation.message);

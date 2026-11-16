@@ -29,7 +29,16 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('./backgroundProviders', () => ({ providerApiLoaders: {} }));
 jest.mock('../states/jotai/atoms', () => ({ perpsActiveAccountAtom: {} }));
-jest.mock('../vaults/factory', () => ({ vaultFactory: {} }));
+// Software keyrings and Keystone release signatures for exactly the requested
+// inputs; other devices do not.
+const mockIsPsbtSignerBoundToRequest = jest.fn(() => true);
+jest.mock('../vaults/factory', () => ({
+  vaultFactory: {
+    getVault: async () => ({
+      isPsbtSignerBoundToRequest: () => mockIsPsbtSignerBoundToRequest(),
+    }),
+  },
+}));
 
 const psbtNetwork = getBtcForkNetwork('tbtc');
 const TXID_VICTIM = '11'.repeat(32);
@@ -193,6 +202,44 @@ const paymentPsbtHex = () =>
   });
 
 describe('ProviderApiBtc PSBT sighash policy', () => {
+  beforeEach(() => {
+    mockIsPsbtSignerBoundToRequest.mockReturnValue(true);
+  });
+
+  it('refuses a request that names the same input twice', async () => {
+    const h = setup();
+    await expect(
+      h.run('signPsbt', {
+        psbtHex: listingPsbtHex(),
+        options: { toSignInputs: [{ index: 0 }, { index: 0 }] },
+      }),
+    ).rejects.toMatchObject({
+      code: INVALID_PARAMS,
+      message: expect.stringContaining(
+        'Input 0 is requested for signing more than once',
+      ),
+    });
+    expect(h.approve).not.toHaveBeenCalled();
+  });
+
+  it('refuses a listing when the signer is not bound to the requested inputs', async () => {
+    mockIsPsbtSignerBoundToRequest.mockReturnValue(false);
+    const h = setup();
+    await expect(
+      h.run('signPsbt', { psbtHex: listingPsbtHex() }),
+    ).rejects.toMatchObject({
+      code: INVALID_PARAMS,
+      message: expect.stringContaining(
+        'SIGHASH_SINGLE is not supported by this wallet for input 0',
+      ),
+    });
+    expect(h.approve).not.toHaveBeenCalled();
+
+    await expect(h.run('signPsbt', { psbtHex: paymentPsbtHex() })).rejects.toBe(
+      approval,
+    );
+  });
+
   it('refuses the reported PSBT before any confirmation', async () => {
     const h = setup();
     await expect(

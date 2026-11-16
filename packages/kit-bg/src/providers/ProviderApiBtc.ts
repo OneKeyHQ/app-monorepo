@@ -80,6 +80,7 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type { IBatchTxSignCreateItem } from '../services/ServiceBatchTxSign';
+import type VaultBtc from '../vaults/impls/btc/Vault';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type * as BitcoinJS from 'bitcoinjs-lib';
 
@@ -1182,6 +1183,14 @@ class ProviderApiBtc extends ProviderApiBase {
     // to any address of the account, so the check uses every owned address
     // even where the change display below only knows the connected one.
     const utxoAccount = account as unknown as IDBUtxoAccount;
+    const sighashFamily = getBtcPsbtSighashFamily({ psbt, inputsToSign });
+    // Only a SIGHASH_SINGLE request depends on what the signer guarantees, so
+    // the vault is not loaded for any other request.
+    const rejectSighashSingle =
+      sighashFamily === EBtcPsbtSighashFamily.Single &&
+      !(
+        (await vaultFactory.getVault({ networkId, accountId })) as VaultBtc
+      ).isPsbtSignerBoundToRequest();
     const policyViolation = findBtcPsbtSignPolicyViolation({
       psbt,
       psbtNetwork,
@@ -1198,6 +1207,7 @@ class ProviderApiBtc extends ProviderApiBase {
         ...(ownedAddresses ?? []),
         ...(address ? [address] : []),
       ],
+      rejectSighashSingle,
     });
     if (policyViolation) {
       throw web3Errors.rpc.invalidParams(policyViolation.message);
@@ -1250,11 +1260,7 @@ class ProviderApiBtc extends ProviderApiBase {
       txSize: undefined,
     };
 
-    return {
-      encodedTx,
-      inputsToSign,
-      sighashFamily: getBtcPsbtSighashFamily({ psbt, inputsToSign }),
-    };
+    return { encodedTx, inputsToSign, sighashFamily };
   }
 
   async _signPsbt(

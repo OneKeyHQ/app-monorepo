@@ -263,6 +263,40 @@ describe('findBtcPsbtSignPolicyViolation', () => {
     expect(find(buildListingPsbt(), [0], [victim.address])).toBeUndefined();
   });
 
+  it('rejects an input index requested more than once', () => {
+    // Summarized per request entry, the listing would show its one payout
+    // twice.
+    expect(find(buildListingPsbt(), [0, 0], [victim.address])).toEqual({
+      index: 0,
+      message: 'Input 0 is requested for signing more than once',
+    });
+    const payment = buildPsbt({
+      inputs: [victimInput()],
+      outputs: [{ script: attacker.script, value: 99_000n }],
+    });
+    expect(find(payment, [0, 0])?.index).toBe(0);
+  });
+
+  it('rejects SIGHASH_SINGLE for a signer that is not bound to the request', () => {
+    const findUnbound = (psbt: Psbt) =>
+      findBtcPsbtSignPolicyViolation({
+        psbt,
+        psbtNetwork,
+        inputsToSign: [{ index: 0 }],
+        ownedAddresses: [victim.address],
+        rejectSighashSingle: true,
+      });
+    expect(findUnbound(buildListingPsbt())).toEqual({
+      index: 0,
+      message: 'SIGHASH_SINGLE is not supported by this wallet for input 0',
+    });
+    const payment = buildPsbt({
+      inputs: [victimInput(SIGHASH_ALL_ANYONECANPAY)],
+      outputs: [{ script: attacker.script, value: 99_000n }],
+    });
+    expect(findUnbound(payment)).toBeUndefined();
+  });
+
   it('checks sighash types only when the owned addresses are not supplied', () => {
     expect(find(buildReportedPsbt(), [0])).toBeUndefined();
     const psbt = buildPsbt({
@@ -333,6 +367,12 @@ describe('buildBtcPsbtAuthorization', () => {
   it('throws for the reported PSBT', () => {
     expect(() => build(buildReportedPsbt(), [0])).toThrow(
       'SIGHASH_SINGLE input 0 must pay its matching output to the signing account',
+    );
+  });
+
+  it('throws instead of listing a repeated input twice', () => {
+    expect(() => build(buildListingPsbt(), [0, 0])).toThrow(
+      'Input 0 is requested for signing more than once',
     );
   });
 

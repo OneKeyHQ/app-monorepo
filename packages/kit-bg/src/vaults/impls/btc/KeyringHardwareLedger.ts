@@ -526,6 +526,12 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const btcNetwork = getBtcForkNetwork(networkInfo.networkChainCode);
 
+    this.assertPsbtSignPolicy({
+      psbt: BitcoinJS.Psbt.fromHex(psbtHex, { network: btcNetwork }),
+      btcNetwork,
+      inputsToSign: (unsignedTx.encodedTx as IEncodedTxBtc).inputsToSign ?? [],
+    });
+
     let enrichedPsbtHex = psbtHex;
 
     if (isTaprootPath(dbAccount.path)) {

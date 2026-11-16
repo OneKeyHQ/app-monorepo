@@ -416,6 +416,24 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  // Whether the signer releases signatures for exactly the inputs in
+  // `inputsToSign`, each made with the sighash type that input declares. A
+  // SIGHASH_SINGLE confirm page is only truthful under that guarantee.
+  // - Software keyrings sign nothing but the requested inputs, as declared.
+  // - Keystone results are verified against the declared types and reduced
+  //   to the requested inputs (verifyKeystonePsbt).
+  // - OneKey firmware signs every input that carries one of its key
+  //   derivations, always with SIGHASH_DEFAULT; Ledger and QR results are
+  //   returned as the device produced them.
+  isPsbtSignerBoundToRequest(): boolean {
+    const { keyring } = this;
+    return (
+      keyring.isKeyringHd() ||
+      keyring.isKeyringImported() ||
+      keyring instanceof KeyringHardwareKeystone
+    );
+  }
+
   async buildDecodedPsbtTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -503,6 +521,7 @@ export default class VaultBtc extends VaultBase {
           utxoAccount.findAddresses,
         ],
       }),
+      rejectSighashSingle: !this.isPsbtSignerBoundToRequest(),
     });
     const displayTransfers = buildBtcPsbtDisplayTransfers({
       authorization,

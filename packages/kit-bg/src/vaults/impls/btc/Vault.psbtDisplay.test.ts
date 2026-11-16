@@ -19,6 +19,7 @@ import type {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import VaultBtc from './Vault';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
@@ -127,9 +128,20 @@ function buildUnsignedTx({
   return { encodedTx };
 }
 
-function buildVault() {
+const softwareKeyring = {
+  isKeyringHd: () => true,
+  isKeyringImported: () => false,
+};
+// OneKey hardware, Ledger, QR: the result is whatever the device signed.
+const deviceKeyring = {
+  isKeyringHd: () => false,
+  isKeyringImported: () => false,
+};
+
+function buildVault(keyring: object = softwareKeyring) {
   const vault = Object.create(VaultBtc.prototype) as VaultBtc;
   Object.assign(vault, {
+    keyring,
     accountId: 'hd-1--m/84h/1h/0h',
     networkId: 'tbtc--0',
     getNetwork: async () => ({
@@ -154,8 +166,10 @@ function buildVault() {
   return vault;
 }
 
-async function decode(unsignedTx: IUnsignedTxPro) {
-  const decodedTx = await buildVault().buildDecodedPsbtTx({ unsignedTx });
+async function decode(unsignedTx: IUnsignedTxPro, keyring?: object) {
+  const decodedTx = await buildVault(keyring).buildDecodedPsbtTx({
+    unsignedTx,
+  });
   const transfer = decodedTx.actions[0].assetTransfer;
   return {
     decodedTx,
@@ -256,6 +270,63 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
     expect(sends).toEqual([{ to: '', amount: '0.00000546' }]);
     expect(receives).toEqual([{ to: victim.address, amount: '0.01' }]);
     expect(decodedTx.localAlerts).toHaveLength(1);
+  });
+
+  it('refuses a listing when the signer is not bound to the requested inputs', async () => {
+    // A device may sign more inputs than requested, or sign with another
+    // sighash type, and the page would show neither.
+    const listing = () =>
+      buildUnsignedTx({
+        inputs: [victimInput(546n, SIGHASH_SINGLE_ANYONECANPAY)],
+        outputs: [
+          {
+            script: victim.script,
+            value: 1_000_000n,
+            address: victim.address,
+          },
+        ],
+      });
+    await expect(decode(listing(), deviceKeyring)).rejects.toThrow(
+      'SIGHASH_SINGLE is not supported by this wallet for input 0',
+    );
+    const keystoneKeyring = Object.assign(
+      Object.create(KeyringHardwareKeystone.prototype) as object,
+      deviceKeyring,
+    );
+    const { receives } = await decode(listing(), keystoneKeyring);
+    expect(receives).toEqual([{ to: victim.address, amount: '0.01' }]);
+  });
+
+  it('still decodes a payment for a signer that is not bound to the requested inputs', async () => {
+    const { sends } = await decode(
+      buildUnsignedTx({
+        inputs: [victimInput(100_000n)],
+        outputs: [
+          { script: decoy.script, value: 50_000n, address: decoy.address },
+          change(49_000n),
+        ],
+      }),
+      deviceKeyring,
+    );
+    expect(sends).toEqual([{ to: decoy.address, amount: '0.0005' }]);
+  });
+
+  it('refuses a request that names the same input twice', async () => {
+    await expect(
+      decode(
+        buildUnsignedTx({
+          inputs: [victimInput(546n, SIGHASH_SINGLE_ANYONECANPAY)],
+          outputs: [
+            {
+              script: victim.script,
+              value: 1_000_000n,
+              address: victim.address,
+            },
+          ],
+          signIndexes: [0, 0],
+        }),
+      ),
+    ).rejects.toThrow('Input 0 is requested for signing more than once');
   });
 
   it('warns when other parties can still add inputs', async () => {
