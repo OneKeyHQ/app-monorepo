@@ -45,7 +45,12 @@ function PrimeGiftDeviceSelection({
       <YStack>
         {devices.map((item) => {
           const duration = getPrimeGiftDurationText(item.eligibility, intl);
-          const serial = `SN ••••${item.serialNo.slice(-4)}`;
+          // The Bluetooth name is printed on the device itself, so users can
+          // match an entry to hardware at a glance; SN is the fallback.
+          const identifier =
+            deviceUtils.buildDeviceBleName({
+              features: item.device.featuresInfo,
+            }) || `SN ••••${item.serialNo.slice(-4)}`;
           return (
             <ListItem
               key={item.serialNo}
@@ -55,7 +60,7 @@ function PrimeGiftDeviceSelection({
                 item.device.name?.trim() ||
                 'OneKey Pro 2'
               }
-              subtitle={duration ? `${serial} · ${duration}` : serial}
+              subtitle={duration ? `${identifier} · ${duration}` : identifier}
               renderAvatar={() => <WalletAvatar wallet={item.wallet} />}
               drillIn
               onPress={() => select(item)}

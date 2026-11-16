@@ -29,6 +29,7 @@ const mockDialogShow = jest.fn<
   void,
   [{ title: string; renderContent: ReactNode; onClose?: () => void }]
 >();
+const mockAvatarWalletIds: string[] = [];
 let mockDevices: IPrimeGiftClaimableDevice[] | undefined = [];
 
 jest.mock('../hooks/usePrimeGiftOfferImpression', () => ({
@@ -59,19 +60,25 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: ({
     testID,
     title,
+    subtitle,
     onPress,
   }: {
     testID: string;
     title: string;
+    subtitle?: string;
     onPress: () => void;
   }) => (
     <button type="button" data-testid={testID} onClick={onPress}>
       {title}
+      <span data-testid={`${testID}-subtitle`}>{subtitle}</span>
     </button>
   ),
 }));
 jest.mock('@onekeyhq/kit/src/components/WalletAvatar', () => ({
-  WalletAvatar: () => null,
+  WalletAvatar: ({ wallet }: { wallet?: { id: string } }) => {
+    if (wallet) mockAvatarWalletIds.push(wallet.id);
+    return null;
+  },
 }));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -122,6 +129,7 @@ jest.mock('@onekeyhq/components', () => {
 function device(
   serialNo: string,
   giftMonths: number,
+  bleName?: string,
 ): IPrimeGiftClaimableDevice {
   return {
     serialNo,
@@ -132,6 +140,7 @@ function device(
       connectId: serialNo,
       deviceId: serialNo,
       deviceType: 'pro2',
+      featuresInfo: bleName ? { bleName, deviceType: 'pro2' } : undefined,
     },
     wallet: { id: serialNo, name: serialNo },
     eligibility: {
@@ -157,6 +166,7 @@ function renderEntry(isPrimeActive = false) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAvatarWalletIds.length = 0;
   mockDevices = [];
 });
 
@@ -295,4 +305,24 @@ it('shows the paid-subscription condition for current Prime members without bloc
       device: expect.objectContaining({ uuid: 'SN1' }),
     },
   });
+});
+
+it('shows a claimable device avatar and identifies devices by Bluetooth name', () => {
+  mockDevices = [device('SN0001030A', 6, 'Pro 2 030A'), device('SN000019B', 6)];
+  renderEntry();
+  expect(mockAvatarWalletIds[0]).toBe('SN0001030A');
+  fireEvent.click(screen.getByTestId('prime-gift-dashboard-entry'));
+  const dialog = mockDialogShow.mock.calls[0][0];
+  render(
+    <IntlProvider locale="en" messages={messages}>
+      <>{dialog.renderContent}</>
+    </IntlProvider>,
+  );
+  expect(
+    screen.getByTestId('prime-gift-select-SN0001030A-subtitle').textContent,
+  ).toBe('Pro 2 030A · 6 months');
+  // Devices without a recorded Bluetooth name fall back to the SN suffix.
+  expect(
+    screen.getByTestId('prime-gift-select-SN000019B-subtitle').textContent,
+  ).toBe('SN ••••019B · 6 months');
 });

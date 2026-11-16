@@ -1,11 +1,10 @@
 import { useCallback } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
 import { useOpenPrimeGiftClaim } from '../hooks/useOpenPrimeGiftClaim';
@@ -83,13 +82,10 @@ export function PrimeGiftDashboardEntry({
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
       >
-        <Image
-          width={48}
-          height={48}
-          flexShrink={0}
-          contentFit="contain"
-          source={HwWalletAvatarImages[EDeviceType.Pro2]}
-        />
+        {/* Match a real claimable device's wallpaper; the first stands in for several. */}
+        <YStack flexShrink={0}>
+          <WalletAvatar wallet={claimable[0].wallet} size={48} />
+        </YStack>
         <YStack flex={1} minWidth={0} gap="$1">
           <SizableText size="$bodyLgMedium" cursor="default" userSelect="none">
             {intl.formatMessage({
