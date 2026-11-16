@@ -1,4 +1,9 @@
-import { isOsVersionBelow, resolveOsEndOfSupportNotice } from '.';
+import {
+  OS_END_OF_SUPPORT_NOTICE_REMIND_INTERVAL_MS,
+  isOsEndOfSupportNoticeDismissed,
+  isOsVersionBelow,
+  resolveOsEndOfSupportNotice,
+} from '.';
 
 describe('isOsVersionBelow', () => {
   it('compares dotted versions numerically', () => {
@@ -77,5 +82,37 @@ describe('resolveOsEndOfSupportNotice', () => {
         currentVersion: 'unknown',
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('isOsEndOfSupportNoticeDismissed', () => {
+  const now = 1_800_000_000_000;
+  const week = OS_END_OF_SUPPORT_NOTICE_REMIND_INTERVAL_MS;
+
+  it('shows the notice when it was never closed', () => {
+    expect(
+      isOsEndOfSupportNoticeDismissed({ dismissedAt: undefined, now }),
+    ).toBe(false);
+  });
+
+  it('stays hidden for one week after closing', () => {
+    expect(isOsEndOfSupportNoticeDismissed({ dismissedAt: now, now })).toBe(
+      true,
+    );
+    expect(
+      isOsEndOfSupportNoticeDismissed({ dismissedAt: now - week + 1, now }),
+    ).toBe(true);
+  });
+
+  it('comes back once a week has passed', () => {
+    expect(
+      isOsEndOfSupportNoticeDismissed({ dismissedAt: now - week, now }),
+    ).toBe(false);
+  });
+
+  it('comes back when the device clock moved backwards', () => {
+    expect(
+      isOsEndOfSupportNoticeDismissed({ dismissedAt: now + 1000, now }),
+    ).toBe(false);
   });
 });

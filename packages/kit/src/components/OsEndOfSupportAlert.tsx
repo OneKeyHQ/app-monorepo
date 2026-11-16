@@ -3,14 +3,18 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Alert, Button, Stack } from '@onekeyhq/components';
-import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useOsEndOfSupportNoticePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getOsEndOfSupportNotice } from '@onekeyhq/shared/src/osEndOfSupport';
+import {
+  getOsEndOfSupportNotice,
+  isOsEndOfSupportNoticeDismissed,
+} from '@onekeyhq/shared/src/osEndOfSupport';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 function BasicOsEndOfSupportAlert() {
   const intl = useIntl();
-  const [bannerClose, setBannerClose] = useBannerClosePersistAtom();
+  const [{ dismissedAt }, setNoticeState] =
+    useOsEndOfSupportNoticePersistAtom();
   const notice = useMemo(() => getOsEndOfSupportNotice(), []);
   const noticeId = notice?.id;
   const learnMoreUrl = notice?.learnMoreUrl;
@@ -19,10 +23,11 @@ function BasicOsEndOfSupportAlert() {
     if (!noticeId) {
       return;
     }
-    setBannerClose({
-      ids: [...new Set([...bannerClose.ids, noticeId])],
-    });
-  }, [bannerClose.ids, noticeId, setBannerClose]);
+    setNoticeState((prev) => ({
+      ...prev,
+      dismissedAt: { ...prev.dismissedAt, [noticeId]: Date.now() },
+    }));
+  }, [noticeId, setNoticeState]);
 
   const handleLearnMore = useCallback(() => {
     if (learnMoreUrl) {
@@ -30,7 +35,13 @@ function BasicOsEndOfSupportAlert() {
     }
   }, [learnMoreUrl]);
 
-  if (!notice || bannerClose.ids.includes(notice.id)) {
+  if (
+    !notice ||
+    isOsEndOfSupportNoticeDismissed({
+      dismissedAt: dismissedAt[notice.id],
+      now: Date.now(),
+    })
+  ) {
     return null;
   }
 

@@ -63,6 +63,26 @@ export function resolveOsEndOfSupportNotice({
   };
 }
 
+// A closed notice comes back after this long, until the user updates the OS.
+export const OS_END_OF_SUPPORT_NOTICE_REMIND_INTERVAL_MS =
+  7 * 24 * 60 * 60 * 1000;
+
+export function isOsEndOfSupportNoticeDismissed({
+  dismissedAt,
+  now,
+}: {
+  dismissedAt: number | undefined;
+  now: number;
+}): boolean {
+  if (typeof dismissedAt !== 'number') {
+    return false;
+  }
+  const elapsed = now - dismissedAt;
+  // A negative elapsed time means the device clock moved backwards; show the
+  // notice again rather than hiding it for an unknown period.
+  return elapsed >= 0 && elapsed < OS_END_OF_SUPPORT_NOTICE_REMIND_INTERVAL_MS;
+}
+
 function getOsEndOfSupportPlatform(): IOsEndOfSupportPlatform | undefined {
   if (platformEnv.isNativeIOS) return 'ios';
   if (platformEnv.isNativeAndroid) return 'android';

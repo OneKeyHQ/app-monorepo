@@ -22031,6 +22031,7 @@
     "packages/kit-bg/src/states/jotai/atoms/networkDoctor.ts": 6893,
     "packages/kit-bg/src/states/jotai/atoms/notifications.ts": 23632,
     "packages/kit-bg/src/states/jotai/atoms/onboarding.ts": 22973,
+    "packages/kit-bg/src/states/jotai/atoms/osEndOfSupportNotice.ts": 2214,
     "packages/kit-bg/src/states/jotai/atoms/password.ts": 3914,
     "packages/kit-bg/src/states/jotai/atoms/passwordLock.ts": 14244,
     "packages/kit-bg/src/states/jotai/atoms/perps.ts": 17829,
