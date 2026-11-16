@@ -99,6 +99,7 @@ function NetworkSelectorTriggerHomeCmp({
   size = 'large',
   unifiedMode = false,
   desktopHeader = false,
+  hideChevron = false,
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
@@ -106,6 +107,8 @@ function NetworkSelectorTriggerHomeCmp({
   size?: 'small' | 'large';
   unifiedMode?: boolean;
   desktopHeader?: boolean;
+  // For a host that already draws the trigger in its own pill.
+  hideChevron?: boolean;
 }) {
   const {
     activeAccount: { network, accountName },
@@ -197,12 +200,14 @@ function NetworkSelectorTriggerHomeCmp({
           {networkTriggerText}
         </SizableText>
       ) : null}
-      <Icon
-        name="ChevronDownSmallOutline"
-        color="$iconSubdued"
-        size="$5"
-        flexShrink={0}
-      />
+      {hideChevron ? null : (
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          size="$5"
+          flexShrink={0}
+        />
+      )}
     </XStack>
   );
 }

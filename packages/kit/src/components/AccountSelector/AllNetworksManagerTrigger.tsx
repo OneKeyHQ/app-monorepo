@@ -99,12 +99,15 @@ function AllNetworksManagerTrigger({
   showSkeleton,
   unifiedMode = false,
   desktopHeader = false,
+  hideChevron = false,
 }: {
   num: number;
   containerProps?: ComponentProps<typeof Stack>;
   showSkeleton?: boolean;
   unifiedMode?: boolean;
   desktopHeader?: boolean;
+  // For a host that already draws the trigger in its own pill.
+  hideChevron?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -322,7 +325,9 @@ function AllNetworksManagerTrigger({
           networkName={network?.name}
           isAllNetworks={network?.isAllNetworks}
         />
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        {hideChevron ? null : (
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        )}
       </XStack>
     );
   }
@@ -426,7 +431,9 @@ function AllNetworksManagerTrigger({
           </XStack>
         ) : null}
       </XStack>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      {hideChevron ? null : (
+        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      )}
       {hasNetworksWithoutAccount && desktopHeader ? (
         // App warning color (as in the network picker); it never overlaps the
         // chevron glyph, so it needs no ring.

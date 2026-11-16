@@ -17,6 +17,7 @@ let mockDimensions = { width: 1200, height: 800 };
 let mockDeferMeasurement = false;
 let mockMeasurements: ((x: number) => void)[] = [];
 let mockOnLayout: (() => void) | undefined;
+let mockActiveAccount: Record<string, unknown> = {};
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -68,7 +69,7 @@ jest.mock('@onekeyhq/shared/src/modules/WindowControlsInsets', () => ({
     Math.max(0, mockWindowLeft - padding),
 }));
 jest.mock('../../states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({ activeAccount: {} }),
+  useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
   useIsAccountSelectorSyncLoading: () => false,
 }));
 jest.mock(
@@ -89,10 +90,24 @@ jest.mock('../AccountSelector/AccountSelectorProvider', () => ({
     children,
 }));
 jest.mock('../AccountSelector/LazyAllNetworksManagerTrigger', () => ({
-  LazyAllNetworksManagerTrigger: () => null,
+  LazyAllNetworksManagerTrigger: ({
+    hideChevron,
+  }: {
+    hideChevron?: boolean;
+  }) => (
+    <div
+      data-testid="all-networks-trigger"
+      data-chevron={hideChevron ? 'hidden' : 'shown'}
+    />
+  ),
 }));
 jest.mock('../AccountSelector/NetworkSelectorTrigger', () => ({
-  NetworkSelectorTriggerHome: () => null,
+  NetworkSelectorTriggerHome: ({ hideChevron }: { hideChevron?: boolean }) => (
+    <div
+      data-testid="network-trigger"
+      data-chevron={hideChevron ? 'hidden' : 'shown'}
+    />
+  ),
 }));
 jest.mock('./components/HeaderNotificationIconButton', () => ({
   HeaderNotificationIconButton: () => <div data-testid="notification-button" />,
@@ -108,7 +123,9 @@ jest.mock('./HeaderRight', () => ({
 }));
 jest.mock('./HeaderTitle', () => ({ HeaderTitle: () => null }));
 jest.mock('./LegacyUniversalSearchInput', () => ({
-  LegacyUniversalSearchInput: () => null,
+  LegacyUniversalSearchInput: ({ size }: { size?: string }) => (
+    <div data-testid="search" data-size={size} />
+  ),
 }));
 
 function AddressHeader({
@@ -133,6 +150,7 @@ describe('MDHeader window controls', () => {
     mockDeferMeasurement = false;
     mockMeasurements = [];
     mockOnLayout = undefined;
+    mockActiveAccount = {};
   });
 
   it.each([
@@ -181,20 +199,46 @@ describe('MDHeader window controls', () => {
     expect(margin()).toBe(0);
   });
 
-  it('draws the phone home header as one row: profile avatar, search, network', () => {
+  it('draws the phone home header as one row: profile avatar, then search and network buttons', () => {
     const platformEnvMock = jest.requireMock<{
       default: { isNative?: boolean };
     }>('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.isNative = true;
+    const wallet = { id: 'hd-1', type: 'hd', backuped: true };
+    const account = { id: 'account-1' };
+    // A new element each time, so the rerender reads the account again.
+    const header = () => (
+      <MDHeader
+        tabRoute={ETabRoutes.Home}
+        sceneName={EAccountSelectorSceneName.home}
+        hideSearch={false}
+      />
+    );
     try {
-      render(
-        <MDHeader
-          tabRoute={ETabRoutes.Home}
-          sceneName={EAccountSelectorSceneName.home}
-          hideSearch={false}
-        />,
-      );
+      mockActiveAccount = {
+        wallet,
+        account,
+        network: { id: 'evm--1', isAllNetworks: false },
+      };
+      const { rerender } = render(header());
       expect(screen.getByTestId('profile-avatar')).toBeTruthy();
+      // Search is an icon button, not a field.
+      expect(screen.getByTestId('search').getAttribute('data-size')).toBe(
+        'small',
+      );
+      // The pill already reads as pressable, so neither trigger has a chevron.
+      expect(
+        screen.getByTestId('network-trigger').getAttribute('data-chevron'),
+      ).toBe('hidden');
+      mockActiveAccount = {
+        wallet,
+        account,
+        network: { id: 'onekeyall--0', isAllNetworks: true },
+      };
+      rerender(header());
+      expect(
+        screen.getByTestId('all-networks-trigger').getAttribute('data-chevron'),
+      ).toBe('hidden');
       // Notifications and the More entries moved into the profile drawer.
       expect(screen.queryByTestId('notification-button')).toBeNull();
       expect(screen.queryByTestId('more-button')).toBeNull();
