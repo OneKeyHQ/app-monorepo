@@ -14,6 +14,7 @@ const mockNavigate = jest.fn<
     {
       onSuccess: (data: { decodedTx: { txid: string } }[]) => void;
       approvesInfo?: { spender: string; amount: string }[];
+      isNavigationCurrent?: () => boolean;
     },
   ]
 >();
@@ -30,12 +31,21 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('react-native', () => ({
-  Keyboard: { dismiss: jest.fn() },
+  Keyboard: { dismiss: jest.fn(), isVisible: () => false },
+  TextInput: { State: { currentlyFocusedInput: () => null } },
   StyleSheet: { hairlineWidth: 1 },
   Platform: {
     OS: 'web',
     select: (items: Record<string, unknown>) => items.web ?? items.default,
   },
+}));
+jest.mock('@react-navigation/core', () => ({
+  useNavigation: () => ({ isFocused: () => true, addListener: () => () => {} }),
+}));
+jest.mock('react-native-reanimated', () => ({
+  useSharedValue: (value: string) =>
+    jest.requireActual<typeof import('react')>('react').useRef({ value })
+      .current,
 }));
 jest.mock('@onekeyhq/components', () => {
   const deferredPromise = jest.requireActual<
@@ -104,6 +114,29 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
     Dialog: { show: jest.fn() },
     Toast: { error: jest.fn(), message: jest.fn() },
+    Keyboard: { Controller: { isVisible: () => false } },
+    Tabs: {
+      TabBar: ({
+        tabNames,
+        onTabPress,
+      }: {
+        tabNames: string[];
+        onTabPress: (name: string) => void;
+      }) => (
+        <div>
+          {tabNames.map((name, index) => (
+            <button
+              key={name}
+              type="button"
+              data-testid={`integration-tab-${index}`}
+              onClick={() => onTabPress(name)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      ),
+    },
     getCurrentVisibilityState: () => true,
     onVisibilityStateChange: () => () => undefined,
     useDeferredPromise: deferredPromise.useDeferredPromise,
@@ -195,6 +228,28 @@ jest.mock('../../hooks/useBorrowApiParams', () => ({
 jest.mock('../../hooks/useIsPendleProvider', () => ({
   useIsPendleProvider: (provider: string) =>
     provider.toLowerCase() === 'pendle',
+}));
+jest.mock('../../hooks/useQuoteCountdown', () => ({
+  useQuoteCountdown: () => ({ isExpired: false, reset: () => {} }),
+}));
+jest.mock('@onekeyhq/kit/src/components/SlippageSettingDialog', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock('../../pages/ManagePosition/hooks/useManagePage', () => ({
+  EManagePositionType: {
+    Staking: 'staking',
+    Supply: 'supply',
+    Borrow: 'borrow',
+    Withdraw: 'withdraw',
+    Repay: 'repay',
+  },
+}));
+jest.mock('../../pages/ManagePosition/components/HeaderRight', () => ({
+  HeaderRight: () => null,
+}));
+jest.mock('../../pages/ManagePosition/components/WithdrawSection', () => ({
+  WithdrawSection: () => <div data-testid="integration-withdraw" />,
 }));
 jest.mock('../ClaimConversionDialog', () => ({
   runClaimConversion: jest.fn(),
@@ -350,6 +405,7 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 
 import { etherFiDepositRecovery } from '../../hooks/etherFiDepositRecovery';
+import { NormalManageContent } from '../../pages/ManagePosition/components/NormalManageContent';
 import { StakeSection } from '../../pages/ManagePosition/components/StakeSection';
 
 const account = '0x1111111111111111111111111111111111111111';
@@ -1075,6 +1131,9 @@ describe('EtherFi manage-page deposit', () => {
       ]),
     );
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    expect(mockNavigate.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ encodedTx: { data: '0x' } }),
+    );
     const returnedSelector = view.getByRole('button', { name: 'WETH' });
     expect(returnedSelector.hasAttribute('disabled')).toBe(false);
     fireEvent.click(returnedSelector);
@@ -1083,6 +1142,7 @@ describe('EtherFi manage-page deposit', () => {
       mockPushModal.mock.calls[0][1].params.onSelect(asset(secondToken)),
     );
     expect(await view.findByRole('button', { name: 'eETH' })).toBeTruthy();
+    expect(mockNavigate.mock.calls[1][0].isNavigationCurrent?.()).toBe(false);
     await waitFor(() =>
       expect(mockAllowance).toHaveBeenCalledWith(
         expect.objectContaining({ tokenAddress: secondToken.address }),
@@ -1105,5 +1165,130 @@ describe('EtherFi manage-page deposit', () => {
         tokenInfo: expect.objectContaining({ address: secondToken.address }),
       }),
     ]);
+  }, 15_000);
+
+  it('refreshes the returned deposit tab after an approval finishes late', async () => {
+    jest.resetAllMocks();
+    const asset = {
+      info: token,
+      balance: '2000000000000000000',
+      balanceParsed: '2',
+      fiatValue: '2',
+      price: '1',
+      price24h: '1',
+    };
+    let approved = false;
+    mockAssets.mockResolvedValue({ assets: [asset] });
+    mockProtocolDetails.mockResolvedValue({
+      protocol: {
+        provider: 'etherfi',
+        networkId: 'evm--1',
+        symbol: 'WETH',
+        vault: props.protocolInfo?.vault,
+        approve: {
+          approveType: EApproveType.Legacy,
+          approveTarget: EtherFiLiquidReferContract,
+        },
+      },
+    });
+    mockAccount.mockResolvedValue({ address: account });
+    mockAllowance.mockImplementation(async () =>
+      approved
+        ? { allowance: '100000000000000000', allowanceParsed: '0.1' }
+        : { allowance: '0', allowanceParsed: '0' },
+    );
+    mockCheckAmount.mockResolvedValue({
+      code: 0,
+      message: '',
+      data: { alerts: [] },
+    });
+    mockConfirmation.mockResolvedValue({});
+    mockEstimate.mockResolvedValue({ feeFiatValue: '1', coverFeeSeconds: '0' });
+    mockNavigate.mockResolvedValue(undefined);
+    if (!props.tokenInfo || !props.protocolInfo?.earnAccount) {
+      throw new OneKeyLocalError('Missing manage-page fixture');
+    }
+    const view = render(
+      <NormalManageContent
+        networkId="evm--1"
+        symbol="WETH"
+        provider="etherfi"
+        tokenInfo={{ ...props.tokenInfo, accountId: 'account-tab' }}
+        protocolInfo={{
+          ...props.protocolInfo,
+          earnAccount: {
+            ...props.protocolInfo.earnAccount,
+            accountId: 'account-tab',
+          },
+        }}
+        earnAccount={{ accountId: 'account-tab' }}
+        depositDisabled={false}
+        withdrawDisabled={false}
+        stakeBeforeFooter={null}
+        withdrawBeforeFooter={null}
+        isInModalContext
+        appNavigation={
+          {} as import('@onekeyhq/kit/src/hooks/useAppNavigation').IAppNavigation
+        }
+      />,
+    );
+    fireEvent.change(await view.findByLabelText('amount'), {
+      target: { value: '0.1' },
+    });
+    const approve = await view.findByRole('button', { name: 'global.approve' });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(view.getByTestId('integration-tab-1'));
+    expect(view.getByTestId('integration-withdraw')).toBeTruthy();
+    fireEvent.click(view.getByTestId('integration-tab-0'));
+    fireEvent.change(await view.findByLabelText('amount'), {
+      target: { value: '0.1' },
+    });
+    const returnedApprove = await view.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() =>
+      expect(returnedApprove.hasAttribute('disabled')).toBe(false),
+    );
+    expect(mockAllowance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-tab',
+        networkId: 'evm--1',
+        tokenAddress: EthereumWETH,
+        spenderAddress: EtherFiLiquidReferContract,
+      }),
+    );
+    const allowanceReadsBeforeConfirmation = mockAllowance.mock.calls.length;
+    approved = true;
+    await act(async () =>
+      mockNavigate.mock.calls[0][0].onSuccess([
+        { decodedTx: { txid: `0x${'b'.repeat(64)}` } },
+      ]),
+    );
+    await waitFor(() => {
+      const deposit = view
+        .getAllByRole('button', { name: 'earn.deposit' })
+        .find((button) => !button.hasAttribute('data-testid'));
+      expect(deposit).toBeDefined();
+      expect(deposit?.hasAttribute('disabled')).toBe(false);
+    });
+    expect(
+      mockAllowance.mock.calls.slice(allowanceReadsBeforeConfirmation),
+    ).toEqual(
+      expect.arrayContaining([
+        [
+          expect.objectContaining({
+            accountId: 'account-tab',
+            networkId: 'evm--1',
+            tokenAddress: EthereumWETH,
+            spenderAddress: EtherFiLiquidReferContract,
+          }),
+        ],
+      ]),
+    );
+    expect(view.queryByRole('button', { name: 'global.retry' })).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
   }, 15_000);
 });
