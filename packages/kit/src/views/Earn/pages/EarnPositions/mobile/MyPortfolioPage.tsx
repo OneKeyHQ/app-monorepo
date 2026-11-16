@@ -31,6 +31,7 @@ import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking'
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
 import { EarnNavigation } from '../../../earnUtils';
+import { useEarnServerOrderRefresh } from '../../../hooks/useEarnServerOrderRefresh';
 import { useHeaderHeightCacheKey } from '../../../hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../../hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../../hooks/useSettledHeaderHeight';
@@ -147,6 +148,16 @@ export function MyPortfolioPage() {
     },
     [refreshPositions, refreshRewards],
   );
+
+  useEarnServerOrderRefresh({
+    accountId: activeAccount.account?.id,
+    indexedAccountId:
+      activeAccount.account?.indexedAccountId ||
+      activeAccount.indexedAccount?.id,
+    onRefresh: ({ provider, networkId }) => {
+      void refreshAll({ provider, networkId });
+    },
+  });
 
   const translate = useCallback(
     (id: ETranslations) => intl.formatMessage({ id }),

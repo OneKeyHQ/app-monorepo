@@ -22,9 +22,8 @@ import type { IntlShape } from 'react-intl';
  * One dialog carries the wait. After a first claim it walks two steps: the
  * claim landing on-chain, then the conversion. A retry (USDu already in the
  * wallet) has no claim step and shows the spinner alone. The dialog can be
- * closed: that only stops this client from waiting, the server keeps
- * converting and the position shows the amount as awaiting conversion until
- * it ends, so nothing is prompted afterwards. Left open, it ends in a result:
+ * closed: that only dismisses the UI wait. Background polling still publishes
+ * settlement so the position refreshes, without prompting again. Left open, it ends in a result:
  * success, a failure that names the server's reason and offers another try,
  * or a notice that it is taking long and finishes in the background.
  */
@@ -163,6 +162,7 @@ async function runAttempt({
         networkId: request.networkId,
         accountId: request.accountId,
         orderId: accepted.orderId,
+        refreshScope: { provider: request.provider, vault: request.vault },
       });
     if (settled.status === 'success') {
       return { kind: 'success', amount: settled.order?.amount };

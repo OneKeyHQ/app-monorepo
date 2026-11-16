@@ -104,6 +104,7 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useEarnServerOrderRefresh } from '../../hooks/useEarnServerOrderRefresh';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
 import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
 
@@ -1371,6 +1372,16 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     stakeTag: protocolInfo?.stakeTag,
     onRefresh: refreshUntilSettled,
   });
+  useEarnServerOrderRefresh({
+    accountId: protocolInfo?.earnAccount?.accountId,
+    networkId,
+    provider,
+    vault: detailInfo?.protocol?.vault ?? vault,
+    onRefresh: () => {
+      void refreshData();
+    },
+  });
+
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
   const handleActionSuccess = useCallback(() => {

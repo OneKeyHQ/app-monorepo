@@ -12,6 +12,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -2203,6 +2207,7 @@ class ServiceStaking extends ServiceBase {
     intervalMs = 3000,
     timeoutMs = 5 * 60 * 1000,
     returnOnBroadcast = false,
+    refreshScope,
   }: {
     networkId: string;
     accountId: string;
@@ -2210,6 +2215,7 @@ class ServiceStaking extends ServiceBase {
     intervalMs?: number;
     timeoutMs?: number;
     returnOnBroadcast?: boolean;
+    refreshScope?: { provider: string; vault?: string };
   }): Promise<IEarnServerOrderWaitResult> {
     const deadline = Date.now() + timeoutMs;
     let order: IEarnServerOrderDetail | undefined;
@@ -2223,11 +2229,25 @@ class ServiceStaking extends ServiceBase {
       } catch {
         // transient network error: keep polling until the deadline
       }
-      if (order?.status === 'success') {
-        return { status: 'success', order };
-      }
-      if (order?.status === 'failed') {
-        return { status: 'failed', order };
+      if (order?.status === 'success' || order?.status === 'failed') {
+        if (refreshScope) {
+          // Publish from background even when the UI stopped awaiting this
+          // call. Account metadata failure must not hide a settled order.
+          const account = await this.backgroundApi.serviceAccount
+            .getAccount({ accountId, networkId })
+            .catch(() => undefined);
+          appEventBus.emit(EAppEventBusNames.EarnServerOrderSettled, {
+            ...refreshScope,
+            // Use the server provider key, also used by portfolio scopes.
+            provider: order.provider,
+            accountId,
+            indexedAccountId: account?.indexedAccountId,
+            networkId,
+            orderId,
+            status: order.status,
+          });
+        }
+        return { status: order.status, order };
       }
       if (returnOnBroadcast && order?.txId) {
         return { status: 'submitted', order };

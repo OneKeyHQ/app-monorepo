@@ -1,3 +1,7 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IEarnServerOrderDetail } from '@onekeyhq/shared/types/staking';
 
 import ServiceStaking from './ServiceStaking';
@@ -20,7 +24,15 @@ function createOrder(
 }
 
 function createHarness(responses: Array<IEarnServerOrderDetail | Error>) {
-  const service = new ServiceStaking({ backgroundApi: {} });
+  const service = new ServiceStaking({
+    backgroundApi: {
+      serviceAccount: {
+        getAccount: jest
+          .fn()
+          .mockResolvedValue({ indexedAccountId: 'hd-1--0' }),
+      },
+    },
+  });
   const getEarnOrderDetail = jest.spyOn(service, 'getEarnOrderDetail');
   responses.forEach((response) => {
     if (response instanceof Error) {
@@ -120,5 +132,59 @@ describe('ServiceStaking.waitForServerExecutedOrder', () => {
 
     expect(result.status).toBe('timeout');
     expect(result.order?.status).toBe('pending');
+  });
+});
+
+describe('server order completion notifications', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each(['success', 'failed'] as const)(
+    'notifies the original scope on %s after the caller dismisses',
+    async (status) => {
+      const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+      const { service, getEarnOrderDetail } = createHarness([]);
+      let settle!: (order: IEarnServerOrderDetail) => void;
+      getEarnOrderDetail.mockReturnValue(
+        new Promise((resolve) => {
+          settle = resolve;
+        }),
+      );
+      const waiting = service.waitForServerExecutedOrder({
+        ...params,
+        refreshScope: { provider: 'Unitas', vault: 'vault-1' },
+      });
+      await expect(
+        Promise.race([waiting, Promise.resolve('dismissed')]),
+      ).resolves.toBe('dismissed');
+      expect(emit).not.toHaveBeenCalled();
+      settle(createOrder(status));
+      await waiting;
+      expect(emit).toHaveBeenCalledTimes(1);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.EarnServerOrderSettled,
+        {
+          accountId: params.accountId,
+          indexedAccountId: 'hd-1--0',
+          networkId: params.networkId,
+          provider: 'unitas',
+          vault: 'vault-1',
+          orderId: params.orderId,
+          status,
+        },
+      );
+    },
+  );
+
+  it('does not report timeout as settlement', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { service, getEarnOrderDetail } = createHarness([]);
+    getEarnOrderDetail.mockResolvedValue(createOrder('pending'));
+    const result = await service.waitForServerExecutedOrder({
+      ...params,
+      timeoutMs: 0,
+      refreshScope: { provider: 'unitas' },
+    });
+    expect(result.status).toBe('timeout');
+    expect(emit).not.toHaveBeenCalled();
   });
 });
