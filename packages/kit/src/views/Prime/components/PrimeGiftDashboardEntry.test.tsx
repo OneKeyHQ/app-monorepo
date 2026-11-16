@@ -118,7 +118,6 @@ jest.mock('@onekeyhq/components', () => {
     },
     useDialogInstance: () => ({ close: mockDialogClose }),
     Icon: () => null,
-    Image: () => null,
     SizableText: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
     XStack: Frame,

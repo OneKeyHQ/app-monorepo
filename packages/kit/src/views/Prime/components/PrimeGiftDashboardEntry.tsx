@@ -83,9 +83,7 @@ export function PrimeGiftDashboardEntry({
         pressStyle={{ bg: '$bgActive' }}
       >
         {/* Match a real claimable device's wallpaper; the first stands in for several. */}
-        <YStack flexShrink={0}>
-          <WalletAvatar wallet={claimable[0].wallet} size={48} />
-        </YStack>
+        <WalletAvatar wallet={claimable[0].wallet} size={48} />
         <YStack flex={1} minWidth={0} gap="$1">
           <SizableText size="$bodyLgMedium" cursor="default" userSelect="none">
             {intl.formatMessage({
