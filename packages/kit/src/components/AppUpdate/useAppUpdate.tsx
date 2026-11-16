@@ -118,7 +118,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
   const checkForUpdates = useCallback(async () => {
     defaultLogger.app.appUpdate.startCheckForUpdatesOnly();
     const response =
-      await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true, true);
+      await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
     const { shouldUpdate, fileType, isRollback } = isNeedUpdate({
       latestVersion: response?.latestVersion,
       jsBundleVersion: response?.jsBundleVersion,

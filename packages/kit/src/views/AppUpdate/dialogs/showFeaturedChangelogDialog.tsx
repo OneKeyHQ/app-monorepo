@@ -578,10 +578,7 @@ export function showFeaturedChangelogDialog(
         });
         if (!isPreInstall) {
           setTimeout(() => {
-            void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
-              true,
-              true,
-            );
+            void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
           }, 250);
         }
       }

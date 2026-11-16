@@ -1278,9 +1278,9 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchConfig(isManualCheck = false) {
+  async fetchConfig(options?: { isManualCheck?: boolean }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await (isManualCheck
+    const response = await (options?.isManualCheck
       ? client.get<{
           code: number;
           data: IResponseAppUpdateInfo;
@@ -1531,10 +1531,13 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAppLatestInfo(forceUpdate = false, isManualCheck = false) {
+  async getAppLatestInfo(
+    forceUpdate = false,
+    options?: { isManualCheck?: boolean },
+  ) {
     if (
       !forceUpdate &&
-      !isManualCheck &&
+      !options?.isManualCheck &&
       Date.now() - this.updateAt <
         timerUtils.getTimeDurationMs({
           minute: 5,
@@ -1543,7 +1546,7 @@ class ServiceAppUpdate extends ServiceBase {
     ) {
       return this.cachedUpdateInfo;
     }
-    return this.fetchConfig(isManualCheck);
+    return this.fetchConfig(options);
   }
 
   @backgroundMethod()
@@ -2918,7 +2921,15 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchAppUpdateInfo(forceUpdate = false, isManualCheck = false) {
+  public async fetchAppUpdateInfoByManual() {
+    return this.fetchAppUpdateInfo(true, { isManualCheck: true });
+  }
+
+  @backgroundMethod()
+  public async fetchAppUpdateInfo(
+    forceUpdate = false,
+    options?: { isManualCheck?: boolean },
+  ) {
     await this.cleanupUpdateControlState();
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
@@ -2986,6 +2997,7 @@ class ServiceAppUpdate extends ServiceBase {
     //      *different* version (isDifferentFromAttempted).
     //
     // downloading app or ready to update via local package
+    const isManualCheck = Boolean(options?.isManualCheck);
     const isNeedSync = await this.isNeedSyncAppUpdateInfo(
       forceUpdate || isManualCheck,
     );
@@ -3003,7 +3015,7 @@ class ServiceAppUpdate extends ServiceBase {
       return latest;
     }
 
-    const releaseInfo = await this.getAppLatestInfo(forceUpdate, isManualCheck);
+    const releaseInfo = await this.getAppLatestInfo(forceUpdate, options);
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
     defaultLogger.app.appUpdate.appUpdateFetchResult(
       {

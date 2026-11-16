@@ -2549,14 +2549,21 @@ describe('ServiceAppUpdate state transitions', () => {
         updateStrategy: EUpdateStrategy.manual,
       });
 
-      await service.fetchConfig(false);
+      await service.fetchConfig();
       expect(mockClient.get).toHaveBeenLastCalledWith('/utility/v1/app-update');
 
-      await service.fetchConfig(true);
+      await service.fetchConfig({ isManualCheck: true });
       expect(mockClient.get).toHaveBeenLastCalledWith(
         '/utility/v1/app-update',
         { params: { checkSource: 'manual' } },
       );
+
+      const fetchSpy = jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockResolvedValue({} as any);
+      await service.fetchAppUpdateInfoByManual();
+      expect(fetchSpy).toHaveBeenCalledWith(true, { isManualCheck: true });
+      fetchSpy.mockRestore();
     });
   });
 
