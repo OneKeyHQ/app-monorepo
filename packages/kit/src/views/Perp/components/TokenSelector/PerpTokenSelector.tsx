@@ -7,6 +7,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1889,11 +1890,15 @@ function BasePerpTokenSelector() {
         setBuilderFeeRate(fee);
       });
   }, []);
+  const selectorOwner = useId();
   useEffect(() => {
-    actions.current.setTradeRouteViewState({
-      tokenSelectorOpen: isOpen,
-    });
-  }, [actions, isOpen]);
+    if (!isOpen) return;
+    const { setTokenSelectorOpen } = actions.current;
+    setTokenSelectorOpen({ owner: selectorOwner, open: true });
+    return () => {
+      setTokenSelectorOpen({ owner: selectorOwner, open: false });
+    };
+  }, [actions, isOpen, selectorOwner]);
   useEffect(() => {
     const handleTrayNavigate = () => setIsOpen(false);
     appEventBus.on(

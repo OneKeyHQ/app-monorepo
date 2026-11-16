@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -41,14 +41,15 @@ export const PerpChartTokenSelector = memo(
     const [isOpen, setIsOpen] = useState(false);
     const [contentGeneration, setContentGeneration] = useState(0);
     // The list's live prices depend on the selector subscriptions.
+    const selectorOwner = useId();
     useEffect(() => {
       if (!isOpen) return;
-      const { setTradeRouteViewState } = actions.current;
-      setTradeRouteViewState({ tokenSelectorOpen: true });
+      const { setTokenSelectorOpen } = actions.current;
+      setTokenSelectorOpen({ owner: selectorOwner, open: true });
       return () => {
-        setTradeRouteViewState({ tokenSelectorOpen: false });
+        setTokenSelectorOpen({ owner: selectorOwner, open: false });
       };
-    }, [actions, isOpen]);
+    }, [actions, isOpen, selectorOwner]);
     const handleOpenChange = useCallback(
       (open: boolean) => {
         if (open) {
