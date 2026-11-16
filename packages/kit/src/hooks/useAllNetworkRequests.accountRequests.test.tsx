@@ -405,4 +405,36 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
     await ctx.waitForPending(1);
     expect(ctx.requests[2].networkId).toBe('evm--1');
   });
+
+  it('buffers an account refresh during a cold live fan-out and replays it once the fan-out initializes', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+
+    // ETH settles early during the cold fan-out while SUI is still in flight;
+    // a balance update for ETH lands before allNetworkDataInit turns true.
+    await act(async () => {
+      ctx.pending.shift()?.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    await ctx.refreshAccounts([ctx.eth]);
+    expect(ctx.requests.map((request) => request.networkId)).toEqual([
+      'evm--1',
+      'sui--mainnet',
+    ]);
+
+    // Once SUI settles and the cold fan-out finishes, the buffered ETH refresh
+    // is replayed under the same generation.
+    await ctx.settleRequests();
+    await ctx.waitForPending(1);
+    expect(ctx.requests[2]).toMatchObject({
+      networkId: 'evm--1',
+      allNetworkDataInit: false,
+    });
+    await ctx.settleRequests();
+    expect(ctx.settled).toEqual([
+      ['evm--1', 1],
+      ['sui--mainnet', 1],
+      ['evm--1', 1],
+    ]);
+  });
 });

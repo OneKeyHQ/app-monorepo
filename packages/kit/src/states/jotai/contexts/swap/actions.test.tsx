@@ -10850,6 +10850,19 @@ describe('useSwapActions', () => {
       await Promise.all([firstRun, secondRun]);
     });
     expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+
+    // Once settled, a subsequent load after TTL expiry must issue a fresh request
+    // rather than reusing the previously fulfilled promise.
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        proNetworks,
+        'indexed-account',
+        undefined,
+        'usd',
+        { forceRefresh: true, positionLoader: loadSwapProPositions },
+      );
+    });
+    expect(mockFetchSwapTokens).toHaveBeenCalledTimes(3);
   });
 });
 

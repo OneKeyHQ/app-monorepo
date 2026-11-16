@@ -1534,7 +1534,7 @@ describe('Home RefreshTokenList route focus and account scoping', () => {
     ]);
   });
 
-  it('ignores foreign-network account-scoped RefreshTokenList in single-network mode', async () => {
+  it('ignores foreign-network or foreign-account RefreshTokenList in single-network mode', async () => {
     mockNetwork = { id: 'evm--1', isAllNetworks: false };
     render(<TokenListBlock />);
     mockFetchTokens.mockClear();
@@ -1542,6 +1542,9 @@ describe('Home RefreshTokenList route focus and account scoping', () => {
     await act(async () => {
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
         accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'other-wallet--eth', networkId: 'evm--1' }],
       });
     });
     expect(mockFetchTokens).not.toHaveBeenCalled();

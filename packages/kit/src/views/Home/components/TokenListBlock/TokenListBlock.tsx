@@ -4280,7 +4280,17 @@ function TokenListBlock({
         if (
           params?.accounts?.length &&
           network?.id &&
-          !params.accounts.some((item) => item.networkId === network.id)
+          !params.accounts.some(
+            (item) =>
+              item.networkId === network.id &&
+              (!account?.id ||
+                item.accountId === account.id ||
+                (mergeDeriveAddressData &&
+                  Boolean(wallet?.id) &&
+                  accountUtils.getWalletIdFromAccountId({
+                    accountId: item.accountId,
+                  }) === wallet?.id)),
+          )
         ) {
           return;
         }
@@ -4291,13 +4301,16 @@ function TokenListBlock({
       }
     },
     [
+      account?.id,
       handleRefreshAllNetworkData,
       handleRefreshAllNetworkDataByAccounts,
+      mergeDeriveAddressData,
       network?.id,
       network?.isAllNetworks,
       run,
       runLpTokenList,
       showLpTokensOnly,
+      wallet?.id,
     ],
   );
 

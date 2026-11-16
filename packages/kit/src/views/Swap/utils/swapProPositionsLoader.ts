@@ -68,8 +68,7 @@ export type ISwapProPositionsLoader = (
   options?: ISwapProPositionsLoadOptions,
 ) => Promise<void>;
 
-let activeLoaderRunCount = 0;
-const sharedAccountTokenRequests = new Map<string, Promise<ISwapToken[]>>();
+const inFlightAccountTokenRequests = new Map<string, Promise<ISwapToken[]>>();
 
 export const loadSwapProPositions: ISwapProPositionsLoader = async (
   get,
@@ -280,7 +279,6 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       return nextEntries;
     });
   };
-  activeLoaderRunCount += 1;
   try {
     const unionSupportNetworks = Array.from(
       new Map(
@@ -417,7 +415,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
           positionCurrencyId,
         ]);
         let tokenPromise = !options?.forceRefresh
-          ? sharedAccountTokenRequests.get(sharedRequestKey)
+          ? inFlightAccountTokenRequests.get(sharedRequestKey)
           : undefined;
         if (!tokenPromise) {
           const createdPromise = backgroundApiProxy.serviceSwap
@@ -432,17 +430,18 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
               currency: positionCurrencyId,
               protocol: ESwapTabSwitchType.SWAP,
             })
-            .catch((err) => {
+            .finally(() => {
               if (
-                sharedAccountTokenRequests.get(sharedRequestKey) ===
+                inFlightAccountTokenRequests.get(sharedRequestKey) ===
                 createdPromise
               ) {
-                sharedAccountTokenRequests.delete(sharedRequestKey);
+                inFlightAccountTokenRequests.delete(sharedRequestKey);
               }
-              throw err;
             });
           tokenPromise = createdPromise;
-          sharedAccountTokenRequests.set(sharedRequestKey, createdPromise);
+          if (!options?.forceRefresh) {
+            inFlightAccountTokenRequests.set(sharedRequestKey, createdPromise);
+          }
         }
         const tokens = await tokenPromise;
         const nonStockScopes = scopes.filter((scope) => !scope.stockOnly);
@@ -582,10 +581,6 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     });
     console.error('swapPro__loadPositions error', error);
   } finally {
-    activeLoaderRunCount = Math.max(0, activeLoaderRunCount - 1);
-    if (activeLoaderRunCount === 0) {
-      sharedAccountTokenRequests.clear();
-    }
     set(swapProPositionsRequestIdsAtom(), (previousRequestIds) =>
       Object.fromEntries(
         Object.entries(previousRequestIds).filter(
