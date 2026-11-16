@@ -155,6 +155,35 @@ describe('pickPrimeGiftCandidates', () => {
     ]);
   });
 
+  it('uses the wallet device management maps to a reset device', () => {
+    const beforeReset = buildDevice({
+      deviceType: EDeviceType.Pro2,
+      createdAt: 10,
+      uuid: 'RESET-SN',
+      id: 'device-before-reset',
+    });
+    const afterReset = buildDevice({
+      deviceType: EDeviceType.Pro2,
+      createdAt: 20,
+      uuid: 'RESET-SN',
+      id: 'device-after-reset',
+    });
+    const result = pickPrimeGiftCandidates({
+      old: {
+        wallet: { ...buildWallet('old-wallet', 'MK II'), deprecated: true },
+        device: beforeReset,
+      },
+      current: {
+        wallet: buildWallet('current-wallet', 'okp2'),
+        device: afterReset,
+      },
+    });
+
+    expect(
+      result.map((item) => [item.serialNo, item.wallet.id, item.wallet.name]),
+    ).toEqual([['RESET-SN', 'current-wallet', 'okp2']]);
+  });
+
   it('returns an empty list when device management has nothing to claim', () => {
     expect(pickPrimeGiftCandidates({})).toEqual([]);
   });

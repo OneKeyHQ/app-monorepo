@@ -44,6 +44,8 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   __esModule: true,
   default: {
     getDeviceSerialNoFromDbDevice: (device: IDBDevice) => device.uuid,
+    isSamePhysicalDevice: (left?: IDBDevice, right?: IDBDevice) =>
+      Boolean(left && right && left.uuid === right.uuid),
   },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({

@@ -1,5 +1,6 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { getDeviceManagementWallets } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
 import type {
   IDBDevice,
   IDBWallet,
@@ -60,7 +61,11 @@ export function pickPrimeGiftCandidates(
   walletsWithDevice: Record<string, IHwQrWalletWithDevice>,
 ): IPrimeGiftDeviceCandidate[] {
   const bySerial = new Map<string, IPrimeGiftDeviceCandidate>();
-  for (const entry of Object.values(walletsWithDevice)) {
+  // Resolve each physical device to the wallet device management shows, so a
+  // wallet left behind by a device reset never names the claim entry.
+  for (const entry of getDeviceManagementWallets(
+    Object.values(walletsWithDevice),
+  )) {
     const candidate = toPrimeGiftCandidate(entry);
     if (candidate) {
       bySerial.set(
