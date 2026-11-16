@@ -23502,6 +23502,7 @@
     "packages/kit/src/provider/Container/IntercomNotificationContainer/index.native.tsx": 103,
     "packages/kit/src/provider/Container/IntercomNotificationContainer/index.tsx": 2866,
     "packages/kit/src/provider/Container/IntercomNotificationContainer/useHideIntercomMessengerWhenLocked.ts": 11443,
+    "packages/kit/src/provider/Container/IntercomNotificationContainer/useSyncIntercomLockState.ts": 2312,
     "packages/kit/src/provider/Container/IntercomNotificationContainer/visibility.ts": 21678,
     "packages/kit/src/provider/Container/KeylessWebAutoConnectHashCleanupContainer.tsx": 21363,
     "packages/kit/src/provider/Container/KeylessWebConnectAlertContainer.tsx": 4863,
