@@ -650,22 +650,47 @@ it.each([
 );
 
 it.each([
-  { tableLayout: false, isNative: false },
-  { tableLayout: false, isNative: true },
-  { tableLayout: true, isNative: false },
+  { tableLayout: false, isNative: false, withPrice: true },
+  { tableLayout: false, isNative: true, withPrice: true },
+  { tableLayout: false, isNative: true, withPrice: false },
+  { tableLayout: true, isNative: false, withPrice: true },
+  {
+    tableLayout: false,
+    isNative: true,
+    isNativeIOS: true,
+    networkId: 'xmr--0',
+    withPrice: false,
+  },
+  {
+    tableLayout: false,
+    isNative: true,
+    isNativeIOS: true,
+    networkId: 'zec--0',
+    withPrice: false,
+  },
 ])(
-  'updates the native token sync status without replacing balances or its details action (table: $tableLayout, native: $isNative)',
-  ({ tableLayout, isNative }) => {
+  'updates the native token sync status without replacing balances or its details action (table: $tableLayout, native: $isNative, iOS: $isNativeIOS, network: $networkId, price: $withPrice)',
+  ({
+    tableLayout,
+    isNative,
+    isNativeIOS = false,
+    networkId = 'xmr--0',
+    withPrice,
+  }) => {
     const wasNative = platformEnv.isNative;
+    const wasNativeIOS = platformEnv.isNativeIOS;
+    const wasNativeAndroid = platformEnv.isNativeAndroid;
     platformEnv.isNative = isNative;
+    platformEnv.isNativeIOS = isNativeIOS;
+    platformEnv.isNativeAndroid = isNative && !isNativeIOS;
     mockRowLayoutEngine = isNative ? 'native' : 'web';
     try {
       const token = {
         ...ethToken,
-        $key: 'xmr--0_native',
-        networkId: 'xmr--0',
-        symbol: 'XMR',
-        name: 'Monero',
+        $key: `${networkId}_native`,
+        networkId,
+        symbol: networkId === 'zec--0' ? 'ZEC' : 'XMR',
+        name: networkId === 'zec--0' ? 'Zcash' : 'Monero',
         isNative: true,
       };
       const onPressToken = jest.fn();
@@ -676,10 +701,10 @@ it.each([
         zeroFillMissingFiat: false,
         showProcessingState: false,
         isSearching: false,
-        currentNetworkName: 'Monero',
+        currentNetworkName: token.name,
         empty: <div />,
         tableLayout,
-        withPrice: true,
+        withPrice,
         onPressToken,
         tokenListMap: {
           [token.$key]: {
@@ -699,6 +724,8 @@ it.each([
         <NativeTokenSelectorList {...props} nativeTokenStatus={status} />,
       );
       const syncing = mockSnapshot?.rows[0];
+      const expectedLayout = isNativeIOS ? 'table' : 'linear';
+      expect(mockSnapshot?.layout.kind).toBe(expectedLayout);
       expect(syncing).toMatchObject({ height: 60 });
       expect(syncing?.type).toBe(
         tableLayout || isNative ? 'dataRow' : 'identity',
@@ -714,26 +741,22 @@ it.each([
         ]);
         expect(syncing.subtitle).toContain('50');
       } else if (syncing?.type === 'dataRow') {
+        expect(syncing.columns[0].secondaryText).toBe('Syncing');
+        expect(syncing.columns[0].titleIcon?.name).toBe('GasSolid');
+        expect(syncing.badges).toEqual([]);
+        expect(syncing.style?.container?.backgroundColor).toBe(
+          isNativeIOS ? mockTheme.background : undefined,
+        );
         if (tableLayout) {
-          expect(syncing.columns[0].secondaryText).toBe('Syncing');
           expect(syncing.columns).toHaveLength(3);
         } else {
-          expect(syncing.badges).toEqual([
-            { key: 'sync-status', text: 'Syncing' },
-          ]);
           expect(syncing.columns).toHaveLength(2);
-          expect(syncing.columns[0].secondaryText).toContain('50');
-          expect(
-            syncing.columns[0].secondaryTextSegments
-              ?.map((segment) => segment.text)
-              .join(''),
-          ).toBe(syncing.columns[0].secondaryText);
+          expect(syncing.columns[0].secondaryTextSegments).toBeUndefined();
           expect(syncing.style?.lineGap).toBe(0);
           expect(syncing.accessibilityLabel).toBe(
             [
-              'XMR',
+              token.symbol,
               'Syncing',
-              syncing.columns[0].secondaryText,
               syncing.columns[1].text,
               syncing.columns[1].secondaryText,
             ].join(', '),
@@ -754,11 +777,15 @@ it.each([
         />,
       );
       const paused = mockSnapshot?.rows[0];
+      expect(mockSnapshot?.layout.kind).toBe(expectedLayout);
       if (paused?.type === 'identity' || paused?.type === 'dataRow') {
         expect(paused.trailing).not.toContainEqual({ kind: 'spinner' });
       }
       if (isNative && paused?.type === 'dataRow') {
         expect(paused.height).toBe(60);
+        expect(paused.columns[0].secondaryText).toBe('Paused');
+        expect(paused.columns[0].titleIcon?.name).toBe('GasSolid');
+        expect(paused.badges).toEqual([]);
         expect(paused.accessibilityLabel).toContain('Paused');
         expect(paused.accessibilityLabel).not.toContain('Syncing');
         expect(paused.columns[1]).toEqual(
@@ -769,12 +796,22 @@ it.each([
 
       rerender(<NativeTokenSelectorList {...props} />);
       const synced = mockSnapshot?.rows[0];
+      expect(mockSnapshot?.layout.kind).toBe(expectedLayout);
       if (synced?.type === 'identity') {
         expect(synced.badges).toEqual([]);
+        expect(synced.titleIcon?.name).toBe('GasSolid');
+        if (withPrice) {
+          expect(synced.subtitle).toContain('50');
+        } else {
+          expect(synced.subtitle).toBe(token.name);
+        }
       } else if (synced?.type === 'dataRow') {
-        expect(synced.columns[0].secondaryText).toBe('Monero');
+        expect(synced.columns[0].secondaryText).toBe(token.name);
       }
       validateInstalledSnapshot(mockSnapshot!);
+
+      rerender(<NativeTokenSelectorList {...props} rows={[]} />);
+      expect(mockSnapshot?.layout.kind).toBe(expectedLayout);
 
       for (const extra of [
         { isAllNetworks: true },
@@ -789,12 +826,19 @@ it.each([
           />,
         );
         const unrelated = mockSnapshot?.rows[0];
+        expect(mockSnapshot?.layout.kind).toBe('linear');
         if (unrelated?.type === 'identity' || unrelated?.type === 'dataRow') {
           expect(unrelated.trailing).not.toContainEqual({ kind: 'spinner' });
         }
       }
+      rerender(
+        <NativeTokenSelectorList {...props} crossNetworkGroupingActive />,
+      );
+      expect(mockSnapshot?.layout.kind).toBe('linear');
     } finally {
       platformEnv.isNative = wasNative;
+      platformEnv.isNativeIOS = wasNativeIOS;
+      platformEnv.isNativeAndroid = wasNativeAndroid;
       mockRowLayoutEngine = 'web';
     }
   },

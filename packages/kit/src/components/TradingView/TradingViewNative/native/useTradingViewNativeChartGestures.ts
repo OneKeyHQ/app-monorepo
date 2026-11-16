@@ -9,7 +9,7 @@ import {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/HeaderScrollGestureContext';
 
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,

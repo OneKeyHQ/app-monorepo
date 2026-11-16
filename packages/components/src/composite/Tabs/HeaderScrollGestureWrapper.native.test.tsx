@@ -4,7 +4,8 @@ import type { ContextType, PropsWithChildren } from 'react';
 import { act, render } from '@testing-library/react';
 import { I18nManager } from 'react-native';
 
-import { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '../HeaderScrollGestureContext';
+
 import { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper.native';
 
 import type { LayoutChangeEvent } from 'react-native';

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Tabs, Toast } from '@onekeyhq/components';
+import { ActionList, Toast } from '@onekeyhq/components';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { mountImperativeOverlay } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
@@ -351,15 +351,6 @@ function MarketWatchlistTokenList({
   // MarketTokenListBase during the hand-off can otherwise leave an empty table
   // frame before the transformed rows are committed.
   if (showInitialLoadingFallback) {
-    // When tab-integrated on native, register a scroll view with collapsible tabs
-    // even during loading, so the tab system has a valid scroll ref.
-    if (tabIntegrated && platformEnv.isNative) {
-      return (
-        <Tabs.ScrollView>
-          <MarketListLoadingFallback />
-        </Tabs.ScrollView>
-      );
-    }
     // Tab-integrated on web means the desktop Market home table; the Swap Pro
     // token modal is not tab-integrated and keeps the compact fallback.
     return tabIntegrated ? (
@@ -371,18 +362,6 @@ function MarketWatchlistTokenList({
 
   // Show recommend list when there is nothing to render.
   if (showRecommendList) {
-    // When tab-integrated on native, wrap in Tabs.ScrollView so the collapsible
-    // tab system has a registered scroll view for this tab.
-    if (tabIntegrated && platformEnv.isNative) {
-      return (
-        <Tabs.ScrollView>
-          <MarketRecommendList
-            recommendedTokens={recommendedTokens}
-            maxSize={recommendMaxSize}
-          />
-        </Tabs.ScrollView>
-      );
-    }
     return (
       <MarketRecommendList
         recommendedTokens={recommendedTokens}

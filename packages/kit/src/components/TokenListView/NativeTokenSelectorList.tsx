@@ -289,6 +289,15 @@ export function NativeTokenSelectorList({
   const verificationIconColor = uiTheme.iconCaution.val;
   const verificationBadgeTextColor = uiTheme.textCaution.val;
   const verificationBadgeBackgroundColor = uiTheme.bgCautionSubdued.val;
+  // The iOS table renderer keeps title icons on the primary line. Keep this
+  // network-scoped so sync state changes do not switch the list's layout.
+  const useIOSPrivacyTableLayout =
+    platformEnv.isNativeIOS &&
+    !isAllNetworks &&
+    !isTokenSelector &&
+    !crossNetworkGroupingActive &&
+    !!networkId &&
+    networkUtils.isLocalWalletNetwork({ networkId });
   const { gtMd } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
@@ -433,6 +442,7 @@ export function NativeTokenSelectorList({
       gtMd,
       currencyMap,
       theme,
+      useIOSPrivacyTableLayout,
     ];
     const previousCache = rowCacheRef.current;
     const canReuseRows =
@@ -456,6 +466,12 @@ export function NativeTokenSelectorList({
     const targetCurrency = settings.currencyInfo?.id ?? '';
     const iconSize = getTokenRowIconSize(gtMd);
     const columnWeights = getTokenTableColumnWeights(withSwapAction);
+    const dataRowContainerStyle = useIOSPrivacyTableLayout
+      ? {
+          ...TOKEN_ROW_CONTAINER_STYLE,
+          backgroundColor: theme.rowBackground ?? theme.background,
+        }
+      : TOKEN_ROW_CONTAINER_STYLE;
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
         switch (item.syntheticRowType) {
@@ -930,6 +946,9 @@ export function NativeTokenSelectorList({
               const balanceAccessory = trailing.find(
                 (accessory) => accessory.kind === 'valuePair',
               );
+              const nativeSyncStatus = platformEnv.isNative
+                ? tokenStatus
+                : undefined;
               // Native identity accessories stack vertically. Keep the balance
               // in a column so the spinner remains beside the two-line row.
               const statusRow: DataRow = {
@@ -943,28 +962,36 @@ export function NativeTokenSelectorList({
                   tokenStatus?.label,
                   verificationBadge?.text ??
                     verificationIcon?.accessibilityLabel,
-                  nativeRow.subtitle,
+                  nativeSyncStatus ? undefined : nativeRow.subtitle,
                   balanceAccessory?.primary,
                   balanceAccessory?.secondary,
                 ]
                   .filter(Boolean)
                   .join(', '),
                 leading,
-                badges: nativeRow.badges,
+                badges: nativeSyncStatus
+                  ? nativeRow.badges?.filter(
+                      (badge) => badge.key !== 'sync-status',
+                    )
+                  : nativeRow.badges,
                 columns: [
                   {
                     key: 'asset',
                     text: nativeRow.title,
-                    secondaryText: nativeRow.subtitle,
-                    secondaryTextSegments: withPrice
-                      ? [
-                          ...(priceText.segments ?? [{ text: priceText.text }]),
-                          { text: ' ' },
-                          ...(priceChangeText.segments ?? [
-                            { text: priceChangeText.text },
-                          ]),
-                        ]
-                      : undefined,
+                    secondaryText:
+                      nativeSyncStatus?.label ?? nativeRow.subtitle,
+                    secondaryTextSegments:
+                      !nativeSyncStatus && withPrice
+                        ? [
+                            ...(priceText.segments ?? [
+                              { text: priceText.text },
+                            ]),
+                            { text: ' ' },
+                            ...(priceChangeText.segments ?? [
+                              { text: priceChangeText.text },
+                            ]),
+                          ]
+                        : undefined,
                     titleIcon,
                     weight: isCompactVerification ? 1 : 2,
                   },
@@ -992,7 +1019,7 @@ export function NativeTokenSelectorList({
                 disabled: nativeRow.disabled,
                 opacity: nativeRow.opacity,
                 style: {
-                  container: TOKEN_ROW_CONTAINER_STYLE,
+                  container: dataRowContainerStyle,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,
@@ -1092,7 +1119,7 @@ export function NativeTokenSelectorList({
                   ? [{ kind: 'spinner' }, ...swapAction]
                   : swapAction,
                 style: {
-                  container: TOKEN_ROW_CONTAINER_STYLE,
+                  container: dataRowContainerStyle,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,
@@ -1140,7 +1167,7 @@ export function NativeTokenSelectorList({
       schemaVersion: 1,
       generation: 1,
       layout: {
-        kind: 'linear',
+        kind: useIOSPrivacyTableLayout ? 'table' : 'linear',
         contentPaddingHorizontal: TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
       },
       rows: nativeRows,
@@ -1209,6 +1236,7 @@ export function NativeTokenSelectorList({
     gtMd,
     currencyMap,
     theme,
+    useIOSPrivacyTableLayout,
   ]);
 
   useLayoutEffect(() => {

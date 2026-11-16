@@ -13,13 +13,13 @@ import {
   Page,
   SizableText,
   Stack,
-  Tabs,
   XStack,
   YStack,
   useIsOverlayPage,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
@@ -514,7 +514,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             {isMixed ? (
               <XStack role="tablist" {...tabListProps}>
                 {(['spot', 'perps'] as const).map((name) => (
-                  <Tabs.TabBarItem
+                  <TabBarItem
                     key={name}
                     name={name}
                     label={intl.formatMessage({

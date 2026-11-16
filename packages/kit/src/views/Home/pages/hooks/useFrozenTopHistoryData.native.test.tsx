@@ -9,15 +9,6 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { useFrozenTopHistoryData } from './useFrozenTopHistoryData.native';
 
-jest.mock('@onekeyhq/components', () => ({
-  useCurrentTabScrollY: jest.fn(),
-}));
-jest.mock('react-native-reanimated', () => ({
-  runOnJS: (fn: unknown) => fn,
-  useAnimatedReaction: jest.fn(),
-  useSharedValue: (value: unknown) => ({ value }),
-}));
-
 function rows(...rowIds: string[]): IAccountHistoryTx[] {
   return rowIds.map((id) => ({ id }) as unknown as IAccountHistoryTx);
 }

@@ -56,8 +56,7 @@ function NFTListContainer() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
-  // Owner this list is showing. `Tabs.Container` no longer remounts on an
-  // account switch (OK-63873), so the local `nftList` survives it: drop the
+  // When this list survives an account switch, drop the
   // previous owner's rows in the same commit the owner changes (layout effect,
   // before paint) and let every async writer bail when its captured owner is
   // no longer current, otherwise a slow read/fetch for the old owner would
