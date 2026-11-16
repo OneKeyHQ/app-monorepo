@@ -28,7 +28,11 @@ import type { ISnapshotCacheSync } from '../storage/SnapshotCache';
 import type { ISnapshotCacheNamespace } from '../storage/SnapshotCache/snapshotCacheNamespaces';
 
 /** What one SWR entry looks like on disk: the payload and its write time. */
-export type ISwrCacheStoredEntry = { d: unknown; t: number };
+export type ISwrCacheStoredEntry = {
+  d: unknown;
+  t: number;
+  serializedChars?: number;
+};
 
 /**
  * Retention is per namespace now, so these bound one feature rather than the
@@ -118,7 +122,13 @@ export function readSwrCacheEntry(
   key: string,
 ): ISwrCacheStoredEntry | undefined {
   try {
-    return getCache(swrKeyNamespace(key)).get(toStorageKey(key))?.data;
+    const record = getCache(swrKeyNamespace(key)).get(toStorageKey(key));
+    if (!record?.data) {
+      return undefined;
+    }
+    return record.rawChars !== undefined
+      ? { ...record.data, serializedChars: record.rawChars }
+      : record.data;
   } catch {
     return undefined;
   }

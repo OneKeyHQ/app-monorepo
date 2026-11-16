@@ -447,7 +447,7 @@ describe('SWR cache persistence', () => {
     expect(disk().get('perpsL2Book:a')).toMatchObject({ d: 'mine' });
   });
 
-  it('lets an unchanged result ride along instead of starting a flush', () => {
+  it('refreshes in-memory timestamp for an unchanged result without rewriting it to disk', () => {
     jest.useFakeTimers();
     try {
       const cache = loadFreshRuntime();
@@ -459,50 +459,38 @@ describe('SWR cache persistence', () => {
       cache.set('marketTokenDetail:a', { value: 1 });
       jest.advanceTimersByTime(5000);
 
-      // No flush was scheduled, so the record still carries the first write.
+      expect(
+        cache.getWithTimestamp('marketTokenDetail:a')?.updatedAt,
+      ).toBeGreaterThan(firstWrite);
       expect(disk().get('marketTokenDetail:a')?.t).toBe(firstWrite);
 
       cache.set('marketTokenDetail:b', { value: 2 });
       jest.advanceTimersByTime(5000);
 
-      // The next flush carries the refreshed timestamp with it.
-      expect(disk().get('marketTokenDetail:a')?.t).toBeGreaterThan(firstWrite);
+      // Unchanged entries are not rewritten to disk on unrelated flushes.
+      expect(disk().get('marketTokenDetail:a')?.t).toBe(firstWrite);
+      expect(disk().get('marketTokenDetail:b')?.d).toEqual({ value: 2 });
     } finally {
       jest.useRealTimers();
     }
   });
 
-  it('skips rewriting large unchanged entries on unrelated flushes until the rewrite interval elapses', () => {
-    jest.useFakeTimers();
+  it('adopts serializedChars from disk on cold read without calling JSON.stringify', () => {
+    disk().set('marketHomeTokenList:all', {
+      d: { text: 'cached-from-disk' },
+      t: 1000,
+      serializedChars: 42,
+    } as IStoredEntry);
+    const cache = loadFreshRuntime();
+    const stringifySpy = jest.spyOn(JSON, 'stringify');
     try {
-      const cache = loadFreshRuntime();
-      const largePayload = { text: 'x'.repeat(20_000) };
-      cache.set('marketHomeTokenList:all', largePayload);
-      cache.flushNow();
-      const firstWrite = disk().get('marketHomeTokenList:all')?.t as number;
-
-      jest.advanceTimersByTime(10_000);
-      cache.set('marketHomeTokenList:all', { text: 'x'.repeat(20_000) });
-      cache.set('marketTokenDetail:small', { value: 1 });
-      cache.flushNow();
-
-      // In-memory freshness advances immediately, but the 20 KB unchanged entry
-      // is not rewritten to disk after only 10 seconds.
-      expect(
-        cache.getWithTimestamp('marketHomeTokenList:all')?.updatedAt,
-      ).toBeGreaterThan(firstWrite);
-      expect(disk().get('marketHomeTokenList:all')?.t).toBe(firstWrite);
-
-      jest.advanceTimersByTime(5 * 60 * 1000);
-      cache.set('marketHomeTokenList:all', { text: 'x'.repeat(20_000) });
-      cache.set('marketTokenDetail:small', { value: 2 });
-      cache.flushNow();
-
-      expect(disk().get('marketHomeTokenList:all')?.t).toBeGreaterThan(
-        firstWrite,
-      );
+      expect(cache.get('marketHomeTokenList:all')).toEqual({
+        text: 'cached-from-disk',
+      });
+      expect(stringifySpy).not.toHaveBeenCalled();
+      expect(cache.getSizeStats().entryCount).toBe(1);
     } finally {
-      jest.useRealTimers();
+      stringifySpy.mockRestore();
     }
   });
 
@@ -712,12 +700,16 @@ describe('SWR cache budgets and reload throttling', () => {
 
     otherRuntimeFlush({
       [key]: { d: oldBook, t: 1000 },
+      'marketTokenDetail:unrelated': { d: 'keep-in-memory', t: 1000 },
     });
     const swr = loadFreshRuntime();
     expect(swr.get(key)).toEqual(oldBook);
+    expect(swr.get('marketTokenDetail:unrelated')).toBe('keep-in-memory');
+    const readsBeforeReload = diskGlobal.__swrNamespaceReadCount ?? 0;
 
     otherRuntimeFlush({
       [key]: { d: freshBook, t: 35_000 },
+      'marketTokenDetail:unrelated': { d: 'keep-in-memory', t: 1000 },
     });
     setNow(40_000);
 
@@ -732,6 +724,11 @@ describe('SWR cache budgets and reload throttling', () => {
       data: freshBook,
       updatedAt: 35_000,
     });
+    const readsAfterPerpsReload = diskGlobal.__swrNamespaceReadCount ?? 0;
+    expect(readsAfterPerpsReload).toBeGreaterThan(readsBeforeReload);
+    // Unrelated UI entries remain cached in memory without hitting disk again.
+    expect(swr.get('marketTokenDetail:unrelated')).toBe('keep-in-memory');
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(readsAfterPerpsReload);
   });
 
   it('throttles automatic stale perps reloads without blocking explicit reloads', () => {
