@@ -6,6 +6,7 @@ import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsM
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IAppClipInstallAttributionParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/install';
+import { reportAppleAdsInstallAttribution } from '@onekeyhq/shared/src/modules/InstallAttribution/appleAds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EInviteCodeAttributionSource,
@@ -63,6 +64,12 @@ const nativeModule = NativeModules.AppClipAttribution as
 let reportInstallAttributionTask: Promise<void> | undefined;
 let reportInstallAttributionRequested = false;
 let captureAppClipInviteCodeTask: Promise<void> | undefined;
+let pendingAppleAdsContext:
+  | {
+      installationId: string;
+      utilityEndpoint: string;
+    }
+  | undefined;
 
 function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (!value || typeof value !== 'object') {
@@ -300,10 +307,33 @@ function captureAppClipInviteCode(): Promise<void> {
   });
 }
 
+async function reportAppleAdsAttributionIfEligible(): Promise<void> {
+  if (
+    !platformEnv.isNativeIOSStore ||
+    !platformEnv.isNativeMainThread ||
+    platformEnv.isE2E ||
+    !pendingAppleAdsContext
+  ) {
+    return;
+  }
+  const { installationId, utilityEndpoint } = pendingAppleAdsContext;
+  pendingAppleAdsContext = undefined;
+  await reportAppleAdsInstallAttribution(utilityEndpoint, installationId);
+}
+
 async function drainPendingInstallAttribution(): Promise<void> {
   do {
     reportInstallAttributionRequested = false;
-    await reportPendingInstallAttribution();
+    const [appClipResult, appleAdsResult] = await Promise.allSettled([
+      reportPendingInstallAttribution(),
+      reportAppleAdsAttributionIfEligible(),
+    ]);
+    if (appClipResult.status === 'rejected') {
+      throw appClipResult.reason;
+    }
+    if (appleAdsResult.status === 'rejected') {
+      throw appleAdsResult.reason;
+    }
   } while (reportInstallAttributionRequested);
 }
 
@@ -324,10 +354,19 @@ export function prefetchInstallInviteCode(): Promise<void> {
   return captureAppClipInviteCodeTask;
 }
 
-export function reportInstallAttribution(): Promise<void> {
+export function reportInstallAttribution(
+  utilityEndpoint?: string,
+  installationId?: string,
+): Promise<void> {
   // Independent of the click-id report below, which needs the network and
   // clears its record once done; the invite code has no such dependency.
   void prefetchInstallInviteCode();
+  if (utilityEndpoint && installationId) {
+    pendingAppleAdsContext = {
+      installationId,
+      utilityEndpoint,
+    };
+  }
   reportInstallAttributionRequested = true;
   reportInstallAttributionTask ??= drainPendingInstallAttribution().finally(
     () => {

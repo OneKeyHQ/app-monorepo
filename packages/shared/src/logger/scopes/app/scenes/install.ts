@@ -1,14 +1,19 @@
+/* cspell:ignore adservices gbraid gclid wbraid */
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export type IInstallAttributionParams = {
   clickId?: string;
+  gadSource?: string;
+  gbraid?: string;
+  gclid?: string;
   utmCampaign?: string;
   utmContent?: string;
   utmId?: string;
   utmMedium?: string;
   utmSource?: string;
   utmTerm?: string;
+  wbraid?: string;
 };
 
 export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
@@ -23,6 +28,22 @@ export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
   selectedSymbol?: string;
   shortLinkPath?: string;
   shortLinkVersion?: number;
+};
+
+export type IAppleAdsInstallAttributionParams = IInstallAttributionParams & {
+  $insertId?: string;
+  adGroupId?: string;
+  adId?: string;
+  attributionSource?: 'apple_ads_adservices';
+  campaignId?: string;
+  claimType?: string;
+  clickDate?: string;
+  conversionType?: string;
+  countryOrRegion?: string;
+  impressionDate?: string;
+  keywordId?: string;
+  orgId?: string;
+  supplyPlacement?: string;
 };
 
 export class InstallScene extends BaseScene {
@@ -40,6 +61,12 @@ export class InstallScene extends BaseScene {
 
   public reportAppClipInstallAttribution(
     params: IAppClipInstallAttributionParams,
+  ): Promise<void> {
+    return this.installAttribution(params) as unknown as Promise<void>;
+  }
+
+  public reportAppleAdsInstallAttribution(
+    params: IAppleAdsInstallAttributionParams,
   ): Promise<void> {
     return this.installAttribution(params) as unknown as Promise<void>;
   }

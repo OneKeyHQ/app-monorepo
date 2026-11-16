@@ -27598,6 +27598,7 @@
     "packages/shared/src/modules/DualScreenInfo/index.ts": 13225,
     "packages/shared/src/modules/DualScreenInfo/isFoldableIPhone.ios.ts": 22732,
     "packages/shared/src/modules/DualScreenInfo/isFoldableIPhone.ts": 7474,
+    "packages/shared/src/modules/InstallAttribution/appleAds.ts": 18949,
     "packages/shared/src/modules/InstallAttribution/googlePlay.ts": 3919,
     "packages/shared/src/modules/LaunchOptionsManager/LaunchOptionsManager.native.ts": 3047,
     "packages/shared/src/modules/LaunchOptionsManager/index.ts": 9839,

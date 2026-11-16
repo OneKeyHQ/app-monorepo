@@ -1,3 +1,4 @@
+/* cspell:ignore gbraid gclid wbraid */
 import {
   getInstallReferrerAsync,
   getInstallationTimeAsync,
@@ -111,6 +112,22 @@ describe('Google Play install attribution', () => {
       utmCampaign: 'download_page',
       utmMedium: 'owned_web',
       utmSource: 'onekey.so',
+    });
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
+  });
+
+  it('logs Google Ads auto-tagged Play installs with gclid/gbraid/wbraid', async () => {
+    getInstallReferrerMock.mockResolvedValue(
+      'gclid=EAIaIQobChMI123&gbraid=0AAAAAD&wbraid=ClIKCA&gad_source=1',
+    );
+
+    await reportGooglePlayInstallAttribution();
+
+    expect(logAttributionMock).toHaveBeenCalledWith({
+      gadSource: '1',
+      gbraid: '0AAAAAD',
+      gclid: 'EAIaIQobChMI123',
+      wbraid: 'ClIKCA',
     });
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });

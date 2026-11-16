@@ -68,7 +68,10 @@ export function prefetchInstallInviteCode(): Promise<void> {
   return inviteCodeCaptureTask;
 }
 
-export async function reportInstallAttribution(): Promise<void> {
+export async function reportInstallAttribution(
+  _utilityEndpoint?: string,
+  _installationId?: string,
+): Promise<void> {
   if (!isGooglePlayMainRuntime()) {
     return;
   }
