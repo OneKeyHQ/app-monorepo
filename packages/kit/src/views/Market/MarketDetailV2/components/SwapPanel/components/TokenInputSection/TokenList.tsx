@@ -9,6 +9,7 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -138,6 +139,8 @@ export function TokenList({
           return {
             ...token,
             balance: swapTokenDetail?.balanceParsed ?? '0',
+            balanceMultiplier:
+              swapTokenDetail?.balanceMultiplier ?? token.balanceMultiplier,
             price: swapTokenDetail?.price,
             valueProps,
           };
@@ -230,7 +233,14 @@ export function TokenList({
                   tokenSymbol={token.symbol}
                   tokenName={token.name}
                   tokenSize="md"
-                  balance={token.balance}
+                  balance={
+                    token.balance
+                      ? getSwapDisplayAmount(
+                          token.balance,
+                          token.balanceMultiplier,
+                        )
+                      : token.balance
+                  }
                   valueProps={token.valueProps}
                   onPress={onPress}
                   margin={0}

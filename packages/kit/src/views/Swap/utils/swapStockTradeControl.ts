@@ -13,6 +13,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayAmount, getSwapRawInputAmount } from './swapAmountUtils';
+
 import type { IntlShape } from 'react-intl';
 
 export type IStockQuoteTradeControl = {
@@ -88,7 +90,10 @@ export function isQuoteResultForStockTrade({
 
   return isSameStockTradeAmount({
     left: quoteResult.fromAmount,
-    right: sendAmount,
+    right:
+      sendToken && sendAmount
+        ? getSwapRawInputAmount(sendAmount, sendToken, 'down')
+        : sendAmount,
   });
 }
 
@@ -144,11 +149,13 @@ export function getStockQuoteTradeControl({
   quoteResult,
   fromTokenAmount,
   fromTokenSymbol,
+  balanceMultiplier,
   intl,
 }: {
   quoteResult?: IFetchQuoteResult;
   fromTokenAmount?: string;
   fromTokenSymbol?: string;
+  balanceMultiplier?: string;
   intl: IntlShape;
 }): IStockQuoteTradeControl | undefined {
   const fromAmountBN = new BigNumber(fromTokenAmount ?? 0);
@@ -168,9 +175,15 @@ export function getStockQuoteTradeControl({
           message: intl.formatMessage(
             { id: ETranslations.provider_min_amount_required },
             {
-              amount: numberFormat(quoteResult.limit.min, {
-                formatter: 'balance',
-              }),
+              amount: numberFormat(
+                getSwapDisplayAmount(
+                  quoteResult.limit.min,
+                  balanceMultiplier,
+                ) ?? '--',
+                {
+                  formatter: 'balance',
+                },
+              ),
               token: resolvedFromTokenSymbol,
             },
           ),
@@ -186,9 +199,15 @@ export function getStockQuoteTradeControl({
           message: intl.formatMessage(
             { id: ETranslations.provider_max_amount_required },
             {
-              amount: numberFormat(quoteResult.limit.max, {
-                formatter: 'balance',
-              }),
+              amount: numberFormat(
+                getSwapDisplayAmount(
+                  quoteResult.limit.max,
+                  balanceMultiplier,
+                ) ?? '--',
+                {
+                  formatter: 'balance',
+                },
+              ),
               token: resolvedFromTokenSymbol,
             },
           ),

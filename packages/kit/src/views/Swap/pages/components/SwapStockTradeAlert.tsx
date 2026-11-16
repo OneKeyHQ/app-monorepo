@@ -14,6 +14,7 @@ import {
   resolveStockMarketStatusCase,
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { getSwapRawInputAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -79,8 +80,15 @@ function useStockQuoteAlert({
   return useMemo<ISwapAlertState | undefined>(() => {
     const tradeControl = getStockQuoteTradeControl({
       quoteResult,
-      fromTokenAmount: fromTokenAmount.value,
+      fromTokenAmount: stockChannel.fromToken
+        ? (getSwapRawInputAmount(
+            fromTokenAmount.value,
+            stockChannel.fromToken,
+            'down',
+          ) ?? '')
+        : fromTokenAmount.value,
       fromTokenSymbol: stockChannel.fromToken?.symbol,
+      balanceMultiplier: stockChannel.fromToken?.balanceMultiplier,
       intl,
     });
     if (tradeControl) {
@@ -102,7 +110,7 @@ function useStockQuoteAlert({
     intl,
     notAvailableInRegionMessage,
     quoteResult,
-    stockChannel.fromToken?.symbol,
+    stockChannel.fromToken,
   ]);
 }
 

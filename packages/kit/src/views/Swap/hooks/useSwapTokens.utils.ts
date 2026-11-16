@@ -92,6 +92,8 @@ export function mergeSwapSearchTokenBalance(
   return {
     ...searchToken,
     balanceParsed: balanceToken.balanceParsed,
+    balanceMultiplier:
+      searchToken.balanceMultiplier ?? balanceToken.balanceMultiplier,
     fiatValue: freshFiatValue.isFinite()
       ? freshFiatValue.toFixed()
       : balanceToken.fiatValue,

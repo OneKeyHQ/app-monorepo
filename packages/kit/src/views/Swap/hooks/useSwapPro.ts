@@ -7,6 +7,10 @@ import { useIntl } from 'react-intl';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
@@ -614,6 +618,9 @@ export function useSwapProTokenInfoSync() {
                   ...prev,
                   isNative: balanceTokenDetail.isNative ?? false,
                   balanceParsed: balanceTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    balanceTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: balanceTokenDetail.price ?? '',
                   fiatValue: balanceTokenDetail.fiatValue ?? '',
                   accountAddress: requestedAccountAddress,
@@ -627,6 +634,9 @@ export function useSwapProTokenInfoSync() {
                   ...prev,
                   isNative: balanceTokenDetail.isNative ?? false,
                   balanceParsed: balanceTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    balanceTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: balanceTokenDetail.price ?? '',
                   fiatValue: balanceTokenDetail.fiatValue ?? '',
                   accountAddress: requestedAccountAddress,
@@ -738,6 +748,9 @@ export function useSwapProTokenInfoSync() {
                   isNative: currentSwapProSelectTokenDetail.isNative ?? false,
                   balanceParsed:
                     currentSwapProSelectTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    currentSwapProSelectTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: currentSwapProSelectTokenDetail.price ?? '',
                   fiatValue: currentSwapProSelectTokenDetail.fiatValue ?? '',
                   accountAddress: requestedAccountAddress,
@@ -758,6 +771,9 @@ export function useSwapProTokenInfoSync() {
                     currentSwapProUseSelectBuyTokenDetail.isNative ?? false,
                   balanceParsed:
                     currentSwapProUseSelectBuyTokenDetail.balanceParsed ?? '',
+                  balanceMultiplier:
+                    currentSwapProUseSelectBuyTokenDetail.balanceMultiplier ??
+                    prev.balanceMultiplier,
                   price: currentSwapProUseSelectBuyTokenDetail.price ?? '',
                   fiatValue:
                     currentSwapProUseSelectBuyTokenDetail.fiatValue ?? '',
@@ -1299,12 +1315,16 @@ export function useSwapProTokenInit() {
     if (balanceLoading) {
       return true;
     }
-    const inputAmountBN =
+    const displayInputAmount =
       swapProTradeType === ESwapProTradeType.MARKET
-        ? new BigNumber(swapProInputAmount || '0')
-        : new BigNumber(
-            swapFromInputAmount.value ? swapFromInputAmount.value : '0',
-          );
+        ? swapProInputAmount || '0'
+        : swapFromInputAmount.value || '0';
+    const inputAmountBN = new BigNumber(
+      inputToken
+        ? (getSwapRawInputAmount(displayInputAmount, inputToken, 'down') ??
+            'NaN')
+        : 'NaN',
+    );
     if (inputAmountBN.isNaN() || inputAmountBN.isZero()) {
       return true;
     }
@@ -1315,7 +1335,7 @@ export function useSwapProTokenInit() {
     swapProTradeType,
     swapProInputAmount,
     swapFromInputAmount.value,
-    inputToken?.balanceParsed,
+    inputToken,
   ]);
 
   return {
@@ -2339,7 +2359,9 @@ export function useSwapLimitPriceCheck(
           : '';
       }
       setToInputAmount({
-        value: toAmount,
+        value: toAmount
+          ? (getSwapDisplayAmount(toAmount, toToken?.balanceMultiplier) ?? '')
+          : '',
         isInput: false,
       });
     }

@@ -26993,6 +26993,7 @@
     "packages/kit/src/views/Swap/utils/privateSendHistory.ts": 15339,
     "packages/kit/src/views/Swap/utils/quoteShowTipUtils.ts": 16805,
     "packages/kit/src/views/Swap/utils/stockTokenDetailFreshness.ts": 3767,
+    "packages/kit/src/views/Swap/utils/swapAmountUtils.ts": 1130,
     "packages/kit/src/views/Swap/utils/swapBalanceActionUtils.ts": 4369,
     "packages/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils.ts": 8951,
     "packages/kit/src/views/Swap/utils/swapBalanceOwnerUtils.ts": 6201,

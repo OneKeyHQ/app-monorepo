@@ -15,6 +15,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
+import { getSwapDisplayAmount } from '../utils/swapAmountUtils';
 import { getSwapTokenDisplayFiatValue } from '../utils/swapDisplayFiatValue';
 
 import {
@@ -91,7 +92,7 @@ const PreSwapTokenItem = ({
                   tokenSymbol: token?.symbol ?? '-',
                 }}
               >
-                {amount}
+                {getSwapDisplayAmount(amount, token?.balanceMultiplier) ?? '--'}
               </NumberSizeableText>
             </XStack>
             <XStack alignItems="center" gap="$1">

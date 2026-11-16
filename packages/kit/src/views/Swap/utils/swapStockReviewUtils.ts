@@ -11,6 +11,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayAmount } from './swapAmountUtils';
 import { getSwapTokenDisplayFiatValue } from './swapDisplayFiatValue';
 
 export function getValidStockTokenToAssetRatio(value?: string) {
@@ -146,7 +147,10 @@ export function buildSwapStockReviewDisplay({
   const stockTokenAmount = isBuy ? toAmount : fromAmount;
   const paymentTokenAmount = isBuy ? fromAmount : toAmount;
   const estimatedShares = calculateSwapStockEstimatedShares({
-    stockTokenAmount,
+    stockTokenAmount: getSwapDisplayAmount(
+      stockTokenAmount,
+      stockToken?.balanceMultiplier,
+    ),
     tokenToAssetRatio: stockToken?.stock?.tokenToAssetRatio,
   });
   if (!estimatedShares) {

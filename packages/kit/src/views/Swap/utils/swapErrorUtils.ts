@@ -8,6 +8,8 @@ import type {
   ISwapErrorMessage,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayAmount } from './swapAmountUtils';
+
 import type { IntlShape } from 'react-intl';
 
 export function formatSwapErrorMessage(
@@ -26,10 +28,12 @@ export function getSwapQuoteLimitError({
   limit,
   fromTokenAmount,
   fromTokenSymbol,
+  balanceMultiplier,
 }: {
   limit?: IFetchQuoteResult['limit'];
   fromTokenAmount?: string;
   fromTokenSymbol?: string;
+  balanceMultiplier?: string;
 }): ISwapErrorMessage | undefined {
   const amount = new BigNumber(fromTokenAmount ?? 0);
   let rejected: { key: ETranslations; amount: string } | undefined;
@@ -47,7 +51,11 @@ export function getSwapQuoteLimitError({
     ? {
         key: rejected.key,
         values: {
-          amount: numberFormat(rejected.amount, { formatter: 'balance' }),
+          amount: numberFormat(
+            getSwapDisplayAmount(rejected.amount, balanceMultiplier) ??
+              rejected.amount,
+            { formatter: 'balance' },
+          ),
           token: fromTokenSymbol ?? 'unknown',
         },
       }

@@ -23,6 +23,10 @@ import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { AssetItem } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails';
 import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -116,10 +120,12 @@ const LimitOrderDetailModal = () => {
         fromAmount: orderItemState?.fromAmount,
         fromTokenInfo: {
           decimals: orderItemState?.fromTokenInfo?.decimals ?? 0,
+          balanceMultiplier: orderItemState?.fromTokenInfo?.balanceMultiplier,
         },
         toAmount: orderItemState?.toAmount,
         toTokenInfo: {
           decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
+          balanceMultiplier: orderItemState?.toTokenInfo?.balanceMultiplier,
         },
       }),
     }),
@@ -128,8 +134,10 @@ const LimitOrderDetailModal = () => {
       orderItemState?.executedSellAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
+      orderItemState?.fromTokenInfo?.balanceMultiplier,
       orderItemState?.toAmount,
       orderItemState?.toTokenInfo?.decimals,
+      orderItemState?.toTokenInfo?.balanceMultiplier,
     ],
   );
 
@@ -139,6 +147,8 @@ const LimitOrderDetailModal = () => {
       toAmount: decimalsAmount.toAmount,
       fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
       toTokenDecimals: orderItemState?.toTokenInfo.decimals,
+      fromMultiplier: orderItemState?.fromTokenInfo.balanceMultiplier,
+      toMultiplier: orderItemState?.toTokenInfo.balanceMultiplier,
     }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
@@ -146,7 +156,9 @@ const LimitOrderDetailModal = () => {
     decimalsAmount.fromAmount,
     decimalsAmount.toAmount,
     orderItemState?.fromTokenInfo.decimals,
+    orderItemState?.fromTokenInfo.balanceMultiplier,
     orderItemState?.toTokenInfo.decimals,
+    orderItemState?.toTokenInfo.balanceMultiplier,
   ]);
 
   const renderLimitOrderAssets = useCallback(() => {
@@ -387,7 +399,12 @@ const LimitOrderDetailModal = () => {
       const limitRate = toAmountBN.dividedBy(fromAmountBN);
       const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
       const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
-      const surplusFormat = formatBalance(surplusBN.toFixed());
+      const surplusFormat = formatBalance(
+        getSwapDisplayAmount(
+          surplusBN.toFixed(),
+          toTokenInfo?.balanceMultiplier,
+        ) ?? '--',
+      );
       if (surplusBN.gt(0)) {
         return surplusFormat.formattedValue;
       }
@@ -395,7 +412,12 @@ const LimitOrderDetailModal = () => {
       const limitRate = fromAmountBN.dividedBy(toAmountBN);
       const limitRateSellAmountBN = limitRate.multipliedBy(executedBuyAmountBN);
       const surplusBN = limitRateSellAmountBN.minus(executeSellAmountBN);
-      const surplusFormat = formatBalance(surplusBN.toFixed());
+      const surplusFormat = formatBalance(
+        getSwapDisplayAmount(
+          surplusBN.toFixed(),
+          fromTokenInfo?.balanceMultiplier,
+        ) ?? '--',
+      );
       if (surplusBN.gt(0)) {
         return surplusFormat.formattedValue;
       }
@@ -466,7 +488,11 @@ const LimitOrderDetailModal = () => {
     // non-positive estimation — hide the row instead of rendering "Infinity".
     if (estimationRunPrice?.isFinite() && estimationRunPrice.gt(0)) {
       const estimationRunPriceFormat = formatBalance(
-        estimationRunPrice.toFixed(),
+        getSwapDisplayRate(
+          estimationRunPrice.toFixed(),
+          orderItemState?.fromTokenInfo.balanceMultiplier,
+          orderItemState?.toTokenInfo.balanceMultiplier,
+        ) ?? '--',
       );
       return (
         <InfoItem
@@ -535,13 +561,19 @@ const LimitOrderDetailModal = () => {
       executedBuyAmount ?? '0',
     ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
     const formattedExecutedBuyAmount = formatBalance(
-      executedBuyAmountBN.toFixed(),
+      getSwapDisplayAmount(
+        executedBuyAmountBN.toFixed(),
+        toTokenInfo?.balanceMultiplier,
+      ) ?? '--',
     );
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
     const formattedExecutedSellAmount = formatBalance(
-      executedSellAmountBN.toFixed(),
+      getSwapDisplayAmount(
+        executedSellAmountBN.toFixed(),
+        fromTokenInfo?.balanceMultiplier,
+      ) ?? '--',
     );
     let sellPercentage = '0';
     if (kind === ESwapQuoteKind.SELL) {

@@ -68,6 +68,11 @@ import {
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+  isSwapReviewMultiplierCurrent,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
@@ -696,6 +701,15 @@ const SwapMainLoad = ({
     quoteResultRef.current = swapStepData.quoteResult;
   }
 
+  const selectedReviewTokensRef = useRef({
+    from: fromSelectToken,
+    to: toSelectToken,
+  });
+  selectedReviewTokensRef.current = {
+    from: fromSelectToken,
+    to: toSelectToken,
+  };
+
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
   if (preSwapDataRef.current !== swapStepData.preSwapData) {
     preSwapDataRef.current = swapStepData.preSwapData;
@@ -887,8 +901,12 @@ const SwapMainLoad = ({
     if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
       return;
     }
-    const maxAmountValue = maxAmount.toFixed();
-    if (!validateAmountInput(maxAmountValue, fromSelectToken?.decimals)) {
+    const maxRawAmount = maxAmount.toFixed();
+    const maxAmountValue = getSwapDisplayAmount(
+      maxRawAmount,
+      fromSelectToken?.balanceMultiplier,
+    );
+    if (!maxAmountValue || !fromSelectToken) {
       return;
     }
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
@@ -897,12 +915,25 @@ const SwapMainLoad = ({
       setFromInputAmount({
         value: maxAmountValue,
         isInput: true,
+        ...(swapFromAddressInfo.address
+          ? {
+              maxAmountSnapshot: {
+                rawAmount: maxRawAmount,
+                displayAmount: maxAmountValue,
+                networkId: fromSelectToken.networkId,
+                contractAddress: fromSelectToken.contractAddress,
+                accountAddress: swapFromAddressInfo.address,
+                balanceMultiplier: fromSelectToken.balanceMultiplier,
+              },
+            }
+          : {}),
       });
     }
   }, [
     checkNativeTokenGasToast,
     focusSwapPro,
-    fromSelectToken?.decimals,
+    fromSelectToken,
+    swapFromAddressInfo.address,
     setFromInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
@@ -929,11 +960,16 @@ const SwapMainLoad = ({
           fromSelectToken?.decimals,
         )
       ) {
+        const displayAmount = getSwapDisplayAmount(
+          amountAfterDecimal.toFixed(),
+          fromSelectToken?.balanceMultiplier,
+        );
+        if (!displayAmount) return;
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-          setSwapProInputAmount(amountAfterDecimal.toFixed());
+          setSwapProInputAmount(displayAmount);
         } else {
           setFromInputAmount({
-            value: amountAfterDecimal.toFixed(),
+            value: displayAmount,
             isInput: true,
           });
         }
@@ -942,6 +978,7 @@ const SwapMainLoad = ({
     [
       safeFromTokenBalanceAmount,
       fromSelectToken?.decimals,
+      fromSelectToken?.balanceMultiplier,
       focusSwapPro,
       swapProTradeType,
       onBalanceMaxPress,
@@ -1042,6 +1079,22 @@ const SwapMainLoad = ({
         swapToAmount: swapToAmount.value,
         quoteToAmount: currentQuoteRes.toAmount,
       });
+      const limitFromAmount =
+        fromSelectToken && reviewTokenAmounts.fromTokenAmount
+          ? getSwapRawInputAmount(
+              reviewTokenAmounts.fromTokenAmount,
+              fromSelectToken,
+              'down',
+            )
+          : undefined;
+      const limitToAmount =
+        toSelectToken && reviewTokenAmounts.toTokenAmount
+          ? getSwapRawInputAmount(
+              reviewTokenAmounts.toTokenAmount,
+              toSelectToken,
+              'up',
+            )
+          : undefined;
 
       const reviewRateDifference = isSwapProMarket
         ? buildSwapRateDifference({
@@ -1063,8 +1116,19 @@ const SwapMainLoad = ({
         toToken: toSelectToken,
         stockReviewToken,
         reviewTokens,
-        fromTokenAmount: reviewTokenAmounts.fromTokenAmount,
-        toTokenAmount: reviewTokenAmounts.toTokenAmount,
+        fromTokenAmount:
+          (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT
+            ? limitFromAmount
+            : undefined) ??
+          currentQuoteRes.fromAmount ??
+          limitFromAmount,
+        toTokenAmount:
+          (currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+          !isSwapProMarket
+            ? limitToAmount
+            : undefined) ??
+          currentQuoteRes.toAmount ??
+          limitToAmount,
         quoteResult: currentQuoteRes,
         swapType: getSwapExecutionTypeFromQuoteResult(currentQuoteRes),
         shouldFallback:
@@ -1107,6 +1171,21 @@ const SwapMainLoad = ({
     ],
   );
   const onActionHandler = useCallback(() => {
+    const data = preSwapDataRef.current;
+    const selected = selectedReviewTokensRef.current;
+    if (
+      data &&
+      (!isSwapReviewMultiplierCurrent(data.fromToken, selected.from) ||
+        !isSwapReviewMultiplierCurrent(data.toToken, selected.to))
+    ) {
+      dialogClose('reviewChanged');
+      Toast.message({
+        title: intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        }),
+      });
+      return;
+    }
     if (
       swapStepsRef.current.length > 0 &&
       preSwapDataRef.current &&
@@ -1118,7 +1197,7 @@ const SwapMainLoad = ({
         quoteResult: quoteResultRef.current,
       });
     }
-  }, [preSwapStepsStart]);
+  }, [dialogClose, intl, preSwapStepsStart]);
 
   const onActionHandlerBefore = useCallback(() => {
     if (
@@ -1135,9 +1214,11 @@ const SwapMainLoad = ({
       ) {
         let toRealAmount = new BigNumber(0);
         const fromAmountBN = new BigNumber(fromTokenAmount.value);
-        const toAmountBN = new BigNumber(swapToAmount.value);
+        const toAmountBN = new BigNumber(
+          preSwapDataRef.current?.toTokenAmount ?? swapToAmount.value,
+        );
         if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
-          toRealAmount = new BigNumber(swapToAmount.value);
+          toRealAmount = toAmountBN;
         } else if (
           !fromAmountBN.isNaN() &&
           !fromAmountBN.isZero() &&

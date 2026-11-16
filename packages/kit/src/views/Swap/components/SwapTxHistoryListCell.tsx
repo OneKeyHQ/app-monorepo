@@ -20,6 +20,7 @@ import {
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
+import { getSwapDisplayAmount } from '../utils/swapAmountUtils';
 import { getSwapHistoryStatusTextProps } from '../utils/utils';
 
 import { SwapHistoryPendingDot } from './SwapHistoryPendingDot';
@@ -237,9 +238,15 @@ const SwapTxHistoryListCell = ({
         token2: item.baseInfo.fromToken,
       }),
     )?.amount;
-    return new BigNumber(item.baseInfo.fromAmount)
+    const rawAmount = new BigNumber(item.baseInfo.fromAmount)
       .plus(extraAmount ?? 0)
       .toFixed();
+    return (
+      getSwapDisplayAmount(
+        rawAmount,
+        item.baseInfo.fromToken.balanceMultiplier,
+      ) ?? '--'
+    );
   }, [
     item.baseInfo.fromAmount,
     item.baseInfo.fromToken,
@@ -306,7 +313,10 @@ const SwapTxHistoryListCell = ({
               formatter="balance"
               pointerEvents="none"
             >
-              {item.baseInfo.toAmount}
+              {getSwapDisplayAmount(
+                item.baseInfo.toAmount,
+                item.baseInfo.toToken.balanceMultiplier,
+              ) ?? '--'}
             </NumberSizeableText>{' '}
             <SizableText
               size="$bodyMdMedium"

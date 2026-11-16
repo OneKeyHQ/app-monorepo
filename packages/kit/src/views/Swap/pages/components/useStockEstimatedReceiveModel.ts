@@ -26,6 +26,10 @@ import {
 } from '../../hooks/useSwapStockChannel';
 import { useSwapStockEstimatedReceiveState } from '../../hooks/useSwapStockTradeInputs';
 import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '../../utils/swapAmountUtils';
+import {
   calculateSwapStockEstimatedShares,
   getValidStockTokenToAssetRatio,
 } from '../../utils/swapStockReviewUtils';
@@ -101,8 +105,15 @@ export function useStockEstimatedReceiveModel({
     const hasStockQuoteControl = Boolean(
       getStockQuoteTradeControl({
         quoteResult,
-        fromTokenAmount: fromTokenAmount.value,
+        fromTokenAmount: stockChannel.fromToken
+          ? (getSwapRawInputAmount(
+              fromTokenAmount.value,
+              stockChannel.fromToken,
+              'down',
+            ) ?? '')
+          : fromTokenAmount.value,
         fromTokenSymbol: stockChannel.fromToken?.symbol,
+        balanceMultiplier: stockChannel.fromToken?.balanceMultiplier,
         intl,
       }),
     );
@@ -174,9 +185,13 @@ export function useStockEstimatedReceiveModel({
       : quoteResult?.fromAmount;
   const tokenToAssetRatio = stockReviewToken?.stock?.tokenToAssetRatio;
   const currentEstimatedShares = calculateSwapStockEstimatedShares({
-    stockTokenAmount: quoteMatchesStockTrade
-      ? estimatedStockTokenAmount
-      : undefined,
+    stockTokenAmount:
+      quoteMatchesStockTrade && estimatedStockTokenAmount
+        ? getSwapDisplayAmount(
+            estimatedStockTokenAmount,
+            stockReviewToken?.balanceMultiplier,
+          )
+        : undefined,
     tokenToAssetRatio,
   });
   const currentStockUnderlyingSymbol =

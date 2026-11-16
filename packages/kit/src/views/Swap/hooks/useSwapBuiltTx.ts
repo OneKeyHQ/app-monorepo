@@ -20,6 +20,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getSwapLimitOrderBaseUnits } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
@@ -118,8 +119,6 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
-  useSwapLimitPriceFromAmountAtom,
-  useSwapLimitPriceToAmountAtom,
   useSwapProInputAmountAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -431,8 +430,6 @@ export function useSwapBuildTx({
   ]);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
-  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
-  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [persistSettings, setPersistSettings] = useSettingsPersistAtom();
@@ -3359,27 +3356,28 @@ export function useSwapBuildTx({
                 .toNumber();
               let finalBuyAmount = unSignedOrder.buyAmount;
               let finalSellAmount = unSignedOrder.sellAmount;
-              if (
-                selectQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
-                (swapLimitPriceFromAmount || swapLimitPriceToAmount)
-              ) {
-                const decimals =
-                  selectQuoteRes.kind === ESwapQuoteKind.SELL
-                    ? selectQuoteRes.toTokenInfo.decimals
-                    : selectQuoteRes.fromTokenInfo.decimals;
-                const finalAmountBN = new BigNumber(
-                  selectQuoteRes.kind === ESwapQuoteKind.SELL
-                    ? (swapLimitPriceToAmount ??
-                        selectQuoteRes.toAmount ??
-                        unSignedOrder.buyAmount)
-                    : (swapLimitPriceFromAmount ??
-                        selectQuoteRes.fromAmount ??
-                        unSignedOrder.sellAmount),
-                ).shiftedBy(decimals);
+              if (selectQuoteRes.protocol === EProtocolOfExchange.LIMIT) {
+                const isSell = selectQuoteRes.kind === ESwapQuoteKind.SELL;
+                const token = isSell
+                  ? (currentToToken ?? selectQuoteRes.toTokenInfo)
+                  : (currentFromToken ?? selectQuoteRes.fromTokenInfo);
+                const reviewData = (
+                  reviewGuard?.execution?.state ?? swapStepsRef.current
+                ).preSwapData;
+                const finalAmount = getSwapLimitOrderBaseUnits({
+                  rawFallback: isSell
+                    ? (reviewData.toTokenAmount ?? selectQuoteRes.toAmount)
+                    : (reviewData.fromTokenAmount ?? selectQuoteRes.fromAmount),
+                  token,
+                  rounding: isSell ? 'up' : 'down',
+                });
+                if (!finalAmount) {
+                  throw new OneKeyAppError('Invalid raw limit order amount');
+                }
                 if (selectQuoteRes.kind === ESwapQuoteKind.SELL) {
-                  finalBuyAmount = finalAmountBN.toFixed();
+                  finalBuyAmount = finalAmount;
                 } else {
-                  finalSellAmount = finalAmountBN.toFixed();
+                  finalSellAmount = finalAmount;
                 }
               }
               let partiallyFillable = unSignedOrder.partiallyFillable;
@@ -3523,8 +3521,6 @@ export function useSwapBuildTx({
       fromAccountNetworkId,
       swapLimitExpirationTime.value,
       swapLimitPartiallyFillObj.value,
-      swapLimitPriceFromAmount,
-      swapLimitPriceToAmount,
       toUserAddress,
     ],
   );

@@ -25,6 +25,7 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import SwapInputActions from '@onekeyhq/kit/src/views/Swap/pages/components/SwapInputActions';
+import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -111,7 +112,15 @@ function TokenInputSectionComponent(
 
   const handleInternalChange = useCallback(
     (newValue: string) => {
-      if (validateAmountInput(newValue, selectedToken?.decimals)) {
+      if (
+        validateAmountInput(
+          newValue,
+          getSwapDisplayDecimals(
+            selectedToken?.decimals,
+            selectedToken?.balanceMultiplier,
+          ),
+        )
+      ) {
         setInternalValue(newValue);
         onChange(newValue);
         // Track manual input in analytics (only if not from preset selection)
@@ -122,7 +131,12 @@ function TokenInputSectionComponent(
         isPresetSelectionRef.current = false;
       }
     },
-    [onChange, selectedToken?.decimals, onAmountEnterTypeChange],
+    [
+      onChange,
+      selectedToken?.decimals,
+      selectedToken?.balanceMultiplier,
+      onAmountEnterTypeChange,
+    ],
   );
 
   // Handler for preset amount selection with analytics tracking
@@ -403,7 +417,10 @@ function TokenInputSectionComponent(
               value: amount,
             })) ?? []
           }
-          selectedTokenDecimals={selectedToken?.decimals}
+          selectedTokenDecimals={getSwapDisplayDecimals(
+            selectedToken?.decimals,
+            selectedToken?.balanceMultiplier,
+          )}
           selectedTokenNetworkId={selectedToken?.networkId}
           selectedTokenIsNative={selectedToken?.isNative}
           selectedTokenContractAddress={selectedToken?.contractAddress}

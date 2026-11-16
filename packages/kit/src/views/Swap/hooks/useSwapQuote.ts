@@ -61,6 +61,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
+} from '../utils/swapAmountUtils';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import {
   getStockTradeAnalyticsPayload,
@@ -414,9 +418,14 @@ export function useSwapQuote({
     toAmountDebounceRef.current = toAmountDebounce;
   }
   const alignmentDecimal = useCallback(() => {
+    if (
+      fromAmountDebounce.maxAmountSnapshot?.displayAmount ===
+      fromAmountDebounce.value
+    )
+      return;
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce.value,
-      fromToken?.decimals,
+      getSwapDisplayDecimals(fromToken?.decimals, fromToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== fromAmountDebounce.value) {
       setFromTokenAmount((v) => ({
@@ -424,12 +433,17 @@ export function useSwapQuote({
         value: checkedDecimal,
       }));
     }
-  }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
+  }, [
+    fromToken?.decimals,
+    fromToken?.balanceMultiplier,
+    fromAmountDebounce,
+    setFromTokenAmount,
+  ]);
 
   const alignmentToDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       toAmountDebounce.value,
-      toToken?.decimals,
+      getSwapDisplayDecimals(toToken?.decimals, toToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== toAmountDebounce.value) {
       setToTokenAmount((v) => ({
@@ -437,7 +451,12 @@ export function useSwapQuote({
         value: checkedDecimal,
       }));
     }
-  }, [toToken?.decimals, toAmountDebounce, setToTokenAmount]);
+  }, [
+    toToken?.decimals,
+    toToken?.balanceMultiplier,
+    toAmountDebounce,
+    setToTokenAmount,
+  ]);
 
   useEffect(() => {
     if (!isQuoteVisibleRef.current) return;
@@ -596,6 +615,10 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
+      swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier ===
+        fromToken?.balanceMultiplier &&
+      swapQuoteActionLockRef.current?.toToken?.balanceMultiplier ===
+        toToken?.balanceMultiplier &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -642,8 +665,10 @@ export function useSwapQuote({
     swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
+    fromToken?.balanceMultiplier,
     toToken?.networkId,
     toToken?.contractAddress,
+    toToken?.balanceMultiplier,
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
@@ -712,6 +737,10 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
+      swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier ===
+        fromToken?.balanceMultiplier &&
+      swapQuoteActionLockRef.current?.toToken?.balanceMultiplier ===
+        toToken?.balanceMultiplier &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -755,8 +784,10 @@ export function useSwapQuote({
     swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
+    fromToken?.balanceMultiplier,
     toToken?.networkId,
     toToken?.contractAddress,
+    toToken?.balanceMultiplier,
     alignmentToDecimal,
     toAmountDebounce,
     shouldPauseQuote,
@@ -788,6 +819,18 @@ export function useSwapQuote({
         swapType,
         blockNumber,
       } = approvedSwapInfo;
+      const displayFromAmount = getSwapDisplayAmount(
+        amount,
+        fromTokenInfo.balanceMultiplier,
+      );
+      const displayToAmount = toAmount
+        ? getSwapDisplayAmount(toAmount, toTokenInfo.balanceMultiplier)
+        : undefined;
+      if (
+        displayFromAmount === undefined ||
+        (toAmount && displayToAmount === undefined)
+      )
+        return;
       if (
         equalTokenNoCaseSensitive({
           token1: fromTokenInfo,
@@ -797,7 +840,7 @@ export function useSwapQuote({
           token1: toTokenInfo,
           token2: toTokenRef.current,
         }) &&
-        amount === fromTokenAmountRef.current?.value
+        displayFromAmount === fromTokenAmountRef.current?.value
       ) {
         void quoteAction(
           swapSlippageRef.current,
@@ -817,9 +860,9 @@ export function useSwapQuote({
         setSwapSelectToToken(toTokenInfo);
         await syncNetworksSort(fromTokenInfo.networkId);
         if (kind === ESwapQuoteKind.BUY && toAmount) {
-          setToTokenAmount({ value: toAmount, isInput: true });
+          setToTokenAmount({ value: displayToAmount ?? '', isInput: true });
         } else {
-          setFromTokenAmount({ value: amount, isInput: true });
+          setFromTokenAmount({ value: displayFromAmount, isInput: true });
         }
       }
     },

@@ -29,7 +29,6 @@ import {
   buildUnifiedSwapProviderManagers,
   canUseUnifiedSwapProviderManagers,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
-import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -1465,10 +1464,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         params?.swapSource === ESwapSource.MARKET &&
         params.marketSwapDirection &&
         marketToken &&
-        !marketToken.isStock &&
-        !tokenRebaseUtils.isScalingBalanceMultiplier(
-          marketToken.balanceMultiplier,
-        )
+        !marketToken.isStock
       ) {
         // Resolve after Swap's existing network load, without entry-time probes.
         const pair = getMarketSwapDefaultPair({
@@ -1487,12 +1483,7 @@ export function useSwapInit(params?: ISwapInitParams) {
               type === ESwapTabSwitchType.BRIDGE
                 ? network?.supportCrossChainSwap
                 : network?.supportSingleSwap;
-            return (
-              Boolean(supported) &&
-              !tokenRebaseUtils.isScalingBalanceMultiplier(
-                token.balanceMultiplier,
-              )
-            );
+            return Boolean(supported);
           },
         });
         if (!pair.fromToken && !pair.toToken) {
@@ -1574,12 +1565,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importFromToken).includes(
             importTokenSupportCheckType,
-          ) &&
-          // Scaled-UI (rebase) tokens: fail-closed, same policy as the
-          // selectFromToken gate (setSwapFromToken writes the atom
-          // directly and bypasses it).
-          !tokenRebaseUtils.isScalingBalanceMultiplier(
-            params.importFromToken.balanceMultiplier,
           ),
         );
         const isImportToTokenSupported = Boolean(
@@ -1587,9 +1572,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(importToToken).includes(
             importTokenSupportCheckType,
-          ) &&
-          !tokenRebaseUtils.isScalingBalanceMultiplier(
-            importToToken.balanceMultiplier,
           ),
         );
         const hasUnsupportedImportToken =
@@ -1645,12 +1627,6 @@ export function useSwapInit(params?: ISwapInitParams) {
               }) &&
               checkSupportTokenSwapType(token).includes(
                 importTokenSupportCheckType,
-              ) &&
-              !(
-                'balanceMultiplier' in token &&
-                tokenRebaseUtils.isScalingBalanceMultiplier(
-                  token.balanceMultiplier,
-                )
               ),
           );
           if (counterpartToken) {

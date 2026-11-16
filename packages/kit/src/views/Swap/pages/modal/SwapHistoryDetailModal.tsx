@@ -27,6 +27,10 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -1028,7 +1032,12 @@ const SwapHistoryDetailModal = () => {
                 targetCurrency: displayCurrencyId,
                 token: item.token,
               }),
-              amount: item.amount,
+              amount: item.amount
+                ? (getSwapDisplayAmount(
+                    item.amount,
+                    item.token.balanceMultiplier,
+                  ) ?? '')
+                : item.amount,
             },
           ];
         }
@@ -1121,7 +1130,12 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
           isAllNetworks
-          amount={txHistory?.baseInfo.toAmount ?? '0'}
+          amount={
+            getSwapDisplayAmount(
+              txHistory?.baseInfo.toAmount ?? '0',
+              txHistory?.baseInfo.toToken.balanceMultiplier,
+            ) ?? '--'
+          }
           networkIcon={txHistory?.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1130,7 +1144,12 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
           isAllNetworks
-          amount={fromTokenAmount ?? '0'}
+          amount={
+            getSwapDisplayAmount(
+              fromTokenAmount ?? '0',
+              txHistory?.baseInfo.fromToken.balanceMultiplier,
+            ) ?? '--'
+          }
           networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1522,7 +1541,15 @@ const SwapHistoryDetailModal = () => {
   const renderRate = useCallback(
     () => (
       <SwapRateInfoItem
-        rate={txHistory?.swapInfo.instantRate}
+        rate={
+          txHistory?.swapInfo.instantRate
+            ? getSwapDisplayRate(
+                txHistory.swapInfo.instantRate,
+                txHistory.baseInfo.fromToken.balanceMultiplier,
+                txHistory.baseInfo.toToken.balanceMultiplier,
+              )
+            : undefined
+        }
         fromToken={txHistory?.baseInfo.fromToken}
         toToken={txHistory?.baseInfo.toToken}
       />

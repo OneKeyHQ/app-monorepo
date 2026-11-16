@@ -145,10 +145,12 @@ const LimitOrderCard = ({
         fromAmount: item.fromAmount,
         fromTokenInfo: {
           decimals: item.fromTokenInfo?.decimals ?? 0,
+          balanceMultiplier: item.fromTokenInfo?.balanceMultiplier,
         },
         toAmount: item.toAmount,
         toTokenInfo: {
           decimals: item.toTokenInfo?.decimals ?? 0,
+          balanceMultiplier: item.toTokenInfo?.balanceMultiplier,
         },
       }),
     }),
@@ -157,8 +159,10 @@ const LimitOrderCard = ({
       item?.executedSellAmount,
       item?.fromAmount,
       item?.fromTokenInfo?.decimals,
+      item?.fromTokenInfo?.balanceMultiplier,
       item?.toAmount,
       item?.toTokenInfo?.decimals,
+      item?.toTokenInfo?.balanceMultiplier,
     ],
   );
 
@@ -170,6 +174,8 @@ const LimitOrderCard = ({
       fromTokenDecimals: fromTokenInfo?.decimals,
       toTokenDecimals: toTokenInfo?.decimals,
       reverse: limitPriceReverse,
+      fromMultiplier: fromTokenInfo?.balanceMultiplier,
+      toMultiplier: toTokenInfo?.balanceMultiplier,
     }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
@@ -177,8 +183,10 @@ const LimitOrderCard = ({
     decimalsAmount.fromAmount,
     decimalsAmount.toAmount,
     fromTokenInfo?.decimals,
+    fromTokenInfo?.balanceMultiplier,
     limitPriceReverse,
     toTokenInfo?.decimals,
+    toTokenInfo?.balanceMultiplier,
   ]);
 
   const onReverseLimitPrice = useCallback(() => {
