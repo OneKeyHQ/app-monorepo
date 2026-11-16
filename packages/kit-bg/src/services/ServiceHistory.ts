@@ -1384,14 +1384,19 @@ class ServiceHistory extends ServiceBase {
   // Cached rows keep the fiat snapshot of the currency they were fetched in.
   // Bring them to the caller's display currency, which is the current setting
   // when the caller names none (OK-67171).
+  // The result is a copy for display: a row whose rate is missing loses its
+  // fiat values in it, while the cached row keeps them. A caller that saves
+  // the result passes `hideUnconvertible: false` to get such a row as stored.
   private async convertTxsToDisplayCurrency({
     txs,
     displayCurrency,
     currencyMap,
+    hideUnconvertible = true,
   }: {
     txs: IAccountHistoryTx[];
     displayCurrency?: string;
     currencyMap?: Record<string, ICurrencyItem>;
+    hideUnconvertible?: boolean;
   }): Promise<IAccountHistoryTx[]> {
     if (!txs.some((tx) => tx.fiatCurrency)) {
       return txs;
@@ -1401,6 +1406,7 @@ class ServiceHistory extends ServiceBase {
       targetCurrency:
         displayCurrency ?? (await settingsPersistAtom.get()).currencyInfo.id,
       currencyMap: currencyMap ?? (await currencyPersistAtom.get()).currencyMap,
+      hideUnconvertible,
     });
   }
 
@@ -1600,10 +1606,19 @@ class ServiceHistory extends ServiceBase {
             txs: [localHistoryPendingTx],
             displayCurrency: detailCurrency,
             currencyMap,
+            hideUnconvertible: false,
           });
+        // This row is saved. With a rate missing it stays in its own currency
+        // and keeps its own fee instead of the detail fee, so the saved row
+        // still holds one currency and is converted on a later read.
+        const isPendingTxInDetailCurrency =
+          !pendingTxInDetailCurrency.fiatCurrency ||
+          pendingTxInDetailCurrency.fiatCurrency === detailCurrency;
         confirmedTxs.push({
           ...pendingTxInDetailCurrency,
-          fiatCurrency: detailCurrency,
+          fiatCurrency: isPendingTxInDetailCurrency
+            ? detailCurrency
+            : pendingTxInDetailCurrency.fiatCurrency,
           originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
@@ -1621,9 +1636,11 @@ class ServiceHistory extends ServiceBase {
             totalFeeInNative: isNil(confirmedTx.data.gasFee)
               ? localHistoryPendingTx.decodedTx.totalFeeInNative
               : confirmedTx.data.gasFee,
-            totalFeeFiatValue: isNil(confirmedTx.data.gasFeeFiatValue)
-              ? pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue
-              : confirmedTx.data.gasFeeFiatValue,
+            totalFeeFiatValue:
+              isNil(confirmedTx.data.gasFeeFiatValue) ||
+              !isPendingTxInDetailCurrency
+                ? pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue
+                : confirmedTx.data.gasFeeFiatValue,
             isFinal: true,
           },
         });

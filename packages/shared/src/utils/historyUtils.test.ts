@@ -267,11 +267,47 @@ describe('convertHistoryTxsFiatCurrency', () => {
     expect(result).toBe(tx);
   });
 
-  it('drops the fiat snapshot when a rate is unavailable', () => {
-    const [converted] = convertHistoryTxsFiatCurrency({
-      txs: [historyTx({ fiatCurrency: 'eur' })],
+  it('returns a row as stored when a rate is unavailable', () => {
+    const tx = historyTx({ fiatCurrency: 'eur' });
+    const [result] = convertHistoryTxsFiatCurrency({
+      txs: [tx],
       targetCurrency: 'cny',
       currencyMap,
+    });
+    expect(result).toBe(tx);
+    // The same row converts once the rate is back.
+    const [converted] = convertHistoryTxsFiatCurrency({
+      txs: [result],
+      targetCurrency: 'cny',
+      currencyMap: {
+        ...currencyMap,
+        eur: { id: 'eur', value: '0.5' },
+      } as unknown as Record<string, ICurrencyItem>,
+    });
+    expect(fiatOf(converted)).toEqual({
+      fiatCurrency: 'cny',
+      fee: '6.5',
+      send: '26',
+      receive: undefined,
+      output: '52',
+    });
+  });
+
+  it('drops the fiat values of a display copy when a rate is unavailable', () => {
+    const tx = historyTx({ fiatCurrency: 'eur' });
+    const [converted] = convertHistoryTxsFiatCurrency({
+      txs: [tx],
+      targetCurrency: 'cny',
+      currencyMap,
+      hideUnconvertible: true,
+    });
+    // The stored row is left as it was.
+    expect(fiatOf(tx)).toEqual({
+      fiatCurrency: 'eur',
+      fee: '0.5',
+      send: '2',
+      receive: undefined,
+      output: '4',
     });
     expect(fiatOf(converted)).toEqual({
       fiatCurrency: undefined,

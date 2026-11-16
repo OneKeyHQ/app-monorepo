@@ -440,6 +440,18 @@ describe('ServiceHistory pending row confirmed after a currency switch', () => {
     });
   });
 
+  it('keeps the pending snapshot and its currency when a rate is unavailable', async () => {
+    // No EUR rate: the row cannot be brought to CNY, and the row built here
+    // is the one saved to the cache.
+    const result = await confirm(pendingRow('eur'), { gasFeeFiatValue: '21' });
+    expect(result).toMatchObject({
+      status: EDecodedTxStatus.Confirmed,
+      fiatCurrency: 'eur',
+      fee: '1',
+      sendPrice: '2',
+    });
+  });
+
   it('records the detail currency on a row that named none', async () => {
     const result = await confirm(pendingRow(), { gasFeeFiatValue: '21' });
     expect(result).toMatchObject({

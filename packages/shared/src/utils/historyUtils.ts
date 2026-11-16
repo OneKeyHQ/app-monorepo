@@ -404,10 +404,12 @@ function convertHistoryTxFiatCurrency({
   tx,
   targetCurrency,
   currencyMap,
+  hideUnconvertible,
 }: {
   tx: IAccountHistoryTx;
   targetCurrency: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  hideUnconvertible?: boolean;
 }): IAccountHistoryTx {
   const sourceCurrency = tx.fiatCurrency;
   if (!sourceCurrency || sourceCurrency === targetCurrency) {
@@ -419,8 +421,13 @@ function convertHistoryTxFiatCurrency({
     sourceRate.gt(0) && targetRate.gt(0)
       ? targetRate.div(sourceRate)
       : undefined;
-  // Without both rates the snapshot cannot be converted, and showing no fiat
-  // value is better than showing one in the wrong currency.
+  // Without both rates the snapshot cannot be converted. The row is returned
+  // as stored, so its values and currency are still there to convert once the
+  // rates are back. Only a copy made for display drops them, because showing
+  // no fiat value is better than showing one in the wrong currency.
+  if (!rate && !hideUnconvertible) {
+    return tx;
+  }
   const convert = (value: string | undefined) => {
     if (isNil(value) || !rate) {
       return undefined;
@@ -468,14 +475,18 @@ function convertHistoryTxFiatCurrency({
 // cached with that snapshot. Rows fetched under another display currency are
 // converted here, so they are never shown with the new currency's symbol on
 // the old currency's numbers (OK-67171).
+// `hideUnconvertible` is for copies that are only displayed: a row whose rate
+// is missing loses its fiat values there. Never set it for rows that are saved.
 export function convertHistoryTxsFiatCurrency({
   txs,
   targetCurrency,
   currencyMap,
+  hideUnconvertible,
 }: {
   txs: IAccountHistoryTx[];
   targetCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  hideUnconvertible?: boolean;
 }): IAccountHistoryTx[] {
   if (
     !targetCurrency ||
@@ -484,7 +495,12 @@ export function convertHistoryTxsFiatCurrency({
     return txs;
   }
   return txs.map((tx) =>
-    convertHistoryTxFiatCurrency({ tx, targetCurrency, currencyMap }),
+    convertHistoryTxFiatCurrency({
+      tx,
+      targetCurrency,
+      currencyMap,
+      hideUnconvertible,
+    }),
   );
 }
 
