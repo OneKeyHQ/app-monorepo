@@ -3,6 +3,7 @@ import axios from 'axios';
 import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import platformEnv from '../../platformEnv';
 import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
@@ -153,8 +154,79 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
   afterEach(() => {
     axios.defaults.adapter = originalAdapter;
     consoleErrorSpy.mockRestore();
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
+
+  test.each(['ios', 'android'])(
+    '%s main stops using a cached normal selection after bg revokes it',
+    async (platform) => {
+      const initial = await mockedRequestHelper.getIpTableConfig();
+      if (!initial?.runtime)
+        throw new OneKeyLocalError('expected runtime fixture');
+      resetAdapterFailoverStatesForTesting();
+      jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+      jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS', platform === 'ios');
+      jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        platform === 'android',
+      );
+      const getConfig = jest.fn(async () => initial);
+      jest.replaceProperty(appGlobals, '$backgroundApiProxy', {
+        serviceIpTable: { getConfig },
+      } as unknown as typeof appGlobals.$backgroundApiProxy);
+      mockedRequestHelper.getIpTableConfig.mockImplementation(
+        jest.requireActual<typeof import('../requestHelper')>(
+          '../requestHelper',
+        ).default.getIpTableConfig,
+      );
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        headers: {},
+        body: '{}',
+      });
+      const hostname = `warm-${platform}.example.com`;
+      const adapter = createIpTableAdapter({});
+      await adapter(buildConfig(`https://${hostname}/v1`));
+      expect(mockedSniRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ip: '93.184.216.34' }),
+        expect.anything(),
+      );
+      const nextIp = '198.51.100.42';
+      const updated: IIpTableConfigWithRuntime = {
+        ...initial,
+        config: {
+          ...initial.config,
+          domains: {
+            'example.com': {
+              endpoints: [
+                {
+                  ...initial.config.domains['example.com'].endpoints[0],
+                  ip: nextIp,
+                },
+              ],
+            },
+          },
+        },
+        runtime: { ...initial.runtime, selections: { 'example.com': nextIp } },
+      };
+      getConfig.mockResolvedValue(updated);
+      appEventBus.dispatchInboundFromBackground({
+        type: EAppEventBusNames.IpTableConfigChanged,
+        payload: undefined,
+        originNodeId: 'bg-normal-selection-revoked',
+      });
+      // No failing requests, clock advance or main-side cache reset in between.
+      await adapter(buildConfig(`https://${hostname}/v1`));
+      expect(getConfig).toHaveBeenCalledTimes(2);
+      expect(mockedSniRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ip: nextIp }),
+        expect.anything(),
+      );
+    },
+  );
 
   test('falls back before SNI work when proxy preflight is active', async () => {
     mockedIsProxyActiveForUrl.mockResolvedValue(true);
@@ -755,7 +827,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
   });
 
   test.each(['ios', 'android'])(
-    '%s main reads the replaced table through bg before fail-open selection',
+    '%s main refreshes a warm selection when bg replaces the table',
     async (platform) => {
       jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
       jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
@@ -835,6 +907,40 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       expect(getConfig).toHaveBeenCalledTimes(2);
       expect(mockedSniRequest).toHaveBeenCalledWith(
         expect.objectContaining({ ip: '198.51.100.42' }),
+        expect.anything(),
+      );
+
+      // Main has cached the selected IP. BG cannot clear that separate heap.
+      const updated: IIpTableConfigWithRuntime = {
+        ...replacement,
+        config: {
+          ...replacement.config,
+          domains: {
+            'onekeycn.com': {
+              endpoints: [
+                {
+                  ip: '198.51.100.43',
+                  provider: 'test',
+                  region: 'ALL',
+                  weight: 1,
+                },
+              ],
+            },
+          },
+        },
+      };
+      getConfig.mockResolvedValue(updated);
+      appEventBus.dispatchInboundFromBackground({
+        type: EAppEventBusNames.IpTableConfigChanged,
+        payload: undefined,
+        originNodeId: 'bg-table-replacement',
+      });
+      await createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      );
+      expect(getConfig).toHaveBeenCalledTimes(3);
+      expect(mockedSniRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ip: '198.51.100.43' }),
         expect.anything(),
       );
     },

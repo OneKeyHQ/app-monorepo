@@ -166,6 +166,7 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.IpTableConfigChanged]: undefined;
   [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
     status: 'VALID' | 'INVALID' | 'UNKNOWN';
     isTimeErrorConfirmed: boolean;

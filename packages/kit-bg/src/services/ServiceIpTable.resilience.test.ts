@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { recordAvailabilityOutcome } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
-  getSelectedIpForHost,
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import { sniRequest } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import type { IIpTableRemoteConfig } from '@onekeyhq/shared/src/request/types/ipTable';
+import { verifyIpTableConfigSignatureDetailed } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import ServiceIpTable from './ServiceIpTable';
 
@@ -24,6 +28,7 @@ jest.mock('@onekeyhq/shared/src/utils/ipTableUtils', () => ({
     typeof import('@onekeyhq/shared/src/utils/ipTableUtils')
   >('@onekeyhq/shared/src/utils/ipTableUtils'),
   isSupportIpTablePlatform: () => true,
+  verifyIpTableConfigSignatureDetailed: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -112,7 +117,7 @@ function buildConfig(ip: string, version = 1): IIpTableRemoteConfig {
 
 function createService() {
   const ipTableDb = {
-    saveConfig: jest.fn(async () => undefined),
+    saveConfig: jest.fn(async (): Promise<void> => undefined),
     getConfig: jest.fn(),
     commitSpeedTestResult: jest.fn(async () => 'applied'),
     updateLastBestIp: jest.fn(async () => undefined),
@@ -129,12 +134,73 @@ describe('ServiceIpTable resilience', () => {
     jest.clearAllMocks();
   });
 
-  it('clears the local request selection cache after replacing the table', async () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('broadcasts invalidation only after the replacement table is stored', async () => {
     const { service, ipTableDb } = createService();
+    const emit = jest.spyOn(appEventBus, 'emit');
     const config = buildConfig('2.2.2.2');
-    await service.saveConfig(config);
+    let finishWrite: (() => void) | undefined;
+    ipTableDb.saveConfig.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        }),
+    );
+    const saving = service.saveConfig(config);
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.IpTableConfigChanged,
+      undefined,
+    );
+    finishWrite?.();
+    await saving;
     expect(ipTableDb.saveConfig).toHaveBeenCalledWith(config);
-    expect(getSelectedIpForHost.clear).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.IpTableConfigChanged,
+      undefined,
+    );
+  });
+
+  it('does not broadcast invalidation when saving the table fails', async () => {
+    const { service, ipTableDb } = createService();
+    const emit = jest.spyOn(appEventBus, 'emit');
+    ipTableDb.saveConfig.mockRejectedValueOnce(new Error('storage failed'));
+    await expect(service.saveConfig(buildConfig('2.2.2.2'))).rejects.toThrow(
+      'storage failed',
+    );
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.IpTableConfigChanged,
+      undefined,
+    );
+  });
+
+  it('broadcasts invalidation after applying a verified CDN table', async () => {
+    const { service, ipTableDb } = createService();
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const logError = jest.spyOn(defaultLogger.ipTable.request, 'error');
+    const config = buildConfig('2.2.2.2', 2);
+    const internal = service as unknown as {
+      fetchRemoteConfig(): Promise<IIpTableRemoteConfig | null>;
+    };
+    jest.spyOn(internal, 'fetchRemoteConfig').mockResolvedValue(config);
+    jest.mocked(verifyIpTableConfigSignatureDetailed).mockResolvedValueOnce({
+      ok: true,
+      recoveredAddress: '0x0000000000000000000000000000000000000001',
+    });
+    ipTableDb.getConfig.mockResolvedValue({ config: buildConfig('1.1.1.1') });
+    const applied = await service.fetchAndApplyRemoteConfig();
+    expect(logError).not.toHaveBeenCalled();
+    expect(applied).toBe(true);
+    expect(ipTableDb.saveConfig).toHaveBeenCalledWith(
+      config,
+      expect.objectContaining({ payloadHash: expect.any(String) }),
+    );
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.IpTableConfigChanged,
+      undefined,
+    );
   });
 
   it('does not announce a fast failover rejected by the current signed table', async () => {

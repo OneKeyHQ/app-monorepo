@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
@@ -378,6 +379,12 @@ const readIpTableAvailabilityState = memoizee(
   },
   { promise: true, maxAge: 5000 },
 );
+
+// The bus relays bg updates to native main, which owns separate memoized state.
+appEventBus.on(EAppEventBusNames.IpTableConfigChanged, () => {
+  getSelectedIpForHost.clear();
+  void readIpTableAvailabilityState.clear();
+});
 
 /**
  * Transport-level failure allowlist. Only errors that prove the network path
