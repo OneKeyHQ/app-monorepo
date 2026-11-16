@@ -185,11 +185,15 @@ export function DeviceListItem({
     if (item.shouldUpdate) {
       if (gtMd) {
         return (
-          <Badge badgeSize="sm" badgeType="info">
+          <Badge badgeSize="sm" badgeType="success">
             <XStack ai="center" gap="$1.5">
-              <Icon name="DownloadCircleOutline" color="$iconInfo" size="$4" />
+              <Icon
+                name="DownloadCircleOutline"
+                color="$iconSuccess"
+                size="$4"
+              />
               {item.updateVersionDisplay ? (
-                <SizableText size="$bodySmMedium" color="$textInfo">
+                <SizableText size="$bodySmMedium" color="$textSuccess">
                   {item.updateVersionDisplay}
                 </SizableText>
               ) : null}
@@ -198,7 +202,7 @@ export function DeviceListItem({
         );
       }
       return (
-        <Stack width="$2" height="$2" bg="$iconInfo" borderRadius="$full" />
+        <Stack width="$2" height="$2" bg="$bgAccent" borderRadius="$full" />
       );
     }
 

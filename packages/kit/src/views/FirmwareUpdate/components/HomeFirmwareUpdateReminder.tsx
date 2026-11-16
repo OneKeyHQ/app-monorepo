@@ -39,8 +39,9 @@ export function FirmwareUpdateReminderAlert({
       py="$2"
       borderTopWidth="$px"
       borderBottomWidth="$px"
-      bg="$bgInfoSubdued"
-      borderColor="$borderInfoSubdued"
+      // Green like the app update reminder: an update is ready either way.
+      bg="$bgSuccessSubdued"
+      borderColor="$borderSuccessSubdued"
       alignItems="center"
       gap="$3"
       justifyContent="space-between"
@@ -50,7 +51,7 @@ export function FirmwareUpdateReminderAlert({
       <XStack alignItems="center" gap="$2" flex={1}>
         <Icon
           name="DownloadOutline"
-          color="$iconInfo"
+          color="$iconSuccess"
           size="$5"
           flexShrink={0}
         />

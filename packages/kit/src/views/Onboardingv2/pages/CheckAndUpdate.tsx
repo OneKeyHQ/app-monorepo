@@ -114,7 +114,7 @@ function StepActionRow({
   message,
   children,
 }: PropsWithChildren<{
-  color: '$textInfo' | '$textCritical';
+  color: '$textSuccess' | '$textCritical';
   message: string;
 }>) {
   return (
@@ -1283,7 +1283,7 @@ function CheckAndUpdatePage({
               step.state === ECheckAndUpdateStepState.Warning &&
               !isFirmwareRecheckPending ? (
                 <StepActionRow
-                  color="$textInfo"
+                  color="$textSuccess"
                   message={intl.formatMessage({
                     id: ETranslations.hardware_status_update_available,
                   })}
