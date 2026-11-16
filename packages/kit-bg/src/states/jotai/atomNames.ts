@@ -1,6 +1,7 @@
 export enum EAtomNames {
   receivePreferencesPersistAtom = 'receivePreferencesPersistAtom',
   bannerCloseIdsAtom = 'bannerCloseIdsAtom',
+  osEndOfSupportNoticePersistAtom = 'osEndOfSupportNoticePersistAtom',
   demoPriceAtom = 'demoPriceAtom',
   demoPriceInfoAtom = 'demoPriceInfoAtom',
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
