@@ -218,6 +218,84 @@ describe('ServiceIpTable resilience', () => {
   });
 
   it.each([
+    ['malformed JSON', '{'],
+    ['invalid shape', JSON.stringify({ domains: {} })],
+    ['empty body', ''],
+  ])(
+    'rejects an HTTP 200 %s SNI body without counting success',
+    async (_name, body) => {
+      const { service, ipTableDb } = createService();
+      const config = buildConfig('1.1.1.1');
+      config.domains[DOMAIN].endpoints.push({
+        ip: '2.2.2.2',
+        provider: 'test',
+        region: 'ALL',
+        weight: 1,
+      });
+      ipTableDb.getConfig.mockResolvedValue({ config });
+      jest
+        .mocked(sniRequest)
+        .mockResolvedValueOnce({ statusCode: 200, headers: {}, body })
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          headers: {},
+          body: JSON.stringify(config),
+        });
+      const internal = service as unknown as {
+        fetchRemoteConfigViaSniFallback(): Promise<IIpTableRemoteConfig | null>;
+      };
+
+      await expect(internal.fetchRemoteConfigViaSniFallback()).resolves.toEqual(
+        config,
+      );
+
+      const outcomes = jest
+        .mocked(recordAvailabilityOutcome)
+        .mock.calls.map(([outcome]) => outcome);
+      expect(outcomes.filter(({ source }) => source === 'api_ip')).toEqual([
+        expect.objectContaining({ target: '1.1.1.1', status: 'error' }),
+        expect.objectContaining({ target: '2.2.2.2', status: 'ok' }),
+      ]);
+      expect(outcomes.filter(({ source }) => source === 'api')).toEqual([
+        expect.objectContaining({
+          status: 'api_error',
+          failure: expect.objectContaining({
+            errorCode: 'invalid_response',
+            ip: '1.1.1.1',
+          }),
+        }),
+        expect.objectContaining({ status: 'ok' }),
+      ]);
+    },
+  );
+
+  it('rejects an HTTP error even when its SNI body has a valid config shape', async () => {
+    const { service, ipTableDb } = createService();
+    const config = buildConfig('1.1.1.1');
+    ipTableDb.getConfig.mockResolvedValue({ config });
+    jest.mocked(sniRequest).mockResolvedValueOnce({
+      statusCode: 403,
+      headers: {},
+      body: JSON.stringify(config),
+    });
+    const internal = service as unknown as {
+      fetchRemoteConfigViaSniFallback(): Promise<IIpTableRemoteConfig | null>;
+    };
+
+    await expect(
+      internal.fetchRemoteConfigViaSniFallback(),
+    ).resolves.toBeNull();
+    expect(
+      jest
+        .mocked(recordAvailabilityOutcome)
+        .mock.calls.map(([outcome]) => outcome)
+        .filter(({ source }) => source === 'api_ip'),
+    ).toEqual([
+      expect.objectContaining({ target: '1.1.1.1', status: 'error' }),
+    ]);
+  });
+
+  it.each([
     ['empty', null],
     ['invalid shape', '<html>captive portal</html>'],
   ])(

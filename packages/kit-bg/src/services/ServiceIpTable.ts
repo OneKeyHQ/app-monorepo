@@ -448,6 +448,7 @@ class ServiceIpTable extends ServiceBase {
         const timing = createApiAvailabilityTiming({ url: IP_TABLE_CDN_URL });
         markApiAvailabilityRoute(timing, 'sni');
         markApiAvailabilityIp(timing, ip);
+        let httpStatus: number | undefined;
         try {
           defaultLogger.ipTable.request.info({
             info: `[IpTable] CDN fetch fallback: trying SNI candidate for ${url.hostname}`,
@@ -463,23 +464,31 @@ class ServiceIpTable extends ServiceBase {
           });
           if (!response)
             throw new OneKeyLocalError('IP Table config response missing');
-          reportApiAvailabilityResponse({
-            timing,
-            httpStatus: response.statusCode ?? response.status ?? 0,
-          });
-          const body = response?.body ?? response?.data;
-          if (body) {
-            const parsed: unknown =
-              typeof body === 'string' ? JSON.parse(body) : body;
-            if (isValidIpTableRemoteConfigShape(parsed)) {
-              defaultLogger.ipTable.request.info({
-                info: `[IpTable] CDN fetch fallback succeeded via SNI, version: ${parsed.version}`,
-              });
-              return parsed;
-            }
+          httpStatus = response.statusCode ?? response.status ?? 0;
+          if (httpStatus < 200 || httpStatus >= 300) {
+            throw new OneKeyLocalError('IP Table config HTTP status rejected');
           }
+          const body = response.body ?? response.data;
+          const parsed: unknown =
+            typeof body === 'string' ? JSON.parse(body) : body;
+          if (!isValidIpTableRemoteConfigShape(parsed)) {
+            throw new OneKeyLocalError('IP Table config body rejected');
+          }
+          reportApiAvailabilityResponse({ timing, httpStatus });
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] CDN fetch fallback succeeded via SNI, version: ${parsed.version}`,
+          });
+          return parsed;
         } catch (error) {
-          reportApiAvailabilityError(timing, error);
+          if (httpStatus !== undefined) {
+            reportApiAvailabilityResponse({
+              timing,
+              httpStatus,
+              isValidResponse: false,
+            });
+          } else {
+            reportApiAvailabilityError(timing, error);
+          }
           defaultLogger.ipTable.request.warn({
             info: `[IpTable] CDN fetch fallback candidate failed: ${
               error instanceof Error ? error.message : 'Unknown error'

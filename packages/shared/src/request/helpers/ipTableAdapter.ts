@@ -326,9 +326,8 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 // level (timeouts, resets — NOT HTTP error responses or cancellations), the
 // adapter opens a time-boxed window during which hosts of that root domain
 // resolve to a fallback IP (runtime last-best IP when available, builtin
-// config otherwise). This is the only protection available in runtimes where
-// the simpleDb-backed config is absent: the main runtime on split-runtime
-// targets and the cold-start window before background init completes.
+// config otherwise). Native main reads the active table through bg; until that
+// provider is ready it keeps using the domain rather than unverified builtins.
 // The request that trips the threshold is never replayed — only subsequent
 // requests take the fail-open route — and once a request has been handed to
 // the SNI transport, falling back to the domain (which re-sends it) is
@@ -848,11 +847,15 @@ async function getSelectedIpForHostInternal(
 
     // Check if config exists and is enabled
     if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
-      // No config = the main runtime or the cold-start window before the
-      // background init completes. When the domain is failing at transport
-      // level, fail-open to a builtin IP so those runtimes have protection
-      // too. runtime.enabled === false is explicit user intent: no fail-open.
-      if (!configWithRuntime) {
+      // Native main cannot know which builtins a persisted table revoked until
+      // bg is ready. runtime.enabled === false also forbids fail-open.
+      if (
+        !configWithRuntime &&
+        !(
+          platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+        )
+      ) {
         const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
         const failoverIp = await getActiveFailoverIp(lookupDomain, undefined);
         if (failoverIp) {

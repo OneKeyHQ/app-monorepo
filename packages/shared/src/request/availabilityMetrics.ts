@@ -394,9 +394,8 @@ function reportApiOutcome(
     target: getNetworkType(),
     status: result,
   });
-  // Route, proxy and IP Table state only apply to requests the IP Table
-  // adapter handled (it always sets a route). The native main runtime has no
-  // IP Table config, so its adapter state would only report `noConfig`.
+  // Route, proxy and IP Table state only apply to adapter-handled requests.
+  // Keep these breakdowns bg-owned on native, even when main reads bg config.
   if (
     !timing.route ||
     (platformEnv.isNative && platformEnv.runtimeRole === ERuntimeRole.Main)
@@ -427,14 +426,18 @@ export function reportApiAvailabilityResponse({
   httpStatus,
   isOneKeyApi,
   apiCode,
+  isValidResponse = true,
 }: {
   timing: IApiAvailabilityTiming | undefined;
   httpStatus: number;
   isOneKeyApi?: boolean;
   apiCode?: unknown;
+  isValidResponse?: boolean;
 }) {
   if (httpStatus >= 400) {
     reportApiOutcome(timing, 'http_error', `http_${httpStatus}`);
+  } else if (!isValidResponse) {
+    reportApiOutcome(timing, 'api_error', 'invalid_response');
   } else if (isOneKeyApi && typeof apiCode === 'number' && apiCode !== 0) {
     // Bodies without a numeric code (text, CSV) are not envelope errors.
     reportApiOutcome(timing, 'api_error', `api_${apiCode}`);

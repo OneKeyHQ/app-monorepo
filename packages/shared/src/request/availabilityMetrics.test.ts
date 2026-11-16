@@ -393,7 +393,7 @@ describe('availabilityMetrics', () => {
     expect(mockOutcomes[0].failure?.detail).toBe('sni:/wallet/v1/account');
   });
 
-  it('skips IP Table breakdowns in the native main runtime, which has no IP Table config', () => {
+  it('keeps IP Table breakdowns bg-owned in native split runtimes', () => {
     env.isNative = true;
     env.runtimeRole = ERuntimeRole.Main;
     const timing = walletTiming();

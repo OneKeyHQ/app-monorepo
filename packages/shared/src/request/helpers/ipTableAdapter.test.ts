@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import platformEnv from '../../platformEnv';
 import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
@@ -18,6 +20,7 @@ import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type { IAvailabilityOutcome } from '../availabilityAggregator';
 import type { IApiAvailabilityTiming } from '../availabilityMetrics';
+import type { IIpTableConfigWithRuntime } from '../types/ipTable';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 const mockAvailabilityOutcomes: IAvailabilityOutcome[] = [];
@@ -749,6 +752,119 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       expect.objectContaining({ ip }),
       expect.anything(),
     );
+  });
+
+  test.each(['ios', 'android'])(
+    '%s main reads the replaced table through bg before fail-open selection',
+    async (platform) => {
+      jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+      jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS', platform === 'ios');
+      jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        platform === 'android',
+      );
+      const configWithRuntime: IIpTableConfigWithRuntime = {
+        config: {
+          version: 1,
+          ttl_sec: 60,
+          generated_at: '2026-11-14T00:00:00Z',
+          signature: '',
+          domains: {
+            'onekeycn.com': {
+              endpoints: [
+                {
+                  ip: '203.0.113.1',
+                  provider: 'test',
+                  region: 'ALL',
+                  weight: 1,
+                },
+              ],
+            },
+          },
+        },
+        runtime: {
+          enabled: true,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: { 'onekeycn.com': '' },
+          lastBestIp: { 'onekeycn.com': '203.0.113.1' },
+        },
+      };
+      const getConfig = jest.fn(async () => configWithRuntime);
+      jest.replaceProperty(appGlobals, '$backgroundApiProxy', {
+        serviceIpTable: { getConfig },
+      } as unknown as typeof appGlobals.$backgroundApiProxy);
+      mockedRequestHelper.getIpTableConfig.mockImplementation(
+        jest.requireActual<typeof import('../requestHelper')>(
+          '../requestHelper',
+        ).default.getIpTableConfig,
+      );
+      await failNTimes(3);
+      // A separate bg runtime replaces the table; main cannot share its heap.
+      const replacement: IIpTableConfigWithRuntime = {
+        ...configWithRuntime,
+        config: {
+          ...configWithRuntime.config,
+          domains: {
+            'onekeycn.com': {
+              endpoints: [
+                {
+                  ip: '198.51.100.42',
+                  provider: 'test',
+                  region: 'ALL',
+                  weight: 1,
+                },
+              ],
+            },
+          },
+        },
+      };
+      getConfig.mockResolvedValue(replacement);
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        headers: {},
+        body: '{}',
+      });
+
+      await createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      );
+
+      expect(getConfig).toHaveBeenCalledTimes(2);
+      expect(mockedSniRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ ip: '198.51.100.42' }),
+        expect.anything(),
+      );
+    },
+  );
+
+  test('native main stays on the domain until the bg provider is ready', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+    jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
+    const proxyDescriptor = Object.getOwnPropertyDescriptor(
+      appGlobals,
+      '$backgroundApiProxy',
+    );
+    Object.defineProperty(appGlobals, '$backgroundApiProxy', {
+      value: undefined,
+    });
+    mockedRequestHelper.getIpTableConfig.mockImplementation(
+      jest.requireActual<typeof import('../requestHelper')>('../requestHelper')
+        .default.getIpTableConfig,
+    );
+    try {
+      await failNTimes(4);
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+    } finally {
+      if (proxyDescriptor)
+        Object.defineProperty(
+          appGlobals,
+          '$backgroundApiProxy',
+          proxyDescriptor,
+        );
+    }
   });
 
   test('maps data.onekey.so fail-open to the first onekeycn.com builtin IP', async () => {
