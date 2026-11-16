@@ -8,6 +8,7 @@ import {
   getUpdateFileType,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -102,14 +103,17 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     ],
   );
 
-  const toDownloadAndVerifyPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AppUpdateModal, {
-      screen: EAppUpdateRoutes.DownloadVerify,
-      params: {
-        isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-      },
-    });
-  }, [appUpdateInfo.updateStrategy, navigation]);
+  const toDownloadAndVerifyPage = useCallback(
+    (isForceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy)) => {
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.DownloadVerify,
+        params: {
+          isForceUpdate,
+        },
+      });
+    },
+    [appUpdateInfo.updateStrategy, navigation],
+  );
 
   const checkForUpdates = useCallback(async () => {
     defaultLogger.app.appUpdate.startCheckForUpdatesOnly();
@@ -143,32 +147,47 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
 
-  const onUpdateAction = useCallback(() => {
-    switch (appUpdateInfo.status) {
-      case EAppUpdateStatus.done:
-      case EAppUpdateStatus.notify:
-        toUpdatePreviewPage(isFullModal);
-        break;
-      case EAppUpdateStatus.updateIncomplete:
-        showUpdateInCompleteDialog({});
-        break;
-      case EAppUpdateStatus.manualInstall:
-        navigation.pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.ManualInstall,
-        });
-        break;
-      default:
-        toDownloadAndVerifyPage();
-        break;
-    }
-  }, [
-    appUpdateInfo.status,
-    isFullModal,
-    navigation,
-    showUpdateInCompleteDialog,
-    toDownloadAndVerifyPage,
-    toUpdatePreviewPage,
-  ]);
+  const onUpdateActionWithInfo = useCallback(
+    (snapshot?: IAppUpdateInfo) => {
+      const current = snapshot ?? appUpdateInfo;
+      const force = isForceUpdateStrategy(current.updateStrategy);
+      switch (current.status) {
+        case EAppUpdateStatus.done:
+        case EAppUpdateStatus.notify:
+          toUpdatePreviewPage(
+            isFullModal || (snapshot !== undefined && force),
+            snapshot
+              ? { latestVersion: current.latestVersion, isForceUpdate: force }
+              : undefined,
+          );
+          break;
+        case EAppUpdateStatus.updateIncomplete:
+          showUpdateInCompleteDialog({});
+          break;
+        case EAppUpdateStatus.manualInstall:
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.ManualInstall,
+          });
+          break;
+        default:
+          toDownloadAndVerifyPage(force);
+          break;
+      }
+    },
+    [
+      appUpdateInfo,
+      isFullModal,
+      navigation,
+      showUpdateInCompleteDialog,
+      toDownloadAndVerifyPage,
+      toUpdatePreviewPage,
+    ],
+  );
+
+  const onUpdateAction = useCallback(
+    () => onUpdateActionWithInfo(),
+    [onUpdateActionWithInfo],
+  );
 
   // Unified "direct" update action shared by the toolbox update reminder and
   // the new top-right Update button. Unlike onUpdateAction it never opens the
@@ -278,6 +297,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       updateFileType: fileType,
       data: appUpdateInfo,
       onUpdateAction,
+      onUpdateActionWithInfo,
       onUpdateActionDirect,
       toUpdatePreviewPage,
       onViewReleaseInfo,
@@ -289,6 +309,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     checkForUpdates,
     downloadPackage,
     onUpdateAction,
+    onUpdateActionWithInfo,
     onUpdateActionDirect,
     onViewReleaseInfo,
     toUpdatePreviewPage,
