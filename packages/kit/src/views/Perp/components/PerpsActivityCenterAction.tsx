@@ -1,11 +1,4 @@
-import {
-  cloneElement,
-  isValidElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -14,14 +7,11 @@ import type { IButtonProps, IScrollViewRef } from '@onekeyhq/components';
 import {
   Dialog,
   IconButton,
-  Stack,
   YStack,
   useDialogInstance,
-  useMedia,
   useScrollView,
 } from '@onekeyhq/components';
 import {
-  ActivityHubAction,
   ActivityHubContent,
   shouldShowActivityHubInvitePanel,
   useShowActivityHub,
@@ -75,7 +65,7 @@ function usePerpsActivityHubProps(
   viewportRef?: RefObject<IScrollViewRef | null>,
 ) {
   const intl = useIntl();
-  const { progress, instanceId, refresh } = usePerpsRecallProgress();
+  const { progress, instanceId } = usePerpsRecallProgress();
   const { isBannerHidden, setBannerHidden } = usePerpsRecallBannerVisibility({
     instanceId,
     progress,
@@ -111,7 +101,6 @@ function usePerpsActivityHubProps(
 
   return {
     campaigns,
-    refresh,
     detailEntry,
     isBannerHidden,
     setBannerHidden,
@@ -227,36 +216,12 @@ function PerpsActivityCenterDialogContent({
   );
 }
 
-function showPerpsActivityCenterDialog({
-  onClose,
-  onOpenReferral,
-}: {
-  onClose?: () => void;
-  onOpenReferral: IActivityHubOpenReferral;
-}) {
-  return Dialog.show({
-    showFooter: false,
-    contentContainerProps: { p: '$0' },
-    renderContent: (
-      <PerpsActivityCenterDialogContent onOpenReferral={onOpenReferral} />
-    ),
-    onClose,
-  });
-}
-
-type IPerpsActivityCenterActionProps = {
-  size?: IButtonProps['size'];
-  renderTrigger?: ReactNode;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-};
-
-function MobileActivityCenterAction({
+// The Perps page renders this button only in the narrow web toolbar.
+export function PerpsActivityCenterAction({
   size,
-  renderTrigger,
-  open,
-  onOpenChange,
-}: IPerpsActivityCenterActionProps) {
+}: {
+  size?: IButtonProps['size'];
+}) {
   const intl = useIntl();
   const handleOpenReferral = useOpenReferralPage();
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | undefined>(
@@ -264,34 +229,23 @@ function MobileActivityCenterAction({
   );
   const handleOpen = useCallback(() => {
     if (dialogRef.current) return;
-    dialogRef.current = showPerpsActivityCenterDialog({
-      onOpenReferral: handleOpenReferral,
+    dialogRef.current = Dialog.show({
+      showFooter: false,
+      contentContainerProps: { p: '$0' },
+      renderContent: (
+        <PerpsActivityCenterDialogContent onOpenReferral={handleOpenReferral} />
+      ),
       onClose: () => {
         dialogRef.current = undefined;
-        onOpenChange?.(false);
       },
     });
-    onOpenChange?.(true);
-  }, [handleOpenReferral, onOpenChange]);
-  useEffect(() => {
-    if (open === true) handleOpen();
-    else if (open === false) void dialogRef.current?.close();
-  }, [open, handleOpen]);
+  }, [handleOpenReferral]);
   useEffect(
     () => () => {
       void dialogRef.current?.close();
     },
     [],
   );
-  if (
-    isValidElement<IButtonProps>(renderTrigger) &&
-    typeof renderTrigger.type !== 'string'
-  ) {
-    return cloneElement(renderTrigger, { onPress: handleOpen });
-  }
-  if (renderTrigger) {
-    return <Stack onPress={handleOpen}>{renderTrigger}</Stack>;
-  }
   return (
     <IconButton
       testID="perps-activity-center-dialog-trigger"
@@ -300,41 +254,5 @@ function MobileActivityCenterAction({
       title={intl.formatMessage({ id: ETranslations.perps_activity_hub })}
       onPress={handleOpen}
     />
-  );
-}
-
-function DesktopActivityCenterAction({
-  size = 'medium',
-  renderTrigger,
-  open,
-  onOpenChange,
-}: IPerpsActivityCenterActionProps) {
-  const { campaigns, detailEntry, refresh } = usePerpsActivityHubProps();
-  const handleOpenReferral = useOpenReferralPage();
-  return (
-    <ActivityHubAction
-      source="Perps"
-      size={size}
-      renderTrigger={renderTrigger}
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) void refresh();
-        onOpenChange?.(nextOpen);
-      }}
-      onOpenReferral={handleOpenReferral}
-      campaigns={campaigns}
-      detailEntry={detailEntry}
-    />
-  );
-}
-
-export function PerpsActivityCenterAction(
-  props: IPerpsActivityCenterActionProps,
-) {
-  const { gtMd } = useMedia();
-  return platformEnv.isNative || !gtMd ? (
-    <MobileActivityCenterAction {...props} />
-  ) : (
-    <DesktopActivityCenterAction {...props} />
   );
 }
