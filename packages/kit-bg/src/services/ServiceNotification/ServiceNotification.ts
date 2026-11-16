@@ -19,6 +19,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  isSupportReplyPushMessage,
   takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -242,6 +243,19 @@ export default class ServiceNotification extends ServiceBase {
             notificationParams,
           );
         }
+      }
+    }
+
+    // Only the native Intercom SDK resyncs on this (OK-67112). A reply can
+    // arrive over both websocket and JPush, so resync once per message.
+    if (platformEnv.isNative && isSupportReplyPushMessage(messageInfo)) {
+      const isDuplicate = !!msgId && this.showedNotificationIds.includes(msgId);
+      defaultLogger.notification.support.supportReplyPushReceived({
+        pushSource: messageInfo.pushSource,
+        isDuplicate,
+      });
+      if (!isDuplicate) {
+        appEventBus.emit(EAppEventBusNames.SupportReplyReceived, undefined);
       }
     }
 

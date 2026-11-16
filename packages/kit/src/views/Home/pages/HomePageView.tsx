@@ -92,6 +92,7 @@ import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeMoneroAccountCreation } from '../hooks/useHomeMoneroAccountCreation';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -529,13 +530,20 @@ function BaseHomePageView({
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
+  const { enableAfterCreate, onCreateDone } = useHomeMoneroAccountCreation();
 
   const emptyAccountView = useMemo(
     () => (
       <EmptyAccount
-        autoCreateAddress
+        autoCreateAddress={!enableAfterCreate}
         createAllDeriveTypes
-        createAllEnabledNetworks
+        createAllEnabledNetworks={!enableAfterCreate}
+        createAddressLabel={
+          enableAfterCreate
+            ? intl.formatMessage({ id: ETranslations.global_enable })
+            : undefined
+        }
+        onCreateDone={enableAfterCreate ? onCreateDone : undefined}
         onCreateAddress={
           network?.isAllNetworks
             ? () =>
@@ -560,9 +568,11 @@ function BaseHomePageView({
       accountName,
       deriveInfo?.label,
       deriveInfo?.labelKey,
+      enableAfterCreate,
       intl,
       network?.isAllNetworks,
       network?.name,
+      onCreateDone,
       showUnifiedNetworkSelector,
     ],
   );

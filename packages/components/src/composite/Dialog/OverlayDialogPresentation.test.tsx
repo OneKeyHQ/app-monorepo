@@ -36,7 +36,11 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   },
 }));
 jest.mock('../../hooks/useStyle', () => ({
-  useTheme: () => ({ bg: { val: '#fff' }, bgBackdrop: { val: '#0004' } }),
+  useTheme: () => ({
+    bg: { val: '#fff' },
+    bgApp: { val: '#123456' },
+    bgBackdrop: { val: '#0004' },
+  }),
 }));
 jest.mock('../../primitives', () => ({
   ThemeableStack: ({
@@ -184,4 +188,17 @@ it('keeps page sheets and web sheets at the window width', () => {
   mockPlatformOS = 'web';
   rerender(<OverlayDialogPresentation {...dialogProps} isSheet />);
   expect(mockSurfaceProps.width).toBeUndefined();
+});
+
+it('paints the sheet safe-area tail with a literal dialog background', () => {
+  render(<OverlayDialogPresentation {...dialogProps} isSheet bg="#0f0f0f" />);
+  // A raw color must reach the sheet as-is; resolving it as a theme token used
+  // to fall back to the ambient bg and leave a white strip below dark content
+  // (OK-67133).
+  expect(mockProps.sheet?.backgroundColor).toBe('#0f0f0f');
+});
+
+it('resolves a theme token for the sheet surface', () => {
+  render(<OverlayDialogPresentation {...dialogProps} isSheet bg="$bgApp" />);
+  expect(mockProps.sheet?.backgroundColor).toBe('#123456');
 });

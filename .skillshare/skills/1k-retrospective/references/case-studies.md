@@ -1569,6 +1569,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Backport `pointerEvents: 'box-none'` to the shared host in React Native 0.88.0 so taps reach the input and the UIKit keyboard toolbar keeps its own touch handling. Remove the Perps TWAP `pointerEvents: 'none'` workaround. [Upstream React Native fix](https://github.com/react/react-native/pull/59904)
 **Catchable by**: On an iOS simulator, reopen Add Position to exercise view reuse. Tap the middle of the amount field and verify focus, numeric entry, and keyboard toolbar interaction. Repeat in another accessory-backed form such as Swap Limit.
 
+## Case: Prime extension browser actions and pagination spacing (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Subscribed users saw browser-home actions without a usable embedded browser; hiding those actions initially moved the pagination dots by 2px.
+**Root Cause**: Shared benefits did not gate browser actions by extension capability. The reserved CTA slot omitted the Button's two transparent borders.
+**Fix**: Replace subscribed extension browser CTAs with noninteractive availability text, label only AI translation as app-only, preserve pagination, and reserve button content height plus both border widths. Keep unsubscribed CTAs and other-platform behavior unchanged.
+**Catchable by**: Sections 3 and 8: Compare actual pagination positions across CTA/no-CTA transitions in popup, narrow side panel, and full-screen; token height alone is not rendered border-box height.
+
+## Case: Prime extension media letterboxing and resize navigation (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Narrow video introductions placed the title far below the visible media; resizing then selecting another benefit could leave the hero blank.
+**Root Cause**: A fixed 400px hero letterboxed 16:10 video on narrow screens. Swiper cached its initial height, and virtualized slide updates after resizing reset the scroll offset despite a successful requested scroll.
+**Fix**: Size extension video heroes from measured width, capped at 400px; refresh carousel geometry when dimensions change and retain the short extension carousel window. Keep icon heroes and all non-extension sizing unchanged.
+**Catchable by**: Section 8: Inspect rendered media-to-title spacing and test resize followed by pagination, including video/icon transitions, rather than checking only the active slide during resize.
+
 ## Case: Bitcoin dependency hardening broke BIP322 message verification
 **Date**: 2026-11-11 | **Platforms**: Shared Bitcoin message verification on supported clients.
 **Symptom**: Updating the bitcoinjs-lib dependency used by bip322-js from 6.1.7 to 6.1.10 rejected previously valid BIP322 signatures.
@@ -1604,3 +1618,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The inactive position tab mounted on first focus, allowing scroll synchronization to run before its incoming list was ready. Warm-switch checks did not exercise this initial mount.
 **Fix**: Enable the existing per-tab eager-mount capability only for the Android position tab. Android 35 verification with an ordinary token and no positions preserved the header on the initial visit and a fresh re-entry; populated position lists and iOS manual regression remain unverified.
 **Catchable by**: Sections 3 and 8: Verify the first tab switch after a fresh detail mount at partial and full header collapse, then compare subsequent switches and a fresh re-entry.
+
+## Case: Intercom reply pushes left native unread dots stale (OK-67112)
+**Date**: 2026-11-11 | **Platforms**: iOS and Android. Main owns JS unread state; main/bg initialize independently in separate heaps and share the process-native Intercom instance. Attribute deduplication was verified on Android 18.10.0.
+**Symptom**: OneKey support-reply pushes could arrive while support entry dots remained off.
+**Root Cause**: Polling only read the SDK cache. The initial push-driven refresh treated an unchanged language update's success as evidence of a server request, but Android acknowledged duplicate attributes locally. Its mock forced a cache change and missed that path. Clearing the pending flag before a failed refresh also discarded the retry.
+**Fix**: Deliver reply events from bg to main, defer background refreshes, and deduplicate reply IDs. The Android bridge invalidates only SDK attribute dedup before the normal authenticated update; main awaits its callback and reads the cache alongside SDK unread events. Failed refreshes are requeued, and older binaries without the bridge report failure. Pinned-SDK component checks, a bridge harness with framework/transport stubs, regression tests and mutation checks passed; rebuilt Android device verification remains pending.
+**Catchable by**: Sections 4 and 6: Verify the remote effect behind SDK success callbacks, model pinned-SDK deduplication, and cover delayed responses, failure retry and missing native capabilities. Remove the native dedup reset or retry flag to confirm the corresponding regression checks fail.
+
+## Case: Native privacy token sync status displaced the gas icon (OK-67223)
+**Date**: 2026-11-13 | **Platforms**: iOS and Android main UI runtimes; the table-layout selection is iOS-only. Background scanning and native-resource ownership are unchanged.
+**Symptom**: Privacy token rows showed sync status differently from desktop, and the iOS gas icon was not kept next to the token symbol.
+**Root Cause**: The adapter passed sync status as a badge while retaining a separate asset subtitle. The existing iOS linear DataRow renderer aligned its title icon against the combined text area instead of the primary line.
+**Fix**: Put native sync status on the asset's second line, remove its duplicate badge, and preserve the balance and trailing spinner. Use the published SDK's existing table renderer only for single-network iOS privacy lists outside token selection and cross-network grouping. Keep layout selection independent of sync state and preserve the normal row background. Adapter regression tests cover platform and list-context guards; iPhone simulator checks cover actual Home preparing/error states and production-adapter Gallery syncing/paused/synced states. Live scanning completion was not verified because of a separate WebEmbed readiness failure.
+**Catchable by**: Sections 3, 6 and 8: Verify the real native renderer's title-icon alignment and status transitions, not just the adapter payload or desktop layout; cover excluded list contexts and stable layout selection across sync states.
+
+## Case: Empty privacy-management progress subtitle misaligned single-line status (OK-67119)
+**Date**: 2026-11-13 | **Platforms**: Shared Settings privacy-management UI on desktop, web, extension, iOS and Android. Background scanning is unchanged.
+**Symptom**: Preparing and paused status titles appeared above the vertical center of the refresh icon and action in Settings, even after the separate Token Details banner had been aligned.
+**Root Cause**: The management row always rendered an empty subtitle with a 40px minimum height to prevent loading-height jumps. That invisible subtitle displaced the visible title, and the earlier fix only covered the Token Details component.
+**Fix**: Render the subtitle only when progress or error text exists and reserve the existing 80px minimum on the whole row. Regression coverage exercises preparing, syncing, paused and preparing transitions without an empty subtitle. The actual desktop paused row retained its 80px height with matching title/icon vertical centers; preparing was covered by tests rather than a separate live screenshot.
+**Catchable by**: Sections 4, 6 and 8: Trace every page named by the issue, distinguish empty from visible detail text, and verify both alignment and stable row height during state changes instead of accepting a similar component's screenshot.
+
+## Case: Android modal closed while a collapsible pager header was collapsed
+**Date**: 2026-11-13 | **Platforms**: Android UI thread (native-stack vertical dismiss gesture). JS runtimes, native-resource ownership and background flows are unchanged; iOS uses a different dismiss path and is unchanged.
+**Symptom**: On the send flow's Select Address page, swiping a short or empty recipient list up and then down closed the whole send modal. Long lists did the same when the upward swipe only collapsed the header, and a downward drag from the sticky tab bar was taken as well.
+**Root Cause**: The patched native-stack dismiss gesture decides at touch slop by asking the views under the finger `canScrollVertically(-1)`. `CollapsiblePagerHost` keeps its collapsed-header offset apart from the page's scroll offset, so a collapsed header above a list at its own top reported no upward scroll. A short list can never scroll itself, so every upward swipe left it in that state.
+**Fix**: The dismiss gesture reads the pager's header offset by name and leaves the drag to the page while that offset exceeds the touch slop. A first version that treated any non-zero offset as collapsed regressed: a fling could stop the header 2px short of fully expanded, which looked expanded but made the next pull only finish the expansion. On one emulator, identical scripted gestures dragged or closed the modal in the unfixed build and expanded the header in the fixed build for a long list, an empty list and the tab bar; 9px and 58px residual offsets and normal dismissal were also checked. A signed build on a real device remains unverified.
+**Catchable by**: Sections 4 and 8: When a gesture arbitrates with `canScrollVertically`, check scroll state that a container keeps outside its scroll view, test short and empty content, and verify the next gesture after a fling leaves a small residual offset.

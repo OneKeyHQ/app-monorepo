@@ -251,9 +251,6 @@ function describeFailure(reason: unknown): string {
       Number.isFinite(error.payload.code)
         ? `sdkCode=${error.payload.code}`
         : undefined,
-      error?.payload?.error === 'Failure_DataError,Forbidden key path'
-        ? 'Forbidden key path'
-        : undefined,
     ]
       .filter((part) => part !== undefined && part !== '')
       .join(' | ') || 'unknown error'

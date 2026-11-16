@@ -634,6 +634,73 @@ describe('saved balance epochs', () => {
     });
   });
 
+  // A page answered from disk while the scanner held the runtime (Monero, e.g.
+  // right after its funds were verified) would otherwise keep the old figure.
+  it('tells pages when the scanner saves a changed balance, and only then', async () => {
+    const backgroundApi = createBackgroundApi();
+    await enable(backgroundApi);
+    const epoch = await readLocalWalletCacheEpoch({
+      backgroundApi,
+      accountId: owner.accountId,
+    });
+    await saveLastLocalWalletBalance({
+      backgroundApi,
+      ...owner,
+      epoch,
+      value: 'needs verifying',
+    });
+    const emit = jest.spyOn(appEventBus, 'emit');
+
+    await saveLastLocalWalletBalance({
+      backgroundApi,
+      ...owner,
+      epoch,
+      value: 'verified',
+    });
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.RefreshTokenList,
+      undefined,
+    );
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.LocalWalletBalanceLanded,
+      owner,
+    );
+
+    // The same figure on the next turn: a page re-reading starts no loop.
+    emit.mockClear();
+    await saveLastLocalWalletBalance({
+      backgroundApi,
+      ...owner,
+      epoch,
+      value: 'verified',
+    });
+    expect(emit).not.toHaveBeenCalled();
+    emit.mockRestore();
+  });
+
+  it('tells no page about a balance dropped as its data was destroyed', async () => {
+    const backgroundApi = createBackgroundApi();
+    await enable(backgroundApi);
+    const epoch = await readLocalWalletCacheEpoch({
+      backgroundApi,
+      accountId: owner.accountId,
+    });
+    await backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
+      accountIds: [owner.accountId],
+    });
+    const emit = jest.spyOn(appEventBus, 'emit');
+
+    await saveLastLocalWalletBalance({
+      backgroundApi,
+      ...owner,
+      epoch,
+      value: 'destroyed',
+    });
+    expect(emit).not.toHaveBeenCalled();
+    await expect(savedRecord(backgroundApi)).resolves.toBeUndefined();
+    emit.mockRestore();
+  });
+
   it('misses and deletes an entry saved under an older epoch', async () => {
     const backgroundApi = createBackgroundApi();
     await enable(backgroundApi);

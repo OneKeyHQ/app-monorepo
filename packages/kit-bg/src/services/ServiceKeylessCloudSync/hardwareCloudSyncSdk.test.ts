@@ -898,7 +898,10 @@ describe('hardware Cloud SDK adapter', () => {
       });
       sdk.btcGetAddress.mockResolvedValue({
         success: false,
-        payload: { error: 'Failure_DataError,Forbidden key path' },
+        payload: {
+          code: HardwareErrorCode.ForbiddenKeyPath,
+          error: 'Forbidden key path',
+        },
       } as never);
       await expect(
         generateHardwareCloudSyncCredentialWithSdk({

@@ -234,6 +234,7 @@ export enum EAppEventBusNames {
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
   ShowInAppPushNotification = 'ShowInAppPushNotification',
   ExecuteNotificationCommand = 'ExecuteNotificationCommand',
+  SupportReplyReceived = 'SupportReplyReceived',
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
   ClearSavedBrowserActiveTab = 'ClearSavedBrowserActiveTab',

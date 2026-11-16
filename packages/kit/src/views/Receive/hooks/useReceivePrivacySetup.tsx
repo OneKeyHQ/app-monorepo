@@ -23,13 +23,11 @@ export function useReceivePrivacySetup({
   accountId,
   settings,
   onEnabled,
-  onOpenSettings,
 }: {
   networkId: string;
   accountId: string | undefined;
   settings: IVaultSettings['localWallet'];
   onEnabled: () => void;
-  onOpenSettings: () => void;
 }) {
   const intl = useIntl();
   const [busy, setBusy] = useState(false);
@@ -76,7 +74,7 @@ export function useReceivePrivacySetup({
         )
           return;
         if (isLocalWalletSlotsFullError(error)) {
-          showPrivacyChainSlotsFullDialog({ intl, onOpenSettings });
+          showPrivacyChainSlotsFullDialog({ intl, networkId });
         } else {
           Toast.error({
             title: intl.formatMessage({
@@ -198,7 +196,7 @@ export function useReceivePrivacySetup({
         finish();
       }
     },
-    [accountId, intl, networkId, onEnabled, onOpenSettings, scope, settings],
+    [accountId, intl, networkId, onEnabled, scope, settings],
   );
 
   return { open, busy };

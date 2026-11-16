@@ -390,7 +390,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       const dbAccount = (await vault.backgroundApi.serviceAccount
         .getDBAccountSafe({ accountId })
         .catch(() => null)) as IDBUtxoAccount | null;
-      // Imported and watch-only accounts have no privacy material to read. Without its key the
+      // Watch-only accounts have no privacy material to read. Without its key the
       // account is being turned off, so it shows as not scanning.
       const meta = vault.supportsAccountWalletType({ accountId })
         ? await vault
