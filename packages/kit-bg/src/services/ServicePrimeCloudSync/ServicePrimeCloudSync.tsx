@@ -1855,6 +1855,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: localItems.map((item) => item.id),
       });
+      // Keep the downloaded versions before scene replay mutates decrypt/ACK
+      // fields or a concurrent local restore replaces the persisted records.
+      const cleanupSources = items.filter(Boolean).map((item) => ({ ...item }));
       await this.assertSyncCredentialUnchanged(syncCredential);
       await this.syncToSceneWithLocalSyncItems({
         items: items.filter(Boolean),
@@ -1875,6 +1878,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (deletedItems.length) {
         await localDb.removeCloudSyncPoolItems({
           keys: deletedItems.map((item) => item.id),
+          expectedItems: cleanupSources,
         });
       }
       void this.updateLastSyncTime();

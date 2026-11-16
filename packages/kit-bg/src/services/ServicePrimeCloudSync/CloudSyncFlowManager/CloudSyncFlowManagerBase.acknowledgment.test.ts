@@ -147,6 +147,7 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
     expect(h.syncEachItem).toHaveBeenCalledTimes(1);
     expect(h.setUniversalIndexedAccountName).toHaveBeenCalledWith({
       indexedAccountId: undefined,
+      cloudSyncSource: stored,
       ...payload,
       skipSaveLocalSyncItem: true,
       skipEventEmit: true,
@@ -244,6 +245,30 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
       dataTime: 1_750_000_000_001,
       rawData: 'newer-pending-data',
     });
+  });
+
+  test.each<Partial<IDBCloudSyncItem>>([
+    { dataTime: 1_750_000_000_001 },
+    { data: 'concurrent-ciphertext' },
+    { isDeleted: true },
+    { pwdHash: 'concurrent-credential' },
+    { dataType: EPrimeCloudSyncDataType.Wallet },
+  ])('does not acknowledge a replaced pending source: %j', async (change) => {
+    const h = await harness({ localSceneUpdated: false });
+    let replacement: IDBCloudSyncItem | undefined;
+    h.setUniversalIndexedAccountName.mockImplementation(async () => {
+      replacement = {
+        ...h.pool.get(h.item.id)!,
+        ...change,
+        rawData: 'concurrent-pending-data',
+        localSceneUpdated: false,
+      };
+      h.pool.set(h.item.id, { ...replacement });
+    });
+    await h.replay(false);
+
+    expect(h.syncEachItem).toHaveBeenCalledTimes(1);
+    expect(h.pool.get(h.item.id)).toEqual(replacement);
   });
 
   test('a necessary acknowledgment preserves the current transaction record raw key', async () => {

@@ -8,6 +8,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
@@ -67,7 +68,10 @@ import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
-import { withPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import { shouldAbortAccountCreation } from './accountCreationErrors';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
@@ -381,9 +385,34 @@ class ServiceBatchCreateAccount extends ServiceBase {
     this.progressInfo = undefined;
   }
 
-  async updateAccountExistsInDb({ account }: { account: IBatchCreateAccount }) {
+  async updateAccountExistsInDb({
+    account,
+    publicAccountCreationContext,
+  }: {
+    account: IBatchCreateAccount;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
+  }) {
     if (await localDb.getAccountSafe({ accountId: account.id })) {
       account.existsInDb = true;
+      // Removing an indexed account can leave its chain rows until cleanup.
+      // A trusted user recreation must restore their tombstones, not skip them.
+      if (isPublicAccountCreationContext(publicAccountCreationContext)) {
+        const keyInfo =
+          await this.backgroundApi.servicePrimeCloudSync.syncManagers.account.buildSyncKeyInfo(
+            {
+              target: {
+                targetId: account.id,
+                dataType: EPrimeCloudSyncDataType.Account,
+                account,
+              },
+            },
+          );
+        if (
+          keyInfo?.key &&
+          (await localDb.getSyncItemSafe({ id: keyInfo.key }))?.isDeleted
+        )
+          account.existsInDb = false;
+      }
     } else {
       account.existsInDb = false;
     }
@@ -1963,7 +1992,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
         }
       }
       this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
-      await this.updateAccountExistsInDb({ account: accountForCreate });
+      await this.updateAccountExistsInDb({
+        account: accountForCreate,
+        publicAccountCreationContext,
+      });
       if (saveToCache) {
         this.networkAccountsCache[key] = accountForCreate;
       }

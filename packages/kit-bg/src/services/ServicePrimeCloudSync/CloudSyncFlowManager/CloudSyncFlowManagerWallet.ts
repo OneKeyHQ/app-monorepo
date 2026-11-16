@@ -11,7 +11,11 @@ import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
-import type { IDBDevice, IDBWallet } from '../../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../../dbs/local/types';
 
 export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   EPrimeCloudSyncDataType.Wallet,
@@ -98,12 +102,14 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   }
 
   override async syncToSceneEachItem(params: {
+    item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
   }): Promise<boolean> {
     const { target, payload } = params;
     await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
       walletId: target.wallet.id,
+      cloudSyncSource: params.item,
       name: payload.name,
       avatar: payload.avatar,
       firstEvmAddress: payload.firstEvmAddress,

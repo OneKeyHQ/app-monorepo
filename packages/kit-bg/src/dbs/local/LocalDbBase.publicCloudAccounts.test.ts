@@ -21,9 +21,9 @@ import { rememberPublicAccountSnapshotWrite } from '../../services/ServicePrimeC
 import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import { EIndexedDBBucketNames } from './types';
 
 import type {
-  EIndexedDBBucketNames,
   IDBAccount,
   IDBBaseObject,
   IDBCloudSyncItem,
@@ -1325,79 +1325,272 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     },
   );
 
-  it('restores historical names and indexes atomically through the trusted user creation write path', async () => {
-    const db = new PublicAccountTestDb();
-    const value = account(1);
-    const source = db.prepareSources([value]).get(value.id);
-    if (!source) throw new OneKeyLocalError('Missing test source');
-    const restored = rememberPublicAccountSnapshotWrite(
-      {
-        ...source,
-        isDeleted: false,
-        dataTime: 3,
-        data: 'fresh-public-test-ciphertext',
-        serverUploaded: false,
-      },
-      source,
-    );
-    const buildExplicit = jest.fn(async () => ({
-      item: restored,
-      name: 'Historical custom name',
-    }));
-    db.setBackgroundApi({
-      serviceKeylessCloudSync: {
-        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
-          operation(),
-      },
-      servicePrimeCloudSync: {
-        syncManagers: {
-          account: {
-            getSyncCredential: async () => undefined,
-            buildExistingSyncItemsInfo: async () => ({
-              existingSyncItems: [source],
-              newSyncItems: [],
-              existingSyncItemsInfo: {},
-            }),
-            buildSyncItemForExplicitAccountCreation: buildExplicit,
-            txWithSyncFlowOfDBRecordCreating: async ({
-              tx,
-              newSyncItems,
-              runDbTxFn,
-            }: {
-              tx: ILocalDBTransaction;
-              newSyncItems: IDBCloudSyncItem[];
-              runDbTxFn: () => ReturnType<LocalDbBase['addAccountsToWallet']>;
-            }) => {
-              await db.txAddAndUpdateSyncItems({
+  it.each([false, true])(
+    'restores historical names and indexes atomically even with an orphan chain row (%s)',
+    async (hasOrphan) => {
+      const db = new PublicAccountTestDb();
+      const value = account(1);
+      if (hasOrphan) db.put(ELocalDBStoreNames.Account, value);
+      const source = db.prepareSources([value]).get(value.id);
+      if (!source) throw new OneKeyLocalError('Missing test source');
+      const restored = rememberPublicAccountSnapshotWrite(
+        {
+          ...source,
+          isDeleted: false,
+          dataTime: 3,
+          data: 'fresh-public-test-ciphertext',
+          serverUploaded: false,
+        },
+        source,
+      );
+      const buildExplicit = jest.fn(async () => ({
+        item: restored,
+        name: 'Historical custom name',
+      }));
+      db.setBackgroundApi({
+        serviceKeylessCloudSync: {
+          runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+            operation(),
+        },
+        servicePrimeCloudSync: {
+          syncManagers: {
+            account: {
+              getSyncCredential: async () => undefined,
+              buildExistingSyncItemsInfo: async () => ({
+                existingSyncItems: [source],
+                newSyncItems: [],
+                existingSyncItemsInfo: {},
+              }),
+              buildSyncItemForExplicitAccountCreation: buildExplicit,
+              txWithSyncFlowOfDBRecordCreating: async ({
                 tx,
-                items: newSyncItems,
-                skipUploadToServer: true,
-              });
-              return runDbTxFn();
+                newSyncItems,
+                runDbTxFn,
+              }: {
+                tx: ILocalDBTransaction;
+                newSyncItems: IDBCloudSyncItem[];
+                runDbTxFn: () => ReturnType<LocalDbBase['addAccountsToWallet']>;
+              }) => {
+                await db.txAddAndUpdateSyncItems({
+                  tx,
+                  items: newSyncItems,
+                  skipUploadToServer: true,
+                });
+                return runDbTxFn();
+              },
             },
           },
         },
-      },
-    } as unknown as IBackgroundApi);
-    await withPublicAccountCreationContext(
-      async (publicAccountCreationContext) => {
-        await db.addAccountsToWallet({
-          walletId: WALLET.id,
-          accounts: [value],
-          publicAccountCreationContext,
-          skipEventEmit: true,
+      } as unknown as IBackgroundApi);
+      await withPublicAccountCreationContext(
+        async (publicAccountCreationContext) => {
+          await db.addAccountsToWallet({
+            walletId: WALLET.id,
+            accounts: [value],
+            publicAccountCreationContext,
+            skipEventEmit: true,
+          });
+        },
+      );
+      expect(
+        db.stores.get(ELocalDBStoreNames.Account)?.get(value.id),
+      ).toMatchObject({ name: 'Historical custom name' });
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--1'),
+      ).toMatchObject({ name: 'Historical custom name' });
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+      ).toMatchObject({ isDeleted: false, dataTime: 3 });
+      expect(buildExplicit).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
+describe('metadata scene source version guard', () => {
+  it.each(
+    [
+      EPrimeCloudSyncDataType.Wallet,
+      EPrimeCloudSyncDataType.IndexedAccount,
+    ].flatMap((dataType) =>
+      ['rename', 'same-time-replacement', 'deletion', 'removed-source'].map(
+        (change) => ({ dataType, change }),
+      ),
+    ),
+  )(
+    'does not replace concurrent metadata from a stale $dataType snapshot ($change)',
+    async ({ dataType, change }) => {
+      const db = new PublicAccountTestDb();
+      db.setBackgroundApi({
+        servicePrimeCloudSync: { syncManagers: {} },
+      } as unknown as IBackgroundApi);
+      jest.spyOn(db, 'emitRenameDBAccountsEvent').mockResolvedValue();
+      const source: IDBCloudSyncItem = {
+        id: 'metadata-source',
+        dataType,
+        dataTime: 100,
+        data: 'old-ciphertext',
+        rawData: 'old-payload',
+        rawKey: 'metadata-key',
+        pwdHash: 'test-credential',
+        isDeleted: false,
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      db.put(ELocalDBStoreNames.CloudSyncItem, source);
+      db.put(ELocalDBStoreNames.IndexedAccount, {
+        id: 'hd-1--0',
+        walletId: WALLET.id,
+        index: 0,
+        name: 'Original',
+        idHash: 'original-avatar',
+      });
+      const replacement = {
+        ...source,
+        dataTime: change === 'same-time-replacement' ? 100 : 101,
+        data: 'new-ciphertext',
+        isDeleted: change === 'deletion',
+        rawData: 'new-payload',
+        localSceneUpdated: true,
+        serverUploaded: false,
+      };
+      db.beforeTransaction = () => {
+        if (change === 'removed-source')
+          db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.delete(source.id);
+        else db.put(ELocalDBStoreNames.CloudSyncItem, replacement);
+        db.put(ELocalDBStoreNames.Wallet, {
+          ...WALLET,
+          name: 'Newest local name',
         });
-      },
+        db.put(ELocalDBStoreNames.IndexedAccount, {
+          id: 'hd-1--0',
+          walletId: WALLET.id,
+          index: 0,
+          name: 'Newest local name',
+          idHash: 'original-avatar',
+        });
+      };
+      const common = {
+        name: 'Stale cloud name',
+        skipSaveLocalSyncItem: true,
+        cloudSyncSource: source,
+      };
+      const apply =
+        dataType === EPrimeCloudSyncDataType.Wallet
+          ? db.setWalletNameAndAvatar({
+              ...common,
+              walletId: WALLET.id,
+              firstEvmAddress: account(0).address,
+            })
+          : db.setAccountName({ ...common, indexedAccountId: 'hd-1--0' });
+      await expect(apply).rejects.toThrow('Cloud sync metadata source changed');
+      expect(db.readWallet()).toMatchObject({ name: 'Newest local name' });
+      expect(db.readWallet().firstEvmAddress).toBeUndefined();
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--0'),
+      ).toMatchObject({ name: 'Newest local name', idHash: 'original-avatar' });
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+      ).toEqual(change === 'removed-source' ? undefined : replacement);
+      expect(db.writes).toEqual([]);
+    },
+  );
+});
+
+describe('current metadata scene source', () => {
+  it.each([
+    EPrimeCloudSyncDataType.Wallet,
+    EPrimeCloudSyncDataType.IndexedAccount,
+  ])(
+    'applies a matching %s source after its decrypted cache is populated',
+    async (dataType) => {
+      const db = new PublicAccountTestDb();
+      db.setBackgroundApi({
+        servicePrimeCloudSync: { syncManagers: {} },
+      } as unknown as IBackgroundApi);
+      jest.spyOn(db, 'emitRenameDBAccountsEvent').mockResolvedValue();
+      const source: IDBCloudSyncItem = {
+        id: 'metadata-source',
+        dataType,
+        dataTime: 100,
+        data: 'ciphertext',
+        rawData: undefined,
+        rawKey: 'metadata-key',
+        pwdHash: 'test-credential',
+        isDeleted: false,
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      db.put(ELocalDBStoreNames.CloudSyncItem, {
+        ...source,
+        rawData: 'decrypted-cache',
+      });
+      db.put(ELocalDBStoreNames.IndexedAccount, {
+        id: 'hd-1--0',
+        walletId: WALLET.id,
+        index: 0,
+        name: 'Original',
+        idHash: 'original-avatar',
+      });
+      const common = {
+        name: 'Cloud name',
+        skipSaveLocalSyncItem: true,
+        cloudSyncSource: source,
+      };
+      if (dataType === EPrimeCloudSyncDataType.Wallet) {
+        await db.setWalletNameAndAvatar({ ...common, walletId: WALLET.id });
+        expect(db.readWallet().name).toBe('Cloud name');
+      } else {
+        await db.setAccountName({ ...common, indexedAccountId: 'hd-1--0' });
+        expect(
+          db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--0'),
+        ).toMatchObject({ name: 'Cloud name' });
+      }
+    },
+  );
+});
+
+describe('cloud tombstone cleanup source guard', () => {
+  it.each([
+    'restored',
+    'same-time-new-ciphertext',
+    'newer-tombstone',
+    'unchanged',
+  ])('only removes the downloaded tombstone version: %s', async (change) => {
+    const db = new PublicAccountTestDb();
+    const source: IDBCloudSyncItem = {
+      id: 'deleted-wallet',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      dataTime: 100,
+      data: 'old-ciphertext',
+      rawData: 'old-cache',
+      rawKey: 'wallet-key',
+      pwdHash: 'test-space',
+      isDeleted: true,
+      localSceneUpdated: false,
+      serverUploaded: true,
+    };
+    const current = {
+      ...source,
+      localSceneUpdated: true,
+      rawData: 'filled-cache',
+      ...(change === 'restored' ? { isDeleted: false, dataTime: 101 } : {}),
+      ...(change === 'same-time-new-ciphertext'
+        ? { data: 'new-ciphertext' }
+        : {}),
+      ...(change === 'newer-tombstone' ? { dataTime: 101 } : {}),
+    };
+    db.put(ELocalDBStoreNames.CloudSyncItem, source);
+    db.beforeTransaction = () =>
+      db.put(ELocalDBStoreNames.CloudSyncItem, current);
+    await db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+      db.txRemoveCloudSyncPoolItems({
+        tx,
+        keys: [source.id],
+        expectedItems: [source],
+      }),
     );
     expect(
-      db.stores.get(ELocalDBStoreNames.Account)?.get(value.id),
-    ).toMatchObject({ name: 'Historical custom name' });
-    expect(
-      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--1'),
-    ).toMatchObject({ name: 'Historical custom name' });
-    expect(
       db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
-    ).toMatchObject({ isDeleted: false, dataTime: 3 });
-    expect(buildExplicit).toHaveBeenCalledTimes(1);
+    ).toEqual(change === 'unchanged' ? undefined : current);
   });
 });

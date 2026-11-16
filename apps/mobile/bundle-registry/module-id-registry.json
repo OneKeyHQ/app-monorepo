@@ -21898,6 +21898,7 @@
     "packages/kit-bg/src/services/ServicePrimeCloudSync/keylessCloudSyncApi.ts": 1039,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/keylessCloudSyncUtils.ts": 3906,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/publicAccountCreationContext.ts": 9956,
+    "packages/kit-bg/src/services/ServicePrimeCloudSync/publicAccountIndexedNames.ts": 10705,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/publicAccountSnapshot.ts": 20367,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/publicAccountSnapshotErrors.ts": 10718,
     "packages/kit-bg/src/services/ServicePrimeCloudSync/publicAccountSnapshotImport.ts": 10846,

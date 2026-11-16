@@ -50,7 +50,10 @@ export async function preparePublicAccountIndexedNames({
   const keys = indexes.map((index) => ({
     index,
     id: accountUtils.buildIndexedAccountId({ walletId: wallet.id, index }),
-    key: manager.rawKeyToHashKey(`${wallet.xfp}__${index}`),
+    rawKey: `${EPrimeCloudSyncDataType.IndexedAccount} >> ${wallet.xfp}__${index}`,
+    key: manager.rawKeyToHashKey(
+      `${EPrimeCloudSyncDataType.IndexedAccount} >> ${wallet.xfp}__${index}`,
+    ),
   }));
   const { records: metadata } = await backgroundApi.localDb.getRecordsByIds({
     name: ELocalDBStoreNames.CloudSyncItem,
@@ -77,7 +80,7 @@ export async function preparePublicAccountIndexedNames({
         continue;
       const payload = rawDataJson.payload;
       if (
-        rawDataJson.rawKey !== `${wallet.xfp}__${entry.index}` ||
+        rawDataJson.rawKey !== entry.rawKey ||
         payload.index !== entry.index ||
         normalizePublicAccountWalletXfp(payload.walletXfp) !==
           normalizePublicAccountWalletXfp(wallet.xfp) ||

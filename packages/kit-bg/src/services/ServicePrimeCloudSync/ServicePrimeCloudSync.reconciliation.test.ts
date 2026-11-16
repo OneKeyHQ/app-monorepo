@@ -1044,7 +1044,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       initialPool: new Map(records.map((row) => [row.id, row])),
     });
     h.service.syncManagers.wallet.removeSyncItemIfServerDeleted = true;
-    jest
+    const removePoolItems = jest
       .spyOn(localDb, 'removeCloudSyncPoolItems')
       .mockImplementation(async ({ keys }) => {
         for (const id of keys) h.pool.delete(id);
@@ -1064,6 +1064,12 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     );
     await h.run();
     expect(h.pool.size).toBe(0);
+    expect(removePoolItems).toHaveBeenCalledWith({
+      keys: ['wallet-delete-0'],
+      expectedItems: [
+        expect.objectContaining({ id: 'wallet-delete-0', isDeleted: true }),
+      ],
+    });
     expect(h.check).toHaveBeenCalledTimes(2);
     expect(h.config().cloudSyncReconciliation).toMatchObject({
       status: 'complete',

@@ -718,7 +718,9 @@ export abstract class CloudSyncFlowManagerBase<
           shouldSync = true;
         }
         if (item.dataType === this.dataType && shouldSync) {
-          // Decryption mutates item, so retain the stored acknowledgment fields.
+          // Decryption mutates item, so retain the original source version.
+          const source = { ...item };
+          // Retain the stored acknowledgment fields.
           const { localSceneUpdated, pwdHash, rawData, rawKey } = item;
           // A caller may already have decrypted fields that are not yet stored.
           const wasAlreadyDecrypted = !!item.rawDataJson;
@@ -757,7 +759,7 @@ export abstract class CloudSyncFlowManagerBase<
                 if (keyInfo.key === item.id) {
                   // TODO batch update
                   const isSuccess = await this.syncToSceneEachItemByMutex({
-                    item,
+                    item: source,
                     target,
                     payload: payload as any,
                   });
@@ -772,6 +774,18 @@ export abstract class CloudSyncFlowManagerBase<
                     await this.backgroundApi.localDb.updateSyncItem({
                       ids: [item.id],
                       updater: (record) => {
+                        // A newer download/local edit can arrive while the scene
+                        // update awaits. Never acknowledge or replace its cache.
+                        if (
+                          record.data !== source.data ||
+                          record.dataTime !== source.dataTime ||
+                          record.dataType !== source.dataType ||
+                          record.isDeleted !== source.isDeleted ||
+                          record.pwdHash !== source.pwdHash ||
+                          (!source.data && record.rawData !== source.rawData)
+                        ) {
+                          return record;
+                        }
                         record.localSceneUpdated = true;
                         record.pwdHash = decryptedItem.dbItem.pwdHash;
                         record.rawData = decryptedItem.dbItem.rawData;

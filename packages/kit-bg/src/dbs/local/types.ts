@@ -244,6 +244,7 @@ export type IDBCreateQRWalletParams = {
   firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBSetWalletNameAndAvatarParams = {
+  cloudSyncSource?: IDBCloudSyncItem;
   firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;
@@ -259,6 +260,7 @@ export type IDBRemoveWalletParams = {
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 };
 type IDBSetAccountNameParamsBase = {
+  cloudSyncSource?: IDBCloudSyncItem;
   shouldCheckDuplicate?: boolean;
   skipEventEmit?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync

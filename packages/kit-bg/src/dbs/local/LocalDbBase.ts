@@ -5640,12 +5640,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async removeCloudSyncPoolItems({ keys }: { keys: string[] }) {
+  async removeCloudSyncPoolItems({
+    keys,
+    expectedItems,
+  }: {
+    keys: string[];
+    expectedItems?: IDBCloudSyncItem[];
+  }) {
     // EIndexedDBBucketNames.cloudSync
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
-        await this.txRemoveCloudSyncPoolItems({ tx, keys });
+        await this.txRemoveCloudSyncPoolItems({ tx, keys, expectedItems });
       },
     );
   }
@@ -5653,17 +5659,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async txRemoveCloudSyncPoolItems({
     tx,
     keys,
+    expectedItems,
   }: {
     tx: ILocalDBTransaction;
     keys: string[];
+    expectedItems?: IDBCloudSyncItem[];
   }) {
+    let keysToRemove = keys;
+    if (expectedItems) {
+      const expectedById = new Map(
+        expectedItems.map((item) => [item.id, item]),
+      );
+      const { records } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: keys,
+      });
+      // Cleanup follows asynchronous scene replay. Do not delete a local
+      // restore or a newer tombstone that replaced the downloaded version.
+      keysToRemove = records
+        .filter((current): current is IDBCloudSyncItem => {
+          const expected = current && expectedById.get(current.id);
+          return Boolean(
+            current &&
+            expected &&
+            current.isDeleted &&
+            expected.isDeleted &&
+            current.data === expected.data &&
+            current.dataTime === expected.dataTime &&
+            current.dataType === expected.dataType &&
+            current.pwdHash === expected.pwdHash &&
+            (expected.data || current.rawData === expected.rawData),
+          );
+        })
+        .map((item) => item.id);
+    }
     try {
-      console.log('txRemoveCloudSyncPoolItems', keys);
+      console.log('txRemoveCloudSyncPoolItems', keysToRemove);
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
         ignoreNotFound: true,
-        ids: keys.filter(Boolean),
+        ids: keysToRemove.filter(Boolean),
       });
     } catch (error) {
       console.error('txRemoveCloudSyncPoolItems error', error);
@@ -8076,6 +8113,38 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  private async txAssertCloudSyncMetadataSource({
+    tx,
+    source,
+  }: {
+    tx: ILocalDBTransaction;
+    source: IDBCloudSyncItem | undefined;
+  }) {
+    if (!source) return;
+    const { records } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      ids: [source.id],
+    });
+    const current = records[0];
+    // The scene write and this version check share one DB transaction. A local
+    // rename or newer download must not be overwritten by an earlier snapshot.
+    if (
+      !current ||
+      current.data !== source.data ||
+      current.dataTime !== source.dataTime ||
+      current.dataType !== source.dataType ||
+      current.isDeleted !== source.isDeleted ||
+      current.pwdHash !== source.pwdHash ||
+      (!source.data && current.rawData !== source.rawData)
+    ) {
+      throw new OneKeyLocalError({
+        message: 'Cloud sync metadata source changed',
+        autoToast: false,
+      });
+    }
+  }
+
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
   ): Promise<IDBWallet> {
@@ -8176,6 +8245,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txAssertCloudSyncMetadataSource({
+        tx,
+        source: params.cloudSyncSource,
+      });
       // add or update sync item
       if (syncItem) {
         await this.txAddAndUpdateFreshSyncItems({
@@ -9311,21 +9384,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (isPublicAccountCreationContext(publicAccountCreationContext)) {
       const syncCredential = await syncManager.getSyncCredential();
       for (const account of accounts) {
-        if (!existsAccounts.some((existing) => existing.id === account.id)) {
-          const restored =
-            await syncManager.buildSyncItemForExplicitAccountCreation({
-              target: {
-                targetId: account.id,
-                dataType: EPrimeCloudSyncDataType.Account,
-                account,
-              },
-              syncCredential,
-              creationContext: publicAccountCreationContext,
-            });
-          if (restored) {
-            account.name = restored.name;
-            explicitRestores.set(account.id, restored);
-          }
+        const restored =
+          await syncManager.buildSyncItemForExplicitAccountCreation({
+            target: {
+              targetId: account.id,
+              dataType: EPrimeCloudSyncDataType.Account,
+              account,
+            },
+            syncCredential,
+            creationContext: publicAccountCreationContext,
+          });
+        if (restored) {
+          account.name = restored.name;
+          explicitRestores.set(account.id, restored);
         }
       }
       const restoredKeys = new Set(
@@ -10920,6 +10991,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txAssertCloudSyncMetadataSource({
+        tx,
+        source: params.cloudSyncSource,
+      });
       // add or update sync item
       if (syncItem) {
         await this.txAddAndUpdateFreshSyncItems({
