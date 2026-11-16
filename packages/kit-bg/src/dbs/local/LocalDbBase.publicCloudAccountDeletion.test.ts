@@ -114,6 +114,10 @@ class DeletionTestDb extends LocalDbBase {
       target: { dbRecord: IDBBaseObject };
     }) => ({ key: `legacy:${target.dbRecord.id}` });
     this.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       servicePrimeCloudSync: {
         getSyncCredentialSafe: async () => undefined,
         startServerSyncFlowSilently: this.syncFlow,

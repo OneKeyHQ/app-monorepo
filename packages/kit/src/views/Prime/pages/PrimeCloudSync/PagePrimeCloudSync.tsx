@@ -706,6 +706,7 @@ function AppDataSection() {
             callerName: 'Manual Cloud Sync OneKey ID',
             noDebounceUpload: true,
             forceSync: true,
+            bypassRetryBackoff: true,
           })) === true;
       } finally {
         await timerUtils.wait(1000);
@@ -754,6 +755,7 @@ function AppDataSection() {
             callerName: 'Manual Cloud Sync Keyless',
             noDebounceUpload: true,
             forceSync: true,
+            bypassRetryBackoff: true,
             password,
           });
       } finally {

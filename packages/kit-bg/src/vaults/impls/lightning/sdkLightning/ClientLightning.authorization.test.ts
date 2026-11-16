@@ -251,11 +251,16 @@ describe('explicit Lightning actions retain authorization and cancellation', () 
     const withHardwareProcessing = jest.fn(
       async (operation: () => Promise<void>) => operation(),
     );
+    const h = harness();
     const service = Object.assign(Object.create(ServiceLightning.prototype), {
       backgroundApi: {
         servicePassword: { promptPasswordVerifyByAccount },
         serviceHardwareUI: { withHardwareProcessing },
+        serviceNetwork: {
+          getNetwork: jest.fn(async () => ({ isTestnet: false })),
+        },
       },
+      getLnClient: jest.fn(async () => h.client),
     }) as ServiceLightning;
     try {
       await service.exchangeToken({ accountId: 'hw-restored', networkId });
@@ -269,6 +274,55 @@ describe('explicit Lightning actions retain authorization and cancellation', () 
       getVault.mockRestore();
     }
   });
+
+  test.each(['hw-restored', 'hd-restored'])(
+    'successful %s exchange invalidates the real memoized service auth check',
+    async (accountId) => {
+      const h = harness(accountId);
+      h.setCredential('synthetic-expired-token');
+      h.get.mockResolvedValueOnce({ data: { data: false } });
+      const exchangeToken = jest.fn(async () => h.setCredential(localToken));
+      const vault = Object.assign(Object.create(LightningVault.prototype), {
+        exchangeToken,
+      }) as LightningVault;
+      const getVault = jest
+        .spyOn(vaultFactory, 'getVault')
+        .mockResolvedValueOnce(vault);
+      const service = Object.assign(Object.create(ServiceLightning.prototype), {
+        backgroundApi: {
+          servicePassword: {
+            promptPasswordVerifyByAccount: jest.fn(async () => ({
+              deviceParams: undefined,
+            })),
+          },
+          serviceHardwareUI: {
+            withHardwareProcessing: async (operation: () => Promise<void>) =>
+              operation(),
+          },
+          serviceNetwork: {
+            getNetwork: jest.fn(async () => ({ isTestnet: false })),
+          },
+        },
+        getLnClient: jest.fn(async () => h.client),
+      }) as ServiceLightning;
+      try {
+        await expect(service.checkAuth(h.params)).resolves.toBe(false);
+        await expect(service.checkAuth({ ...h.params })).resolves.toBe(false);
+        expect(h.get).toHaveBeenCalledTimes(1);
+        await service.exchangeToken(h.params);
+        await expect(service.checkAuth({ ...h.params })).resolves.toBe(true);
+        expect(h.get).toHaveBeenCalledTimes(2);
+        expect(h.get).toHaveBeenLastCalledWith(
+          '/lightning/v1/account/auth/check',
+          expect.objectContaining({ headers: { Authorization: localToken } }),
+        );
+        expect(exchangeToken).toHaveBeenCalledTimes(1);
+      } finally {
+        h.client.checkAuth.clear();
+        getVault.mockRestore();
+      }
+    },
+  );
 
   test('cancelling the explicit service password check never enters hardware processing', async () => {
     const cancelled = new OneKeyLocalError('Synthetic authorization cancelled');

@@ -801,10 +801,29 @@ class ServicePrimeCloudSync extends ServiceBase {
       updates,
     });
     if (generation !== this.publicAccountSnapshotImportGeneration) return;
-    await primeCloudSyncPersistAtom.set((value) => ({
-      ...value,
-      publicAccountSnapshotStatus: { ...counts, ...issues },
-    }));
+    await primeCloudSyncPersistAtom.set((value) => {
+      const status = { ...counts, ...issues };
+      const state = value.cloudSyncReconciliation;
+      const hasPending =
+        status.needsUpdate +
+          status.pending +
+          status.conflicts +
+          status.rejected >
+        0;
+      return {
+        ...value,
+        publicAccountSnapshotStatus: status,
+        // Push downloads can introduce local work after the network drain has
+        // completed. Allow local replay when its dependencies become ready.
+        cloudSyncReconciliation:
+          hasPending &&
+          state?.spaceId === spaceId &&
+          state.status === 'complete' &&
+          !state.unfinished
+            ? { ...state, status: 'partial', updatedAt: Date.now() }
+            : state,
+      };
+    });
   }
 
   @backgroundMethod()
@@ -1901,6 +1920,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName,
     noDebounceUpload,
     forceSync,
+    bypassRetryBackoff,
   }: Omit<IStartServerSyncFlowParams, 'throwError'> = {}) {
     return this.startServerSyncFlowSilently({
       isFlush,
@@ -1910,6 +1930,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       callerName,
       noDebounceUpload,
       forceSync,
+      bypassRetryBackoff,
     });
   }
 
@@ -1942,6 +1963,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName,
     noDebounceUpload,
     forceSync,
+    bypassRetryBackoff,
   }: IStartServerSyncFlowParams = {}): Promise<boolean | undefined> {
     if (localMutation) {
       const pending = {
@@ -1964,6 +1986,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     if (this.fullSyncPromise) {
       if (
+        bypassRetryBackoff ||
         forceSync ||
         isFlush ||
         encryptedSecurityPasswordR1ForServer ||
@@ -1994,6 +2017,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           callerName,
           noDebounceUpload,
           forceSync,
+          bypassRetryBackoff,
         });
       }
       this.fullSyncRequested = true;
@@ -2010,6 +2034,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             callerName,
             noDebounceUpload,
             forceSync,
+            bypassRetryBackoff,
           })
         : Promise.resolve(undefined),
     );
@@ -2040,8 +2065,10 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private async runFullCloudReconciliation({
     forceSync,
+    bypassRetryBackoff,
   }: {
     forceSync?: boolean;
+    bypassRetryBackoff?: boolean;
   }) {
     const entryGeneration = this.publicAccountSnapshotImportGeneration;
     const entryKeyGeneration =
@@ -2067,6 +2094,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         ? config.cloudSyncReconciliation
         : undefined;
     if (
+      !bypassRetryBackoff &&
       previous?.unfinished &&
       previous.nextRetryAt &&
       previous.nextRetryAt > Date.now()
@@ -2450,6 +2478,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName,
     noDebounceUpload,
     forceSync,
+    bypassRetryBackoff,
   }: IStartServerSyncFlowParams) {
     try {
       // const syncMode = await this.getActiveSyncMode();
@@ -2461,7 +2490,11 @@ class ServicePrimeCloudSync extends ServiceBase {
         callerName,
       });
 
-      if (!isFlush) return await this.runFullCloudReconciliation({ forceSync });
+      if (!isFlush)
+        return await this.runFullCloudReconciliation({
+          forceSync,
+          bypassRetryBackoff,
+        });
 
       // when data is written, because the cached password is missing to encrypt, so data is undefined
       await this.fillingSyncItemsMissingDataFromRawData({
@@ -3171,12 +3204,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
     forceSync,
+    bypassRetryBackoff,
     password,
     askPasswordOnlyIfHdXfpMissing,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
     forceSync?: boolean;
+    bypassRetryBackoff?: boolean;
     password?: string;
     // Only the hardware Cloud key Sync now button sets this.
     askPasswordOnlyIfHdXfpMissing?: boolean;
@@ -3215,6 +3250,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       callerName,
       noDebounceUpload,
       forceSync,
+      bypassRetryBackoff,
     });
     return completed === true;
   }

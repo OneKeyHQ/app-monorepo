@@ -529,6 +529,10 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       db.writes.filter((name) => name === ELocalDBStoreNames.Wallet),
     ).toHaveLength(20);
     db.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       servicePrimeCloudSync: {
         syncManagers: {
           indexedAccount: {
@@ -614,6 +618,10 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       ).toMatchObject({ name: 'Existing index name' });
     }
     db.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       servicePrimeCloudSync: {
         syncManagers: {
           indexedAccount: {
@@ -881,6 +889,10 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       name: 'Historical custom name',
     }));
     db.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       servicePrimeCloudSync: {
         syncManagers: {
           account: {

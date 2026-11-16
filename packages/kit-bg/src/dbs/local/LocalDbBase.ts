@@ -8997,7 +8997,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async addAccountsToWallet({
+  async addAccountsToWallet(
+    params: Parameters<LocalDbBase['addAccountsToWalletWithCloudKeyLock']>[0],
+  ) {
+    if (
+      !(
+        accountUtils.isHdWallet({ walletId: params.walletId }) ||
+        accountUtils.isHwWallet({ walletId: params.walletId })
+      ) ||
+      accountUtils.isBotWallet({ walletId: params.walletId })
+    )
+      return this.addAccountsToWalletWithCloudKeyLock(params);
+    // Serialize credential preparation and the final DB write with key rotation.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.addAccountsToWalletWithCloudKeyLock(params),
+    );
+  }
+
+  private async addAccountsToWalletWithCloudKeyLock({
     allAccountsBelongToNetworkId,
     walletId,
     accounts,
@@ -10226,7 +10243,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async removeIndexedAccounts({
+  async removeIndexedAccounts(
+    params: Parameters<LocalDbBase['removeIndexedAccountsWithCloudKeyLock']>[0],
+  ) {
+    // Serialize credential preparation and the final DB write with key rotation.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.removeIndexedAccountsWithCloudKeyLock(params),
+    );
+  }
+
+  private async removeIndexedAccountsWithCloudKeyLock({
     indexedAccounts,
   }: {
     indexedAccounts: IDBIndexedAccount[];
@@ -10257,7 +10283,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   // TODO remove associated account
-  async removeIndexedAccount({
+  async removeIndexedAccount(
+    params: Parameters<LocalDbBase['removeIndexedAccountWithCloudKeyLock']>[0],
+  ) {
+    // Serialize credential preparation and the final DB write with key rotation.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.removeIndexedAccountWithCloudKeyLock(params),
+    );
+  }
+
+  private async removeIndexedAccountWithCloudKeyLock({
     indexedAccountId,
     walletId,
   }: {
@@ -10321,7 +10356,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  async removeAccountsByIds({ ids }: { ids: string[] }) {
+  async removeAccountsByIds(
+    params: Parameters<LocalDbBase['removeAccountsByIdsWithCloudKeyLock']>[0],
+  ) {
+    // Serialize credential preparation and the final DB write with key rotation.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.removeAccountsByIdsWithCloudKeyLock(params),
+    );
+  }
+
+  private async removeAccountsByIdsWithCloudKeyLock({
+    ids,
+  }: {
+    ids: string[];
+  }) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
     const accountIdsToRemove = ids.map((accountId) => {
       const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
@@ -10389,7 +10437,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async removeAccount({
+  async removeAccount(
+    params: Parameters<LocalDbBase['removeAccountWithCloudKeyLock']>[0],
+  ) {
+    // Serialize credential preparation and the final DB write with key rotation.
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.removeAccountWithCloudKeyLock(params),
+    );
+  }
+
+  private async removeAccountWithCloudKeyLock({
     accountId,
     walletId,
   }: {
@@ -10564,6 +10621,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    // Scene replay already holds the key/import gates and does not write Cloud
+    // ciphertext; reacquiring the non-reentrant key mutex would deadlock.
+    if (params.skipSaveLocalSyncItem)
+      return this.setAccountNameWithCloudKeyLock(params);
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () => this.setAccountNameWithCloudKeyLock(params),
+    );
+  }
+
+  private async setAccountNameWithCloudKeyLock(
+    params: IDBSetAccountNameParams,
+  ): Promise<void> {
     if (params.name && params.shouldCheckDuplicate) {
       const id = params.indexedAccountId ?? params.accountId;
       if (params.indexedAccountId && params.accountId) {

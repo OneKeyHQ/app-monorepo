@@ -102,7 +102,10 @@ jest.mock('../../dbs/local/localDb', () => ({
 jest.mock('../../dbs/simple/simpleDb', () => ({
   __esModule: true,
   default: {
-    cloudSyncAccountIssues: { getRawData: jest.fn(async () => null) },
+    cloudSyncAccountIssues: {
+      getRawData: jest.fn(async () => null),
+      updateIssues: jest.fn(),
+    },
   },
 }));
 
@@ -999,6 +1002,31 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.check).toHaveBeenCalledTimes(3);
   });
 
+  test('explicit manual bypass retries immediately while automatic forceSync remains backed off', async () => {
+    const h = harness();
+    h.check.mockResolvedValueOnce(reply({ diff: [serverItem(0)] }));
+    h.writePool.mockImplementationOnce(async ({ fn }) => {
+      await fn?.();
+    });
+    await h.run();
+    expect(h.config().cloudSyncReconciliation?.nextRetryAt).toBeGreaterThan(
+      Date.now(),
+    );
+    await h.run();
+    expect(h.check).toHaveBeenCalledTimes(1);
+    await h.service.startServerSyncFlowSilently({ forceSync: true });
+    expect(h.check).toHaveBeenCalledTimes(1);
+    await h.service.startServerSyncFlow({
+      forceSync: true,
+      bypassRetryBackoff: true,
+    });
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      unfinished: false,
+    });
+  });
+
   test('existing metadata deletion ACKs advance a delete-only multi-batch drain after pool cleanup', async () => {
     const records: IDBCloudSyncItem[] = [0, 1].map((index) => ({
       id: `wallet-delete-${index}`,
@@ -1208,6 +1236,86 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       requests: 4,
     });
   });
+
+  test.each(['foreground', 'network', 'manual'] as const)(
+    'pending push after completion is replayed on %s when dependencies recover',
+    async (reason) => {
+      const h = harness();
+      await h.run();
+      expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
+      const requests = h.check.mock.calls.length;
+      const counts = {
+        needsUpdate: 0,
+        pending: 1,
+        conflicts: 0,
+        rejected: 0,
+        added: 0,
+        unchanged: 0,
+      };
+      jest
+        .mocked(simpleDb.cloudSyncAccountIssues.updateIssues)
+        .mockResolvedValue(counts);
+      const credential = await h.service.getSyncCredentialSafe();
+      if (!credential) throw new OneKeyLocalError('Missing test credential');
+      // Exercise the production publisher, not the harness's isolated mock.
+      await ServicePrimeCloudSync.prototype.publishPublicAccountSnapshotStatus.call(
+        h.service,
+        { syncCredential: credential, updates: [], counts },
+      );
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'partial',
+        unfinished: false,
+      });
+      h.replay.mockClear();
+      h.replay.mockImplementationOnce(async () => {
+        expect(h.sourceMutex.isLocked()).toBe(true);
+        h.patchConfig({
+          publicAccountSnapshotStatus: { ...counts, pending: 0, added: 1 },
+        });
+      });
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(h.replay).toHaveBeenCalledTimes(1);
+      expect(h.check).toHaveBeenCalledTimes(requests);
+      expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
+    },
+  );
+
+  test.each([
+    { spaceId: 'other-space', status: 'complete' as const, unfinished: false },
+    {
+      spaceId: 'public-root-space',
+      status: 'blocked' as const,
+      unfinished: true,
+    },
+  ])(
+    'pending publication preserves unrelated or unfinished state %o',
+    async (state) => {
+      const h = harness();
+      await h.run();
+      const completed = h.config().cloudSyncReconciliation;
+      if (!completed) throw new OneKeyLocalError('Missing test reconciliation');
+      const existing = { ...completed, ...state };
+      h.patchConfig({ cloudSyncReconciliation: existing });
+      const counts = {
+        needsUpdate: 0,
+        pending: 1,
+        conflicts: 0,
+        rejected: 0,
+        added: 0,
+        unchanged: 0,
+      };
+      jest
+        .mocked(simpleDb.cloudSyncAccountIssues.updateIssues)
+        .mockResolvedValue(counts);
+      const credential = await h.service.getSyncCredentialSafe();
+      if (!credential) throw new OneKeyLocalError('Missing test credential');
+      await ServicePrimeCloudSync.prototype.publishPublicAccountSnapshotStatus.call(
+        h.service,
+        { syncCredential: credential, updates: [], counts },
+      );
+      expect(h.config().cloudSyncReconciliation).toEqual(existing);
+    },
+  );
 
   test.each(['complete', 'blocked'] as const)(
     'old-space %s state cannot suppress a fresh selected-space wake or leak its issue counts',

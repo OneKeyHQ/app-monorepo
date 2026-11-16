@@ -145,6 +145,10 @@ class TestLocalDb extends LocalDbBase {
     super();
 
     this.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       serviceDBBackup: {
         backupDatabaseDaily: jest.fn(async () => undefined),
         removeBackupHyperLiquidAgentCredentials:

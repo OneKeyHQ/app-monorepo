@@ -63,6 +63,8 @@ export type IStartServerSyncFlowParams = {
   callerName?: string;
   noDebounceUpload?: boolean;
   forceSync?: boolean;
+  // Only explicit user retry/sync actions may bypass automatic backoff.
+  bypassRetryBackoff?: boolean;
 };
 
 export type ICloudSyncServerItem = {

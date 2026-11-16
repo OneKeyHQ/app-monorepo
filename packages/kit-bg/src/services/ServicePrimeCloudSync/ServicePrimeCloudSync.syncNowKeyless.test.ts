@@ -319,6 +319,19 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
     expect(service.updateLastSyncTime).not.toHaveBeenCalled();
   });
 
+  test.each([false, true])(
+    'keyless sync forwards explicit retry bypass=%s independently of forceSync',
+    async (bypassRetryBackoff) => {
+      const { service } = buildService();
+      await expect(
+        service.syncNowKeyless({ forceSync: true, bypassRetryBackoff }),
+      ).resolves.toBe(true);
+      expect(service.startServerSyncFlow).toHaveBeenCalledWith(
+        expect.objectContaining({ forceSync: true, bypassRetryBackoff }),
+      );
+    },
+  );
+
   test('keyless sync without password skips repair and prompts before the key lock', async () => {
     const {
       service,

@@ -20,6 +20,7 @@ import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keyless
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import localDb from '../../dbs/local/localDb';
+import { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import { LocalDbBaseContainer } from '../../dbs/local/LocalDbBaseContainer';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
@@ -3308,6 +3309,168 @@ describe('hardware reset session and local data races', () => {
     expect(newer.data).toBe('newer-ciphertext');
     expect(newer.dataTime).toBe(2);
   });
+
+  test('scene account rename does not reacquire the key lock', async () => {
+    const { service } = setup();
+    const lock = jest.spyOn(service, 'runWithCloudSyncKeyLock');
+    const write = jest.fn(async () => undefined);
+    const db: LocalDbBase = Object.assign(
+      Object.create(LocalDbBase.prototype) as LocalDbBase,
+      {
+        backgroundApi: { serviceKeylessCloudSync: service },
+        setAccountNameWithCloudKeyLock: write,
+      },
+    );
+    const params = {
+      accountId: 'hd-1--account',
+      name: 'Public name',
+      skipSaveLocalSyncItem: true,
+    };
+    await db.setAccountName(params);
+    expect(write).toHaveBeenCalledWith(params);
+    expect(lock).not.toHaveBeenCalled();
+  });
+
+  test.each([false, true])(
+    'local public-account write admitted before rotation is migrated (deleted=%s)',
+    async (isDeleted) => {
+      const { service, backgroundApi } = setup();
+      const record = {
+        id: 'public-account',
+        dataType: 'Account',
+        rawData: '',
+        rawKey: '',
+        data: 'old-version',
+        pwdHash: current.pwdHash,
+        dataTime: 1,
+        isDeleted: false,
+        serverUploaded: false,
+        localSceneUpdated: true,
+      } as IDBCloudSyncItem;
+      let release = () => {};
+      let entered = () => {};
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const write = async () => {
+        const selectedHash = mockStored?.pwdHash;
+        entered();
+        await paused;
+        Object.assign(record, {
+          pwdHash: selectedHash,
+          data: 'new-version',
+          dataTime: 2,
+          isDeleted,
+        });
+        return { isOverrideAccounts: false, existsAccounts: [] };
+      };
+      const db: LocalDbBase = Object.assign(
+        Object.create(LocalDbBase.prototype) as LocalDbBase,
+        {
+          backgroundApi: { serviceKeylessCloudSync: service },
+          addAccountsToWalletWithCloudKeyLock: write,
+          removeAccountWithCloudKeyLock: write,
+        },
+      );
+      backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementation(
+        async () => ({ items: [{ ...record }] }),
+      );
+      jest
+        .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+        .mockImplementation(async ({ items }) =>
+          items.map((item) => ({
+            ...item,
+            data: 'new-key-version',
+            pwdHash: next.pwdHash,
+          })),
+        );
+      jest
+        .spyOn(localDb, 'updateSyncItem')
+        .mockImplementation(async ({ updater }) => {
+          await updater(record);
+        });
+      const writing = isDeleted
+        ? db.removeAccount({ accountId: 'hd-1--account', walletId: 'hd-1' })
+        : db.addAccountsToWallet({ walletId: 'hd-1', accounts: [] });
+      await ready;
+      const rotating = service['commitHardwareDataKey'](current, next);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(
+        backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems,
+      ).not.toHaveBeenCalled();
+      release();
+      await Promise.all([writing, rotating]);
+      expect(record).toMatchObject({
+        rawData: '',
+        pwdHash: next.pwdHash,
+        data: 'new-key-version',
+        dataTime: 2,
+        isDeleted,
+        serverUploaded: false,
+      });
+    },
+  );
+
+  test.each([false, true])(
+    'local public-account write admitted after rotation reads the new credential (deleted=%s)',
+    async (isDeleted) => {
+      const { service } = setup();
+      let release = () => {};
+      let entered = () => {};
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      jest
+        .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+        .mockImplementationOnce(async ({ items }) => {
+          entered();
+          await paused;
+          return items;
+        });
+      jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+      let record: Partial<IDBCloudSyncItem> | undefined;
+      const write = jest.fn(async () => {
+        record = {
+          rawData: '',
+          pwdHash: mockStored?.pwdHash,
+          dataTime: 2,
+          isDeleted,
+          serverUploaded: false,
+        };
+        return { isOverrideAccounts: false, existsAccounts: [] };
+      });
+      const db: LocalDbBase = Object.assign(
+        Object.create(LocalDbBase.prototype) as LocalDbBase,
+        {
+          backgroundApi: { serviceKeylessCloudSync: service },
+          addAccountsToWalletWithCloudKeyLock: write,
+          removeAccountWithCloudKeyLock: write,
+        },
+      );
+      const rotating = service['commitHardwareDataKey'](current, next);
+      await ready;
+      const writing = isDeleted
+        ? db.removeAccount({ accountId: 'hd-1--account', walletId: 'hd-1' })
+        : db.addAccountsToWallet({ walletId: 'hd-1', accounts: [] });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(write).not.toHaveBeenCalled();
+      release();
+      await Promise.all([rotating, writing]);
+      expect(record).toMatchObject({
+        rawData: '',
+        pwdHash: next.pwdHash,
+        dataTime: 2,
+        isDeleted,
+        serverUploaded: false,
+      });
+    },
+  );
 
   test('reset waits for an admitted server write before reading and committing local data', async () => {
     const { service, backgroundApi } = setup();
