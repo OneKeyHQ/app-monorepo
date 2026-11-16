@@ -1282,3 +1282,33 @@ it('keeps the acknowledged composer editable while the first conversation refres
   await act(async () => refresh.resolve(conversation));
   expect(input.value).toBe('Next draft during refresh');
 });
+
+it.each([
+  { state: { prevent_end_user_replies: true }, offered: false },
+  // A bot step hides the composer while it still waits for a quick reply.
+  { state: { composer_state: { visibility: 'hidden' } }, offered: true },
+])(
+  'offers quick replies only while the conversation accepts replies: $state',
+  async ({ state, offered }) => {
+    mockRoute.params = { userId: null, conversationId: '42' };
+    const original = mockRequest.getMockImplementation();
+    mockRequest.mockImplementation(async (path, parameters) =>
+      path === 'conversations/42'
+        ? {
+            ...conversation,
+            ...state,
+            conversation_parts: [
+              {
+                ...part,
+                participant_is_admin: true,
+                reply_options: [{ uuid: 'yes', text: 'Yes' }],
+              },
+            ],
+          }
+        : original?.(path, parameters),
+    );
+    render(<SupportScreen />);
+    await screen.findByTestId('support-message-part-1');
+    expect(!!screen.queryByTestId('support-quick-reply-yes')).toBe(offered);
+  },
+);

@@ -209,6 +209,7 @@ function SupportConversationContent({
   }, [parts]);
   const canReply =
     active && (current?.canReply ?? open?.canWriteMessage ?? false);
+  const repliesBlocked = current?.repliesBlocked ?? false;
   const header = current?.header ?? open?.header;
   const renderHeaderTitle = useCallback(
     () => (
@@ -233,6 +234,8 @@ function SupportConversationContent({
   const send = useCallback(
     async (outgoing: IOutgoing) => {
       if (!session || sending.current || !active) return;
+      // A closed conversation rejects quick replies as well as typed ones.
+      if (outgoing.quickReply && repliesBlocked) return;
       sending.current = true;
       let prepared: IOutgoing = {
         ...outgoing,
@@ -328,6 +331,7 @@ function SupportConversationContent({
       acceptConversation,
       refreshConversation,
       followLatest,
+      repliesBlocked,
     ],
   );
   const pickImage = useCallback(async () => {
@@ -530,7 +534,9 @@ function SupportConversationContent({
                       return !!(await resource.refreshData());
                     }}
                     onQuickReply={
-                      conversationId && index === parts.length - 1
+                      conversationId &&
+                      index === parts.length - 1 &&
+                      !repliesBlocked
                         ? (partId, replyId, text) => {
                             void send({
                               id: generateUUID(),

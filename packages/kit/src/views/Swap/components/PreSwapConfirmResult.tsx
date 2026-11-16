@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import type { ILottieViewHandle } from '@onekeyhq/components';
@@ -92,6 +93,7 @@ const PreSwapConfirmResult = ({
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
   const { md } = useMedia();
+  const dialogInstance = useDialogInstance();
   const buttonSize = md ? 'large' : 'medium';
   useEffect(() => {
     const fetchExplorerUrl = async () => {
@@ -214,9 +216,12 @@ const PreSwapConfirmResult = ({
             flexBasis={0}
             variant="secondary"
             size={buttonSize}
-            onPress={() => {
+            onPress={async () => {
               if (supportUrl?.includes(SUPPORT_URL)) {
-                void showIntercom();
+                // The review dialog is a full-window overlay on native and
+                // would cover the support page pushed underneath it.
+                await dialogInstance.close();
+                await showIntercom();
               } else {
                 openUrlExternal(supportUrl ?? '');
               }

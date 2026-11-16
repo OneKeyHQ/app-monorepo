@@ -34,6 +34,9 @@ import { SupportNavigation } from '../components/SupportNavigation';
 import { SupportSessionBoundary } from '../components/SupportSessionBoundary';
 import { useSupportResource } from '../hooks/useSupportResource';
 
+// Stable empty list: FlatList treats a new array as changed data.
+const NO_ARTICLES: IIntercomArticleLink[] = [];
+
 function SupportHelpContent({
   session,
   active,
@@ -69,9 +72,9 @@ function SupportHelpContent({
   const waiting = input.trim() !== phrase;
   const loading = isSearching ? waiting || search.loading : home.loading;
   const failed = !!sessionError || (isSearching ? search.failed : home.failed);
-  let articles: IIntercomArticleLink[] = [];
+  let articles = NO_ARTICLES;
   if (!failed && !waiting)
-    articles = isSearching ? (search.data ?? []) : (home.data?.articles ?? []);
+    articles = (isSearching ? search.data : home.data?.articles) ?? NO_ARTICLES;
   let emptyState: ReactElement | undefined;
   if (failed) {
     emptyState = (

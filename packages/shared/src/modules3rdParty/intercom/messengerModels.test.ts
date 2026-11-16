@@ -63,8 +63,17 @@ it('respects ended conversations independently of composer visibility', () => {
     parseIntercomConversation({
       ...conversation,
       prevent_end_user_replies: true,
-    }).canReply,
-  ).toBe(false);
+    }),
+  ).toMatchObject({ canReply: false, repliesBlocked: true });
+});
+
+it('keeps quick replies available while a bot step hides the composer', () => {
+  expect(
+    parseIntercomConversation({
+      ...conversation,
+      composer_state: { visibility: 'hidden' },
+    }),
+  ).toMatchObject({ canReply: false, repliesBlocked: false });
 });
 
 it('preserves bot context and server copy when starting a conversation', () => {

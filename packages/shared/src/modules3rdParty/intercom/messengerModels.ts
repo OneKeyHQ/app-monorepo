@@ -319,6 +319,7 @@ export function parseIntercomConversation(
     read: data.read === true,
     updatedAt: number(data.updated_at) || parts.at(-1)?.createdAt || 0,
     parts,
+    repliesBlocked: data.prevent_end_user_replies === true,
     canReply:
       data.prevent_end_user_replies !== true &&
       (!composer.visibility || composer.visibility === 'visible_and_enabled'),

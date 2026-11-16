@@ -87,6 +87,9 @@ export type IIntercomConversation = {
   updatedAt: number;
   parts: IIntercomPart[];
   canReply: boolean;
+  // The conversation refuses every end-user reply. A hidden composer alone
+  // does not: bot steps hide it while still expecting a quick reply.
+  repliesBlocked: boolean;
   placeholder?: string;
   header: IIntercomHeader;
 };
