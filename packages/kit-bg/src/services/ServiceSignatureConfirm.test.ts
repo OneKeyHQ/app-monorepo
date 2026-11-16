@@ -1137,6 +1137,94 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     expect(decodedTx.txDisplay?.alerts).toEqual(alerts);
   });
 
+  describe('BTC PSBT', () => {
+    const serverRiskTag = { value: 'Scam', displayType: 'critical' as const };
+    const buildPsbtDecodedTx = (): IDecodedTx => ({
+      ...buildLocalDecodedTx(),
+      isPsbt: true,
+      localAlerts: ['Local sighash notice'],
+    });
+    const buildServerParsedTx = () =>
+      buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Default,
+            label: 'Server field',
+            value: 'Server value',
+          },
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Server recipient',
+            address: contractAddress,
+            tags: [serverRiskTag],
+          },
+        ],
+        alerts: ['Server risk alert'],
+      });
+    const decodeWith = async (
+      parsedTx: IParseTransactionResp,
+      unsignedTx: IUnsignedTxPro,
+    ) => {
+      const service = buildService(parsedTx);
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(buildPsbtDecodedTx()),
+      });
+      return service.buildDecodedTx({
+        networkId,
+        accountId,
+        accountAddress,
+        unsignedTx,
+      });
+    };
+
+    it('shows a dapp PSBT from the local decode and keeps the server risk findings', async () => {
+      const decodedTx = await decodeWith(buildServerParsedTx(), {
+        encodedTx: {} as IEncodedTx,
+      });
+
+      // The server cannot know which outputs the requested sighash commits
+      // to, so its components must not replace the local ones.
+      expect(decodedTx.isLocalParsed).toBe(true);
+      expect(decodedTx.txDisplay?.components).not.toContainEqual(
+        expect.objectContaining({ label: 'Server field' }),
+      );
+      expect(decodedTx.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Address,
+          address: contractAddress,
+          tags: [serverRiskTag],
+        }),
+      );
+      expect(decodedTx.txDisplay?.alerts).toEqual([
+        'Local sighash notice',
+        'Server risk alert',
+      ]);
+      expect(decodedTx.hasServerSecurityAnalysis).toBe(true);
+    });
+
+    it('shows the local decoder alerts when the server returns no display', async () => {
+      const decodedTx = await decodeWith(
+        { ...buildServerParsedTx(), display: null },
+        { encodedTx: {} as IEncodedTx },
+      );
+
+      expect(decodedTx.isLocalParsed).toBe(true);
+      expect(decodedTx.txDisplay?.alerts).toEqual(['Local sighash notice']);
+      expect(decodedTx.hasServerSecurityAnalysis).toBeUndefined();
+    });
+
+    it('keeps the server display for a PSBT built by an internal staking flow', async () => {
+      const parsedTx = {
+        ...buildServerParsedTx(),
+        type: EParseTxType.Approve,
+      };
+      const decodedTx = await decodeWith(parsedTx, buildUnsignedTx());
+
+      expect(decodedTx.isLocalParsed).toBeUndefined();
+      expect(decodedTx.txDisplay).toBe(parsedTx.display);
+    });
+  });
+
   it('keeps the full server display for Borrow transactions', async () => {
     const parsedTx = buildParsedTx({
       components: [

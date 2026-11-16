@@ -473,12 +473,21 @@ class ServiceSignatureConfirm extends ServiceBase {
     const forceLocalTonTransfer =
       networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
       decodedTx.actions.some((action) => Boolean(action.assetTransfer));
+    // What a PSBT signature authorizes depends on its sighash type, which the
+    // local decode accounts for. A server display built from the outputs as
+    // presented must not replace it; its risk findings are retained below.
+    // PSBTs built by the wallet's own swap / staking flows keep their path.
+    const forceLocalBtcPsbt =
+      Boolean(decodedTx.isPsbt) &&
+      !unsignedTx.swapInfo &&
+      !unsignedTx.stakingInfo;
 
     if (
       parsedTx?.display &&
       !shouldUseLocalDisplay &&
       !hasScalingRebaseAction &&
-      !forceLocalTonTransfer
+      !forceLocalTonTransfer &&
+      !forceLocalBtcPsbt
     ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
@@ -501,7 +510,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       // TON decoding also retains identifiable server effects below.
       const isPayloadForcedLocal =
         ((hasScalingRebaseAction && !shouldUseLocalDisplay) ||
-          forceLocalTonTransfer) &&
+          forceLocalTonTransfer ||
+          forceLocalBtcPsbt) &&
         Boolean(parsedTx?.display);
 
       // The rebase-forced path did not receive `parsedTx.display` above
@@ -560,9 +570,12 @@ class ServiceSignatureConfirm extends ServiceBase {
           ...mergedComponents,
           ...(mergeUnknownTonEffects ? [] : serverSimulationComponents),
         ],
-        alerts: rebaseDisplayExtras?.alerts?.length
-          ? rebaseDisplayExtras.alerts
-          : serverAlerts,
+        alerts: [
+          ...(decodedTx.localAlerts ?? []),
+          ...(rebaseDisplayExtras?.alerts?.length
+            ? rebaseDisplayExtras.alerts
+            : serverAlerts),
+        ],
       };
       decodedTx.isLocalParsed = true;
       // Scaled-UI forced-local: the server parse ran and its alerts are

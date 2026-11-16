@@ -67,13 +67,11 @@ export type IBtcOutput = {
     bip44Path?: string;
     opReturn?: string;
     /**
-     * isInscriptionStructure indicates whether this output is part of the inscription protocol structure.
-     * These outputs typically have the same amount as their corresponding inputs and serve to:
-     * 1. Maintain UTXO separation - Preventing inscriptions from being merged or split
-     * 2. Preserve the order of inscriptions - Ensuring correct sequence in the UTXO set
-     * 3. Act as protocol markers - Helping to identify and track inscription movements
-     * These outputs might look like unnecessary transfers but are crucial for the proper functioning
-     * of the inscription protocol and should be handled differently from regular payment outputs.
+     * @deprecated No longer set or read. It used to mark an output whose
+     * address had inputs of about the same total, and the confirm page left
+     * such outputs out. Those inputs are unsigned and unverified, so a dapp
+     * could mirror any output and hide the transfer (OK-67209). Kept only so
+     * previously stored payloads still type-check.
      */
     isInscriptionStructure?: boolean;
   };

@@ -71,6 +71,7 @@ import {
   parseHexContext,
 } from './sdkBtc/deriveContextHash';
 import { buildPsbt } from './sdkBtc/providerUtils';
+import { findBtcPsbtSignPolicyViolation } from './sdkBtc/psbtAuthorization';
 
 import type { IGetAddressFromXpubResult } from './sdkBtc';
 import type { IBtcForkNetwork, IEncodedTxBtc } from './types';
@@ -755,6 +756,17 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       throw new OneKeyLocalError(
         `SIGHASH_NONE is not supported for input ${sighashNoneInput.index}`,
       );
+    }
+    // Last line before the key is used. The signer has no account context, so
+    // only the sighash rules are checked here; the account-aware check runs
+    // where the PSBT is accepted and decoded.
+    const policyViolation = findBtcPsbtSignPolicyViolation({
+      psbt,
+      psbtNetwork: network,
+      inputsToSign,
+    });
+    if (policyViolation) {
+      throw new OneKeyLocalError(policyViolation.message);
     }
 
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {

@@ -28,6 +28,11 @@ import {
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import {
+  EBtcPsbtSighashFamily,
+  findBtcPsbtSignPolicyViolation,
+  getBtcPsbtSighashFamily,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
 import type {
   IBtcInput,
   IBtcOutput,
@@ -925,25 +930,38 @@ class ProviderApiBtc extends ProviderApiBase {
     for (let i = 0; i < psbts.length; i += 1) {
       const psbt = psbts[i];
       const itemOptions = perItemOptions[i];
-      const { encodedTx, inputsToSign } = await this.buildPsbtSignFlowPayload({
-        psbt,
-        psbtNetwork,
-        options: itemOptions,
-        accountId,
-        networkId,
-        // Drift (accepted): legacy _signPsbt uses the dapp connection's
-        // accountInfo.address, while the batch flow uses getAccount().address
-        // here — only affects the isChange display flag, never signing.
-        address: account.address,
-        account,
-        // Same set computeBatchPsbtAmounts uses below, so the drill-down
-        // TxConfirm and the batch overview classify change identically.
-        ownedAddresses,
-      });
+      const { encodedTx, inputsToSign, sighashFamily } =
+        await this.buildPsbtSignFlowPayload({
+          psbt,
+          psbtNetwork,
+          options: itemOptions,
+          accountId,
+          networkId,
+          // Drift (accepted): legacy _signPsbt uses the dapp connection's
+          // accountInfo.address, while the batch flow uses getAccount().address
+          // here — only affects the isChange display flag, never signing.
+          address: account.address,
+          account,
+          // Same set computeBatchPsbtAmounts uses below, so the drill-down
+          // TxConfirm and the batch overview classify change identically.
+          ownedAddresses,
+        });
       if (!inputsToSign.length) {
         throw web3Errors.rpc.invalidParams(
           `psbt at index ${i} has no inputs owned by the current account`,
         );
+      }
+      // The overview totals treat every output as final and count the ones
+      // returning to the wallet as change. A SIGHASH_SINGLE signature commits
+      // to one output only, so its psbt cannot be summarized that way; each
+      // psbt of the request gets its own confirm page instead.
+      if (sighashFamily === EBtcPsbtSighashFamily.Single) {
+        return this._signPsbtsLegacyFlow(request, {
+          psbtHexs,
+          options,
+          psbtNetwork,
+          account,
+        });
       }
       // Change recognition covers every wallet-owned address (primary +
       // derived + custom + claimed find-address), so change returned to any
@@ -1114,6 +1132,7 @@ class ProviderApiBtc extends ProviderApiBase {
   }): Promise<{
     encodedTx: IEncodedTxBtc;
     inputsToSign: ITxInputToSign[];
+    sighashFamily: EBtcPsbtSighashFamily;
   }> {
     const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
 
@@ -1158,29 +1177,31 @@ class ProviderApiBtc extends ProviderApiBase {
       );
     }
 
-    const inputAddresses = new Map<string, BigNumber>();
-    decodedPsbt.inputInfos.forEach((input) => {
-      const value = new BigNumber(input.value?.toString() ?? 0);
-      const addressKey = input.address;
-      if (addressKey) {
-        inputAddresses.set(
-          addressKey,
-          (inputAddresses.get(addressKey) || new BigNumber(0)).plus(value),
-        );
-      }
+    // Refuse, before any confirmation, a signature whose commitment does not
+    // cover what the confirm page would show. A SIGHASH_SINGLE payout may go
+    // to any address of the account, so the check uses every owned address
+    // even where the change display below only knows the connected one.
+    const utxoAccount = account as unknown as IDBUtxoAccount;
+    const policyViolation = findBtcPsbtSignPolicyViolation({
+      psbt,
+      psbtNetwork,
+      inputsToSign,
+      ownedAddresses: [
+        ...buildOwnedAddressesForBatchDisplay({
+          primaryAddress: account.address,
+          addressMaps: [
+            utxoAccount.addresses,
+            utxoAccount.customAddresses,
+            utxoAccount.findAddresses,
+          ],
+        }),
+        ...(ownedAddresses ?? []),
+        ...(address ? [address] : []),
+      ],
     });
-
-    const outputAddresses = new Map<string, BigNumber>();
-    decodedPsbt.outputInfos.forEach((output) => {
-      const value = new BigNumber(output.value?.toString() ?? 0);
-      const addressKey = output.address;
-      if (addressKey) {
-        outputAddresses.set(
-          addressKey,
-          (outputAddresses.get(addressKey) || new BigNumber(0)).plus(value),
-        );
-      }
-    });
+    if (policyViolation) {
+      throw web3Errors.rpc.invalidParams(policyViolation.message);
+    }
 
     // Check for change address:
     // 1. More than one output
@@ -1195,27 +1216,20 @@ class ProviderApiBtc extends ProviderApiBase {
         ownedAddressSet.has(v.address ?? ''),
       );
 
+    // Change is the only reason an output may be left off the confirm page.
+    // Matching an output against the inputs of its address is not one: those
+    // inputs are unsigned and unverified, so a dapp could mirror any output
+    // with an input of its own and have the transfer hidden.
     const outputs: IBtcOutput[] = (decodedPsbt.outputInfos ?? []).map((v) => {
       const isChange = hasChangeAddress
         ? ownedAddressSet.has(v.address ?? '')
         : false;
-      // check if the output is an inscription structure output
-      const inputValue =
-        inputAddresses.get(v.address ?? '') || new BigNumber(0);
-      const outputValue =
-        outputAddresses.get(v.address ?? '') || new BigNumber(0);
-      // allow 1000 satoshi error for fee
-      const isInscriptionStructure = inputValue
-        .minus(outputValue)
-        .abs()
-        .lt(1000);
 
       return {
         ...v,
         value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
         payload: {
           isChange,
-          isInscriptionStructure,
         },
       };
     });
@@ -1236,7 +1250,11 @@ class ProviderApiBtc extends ProviderApiBase {
       txSize: undefined,
     };
 
-    return { encodedTx, inputsToSign };
+    return {
+      encodedTx,
+      inputsToSign,
+      sighashFamily: getBtcPsbtSighashFamily({ psbt, inputsToSign }),
+    };
   }
 
   async _signPsbt(

@@ -11,11 +11,17 @@ import {
   getInputsToSignFromPsbt,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { buildOwnedAddressesForBatchDisplay } from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
 import {
   decodedPsbt as decodedPsbtFN,
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import {
+  EBtcPsbtSighashFamily,
+  buildBtcPsbtAuthorization,
+  buildBtcPsbtDisplayTransfers,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
 import { verifyBitcoinMessage } from '@onekeyhq/core/src/chains/btc/sdkBtc/signMessage';
 import {
   EOutputsTypeForCoinSelect,
@@ -126,6 +132,20 @@ import type {
   IUtxoInfo,
   IValidateGeneralInputParams,
 } from '../../types';
+
+// TODO(i18n): hardcoded copy for the PSBT confirm page (OK-67209), to be
+// replaced with ETranslations keys. Shown as security alerts.
+const BTC_PSBT_HARDCODED_NOTICES = {
+  // SIGHASH_SINGLE, with or without ANYONECANPAY
+  sighashSingle:
+    'This signature only guarantees the output paired with your input. Every other output of this transaction can still be changed after you sign.',
+  // SIGHASH_ALL | ANYONECANPAY
+  sighashAnyoneCanPay:
+    'Other parties can still add inputs to this transaction after you sign, so the network fee shown here is not final.',
+  // An output that carries value but pays a script with no address form
+  outputWithoutAddress:
+    'This transaction sends funds to a non-standard script that has no address. Only continue if you trust this site.',
+};
 
 // btc vault
 export default class VaultBtc extends VaultBase {
@@ -449,50 +469,64 @@ export default class VaultBtc extends VaultBase {
       }
     });
 
-    const originalUtxoTo = outputs.map((output) => ({
-      address: output.address,
-      balance: new BigNumber(output.value)
+    const toUtxoAddressInfo = (transfer: {
+      address: string;
+      value: string;
+    }) => ({
+      address: transfer.address,
+      balance: new BigNumber(transfer.value)
         .shiftedBy(-network.decimals)
         .toFixed(),
-      balanceValue: output.value,
+      balanceValue: transfer.value,
       symbol: network.symbol,
-      isMine: output.address === account.address,
-    }));
+      isMine: transfer.address === account.address,
+    });
 
-    const utxoTo =
-      outputs.length > 1
-        ? (() => {
-            // filter non-change and non-inscription structure outputs first
-            const nonChangeAndInscriptionStructureOutputs = outputs.filter(
-              (output) =>
-                !output.payload?.isChange &&
-                output.address &&
-                !output.payload?.isInscriptionStructure,
-            );
-            // if filtered outputs is empty, return original outputs
-            return (
-              nonChangeAndInscriptionStructureOutputs.length
-                ? nonChangeAndInscriptionStructureOutputs
-                : outputs
-            ).map((output) => ({
-              address: output.address,
-              balance: new BigNumber(output.value)
-                .shiftedBy(-network.decimals)
-                .toFixed(),
-              balanceValue: output.value,
-              symbol: network.symbol,
-              isMine: output.address === account.address,
-            }));
-          })()
-        : outputs.map((output) => ({
-            address: output.address,
-            balance: new BigNumber(output.value)
-              .shiftedBy(-network.decimals)
-              .toFixed(),
-            balanceValue: output.value,
-            symbol: network.symbol,
-            isMine: output.address === account.address,
-          }));
+    const originalUtxoTo = outputs.map(toUtxoAddressInfo);
+
+    // BTC has no server simulation: this decode is all the user sees before
+    // signing. It is derived from what the requested signatures commit to,
+    // and throws for a request whose commitment cannot back a display.
+    const psbtNetwork = toPsbtNetwork(network);
+    const utxoAccount = account as IDBUtxoAccount;
+    const authorization = buildBtcPsbtAuthorization({
+      psbt: Psbt.fromHex(checkIsDefined(encodedTx.psbtHex), {
+        network: psbtNetwork,
+      }),
+      psbtNetwork,
+      inputsToSign,
+      ownedAddresses: buildOwnedAddressesForBatchDisplay({
+        primaryAddress: account.address,
+        addressMaps: [
+          utxoAccount.addresses,
+          utxoAccount.customAddresses,
+          utxoAccount.findAddresses,
+        ],
+      }),
+    });
+    const displayTransfers = buildBtcPsbtDisplayTransfers({
+      authorization,
+      outputs,
+    });
+    const utxoTo = displayTransfers.sends.map(toUtxoAddressInfo);
+    const utxoReceives = displayTransfers.receives.map(toUtxoAddressInfo);
+
+    const localAlerts: string[] = [];
+    if (authorization.family === EBtcPsbtSighashFamily.Single) {
+      localAlerts.push(BTC_PSBT_HARDCODED_NOTICES.sighashSingle);
+    } else {
+      if (authorization.hasAnyoneCanPay) {
+        localAlerts.push(BTC_PSBT_HARDCODED_NOTICES.sighashAnyoneCanPay);
+      }
+      if (
+        displayTransfers.sends.some(
+          (transfer) =>
+            !transfer.address && new BigNumber(transfer.value).gt(0),
+        )
+      ) {
+        localAlerts.push(BTC_PSBT_HARDCODED_NOTICES.outputWithoutAddress);
+      }
+    }
 
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
@@ -501,7 +535,7 @@ export default class VaultBtc extends VaultBase {
         type: EDecodedTxActionType.ASSET_TRANSFER,
         assetTransfer: {
           from: utxoFrom.length ? utxoFrom[0].address : inputs[0].address,
-          to: utxoTo[0].address,
+          to: utxoTo[0]?.address ?? '',
           sends: utxoTo.map((utxo) => ({
             from: account.address,
             to: utxo.address,
@@ -513,7 +547,19 @@ export default class VaultBtc extends VaultBase {
             amountValue: utxo.balanceValue,
             symbol: network.symbol,
           })),
-          receives: [],
+          // Only a SIGHASH_SINGLE signature has receives: the output it
+          // commits to. The paying counterparty is not part of the commitment.
+          receives: utxoReceives.map((utxo) => ({
+            from: '',
+            to: utxo.address,
+            isNative: true,
+            tokenIdOnNetwork: '',
+            name: nativeToken.name,
+            icon: nativeToken.logoURI ?? '',
+            amount: utxo.balance,
+            amountValue: utxo.balanceValue,
+            symbol: network.symbol,
+          })),
           utxoFrom,
           utxoTo: originalUtxoTo,
         },
@@ -549,6 +595,7 @@ export default class VaultBtc extends VaultBase {
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
       nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
       isPsbt: true,
+      ...(localAlerts.length ? { localAlerts } : {}),
     };
   }
 

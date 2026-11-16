@@ -184,6 +184,9 @@ export type IDecodedTx = {
   // risk alerts were retained (scaled-UI forced-local path) — security UI
   // must not report such txs as unverified.
   hasServerSecurityAnalysis?: boolean;
+  // Alerts raised by the local decoder itself. They join txDisplay.alerts
+  // whenever the confirm page is built from the local decode.
+  localAlerts?: string[];
   isConfirmationRequired?: boolean;
 
   isPsbt?: boolean;
