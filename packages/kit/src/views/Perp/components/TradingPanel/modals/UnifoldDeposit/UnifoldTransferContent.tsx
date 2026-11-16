@@ -19,10 +19,12 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   XStack,
   YStack,
+  getTokenValue,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
@@ -51,7 +53,10 @@ import type {
   IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
-import { UnifoldDepositHistoryCard } from './UnifoldDepositHistoryCard';
+import {
+  UNIFOLD_HISTORY_CARD_HEIGHT,
+  UnifoldDepositHistoryCard,
+} from './UnifoldDepositHistoryCard';
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
 import {
   formatUnifoldProcessingTime,
@@ -69,7 +74,9 @@ const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
 const THIRD_PARTY_CONVERSION_FEE = `${UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT.toFixed(
   2,
 )}%`;
-const HISTORY_CARD_CONTENT_GAP = 4;
+// Two address lines (20 each) plus vertical padding (16 on each side).
+const DESKTOP_ADDRESS_MIN_HEIGHT = 72;
+const HISTORY_CARD_BOTTOM_PADDING = '$3';
 const RECENT_TERMINAL_WINDOW_MS = 2 * 60 * 1000;
 
 function DetailRow({
@@ -97,6 +104,7 @@ function DetailRow({
           color="$textSubdued"
           dashColor="$textDisabled"
           dashThickness={0.5}
+          dashOverlay
           flexShrink={0}
           tooltip={tooltip}
           tooltipTitle={label}
@@ -172,6 +180,7 @@ function DepositRouteRow({
         color="$textSubdued"
         dashColor="$textDisabled"
         dashThickness={0.5}
+        dashOverlay
         flexShrink={0}
         tooltip={intl.formatMessage(
           {
@@ -317,7 +326,7 @@ export const UnifoldTransferContent = forwardRef<
   {
     expectedRecipient: string | null | undefined;
     onOpenTracker?: () => void;
-    onTrackedExecutionCountChange?: (count: number) => void;
+    onPendingExecutionCountChange?: (count: number) => void;
     bodyMaxHeight?: number;
     historyCardPlacement?: 'overlay' | 'pageFooter' | 'hidden';
     useDialogHeader?: boolean;
@@ -344,7 +353,7 @@ export const UnifoldTransferContent = forwardRef<
     {
       expectedRecipient,
       onOpenTracker,
-      onTrackedExecutionCountChange,
+      onPendingExecutionCountChange,
       bodyMaxHeight,
       historyCardPlacement = 'overlay',
       useDialogHeader = false,
@@ -382,7 +391,6 @@ export const UnifoldTransferContent = forwardRef<
       activationRetrying,
     } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
     const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
-    const [historyCardHeight, setHistoryCardHeight] = useState(0);
     const previousExecutionTerminalRef = useRef(new Map<string, boolean>());
     const [terminalObservedAt, setTerminalObservedAt] = useState(
       () => new Map<string, number>(),
@@ -555,6 +563,7 @@ export const UnifoldTransferContent = forwardRef<
     }, [selection?.chain.chain_id, sourceSelectorResult, supportedAssets]);
     const displaySelection = pendingSelection ?? selection;
     const chain = displaySelection?.chain;
+    const minimumDepositAmount = `$${chain?.minimum_deposit_amount_usd ?? 3}`;
     const receiveAsset = supportedAssets?.find(
       (asset) =>
         asset.symbol.toUpperCase() ===
@@ -665,6 +674,9 @@ export const UnifoldTransferContent = forwardRef<
     }, [nextTerminalExpiryAt]);
 
     const trackedExecutionCount = trackedExecutions.length;
+    const pendingExecutionCount = trackedExecutions.filter(
+      (item) => !item.terminal,
+    ).length;
 
     useEffect(() => {
       if (!historyCardVisible) {
@@ -683,14 +695,17 @@ export const UnifoldTransferContent = forwardRef<
     ) : null;
     const inPageFooter = historyCardPlacement === 'pageFooter';
     const historyCardHidden = historyCardPlacement === 'hidden';
+    // Reserve the fixed footer before first paint so the centered dialog does
+    // not resize after an onLayout measurement. The frame supplies the $3 gap.
     const historyCardReserve =
       historyCard && !inPageFooter && !historyCardHidden
-        ? historyCardHeight + HISTORY_CARD_CONTENT_GAP
+        ? getTokenValue(UNIFOLD_HISTORY_CARD_HEIGHT, 'size') +
+          getTokenValue(HISTORY_CARD_BOTTOM_PADDING, 'space')
         : undefined;
 
     useEffect(() => {
-      onTrackedExecutionCountChange?.(trackedExecutionCount);
-    }, [onTrackedExecutionCountChange, trackedExecutionCount]);
+      onPendingExecutionCountChange?.(pendingExecutionCount);
+    }, [onPendingExecutionCountChange, pendingExecutionCount]);
 
     const withContentFrame = (body: React.ReactNode) => (
       <>
@@ -711,10 +726,7 @@ export const UnifoldTransferContent = forwardRef<
               left="$0"
               right="$0"
               bottom="$0"
-              pb="$3"
-              onLayout={(event) =>
-                setHistoryCardHeight(Math.ceil(event.nativeEvent.layout.height))
-              }
+              pb={HISTORY_CARD_BOTTOM_PADDING}
             >
               {historyCard}
             </Stack>
@@ -825,6 +837,9 @@ export const UnifoldTransferContent = forwardRef<
           receiveTokenIconUri={receiveAsset?.icon_url}
           receiveNetworkIconUri={receiveNetworkIconUri}
           showConversionRoute={!useCompactLayout}
+          addressMinHeight={
+            useDialogHeader ? DESKTOP_ADDRESS_MIN_HEIGHT : undefined
+          }
           // The QR needs both the address and a chain selection. Scoped to
           // 'ready' so a genuine address failure still shows its terminal
           // message instead of shimmering forever.
@@ -870,6 +885,19 @@ export const UnifoldTransferContent = forwardRef<
           py="$2"
           overflow="hidden"
         >
+          <DetailRow
+            compact={useCompactLayout}
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_minimum_deposit__title,
+            })}
+            value={minimumDepositAmount}
+            tooltip={intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_minimum_deposit_network__desc,
+              },
+              { amount: minimumDepositAmount },
+            )}
+          />
           {useCompactLayout && displaySelection?.asset.symbol ? (
             <DepositRouteRow
               sourceTokenSymbol={displaySelection.asset.symbol}
@@ -881,6 +909,27 @@ export const UnifoldTransferContent = forwardRef<
               receiveTokenIconUri={receiveAsset?.icon_url}
               receiveNetworkIconUri={receiveNetworkIconUri}
             />
+          ) : null}
+          {useDialogHeader && !displaySelection?.asset.symbol ? (
+            <XStack
+              testID="perps-unifold-deposit-route-loading"
+              px="$3"
+              py="$1.5"
+              alignItems="center"
+              justifyContent="space-between"
+              gap="$3"
+            >
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                paddingBottom="$0.2"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_conversion_route__title,
+                })}
+              </SizableText>
+              <Skeleton height="$4" width="$32" />
+            </XStack>
           ) : null}
           {useCompactLayout ? (
             <DetailRow
@@ -915,16 +964,6 @@ export const UnifoldTransferContent = forwardRef<
             value={`${intl.formatMessage({
               id: ETranslations.global_auto,
             })} • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
-          />
-          <DetailRow
-            compact={useCompactLayout}
-            label={intl.formatMessage({
-              id: ETranslations.perp_unifold_price_impact__title,
-            })}
-            value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(2)}%`}
-            tooltip={intl.formatMessage({
-              id: ETranslations.perp_unifold_price_impact__desc,
-            })}
           />
         </YStack>
       </YStack>,
