@@ -668,7 +668,11 @@ class ServicePrimeCloudSync extends ServiceBase {
           localMutation: true,
         });
     }
+    // Completion describes the last comparison, not future remote changes.
+    // Lifecycle/manual wakes must check again even when the local pool is clean;
+    // only a stale retry timer can stop at an already completed run.
     if (
+      reason === 'timer' &&
       state &&
       !state.unfinished &&
       config.cloudSyncAccountApplyVersion === 2 &&

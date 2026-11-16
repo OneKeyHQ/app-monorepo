@@ -558,6 +558,57 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
+  test.each(['startup', 'unlock', 'network', 'foreground', 'manual'] as const)(
+    'completed reconciliation checks fresh remote additions and deletions on %s',
+    async (reason) => {
+      const h = harness();
+      await h.run();
+      expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
+      const added = { ...serverItem(0), dataTimestamp: 1000 };
+      h.remote.push(added);
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(h.check).toHaveBeenCalledTimes(2);
+      expect(h.pool.get(added.key)).toMatchObject({
+        isDeleted: false,
+        serverUploaded: true,
+        dataTime: added.dataTimestamp,
+      });
+      h.remote[0] = {
+        ...added,
+        isDeleted: true,
+        dataTimestamp: added.dataTimestamp + 1,
+      };
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(h.check).toHaveBeenCalledTimes(3);
+      expect(h.pool.get(added.key)).toMatchObject({
+        isDeleted: true,
+        serverUploaded: true,
+        dataTime: added.dataTimestamp + 1,
+      });
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+      });
+      expect(h.check).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          reconciliation: expect.objectContaining({
+            version: 1,
+            maxItems: 500,
+          }),
+        }),
+      );
+    },
+  );
+
+  test('a stale timer does not restart a completed reconciliation', async () => {
+    const h = harness();
+    await h.run();
+    h.remote.push(serverItem(0));
+    await h.service.resumeCloudSyncReconciliation({ reason: 'timer' });
+    expect(h.check).toHaveBeenCalledTimes(1);
+  });
+
   test('completed-state wake ignores persisted dirty records from another space', async () => {
     const h = harness();
     await h.run();
@@ -575,7 +626,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       serverUploaded: false,
     });
     await h.service.resumeCloudSyncReconciliation({ reason: 'startup' });
-    expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.pool.get(row.key)?.serverUploaded).toBe(false);
   });
 
   test.each(['startup', 'unlock'] as const)(
@@ -942,8 +994,13 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     const nextRetryAt = h.config().cloudSyncReconciliation?.nextRetryAt;
     expect(nextRetryAt).toBe(Date.now() + 30_000);
     await h.run();
-    await h.service.resumeCloudSyncReconciliation({ reason: 'foreground' });
-    await h.service.resumeCloudSyncReconciliation({ reason: 'network' });
+    for (const reason of [
+      'startup',
+      'unlock',
+      'foreground',
+      'network',
+    ] as const)
+      await h.service.resumeCloudSyncReconciliation({ reason });
     expect(h.check).toHaveBeenCalledTimes(1);
     await jest.advanceTimersByTimeAsync(29_999);
     expect(h.check).toHaveBeenCalledTimes(1);
