@@ -1425,7 +1425,9 @@ export function useSwapInit(params?: ISwapInitParams) {
       fromTokenRef.current?.isStock === true ||
       toTokenRef.current?.isStock === true;
     const hasInitFromAmount = Boolean(
-      hasUnconsumedSwapInitParams && params?.fromAmount,
+      hasUnconsumedSwapInitParams &&
+      !params?.tradeAgainFromHistory &&
+      params?.fromAmount,
     );
     if (
       hasUnconsumedSwapInitParams &&
@@ -1886,12 +1888,6 @@ export function useSwapInit(params?: ISwapInitParams) {
             importToToken?.networkId ??
             getNetworkIdsMap().onekeyall,
         );
-        if (params?.tradeAgainFromHistory) {
-          setFromTokenAmount({
-            value: params.fromAmount ?? '',
-            isInput: Boolean(params.fromAmount),
-          });
-        }
         finishSwapInitParamsSync();
         return;
       }

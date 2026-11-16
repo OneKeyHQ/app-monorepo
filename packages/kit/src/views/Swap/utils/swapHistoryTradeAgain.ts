@@ -96,10 +96,6 @@ export function buildSwapHistoryTradeAgainParams(
     tradeAgainFromHistory: true,
     importFromToken: fromToken,
     importToToken: toToken,
-    fromAmount:
-      typeof item.baseInfo?.fromAmount === 'string'
-        ? item.baseInfo.fromAmount
-        : undefined,
     swapTabSwitchType,
   };
 }
@@ -133,7 +129,6 @@ export function buildLimitOrderTradeAgainParams(
   return {
     importFromToken: fromToken,
     importToToken: toToken,
-    fromAmount: amount.toFixed(),
     swapTabSwitchType: ESwapTabSwitchType.LIMIT,
     tradeAgainFromHistory: true,
   };

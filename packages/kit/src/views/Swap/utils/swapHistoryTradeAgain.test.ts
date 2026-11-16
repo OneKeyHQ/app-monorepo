@@ -197,11 +197,10 @@ describe('swap history Trade Again', () => {
     expect(buildSwapHistoryTradeAgainParams(item)).toBeUndefined();
   });
 
-  it('keeps trade direction and amount while dropping stale account, balance, price, and route data', () => {
+  it('keeps trade direction while dropping amount and stale account, balance, price, and route data', () => {
     expect(buildSwapHistoryTradeAgainParams(history())).toEqual({
       tradeAgainFromHistory: true,
       swapTabSwitchType: ESwapTabSwitchType.SWAP,
-      fromAmount: '1.2300',
       importFromToken: {
         networkId: 'evm--1',
         contractAddress: '',
@@ -229,7 +228,7 @@ describe('swap history Trade Again', () => {
     expect(result?.swapTabSwitchType).toBe(ESwapTabSwitchType.BRIDGE);
     expect(result?.importFromToken.networkId).toBe('evm--1');
     expect(result?.importToToken.networkId).toBe('sol--101');
-    expect(result?.fromAmount).toBe('1.2300');
+    expect(result?.fromAmount).toBeUndefined();
   });
 
   it('routes Stock history and legacy stock tokens to the Stock tab', () => {
@@ -245,7 +244,7 @@ describe('swap history Trade Again', () => {
     );
   });
 
-  it('converts the original limit order input from base units', () => {
+  it('opens a limit order without restoring its amount', () => {
     const order: IFetchLimitOrderRes = {
       status: ESwapLimitOrderStatus.FULFILLED,
       networkId: 'evm--1',
@@ -268,8 +267,8 @@ describe('swap history Trade Again', () => {
     };
     expect(buildLimitOrderTradeAgainParams(order)).toMatchObject({
       swapTabSwitchType: ESwapTabSwitchType.LIMIT,
-      fromAmount: '1.23456789',
     });
+    expect(buildLimitOrderTradeAgainParams(order)?.fromAmount).toBeUndefined();
     expect(
       buildLimitOrderTradeAgainParams({
         ...order,

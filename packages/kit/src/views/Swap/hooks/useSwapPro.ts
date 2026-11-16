@@ -950,7 +950,6 @@ export function useSwapProTokenInit(historyIntent?: {
         pay: ISwapTokenBase;
         direction: ESwapDirection;
         tradeType: ESwapProTradeType;
-        amount: string;
       }
     | undefined
   >(undefined);
@@ -1069,7 +1068,6 @@ export function useSwapProTokenInit(historyIntent?: {
       }
       if (swapProTokenSupportLimit) {
         setSwapProTradeType(ESwapProTradeType.LIMIT);
-        setSwapFromInputAmount({ value: pending.amount, isInput: true });
       }
       completedHistoryKeyRef.current = key;
       pendingHistoryTargetRef.current = undefined;
@@ -1109,7 +1107,6 @@ export function useSwapProTokenInit(historyIntent?: {
       pay: pair.pay,
       direction: pair.direction,
       tradeType: swapProTradeType,
-      amount: params.fromAmount ?? '',
     };
     historyPreferenceTargetRef.current = pair.target;
     setSwapProDirection(pair.direction);

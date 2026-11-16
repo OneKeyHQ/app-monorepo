@@ -148,7 +148,6 @@ export function useSwapStockChannel(
         stockToken: ISwapToken;
         payToken: ISwapToken;
         tradeSide: ESwapStockTradeSide;
-        fromAmount?: string;
       }
     | undefined
   >(undefined);
@@ -889,7 +888,7 @@ export function useSwapStockChannel(
     ) {
       return;
     }
-    const { importFromToken, importToToken, fromAmount } = historyIntent.params;
+    const { importFromToken, importToToken } = historyIntent.params;
     const pair = resolveStockChannelSwapPair({
       fromToken: importFromToken,
       toToken: importToToken,
@@ -927,7 +926,6 @@ export function useSwapStockChannel(
       stockToken: pair.stockToken,
       payToken: pair.payToken,
       tradeSide: pair.tradeSide,
-      fromAmount,
     };
     stockNetworkIdRef.current = pair.stockToken.networkId;
     stockTokenSnapshotRef.current = pair.stockToken;
@@ -996,8 +994,8 @@ export function useSwapStockChannel(
       syncId: nextStockExecutionTokenSyncId(),
     });
     setFromTokenAmount({
-      value: pending.fromAmount ?? '',
-      isInput: Boolean(pending.fromAmount),
+      value: '',
+      isInput: false,
     });
   }, [
     currentStockToken,

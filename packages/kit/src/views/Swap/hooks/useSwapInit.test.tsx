@@ -2337,7 +2337,7 @@ describe('Trade Again history initialization', () => {
     { type: ESwapTabSwitchType.SWAP, to: marketToken },
     { type: ESwapTabSwitchType.BRIDGE, to: bnb },
   ])(
-    'preserves the current Swap account and imports the $type pair and amount',
+    'preserves the current Swap account and imports the $type pair without the amount',
     async ({ type, to }) => {
       const from = swapDefaultSetTokens['evm--1'].toToken;
       renderMarket({
@@ -2352,8 +2352,8 @@ describe('Trade Again history initialization', () => {
         expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(from);
         expect(mockStore.get(swapSelectToTokenAtom())).toEqual(to);
         expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
-          value: '12.345',
-          isInput: true,
+          value: '',
+          isInput: false,
         });
         expect(mockStore.get(swapTypeSwitchAtom())).toBe(
           ESwapTabSwitchType.SWAP,
@@ -2388,7 +2388,7 @@ describe('Trade Again history initialization', () => {
     await waitFor(() => {
       expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(from);
       expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken);
-      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('4.2');
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
     });
     await act(async () =>
       homeRead.resolve({
@@ -2402,7 +2402,7 @@ describe('Trade Again history initialization', () => {
     expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken);
   });
 
-  it('applies the same history order again after the amount was edited', async () => {
+  it('clears an edited amount when the same history order is selected again', async () => {
     const params = {
       tradeAgainFromHistory: true,
       tradeAgainRequestId: 1,
@@ -2413,7 +2413,7 @@ describe('Trade Again history initialization', () => {
     };
     const view = renderMarket(params);
     await waitFor(() =>
-      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('4.2'),
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken),
     );
     act(() =>
       mockStore.set(swapFromTokenAmountAtom(), { value: '1', isInput: true }),
@@ -2432,7 +2432,7 @@ describe('Trade Again history initialization', () => {
     });
     view.rerender({ ...params, tradeAgainRequestId: 2 });
     await waitFor(() =>
-      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('4.2'),
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe(''),
     );
     unsubscribe();
   });
@@ -2506,7 +2506,7 @@ describe('Trade Again history initialization', () => {
     await waitFor(() => {
       expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(from);
       expect(mockStore.get(swapSelectToTokenAtom())).toEqual(bnb);
-      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('4.2');
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
     });
   });
 
@@ -2565,14 +2565,18 @@ describe('Trade Again history initialization', () => {
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
       });
       await waitFor(() =>
-        expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('4.2'),
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken),
       );
-      act(() =>
+      act(() => {
+        mockStore.set(swapFromTokenAmountAtom(), {
+          value: '4.2',
+          isInput: true,
+        });
         mockStore.set(swapToTokenAmountAtom(), {
           value: '9.9',
           isInput: false,
-        }),
-      );
+        });
+      });
       view.unmount();
       renderMarket({
         tradeAgainFromHistory: true,

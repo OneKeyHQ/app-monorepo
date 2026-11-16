@@ -312,7 +312,7 @@ describe('native Pro limit history handoff', () => {
     mockHistoryState = undefined;
   });
 
-  it('restores the correct pair, limit mode and input amount', () => {
+  it('restores the correct pair and limit mode without the input amount', () => {
     const { rerender } = renderHook(() => useSwapProTokenInit(historyIntent));
     rerender();
     expect(mockHistoryState).toEqual(
@@ -321,7 +321,7 @@ describe('native Pro limit history handoff', () => {
         buy: payment,
         direction: 'BUY',
         tradeType: ESwapProTradeType.LIMIT,
-        amount: '12.345',
+        amount: '',
       }),
     );
     expect(historyIntent.claim).toHaveBeenCalledTimes(1);
