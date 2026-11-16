@@ -163,12 +163,13 @@ export function getIndicatorPaneResizeHeights({
   panes: readonly IIndicatorPaneResizeItem[];
 }): Record<string, number> | undefined {
   const item = panes[index];
-  // A stack already squeezed below the minimum has no room to redistribute.
-  if (
-    !item ||
-    panes.some((pane) => pane.height < INDICATOR_PANE_MIN_HEIGHT) ||
-    !Number.isFinite(delta)
-  ) {
+  if (!item || !Number.isFinite(delta)) {
+    return undefined;
+  }
+  // A pane already squeezed below the minimum has no room to give up. The
+  // first boundary rescales every pane; any other only the two it separates.
+  const resized = index === 0 ? panes : [panes[index - 1], item];
+  if (resized.some((pane) => pane.height < INDICATOR_PANE_MIN_HEIGHT)) {
     return undefined;
   }
   const heights = Object.fromEntries(

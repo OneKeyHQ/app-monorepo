@@ -98,6 +98,26 @@ describe('getIndicatorPaneResizeHeights', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('still trades height between neighbours when a distant pane is squeezed', () => {
+    // A chart too short for its panes: only 'volume' fell below the minimum.
+    const squeezed = [
+      { id: 'volume', top: 96, bottom: 120, height: 24 },
+      { id: 'macd', top: 120, bottom: 198, height: 78 },
+      { id: 'rsi', top: 198, bottom: 276, height: 78 },
+    ];
+    const resize = (index: number) =>
+      getIndicatorPaneResizeHeights({
+        delta: 10,
+        index,
+        minimumTop: 96,
+        panes: squeezed,
+      });
+    expect(resize(2)).toEqual({ volume: 24, macd: 88, rsi: 68 });
+    // Boundaries that would resize the squeezed pane stay locked.
+    expect(resize(1)).toBeUndefined();
+    expect(resize(0)).toBeUndefined();
+  });
 });
 
 describe('pane heights follow the chart height', () => {
