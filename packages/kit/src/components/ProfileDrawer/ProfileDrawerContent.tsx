@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Icon,
+  IconButton,
   ScrollView,
   SizableText,
   Stack,
@@ -13,6 +14,7 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IProfileDrawerItem } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/profileDrawer';
@@ -120,7 +122,7 @@ function DrawerRow({
       mx="$-3"
       px="$3"
       py="$2"
-      gap="$3"
+      gap="$4"
       alignItems="center"
       borderRadius="$3"
       borderCurve="continuous"
@@ -209,41 +211,8 @@ function UpdatePill({ label, failed }: { label: string; failed?: boolean }) {
   );
 }
 
-function DrawerHeaderButton({
-  icon,
-  label,
-  onPress,
-  disabled,
-  testID,
-}: {
-  icon: IKeyOfIcons;
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  testID: string;
-}) {
-  return (
-    <Stack
-      testID={testID}
-      role="button"
-      aria-label={label}
-      aria-disabled={disabled}
-      w="$9"
-      h="$9"
-      borderRadius="$full"
-      bg="$bgStrong"
-      alignItems="center"
-      justifyContent="center"
-      // The 36 circle reaches 44 under a finger.
-      hitSlop={4}
-      opacity={disabled ? 0.5 : 1}
-      pressStyle={disabled ? undefined : { bg: '$bgStrongActive' }}
-      onPress={disabled ? undefined : onPress}
-    >
-      <Icon name={icon} size="$6" color="$icon" />
-    </Stack>
-  );
-}
+// The header's 36pt secondary buttons reach 48pt under a finger.
+const HEADER_BUTTON_HIT_SLOP = 6;
 
 function DrawerScanButton() {
   const intl = useIntl();
@@ -253,7 +222,6 @@ function DrawerScanButton() {
   const { tokens, keys, map } = useHomeTokenListSnapshot();
   const scanQrCode = useScanQrCodeLazy();
   const handleScan = useCallback(() => {
-    defaultLogger.ui.button.click({ trackId: 'wallet-scan' });
     defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
       item: 'scan',
       hadMark: false,
@@ -268,23 +236,28 @@ function DrawerScanButton() {
     });
   }, [account, keys, map, network, scanQrCode, tokens]);
   return (
-    <DrawerHeaderButton
+    <IconButton
       testID="profile-drawer-scan"
+      trackID="wallet-scan"
+      variant="secondary"
       icon="ScanOutline"
-      label={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+      aria-label={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+      hitSlop={HEADER_BUTTON_HIT_SLOP}
       onPress={handleScan}
     />
   );
 }
 
 // Lock sits beside scan: both are one-tap actions, and the bottom of the
-// drawer stays free for support.
+// drawer stays free for support. Shown only with a passcode, like Settings ›
+// Auto-lock: without one nothing can lock, and the tap would only start
+// passcode setup.
 function DrawerLockButton() {
   const intl = useIntl();
   const onLock = useOnLock();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
   const isTravelMode = isTravelModeActive();
   const handleLock = useCallback(() => {
-    defaultLogger.ui.button.click({ trackId: 'wallet-lock-now' });
     defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
       item: 'lock',
       hadMark: false,
@@ -292,12 +265,16 @@ function DrawerLockButton() {
     closeProfileDrawer();
     void onLock();
   }, [onLock]);
+  if (!isPasswordSet) return null;
   return (
-    <DrawerHeaderButton
+    <IconButton
       testID="profile-drawer-lock"
+      trackID="wallet-lock-now"
+      variant="secondary"
       icon="LockOutline"
-      label={intl.formatMessage({ id: ETranslations.settings_lock_now })}
+      aria-label={intl.formatMessage({ id: ETranslations.settings_lock_now })}
       disabled={isTravelMode}
+      hitSlop={HEADER_BUTTON_HIT_SLOP}
       onPress={handleLock}
     />
   );
@@ -355,9 +332,9 @@ function DrawerIdentity() {
         >
           <OneKeyIdAvatar size="$14" showSocialBadge={false} />
         </Stack>
-        {/* 12 apart: a mis-tap on lock costs a password, so the two 44pt
-            touch areas must not meet. */}
-        <XStack gap="$3">
+        {/* 20 apart: the 48pt touch areas keep 8 between them, so lock,
+            whose mis-tap costs an unlock, stays clear of the busier scan. */}
+        <XStack gap="$5">
           <DrawerLockButton />
           <DrawerScanButton />
         </XStack>
@@ -477,7 +454,7 @@ function DrawerAccountRow() {
       mx="$-3"
       px="$3"
       py="$2"
-      gap="$3"
+      gap="$4"
       alignItems="center"
       borderRadius="$3"
       borderCurve="continuous"
@@ -495,16 +472,19 @@ function DrawerAccountRow() {
           wallet={wallet}
         />
       )}
-      <SizableText
-        size="$headingLg"
-        color="$text"
-        numberOfLines={1}
-        flexShrink={1}
-        y={labelNudge(title)}
-      >
-        {title}
-      </SizableText>
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      {/* The ⌄ stays with the name, as on the sign-in line above. */}
+      <XStack flexShrink={1} alignItems="center" gap="$1">
+        <SizableText
+          size="$headingLg"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
+          y={labelNudge(title)}
+        >
+          {title}
+        </SizableText>
+        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
     </XStack>
   );
 }
