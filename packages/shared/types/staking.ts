@@ -2532,11 +2532,13 @@ export interface IEarnPermit2ApproveSignData {
     verifyingContract: string;
   };
   message: {
-    owner: string;
+    owner?: string;
     spender: string;
-    value: string;
+    value?: string;
     nonce: string;
-    deadline: string;
+    deadline?: string;
+    holder?: string; // DAI permit
+    allowed?: boolean;
     expiry?: string; // dai
   };
   primaryType: string;

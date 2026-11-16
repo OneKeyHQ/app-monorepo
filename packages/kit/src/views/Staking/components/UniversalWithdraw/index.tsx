@@ -41,6 +41,7 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -896,6 +897,28 @@ export function UniversalWithdraw({
       networkId: approveTarget.networkId,
     });
 
+    try {
+      await backgroundApiProxy.serviceStaking.assertEarnApproval({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+        provider: providerName ?? '',
+        symbol: protocolInfo?.symbol ?? tokenSymbol ?? '',
+        vault: protocolInfo?.vault,
+        action: 'unstake',
+        tokenAddress: approveTarget.token.address,
+        spenderAddress: approveTarget.spenderAddress,
+      });
+      if (
+        transactionConfirmationRequestKeyRef.current !==
+        transactionConfirmationRequestKey
+      ) {
+        throw new OneKeyLocalError('Earn selection changed');
+      }
+    } catch (error) {
+      setApproving(false);
+      throw error;
+    }
+
     await navigationToTxConfirm({
       approvesInfo: [
         {
@@ -944,6 +967,9 @@ export function UniversalWithdraw({
     fetchAllowanceResponse,
     trackAllowance,
     waitForAllowanceAfterApprove,
+    protocolInfo?.symbol,
+    protocolInfo?.vault,
+    transactionConfirmationRequestKey,
   ]);
   const actionSymbol = useMemo(
     () => requestSymbol || tokenSymbol || '',

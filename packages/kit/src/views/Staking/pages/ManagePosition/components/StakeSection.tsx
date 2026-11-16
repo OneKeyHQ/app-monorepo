@@ -347,7 +347,7 @@ const StakeSectionContent = ({
 
     return earnUtils.resolveEarnApproveSpenderAddress({
       providerName: protocolInfo?.provider || '',
-      protocolVault: protocolInfo?.vault,
+      verifiedProtocolVault: protocolInfo?.vault,
       backendApproveTarget: protocolInfo?.approve?.approveTarget,
     });
   }, [

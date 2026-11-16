@@ -180,7 +180,7 @@ export const useHandleStake = () => {
 
       const approveSpenderAddress = earnUtils.resolveEarnApproveSpenderAddress({
         providerName: protocolInfo?.provider || '',
-        protocolVault: protocolInfo?.vault,
+        verifiedProtocolVault: protocolInfo?.vault,
         backendApproveTarget: protocolInfo?.approve?.approveTarget,
       });
       const effectiveApproveType = earnUtils.resolveEarnApproveType({

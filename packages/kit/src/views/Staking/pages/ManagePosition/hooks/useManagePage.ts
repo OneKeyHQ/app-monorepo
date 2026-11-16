@@ -12,7 +12,6 @@ import {
   type IEarnTokenInfo,
   type IEarnWithdrawActionIcon,
   type IProtocolInfo,
-  type IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
@@ -164,7 +163,22 @@ export const useManagePage = ({
     { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
-  const { managePageData, protocolList, earnAccount } = result || {};
+  const { protocolList, earnAccount } = result || {};
+  const matchingProtocol = earnUtils.findEarnProtocol({
+    protocols: protocolList ?? [],
+    networkId,
+    providerName: provider,
+    protocolVault: vault,
+  });
+  const needsVerifiedProtocol =
+    earnUtils.shouldSendEarnProtocolVault({ providerName: provider }) &&
+    type === EManagePositionType.Staking;
+  // Drop stale or unregistered data before it can become tokenInfo/protocolInfo.
+  const managePageData =
+    result?.requestKey === requestKey &&
+    (!needsVerifiedProtocol || matchingProtocol)
+      ? result?.managePageData
+      : undefined;
 
   // True while the data on screen was fetched for different params (protocol
   // switch in flight). Computed during render — no effect-timing dependence.
@@ -174,14 +188,12 @@ export const useManagePage = ({
     if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
       return vault;
     }
-    if (vault) {
-      return vault;
-    }
-    return protocolList?.find(
-      (item: IStakeProtocolListItem) =>
-        item.provider.name.toLowerCase() === provider.toLowerCase() &&
-        item.network.networkId === networkId,
-    )?.provider.vault;
+    return earnUtils.findEarnProtocol({
+      protocols: protocolList ?? [],
+      networkId,
+      providerName: provider,
+      protocolVault: vault,
+    })?.provider.vault;
   }, [networkId, protocolList, provider, vault]);
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
@@ -258,22 +270,6 @@ export const useManagePage = ({
     }
     const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
 
-    // Find the matching protocol from protocol list
-    const strictMatchingProtocol = protocolList?.find(
-      (item: IStakeProtocolListItem) =>
-        item.provider.name.toLowerCase() === provider.toLowerCase() &&
-        item.network.networkId === networkId &&
-        (!resolvedProtocolVault ||
-          item.provider.vault === resolvedProtocolVault),
-    );
-    const matchingProtocol =
-      strictMatchingProtocol ??
-      protocolList?.find(
-        (item: IStakeProtocolListItem) =>
-          item.provider.name.toLowerCase() === provider.toLowerCase() &&
-          item.network.networkId === networkId,
-      );
-
     // Get withdraw action from managePageData
     const withdrawAction = managePageData.withdraw as
       | IEarnWithdrawActionIcon
@@ -341,7 +337,7 @@ export const useManagePage = ({
     } as IProtocolInfo;
   }, [
     managePageData,
-    protocolList,
+    matchingProtocol,
     symbol,
     provider,
     resolvedProtocolVault,

@@ -354,6 +354,17 @@ export function useUniversalStake({
           );
         }
 
+        await backgroundApiProxy.serviceStaking.assertEarnApproval({
+          accountId,
+          networkId,
+          provider,
+          symbol,
+          vault: protocolVault,
+          action: 'stake',
+          tokenAddress: postWrapStakeToken.address,
+          spenderAddress: postWrapApproveSpenderAddress,
+        });
+
         const wrapConfirmPayload = await buildStakeConfirmPayload({
           confirmStakeType: 'wrap',
           confirmStakingInfo: undefined,
@@ -1101,6 +1112,17 @@ export function useUniversalClaim({
       // the protocol right after the claim, which needs an allowance of the
       // claimed amount. Ask for it before the claim transaction when missing.
       if (claimApprove && amountNumber.gt(0)) {
+        // Invalid metadata must not fall through as an allowance RPC failure.
+        await backgroundApiProxy.serviceStaking.assertEarnApproval({
+          accountId,
+          networkId,
+          provider,
+          symbol,
+          vault: protocolVault || vault,
+          action: 'claim',
+          tokenAddress: claimApprove.tokenAddress,
+          spenderAddress: claimApprove.approveTarget,
+        });
         const readAllowance = async () => {
           const info =
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({

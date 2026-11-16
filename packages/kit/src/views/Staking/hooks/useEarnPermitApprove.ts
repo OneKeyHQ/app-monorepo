@@ -3,13 +3,8 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-} from '@onekeyhq/shared/src/consts/addresses';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -23,6 +18,7 @@ interface IUseEarnPermitApproveParams {
   amountValue: string;
   providerName: string;
   vaultAddress: string;
+  beforeSign?: () => Promise<void>;
 }
 
 export interface IPermitSignatureResult {
@@ -44,6 +40,7 @@ export function useEarnPermitApprove() {
       amountValue,
       providerName,
       vaultAddress,
+      beforeSign,
     }: IUseEarnPermitApproveParams): Promise<IPermitSignatureResult> => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -60,28 +57,15 @@ export function useEarnPermitApprove() {
           amount: new BigNumber(amountValue).toFixed(),
         });
 
-      // check spender address
-      if (
-        (networkId === getNetworkIdsMap().eth &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoBundlerContract.toLowerCase()) ||
-        (networkId === getNetworkIdsMap().base &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoBaseBundlerContract.toLowerCase()) ||
-        (networkId === getNetworkIdsMap().katana &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoKatanaBundlerContract.toLowerCase())
-      ) {
-        const error = new Error(
-          `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,
-        );
-        defaultLogger.staking.page.permitSignError({
-          error: error.message,
-        });
-        throw error;
-      }
-
-      const unsignedMessage = JSON.stringify(permit2Data);
+      earnUtils.assertEarnPermit({
+        data: permit2Data,
+        networkId,
+        accountAddress: account.address,
+        token,
+        amount: amountValue,
+      });
+      await beforeSign?.();
+      const unsignedMessage = stringUtils.stableStringify(permit2Data);
 
       const signHash = await navigationToMessageConfirmAsync({
         accountId,

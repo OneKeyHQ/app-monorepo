@@ -425,6 +425,13 @@ class ServiceStaking extends ServiceBase {
     const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
+    const registeredProtocol = await this._getValidatedEarnProtocol({
+      networkId,
+      accountId,
+      provider,
+      symbol,
+      vault: protocolVault,
+    });
 
     // Determine publicKey: Stakefish validator pubkey takes priority
     let publicKey: string | undefined;
@@ -460,7 +467,7 @@ class ServiceStaking extends ServiceBase {
     };
 
     if (shouldSendProtocolVault) {
-      paramsToSend.vault = protocolVault;
+      paramsToSend.vault = registeredProtocol?.provider.vault ?? protocolVault;
     }
 
     const walletReferralCode = await this.backgroundApi.serviceReferralCode
@@ -719,6 +726,131 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  private async _getValidatedEarnProtocol(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    accountId?: string;
+    indexedAccountId?: string;
+  }) {
+    if (
+      !earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
+    )
+      return undefined;
+    const protocols = await this.getProtocolList({
+      symbol: params.symbol,
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
+      networkId: params.networkId,
+      filterNetworkId: params.networkId,
+      includeWithdrawOnly: true,
+    });
+    const protocol = earnUtils.findEarnProtocol({
+      protocols,
+      networkId: params.networkId,
+      providerName: params.provider,
+      protocolVault: params.vault,
+    });
+    if (!protocol) throw new OneKeyLocalError('Earn protocol is unavailable');
+    return protocol;
+  }
+
+  /** Re-read authoritative approval metadata at the Earn signing boundary. */
+  @backgroundMethod()
+  async assertEarnApproval(params: {
+    networkId: string;
+    accountId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    action: 'stake' | 'unstake' | 'claim';
+    tokenAddress: string;
+    spenderAddress: string;
+  }) {
+    const protocol = await this._getValidatedEarnProtocol(params);
+    const vault = protocol?.provider.vault ?? params.vault;
+    const query = {
+      networkId: params.networkId,
+      accountId: params.accountId,
+      provider: params.provider,
+      symbol: params.symbol,
+      vault,
+    };
+    const sameAddress = (a?: string, b?: string) =>
+      !!a &&
+      !!b &&
+      earnUtils.normalizeBorrowAddress({
+        networkId: params.networkId,
+        address: a,
+      }) ===
+        earnUtils.normalizeBorrowAddress({
+          networkId: params.networkId,
+          address: b,
+        });
+    let target: string | undefined;
+    let tokenAddress: string | undefined;
+    if (params.action === 'claim') {
+      const claimable = await this.getClaimableList(query);
+      target = claimable.claimApprove?.approveTarget;
+      tokenAddress = claimable.claimApprove?.tokenAddress;
+    } else {
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: params.accountId,
+          networkId: params.networkId,
+        });
+      const data = await this.getManagePage({ ...query, accountAddress });
+      if (params.action === 'unstake') {
+        target = data.withdrawApprove?.approveTarget;
+        tokenAddress = data.withdrawApprove?.tokenAddress;
+        // Pendle sell approvals use its router and a selected input asset.
+        if (earnUtils.isPendleProvider({ providerName: params.provider })) {
+          target = earnUtils.resolveEarnApproveSpenderAddress({
+            providerName: params.provider,
+          });
+          const assets = await this.getEarnAssetsList({
+            ...query,
+            action: 'unstake',
+          });
+          tokenAddress = assets.assets?.find((item) =>
+            sameAddress(item.info.address, params.tokenAddress),
+          )?.info.address;
+        }
+      } else {
+        target = earnUtils.resolveEarnApproveSpenderAddress({
+          providerName: params.provider,
+          verifiedProtocolVault: protocol?.provider.vault,
+          backendApproveTarget:
+            data.approve?.approveTarget ?? data.approveTarget,
+        });
+        tokenAddress = (data.deposit ?? data.buy?.payButton)?.data?.token?.info
+          .address;
+        if (
+          !sameAddress(tokenAddress, params.tokenAddress) &&
+          (earnUtils.isPendleProvider({ providerName: params.provider }) ||
+            earnUtils.isNativeProvider({ providerName: params.provider }))
+        ) {
+          const assets = await this.getEarnAssetsList({
+            ...query,
+            action: 'stake',
+          });
+          tokenAddress = assets.assets?.find((item) =>
+            sameAddress(item.info.address, params.tokenAddress),
+          )?.info.address;
+        }
+      }
+    }
+    if (
+      !sameAddress(target, params.spenderAddress) ||
+      !sameAddress(tokenAddress, params.tokenAddress)
+    ) {
+      throw new OneKeyLocalError(
+        'Earn approval does not match the selected protocol',
+      );
+    }
+  }
+
   @backgroundMethod()
   async getProtocolDetails(params: {
     accountId?: string;
@@ -740,6 +872,10 @@ class ServiceStaking extends ServiceBase {
       vault?: string;
       kycAccountAddress?: string;
     } = { networkId, ...rest };
+
+    const registeredProtocol = await this._getValidatedEarnProtocol(params);
+    if (registeredProtocol)
+      requestParams.vault = registeredProtocol.provider.vault;
 
     const isNoAccount = !accountId && !indexedAccountId;
     if (!isNoAccount) {
@@ -811,6 +947,8 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
     accountId: string;
   }) {
+    const registeredProtocol = await this._getValidatedEarnProtocol(params);
+    const protocolVault = registeredProtocol?.provider.vault ?? params.vault;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       networkId: string;
@@ -825,7 +963,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider.toLowerCase(),
       symbol: params.symbol,
       accountAddress: params.accountAddress,
-      ...(params.vault && { vault: params.vault }),
+      ...(protocolVault && { vault: protocolVault }),
       ...(params.publicKey && { publicKey: params.publicKey }),
     };
 

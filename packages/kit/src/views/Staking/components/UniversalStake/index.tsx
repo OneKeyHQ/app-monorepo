@@ -49,12 +49,14 @@ import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnA
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
@@ -1299,12 +1301,19 @@ export function UniversalStake({
     return isDisabled || isStakingCapFull;
   }, [isDisabled, isStakingCapFull]);
 
+  const approvalReady = earnUtils.isEarnApprovalReady({
+    networkId,
+    tokenIsNative: approveTarget.token?.isNative,
+    approveSpenderAddress: approveTarget.spenderAddress,
+  });
+
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
+      !approvalReady ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
       isStakingCapFull ||
@@ -1317,6 +1326,7 @@ export function UniversalStake({
     isInsufficientBalance,
     isStakingCapFull,
     checkAmountLoading,
+    approvalReady,
   ]);
 
   const daysSpent = useMemo(() => {
@@ -1325,8 +1335,62 @@ export function UniversalStake({
     }
   }, [estimateFeeResp?.coverFeeSeconds]);
 
+  const approvalScope = stringUtils.stableStringify([
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    approveTarget.token?.address,
+    approveTarget.spenderAddress,
+    amountValue,
+    approveType,
+  ]);
+  const approvalScopeRef = useRef(approvalScope);
+  approvalScopeRef.current = approvalScope;
+  useEffect(() => {
+    approvalScopeRef.current = approvalScope;
+    return () => {
+      approvalScopeRef.current = '';
+    };
+  }, [approvalScope]);
+  const assertApproval = useCallback(async () => {
+    if (!approvalReady || approvalScopeRef.current !== approvalScope) {
+      throw new OneKeyLocalError('Earn approval is unavailable');
+    }
+    if (
+      approveTarget.token &&
+      !approveTarget.token.isNative &&
+      networkId.startsWith('evm--')
+    ) {
+      await backgroundApiProxy.serviceStaking.assertEarnApproval({
+        networkId,
+        accountId,
+        provider: providerName,
+        symbol: protocolInfo?.symbol ?? actionSymbol,
+        vault: protocolInfo?.vault,
+        action: 'stake',
+        tokenAddress: approveTarget.token.address,
+        spenderAddress: approveTarget.spenderAddress,
+      });
+    }
+    if (approvalScopeRef.current !== approvalScope)
+      throw new OneKeyLocalError('Earn selection changed');
+  }, [
+    approvalReady,
+    approvalScope,
+    networkId,
+    accountId,
+    providerName,
+    protocolInfo?.symbol,
+    protocolInfo?.vault,
+    actionSymbol,
+    approveTarget.token,
+    approveTarget.spenderAddress,
+  ]);
+
   const onSubmit = useCallback(async () => {
     Keyboard.dismiss();
+    await assertApproval();
 
     // Bot Wallet deactivated warning
     const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
@@ -1501,6 +1565,7 @@ export function UniversalStake({
 
     await handleConfirm();
   }, [
+    assertApproval,
     usePermit2Approve,
     approveType,
     estimateFeeResp,
@@ -1545,6 +1610,12 @@ export function UniversalStake({
   const usdtResetReentryRef = useRef(false);
 
   const resetUSDTApproveValue = useCallback(async () => {
+    try {
+      await assertApproval();
+    } catch (error) {
+      setApproving(false);
+      throw error;
+    }
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
@@ -1637,6 +1708,7 @@ export function UniversalStake({
     fetchAllowanceResponse,
     navigationToTxConfirm,
     tokenInfo?.token,
+    assertApproval,
   ]);
 
   const showResetUSDTApproveValueDialog = useCallback(() => {
@@ -1751,6 +1823,12 @@ export function UniversalStake({
       setApproving(false);
       return;
     }
+    try {
+      await assertApproval();
+    } catch (error) {
+      setApproving(false);
+      throw error;
+    }
     let approveAllowance = allowance;
     try {
       const allowanceInfo = await fetchAllowanceResponse();
@@ -1798,6 +1876,7 @@ export function UniversalStake({
             amountValue,
             providerName,
             vaultAddress: approveTarget.spenderAddress,
+            beforeSign: assertApproval,
           });
           permitSignatureRef.current = signature;
           permit2DataRef.current = unsignedMessage;
@@ -1835,6 +1914,13 @@ export function UniversalStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+
+    try {
+      await assertApproval();
+    } catch (error) {
+      setApproving(false);
+      throw error;
+    }
 
     await navigationToTxConfirm({
       approvesInfo: [
@@ -1875,6 +1961,7 @@ export function UniversalStake({
       },
     });
   }, [
+    assertApproval,
     approving,
     allowance,
     amountValue,

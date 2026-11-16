@@ -6,9 +6,15 @@ import {
   MorphoBaseBundlerContract,
   MorphoBundlerContract,
   MorphoKatanaBundlerContract,
+  PendleRouterContract,
 } from '../consts/addresses';
 
 import earnUtils from './earnUtils';
+
+import type {
+  IEarnPermit2ApproveSignData,
+  IStakeProtocolListItem,
+} from '../../types/staking';
 
 describe('earnUtils Spark provider integration', () => {
   it('normalizes Spark provider identity for Earn routes and config lookup', () => {
@@ -30,7 +36,7 @@ describe('earnUtils Spark provider integration', () => {
     expect(
       earnUtils.resolveEarnApproveSpenderAddress({
         providerName: 'spark',
-        protocolVault,
+        verifiedProtocolVault: protocolVault,
       }),
     ).toBe(protocolVault);
   });
@@ -333,5 +339,207 @@ describe('earnUtils normalizeEarnUtmParams', () => {
     ).toEqual({ utmSource: 'onekey_app' });
     expect(earnUtils.normalizeEarnUtmParams(undefined)).toBeUndefined();
     expect(earnUtils.normalizeEarnUtmParams({ vault: '0x1' })).toBeUndefined();
+  });
+});
+
+describe('Earn approval trust boundary (OK-67371)', () => {
+  const vault = '0xabcdef1234567890123456789012345678901234';
+  const other = '0x2222222222222222222222222222222222222222';
+  const protocol = (overrides = {}): IStakeProtocolListItem =>
+    ({
+      network: { networkId: 'evm--56' },
+      provider: { name: 'Unitas', vault, group: 'withdrawOnly' },
+      ...overrides,
+    }) as IStakeProtocolListItem;
+  const find = (params = {}) =>
+    earnUtils.findEarnProtocol({
+      protocols: [protocol()],
+      networkId: 'evm--56',
+      providerName: 'unitas',
+      protocolVault: vault,
+      ...params,
+    });
+
+  it('accepts a registered checksum vault and retains withdraw-only rows', () => {
+    expect(find({ protocolVault: vault.toUpperCase() })?.provider.vault).toBe(
+      vault,
+    );
+    expect(find({ protocolVault: undefined })?.provider.vault).toBe(vault);
+  });
+  it.each([
+    { protocolVault: other },
+    { networkId: 'evm--1' },
+    { providerName: 'morpho' },
+    { protocols: [] },
+    {
+      protocolVault: undefined,
+      protocols: [
+        protocol(),
+        protocol({ provider: { name: 'Unitas', vault: other } }),
+      ],
+    },
+  ])('rejects unregistered or ambiguous selection %j', (params) => {
+    expect(find(params)).toBeUndefined();
+  });
+  it('does not lowercase case-sensitive non-EVM vaults', () => {
+    expect(
+      find({
+        networkId: 'sol--101',
+        protocolVault: 'abc',
+        protocols: [
+          protocol({
+            network: { networkId: 'sol--101' },
+            provider: { name: 'Unitas', vault: 'Abc' },
+          }),
+        ],
+      }),
+    ).toBeUndefined();
+  });
+  it.each(['unitas', 'spark', 'bitway', 'morpho'])(
+    'uses the server target for %s',
+    (providerName) => {
+      expect(
+        earnUtils.resolveEarnApproveSpenderAddress({
+          providerName,
+          verifiedProtocolVault: vault,
+          backendApproveTarget: other,
+        }),
+      ).toBe(other);
+    },
+  );
+  it('never falls back to the Unitas route vault if approval metadata is missing', () => {
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'unitas',
+        verifiedProtocolVault: vault,
+      }),
+    ).toBe('');
+  });
+  it('preserves Lista deposit contracts and the Pendle router', () => {
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'lista',
+        verifiedProtocolVault: vault,
+        backendApproveTarget: other,
+      }),
+    ).toBe(vault);
+    expect(
+      earnUtils.resolveEarnApproveSpenderAddress({
+        providerName: 'pendle',
+        verifiedProtocolVault: vault,
+        backendApproveTarget: other,
+      }),
+    ).toBe(PendleRouterContract);
+  });
+  it('blocks missing ERC20 targets while retaining native and non-EVM flows', () => {
+    expect(earnUtils.isEarnApprovalReady({ networkId: 'evm--56' })).toBe(false);
+    expect(
+      earnUtils.isEarnApprovalReady({
+        networkId: 'evm--56',
+        approveSpenderAddress: `0x${'0'.repeat(40)}`,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnApprovalReady({
+        networkId: 'evm--56',
+        approveSpenderAddress: vault,
+      }),
+    ).toBe(true);
+    expect(
+      earnUtils.isEarnApprovalReady({
+        networkId: 'evm--1',
+        tokenIsNative: true,
+      }),
+    ).toBe(true);
+    expect(earnUtils.isEarnApprovalReady({ networkId: 'sol--101' })).toBe(true);
+  });
+});
+
+describe('Earn permit payload verification', () => {
+  const owner = '0x1111111111111111111111111111111111111111';
+  const token = {
+    address: '0x2222222222222222222222222222222222222222',
+    symbol: 'USDC',
+    decimals: 6,
+  };
+  const data = (): IEarnPermit2ApproveSignData => ({
+    domain: {
+      name: 'USD Coin',
+      version: '2',
+      chainId: 1,
+      verifyingContract: token.address,
+    },
+    primaryType: 'Permit',
+    types: { EIP712Domain: [], Permit: [] },
+    message: {
+      owner,
+      spender: MorphoBundlerContract,
+      value: '1250000',
+      nonce: '0',
+      deadline: String(Math.floor(Date.now() / 1000) + 3600),
+    },
+  });
+  const check = (message = data(), networkId = 'evm--1') =>
+    earnUtils.assertEarnPermit({
+      data: message,
+      networkId,
+      accountAddress: owner,
+      token,
+      amount: '1.25',
+    });
+  it.each([
+    ['evm--1', MorphoBundlerContract],
+    ['evm--8453', MorphoBaseBundlerContract],
+    ['evm--747474', MorphoKatanaBundlerContract],
+  ])('accepts the approved spender on %s', (networkId, spender) => {
+    const payload = data();
+    payload.domain.chainId = Number(networkId.split('--')[1]);
+    payload.message.spender = spender;
+    expect(() => check(payload, networkId)).not.toThrow();
+  });
+  it.each(['owner', 'spender', 'value', 'deadline'] as const)(
+    'rejects changed %s',
+    (field) => {
+      const payload = data();
+      payload.message[field] = '0';
+      expect(() => check(payload)).toThrow();
+    },
+  );
+  it('rejects another chain or token and unsupported networks', () => {
+    const payload = data();
+    payload.domain.chainId = 56;
+    expect(() => check(payload)).toThrow();
+    payload.domain.chainId = 1;
+    payload.domain.verifyingContract = owner;
+    expect(() => check(payload)).toThrow();
+    expect(() => check(data(), 'evm--56')).toThrow();
+    expect(
+      earnUtils.resolveEarnAllowanceSpenderAddress({
+        networkId: 'evm--56',
+        approveType: EApproveType.Permit,
+        approveSpenderAddress: owner,
+      }),
+    ).toBe('');
+  });
+  it('accepts DAI holder/allowed and rejects a different holder', () => {
+    const payload = data();
+    payload.message = {
+      holder: owner,
+      allowed: true,
+      spender: MorphoBundlerContract,
+      expiry: payload.message.deadline,
+      nonce: '0',
+    };
+    const checkDai = () =>
+      earnUtils.assertEarnPermit({
+        data: payload,
+        networkId: 'evm--1',
+        accountAddress: owner,
+        token: { ...token, symbol: 'DAI', decimals: 18 },
+        amount: '1',
+      });
+    expect(checkDai).not.toThrow();
+    payload.message.holder = token.address;
+    expect(checkDai).toThrow();
   });
 });
