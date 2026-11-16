@@ -1,0 +1,12 @@
+[
+  {
+    "seq": 1,
+    "commit": "d0c4c6bdbd113803df2cd731dbe93bcb7ad2a393",
+    "date": "2026-11-16T10:16:01Z",
+    "prs": [
+      "#14538",
+      "#14545"
+    ],
+    "notes": "Feat/ok 61790 unitas 6.7.0 (#14538), fix: unify mobile trading button size and colors (#14545)"
+  }
+]
