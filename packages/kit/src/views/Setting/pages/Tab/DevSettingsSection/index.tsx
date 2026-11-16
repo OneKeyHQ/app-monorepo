@@ -2062,6 +2062,7 @@ const BaseDevSettingsSection = () => {
                             Toast.message({ title: 'Checking for updates...' });
                             await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
                               true,
+                              true,
                             );
                             Toast.success({ title: 'Check updates done' });
                           } catch (e) {
