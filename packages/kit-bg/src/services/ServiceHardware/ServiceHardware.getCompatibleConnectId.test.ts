@@ -284,7 +284,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     },
   );
 
-  it('uses the USB serial connectId on Android in experimental NativeUsb mode', async () => {
+  it('uses the USB serial connectId on Android auto USB when a USB device is present and skips BLE precheck', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: false,
       isSupportDesktopBle: false,
@@ -306,22 +306,208 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     } as IDBDevice;
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
 
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          isAndroidUsbAutoEnabled: jest.fn().mockResolvedValue(true),
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.NativeUsb),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.androidUsbPresence.handleDeviceConnect({
+      connectId: 'PRA50I0011A',
+      serialNo: 'PRA50I0011A',
+      commType: 'usb',
+    });
+
     await expect(
-      new ServiceHardware({
-        backgroundApi: {
-          serviceSetting: {
-            getHardwareTransportType: jest
-              .fn()
-              .mockResolvedValue(EHardwareTransportType.NativeUsb),
-          },
-        } as unknown as IBackgroundApi,
-      }).getCompatibleConnectId({
+      service.getCompatibleConnectId({
         connectId: 'AA:BB:CC:DD:EE:FF',
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
     ).resolves.toBe('PRA50I0011A');
     // USB mode must not run the Bluetooth permission precheck.
     expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+  });
+
+  it('keeps a different paired BLE device on BLE while another device is plugged in over USB', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-other-device',
+      connectId: '11:22:33:44:55:66',
+      usbConnectId: 'PRB00OTHER1',
+      bleConnectId: '11:22:33:44:55:66',
+      deviceId: 'OTHER_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          isAndroidUsbAutoEnabled: jest.fn().mockResolvedValue(true),
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.NativeUsb),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    // A different device is plugged in over USB.
+    service.connectionManager.androidUsbPresence.handleDeviceConnect({
+      connectId: 'PRA50I0011A',
+      serialNo: 'PRA50I0011A',
+      commType: 'usb',
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: '11:22:33:44:55:66',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe('11:22:33:44:55:66');
+  });
+
+  it('uses bleConnectId and runs BLE precheck on Android auto when no USB device is present or kill-switch is on', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(true);
+    mockedCheckBLEState.mockResolvedValue(true);
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro-device',
+      connectId: 'PRA50I0011A',
+      usbConnectId: 'PRA50I0011A',
+      bleConnectId: 'AA:BB:CC:DD:EE:FF',
+      deviceId: 'PRO_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    const isAndroidUsbAutoEnabled = jest.fn().mockResolvedValue(true);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          isAndroidUsbAutoEnabled,
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.NativeUsb),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    // No USB device attached -> dynamically falls back to BLE.
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'PRA50I0011A',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe('AA:BB:CC:DD:EE:FF');
+    expect(mockedCheckBLEPermissions).toHaveBeenCalledTimes(1);
+
+    // Even with USB presence or explicit NativeUsb, kill-switch ON forces BLE.
+    service.connectionManager.androidUsbPresence.handleDeviceConnect({
+      connectId: 'PRA50I0011A',
+      commType: 'usb',
+    });
+    isAndroidUsbAutoEnabled.mockResolvedValue(false);
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'PRA50I0011A',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType: EHardwareTransportType.NativeUsb,
+      }),
+    ).resolves.toBe('AA:BB:CC:DD:EE:FF');
+    expect(mockedCheckBLEPermissions).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps Android combined SDK alive across BLE/USB calls without resetting unless kill-switch flips', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    const isAndroidUsbAutoEnabled = jest.fn().mockResolvedValue(true);
+    const mockSdk = {
+      on: jest.fn(),
+      setDeviceConnectProtocol: jest.fn(),
+    } as unknown as Awaited<ReturnType<typeof getHardwareSDKInstance>>;
+    mockedGetHardwareSDKInstance.mockResolvedValue(mockSdk);
+    mockedResetHardwareSDKInstance.mockResolvedValue(undefined);
+    mockedGetFirmwareManifestSnapshot.mockResolvedValue({} as never);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceApp: {
+          showToast: jest.fn(),
+        },
+        serviceSetting: {
+          isAndroidUsbAutoEnabled,
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.NativeUsb),
+          setHardwareTransportType: jest.fn(),
+          getIsPreReleaseConfig: jest.fn().mockResolvedValue(false),
+        },
+        serviceDevSetting: {
+          getDevSetting: jest.fn().mockResolvedValue({ enabled: false }),
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation: jest.fn(async (op: () => unknown) =>
+            op(),
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(
+        service as unknown as { registerSdkEvents: () => Promise<void> },
+        'registerSdkEvents',
+      )
+      .mockResolvedValue(undefined);
+
+    await service.getSDKInstance({
+      connectId: undefined,
+      hardwareTransportType: EHardwareTransportType.NativeUsb,
+    });
+    await service.getSDKInstance({
+      connectId: undefined,
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+    // Switching logical BLE/USB channels in combined mode must not reset the SDK.
+    expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+
+    // Toggling the kill-switch ON resets and rebuilds SDK in BLE mode.
+    isAndroidUsbAutoEnabled.mockResolvedValue(false);
+    await service.switchHardwareTransportType({
+      transportType: EHardwareTransportType.BLE,
+    });
+    expect(mockedResetHardwareSDKInstance).toHaveBeenCalledTimes(1);
+    expect(mockedGetHardwareSDKInstance).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        hardwareTransportType: EHardwareTransportType.BLE,
+        androidUsbAutoEnabled: false,
+      }),
+    );
   });
 
   it('keeps the BLE connectId on Android when the USB transport is not selected', async () => {

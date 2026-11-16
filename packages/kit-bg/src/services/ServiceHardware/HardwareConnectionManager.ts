@@ -32,6 +32,8 @@ import {
   hardwareUiStateAtom,
 } from '../../states/jotai/atoms/hardware';
 
+import { AndroidUsbPresenceTracker } from './androidUsbPresence';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 
@@ -46,6 +48,25 @@ export class HardwareConnectionManager {
   private backgroundApi: IBackgroundApi;
 
   private actualTransportType: EHardwareTransportType | null = null;
+
+  readonly androidUsbPresence = new AndroidUsbPresenceTracker();
+
+  clearAndroidUsbPresence(): void {
+    this.androidUsbPresence.clear();
+  }
+
+  private async isAndroidUsbAutoEnabled(): Promise<boolean> {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    const serviceSetting = this.backgroundApi?.serviceSetting;
+    if (typeof serviceSetting?.isAndroidUsbAutoEnabled === 'function') {
+      return serviceSetting.isAndroidUsbAutoEnabled();
+    }
+    const currentSettingType =
+      await serviceSetting?.getHardwareTransportType?.();
+    return currentSettingType === EHardwareTransportType.NativeUsb;
+  }
 
   private bluetoothPermissionPromise: Promise<boolean> | undefined;
 
@@ -103,13 +124,9 @@ export class HardwareConnectionManager {
     }
 
     if (platformEnv.isNativeAndroid) {
-      // Only the opt-in dev setting enables Android USB; getHardwareTransportType
-      // already falls back to BLE when it is off.
-      const currentSettingType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
-      if (currentSettingType === EHardwareTransportType.NativeUsb) {
-        return EHardwareTransportType.NativeUsb;
-      }
+      return (await this.isAndroidUsbAutoEnabled())
+        ? EHardwareTransportType.NativeUsb
+        : EHardwareTransportType.BLE;
     }
 
     const mode = await this.getDesktopUsbSetting(connectProtocol);
@@ -476,6 +493,10 @@ export class HardwareConnectionManager {
     vendor?: EHardwareVendor,
     permissionOptions: IBluetoothPermissionOptions = {},
   ): Promise<EHardwareTransportType> {
+    if (platformEnv.isNativeAndroid) {
+      return this.getCurrentTransportType();
+    }
+
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
@@ -567,8 +588,17 @@ export class HardwareConnectionManager {
         };
       }
 
-      // Mini does not support BLE, so it must always use the configured USB transport.
+      // Mini does not support BLE, so it must always use USB transport.
       if (isMiniDevice) {
+        if (platformEnv.isNativeAndroid) {
+          const targetType = (await this.isAndroidUsbAutoEnabled())
+            ? EHardwareTransportType.NativeUsb
+            : EHardwareTransportType.BLE;
+          return {
+            shouldSwitch: this.actualTransportType !== targetType,
+            targetType,
+          };
+        }
         const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
         const targetType =
           usbSetting === 'webusb'
@@ -593,8 +623,9 @@ export class HardwareConnectionManager {
           '❌ Skip transport type detection: ',
           hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
         );
-        const currentSettingType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        const currentSettingType = platformEnv.isNativeAndroid
+          ? await this.getCurrentTransportType()
+          : await this.backgroundApi.serviceSetting.getHardwareTransportType();
         return {
           shouldSwitch: false,
           targetType: currentSettingType,
@@ -667,11 +698,33 @@ export class HardwareConnectionManager {
   }
 
   async getCurrentTransportType(): Promise<EHardwareTransportType> {
+    if (platformEnv.isNativeAndroid) {
+      // Dynamic Android transport: combined SDK runs for the process lifetime,
+      // while the live transport is NativeUsb only when auto USB is enabled and
+      // a USB device is currently present; otherwise BLE. Stale NativeUsb drops
+      // immediately without disposing the SDK.
+      const autoEnabled = await this.isAndroidUsbAutoEnabled();
+      if (!autoEnabled) {
+        return EHardwareTransportType.BLE;
+      }
+      // A forced NativeUsb (firmware update lock) must survive the bootloader
+      // reboot DISCONNECT until clearForceTransportType().
+      try {
+        const { forceTransportType } = await hardwareForceTransportAtom.get();
+        if (forceTransportType === EHardwareTransportType.NativeUsb) {
+          return EHardwareTransportType.NativeUsb;
+        }
+      } catch {
+        // Fall back to live presence.
+      }
+      return this.androidUsbPresence.hasUsbDevice()
+        ? EHardwareTransportType.NativeUsb
+        : EHardwareTransportType.BLE;
+    }
+
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
-    // If the experimental Android USB dev setting (or dev mode) was turned
-    // off, a stale runtime NativeUsb must not outlive it; the gated setting
-    // already resolves to BLE, and the SDK is rebuilt on the next call.
+    // Non-Android platforms must never expose a stale runtime NativeUsb.
     if (
       this.actualTransportType === EHardwareTransportType.NativeUsb &&
       currentTransportType !== EHardwareTransportType.NativeUsb

@@ -11,6 +11,7 @@ import type {
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { resolveNativeForceTransportType } from '../../hooks/useAndroidUsbOnboarding';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
@@ -56,11 +57,7 @@ export async function getForceTransportType(
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
       if (platformEnv.isNative) {
-        const currentTransportType =
-          await backgroundApiProxy.serviceSetting.getHardwareTransportType();
-        return currentTransportType === EHardwareTransportType.NativeUsb
-          ? EHardwareTransportType.NativeUsb
-          : EHardwareTransportType.BLE;
+        return resolveNativeForceTransportType(channel);
       }
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();

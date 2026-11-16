@@ -525,15 +525,30 @@ export function FirmwareChangeLogView({
         return;
       }
     }
-    if (
+    let shouldSuggestUsb =
       !usbSuggestionAcknowledged &&
       !continuedViaBluetoothRef.current &&
       shouldSuggestDesktopUsbFirmwareUpdate({
         isNative: platformEnv.isNative,
         deviceType: result?.deviceType,
         estimatedTransferBytes: result?.estimatedTransferBytes,
-      })
+      });
+    if (
+      shouldSuggestUsb &&
+      platformEnv.isNativeAndroid &&
+      typeof backgroundApiProxy?.serviceHardware?.getCurrentTransportType ===
+        'function'
     ) {
+      const hardwareTransportType =
+        await backgroundApiProxy.serviceHardware.getCurrentTransportType();
+      shouldSuggestUsb = shouldSuggestDesktopUsbFirmwareUpdate({
+        isNative: platformEnv.isNative,
+        hardwareTransportType,
+        deviceType: result?.deviceType,
+        estimatedTransferBytes: result?.estimatedTransferBytes,
+      });
+    }
+    if (shouldSuggestUsb) {
       const shouldContinue = await confirmUpdateViaBluetooth();
       if (!shouldContinue) {
         return;

@@ -153,9 +153,10 @@ export interface IDevSettings {
   // Only honored while dev mode is enabled; the session bridge then
   // trusts this URL's origin instead of the production one.
   intercomSupportUrl?: string;
-  // Experimental: switches @onekeyfe/hd-ble-sdk to env 'react-native-usb' on
-  // Android (needs @onekeyfe SDK release containing hardware-js-sdk#997).
-  androidNativeUsbTransport?: boolean;
+  // Kill-switch on Android: when enabled alongside dev mode, disables
+  // automatic USB+BLE ('react-native-combined') in @onekeyfe/hd-ble-sdk and
+  // forces BLE-only mode.
+  disableAndroidNativeUsb?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

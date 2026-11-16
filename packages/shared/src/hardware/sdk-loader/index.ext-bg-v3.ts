@@ -36,3 +36,7 @@ export const importHardwareSDK = async ({
 export const importHardwareSDKLowLevel = async () =>
   (await import('@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy'))
     .default.hardwareSDKLowLevel as unknown as Promise<LowLevelCoreApi>;
+
+// Android automatic USB+BLE is only available in the native loader.
+export const isAndroidCombinedTransportSupported = async (): Promise<boolean> =>
+  Promise.resolve(false);

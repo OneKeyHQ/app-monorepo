@@ -235,14 +235,29 @@ export function useFirmwareUpdateActions() {
       }
 
       let usbSuggestionAcknowledged = false;
-      if (
-        knownUpdate &&
+      let shouldSuggestUsb =
+        Boolean(knownUpdate) &&
         shouldSuggestDesktopUsbFirmwareUpdate({
           isNative: platformEnv.isNative,
-          deviceType: knownUpdate.deviceType,
-          estimatedTransferBytes: knownUpdate.estimatedTransferBytes,
-        })
+          deviceType: knownUpdate?.deviceType,
+          estimatedTransferBytes: knownUpdate?.estimatedTransferBytes,
+        });
+      if (
+        shouldSuggestUsb &&
+        platformEnv.isNativeAndroid &&
+        typeof backgroundApiProxy?.serviceHardware?.getCurrentTransportType ===
+          'function'
       ) {
+        const hardwareTransportType =
+          await backgroundApiProxy.serviceHardware.getCurrentTransportType();
+        shouldSuggestUsb = shouldSuggestDesktopUsbFirmwareUpdate({
+          isNative: platformEnv.isNative,
+          hardwareTransportType,
+          deviceType: knownUpdate?.deviceType,
+          estimatedTransferBytes: knownUpdate?.estimatedTransferBytes,
+        });
+      }
+      if (shouldSuggestUsb) {
         if (!(await confirmUpdateViaBluetooth(dialogHost))) {
           return;
         }

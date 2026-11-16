@@ -42,6 +42,11 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
+import {
+  isAndroidUsbPermissionDeniedError,
+  resolveNativeForceTransportType,
+  useAndroidUsbAutoEnabled,
+} from '@onekeyhq/kit/src/hooks/useAndroidUsbOnboarding';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -61,6 +66,10 @@ import {
   isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
@@ -146,11 +155,7 @@ async function getForceTransportType(
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
       if (platformEnv.isNative) {
-        const currentTransportType =
-          await backgroundApiProxy.serviceSetting.getHardwareTransportType();
-        return currentTransportType === EHardwareTransportType.NativeUsb
-          ? EHardwareTransportType.NativeUsb
-          : EHardwareTransportType.BLE;
+        return resolveNativeForceTransportType(channel);
       }
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
@@ -363,12 +368,14 @@ enum EConnectionStatus {
 interface IDeviceConnectionProps {
   tabValue: EConnectDeviceChannel;
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  onScanError?: (error: Error) => boolean;
 }
 
 // Common device list and connection logic
 function useDeviceConnection({
   tabValue,
   onDeviceConnect,
+  onScanError,
 }: IDeviceConnectionProps) {
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
@@ -436,6 +443,17 @@ function useDeviceConnection({
   const { handleScanError, resetScanError } =
     useOnboardingDeviceScanErrorHandler({ stopScan: stopScanAfterError });
 
+  const handleDeviceScanError = useCallback(
+    (error: Error) => {
+      if (onScanError?.(error)) {
+        stopScanAfterError();
+        return;
+      }
+      handleScanError(error);
+    },
+    [handleScanError, onScanError, stopScanAfterError],
+  );
+
   const scanDevice = useCallback(async () => {
     if (isSearchingRef.current) {
       return;
@@ -448,6 +466,11 @@ function useDeviceConnection({
         forceTransportType,
       });
     }
+    const transportType =
+      forceTransportType === EHardwareTransportType.BLE ||
+      forceTransportType === EHardwareTransportType.DesktopWebBle
+        ? 'ble'
+        : 'usb';
 
     isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
@@ -482,9 +505,9 @@ function useDeviceConnection({
       undefined, // pollInterval
       undefined, // maxTryCount
       undefined, // vendor
-      { onError: handleScanError },
+      { transportType, onError: handleDeviceScanError },
     );
-  }, [deviceScanner, handleScanError, resetScanError, tabValue]);
+  }, [deviceScanner, handleDeviceScanError, resetScanError, tabValue]);
 
   const ensureStopScan = useCallback(async () => {
     // Force stop scanning and wait for any ongoing search to complete
@@ -637,21 +660,48 @@ function DeviceListView({
   );
 }
 
+const USB_NOT_DETECTED_HINT_DELAY_MS = 6000;
+
 function ConnectByUSBOrBLE({
   tabValue,
   onDeviceConnect,
+  onSwitchToBluetooth,
 }: {
   tabValue: EConnectDeviceChannel;
   onDeviceConnect: (device: SearchDevice) => Promise<void>;
+  onSwitchToBluetooth?: () => void;
 }) {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const isAndroidUsb = useAndroidUsbAutoEnabled(isFocused);
+  const isAndroidUsbMode =
+    isAndroidUsb && tabValue === EConnectDeviceChannel.usbOrBle;
+  const isNativeBleMode = platformEnv.isNative && !isAndroidUsbMode;
+
+  const [usbErrorState, setUsbErrorState] = useState<
+    'permission_denied' | undefined
+  >(undefined);
+  const [usbNotDetected, setUsbNotDetected] = useState(false);
+  const prevFocusedRef = useRef(isFocused);
+
+  const handleUsbScanError = useCallback(
+    (error: unknown) => {
+      if (isAndroidUsbMode && isAndroidUsbPermissionDeniedError(error)) {
+        setUsbErrorState('permission_denied');
+        setUsbNotDetected(false);
+        return true;
+      }
+      return false;
+    },
+    [isAndroidUsbMode],
+  );
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceConnect,
+    onScanError: handleUsbScanError,
   });
 
   const {
@@ -675,15 +725,88 @@ function ConnectByUSBOrBLE({
     await scanDevice();
   }, [scanDevice, setConnectStatus]);
 
+  const handleRetryUsbSearch = useCallback(async () => {
+    setUsbErrorState(undefined);
+    setUsbNotDetected(false);
+    stopScan();
+    await listingDevice();
+  }, [listingDevice, stopScan]);
+
   useEffect(() => {
+    const wasFocused = prevFocusedRef.current;
+    prevFocusedRef.current = isFocused;
     if (isFocused) {
       if (connectStatus === EConnectionStatus.listing) {
         void listingDevice();
+      } else if (!wasFocused && isAndroidUsbMode) {
+        void handleRetryUsbSearch();
       }
     } else if (!isFocused) {
       stopScan();
     }
-  }, [connectStatus, isFocused, listingDevice, stopScan]);
+  }, [
+    connectStatus,
+    handleRetryUsbSearch,
+    isAndroidUsbMode,
+    isFocused,
+    listingDevice,
+    stopScan,
+  ]);
+
+  useEffect(() => {
+    if (devicesData.length > 0) {
+      setUsbErrorState(undefined);
+      setUsbNotDetected(false);
+    }
+  }, [devicesData.length]);
+
+  useEffect(() => {
+    if (
+      !isAndroidUsbMode ||
+      connectStatus !== EConnectionStatus.listing ||
+      devicesData.length > 0
+    ) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      setUsbNotDetected(true);
+      stopScan();
+      setConnectStatus(EConnectionStatus.init);
+    }, USB_NOT_DETECTED_HINT_DELAY_MS);
+    return () => clearTimeout(timeoutId);
+  }, [
+    connectStatus,
+    devicesData.length,
+    isAndroidUsbMode,
+    setConnectStatus,
+    stopScan,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isAndroidUsbMode ||
+      !isFocused ||
+      typeof appEventBus?.on !== 'function'
+    ) {
+      return;
+    }
+    const handleConnectionStateUpdate = () => {
+      setUsbErrorState(undefined);
+      setUsbNotDetected(false);
+      stopScan();
+      void listingDevice();
+    };
+    appEventBus.on(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      handleConnectionStateUpdate,
+    );
+    return () => {
+      appEventBus?.off?.(
+        EAppEventBusNames.HardwareConnectionStateUpdate,
+        handleConnectionStateUpdate,
+      );
+    };
+  }, [isAndroidUsbMode, isFocused, listingDevice, stopScan]);
 
   const RequireBlePermissionDialogRender = useCallback(
     ({ ref }: { ref: any }) => <RequireBlePermissionDialog ref={ref} />,
@@ -767,7 +890,7 @@ function ConnectByUSBOrBLE({
 
   useEffect(() => {
     if (
-      platformEnv.isNative ||
+      isNativeBleMode ||
       (hardwareTransportType === EHardwareTransportType.WEBUSB &&
         !platformEnv.isDesktop)
     ) {
@@ -776,7 +899,7 @@ function ConnectByUSBOrBLE({
     void (async () => {
       void listingDevice();
     })();
-  }, [listingDevice, hardwareTransportType, tabValue]);
+  }, [isNativeBleMode, listingDevice, hardwareTransportType, tabValue]);
 
   useEffect(
     () =>
@@ -787,25 +910,51 @@ function ConnectByUSBOrBLE({
     [stopScan],
   );
 
+  let initTitleId = ETranslations.onboarding_bluetooth_prepare_to_connect;
+  if (isAndroidUsbMode) {
+    initTitleId =
+      usbErrorState === 'permission_denied'
+        ? ETranslations.onboarding_usb_permission_denied
+        : ETranslations.onboarding_usb_prepare_to_connect;
+  } else if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+    initTitleId = ETranslations.device_connect_via_usb;
+  }
+
+  let initBodyId =
+    ETranslations.onboarding_bluetooth_prepare_to_connect_help_text;
+  if (isAndroidUsbMode) {
+    if (usbErrorState === 'permission_denied') {
+      initBodyId = ETranslations.onboarding_usb_permission_denied_help_text;
+    } else if (usbNotDetected) {
+      initBodyId = ETranslations.onboarding_usb_not_detected;
+    } else {
+      initBodyId = ETranslations.onboarding_usb_prepare_to_connect_help_text;
+    }
+  } else if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+    initBodyId = ETranslations.device_select_device_popup;
+  }
+
+  let onInitPress = startBLEConnection;
+  if (isAndroidUsbMode) {
+    onInitPress = handleRetryUsbSearch;
+  } else if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+    onInitPress = onConnectWebDevice;
+  }
+
   return (
     <>
       <AnimationView
         lottieSource={
-          platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+          isNativeBleMode ? ConnectByBluetoothAnim : ConnectByUSBAnim
         }
         connectStatus={connectStatus}
-        connectionType={platformEnv.isNative ? 'bluetooth' : 'usb'}
+        connectionType={isNativeBleMode ? 'bluetooth' : 'usb'}
       />
 
       {connectStatus === EConnectionStatus.init ? (
-        <YStack pt="$8">
+        <YStack pt="$8" px="$5" alignItems="center">
           <Heading size="$headingMd" textAlign="center">
-            {intl.formatMessage({
-              id:
-                hardwareTransportType === EHardwareTransportType.WEBUSB
-                  ? ETranslations.device_connect_via_usb
-                  : ETranslations.onboarding_bluetooth_prepare_to_connect,
-            })}
+            {intl.formatMessage({ id: initTitleId })}
           </Heading>
           <SizableText
             pt="$2"
@@ -815,32 +964,74 @@ function ConnectByUSBOrBLE({
             maxWidth="$80"
             mx="auto"
           >
-            {intl.formatMessage({
-              id:
-                hardwareTransportType === EHardwareTransportType.WEBUSB
-                  ? ETranslations.device_select_device_popup
-                  : ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
-            })}
+            {intl.formatMessage({ id: initBodyId })}
           </SizableText>
-          <Button
-            testID="onboarding-btn"
-            mx="auto"
-            size="large"
-            variant="primary"
-            loading={isCheckingDeviceLoading}
-            onPress={
-              hardwareTransportType === EHardwareTransportType.WEBUSB
-                ? onConnectWebDevice
-                : startBLEConnection
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.global_start_connection })}
-          </Button>
+          <YStack gap="$3" alignItems="center">
+            <Button
+              testID="onboarding-btn"
+              mx="auto"
+              size="large"
+              variant="primary"
+              loading={isCheckingDeviceLoading}
+              onPress={onInitPress}
+            >
+              {intl.formatMessage({
+                id: isAndroidUsbMode
+                  ? ETranslations.global_retry
+                  : ETranslations.global_start_connection,
+              })}
+            </Button>
+            {isAndroidUsbMode && onSwitchToBluetooth ? (
+              <Button
+                testID="onboarding-usb-try-bluetooth-btn"
+                mx="auto"
+                size="medium"
+                variant="tertiary"
+                onPress={onSwitchToBluetooth}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_usb_try_bluetooth,
+                })}
+              </Button>
+            ) : null}
+          </YStack>
         </YStack>
       ) : null}
 
       {connectStatus === EConnectionStatus.listing ? (
-        <DeviceListView devicesData={devicesData} />
+        <>
+          <DeviceListView
+            title={
+              isAndroidUsbMode
+                ? `${intl.formatMessage({
+                    id: ETranslations.onboarding_usb_connect_help_text,
+                  })}...`
+                : undefined
+            }
+            description={
+              isAndroidUsbMode
+                ? intl.formatMessage({
+                    id: ETranslations.onboarding_usb_prepare_to_connect_help_text,
+                  })
+                : undefined
+            }
+            devicesData={devicesData}
+          />
+          {isAndroidUsbMode && onSwitchToBluetooth ? (
+            <YStack px="$5" pb="$4" alignItems="center">
+              <Button
+                testID="onboarding-usb-try-bluetooth-btn"
+                size="medium"
+                variant="tertiary"
+                onPress={onSwitchToBluetooth}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_usb_try_bluetooth,
+                })}
+              </Button>
+            </YStack>
+          ) : null}
+        </>
       ) : null}
     </>
   );
@@ -1140,6 +1331,8 @@ export function ConnectYourDevicePage() {
   const [tabValue, setTabValue] = useState<EConnectDeviceChannel>(
     channel ?? EConnectDeviceChannel.usbOrBle,
   );
+  const isFocused = useIsFocused();
+  const isAndroidUsb = useAndroidUsbAutoEnabled(isFocused);
 
   const { headerRight } = useBuyOneKeyHeaderRightButton();
 
@@ -1718,6 +1911,11 @@ export function ConnectYourDevicePage() {
     ],
   );
 
+  const firstChannelLabel =
+    isAndroidUsb || !platformEnv.isNative
+      ? 'USB'
+      : intl.formatMessage({ id: ETranslations.global_bluetooth });
+
   return (
     <Page>
       <Page.Header
@@ -1737,12 +1935,10 @@ export function ConnectYourDevicePage() {
             }}
             options={[
               {
-                label: platformEnv.isNative
-                  ? intl.formatMessage({ id: ETranslations.global_bluetooth })
-                  : 'USB',
+                label: firstChannelLabel,
                 value: EConnectDeviceChannel.usbOrBle,
               },
-              ...(platformEnv.isSupportDesktopBle
+              ...(platformEnv.isSupportDesktopBle || isAndroidUsb
                 ? [
                     {
                       label: intl.formatMessage({
@@ -1765,12 +1961,26 @@ export function ConnectYourDevicePage() {
           <ConnectByUSBOrBLE
             tabValue={tabValue}
             onDeviceConnect={handleDeviceConnect}
+            onSwitchToBluetooth={
+              isAndroidUsb
+                ? () => setTabValue(EConnectDeviceChannel.bluetooth)
+                : undefined
+            }
           />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.bluetooth &&
         platformEnv.isSupportDesktopBle ? (
           <ConnectByBluetooth onDeviceConnect={handleDeviceConnect} />
+        ) : null}
+
+        {tabValue === EConnectDeviceChannel.bluetooth &&
+        platformEnv.isNative ? (
+          <ConnectByUSBOrBLE
+            key={EConnectDeviceChannel.bluetooth}
+            tabValue={tabValue}
+            onDeviceConnect={handleDeviceConnect}
+          />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.qr ? (

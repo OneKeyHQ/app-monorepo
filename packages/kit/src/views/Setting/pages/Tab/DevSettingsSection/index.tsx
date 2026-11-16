@@ -1638,18 +1638,18 @@ const BaseDevSettingsSection = () => {
                       {platformEnv.isNativeAndroid ? (
                         <SectionFieldItem
                           icon="UsbOutline"
-                          name="androidNativeUsbTransport"
-                          title="Android USB 有线连接 (实验)"
-                          subtitle="将硬件 SDK 切换为 env 'react-native-usb'（需包含 hardware-js-sdk#997 的 SDK 版本）；开启后蓝牙 BLE 不可用"
-                          searchKeywords="android usb react-native-usb hardware-js-sdk 997 硬件 有线"
+                          name="disableAndroidNativeUsb"
+                          title="强制使用蓝牙 BLE (禁用 Android USB)"
+                          subtitle="回滚开关：禁用 Android USB 自动连接并将硬件 SDK 重建为纯 BLE env 'react-native'"
+                          searchKeywords="android usb ble disable rollback react-native-combined react-native hardware-js-sdk 997 强制 蓝牙 禁用 有线"
                           onValueChange={(value: boolean) => {
-                            // Persists the setting and recreates the SDK so the
-                            // runtime transport (not only the stored one) changes.
+                            // Rebuild the SDK between BLE-only ('react-native')
+                            // and combined USB+BLE ('react-native-combined').
                             void backgroundApiProxy.serviceHardware.switchHardwareTransportType(
                               {
                                 transportType: value
-                                  ? EHardwareTransportType.NativeUsb
-                                  : EHardwareTransportType.BLE,
+                                  ? EHardwareTransportType.BLE
+                                  : EHardwareTransportType.NativeUsb,
                               },
                             );
                           }}

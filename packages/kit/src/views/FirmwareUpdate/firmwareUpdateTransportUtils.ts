@@ -1,13 +1,23 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export function isBluetoothFirmwareUpdateTransport({
   isNative,
+  hardwareTransportType,
 }: {
   isNative: boolean | undefined;
+  hardwareTransportType?: EHardwareTransportType;
 }) {
-  return Boolean(isNative);
+  if (!isNative) {
+    return false;
+  }
+  if (hardwareTransportType === EHardwareTransportType.NativeUsb) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -28,15 +38,17 @@ export const DESKTOP_USB_SUGGESTION_MIN_TRANSFER_BYTES = 5 * 1024 * 1024;
  */
 export function shouldSuggestDesktopUsbFirmwareUpdate({
   isNative,
+  hardwareTransportType,
   deviceType,
   estimatedTransferBytes,
 }: {
   isNative: boolean | undefined;
+  hardwareTransportType?: EHardwareTransportType;
   deviceType: IDeviceType | undefined;
   estimatedTransferBytes: number | undefined;
 }) {
   return (
-    isBluetoothFirmwareUpdateTransport({ isNative }) &&
+    isBluetoothFirmwareUpdateTransport({ isNative, hardwareTransportType }) &&
     (deviceType === EDeviceType.Pro ||
       deviceType === EDeviceType.Pro2 ||
       deviceType === EDeviceType.Neo) &&

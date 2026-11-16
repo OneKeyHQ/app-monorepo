@@ -3924,3 +3924,178 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     }
   });
 });
+
+describe('ServiceFirmwareUpdate Android USB priority mode lifecycle', () => {
+  const mutablePlatformEnv = platformEnv as unknown as {
+    isNative: boolean;
+    isNativeAndroid?: boolean;
+    isDesktop: boolean;
+  };
+
+  afterEach(() => {
+    Object.assign(mutablePlatformEnv, {
+      isNative: false,
+      isNativeAndroid: false,
+      isDesktop: false,
+    });
+    jest.restoreAllMocks();
+  });
+
+  const setupWorkflowService = (setPriorityMode?: jest.Mock) => {
+    Object.assign(mutablePlatformEnv, {
+      isNative: true,
+      isNativeAndroid: true,
+      isDesktop: false,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          withHardwareProcessing: jest.fn(async (cb: () => Promise<void>) =>
+            cb(),
+          ),
+          runExclusiveOneKeyOperation: jest.fn(
+            async (op: (lease: { id: string }) => Promise<void>) =>
+              op({ id: 'lease-1' }),
+          ),
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.NativeUsb),
+          setForceTransportType: jest.fn().mockResolvedValue(undefined),
+          clearForceTransportType: jest.fn().mockResolvedValue(undefined),
+          getSDKInstance: jest
+            .fn()
+            .mockResolvedValue(setPriorityMode ? { setPriorityMode } : {}),
+          updateDeviceVersionAfterFirmwareUpdate: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest
+      .spyOn(
+        service as unknown as {
+          deleteFirmwareUpdateDetectInfo: (connectId: string) => Promise<void>;
+        },
+        'deleteFirmwareUpdateDetectInfo',
+      )
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'clearOnceUpdateDevSettings')
+      .mockResolvedValue(undefined);
+    return service;
+  };
+
+  test('sets priority mode true then false on successful Android USB firmware update', async () => {
+    const setPriorityMode = jest.fn();
+    const service = setupWorkflowService(setPriorityMode);
+    const withWorkflowArtifacts = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _release: ICheckAllFirmwareReleaseResult,
+          fn: (artifacts: unknown) => Promise<void>,
+        ) => fn({ firmware: undefined, ble: undefined, resource: undefined }),
+      );
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateRuntimeHost',
+      )
+      .mockResolvedValue({ artifacts: { withWorkflowArtifacts } });
+    jest
+      .spyOn(service, 'startUpdateFirmwareTaskForNewBootVersion')
+      .mockResolvedValue({ message: 'ok' } as never);
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'validateUSBConnection').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateShouldUpdateFullResource')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateMinVersionAllowed')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'validateDeviceBattery').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateShouldUpdateBridge')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'updateTasksClear').mockResolvedValue(undefined);
+
+    const releaseResult = {
+      deviceType: EDeviceType.Pro2,
+      originalConnectId: 'PRO2_USB',
+      updatingConnectId: 'PRO2_USB',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
+
+    await service.runUpdateWorkflowV2(
+      { backuped: true, usbConnected: true, releaseResult },
+      workflowId,
+    );
+
+    expect(setPriorityMode.mock.calls).toEqual([[true], [false]]);
+  });
+
+  test('always clears priority mode in finally when Android USB firmware update throws', async () => {
+    const setPriorityMode = jest.fn();
+    const service = setupWorkflowService(setPriorityMode);
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockRejectedValue(new Error('install failed'));
+
+    const releaseResult = {
+      deviceType: EDeviceType.Pro2,
+      originalConnectId: 'PRO2_USB',
+      updatingConnectId: 'PRO2_USB',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
+
+    await expect(
+      service.runUpdateWorkflowV2(
+        { backuped: true, usbConnected: true, releaseResult },
+        workflowId,
+      ),
+    ).rejects.toThrow('install failed');
+
+    expect(setPriorityMode.mock.calls).toEqual([[true], [false]]);
+  });
+
+  test('no-ops cleanly when SDK 1.2.10 lacks setPriorityMode', async () => {
+    const service = setupWorkflowService(undefined);
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockRejectedValue(new Error('expected stop'));
+
+    const releaseResult = {
+      deviceType: EDeviceType.Pro2,
+      originalConnectId: 'PRO2_USB',
+      updatingConnectId: 'PRO2_USB',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
+
+    await expect(
+      service.runUpdateWorkflowV2(
+        { backuped: true, usbConnected: true, releaseResult },
+        workflowId,
+      ),
+    ).rejects.toThrow('expected stop');
+  });
+});

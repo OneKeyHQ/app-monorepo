@@ -515,6 +515,24 @@ class ServiceHardware extends ServiceBase {
 
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
+  private async isAndroidUsbAutoEnabledSafe(): Promise<boolean> {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    const serviceSetting = this.backgroundApi?.serviceSetting;
+    if (typeof serviceSetting?.isAndroidUsbAutoEnabled === 'function') {
+      return serviceSetting.isAndroidUsbAutoEnabled();
+    }
+    try {
+      return (
+        (await serviceSetting?.getHardwareTransportType?.()) ===
+        EHardwareTransportType.NativeUsb
+      );
+    } catch {
+      return false;
+    }
+  }
+
   private sdkInstanceMutex = new Semaphore(1);
 
   private async runInDesktopBleConnectedOnlyScope<T>({
@@ -1305,21 +1323,37 @@ class ServiceHardware extends ServiceBase {
       throw new HardwareCloudKeyPrerequisiteError('transport');
     }
 
+    const androidUsbAutoEnabled = platformEnv.isNativeAndroid
+      ? await this.isAndroidUsbAutoEnabledSafe()
+      : false;
+    // On Android with auto USB enabled, initialize the SDK once in
+    // 'react-native-combined' mode and keep it alive across USB attach/detach
+    // or BLE channel changes; only toggling the kill-switch changes the SDK mode.
+    const androidSdkTransportType = androidUsbAutoEnabled
+      ? EHardwareTransportType.NativeUsb
+      : EHardwareTransportType.BLE;
+    const sdkHardwareTransportType = platformEnv.isNativeAndroid
+      ? androidSdkTransportType
+      : hardwareTransportType;
+
     // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
     // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
     // 保证显式传入的 transport + connectId 不会复用上一个 transport 实例。
     const sdkTransportChanged =
       this.activeHardwareTransportType !== undefined &&
-      this.activeHardwareTransportType !== hardwareTransportType;
+      this.activeHardwareTransportType !== sdkHardwareTransportType;
     if (sdkTransportChanged) {
       console.log(
         `🔄 TRANSPORT SWITCH: ${
           this.activeHardwareTransportType ?? currentTransportType ?? 'null'
-        } → ${hardwareTransportType}`,
+        } → ${sdkHardwareTransportType}`,
       );
       this.resetHardwareUiEventQueue();
       await resetHardwareSDKInstance();
       this.clearTrackedConnectedDevices();
+      if (platformEnv.isNativeAndroid) {
+        this.connectionManager.clearAndroidUsbPresence();
+      }
       this.registeredEvents = false;
       this.activeHardwareSDKInstance = undefined;
       console.log('✅ TRANSPORT SWITCH: SDK reset completed');
@@ -1334,7 +1368,8 @@ class ServiceHardware extends ServiceBase {
 
     try {
       const instance = await getHardwareSDKInstance({
-        hardwareTransportType,
+        hardwareTransportType: sdkHardwareTransportType,
+        ...(platformEnv.isNativeAndroid ? { androidUsbAutoEnabled } : {}),
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
         isPreRelease: isPreRelease === true,
@@ -1367,7 +1402,7 @@ class ServiceHardware extends ServiceBase {
         },
       });
 
-      this.activeHardwareTransportType = hardwareTransportType;
+      this.activeHardwareTransportType = sdkHardwareTransportType;
 
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.registerSdkEvents(instance, { showSdkDebugLogs });
@@ -1983,9 +2018,24 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        this.connectionManager.androidUsbPresence.handleDeviceConnect(
+          message.device as KnownDevice & { serialNo?: string | null },
+        );
         this.recordLiveConnectIdEvidence(message.device?.connectId);
         const { identityKeys: connectedIdentityKeys } =
           this.trackConnectedDevice(message.device);
+        const isAndroidUsbConnect =
+          platformEnv.isNativeAndroid &&
+          (message.device as KnownDevice & { commType?: string })?.commType ===
+            'usb';
+        if (connectedIdentityKeys.length === 0 && isAndroidUsbConnect) {
+          // A re-plugged USB device may not have identity keys yet; still let
+          // the USB onboarding page rescan.
+          appEventBus.emit(
+            EAppEventBusNames.HardwareConnectionStateUpdate,
+            undefined,
+          );
+        }
         if (connectedIdentityKeys.length > 0) {
           appEventBus.emit(
             EAppEventBusNames.HardwareConnectionStateUpdate,
@@ -2050,6 +2100,9 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        this.connectionManager.androidUsbPresence.handleDeviceDisconnect(
+          message.device as KnownDevice & { serialNo?: string | null },
+        );
         if (message.device?.commType === 'ble') {
           this.reportedBleMtuReadySignatures.clear();
         }
@@ -2489,6 +2542,10 @@ class ServiceHardware extends ServiceBase {
         JSON.stringify(response),
       );
       if (response?.success) {
+        this.connectionManager.androidUsbPresence.noteSearchDevicesResult(
+          response.payload,
+          { transportType: params?.transportType },
+        );
         for (const device of response.payload) {
           if (deviceUtils.isBluetoothSearchDevice(device)) {
             defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
@@ -2973,6 +3030,17 @@ class ServiceHardware extends ServiceBase {
       deviceUtils.isBluetoothSearchDevice(device)
     ) {
       resolvedHardwareTransportType = EHardwareTransportType.BLE;
+    } else if (
+      !resolvedHardwareTransportType &&
+      platformEnv.isNativeAndroid &&
+      device.commType === 'usb'
+    ) {
+      resolvedHardwareTransportType = EHardwareTransportType.NativeUsb;
+    }
+    if (platformEnv.isNativeAndroid && device.commType === 'usb') {
+      this.connectionManager.androidUsbPresence.handleDeviceConnect(
+        device as SearchDevice & { serialNo?: string | null },
+      );
     }
     const compatibleConnectId = isDesktopBleSearchDevice
       ? connectId || undefined
@@ -2982,6 +3050,7 @@ class ServiceHardware extends ServiceBase {
           hardwareCallContext:
             hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
           hardwareTransportType: resolvedHardwareTransportType,
+          commType: device.commType,
         });
     const protocolAwareDevice = device as SearchDevice & {
       connectProtocol?: HardwareConnectProtocol;
@@ -4697,6 +4766,12 @@ class ServiceHardware extends ServiceBase {
           await this.backgroundApi.serviceSetting.setHardwareTransportType(
             transportType,
           );
+          if (
+            platformEnv.isNativeAndroid &&
+            transportType === EHardwareTransportType.BLE
+          ) {
+            this.connectionManager.clearAndroidUsbPresence();
+          }
 
           // Recreate the SDK under the lifecycle lock when the transport changes.
           const newInstance = await this.getSDKInstance({
@@ -5213,6 +5288,7 @@ class ServiceHardware extends ServiceBase {
     features,
     vendor,
     hardwareTransportType,
+    commType,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
@@ -5220,6 +5296,7 @@ class ServiceHardware extends ServiceBase {
     features?: IOneKeyDeviceFeatures;
     vendor?: EHardwareVendor;
     hardwareTransportType?: EHardwareTransportType;
+    commType?: string;
   }) {
     // Allow connectId to be null in the following EHardwareCallContext cases
     if (
@@ -5281,27 +5358,66 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
+    let resolvedNativeTransportType = hardwareTransportType;
+    let androidUseUsbConnectId = false;
+
+    if (!platformEnv.isSupportDesktopBle && platformEnv.isNativeAndroid) {
+      const androidUsbAutoEnabled = await this.isAndroidUsbAutoEnabledSafe();
+      if (!androidUsbAutoEnabled) {
+        if (
+          !resolvedNativeTransportType ||
+          resolvedNativeTransportType === EHardwareTransportType.NativeUsb
+        ) {
+          resolvedNativeTransportType = EHardwareTransportType.BLE;
+        }
+      } else {
+        if (!resolvedNativeTransportType) {
+          const presence = this.connectionManager.androidUsbPresence;
+          // Only this device's own live USB presence counts. A global "some
+          // USB device is plugged" bit must not move other BLE devices to USB.
+          const hasUsbPresence =
+            commType === 'usb' ||
+            presence.isUsbDeviceId(connectId) ||
+            presence.isUsbDeviceId(device?.usbConnectId) ||
+            (!device?.bleConnectId && presence.hasUsbDevice());
+          if (hasUsbPresence) {
+            resolvedNativeTransportType = EHardwareTransportType.NativeUsb;
+          } else {
+            try {
+              resolvedNativeTransportType =
+                await this.getCurrentTransportType();
+            } catch {
+              // Keep BLE resolution if live transport state is unreadable.
+              resolvedNativeTransportType = EHardwareTransportType.BLE;
+            }
+          }
+        }
+        if (resolvedNativeTransportType === EHardwareTransportType.NativeUsb) {
+          const presence = this.connectionManager.androidUsbPresence;
+          androidUseUsbConnectId =
+            commType === 'usb' ||
+            hardwareTransportType === EHardwareTransportType.NativeUsb ||
+            presence.isUsbDeviceId(connectId) ||
+            presence.isUsbDeviceId(device?.usbConnectId) ||
+            !device?.bleConnectId;
+          if (!androidUseUsbConnectId) {
+            resolvedNativeTransportType = EHardwareTransportType.BLE;
+          }
+        }
+      }
+    }
+
     await this.ensureNativeBleReadyForHardwareCall({
       connectId,
       hardwareCallContext,
-      hardwareTransportType,
+      hardwareTransportType: resolvedNativeTransportType,
     });
 
     if (!platformEnv.isSupportDesktopBle) {
       if (platformEnv.isNative) {
-        if (platformEnv.isNativeAndroid) {
-          let nativeTransportType = hardwareTransportType;
-          if (!nativeTransportType) {
-            try {
-              nativeTransportType = await this.getCurrentTransportType();
-            } catch {
-              // Keep the existing BLE resolution if the setting is unreadable.
-            }
-          }
-          if (nativeTransportType === EHardwareTransportType.NativeUsb) {
-            // Experimental Android USB: the SDK locates devices by USB serial.
-            return device?.usbConnectId || connectId;
-          }
+        if (platformEnv.isNativeAndroid && androidUseUsbConnectId) {
+          // Android automatic USB: prefer USB serial when available.
+          return device?.usbConnectId || connectId;
         }
         if (device?.bleConnectId?.toLowerCase() === connectId.toLowerCase()) {
           // Preserve the current scan result, including the UUID casing returned by iOS.

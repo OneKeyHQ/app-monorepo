@@ -150,6 +150,9 @@ export const OnboardingTestIDs = {
     'onboarding-connect-your-device-bluetooth-connect-btn',
   connectYourDeviceUSBConnectBtn:
     'onboarding-connect-your-device-usb-connect-btn',
+  connectYourDeviceUSBRetryBtn: 'onboarding-connect-your-device-usb-retry-btn',
+  connectYourDeviceTryBluetoothBtn:
+    'onboarding-connect-your-device-try-bluetooth-btn',
   connectYourDeviceCreateQRWalletBtn:
     'onboarding-connect-your-device-create-qr-wallet-btn',
   connectYourDeviceAdvancedMenuBtn:
