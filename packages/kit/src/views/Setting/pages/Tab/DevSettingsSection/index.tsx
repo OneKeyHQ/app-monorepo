@@ -2293,7 +2293,8 @@ const BaseDevSettingsSection = () => {
 
                       {platformEnv.isWeb ||
                       platformEnv.isDesktop ||
-                      platformEnv.isExtension ? (
+                      platformEnv.isExtension ||
+                      platformEnv.isNative ? (
                         <SectionPressItem
                           icon="ShieldCheckDoneOutline"
                           title="SES Harden Runtime Check"
