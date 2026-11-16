@@ -11,7 +11,7 @@ import { Gesture } from 'react-native-gesture-handler';
 import { withDecay } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/HeaderScrollGestureContext';
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
@@ -63,7 +63,7 @@ const mockGetSubIndicatorLegendHitRegions = jest.mocked(
 );
 
 jest.mock(
-  '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext',
+  '@onekeyhq/components/src/composite/HeaderScrollGestureContext',
   () => ({
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
