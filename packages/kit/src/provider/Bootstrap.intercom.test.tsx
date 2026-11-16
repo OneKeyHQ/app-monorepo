@@ -100,6 +100,21 @@ describe('Intercom startup identity synchronization', () => {
     for (const name of unrelatedModules) {
       jest.doMock(name, () => ({}));
     }
+    // The intercom adapter logs routing diagnostics through this scene; the
+    // generic unrelated-module mock above would leave `defaultLogger` empty.
+    jest.doMock('@onekeyhq/shared/src/logger/logger', () => ({
+      defaultLogger: {
+        notification: {
+          support: {
+            supportReplyClicked: jest.fn(),
+            supportReplyReceived: jest.fn(),
+            supportReplyQueued: jest.fn(),
+            supportReplyClaimed: jest.fn(),
+            supportReplyBranch: jest.fn(),
+          },
+        },
+      },
+    }));
     jest.doMock('../utils/swrCacheMutationInvalidation', () => ({
       registerSwrCacheMutationInvalidation: jest.fn(),
     }));

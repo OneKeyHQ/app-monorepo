@@ -158,6 +158,7 @@ import {
 import { useSwapTokenSelectorPreload } from '../../hooks/useSwapTokenSelectorPreload';
 import { SwapTestIDs } from '../../testIDs';
 import {
+  type ISwapReviewTokens,
   buildSwapReviewState,
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
@@ -1026,7 +1027,7 @@ const SwapMainLoad = ({
   );
 
   const parseQuoteResultToSteps = useCallback(
-    (stockReviewToken?: ISwapToken) => {
+    (stockReviewToken?: ISwapToken, reviewTokens?: ISwapReviewTokens) => {
       if (!currentQuoteRes) {
         return;
       }
@@ -1061,6 +1062,7 @@ const SwapMainLoad = ({
         fromToken: fromSelectToken,
         toToken: toSelectToken,
         stockReviewToken,
+        reviewTokens,
         fromTokenAmount: reviewTokenAmounts.fromTokenAmount,
         toTokenAmount: reviewTokenAmounts.toTokenAmount,
         quoteResult: currentQuoteRes,
@@ -1251,7 +1253,7 @@ const SwapMainLoad = ({
   }, [navigation]);
 
   const onPreSwap = useCallback(
-    (stockReviewToken?: ISwapToken) => {
+    (stockReviewToken?: ISwapToken, reviewTokens?: ISwapReviewTokens) => {
       if (reviewDialogTimerRef.current !== undefined) {
         return;
       }
@@ -1290,7 +1292,7 @@ const SwapMainLoad = ({
         onPreSwapClose(reviewGeneration);
       };
       beginGasAccountReviewSession();
-      parseQuoteResultToSteps(stockReviewToken);
+      parseQuoteResultToSteps(stockReviewToken, reviewTokens);
       setSwapBuildTxFetching(true);
       reviewDialogTimerRef.current = setTimeout(() => {
         if (reviewGeneration !== reviewGenerationRef.current) {

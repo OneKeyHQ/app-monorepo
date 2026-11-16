@@ -1,6 +1,5 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
@@ -1220,7 +1219,7 @@ describe('marketDirectSendTx', () => {
   });
 
   it('bypasses batch estimation for Blast approvals and preserves the built swap gas limit', async () => {
-    const networkId = getNetworkIdsMap().blast;
+    const networkId = 'evm--81457';
     const fromToken = createMarketPresetToken({
       networkId,
       contractAddress: '0xtoken',

@@ -201,7 +201,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     expectInvalid({ port: 8443 });
   });
 
-  test('redacts raw IPs from validation failure diagnostics', async () => {
+  test('logs the destination IP while redacting validation error details', async () => {
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
 
     await expect(
@@ -214,7 +214,8 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     expect(errorLogs).toContain(
       'errorMessage=SNI_INVALID_CONFIG:_Forbidden_IP:_<ip>',
     );
-    expect(errorLogs).not.toContain('10.0.0.5');
+    expect(errorLogs).toContain('ip=10.0.0.5');
+    expect(errorLogs).not.toContain('ipHash=');
   });
 
   test('filters module-owned headers and rejects unsafe headers', () => {
@@ -1038,36 +1039,52 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     requestSpy.mockRestore();
   });
 
-  test('redacts raw IPs from transport failure diagnostics', async () => {
-    const requests: FakeClientRequest[] = [];
-    const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
-      options: RequestOptions,
-    ) => {
-      const request = new FakeClientRequest(options);
-      requests.push(request);
-      return request as never;
-    }) as never);
-    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+  test.each(['93.184.216.34', '2001:4860:4860::8888'])(
+    'logs request IDs and destination %s while redacting transport error details',
+    async (ip) => {
+      const requests: FakeClientRequest[] = [];
+      const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
+        options: RequestOptions,
+      ) => {
+        const request = new FakeClientRequest(options);
+        requests.push(request);
+        return request as never;
+      }) as never);
+      const api = new DesktopApiSniRequest({ desktopApi: {} as never });
 
-    const promise = api.request(baseConfig());
-    await flushMicrotasks();
-    requests[0].destroy(
-      Object.assign(new Error('connect ECONNREFUSED 93.184.216.34:443'), {
-        code: 'ECONNREFUSED',
-      }),
-    );
+      const requestId = 'request-93.184.216.34';
+      const promise = api.request({ ...baseConfig(), ip, requestId });
+      await flushMicrotasks();
+      requests[0].destroy(
+        Object.assign(new Error('connect ECONNREFUSED 93.184.216.34:443'), {
+          code: 'ECONNREFUSED',
+        }),
+      );
 
-    await expect(promise).rejects.toThrow(
-      /connect ECONNREFUSED 93\.184\.216\.34:443/,
-    );
-    const errorLogs = mockedElectronLogger.error.mock.calls
-      .map(([message]) => String(message))
-      .join('\n');
-    expect(errorLogs).toContain('errorMessage=connect_ECONNREFUSED_<ip>:443');
-    expect(errorLogs).not.toContain('93.184.216.34');
+      await expect(promise).rejects.toThrow(
+        /connect ECONNREFUSED 93\.184\.216\.34:443/,
+      );
+      const errorLogs = mockedElectronLogger.error.mock.calls
+        .map(([message]) => String(message))
+        .join('\n');
+      expect(errorLogs).toContain('errorMessage=connect_ECONNREFUSED_<ip>:443');
+      expect(errorLogs).toContain(`ip=${ip}`);
+      expect(errorLogs).not.toContain('ipHash=');
+      const infoLogs = mockedElectronLogger.info.mock.calls
+        .map(([message]) => String(message))
+        .join('\n');
+      expect(infoLogs).toContain(`requestId=${requestId}`);
+      await expect(api.cancelRequest(requestId)).resolves.toEqual({
+        success: false,
+      });
+      const warningLogs = mockedElectronLogger.warn.mock.calls
+        .map(([message]) => String(message))
+        .join('\n');
+      expect(warningLogs).toContain(`requestId=${requestId}`);
 
-    requestSpy.mockRestore();
-  });
+      requestSpy.mockRestore();
+    },
+  );
 
   test('clearDNSCache rotates agents without destroying the active request agent', async () => {
     const requests: FakeClientRequest[] = [];

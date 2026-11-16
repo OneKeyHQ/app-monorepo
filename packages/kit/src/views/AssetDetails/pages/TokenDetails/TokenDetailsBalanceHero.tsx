@@ -98,7 +98,7 @@ function TokenDetailsBalanceHero({
                 icon="RefreshCcwOutline"
                 variant="tertiary"
                 loading={sync.isRefreshing}
-                disabled={!sync.onRefresh}
+                disabled={!sync.onRefresh || sync.isRefreshing}
                 onPress={sync.onRefresh}
                 accessibilityLabel={intl.formatMessage({
                   id: ETranslations.global_refresh,

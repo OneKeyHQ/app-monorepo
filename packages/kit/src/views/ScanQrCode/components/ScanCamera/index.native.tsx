@@ -1,91 +1,149 @@
-import { useCallback, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { usePreventRemove } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IScanCameraProps } from './types';
+import type { IScanCameraProps, IScanCameraRef } from './types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ParamListBase } from '@react-navigation/routers';
+import type { CameraApi } from 'react-native-camera-kit';
 
 const nativeCamera = platformEnv.isNativeIOSMacCatalyst
   ? undefined
   : (require('react-native-camera-kit') as typeof import('react-native-camera-kit'));
 
-export type { IScanCameraProps };
+export type { IScanCameraProps, IScanCameraRef };
 
-/**
- * The screen-bound half of the native camera: unmount the Camera first,
- * dispatch the blocked navigation action a beat later — tearing the
- * camera down mid-transition wedges react-native-camera-kit. Both hooks
- * in here require a screen's navigation context, so hosts outside any
- * screen (the DeviceStage overlay) must opt out via
- * `disableNavigationGuard` — mounting this there throws at useRoute.
- */
-function ScanCameraNavigationGuard({
-  onPreventRemove,
+type ICameraNavigation = NativeStackNavigationProp<ParamListBase>;
+
+function ScreenCameraActivity({
+  onActiveChange,
 }: {
-  onPreventRemove: (dispatchBlockedAction: () => void) => void;
+  onActiveChange: (active: boolean) => void;
 }) {
-  const navigation = useNavigation();
-  const onUsePreventRemove = useCallback(
-    ({
-      data,
-    }: {
-      data: {
-        action: Readonly<{
-          type: string;
-          payload?: object | undefined;
-          source?: string | undefined;
-          target?: string | undefined;
-        }>;
-      };
-    }) => {
-      onPreventRemove(() => {
-        navigation.dispatch(data.action);
-      });
-    },
-    [navigation, onPreventRemove],
-  );
-  usePreventRemove(true, onUsePreventRemove);
+  const navigation = useNavigation<ICameraNavigation>();
+
+  useLayoutEffect(() => {
+    const navigations: ICameraNavigation[] = [];
+    let current: ICameraNavigation | undefined = navigation;
+    while (current) {
+      navigations.push(current);
+      current = current.getParent<ICameraNavigation | undefined>();
+    }
+
+    const transitioningAway = new Map<ICameraNavigation, boolean>();
+    const updateActivity = () => {
+      onActiveChange(
+        navigation.isFocused() &&
+          navigations.every((item) => !transitioningAway.get(item)),
+      );
+    };
+
+    const unsubscribe = navigations.flatMap((item) => [
+      item.addListener('transitionStart', ({ data }) => {
+        transitioningAway.set(item, data.closing);
+        updateActivity();
+      }),
+      item.addListener('transitionEnd', ({ data }) => {
+        transitioningAway.set(item, data.closing);
+        updateActivity();
+      }),
+      item.addListener('gestureCancel', () => {
+        transitioningAway.delete(item);
+        updateActivity();
+      }),
+      item.addListener('focus', updateActivity),
+      item.addListener('blur', updateActivity),
+    ]);
+    updateActivity();
+    return () => {
+      unsubscribe.forEach((removeListener) => removeListener());
+    };
+  }, [navigation, onActiveChange]);
+
   return null;
 }
 
-export function ScanCamera({
-  children,
-  handleScanResult,
-  disableNavigationGuard,
-  ...rest
-}: IScanCameraProps) {
-  const [isFocus, setIsFocus] = useState(true);
-  const onPreventRemove = useCallback((dispatchBlockedAction: () => void) => {
-    setIsFocus(false);
-    setTimeout(dispatchBlockedAction, 80);
-  }, []);
+export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
+  function ScanCamera(
+    { children, handleScanResult, disableNavigationGuard, ...rest },
+    ref,
+  ) {
+    const activeRef = useRef(disableNavigationGuard === true);
+    const mountedRef = useRef(true);
+    const disposedRef = useRef(false);
+    const cameraRef = useRef<CameraApi | null>(null);
 
-  return (
-    <>
-      {disableNavigationGuard ? null : (
-        <ScanCameraNavigationGuard onPreventRemove={onPreventRemove} />
-      )}
-      {isFocus && nativeCamera ? (
-        <nativeCamera.Camera
-          style={{ flex: 1 }}
-          resizeMode="cover"
-          showFrame={false}
-          zoom={1}
-          zoomMode="on"
-          cameraType={nativeCamera.CameraType.Back}
-          scanBarcode
-          onReadCode={({ nativeEvent: { codeStringValue } }) => {
-            if (typeof codeStringValue !== 'string') {
-              return;
-            }
-            handleScanResult?.(codeStringValue);
-          }}
-          {...rest}
-        />
-      ) : null}
-      {children}
-    </>
-  );
-}
+    const onActiveChange = useCallback((active: boolean) => {
+      if (disposedRef.current) return;
+      activeRef.current = active;
+      cameraRef.current?.setActive(active);
+    }, []);
+
+    const setCameraRef = useCallback((camera: CameraApi | null) => {
+      cameraRef.current = camera;
+      if (!camera) return;
+      if (disposedRef.current) {
+        camera.dispose();
+      } else {
+        camera.setActive(activeRef.current);
+      }
+    }, []);
+
+    const dispose = useCallback(() => {
+      if (disposedRef.current) return;
+      disposedRef.current = true;
+      activeRef.current = false;
+      cameraRef.current?.dispose();
+    }, []);
+
+    useImperativeHandle(ref, () => ({ dispose }), [dispose]);
+
+    useLayoutEffect(() => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
+    }, []);
+
+    return (
+      <>
+        {!disableNavigationGuard && nativeCamera ? (
+          <ScreenCameraActivity onActiveChange={onActiveChange} />
+        ) : null}
+        {nativeCamera ? (
+          <nativeCamera.Camera
+            ref={setCameraRef}
+            style={{ flex: 1 }}
+            resizeMode="cover"
+            showFrame={false}
+            zoom={1}
+            zoomMode="on"
+            cameraType={nativeCamera.CameraType.Back}
+            scanBarcode
+            onReadCode={({ nativeEvent: { codeStringValue } }) => {
+              if (
+                disposedRef.current ||
+                !mountedRef.current ||
+                !activeRef.current ||
+                typeof codeStringValue !== 'string'
+              ) {
+                return;
+              }
+              handleScanResult?.(codeStringValue);
+            }}
+            {...rest}
+          />
+        ) : null}
+        {children}
+      </>
+    );
+  },
+);

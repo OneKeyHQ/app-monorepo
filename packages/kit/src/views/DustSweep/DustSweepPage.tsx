@@ -254,9 +254,11 @@ function createDustSweepLiveStore(initial: IDustSweepLiveSnapshot) {
 function DustSweepLiveSheet({
   store,
   onHeightChange,
+  onDone,
 }: {
   store: ReturnType<typeof createDustSweepLiveStore>;
   onHeightChange: (height: number) => void;
+  onDone: () => Promise<void>;
 }) {
   const { bottom } = useSafeAreaInsets();
   const { model, onDetails, onLeave } = useSyncExternalStore(
@@ -282,6 +284,7 @@ function DustSweepLiveSheet({
           desktop={false}
           onDetails={onDetails}
           onLeave={onLeave}
+          onDone={onDone}
         />
       </Stack>
     </DustSweepScreenProvider>
@@ -564,11 +567,18 @@ function DustSweepPageContent() {
   const liveSheet = useRef<ReturnType<typeof Dialog.show> | undefined>(
     undefined,
   );
+  const finishingSweep = useRef(false);
+  const [finishingSheet, setFinishingSheet] = useState(false);
+  const liveSheetOwnerMounted = useRef(true);
   const [liveSheetHeight, setLiveSheetHeight] = useState(0);
   // It stays open until Done returns to selection (no drag or backdrop close
   // mid-sweep), and yields to the leave confirmation.
   const showLiveSheet =
-    !desktop && !selecting && isFocused && !visibleLeaveDialog;
+    !desktop &&
+    !selecting &&
+    isFocused &&
+    !visibleLeaveDialog &&
+    !finishingSheet;
   useEffect(() => {
     if (!showLiveSheet) {
       const dialog = liveSheet.current;
@@ -592,19 +602,46 @@ function DustSweepPageContent() {
         <DustSweepLiveSheet
           store={liveStore}
           onHeightChange={setLiveSheetHeight}
+          onDone={async () => {
+            const current = liveStore.get().model;
+            if (
+              finishingSweep.current ||
+              current.session.state.phase !== EDustSweepPhase.Completed
+            )
+              return;
+            const sessionId = current.session.state.snapshot?.id;
+            finishingSweep.current = true;
+            setFinishingSheet(true);
+            try {
+              // Finish the portal exit before popping the native Execution
+              // screen and restoring Selection's footer.
+              await dialog.close();
+              const latest = liveStore.get().model;
+              if (
+                liveSheetOwnerMounted.current &&
+                latest.isFocused &&
+                latest.session.state.snapshot?.id === sessionId
+              )
+                latest.sweepAgain();
+            } finally {
+              finishingSweep.current = false;
+              if (liveSheetOwnerMounted.current) setFinishingSheet(false);
+            }
+          }}
         />
       ),
     });
     liveSheet.current = dialog;
   }, [liveSheetDialog, liveStore, showLiveSheet]);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    liveSheetOwnerMounted.current = true;
+    return () => {
+      liveSheetOwnerMounted.current = false;
       const dialog = liveSheet.current;
       liveSheet.current = undefined;
       void dialog?.close();
-    },
-    [],
-  );
+    };
+  }, []);
   // The Home tab top bar (with its back button) is only rendered on the tab
   // route, so a Swap modal widened to desktop width keeps its own back control.
   // A wallet with no assets has no network chips, so drop the empty row.

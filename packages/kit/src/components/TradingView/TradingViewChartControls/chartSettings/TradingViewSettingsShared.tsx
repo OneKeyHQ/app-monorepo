@@ -254,11 +254,16 @@ export function useSettingsDraftValue<TValue>({
     (persistedValue?: TValue) => {
       const nextCommittedValue =
         persistedValue === undefined ? draftValueRef.current : persistedValue;
-      setIsDraftDirty(!Object.is(draftValueRef.current, nextCommittedValue));
+      const isCurrentDraft = Object.is(
+        draftValueRef.current,
+        nextCommittedValue,
+      );
+      setIsDraftDirty(!isCurrentDraft);
       committedValueRef.current = nextCommittedValue;
       if (value === undefined) {
         setInnerCommittedValue(nextCommittedValue);
       }
+      return isCurrentDraft;
     },
     [value],
   );

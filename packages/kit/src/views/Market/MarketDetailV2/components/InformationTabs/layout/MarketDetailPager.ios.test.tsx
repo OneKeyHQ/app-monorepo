@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore Financials
 import { useContext, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
@@ -198,6 +199,59 @@ it('reveals the same header only after all initial native layout measurements ar
   expect(pager.style.opacity).toBe('1');
   expect(getByTestId('price-header')).toBe(header);
 });
+
+it.each(['Overview', 'Financials', 'Position'])(
+  'preserves the chart and surviving page state when Financials is removed from %s',
+  (selectedTab) => {
+    const unmounted = jest.fn();
+    function Chart() {
+      useEffect(() => unmounted, []);
+      return <input aria-label="chart viewport" defaultValue="latest" />;
+    }
+    function Tab({ children }: PropsWithChildren<{ name: string }>) {
+      return children;
+    }
+    const pager = (hasFinancials: boolean) => (
+      <MarketDetailPager
+        initialTabName={selectedTab}
+        renderHeader={() => <Chart />}
+        renderTabBar={() => <div>Tabs</div>}
+        onTabChange={jest.fn()}
+      >
+        {[
+          <Tab key="overview" name="Overview">
+            <Page name="overview" />
+          </Tab>,
+          ...(hasFinancials
+            ? [
+                <Tab key="financials" name="Financials">
+                  <Page name="financials" />
+                </Tab>,
+              ]
+            : []),
+          <Tab key="portfolio" name="Position">
+            <Page name="portfolio" />
+          </Tab>,
+        ]}
+      </MarketDetailPager>
+    );
+    const { getByTestId, getByRole, rerender } = render(pager(true));
+    const chart = getByRole('textbox', { name: 'chart viewport' });
+    fireEvent.change(chart, { target: { value: 'historical candles' } });
+    const position = getByTestId('portfolio');
+    fireEvent.click(position);
+    rerender(pager(false));
+    expect(getByRole('textbox', { name: 'chart viewport' })).toBe(chart);
+    expect((chart as HTMLInputElement).value).toBe('historical candles');
+    expect(getByTestId('portfolio')).toBe(position);
+    expect(position.textContent).toBe('1');
+    expect(
+      getByTestId(selectedTab === 'Position' ? 'portfolio' : 'overview').dataset
+        .focused,
+    ).toBe('true');
+    expect(unmounted).not.toHaveBeenCalled();
+  },
+);
 
 it('shows known header geometry before measurement and enables list ownership only after layout', () => {
   function Tab({ children }: PropsWithChildren<{ name: string }>) {

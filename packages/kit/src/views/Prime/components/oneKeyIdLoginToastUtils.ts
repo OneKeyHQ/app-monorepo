@@ -3,7 +3,10 @@ import {
   EOAuthSocialLoginProvider,
   OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -14,6 +17,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type {
   IOneKeyIdAuthFailureStep,
@@ -119,13 +123,17 @@ export function showOneKeyIdLoginFailedToast({
     });
   }
 
-  Toast.error({
-    title:
-      safeErrorMessage ||
-      intl.formatMessage({
-        id: ETranslations.global_unknown_error_retry_message,
-      }),
-  });
+  if (isPrimeUserBannedError(error)) {
+    errorToastUtils.showToastOfError(new OneKeyErrorPrimeUserBanned());
+  } else {
+    Toast.error({
+      title:
+        safeErrorMessage ||
+        intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        }),
+    });
+  }
 
   // This fallback toast has now surfaced the error. Mark it so the global
   // unhandledrejection handler (autoToast errors flow there when a caller

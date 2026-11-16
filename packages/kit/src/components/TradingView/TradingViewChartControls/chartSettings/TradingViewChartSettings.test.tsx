@@ -19,6 +19,27 @@ jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ height: 800, width: 1200 }),
 }));
 
+jest.mock('./TradingViewSettingsDialog', () => ({
+  TradingViewSettingsDialog: ({
+    children,
+    onReset,
+    testIDPrefix,
+  }: {
+    children: (footer: ReactNode) => ReactNode;
+    onReset: () => void;
+    testIDPrefix: string;
+  }) =>
+    children(
+      <button
+        data-testid={`${testIDPrefix}-mock-reset`}
+        onClick={onReset}
+        type="button"
+      >
+        Reset
+      </button>,
+    ),
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const View = ({
     children,
@@ -358,7 +379,7 @@ describe('TradingViewChartSettings', () => {
     expect(nextValue?.chartType).toBe('line');
   });
 
-  it('applies reset defaults immediately without waiting for confirm', async () => {
+  it.each([true, false])('saves on Reset (page footer: %s)', async (page) => {
     const committedValue: ITradingViewChartSettingsValue = {
       ...createTradingViewChartSettingsValue(),
       chartType: 'line',
@@ -371,7 +392,7 @@ describe('TradingViewChartSettings', () => {
     render(
       <TradingViewChartSettings
         value={committedValue}
-        usePageFooter
+        usePageFooter={page}
         showChartType
         onConfirm={onConfirm}
         onConfirmSuccess={onConfirmSuccess}
@@ -394,8 +415,7 @@ describe('TradingViewChartSettings', () => {
     expect(onConfirm).toHaveBeenCalledWith(
       createTradingViewChartSettingsValue(),
     );
-    // Reset persists in place; only Confirm closes the settings.
-    expect(onConfirmSuccess).not.toHaveBeenCalled();
+    expect(onConfirmSuccess).toHaveBeenCalledTimes(page ? 0 : 1);
     expect(
       (
         screen.getByTestId(
@@ -460,7 +480,7 @@ describe('TradingViewChartSettings', () => {
     expect(onConfirm).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps edits made while reset persists as an unsaved draft', async () => {
+  it('keeps the dialog open with edits made while reset persists', async () => {
     let resolveConfirm: () => void = () => {};
     const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
       () =>
@@ -468,12 +488,13 @@ describe('TradingViewChartSettings', () => {
           resolveConfirm = resolve;
         }),
     );
+    const onConfirmSuccess = jest.fn();
     const renderSettings = (value: ITradingViewChartSettingsValue) => (
       <TradingViewChartSettings
         value={value}
-        usePageFooter
         showChartType
         onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
       />
     );
     const getChartTypeSelect = () =>
@@ -508,6 +529,7 @@ describe('TradingViewChartSettings', () => {
       createTradingViewChartSettingsValue(),
     );
     expect(getChartTypeSelect().value).toBe('area');
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
   });
 
   it('keeps the reset draft and reports the error when applying it fails', async () => {

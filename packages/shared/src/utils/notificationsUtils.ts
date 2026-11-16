@@ -601,6 +601,54 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+type INotificationCommandPayload = {
+  action?: string;
+  data?: Record<string, unknown>;
+  conversationId?: unknown;
+};
+
+// Throws on malformed JSON; callers decide how to fall back.
+function parseNotificationCommandPayload(
+  payload: string | undefined,
+): INotificationCommandPayload {
+  const parsed = JSON.parse(payload || '{}') as INotificationCommandPayload;
+  return {
+    ...parsed,
+    action:
+      typeof parsed.action === 'string' ? parsed.action.trim() : parsed.action,
+  };
+}
+
+export function isSupportReplyPushMessage(
+  messageInfo: INotificationPushMessageInfo,
+): boolean {
+  const { extras } = messageInfo;
+  if (
+    normalizeNotificationMode(extras?.mode) !==
+    ENotificationPushMessageMode.command
+  ) {
+    return false;
+  }
+  try {
+    return (
+      parseNotificationCommandPayload(extras?.payload).action ===
+      ENotificationCommand.openSupportConversation
+    );
+  } catch {
+    return false;
+  }
+}
+
+function toSupportConversationId(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value.trim() || undefined;
+  }
+  if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+  return undefined;
+}
+
 export function parseNotificationPayload(
   mode: ENotificationPushMessageMode | string | number,
   payload: string | undefined,
@@ -767,10 +815,8 @@ export function parseNotificationPayload(
       return true;
     case ENotificationPushMessageMode.command:
       try {
-        const { action, data } = JSON.parse(payload || '{}') as {
-          action?: string;
-          data?: Record<string, unknown>;
-        };
+        const parsedPayload = parseNotificationCommandPayload(payload);
+        const { action, data } = parsedPayload;
         if (!action) {
           fallbackHandler();
           return false;
@@ -778,12 +824,52 @@ export function parseNotificationPayload(
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
         if (action === ENotificationCommand.openSupportConversation) {
-          const { conversationId } = mergedData;
-          if (
-            conversationId !== undefined &&
-            conversationId !== null &&
-            typeof conversationId !== 'string'
-          ) {
+          // The backend contract is
+          // {"action":"openSupportConversation","data":{"conversationId":"499"}}.
+          // An id placed next to `action`, or delivered as a JSON number, must
+          // not be dropped: without it the click silently opens the Messenger
+          // home (a brand-new conversation window) instead of the target
+          // conversation (OK-66809).
+          const payloadTopLevelConversationId = parsedPayload.conversationId;
+          // Prefer extras.params, then data, then the top-level payload field.
+          // null/blank candidates count as absent: an explicit
+          // `conversationId: null` (or "") in params must not hide a usable
+          // payload id, otherwise the click degrades to the Messenger home.
+          const conversationIdCandidates: {
+            source: 'extras.params' | 'data' | 'payload';
+            value: unknown;
+          }[] = [
+            { source: 'extras.params', value: extras?.params?.conversationId },
+            { source: 'data', value: data?.conversationId },
+            { source: 'payload', value: payloadTopLevelConversationId },
+          ];
+          const selectedConversationIdCandidate = conversationIdCandidates.find(
+            ({ value }) =>
+              value !== undefined &&
+              value !== null &&
+              !(typeof value === 'string' && value.trim() === ''),
+          );
+          const rawConversationId = selectedConversationIdCandidate?.value;
+          const conversationId = toSupportConversationId(rawConversationId);
+          // A present but unusable value (object/boolean) keeps the old fallback.
+          const hasUnusableConversationId =
+            rawConversationId !== undefined && conversationId === undefined;
+          // The field that actually supplied the opened conversation.
+          const conversationIdSource = selectedConversationIdCandidate?.source;
+          defaultLogger.notification.support.supportReplyReceived({
+            mode:
+              typeof mode === 'string' || typeof mode === 'number'
+                ? mode
+                : undefined,
+            action,
+            conversationId,
+            conversationIdSource,
+            msgId:
+              typeof extras?.params?.msgId === 'string'
+                ? extras.params.msgId
+                : undefined,
+          });
+          if (hasUnusableConversationId) {
             fallbackHandler();
             return false;
           }
@@ -792,10 +878,7 @@ export function parseNotificationPayload(
               sourceNodeId: platformEnv.isExtensionUi
                 ? appEventBus.nodeId
                 : undefined,
-              conversationId:
-                typeof conversationId === 'string'
-                  ? conversationId.trim() || undefined
-                  : undefined,
+              conversationId,
             })
             .catch(fallbackHandler);
           return true;
@@ -838,6 +921,22 @@ async function navigateToNotificationDetail({
       );
     });
   }
+
+  // OK-66809: record the clicked notification routing inputs before mode
+  // handling. This funnel sees both system-push and message-center clicks, so
+  // an old-version payload (mode != command) or a missing payload is still
+  // diagnosable even when no support command log follows.
+  // JPush extras deliver mode as a STRING (e.g. "6"); the in-app message
+  // center delivers it as a NUMBER. Keep both values verbatim for diagnosis.
+  const rawClickedMode = mode as unknown;
+  defaultLogger.notification.support.supportReplyClicked({
+    mode:
+      typeof rawClickedMode === 'string' || typeof rawClickedMode === 'number'
+        ? rawClickedMode
+        : undefined,
+    hasPayload: !!payload,
+    isFromNotificationClick: !!isFromNotificationClick,
+  });
 
   if (isFromNotificationClick) {
     // `$navigationRef` only exists in the foreground runtime. On native this

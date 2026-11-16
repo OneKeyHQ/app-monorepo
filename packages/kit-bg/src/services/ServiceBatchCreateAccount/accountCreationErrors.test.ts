@@ -66,14 +66,18 @@ describe('account creation abort policy', () => {
     ).toBe(false);
   });
 
-  it('allows a chain-specific hardware limitation to be skipped', () => {
-    expect(
-      shouldAbortAccountCreation({
-        $isHardwareError: true,
-        code: ThirdPartyHwErrorCode.ChainNotSupported,
-      }),
-    ).toBe(false);
-  });
+  it.each([
+    ThirdPartyHwErrorCode.ChainNotSupported,
+    HardwareErrorCode.ForbiddenKeyPath,
+    HardwareErrorCode.DeviceNotSupportPath,
+  ])(
+    'allows a chain-specific hardware limitation (%s) to be skipped',
+    (code) => {
+      expect(shouldAbortAccountCreation({ $isHardwareError: true, code })).toBe(
+        false,
+      );
+    },
+  );
 });
 
 it.each([

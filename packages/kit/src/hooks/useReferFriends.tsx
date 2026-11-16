@@ -1,7 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { StackActions } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
+
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { OverlayCloseCancelledError } from '@onekeyhq/components/src/shared/overlayCloseCancellation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
@@ -15,6 +23,7 @@ import type {
   IPerksOpenEntry,
   IReferralPageTab,
 } from '@onekeyhq/shared/src/routes';
+import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -25,6 +34,50 @@ import useAppNavigation from './useAppNavigation';
 const shouldUseReferralModalNav = platformEnv.isNative;
 const shouldOpenReferralInExtensionExpandTab =
   platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
+const getReferralIdentity = () => {
+  const value = jotaiDefaultStore.get(primePersistAtom.atom());
+  return [
+    value.onekeyUserId,
+    value.isLoggedIn,
+    value.isLoggedInOnServer,
+  ] as const;
+};
+const isSameReferralIdentity = (
+  left: ReturnType<typeof getReferralIdentity>,
+  right: ReturnType<typeof getReferralIdentity>,
+) => left.every((value, index) => value === right[index]);
+
+let referralLoginCheck:
+  | { promise: Promise<boolean>; stale: boolean; invalidate: () => void }
+  | undefined;
+
+function getReferralLoginStatus() {
+  if (referralLoginCheck && !referralLoginCheck.stale) {
+    return referralLoginCheck;
+  }
+  const identity = getReferralIdentity();
+  const check = {
+    promise: Promise.resolve().then(() =>
+      backgroundApiProxy.servicePrime.isLoggedIn(),
+    ),
+    stale: false,
+    invalidate: (): void => undefined,
+  };
+  const unsubscribe = primePersistAtom.sub(() => {
+    if (!isSameReferralIdentity(identity, getReferralIdentity())) {
+      check.invalidate();
+    }
+  });
+  check.invalidate = () => {
+    check.stale = true;
+    unsubscribe();
+    if (referralLoginCheck === check) referralLoginCheck = undefined;
+  };
+  check.promise = check.promise.finally(check.invalidate);
+  referralLoginCheck = check;
+  return check;
+}
 
 function openExtensionReferralInExpandTab(path: string, params?: object) {
   return backgroundApiProxy.serviceApp
@@ -115,39 +168,199 @@ export function useReplaceToReferFriends() {
   );
 }
 
-export const useReferFriends = () => {
+export const useReferFriends = ({
+  isEntryActive = true,
+  beforeNavigate,
+}: {
+  isEntryActive?: boolean;
+  beforeNavigate?: () => Promise<void>;
+} = {}) => {
   const navigation = useAppNavigation();
+  const intl = useIntl();
   const { loginOneKeyId } = useOneKeyAuth();
+  const [isReferralEntryPending, setEntryPending] = useState(false);
+  const [isReferralEntryLoading, setEntryLoading] = useState(false);
+  const activeRef = useRef(isEntryActive);
+  activeRef.current = isEntryActive;
+  const mountedRef = useRef(true);
+  const attemptRef = useRef<{
+    cancel: () => void;
+    committing: boolean;
+    entryClosed: boolean;
+  } | null>(null);
 
-  const toInviteRewardPage = useCallback(
-    async (params?: IInviteRewardRouteParams) => {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (isLogin) {
-        if (shouldOpenReferralInExtensionExpandTab) {
-          await openExtensionReferralInExpandTab(
-            '/refer-friends/invite-reward',
-            params,
-          );
-          return;
-        }
-        if (shouldUseReferralModalNav) {
-          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-            screen: EModalReferFriendsRoutes.InviteReward,
-            params,
-          });
-        } else {
-          navigation.switchTab(ETabRoutes.ReferFriends);
-          await timerUtils.wait(50);
-          rootNavigationRef.current?.reset({
-            index: 0,
-            routes: [{ name: ETabReferFriendsRoutes.TabInviteReward, params }],
-          });
-        }
+  useEffect(() => {
+    const attempt = attemptRef.current;
+    if (!isEntryActive) {
+      if (attempt?.committing) {
+        attempt.entryClosed = true;
       } else {
-        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+        attempt?.cancel();
+      }
+    } else if (attempt?.entryClosed) {
+      // Reopening starts a new menu cycle; the old close must not navigate.
+      attempt.cancel();
+    }
+  }, [isEntryActive]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (!attemptRef.current?.committing) attemptRef.current?.cancel();
+    };
+  }, []);
+
+  const runReferralEntry = useCallback(
+    async (navigate: (isLogin: boolean) => void | Promise<void>) => {
+      if (!mountedRef.current || attemptRef.current || !activeRef.current)
+        return;
+      let cancelWait: () => void = () => undefined;
+      let cancelled = false;
+      let navigating = false;
+      const attempt = {
+        committing: false,
+        entryClosed: false,
+        cancel: () => {
+          cancelled = true;
+          cancelWait();
+        },
+      };
+      attemptRef.current = attempt;
+      setEntryPending(true);
+      const loadingTimer = setTimeout(() => {
+        if (!cancelled && mountedRef.current) setEntryLoading(true);
+      }, 300);
+      let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+      let unsubscribeRoute: (() => void) | undefined;
+      let unsubscribeIdentity: (() => void) | undefined;
+      try {
+        const sourceKey = rootNavigationRef.current?.getCurrentRoute()?.key;
+        const identity = getReferralIdentity();
+        unsubscribeRoute = rootNavigationRef.current?.addListener(
+          'state',
+          () => {
+            if (
+              !navigating &&
+              rootNavigationRef.current?.getCurrentRoute()?.key !== sourceKey
+            ) {
+              attempt.cancel();
+            }
+          },
+        );
+        unsubscribeIdentity = primePersistAtom.sub(() => {
+          if (!isSameReferralIdentity(identity, getReferralIdentity())) {
+            attempt.cancel();
+          }
+        });
+        const loginCheck = getReferralLoginStatus();
+        const result = await Promise.race([
+          loginCheck.promise,
+          new Promise<'cancelled' | 'timeout'>((resolve) => {
+            cancelWait = () => resolve('cancelled');
+            timeoutTimer = setTimeout(() => resolve('timeout'), 5000);
+          }),
+        ]);
+        if (cancelled || !activeRef.current || result === 'cancelled') return;
+        if (result === 'timeout') {
+          // Abandon this read so retry can recover even if it never settles.
+          loginCheck.invalidate();
+          throw new OneKeyLocalError('Referral entry timed out');
+        }
+        attempt.committing = true;
+        await beforeNavigate?.();
+        if (cancelled) return;
+        navigating = true;
+        await navigate(result);
+      } catch (error) {
+        if (!cancelled && !(error instanceof OverlayCloseCancelledError)) {
+          Toast.error({
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message: intl.formatMessage({ id: ETranslations.global_try_again }),
+          });
+        }
+      } finally {
+        clearTimeout(loadingTimer);
+        clearTimeout(timeoutTimer);
+        unsubscribeRoute?.();
+        unsubscribeIdentity?.();
+        attemptRef.current = null;
+        if (mountedRef.current) {
+          setEntryPending(false);
+          setEntryLoading(false);
+        }
       }
     },
-    [loginOneKeyId, navigation],
+    [beforeNavigate, intl],
+  );
+
+  const openReferralPage = useCallback(
+    (isLogin: boolean, params?: IInviteRewardRouteParams) => {
+      if (shouldOpenReferralInExtensionExpandTab) {
+        return openExtensionReferralInExpandTab(
+          isLogin ? '/refer-friends/invite-reward' : '/refer-friends',
+          params,
+        );
+      }
+      if (shouldUseReferralModalNav) {
+        const modalParams = {
+          screen: isLogin
+            ? EModalReferFriendsRoutes.InviteReward
+            : EModalReferFriendsRoutes.ReferAFriend,
+          params,
+        };
+        const root = rootNavigationRef.current;
+        const state = root?.getRootState();
+        const route = state?.routes[state.index];
+        if (
+          route?.name === ERootRoutes.FullScreenPush &&
+          (route.params as { screen?: string } | undefined)?.screen ===
+            EFullScreenPushRoutes.ActionCenter
+        ) {
+          root?.dispatch(
+            StackActions.replace(ERootRoutes.Modal, {
+              screen: EModalRoutes.ReferFriendsModal,
+              params: modalParams,
+            }),
+          );
+        } else {
+          navigation.pushModal(EModalRoutes.ReferFriendsModal, modalParams);
+        }
+        return;
+      }
+      rootNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: ETabRoutes.ReferFriends,
+          params: {
+            state: {
+              index: 0,
+              routes: [
+                {
+                  name: isLogin
+                    ? ETabReferFriendsRoutes.TabInviteReward
+                    : ETabReferFriendsRoutes.TabReferAFriend,
+                  params,
+                },
+              ],
+            },
+          },
+        },
+        { pop: true },
+      );
+    },
+    [navigation],
+  );
+
+  const toInviteRewardPage = useCallback(
+    (params?: IInviteRewardRouteParams) =>
+      runReferralEntry((isLogin) => {
+        if (isLogin) {
+          return openReferralPage(true, params);
+        }
+        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+      }),
+    [loginOneKeyId, openReferralPage, runReferralEntry],
   );
 
   const toHardwareSalesRewardPage = useCallback(
@@ -188,51 +401,9 @@ export const useReferFriends = () => {
   );
 
   const toReferFriendsPage = useCallback(
-    async (params?: {
-      tab?: IReferralPageTab;
-      perksEntry?: IPerksOpenEntry;
-    }) => {
-      // ReferAFriend always redirects logged-in users to InviteReward, so route
-      // them there directly to avoid flashing the intro poster first.
-      const shouldShowInviteReward =
-        await backgroundApiProxy.servicePrime.isLoggedIn();
-
-      if (shouldOpenReferralInExtensionExpandTab) {
-        await openExtensionReferralInExpandTab(
-          shouldShowInviteReward
-            ? '/refer-friends/invite-reward'
-            : '/refer-friends',
-          params,
-        );
-        return;
-      }
-
-      if (shouldUseReferralModalNav) {
-        // Native: use Modal
-        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-          screen: shouldShowInviteReward
-            ? EModalReferFriendsRoutes.InviteReward
-            : EModalReferFriendsRoutes.ReferAFriend,
-          params,
-        });
-      } else {
-        // Web / desktop: use Tab
-        navigation.switchTab(ETabRoutes.ReferFriends);
-        await timerUtils.wait(50);
-        rootNavigationRef.current?.reset({
-          index: 0,
-          routes: [
-            {
-              name: shouldShowInviteReward
-                ? ETabReferFriendsRoutes.TabInviteReward
-                : ETabReferFriendsRoutes.TabReferAFriend,
-              params,
-            },
-          ],
-        });
-      }
-    },
-    [navigation],
+    (params?: { tab?: IReferralPageTab; perksEntry?: IPerksOpenEntry }) =>
+      runReferralEntry((isLogin) => openReferralPage(isLogin, params)),
+    [openReferralPage, runReferralEntry],
   );
 
   return useMemo(
@@ -241,12 +412,16 @@ export const useReferFriends = () => {
       toInviteRewardPage,
       toHardwareSalesRewardPage,
       openHardwareSalesOrderDetail,
+      isReferralEntryPending,
+      isReferralEntryLoading,
     }),
     [
       toReferFriendsPage,
       toInviteRewardPage,
       toHardwareSalesRewardPage,
       openHardwareSalesOrderDetail,
+      isReferralEntryPending,
+      isReferralEntryLoading,
     ],
   );
 };

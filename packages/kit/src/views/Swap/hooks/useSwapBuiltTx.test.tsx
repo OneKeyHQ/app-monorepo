@@ -1148,9 +1148,20 @@ describe('useSwapBuildTx review rebuild', () => {
   it('keeps the rebuilt Review amount and price difference consistent after slippage save', async () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
+    const unpricedBuild = (amount: string) => {
+      const response = buildResponse(amount);
+      return {
+        ...response,
+        result: {
+          ...response.result,
+          fromTokenInfo: { ...response.result.fromTokenInfo, price: '0' },
+          toTokenInfo: { ...response.result.toTokenInfo, price: undefined },
+        },
+      };
+    };
     mockFetchBuildTx
-      .mockResolvedValueOnce(buildResponse('98'))
-      .mockResolvedValueOnce(buildResponse('90'));
+      .mockResolvedValueOnce(unpricedBuild('98'))
+      .mockResolvedValueOnce(unpricedBuild('90'));
     let resolveNonce!: (value: { nonce: number }) => void;
     mockFetchAccountDetails.mockImplementationOnce(
       () =>
@@ -1210,6 +1221,8 @@ describe('useSwapBuildTx review rebuild', () => {
     );
     resolveNonce({ nonce: 3 });
     expect(initialBuilt.toTokenAmount).toBe('98');
+    expect(initialBuilt.fromToken).toEqual(fromToken);
+    expect(initialBuilt.toToken).toEqual(toToken);
     expect(initialBuilt.rateDifference?.value).toBe('-2.00%');
     expect(
       initialBuilt.swapBuildResultData?.swapInfo?.swapBuildResData
@@ -1229,6 +1242,8 @@ describe('useSwapBuildTx review rebuild', () => {
     );
     expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(rebuilt.toTokenAmount).toBe('90');
+    expect(rebuilt.fromToken).toEqual(fromToken);
+    expect(rebuilt.toToken).toEqual(toToken);
     expect(rebuilt.swapBuildResultData?.swapInfo?.receiver.amount).toBe('90');
     expect(rebuilt.slippage).toBe(2);
     expect(rebuilt.swapBuildLoading).toBe(false);

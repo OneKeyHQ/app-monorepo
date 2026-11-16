@@ -68,7 +68,6 @@ const RECORDABLE_ENDPOINTS = [
   },
   { route: 'GET utility.onekeycn.com/utility/v1/app-update' },
   { route: 'GET utility.onekeycn.com/utility/v1/currency/exchange-rates/map' },
-  { route: 'GET utility.onekeycn.com/utility/v1/market/highlight' },
   {
     route: 'POST utility.onekeycn.com/utility/v1/stocks/batch',
     body: /^\{"stockIds":\["NVDA"\]\}$/,

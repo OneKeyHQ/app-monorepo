@@ -3,7 +3,8 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, fireEvent, render } from '@testing-library/react';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import {
   InvalidPIN,
   NeedFirmwareUpgradeFromWeb,
@@ -30,6 +31,7 @@ import { getErrorAction } from './ErrorToasts';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
 const mockOpenChangeLogModal = jest.fn();
+const mockRootNavigate = jest.fn<void, unknown[]>();
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   const actual = jest.requireActual<
@@ -82,6 +84,10 @@ jest.mock('@onekeyhq/components', () => ({
     success: jest.fn(),
     warning: jest.fn(),
   },
+  Dialog: { show: jest.fn() },
+  rootNavigationRef: {
+    current: { navigate: (...args: unknown[]) => mockRootNavigate(...args) },
+  },
   globalNetInfo: {
     currentState: jest.fn(() => ({
       isInternetReachable: true,
@@ -116,12 +122,121 @@ const mockedGlobalNetInfo = globalNetInfo as unknown as {
 describe('ErrorToastContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getErrorAction).mockReset();
+    jest.mocked(Dialog.show).mockImplementation((options) => ({
+      close: async (extra) => {
+        await options.onClose?.(extra);
+      },
+      getForm: () => undefined,
+      isExist: () => true,
+    }));
     setNativeAppStorageEmergencyStatus(undefined);
     mockSubscribeNativeStorageContractViolations.mockReturnValue(jest.fn());
     mockedGlobalNetInfo.currentState.mockReturnValue({
       isInternetReachable: true,
     });
   });
+
+  it('shows a persistent ban dialog instead of an actionable toast', async () => {
+    render(<ErrorToastContainer />);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'This account has been banned.',
+        errorCode: '90012',
+        httpStatusCode: 403,
+        requestId: 'login-denied',
+        diagnosticText: 'Restricted OAuth sign-in',
+      });
+    });
+    expect(Dialog.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'OneKey ID 已被封禁',
+        description: '如有疑问，可以联系客服',
+        showCancelButton: false,
+        onConfirmText: '我明白了',
+        dismissOnOverlayPress: false,
+        disableDrag: true,
+      }),
+    );
+    expect(mockedToast.error).not.toHaveBeenCalled();
+    expect(getErrorAction).not.toHaveBeenCalled();
+    expect(mockRootNavigate).not.toHaveBeenCalled();
+  });
+
+  it('waits for the login dialog to close and deduplicates the persistent error', async () => {
+    let finishClosing: (() => void) | undefined;
+    const closing = new Promise<void>((resolve) => {
+      finishClosing = resolve;
+    });
+    const onLoginClose = jest.fn();
+    const close = jest.fn(async () => {
+      await closing;
+      await onLoginClose();
+    });
+    jest.mocked(Dialog.show).mockReturnValueOnce({
+      close,
+      getForm: () => undefined,
+      isExist: () => true,
+    });
+    showOneKeyIdLoginDialog({ title: 'Login' });
+    render(<ErrorToastContainer />);
+    const showBan = () =>
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: '',
+        errorCode: 90_012,
+      });
+    act(() => {
+      showBan();
+      showBan();
+    });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finishClosing?.();
+    });
+    expect(onLoginClose).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
+    expect(Dialog.show).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: 'OneKey ID 已被封禁',
+        description: '如有疑问，可以联系客服',
+      }),
+    );
+    await act(async () => {
+      showBan();
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
+    const errorDialog = jest.mocked(Dialog.show).mock.calls[1][0];
+    await act(async () => {
+      await errorDialog.onClose?.();
+      showBan();
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(3);
+    expect(mockedToast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([90_012, '90012'])(
+    'shows a serialized ban %s as the ban dialog without a toast',
+    async (errorCode) => {
+      render(<ErrorToastContainer />);
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title: '',
+          errorCode,
+        });
+      });
+      expect(Dialog.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'OneKey ID 已被封禁',
+          description: '如有疑问，可以联系客服',
+        }),
+      );
+      expect(mockedToast.error).not.toHaveBeenCalled();
+    },
+  );
 
   const emergencyStatus = {
     mode: 'emergency',

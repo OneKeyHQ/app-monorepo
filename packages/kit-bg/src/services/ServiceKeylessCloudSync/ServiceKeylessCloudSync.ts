@@ -8,6 +8,8 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
+  HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -27,7 +29,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
@@ -64,12 +68,20 @@ import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder'
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
-import { logHardwareCloudSyncFailure } from './hardwareCloudSyncLog';
+import {
+  logHardwareCloudSyncDiagnostic,
+  logHardwareCloudSyncFailure,
+  summarizeHardwareCloudSyncRestoreItems,
+} from './hardwareCloudSyncLog';
 import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
   recoverHardwareCloudSyncMigration,
 } from './hardwareCloudSyncMigration';
+import {
+  commitHardwareCloudSyncLocalRecovery,
+  prepareHardwareCloudSyncLocalRecovery,
+} from './hardwareCloudSyncRecovery';
 import {
   assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
@@ -131,6 +143,105 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   // Keep the explicit "Switch Now" intent in memory until the keyless wallet is created.
   private pendingAutoEnableCloudSyncKeyless = false;
+
+  private async updateHardwareCloudSyncDeviceName(
+    source: Pick<
+      IHardwareCloudSyncKeySource,
+      'credentialId' | 'deviceName' | 'deviceBleName' | 'deviceSerialNoHash'
+    >,
+    { onlyIfLabelFallback = false }: { onlyIfLabelFallback?: boolean } = {},
+  ) {
+    await primeCloudSyncPersistAtom.set((config) => {
+      const current = config.hardwareCloudSyncKeySource;
+      if (
+        current?.credentialId !== source.credentialId ||
+        (onlyIfLabelFallback &&
+          (current.deviceBleName ||
+            current.deviceSerialNoHash !== source.deviceSerialNoHash)) ||
+        (current.deviceName === source.deviceName &&
+          current.deviceBleName === source.deviceBleName &&
+          current.deviceSerialNoHash === source.deviceSerialNoHash)
+      ) {
+        return config;
+      }
+      return {
+        ...config,
+        hardwareCloudSyncKeySource: {
+          ...current,
+          deviceName: source.deviceName,
+          deviceBleName: source.deviceBleName,
+          deviceSerialNoHash: source.deviceSerialNoHash,
+        },
+      };
+    });
+  }
+
+  async syncHardwareCloudSyncDeviceLabel({
+    walletId,
+    label,
+  }: {
+    walletId: string;
+    label: string;
+  }) {
+    const source = (await primeCloudSyncPersistAtom.get())
+      .hardwareCloudSyncKeySource;
+    if (
+      !source ||
+      source.deviceBleName ||
+      !source.deviceSerialNoHash ||
+      !accountUtils.isHwWallet({ walletId })
+    )
+      return;
+    const wallet = await localDb.getWalletSafe({
+      walletId,
+      withoutRefill: true,
+    });
+    if (!wallet?.xfp || wallet.passphraseState || !wallet.associatedDevice)
+      return;
+    // Cloud has no wallet record of its own; match the standard wallet identity
+    // before reusing another flow's device metadata.
+    let credentialId: string;
+    try {
+      const [{ default: appCrypto }, { normalizeHardwareCloudWalletXfp }] =
+        await Promise.all([
+          import('@onekeyhq/shared/src/appCrypto'),
+          import('./hardwareCloudSyncCredential'),
+        ]);
+      credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
+        appCrypto.hash.sha256Sync(
+          Buffer.from(normalizeHardwareCloudWalletXfp(wallet.xfp), 'utf8'),
+        ),
+      ).toString('hex')}`;
+    } catch {
+      return;
+    }
+    if (credentialId !== source.credentialId) return;
+    const device = await localDb.getDeviceSafe(wallet.associatedDevice);
+    if (!device) return;
+    const { getHardwareCloudSyncDeviceSerialNoHash } =
+      await import('./hardwareCloudSyncDeviceName');
+    const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
+      device.deviceStateInfo?.identity.serialNo ||
+        deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ||
+        device.uuid,
+    );
+    if (deviceSerialNoHash !== source.deviceSerialNoHash) return;
+    const bleName = device.deviceStateInfo?.identity.bleName
+      ? deviceUtils.getDeviceDisplayName({
+          state: device.deviceStateInfo,
+          preferBleName: true,
+        })
+      : deviceUtils.buildDeviceBleName({ features: device.featuresInfo });
+    const deviceName =
+      bleName ||
+      label ||
+      deviceUtils.getDefaultDeviceLabel(device.deviceType) ||
+      device.name;
+    await this.updateHardwareCloudSyncDeviceName(
+      { credentialId, deviceName, deviceBleName: bleName, deviceSerialNoHash },
+      { onlyIfLabelFallback: true },
+    );
+  }
 
   private repairCredentialMutex = new Semaphore(1);
 
@@ -561,13 +672,77 @@ class ServiceKeylessCloudSync extends ServiceBase {
             credential.pwdHash,
             ...dataKey.previousPwdHashes,
           ]);
+          const restoresRotatedHardwareKey =
+            !rebuildsLocalItemsNow &&
+            current.hardwareCloudSyncKeySource?.credentialId ===
+              source.credentialId &&
+            credential.pwdHash.startsWith(
+              HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+            );
+          const recoveredItems = restoresRotatedHardwareKey
+            ? await prepareHardwareCloudSyncLocalRecovery({
+                items,
+                knownPwdHashes,
+                syncCredential: this.buildSyncCredentialWithKeylessCredential({
+                  ...credential,
+                  source,
+                }),
+              })
+            : [];
+          const recoveredIds = new Set(
+            recoveredItems.map((item) => item.original.id),
+          );
+          const localItemKeyMismatch = (item: IDBCloudSyncItem) =>
+            !!item.pwdHash &&
+            !(
+              item.dataType === EPrimeCloudSyncDataType.Lock &&
+              keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+            ) &&
+            !knownPwdHashes.has(item.pwdHash) &&
+            !recoveredIds.has(item.id);
+          const existingHashRecoverable =
+            restoresRotatedHardwareKey &&
+            existing?.pwdHash.startsWith(
+              HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+            ) &&
+            !existing.signingPublicKey;
+          logHardwareCloudSyncDiagnostic(
+            'restore_key_compatibility_guard',
+            () => ({
+              rebuildsLocalItems: rebuildsLocalItemsNow,
+              localItemCount: items.length,
+              ...summarizeHardwareCloudSyncRestoreItems(items, knownPwdHashes),
+              knownHashCount: knownPwdHashes.size,
+              recoveredLocalItemCount: recoveredItems.length,
+              ignoredLegacyLockCount: items.filter(
+                (item) =>
+                  item.dataType === EPrimeCloudSyncDataType.Lock &&
+                  item.pwdHash &&
+                  keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash),
+              ).length,
+              existingSigningPublicKeyEmpty:
+                !!existing && !existing.signingPublicKey,
+              currentSigningPublicKeyEmpty: !credential.signingPublicKey,
+              hasExistingCredential: !!existing,
+              localItemsMismatch:
+                !rebuildsLocalItemsNow && items.some(localItemKeyMismatch),
+              existingPwdHashMismatch:
+                !!existing &&
+                !knownPwdHashes.has(existing.pwdHash) &&
+                !existingHashRecoverable,
+              existingSigningPublicKeyMismatch:
+                !!existing &&
+                existing.signingPublicKey !== credential.signingPublicKey,
+            }),
+          );
+          // Same-source recovery can rebuild readable hardware business rows
+          // without complete server key history. Opaque and foreign records
+          // still require their original key checks.
           if (
-            (!rebuildsLocalItemsNow &&
-              items.some(
-                (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
-              )) ||
+            (!rebuildsLocalItemsNow && items.some(localItemKeyMismatch)) ||
             (existing &&
-              (!knownPwdHashes.has(existing.pwdHash) ||
+              ((!knownPwdHashes.has(existing.pwdHash) &&
+                !existingHashRecoverable) ||
                 existing.signingPublicKey !== credential.signingPublicKey))
           ) {
             throw new HardwareCloudSyncError(
@@ -591,6 +766,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
             lastSyncTimeKeyless: undefined,
           }));
           this.setKeylessCloudSyncCredentialCache({ ...credential, source });
+          if (restoresRotatedHardwareKey) {
+            await commitHardwareCloudSyncLocalRecovery(recoveredItems);
+          }
           await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB({
             syncCredential: this.buildSyncCredentialWithKeylessCredential({
               ...credential,
@@ -598,6 +776,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
             }),
             password,
             askPasswordOnlyIfHdXfpMissing: true,
+            onlyAddMissing: restoresRotatedHardwareKey,
           });
           await primeCloudSyncPersistAtom.set((value) => ({
             ...value,
@@ -610,6 +789,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
             this.hardwareCloudKeyCommitting &&
             !(await primeCloudSyncPersistAtom.get()).isCloudSyncEnabledKeyless
           ) {
+            logHardwareCloudSyncDiagnostic(
+              'delete_credential_after_incomplete_key_commit',
+              {
+                deletionAllowed: true,
+              },
+            );
             // The daily sweep retries if this cleanup itself fails.
             await keylessSyncCredentialStorage
               .removeAllCredentials()
@@ -899,10 +1084,26 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     { force }: { force?: boolean } = {},
   ): Promise<IKeylessCloudSyncCredential> {
+    if (force || this.hardwareSessionEnding || !credential.hardwareSession) {
+      logHardwareCloudSyncDiagnostic('credential_refresh_precheck', {
+        forceRequested: !!force,
+        sessionEnding: this.hardwareSessionEnding,
+        refreshInFlight: !!this.hardwareSessionRefresh,
+        hasSession: !!credential.hardwareSession,
+      });
+    }
     if (this.hardwareSessionEnding) {
       throw settingsChangedError();
     }
-    if (this.hardwareSessionRefresh) return this.hardwareSessionRefresh;
+    if (this.hardwareSessionRefresh) {
+      if (force) {
+        logHardwareCloudSyncDiagnostic(
+          'credential_refresh_joined_shared_promise',
+          { forceRequested: true },
+        );
+      }
+      return this.hardwareSessionRefresh;
+    }
     const session = credential.hardwareSession;
     if (!session) return credential;
     const refreshing = (async () => {
@@ -915,6 +1116,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         stored?.hardwareSession?.sessionId === session.sessionId &&
         stored.hardwareSession.refreshToken !== session.refreshToken
       ) {
+        logHardwareCloudSyncDiagnostic(
+          'credential_refresh_reused_stored_session',
+          {
+            forceRequested: !!force,
+          },
+        );
         return stored;
       }
       const client = await this.getHardwareSyncClient();
@@ -926,10 +1133,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
           force,
         });
       } catch (error) {
+        logHardwareCloudSyncDiagnostic('credential_refresh_failed', {
+          forceRequested: !!force,
+          unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+        });
         if (isHardwareCloudSyncUnauthorizedError(error)) {
+          logHardwareCloudSyncDiagnostic(
+            'sign_in_required_after_unauthorized_refresh',
+            {},
+          );
           await this.requireHardwareCloudSyncSignIn(credential);
         }
         throw error;
+      }
+      if (next || force) {
+        logHardwareCloudSyncDiagnostic('credential_refresh_result', {
+          forceRequested: !!force,
+          refreshedSession: !!next,
+        });
       }
       if (!next) return credential;
       const updated = { ...credential, hardwareSession: next };
@@ -975,8 +1196,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
   ): Promise<never> {
     await this.repairCredentialMutex.runExclusive(async () => {
-      if (await this.isStoredHardwareSession(credential)) {
+      const deletionAllowed = await this.isStoredHardwareSession(credential);
+      logHardwareCloudSyncDiagnostic('sign_in_credential_deletion_guard', {
+        deletionAllowed,
+      });
+      if (deletionAllowed) {
         await keylessSyncCredentialStorage.removeAllCredentials();
+        logHardwareCloudSyncDiagnostic('sign_in_credential_deleted', {});
       }
     });
     this.clearKeylessCloudSyncCredentialCache();
@@ -1090,6 +1316,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     scope: 'current' | 'allExceptCurrent',
   ) {
+    logHardwareCloudSyncDiagnostic('revoke_session_precheck', {
+      hasSession: !!credential.hardwareSession,
+      currentSession: scope === 'current',
+    });
     if (!credential.hardwareSession) return;
     try {
       const client = await this.getHardwareSyncClient();
@@ -1098,7 +1328,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
         session: credential.hardwareSession,
         scope,
       });
+      logHardwareCloudSyncDiagnostic('revoke_session_completed', {
+        currentSession: scope === 'current',
+      });
     } catch (error) {
+      logHardwareCloudSyncDiagnostic('revoke_session_failed', {
+        currentSession: scope === 'current',
+        unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+      });
       logHardwareCloudSyncFailure(`Revoke ${scope} session failed`, error);
       errorUtils.autoPrintErrorIgnore(error);
     }
@@ -1276,6 +1513,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
     if (serverDekId && serverDekId !== session.dekId) {
       // Only the hardware wallet can unwrap the new key.
+      logHardwareCloudSyncDiagnostic(
+        'sign_in_required_after_server_data_key_changed',
+        {},
+      );
       await this.requireHardwareCloudSyncSignIn(credential);
     }
     if (pending) {
@@ -1329,10 +1570,22 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return await send(fresh);
     } catch (error) {
       if (isHardwareCloudSyncUnauthorizedError(error)) {
+        logHardwareCloudSyncDiagnostic(
+          'business_unauthorized_response_refresh_requested',
+          {
+            retryAllowed: !!retryAfterKeySwitch,
+          },
+        );
         // A revoked session fails the refresh too, which asks for sign-in.
         const refreshed = await this.getFreshHardwareCredential(fresh, {
           force: true,
         });
+        logHardwareCloudSyncDiagnostic(
+          'business_unauthorized_response_retry_decision',
+          {
+            retryAllowed: !!retryAfterKeySwitch,
+          },
+        );
         if (!retryAfterKeySwitch) throw error;
         return send(refreshed);
       }
@@ -1397,6 +1650,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         >
       | undefined;
     let committing = false;
+    let committedSource: IHardwareCloudSyncKeySource | undefined;
     let replacement: IKeylessCloudSyncCredential | undefined;
     let replacementGeneration = 0;
     let migrationSource = credential;
@@ -1574,6 +1828,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         credential,
         rotated.next,
       );
+      committedSource = derived.source;
       await this.recordHardwareKeyGeneration(
         source.credentialId,
         rotated.generation,
@@ -1587,6 +1842,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
         syncMode: ECloudSyncMode.Keyless,
       });
     } finally {
+      // A committed key keeps its fresh display metadata even if synchronization
+      // fails, while optional metadata storage cannot replace the original error.
+      if (committedSource) {
+        await this.updateHardwareCloudSyncDeviceName(committedSource).catch(
+          (error: unknown) =>
+            logHardwareCloudSyncFailure('Persist device name', error),
+        );
+      }
       if (committing) {
         this.hardwareCloudKeyCommitting = false;
         await this.hideDialogLoading();
@@ -1767,6 +2030,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async onHardwareKeyFlushPush({ pwdHash }: { pwdHash?: string }) {
     try {
       const credential = await this.getKeylessCloudSyncCredential();
+      if (credential?.hardwareSession && credential.pwdHash !== pwdHash) {
+        logHardwareCloudSyncDiagnostic('flush_push_precheck', {
+          hasCredential: true,
+          hasSession: true,
+          hasPushedPwdHash: !!pwdHash,
+          pwdHashMatches: false,
+        });
+      }
       if (!credential?.hardwareSession) return;
       // Same key: the flush only rewrote data, which the push leaves out.
       if (credential.pwdHash === pwdHash) {
@@ -1791,6 +2062,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     try {
       const credential = await this.getKeylessCloudSyncCredential();
       const session = credential?.hardwareSession;
+      logHardwareCloudSyncDiagnostic('session_revoked_push_precheck', {
+        hasCredential: !!credential,
+        hasSession: !!session,
+        hasPushedSessionId: !!sessionId,
+        sessionMatches: !!session && session.sessionId === sessionId,
+      });
       if (!credential || !session || session.sessionId !== sessionId) return;
       await this.getFreshHardwareCredential(credential, { force: true });
     } catch (error) {
@@ -2365,6 +2642,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
           if (stored?.hardwareSession) {
             await this.revokeCurrentHardwareSession(stored);
           }
+          logHardwareCloudSyncDiagnostic(
+            'delete_credential_after_disabling_sync',
+            {
+              hasSession: !!stored?.hardwareSession,
+            },
+          );
           await keylessSyncCredentialStorage.removeAllCredentials();
         }
       }

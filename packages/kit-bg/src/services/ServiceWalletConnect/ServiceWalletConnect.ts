@@ -41,6 +41,12 @@ import { walletConnectDiagnostics } from './WalletConnectDiagnostics';
 import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 
+function getSupportedNamespaceImpl(namespace: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(namespaceToImplsMap, namespace)
+    ? namespaceToImplsMap[namespace as INamespaceUnion]
+    : undefined;
+}
+
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -272,7 +278,7 @@ class ServiceWalletConnect extends ServiceBase {
     let index = 0;
     // Filter supported chains from requiredNamespace
     for (const namespace of Object.keys(requiredNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const impl = getSupportedNamespaceImpl(namespace);
       if (!impl) {
         throw new OneKeyLocalError('Namespace not supported');
       }
@@ -292,7 +298,7 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Filter supported chains from optionalNamespace
     for (const namespace of Object.keys(optionalNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const impl = getSupportedNamespaceImpl(namespace);
       // Skip namespaces not supported by the wallet
       if (impl) {
         const existImpl = supported.find((s) => s.impl === impl);
@@ -303,12 +309,15 @@ class ServiceWalletConnect extends ServiceBase {
             optionalNamespaces,
             namespace,
           );
-          supported.push({
-            impl,
-            accountSelectorNum: index + WalletConnectAccountSelectorNumStartAt,
-            networkIds,
-          });
-          index += 1;
+          if (networkIds.length > 0) {
+            supported.push({
+              impl,
+              accountSelectorNum:
+                index + WalletConnectAccountSelectorNumStartAt,
+              networkIds,
+            });
+            index += 1;
+          }
         }
       }
     }
@@ -330,8 +339,11 @@ class ServiceWalletConnect extends ServiceBase {
     const processNamespaces = async (
       namespaces: ProposalTypes.RequiredNamespaces,
       notSupportedChains: string[] = [],
+      isOptionalNamespace = false,
     ) => {
-      for (const [key, value] of Object.entries(namespaces)) {
+      for (const [key, value] of Object.entries(namespaces).filter(
+        ([namespaceKey]) => getSupportedNamespaceImpl(namespaceKey),
+      )) {
         const namespace = key as INamespaceUnion;
         const { chains } = value;
         const impl = namespaceToImplsMap[namespace];
@@ -351,13 +363,18 @@ class ServiceWalletConnect extends ServiceBase {
             ]
           : filteredChains;
 
-        supportedNamespaces[namespace] = {
-          chains: mergedChains,
-          methods: supportMethodsMap[namespace] ?? [],
-          events: supportEventsMap[namespace],
-          accounts:
-            mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
-        };
+        if (
+          !isOptionalNamespace ||
+          (mergedChains.length > 0 && account?.address)
+        ) {
+          supportedNamespaces[namespace] = {
+            chains: mergedChains,
+            methods: supportMethodsMap[namespace] ?? [],
+            events: supportEventsMap[namespace],
+            accounts:
+              mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
+          };
+        }
       }
     };
     // Process required namespaces
@@ -370,16 +387,11 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
-      const isEmptyRequiredNamespace =
-        Object.keys(proposal.params.requiredNamespaces).length <= 0;
-      const filteredOptionalNamespaces = isEmptyRequiredNamespace
-        ? proposal.params.optionalNamespaces
-        : Object.fromEntries(
-            Object.entries(proposal.params.optionalNamespaces).filter(
-              ([key]) => key in proposal.params.requiredNamespaces,
-            ),
-          );
-      await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
+      await processNamespaces(
+        proposal.params.optionalNamespaces,
+        notSupportedChains,
+        true,
+      );
     }
 
     console.log('supportedNamespaces: ', supportedNamespaces);

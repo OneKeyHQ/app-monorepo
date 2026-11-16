@@ -5,6 +5,7 @@ import type {
 } from '../types';
 
 export interface IDesktopLayoutProps {
+  isLayoutActive: boolean;
   filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;

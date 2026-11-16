@@ -2,8 +2,9 @@ import type { ReactNode } from 'react';
 
 import Animated from 'react-native-reanimated';
 
-import { SizableText, XStack } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
+import { useOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -35,6 +36,17 @@ export const INFO_TRIGGER_HIT_SLOP = {
   left: 12,
   right: 12,
 };
+
+// Body of an explainer popover (rate, fee). As a sheet the popover draws its
+// own title header, whose bottom padding is already the gap to the body: top
+// padding here doubled it. The anchored panel on expanded windows has no
+// header, so only there the body pads its own top.
+export function InfoPopoverContent(props: IYStackProps) {
+  const isAnchoredPanel = useOverlayWidthClass() === 'expanded';
+  return (
+    <YStack px="$5" pb="$5" pt={isAnchoredPanel ? '$5' : '$0'} {...props} />
+  );
+}
 
 // Shared label/value row for the review card and the order card — one
 // definition so the two surfaces can't drift. A tappable row's pressed fill

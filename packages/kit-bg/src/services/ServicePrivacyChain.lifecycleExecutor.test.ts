@@ -261,6 +261,19 @@ describe('privacy chain lifecycle executor', () => {
       const notifies =
         LOCAL_WALLET_LIFECYCLE[event].notify && event !== 'networkPause';
       expect({ event, refreshed }).toEqual({ event, refreshed: notifies });
+      const accountNotices = emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+      );
+      if (event === 'networkPause') {
+        expect(accountNotices).toHaveLength(1);
+      }
+      for (const [, payload] of accountNotices) {
+        if (event === 'networkPause') {
+          expect(payload).toHaveProperty('change', 'syncState');
+        } else {
+          expect(payload).not.toHaveProperty('change');
+        }
+      }
     }
     emit.mockRestore();
   });
@@ -296,8 +309,8 @@ describe('privacy chain lifecycle executor', () => {
     expect(state.preparingAccountKeys).toEqual(keeps ? [own, other] : [other]);
   });
 
-  // Deleting an account's data waits behind a running scan; its Preparing must not.
-  it('drops Preparing as soon as the user deletes an account’s data', async () => {
+  // Deleting an account's data waits behind a running scan; its published state must not.
+  it('drops Preparing and scan completion as soon as the user deletes an account’s data', async () => {
     const own = `${networkId}:${accountId}`;
     const other = `${networkId}:other`;
     const processPendingAccountDeletion = jest.fn(
@@ -334,10 +347,18 @@ describe('privacy chain lifecycle executor', () => {
     type IScanState = {
       progress: Record<string, unknown>;
       preparingAccountKeys: string[];
+      completedScanByAccount: Record<
+        string,
+        { sessionId: string; sequence: number }
+      >;
     };
     let state: IScanState = {
       progress: { [own]: {}, [other]: {} },
       preparingAccountKeys: [own, other],
+      completedScanByAccount: {
+        [own]: { sessionId: 'session', sequence: 1 },
+        [other]: { sessionId: 'session', sequence: 2 },
+      },
     };
     for (const [update] of mockAtomSet.mock.calls) {
       if (typeof update === 'function') {
@@ -348,6 +369,9 @@ describe('privacy chain lifecycle executor', () => {
     expect(state).toEqual({
       progress: { [other]: {} },
       preparingAccountKeys: [other],
+      completedScanByAccount: {
+        [other]: { sessionId: 'session', sequence: 2 },
+      },
     });
   });
 

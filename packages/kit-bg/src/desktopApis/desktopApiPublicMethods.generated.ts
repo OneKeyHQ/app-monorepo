@@ -11,6 +11,7 @@ export const desktopApiPublicMethods: Readonly<
     'revenueCatGetAppUserId',
     'revenueCatGetCustomerInfo',
     'revenueCatGetOfferings',
+    'revenueCatGetStorefront',
     'revenueCatIsAvailable',
     'revenueCatLogInWithVerifiedSession',
     'revenueCatLogOut',
@@ -183,6 +184,7 @@ export const desktopApiPublicMethods: Readonly<
     'isProxyActiveForUrl',
     'isSupported',
     'request',
+    'uploadFile',
   ]),
   'oauthLocalServer': Object.freeze([
     'openBrowser',

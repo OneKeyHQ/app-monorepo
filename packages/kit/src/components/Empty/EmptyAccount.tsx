@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +25,10 @@ type IProps = {
   createAllDeriveTypes?: boolean;
   createAllEnabledNetworks?: boolean;
   onCreateAddress?: () => void | Promise<void>;
+  createAddressLabel?: string;
+  onCreateDone?: ComponentProps<
+    typeof LazyAccountSelectorCreateAddressButton
+  >['onCreateDone'];
 };
 
 const num = 0;
@@ -34,6 +39,8 @@ function EmptyAccount(props: IProps) {
     createAllDeriveTypes,
     createAllEnabledNetworks,
     onCreateAddress,
+    createAddressLabel,
+    onCreateDone,
   } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -89,9 +96,8 @@ function EmptyAccount(props: IProps) {
           loading={isCreatingAddress}
           onPress={() => void onCreateAddress()}
         >
-          {intl.formatMessage({
-            id: ETranslations.global_create_address,
-          })}
+          {createAddressLabel ??
+            intl.formatMessage({ id: ETranslations.global_create_address })}
         </Empty.Button>
       );
     }
@@ -109,7 +115,8 @@ function EmptyAccount(props: IProps) {
           deriveType: activeAccount?.deriveType,
         }}
         buttonRender={Empty.Button}
-        onCreateDone={() => {
+        onCreateDone={(result) => {
+          onCreateDone?.(result);
           if (
             networkUtils.isAllNetwork({
               networkId: activeAccount?.network?.id,
@@ -118,7 +125,9 @@ function EmptyAccount(props: IProps) {
             appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
           }
         }}
-      />
+      >
+        {createAddressLabel}
+      </LazyAccountSelectorCreateAddressButton>
     );
   })();
 

@@ -107,7 +107,8 @@ export function getSwapHistoryTransactionIdRows(
     return buildSingleTransactionIdRow({
       transactionId: sourceTransactionId ?? targetTransactionId,
       networkId: sourceTransactionId ? fromNetworkId : toNetworkId,
-      showExplorer: false,
+      showExplorer:
+        item.protocol === EProtocolOfExchange.STOCK && !isPrivateSendHistory,
     });
   }
 

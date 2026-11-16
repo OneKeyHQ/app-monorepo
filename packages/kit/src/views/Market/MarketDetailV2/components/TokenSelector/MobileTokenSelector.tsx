@@ -148,6 +148,11 @@ function MobileTokenSelectorContent() {
       address: string;
       networkId: string;
       assetId?: string;
+      symbol?: string;
+      name?: string;
+      logoUrl?: string;
+      price?: number;
+      change24h?: number;
       stockId?: string;
       isNative?: boolean;
       perpsCoin?: string;
@@ -208,6 +213,13 @@ function MobileTokenSelectorContent() {
         address: '',
         networkId: '',
         assetId: item.assetId,
+        symbol: item.symbol.toUpperCase(),
+        name: item.name,
+        logoUrl: item.logoUrl,
+        price: item.price ? Number(item.price) : undefined,
+        change24h: item.priceChange24hPercent
+          ? Number(item.priceChange24hPercent)
+          : undefined,
       });
     },
     [navigateToTokenDetail],
@@ -248,6 +260,7 @@ function MobileTokenSelectorContent() {
         networkId: token.network,
         isNative: token.isNative,
         assetId: getSelectorSearchAssetId(token),
+        symbol: token.symbol,
         stockId: token.stockId,
         tokenDetailPreview,
       });

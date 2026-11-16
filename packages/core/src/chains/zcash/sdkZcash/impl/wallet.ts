@@ -518,7 +518,6 @@ export function readSyncProgress(
 
   const birthdayHeight = status.birthdayHeight;
   const chainTip = status.chainTip ?? mark.chainTip;
-  const tipScannedHeight = mark.fullyScanned;
 
   // Birthday lane answers whether this wallet knows its full history — the one that decides if the
   // balance can be trusted. Tip lane only answers freshness, and can be caught up while history isn't.
@@ -526,10 +525,15 @@ export function readSyncProgress(
   const backfillScannedHeight = status.scannedToHeight;
   const isBackfillComplete = status.isComplete;
 
-  const tipLag =
+  // The wallet-wide mark is the slowest account's; one with nothing pending has scanned to the tip.
+  const tipScannedHeight =
+    isBackfillComplete && chainTip !== null ? chainTip : mark.fullyScanned;
+  const gap =
     chainTip !== null && tipScannedHeight !== null
       ? Math.max(0, chainTip - tipScannedHeight)
       : null;
+  // Pending ranges already run to the tip, so the gap is in remainingBlocks; adding it would count it twice.
+  const tipLag = status.remainingBlocks > 0 && gap !== null ? 0 : gap;
 
   return {
     birthdayHeight,
@@ -545,7 +549,7 @@ export function readSyncProgress(
     tipScannedHeight,
     chainTip,
     tipLag,
-    isTipCaughtUp: tipLag !== null && tipLag === 0,
+    isTipCaughtUp: gap !== null && gap === 0,
     isSyncing: status.remainingBlocks > 0,
   };
 }

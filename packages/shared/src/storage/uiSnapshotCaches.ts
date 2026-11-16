@@ -54,17 +54,11 @@ export const tokenListMaintenanceCache = createNamespacedSnapshotCache<number>({
 
 export const TOKEN_LIST_CLEANUP_VERSION_KEY = 'cleanup-version';
 
-/**
- * Measured height of each native home header layout (OK-63873), keyed by the
- * layout variant. The collapsible tab container needs the height of the
- * incoming layout before it is laid out to keep the tab content aligned on an
- * account switch; remembering it across launches means the first switch after
- * a cold start is aligned too.
- */
+/** Native Home geometry hints, keyed by rendered layout and display conditions. */
 export const homeHeaderLayoutCache = createNamespacedSnapshotCache<number>({
   namespace: 'home-header-layout',
-  maxAgeMs: THIRTY_DAYS_MS,
-  maxEntries: 8,
+  maxAgeMs: Number.POSITIVE_INFINITY,
+  maxEntries: 32,
 });
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;

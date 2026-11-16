@@ -82,10 +82,12 @@ async function preparePlan({
     const remote = await client.findKey(entry.key);
     if (
       !remote &&
-      !/^[a-z][a-z0-9_]*__(title|action|desc|msg)$/.test(entry.key)
+      !/^[a-z][a-z0-9_]*__(title|action|desc|msg)$/.test(entry.key) &&
+      // Backend error identifiers must retain the key defined by the service.
+      !/^error__service_[a-z0-9]+(?:_[a-z0-9]+)*_error$/.test(entry.key)
     )
       throw new Error(
-        `${entry.key}: a new key must use semantic_key__title/action/desc/msg.`,
+        `${entry.key}: a new key must use semantic_key__title/action/desc/msg or error__service_*_error.`,
       );
     if (!remote && Object.hasOwn(catalog.values.en_US, entry.localKey))
       throw new Error(

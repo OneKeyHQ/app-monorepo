@@ -45,7 +45,6 @@ import type {
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
-  IMarketHighlight,
   IMarketPerpsTokenListData,
   IMarketPerpsTokenListResponse,
   IMarketStockDetail,
@@ -143,6 +142,7 @@ class ServiceMarketV2 extends ServiceBase {
       this._marketTokenBatchCache.clear();
       void this.memoizedFetchMarketTokenList.clear();
       void this.memoizedFetchMarketStockByTicker.clear();
+      void this.memoizedFetchMarketListingAssetQuote.clear();
     });
   }
 
@@ -183,6 +183,30 @@ class ServiceMarketV2 extends ServiceBase {
     {
       maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
       promise: true,
+    },
+  );
+
+  private memoizedFetchMarketListingAssetQuote = memoizee(
+    async (
+      assetId: string,
+    ): Promise<IMarketListingWatchlistQuote | undefined> => {
+      const { asset, market } =
+        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+          assetId,
+          currency: 'usd',
+          autoHandleError: false,
+        });
+      return {
+        ...market,
+        symbol: asset.symbol,
+        name: asset.name,
+        logoUrl: asset.logoUrl,
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 15 }),
+      promise: true,
+      max: 200,
     },
   );
 
@@ -821,18 +845,7 @@ class ServiceMarketV2 extends ServiceBase {
     identity: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
   ): Promise<IMarketListingWatchlistQuote | undefined> {
     if (identity.assetId) {
-      const { asset, market } =
-        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
-          assetId: identity.assetId,
-          currency: 'usd',
-          autoHandleError: false,
-        });
-      return {
-        ...market,
-        symbol: asset.symbol,
-        name: asset.name,
-        logoUrl: asset.logoUrl,
-      };
+      return this.memoizedFetchMarketListingAssetQuote(identity.assetId);
     }
     if (identity.stockId) {
       return (
@@ -841,6 +854,27 @@ class ServiceMarketV2 extends ServiceBase {
       );
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async fetchMarketListingWatchlistQuotes(
+    identities: Array<Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>>,
+  ): Promise<Array<IMarketListingWatchlistQuote | undefined>> {
+    if (identities.length === 0) {
+      return [];
+    }
+    const limit = pLimit(4);
+    return Promise.all(
+      identities.map((identity) =>
+        limit(async () => {
+          try {
+            return await this.fetchMarketListingWatchlistQuote(identity);
+          } catch {
+            return undefined;
+          }
+        }),
+      ),
+    );
   }
 
   @backgroundMethod()
@@ -1096,47 +1130,6 @@ class ServiceMarketV2 extends ServiceBase {
       // Return empty list on error instead of throwing
       return { list: [] };
     }
-  }
-
-  private memoizedFetchMarketHighlights = memoizee(
-    async (locale: string): Promise<IMarketHighlight[]> => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const requestConfig: Parameters<typeof client.get>[1] & {
-        autoHandleError?: boolean;
-      } = {
-        headers: { 'x-onekey-request-locale': locale },
-        autoHandleError: false,
-      };
-      const response = await client.get<{
-        code: number;
-        data: { data: IMarketHighlight[] };
-      }>('/utility/v1/market/highlight', requestConfig);
-      const items = response.data.data?.data;
-      if (response.data.code !== 0 || !Array.isArray(items)) {
-        throw new OneKeyLocalError('Invalid market highlights response');
-      }
-      return items.map((item) => ({
-        ...item,
-        assets: item.assets.map((asset) => {
-          // Existing highlights use the documented slug for Bitcoin. Market
-          // detail, candles and favorites use the listing's canonical ID.
-          if (asset.type === 'asset' && asset.assetId === 'bitcoin') {
-            return {
-              ...asset,
-              assetId: 'btc',
-              favorite: { ...asset.favorite, assetId: 'btc' },
-            };
-          }
-          return asset;
-        }),
-      }));
-    },
-    { maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }), promise: true },
-  );
-
-  @backgroundMethod()
-  async fetchMarketHighlights(locale: string): Promise<IMarketHighlight[]> {
-    return this.memoizedFetchMarketHighlights(locale);
   }
 
   private memoizedFetchMarketBannerData = memoizee(

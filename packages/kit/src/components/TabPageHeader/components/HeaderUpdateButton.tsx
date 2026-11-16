@@ -13,6 +13,7 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   EUpdateStrategy,
+  isUsableUpdateDownloadUrl,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -54,7 +55,9 @@ function BasicHeaderUpdateButton() {
     data.updateStrategy !== EUpdateStrategy.force &&
     data.status !== EAppUpdateStatus.manualInstall &&
     !data.storeUrl &&
-    data.downloadUrl?.startsWith('https://');
+    // A real HTTPS URL and the known desktop placeholder are the only usable
+    // download sources (desktop resolves app-shell installers via the feed).
+    isUsableUpdateDownloadUrl(data.downloadUrl);
 
   // Keep the banner mounted after the atom is cleared so first-launch success
   // remains visible for its six-second window.

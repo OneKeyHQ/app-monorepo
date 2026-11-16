@@ -22,8 +22,6 @@ import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/context
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketHighlightStrip } from '../../MarketHighlights/MarketHighlightStrip';
-import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
@@ -371,8 +369,6 @@ function MobileLayoutComponent({
   const handleTabChangeRef = useRef(handleTabChange);
   handleTabChangeRef.current = handleTabChange;
 
-  const { items: highlights } = useMarketHighlights();
-  const highlight = highlights?.[0];
   const containerProps = useMemo(
     () => ({
       // NOTE: renderHeader must never return a 0-height tree after it had
@@ -383,18 +379,11 @@ function MobileLayoutComponent({
       // library re-measures correctly when the banner disappears.
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
-          {highlight ? (
-            <MarketHighlightStrip
-              highlight={highlight}
-              highlights={highlights}
-              compact
-            />
-          ) : null}
           <MarketBannerList />
         </YStack>
       ),
     }),
-    [highlight, highlights],
+    [],
   );
 
   const listContainerProps = useMemo(() => {

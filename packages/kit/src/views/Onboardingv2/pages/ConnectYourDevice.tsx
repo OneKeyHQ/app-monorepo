@@ -540,6 +540,11 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
     [deviceTypeItems],
   );
 
+  const isNeo = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Neo),
+    [deviceTypeItems],
+  );
+
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -567,6 +572,9 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
     if (isPro2) {
       return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as IVideoSource;
     }
+    if (isNeo) {
+      return require('@onekeyhq/kit/assets/onboarding/Neo-D.mp4') as IVideoSource;
+    }
     if (isMini) {
       return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as IVideoSource;
     }
@@ -577,7 +585,7 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as IVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
-  }, [isClassic, isMini, isPro2, isTouch]);
+  }, [isClassic, isMini, isNeo, isPro2, isTouch]);
 
   return (
     <Video

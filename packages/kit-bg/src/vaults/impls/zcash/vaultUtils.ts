@@ -56,6 +56,13 @@ export function zcashTransparentError(
   return Object.assign(new OneKeyLocalError(message), { code, params });
 }
 
+// As Ledger Live does, a hardware account pays a shielded address only with the UFVK saved by privacy mode.
+export function zcashPrivacyModeRequiredError(): OneKeyLocalError {
+  return new OneKeyLocalError(
+    localWalletText(ETranslations.privacy_send_needs_privacy_mode__msg),
+  );
+}
+
 // Recipients a send funded from transparent inputs can pay.
 export function isZcashTransparentPayable(address: string): boolean {
   return /^(t[13]|u1)/.test(address) || isZcashTexAddress(address);

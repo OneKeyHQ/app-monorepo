@@ -23,6 +23,7 @@ import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Dimensions, Keyboard as NativeKeyboard } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -166,9 +167,11 @@ const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = ({
   useInitialSafeAreaBottomInsetFallback = false,
   trackKeyboardPadding = false,
+  trackKeyboardFrames = false,
 }: {
   useInitialSafeAreaBottomInsetFallback?: boolean;
   trackKeyboardPadding?: boolean;
+  trackKeyboardFrames?: boolean;
 }) => {
   const { bottom } = useSafeAreaInsets();
   // Root-sibling portals can report zero before safe-area context propagates.
@@ -213,6 +216,34 @@ const useSafeKeyboardAnimationStyle = ({
       }
     },
   });
+  useEffect(() => {
+    if (!platformEnv.isNative || !trackKeyboardFrames) return;
+    // A visible keyboard can change height without another show event. Match
+    // the native overlay's viewport without adding a second movement animation.
+    const subscription = NativeKeyboard.addListener(
+      platformEnv.isNativeIOS
+        ? 'keyboardWillChangeFrame'
+        : 'keyboardDidChangeFrame',
+      ({ endCoordinates }) => {
+        const height =
+          endCoordinates.height < 0
+            ? DEFAULT_KEYBOARD_HEIGHT
+            : endCoordinates.height;
+        // Hide frame notifications can retain the old keyboard height while
+        // moving its origin below the screen.
+        setTrackedKeyboardHeight(
+          Math.max(
+            0,
+            Math.min(
+              height,
+              Dimensions.get('screen').height - endCoordinates.screenY,
+            ),
+          ),
+        );
+      },
+    );
+    return () => subscription.remove();
+  }, [trackKeyboardFrames]);
   const keyboardPaddingBottom = getDialogKeyboardPaddingBottom({
     keyboardHeight: trackKeyboardPadding ? trackedKeyboardHeight : 0,
     safeAreaBottom,
@@ -301,6 +332,7 @@ function DialogFrame({
   trackID,
   useInitialSafeAreaBottomInsetFallback = false,
   boundedSheetLayout = false,
+  fixedHeaderFooterHeight,
 }: IDialogProps) {
   const intl = useIntl();
   // A dialog declared inside another overlay opens above it.
@@ -363,6 +395,11 @@ function DialogFrame({
   // sheet.
   const isBoundedDialogLayout =
     (boundedSheetLayout || isNativeCentered) && platformEnv.isNative;
+  const hasFixedHeaderFooter =
+    isBoundedDialogLayout &&
+    fixedHeaderFooterHeight !== undefined &&
+    Number.isFinite(fixedHeaderFooterHeight) &&
+    fixedHeaderFooterHeight > 0;
   // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
   // the grabber + title row (HeaderDragZone) carry a pan of their own that
@@ -400,6 +437,7 @@ function DialogFrame({
   } = useSafeKeyboardAnimationStyle({
     useInitialSafeAreaBottomInsetFallback,
     trackKeyboardPadding: isBoundedDialogLayout,
+    trackKeyboardFrames: hasFixedHeaderFooter,
   });
   // The Tamagui floating panel's styling now lands on the centered card;
   // stacking and focus props are the overlay's business.
@@ -457,43 +495,61 @@ function DialogFrame({
       isHeaderDragOnly,
     ],
   );
+  const dialogContent = (
+    <Content
+      testID={testID}
+      isAsync={isAsync}
+      estimatedContentHeight={estimatedContentHeight}
+      nativeSheetPresentation
+      {...(contentContainerProps as any)}
+    >
+      {renderContent}
+    </Content>
+  );
+  const dialogFooter = (
+    <Footer
+      trackID={trackID}
+      tone={tone}
+      showFooter={showFooter}
+      footerProps={footerProps}
+      leadingContent={leadingContent}
+      showCancelButton={showCancelButton}
+      showConfirmButton={showConfirmButton}
+      cancelButtonProps={cancelButtonProps}
+      onConfirm={onConfirm}
+      onCancel={handleCancelButtonPress}
+      onConfirmText={
+        onConfirmText ||
+        intl.formatMessage({
+          id: ETranslations.global_confirm,
+        })
+      }
+      confirmButtonProps={confirmButtonProps}
+      onCancelText={
+        onCancelText ||
+        intl.formatMessage({
+          id: ETranslations.global_cancel,
+        })
+      }
+    />
+  );
   const dialogMain = (
     <>
-      <Content
-        testID={testID}
-        isAsync={isAsync}
-        estimatedContentHeight={estimatedContentHeight}
-        nativeSheetPresentation
-        {...(contentContainerProps as any)}
-      >
-        {renderContent}
-      </Content>
-      <Footer
-        trackID={trackID}
-        tone={tone}
-        showFooter={showFooter}
-        footerProps={footerProps}
-        leadingContent={leadingContent}
-        showCancelButton={showCancelButton}
-        showConfirmButton={showConfirmButton}
-        cancelButtonProps={cancelButtonProps}
-        onConfirm={onConfirm}
-        onCancel={handleCancelButtonPress}
-        onConfirmText={
-          onConfirmText ||
-          intl.formatMessage({
-            id: ETranslations.global_confirm,
-          })
-        }
-        confirmButtonProps={confirmButtonProps}
-        onCancelText={
-          onCancelText ||
-          intl.formatMessage({
-            id: ETranslations.global_cancel,
-          })
-        }
-      />
+      {dialogContent}
+      {dialogFooter}
     </>
+  );
+  const fixedDialogHeader = isHeaderDragOnly ? (
+    <HeaderDragZone
+      dragY={headerDragY}
+      onDismiss={dismissFromHeaderDrag}
+      minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+    >
+      <SheetGrabber />
+      {dialogHeader}
+    </HeaderDragZone>
+  ) : (
+    dialogHeader
   );
   const renderDialogContent = (
     // Native overlays keep sheets clear of the home indicator / navigation
@@ -509,11 +565,22 @@ function DialogFrame({
           }
           isCentered={!useSheetPresentation}
           centeredInset={isNativeCentered ? centeredInset : undefined}
-          chrome={boundedHeaderDragChrome}
+          chrome={hasFixedHeaderFooter ? undefined : boundedHeaderDragChrome}
           closeButton={boundedCloseButton}
+          fixedHeaderFooterHeight={
+            hasFixedHeaderFooter ? fixedHeaderFooterHeight : undefined
+          }
+          header={hasFixedHeaderFooter ? fixedDialogHeader : undefined}
+          footer={hasFixedHeaderFooter ? dialogFooter : undefined}
         >
-          {dialogHeader}
-          {dialogMain}
+          {hasFixedHeaderFooter ? (
+            dialogContent
+          ) : (
+            <>
+              {dialogHeader}
+              {dialogMain}
+            </>
+          )}
         </BoundedDialogScrollLayout>
       ) : (
         <>
@@ -535,16 +602,19 @@ function DialogFrame({
     </Animated.View>
   );
 
+  // The overlay paints the sheet surface (and the safe-area tail below the
+  // sheet content) with the content container's background, so keep the raw
+  // value — a theme token or a literal color such as a branded panel.
+  const contentContainerBg =
+    typeof contentContainerProps?.bg === 'string'
+      ? contentContainerProps.bg
+      : undefined;
   // Keep the content in the same child slot when the grabber disappears.
   // Moving it from [grabber, content] to [content] remounts forms and loses
   // drafts before submission (OK-50653).
   const dialogContentStack = (
     <Stack
-      bg={
-        isHeaderDragOnly
-          ? ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
-          : undefined
-      }
+      bg={isHeaderDragOnly ? (contentContainerBg ?? '$bg') : undefined}
       borderTopLeftRadius={isHeaderDragOnly ? '$6' : undefined}
       borderTopRightRadius={isHeaderDragOnly ? '$6' : undefined}
       borderCurve={isHeaderDragOnly ? 'continuous' : undefined}
@@ -579,7 +649,7 @@ function DialogFrame({
       open={Boolean(open)}
       level={overlayLevel}
       isSheet={useSheetPresentation}
-      bg={(contentContainerProps as { bg?: IColorTokens })?.bg}
+      bg={contentContainerBg}
       dismissOnOverlayPress={dismissOnOverlayPress}
       dismissOnBackPress={!disableSystemClose}
       disableDrag={isSheetDragDisabled || isHeaderDragOnly}

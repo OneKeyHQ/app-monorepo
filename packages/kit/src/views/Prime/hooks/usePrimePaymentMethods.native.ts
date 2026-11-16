@@ -9,6 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   configureRevenueCat,
   getRevenueCatRecurringPriceUnit,
+  getRevenueCatStorefront,
 } from './revenueCatNativeCompatibility.native';
 import { usePrimePaymentMethodsStore } from './usePrimePaymentMethodsStore';
 
@@ -72,6 +73,7 @@ const nativePurchasesSdk: IPrimeStorePurchasesSdk<PurchasesPackage> = {
   getAppUserID: () => PurchasesReactNative.getAppUserID(),
   getCustomerInfo: () => PurchasesReactNative.getCustomerInfo(),
   getOfferings: () => PurchasesReactNative.getOfferings(),
+  getStorefront: getRevenueCatStorefront,
   purchasePackage: (offering) => PurchasesReactNative.purchasePackage(offering),
   restorePurchases: () => PurchasesReactNative.restorePurchases(),
   setMixpanelDistinctID: (instanceId) =>

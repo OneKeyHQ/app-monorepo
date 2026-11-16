@@ -56,7 +56,7 @@ try {
   console.log(`[${getTimestamp()}] Using tsconfig: ${tsConfigPath}`);
   console.log(`[${getTimestamp()}] Using cache folder: ${cacheFolder}`);
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
-  const typescriptPackage = require.resolve('@typescript/native/package.json');
+  const typescriptPackage = require.resolve('typescript/package.json');
   const tscEntry = path.join(path.dirname(typescriptPackage), 'bin', 'tsc');
   const result = execFileSync(
     process.execPath,
@@ -69,7 +69,7 @@ try {
       tsBuildInfoPath,
     ],
     {
-      // Cap Go heap growth in @typescript/native (tsgo) so 16 GB CI runners do
+      // Cap Go heap growth in the TypeScript 7 native compiler (tsgo) so 16 GB CI runners do
       // not get terminated with SIGTERM (exit code 143) under memory pressure,
       // while leaving enough headroom above the ~8 GB live AST heap to avoid GC thrashing.
       env: {

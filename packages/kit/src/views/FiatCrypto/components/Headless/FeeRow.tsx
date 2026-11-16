@@ -7,7 +7,6 @@ import {
   SizableText,
   Skeleton,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -15,6 +14,7 @@ import {
   DetailEmptyValue,
   DetailRow,
   INFO_TRIGGER_HIT_SLOP,
+  InfoPopoverContent,
   formatPrice,
 } from './DetailRow';
 
@@ -66,7 +66,7 @@ export function FeeRow({
         renderContent={
           // The two rows are the explanation: a sentence naming the same two
           // fees above them would only repeat them.
-          <YStack p="$5" gap="$3">
+          <InfoPopoverContent gap="$3">
             {networkFee !== undefined ? (
               <XStack jc="space-between" ai="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
@@ -91,7 +91,7 @@ export function FeeRow({
                 </SizableText>
               </XStack>
             ) : null}
-          </YStack>
+          </InfoPopoverContent>
         }
       />
     </DetailRow>

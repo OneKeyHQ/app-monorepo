@@ -13,6 +13,7 @@ import type { MutableRefObject } from 'react';
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
+import { I18nManager, useWindowDimensions } from 'react-native';
 
 import {
   DelayedFreeze,
@@ -23,18 +24,19 @@ import {
   ScrollView,
   Spinner,
   Stack,
-  XStack,
   YStack,
   useMedia,
+  useNetInfo,
+  useSafeAreaInsets,
   useScrollContentTabBarOffset,
   useTheme,
 } from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
-import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { fs, s } from '@onekeyhq/components/src/utils/scale';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_HD,
@@ -87,15 +89,23 @@ import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDeta
 import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
+import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { useHomeMoneroAccountCreation } from '../hooks/useHomeMoneroAccountCreation';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
-import { HomeHeaderContainer } from './HomeHeaderContainer';
+import {
+  HomeHeaderContainer,
+  useHomeHeaderLayout,
+} from './HomeHeaderContainer';
 import { HomeNativePager } from './HomeNativePager';
-import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
+import {
+  HOME_PAGE_CONTENT_MAX_WIDTH,
+  homePageContentMaxWidthSx,
+} from './homePageContentMaxWidth';
 import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
@@ -124,7 +134,6 @@ import type {
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
-const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 const PerpsContainer = lazy(async () => {
   debugPerpsChain('import.start');
   const module = await import('./PerpsContainer');
@@ -139,12 +148,17 @@ function PerpsSuspenseTrace() {
   }, []);
   return null;
 }
-// Seed for the collapsible header height before the first layout (the funded
-// layout with the banner band). Measured heights per header variant are kept
-// for the session so a later switch back paints with the exact height.
-const NATIVE_HEADER_HEIGHT_SEED = 292;
-// Header container height (alerts excluded) per layout variant.
-const learnedNativeHeaderHeights = new Map<string, number>();
+function readHomeHeaderHeight(key: string): number | undefined {
+  if (!platformEnv.isNative) return undefined;
+  try {
+    const height = homeHeaderLayoutCache.get(key)?.data;
+    return typeof height === 'number' && Number.isFinite(height) && height > 0
+      ? height
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // Placement differs by platform — see the renderHeader comment in HomePageView.
 function HomeAlerts() {
@@ -269,14 +283,16 @@ function HomeTabsScrollToTopBridge({
   return null;
 }
 
-export function HomePageView({
+type IHomePageViewProps = {
+  onPressHide?: () => void;
+  sceneName: EAccountSelectorSceneName;
+};
+
+function BaseHomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
   sceneName,
-}: {
-  onPressHide?: () => void;
-  sceneName: EAccountSelectorSceneName;
-}) {
+}: IHomePageViewProps) {
   const tabBarHeight = useScrollContentTabBarOffset();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -339,23 +355,6 @@ export function HomePageView({
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<IAppPagerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
-  // Keep the measured native tab bar height outside the tab container
-  // so remounts do not briefly reserve the library's default 48pt height.
-  const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
-  const nativeTabBarContainerStyle = useMemo(
-    () => ({
-      ...NATIVE_TAB_BAR_CONTAINER_STYLE,
-      onLayout: platformEnv.isNative
-        ? (event: LayoutChangeEvent) => {
-            const height = Math.round(event.nativeEvent.layout.height);
-            if (height > 0) {
-              nativeTabBarHeightRef.current = height;
-            }
-          }
-        : undefined,
-    }),
-    [],
-  );
 
   // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
   const wasBlurredRef = useRef(false);
@@ -531,13 +530,20 @@ export function HomePageView({
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
+  const { enableAfterCreate, onCreateDone } = useHomeMoneroAccountCreation();
 
   const emptyAccountView = useMemo(
     () => (
       <EmptyAccount
-        autoCreateAddress
+        autoCreateAddress={!enableAfterCreate}
         createAllDeriveTypes
-        createAllEnabledNetworks
+        createAllEnabledNetworks={!enableAfterCreate}
+        createAddressLabel={
+          enableAfterCreate
+            ? intl.formatMessage({ id: ETranslations.global_enable })
+            : undefined
+        }
+        onCreateDone={enableAfterCreate ? onCreateDone : undefined}
         onCreateAddress={
           network?.isAllNetworks
             ? () =>
@@ -562,9 +568,11 @@ export function HomePageView({
       accountName,
       deriveInfo?.label,
       deriveInfo?.labelKey,
+      enableAfterCreate,
       intl,
       network?.isAllNetworks,
       network?.name,
+      onCreateDone,
       showUnifiedNetworkSelector,
     ],
   );
@@ -581,109 +589,194 @@ export function HomePageView({
   // bottom edge (the banner card). That read as "the banner keeps occupying
   // the top" whenever an alert was showing (OK-62183). Inside the header the
   // alerts collapse away with everything else.
-  // Native header height hint (OK-63873). The collapsible tab container only
-  // learns the header height from onLayout, one or two frames after a layout
-  // change, and the tab content padding follows it, so a switch between a
-  // funded account (actions + banner band) and an empty one (add-money block)
-  // showed the list shifted for those frames. Remember the measured height of
-  // the header container per layout variant and hand the tab container the
-  // expected total in the same commit the variant changes; onLayout only
-  // corrects a wrong hint. Inner and alert measurements only predict variant
-  // changes; the complete header measurement remains authoritative.
-  const [nativeHeaderHeightHint, setNativeHeaderHeightHint] = useState(
-    NATIVE_HEADER_HEIGHT_SEED,
-  );
-  const nativeHeaderAlertsHeightRef = useRef(0);
-  const nativeHeaderRef = useRef<ViewInstance>(null);
-  const nativeHeaderMeasureGenerationRef = useRef(0);
-  const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    nativeHeaderMeasureGenerationRef.current += 1;
-    const height = Math.ceil(event.nativeEvent.layout.height);
-    if (height > 0) {
-      setNativeHeaderHeightHint(height);
-    }
-  }, []);
-  const handleHeaderAlertsLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = Math.round(event.nativeEvent.layout.height);
-    nativeHeaderAlertsHeightRef.current = height;
-  }, []);
-  const handleHeaderVariantChange = useCallback((variant: string) => {
-    nativeHeaderMeasureGenerationRef.current += 1;
-    const generation = nativeHeaderMeasureGenerationRef.current;
-    let learned = learnedNativeHeaderHeights.get(variant);
-    if (!learned) {
-      // First time this launch: the height measured on an earlier launch.
-      try {
-        learned = homeHeaderLayoutCache.get(variant)?.data;
-      } catch {
-        learned = undefined;
-      }
-      if (learned) {
-        learnedNativeHeaderHeights.set(variant, learned);
-      }
-    }
-    if (learned) {
-      setNativeHeaderHeightHint(learned + nativeHeaderAlertsHeightRef.current);
-    }
-    // Equal-height variants may not emit another layout event. Measure the
-    // complete header after the variant commits, then discard older snapshots.
-    nativeHeaderRef.current?.measure((_x, _y, _width, rawHeight) => {
-      if (
-        generation === nativeHeaderMeasureGenerationRef.current &&
-        rawHeight > 0
-      ) {
-        setNativeHeaderHeightHint(Math.ceil(rawHeight));
-      }
+  const homeHeaderLayout = useHomeHeaderLayout();
+  const { fontScale } = useWindowDimensions();
+  const availableWidth = useTabContainerWidth();
+  const safeAreaInsets = useSafeAreaInsets();
+  const { isInternetReachable } = useNetInfo();
+  const contentWidth =
+    typeof availableWidth === 'number'
+      ? Math.min(availableWidth, HOME_PAGE_CONTENT_MAX_WIDTH)
+      : 0;
+  const geometryKey = [
+    platformEnv.isNativeIOS ? 'ios' : 'android',
+    platformEnv.isNativeIOS26Plus,
+    availableWidth,
+    contentWidth,
+    intl.locale,
+    fontScale,
+    fs(1),
+    s(1),
+    I18nManager.isRTL,
+    isSmallScreen,
+    sceneName,
+  ].join(':');
+  const sharedHeaderKey = [
+    'shared',
+    geometryKey,
+    homeHeaderLayout.variant,
+    wallet?.type === WALLET_TYPE_WATCHING,
+    !isInternetReachable,
+  ].join(':');
+  const isHeaderSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const fixedHeaderKey = [
+    'fixed',
+    geometryKey,
+    safeAreaInsets.top,
+    safeAreaInsets.left,
+    safeAreaInsets.right,
+    accountUtils.hasNoUsableWallet({ wallet, account }),
+    isHeaderSyncLoading,
+  ].join(':');
+  const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
+    account?.indexedAccountId ?? account?.id ?? ''
+  }`;
+  const measurementIdentity = JSON.stringify([
+    wallet?.id,
+    account?.id,
+    indexedAccount?.id,
+    network?.id,
+    activeAccount.deriveType,
+    sharedHeaderKey,
+    fixedHeaderKey,
+  ]);
+  const initialHeaderHeight = homeHeaderLayout.nativeMinHeight ?? 182;
+  const initialFixedHeight = platformEnv.isNativeIOS ? 162 : 92;
+  const [headerGeometry, setHeaderGeometry] = useState(() => ({
+    identity: measurementIdentity,
+    generation: 0,
+    sharedHeight: readHomeHeaderHeight(sharedHeaderKey) ?? initialHeaderHeight,
+    fixedHeight: readHomeHeaderHeight(fixedHeaderKey) ?? initialFixedHeight,
+  }));
+  if (headerGeometry.identity !== measurementIdentity) {
+    setHeaderGeometry({
+      identity: measurementIdentity,
+      generation: headerGeometry.generation + 1,
+      sharedHeight:
+        readHomeHeaderHeight(sharedHeaderKey) ?? initialHeaderHeight,
+      fixedHeight: readHomeHeaderHeight(fixedHeaderKey) ?? initialFixedHeight,
     });
-  }, []);
-  const handleHeaderContainerLayout = useCallback(
-    (variant: string, rawHeight: number) => {
-      const height = Math.round(rawHeight);
-      if (height <= 0) {
-        return;
+  }
+  const measurementGeneration = headerGeometry.generation;
+  const activeMeasurementRef = useRef<{
+    identity: string;
+    generation: number;
+    fullLayoutReceived: boolean;
+    fixedLayoutReceived: boolean;
+  } | null>(null);
+  useLayoutEffect(() => {
+    const measurement = {
+      identity: measurementIdentity,
+      generation: measurementGeneration,
+      fullLayoutReceived: false,
+      fixedLayoutReceived: false,
+    };
+    activeMeasurementRef.current = measurement;
+    return () => {
+      if (activeMeasurementRef.current === measurement) {
+        activeMeasurementRef.current = null;
       }
-      if (learnedNativeHeaderHeights.get(variant) !== height) {
-        learnedNativeHeaderHeights.set(variant, height);
-        try {
-          homeHeaderLayoutCache.set(variant, height);
-        } catch {
-          // The hint is a paint optimization; failing to remember it is fine.
-        }
+    };
+  }, [measurementIdentity, measurementGeneration]);
+  const nativeHeaderRef = useRef<ViewInstance>(null);
+  const nativeFixedHeaderRef = useRef<ViewInstance | null>(null);
+  const updateHeaderHeight = useCallback(
+    (region: 'shared' | 'fixed', rawHeight: number) => {
+      const current = activeMeasurementRef.current;
+      if (
+        !platformEnv.isNative ||
+        !current ||
+        current.identity !== measurementIdentity ||
+        current.generation !== measurementGeneration ||
+        !Number.isFinite(rawHeight) ||
+        rawHeight <= 0
+      )
+        return;
+      const height = Math.ceil(rawHeight);
+      setHeaderGeometry((previous) => {
+        if (
+          previous.identity !== measurementIdentity ||
+          previous.generation !== measurementGeneration
+        )
+          return previous;
+        const field = region === 'shared' ? 'sharedHeight' : 'fixedHeight';
+        return previous[field] === height
+          ? previous
+          : { ...previous, [field]: height };
+      });
+      const key = region === 'shared' ? sharedHeaderKey : fixedHeaderKey;
+      try {
+        if (readHomeHeaderHeight(key) !== height)
+          homeHeaderLayoutCache.set(key, height);
+      } catch {
+        // Persistence is only a first-frame hint; the live layout remains authoritative.
       }
     },
-    [],
+    [
+      measurementIdentity,
+      measurementGeneration,
+      sharedHeaderKey,
+      fixedHeaderKey,
+    ],
   );
-
-  const renderHeader = useCallback(() => {
-    return (
+  const handleFullHeaderLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const current = activeMeasurementRef.current;
+      if (
+        current?.identity !== measurementIdentity ||
+        current.generation !== measurementGeneration ||
+        !Number.isFinite(event.nativeEvent.layout.height) ||
+        event.nativeEvent.layout.height <= 0 ||
+        !Number.isFinite(event.nativeEvent.layout.width) ||
+        Math.abs(event.nativeEvent.layout.width - contentWidth) > 1
+      )
+        return;
+      current.fullLayoutReceived = true;
+      updateHeaderHeight('shared', event.nativeEvent.layout.height);
+    },
+    [
+      measurementIdentity,
+      measurementGeneration,
+      contentWidth,
+      updateHeaderHeight,
+    ],
+  );
+  useLayoutEffect(() => {
+    nativeHeaderRef.current?.measure((_x, _y, width, height) => {
+      const current = activeMeasurementRef.current;
+      if (
+        current?.identity === measurementIdentity &&
+        current.generation === measurementGeneration &&
+        !current.fullLayoutReceived &&
+        Math.abs(width - contentWidth) <= 1
+      ) {
+        updateHeaderHeight('shared', height);
+      }
+    });
+  }, [
+    measurementIdentity,
+    measurementGeneration,
+    contentWidth,
+    updateHeaderHeight,
+  ]);
+  const nativeHeaderHeightHint = headerGeometry.sharedHeight;
+  const renderHeader = useCallback(
+    () => (
       <Stack
         {...homePageContentMaxWidthSx}
         ref={platformEnv.isNative ? nativeHeaderRef : undefined}
         onLayout={platformEnv.isNative ? handleFullHeaderLayout : undefined}
       >
         {platformEnv.isNative ? (
-          <Stack onLayout={handleHeaderAlertsLayout}>
-            <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-              <HomeAlerts />
-            </HomeHeaderGesture>
-          </Stack>
+          <HomeHeaderGesture onRefresh={onHomePageRefresh}>
+            <HomeAlerts />
+          </HomeHeaderGesture>
         ) : null}
-        <HomeHeaderContainer
-          onHeaderVariantChange={
-            platformEnv.isNative ? handleHeaderVariantChange : undefined
-          }
-          onHeaderLayout={
-            platformEnv.isNative ? handleHeaderContainerLayout : undefined
-          }
-        />
+        <HomeHeaderContainer layout={homeHeaderLayout} />
       </Stack>
-    );
-  }, [
-    handleFullHeaderLayout,
-    handleHeaderAlertsLayout,
-    handleHeaderContainerLayout,
-    handleHeaderVariantChange,
-  ]);
+    ),
+    [handleFullHeaderLayout, homeHeaderLayout],
+  );
 
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
@@ -790,11 +883,6 @@ export function HomePageView({
     [perpTabShowWeb, tabConfigs],
   );
 
-  const tabBarTabNames = useMemo(
-    () => tabConfigs.map((tab) => tab.name),
-    [tabConfigs],
-  );
-
   const tabTestIDMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const tab of tabConfigs) {
@@ -810,32 +898,19 @@ export function HomePageView({
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 
-  const handleRenderItem = useCallback(
-    (props: ITabBarItemProps) => {
-      const testID = tabTestIDMap[props.name];
-      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
-      const handlePress = (name: string) => {
-        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
-          switchToPerpsWebTab();
-          return;
-        }
-        props.onPress(name);
-      };
-      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
-    },
-    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
-  );
-
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
     setPortalTarget((prev) => (prev === el ? prev : el));
   }, []);
 
   const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
+  // The ref lands on a zero-height node after the pager's DOM tab bar; its
+  // parent is the pager's sticky content (tab bar + this node), whose box is
+  // what sticky consumers measure.
   const stickyHostRefCallback = useCallback((el: unknown) => {
     const next =
       typeof HTMLElement !== 'undefined' && el instanceof HTMLElement
-        ? el
+        ? el.parentElement
         : null;
     setStickyHost((prev) => (prev === next ? prev : next));
   }, []);
@@ -935,9 +1010,6 @@ export function HomePageView({
     });
   }, [activeTabId]);
 
-  const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
-    account?.indexedAccountId ?? account?.id ?? ''
-  }`;
   const nativeTabsTheme = useTheme();
   const [nativeToolbarItems, setNativeToolbarItems] = useState<
     Partial<Record<EHomeWalletTab, CollapsiblePagerToolbarItem>>
@@ -991,10 +1063,18 @@ export function HomePageView({
     nativeToolbarPress,
     homeScrollOwnerKey,
   ]);
-  const nativeTextTabBar = useMemo<
-    CollapsiblePagerNativeTabBarConfig | undefined
-  >(() => {
-    if (!platformEnv.isNative || !isSmallScreen) return undefined;
+  // Every platform and width draws Home tabs through the pager's native tab
+  // bar (a DOM tab bar on web): text tabs on small screens, pills elsewhere.
+  const nativeTabBar = useMemo<CollapsiblePagerNativeTabBarConfig>(() => {
+    // Native resolves bundled faces by name. The web DOM tab bar needs the
+    // @font-face family stack instead; a bare native face name has no web
+    // match and falls back to the browser's default serif font.
+    const tabFontFamily = platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : webFontFamily;
+    const activeTabFontFamily = platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.semibold
+      : webFontFamily;
     const toolbar: Record<string, CollapsiblePagerToolbarItem> = {};
     for (const [key, item] of Object.entries(nativeToolbarItems)) {
       toolbar[key] = {
@@ -1018,18 +1098,40 @@ export function HomePageView({
         title: tab.name,
         testID: tabTestIDMap[tab.name],
       })),
-      style: {
-        variant: 'text',
-        height: fs(24) + 2 * s(6) + 2 * s(8),
-        contentPaddingHorizontal: s(10),
-        itemSpacing: 0,
-        fontSize: fs(18),
-        fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
-        activeFontFamily: BRAND_FONT_NATIVE_FAMILY.semibold,
-        backgroundColor: nativeTabsTheme.bgApp.val,
-        activeTextColor: nativeTabsTheme.text.val,
-        inactiveTextColor: nativeTabsTheme.textSubdued.val,
-      },
+      style: isSmallScreen
+        ? {
+            variant: 'text',
+            height: fs(24) + 2 * s(6) + 2 * s(8),
+            contentPaddingHorizontal: s(10),
+            itemSpacing: 0,
+            fontSize: fs(18),
+            fontFamily: tabFontFamily,
+            activeFontFamily: activeTabFontFamily,
+            backgroundColor: nativeTabsTheme.bgApp.val,
+            activeTextColor: nativeTabsTheme.text.val,
+            inactiveTextColor: nativeTabsTheme.textSubdued.val,
+          }
+        : {
+            // Matches the former JS pill TabBar: $bodyLgMedium labels with
+            // px $3.5 / py $1.5 items, $2 gaps and py $2 around the row.
+            variant: 'pill',
+            height: fs(24) + 2 * s(6) + 2 * s(8),
+            contentPaddingHorizontal: s(20),
+            contentPaddingVertical: s(8),
+            itemSpacing: s(8),
+            itemPaddingHorizontal: s(14),
+            fontSize: fs(16),
+            fontFamily: tabFontFamily,
+            backgroundColor: nativeTabsTheme.bgApp.val,
+            activeTextColor: nativeTabsTheme.textInverse.val,
+            inactiveTextColor: nativeTabsTheme.text.val,
+            indicatorColor: nativeTabsTheme.bgPrimary.val,
+            itemHoverBackgroundColor: nativeTabsTheme.bgHover.val,
+            itemPressedBackgroundColor: nativeTabsTheme.bgActive.val,
+            contentMaxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
+            // Pill tabs switch instantly, as the 6.6.4 JS pill tab bar did.
+            indicatorAnimationEnabled: false,
+          },
     };
   }, [
     isSmallScreen,
@@ -1070,127 +1172,61 @@ export function HomePageView({
     [activeTabId, homeScrollOwnerKey],
   );
 
-  const renderToolbar = useCallback(
-    ({ focusedTab }: { focusedTab: string }) => (
-      <XStack alignItems="center" gap="$3" flexShrink={0}>
-        <TabHeaderSettings focusedTab={focusedTab} />
-      </XStack>
-    ),
-    [],
-  );
-
-  const renderTabBar = useCallback(
-    (tabBarProps: Parameters<IHomeNativePagerProps['renderTabBar']>[0]) => {
-      // Design: plain-text tabs on small screens only; pill elsewhere.
-      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
-      if (platformEnv.isNative && isSmallScreen) {
-        return (
-          <>
-            {/* The native tab bar draws the visible tabs and filter buttons, so
-                reserve the same height here. The React sticky content then
-                matches the pager's sticky geometry instead of reporting a
-                zero-height bar to the scroll containers. */}
-            <Stack
-              pointerEvents="none"
-              height={nativeTextTabBar?.style?.height ?? 0}
-            />
-            <TabHeaderSettings
-              key={homeScrollOwnerKey}
-              focusedTab={
-                tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
-              }
-              nativeToolbar={nativeToolbar}
-            />
-          </>
-        );
-      }
-      const handleTabPress = (name: string) => {
-        debugPerpsChain('home.tabPress', { name });
-        const nextTab = tabConfigs.find((tab) => tab.name === name);
-        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
-          switchToPerpsWebTab();
-          return;
+  const renderTabBar = useCallback(() => {
+    const settings = (
+      <TabHeaderSettings
+        key={homeScrollOwnerKey}
+        focusedTab={
+          tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
         }
-        setActiveTabName(nextTab?.name ?? name);
-        setActiveTabId(nextTab?.id);
-        lastDisplayableTabNameRef.current = nextTab?.name ?? name;
-        tabBarProps.onTabPress(name);
-      };
-
-      if (platformEnv.isNative) {
-        return (
-          <TabBar
-            {...tabBarProps}
-            containerStyle={{
-              ...nativeTabBarContainerStyle,
-              bg: tabBarProps.topEdgeActive ? 'transparent' : undefined,
-            }}
-            tabNames={tabBarTabNames}
-            indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
-            onTabPress={handleTabPress}
-            variant={tabBarVariant}
-            renderItem={handleRenderItem}
-            renderToolbar={renderToolbar}
-          />
-        );
-      }
-
-      // Outer YStack stays full-width so the sticky bg covers the entire
-      // viewport when the user scrolls the tab bar to the top. The inner Stack
-      // applies the centered max-width so the actual TabBar pills line up with
-      // the rest of the page content blocks.
+        nativeToolbar={nativeToolbar}
+      />
+    );
+    if (platformEnv.isNative) {
       return (
-        <YStack
-          ref={stickyHostRefCallback as any}
-          bg="$bgApp"
-          position={'sticky' as any}
-          top={0}
-          zIndex={10}
-        >
-          <Stack {...homePageContentMaxWidthSx}>
-            <TabBar
-              {...tabBarProps}
-              tabNames={tabBarTabNames}
-              indexDecimal={
-                perpTabShowWeb ? undefined : tabBarProps.indexDecimal
-              }
-              onTabPress={handleTabPress}
-              variant={tabBarVariant}
-              renderItem={handleRenderItem}
-              renderToolbar={renderToolbar}
-              containerStyle={{ position: 'relative' as any }}
-            />
-            <div
-              ref={portalRefCallback}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                zIndex: 1,
-              }}
-            />
-          </Stack>
-        </YStack>
+        <>
+          {/* The native tab bar draws the visible tabs and filter buttons, so
+              reserve the same height here. The React sticky content then
+              matches the pager's sticky geometry instead of reporting a
+              zero-height bar to the scroll containers. */}
+          <Stack
+            pointerEvents="none"
+            height={nativeTabBar.style?.height ?? 0}
+          />
+          {settings}
+        </>
       );
-    },
-    [
-      nativeToolbar,
-      nativeTextTabBar,
-      activeTabId,
-      homeScrollOwnerKey,
-      portalRefCallback,
-      stickyHostRefCallback,
-      handleRenderItem,
-      renderToolbar,
-      switchToPerpsWebTab,
-      perpTabShowWeb,
-      isSmallScreen,
-      nativeTabBarContainerStyle,
-      tabConfigs,
-      tabBarTabNames,
-    ],
-  );
+    }
+    // Web: the pager renders its DOM tab bar right above this node inside the
+    // sticky slot, so this node adds no height. Its parent is that sticky
+    // content and serves as the sticky host; the portal sits just below the
+    // tab bar, inside the same centered max-width as the page content.
+    return (
+      <YStack ref={stickyHostRefCallback as any}>
+        <Stack position="relative" {...homePageContentMaxWidthSx}>
+          <div
+            ref={portalRefCallback}
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 1,
+            }}
+          />
+        </Stack>
+        {settings}
+      </YStack>
+    );
+  }, [
+    nativeToolbar,
+    nativeTabBar,
+    activeTabId,
+    homeScrollOwnerKey,
+    portalRefCallback,
+    stickyHostRefCallback,
+    tabConfigs,
+  ]);
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
@@ -1237,22 +1273,32 @@ export function HomePageView({
     [portalTarget, stickyHost, activeTabName, activeTabId],
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 162 : 92,
+  const tabPageHeight = headerGeometry.fixedHeight;
+  const handleTabPageLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const current = activeMeasurementRef.current;
+      const { width, height } = event.nativeEvent.layout;
+      if (
+        current?.identity !== measurementIdentity ||
+        current.generation !== measurementGeneration ||
+        !Number.isFinite(width) ||
+        Math.abs(width - contentWidth) > 1 ||
+        !Number.isFinite(height) ||
+        height <= 20
+      )
+        return;
+      current.fixedLayoutReceived = true;
+      updateHeaderHeight('fixed', event.nativeEvent.layout.height - 20);
+    },
+    [
+      measurementIdentity,
+      measurementGeneration,
+      contentWidth,
+      updateHeaderHeight,
+    ],
   );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const measured = e.nativeEvent.layout.height - 20;
-    setTabPageHeight((current) => {
-      if (measured !== current) {
-        debugHomeVisual('overlay-layout', {
-          measuredHeight: measured,
-          previousHeight: current,
-        });
-      }
-      return measured;
-    });
-  }, []);
   const handleOuterHeaderHostRef = useCallback((node: ViewInstance | null) => {
+    nativeFixedHeaderRef.current = node;
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'outer',
@@ -1260,6 +1306,7 @@ export function HomePageView({
     });
   }, []);
   const handlePagerHeaderHostRef = useCallback((node: ViewInstance | null) => {
+    nativeFixedHeaderRef.current = node;
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'pager',
@@ -1424,6 +1471,7 @@ export function HomePageView({
           })}
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
+          headerLayoutKey={String(measurementGeneration)}
           topOverlayHeightHint={tabPageHeight}
           renderHeader={renderHeader}
           topEdgeActive={topEdgeActive}
@@ -1446,11 +1494,7 @@ export function HomePageView({
             topEdgeActive ? (
               <Stack h={tabPageHeight}>
                 <YStack
-                  ref={
-                    __DEV__ && platformEnv.isNativeIOS
-                      ? handlePagerHeaderHostRef
-                      : undefined
-                  }
+                  ref={handlePagerHeaderHostRef}
                   position="absolute"
                   top={-20}
                   left={0}
@@ -1467,7 +1511,7 @@ export function HomePageView({
               </Stack>
             ) : undefined
           }
-          nativeTabBar={nativeTextTabBar}
+          nativeTabBar={nativeTabBar}
           onNativeTabPress={handleNativeTextTabPress}
           onNativeToolbarPress={handleNativeToolbarPress}
           renderTabBar={renderTabBar}
@@ -1481,7 +1525,7 @@ export function HomePageView({
         ref={tabsRef}
         initialTabName={seedTabName}
         renderHeader={renderHeader}
-        nativeTabBar={nativeTextTabBar}
+        nativeTabBar={nativeTabBar}
         onNativeTabPress={handleNativeTextTabPress}
         onNativeToolbarPress={handleNativeToolbarPress}
         renderTabBar={renderTabBar}
@@ -1522,7 +1566,7 @@ export function HomePageView({
       />
     );
   }, [
-    nativeTextTabBar,
+    nativeTabBar,
     handleNativeTextTabPress,
     handleNativeToolbarPress,
     tabBarHeight,
@@ -1538,6 +1582,7 @@ export function HomePageView({
     handleTabPrepare,
     homeScrollOwnerKey,
     nativeHeaderHeightHint,
+    measurementGeneration,
     topEdgeActive,
     tabPageHeight,
     handleTabPageLayout,
@@ -1735,6 +1780,29 @@ export function HomePageView({
     topEdgeActive && hasNativePager && !showNoWalletContent && ready;
 
   useLayoutEffect(() => {
+    const node = nativeFixedHeaderRef.current;
+    node?.measure((_x, _y, width, height) => {
+      const current = activeMeasurementRef.current;
+      if (
+        nativeFixedHeaderRef.current === node &&
+        current?.identity === measurementIdentity &&
+        current.generation === measurementGeneration &&
+        !current.fixedLayoutReceived &&
+        Math.abs(width - contentWidth) <= 1
+      ) {
+        updateHeaderHeight('fixed', height - 20);
+      }
+    });
+  }, [
+    measurementIdentity,
+    measurementGeneration,
+    contentWidth,
+    ready,
+    showIos26PagerOverlay,
+    updateHeaderHeight,
+  ]);
+
+  useLayoutEffect(() => {
     let mode = 'web';
     if (!ready && !isTravelModeRuntime) {
       mode = 'early';
@@ -1796,11 +1864,7 @@ export function HomePageView({
             {content}
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
-                ref={
-                  __DEV__ && platformEnv.isNativeIOS
-                    ? handleOuterHeaderHostRef
-                    : undefined
-                }
+                ref={handleOuterHeaderHostRef}
                 position="absolute"
                 top={-20}
                 left={0}
@@ -1842,4 +1906,13 @@ export function HomePageView({
       </HomeStickyHeaderContext.Provider>
     );
   }, [homePage, stickyHeaderCtx]);
+}
+
+// The layout decision and the rendered header read the same token-list context.
+export function HomePageView(props: IHomePageViewProps) {
+  return (
+    <HomeTokenListProviderMirror>
+      <BaseHomePageView {...props} />
+    </HomeTokenListProviderMirror>
+  );
 }

@@ -12,8 +12,13 @@ jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
 }));
 const mockPublish = jest.fn(async (_updater: unknown) => undefined);
+// No published positions: these cases never reach a long catch-up.
+const mockReadState = jest.fn(async () => ({ progress: {} }));
 jest.mock('../states/jotai/atoms', () => ({
-  privacyChainAtom: { set: (updater: unknown) => mockPublish(updater) },
+  privacyChainAtom: {
+    set: (updater: unknown) => mockPublish(updater),
+    get: () => mockReadState(),
+  },
 }));
 
 const ServicePrivacyChain = require('./ServicePrivacyChain')
@@ -84,11 +89,14 @@ async function createHarness() {
         ['xmr--0|main', { accountSignature: 'other', lastChainTip: 300 }],
       ]),
       boostPausedByNetwork: {},
+      getLocalWalletNetworkIds: async () => [networkId],
       syncFailureBackoff: new Map(),
       // Object.create skips field initializers; desktop and web start off cellular.
       deviceIsCellular: false,
     },
   );
+  Reflect.set(service, 'allowCellularSyncCache', false);
+  Reflect.set(service, 'scanCompletionSessionId', 'refresh-session');
   const epoch = (await state.getAccountEpoch({ accountId }))!;
   const candidate = {
     networkId,
@@ -265,7 +273,11 @@ it('schedules a refresh without a manual sync and forces a check even at an unch
   const wake = jest
     .spyOn(service, 'wakeLocalWalletSync')
     .mockResolvedValue(undefined);
-  await service.refreshLocalWalletAccount(params);
+  expect(await service.refreshLocalWalletAccount(params)).toEqual({
+    scanRequested: true,
+    afterSequence: 0,
+    sessionId: 'refresh-session',
+  });
   expect(start).toHaveBeenCalledWith({ ...params, trigger: 'auto-backfill' });
   expect(wake).toHaveBeenCalledTimes(1);
   expect(service.runtimeSyncState.has('zec--0|main')).toBe(false);
@@ -282,8 +294,22 @@ it('leaves a paused chain paused when the balance is refreshed', async () => {
   const wake = jest
     .spyOn(service, 'wakeLocalWalletSync')
     .mockResolvedValue(undefined);
-  await service.refreshLocalWalletAccount(params);
+  expect(await service.refreshLocalWalletAccount(params)).toEqual({
+    scanRequested: false,
+  });
   expect(start).not.toHaveBeenCalled();
+  expect(wake).not.toHaveBeenCalled();
+});
+
+it('does not report a scheduled scan for a network the scheduler cannot enumerate', async () => {
+  const { service } = await createHarness();
+  jest.spyOn(service, 'getLocalWalletNetworkIds').mockResolvedValue([]);
+  const wake = jest
+    .spyOn(service, 'wakeLocalWalletSync')
+    .mockResolvedValue(undefined);
+  expect(await service.refreshLocalWalletAccount(params)).toEqual({
+    scanRequested: false,
+  });
   expect(wake).not.toHaveBeenCalled();
 });
 
@@ -315,7 +341,11 @@ it.each([
     const wake = jest
       .spyOn(service, 'wakeLocalWalletSync')
       .mockResolvedValue(undefined);
-    await service.refreshLocalWalletAccount(params);
+    expect(await service.refreshLocalWalletAccount(params)).toEqual({
+      scanRequested: !deviceIsCellular,
+      afterSequence: 0,
+      sessionId: 'refresh-session',
+    });
     expect(publishedState().dataBlockedNetworkIds).toEqual(
       dataBlockedNetworkIds,
     );
@@ -370,4 +400,146 @@ it('does not use stale display progress to establish success, and does not lose 
     expect.any(Number),
   );
   expect(log).toHaveBeenCalled();
+});
+
+function noteCaughtUp(service: InstanceType<typeof ServicePrivacyChain>) {
+  (
+    service as unknown as {
+      noteCaughtUpAccounts: (network: string, accounts: string[]) => void;
+    }
+  ).noteCaughtUpAccounts(networkId, [accountId]);
+}
+
+it('returns the pre-request sequence even when the new pass completes before the RPC returns', async () => {
+  const { service, epoch, candidate } = await createHarness();
+  jest.spyOn(Date, 'now').mockReturnValue(1000);
+  noteCaughtUp(service);
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  jest.spyOn(service, 'startForegroundBoost').mockResolvedValue(undefined);
+  jest.spyOn(service, 'wakeLocalWalletSync').mockImplementation(async () => {
+    noteCaughtUp(service);
+    await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  });
+  expect(await service.refreshLocalWalletAccount(params)).toEqual({
+    scanRequested: true,
+    afterSequence: 1,
+    sessionId: 'refresh-session',
+  });
+  expect(publishedState().progress[`${networkId}:${accountId}`]).toMatchObject({
+    lastSyncedAt: 1000,
+  });
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`],
+  ).toEqual({ sessionId: 'refresh-session', sequence: 2 });
+});
+
+it('does not publish a newer completion for a display-only read or an invalidated epoch', async () => {
+  const { service, state, epoch, candidate } = await createHarness();
+  noteCaughtUp(service);
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  noteCaughtUp(service);
+  await service.publishScanProgress(candidate);
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`]
+      ?.sequence,
+  ).toBe(1);
+  await state.rotateAccountEpochs({ accountIds: [accountId] });
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`]
+      ?.sequence,
+  ).toBeUndefined();
+});
+
+it('publishes completion even when the first position read fails', async () => {
+  const { service, epoch, candidate, getSyncProgress } = await createHarness();
+  noteCaughtUp(service);
+  getSyncProgress.mockRejectedValueOnce(new Error('display unavailable'));
+  jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  expect(
+    publishedState().progress[`${networkId}:${accountId}`],
+  ).toBeUndefined();
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`],
+  ).toEqual({ sessionId: 'refresh-session', sequence: 1 });
+});
+
+it('does not republish completion if the account is deleted during the position read', async () => {
+  const { service, state, epoch, candidate, getSyncProgress } =
+    await createHarness();
+  noteCaughtUp(service);
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  getSyncProgress.mockImplementationOnce(async () => {
+    await state.requestAccountDeletion(params);
+    return completeProgress;
+  });
+  noteCaughtUp(service);
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`],
+  ).toBeUndefined();
+});
+
+it.each(['forgetAccountScanState', 'forgetPublishedProgress'] as const)(
+  'clears account completion with %s',
+  async (operation) => {
+    const { service, epoch, candidate } = await createHarness();
+    noteCaughtUp(service);
+    await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+    Reflect.set(service, 'backfillActiveByAccount', {});
+    const lifecycleService = service as unknown as Record<
+      typeof operation,
+      (value: { networkId: string; accountIds: string[] }) => Promise<void>
+    >;
+    await lifecycleService[operation]({ networkId, accountIds: [accountId] });
+    expect(
+      publishedState().completedScanByAccount?.[`${networkId}:${accountId}`],
+    ).toBeUndefined();
+  },
+);
+
+it('does not couple authoritative completion to optional timestamp persistence', async () => {
+  const { service, cache, epoch, candidate } = await createHarness();
+  noteCaughtUp(service);
+  jest
+    .spyOn(cache, 'setLastSync')
+    .mockRejectedValueOnce(new Error('cache unavailable'));
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`]
+      ?.sequence,
+  ).toBe(1);
+  expect(
+    publishedState().progress[`${networkId}:${accountId}`]?.lastSyncedAt,
+  ).toBeUndefined();
+});
+
+it('publishes completion with the existing position if the post-scan display read fails', async () => {
+  const { service, epoch, candidate, getSyncProgress } = await createHarness();
+  await service.publishScanProgress(candidate);
+  noteCaughtUp(service);
+  getSyncProgress.mockRejectedValueOnce(new Error('display unavailable'));
+  jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  expect(publishedState().progress[`${networkId}:${accountId}`]).toMatchObject({
+    tipScannedHeight: completeProgress.tipScannedHeight,
+  });
+  expect(
+    publishedState().completedScanByAccount?.[`${networkId}:${accountId}`]
+      ?.sequence,
+  ).toBe(1);
+});
+
+it('publishes the metered-data gate even when a quiet refresh has no foreground boost', async () => {
+  const { service } = await createHarness();
+  stubScheduling(service);
+  await service.setDeviceNetworkState({ isCellular: true });
+  expect(publishedState()).toMatchObject({
+    boostingNetworkIds: [],
+    dataBlockedNetworkIds: [],
+    scanAllowed: false,
+  });
+  await service.setDeviceNetworkState({ isCellular: false });
+  expect(publishedState().scanAllowed).toBe(true);
 });

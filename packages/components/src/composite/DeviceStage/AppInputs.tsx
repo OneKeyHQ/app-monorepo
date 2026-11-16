@@ -537,6 +537,9 @@ export function PassphraseForm({
           </XStack>
           <Input
             testID="device-stage-passphrase-input"
+            {...(Platform.OS === 'web'
+              ? { 'data-morph-initial-focus': true }
+              : null)}
             size="large"
             value={value}
             onChangeText={handleChange}

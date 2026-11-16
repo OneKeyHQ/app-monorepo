@@ -27,6 +27,11 @@ export async function navigateToMarketTokenDetail(
     networkId: string;
     isNative?: boolean;
     assetId?: string;
+    symbol?: string;
+    name?: string;
+    logoUrl?: string;
+    price?: number;
+    change24h?: number;
     stockId?: string;
   },
   opts: {
@@ -50,7 +55,10 @@ export async function navigateToMarketTokenDetail(
   const isCurrentRequest = opts.isCurrentRequest ?? (() => true);
   let token = selectedToken;
   let marketVariantId: string | undefined;
-  if (token.assetId) {
+  const stockId = resolveMarketStockId({ stockId: token.stockId });
+  const pendingMarketAssetId =
+    platformEnv.isNative && !stockId ? token.assetId : undefined;
+  if (token.assetId && !pendingMarketAssetId && !stockId) {
     let assetDetailFetched = false;
     try {
       const detail =
@@ -87,9 +95,6 @@ export async function navigateToMarketTokenDetail(
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
-  const stockId = resolveMarketStockId({
-    stockId: token.stockId,
-  });
   const shortCode = networkUtils.getNetworkShortCode({
     networkId: token.networkId,
   });
@@ -100,6 +105,8 @@ export async function navigateToMarketTokenDetail(
       networkId: token.networkId,
       isNative: token.isNative,
     });
+  } else if (pendingMarketAssetId) {
+    opts.tokenDetailActions.current.clearTokenDetail();
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -111,15 +118,33 @@ export async function navigateToMarketTokenDetail(
 
   const targetTab = ETabRoutes.Market;
   const tokenParams = {
-    ...(token.assetId
+    ...(token.assetId && !stockId
       ? {
           marketTokenId: token.assetId,
           marketVariantId,
+          ...(pendingMarketAssetId
+            ? {
+                pendingMarketAsset: {
+                  symbol:
+                    token.symbol ||
+                    opts.tokenDetailPreview?.symbol ||
+                    pendingMarketAssetId,
+                  logoUrl:
+                    token.logoUrl ?? opts.tokenDetailPreview?.tokenImageUri,
+                  name: token.name ?? opts.tokenDetailPreview?.name,
+                  price: token.price ?? opts.tokenDetailPreview?.price,
+                  change24h:
+                    token.change24h ?? opts.tokenDetailPreview?.change24h,
+                },
+              }
+            : undefined),
           marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
         }
       : undefined),
     tokenAddress: token.address,
-    network: shortCode || token.networkId,
+    network: pendingMarketAssetId
+      ? token.networkId
+      : shortCode || token.networkId,
     isNative: token.isNative,
     from: EEnterWay.DetailSwitch,
     ...(!stockId &&
