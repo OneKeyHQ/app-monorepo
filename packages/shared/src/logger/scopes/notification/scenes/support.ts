@@ -9,30 +9,7 @@ export type ISupportConversationIdSource =
   | 'payload'
   | undefined;
 
-export type IIntercomUnreadTrigger =
-  | 'sdk-event'
-  | 'messenger-closed'
-  | 'foreground'
-  | 'poll'
-  | 'session'
-  | 'support-push';
-
-export type ISupportReplyResyncResult =
-  | 'resynced'
-  | 'deferred-to-foreground'
-  | 'session-syncing'
-  | 'no-session'
-  | 'identity-changed';
-
-export type ISupportOpenBranch =
-  | 'native-conversation'
-  | 'native-messages'
-  | 'native-home'
-  | 'native-webview-fallback'
-  | 'web-conversation'
-  | 'web-messages'
-  | 'web-home'
-  | 'extension-webview';
+export type ISupportOpenBranch = 'rn-conversation' | 'rn-messages' | 'rn-home';
 
 // OK-66809: temporary support-reply notification diagnostics. Every argument is
 // an auditable routing value (ids, branch names, booleans); payload content is
@@ -100,13 +77,11 @@ export class SupportScene extends BaseScene {
   supportReplyBranch({
     conversationId,
     selectedBranch,
-    nativeSdkReady,
   }: {
     conversationId: string | undefined;
     selectedBranch: ISupportOpenBranch;
-    nativeSdkReady?: boolean;
   }) {
-    return { conversationId, selectedBranch, nativeSdkReady };
+    return { conversationId, selectedBranch };
   }
   // OK-67112: temporary unread-dot diagnostics. Counts and states only:
   // no message, conversation or user identifiers, and no error text.
@@ -119,51 +94,5 @@ export class SupportScene extends BaseScene {
     isDuplicate: boolean;
   }) {
     return { pushSource, isDuplicate };
-  }
-
-  @LogToLocal({ level: 'info' })
-  supportReplyResync({ result }: { result: ISupportReplyResyncResult }) {
-    return { result };
-  }
-
-  @LogToLocal({ level: 'info' })
-  intercomSdkLoaded({
-    appState,
-    pollActive,
-  }: {
-    appState: string | null | undefined;
-    pollActive: boolean;
-  }) {
-    return { appState, pollActive };
-  }
-
-  // Logged only when the count changes, so the foreground poll stays quiet.
-  @LogToLocal({ level: 'info' })
-  intercomUnreadChanged({
-    trigger,
-    previousCount,
-    count,
-  }: {
-    trigger: IIntercomUnreadTrigger;
-    previousCount: number;
-    count: number;
-  }) {
-    return { trigger, previousCount, count };
-  }
-
-  @LogToLocal({ level: 'info' })
-  intercomUnreadDiscarded({ trigger }: { trigger: IIntercomUnreadTrigger }) {
-    return { trigger };
-  }
-
-  @LogToLocal({ level: 'info' })
-  intercomUnreadRefreshFailed({
-    trigger,
-    errorName,
-  }: {
-    trigger: IIntercomUnreadTrigger;
-    errorName: string | undefined;
-  }) {
-    return { trigger, errorName };
   }
 }

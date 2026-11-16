@@ -1750,6 +1750,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       accountId,
       withUTXOs: _withUTXOs,
       privacyChainPoolId: _privacyChainPoolId,
+      requestCurrency,
       ...rest
     } = params;
     const client = await this.backgroundApi.serviceGas.getClient(
@@ -1762,6 +1763,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       rest,
       {
         headers: {
+          ...(requestCurrency
+            ? { 'x-onekey-request-currency': requestCurrency }
+            : {}),
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {
               accountId,

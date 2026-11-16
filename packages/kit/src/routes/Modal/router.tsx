@@ -27,6 +27,7 @@ import { DeviceManagementStacks } from '../../views/DeviceManagement/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
+import { IntercomRouter } from '../../views/Intercom/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ManualBackupRouter } from '../../views/ManualBackup/router';
@@ -72,6 +73,7 @@ const onboardingRouterConfig = {
 };
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
+  { name: EModalRoutes.IntercomModal, children: IntercomRouter },
   {
     name: EModalRoutes.MainModal,
     children: ModalMainStack,

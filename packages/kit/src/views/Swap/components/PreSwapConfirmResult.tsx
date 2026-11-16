@@ -11,13 +11,14 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import type { ILottieViewHandle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
@@ -98,6 +99,7 @@ const PreSwapConfirmResult = ({
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
   const { md } = useMedia();
+  const dialogInstance = useDialogInstance();
   const buttonSize = md ? 'large' : 'medium';
   useEffect(() => {
     const fetchExplorerUrl = async () => {
@@ -223,9 +225,12 @@ const PreSwapConfirmResult = ({
             flexBasis={0}
             variant="secondary"
             size={buttonSize}
-            onPress={() => {
+            onPress={async () => {
               if (supportUrl?.includes(SUPPORT_URL)) {
-                void showIntercom();
+                // The review dialog is a full-window overlay on native and
+                // would cover the support page pushed underneath it.
+                await dialogInstance.close();
+                await showIntercom();
               } else {
                 openUrlExternal(supportUrl ?? '');
               }
