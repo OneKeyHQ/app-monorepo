@@ -3424,6 +3424,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    return this.setAccountNameInternal(params);
+  }
+
+  // Background-only replay entry point; the guard never crosses a UI bridge.
+  async setAccountNameFromCloud(
+    params: IDBSetAccountNameParams,
+    isCurrent: () => boolean,
+  ): Promise<void> {
+    return this.setAccountNameInternal(params, isCurrent);
+  }
+
+  private async setAccountNameInternal(
+    params: IDBSetAccountNameParams,
+    isCurrent?: () => boolean,
+  ): Promise<void> {
     const { accountId, indexedAccountId, name } = params;
 
     let account: IDBAccount | undefined;
@@ -3453,7 +3468,9 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const r = await localDb.setAccountName(params);
+    const r = isCurrent
+      ? await localDb.setAccountName(params, { isCurrent })
+      : await localDb.setAccountName(params);
 
     if (!params.applyRestoreSyncPolicy) {
       if (!params.skipEventEmit) {

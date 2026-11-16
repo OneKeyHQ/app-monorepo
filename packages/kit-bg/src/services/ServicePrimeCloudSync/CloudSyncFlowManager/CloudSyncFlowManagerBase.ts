@@ -74,18 +74,21 @@ export abstract class CloudSyncFlowManagerBase<
   }): Promise<ICloudSyncPayloadMap[T]>;
 
   abstract syncToSceneEachItem(params: {
+    isCurrent?: () => boolean;
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
   }): Promise<boolean>;
 
   async syncToSceneEachItemByMutex(params: {
+    isCurrent?: () => boolean;
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
   }): Promise<boolean> {
     const mutex = getMutexByDataType(params.item.dataType);
     return mutex.runExclusive(async () => {
+      if (params.isCurrent && !params.isCurrent()) return false;
       return this.syncToSceneEachItem(params);
     });
   }
@@ -695,10 +698,12 @@ export abstract class CloudSyncFlowManagerBase<
     syncCredential,
     items,
     forceSync,
+    isCurrent,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
+    isCurrent?: () => boolean;
   }) {
     if (!items.length) {
       return;
@@ -707,6 +712,7 @@ export abstract class CloudSyncFlowManagerBase<
     //   return;
     // }
     for (const item of items) {
+      if (isCurrent && !isCurrent()) return;
       try {
         let shouldSync =
           syncCredential &&
@@ -729,6 +735,7 @@ export abstract class CloudSyncFlowManagerBase<
             item,
             syncCredential,
           });
+          if (isCurrent && !isCurrent()) return;
           if (
             decryptedItem.dbItem &&
             decryptedItem?.rawDataJson?.dataType === this.dataType
@@ -738,6 +745,7 @@ export abstract class CloudSyncFlowManagerBase<
               const target = await this.buildSyncTargetByPayload({
                 payload: payload as any,
               });
+              if (isCurrent && !isCurrent()) return;
               // if (!target) {
               //   const dbRecord = await this.getDBRecordBySyncPayload({
               //     payload: payload as any,
@@ -754,15 +762,18 @@ export abstract class CloudSyncFlowManagerBase<
                   target,
                   callerName: 'syncToScene',
                 });
+                if (isCurrent && !isCurrent()) return;
                 // recheck the key
                 // TODO server data may be incorrect, how to remove it from server?
                 if (keyInfo.key === item.id) {
                   // TODO batch update
                   const isSuccess = await this.syncToSceneEachItemByMutex({
                     item: source,
+                    isCurrent,
                     target,
                     payload: payload as any,
                   });
+                  if (isCurrent && !isCurrent()) return;
                   if (
                     isSuccess &&
                     (wasAlreadyDecrypted ||
@@ -773,10 +784,12 @@ export abstract class CloudSyncFlowManagerBase<
                   ) {
                     await this.backgroundApi.localDb.updateSyncItem({
                       ids: [item.id],
+                      isCurrent,
                       updater: (record) => {
                         // A newer download/local edit can arrive while the scene
                         // update awaits. Never acknowledge or replace its cache.
                         if (
+                          (isCurrent && !isCurrent()) ||
                           record.data !== source.data ||
                           record.dataTime !== source.dataTime ||
                           record.dataType !== source.dataType ||

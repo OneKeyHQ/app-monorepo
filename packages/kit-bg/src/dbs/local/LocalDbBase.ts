@@ -1002,6 +1002,10 @@ type IResolveExistingDeviceParams = {
 };
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
+  // Local optimization only: reset on restart so legacy avatars get a bounded
+  // repair opportunity without a database migration or a persistent sync field.
+  private readonly repairedAccountAvatarSeeds = new Map<string, string>();
+
   private deviceStateEventOrderByDeviceId = new Map<
     string,
     { sdkEventSequence: number; sdkInstanceEpoch: number }
@@ -5495,18 +5499,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async updateSyncItem({
     ids,
     updater,
+    isCurrent,
   }: {
     ids: string[];
     updater: ILocalDBRecordUpdater<ELocalDBStoreNames.CloudSyncItem>;
+    isCurrent?: () => boolean;
   }) {
+    const assertCurrent = () => {
+      if (isCurrent && !isCurrent())
+        throw new OneKeyLocalError({
+          message: 'Cloud sync metadata replay cancelled',
+          autoToast: false,
+        });
+    };
     // EIndexedDBBucketNames.cloudSync
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      assertCurrent();
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
         ids,
         updater,
       });
+      assertCurrent();
     });
   }
 
@@ -9470,6 +9485,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // db transaction: add accounts to wallet
 
+    let repairedAvatarSeed: string | undefined;
     let addResults: {
       isOverrideAccounts: boolean;
       existsAccounts: IDBAccount[];
@@ -9614,30 +9630,50 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
                 if (firstEvmAccount) {
                   let firstEvmAddress = firstEvmAccount.address.toLowerCase();
+                  let didInitializeAvatarSeed = false;
                   await this.txUpdateWallet({
                     tx,
                     walletId,
                     updater: (w) => {
                       // A later account creation must not replace an established
                       // wallet identity, including one received from Cloud.
-                      if (!w.firstEvmAddress)
+                      if (!w.firstEvmAddress) {
                         w.firstEvmAddress = firstEvmAddress;
+                        didInitializeAvatarSeed = true;
+                      }
                       firstEvmAddress = w.firstEvmAddress;
                       return w;
                     },
                   });
-                  // Account zero can be created after other chain accounts or
-                  // appear later in a batch. Repair every fallback avatar seed.
-                  const { records: indexes } = await this.txGetAllRecords({
-                    tx,
-                    name: ELocalDBStoreNames.IndexedAccount,
-                  });
+                  // Repair all historical fallback avatars once per seed and
+                  // database instance, including wallets whose seed predates this
+                  // repair. Later batches only repair their own indexes.
+                  const shouldRepairAll =
+                    didInitializeAvatarSeed ||
+                    this.repairedAccountAvatarSeeds.get(walletId) !==
+                      firstEvmAddress;
+                  const { records: indexes } = shouldRepairAll
+                    ? await this.txGetAllRecords({
+                        tx,
+                        name: ELocalDBStoreNames.IndexedAccount,
+                      })
+                    : await this.txGetRecordsByIds({
+                        tx,
+                        name: ELocalDBStoreNames.IndexedAccount,
+                        ids: Array.from(
+                          new Set(
+                            accounts
+                              .map((account) => account.indexedAccountId)
+                              .filter((id): id is string => !!id),
+                          ),
+                        ),
+                      });
                   await this.txUpdateRecords({
                     tx,
                     name: ELocalDBStoreNames.IndexedAccount,
-                    ids: indexes
-                      .filter((item) => item.walletId === walletId)
-                      .map((item) => item.id),
+                    ids: indexes.flatMap((item) =>
+                      item && item.walletId === walletId ? [item.id] : [],
+                    ),
                     updater: async (item) => {
                       item.idHash = await this.buildIndexedAccountIdHash({
                         firstEvmAddress,
@@ -9648,6 +9684,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                       return item;
                     },
                   });
+                  if (shouldRepairAll) repairedAvatarSeed = firstEvmAddress;
                 }
 
                 let removed = 0;
@@ -9811,6 +9848,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return addResults0;
         },
       );
+      // Never cache before commit: a failed transaction must retry the repair.
+      if (repairedAvatarSeed)
+        this.repairedAccountAvatarSeeds.set(walletId, repairedAvatarSeed);
     } catch (error) {
       if (
         importedCredentialToAddInfo.layerAdapters?.length &&
@@ -10854,19 +10894,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+  async setAccountName(
+    params: IDBSetAccountNameParams,
+    { isCurrent }: { isCurrent?: () => boolean } = {},
+  ): Promise<void> {
     // Scene replay already holds the key/import gates and does not write Cloud
     // ciphertext; reacquiring the non-reentrant key mutex would deadlock.
     if (params.skipSaveLocalSyncItem)
-      return this.setAccountNameWithCloudKeyLock(params);
+      return this.setAccountNameWithCloudKeyLock(params, isCurrent);
     return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
-      () => this.setAccountNameWithCloudKeyLock(params),
+      () => this.setAccountNameWithCloudKeyLock(params, isCurrent),
     );
   }
 
   private async setAccountNameWithCloudKeyLock(
     params: IDBSetAccountNameParams,
+    isCurrent?: () => boolean,
   ): Promise<void> {
+    const assertCurrent = () => {
+      if (isCurrent && !isCurrent())
+        throw new OneKeyLocalError({
+          message: 'Cloud sync metadata replay cancelled',
+          autoToast: false,
+        });
+    };
+    assertCurrent();
     if (params.name && params.shouldCheckDuplicate) {
       const id = params.indexedAccountId ?? params.accountId;
       if (params.indexedAccountId && params.accountId) {
@@ -10991,10 +11043,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      assertCurrent();
       await this.txAssertCloudSyncMetadataSource({
         tx,
         source: params.cloudSyncSource,
       });
+      assertCurrent();
       // add or update sync item
       if (syncItem) {
         await this.txAddAndUpdateFreshSyncItems({
@@ -11029,6 +11083,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         });
       }
+      assertCurrent();
     });
 
     void this.emitRenameDBAccountsEvent(params);

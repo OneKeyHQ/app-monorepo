@@ -20,7 +20,11 @@ import { importPublicAccountSnapshots } from '../publicAccountSnapshotImport';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManagerAccount';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-import type { IDBCloudSyncItem, IDBWallet } from '../../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBSetAccountNameParams,
+  IDBWallet,
+} from '../../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../../states/jotai/atoms/prime';
 
 let mockConfig: IPrimeCloudSyncPersistAtomData;
@@ -92,6 +96,13 @@ function harness() {
       getSyncItemSafe: jest.fn(async ({ id }: { id: string }) => pool.get(id)),
       getAccountSafe: jest.fn(async () => undefined),
       updateSyncItem,
+    },
+    serviceAccount: {
+      setAccountName: jest.fn(async () => undefined),
+      setAccountNameFromCloud: jest.fn(
+        async (_params: IDBSetAccountNameParams, _isCurrent: () => boolean) =>
+          undefined,
+      ),
     },
     serviceKeylessCloudSync: {
       getCloudAccountImportGeneration: () => generation,
@@ -627,5 +638,78 @@ describe('public account snapshot Cloud scene integration', () => {
       }),
     ).rejects.toThrow('compatible App version');
     expect(h.pool.get(item.id)?.data).toBe(future.data);
+  });
+
+  test.each([
+    'second-decrypt',
+    'target-lookup',
+    'rename-await',
+    'selected-key',
+    'unchanged',
+  ])('legacy labels honor key/cancel guards through %s', async (phase) => {
+    const h = harness();
+    const account = {
+      ...publicAccountSnapshotToAccount(
+        publicAccountTestSnapshot(),
+        h.wallet.id,
+      ),
+      id: 'watching--60--legacy',
+      indexedAccountId: undefined,
+    };
+    const item = await encryptedItem(h.manager, undefined, account.id);
+    item.localSceneUpdated = false;
+    h.pool.set(item.id, { ...item });
+    let current = true;
+    let applied = 0;
+    jest
+      .spyOn(h.manager, 'buildSyncTargetByPayload')
+      .mockImplementation(async () => {
+        if (phase === 'target-lookup') current = false;
+        return {
+          targetId: account.id,
+          dataType: EPrimeCloudSyncDataType.Account,
+          account,
+        };
+      });
+    if (phase === 'selected-key')
+      h.bg.servicePrimeCloudSync.getSyncCredentialSafe.mockResolvedValue({
+        ...credential,
+        masterPasswordUUID: 'changed',
+        keylessCredential: undefined,
+      });
+    const decrypt =
+      cloudSyncItemBuilder.decryptSyncItem.bind(cloudSyncItemBuilder);
+    let decryptCalls = 0;
+    jest
+      .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+      .mockImplementation(async (params) => {
+        const result = await decrypt(params);
+        decryptCalls += 1;
+        if (phase === 'second-decrypt' && decryptCalls === 2) h.cancel();
+        return result;
+      });
+    h.bg.serviceAccount.setAccountNameFromCloud.mockImplementation(
+      async (_params, isCurrent) => {
+        if (phase === 'rename-await') current = false;
+        if (isCurrent()) applied += 1;
+      },
+    );
+    await h.manager.syncToScene({
+      syncCredential: credential,
+      items: [item],
+      isCurrent: () => current,
+    });
+    expect(h.bg.serviceAccount.setAccountName).not.toHaveBeenCalled();
+    expect(applied).toBe(phase === 'unchanged' ? 1 : 0);
+    expect(h.pool.get(item.id)?.localSceneUpdated).toBe(phase === 'unchanged');
+    if (phase === 'unchanged') {
+      expect(h.bg.serviceAccount.setAccountNameFromCloud).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: account.id,
+          cloudSyncSource: expect.objectContaining({ id: item.id }),
+        }),
+        expect.any(Function),
+      );
+    }
   });
 });

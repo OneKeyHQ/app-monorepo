@@ -473,7 +473,6 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       if ((index + 1) % PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE === 0)
         await timerUtils.wait(0);
     }
-    await super.syncToScene({ syncCredential, items: legacy, forceSync });
     await keyless.runWithCloudAccountImportLock(async () => {
       if (!isCurrent()) return;
       const selected =
@@ -483,6 +482,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         cloudSyncItemBuilder.getPwdHash(syncCredential)
       )
         return;
+      await super.syncToScene({
+        syncCredential,
+        items: legacy,
+        forceSync,
+        isCurrent,
+      });
+      if (!isCurrent()) return;
       let result: ICloudPublicAccountSnapshotResult = {
         appliedSnapshotIds: [],
         added: 0,
@@ -595,17 +601,28 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
   }
 
   override async syncToSceneEachItem(params: {
+    item?: IDBCloudSyncItem;
+    isCurrent?: () => boolean;
     target: ICloudSyncTargetAccount;
     payload: ICloudSyncPayloadAccount;
   }): Promise<boolean> {
     const { target, payload } = params;
-    await this.backgroundApi.serviceAccount.setAccountName({
+    const renameParams = {
       accountId: target.account.id,
+      cloudSyncSource: params.item,
       name: payload.name,
       // avoid infinite loop sync
       skipSaveLocalSyncItem: true,
       skipEventEmit: true,
-    });
+    };
+    if (params.isCurrent) {
+      await this.backgroundApi.serviceAccount.setAccountNameFromCloud(
+        renameParams,
+        params.isCurrent,
+      );
+    } else {
+      await this.backgroundApi.serviceAccount.setAccountName(renameParams);
+    }
     return true;
   }
 

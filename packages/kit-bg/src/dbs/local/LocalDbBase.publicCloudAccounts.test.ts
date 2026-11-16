@@ -1252,10 +1252,19 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     },
   );
 
-  it.each([false, true])(
-    'repairs all local avatars when EVM zero is in the batch or already stored: %s',
-    async (alreadyStored) => {
+  it.each([
+    { alreadyStored: false, alreadySeeded: false },
+    { alreadyStored: true, alreadySeeded: false },
+    { alreadyStored: true, alreadySeeded: true },
+  ])(
+    'repairs historical avatars once, then only touched indexes: %j',
+    async ({ alreadyStored, alreadySeeded }) => {
       const db = new PublicAccountTestDb();
+      if (alreadySeeded)
+        db.put(ELocalDBStoreNames.Wallet, {
+          ...WALLET,
+          firstEvmAddress: account(0).address,
+        });
       db.useRealAvatarHashes = true;
       for (const index of [0, 1, 3]) {
         db.put(ELocalDBStoreNames.IndexedAccount, {
@@ -1296,6 +1305,23 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
         },
       } as unknown as IBackgroundApi);
       if (alreadyStored) db.put(ELocalDBStoreNames.Account, account(0));
+      if (alreadySeeded) {
+        // Fail after avatar writes, then prove a retry still repairs every
+        // index rather than treating the rolled-back scan as committed.
+        const originalAdd = db.txAddRecords.bind(db);
+        const addSpy = jest.spyOn(db, 'txAddRecords');
+        addSpy.mockImplementationOnce(async () => {
+          throw new OneKeyLocalError('Simulated account write failure');
+        });
+        await expect(
+          db.addAccountsToWallet({
+            walletId: WALLET.id,
+            accounts: [account(1)],
+            skipEventEmit: true,
+          }),
+        ).rejects.toThrow('Simulated account write failure');
+        addSpy.mockImplementation(originalAdd);
+      }
       await db.addAccountsToWallet({
         walletId: WALLET.id,
         accounts: alreadyStored ? [account(1)] : [account(1), account(0)],
@@ -1322,6 +1348,41 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       expect(
         db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-other--0'),
       ).toMatchObject({ idHash: 'keep-other-avatar' });
+
+      // Once the seed is established, a later chain creation must not scan
+      // or rehash the entire wallet, but still heals its legacy index avatar.
+      db.put(ELocalDBStoreNames.IndexedAccount, {
+        id: 'hd-1--1',
+        walletId: WALLET.id,
+        index: 1,
+        name: 'Keep 1',
+        idHash: 'legacy-avatar-after-seed',
+      });
+      const scanSpy = jest.spyOn(db, 'txGetAllRecords');
+      const hashSpy = jest.spyOn(db, 'buildIndexedAccountIdHash');
+      await db.addAccountsToWallet({
+        walletId: WALLET.id,
+        accounts: [account(1)],
+        skipEventEmit: true,
+      });
+      expect(
+        scanSpy.mock.calls.filter(
+          ([params]) => params.name === ELocalDBStoreNames.IndexedAccount,
+        ),
+      ).toHaveLength(0);
+      expect(hashSpy).toHaveBeenCalledTimes(1);
+      expect(hashSpy).toHaveBeenCalledWith({
+        firstEvmAddress: account(0).address,
+        indexedAccountId: 'hd-1--1',
+        index: 1,
+        useSynchronousHash: true,
+      });
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--1'),
+      ).toMatchObject({
+        name: 'Keep 1',
+        idHash: await hashSpy.mock.results[0].value,
+      });
     },
   );
 
@@ -1592,5 +1653,112 @@ describe('cloud tombstone cleanup source guard', () => {
     expect(
       db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
     ).toEqual(change === 'unchanged' ? undefined : current);
+  });
+});
+
+describe('legacy metadata cancellation transaction guard', () => {
+  it.each(['entry', 'source-read', 'write'])(
+    'rolls back the name and leaves its ACK pending when cancelled at %s',
+    async (phase) => {
+      const db = new PublicAccountTestDb();
+      db.setBackgroundApi({
+        servicePrimeCloudSync: { syncManagers: {} },
+      } as unknown as IBackgroundApi);
+      const emit = jest
+        .spyOn(db, 'emitRenameDBAccountsEvent')
+        .mockResolvedValue();
+      const local = {
+        ...account(),
+        id: 'watching--60--legacy',
+        name: 'Original local name',
+      };
+      db.put(ELocalDBStoreNames.Account, local);
+      const source: IDBCloudSyncItem = {
+        id: 'legacy-name',
+        dataType: EPrimeCloudSyncDataType.Account,
+        dataTime: 100,
+        data: 'old-space-ciphertext',
+        rawData: '',
+        rawKey: 'legacy-key',
+        pwdHash: 'old-space',
+        isDeleted: false,
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      db.put(ELocalDBStoreNames.CloudSyncItem, source);
+      let current = true;
+      if (phase === 'entry')
+        db.beforeTransaction = () => {
+          current = false;
+        };
+      if (phase === 'source-read') {
+        const read = db.txGetRecordsByIds.bind(db);
+        jest
+          .spyOn(db, 'txGetRecordsByIds')
+          .mockImplementation(async (params) => {
+            const result = await read(params);
+            current = false;
+            return result;
+          });
+      }
+      if (phase === 'write')
+        db.afterWrite = () => {
+          current = false;
+        };
+      await expect(
+        db.setAccountName(
+          {
+            accountId: local.id,
+            name: 'Old space name',
+            cloudSyncSource: source,
+            skipSaveLocalSyncItem: true,
+          },
+          { isCurrent: () => current },
+        ),
+      ).rejects.toThrow('Cloud sync metadata replay cancelled');
+      expect(db.stores.get(ELocalDBStoreNames.Account)?.get(local.id)).toEqual(
+        local,
+      );
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+      ).toEqual(source);
+      expect(emit).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('metadata ACK cancellation transaction guard', () => {
+  it('rolls back an ACK when the selected operation changes during its write', async () => {
+    const db = new PublicAccountTestDb();
+    const source: IDBCloudSyncItem = {
+      id: 'legacy-name',
+      dataType: EPrimeCloudSyncDataType.Account,
+      dataTime: 100,
+      data: 'old-space-ciphertext',
+      rawData: '',
+      rawKey: 'legacy-key',
+      pwdHash: 'old-space',
+      isDeleted: false,
+      localSceneUpdated: false,
+      serverUploaded: true,
+    };
+    db.put(ELocalDBStoreNames.CloudSyncItem, source);
+    let current = true;
+    db.afterWrite = () => {
+      current = false;
+    };
+    await expect(
+      db.updateSyncItem({
+        ids: [source.id],
+        isCurrent: () => current,
+        updater: (record) => {
+          record.localSceneUpdated = true;
+          return record;
+        },
+      }),
+    ).rejects.toThrow('Cloud sync metadata replay cancelled');
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+    ).toEqual(source);
   });
 });
