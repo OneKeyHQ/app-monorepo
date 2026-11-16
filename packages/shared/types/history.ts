@@ -191,6 +191,12 @@ export type IAccountHistoryTx = {
 
   isLocalCreated?: boolean;
 
+  // Currency id (e.g. `usd`) the server priced this row in: its transfer
+  // prices and `totalFeeFiatValue`. Rows without it (locally built, or cached
+  // by older app versions) have an unknown fiat currency and are shown as
+  // stored.
+  fiatCurrency?: string;
+
   displayStatus?: EDecodedTxStatus;
   displayStatusSource?: 'privateSendOrder';
 
@@ -355,6 +361,10 @@ export type IFetchHistoryTxDetailsParams = {
   // Which pool tab the user opened this transaction from, for chains whose
   // public and private sides are owned by different sources.
   privacyChainPoolId?: number;
+  // Currency the server prices the detail in. Callers that merge the detail
+  // into a row name it, so the row and the detail agree on a currency even
+  // when the setting changes during the request.
+  requestCurrency?: string;
 };
 
 export type IFetchTxDetailsParams = {
@@ -405,6 +415,9 @@ export interface IServerFetchAccountHistoryDetailParams {
   accountAddressArray?: string[];
   // See IFetchHistoryTxDetailsParams.
   privacyChainPoolId?: number;
+  // See IFetchHistoryTxDetailsParams. Sent as the request currency header,
+  // never in the request body.
+  requestCurrency?: string;
   // Internal detail mode; never included in a backend HTTP request.
   withUTXOs?: boolean;
 }

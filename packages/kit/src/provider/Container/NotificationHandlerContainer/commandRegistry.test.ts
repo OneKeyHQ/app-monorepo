@@ -1,5 +1,5 @@
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
 
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
@@ -12,7 +12,7 @@ const mockTakePending = jest.fn<
 >();
 const mockPlatformEnv = { isExtension: false, isExtensionUiExpandTab: false };
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   showIntercom: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({

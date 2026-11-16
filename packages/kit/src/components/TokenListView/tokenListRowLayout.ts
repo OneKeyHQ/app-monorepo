@@ -1,4 +1,7 @@
-import { getTokenRowIconSize } from './tokenListRowLayoutShared';
+import {
+  TOKEN_ROW_HORIZONTAL_PADDING,
+  getTokenRowIconSize,
+} from './tokenListRowLayoutShared';
 
 import type {
   ITokenListFooterLayout,
@@ -37,5 +40,5 @@ export function getTokenListFooterLayout(_options: {
   tableLayout?: boolean;
   plainMode?: boolean;
 }): ITokenListFooterLayout {
-  return { mx: 0, itemProps: { mx: 0, px: '$3' } };
+  return { mx: 0, itemProps: { mx: 0, px: TOKEN_ROW_HORIZONTAL_PADDING } };
 }

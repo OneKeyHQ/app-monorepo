@@ -152,13 +152,6 @@ target 'OneKeyWallet' do
 
   post_install do |installer|
     unless mac_catalyst_enabled
-      # Remove recording code and voice UI from the exact reviewed SDK bytes.
-      intercom_framework = File.join(installer.sandbox.root.to_s, 'Intercom', 'Intercom.xcframework')
-      intercom_patch = File.join(__dir__, '..', 'scripts', 'patch-intercom-ios.py')
-      unless system('python3', '-B', intercom_patch, intercom_framework)
-        raise '[Intercom] Failed to remove recording capabilities from the pinned iOS SDK'
-      end
-
       # Remove JPush/JCore remote commands that write to or collect the iOS
       # pasteboard, render server-supplied in-app/rich-media HTML5, drive remote
       # geofence/location strategies, or enable SDK log upload. Both pods are
