@@ -26,7 +26,6 @@ const transformationEnvironment = {
   ONEKEY_STARTUP_PROFILE: undefined,
   ONEKEY_PLATFORM: 'app',
   ONEKEY_MOBILE_LOCKDOWN: 'true',
-  ONEKEY_MOBILE_SES_ACCEPTANCE: undefined,
   PERF_MONITOR_ENABLED: undefined,
   RN_HARNESS: undefined,
   SPLIT_BUNDLE_SEGMENTS: undefined,

@@ -113,6 +113,11 @@ test.each(['main', 'background'] as const)(
         lockdownApplied: false,
       };
       const report = await buildSesRuntimeCheckReport();
+      const names = report.checks.map((check) => check.name);
+      expect(new Set(names).size).toBe(names.length);
+      expect(report.coverage.map((item) => item.name).toSorted()).toEqual(
+        [...names].toSorted(),
+      );
       expect(
         report.checks.find(
           (check) => check.name === 'IndexedDB transaction shim',

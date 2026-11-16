@@ -45,11 +45,6 @@ function getNativePromiseIntegrations(): ReturnType<
         setNativePromiseRejectionTrackingOptions({
           allRejections: true,
           onUnhandled: (id, error) => {
-            if (process.env.ONEKEY_MOBILE_SES_ACCEPTANCE === 'true') {
-              (
-                require('./mobileSesAcceptance') as typeof import('./mobileSesAcceptance')
-              ).recordAcceptanceRejection(id, error);
-            }
             // Preserve Sentry's native rejection mechanism and its standard
             // captureException normalization for Error and non-Error values.
             captureException(error, {
@@ -62,11 +57,6 @@ function getNativePromiseIntegrations(): ReturnType<
             });
           },
           onHandled: (id) => {
-            if (process.env.ONEKEY_MOBILE_SES_ACCEPTANCE === 'true') {
-              (
-                require('./mobileSesAcceptance') as typeof import('./mobileSesAcceptance')
-              ).recordAcceptanceHandled(id);
-            }
             if (__DEV__) {
               console.warn(`Promise Rejection Handled (id: ${id})`);
             }
@@ -149,11 +139,6 @@ export const initSentry = () => {
     // integrations; error reporting + breadcrumbs are unaffected.
     integrations: getNativePromiseIntegrations(),
     enableAutoPerformanceTracing: false,
-    ...(process.env.ONEKEY_MOBILE_SES_ACCEPTANCE === 'true'
-      ? (
-          require('./mobileSesAcceptance') as typeof import('./mobileSesAcceptance')
-        ).getMobileSesAcceptanceSentryOptions()
-      : {}),
   });
 };
 

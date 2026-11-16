@@ -6,10 +6,14 @@ import {
   runSesCryptoChecks,
   runSesLanguageChecks,
 } from './runtimeCheckBehavior';
+import { runSesIntrinsicBehaviorChecks } from './runtimeCheckIntrinsicBehavior';
 
 test('language probes assert actual Promise and binary behavior', async () => {
-  const checks = await runSesLanguageChecks();
-  expect(checks).toHaveLength(2);
+  const checks = [
+    ...(await runSesLanguageChecks()),
+    ...(await runSesIntrinsicBehaviorChecks()),
+  ];
+  expect(checks).toHaveLength(9);
   expect(checks.filter((check) => check.status !== 'pass')).toEqual([]);
 });
 

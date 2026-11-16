@@ -16,6 +16,9 @@ import {
   runSesLibraryChecks,
 } from './runtimeCheckBehavior';
 import { withSesCheckDeadline } from './runtimeCheckDeadline';
+import { getSesErrorStackFrameCount } from './runtimeCheckErrorStack';
+import { runSesIntrinsicBehaviorChecks } from './runtimeCheckIntrinsicBehavior';
+import { collectSesIntrinsicLockEvidence } from './runtimeCheckIntrinsics';
 import { runSesNetworkChecks } from './runtimeCheckNetwork';
 
 import type { ISesCheckDeadline } from './runtimeCheckDeadline';
@@ -135,6 +138,19 @@ type IMessageChannelCtor = new () => IMessageChannelLike;
 export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[] =
   [
     ...[
+      ['Array algorithms and mutation', '数组算法、实例修改与拷贝隔离'],
+      [
+        'TypedArray constructors and copies',
+        '全部九种数值视图构造、set/slice/subarray',
+      ],
+      ['Error and Proxy behavior', '异常构造器与 Proxy 撤销'],
+      ['Object and Reflect behavior', '属性描述符、原型、访问器和反射函数'],
+      [
+        'Function and generator behavior',
+        'call/apply/bind、构造、同步和异步生成器',
+      ],
+      ['Date Math and Number behavior', '日期解析、数值运算和转换'],
+      ['String RegExp and Symbol behavior', '字符串、正则状态和 Symbol 注册表'],
       ['Promise edge cases', 'thenable、微任务顺序、finally 和聚合拒绝'],
       ['decimal.js after lockdown', '精确小数和构造函数 clone'],
       ['axios after lockdown', 'Headers 和固定内存 adapter 请求转换'],
@@ -164,6 +180,15 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       hardening:
         '在当前 runtime 实际执行并比对结果；网络固定响应仅用于 native Debug DevSession，缺少测试环境时明确标记未测试。',
     })),
+    {
+      name: 'Intrinsic function graph frozen',
+      dimension: 'tamper-resistance',
+      title: 'Intrinsic function graph frozen / 内建函数图冻结',
+      functionality:
+        '两端使用同一份 SES intrinsic 清单，递归检查方法、访问器和原型链。',
+      hardening:
+        '每个可用内建对象和函数都必须冻结；缺少的引擎能力单独列出，不调用 getter 或修改对象。',
+    },
     {
       name: 'Runtime state',
       dimension: 'runtime-state',
@@ -277,9 +302,10 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       name: 'Error stack',
       dimension: 'functionality',
       title: 'Error stack / 错误堆栈',
-      functionality: '检查 Error.stack 是否仍然存在且可读。',
+      functionality:
+        '检查 Error.stack 可读，native 还要求 Sentry 能解析带位置的调用帧。',
       hardening:
-        '这是诊断能力检查。当前 errorTaming 使用 unsafe-debug，保留原始 stack，方便 Sentry 排查问题。',
+        '这是诊断能力检查。Web 保持 unsafe-debug；native 保持 adapter 的 unsafe，并在 hardening 前保留 Hermes 原生错误栈格式化能力。',
     },
     {
       name: 'Array patch methods',
@@ -1429,6 +1455,23 @@ async function collectSesRuntimeCheckReport(
         )}, nestedFrozen=${String(Object.isFrozen(value.nested))}`,
       ),
     );
+  } else {
+    checks.push(
+      shouldBeLockedDown
+        ? buildCheck(
+            'harden deep freeze',
+            'tamper-resistance',
+            '确认 harden 会递归冻结对象图。',
+            false,
+            'harden is missing in a protected runtime',
+          )
+        : buildInfoCheck(
+            'harden deep freeze',
+            'tamper-resistance',
+            '确认 harden 会递归冻结对象图。',
+            'L0 does not install harden',
+          ),
+    );
   }
 
   checks.push(runFunctionGlobalEscapeCheck(level, state?.runtime));
@@ -1578,22 +1621,42 @@ async function collectSesRuntimeCheckReport(
 
   const error = new OneKeyLocalError('ses harden stack check');
   const { stack } = error;
+  const stackFrames =
+    typeof stack === 'string' ? getSesErrorStackFrameCount(stack) : undefined;
   checks.push(
     buildCheck(
       'Error stack',
       'functionality',
       '确认 harden 后错误堆栈仍然可用于 Sentry 和问题排查。',
-      typeof stack === 'string' && stack.length > 0,
-      `stackLength=${String(stack?.length ?? 0)}`,
+      typeof stack === 'string' &&
+        stack.length > 0 &&
+        (stackFrames === undefined || stackFrames > 0),
+      `stackLength=${String(stack?.length ?? 0)}${stackFrames === undefined ? '' : `, parsedFrames=${stackFrames}`}`,
     ),
   );
 
   checks.push(runArrayPatchMethodsCheck());
+  const intrinsicEvidence = collectSesIntrinsicLockEvidence();
+  checks.push(
+    buildCheck(
+      'Intrinsic function graph frozen',
+      'tamper-resistance',
+      '验证 web/native 共用 intrinsic 清单内全部可达对象、方法、访问器与原型链。',
+      shouldBeLockedDown
+        ? intrinsicEvidence.mutable.length === 0
+        : intrinsicEvidence.mutable.length > 0,
+      JSON.stringify({
+        ...intrinsicEvidence,
+        mutable: intrinsicEvidence.mutable.slice(0, 20),
+      }),
+    ),
+  );
   checks.push(runIndexedDbTransactionShimCheck(state?.runtime));
   checks.push(runFetchInterceptorCheck());
   checks.push(await runTimerInterceptorCheck());
   checks.push(runCryptoShimCheck());
   checks.push(...(await runSesLanguageChecks({ signal })));
+  checks.push(...(await runSesIntrinsicBehaviorChecks({ signal })));
   checks.push(...(await runSesCryptoChecks({ signal })));
   checks.push(...(await runSesLibraryChecks({ signal })));
   checks.push(...(await runSesNetworkChecks(undefined, { signal })));

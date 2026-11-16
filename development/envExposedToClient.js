@@ -43,7 +43,6 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'SUPABASE_PUBLIC_API_KEY',
     // Native background thread split-bundle feature flag
     'ENABLE_NATIVE_BACKGROUND_THREAD',
-    'ONEKEY_MOBILE_SES_ACCEPTANCE',
   ];
   // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 

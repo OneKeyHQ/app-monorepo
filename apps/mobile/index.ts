@@ -178,13 +178,6 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
 
   ReactNativeDeviceUtils.initEventListeners();
   initSentry();
-  if (process.env.ONEKEY_MOBILE_SES_ACCEPTANCE === 'true') {
-    setTimeout(() => {
-      void (
-        require('@onekeyhq/shared/src/modules3rdParty/sentry/mobileSesAcceptance') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry/mobileSesAcceptance')
-      ).runMobileSesAcceptance();
-    }, 10_000);
-  }
   nativeStorageContractViolation.markNativeStorageContractViolationSentryReady();
 
   // Install Sentry event processor that tags split-bundle integrity crashes.

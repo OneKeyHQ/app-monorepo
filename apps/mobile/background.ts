@@ -22,13 +22,6 @@ markRuntimePolyfillsReady();
 const { initSentry } =
   require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
 initSentry();
-if (process.env.ONEKEY_MOBILE_SES_ACCEPTANCE === 'true') {
-  setTimeout(() => {
-    void (
-      require('@onekeyhq/shared/src/modules3rdParty/sentry/mobileSesAcceptance') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry/mobileSesAcceptance')
-    ).runMobileSesAcceptance();
-  }, 10_000);
-}
 const { OneKeyLocalError } =
   require('@onekeyhq/shared/src/errors') as typeof import('@onekeyhq/shared/src/errors');
 

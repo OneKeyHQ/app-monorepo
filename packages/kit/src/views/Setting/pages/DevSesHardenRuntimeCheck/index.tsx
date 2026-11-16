@@ -1101,15 +1101,16 @@ export default function DevSesHardenRuntimeCheck() {
                   </SizableText>
                 ) : null}
                 <SizableText color="$textSubdued">
-                  每张卡片同时展示测试说明和运行结果。核心硬化验证是
-                  Object/Array 原型冻结、harden 深冻结，以及 L2
-                  的动态函数逃逸限制。Tamper 测试会主动尝试 set 和
-                  defineProperty，确认 harden 后不能篡改原型、内建函数和
+                  每张卡片同时展示测试说明和运行结果。核心硬化验证是 共用
+                  intrinsic 清单内的对象、函数、访问器与原型冻结、harden
+                  深冻结，以及 L2 的动态函数逃逸限制。Tamper 测试会主动尝试 set
+                  和 defineProperty，确认 harden 后不能篡改原型、内建函数和
                   hardened object。同时会检查
                   IndexedDB、fetch、timer、crypto、desktop/ext bridge
                   等启动期关键 patch 是否仍然安装且可用。在 extension UI
                   中还会请求 background、offscreen、passkey runtime
-                  各自执行同一套检查。
+                  各自执行同一套检查。iOS/Android 会通过 RPC 请求独立 bg JS heap
+                  执行相同函数检查；原生资源仍可由两个 runtime 共享。
                 </SizableText>
 
                 {report ? (

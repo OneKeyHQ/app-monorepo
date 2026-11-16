@@ -22,6 +22,7 @@ function createRuntime({
   enabled = true,
   repair = true,
   rawMode = false,
+  beforeRepair = '',
 } = {}) {
   // Keep all endowments inside the VM: hardening a host console can freeze
   // the Jest worker's prototypes and break later suites in the same process.
@@ -33,6 +34,7 @@ function createRuntime({
   if (rawMode && enabled !== undefined) {
     context.process.env.ONEKEY_MOBILE_LOCKDOWN = enabled;
   }
+  if (beforeRepair) vm.runInContext(beforeRepair, context);
   if (repair) {
     getMobileLockdownPolyfills().forEach((filename) => {
       vm.runInContext(fs.readFileSync(filename, 'utf8'), context);
@@ -59,6 +61,34 @@ function createRuntime({
 }
 
 describe('mobile lockdown bootstrap', () => {
+  test.each([true, false])(
+    'preserves the Hermes native stack formatter: custom=%s',
+    (custom) => {
+      const context = createRuntime({
+        beforeRepair: `
+      globalThis.HermesInternal = {};
+      ${custom ? `Error.prepareStackTrace = function (error) { return String(error) + '\\n    at fixture (address at main.jsbundle:1:42)'; };` : ''}
+      globalThis.nativePrepare = Error.prepareStackTrace;
+    `,
+      });
+      context.exports.finishMobileLockdown('main');
+      expect(
+        vm.runInContext('Error.prepareStackTrace === nativePrepare', context),
+      ).toBe(true);
+      const stack = vm.runInContext(
+        'new Error("public stack fixture").stack',
+        context,
+      );
+      expect(stack).toContain('public stack fixture');
+      if (custom) expect(stack).toContain('address at main.jsbundle:1:42');
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Error.prototype) && Object.isFrozen(Promise.prototype)',
+          context,
+        ),
+      ).toBe(true);
+    },
+  );
   const originalMode = process.env.ONEKEY_MOBILE_LOCKDOWN;
   // Jest's console functions may originate in the worker realm rather than
   // this suite's realm. Check both sets of prototypes for cross-realm damage.

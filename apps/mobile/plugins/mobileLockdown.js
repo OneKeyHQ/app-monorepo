@@ -27,7 +27,6 @@ function isMobileLockdownEnabled(env = process.env) {
 function applyMobileLockdownConfig(config) {
   const enabled = isMobileLockdownEnabled();
   config.cacheVersion = `${config.cacheVersion || 'default'}:mobile-lockdown-${enabled ? 'on' : 'off'}`;
-  config.cacheVersion += `:mobile-ses-acceptance-${process.env.ONEKEY_MOBILE_SES_ACCEPTANCE === 'true' ? 'on' : 'off'}`;
   if (!enabled) return config;
 
   // Resolve SES from the adapter's dependency tree. The web hardening runtime
