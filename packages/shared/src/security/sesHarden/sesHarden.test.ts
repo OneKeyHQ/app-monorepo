@@ -102,6 +102,31 @@ test.each(['main', 'background'] as const)(
   },
 );
 
+test.each(['main', 'background'] as const)(
+  'mobile %s reports the browser-only IndexedDB probe as not applicable',
+  async (runtime) => {
+    const g = globalThis as unknown as ISesHardenGlobal;
+    try {
+      g.__ONEKEY_MOBILE_LOCKDOWN_STATE__ = {
+        enabled: false,
+        runtime,
+        lockdownApplied: false,
+      };
+      const report = await buildSesRuntimeCheckReport();
+      expect(
+        report.checks.find(
+          (check) => check.name === 'IndexedDB transaction shim',
+        ),
+      ).toMatchObject({
+        status: 'info',
+        detail: expect.stringContaining('Native mobile uses Realm storage'),
+      });
+    } finally {
+      delete g.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
+    }
+  },
+);
+
 test('keeps L0 as no-lockdown', () => {
   const state = maybeLockdownOneKeyRuntime({
     runtime: 'web',

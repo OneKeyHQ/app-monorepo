@@ -778,6 +778,14 @@ function runIndexedDbTransactionShimCheck(
 ): ISesRuntimeCheckItem {
   const purpose =
     '验证 IndexedDB 写事务磁盘空间检查 wrapper 已在 harden 前安装。';
+  if (runtime === 'mobile-main' || runtime === 'mobile-background') {
+    return buildInfoCheck(
+      'IndexedDB transaction shim',
+      'functionality',
+      purpose,
+      `Native mobile uses Realm storage, not IndexedDB; runtime=${runtime}`,
+    );
+  }
   const dbCtor = getGlobalRecord().IDBDatabase as
     | { prototype?: Record<PropertyKey, unknown> }
     | undefined;
