@@ -603,12 +603,11 @@ export function NativeHistoryList(
             });
             const badge = addressesInfo[addressKey];
             const localLabel = badge?.label || localLabels?.[addressKey];
-            let description = model.row.description;
-            if (localLabel) {
-              description = model.row.description?.includes(' • ')
-                ? `${model.row.description.split(' • ')[0]} • ${localLabel}`
-                : localLabel;
-            }
+            // A label replaces the address part and keeps the text in front
+            // of it; the label itself may hold any characters.
+            const description = localLabel
+              ? `${model.descriptionPrefix}${localLabel}`
+              : model.row.description;
             const info =
               networkData?.[
                 JSON.stringify([
@@ -748,6 +747,9 @@ export function NativeHistoryList(
               sectionKey,
               description,
               descriptionActionKey: badge ? 'address-info' : undefined,
+              descriptionActionStart: badge
+                ? model.descriptionPrefix.length
+                : undefined,
               footerActions: pendingActions.get(history.id),
               fee: tableLayout
                 ? {

@@ -28,11 +28,14 @@ let mockStatus = 'confirmed';
 let mockRootLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockNativeListMounts = 0;
 const mockTriggerRefresh = jest.fn();
+let mockAddressesInfo: Record<string, { label?: string }> = {};
+let mockRowModel: {
+  address: string;
+  descriptionPrefix: string;
+  row: { key: string; type: string; description?: string };
+};
 const mockBuildHistoryActivityRow = jest.fn(
-  (_params: { hideValue: boolean; tableLayout?: boolean }) => ({
-    address: '',
-    row: { key: 'test-tx', type: 'activity' },
-  }),
+  (_params: { hideValue: boolean; tableLayout?: boolean }) => mockRowModel,
 );
 const mockGetVaultSettings = jest.fn<
   Promise<{ hideFeeInfoInHistoryList: boolean }>,
@@ -102,6 +105,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getVaultSettings: (...args: unknown[]) => mockGetVaultSettings(...args),
     },
     serviceToken: { getNativeToken: async () => ({ symbol: 'FIL' }) },
+    serviceAccountProfile: { queryAddress: async () => ({}) },
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
@@ -129,7 +133,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/historyList', () => ({
   useSearchKeyAtom: () => [''],
-  useAddressesInfoAtom: () => [{}],
+  useAddressesInfoAtom: () => [mockAddressesInfo],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ currencyInfo: { symbol: '$' } }],
@@ -209,6 +213,12 @@ beforeEach(() => {
   mockStatus = 'confirmed';
   mockRootLayout = undefined;
   mockNativeListMounts = 0;
+  mockAddressesInfo = {};
+  mockRowModel = {
+    address: '',
+    descriptionPrefix: '',
+    row: { key: 'test-tx', type: 'activity' },
+  };
   mockTriggerRefresh.mockClear();
   mockBuildHistoryActivityRow.mockClear();
   mockGetVaultSettings.mockResolvedValue({ hideFeeInfoInHistoryList: false });
@@ -416,3 +426,48 @@ it.each([true, false])(
     expect(fee()?.hidden).toBe(hidden);
   },
 );
+
+// The address part of the description opens the address sheet. NativeList is
+// told where that part starts and never reads it out of the string, so a
+// label holding the separator the time uses stays one tappable label.
+it('states where the description action starts instead of leaving it to the separator', () => {
+  const activityRow = () =>
+    mockSnapshot.rows.find((row) => row.type === 'activity') as {
+      description?: string;
+      descriptionActionKey?: string;
+      descriptionActionStart?: number;
+    };
+
+  mockRowModel = {
+    address: '0xrouter',
+    descriptionPrefix: '08:48 • ',
+    row: { key: 'test-tx', type: 'activity', description: '08:48 • 0x12…ab' },
+  };
+  mockAddressesInfo = { 'test-address': { label: 'Router • V2' } };
+  const { rerender } = render(<NativeHistoryList {...baseProps} />);
+  expect(activityRow()).toMatchObject({
+    description: '08:48 • Router • V2',
+    descriptionActionKey: 'address-info',
+    descriptionActionStart: 8,
+  });
+
+  // Phone rows carry no time: the whole label is the action.
+  mockRowModel = {
+    address: '0xrouter',
+    descriptionPrefix: '',
+    row: { key: 'test-tx', type: 'activity', description: '0x12…ab' },
+  };
+  rerender(<NativeHistoryList {...baseProps} data={[{ ...history }]} />);
+  expect(activityRow()).toMatchObject({
+    description: 'Router • V2',
+    descriptionActionKey: 'address-info',
+    descriptionActionStart: 0,
+  });
+
+  // Without address info there is no action and no start.
+  mockAddressesInfo = {};
+  rerender(<NativeHistoryList {...baseProps} data={[{ ...history }]} />);
+  expect(activityRow().description).toBe('0x12…ab');
+  expect(activityRow().descriptionActionKey).toBeUndefined();
+  expect(activityRow().descriptionActionStart).toBeUndefined();
+});
