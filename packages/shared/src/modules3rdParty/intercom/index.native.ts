@@ -40,6 +40,8 @@ let activeSessionGeneration = 0;
 let sessionGeneration = 0;
 let unreadRequestId = 0;
 let unreadCount = 0;
+// False until the first sync: until then 0 means "not loaded yet".
+let unreadCountKnown = false;
 let currentTheme: IIntercomThemeMode = defaultColorScheme;
 let unreadPollTimer: ReturnType<typeof setInterval> | undefined;
 let messengerLocked = false;
@@ -73,10 +75,13 @@ function canUseNativeSdk() {
 
 function setUnreadCount(count: number) {
   unreadCount = count;
+  unreadCountKnown = true;
   unreadListeners.forEach((listener) => listener());
 }
 
 export const getIntercomUnreadCount = () => unreadCount;
+
+export const isIntercomUnreadCountKnown = () => unreadCountKnown;
 
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   unreadListeners.add(listener);

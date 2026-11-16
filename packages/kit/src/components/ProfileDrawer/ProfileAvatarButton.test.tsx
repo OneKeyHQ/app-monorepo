@@ -8,9 +8,7 @@ import { render, screen } from '@testing-library/react';
 
 import ProfileAvatarButton from './ProfileAvatarButton';
 
-let mockNotificationDot = false;
-let mockSupportUnread = 0;
-let mockUpdateDot = false;
+let mockReasons: string[] = [];
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -37,12 +35,11 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('../MoreActionButton', () => ({
   MoreActionProvider: ({ children }: { children?: ReactNode }) => children,
   HomeFirmwareUpdateDetectHost: () => null,
-  useIsShowRedDot: () => mockNotificationDot,
-  useIsShowAppUpdateDot: () => mockUpdateDot,
+  useWalletMetaSilentRepair: () => undefined,
 }));
 
-jest.mock('../../hooks/useIntercomUnreadCount', () => ({
-  useIntercomUnreadCount: () => mockSupportUnread,
+jest.mock('./useProfileDrawerMarks', () => ({
+  useProfileDrawerMarks: () => ({ avatarReasons: mockReasons }),
 }));
 
 jest.mock('../OneKeyIdAvatar', () => ({
@@ -68,18 +65,16 @@ function dotColor() {
 
 describe('ProfileAvatarButton', () => {
   beforeEach(() => {
-    mockNotificationDot = false;
-    mockSupportUnread = 0;
-    mockUpdateDot = false;
+    mockReasons = [];
   });
 
-  it('shows no mark when nothing waits', () => {
+  it('shows no mark when nothing is new', () => {
     render(<ProfileAvatarButton />);
     expect(dotColor()).toBeUndefined();
   });
 
-  it('marks unread notifications in red and names them', () => {
-    mockNotificationDot = true;
+  it('marks new notifications in red and names them', () => {
+    mockReasons = ['notifications'];
     render(<ProfileAvatarButton />);
     expect(dotColor()).toBe('$bgCriticalStrong');
     expect(
@@ -87,19 +82,14 @@ describe('ProfileAvatarButton', () => {
     ).toBe('address_book.menu_title, global.notifications');
   });
 
-  it('marks a support reply in red', () => {
-    mockSupportUnread = 2;
+  it('marks a new firmware version in the same red and names it', () => {
+    mockReasons = ['support', 'firmware'];
     render(<ProfileAvatarButton />);
     expect(dotColor()).toBe('$bgCriticalStrong');
-  });
-
-  it('marks an update in green only when nothing is unread', () => {
-    mockUpdateDot = true;
-    const { unmount } = render(<ProfileAvatarButton />);
-    expect(dotColor()).toBe('$bgAccent');
-    unmount();
-    mockNotificationDot = true;
-    render(<ProfileAvatarButton />);
-    expect(dotColor()).toBe('$bgCriticalStrong');
+    expect(
+      screen.getByTestId('home-profile-avatar').getAttribute('aria-label'),
+    ).toBe(
+      'address_book.menu_title, settings.contact_us, update.firmware_available',
+    );
   });
 });

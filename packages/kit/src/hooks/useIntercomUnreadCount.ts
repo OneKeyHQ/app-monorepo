@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 import {
   getIntercomUnreadCount,
+  isIntercomUnreadCountKnown,
   subscribeToIntercomUnreadCount,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
@@ -11,5 +12,14 @@ export function useIntercomUnreadCount() {
     subscribeToIntercomUnreadCount,
     getIntercomUnreadCount,
     getIntercomUnreadCount,
+  );
+}
+
+// Whether the count above has synced at least once this launch.
+export function useIsIntercomUnreadCountKnown() {
+  return useSyncExternalStore(
+    subscribeToIntercomUnreadCount,
+    isIntercomUnreadCountKnown,
+    isIntercomUnreadCountKnown,
   );
 }

@@ -43,12 +43,18 @@ export const setIntercomInAppMessageVisibility = async (visible: boolean) => {
   }
 };
 
+// False until the first sync: until then 0 means "not loaded yet".
+let intercomUnreadCountKnown = false;
+
 function setUnreadCount(count: number) {
   intercomUnreadCount = count;
+  intercomUnreadCountKnown = true;
   unreadCountListeners.forEach((listener) => listener());
 }
 
 export const getIntercomUnreadCount = () => intercomUnreadCount;
+
+export const isIntercomUnreadCountKnown = () => intercomUnreadCountKnown;
 
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   unreadCountListeners.add(listener);

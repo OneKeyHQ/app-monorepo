@@ -974,6 +974,12 @@ const useIsShowWalletXfpStatus = () => {
   );
 };
 
+// The phone home avatar no longer reads the update dot; this keeps the silent
+// wallet-metadata repair that dot used to start.
+export function useWalletMetaSilentRepair() {
+  useIsShowWalletXfpStatus();
+}
+
 // TODO: Handle potential duplicate update detection requests
 // This component may trigger multiple update checks simultaneously
 // Deduplicate or throttle API requests.

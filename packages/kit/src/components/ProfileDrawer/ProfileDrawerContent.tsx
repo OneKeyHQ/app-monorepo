@@ -5,8 +5,6 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Button,
-  Divider,
   Icon,
   ScrollView,
   SizableText,
@@ -15,18 +13,12 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IProfileDrawerItem } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/profileDrawer';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalSettingRoutes,
-  ESettingsTabNames,
-  ETabDeveloperRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -34,26 +26,26 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useIntercomUnreadCount } from '../../hooks/useIntercomUnreadCount';
 import { useOnLock } from '../../hooks/useOnLock';
 import { useReferFriends } from '../../hooks/useReferFriends';
-import { useShowAddressBook } from '../../hooks/useShowAddressBook';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useHomeTokenListSnapshot } from '../../states/jotai/contexts/tokenList/cells';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
-import { logSettingCategoryOpened } from '../../views/Setting/pages/Tab/settingsAnalytics';
 import { AccountAvatar } from '../AccountAvatar';
-import { AccountSelectorActiveAccountHome } from '../AccountSelector/AccountSelectorActiveAccount';
 import { useAccountSelectorTrigger } from '../AccountSelector/hooks/useAccountSelectorTrigger';
-import { MoreActionProvider, UpdateReminders } from '../MoreActionButton';
+import { MoreActionProvider } from '../MoreActionButton';
 import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
+import { useReviewControl } from '../ReviewControl';
 
 import {
   closeProfileDrawer,
   useIsProfileDrawerOpen,
 } from './profileDrawerStore';
+import { useProfileDrawerMarks } from './useProfileDrawerMarks';
+
+import type { IProfileDrawerAppUpdate } from './profileDrawerMarks';
 
 const LazyPrimeUserBadge = lazy(async () => {
   const { PrimeUserBadge } =
@@ -63,8 +55,17 @@ const LazyPrimeUserBadge = lazy(async () => {
 
 const ROW_PRESS_STYLE = { bg: '$bgActive' } as const;
 const NOTIFICATION_COUNT_CAP = 99;
-// Native development opens Developer from this drawer, as from the More page.
-const showDevModeEntry = platformEnv.isDev && platformEnv.isNative;
+
+// On iOS a CJK label (PingFang glyphs inside the brand font's line box) sits
+// about 0.8pt above the icon's center while Latin labels sit centered;
+// 2/3pt is two device pixels at 3x.
+const CJK_PATTERN = /[⺀-鿿가-힯豈-﫿]/;
+const CJK_LABEL_NUDGE = 2 / 3;
+function labelNudge(text: string) {
+  return platformEnv.isNativeIOS && CJK_PATTERN.test(text)
+    ? CJK_LABEL_NUDGE
+    : 0;
+}
 
 function isTravelModeActive() {
   return (
@@ -75,39 +76,50 @@ function isTravelModeActive() {
 function DrawerRow({
   icon,
   label,
+  item,
   trackID,
   onPress,
-  detail,
-  detailCritical,
+  badge,
   trailing,
+  ariaNote,
   disabled,
+  subdued = false,
   testID,
 }: {
   icon: IKeyOfIcons;
   label: string;
+  item: IProfileDrawerItem;
   trackID: string;
   onPress: () => void;
-  detail?: string;
-  detailCritical?: boolean;
+  // Sits right after the label, unlike trailing at the far end.
+  badge?: ReactNode;
   trailing?: ReactNode;
+  // What a trailing dot means, for screen readers.
+  ariaNote?: string;
   disabled?: boolean;
+  subdued?: boolean;
   testID?: string;
 }) {
+  const hadMark = !!badge || !!trailing;
   const handlePress = useCallback(() => {
     if (disabled) return;
     defaultLogger.ui.button.click({ trackId: trackID });
+    defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
+      item,
+      hadMark,
+    });
     onPress();
-  }, [disabled, onPress, trackID]);
+  }, [disabled, hadMark, item, onPress, trackID]);
   return (
     <XStack
       testID={testID}
       role="button"
-      aria-label={detail ? `${label}, ${detail}` : label}
+      aria-label={ariaNote ? `${label}, ${ariaNote}` : label}
       aria-disabled={disabled}
-      minHeight={44}
+      minHeight={56}
       mx="$-3"
       px="$3"
-      py="$2.5"
+      py="$2"
       gap="$3"
       alignItems="center"
       borderRadius="$3"
@@ -116,25 +128,22 @@ function DrawerRow({
       pressStyle={disabled ? undefined : ROW_PRESS_STYLE}
       onPress={handlePress}
     >
-      <Icon name={icon} size="$6" color="$icon" />
-      <SizableText
-        flex={1}
-        size="$bodyLgMedium"
-        color="$text"
-        numberOfLines={1}
-      >
-        {label}
-      </SizableText>
-      {detail ? (
+      <Icon name={icon} size="$6" color={subdued ? '$iconSubdued' : '$icon'} />
+      <XStack flexShrink={1} alignItems="center" gap="$2">
+        {/* With a badge, the row name keeps its width and the badge gives
+            way, so long translations cut the badge, not the name. */}
         <SizableText
-          size="$bodyMd"
-          color={detailCritical ? '$textCritical' : '$textSubdued'}
+          flexShrink={badge ? 0 : 1}
+          size="$headingLg"
+          color={subdued ? '$textSubdued' : '$text'}
           numberOfLines={1}
-          maxWidth="50%"
+          y={labelNudge(label)}
         >
-          {detail}
+          {label}
         </SizableText>
-      ) : null}
+        {badge}
+      </XStack>
+      <Stack flex={1} />
       {trailing}
     </XStack>
   );
@@ -144,24 +153,95 @@ function UnreadDot() {
   return <Stack w="$2" h="$2" borderRadius="$full" bg="$bgCriticalStrong" />;
 }
 
+// A soft count beside the label, so it doesn't pull the eye across the
+// whole drawer.
 function NotificationCount({ count }: { count?: number }) {
   if (!count) return <UnreadDot />;
   return (
     <XStack
-      minWidth="$4"
-      h="$4"
-      px="$1"
+      minWidth="$5"
+      h="$5"
+      px="$2"
       borderRadius="$full"
-      bg="$bgCriticalStrong"
+      bg="$bgCriticalSubdued"
       alignItems="center"
       justifyContent="center"
     >
-      <SizableText size="$bodySmMedium" color="$textOnColor">
+      <SizableText size="$bodySmMedium" color="$textCritical">
         {count > NOTIFICATION_COUNT_CAP
           ? `${NOTIFICATION_COUNT_CAP}+`
           : String(count)}
       </SizableText>
     </XStack>
+  );
+}
+
+// The count's pill in the success tone, with words: an update is a status to
+// act on, not something unread.
+const UPDATE_PILL_LABEL_IDS: Record<IProfileDrawerAppUpdate, ETranslations> = {
+  available: ETranslations.hardware_status_update_available,
+  updating: ETranslations.global_updating,
+  failed: ETranslations.global_update_failed,
+};
+
+// The count's pill in the success tone, with words: an update is a status to
+// act on, not something unread. A failed download turns critical.
+function UpdatePill({ label, failed }: { label: string; failed?: boolean }) {
+  return (
+    <XStack
+      h="$5"
+      px="$2"
+      flexShrink={1}
+      minWidth={0}
+      borderRadius="$full"
+      bg={failed ? '$bgCriticalSubdued' : '$bgSuccessSubdued'}
+      alignItems="center"
+      justifyContent="center"
+    >
+      <SizableText
+        size="$bodySmMedium"
+        color={failed ? '$textCritical' : '$textSuccess'}
+        numberOfLines={1}
+      >
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function DrawerHeaderButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+  testID,
+}: {
+  icon: IKeyOfIcons;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  testID: string;
+}) {
+  return (
+    <Stack
+      testID={testID}
+      role="button"
+      aria-label={label}
+      aria-disabled={disabled}
+      w="$9"
+      h="$9"
+      borderRadius="$full"
+      bg="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+      // The 36 circle reaches 44 under a finger.
+      hitSlop={4}
+      opacity={disabled ? 0.5 : 1}
+      pressStyle={disabled ? undefined : { bg: '$bgStrongActive' }}
+      onPress={disabled ? undefined : onPress}
+    >
+      <Icon name={icon} size="$6" color="$icon" />
+    </Stack>
   );
 }
 
@@ -172,9 +252,12 @@ function DrawerScanButton() {
   } = useActiveAccount({ num: 0 });
   const { tokens, keys, map } = useHomeTokenListSnapshot();
   const scanQrCode = useScanQrCodeLazy();
-  const label = intl.formatMessage({ id: ETranslations.scan_scan_qr_code });
   const handleScan = useCallback(() => {
     defaultLogger.ui.button.click({ trackId: 'wallet-scan' });
+    defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
+      item: 'scan',
+      hadMark: false,
+    });
     closeProfileDrawer();
     void scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
@@ -185,26 +268,43 @@ function DrawerScanButton() {
     });
   }, [account, keys, map, network, scanQrCode, tokens]);
   return (
-    <Stack
+    <DrawerHeaderButton
       testID="profile-drawer-scan"
-      role="button"
-      aria-label={label}
-      w="$9"
-      h="$9"
-      borderRadius="$full"
-      bg="$bgStrong"
-      alignItems="center"
-      justifyContent="center"
-      // The 36 circle reaches 44 under a finger.
-      hitSlop={4}
-      pressStyle={{ bg: '$bgStrongActive' }}
+      icon="ScanOutline"
+      label={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
       onPress={handleScan}
-    >
-      <Icon name="ScanOutline" size="$6" color="$icon" />
-    </Stack>
+    />
   );
 }
 
+// Lock sits beside scan: both are one-tap actions, and the bottom of the
+// drawer stays free for support.
+function DrawerLockButton() {
+  const intl = useIntl();
+  const onLock = useOnLock();
+  const isTravelMode = isTravelModeActive();
+  const handleLock = useCallback(() => {
+    defaultLogger.ui.button.click({ trackId: 'wallet-lock-now' });
+    defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
+      item: 'lock',
+      hadMark: false,
+    });
+    closeProfileDrawer();
+    void onLock();
+  }, [onLock]);
+  return (
+    <DrawerHeaderButton
+      testID="profile-drawer-lock"
+      icon="LockOutline"
+      label={intl.formatMessage({ id: ETranslations.settings_lock_now })}
+      disabled={isTravelMode}
+      onPress={handleLock}
+    />
+  );
+}
+
+// The person on top (the same avatar the home button shows): a nickname, or
+// a plain sign-in line when signed out.
 function DrawerIdentity() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -218,102 +318,114 @@ function DrawerIdentity() {
   }, [isLoggedIn]);
 
   const handleOneKeyId = useCallback(() => {
+    if (!isLoggedIn && isTravelMode) return;
     defaultLogger.ui.button.click({ trackId: 'wallet-onekey-id' });
-    closeProfileDrawer();
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.OneKeyId,
+    defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
+      item: isLoggedIn ? 'oneKeyId' : 'signIn',
+      hadMark: false,
     });
-  }, [navigation]);
-
-  const handleLogin = useCallback(() => {
-    if (isTravelMode) return;
-    defaultLogger.ui.button.click({ trackId: 'wallet-onekey-id' });
     closeProfileDrawer();
+    if (isLoggedIn) {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.OneKeyId,
+      });
+      return;
+    }
     void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
-  }, [isTravelMode, loginOneKeyId]);
+  }, [isLoggedIn, isTravelMode, loginOneKeyId, navigation]);
 
-  if (!isLoggedIn) {
-    return (
-      <YStack gap="$3">
-        <XStack alignItems="center" justifyContent="space-between">
+  const signIn = intl.formatMessage({
+    id: ETranslations.sign_in_to_onekey_id__title,
+  });
+  const name = user?.nickname || 'OneKey ID';
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const signInDisabled = !isLoggedIn && isTravelMode;
+  const label = isLoggedIn ? `${name}, OneKey ID` : signIn;
+
+  return (
+    <YStack gap="$3">
+      <XStack alignItems="flex-start" justifyContent="space-between">
+        <Stack
+          role="button"
+          aria-label={label}
+          aria-disabled={signInDisabled}
+          hitSlop={4}
+          pressStyle={{ opacity: 0.7 }}
+          onPress={handleOneKeyId}
+        >
           <OneKeyIdAvatar size="$14" showSocialBadge={false} />
+        </Stack>
+        {/* 12 apart: a mis-tap on lock costs a password, so the two 44pt
+            touch areas must not meet. */}
+        <XStack gap="$3">
+          <DrawerLockButton />
           <DrawerScanButton />
         </XStack>
-        <Button
-          testID="profile-drawer-sign-in"
+      </XStack>
+      {isLoggedIn ? (
+        <XStack
+          testID="profile-drawer-onekey-id"
+          role="button"
+          aria-label={label}
           alignSelf="flex-start"
-          size="medium"
-          variant="primary"
-          disabled={isTravelMode}
-          onPress={handleLogin}
+          maxWidth="100%"
+          alignItems="center"
+          gap="$2"
+          py="$1"
+          hitSlop={8}
+          pressStyle={{ opacity: 0.6 }}
+          onPress={handleOneKeyId}
         >
-          {intl.formatMessage({
-            id: ETranslations.sign_in_to_onekey_id__title,
-          })}
-        </Button>
-      </YStack>
-    );
-  }
-
-  const name = user?.nickname || 'OneKey ID';
-  const email = user?.displayEmail?.trim();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
-  return (
-    <XStack alignItems="flex-start" justifyContent="space-between" gap="$2">
-      <YStack
-        testID="profile-drawer-onekey-id"
-        role="button"
-        aria-label={[name, email, 'OneKey ID'].filter(Boolean).join(', ')}
-        flex={1}
-        minWidth={0}
-        gap="$3"
-        p="$2"
-        m="$-2"
-        borderRadius="$4"
-        borderCurve="continuous"
-        pressStyle={ROW_PRESS_STYLE}
-        onPress={handleOneKeyId}
-      >
-        <OneKeyIdAvatar size="$14" showSocialBadge={false} />
-        <XStack alignItems="center" gap="$2">
-          <YStack flex={1} minWidth={0} gap="$1">
-            <XStack alignItems="center" gap="$1.5" minWidth={0}>
-              <SizableText
-                size="$headingLg"
-                color="$text"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {name}
-              </SizableText>
-              {isPrimeUser ? (
-                <Suspense fallback={null}>
-                  <LazyPrimeUserBadge showFreeStatus={false} />
-                </Suspense>
-              ) : null}
-            </XStack>
-            {email ? (
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {email}
-              </SizableText>
-            ) : null}
-          </YStack>
+          <SizableText
+            size="$heading3xl"
+            color="$text"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {name}
+          </SizableText>
+          {isPrimeUser ? (
+            <Suspense fallback={null}>
+              <LazyPrimeUserBadge showFreeStatus={false} />
+            </Suspense>
+          ) : null}
+        </XStack>
+      ) : (
+        <XStack
+          testID="profile-drawer-sign-in"
+          role="button"
+          aria-label={label}
+          aria-disabled={signInDisabled}
+          alignSelf="flex-start"
+          alignItems="center"
+          gap="$1"
+          py="$1"
+          hitSlop={8}
+          opacity={signInDisabled ? 0.5 : 1}
+          pressStyle={signInDisabled ? undefined : { opacity: 0.6 }}
+          onPress={handleOneKeyId}
+        >
+          <SizableText
+            size="$bodyLgMedium"
+            color="$text"
+            y={labelNudge(signIn)}
+          >
+            {signIn}
+          </SizableText>
           <Icon
             name="ChevronRightSmallOutline"
             size="$5"
             color="$iconSubdued"
           />
         </XStack>
-      </YStack>
-      <DrawerScanButton />
-    </XStack>
+      )}
+    </YStack>
   );
 }
 
+// The account as the list's first row: its avatar in the icon slot and ⌄,
+// because it switches rather than navigates. The wallet name and copying
+// live in the account selector and on the home Receive button.
 function DrawerAccountRow() {
   const intl = useIntl();
   const {
@@ -340,17 +452,18 @@ function DrawerAccountRow() {
     wallet,
     account,
   });
-  const isNotBackedUp = wallet?.type === WALLET_TYPE_HD && !wallet.backuped;
   const title = hasNoUsableWallet
     ? intl.formatMessage({
         id: ETranslations.onboarding_create_or_import_wallet,
       })
     : accountName || intl.formatMessage({ id: ETranslations.no_account });
-  // Every wallet has an "Account #1"; the wallet name tells them apart, and
-  // All Networks has no single address to show.
-  const subtitle = hasNoUsableWallet ? undefined : wallet?.name;
+  const walletName = hasNoUsableWallet ? undefined : wallet?.name;
 
   const handlePress = useCallback(() => {
+    defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
+      item: 'account',
+      hadMark: false,
+    });
     closeProfileDrawer();
     showAccountSelector();
   }, [showAccountSelector]);
@@ -359,7 +472,7 @@ function DrawerAccountRow() {
     <XStack
       testID="profile-drawer-account"
       role="button"
-      aria-label={[title, subtitle].filter(Boolean).join(', ')}
+      aria-label={[title, walletName].filter(Boolean).join(', ')}
       minHeight={56}
       mx="$-3"
       px="$3"
@@ -372,50 +485,26 @@ function DrawerAccountRow() {
       onPress={handlePress}
     >
       {hasNoUsableWallet ? (
-        <Stack
-          w="$8"
-          h="$8"
-          borderRadius="$2"
-          bg="$bgStrong"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon name="PlusLargeOutline" size="$5" color="$icon" />
-        </Stack>
+        <Icon name="PlusLargeOutline" size="$6" color="$icon" />
       ) : (
         <AccountAvatar
-          size="medium"
-          borderRadius="$2"
+          size="small"
           indexedAccount={indexedAccount}
           account={account}
           dbAccount={dbAccount}
           wallet={wallet}
         />
       )}
-      <YStack flex={1} minWidth={0}>
-        <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
-          {title}
-        </SizableText>
-        {subtitle ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {subtitle}
-          </SizableText>
-        ) : null}
-      </YStack>
-      {hasNoUsableWallet || isNotBackedUp ? null : (
-        // Copies like the old home header: All Networks opens the address
-        // list, hardware wallets verify on the device.
-        <Stack p="$1.5">
-          <AccountSelectorActiveAccountHome
-            num={0}
-            showAccountAddress={false}
-            showCopyButton
-            showCreateAddressButton={false}
-            showNoAddressTip={false}
-          />
-        </Stack>
-      )}
-      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      <SizableText
+        size="$headingLg"
+        color="$text"
+        numberOfLines={1}
+        flexShrink={1}
+        y={labelNudge(title)}
+      >
+        {title}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
@@ -426,17 +515,19 @@ function ProfileDrawerBody() {
   const navigation = useAppNavigation();
   const isOpen = useIsProfileDrawerOpen();
   const isTravelMode = isTravelModeActive();
-  const onLock = useOnLock();
   const { pushToDeviceList } = useDeviceManagerNavigation();
-  const onPressAddressBook = useShowAddressBook({ useNewModal: true });
-  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
-  const { user, isPrimeActive } = useOneKeyAuth();
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Hidden in review builds, as on the More page.
+  const showRedeem = useReviewControl();
   const {
-    activeAccount: { wallet, network },
+    activeAccount: { network },
   } = useActiveAccount({ num: 0 });
-  const isNotBackedUp = wallet?.type === WALLET_TYPE_HD && !wallet.backuped;
+  const marks = useProfileDrawerMarks();
+  const updateAvailable = intl.formatMessage({
+    id: UPDATE_PILL_LABEL_IDS.available,
+  });
+  const appUpdateLabel = marks.appUpdate
+    ? intl.formatMessage({ id: UPDATE_PILL_LABEL_IDS[marks.appUpdate] })
+    : undefined;
   const beforeReferralNavigate = useCallback(async () => {
     closeProfileDrawer();
   }, []);
@@ -444,18 +535,6 @@ function ProfileDrawerBody() {
     isEntryActive: isOpen,
     beforeNavigate: beforeReferralNavigate,
   });
-
-  const openSettingsCategory = useCallback(
-    (category: ESettingsTabNames) => {
-      closeProfileDrawer();
-      logSettingCategoryOpened({ category, source: 'moreActions' });
-      navigation.pushModal(EModalRoutes.SettingModal, {
-        screen: EModalSettingRoutes.SettingListSubModal,
-        params: { name: category },
-      });
-    },
-    [navigation],
-  );
 
   const handlers = useMemo(
     () => ({
@@ -469,11 +548,6 @@ function ProfileDrawerBody() {
         closeProfileDrawer();
         void pushToDeviceList();
       },
-      backup: () => openSettingsCategory(ESettingsTabNames.Backup),
-      addressBook: () => {
-        closeProfileDrawer();
-        void onPressAddressBook(navigation);
-      },
       prime: () => {
         closeProfileDrawer();
         navigation.pushFullModal(EModalRoutes.PrimeModal, {
@@ -483,6 +557,16 @@ function ProfileDrawerBody() {
       },
       referral: () => {
         void toReferFriendsPage();
+      },
+      // The redemption center (not the Prime-only redeem in the Prime page
+      // menu); the More page was its only entry.
+      redeem: () => {
+        closeProfileDrawer();
+        void import('../../views/Redemption/components/RedemptionCenterDialog').then(
+          ({ showRedemptionCenterDialog }) => {
+            showRedemptionCenterDialog({ source: 'more_action' });
+          },
+        );
       },
       settings: () => {
         closeProfileDrawer();
@@ -494,36 +578,9 @@ function ProfileDrawerBody() {
         closeProfileDrawer();
         void showIntercom();
       },
-      lock: () => {
-        closeProfileDrawer();
-        void onLock();
-      },
-      devMode: () => {
-        closeProfileDrawer();
-        navigation.pushModal(EModalRoutes.DeveloperModal, {
-          screen: ETabDeveloperRoutes.TabDeveloper,
-        });
-      },
     }),
-    [
-      navigation,
-      network?.id,
-      onLock,
-      onPressAddressBook,
-      openSettingsCategory,
-      pushToDeviceList,
-      toReferFriendsPage,
-    ],
+    [navigation, network?.id, pushToDeviceList, toReferFriendsPage],
   );
-
-  const showNotificationMark = !firstTimeGuideOpened || !!badge;
-  const notificationCount = firstTimeGuideOpened ? badge : undefined;
-  const primeDetail = isPrimeUser
-    ? [
-        intl.formatMessage({ id: ETranslations.wallet_bulk_send_title }),
-        intl.formatMessage({ id: ETranslations.address_risk_check__title }),
-      ].join(' · ')
-    : intl.formatMessage({ id: ETranslations.global_learn_more });
 
   return (
     <ScrollView
@@ -541,25 +598,27 @@ function ProfileDrawerBody() {
       <YStack px="$5">
         <DrawerIdentity />
       </YStack>
-      <YStack mt="$4">
-        <UpdateReminders />
-      </YStack>
-      {/* Grows on tall screens so the last group sits at the bottom; on
-          short ones everything scrolls together. */}
-      <YStack px="$5" flexGrow={1}>
+      {/* Grows on tall screens so settings and support sit at the bottom;
+          on short ones everything scrolls together. */}
+      <YStack px="$5" mt="$6" flexGrow={1}>
         <DrawerAccountRow />
-        <Divider my="$2" />
         <DrawerRow
           testID="profile-drawer-notifications"
           icon="BellOutline"
           label={intl.formatMessage({ id: ETranslations.global_notifications })}
+          item="notifications"
           trackID="wallet-notifications"
           onPress={handlers.notifications}
           disabled={isTravelMode}
-          trailing={
-            showNotificationMark ? (
-              <NotificationCount count={notificationCount} />
+          badge={
+            marks.notifications ? (
+              <NotificationCount count={marks.notifications.count} />
             ) : null
+          }
+          ariaNote={
+            marks.notifications?.count
+              ? String(marks.notifications.count)
+              : undefined
           }
         />
         {isTravelMode ? null : (
@@ -567,44 +626,24 @@ function ProfileDrawerBody() {
             testID="profile-drawer-devices"
             icon="PhoneOutline"
             label={intl.formatMessage({ id: ETranslations.global_my_device })}
+            item="devices"
             trackID="wallet-device"
             onPress={handlers.devices}
+            badge={
+              marks.firmwareUpdate ? (
+                <UpdatePill label={updateAvailable} />
+              ) : null
+            }
+            ariaNote={marks.firmwareUpdate ? updateAvailable : undefined}
           />
         )}
-        <DrawerRow
-          testID="profile-drawer-backup"
-          icon="CloudUploadOutline"
-          label={intl.formatMessage({ id: ETranslations.global_backup })}
-          trackID="wallet-backup"
-          onPress={handlers.backup}
-          disabled={isTravelMode}
-          detail={
-            isNotBackedUp
-              ? intl.formatMessage({
-                  id: ETranslations.wallet_backup_status_not_backed_up,
-                })
-              : undefined
-          }
-          detailCritical
-        />
-        <DrawerRow
-          testID="profile-drawer-address-book"
-          icon="ContactsOutline"
-          label={intl.formatMessage({
-            id: ETranslations.settings_address_book,
-          })}
-          trackID="wallet-address-book"
-          onPress={handlers.addressBook}
-          disabled={isTravelMode}
-        />
-        <Divider my="$2" />
         <DrawerRow
           testID="profile-drawer-prime"
           icon="PrimeOutline"
           label="Prime"
+          item="prime"
           trackID="wallet-prime"
           onPress={handlers.prime}
-          detail={primeDetail}
         />
         <DrawerRow
           testID="profile-drawer-referral"
@@ -612,44 +651,55 @@ function ProfileDrawerBody() {
           label={intl.formatMessage({
             id: ETranslations.sidebar_refer_a_friend,
           })}
+          item="referral"
           trackID="wallet-referral"
           onPress={handlers.referral}
           disabled={isTravelMode || isReferralEntryPending}
         />
-        <Stack flexGrow={1} minHeight="$4" />
+        {showRedeem ? (
+          <DrawerRow
+            testID="profile-drawer-redeem"
+            icon="TicketOutline"
+            label={intl.formatMessage({ id: ETranslations.global_redeem })}
+            item="redeem"
+            trackID="wallet-redeem"
+            onPress={handlers.redeem}
+            disabled={isTravelMode}
+          />
+        ) : null}
+        <Stack flexGrow={1} minHeight="$6" />
         <DrawerRow
           testID="profile-drawer-settings"
           icon="SettingsOutline"
           label={intl.formatMessage({ id: ETranslations.settings_settings })}
+          item="settings"
           trackID="wallet-settings"
           onPress={handlers.settings}
+          subdued
+          badge={
+            appUpdateLabel ? (
+              <UpdatePill
+                label={appUpdateLabel}
+                failed={marks.appUpdate === 'failed'}
+              />
+            ) : null
+          }
+          ariaNote={appUpdateLabel}
         />
         <DrawerRow
           testID="profile-drawer-support"
           icon="HelpSupportOutline"
           label={intl.formatMessage({ id: ETranslations.settings_contact_us })}
+          item="support"
           trackID="wallet-customer-support"
           onPress={handlers.support}
           disabled={isTravelMode}
-          trailing={hasUnreadSupportMessages ? <UnreadDot /> : null}
+          subdued
+          badge={
+            marks.support ? <NotificationCount count={marks.support} /> : null
+          }
+          ariaNote={marks.support ? String(marks.support) : undefined}
         />
-        <DrawerRow
-          testID="profile-drawer-lock"
-          icon="LockOutline"
-          label={intl.formatMessage({ id: ETranslations.settings_lock_now })}
-          trackID="wallet-lock-now"
-          onPress={handlers.lock}
-          disabled={isTravelMode}
-        />
-        {showDevModeEntry ? (
-          <DrawerRow
-            testID="profile-drawer-dev-mode"
-            icon="CodeBracketsOutline"
-            label={intl.formatMessage({ id: ETranslations.global_dev_mode })}
-            trackID="wallet-dev-mode"
-            onPress={handlers.devMode}
-          />
-        ) : null}
       </YStack>
     </ScrollView>
   );

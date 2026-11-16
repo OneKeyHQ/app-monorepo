@@ -2,45 +2,40 @@ import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useIntercomUnreadCount } from '../../hooks/useIntercomUnreadCount';
 import {
   HomeFirmwareUpdateDetectHost,
   MoreActionProvider,
-  useIsShowAppUpdateDot,
-  useIsShowRedDot,
+  useWalletMetaSilentRepair,
 } from '../MoreActionButton';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 
 import { ProfileAvatarFrame } from './ProfileAvatarFrame';
+import { useProfileDrawerMarks } from './useProfileDrawerMarks';
+
+import type { IProfileDrawerAvatarReason } from './profileDrawerMarks';
 
 function ProfileAvatarWithDot() {
   const intl = useIntl();
-  // Notifications moved off the header into the drawer, so their unread mark
-  // joins Support replies on the avatar; updates show only when nothing is
-  // unread.
-  const hasUnreadNotifications = !!useIsShowRedDot();
-  const hasUnreadSupport = useIntercomUnreadCount() > 0;
-  const hasUpdate = !!useIsShowAppUpdateDot();
-  const unread = hasUnreadNotifications || hasUnreadSupport;
-  let dot: 'critical' | 'accent' | undefined;
-  if (unread) dot = 'critical';
-  else if (hasUpdate) dot = 'accent';
-  const menuLabel = intl.formatMessage({
-    id: ETranslations.address_book_menu_title,
-  });
+  // One red dot for anything new since the drawer was last open; the rows
+  // inside keep their own marks until handled.
+  const { avatarReasons } = useProfileDrawerMarks({ trackSeen: true });
+  useWalletMetaSilentRepair();
+  const reasonIds: Record<IProfileDrawerAvatarReason, ETranslations> = {
+    notifications: ETranslations.global_notifications,
+    support: ETranslations.settings_contact_us,
+    firmware: ETranslations.update_firmware_available,
+  };
   const label = [
-    menuLabel,
-    hasUnreadNotifications
-      ? intl.formatMessage({ id: ETranslations.global_notifications })
-      : undefined,
-    hasUnreadSupport
-      ? intl.formatMessage({ id: ETranslations.settings_contact_us })
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(', ');
+    intl.formatMessage({ id: ETranslations.address_book_menu_title }),
+    ...avatarReasons.map((reason) =>
+      intl.formatMessage({ id: reasonIds[reason] }),
+    ),
+  ].join(', ');
   return (
-    <ProfileAvatarFrame label={label} dot={dot}>
+    <ProfileAvatarFrame
+      label={label}
+      dot={avatarReasons.length ? 'critical' : undefined}
+    >
       <OneKeyIdAvatar size="$10" showSocialBadge={false} />
     </ProfileAvatarFrame>
   );
