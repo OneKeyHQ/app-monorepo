@@ -18,6 +18,7 @@ jest.mock('../states/jotai/atoms', () => ({
   perpsDepositOrderAtom: { get: async () => ({ orders: [] }) },
 }));
 
+import { convertHistoryTxsFiatCurrency } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
@@ -338,13 +339,20 @@ describe('ServiceHistory pending row confirmed after a currency switch', () => {
     cny: { id: 'cny', value: '7' },
   } as unknown as Record<string, ICurrencyItem>;
 
-  function pendingRow(fiatCurrency?: string) {
+  // Sent with an estimated fee of 0.002 priced at 1, unless `fee` says
+  // otherwise.
+  function pendingRow(
+    fiatCurrency?: string,
+    fee?: { totalFeeInNative: string | undefined },
+  ) {
     const base = row('evm--1', 'e1', { fiatCurrency });
     return {
       ...base,
       decodedTx: {
         ...base.decodedTx,
+        totalFeeInNative: '0.002',
         totalFeeFiatValue: '1',
+        ...fee,
         actions: [
           {
             type: EDecodedTxActionType.ASSET_TRANSFER,
@@ -364,7 +372,7 @@ describe('ServiceHistory pending row confirmed after a currency switch', () => {
   // the display currency already switched to CNY.
   async function confirm(
     pending: IAccountHistoryTx,
-    detail: { gasFeeFiatValue?: string },
+    detail: { gasFee?: string; gasFeeFiatValue?: string },
   ) {
     mockSettingsCurrencyId.mockReturnValueOnce('cny');
     const { service, fetchHistoryTxDetails } = createService();
@@ -407,9 +415,11 @@ describe('ServiceHistory pending row confirmed after a currency switch', () => {
     ).rejects.toBe(stop);
     const [tx] = confirmed;
     return {
+      tx,
       detailParams: fetchHistoryTxDetails.mock.calls[0][0],
       status: tx.decodedTx.status,
       fiatCurrency: tx.fiatCurrency,
+      feeInNative: tx.decodedTx.totalFeeInNative,
       fee: tx.decodedTx.totalFeeFiatValue,
       sendPrice: tx.decodedTx.actions[0].assetTransfer?.sends[0].price,
     };
@@ -449,6 +459,64 @@ describe('ServiceHistory pending row confirmed after a currency switch', () => {
       fiatCurrency: 'eur',
       fee: '1',
       sendPrice: '2',
+    });
+  });
+
+  it('prices the fee actually paid from the pending snapshot when a rate is unavailable', async () => {
+    // Estimated 0.001 for 1 EUR, paid 0.0002 which the detail prices at 2.8
+    // CNY. The saved row stays in EUR, so it cannot take the CNY value, and
+    // the estimate's 1 EUR is not the price of the fee paid either.
+    const result = await confirm(
+      pendingRow('eur', { totalFeeInNative: '0.001' }),
+      { gasFee: '0.0002', gasFeeFiatValue: '2.8' },
+    );
+    expect(result).toMatchObject({
+      status: EDecodedTxStatus.Confirmed,
+      fiatCurrency: 'eur',
+      feeInNative: '0.0002',
+      fee: '0.2',
+      sendPrice: '2',
+    });
+
+    // The saved row is read again once the EUR rate is back.
+    const [reread] = convertHistoryTxsFiatCurrency({
+      txs: [result.tx],
+      targetCurrency: 'cny',
+      currencyMap: {
+        ...currencyMap,
+        eur: { id: 'eur', value: '0.5' },
+      } as unknown as Record<string, ICurrencyItem>,
+      hideUnconvertible: true,
+    });
+    expect(reread).toMatchObject({
+      fiatCurrency: 'cny',
+      decodedTx: { totalFeeInNative: '0.0002', totalFeeFiatValue: '2.8' },
+    });
+  });
+
+  it('saves no fiat fee when the pending snapshot cannot price the fee paid', async () => {
+    const result = await confirm(
+      pendingRow('eur', { totalFeeInNative: undefined }),
+      { gasFeeFiatValue: '21' },
+    );
+    expect(result).toMatchObject({
+      fiatCurrency: 'eur',
+      feeInNative: '0.002',
+      sendPrice: '2',
+    });
+    expect(result.fee).toBeUndefined();
+  });
+
+  it('scales the pending fee to the fee paid when the detail carries no fiat fee', async () => {
+    const result = await confirm(
+      pendingRow('usd', { totalFeeInNative: '0.01' }),
+      {},
+    );
+    expect(result).toMatchObject({
+      fiatCurrency: 'cny',
+      feeInNative: '0.002',
+      fee: '1.4',
+      sendPrice: '14',
     });
   });
 

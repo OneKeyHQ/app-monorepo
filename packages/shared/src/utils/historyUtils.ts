@@ -504,6 +504,32 @@ export function convertHistoryTxsFiatCurrency({
   );
 }
 
+// A fee's fiat value belongs to the native fee it was priced with. When that
+// native fee is replaced (a pending row's estimate by the fee actually paid),
+// the fiat value is scaled by the same ratio and stays in its currency.
+// Without a usable ratio it is dropped: showing no fiat fee is better than
+// showing the fiat value of another fee.
+export function scaleFeeFiatValueToNativeFee({
+  feeFiatValue,
+  feeInNative,
+  nextFeeInNative,
+}: {
+  feeFiatValue: string | undefined;
+  feeInNative: string | undefined;
+  nextFeeInNative: string | undefined;
+}): string | undefined {
+  if (isNil(feeFiatValue) || feeInNative === nextFeeInNative) {
+    return feeFiatValue;
+  }
+  const fee = new BigNumber(feeInNative ?? NaN);
+  const nextFee = new BigNumber(nextFeeInNative ?? NaN);
+  if (fee.eq(nextFee)) {
+    return feeFiatValue;
+  }
+  const scaled = new BigNumber(feeFiatValue).times(nextFee).div(fee);
+  return fee.gt(0) && scaled.isFinite() ? scaled.toFixed() : undefined;
+}
+
 export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
   return (
     tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel >= TX_RISKY_LEVEL_SPAM

@@ -25,6 +25,7 @@ import {
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
   isHistoryCursorAdvanced,
+  scaleFeeFiatValueToNativeFee,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
@@ -1609,11 +1610,14 @@ class ServiceHistory extends ServiceBase {
             hideUnconvertible: false,
           });
         // This row is saved. With a rate missing it stays in its own currency
-        // and keeps its own fee instead of the detail fee, so the saved row
-        // still holds one currency and is converted on a later read.
+        // and takes no detail fiat fee, so the saved row still holds one
+        // currency and is converted on a later read.
         const isPendingTxInDetailCurrency =
           !pendingTxInDetailCurrency.fiatCurrency ||
           pendingTxInDetailCurrency.fiatCurrency === detailCurrency;
+        const confirmedFeeInNative = isNil(confirmedTx.data.gasFee)
+          ? localHistoryPendingTx.decodedTx.totalFeeInNative
+          : confirmedTx.data.gasFee;
         confirmedTxs.push({
           ...pendingTxInDetailCurrency,
           fiatCurrency: isPendingTxInDetailCurrency
@@ -1633,14 +1637,22 @@ class ServiceHistory extends ServiceBase {
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
-            totalFeeInNative: isNil(confirmedTx.data.gasFee)
-              ? localHistoryPendingTx.decodedTx.totalFeeInNative
-              : confirmedTx.data.gasFee,
+            totalFeeInNative: confirmedFeeInNative,
+            // A row that cannot take the detail fiat fee prices the fee
+            // actually paid from its own snapshot. The pending fiat value was
+            // priced with the estimated fee, so it is scaled to the paid one
+            // rather than saved as the fiat value of a fee it does not match.
             totalFeeFiatValue:
-              isNil(confirmedTx.data.gasFeeFiatValue) ||
-              !isPendingTxInDetailCurrency
-                ? pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue
-                : confirmedTx.data.gasFeeFiatValue,
+              isPendingTxInDetailCurrency &&
+              !isNil(confirmedTx.data.gasFeeFiatValue)
+                ? confirmedTx.data.gasFeeFiatValue
+                : scaleFeeFiatValueToNativeFee({
+                    feeFiatValue:
+                      pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue,
+                    feeInNative:
+                      localHistoryPendingTx.decodedTx.totalFeeInNative,
+                    nextFeeInNative: confirmedFeeInNative,
+                  }),
             isFinal: true,
           },
         });

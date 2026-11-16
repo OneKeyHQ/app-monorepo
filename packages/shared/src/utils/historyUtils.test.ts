@@ -8,6 +8,7 @@ import {
   convertHistoryTxsFiatCurrency,
   getOnChainHistoryTransferDisplayAddress,
   getUtxoHistoryDisplayValue,
+  scaleFeeFiatValueToNativeFee,
 } from './historyUtils';
 
 import type { ICurrencyItem } from '../../types/currency';
@@ -316,5 +317,71 @@ describe('convertHistoryTxsFiatCurrency', () => {
       receive: undefined,
       output: undefined,
     });
+  });
+});
+
+describe('scaleFeeFiatValueToNativeFee', () => {
+  it('scales the fiat value to the fee actually paid', () => {
+    // Estimated 0.001 for 1, paid 0.0002.
+    expect(
+      scaleFeeFiatValueToNativeFee({
+        feeFiatValue: '1',
+        feeInNative: '0.001',
+        nextFeeInNative: '0.0002',
+      }),
+    ).toBe('0.2');
+  });
+
+  it('keeps the fiat value when the native fee is the same amount', () => {
+    expect(
+      scaleFeeFiatValueToNativeFee({
+        feeFiatValue: '1',
+        feeInNative: '0.0010',
+        nextFeeInNative: '0.001',
+      }),
+    ).toBe('1');
+    // Neither side names a native fee: nothing was replaced.
+    expect(
+      scaleFeeFiatValueToNativeFee({
+        feeFiatValue: '1',
+        feeInNative: undefined,
+        nextFeeInNative: undefined,
+      }),
+    ).toBe('1');
+  });
+
+  it('prices a fee of zero at zero', () => {
+    expect(
+      scaleFeeFiatValueToNativeFee({
+        feeFiatValue: '1',
+        feeInNative: '0.001',
+        nextFeeInNative: '0',
+      }),
+    ).toBe('0');
+  });
+
+  it.each([
+    ['no estimated native fee', undefined, '0.0002'],
+    ['an estimated native fee of zero', '0', '0.0002'],
+    ['an unreadable estimated native fee', 'abc', '0.0002'],
+    ['an unreadable paid native fee', '0.001', ''],
+  ])('drops the fiat value with %s', (_name, feeInNative, nextFeeInNative) => {
+    expect(
+      scaleFeeFiatValueToNativeFee({
+        feeFiatValue: '1',
+        feeInNative,
+        nextFeeInNative,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('has nothing to scale without a fiat value', () => {
+    expect(
+      scaleFeeFiatValueToNativeFee({
+        feeFiatValue: undefined,
+        feeInNative: '0.001',
+        nextFeeInNative: '0.0002',
+      }),
+    ).toBeUndefined();
   });
 });
