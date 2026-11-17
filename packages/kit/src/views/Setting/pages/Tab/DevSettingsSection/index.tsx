@@ -1244,7 +1244,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery SesGallery SES lockdown harden AuthGallery KeylessWalletGallery StorageGallery CloudBackupGallery',
       },
       {
         key: 'account',
@@ -2011,9 +2011,7 @@ const BaseDevSettingsSection = () => {
                         onPress={async () => {
                           try {
                             Toast.message({ title: 'Checking for updates...' });
-                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
-                              true,
-                            );
+                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
                             Toast.success({ title: 'Check updates done' });
                           } catch (e) {
                             Toast.error({
@@ -2244,7 +2242,8 @@ const BaseDevSettingsSection = () => {
 
                       {platformEnv.isWeb ||
                       platformEnv.isDesktop ||
-                      platformEnv.isExtension ? (
+                      platformEnv.isExtension ||
+                      platformEnv.isNative ? (
                         <SectionPressItem
                           icon="ShieldCheckDoneOutline"
                           title="SES Harden Runtime Check"
@@ -2723,6 +2722,18 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="SesGallery"
+                        subtitle="SES intrinsic functions, behavior and tamper checks in main and background"
+                        testID="ses-gallery-runtime-check-menu"
+                        searchKeywords="SES lockdown harden intrinsic function runtime check"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                          );
+                        }}
+                      />
                       <SectionPressItem
                         icon="LaptopOutline"
                         title="DesktopApiProxy Test"

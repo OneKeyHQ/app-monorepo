@@ -684,11 +684,25 @@ export function DrawingToolbar({
         setMenu(null);
     };
     document.addEventListener('pointerdown', close);
+    const root = rootRef.current;
+    const leave = (event: globalThis.FocusEvent) => {
+      if (
+        event.relatedTarget instanceof Node &&
+        !root?.contains(event.relatedTarget)
+      )
+        setMenu(null);
+    };
+    root?.addEventListener('focusout', leave);
     const navigate = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenu(null);
         return;
       }
+      // Several toolbars can be on screen. Keys pressed while focus is in
+      // another one, or anywhere else on the page, are not for this menu.
+      const focused = document.activeElement;
+      if (focused && focused !== document.body && !root?.contains(focused))
+        return;
       const items = Array.from(
         rootRef.current?.querySelectorAll<HTMLButtonElement>(
           '[role="menuitemradio"]',
@@ -707,6 +721,7 @@ export function DrawingToolbar({
     document.addEventListener('keydown', navigate, true);
     return () => {
       document.removeEventListener('pointerdown', close);
+      root?.removeEventListener('focusout', leave);
       document.removeEventListener('keydown', navigate, true);
     };
   }, [menu]);

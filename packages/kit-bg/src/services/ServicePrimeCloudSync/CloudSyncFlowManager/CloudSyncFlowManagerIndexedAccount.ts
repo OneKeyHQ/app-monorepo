@@ -22,6 +22,7 @@ import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
 import type {
+  IDBCloudSyncItem,
   IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
@@ -131,12 +132,14 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
   }
 
   override async syncToSceneEachItem(params: {
+    item?: IDBCloudSyncItem;
     target: ICloudSyncTargetIndexedAccount;
     payload: ICloudSyncPayloadIndexedAccount;
   }): Promise<boolean> {
     const { target, payload } = params;
     await this.backgroundApi.serviceAccount.setUniversalIndexedAccountName({
       indexedAccountId: undefined,
+      cloudSyncSource: params.item,
       index: payload.index,
       walletXfp: payload?.walletXfp,
       name: payload.name,
@@ -157,16 +160,19 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
     if (!wallets.length) {
       return undefined;
     }
-    const wallet = wallets[0];
-    const indexedAccountId = accountUtils.buildIndexedAccountId({
-      walletId: wallet.id,
-      index,
-    });
-
-    const account = await this.backgroundApi.localDb.getIndexedAccountSafe({
-      id: indexedAccountId,
-    });
-    return account;
+    // One same-xfp wallet can be missing this index while another already has
+    // it. Any existing target is sufficient for the universal-name replay.
+    for (const wallet of wallets) {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId: wallet.id,
+        index,
+      });
+      const account = await this.backgroundApi.localDb.getIndexedAccountSafe({
+        id: indexedAccountId,
+      });
+      if (account) return account;
+    }
+    return undefined;
   }
 
   override async buildSyncTargetByPayload(params: {
