@@ -1,5 +1,7 @@
 import { HardwareErrorCode as HwkCode } from '@onekeyfe/hwk-adapter-core';
 
+import type { OperationEndReason } from '@onekeyfe/hwk-adapter-core';
+
 export type IBleTestScenario = {
   id: string;
   title: string;
@@ -7,6 +9,7 @@ export type IBleTestScenario = {
   steps: string;
   expectSuccess: boolean;
   expectCodes: number[];
+  expectOperationEndReasons?: OperationEndReason[];
   expectNote?: string;
 };
 
@@ -70,16 +73,19 @@ export const BLE_TEST_SCENARIOS: IBleTestScenario[] = [
     id: 'C1',
     title: '设备锁屏/休眠/关机',
     steps:
-      '已配对的设备锁屏、休眠或关机，点「连接/配对」或「用已保存的 ID 取地址」。',
-    expectSuccess: false,
+      '已配对的设备锁屏、休眠或关机，点「连接/配对」或「用已保存的 ID 取地址」。锁屏时按提示解锁，恢复后应能取地址；关机或不可达时应失败。',
+    expectSuccess: true,
     expectCodes: [HwkCode.DeviceNotFound],
+    expectNote: '锁屏后解锁成功也符合预期；关机或不可达时应报 10100',
   },
   {
     id: 'C2',
     title: '使用中断开',
     steps: '连接成功后把设备关机或拿远，再点「取地址（当前连接）」。',
     expectSuccess: false,
-    expectCodes: [HwkCode.DeviceDisconnected],
+    expectCodes: [HwkCode.DeviceDisconnected, HwkCode.OperationEnded],
+    expectOperationEndReasons: ['disconnect'],
+    expectNote: '10113 仅在 reason=disconnect 时符合预期',
   },
   {
     id: 'C3',
@@ -115,7 +121,9 @@ export const BLE_TEST_SCENARIOS: IBleTestScenario[] = [
   },
 ];
 
-export type IBleTestOutcome = { ok: true } | { ok: false; code?: number };
+export type IBleTestOutcome =
+  | { ok: true }
+  | { ok: false; code?: number; params?: Record<string, unknown> };
 
 export type IBleTestVerdict = 'pass' | 'mismatch';
 
@@ -124,6 +132,16 @@ export function judgeOutcome(
   outcome: IBleTestOutcome,
 ): IBleTestVerdict {
   if (outcome.ok) return scenario.expectSuccess ? 'pass' : 'mismatch';
+  if (
+    outcome.code === HwkCode.OperationEnded &&
+    scenario.expectOperationEndReasons
+  ) {
+    return scenario.expectOperationEndReasons.some(
+      (reason) => reason === outcome.params?.reason,
+    )
+      ? 'pass'
+      : 'mismatch';
+  }
   return outcome.code !== undefined &&
     scenario.expectCodes.includes(outcome.code)
     ? 'pass'

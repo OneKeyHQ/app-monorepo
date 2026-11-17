@@ -47,12 +47,14 @@ import type {
   IOneKeyErrorI18nInfo,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import type { IThirdPartyDeviceErrorPayload } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getThirdPartyBleRecoveryGuide } from '@onekeyhq/shared/src/hardware/thirdPartyBleRecovery';
 import {
   EThirdPartyHardwareRetryAction,
   getThirdPartyHardwareRetryAction,
@@ -186,18 +188,14 @@ function getTrezorConnectFailureError(
 ) {
   const failure =
     payload && typeof payload === 'object'
-      ? (payload as {
-          code?: unknown;
-          error?: unknown;
-          params?: unknown;
-        })
+      ? (payload as Partial<IThirdPartyDeviceErrorPayload>)
       : undefined;
   if (typeof failure?.code === 'number' && typeof failure.error === 'string') {
     return convertThirdPartyDeviceError(
       {
+        ...failure,
         code: failure.code,
         error: failure.error,
-        params: failure.params,
       },
       { vendor },
     );
@@ -1198,6 +1196,27 @@ function FinalizeWalletSetupPage({
     void createWallet();
   }, [createWallet, initialStep, navigation, retryAction]);
 
+  const bleRecoveryGuide = getThirdPartyBleRecoveryGuide({
+    searchTarget: deviceData?.searchTarget,
+    errorCode: setupError?.code,
+    retryAction,
+  });
+  const bleRepairSteps = bleRecoveryGuide?.repairSteps;
+  const showBleRecoveryGuide = (steps: ETranslations[]) => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.device_stage_reconnect__action,
+      }),
+      description: steps
+        .map((id, index) => `${index + 1}. ${intl.formatMessage({ id })}`)
+        .join('\n\n'),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.device_stage_reconnect__action,
+      }),
+      onConfirm: retrySetup,
+    });
+  };
+
   const { gtMd } = useMedia();
   const theme = useTheme();
   const [eligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
@@ -1605,9 +1624,19 @@ function FinalizeWalletSetupPage({
                     flex={1}
                     variant="primary"
                     size="large"
-                    onPress={retrySetup}
+                    onPress={() => {
+                      if (bleRecoveryGuide) {
+                        showBleRecoveryGuide(bleRecoveryGuide.steps);
+                      } else {
+                        retrySetup();
+                      }
+                    }}
                   >
-                    {intl.formatMessage({ id: ETranslations.global_retry })}
+                    {intl.formatMessage({
+                      id: bleRecoveryGuide
+                        ? ETranslations.device_stage_reconnect__action
+                        : ETranslations.global_retry,
+                    })}
                   </Button>
                 ) : null}
                 <Button
@@ -1619,6 +1648,17 @@ function FinalizeWalletSetupPage({
                   {intl.formatMessage({ id: ETranslations.global_exit })}
                 </Button>
               </XStack>
+              {bleRepairSteps ? (
+                <Button
+                  testID="onboarding-finalize-ble-troubleshooting"
+                  variant="tertiary"
+                  onPress={() => showBleRecoveryGuide(bleRepairSteps)}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.troubleshooting_bluetooth,
+                  })}
+                </Button>
+              ) : null}
             </YStack>
           </YStack>
         ) : (

@@ -47,6 +47,30 @@ describe('describeFailure', () => {
       HwkCode.BleBondInvalid,
     );
   });
+
+  it('keeps the SDK failure reason separate from the translated user prompt', () => {
+    const userFacing = '未知的硬件错误，请重试';
+    const failure = describeFailure({
+      code: HwkCode.UnknownError,
+      message: userFacing,
+      payload: {
+        code: HwkCode.UnknownError,
+        message: 'GATT request timed out',
+      },
+    });
+    expect(failure.message).toBe('GATT request timed out');
+    const line = formatLogLine({
+      id: 1,
+      at: Date.now(),
+      level: 'fail',
+      action: '取地址（当前连接）',
+      text: '失败',
+      failure,
+      userFacing,
+    });
+    expect(line).toContain('message="GATT request timed out"');
+    expect(line).toContain(`提示="${userFacing}"`);
+  });
 });
 
 describe('judgeOutcome', () => {
@@ -68,7 +92,34 @@ describe('judgeOutcome', () => {
 
   it('passes success only where success is expected', () => {
     expect(judgeOutcome(scenario('P1'), { ok: true })).toBe('pass');
-    expect(judgeOutcome(scenario('C1'), { ok: true })).toBe('mismatch');
+    expect(judgeOutcome(scenario('P4'), { ok: true })).toBe('mismatch');
+  });
+
+  it('accepts recovery after unlocking and an unavailable powered-off device', () => {
+    expect(judgeOutcome(scenario('C1'), { ok: true })).toBe('pass');
+    expect(
+      judgeOutcome(scenario('C1'), { ok: false, code: HwkCode.DeviceNotFound }),
+    ).toBe('pass');
+  });
+
+  it('accepts an operation ended by disconnect without accepting explicit release', () => {
+    expect(
+      judgeOutcome(scenario('C2'), {
+        ok: false,
+        code: HwkCode.OperationEnded,
+        params: { reason: 'disconnect' },
+      }),
+    ).toBe('pass');
+    expect(
+      judgeOutcome(scenario('C2'), {
+        ok: false,
+        code: HwkCode.OperationEnded,
+        params: { reason: 'explicit' },
+      }),
+    ).toBe('mismatch');
+    expect(
+      judgeOutcome(scenario('C2'), { ok: false, code: HwkCode.OperationEnded }),
+    ).toBe('mismatch');
   });
 });
 

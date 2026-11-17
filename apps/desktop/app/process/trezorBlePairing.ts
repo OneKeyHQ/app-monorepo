@@ -70,10 +70,9 @@ const RAW_WATCH_COOLDOWN_MS = 60_000;
 const RAW_WATCH_SECONDS_SCAN = 20;
 const RAW_WATCH_SECONDS_POST_PAIR = 25;
 
-// The SDK clears its discovered-peripheral cache this long after the last scan
-// call (THIRD_PARTY_BLE_SCAN_IDLE_STOP_MS in the SDK). Pairing runs with no scans in
-// flight, so a pairing that outlasts this window destroys the peripheral that
-// connect is about to need. Mirrored here only to make the log say so out loud.
+// The SDK retires idle discovery after this interval. An explicitly stopped
+// Windows scan preserves connection targets during pairing, so elapsed time
+// alone does not establish whether its cache was cleared.
 const SDK_SCAN_IDLE_STOP_MS = 10_000;
 
 // Top-two-bits address classification (BLE core spec, mirrors the Rust
@@ -166,8 +165,9 @@ export function createTrezorBlePairingIpcMain(
   let pairingConnection: IPendingBleConnection | undefined;
   const pendingConnections = new Set<IPendingBleConnection>();
 
-  const showPin = (pin: string) => {
+  const showPin = (pin: string, signal: AbortSignal) => {
     const dialogToken = ceremonyToken;
+    if (signal.aborted) return;
     if (browserWindow.isDestroyed()) {
       logger.warn('[TrezorBLE] pin dialog skipped: browserWindow destroyed');
       decideActivePairing('cancel', dialogToken);
@@ -192,8 +192,10 @@ export function createTrezorBlePairingIpcMain(
         // X routes here too, so closing the dialog now actually cancels.
         cancelId: 1,
         noLink: true,
+        signal,
       })
       .then(({ response }) => {
+        if (signal.aborted) return;
         const decision = response === 1 ? 'cancel' : 'confirm';
         // Compare against the helper's `sinceAccept` to tell an OS timeout apart
         // from "we outran the user".
@@ -210,7 +212,9 @@ export function createTrezorBlePairingIpcMain(
         }
       })
       .catch(() => {
-        decideActivePairing('cancel', dialogToken);
+        if (!signal.aborted) {
+          decideActivePairing('cancel', dialogToken);
+        }
       });
   };
 
@@ -265,20 +269,21 @@ export function createTrezorBlePairingIpcMain(
       (token) => {
         ceremonyToken = token;
       },
+      {
+        // Trezor needs a recovery window for transient pairing link changes.
+        confirmationTimeoutMs:
+          connection.vendor === EHardwareVendor.ledger ? 30_000 : undefined,
+        disconnectGraceMs:
+          connection.vendor === EHardwareVendor.trezor ? 1000 : 0,
+      },
     );
     const claimed = pairing.catch(() => undefined);
     pairingInFlight = claimed;
     try {
       const paired = await pairing;
       const pairingMs = Date.now() - startedAt;
-      // Spell out the cache verdict rather than leaving it to be re-derived from
-      // timestamps later: this is the exact mechanism that fails the connect.
-      const cacheVerdict =
-        pairingMs >= SDK_SCAN_IDLE_STOP_MS
-          ? `CACHE LIKELY CLEARED (pairing ${pairingMs}ms >= idle-stop ${SDK_SCAN_IDLE_STOP_MS}ms) -> connect will have to rediscover`
-          : `cache likely intact (pairing ${pairingMs}ms < idle-stop ${SDK_SCAN_IDLE_STOP_MS}ms)`;
       logger.info(
-        `[TrezorBLE] OS pairing ${paired} for ${connectId} in ${pairingMs}ms; ${cacheVerdict}`,
+        `[TrezorBLE] OS pairing ${paired} for ${connectId} in ${pairingMs}ms`,
       );
       // NO settle delay here. An earlier version waited 2s for the device to
       // resume advertising — but it does not: after bonding it holds the link

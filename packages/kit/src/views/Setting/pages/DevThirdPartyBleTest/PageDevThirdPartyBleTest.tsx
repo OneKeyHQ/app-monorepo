@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HardwareErrorCode as HwkCode } from '@onekeyfe/hwk-adapter-core';
+import {
+  CHAIN_FINGERPRINT_PATHS,
+  HardwareErrorCode as HwkCode,
+} from '@onekeyfe/hwk-adapter-core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { getThirdPartySearchTarget } from '@onekeyhq/kit/src/views/Onboardingv2/utils';
 import type { IThirdPartyConnectedDevicePayload } from '@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/types';
 import { useThirdPartyHardwareUiStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   convertThirdPartyDeviceError,
   isThirdPartyHardwareCancelCode,
@@ -31,12 +35,17 @@ import type { IThirdPartyHardwareSearchTarget } from '@onekeyhq/shared/types/dev
 import { showExportLogsDialog } from '../Tab/exportLogs/showExportLogsDialog';
 
 import {
+  getBleTestAddressIdentity,
+  getInitialBleTestIdentity,
+} from './bleTestIdentity';
+import {
   describeFailure,
   formatClock,
   formatCode,
   formatLogLine,
   formatLogText,
 } from './bleTestLog';
+import { shouldRefreshBleTestTarget } from './bleTestRecovery';
 import {
   BLE_TEST_SCENARIOS,
   describeExpectation,
@@ -47,7 +56,7 @@ import type { IBleTestFailure, IBleTestLogEntry } from './bleTestLog';
 import type { IBleTestScenario, IBleTestVerdict } from './scenarios';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-const EVM_PATH = "m/44'/60'/0'/0/0";
+const EVM_PATH = CHAIN_FINGERPRINT_PATHS.evm;
 const SCAN_POLL_MS = 1500;
 const SCAN_MAX_POLLS = 40;
 const MAX_LOOP_COUNT = 50;
@@ -124,7 +133,11 @@ async function runStep<T>(
   ctx: IStepContext,
   action: string,
   work: () => Promise<T>,
-  options: { judge: boolean; summarize?: (value: T) => string },
+  options: {
+    judge: boolean;
+    judgeSuccess?: boolean;
+    summarize?: (value: T) => string;
+  },
 ): Promise<IStepResult<T>> {
   ctx.log({ level: 'info', action, text: '开始' });
   const startedAt = Date.now();
@@ -135,9 +148,10 @@ async function runStep<T>(
       action,
       text: `成功 ${options.summarize?.(value) ?? ''}`.trim(),
       durationMs: Date.now() - startedAt,
-      verdict: options.judge
-        ? judgeOutcome(ctx.scenario(), { ok: true })
-        : undefined,
+      verdict:
+        options.judge && options.judgeSuccess !== false
+          ? judgeOutcome(ctx.scenario(), { ok: true })
+          : undefined,
     });
     return { ok: true, value };
   } catch (error) {
@@ -152,7 +166,11 @@ async function runStep<T>(
       failure,
       userFacing: ctx.describeForUser(failure),
       verdict: options.judge
-        ? judgeOutcome(ctx.scenario(), { ok: false, code: failure.code })
+        ? judgeOutcome(ctx.scenario(), {
+            ok: false,
+            code: failure.code,
+            params: failure.params,
+          })
         : undefined,
     });
     return { ok: false, failure };
@@ -372,6 +390,25 @@ export default function PageDevThirdPartyBleTest() {
     );
   }, [appendLog, describeForUser, deviceScanner, selectTarget, stepContext]);
 
+  const refreshFailedTarget = useCallback(
+    (target: IScanTarget, failure: IBleTestFailure) => {
+      if (
+        vendorRef.current !== target.vendor ||
+        selectedTargetRef.current?.searchTargetId !== target.searchTargetId ||
+        !shouldRefreshBleTestTarget(target, failure)
+      )
+        return;
+      appendLog({
+        level: 'info',
+        action: '刷新设备',
+        text: '本轮 Trezor 扫描标识已停用，正在重新扫描。若在设备上重新开启「配对新设备」，请选择新出现的编号。',
+      });
+      stopLoopRef.current = true;
+      startScan();
+    },
+    [appendLog, startScan],
+  );
+
   const runExclusive = useCallback(
     async (label: string, task: () => Promise<void>) => {
       if (busyRef.current) {
@@ -401,10 +438,18 @@ export default function PageDevThirdPartyBleTest() {
       return { ok: false } as const;
     }
     await stopScan();
-    return runStep(
+    const previous = activeRef.current;
+    updateActive(undefined);
+    const result = await runStep(
       stepContext,
       '连接/配对',
       async () => {
+        if (previous) {
+          await backgroundApiProxy.serviceThirdPartyHardware.releaseOperation({
+            vendor: previous.vendor,
+            operationId: previous.device.operationId,
+          });
+        }
         const device = unwrap(
           await backgroundApiProxy.serviceThirdPartyHardware.connectDevice({
             vendor: target.vendor,
@@ -415,14 +460,27 @@ export default function PageDevThirdPartyBleTest() {
         updateSaved({
           vendor: target.vendor,
           connectId: device.connectId,
-          deviceId: device.deviceId,
+          deviceId: getInitialBleTestIdentity(target.vendor, device.deviceId),
           label: device.label || target.name || device.connectId,
         });
         return device;
       },
-      { judge: true, summarize: summarizeDevice },
+      {
+        judge: true,
+        judgeSuccess: !stepContext.scenario().expectSuccess,
+        summarize: summarizeDevice,
+      },
     );
-  }, [appendLog, stepContext, stopScan, updateActive, updateSaved]);
+    if (!result.ok) refreshFailedTarget(target, result.failure);
+    return result;
+  }, [
+    appendLog,
+    refreshFailedTarget,
+    stepContext,
+    stopScan,
+    updateActive,
+    updateSaved,
+  ]);
 
   const addressStep = useCallback(
     async (source: 'active' | 'saved') => {
@@ -438,10 +496,24 @@ export default function PageDevThirdPartyBleTest() {
         params = {
           vendor: current.vendor,
           connectId: current.device.operationId,
-          deviceId: current.device.deviceId,
+          deviceId: getInitialBleTestIdentity(
+            current.vendor,
+            current.device.deviceId,
+          ),
         };
       }
       if (source === 'saved' && remembered) {
+        if (
+          remembered.vendor === EHardwareVendor.ledger &&
+          !remembered.deviceId
+        ) {
+          appendLog({
+            level: 'info',
+            action,
+            text: '请先用当前连接成功取一次地址，才能保存钱包指纹并验证重连的设备',
+          });
+          return { ok: false } as const;
+        }
         // The stored device id, as a wallet reads it later.
         params = {
           vendor: remembered.vendor,
@@ -460,17 +532,54 @@ export default function PageDevThirdPartyBleTest() {
         });
         return { ok: false } as const;
       }
-      return runStep(
+      const result = await runStep(
         stepContext,
         action,
-        () =>
-          backgroundApiProxy.serviceThirdPartyHardware.getEvmAddressByStandardWallet(
-            { ...params, path: EVM_PATH },
-          ),
-        { judge: true, summarize: (address) => `address=${address ?? '(空)'}` },
+        async () => {
+          const address =
+            await backgroundApiProxy.serviceThirdPartyHardware.getEvmAddressByStandardWallet(
+              { ...params, path: EVM_PATH },
+            );
+          if (!address) throw new OneKeyLocalError('取地址返回为空');
+          return address;
+        },
+        { judge: true, summarize: (address) => `address=${address}` },
       );
+      if (result.ok && source === 'active' && current) {
+        updateSaved({
+          vendor: current.vendor,
+          connectId: current.device.connectId,
+          deviceId: getBleTestAddressIdentity(
+            current.vendor,
+            current.device.deviceId,
+            result.value,
+          ),
+          label: current.device.label || current.device.connectId,
+        });
+      } else if (
+        !result.ok &&
+        (result.failure.code === HwkCode.OperationEnded ||
+          result.failure.code === HwkCode.DeviceMismatch ||
+          result.failure.code === HwkCode.DeviceDisconnected)
+      ) {
+        updateActive(undefined);
+        appendLog({
+          level: 'info',
+          action,
+          text: '连接已失效，请重新连接后再取地址',
+        });
+        const target = selectedTargetRef.current;
+        if (
+          source === 'active' &&
+          current &&
+          target?.searchTargetId === current.device.connectId
+        ) {
+          refreshFailedTarget(target, result.failure);
+        }
+      }
+      return result;
     },
-    [appendLog, stepContext],
+    [appendLog, refreshFailedTarget, stepContext, updateActive, updateSaved],
   );
 
   const releaseStep = useCallback(async () => {

@@ -1,0 +1,142 @@
+diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
+index 9170842..73f7a8b 100644
+--- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
++++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
+@@ -198,7 +198,7 @@ var requestedServiceUuids = (options) => {
+   const uuids = requested.filter((uuid) => typeof uuid === "string");
+   return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
+ };
+-var peripheralToInfo = (p) => {
++var peripheralToInfo = (p, remembered) => {
+   const adv = p.advertisement ?? {};
+   return {
+     id: p.id,
+@@ -206,7 +206,8 @@ var peripheralToInfo = (p) => {
+     localName: adv.localName,
+     rssi: p.rssi,
+     isConnectable: p.connectable ?? null,
+-    advertisedServiceUuids: adv.serviceUuids,
++    // OneKey patch: partial advertisements must retain services already observed.
++    advertisedServiceUuids: [...new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
+     serviceSolicitationUuids: adv.serviceSolicitationUuids,
+     txPowerLevel: adv.txPowerLevel,
+     manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
+@@ -265,7 +266,8 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+   }
+   return (0, import_hwk_adapter_core.createHwkError)({
+     code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
+-    message: `BLE ${phase} failed`,
++    // OneKey patch: retain the native GATT failure instead of hiding its cause.
++    message: error instanceof Error ? error.message : `BLE ${phase} failed`,
+     params
+   });
+ };
+@@ -450,12 +452,12 @@ var NobleBleHandler = class {
+         this._keptByMemory.add(id);
+         this._log("info", "scan.keptByMemory", { id });
+       }
+-      result.push(peripheralToInfo(peripheral));
++      result.push(peripheralToInfo(peripheral, this._advertisedUuids.get(id)));
+     }
+     for (const [id, entry] of this._connected) {
+       if (entry.vendor !== vendor) continue;
+       if (result.some((info) => info.id === id)) continue;
+-      result.push(peripheralToInfo(entry.peripheral));
++      result.push(peripheralToInfo(entry.peripheral, this._advertisedUuids.get(id)));
+     }
+     return result;
+   }
+@@ -566,6 +568,13 @@ var NobleBleHandler = class {
+       this._scanOwners.delete(vendor);
+       if (this._scanOwners.size > 0) return;
+     }
++    // OneKey patch: Windows pairs after discovery stops. Preserve the selected
++    // peripheral while bonding, when the device may stop advertising.
++    if (process.platform === "win32") {
++      this._scanOwners.clear();
++      await this._pauseScan();
++      return;
++    }
+     await this._stopContinuousScan();
+   }
+   /**
+@@ -580,7 +589,7 @@ var NobleBleHandler = class {
+     )) {
+       return null;
+     }
+-    return peripheralToInfo(p);
++    return peripheralToInfo(p, remembered);
+   }
+   /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
+   async readRssi(id) {
+diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
+index 499f5a7..1fdc3ac 100644
+--- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
++++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
+@@ -142,7 +142,7 @@ var requestedServiceUuids = (options) => {
+   const uuids = requested.filter((uuid) => typeof uuid === "string");
+   return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
+ };
+-var peripheralToInfo = (p) => {
++var peripheralToInfo = (p, remembered) => {
+   const adv = p.advertisement ?? {};
+   return {
+     id: p.id,
+@@ -150,7 +150,8 @@ var peripheralToInfo = (p) => {
+     localName: adv.localName,
+     rssi: p.rssi,
+     isConnectable: p.connectable ?? null,
+-    advertisedServiceUuids: adv.serviceUuids,
++    // OneKey patch: partial advertisements must retain services already observed.
++    advertisedServiceUuids: [...new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
+     serviceSolicitationUuids: adv.serviceSolicitationUuids,
+     txPowerLevel: adv.txPowerLevel,
+     manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
+@@ -209,7 +210,8 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+   }
+   return createHwkError({
+     code: HardwareErrorCode.BleConnectFailed,
+-    message: `BLE ${phase} failed`,
++    // OneKey patch: retain the native GATT failure instead of hiding its cause.
++    message: error instanceof Error ? error.message : `BLE ${phase} failed`,
+     params
+   });
+ };
+@@ -394,12 +396,12 @@ var NobleBleHandler = class {
+         this._keptByMemory.add(id);
+         this._log("info", "scan.keptByMemory", { id });
+       }
+-      result.push(peripheralToInfo(peripheral));
++      result.push(peripheralToInfo(peripheral, this._advertisedUuids.get(id)));
+     }
+     for (const [id, entry] of this._connected) {
+       if (entry.vendor !== vendor) continue;
+       if (result.some((info) => info.id === id)) continue;
+-      result.push(peripheralToInfo(entry.peripheral));
++      result.push(peripheralToInfo(entry.peripheral, this._advertisedUuids.get(id)));
+     }
+     return result;
+   }
+@@ -510,6 +512,13 @@ var NobleBleHandler = class {
+       this._scanOwners.delete(vendor);
+       if (this._scanOwners.size > 0) return;
+     }
++    // OneKey patch: Windows pairs after discovery stops. Preserve the selected
++    // peripheral while bonding, when the device may stop advertising.
++    if (process.platform === "win32") {
++      this._scanOwners.clear();
++      await this._pauseScan();
++      return;
++    }
+     await this._stopContinuousScan();
+   }
+   /**
+@@ -524,7 +533,7 @@ var NobleBleHandler = class {
+     )) {
+       return null;
+     }
+-    return peripheralToInfo(p);
++    return peripheralToInfo(p, remembered);
+   }
+   /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
+   async readRssi(id) {

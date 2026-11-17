@@ -50,8 +50,12 @@ export function describeFailure(source: unknown): IBleTestFailure {
   return {
     code: toCode(payload?.code) ?? toCode(record.code),
     message:
-      firstText(record.error, record.message, payload?.message) ??
-      'Unknown error',
+      firstText(
+        record.error,
+        payload?.message,
+        payload?.error,
+        record.message,
+      ) ?? 'Unknown error',
     params: asRecord(payload?.params) ?? asRecord(record.params),
     className: firstText(record.className, record.name),
   };

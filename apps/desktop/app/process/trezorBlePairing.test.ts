@@ -4,11 +4,19 @@ import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble';
 import { createTrezorBlePairingIpcMain } from './trezorBlePairing';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
-import type { BrowserWindow } from 'electron';
+import type {
+  BrowserWindow,
+  MessageBoxOptions,
+  MessageBoxReturnValue,
+} from 'electron';
 
 const mockPair = jest.fn<Promise<string>, unknown[]>();
 const mockPairAvailable = jest.fn(() => true);
 const mockDecide = jest.fn<boolean, unknown[]>(() => true);
+const mockShowMessageBox = jest.fn<
+  Promise<MessageBoxReturnValue>,
+  [BrowserWindow, MessageBoxOptions]
+>();
 jest.mock('./BlePair', () => ({
   ensureDevicePaired: (...args: unknown[]) => mockPair(...args),
   decideActivePairing: (...args: unknown[]) => mockDecide(...args),
@@ -19,7 +27,12 @@ jest.mock('./trezorBleFlags', () => ({
   trezorBleFlags: { pairKeepLink: false, rawWatch: false },
 }));
 jest.mock('../i18n', () => ({ ElectronTranslations: {}, i18nText: jest.fn() }));
-jest.mock('electron', () => ({ dialog: { showMessageBox: jest.fn() } }));
+jest.mock('electron', () => ({
+  dialog: {
+    showMessageBox: (...args: Parameters<typeof mockShowMessageBox>) =>
+      mockShowMessageBox(...args),
+  },
+}));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
   default: { info: jest.fn(), warn: jest.fn() },
@@ -43,7 +56,9 @@ function setup() {
       handlers.delete(channel);
     },
   };
-  const wrapper = createTrezorBlePairingIpcMain(base, {} as BrowserWindow);
+  const wrapper = createTrezorBlePairingIpcMain(base, {
+    isDestroyed: () => false,
+  } as BrowserWindow);
   const connect = jest.fn(async () => ({ id: 'connected' }));
   wrapper.handle(THIRD_PARTY_BLE_CHANNELS.scan, async () => [
     { id: 'first', name: 'Trezor Safe 7', address: 'first-address' },
@@ -60,6 +75,74 @@ function setup() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockPairAvailable.mockReturnValue(true);
+});
+
+it('closes an expired pairing dialog and ignores its late answer during the next attempt', async () => {
+  let failPairing!: (error: unknown) => void;
+  let finishPairing!: (result: string) => void;
+  let answerDialog!: (result: { response: number }) => void;
+  let expirePrompt!: () => void;
+  const signals: AbortSignal[] = [];
+  mockShowMessageBox.mockImplementation((_window, options) => {
+    signals.push(options.signal as AbortSignal);
+    return new Promise((resolve) => {
+      answerDialog = ({ response }) =>
+        resolve({ response, checkboxChecked: false });
+    });
+  });
+  let token = 0;
+  mockPair.mockImplementation((_address, showPin, _keepLink, registerToken) => {
+    token += 1;
+    (registerToken as (value: number) => void)(token);
+    const prompt = new AbortController();
+    expirePrompt = () => prompt.abort();
+    (showPin as (pin: string, signal: AbortSignal) => void)(
+      'test-code',
+      prompt.signal,
+    );
+    return new Promise<string>((resolve, reject) => {
+      finishPairing = resolve;
+      failPairing = reject;
+    }).finally(() => prompt.abort());
+  });
+  const { invoke } = setup();
+  await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor: 'ledger' });
+  const first = invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'nano', {
+    vendor: 'ledger',
+  });
+  const firstFailure = Promise.resolve(first).catch((error: unknown) => error);
+  await flush();
+  const oldAnswer = answerDialog;
+  expirePrompt();
+  expect(signals[0].aborted).toBe(true);
+  oldAnswer({ response: 0 });
+  await flush();
+  expect(mockDecide).not.toHaveBeenCalled();
+  failPairing(
+    createHwkError({
+      code: HardwareErrorCode.BlePairingTimeout,
+      message: 'expired',
+    }),
+  );
+  expect(await firstFailure).toMatchObject({
+    code: HardwareErrorCode.BlePairingTimeout,
+  });
+  expect(signals[0].aborted).toBe(true);
+
+  const second = invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'nano', {
+    vendor: 'ledger',
+  });
+  await flush();
+  expect(signals[1].aborted).toBe(false);
+  oldAnswer({ response: 0 });
+  await flush();
+  expect(mockDecide).not.toHaveBeenCalled();
+  answerDialog({ response: 0 });
+  await flush();
+  expect(mockDecide).toHaveBeenCalledWith('confirm', 2);
+  finishPairing('already-paired');
+  await second;
+  expect(signals[1].aborted).toBe(true);
 });
 
 it.each([
@@ -161,9 +244,24 @@ it('pairs a Ledger at the OS level before noble connects', async () => {
   ).resolves.toEqual({ id: 'connected' });
   expect(mockPair).toHaveBeenCalledTimes(1);
   expect(mockPair.mock.calls[0][0]).toBe('nano-address');
+  expect(mockPair.mock.calls[0][4]).toEqual({
+    confirmationTimeoutMs: 30_000,
+    disconnectGraceMs: 0,
+  });
   expect(mockPair.mock.invocationCallOrder[0]).toBeLessThan(
     connect.mock.invocationCallOrder[0],
   );
+});
+
+it('allows brief Trezor link recovery before ending unanswered pairing', async () => {
+  mockPair.mockResolvedValue('already-paired');
+  const { invoke } = setup();
+  await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor: 'trezor' });
+  await invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'first', { vendor: 'trezor' });
+  expect(mockPair.mock.calls[0][4]).toEqual({
+    confirmationTimeoutMs: undefined,
+    disconnectGraceMs: 1000,
+  });
 });
 
 it('retries the first Ledger connect once after a fresh bond', async () => {

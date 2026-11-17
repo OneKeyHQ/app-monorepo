@@ -29,6 +29,7 @@
 //! stdout protocol — one JSON object per line, flushed immediately:
 //!   {"type":"diag","t_ms":123,"msg":"..."}   diagnostics (mirrored on stderr)
 //!   {"type":"pairing","pin":"123456"}        pin to compare with the device
+//!   {"type":"pairing-result","status":0}     WinRT result before cleanup
 //!   {"type":"paired"} / {"type":"already-paired"}
 //!   {"type":"is-paired","paired":true}
 //!   {"type":"unpaired"}
@@ -444,6 +445,11 @@ mod win {
                         .map(|v| format!("{v:?}"))
                         .unwrap_or_else(|_| "<err>".into());
                     diag(&format!("link connectionStatus -> {status}"));
+                    if let Ok(status) = dev.ConnectionStatus() {
+                        let connected = status
+                            == windows::Devices::Bluetooth::BluetoothConnectionStatus::Connected;
+                        super::emit(&format!(r#"{{"type":"link","connected":{connected}}}"#));
+                    }
                 }
                 Ok(())
             },
@@ -672,6 +678,11 @@ mod win {
         diag(&format!(
             "PairAsync returned status={status:?} protectionLevelUsed={prot_used} sinceAccept={since_accept}"
         ));
+        // Publish the result before diagnostics and cleanup can delay the parent UI.
+        super::emit(&format!(
+            r#"{{"type":"pairing-result","status":{}}}"#,
+            status.0
+        ));
 
         // Deep probe on FAILURE: separate "never connected" from "connected but
         // SMP/GATT failed". Status 19 flattens both. We ask three questions the
@@ -682,28 +693,35 @@ mod win {
         //     which is far more specific than 19)
         //   - the current DeviceAccessInformation
         if status != DevicePairingResultStatus::Paired {
-            let conn = device
-                .ConnectionStatus()
+            let connection = device.ConnectionStatus().ok();
+            let connected = connection
+                == Some(windows::Devices::Bluetooth::BluetoothConnectionStatus::Connected);
+            let conn = connection
                 .map(|v| format!("{v:?}"))
-                .unwrap_or_else(|_| "<err>".into());
+                .unwrap_or_else(|| "<err>".into());
             diag(&format!("[probe] connectionStatus={conn}"));
 
-            match device.GetGattServicesAsync() {
-                Ok(op) => match op.await {
-                    Ok(res) => {
-                        let gatt_status = res
-                            .Status()
-                            .map(|v| format!("{v:?}"))
-                            .unwrap_or_else(|_| "<err>".into());
-                        let count = res.Services().and_then(|s| s.Size()).unwrap_or(0);
-                        diag(&format!(
-                            "[probe] GetGattServices status={gatt_status} serviceCount={count} \
-                             (Unreachable => link never formed; Success => link is fine, SMP is the problem)"
-                        ));
-                    }
-                    Err(e) => diag(&format!("[probe] GetGattServices await error: {e}")),
-                },
-                Err(e) => diag(&format!("[probe] GetGattServices call error: {e}")),
+            // An offline service query starts another connection attempt after pairing failed.
+            if connected {
+                match device.GetGattServicesAsync() {
+                    Ok(op) => match op.await {
+                        Ok(res) => {
+                            let gatt_status = res
+                                .Status()
+                                .map(|v| format!("{v:?}"))
+                                .unwrap_or_else(|_| "<err>".into());
+                            let count = res.Services().and_then(|s| s.Size()).unwrap_or(0);
+                            diag(&format!(
+                                "[probe] GetGattServices status={gatt_status} serviceCount={count} \
+                                 (Unreachable => link never formed; Success => link is fine, SMP is the problem)"
+                            ));
+                        }
+                        Err(e) => diag(&format!("[probe] GetGattServices await error: {e}")),
+                    },
+                    Err(e) => diag(&format!("[probe] GetGattServices call error: {e}")),
+                }
+            } else {
+                diag("[probe] skipped GetGattServices: link is disconnected");
             }
         }
 

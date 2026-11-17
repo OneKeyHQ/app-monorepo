@@ -34,6 +34,8 @@ const PAIR_COMPLETION_TIMEOUT_MS = 30_000;
 
 export type IBlePairEvent =
   | { type: 'diag'; t_ms: number; msg: string }
+  | { type: 'link'; connected: boolean }
+  | { type: 'pairing-result'; status: number }
   | { type: 'pairing'; pin: string }
   // The device's stable identity address, read from the OS bond record after a
   // successful pair. Logged only for now: the SDK keys connect/write/subscribe
@@ -102,6 +104,9 @@ function runHelper(
   args: string[],
   onEvent?: (event: IBlePairEvent) => void,
   registerDecide?: (decide: (decision: IPairDecision) => void) => void,
+  closePrompt?: () => void,
+  confirmationTimeoutMs = PAIR_TIMEOUT_MS,
+  disconnectGraceMs = 0,
 ): Promise<IBlePairEvent[]> {
   return new Promise((resolve, reject) => {
     const helperPath = resolveHelperPath();
@@ -123,10 +128,24 @@ function runHelper(
     // Once we know why the attempt ends, the helper's own failure must not
     // replace it: a declined pairing also ends in `pairing failed with status N`.
     let failureLocked = false;
+    let waitingForDecision = false;
+    let confirmationTimer: ReturnType<typeof setTimeout> | undefined;
+    let disconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    const clearDisconnectTimer = () => {
+      if (disconnectTimer) clearTimeout(disconnectTimer);
+      disconnectTimer = undefined;
+    };
+    const stopWaitingForDecision = () => {
+      waitingForDecision = false;
+      if (confirmationTimer) clearTimeout(confirmationTimer);
+      clearDisconnectTimer();
+    };
     const lockFailure = (reason: IHwkErrorPayload) => {
       if (failureLocked) return;
       failure = reason;
       failureLocked = true;
+      stopWaitingForDecision();
+      closePrompt?.();
     };
 
     let killTimer: ReturnType<typeof setTimeout> | undefined;
@@ -149,7 +168,8 @@ function runHelper(
     // Cancel goes through stdin, not kill(): only a live helper can decline the
     // request, which is what makes Windows send the device an SMP Pairing Failed.
     registerDecide?.((decision) => {
-      if (settled) return;
+      if (settled || failureLocked) return;
+      stopWaitingForDecision();
       if (decision === 'cancel') {
         lockFailure({
           code: HardwareErrorCode.BlePairingCancelled,
@@ -186,7 +206,41 @@ function runHelper(
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
       if (completionTimer) clearTimeout(completionTimer);
+      stopWaitingForDecision();
+      closePrompt?.();
       fn();
+    };
+
+    const expireConfirmation = () => {
+      if (settled || failureLocked) return;
+      lockFailure({
+        code: HardwareErrorCode.BlePairingTimeout,
+        message: `BLE pairing confirmation timed out after ${confirmationTimeoutMs}ms`,
+        params: {
+          phase: 'pairing',
+          timedOut: true,
+          confirmationTimedOut: true,
+        },
+      });
+      clearTimeout(timer);
+      child.stdin?.write('cancel\n', (error) => {
+        if (error) child.kill();
+      });
+      killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS);
+    };
+
+    const endDisconnectedPairing = () => {
+      if (settled || failureLocked || !waitingForDecision) return;
+      lockFailure({
+        code: HardwareErrorCode.BlePairingTimeout,
+        message: 'BLE pairing ended because the device disconnected',
+        params: { phase: 'pairing', deviceDisconnected: true },
+      });
+      clearTimeout(timer);
+      child.stdin?.write('cancel\n', (error) => {
+        if (error) child.kill();
+      });
+      killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS);
     };
 
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -200,6 +254,34 @@ function runHelper(
           try {
             const event = JSON.parse(line) as IBlePairEvent;
             events.push(event);
+            if (
+              event.type === 'pairing' &&
+              !failureLocked &&
+              !confirmationTimer
+            ) {
+              waitingForDecision = true;
+              confirmationTimer = setTimeout(
+                expireConfirmation,
+                confirmationTimeoutMs,
+              );
+            }
+            // WinRT can hold its confirmation deferral after a device refusal.
+            // Allow transient Trezor link changes to recover, but do not leave
+            // an unanswered dialog open for the full pairing timeout offline.
+            if (event.type === 'link') {
+              if (event.connected) {
+                clearDisconnectTimer();
+              } else if (waitingForDecision && !failureLocked) {
+                if (disconnectGraceMs === 0) {
+                  endDisconnectedPairing();
+                } else if (!disconnectTimer) {
+                  disconnectTimer = setTimeout(
+                    endDisconnectedPairing,
+                    disconnectGraceMs,
+                  );
+                }
+              }
+            }
             // Every helper event is logged, not just failures: `Failed(19)` is
             // opaque, so the surrounding state (address type, bond inventory,
             // link up/down, timings) is what actually explains a failing run.
@@ -216,8 +298,24 @@ function runHelper(
                 `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(logged)}`,
               );
             }
+            if (event.type === 'pairing-result') {
+              if (event.status === 0 || event.status === 3) {
+                stopWaitingForDecision();
+                closePrompt?.();
+              } else {
+                lockFailure(
+                  helperFailure(
+                    `pairing failed with status DevicePairingResultStatus(${event.status})`,
+                  ),
+                );
+              }
+            }
             if (event.type === 'error' && !failureLocked) {
-              failure = helperFailure(event.message);
+              lockFailure(helperFailure(event.message));
+            }
+            if (event.type === 'paired' || event.type === 'already-paired') {
+              stopWaitingForDecision();
+              closePrompt?.();
             }
             onEvent?.(event);
           } catch {
@@ -247,7 +345,7 @@ function runHelper(
         logger.info(
           `[BlePair] exit code=${code ?? 'null'} after ${sinceSpawn()}ms`,
         );
-        if (code === 0) {
+        if (code === 0 && !failureLocked) {
           resolve(events);
         } else {
           reject(
@@ -296,6 +394,7 @@ export function decideActivePairing(
  * Pair `address` (a colon/dash BLE MAC) at the OS level, streaming the
  * numeric-comparison pin to `onPin` so the UI can show it. Resolves once the
  * device is paired (or already paired); rejects on error/timeout.
+ * The prompt signal aborts when confirmation ends, independently of helper cleanup.
  *
  * Returns which of the two it was: a fresh bond briefly stops the device from
  * advertising, an existing one does not, and only the caller knows whether that
@@ -303,10 +402,12 @@ export function decideActivePairing(
  */
 export async function ensureDevicePaired(
   address: string,
-  onPin: (pin: string) => void,
+  onPin: (pin: string, signal: AbortSignal) => void,
   keepLink = false,
   onCeremonyToken?: (token: IPairCeremonyToken) => void,
+  options?: { confirmationTimeoutMs?: number; disconnectGraceMs?: number },
 ): Promise<'paired' | 'already-paired'> {
+  const prompt = new AbortController();
   let ownToken: IPairCeremonyToken | undefined;
   const args = ['pair', '--address', address];
   if (keepLink) {
@@ -317,8 +418,8 @@ export async function ensureDevicePaired(
   const events = await runHelper(
     args,
     (event) => {
-      if (event.type === 'pairing') {
-        onPin(event.pin);
+      if (event.type === 'pairing' && !prompt.signal.aborted) {
+        onPin(event.pin, prompt.signal);
       }
     },
     (decide) => {
@@ -328,7 +429,12 @@ export async function ensureDevicePaired(
       activeCeremony = { token, decide };
       onCeremonyToken?.(token);
     },
+    // Invalidate the UI as soon as the request ends, before helper cleanup exits.
+    () => prompt.abort(),
+    options?.confirmationTimeoutMs,
+    options?.disconnectGraceMs,
   ).finally(() => {
+    prompt.abort();
     if (activeCeremony?.token === ownToken) {
       activeCeremony = null;
     }
