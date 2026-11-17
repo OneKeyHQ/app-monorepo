@@ -93,6 +93,31 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('resolveSwapMarketAsset', () => {
+  it('does not scan unrelated asset details for an unsupported legacy favorite', async () => {
+    mockList.mockResolvedValue({
+      list: Array.from({ length: 100 }, (_, index) => ({
+        assetId: `unrelated-${index}`,
+        symbol: 'OTHER',
+      })),
+      total: 100,
+    });
+    mockDetail.mockImplementation(async ({ assetId }: { assetId: string }) =>
+      detail(assetId, { ...variant, networkId: 'sol--101' }),
+    );
+    const lookup = resolveSwapMarketAsset(
+      {
+        ...token,
+        tokenAddress: '0xunlisted',
+        isNative: false,
+        symbol: 'UNLISTED',
+      },
+      new AbortController().signal,
+      { searchAndSymbolOnly: true },
+    );
+    await jest.advanceTimersByTimeAsync(2100);
+    await expect(lookup).resolves.toBeUndefined();
+    expect(mockDetail).not.toHaveBeenCalled();
+  });
   it('opens the matching native variant using its Market route address', async () => {
     mockSearch.mockResolvedValue([
       { assetId: 'ethereum', network: 'evm--1', isNative: true },

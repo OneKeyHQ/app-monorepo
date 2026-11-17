@@ -14,6 +14,32 @@ export function getMarketWatchlistKey(item: IMarketWatchListItemV2): string {
   }`;
 }
 
+export function findLegacyMarketWatchlistItem(
+  items: IMarketWatchListItemV2[],
+  identity: { networkId: string; tokenAddress: string; isNative: boolean },
+) {
+  const candidates = items.filter(
+    (item) =>
+      !item.assetId &&
+      !item.stockId &&
+      !item.perpsCoin &&
+      item.chainId === identity.networkId,
+  );
+  const key = getMarketWatchlistKey({
+    chainId: identity.networkId,
+    contractAddress: identity.tokenAddress,
+  });
+  // List APIs can use a different native address alias than the persisted favorite.
+  return (
+    candidates.find((item) => getMarketWatchlistKey(item) === key) ??
+    (identity.isNative
+      ? candidates.find(
+          (item) => item.isNative ?? item.contractAddress.length < 30,
+        )
+      : undefined)
+  );
+}
+
 export function isValidMarketWatchlistItem(
   item: IMarketWatchListItemV2,
 ): boolean {

@@ -21,6 +21,7 @@ export async function resolveSwapMarketAsset(
     isNative: boolean;
   },
   signal: AbortSignal,
+  options?: { searchAndSymbolOnly?: boolean },
 ) {
   const { serviceMarket, serviceMarketV2 } = backgroundApiProxy;
   const timeout = <T>(promise: Promise<T>, milliseconds = TIMEOUT) =>
@@ -187,11 +188,14 @@ export async function resolveSwapMarketAsset(
     };
     const isPriority = (item: IMarketAssetListItem) =>
       candidates.includes(item.assetId) ||
-      (token.isNative &&
+      ((token.isNative || options?.searchAndSymbolOnly) &&
+        Boolean(token.symbol.trim()) &&
         typeof item.symbol === 'string' &&
         item.symbol.trim().toUpperCase() === token.symbol.trim().toUpperCase());
     const preferred = items.filter(isPriority);
-    const remaining = items.filter((item) => !isPriority(item));
+    const remaining = options?.searchAndSymbolOnly
+      ? []
+      : items.filter((item) => !isPriority(item));
     return Promise.any([
       scanItems(preferred, true),
       remaining.length
