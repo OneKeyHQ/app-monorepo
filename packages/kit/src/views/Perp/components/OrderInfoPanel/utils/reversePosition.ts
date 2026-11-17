@@ -120,7 +120,10 @@ export function buildReversePositionOrder({
   szDecimals: number;
 }):
   | { params: IPlaceOrderByCoinParams; error?: undefined }
-  | { params?: undefined; error: IAddPositionValidationError } {
+  | {
+      params?: undefined;
+      error: Exclude<IAddPositionValidationError, 'minimumOrder'>;
+    } {
   const positionSize = getReversePositionSize(
     snapshot.positionSize,
     szDecimals,
@@ -133,7 +136,8 @@ export function buildReversePositionOrder({
     maxSize,
     szDecimals,
   });
-  if (validation.error) {
+  // Let the exchange enforce the minimum order notional for reversals.
+  if (validation.error && validation.error !== 'minimumOrder') {
     return { error: validation.error };
   }
   // Reversal must preserve the normalized position size.

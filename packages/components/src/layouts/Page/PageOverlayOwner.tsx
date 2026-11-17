@@ -8,11 +8,13 @@ import {
   useOverlayPageScope,
 } from '@onekeyfe/react-native-native-overlay';
 import {
+  NavigationContainerRefContext,
   NavigationContext,
   NavigationRouteContext,
 } from '@react-navigation/native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { PageTypeContext } from '../../hocs/PageType/context';
 import { ModalNavigatorContext } from '../../hooks/useModalNavigatorContext';
@@ -20,7 +22,12 @@ import { registerImperativeOverlayPage } from '../../shared/imperativeOverlayMou
 
 import { PageContext } from './PageContext';
 
-import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import type {
+  NavigationProp,
+  NavigationState,
+  ParamListBase,
+  PartialState,
+} from '@react-navigation/native';
 
 type INavigation = NavigationProp<ParamListBase>;
 
@@ -53,6 +60,37 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
   return true;
 }
 
+function isOwnerVisibleInRoot(
+  root: NavigationState,
+  hostKey: string,
+  ownerKey: string,
+) {
+  const hostIndex = root.routes.findIndex((route) => route.key === hostKey);
+  if (hostIndex < 0 || hostIndex > root.index) return false;
+  if (
+    root.routes
+      .slice(hostIndex + 1, root.index + 1)
+      .some(
+        (route) =>
+          route.name !== ERootRoutes.Modal &&
+          route.name !== ERootRoutes.iOSFullScreen,
+      )
+  ) {
+    return false;
+  }
+  // Covered root routes can remain visible; inactive screens inside a host cannot.
+  const host = root.routes[hostIndex];
+  if (host.key === ownerKey) return true;
+  let state: NavigationState | PartialState<NavigationState> | undefined =
+    host.state;
+  while (state) {
+    const route = state.routes[state.index ?? 0];
+    if (route?.key === ownerKey) return true;
+    state = route?.state;
+  }
+  return false;
+}
+
 /**
  * Makes the current screen the owner of page-scope overlays rendered below
  * it and keeps the overlay store informed when the screen is covered (push,
@@ -62,6 +100,7 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
 export function PageOverlayOwner({ children }: PropsWithChildren) {
   const route = useContext(NavigationRouteContext);
   const navigation = useContext(NavigationContext) as INavigation | undefined;
+  const rootNavigation = useContext(NavigationContainerRefContext);
   const { hostKey, ownerKey: inheritedOwnerKey } = useOverlayPageScope();
   const pageContext = useContext(PageContext);
   const pageTypeContext = useContext(PageTypeContext);
@@ -128,11 +167,17 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
     if (!ownerKey || !navigation || isNestedOwner) {
       return;
     }
-    const update = () =>
+    const update = () => {
+      const root = !platformEnv.isNative
+        ? rootNavigation?.getRootState()
+        : undefined;
       overlayStore.setPageVisible(
         ownerKey,
-        isOwnerActiveWithinHost(navigation, ownerKey),
+        root && hostKey
+          ? isOwnerVisibleInRoot(root, hostKey, ownerKey)
+          : isOwnerActiveWithinHost(navigation, ownerKey),
       );
+    };
     const unsubscribeListeners: Array<() => void> = [];
     let current: INavigation | undefined = navigation;
     while (current) {
@@ -148,7 +193,7 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
       unsubscribeListeners.forEach((unsubscribe) => unsubscribe());
       overlayStore.removePage(ownerKey);
     };
-  }, [isNestedOwner, navigation, ownerKey]);
+  }, [hostKey, isNestedOwner, navigation, ownerKey, rootNavigation]);
 
   if (!ownerKey) {
     return <>{children}</>;

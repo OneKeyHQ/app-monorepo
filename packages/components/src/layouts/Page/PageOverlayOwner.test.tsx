@@ -2,10 +2,11 @@
 // Navigation fixtures model focused-route changes without a live navigator.
 /* oxlint-disable react-perf/jsx-no-new-object-as-prop, react/jsx-no-constructed-context-values */
 
-import type { ReactNode } from 'react';
+import type { ContextType, ReactNode } from 'react';
 
 import { OverlayPageHostScope } from '@onekeyfe/react-native-native-overlay';
 import {
+  NavigationContainerRefContext,
   NavigationContext,
   NavigationRouteContext,
 } from '@react-navigation/native';
@@ -72,6 +73,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@react-navigation/native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
+    NavigationContainerRefContext: React.createContext(undefined),
     NavigationContext: React.createContext(undefined),
     NavigationRouteContext: React.createContext(undefined),
   };
@@ -251,5 +253,72 @@ it('keeps a nested route as a separate page owner', () => {
   expect(mockSetPageVisible).toHaveBeenCalledWith('details', false);
   view.rerender(page(false));
   expect(mockRemovePage).toHaveBeenCalledWith('details');
+  view.unmount();
+});
+
+it('keeps a covered owner visible without preserving an inactive screen inside its host', () => {
+  const listeners = new Set<() => void>();
+  const tabs = {
+    key: 'tabs',
+    index: 0,
+    routes: [
+      { key: 'perp', name: 'Perp' },
+      { key: 'home', name: 'Home' },
+    ],
+  };
+  const root = {
+    index: 0,
+    routes: [
+      { key: 'z-main', name: 'main', state: tabs },
+      {
+        key: 'a-receive',
+        name: 'modal',
+        state: {
+          key: 'receive',
+          index: 0,
+          routes: [{ key: 'receive-page', name: 'Receive' }],
+        },
+      },
+    ],
+  };
+  const navigation = {
+    getState: () => ({ key: 'tabs', index: tabs.index, routes: tabs.routes }),
+    getParent: () => undefined,
+    addListener: (_event: string, listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  } as unknown as INavigation;
+  const rootNavigation = { getRootState: () => root } as unknown as NonNullable<
+    ContextType<typeof NavigationContainerRefContext>
+  >;
+  const view = render(
+    <NavigationContainerRefContext.Provider value={rootNavigation}>
+      <OverlayPageHostScope hostKey="z-main">
+        <NavigationContext.Provider value={navigation}>
+          <NavigationRouteContext.Provider
+            value={{ key: 'perp', name: 'Perp' }}
+          >
+            <PageOverlayOwner>Deposit</PageOverlayOwner>
+          </NavigationRouteContext.Provider>
+        </NavigationContext.Provider>
+      </OverlayPageHostScope>
+    </NavigationContainerRefContext.Provider>,
+  );
+  const update = () => act(() => listeners.forEach((listener) => listener()));
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  root.index = 1;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  tabs.index = 1;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', false);
+  tabs.index = 0;
+  root.routes[1].name = 'webview';
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', false);
+  root.index = 0;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
   view.unmount();
 });

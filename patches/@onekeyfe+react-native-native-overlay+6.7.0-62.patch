@@ -1,0 +1,583 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
+index c4c4de1..93fb292 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
+@@ -136,6 +136,16 @@ export class OverlayStore {
+     dropped.forEach(e => this.notifyRemoved(e.id, reason));
+   }
+ 
++  /** undefined preserves unscoped behavior; null leaves only global overlays interactive. */
++  setFocusedPageHost(hostKey) {
++    if (this.focusedPageHost === hostKey) return;
++    this.focusedPageHost = hostKey;
++    this.emit();
++  }
++  isPageHostFocused(hostKey) {
++    return this.focusedPageHost === undefined || this.focusedPageHost === hostKey;
++  }
++
+   /** Native / navigation signal: the owning page was covered, detached or restored. */
+   setPageVisible(ownerKey, visible) {
+     if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
+@@ -180,7 +190,10 @@ export class OverlayStore {
+   resolveBack(focusedHostKey) {
+     // Non-blocking entries take back / Escape only when they ask to be
+     // dismissible (an anchored popover); toasts do not.
+-    const candidates = this.snapshot.entries.filter(e => e.phase === 'active' && !e.suspended && (e.blocking || e.dismissible) && (e.scope === 'global' || focusedHostKey === undefined || e.hostKey === focusedHostKey));
++    const candidates = this.snapshot.entries.filter(e => e.phase === 'active' && !e.suspended && (e.blocking || e.dismissible) && (
++    // OneKey patch: a visible dialog on a covered root must not consume Escape.
++    // (e.scope === 'global' || focusedHostKey === undefined || e.hostKey === focusedHostKey)
++    e.scope === 'global' || this.isPageHostFocused(e.hostKey) && (focusedHostKey === undefined || e.hostKey === focusedHostKey)));
+     const top = candidates[candidates.length - 1];
+     if (!top) {
+       return {
+@@ -206,7 +219,10 @@ export class OverlayStore {
+     } = this.snapshot;
+     for (let i = entries.length - 1; i >= 0; i -= 1) {
+       const entry = entries[i];
+-      if (entry && entry.phase !== 'closing' && !entry.suspended && entry.blocking) {
++      if (entry && entry.phase !== 'closing' && !entry.suspended &&
++      // OneKey patch: only a foreground page dialog may block other routes.
++      // entry.blocking
++      entry.blocking && (entry.scope === 'global' || this.isPageHostFocused(entry.hostKey))) {
+         return entry;
+       }
+     }
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
+index 278937f..cc28aed 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
+@@ -29,8 +29,20 @@ const ISOLATED_EVENT_HANDLERS = {
+   onPointerUp: stopPropagation,
+   onKeyDown: stopPropagation
+ };
++function isAvailableFocusTarget(target) {
++  if (!target?.isConnected || target.matches(':disabled')) return false;
++  for (let node = target; node; node = node.parentElement) {
++    const style = getComputedStyle(node);
++    if (node.inert || node.hasAttribute('inert') || node.hidden || node.getAttribute('aria-hidden') === 'true' || style.display === 'none' || style.visibility === 'hidden') {
++      return false;
++    }
++  }
++  return true;
++}
+ function WebOverlayEntry({
+   entryId,
++  ownsFocus,
++  hostKey,
+   parked = false,
+   stackOrder,
+   levelOrder,
+@@ -59,6 +71,7 @@ function WebOverlayEntry({
+   const directionRef = useRef(undefined);
+   const runningAnimationsRef = useRef([]);
+   const restoreFocusRef = useRef(null);
++  const lastFocusedRef = useRef(null);
+   const callbacksRef = useRef({
+     onPresented,
+     onDismissed
+@@ -77,6 +90,49 @@ function WebOverlayEntry({
+       }
+     }
+   }, [isSheet]);
++  const restoreFocus = useCallback(() => {
++    const target = restoreFocusRef.current;
++    restoreFocusRef.current = null;
++    if (!isAvailableFocusTarget(target)) return;
++    if (hostKey && !overlayStore.isPageHostFocused(hostKey)) return;
++
++    // A later route or dialog may already have claimed focus during the exit.
++    const active = document.activeElement;
++    if (active && active !== document.body && !entryRef.current?.contains(active)) return;
++    const top = overlayStore.getBlockingTop();
++    if (top && target.closest(`[${ENTRY_ATTRIBUTE}]`)?.dataset.stackOrder !== String(top.seq)) return;
++    target.focus({
++      preventScroll: true
++    });
++  }, [hostKey]);
++  useLayoutEffect(() => {
++    if (!ownsFocus || !presented) return undefined;
++    const root = entryRef.current;
++    if (!root) return undefined;
++    const claimFocus = () => {
++      if (overlayStore.getBlockingTop()?.id !== entryId || root.contains(document.activeElement)) return;
++      if (!isAvailableFocusTarget(root)) return;
++      const target = lastFocusedRef.current;
++      if (target && root.contains(target) && isAvailableFocusTarget(target)) {
++        target.focus({
++          preventScroll: true
++        });
++      }
++      if (!root.contains(document.activeElement)) root.focus({
++        preventScroll: true
++      });
++    };
++    if (!restoreFocusRef.current && !root.contains(document.activeElement)) {
++      restoreFocusRef.current = document.activeElement;
++    }
++    claimFocus();
++    // The page host may apply owner visibility after this layout effect.
++    if (!root.contains(document.activeElement)) {
++      const frame = requestAnimationFrame(claimFocus);
++      return () => cancelAnimationFrame(frame);
++    }
++    return undefined;
++  }, [entryId, ownsFocus, presented]);
+   useLayoutEffect(() => {
+     const content = contentRef.current;
+     if (!content) {
+@@ -103,10 +159,10 @@ function WebOverlayEntry({
+     }
+     runningAnimationsRef.current = [];
+     if (direction === 'out' && (neverEntered || pannedAwayRef.current)) {
+-      restoreFocusRef.current?.focus?.({
+-        preventScroll: true
+-      });
+-      restoreFocusRef.current = null;
++      // OneKey patch: an immediate exit must preserve the current route's focus.
++      // restoreFocusRef.current?.focus?.({ preventScroll: true });
++      // restoreFocusRef.current = null;
++      restoreFocus();
+       callbacksRef.current.onDismissed();
+       return;
+     }
+@@ -117,12 +173,11 @@ function WebOverlayEntry({
+       if (backdropRef.current) {
+         backdropRef.current.style.opacity = '1';
+       }
+-      if (blocking) {
+-        restoreFocusRef.current = document.activeElement;
+-        entryRef.current?.focus({
+-          preventScroll: true
+-        });
+-      }
++      // OneKey patch: the focus effect above also handles returning to an open dialog.
++      // if (blocking) {
++      //   restoreFocusRef.current = document.activeElement as HTMLElement | null;
++      //   entryRef.current?.focus({ preventScroll: true });
++      // }
+     }
+     // A sheet is measured as a whole; other presentations by the children
+     // of the full-window React root.
+@@ -137,16 +192,16 @@ function WebOverlayEntry({
+       if (direction === 'in') {
+         callbacksRef.current.onPresented();
+       } else {
+-        restoreFocusRef.current?.focus?.({
+-          preventScroll: true
+-        });
+-        restoreFocusRef.current = null;
++        // OneKey patch: the exit animation can finish after another dialog takes focus.
++        // restoreFocusRef.current?.focus?.({ preventScroll: true });
++        // restoreFocusRef.current = null;
++        restoreFocus();
+         callbacksRef.current.onDismissed();
+       }
+     }).catch(() => {
+       // Cancelled by a newer transition; that run reports instead.
+     });
+-  }, [presented, animation, blocking, isSheet]);
++  }, [presented, animation, restoreFocus, isSheet]);
+   useEffect(() => registerOverlayDismissRequester(entryId, onRequestDismiss), [entryId, onRequestDismiss]);
+ 
+   // A plain DOM listener: the backdrop is a pointer target only; keyboard
+@@ -184,16 +239,8 @@ function WebOverlayEntry({
+       return;
+     }
+     const tabbable = Array.from(root.querySelectorAll('a[href], area[href], button, input:not([type="hidden"]), select, textarea, iframe, object, embed, [tabindex], [contenteditable]:not([contenteditable="false"])')).filter(node => {
+-      if (node.tabIndex < 0 && (node.hasAttribute('tabindex') || !node.hasAttribute('contenteditable')) || node.matches(':disabled')) {
+-        return false;
+-      }
+-      for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+-        const style = getComputedStyle(ancestor);
+-        if (ancestor.inert || ancestor.hasAttribute('inert') || ancestor.hidden || ancestor.getAttribute('aria-hidden') === 'true' || style.display === 'none' || style.visibility === 'hidden') {
+-          return false;
+-        }
+-      }
+-      return true;
++      if (node.tabIndex < 0 && (node.hasAttribute('tabindex') || !node.hasAttribute('contenteditable'))) return false;
++      return isAvailableFocusTarget(node);
+     }).sort((a, b) => {
+       const aOrder = a.tabIndex > 0 ? a.tabIndex : Infinity;
+       const bOrder = b.tabIndex > 0 ? b.tabIndex : Infinity;
+@@ -235,6 +282,12 @@ function WebOverlayEntry({
+       visibility: parked ? 'hidden' : undefined
+     },
+     ...ISOLATED_EVENT_HANDLERS,
++    onFocusCapture: event => {
++      const target = event.target;
++      if (target instanceof HTMLElement && event.currentTarget.contains(target)) {
++        lastFocusedRef.current = target;
++      }
++    },
+     onKeyDownCapture: onKeyDownCapture,
+     children: [showBackdrop ? /*#__PURE__*/_jsx("div", {
+       ref: backdropRef,
+@@ -352,6 +405,8 @@ export function OverlayView(props) {
+   return /*#__PURE__*/createPortal(/*#__PURE__*/_jsx(WebOverlayEntry, {
+     parked: parked,
+     entryId: entry?.id ?? parkedId,
++    ownsFocus: !!entry && overlayStore.getBlockingTop()?.id === entry.id,
++    hostKey: hostKey,
+     stackOrder: entry?.seq ?? 0,
+     levelOrder: OVERLAY_LEVEL_ORDER[level],
+     presented: !parked && presented,
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
+index dc32352..9660d54 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
+@@ -81,6 +81,7 @@ export function syncOverlayInert() {
+   nextPageInert.forEach(element => setInert(element, true));
+   pageInertElements = nextPageInert;
+   for (const [hostKey, host] of pageHosts) {
++    setInert(host, nextPageInert.has(host) || !overlayStore.isPageHostFocused(hostKey));
+     inertEntriesBelow(host, top?.scope === 'page' && top.hostKey === hostKey ? top : undefined);
+   }
+   for (const [level, root] of layerRoots) {
+@@ -138,10 +139,12 @@ export function scheduleOverlayInertSync() {
+ export function registerOverlayPageHost(hostKey, element) {
+   installOverlayWebManager();
+   pageHosts.set(hostKey, element);
++  syncOverlayInert();
+   pageHostListeners.get(hostKey)?.forEach(listener => listener());
+   return () => {
+     if (pageHosts.get(hostKey) === element) {
+       pageHosts.delete(hostKey);
++      syncOverlayInert();
+       pageHostListeners.get(hostKey)?.forEach(listener => listener());
+     }
+   };
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
+index 4d11a0b..4e8ff11 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
+@@ -22,6 +22,7 @@ export declare class OverlayStore {
+     private queued;
+     private readonly handlers;
+     private readonly closingTimers;
++    private focusedPageHost;
+     private readonly pageVisibility;
+     private readonly listeners;
+     private snapshot;
+@@ -41,6 +42,9 @@ export declare class OverlayStore {
+         belowLevel?: IOverlayEntry['level'];
+         reason?: IOverlayDismissReason;
+     }): void;
++    /** undefined preserves unscoped behavior; null leaves only global overlays interactive. */
++    setFocusedPageHost(hostKey: string | null | undefined): void;
++    isPageHostFocused(hostKey: string | undefined): boolean;
+     /** Native / navigation signal: the owning page was covered, detached or restored. */
+     setPageVisible(ownerKey: string, visible: boolean): void;
+     /** The owning page left the navigation state for good. */
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
+index 59c8f8c..fd94fe5 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
+@@ -62,6 +62,8 @@ export class OverlayStore {
+     ReturnType<typeof setTimeout>
+   >();
+ 
++  private focusedPageHost: string | null | undefined;
++
+   private readonly pageVisibility = new Map<string, boolean>();
+ 
+   private readonly listeners = new Set<() => void>();
+@@ -198,6 +200,19 @@ export class OverlayStore {
+     dropped.forEach((e) => this.notifyRemoved(e.id, reason));
+   }
+ 
++  /** undefined preserves unscoped behavior; null leaves only global overlays interactive. */
++  setFocusedPageHost(hostKey: string | null | undefined): void {
++    if (this.focusedPageHost === hostKey) return;
++    this.focusedPageHost = hostKey;
++    this.emit();
++  }
++
++  isPageHostFocused(hostKey: string | undefined): boolean {
++    return (
++      this.focusedPageHost === undefined || this.focusedPageHost === hostKey
++    );
++  }
++
+   /** Native / navigation signal: the owning page was covered, detached or restored. */
+   setPageVisible(ownerKey: string, visible: boolean): void {
+     if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
+@@ -247,9 +262,11 @@ export class OverlayStore {
+         e.phase === 'active' &&
+         !e.suspended &&
+         (e.blocking || e.dismissible) &&
++        // OneKey patch: a visible dialog on a covered root must not consume Escape.
++        // (e.scope === 'global' || focusedHostKey === undefined || e.hostKey === focusedHostKey)
+         (e.scope === 'global' ||
+-          focusedHostKey === undefined ||
+-          e.hostKey === focusedHostKey)
++          (this.isPageHostFocused(e.hostKey) &&
++            (focusedHostKey === undefined || e.hostKey === focusedHostKey)))
+     );
+     const top = candidates[candidates.length - 1];
+     if (!top) {
+@@ -274,7 +291,10 @@ export class OverlayStore {
+         entry &&
+         entry.phase !== 'closing' &&
+         !entry.suspended &&
+-        entry.blocking
++        // OneKey patch: only a foreground page dialog may block other routes.
++        // entry.blocking
++        entry.blocking &&
++        (entry.scope === 'global' || this.isPageHostFocused(entry.hostKey))
+       ) {
+         return entry;
+       }
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
+index 9695f1e..8df1f72 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
+@@ -52,8 +52,30 @@ const ISOLATED_EVENT_HANDLERS = {
+   onKeyDown: stopPropagation,
+ };
+ 
++function isAvailableFocusTarget(
++  target: HTMLElement | null
++): target is HTMLElement {
++  if (!target?.isConnected || target.matches(':disabled')) return false;
++  for (let node: HTMLElement | null = target; node; node = node.parentElement) {
++    const style = getComputedStyle(node);
++    if (
++      node.inert ||
++      node.hasAttribute('inert') ||
++      node.hidden ||
++      node.getAttribute('aria-hidden') === 'true' ||
++      style.display === 'none' ||
++      style.visibility === 'hidden'
++    ) {
++      return false;
++    }
++  }
++  return true;
++}
++
+ interface IWebOverlayEntryProps {
+   entryId: string;
++  ownsFocus: boolean;
++  hostKey: string | undefined;
+   /** Closed but kept mounted: hidden and inert. */
+   parked?: boolean;
+   stackOrder: number;
+@@ -77,6 +99,8 @@ interface IWebOverlayEntryProps {
+ 
+ function WebOverlayEntry({
+   entryId,
++  ownsFocus,
++  hostKey,
+   parked = false,
+   stackOrder,
+   levelOrder,
+@@ -105,6 +129,7 @@ function WebOverlayEntry({
+   const directionRef = useRef<'in' | 'out' | undefined>(undefined);
+   const runningAnimationsRef = useRef<Animation[]>([]);
+   const restoreFocusRef = useRef<HTMLElement | null>(null);
++  const lastFocusedRef = useRef<HTMLElement | null>(null);
+   const callbacksRef = useRef({ onPresented, onDismissed });
+   callbacksRef.current = { onPresented, onDismissed };
+ 
+@@ -119,6 +144,60 @@ function WebOverlayEntry({
+     }
+   }, [isSheet]);
+ 
++  const restoreFocus = useCallback(() => {
++    const target = restoreFocusRef.current;
++    restoreFocusRef.current = null;
++    if (!isAvailableFocusTarget(target)) return;
++    if (hostKey && !overlayStore.isPageHostFocused(hostKey)) return;
++
++    // A later route or dialog may already have claimed focus during the exit.
++    const active = document.activeElement;
++    if (
++      active &&
++      active !== document.body &&
++      !entryRef.current?.contains(active)
++    )
++      return;
++    const top = overlayStore.getBlockingTop();
++    if (
++      top &&
++      target.closest<HTMLElement>(`[${ENTRY_ATTRIBUTE}]`)?.dataset
++        .stackOrder !== String(top.seq)
++    )
++      return;
++    target.focus({ preventScroll: true });
++  }, [hostKey]);
++
++  useLayoutEffect(() => {
++    if (!ownsFocus || !presented) return undefined;
++    const root = entryRef.current;
++    if (!root) return undefined;
++    const claimFocus = () => {
++      if (
++        overlayStore.getBlockingTop()?.id !== entryId ||
++        root.contains(document.activeElement)
++      )
++        return;
++      if (!isAvailableFocusTarget(root)) return;
++      const target = lastFocusedRef.current;
++      if (target && root.contains(target) && isAvailableFocusTarget(target)) {
++        target.focus({ preventScroll: true });
++      }
++      if (!root.contains(document.activeElement))
++        root.focus({ preventScroll: true });
++    };
++    if (!restoreFocusRef.current && !root.contains(document.activeElement)) {
++      restoreFocusRef.current = document.activeElement as HTMLElement | null;
++    }
++    claimFocus();
++    // The page host may apply owner visibility after this layout effect.
++    if (!root.contains(document.activeElement)) {
++      const frame = requestAnimationFrame(claimFocus);
++      return () => cancelAnimationFrame(frame);
++    }
++    return undefined;
++  }, [entryId, ownsFocus, presented]);
++
+   useLayoutEffect(() => {
+     const content = contentRef.current;
+     if (!content) {
+@@ -145,8 +224,10 @@ function WebOverlayEntry({
+     }
+     runningAnimationsRef.current = [];
+     if (direction === 'out' && (neverEntered || pannedAwayRef.current)) {
+-      restoreFocusRef.current?.focus?.({ preventScroll: true });
+-      restoreFocusRef.current = null;
++      // OneKey patch: an immediate exit must preserve the current route's focus.
++      // restoreFocusRef.current?.focus?.({ preventScroll: true });
++      // restoreFocusRef.current = null;
++      restoreFocus();
+       callbacksRef.current.onDismissed();
+       return;
+     }
+@@ -157,10 +238,11 @@ function WebOverlayEntry({
+       if (backdropRef.current) {
+         backdropRef.current.style.opacity = '1';
+       }
+-      if (blocking) {
+-        restoreFocusRef.current = document.activeElement as HTMLElement | null;
+-        entryRef.current?.focus({ preventScroll: true });
+-      }
++      // OneKey patch: the focus effect above also handles returning to an open dialog.
++      // if (blocking) {
++      //   restoreFocusRef.current = document.activeElement as HTMLElement | null;
++      //   entryRef.current?.focus({ preventScroll: true });
++      // }
+     }
+     // A sheet is measured as a whole; other presentations by the children
+     // of the full-window React root.
+@@ -194,15 +276,17 @@ function WebOverlayEntry({
+         if (direction === 'in') {
+           callbacksRef.current.onPresented();
+         } else {
+-          restoreFocusRef.current?.focus?.({ preventScroll: true });
+-          restoreFocusRef.current = null;
++          // OneKey patch: the exit animation can finish after another dialog takes focus.
++          // restoreFocusRef.current?.focus?.({ preventScroll: true });
++          // restoreFocusRef.current = null;
++          restoreFocus();
+           callbacksRef.current.onDismissed();
+         }
+       })
+       .catch(() => {
+         // Cancelled by a newer transition; that run reports instead.
+       });
+-  }, [presented, animation, blocking, isSheet]);
++  }, [presented, animation, restoreFocus, isSheet]);
+ 
+   useEffect(
+     () => registerOverlayDismissRequester(entryId, onRequestDismiss),
+@@ -262,31 +346,12 @@ function WebOverlayEntry({
+     )
+       .filter((node) => {
+         if (
+-          (node.tabIndex < 0 &&
+-            (node.hasAttribute('tabindex') ||
+-              !node.hasAttribute('contenteditable'))) ||
+-          node.matches(':disabled')
+-        ) {
++          node.tabIndex < 0 &&
++          (node.hasAttribute('tabindex') ||
++            !node.hasAttribute('contenteditable'))
++        )
+           return false;
+-        }
+-        for (
+-          let ancestor: HTMLElement | null = node;
+-          ancestor;
+-          ancestor = ancestor.parentElement
+-        ) {
+-          const style = getComputedStyle(ancestor);
+-          if (
+-            ancestor.inert ||
+-            ancestor.hasAttribute('inert') ||
+-            ancestor.hidden ||
+-            ancestor.getAttribute('aria-hidden') === 'true' ||
+-            style.display === 'none' ||
+-            style.visibility === 'hidden'
+-          ) {
+-            return false;
+-          }
+-        }
+-        return true;
++        return isAvailableFocusTarget(node);
+       })
+       .sort((a, b) => {
+         const aOrder = a.tabIndex > 0 ? a.tabIndex : Infinity;
+@@ -330,6 +395,15 @@ function WebOverlayEntry({
+         visibility: parked ? 'hidden' : undefined,
+       }}
+       {...ISOLATED_EVENT_HANDLERS}
++      onFocusCapture={(event) => {
++        const target = event.target;
++        if (
++          target instanceof HTMLElement &&
++          event.currentTarget.contains(target)
++        ) {
++          lastFocusedRef.current = target;
++        }
++      }}
+       onKeyDownCapture={onKeyDownCapture}
+     >
+       {showBackdrop ? (
+@@ -473,6 +547,8 @@ export function OverlayView(props: IOverlayViewProps) {
+       key="entry"
+       parked={parked}
+       entryId={entry?.id ?? parkedId}
++      ownsFocus={!!entry && overlayStore.getBlockingTop()?.id === entry.id}
++      hostKey={hostKey}
+       stackOrder={entry?.seq ?? 0}
+       levelOrder={OVERLAY_LEVEL_ORDER[level]}
+       presented={!parked && presented}
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
+index e70efd9..05bebd7 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
+@@ -110,6 +110,10 @@ export function syncOverlayInert() {
+   pageInertElements = nextPageInert;
+ 
+   for (const [hostKey, host] of pageHosts) {
++    setInert(
++      host,
++      nextPageInert.has(host) || !overlayStore.isPageHostFocused(hostKey)
++    );
+     inertEntriesBelow(
+       host,
+       top?.scope === 'page' && top.hostKey === hostKey ? top : undefined
+@@ -187,10 +191,12 @@ export function registerOverlayPageHost(
+ ): () => void {
+   installOverlayWebManager();
+   pageHosts.set(hostKey, element);
++  syncOverlayInert();
+   pageHostListeners.get(hostKey)?.forEach((listener) => listener());
+   return () => {
+     if (pageHosts.get(hostKey) === element) {
+       pageHosts.delete(hostKey);
++      syncOverlayInert();
+       pageHostListeners.get(hostKey)?.forEach((listener) => listener());
+     }
+   };

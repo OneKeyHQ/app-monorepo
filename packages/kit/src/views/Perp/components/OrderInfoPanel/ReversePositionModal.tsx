@@ -38,12 +38,14 @@ import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
+import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
 import { getTradingSideTextColor } from '../../utils/styleUtils';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 import {
   computeAddPositionMaxSize,
+  getPositionDirection,
   isAddPositionAssetDataScoped,
 } from './utils/addPosition';
 import {
@@ -72,6 +74,22 @@ export function ReversePositionContent({
   const position = positions.find(
     (item) => item.position.coin === snapshot.coin,
   )?.position;
+  const positionSize = position?.szi;
+  const previewSnapshot = useMemo(() => {
+    const direction = getPositionDirection(snapshot.positionSize);
+    if (
+      positionSize &&
+      direction &&
+      getPositionDirection(positionSize) === direction &&
+      isPerpsAccountAddressMatched({
+        activeAccountAddress: activeAccount.accountAddress,
+        dataAccountAddress: snapshot.accountAddress,
+      })
+    ) {
+      return { ...snapshot, positionSize };
+    }
+    return snapshot;
+  }, [activeAccount.accountAddress, positionSize, snapshot]);
   const liveScopeRef = useRef({
     accountAddress: activeAccount.accountAddress,
     position,
@@ -194,14 +212,14 @@ export function ReversePositionContent({
     ? getValidPerpsPrice(assetCtx.markPrice)
     : undefined;
   const isScopeValid = isReversePositionScopeValid({
-    snapshot,
+    snapshot: previewSnapshot,
     ...liveScopeRef.current,
   });
   const size =
-    szDecimals === undefined
+    szDecimals === undefined || !isScopeValid
       ? null
-      : getReversePositionSize(snapshot.positionSize, szDecimals)?.abs();
-  const isBuy = new BigNumber(snapshot.positionSize).lt(0);
+      : getReversePositionSize(previewSnapshot.positionSize, szDecimals)?.abs();
+  const isBuy = new BigNumber(previewSnapshot.positionSize).lt(0);
   const side = isBuy ? 'long' : 'short';
   const symbol = parseDexCoin(snapshot.coin).displayName;
   const crossAvailableAfterMaintenance = usePerpsCrossAvailableAfterMaintenance(
@@ -274,7 +292,10 @@ export function ReversePositionContent({
     try {
       const assertScope = () => {
         if (
-          !isReversePositionScopeValid({ snapshot, ...liveScopeRef.current })
+          !isReversePositionScopeValid({
+            snapshot: previewSnapshot,
+            ...liveScopeRef.current,
+          })
         ) {
           throw new OneKeyLocalError(
             intl.formatMessage({
@@ -291,7 +312,7 @@ export function ReversePositionContent({
       if (!mountedRef.current) return;
       assertScope();
       const order = buildReversePositionOrder({
-        snapshot,
+        snapshot: previewSnapshot,
         price: latest.price,
         szDecimals: latest.symbolMeta.universe?.szDecimals ?? 0,
         maxSize: computeAddPositionMaxSize({
@@ -305,18 +326,12 @@ export function ReversePositionContent({
         }),
       });
       if (order.error) {
-        const title =
-          order.error === 'minimumOrder'
-            ? intl.formatMessage(
-                { id: ETranslations.perp_size_least },
-                { amount: '$10' },
-              )
-            : intl.formatMessage({
-                id:
-                  order.error === 'insufficientMargin'
-                    ? ETranslations.perp_insufficient_margin__title
-                    : ETranslations.target_market_data_changed__msg,
-              });
+        const title = intl.formatMessage({
+          id:
+            order.error === 'insufficientMargin'
+              ? ETranslations.perp_insufficient_margin__title
+              : ETranslations.target_market_data_changed__msg,
+        });
         Toast.error({ title });
         return;
       }
@@ -352,7 +367,7 @@ export function ReversePositionContent({
     isBuy,
     onClose,
     onSubmittingChange,
-    snapshot,
+    previewSnapshot,
   ]);
 
   const formattedSize = size
