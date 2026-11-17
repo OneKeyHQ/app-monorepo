@@ -64,6 +64,8 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     Stack,
     IconButton: () => null,
+    HeaderIconButton: () => null,
+    Popover: () => null,
     SizableText: Stack,
     ListView: forwardRef(function MockList(
       { ListFooterComponent }: { ListFooterComponent: React.ReactNode },
