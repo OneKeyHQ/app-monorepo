@@ -32,10 +32,15 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useListStructureAtom } from '../atoms';
 
+import {
+  OWNER_REPLAY_CACHE_CAP,
+  tryBuildHomeSnapshotFromOwnerReplay,
+} from './ownerFrameReplayCache';
 import { useHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
 export interface IHomeTokenListSnapshot {
@@ -71,36 +76,61 @@ const EMPTY_SNAPSHOT: IHomeTokenListSnapshot = {
  */
 const snapshotInflight = new Map<string, Promise<IHomeTokenListSnapshot>>();
 
-function fetchHomeTokenListSnapshot(
+export function clearHomeTokenListSnapshotCache(): void {
+  snapshotInflight.clear();
+}
+
+export function fetchHomeTokenListSnapshot(
   ownerKey: string,
   generation: number,
 ): Promise<IHomeTokenListSnapshot> {
   const cacheKey = `${ownerKey}@${generation}`;
-  let pending = snapshotInflight.get(cacheKey);
-  if (!pending) {
-    pending = Promise.all([
-      backgroundApiProxy.serviceTokenViewModel.getRawTokenList({ ownerKey }),
-      backgroundApiProxy.serviceTokenViewModel.getAllTokenListMap({ ownerKey }),
-    ])
-      .then(([raw, map]) => ({
-        tokens: raw.tokens,
-        keys: raw.keys,
-        map,
-        cacheKey,
-        ownerKey,
-        accountId: raw.accountId,
-        networkId: raw.networkId,
-      }))
-      .catch((e) => {
-        snapshotInflight.delete(cacheKey);
-        throw e;
-      });
-    // Single-entry cache: evict any stale `(ownerKey, generation)` so a switch
-    // never leaves an old snapshot pinned.
-    for (const key of snapshotInflight.keys()) {
+  const existing = snapshotInflight.get(cacheKey);
+  if (existing) {
+    snapshotInflight.delete(cacheKey);
+    snapshotInflight.set(cacheKey, existing);
+    return existing;
+  }
+  const ownerPrefix = `${ownerKey}@`;
+  for (const key of snapshotInflight.keys()) {
+    if (key.startsWith(ownerPrefix)) {
       snapshotInflight.delete(key);
     }
-    snapshotInflight.set(cacheKey, pending);
+  }
+  const pending = (async (): Promise<IHomeTokenListSnapshot> => {
+    await Promise.resolve();
+    const fromReplay = tryBuildHomeSnapshotFromOwnerReplay({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+      ownerKey,
+      generation,
+    });
+    if (fromReplay) {
+      return fromReplay;
+    }
+    const [raw, map] = await Promise.all([
+      backgroundApiProxy.serviceTokenViewModel.getRawTokenList({ ownerKey }),
+      backgroundApiProxy.serviceTokenViewModel.getAllTokenListMap({ ownerKey }),
+    ]);
+    return {
+      tokens: raw.tokens,
+      keys: raw.keys,
+      map,
+      cacheKey,
+      ownerKey,
+      accountId: raw.accountId,
+      networkId: raw.networkId,
+    };
+  })().catch((e) => {
+    snapshotInflight.delete(cacheKey);
+    throw e;
+  });
+  snapshotInflight.set(cacheKey, pending);
+  while (snapshotInflight.size > OWNER_REPLAY_CACHE_CAP) {
+    const lruKey = snapshotInflight.keys().next().value;
+    if (lruKey === undefined) {
+      break;
+    }
+    snapshotInflight.delete(lruKey);
   }
   return pending;
 }

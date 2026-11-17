@@ -96,6 +96,10 @@ export interface IStructureSnapshot {
    * empty or partial bundle that paints on the next visit and then jumps.
    */
   provisional?: boolean;
+  settledAccountId?: string;
+  settledNetworkId?: string;
+  rawKeys?: string;
+  riskyCount?: number;
 }
 
 /**
@@ -120,4 +124,5 @@ export interface IValuationFrame {
    * valuation frame, which is what marks the owner settled.
    */
   provisional?: boolean;
+  structureGeneration?: number;
 }

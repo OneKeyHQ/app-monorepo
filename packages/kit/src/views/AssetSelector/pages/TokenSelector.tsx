@@ -46,9 +46,15 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useTokenListActions } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
+import {
+  getOwnerReplayFrames,
+  useHomeTokenListSnapshot,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveTypes,
   IVaultSettings,
@@ -1841,10 +1847,24 @@ function TokenSelector() {
     selectorFloorSeededRef.current = true;
     void (async () => {
       try {
+        const cachedReplay = getOwnerReplayFrames({
+          storeName: EJotaiContextStoreNames.homeTokenList,
+          ownerKey: snapshot.ownerKey,
+        });
+        const canReuseReplayFrames = Boolean(
+          cachedReplay?.structure &&
+          ((cachedReplay.structure.structure.riskyCount ?? 0) === 0 ||
+            cachedReplay.risky),
+        );
         const [frames, localAggregateTokenListMap] = await Promise.all([
-          backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
-            ownerKey: snapshot.ownerKey,
-          }),
+          canReuseReplayFrames
+            ? Promise.resolve({
+                structure: cachedReplay?.structure?.structure,
+                riskyTokens: cachedReplay?.risky?.riskyTokens ?? [],
+              })
+            : backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+                ownerKey: snapshot.ownerKey,
+              }),
           backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
             accountId,
             networkId,

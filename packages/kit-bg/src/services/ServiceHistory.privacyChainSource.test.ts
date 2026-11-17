@@ -298,4 +298,54 @@ describe('ServiceHistory vault history source', () => {
       expect(post).not.toHaveBeenCalled();
     },
   );
+
+  it('aggregates and sorts merge-derive local history in BG without passing currencyMap across the bridge', async () => {
+    const { service } = createService();
+    const getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes = jest.fn(
+      async () => ({
+        networkAccounts: [
+          { account: { id: 'btc-1' }, deriveType: 'default' },
+          { account: { id: 'btc-2' }, deriveType: 'taproot' },
+        ],
+      }),
+    );
+    Object.assign(service.backgroundApi.serviceAccount, {
+      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes,
+    });
+    const spyLocal = jest
+      .spyOn(service, 'getAccountsLocalHistoryTxs')
+      .mockImplementation(async ({ accountId }) =>
+        accountId === 'btc-1'
+          ? [
+              {
+                ...row('btc--0', 'tx-older'),
+                decodedTx: {
+                  ...row('btc--0', 'tx-older').decodedTx,
+                  updatedAt: 100,
+                },
+              } as IAccountHistoryTx,
+            ]
+          : [
+              {
+                ...row('btc--0', 'tx-newer'),
+                decodedTx: {
+                  ...row('btc--0', 'tx-newer').decodedTx,
+                  updatedAt: 200,
+                },
+              } as IAccountHistoryTx,
+            ],
+      );
+
+    const merged = await service.getAccountsLocalHistoryTxsForMergeDerive({
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      sourceCurrency: 'usd',
+      limit: 1,
+    });
+    expect(
+      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes,
+    ).toHaveBeenCalledTimes(1);
+    expect(spyLocal).toHaveBeenCalledTimes(2);
+    expect(merged.map((tx) => tx.decodedTx.txid)).toEqual(['tx-newer']);
+  });
 });

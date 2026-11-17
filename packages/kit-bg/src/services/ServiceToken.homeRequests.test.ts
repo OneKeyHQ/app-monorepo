@@ -1,3 +1,4 @@
+import { bridgePayloadGuard } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -855,5 +856,166 @@ describe('ServiceToken native Home request lifetime', () => {
         networkId: 'btc--0',
       }),
     );
+  });
+
+  it('ingests single-network and merge-derive local cache directly in BG on getAccountLocalTokens', async () => {
+    const makeFixtureToken = (key: string) => ({
+      $key: key,
+      address: '',
+      decimals: 18,
+      isNative: true,
+      name: key.toUpperCase(),
+      symbol: key.toUpperCase(),
+    });
+    api.simpleDb.localTokens.getAccountTokenList.mockResolvedValueOnce({
+      hasCache: true,
+      currency: 'usd',
+      tokenList: [makeFixtureToken('eth')],
+      smallBalanceTokenList: [],
+      riskyTokenList: [],
+      tokenListMap: {
+        eth: {
+          balance: '2',
+          balanceParsed: '2',
+          fiatValue: '4000',
+          price: 2000,
+          currency: 'usd',
+        },
+      },
+      tokenListValue: '4000',
+    });
+
+    const singleLocal = await service.getAccountLocalTokens({
+      accountId: 'acc-1',
+      networkId: 'evm--1',
+      accountAddress: '0x1111',
+      homeIngest: {
+        ownerKey: 'acc-1__evm--1',
+        storeName: 'homeTokenList',
+        keepDefault: true,
+        omitResponseTokenLists: true,
+      },
+    });
+    expect(singleLocal.homeIngested).toBe(true);
+    expect(singleLocal.hasNonEmptyTokens).toBe(true);
+    expect(singleLocal.tokenList).toEqual([]);
+    expect(singleLocal.tokenListMap).toEqual({});
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerKey: 'acc-1__evm--1',
+        source: 'singleCacheSeed',
+        orderedTokens: [expect.objectContaining({ $key: 'eth' })],
+      }),
+    );
+
+    api.serviceTokenViewModel.ingestRound.mockClear();
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+      {
+        networkAccounts: [
+          { account: { id: 'btc-derive-1', address: 'bc1q1' } },
+          { account: { id: 'btc-derive-2', address: 'bc1p2' } },
+        ],
+      },
+    );
+    api.simpleDb.localTokens.getAccountTokenList
+      .mockResolvedValueOnce({
+        hasCache: true,
+        currency: 'usd',
+        tokenList: [makeFixtureToken('btc')],
+        smallBalanceTokenList: [],
+        riskyTokenList: [],
+        tokenListMap: {
+          btc: {
+            balance: '1',
+            balanceParsed: '1',
+            fiatValue: '60000',
+            price: 60_000,
+            currency: 'usd',
+          },
+        },
+        tokenListValue: '60000',
+      })
+      .mockResolvedValueOnce({
+        hasCache: true,
+        currency: 'usd',
+        tokenList: [],
+        smallBalanceTokenList: [],
+        riskyTokenList: [],
+        tokenListMap: {},
+        tokenListValue: '0',
+      });
+
+    const mergedLocal = await service.getAccountLocalTokens({
+      accountId: 'indexed-1',
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      mergeDeriveAddressData: true,
+      homeIngest: {
+        ownerKey: 'indexed-1__btc--0',
+        storeName: 'homeTokenList',
+        settledAccountId: 'btc-derive-1',
+        omitResponseTokenLists: true,
+      },
+    });
+    expect(mergedLocal.homeIngested).toBe(true);
+    expect(mergedLocal.hasNonEmptyTokens).toBe(true);
+    expect(mergedLocal.tokenListValue).toBe('60000');
+    expect(mergedLocal.tokenList).toEqual([]);
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerKey: 'indexed-1__btc--0',
+        accountId: 'btc-derive-1',
+        source: 'singleCacheSeed',
+      }),
+    );
+  });
+
+  it('detects ping-pong cross-bridge round-trips and oversized payloads via bridgePayloadGuard', () => {
+    const makeFixtureToken = (key: string) => ({
+      $key: key,
+      address: '',
+      decimals: 18,
+      isNative: true,
+      name: key.toUpperCase(),
+      symbol: key.toUpperCase(),
+    });
+    bridgePayloadGuard.reset();
+    bridgePayloadGuard.configure({
+      mode: 'throw',
+      minArrayItems: 3,
+      maxMainToBgParamBytes: 1024,
+    });
+    try {
+      const responseTokens = [
+        makeFixtureToken('t1'),
+        makeFixtureToken('t2'),
+        makeFixtureToken('t3'),
+      ];
+      bridgePayloadGuard.recordResponse({
+        method: 'serviceToken.fetchAccountTokens',
+        result: { tokens: { data: responseTokens } },
+        now: 1000,
+      });
+
+      expect(() =>
+        bridgePayloadGuard.inspectRequest({
+          method: 'serviceTokenViewModel.ingestRound',
+          params: [{ orderedTokens: responseTokens }],
+          now: 1050,
+        }),
+      ).toThrow(/Ping-Pong round-trip detected/u);
+
+      const largeParam = { blob: 'x'.repeat(1000) };
+      expect(() =>
+        bridgePayloadGuard.inspectRequest({
+          method: 'serviceCustom.upload',
+          params: [largeParam],
+          now: 2000,
+        }),
+      ).toThrow(/Oversized Main->BG RPC payload/u);
+      expect(bridgePayloadGuard.getViolations()).toHaveLength(2);
+    } finally {
+      bridgePayloadGuard.reset();
+    }
   });
 });

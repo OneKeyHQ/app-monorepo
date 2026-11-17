@@ -22,6 +22,76 @@ const EXPOSED_DECORATORS = new Set([
   'backgroundMethod',
   'backgroundMethodForDev',
 ]);
+const BANNED_UI_ROUNDTRIP_METHODS = new Map([
+  [
+    'serviceToken.mergeTokenMetadataWithCustomDataBatch',
+    'serviceToken.mergeTokenMetadataWithCustomDataBatch must not be called across the bridge from UI code; use mergeTokenMetadataWithCustomDataBatchSync from @onekeyhq/shared/src/utils/tokenUtils instead.',
+  ],
+  [
+    'serviceToken.mergeTokenMetadataWithCustomData',
+    'serviceToken.mergeTokenMetadataWithCustomData must not be called across the bridge from UI code; use mergeTokenMetadataWithCustomDataSync from @onekeyhq/shared/src/utils/tokenUtils instead.',
+  ],
+]);
+const BANNED_UI_ARG_KEYS_BY_METHOD = new Map([
+  [
+    'serviceHistory.fetchAccountHistory',
+    new Map([
+      [
+        'currencyMap',
+        'serviceHistory.fetchAccountHistory must not pass currencyMap across the bridge from UI code; ServiceHistory reads currencyPersistAtom directly in background.',
+      ],
+    ]),
+  ],
+  [
+    'serviceHistory.fetchAccountHistoryForMergeDerive',
+    new Map([
+      [
+        'currencyMap',
+        'serviceHistory.fetchAccountHistoryForMergeDerive must not pass currencyMap across the bridge from UI code; ServiceHistory reads currencyPersistAtom directly in background.',
+      ],
+    ]),
+  ],
+  [
+    'serviceHistory.getAccountsLocalHistoryTxs',
+    new Map([
+      [
+        'currencyMap',
+        'serviceHistory.getAccountsLocalHistoryTxs must not pass currencyMap across the bridge from UI code; ServiceHistory reads currencyPersistAtom directly in background.',
+      ],
+    ]),
+  ],
+  [
+    'serviceHistory.getAccountsLocalHistoryTxsForMergeDerive',
+    new Map([
+      [
+        'currencyMap',
+        'serviceHistory.getAccountsLocalHistoryTxsForMergeDerive must not pass currencyMap across the bridge from UI code; ServiceHistory reads currencyPersistAtom directly in background.',
+      ],
+    ]),
+  ],
+]);
+
+function getObjectExpressionPropertyNames(node) {
+  const unwrapped = unwrapExpression(node);
+  if (unwrapped?.type !== 'ObjectExpression') {
+    return [];
+  }
+  const names = [];
+  for (const prop of unwrapped.properties ?? []) {
+    if (prop.type !== 'ObjectProperty') {
+      continue;
+    }
+    if (!prop.computed && prop.key?.type === 'Identifier') {
+      names.push(prop.key.name);
+    } else if (
+      ['Literal', 'StringLiteral'].includes(prop.key?.type) &&
+      typeof prop.key.value === 'string'
+    ) {
+      names.push(prop.key.value);
+    }
+  }
+  return names;
+}
 
 function isIgnoredSourceFile(filePath) {
   return (
@@ -873,11 +943,15 @@ function collectUiReferences(referenceFiles, getAst) {
       return undefined;
     };
 
-    const addReferenceDescriptor = (descriptor, node) => {
+    const addReferenceDescriptor = (descriptor, node, callNode = undefined) => {
       if (descriptor?.kind !== 'reference') {
         return;
       }
+      const argPropertyNames = callNode
+        ? getObjectExpressionPropertyNames(callNode.arguments?.[0])
+        : [];
       addReference({
+        argPropertyNames,
         filePath,
         kind: descriptor.referenceKind,
         line: node.loc?.start.line ?? 1,
@@ -915,9 +989,15 @@ function collectUiReferences(referenceFiles, getAst) {
       ) {
         return;
       }
+      const callNode =
+        ['CallExpression', 'OptionalCallExpression'].includes(parent?.type) &&
+        parent.callee === node
+          ? parent
+          : undefined;
       addReferenceDescriptor(
         resolveExpression(node, scopeByNode.get(node)),
         node,
+        callNode,
       );
     });
 
@@ -1066,6 +1146,32 @@ function findContractViolations({
       reference.method,
     );
     if (exposure.exposed) {
+      if (!reference.filePath.startsWith(BACKGROUND_SOURCE_PREFIX)) {
+        const qualifiedMethod = `${reference.owner}.${reference.method}`;
+        const bannedMethodMessage =
+          BANNED_UI_ROUNDTRIP_METHODS.get(qualifiedMethod);
+        if (bannedMethodMessage) {
+          violations.push({
+            ...reference,
+            declaration: exposure.declaration,
+            message: bannedMethodMessage,
+          });
+          continue;
+        }
+        const bannedArgs = BANNED_UI_ARG_KEYS_BY_METHOD.get(qualifiedMethod);
+        if (bannedArgs && Array.isArray(reference.argPropertyNames)) {
+          for (const propName of reference.argPropertyNames) {
+            const bannedArgMessage = bannedArgs.get(propName);
+            if (bannedArgMessage) {
+              violations.push({
+                ...reference,
+                declaration: exposure.declaration,
+                message: bannedArgMessage,
+              });
+            }
+          }
+        }
+      }
       continue;
     }
     violations.push({

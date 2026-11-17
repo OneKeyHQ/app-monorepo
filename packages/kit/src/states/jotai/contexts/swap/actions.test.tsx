@@ -10608,6 +10608,40 @@ describe('useSwapActions', () => {
         .get(swapProPositionsCacheAtom())
         .byOwner[stockOwnerKey]?.tokens.map((token) => token.symbol),
     ).toEqual([stockPositionToken.symbol]);
+
+    // When ServiceSwap.fetchSwapTokens resolves stock metadata inside BG
+    // (`stockMarketResolved: true`), Main skips the second cross-bridge
+    // `fetchMarketTokenListBatch` call.
+    mockFetchMarketTokenListBatch.mockClear();
+    mockFetchSwapTokens.mockResolvedValueOnce([
+      {
+        ...stockPositionToken,
+        isStock: true,
+        stock,
+        stockMarketResolved: true,
+      },
+      {
+        ...stablePositionToken,
+        stockMarketResolved: true,
+      },
+    ]);
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        [{ networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' }],
+        'indexed-account',
+        undefined,
+        'usd',
+        {
+          forceRefresh: true,
+          positionLoader: loadSwapProPositions,
+          stockOnly: true,
+        },
+      );
+    });
+    expect(mockFetchMarketTokenListBatch).not.toHaveBeenCalled();
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey]?.tokens,
+    ).toEqual([{ ...stockPositionToken, isStock: true, stock }]);
   });
 
   it('keeps successful network positions when another network fails', async () => {

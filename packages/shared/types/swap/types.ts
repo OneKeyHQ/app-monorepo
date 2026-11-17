@@ -295,6 +295,7 @@ export interface ISwapToken extends ISwapTokenBase {
   // string shape while both service responses share this DTO.
   subtitles?: string | string[];
   stock?: IMarketStockInfo;
+  stockMarketResolved?: boolean;
 
   freeFeeObject?: IFreeFeeObject;
 }
@@ -339,6 +340,8 @@ export interface IFetchTokensParams {
   tokenListPriority?: 'foreground' | 'background';
   lpToken?: boolean;
   currency?: string;
+  includeStockMarketMetadata?: boolean;
+  requestLocale?: string;
 }
 
 export interface IFetchTokenListParams {

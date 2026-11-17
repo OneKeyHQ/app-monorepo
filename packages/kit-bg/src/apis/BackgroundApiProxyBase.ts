@@ -3,6 +3,7 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  bridgePayloadGuard,
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -217,6 +218,17 @@ export class BackgroundApiProxyBase
     backgroundMethodName: string;
     params: Array<any>;
   }): Promise<any> {
+    const fullMethodName =
+      serviceName && serviceName !== 'ROOT'
+        ? `${serviceName}.${methodName}`
+        : methodName;
+    if (bridgePayloadGuard.isEnabled()) {
+      bridgePayloadGuard.inspectRequest({
+        method: fullMethodName,
+        params,
+      });
+    }
+
     if (platformEnv.isExtension && platformEnv.isExtensionUi) {
       const data: IBackgroundApiInternalCallMessage = {
         service: serviceName,
@@ -267,6 +279,12 @@ export class BackgroundApiProxyBase
         });
         let result = await resultPromise;
         result = ensureSerializable(result, true);
+        if (bridgePayloadGuard.isEnabled()) {
+          bridgePayloadGuard.recordResponse({
+            method: fullMethodName,
+            result,
+          });
+        }
         return result;
       }
       if (!IGNORE_METHODS.has(backgroundMethodNameLocal)) {
@@ -311,16 +329,26 @@ export class BackgroundApiProxyBase
               return serializableParam;
             })
           : params;
-        return transport.callServiceRequest(
-          {
-            type: 'service-call',
-            method: backgroundMethod,
-            params: remoteParams,
-            sync,
-          },
-          callLocalBackgroundMethod,
-          abortSignal ? { signal: abortSignal } : undefined,
-        );
+        return transport
+          .callServiceRequest(
+            {
+              type: 'service-call',
+              method: backgroundMethod,
+              params: remoteParams,
+              sync,
+            },
+            callLocalBackgroundMethod,
+            abortSignal ? { signal: abortSignal } : undefined,
+          )
+          .then((result) => {
+            if (bridgePayloadGuard.isEnabled()) {
+              bridgePayloadGuard.recordResponse({
+                method: backgroundMethod,
+                result,
+              });
+            }
+            return result;
+          });
       }
     }
 

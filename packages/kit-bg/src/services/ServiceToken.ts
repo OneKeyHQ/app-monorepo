@@ -63,6 +63,7 @@ import type {
   IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  IHomeSingleNetworkIngestOptions,
   IHomeTokenRequest,
   IHomeTokenRequestInvalidation,
   ISearchTokensParams,
@@ -75,6 +76,7 @@ import {
   currencyPersistAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import { buildHomeTokenListCacheIngestRound } from '../states/jotai/contexts/tokenList/cellsPure/buildHomeTokenListCacheIngestRound';
 import {
   AccountTokensSnapshotCache,
   copyAccountTokenGroup,
@@ -1923,7 +1925,7 @@ class ServiceToken extends ServiceBase {
         const tokens = await this.getAccountLocalTokens({
           ...account,
           homeRequest,
-          simpleDbLocalTokensRawData: rawData,
+          simpleDbLocalTokensRawData: rawData ?? undefined,
         });
         homeTokenRequestRegistry.assertCurrent(homeRequest);
         if (homeRequest) {
@@ -1999,17 +2001,42 @@ class ServiceToken extends ServiceBase {
     homeRequest?: IHomeTokenRequest;
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
+    mergeDeriveAddressData?: boolean;
+    homeIngest?: IHomeSingleNetworkIngestOptions;
     accountAddress?: string;
     xpub?: string;
     simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
-  }) {
+  }): Promise<{
+    tokenList: IAccountToken[];
+    smallBalanceTokenList: IAccountToken[];
+    riskyTokenList: IAccountToken[];
+    tokenListMap: Record<string, ITokenFiat>;
+    tokenListValue: string;
+    currency: string | undefined;
+    hasCache: boolean;
+    hasNonEmptyTokens?: boolean;
+    homeIngested?: boolean;
+    homeAccountWorth?: Record<string, string>;
+    accountId: string;
+    networkId: string;
+  }> {
     this.claimHomeTokenRequest(params.homeRequest);
+    if (params.mergeDeriveAddressData && params.indexedAccountId) {
+      return this.getMergedDeriveAccountLocalTokensInBg(params);
+    }
     const perf = perfUtils.createPerf({
       name: EPerformanceTimerLogNames.allNetwork__getAccountLocalTokens,
     });
 
-    const { accountId, networkId, simpleDbLocalTokensRawData, homeRequest } =
-      params;
+    const {
+      accountId,
+      networkId,
+      simpleDbLocalTokensRawData,
+      homeRequest,
+      homeIngest,
+      indexedAccountId,
+    } = params;
 
     let accountAddress: string | undefined;
     let xpub: string | undefined;
@@ -2137,17 +2164,297 @@ class ServiceToken extends ServiceBase {
 
     homeTokenRequestRegistry.assertCurrent(homeRequest);
     perf.done();
-    return {
-      ...localTokens,
+    const homeAccountWorth = {
+      [accountUtils.buildAccountValueKey({
+        accountId,
+        networkId,
+      })]: tokenListValue,
+    };
+    const pickFiatMap = (tokens: IAccountToken[]) => {
+      const map: Record<string, ITokenFiat> = {};
+      for (const token of tokens) {
+        const fiat = tokenListMap[token.$key];
+        if (fiat) {
+          map[token.$key] = fiat;
+        }
+      }
+      return map;
+    };
+    return this.finalizeLocalTokensForHomeIngest({
+      baseResult: {
+        ...localTokens,
+        tokenList,
+        smallBalanceTokenList,
+        riskyTokenList,
+        tokenListMap,
+        tokenListValue,
+        currency: resolvedCurrency,
+        hasCache: localTokens.hasCache,
+        accountId,
+        networkId,
+      },
+      tokenListMapForVm: pickFiatMap(tokenList),
+      smallBalanceTokenListMapForVm: pickFiatMap(smallBalanceTokenList),
+      riskyTokenListMapForVm: pickFiatMap(riskyTokenList),
+      homeAccountWorth,
+      homeRequest,
+      homeIngest,
+      customTokenAccountIds: [accountId],
+      indexedAccountId,
+    });
+  }
+
+  private async getMergedDeriveAccountLocalTokensInBg(params: {
+    homeRequest?: IHomeTokenRequest;
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    homeIngest?: IHomeSingleNetworkIngestOptions;
+    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
+  }) {
+    const {
+      accountId,
+      networkId,
+      indexedAccountId = '',
+      homeRequest,
+      homeIngest,
+      simpleDbLocalTokensRawData,
+    } = params;
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const { networkAccounts } =
+      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const rawData =
+      simpleDbLocalTokensRawData ??
+      (await this.backgroundApi.simpleDb?.localTokens?.getRawData?.());
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const resp = await Promise.all(
+      networkAccounts.map((networkAccount) =>
+        this.getAccountLocalTokens({
+          homeRequest,
+          accountId: networkAccount.account?.id ?? '',
+          networkId,
+          accountAddress: networkAccount.account?.address ?? '',
+          xpub:
+            (networkAccount.account as { xpubSegwit?: string } | undefined)
+              ?.xpubSegwit ||
+            (networkAccount.account as { xpub?: string } | undefined)?.xpub,
+          simpleDbLocalTokensRawData: rawData ?? undefined,
+          mergeDeriveAddressData: false,
+          homeIngest: undefined,
+        }),
+      ),
+    );
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const hasCache = resp.some((item) => item.hasCache);
+    const resolvedCurrency = resp.find((r) => r.currency)?.currency;
+    const homeAccountWorth: Record<string, string> = {};
+    let totalValue = new BigNumber(0);
+    const pickFiatMap = (
+      tokens: IAccountToken[],
+      map: Record<string, ITokenFiat>,
+    ) => {
+      const picked: Record<string, ITokenFiat> = {};
+      for (const token of tokens) {
+        const fiat = map[token.$key];
+        if (fiat) {
+          picked[token.$key] = fiat;
+        }
+      }
+      return picked;
+    };
+    const mergeInput = resp.map((r) => {
+      if (r.accountId && r.networkId) {
+        homeAccountWorth[
+          accountUtils.buildAccountValueKey({
+            accountId: r.accountId,
+            networkId: r.networkId,
+          })
+        ] = r.tokenListValue;
+      }
+      totalValue = totalValue.plus(r.tokenListValue ?? '0');
+      return {
+        tokens: {
+          data: r.tokenList,
+          keys: '',
+          map: pickFiatMap(r.tokenList, r.tokenListMap),
+        },
+        smallBalanceTokens: {
+          data: r.smallBalanceTokenList,
+          keys: '',
+          map: pickFiatMap(r.smallBalanceTokenList, r.tokenListMap),
+        },
+        riskTokens: {
+          data: r.riskyTokenList,
+          keys: '',
+          map: pickFiatMap(r.riskyTokenList, r.tokenListMap),
+        },
+      };
+    });
+    const merged = getMergedDeriveTokenData({
+      data: mergeInput,
+      mergeDeriveAssetsEnabled: true,
+    });
+    const tokenList = merged.tokenList.tokens;
+    const smallBalanceTokenList =
+      merged.smallBalanceTokenList.smallBalanceTokens;
+    const riskyTokenList = merged.riskyTokenList.riskyTokens;
+    const combinedTokenListMap = {
+      ...merged.tokenListMap,
+      ...merged.smallBalanceTokenListMap,
+      ...merged.riskyTokenListMap,
+    };
+    return this.finalizeLocalTokensForHomeIngest({
+      baseResult: {
+        tokenList,
+        smallBalanceTokenList,
+        riskyTokenList,
+        tokenListMap: combinedTokenListMap,
+        tokenListValue: totalValue.toFixed(),
+        currency: resolvedCurrency,
+        hasCache,
+        accountId,
+        networkId,
+      },
+      tokenListMapForVm: merged.tokenListMap,
+      smallBalanceTokenListMapForVm: merged.smallBalanceTokenListMap,
+      riskyTokenListMapForVm: merged.riskyTokenListMap,
+      homeAccountWorth,
+      homeRequest,
+      homeIngest,
+      customTokenAccountIds: networkAccounts.map((na) => na.account?.id ?? ''),
+      indexedAccountId,
+    });
+  }
+
+  private async finalizeLocalTokensForHomeIngest({
+    baseResult,
+    tokenListMapForVm,
+    smallBalanceTokenListMapForVm,
+    riskyTokenListMapForVm,
+    homeAccountWorth,
+    homeRequest,
+    homeIngest,
+    customTokenAccountIds,
+    indexedAccountId,
+  }: {
+    baseResult: {
+      tokenList: IAccountToken[];
+      smallBalanceTokenList: IAccountToken[];
+      riskyTokenList: IAccountToken[];
+      tokenListMap: Record<string, ITokenFiat>;
+      tokenListValue: string;
+      currency: string | undefined;
+      hasCache: boolean;
+      accountId: string;
+      networkId: string;
+    };
+    tokenListMapForVm: Record<string, ITokenFiat>;
+    smallBalanceTokenListMapForVm: Record<string, ITokenFiat>;
+    riskyTokenListMapForVm: Record<string, ITokenFiat>;
+    homeAccountWorth: Record<string, string>;
+    homeRequest?: IHomeTokenRequest;
+    homeIngest?: IHomeSingleNetworkIngestOptions;
+    customTokenAccountIds: string[];
+    indexedAccountId?: string;
+  }) {
+    const {
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
-      tokenListMap,
-      tokenListValue,
-      currency: resolvedCurrency,
-      hasCache: localTokens.hasCache,
+      hasCache,
       accountId,
       networkId,
+    } = baseResult;
+    const hasNonEmptyTokens =
+      tokenList.length > 0 ||
+      smallBalanceTokenList.length > 0 ||
+      riskyTokenList.length > 0;
+    const hasVmIngest = Boolean(
+      homeIngest &&
+      this.backgroundApi.serviceTokenViewModel &&
+      'ingestRound' in this.backgroundApi.serviceTokenViewModel,
+    );
+    if (homeIngest && hasVmIngest && (hasNonEmptyTokens || hasCache)) {
+      let resolvedHomeDefaultTokenMap = homeIngest.homeDefaultTokenMap;
+      if (
+        !resolvedHomeDefaultTokenMap &&
+        this.backgroundApi.simpleDb?.aggregateToken &&
+        'getHomeDefaultTokenMap' in this.backgroundApi.simpleDb.aggregateToken
+      ) {
+        resolvedHomeDefaultTokenMap =
+          await this.backgroundApi.simpleDb.aggregateToken.getHomeDefaultTokenMap();
+      }
+      let resolvedCustomTokens = homeIngest.customTokens;
+      if (
+        (!resolvedCustomTokens || resolvedCustomTokens.length === 0) &&
+        this.backgroundApi.serviceCustomToken &&
+        'getCustomTokensBatch' in this.backgroundApi.serviceCustomToken
+      ) {
+        resolvedCustomTokens =
+          await this.backgroundApi.serviceCustomToken.getCustomTokensBatch({
+            pairs: [
+              ...customTokenAccountIds
+                .filter(Boolean)
+                .map((id) => ({ accountId: id, networkId })),
+              {
+                accountId: indexedAccountId || accountId,
+                accountXpubOrAddress: indexedAccountId || accountId,
+                networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+              },
+            ],
+          });
+      }
+      homeTokenRequestRegistry.assertCurrent(homeRequest);
+      await this.backgroundApi.serviceTokenViewModel.ingestRound({
+        homeRequest,
+        ...buildHomeTokenListCacheIngestRound({
+          ownerKey: homeIngest.ownerKey,
+          accountId: homeIngest.settledAccountId ?? accountId,
+          networkId,
+          tokenList,
+          smallBalanceTokenList,
+          riskyTokenList,
+          tokenListMap: tokenListMapForVm,
+          smallBalanceTokenListMap: smallBalanceTokenListMapForVm,
+          riskyTokenListMap: riskyTokenListMapForVm,
+          keepDefault: homeIngest.keepDefault,
+          homeDefaultTokenMap: resolvedHomeDefaultTokenMap,
+          customTokens: resolvedCustomTokens,
+          source: hasNonEmptyTokens
+            ? 'singleCacheSeed'
+            : 'singleEmptyCacheSeed',
+        }),
+      });
+      if (homeIngest.omitResponseTokenLists) {
+        return {
+          ...baseResult,
+          tokenList: [],
+          smallBalanceTokenList: [],
+          riskyTokenList: [],
+          tokenListMap: {},
+          hasNonEmptyTokens,
+          homeIngested: true,
+          homeAccountWorth,
+        };
+      }
+      return {
+        ...baseResult,
+        hasNonEmptyTokens,
+        homeIngested: true,
+        homeAccountWorth,
+      };
+    }
+    return {
+      ...baseResult,
+      hasNonEmptyTokens,
+      homeAccountWorth,
     };
   }
 

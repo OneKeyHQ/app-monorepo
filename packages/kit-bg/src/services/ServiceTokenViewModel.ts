@@ -392,6 +392,7 @@ class ServiceTokenViewModel extends ServiceBase {
     homeRequest,
     roundRefs,
     createAtNetwork,
+    persistAggregateMaps,
     ...inputs
   }: Pick<
     IIngestRoundParams,
@@ -408,6 +409,7 @@ class ServiceTokenViewModel extends ServiceBase {
     homeRequest: IHomeTokenRequest;
     roundRefs: string[];
     createAtNetwork?: string;
+    persistAggregateMaps?: boolean;
   }): Promise<boolean> {
     homeTokenRequestRegistry.assertCurrent(homeRequest, inputs.ownerKey);
     if (!this.acceptHomePublication(homeRequest, inputs.homePublication))
@@ -432,10 +434,45 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId: inputs.accountId,
       createAtNetwork,
     });
+    if (
+      persistAggregateMaps &&
+      inputs.networkId &&
+      inputs.accountId &&
+      this.backgroundApi?.serviceToken
+    ) {
+      if ('updateLocalAggregateTokenMap' in this.backgroundApi.serviceToken) {
+        void this.backgroundApi.serviceToken.updateLocalAggregateTokenMap({
+          networkId: inputs.networkId,
+          accountId: inputs.accountId,
+          aggregateTokenMap: snapshot.aggregateTokenMap,
+        });
+      }
+      if (
+        'updateLocalAggregateTokenListMap' in this.backgroundApi.serviceToken
+      ) {
+        void this.backgroundApi.serviceToken.updateLocalAggregateTokenListMap({
+          networkId: inputs.networkId,
+          accountId: inputs.accountId,
+          aggregateTokenListMap: snapshot.aggregateTokenListMap,
+        });
+      }
+    }
+    const prevRaw = this.frames.getPullBlob<IRawTokenListData>(
+      inputs.ownerKey,
+      RAW_BLOB_KEY,
+    );
+    const resolvedInputs = {
+      ...inputs,
+      homeDefaultTokenMap:
+        inputs.homeDefaultTokenMap ??
+        prevRaw?.lastIngestParams?.homeDefaultTokenMap,
+      customTokens:
+        inputs.customTokens ?? prevRaw?.lastIngestParams?.customTokens,
+    };
     // Call synchronously so frame production retains the existing no-yield
     // contract. Only the RPC acknowledgement resolves asynchronously.
     return this.ingestRound({
-      ...inputs,
+      ...resolvedInputs,
       homeRequest,
       orderedTokens: snapshot.orderedTokens,
       smallBalanceTokens: snapshot.smallBalanceTokens,
@@ -576,8 +613,14 @@ class ServiceTokenViewModel extends ServiceBase {
     homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     if (structure) {
       structure.provisional = provisional;
+      structure.settledAccountId = accountId;
+      structure.settledNetworkId = networkId;
+      structure.rawKeys = rawKeys;
+      structure.riskyCount = riskyTokens.length;
     }
     valuation.provisional = provisional;
+    valuation.structureGeneration =
+      structure?.generation ?? prevBlob.lastStructure.generation;
 
     // Structure FIRST (preserve the legacy emit order), then valuation.
     let nextStructurePrev = prevBlob.lastStructure;

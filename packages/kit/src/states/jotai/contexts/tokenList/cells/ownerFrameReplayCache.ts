@@ -18,6 +18,7 @@ import type {
   IStructureSnapshot,
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
+import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
   IToken,
@@ -314,4 +315,73 @@ export function getOwnerReplayCacheGeneration(): number {
 /** Number of remembered owners (tests). */
 export function getOwnerReplayCacheSize(): number {
   return replayCache.size;
+}
+
+export function tryBuildHomeSnapshotFromOwnerReplay({
+  storeName = 'homeTokenList',
+  ownerKey,
+  generation,
+}: {
+  storeName?: string;
+  ownerKey: string;
+  generation: number;
+}):
+  | {
+      tokens: IAccountToken[];
+      keys: string;
+      map: Record<string, ITokenFiat>;
+      cacheKey: string;
+      ownerKey: string;
+      accountId: string | undefined;
+      networkId: string | undefined;
+    }
+  | undefined {
+  const replay = getOwnerReplayFrames({ storeName, ownerKey });
+  const struct = replay?.structure?.structure;
+  const val = replay?.valuation?.valuation;
+  if (
+    !struct ||
+    !val ||
+    struct.generation !== generation ||
+    struct.rawKeys === undefined
+  ) {
+    return undefined;
+  }
+  if (
+    val.structureGeneration !== undefined &&
+    val.structureGeneration !== generation
+  ) {
+    return undefined;
+  }
+  if ((struct.riskyCount ?? 0) > 0) {
+    return undefined;
+  }
+  const tokens: IAccountToken[] = [];
+  for (const id of struct.orderedIds) {
+    const tokenMeta = struct.metaPatch[id];
+    if (!tokenMeta) {
+      return undefined;
+    }
+    tokens.push({ ...tokenMeta, $key: id });
+  }
+  for (const id of struct.smallBalanceIds) {
+    const tokenMeta = struct.metaPatch[id];
+    if (!tokenMeta) {
+      return undefined;
+    }
+    tokens.push({ ...tokenMeta, $key: id });
+  }
+  const map: Record<string, ITokenFiat> = {
+    ...val.changedFiatById,
+    ...flattenAggregateTokensMap(val.changedAggFiat),
+  };
+  return {
+    tokens,
+    keys: struct.rawKeys,
+    map,
+    cacheKey: `${ownerKey}@${generation}`,
+    ownerKey,
+    accountId: struct.settledAccountId,
+    networkId: struct.settledNetworkId,
+  };
 }
