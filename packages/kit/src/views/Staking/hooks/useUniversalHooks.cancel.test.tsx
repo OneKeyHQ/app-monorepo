@@ -44,6 +44,11 @@ const mockAddEarnOrder = jest.fn<Promise<unknown>, [unknown, unknown?]>();
 const mockShowToastOfError = jest.fn<void, [unknown]>();
 const mockAccountAddress = jest.fn<Promise<string>, [unknown]>();
 
+jest.mock('../components/ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: () => {
+    throw new OneKeyLocalError('Unexpected server-executed order');
+  },
+}));
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
 }));

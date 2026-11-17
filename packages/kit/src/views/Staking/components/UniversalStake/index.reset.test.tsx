@@ -86,6 +86,11 @@ const mockGasAlert = jest.fn<
   [{ onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void> }]
 >();
 
+jest.mock('../ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: () => {
+    throw new OneKeyLocalError('Unexpected server-executed order');
+  },
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -1317,13 +1322,19 @@ describe('EtherFi USDT approval reset', () => {
       name: 'Limit.native_token_no_sell_wrap',
     });
     await waitFor(() => expect(mockCheck).toHaveBeenCalled());
-    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     if (editAmountBeforeSubmit) {
+      expect(button.hasAttribute('disabled')).toBe(true);
       fireEvent.change(screen.getByLabelText('amount'), {
         target: { value: '2' },
       });
-      await act(async () => {});
+      expect(button.hasAttribute('disabled')).toBe(true);
+      await waitFor(() =>
+        expect(mockCheck).toHaveBeenCalledWith(
+          expect.objectContaining({ amount: '2' }),
+        ),
+      );
     }
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     fireEvent.click(button);
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     const beforeSend = onConfirm.mock.calls[0][0].beforeDepositTaskSend;
@@ -1520,16 +1531,17 @@ describe('EtherFi USDT approval reset', () => {
   it('ignores a stale input check that finishes after the task validates its wrapped asset', async () => {
     const staleCheck = deferred<unknown>();
     const valid = { code: 0, message: '', data: { alerts: [] } };
-    mockCheck
-      .mockResolvedValueOnce(valid)
-      .mockResolvedValueOnce(valid)
-      .mockReturnValueOnce(staleCheck.promise)
-      .mockResolvedValue(valid);
+    mockCheck.mockImplementation((input) => {
+      const { amount } = input as { amount: string };
+      return amount === '1' ? staleCheck.promise : Promise.resolve(valid);
+    });
 
     const { onConfirm, beforeSend } = await startWrappedTaskGuardTest({
       editAmountBeforeSubmit: true,
     });
-    await waitFor(() => expect(mockCheck).toHaveBeenCalledTimes(3));
+    expect(mockCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: '1' }),
+    );
     const prepare = onConfirm.mock.calls[0][0].prepareWrappedDeposit;
     expect(prepare).toBeDefined();
     let prepared: Awaited<ReturnType<NonNullable<typeof prepare>>> | undefined;
@@ -1537,7 +1549,9 @@ describe('EtherFi USDT approval reset', () => {
       prepared = await prepare?.(new AbortController().signal);
     });
     expect(prepared).toEqual({ type: 'confirm', effectiveApy: undefined });
-    expect(mockCheck).toHaveBeenCalledTimes(4);
+    expect(mockCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: '2', inputTokenAddress: EthereumWETH }),
+    );
     await act(async () => {
       staleCheck.resolve({
         code: 1,

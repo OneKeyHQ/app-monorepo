@@ -160,9 +160,10 @@ const WithdrawPage = () => {
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const withdrawAbortRef = useRef<AbortController | null>(null);
   const withdrawApproveToken = useMemo(() => {
+    const withdrawApprove = protocolInfo?.withdrawApprove;
     if (
       isCancelWithdrawal ||
-      !protocolInfo?.withdrawApprove?.tokenAddress ||
+      !withdrawApprove?.tokenAddress ||
       !token ||
       (amountUnit === 'shares' && !shareInput.ready)
     ) {
@@ -170,14 +171,23 @@ const WithdrawPage = () => {
     }
     return {
       ...token,
-      address: protocolInfo.withdrawApprove.tokenAddress,
+      address: withdrawApprove.tokenAddress,
       isNative: false,
+      ...(amountUnit !== 'shares' &&
+        withdrawApprove.inputToken && {
+          symbol: withdrawApprove.inputToken.symbol,
+          displaySymbol: undefined,
+          name: withdrawApprove.inputToken.symbol,
+          logoURI: withdrawApprove.inputToken.logoURI ?? '',
+          decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
+        }),
     };
   }, [
     amountUnit,
     isCancelWithdrawal,
-    protocolInfo?.withdrawApprove?.tokenAddress,
     shareInput.ready,
+    protocolInfo?.protocolInputDecimals,
+    protocolInfo?.withdrawApprove,
     token,
   ]);
   const withdrawApproveSpender = protocolInfo?.withdrawApprove?.approveTarget;

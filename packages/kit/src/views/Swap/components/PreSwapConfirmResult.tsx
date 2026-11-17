@@ -29,6 +29,9 @@ interface IPreSwapConfirmResultProps {
   fromToken?: ISwapToken;
   supportUrl?: string;
   onConfirm?: () => void;
+  pendingTitle?: string;
+  showPendingHistoryHint?: boolean;
+  allowRetry?: boolean;
 }
 
 export function SwapTransactionResultStatus({
@@ -88,6 +91,9 @@ const PreSwapConfirmResult = ({
   fromToken,
   supportUrl,
   onConfirm,
+  pendingTitle,
+  showPendingHistoryHint = true,
+  allowRetry = true,
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
@@ -125,7 +131,7 @@ const PreSwapConfirmResult = ({
   // A result-unknown sponsored send (OK-64746): the tx may already be on
   // chain, so this is neither a failure to retry nor a confirmed submit.
   const submitResultUnknown = Boolean(lastStep.submitResultUnknown);
-  const isRetryableFailure =
+  const hasFailed =
     lastStep.status === ESwapStepStatus.FAILED && !submitResultUnknown;
 
   const statusText = useMemo(() => {
@@ -144,10 +150,13 @@ const PreSwapConfirmResult = ({
         id: ETranslations.swap_review_transaction_failed,
       });
     }
-    return intl.formatMessage({
-      id: ETranslations.feedback_transaction_submitted,
-    });
-  }, [lastStep.status, submitResultUnknown, intl]);
+    return (
+      pendingTitle ??
+      intl.formatMessage({
+        id: ETranslations.feedback_transaction_submitted,
+      })
+    );
+  }, [lastStep.status, submitResultUnknown, pendingTitle, intl]);
   return (
     <YStack alignItems="center" justifyContent="flex-end" h={300} flex={1}>
       <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
@@ -161,7 +170,7 @@ const PreSwapConfirmResult = ({
         </AnimatePresence>
         {lastStep.status !== ESwapStepStatus.SUCCESS ? (
           <>
-            {isRetryableFailure ? (
+            {hasFailed ? (
               <YStack key={lastStep.status}>
                 <SwapTransactionResultStatus status="failed" />
               </YStack>
@@ -176,7 +185,7 @@ const PreSwapConfirmResult = ({
           <SizableText size="$headingLg" color="$text" textAlign="center">
             {statusText}
           </SizableText>
-          {isRetryableFailure ? (
+          {hasFailed ? (
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               {lastStep.errorMessage ?? ''}
             </SizableText>
@@ -234,9 +243,10 @@ const PreSwapConfirmResult = ({
           size={buttonSize}
         >
           {intl.formatMessage({
-            id: isRetryableFailure
-              ? ETranslations.global_retry
-              : ETranslations.global_done,
+            id:
+              hasFailed && allowRetry
+                ? ETranslations.global_retry
+                : ETranslations.global_done,
           })}
         </Button>
       </XStack>
@@ -267,7 +277,7 @@ const PreSwapConfirmResult = ({
           </SizableText>
         </XStack>
       ) : null}
-      {lastStep.status === ESwapStepStatus.PENDING ? (
+      {lastStep.status === ESwapStepStatus.PENDING && showPendingHistoryHint ? (
         <XStack alignItems="center" justifyContent="center" mt="$3">
           <SizableText size="$bodySm" textAlign="center" color="$textSubdued">
             {intl.formatMessage({

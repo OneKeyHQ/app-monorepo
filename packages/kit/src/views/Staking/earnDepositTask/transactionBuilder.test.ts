@@ -9,7 +9,10 @@ import {
   type IStakeTxResponse,
 } from '@onekeyhq/shared/types/staking';
 
-import { buildEarnStakeConfirmation } from './transactionBuilder';
+import {
+  buildEarnStakeConfirmation,
+  buildEarnStakeConfirmationOrServerOrder,
+} from './transactionBuilder';
 
 const buildStake = jest.fn<Promise<IStakeTxResponse>, [IStakeBaseParams]>();
 const buildInternal = jest.fn<Promise<IEncodedTx>, [unknown]>();
@@ -104,5 +107,25 @@ describe('Earn stake confirmation builder', () => {
       ...stakingInfo,
       orderId: 'order',
     });
+  });
+
+  it('returns a server order without trying to encode a transaction', async () => {
+    buildStake.mockResolvedValue({ tx: null, orderId: 'server-order' });
+    await expect(
+      buildEarnStakeConfirmationOrServerOrder({ request }),
+    ).resolves.toEqual({ serverOrderId: 'server-order' });
+    expect(buildInternal).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing transaction and order, and rejects server execution for deposit tasks', async () => {
+    buildStake.mockResolvedValueOnce({ tx: null });
+    await expect(
+      buildEarnStakeConfirmationOrServerOrder({ request }),
+    ).rejects.toThrow('neither a transaction nor an orderId');
+    buildStake.mockResolvedValueOnce({ tx: null, orderId: 'server-order' });
+    await expect(buildEarnStakeConfirmation({ request })).rejects.toThrow(
+      'Deposit task cannot be executed by the protocol',
+    );
+    expect(buildInternal).not.toHaveBeenCalled();
   });
 });

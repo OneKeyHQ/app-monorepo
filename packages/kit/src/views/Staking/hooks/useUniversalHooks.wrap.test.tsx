@@ -22,6 +22,7 @@ import {
   EtherFiLiquidReferContract,
   EthereumWETH,
 } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { UserCancel } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -91,6 +92,11 @@ const mockRiskAccepted = jest.fn<Promise<boolean>, [unknown]>();
 const mockToastError = jest.fn<void, [unknown]>();
 const mockToastMessage = jest.fn<void, [unknown]>();
 
+jest.mock('../components/ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: () => {
+    throw new OneKeyLocalError('Unexpected server-executed order');
+  },
+}));
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
 }));
