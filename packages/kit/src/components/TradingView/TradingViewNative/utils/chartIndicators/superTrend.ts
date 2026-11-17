@@ -150,6 +150,9 @@ export function buildTradingViewNativeSuperTrendSeries(
             kind: 'line' as const,
             legendLabel: 'SUPERTREND',
             paint: 'indicatorOrangeStroke' as const,
+            // A trend that has just flipped has a single value until the next
+            // candle arrives.
+            showIsolatedPoints: true,
             style: getTradingViewNativeIndicatorSeriesStyle(line, settings),
             values: definition.values,
           },

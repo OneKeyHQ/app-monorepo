@@ -1813,4 +1813,68 @@ describe('crosshair in empty chart space', () => {
     );
     expect(rowYByLabel.get('LB')).toBe(rowYByLabel.get('DC'));
   });
+
+  it('draws a SuperTrend that flips on the latest candle as a dot', () => {
+    // A steady fall, then one candle that closes far above the upper band.
+    const closes = [
+      ...Array.from({ length: 29 }, (_, index) => 200 - index * 2),
+      260,
+    ];
+    const indicatorPoints = closes.map((close, index) => ({
+      c: close,
+      h: close + 1,
+      l: close - 1,
+      o: close,
+      t: 1_700_000_000 + index * 3600,
+      v: 10,
+    }));
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['MA', 'SUPERTREND']),
+      points: indicatorPoints,
+    });
+    const upTrend = indicatorSeries.find(({ key }) => key === 'supertrend-up');
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: indicatorPoints,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const indicatorCircles = scene.commands.flatMap((command) =>
+      command.kind === 'circle' &&
+      command.customPaintId?.startsWith('chart.mainIndicator.')
+        ? [command]
+        : [],
+    );
+
+    // The new up-trend has a single value, which a line cannot show.
+    expect(upTrend?.values.filter((value) => value !== null)).toHaveLength(1);
+    expect(upTrend?.values[29]).not.toBeNull();
+    expect(indicatorCircles).toHaveLength(1);
+    expect(indicatorCircles[0]).toMatchObject({
+      customPaintId: 'chart.mainIndicator.SUPERTREND.supertrend-up:legend',
+      radius: 1.75,
+    });
+    expect(
+      scene.customPaintStyles?.[
+        'chart.mainIndicator.SUPERTREND.supertrend-up:legend'
+      ],
+    ).toMatchObject({ drawStyle: 'fill' });
+    // The down-trend before it is still an ordinary line.
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polyline' &&
+          command.customPaintId ===
+            'chart.mainIndicator.SUPERTREND.supertrend-down',
+      ),
+    ).toBe(true);
+  });
 });

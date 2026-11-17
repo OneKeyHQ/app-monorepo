@@ -331,6 +331,10 @@ describe('TradingViewNative indicator series', () => {
     // A steady rise is an uptrend, so only the lower band has values.
     expect(series[0]?.values[29]).toBeLessThan(points[29]?.c ?? 0);
     expect(series[1]?.values[29]).toBeNull();
+    // Only SuperTrend can end up with a single value at a trend flip.
+    expect(
+      series.filter((item) => item.showIsolatedPoints).map((item) => item.key),
+    ).toEqual(['supertrend-up', 'supertrend-down']);
     expect(series.every((item) => item.values.length === points.length)).toBe(
       true,
     );
