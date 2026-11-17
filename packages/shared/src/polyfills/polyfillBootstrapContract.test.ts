@@ -237,8 +237,14 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
     if (dependency) {
       return [`require:${dependency}`];
     }
-    if (containsImmediateCall(statement, 'markRuntimePolyfillsReady')) {
-      return ['call:markRuntimePolyfillsReady'];
+    for (const name of [
+      'prepareNativePromiseRejectionTracker',
+      'finishMobileLockdown',
+      'markRuntimePolyfillsReady',
+    ]) {
+      if (containsImmediateCall(statement, name)) {
+        return [`call:${name}`];
+      }
     }
     return [];
   });
@@ -301,12 +307,20 @@ describe('runtime polyfill bootstrap contract', () => {
   );
 
   it.each(nativeRuntimeEntries)(
-    '%s marks polyfills ready before loading any other runtime dependency',
+    '%s prepares and hardens intrinsics before marking runtime ready',
     (relativePath) => {
       const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-      expect(collectTopLevelBootstrapEvents(source).slice(0, 3)).toEqual([
+      const trackerPath =
+        relativePath === 'apps/mobile/index.ts'
+          ? '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native'
+          : '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker';
+      expect(collectTopLevelBootstrapEvents(source).slice(0, 7)).toEqual([
         'require:@onekeyhq/shared/src/polyfills',
+        `require:${trackerPath}`,
+        'call:prepareNativePromiseRejectionTracker',
+        'require:./src/security/finishMobileLockdown',
+        'call:finishMobileLockdown',
         'require:@onekeyhq/shared/src/polyfills/runtimeCapabilities',
         'call:markRuntimePolyfillsReady',
       ]);

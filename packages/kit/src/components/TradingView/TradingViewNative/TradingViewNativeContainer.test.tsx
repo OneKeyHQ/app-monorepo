@@ -21,6 +21,7 @@ import {
   type ITradingViewNativeChartSettings,
   type ITradingViewNativeIndicatorSettings,
   createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { fetchAccountTransactionMarks } from '../utils/accountTransactionMarks';
@@ -31,6 +32,7 @@ import {
   getTradingViewNativeIndicatorSettings,
   getTradingViewNativeIndicatorSettingsValue,
 } from './indicatorSettingsAdapter';
+import { TradingViewNativeMultiChartPanelContext } from './multiChart/TradingViewNativeMultiChartPanelContext';
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import {
   TradingViewNativeChartArea,
@@ -39,6 +41,7 @@ import {
 } from './TradingViewNativeContainer';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
 
+import type { ITradingViewNativeMultiChartPanelScope } from './multiChart/TradingViewNativeMultiChartPanelContext';
 import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 import type { ITradingViewNativeFullscreenIndicatorPanelProps } from './TradingViewNativeFullscreenIndicatorPanel';
 import type {
@@ -433,6 +436,14 @@ jest.mock('./TradingViewNativeFullscreenButton', () => ({
     mockTradingViewNativeFullscreenButton(props),
 }));
 
+const mockPanelScope: ITradingViewNativeMultiChartPanelScope = {
+  panelId: 'panel-2',
+  indicatorSettingsState: [
+    createTradingViewNativeIndicatorSettings(),
+    jest.fn(),
+  ],
+};
+
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -652,6 +663,37 @@ describe('TradingViewNativeContainer', () => {
     );
     expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
       expect.objectContaining({ enableDrawings: false }),
+    );
+  });
+
+  it('shares the drawings of a token with split-view panels while panes stay per panel', () => {
+    const chart = (
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+        storageNamespace="perps"
+        enableDrawings
+      />
+    );
+    render(chart);
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        enableDrawings: true,
+        drawingStorageKey: `perps:${mockDataProviderKey}`,
+        indicatorPanesStorageKey: 'perps',
+      }),
+    );
+
+    render(
+      <TradingViewNativeMultiChartPanelContext.Provider value={mockPanelScope}>
+        {chart}
+      </TradingViewNativeMultiChartPanelContext.Provider>,
+    );
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        enableDrawings: true,
+        drawingStorageKey: `perps:${mockDataProviderKey}`,
+        indicatorPanesStorageKey: 'perps:panel:panel-2',
+      }),
     );
   });
 

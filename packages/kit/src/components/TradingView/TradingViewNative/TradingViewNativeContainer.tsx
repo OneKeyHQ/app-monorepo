@@ -1199,14 +1199,12 @@ const TradingViewNativeContent = memo(
       [chartSessionKey],
     );
 
-    const drawingSourceKey =
+    // Drawings belong to the token, so split-view panels showing the same one
+    // share them.
+    const drawingStorageKey =
       storageNamespace === 'perps'
         ? `perps:${dataProviderKey}`
         : dataProviderKey;
-    // Two panels may show the same token; each keeps its own chart-local state.
-    const chartStorageKey = panelId
-      ? `${drawingSourceKey}:panel:${panelId}`
-      : drawingSourceKey;
     // Pane order and heights follow the indicator settings they arrange: one
     // set per namespace, plus one per split-view panel.
     const indicatorPanesStorageKey = `${storageNamespace ?? 'market'}${
@@ -1222,7 +1220,7 @@ const TradingViewNativeContent = memo(
             storageNamespace !== 'swap'
           }
           enableNavigationControls={!isCompactDisplayMode}
-          drawingStorageKey={chartStorageKey}
+          drawingStorageKey={drawingStorageKey}
           indicatorPanesStorageKey={indicatorPanesStorageKey}
           loadDrawingHistory={loadDrawingHistory}
           prioritizePageScroll={

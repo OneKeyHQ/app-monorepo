@@ -583,6 +583,157 @@ it('keeps drawing available after a storage failure and reports the failed save'
   await waitFor(() => expect(hook.result.current.state.saveFailed).toBe(false));
 });
 
+it('shares drawings and their undo history between charts of the same token', async () => {
+  const first = setup('shared');
+  const second = setup('shared');
+  await waitFor(() => expect(first.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(second.result.current.state.ready).toBe(true));
+  first.line();
+  const [drawing] = first.result.current.state.history.present;
+  expect(drawing.tool).toBe('trend');
+  expect(second.result.current.getRenderState().drawings).toEqual([drawing]);
+  // Selection stays with the chart that was drawn on.
+  expect(first.result.current.state.selectedId).toBe(drawing.id);
+  expect(second.result.current.state.selectedId).toBeNull();
+
+  // A chart opened later joins the live drawings instead of reading storage.
+  const third = setup('shared');
+  await waitFor(() => expect(third.result.current.state.ready).toBe(true));
+  expect(third.result.current.state.history.present).toEqual([drawing]);
+  expect(getItem).toHaveBeenCalledTimes(1);
+
+  // Another token stays apart.
+  const other = setup('other');
+  await waitFor(() => expect(other.result.current.state.ready).toBe(true));
+  expect(other.result.current.state.history.present).toEqual([]);
+
+  act(() => second.result.current.selectDrawing(drawing.id));
+  act(() => third.result.current.historyAction('undo'));
+  for (const chart of [first, second, third]) {
+    expect(chart.result.current.state.history.present).toEqual([]);
+    expect(chart.result.current.state.selectedId).toBeNull();
+    expect(chart.result.current.state.selectedIds).toEqual([]);
+  }
+  act(() => first.result.current.historyAction('redo'));
+  expect(second.result.current.state.history.present).toEqual([drawing]);
+  await waitFor(() =>
+    expect(
+      JSON.parse(stored.get('trading-view-web-drawings:v1:shared') ?? '[]'),
+    ).toEqual([drawing]),
+  );
+
+  // The remaining charts keep the drawings after one of them closes.
+  first.unmount();
+  act(() => second.result.current.removeDrawing(drawing.id));
+  expect(third.result.current.state.history.present).toEqual([]);
+  expect(first.result.current.state.history.present).toEqual([drawing]);
+});
+
+it('ends a drag when another chart changes the dragged drawing', async () => {
+  const first = setup('shared-drag');
+  const second = setup('shared-drag');
+  await waitFor(() => expect(first.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(second.result.current.state.ready).toBe(true));
+  first.line();
+  const [drawing] = first.result.current.state.history.present;
+  const drag = (fromY: number, toY: number) =>
+    act(() => {
+      first.result.current.onPointerDown(
+        first.event('pointerdown', 300, fromY),
+      );
+      first.result.current.onPointerMove(first.event('pointermove', 300, toY));
+    });
+  const release = (y: number) =>
+    act(() => {
+      first.result.current.onPointerUp(first.event('pointerup', 300, y));
+    });
+
+  // A change to another drawing leaves the drag alone.
+  drag(160, 200);
+  second.line(-60);
+  release(200);
+  const [moved, other] = second.result.current.state.history.present;
+  expect(moved.id).toBe(drawing.id);
+  expect(moved.points).not.toEqual(drawing.points);
+  expect(other.id).not.toBe(drawing.id);
+
+  // Locking the dragged drawing in the other chart ends the drag, so the
+  // release does not put the unlocked drawing back.
+  drag(200, 240);
+  expect(first.result.current.getRenderState().drawings[0]).not.toEqual(moved);
+  act(() => second.result.current.selectDrawing(drawing.id));
+  act(() => second.result.current.toggleSelectedLock());
+  const locked = { ...moved, locked: true };
+  expect(first.result.current.getRenderState().drawings).toEqual([
+    locked,
+    other,
+  ]);
+  release(240);
+  for (const chart of [first, second])
+    expect(chart.result.current.state.history.present).toEqual([locked, other]);
+});
+
+it('reports a failed save in every chart of the same token', async () => {
+  setItem.mockRejectedValueOnce(new OneKeyLocalError('Storage unavailable'));
+  const first = setup('shared-failed-write');
+  const second = setup('shared-failed-write');
+  await waitFor(() => expect(second.result.current.state.ready).toBe(true));
+  first.line();
+  await waitFor(() =>
+    expect(second.result.current.state.saveFailed).toBe(true),
+  );
+  expect(first.result.current.state.saveFailed).toBe(true);
+  act(() => second.result.current.historyAction('undo'));
+  await waitFor(() =>
+    expect(first.result.current.state.saveFailed).toBe(false),
+  );
+  expect(second.result.current.state.saveFailed).toBe(false);
+});
+
+it('gives a key press to the chart under the pointer, otherwise the focused one', async () => {
+  const focused = setup('focused');
+  const hovered = setup('hovered');
+  await waitFor(() => expect(focused.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(hovered.result.current.state.ready).toBe(true));
+  const focusedRoot = focused.options.rootRef.current;
+  const hoveredRoot = hovered.options.rootRef.current;
+  document.body.append(focusedRoot, hoveredRoot);
+  const canvas = focusedRoot.querySelector('canvas');
+  if (!canvas) throw new OneKeyLocalError('Missing chart canvas');
+  canvas.tabIndex = 0;
+  canvas.focus();
+  expect(focusedRoot.contains(document.activeElement)).toBe(true);
+  const isHovered = jest.spyOn(hoveredRoot, 'matches').mockReturnValue(true);
+  for (const chart of [focused, hovered]) {
+    act(() => {
+      chart.result.current.onPointerMove(chart.event('pointermove', 200, 180));
+    });
+  }
+  const press = () =>
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'j',
+          code: 'KeyJ',
+          altKey: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+  press();
+  expect(hovered.result.current.state.history.present).toHaveLength(1);
+  expect(focused.result.current.state.history.present).toHaveLength(0);
+
+  isHovered.mockReturnValue(false);
+  press();
+  expect(hovered.result.current.state.history.present).toHaveLength(1);
+  expect(focused.result.current.state.history.present).toHaveLength(1);
+
+  focusedRoot.remove();
+  hoveredRoot.remove();
+});
+
 it('locks restored drawings against edit and delete while allowing unlock', async () => {
   const locked: IDrawing = {
     ...DEFAULT_DRAWING_STYLE,
