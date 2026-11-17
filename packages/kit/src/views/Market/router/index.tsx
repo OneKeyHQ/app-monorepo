@@ -22,6 +22,16 @@ const MarketIndicatorSettingsModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileIndicatorSettingsPage'),
 );
+const MarketWidgetList = LazyLoadPage(() =>
+  import('../MarketWidget/MarketWidgetList').then((module) => ({
+    default: module.MarketWidgetList,
+  })),
+);
+const MarketWidgetEditor = LazyLoadPage(() =>
+  import('../MarketWidget/MarketWidgetEditor').then((module) => ({
+    default: module.MarketWidgetEditor,
+  })),
+);
 
 export { EModalMarketRoutes };
 export type { IModalMarketParamList };
@@ -51,5 +61,13 @@ export const ModalMarketStack: IModalFlowNavigatorConfig<
   {
     name: EModalMarketRoutes.MarketIndicatorSettings,
     component: MarketIndicatorSettingsModal,
+  },
+  {
+    name: EModalMarketRoutes.MarketWidgetList,
+    component: MarketWidgetList,
+  },
+  {
+    name: EModalMarketRoutes.MarketWidgetEditor,
+    component: MarketWidgetEditor,
   },
 ];

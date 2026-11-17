@@ -24,6 +24,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   __esModule: true,
   appEventBus: {
+    on: jest.fn(),
     get emit() {
       return emit;
     },
