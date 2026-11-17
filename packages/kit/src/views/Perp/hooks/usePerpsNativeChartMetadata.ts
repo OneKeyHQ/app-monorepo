@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
   MAX_DECIMALS_SPOT,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-export function usePerpsNativeChartMetadata() {
-  const [instrument] = useActiveTradeInstrumentAtom();
+import { useActivePerpsChartInstrument } from './usePerpsChartInstrument';
+
+import type { IPerpsChartInstrument } from './usePerpsChartInstrument';
+
+// Defaults to the active trade instrument; a split-view panel passes its own.
+export function usePerpsNativeChartMetadata(target?: IPerpsChartInstrument) {
+  const activeInstrument = useActivePerpsChartInstrument();
+  const instrument = target ?? activeInstrument;
   const isSpot = instrument.mode === 'spot';
-  const szDecimals =
-    instrument.mode === 'spot'
-      ? instrument.universe?.baseSzDecimals
-      : instrument.universe?.szDecimals;
+  const { szDecimals } = instrument;
   const instrumentKey = `${instrument.mode}:${instrument.coin}`;
   const [timedOutInstrument, setTimedOutInstrument] = useState<string>();
   useEffect(() => {

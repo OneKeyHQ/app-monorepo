@@ -87,11 +87,6 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
-import {
-  INTERCOM_SUPPORT_URL,
-  normalizeIntercomSupportUrl,
-  resolveIntercomSupportUrlOverride,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
@@ -1006,50 +1001,6 @@ const BaseDevSettingsSection = () => {
       ),
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
-
-  const intercomSupportUrlOverride =
-    resolveIntercomSupportUrlOverride(devSettings);
-  const savedIntercomSupportUrl = devSettings.settings?.intercomSupportUrl;
-  const handleOpenIntercomSupportUrlDialog = useCallback(() => {
-    Dialog.show({
-      title: '客服页面地址',
-      description: `仅替换插件打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。必须是 https，http 仅允许 localhost / 127.0.0.1。登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
-      renderContent: (
-        <Dialog.Form
-          formProps={{ values: { url: savedIntercomSupportUrl ?? '' } }}
-        >
-          <Dialog.FormField
-            name="url"
-            rules={{
-              validate: (value: string | undefined) =>
-                !value?.trim() ||
-                !!normalizeIntercomSupportUrl(value) ||
-                '请输入 https:// 开头的完整地址（http 仅限 localhost / 127.0.0.1）',
-            }}
-          >
-            <Input
-              testID="dev-settings-intercom-support-url-input"
-              placeholder={INTERCOM_SUPPORT_URL}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
-      ),
-      onConfirm: async ({ getForm }) => {
-        const { url } = (getForm()?.getValues() ?? {}) as { url?: string };
-        const nextUrl = normalizeIntercomSupportUrl(url);
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-          'intercomSupportUrl',
-          nextUrl,
-        );
-        Toast.success({
-          title: nextUrl ? '客服页面地址已更新' : '已恢复默认客服页面地址',
-          message: nextUrl ?? INTERCOM_SUPPORT_URL,
-        });
-      },
-    });
-  }, [savedIntercomSupportUrl]);
 
   const handleOpenPrimeFreeTrialResetDialog = useCallback(() => {
     Dialog.show({
@@ -2744,19 +2695,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      {platformEnv.isExtension ? (
-                        <SectionPressItem
-                          icon="HelpSupportOutline"
-                          title="客服页面地址"
-                          subtitle={
-                            intercomSupportUrlOverride ??
-                            `默认 ${INTERCOM_SUPPORT_URL}`
-                          }
-                          searchKeywords="intercom support customer service url 客服 地址 覆盖"
-                          onPress={handleOpenIntercomSupportUrlDialog}
-                          testID="dev-settings-intercom-support-url"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionFieldItem
                           icon="ArrowTopRightOutline"

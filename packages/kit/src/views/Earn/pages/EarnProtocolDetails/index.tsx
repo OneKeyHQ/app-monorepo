@@ -73,6 +73,7 @@ import type {
   IEarnText,
   IEarnTextTooltip,
   IEarnTokenInfo,
+  IEarnUtmParams,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -103,6 +104,7 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useEarnServerOrderRefresh } from '../../hooks/useEarnServerOrderRefresh';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
 import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
 
@@ -1098,6 +1100,7 @@ const ManagePositionPart = ({
   suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  utm,
 }: {
   networkId: string;
   symbol: string;
@@ -1109,6 +1112,7 @@ const ManagePositionPart = ({
   suppressPlatformBonus?: boolean;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  utm?: IEarnUtmParams;
 }) => {
   return (
     <YStack flex={4}>
@@ -1125,6 +1129,7 @@ const ManagePositionPart = ({
           suppressPlatformBonus={suppressPlatformBonus}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+          utm={utm}
         />
       </YStack>
     </YStack>
@@ -1151,6 +1156,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     vault: string | undefined;
     logoURI?: string;
     scrollToPortfolio?: boolean;
+    utm?: IEarnUtmParams;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -1182,6 +1188,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         symbol,
         provider: normalizedProvider.toLowerCase(), // Keep lowercase for API consistency
         vault,
+        utm: earnUtils.normalizeEarnUtmParams(routeParams),
       };
     }
 
@@ -1196,6 +1203,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       vault,
       logoURI,
       scrollToPortfolio,
+      utm: earnUtils.normalizeEarnUtmParams(routeParams),
     };
   }, [route.params]);
 
@@ -1204,7 +1212,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const accountId = selectedAccount.othersWalletAccountId || '';
   const indexedAccountId =
     selectedAccount.indexedAccountId || indexedAccount?.id;
-  const { networkId, symbol, provider, vault, logoURI } = resolvedParams;
+  const { networkId, symbol, provider, vault, logoURI, utm } = resolvedParams;
 
   const {
     detailInfo,
@@ -1364,6 +1372,16 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     stakeTag: protocolInfo?.stakeTag,
     onRefresh: refreshUntilSettled,
   });
+  useEarnServerOrderRefresh({
+    accountId: protocolInfo?.earnAccount?.accountId,
+    networkId,
+    provider,
+    vault: detailInfo?.protocol?.vault ?? vault,
+    onRefresh: () => {
+      void refreshData();
+    },
+  });
+
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
   const handleActionSuccess = useCallback(() => {
@@ -1467,6 +1485,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           provider,
           vault: protocolVault,
           tab,
+          utm,
           tokenImageUri: tokenInfo?.token?.logoURI,
           // Redeem leaves this page for the modal; without this the balances
           // and rewards below would still show the pre-redeem numbers when it
@@ -1483,6 +1502,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       symbol,
       provider,
       vault,
+      utm,
       tokenInfo?.token?.logoURI,
     ],
   );
@@ -1780,6 +1800,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleActionSuccess}
+              utm={utm}
             />
           </Stack>
         ) : null}

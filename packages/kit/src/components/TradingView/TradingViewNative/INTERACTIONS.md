@@ -8,16 +8,33 @@ under separate owners:
   the data controller and native viewport remain alive.
 - `useTradingViewNativeSettings` isolates indicator/chart settings by Market,
   Perps, or Swap namespace through the existing persisted atom transport.
-  Built-in multi-chart layouts and per-panel preferences are no longer used.
+- `multiChart` is the split view for several tokens (web, extension and
+  desktop). `TradingViewNativeMultiChart` only lays out a grid: the host
+  persists the layout, supplies the first panel's source and renders each panel,
+  normally as a `TradingViewNative`. The first panel is the host's own chart,
+  unchanged. Every extra panel is wrapped in
+  `TradingViewNativeMultiChartPanelContext`, so a chart mounted inside keeps its
+  own token, interval, indicator settings and pane heights; chart appearance
+  stays shared with the namespace. Presets are grids of cells (`1`, `2h`, `2v`,
+  `3`, `4`); track sizes are saved per preset and a divider only spans the cells
+  it separates. iOS and Android resolve the `.native` pass-through and keep a
+  single chart.
 - `drawings/model` and `drawings/geometry` are shared time/price calculations. The
   browser Canvas renderer and native Skia renderer consume the same geometry.
 - `drawings/useChartDrawings` owns editing, history, serialization, and selection.
   Browser pointer/keyboard events and native gestures are thin adapters. Pointer
   movement redraws previews without refreshing the React chart tree; completed
   edits update controls and history.
-- `indicatorPanes` owns per-chart order and preferred heights. Web/desktop resize
-  handles use the same layout calculation as the rendered panes, legends, and
-  price-axis hit tests. Native charts do not expose pane-height drag handles.
+- `indicatorPanes` owns the order and preferred heights of the indicator panes.
+  They are kept per namespace and per split-view panel, not per token, so they
+  survive a token switch like the indicator settings they arrange. Web/desktop
+  resize handles use the same layout calculation as the rendered panes, legends,
+  and price-axis hit tests. The boundary under the price chart resizes the whole
+  stack and every pane keeps its share; any other boundary trades height between
+  its two panes; a double click restores the defaults. Saved heights record the
+  chart height they were set at and scale with it, so they hold their share in a
+  smaller chart such as a split-view panel. Native charts do not expose
+  pane-height drag handles.
 - Indicator Y axes pin their visible ranges independently by instance ID. Web
   pointer handlers and native gestures use the main axis scaling calculation;
   double-click/tap clears only the target pane's manual range. These transient
@@ -48,7 +65,8 @@ and dash effects are released after each render.
 
 Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
-ownership, and unmount cleanup. UI acceptance must include actual candle pixels,
+ownership, split-view panel state (token, interval, indicators, sizes) across
+preset changes and reloads, and unmount cleanup. UI acceptance must include actual candle pixels,
 editing a restored object, and restarting the page/app.
 Verify pane resizing on web/desktop; native pane heights must stay unchanged when
 dragging pane boundaries. For native, distinguish process memory

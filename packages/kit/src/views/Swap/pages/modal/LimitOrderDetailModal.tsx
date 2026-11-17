@@ -22,13 +22,13 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { AssetItem } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,

@@ -15,11 +15,11 @@ import {
   Select,
   SizableText,
   Spinner,
-  Tabs,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { NativeTokenSelectorList } from '@onekeyhq/kit/src/components/TokenListView/NativeTokenSelectorList';
 import { ProviderJotaiContextTokenList } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
@@ -603,13 +603,13 @@ function PrivacyTokenDetailsPreview() {
           </XStack>
 
           {chain === 'zec' ? (
-            <Tabs.TabBar
+            <TabBar
               scrollable
               tabNames={PREVIEW_TABS}
               focusedTab={focusedTab}
               onTabPress={handleTabPress}
               renderItem={(itemProps, index) => (
-                <Tabs.TabBarItem
+                <TabBarItem
                   {...itemProps}
                   testID={`privacy-preview-tab-${index === 0 ? 'transparent' : 'private'}`}
                 />
