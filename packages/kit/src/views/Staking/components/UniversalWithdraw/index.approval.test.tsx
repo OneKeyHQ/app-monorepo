@@ -25,6 +25,8 @@ const mockNavigate = jest.fn<Promise<void>, [INavigationParams]>();
 const mockFetchAllowance = jest.fn<Promise<{ allowanceParsed: string }>, []>();
 const mockTrackAllowance = jest.fn();
 const mockRetryAllowance = jest.fn();
+const mockAllowanceValue = { current: '0' };
+const mockRouteFocus = { current: true };
 const mockVerify = jest.fn<Promise<boolean>, []>();
 const mockFooterAction = jest.fn<void, [() => void]>();
 type IConfirmParams = Parameters<NonNullable<IProps['onConfirm']>>[0] & {
@@ -192,7 +194,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockRouteFocus.current,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
@@ -237,7 +239,7 @@ jest.mock('../../hooks/useQuoteRefresh', () => ({
 }));
 jest.mock('../../hooks/useUtilsHooks', () => ({
   useTrackTokenAllowance: () => ({
-    allowance: '0',
+    allowance: mockAllowanceValue.current,
     allowanceAvailable: true,
     allowanceError: false,
     loading: false,
@@ -285,7 +287,9 @@ jest.mock('../showHighPriceImpactDialog', () => ({
 }));
 jest.mock('../StakeProgress', () => ({
   EStakeProgressStep: { approve: 0, deposit: 1, unstake: 2 },
-  StakeProgress: () => null,
+  StakeProgress: ({ currentStep }: { currentStep: number }) => (
+    <div data-testid="withdraw-progress" data-step={currentStep} />
+  ),
 }));
 jest.mock('../StakingAmountInput', () => ({
   StakingAmountInput: ({
@@ -490,6 +494,8 @@ async function handOffWithdrawal(screen: ReturnType<typeof render>) {
 describe('UniversalWithdraw share approval continuation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAllowanceValue.current = '0';
+    mockRouteFocus.current = true;
     mockFetchAllowance.mockReset();
     mockEstimateRequest = undefined;
     mockEstimateFee.mockResolvedValue({});
@@ -1461,6 +1467,110 @@ describe('UniversalWithdraw share approval continuation', () => {
       expect.objectContaining({ amount: '1', withdrawType: 'queued' }),
     );
     expect(mockTrackAllowance).toHaveBeenCalledWith('synthetic');
+  });
+
+  it('keeps the approval and withdrawal steps visible through confirmation and cancellation', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    const withdrawal = deferred<boolean>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '2' });
+    mockConfirm.mockReturnValue(withdrawal.promise);
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Success));
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('1');
+    await act(async () => withdrawal.resolve(false));
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('1');
+    mockRouteFocus.current = false;
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('1');
+    mockRouteFocus.current = true;
+    mockAllowanceValue.current = '0';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '0.5' },
+    });
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+  });
+
+  it('does not carry approval progress across an account switch and return', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    screen.rerender(
+      <UniversalWithdraw
+        {...props}
+        accountId="account-b"
+        accountAddress="0xother"
+        approveTarget={{ ...approveTarget, accountId: 'account-b' }}
+      />,
+    );
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Success));
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('clears pending progress after a confirmed failed approval', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Failed));
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('does not mark an unknown approval as completed', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await act(async () => receipt.resolve(undefined));
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    expect(mockConfirm).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(

@@ -852,6 +852,13 @@ export function UniversalWithdraw({
     approveType,
   ]);
   const approvalScopeGuard = useCommittedEarnScopeGuard(approvalScope);
+  const [approvalProgress, setApprovalProgress] = useState<{
+    scope: string;
+    status: 'pending' | 'confirmed';
+  }>();
+  useLayoutEffect(() => {
+    setApprovalProgress(undefined);
+  }, [approvalScope]);
   const approvalSendScopeGuard = useCommittedEarnScopeGuard(
     JSON.stringify([
       sendEligible,
@@ -1162,6 +1169,9 @@ export function UniversalWithdraw({
           });
           return;
         }
+        if (requiresConfirmedWithdrawal) {
+          setApprovalProgress({ scope: approvalScope, status: 'pending' });
+        }
         trackAllowance(txid || data[0].decodedTx.txid);
         allowanceAbortRef.current?.abort();
         const abortController = new AbortController();
@@ -1176,6 +1186,12 @@ export function UniversalWithdraw({
                 signal: abortController.signal,
               });
               if (
+                status === EOnChainHistoryTxStatus.Failed &&
+                isApprovalCurrent()
+              ) {
+                setApprovalProgress(undefined);
+              }
+              if (
                 status !== EOnChainHistoryTxStatus.Success ||
                 !isApprovalCurrent()
               ) {
@@ -1184,11 +1200,23 @@ export function UniversalWithdraw({
             }
             if (!isApprovalSendCurrent()) return;
             const canContinue = await canContinueWithdrawalAfterApproval({
-              waitForAllowance: () =>
-                waitForAllowanceAfterApprove({
+              waitForAllowance: async () => {
+                const allowanceReady = await waitForAllowanceAfterApprove({
                   requiredAmount: approveAmountValue,
                   signal: abortController.signal,
-                }),
+                });
+                if (
+                  requiresConfirmedWithdrawal &&
+                  allowanceReady &&
+                  isApprovalCurrent()
+                ) {
+                  setApprovalProgress({
+                    scope: approvalScope,
+                    status: 'confirmed',
+                  });
+                }
+                return allowanceReady;
+              },
               isCurrent: isApprovalSendCurrent,
               verifyBeforeAction: requiresConfirmedWithdrawal
                 ? actionGuardRef.current?.verifyBeforeAction
@@ -1217,6 +1245,7 @@ export function UniversalWithdraw({
     if (!isApprovalCurrent()) releaseApproving();
   }, [
     allowance,
+    approvalScope,
     requiresConfirmedWithdrawal,
     approvalScopeGuard,
     approvalSendScopeGuard,
@@ -2132,11 +2161,17 @@ export function UniversalWithdraw({
       (showSingleWithdrawPath && withdrawPathConfirmBoxes.length === 1)) &&
     !!selectedWithdrawPath;
   const canSelectWithdrawPath = withdrawPathConfirmBoxes.length > 1;
+  const currentApprovalProgress =
+    approvalProgress?.scope === approvalScope
+      ? approvalProgress.status
+      : undefined;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
     !isInvalidAmount(amountValue) &&
-    (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
+    (shouldApprove ||
+      !!currentApprovalProgress ||
+      withdrawProgressStep > EStakeProgressStep.approve);
   const isEthenaCooldownWithdrawPath =
     shouldShowPendleWithdrawProgress &&
     withdrawPathConfirmBoxes.length > 1 &&
@@ -2784,7 +2819,9 @@ export function UniversalWithdraw({
         <StakeProgress
           approveType={approveType}
           currentStep={
-            shouldApprove
+            currentApprovalProgress === 'pending' ||
+            (shouldApprove &&
+              (isFocus || currentApprovalProgress !== 'confirmed'))
               ? EStakeProgressStep.approve
               : (Math.max(
                   withdrawProgressStep,
