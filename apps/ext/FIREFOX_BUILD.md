@@ -2,7 +2,7 @@
 
 Use the exact source commit, Node version and bundled Yarn recorded in the release's
 `firefox-build.json`. The release ZIP contains this file; it is also supplied beside
-the ZIP. This entry builds the Firefox Manifest V2 package with public fallback
+the ZIP. This entry builds the Firefox Manifest V3 package with public fallback
 fonts and does not sign, submit or publish it.
 
 ## Create a release
@@ -58,6 +58,24 @@ values because a missing value differs from an empty string in emitted JavaScrip
 Reproducible output does not establish browser functionality or AMO acceptance.
 Validate the release in Firefox and run AMO validation separately, including wallet
 creation/import, DApp signing and the supported hardware connection methods.
+
+## Firefox runtime
+
+Firefox 128 or newer is required for declarative MAIN-world provider injection.
+The MV3 background is a non-persistent DOM event page. It hosts the web SDKs and
+privacy-chain Workers directly; Chromium's service worker and offscreen proxies
+are not used. Background SDK chunks load on demand from the packaged extension.
+The UI and background have separate JS heaps and initialize independently.
+Unloading the event page discards in-memory state; wallet secrets must never be
+persisted to keep an unlocked session alive.
+
+Firefox has no WebUSB/WebHID transport. Physical hardware flows require separate
+validation of supported connection methods. Keyless flows use the existing
+expand-tab fallback when Chrome's side-panel API is unavailable.
+
+Before store submission, confirm `browser_specific_settings.gecko.id` against the
+publisher's AMO listing and complete the data-collection permission declaration
+and consent audit. The runtime migration does not claim AMO acceptance.
 
 ## Validation scope
 

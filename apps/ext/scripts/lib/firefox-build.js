@@ -117,7 +117,7 @@ function createBuildManifest(env = process.env) {
   };
 }
 
-function validateManifest(manifest) {
+function validateManifestMetadata(manifest) {
   if (
     manifest.schemaVersion !== 1 ||
     manifest.browser !== 'firefox' ||
@@ -138,7 +138,9 @@ function validateManifest(manifest) {
     sha256(fs.readFileSync(path.join(repoRoot, 'yarn.lock')))
   )
     throw new Error('yarn.lock differs from the release.');
-  const env = manifest.environment;
+}
+
+function validateManifestEnvironment(env, sourceCommit) {
   if (
     !env ||
     Object.keys(env).length !== publicKeys.length ||
@@ -150,11 +152,13 @@ function validateManifest(manifest) {
   )
     throw new Error('Invalid public build environment.');
   if (
-    env.GITHUB_SHA !== manifest.sourceCommit ||
-    (env.WORKFLOW_GITHUB_SHA &&
-      env.WORKFLOW_GITHUB_SHA !== manifest.sourceCommit)
+    env.GITHUB_SHA !== sourceCommit ||
+    (env.WORKFLOW_GITHUB_SHA && env.WORKFLOW_GITHUB_SHA !== sourceCommit)
   )
     throw new Error('Conflicting source commit parameters.');
+}
+
+function validateReleaseParameters(env) {
   if (
     !/^\d{13}$/.test(env.BUILD_TIME || '') ||
     Number(env.BUILD_TIME) < Date.UTC(2000, 0, 1) ||
@@ -176,6 +180,12 @@ function validateManifest(manifest) {
     if (Object.hasOwn(env, key) && env[key] !== value)
       throw new Error(`Invalid Firefox release parameter: ${key}`);
   }
+}
+
+function validateManifest(manifest) {
+  validateManifestMetadata(manifest);
+  validateManifestEnvironment(manifest.environment, manifest.sourceCommit);
+  validateReleaseParameters(manifest.environment);
   getCommit({ GITHUB_SHA: manifest.sourceCommit });
 }
 
@@ -201,6 +211,18 @@ function walkFiles(root, prefix = '') {
   return result;
 }
 
+function getDosTime(date) {
+  return (
+    (((date.getUTCFullYear() - 1980) << 25) |
+      ((date.getUTCMonth() + 1) << 21) |
+      (date.getUTCDate() << 16) |
+      (date.getUTCHours() << 11) |
+      (date.getUTCMinutes() << 5) |
+      (date.getUTCSeconds() >> 1)) >>>
+    0
+  );
+}
+
 function packageFirefox(outputRoot, distRoot) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(outputRoot, 'firefox-build.json'), 'utf8'),
@@ -208,15 +230,7 @@ function packageFirefox(outputRoot, distRoot) {
   validateManifest(manifest);
   const AdmZip = require('adm-zip');
   const archive = new AdmZip({ noSort: true });
-  const date = new Date(Number(manifest.environment.BUILD_TIME));
-  const dosTime =
-    (((date.getUTCFullYear() - 1980) << 25) |
-      ((date.getUTCMonth() + 1) << 21) |
-      (date.getUTCDate() << 16) |
-      (date.getUTCHours() << 11) |
-      (date.getUTCMinutes() << 5) |
-      (date.getUTCSeconds() >> 1)) >>>
-    0;
+  const dosTime = getDosTime(new Date(Number(manifest.environment.BUILD_TIME)));
   const checksums = [];
   for (const file of walkFiles(outputRoot)) {
     const content = fs.readFileSync(path.join(outputRoot, file));

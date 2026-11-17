@@ -17,7 +17,7 @@ const {
 
 let yarnShimRoot;
 
-function main() {
+function parseArguments() {
   const args = process.argv.slice(2);
   const manifestIndex = args.indexOf('--manifest');
   const install = args.includes('--install');
@@ -34,6 +34,10 @@ function main() {
           fs.readFileSync(path.resolve(args[manifestIndex + 1]), 'utf8'),
         )
       : null;
+  return { input, install };
+}
+
+function prepareBuild(input) {
   prepareEnvironment();
   if (input) applyManifest(input);
   else {
@@ -52,6 +56,9 @@ function main() {
         'Commit source changes before creating a reproducible Firefox release.',
       );
   }
+}
+
+function createYarnRunner() {
   const yarnPath = path.join(
     repoRoot,
     '.yarn/releases',
@@ -75,27 +82,19 @@ function main() {
   ]
     .filter(Boolean)
     .join(path.delimiter);
-  const yarn = (argsToRun) =>
+  return (argsToRun) =>
     execFileSync(process.execPath, [yarnPath, ...argsToRun], {
       cwd: repoRoot,
       env: process.env,
       stdio: 'inherit',
     });
+}
+
+function buildAndPackage(input, install, yarn) {
   if (install) yarn(['install', '--immutable']);
   require('../../../development/env');
   yarn(['fonts:sync']);
-  if (
-    !fs
-      .readFileSync(
-        path.join(
-          repoRoot,
-          'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
-        ),
-        'utf8',
-      )
-      .includes("source: 'fallback'")
-  )
-    throw new Error('Expected public fallback fonts.');
+  assertFallbackFonts();
   const expected = input || createBuildManifest();
   applyManifest(expected);
   yarn(['app:ext:build']);
@@ -110,6 +109,27 @@ function main() {
   console.log(
     `Firefox release: ${packageFirefox(output, path.join(repoRoot, 'apps/ext/build/_dist/firefox'))}`,
   );
+}
+
+function assertFallbackFonts() {
+  if (
+    !fs
+      .readFileSync(
+        path.join(
+          repoRoot,
+          'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+        ),
+        'utf8',
+      )
+      .includes("source: 'fallback'")
+  )
+    throw new Error('Expected public fallback fonts.');
+}
+
+function main() {
+  const { input, install } = parseArguments();
+  prepareBuild(input);
+  buildAndPackage(input, install, createYarnRunner());
 }
 
 try {

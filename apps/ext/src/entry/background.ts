@@ -4,6 +4,7 @@ import '@onekeyhq/shared/src/polyfills';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import { maybeLockdownOneKeyRuntime } from '@onekeyhq/shared/src/security/sesHarden';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
@@ -42,10 +43,11 @@ function installOffscreenApiProxyEarly() {
 }
 
 function installPrivacyChainNodeRequestLate() {
-  // Lets the offscreen document reach nodes that send no CORS headers.
-  void import('../background/fetchStream').then((m) =>
-    m.installFetchStreamListener(),
-  );
+  // Register during event-page startup so the first wake-up message is handled.
+  const { installFetchStreamListener } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../background/fetchStream') as typeof import('../background/fetchStream');
+  installFetchStreamListener();
 }
 
 function installDevReloadListenerLate() {
@@ -78,10 +80,6 @@ function installDevReloadListenerLate() {
 }
 
 function setupManifestV2RedirectLate() {
-  const platformEnv: typeof import('@onekeyhq/shared/src/platformEnv').default =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
-    require('@onekeyhq/shared/src/platformEnv').default;
-
   /*
   **** Manifest V3 not support [webRequestBlocking] permission
   You do not have permission to use blocking webRequest listeners. Be sure to declare the webRequestBlocking permission in your manifest.
@@ -118,33 +116,30 @@ function setupManifestV2RedirectLate() {
   }
 }
 
-function setupServiceWorkerRuntimeLate() {
-  const platformEnv: typeof import('@onekeyhq/shared/src/platformEnv').default =
+function setupExtensionRuntimeLate() {
+  const { setupSidePanelPortInBg } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../background/sidePanel') as typeof import('../background/sidePanel');
+  const keylessWebBridge: typeof import('@onekeyhq/shared/src/keylessWallet/keylessWebBridge').default =
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
-    require('@onekeyhq/shared/src/platformEnv').default;
+    require('@onekeyhq/shared/src/keylessWallet/keylessWebBridge').default;
+  const { setupExtUIEvent } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../background/extUI') as typeof import('../background/extUI');
+  setupSidePanelPortInBg();
+  keylessWebBridge.setupKeylessWebBridgeInBackground();
+  setupExtUIEvent();
 
   if (platformEnv.isExtensionBackgroundServiceWorker) {
     const { setupKeepAlive } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../background/keepAlive') as typeof import('../background/keepAlive');
-    const { setupSidePanelPortInBg } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('../background/sidePanel') as typeof import('../background/sidePanel');
-    const keylessWebBridge: typeof import('@onekeyhq/shared/src/keylessWallet/keylessWebBridge').default =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
-      require('@onekeyhq/shared/src/keylessWallet/keylessWebBridge').default;
-    const { setupExtUIEvent } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('../background/extUI') as typeof import('../background/extUI');
     const serviceWorker: typeof import('../background/serviceWorker').default =
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
       require('../background/serviceWorker').default;
 
     // axios.defaults.adapter = axiosAdapter;
     setupKeepAlive();
-    setupSidePanelPortInBg();
-    keylessWebBridge.setupKeylessWebBridgeInBackground();
-    setupExtUIEvent();
     serviceWorker.disableCacheInBackground();
   }
 }
@@ -157,20 +152,22 @@ function installSesRuntimeCheckHandlerLate() {
 }
 
 initBackgroundBridgeEarly();
-const offscreenApiProxy = installOffscreenApiProxyEarly();
+const offscreenApiProxy = platformEnv.isExtensionBackgroundServiceWorker
+  ? installOffscreenApiProxyEarly()
+  : undefined;
 maybeLockdownOneKeyRuntime({ runtime: 'ext-background' });
 installSesRuntimeCheckHandlerLate();
 
 console.log(
   `[OneKey RN] Extension background page ready: 666  ${new Date().toLocaleTimeString()}`,
 );
-setupServiceWorkerRuntimeLate();
+setupExtensionRuntimeLate();
 installDevReloadListenerLate();
 installPrivacyChainNodeRequestLate();
 setupManifestV2RedirectLate();
 
 if (process.env.NODE_ENV !== 'production') {
-  void offscreenApiProxy.adaSdk.sayHello().then(console.log);
+  void offscreenApiProxy?.adaSdk.sayHello().then(console.log);
 }
 // oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

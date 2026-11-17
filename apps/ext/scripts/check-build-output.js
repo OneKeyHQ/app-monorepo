@@ -241,7 +241,7 @@ function main() {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const expectedManifestVersion = isFirefox ? 2 : 3;
+  const expectedManifestVersion = 3;
   if (manifest.manifest_version !== expectedManifestVersion) {
     throw new Error(
       `Unexpected extension manifest version: ${manifest.manifest_version} !== ${expectedManifestVersion}`,
@@ -261,8 +261,14 @@ function main() {
     assertFile(outputRoot, file, 'background entrypoint');
   }
   if (isFirefox) {
-    if (manifest.background?.page !== 'background.html') {
-      throw new Error('Firefox background must use the background page.');
+    if (
+      manifest.background?.page !== 'background.html' ||
+      manifest.background?.persistent === true ||
+      manifest.background?.service_worker
+    ) {
+      throw new Error(
+        'Firefox background must use a non-persistent event page.',
+      );
     }
     const backgroundHtml = fs.readFileSync(
       path.join(outputRoot, manifest.background.page),
@@ -386,7 +392,9 @@ function main() {
     totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 190000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
-    jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
+    // Firefox's DOM background emits lazy SDK chunks in addition to UI chunks
+    // (1171 JS files on macOS); keep Chromium's existing budget unchanged.
+    jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', isFirefox ? 1250 : 1000),
     // Translation growth raised the x baseline to 40933513 bytes in Linux CI
     // (run 38020508845), above 39 MiB. The WalletKit 1.5.6 upgrade (bundled
     // @walletconnect/pay stack in the single-file MV3 background
@@ -397,7 +405,7 @@ function main() {
     // (run 40809910421), so 44 MiB leaves about 6.9% headroom.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      44 * 1024 * 1024,
+      isFirefox ? 12 * 1024 * 1024 : 44 * 1024 * 1024,
     ),
   };
 

@@ -39,8 +39,8 @@ function createOutput() {
     [
       'manifest.json',
       JSON.stringify({
-        manifest_version: 2,
-        background: { page: 'background.html' },
+        manifest_version: 3,
+        background: { page: 'background.html', persistent: false },
         content_scripts: [
           {
             js: [

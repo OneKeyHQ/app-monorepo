@@ -1,7 +1,9 @@
 import { isNil } from 'lodash';
+import browser from 'webextension-polyfill';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -35,7 +37,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     chrome.notifications.onClosed.addListener(this.handleNotificationClosed);
 
     // Deprecated since Chrome 65
-    chrome.notifications.onShowSettings.addListener(
+    chrome.notifications.onShowSettings?.addListener(
       this.handleNotificationShowSettings,
     );
     // not working for clicking settings Button
@@ -114,12 +116,12 @@ export default class NotificationProvider extends NotificationProviderBase {
     await this.checkPermissionDefinedInManifest();
     const isSupported = true;
 
-    // https://developer.chrome.com/docs/extensions/reference/api/notifications#type-PermissionLevel
-    const permissionLevel = await new Promise<'granted' | 'denied'>(
-      (resolve) => {
-        chrome.notifications.getPermissionLevel(resolve as any);
-      },
-    );
+    // Firefox has no getPermissionLevel API; its manifest permission was checked above.
+    const permissionLevel = platformEnv.isExtFirefox
+      ? 'granted'
+      : await new Promise<'granted' | 'denied'>((resolve) => {
+          chrome.notifications.getPermissionLevel(resolve as any);
+        });
     if (permissionLevel === 'granted') {
       return {
         permission: ENotificationPermission.granted,
@@ -198,41 +200,57 @@ export default class NotificationProvider extends NotificationProviderBase {
       // return { notificationId: '' };
     }
 
-    await new Promise<string>((resolve) => {
-      const options: chrome.notifications.NotificationOptions<true> = {
-        // export type TemplateType = "basic" | "image" | "list" | "progress";
-        type: 'basic',
+    if (platformEnv.isExtFirefox) {
+      const options = {
+        type: 'basic' as const,
         iconUrl: resolveExtNotificationIconUrl(icon),
         title,
         message: description,
-        silent: false,
       };
-      chrome.notifications.create(notificationId, options, (id) => {
-        if (!id) {
-          const lastError = chrome.runtime.lastError;
-          if (lastError) {
-            console.error(
-              'chrome.notifications.create Error:',
-              lastError?.message,
+      try {
+        await browser.notifications.create(notificationId, options);
+      } catch {
+        await browser.notifications.create(notificationId, {
+          ...options,
+          iconUrl: resolveExtNotificationIconUrl(),
+        });
+      }
+    } else
+      await new Promise<string>((resolve) => {
+        const options: chrome.notifications.NotificationOptions<true> = {
+          // export type TemplateType = "basic" | "image" | "list" | "progress";
+          type: 'basic',
+          iconUrl: resolveExtNotificationIconUrl(icon),
+          title,
+          message: description,
+          silent: false,
+        };
+        chrome.notifications.create(notificationId, options, (id) => {
+          if (!id) {
+            const lastError = chrome.runtime.lastError;
+            if (lastError) {
+              console.error(
+                'chrome.notifications.create Error:',
+                lastError?.message,
+              );
+            }
+            chrome.notifications.create(
+              notificationId,
+              {
+                ...options,
+                // Remote extras.image may be invalid; fall back to the packaged
+                // OneKey icon so the OS notification still has a source identity.
+                iconUrl: resolveExtNotificationIconUrl(),
+              },
+              (id2) => {
+                resolve(id2);
+              },
             );
+          } else {
+            resolve(id);
           }
-          chrome.notifications.create(
-            notificationId,
-            {
-              ...options,
-              // Remote extras.image may be invalid; fall back to the packaged
-              // OneKey icon so the OS notification still has a source identity.
-              iconUrl: resolveExtNotificationIconUrl(),
-            },
-            (id2) => {
-              resolve(id2);
-            },
-          );
-        } else {
-          resolve(id);
-        }
+        });
       });
-    });
 
     // TODO save cache only if payload exists
     this.notificationCache.set(notificationId, params);

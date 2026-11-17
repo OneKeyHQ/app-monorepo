@@ -24,8 +24,12 @@ export function createResolveExtensions({
           (ext) => `.${targetBrowser}-${platform}${ext}`,
         )
       : []),
-    // .ext-bg-v3.ts
-    ...(configName && platform === 'ext' && isManifestV3
+    // These variants proxy DOM-only SDKs into Chrome's offscreen document.
+    // Firefox MV3 has a DOM event page and must use the web SDK implementations.
+    ...(configName &&
+    platform === 'ext' &&
+    isManifestV3 &&
+    targetBrowser !== 'firefox'
       ? ['.ts', '.tsx', '.js', '.jsx'].map(
           (ext) => `.${platform}-${configName}-v3${ext}`,
         )

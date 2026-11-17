@@ -297,8 +297,9 @@ const isRuntimeBrowser: boolean =
   // eslint-disable-next-line unicorn/prefer-global-this
   typeof window !== 'undefined' && !isNative;
 
-// @ts-ignore
-const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';
+const isRuntimeFirefox: boolean =
+  isExtFirefox ||
+  (typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent));
 
 const checkIsRuntimeEdge = (): boolean => {
   if (!isRuntimeBrowser) {
@@ -471,17 +472,18 @@ const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
 // Desktop (Electron) supports WebUSB through Chromium. Linux requires host udev
 // rules for device access, which the desktop app can request via PolicyKit.
-const isSupportWebUSB = isExtension || isWeb || isDesktop;
+const isSupportWebUSB =
+  !isRuntimeFirefox && (isExtension || isWeb || isDesktop);
 
 const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
-// Ext manifest v2 background
+// DOM background: MV2 persistent page or Firefox MV3 event page.
 export const isExtensionBackgroundHtml: boolean =
   isExtension &&
   isRuntimeBrowser &&
   globalThis.location.pathname.startsWith('/background.html');
 
-// Ext manifest v3 background
+// Chromium MV3 service worker.
 export const isExtensionBackgroundServiceWorker: boolean =
   isExtension &&
   !isRuntimeBrowser &&
@@ -529,7 +531,6 @@ export const isExtensionDevelopmentBuild: boolean =
     false);
 
 export const isManifestV3: boolean =
-  // TODO firefox check v3
   isExtension &&
   globalThis.chrome?.runtime?.getManifest?.()?.manifest_version === 3;
 

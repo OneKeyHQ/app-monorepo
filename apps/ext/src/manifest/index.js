@@ -28,4 +28,8 @@ const mergedManifest = lodash.merge(
 mergedManifest.web_accessible_resources =
   browserManifest.web_accessible_resources;
 
+if (process.env.EXT_CHANNEL === 'firefox') {
+  delete mergedManifest.key;
+}
+
 module.exports = mergedManifest;

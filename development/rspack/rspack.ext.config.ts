@@ -294,7 +294,7 @@ function removeDefaultHtmlPlugin(config: RspackOptions): void {
 }
 
 function getSwcTargets(): Record<string, string> {
-  return targetBrowser === 'firefox' ? { firefox: '115' } : { chrome: '111' };
+  return targetBrowser === 'firefox' ? { firefox: '128' } : { chrome: '111' };
 }
 
 function createCompilerConfig({
@@ -346,6 +346,12 @@ function createCompilerConfig({
     createChromeExtensionV3ViolationPlugin(),
   ];
   if (targetBrowser === 'firefox') {
+    config.plugins.push(
+      new rspack.NormalModuleReplacementPlugin(
+        /[\\/]core-js[\\/](?:library[\\/])?modules[\\/]_global\.js$/,
+        path.resolve(__dirname, 'shims/core-js-global.js'),
+      ),
+    );
     config.module = config.module || {};
     config.module.rules = config.module.rules || [];
     config.module.rules.push({
@@ -418,6 +424,23 @@ function enableEntryVendorSplit(
     cacheGroups: {
       default: false,
       defaultVendors: false,
+      ...(compilerName === compilerNames.background &&
+      targetBrowser === 'firefox'
+        ? {
+            default: {
+              chunks: 'async' as const,
+              minChunks: 2,
+              reuseExistingChunk: true,
+              priority: -20,
+            },
+            defaultVendors: {
+              chunks: 'async' as const,
+              test: /[\\/]node_modules[\\/]/,
+              reuseExistingChunk: true,
+              priority: -10,
+            },
+          }
+        : {}),
       vendor: {
         test: /[\\/]node_modules[\\/]/,
         name: `${compilerName}-vendor`,
@@ -427,9 +450,14 @@ function enableEntryVendorSplit(
     },
   };
   config.output = config.output || {};
-  config.output.asyncChunks = false;
+  // Firefox's DOM event page can load lazy SDK chunks through script tags.
+  // Chrome's service worker must keep all imported modules in its boot files.
+  config.output.asyncChunks =
+    compilerName === compilerNames.background && targetBrowser === 'firefox';
   config.output.chunkLoading =
-    compilerName === compilerNames.background ? 'import-scripts' : 'jsonp';
+    compilerName === compilerNames.background && targetBrowser !== 'firefox'
+      ? 'import-scripts'
+      : 'jsonp';
 }
 
 function createPagesConfig(basePath: string): RspackOptions {
@@ -450,12 +478,16 @@ function createPagesConfig(basePath: string): RspackOptions {
     entry: {
       [entries.uiPopup]: path.join(basePath, 'src/entry/ui-popup.tsx'),
       [entries.uiPasskey]: path.join(basePath, 'src/entry/ui-passkey.tsx'),
-      [entries.offscreen]: path.join(basePath, 'src/entry/offscreen.ts'),
+      ...(targetBrowser !== 'firefox'
+        ? { [entries.offscreen]: path.join(basePath, 'src/entry/offscreen.ts') }
+        : {}),
     },
     plugins: [
       ...uiHtmlPlugins,
       createHtmlPlugin({ name: entries.uiPasskey, basePath }),
-      createHtmlPlugin({ name: entries.offscreen, basePath }),
+      ...(targetBrowser !== 'firefox'
+        ? [createHtmlPlugin({ name: entries.offscreen, basePath })]
+        : []),
       createCopyPlugin(basePath),
       ...(!isDev &&
       targetBrowser === 'firefox' &&
@@ -507,7 +539,7 @@ function createBackgroundConfig(basePath: string): RspackOptions {
         filename: 'background.bundle.js',
         ...(isDev ? { runtime: false } : {}),
         ...(isDev ? { chunkLoading: false } : {}),
-        asyncChunks: false,
+        asyncChunks: targetBrowser === 'firefox',
       },
     },
     plugins: [createHtmlPlugin({ name: entries.background, basePath })],
