@@ -82,13 +82,14 @@ function subscribeSeen(listener: () => void) {
 }
 
 // Every device with a firmware update, not only the current account's.
-function useFirmwareUpdateKeys() {
+function useFirmwareUpdateKeys(isTravelMode: boolean) {
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   // Drops devices removed since their last check.
   const { result: connectIds } = usePromiseResult(
     async () => {
-      // Nothing to filter until a device has been checked.
-      if (!detectStatus) return [];
+      // Nothing to filter until a device has been checked. Travel mode
+      // rejects the device list, and hides firmware marks anyway.
+      if (!detectStatus || isTravelMode) return [];
       // The same list "My devices" shows (an exposed background method).
       const wallets =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
@@ -98,7 +99,7 @@ function useFirmwareUpdateKeys() {
         item.device?.connectId ? [item.device.connectId] : [],
       );
     },
-    [detectStatus],
+    [detectStatus, isTravelMode],
     { checkIsFocused: false },
   );
   return useMemo(() => {
@@ -141,10 +142,10 @@ export function useProfileDrawerMarks({
     else if (APP_UPDATE_IN_PROGRESS.has(status)) appUpdate = 'updating';
     else appUpdate = 'available';
   }
-  const firmwareUpdateKeys = useFirmwareUpdateKeys();
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
+  const firmwareUpdateKeys = useFirmwareUpdateKeys(isTravelMode);
   const isOpen = useIsProfileDrawerOpen();
   const seen = useSyncExternalStore(subscribeSeen, getSeen, getSeen);
 

@@ -303,10 +303,12 @@ function DrawerIdentity() {
   const isTravelMode = isTravelModeActive();
 
   useEffect(() => {
-    if (isLoggedIn) {
+    // Travel mode rejects Prime calls, and the content mounts without the
+    // drawer being opened.
+    if (isLoggedIn && !isTravelMode) {
       void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, isTravelMode]);
 
   const handleOneKeyId = useCallback(() => {
     // Signing in looks as usual but does nothing in travel mode, as in the
