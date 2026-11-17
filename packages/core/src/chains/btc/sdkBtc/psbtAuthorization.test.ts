@@ -19,6 +19,7 @@ import {
   classifyBtcSighashType,
   dropBtcPsbtSignaturesOutsideRequest,
   findBtcPsbtSignPolicyViolation,
+  getBtcOutputScriptAsm,
   getBtcPsbtSighashFamily,
 } from './psbtAuthorization';
 
@@ -610,6 +611,25 @@ describe('buildBtcPsbtAuthorization', () => {
   });
 });
 
+describe('getBtcOutputScriptAsm', () => {
+  it('spells out a pay-to-pubkey script', () => {
+    const pubkey = ECPair.makeRandom({ network: psbtNetwork }).publicKey;
+    const { output } = payments.p2pk({ pubkey, network: psbtNetwork });
+    expect(getBtcOutputScriptAsm(output as Uint8Array)).toBe(
+      `${Buffer.from(pubkey).toString('hex')} OP_CHECKSIG`,
+    );
+  });
+
+  it('returns the bytes of a script that does not decode', () => {
+    // a 5-byte push followed by a single byte
+    expect(getBtcOutputScriptAsm(Uint8Array.from([0x05, 0x01]))).toBe('0501');
+  });
+
+  it('returns an empty string for an empty script', () => {
+    expect(getBtcOutputScriptAsm(new Uint8Array())).toBe('');
+  });
+});
+
 describe('buildBtcPsbtDisplayTransfers', () => {
   const allAuthorization = {
     family: EBtcPsbtSighashFamily.All,
@@ -670,6 +690,24 @@ describe('buildBtcPsbtDisplayTransfers', () => {
       }).sends,
     ).toEqual([
       { address: '', value: '90000' },
+      { address: decoy.address, value: '1000' },
+    ]);
+  });
+
+  it('names a valued output that has no address by its script', () => {
+    expect(
+      buildBtcPsbtDisplayTransfers({
+        authorization: allAuthorization,
+        outputs: [
+          { address: '', value: '90000', scriptAsm: 'aa OP_CHECKSIG' },
+          // OP_RETURN marker: nothing is paid, so no script is named
+          { address: '', value: '0', scriptAsm: 'OP_RETURN bb' },
+          // an output with an address is named by the address alone
+          { address: decoy.address, value: '1000', scriptAsm: 'cc' },
+        ],
+      }).sends,
+    ).toEqual([
+      { address: '', value: '90000', scriptAsm: 'aa OP_CHECKSIG' },
       { address: decoy.address, value: '1000' },
     ]);
   });

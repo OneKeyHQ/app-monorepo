@@ -10,6 +10,7 @@ import type {
   IDecodedTxActionTokenActivate,
   IDecodedTxActionTokenApprove,
   IDecodedTxActionUnknown,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 import {
   EApproveType,
@@ -580,24 +581,68 @@ function convertAssetTransferActionToSignatureConfirmComponent({
     ? toAddresses
     : getUniqueAddresses(action.to ? [action.to] : []);
 
-  addressComponents.forEach((address) => {
-    const toAddressComponent: IDisplayComponentAddress = {
-      type: EParseTxComponentType.Address,
-      label: showInteractWithContract
-        ? appLocale.intl.formatMessage({
-            id: ETranslations.sig_interact_contract_label,
-          })
-        : appLocale.intl.formatMessage({
-            id: ETranslations.global_to,
-          }),
-      address,
-      tags: [],
-      isNavigable: showInteractWithContract,
-      highlight: !showInteractWithContract,
-    };
-
-    components.push(toAddressComponent);
+  const buildToAddressComponent = (
+    address: string,
+  ): IDisplayComponentAddress => ({
+    type: EParseTxComponentType.Address,
+    label: showInteractWithContract
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.sig_interact_contract_label,
+        })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.global_to,
+        }),
+    address,
+    tags: [],
+    isNavigable: showInteractWithContract,
+    highlight: !showInteractWithContract,
   });
+
+  // A UTXO output can pay a script that has no address form (pay-to-pubkey,
+  // bare multisig). Its amount is listed above, so it gets a recipient row of
+  // its own, in output order among the addresses; without one the amount
+  // reads as sent to the addresses that are listed.
+  const isScriptRecipient = (send: IDecodedTxTransferInfo) =>
+    Boolean(isUTXO) &&
+    !showInteractWithContract &&
+    !send.to &&
+    send.toScript !== undefined;
+
+  if (action.sends.some(isScriptRecipient)) {
+    const seenRecipients = new Set<string>();
+    action.sends.forEach((send) => {
+      const isScript = isScriptRecipient(send);
+      const recipient = isScript ? (send.toScript ?? '') : send.to;
+      const recipientKey = `${isScript ? 'script' : 'address'}:${recipient}`;
+      if ((!isScript && !recipient) || seenRecipients.has(recipientKey)) {
+        return;
+      }
+      seenRecipients.add(recipientKey);
+      components.push(
+        isScript
+          ? {
+              type: EParseTxComponentType.Address,
+              label: appLocale.intl.formatMessage({
+                id: ETranslations.global_to,
+              }),
+              address: recipient,
+              tags: [
+                {
+                  value: appLocale.intl.formatMessage({
+                    id: ETranslations.wallet_no_address,
+                  }),
+                  displayType: 'warning',
+                },
+              ],
+            }
+          : buildToAddressComponent(recipient),
+      );
+    });
+  } else {
+    addressComponents.forEach((address) => {
+      components.push(buildToAddressComponent(address));
+    });
+  }
 
   // A UTXO signature that commits only to its own payout (BTC SIGHASH_SINGLE)
   // names no recipient, so no row above says where the received amount lands.

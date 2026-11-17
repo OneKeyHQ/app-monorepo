@@ -214,6 +214,9 @@ export type IDecodedTxShieldedEndpoint = {
 export type IDecodedTxTransferInfo = {
   from: string;
   to: string;
+  // UTXO: asm of the output script when it has no address form (pay-to-pubkey,
+  // bare multisig, non-standard). `to` is empty for such an output.
+  toScript?: string;
   shieldedFrom?: IDecodedTxShieldedEndpoint;
   shieldedTo?: IDecodedTxShieldedEndpoint;
   amount: string;

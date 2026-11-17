@@ -292,6 +292,13 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
       { to: decoy.address, amount: '0.00001' },
     ]);
     expect(decodedTx.nativeAmountValue).toBe('91000');
+    // The pay-to-pubkey amount is named by its script, read from the psbt.
+    expect(
+      decodedTx.actions[0].assetTransfer?.sends.map(({ toScript }) => toScript),
+    ).toEqual([
+      `${Buffer.from(attacker.pubkey).toString('hex')} OP_CHECKSIG`,
+      undefined,
+    ]);
   });
 
   it('shows a listing as the input given up and the matching output received', async () => {

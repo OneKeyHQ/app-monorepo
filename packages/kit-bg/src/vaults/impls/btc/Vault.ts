@@ -20,6 +20,7 @@ import {
 import {
   buildBtcPsbtAuthorization,
   buildBtcPsbtDisplayTransfers,
+  getBtcOutputScriptAsm,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
 import { verifyBitcoinMessage } from '@onekeyhq/core/src/chains/btc/sdkBtc/signMessage';
 import {
@@ -450,10 +451,11 @@ export default class VaultBtc extends VaultBase {
     // runs first: nothing below may read an input index it has not accepted.
     const psbtNetwork = toPsbtNetwork(network);
     const utxoAccount = account as IDBUtxoAccount;
+    const psbt = Psbt.fromHex(checkIsDefined(encodedTx.psbtHex), {
+      network: psbtNetwork,
+    });
     const authorization = buildBtcPsbtAuthorization({
-      psbt: Psbt.fromHex(checkIsDefined(encodedTx.psbtHex), {
-        network: psbtNetwork,
-      }),
+      psbt,
       psbtNetwork,
       inputsToSign,
       ownedAddresses: buildOwnedAddressesForBatchDisplay({
@@ -513,9 +515,19 @@ export default class VaultBtc extends VaultBase {
 
     const displayTransfers = buildBtcPsbtDisplayTransfers({
       authorization,
-      outputs,
+      // An output that has no address is named by its script, read from the
+      // psbt being signed.
+      outputs: outputs.map((output, index) => {
+        const script = psbt.txOutputs[index]?.script;
+        return output.address || !script
+          ? output
+          : { ...output, scriptAsm: getBtcOutputScriptAsm(script) };
+      }),
     });
-    const utxoTo = displayTransfers.sends.map(toUtxoAddressInfo);
+    const utxoTo = displayTransfers.sends.map((transfer) => ({
+      ...toUtxoAddressInfo(transfer),
+      scriptAsm: transfer.scriptAsm,
+    }));
     const utxoReceives = displayTransfers.receives.map(toUtxoAddressInfo);
 
     let sendNativeTokenAmountBN = new BigNumber(0);
@@ -529,6 +541,9 @@ export default class VaultBtc extends VaultBase {
           sends: utxoTo.map((utxo) => ({
             from: account.address,
             to: utxo.address,
+            ...(utxo.scriptAsm === undefined
+              ? {}
+              : { toScript: utxo.scriptAsm }),
             isNative: true,
             tokenIdOnNetwork: '',
             name: nativeToken.name,

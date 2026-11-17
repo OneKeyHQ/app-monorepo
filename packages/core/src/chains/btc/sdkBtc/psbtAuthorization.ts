@@ -1,10 +1,11 @@
 import { scriptPkToAddress } from '.';
 
 import BigNumber from 'bignumber.js';
-import { Psbt, Transaction } from 'bitcoinjs-lib';
+import { Psbt, Transaction, script as bitcoinScript } from 'bitcoinjs-lib';
 import { isEqual } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { getPsbtInputUtxo } from './providerUtils';
 
@@ -56,6 +57,10 @@ export type IBtcPsbtDisplayTransfer = {
   address: string;
   // satoshi, decimal string
   value: string;
+  // Asm of the output script. Set, possibly empty, only for a valued output
+  // that has no address form (pay-to-pubkey, bare multisig, non-standard), so
+  // a page can still name where the value goes.
+  scriptAsm?: string;
 };
 
 export type IBtcPsbtDisplayTransfers = {
@@ -393,6 +398,16 @@ export function dropBtcPsbtSignaturesOutsideRequest({
   return hasDropped ? signedPsbt.toHex() : signedPsbtHex;
 }
 
+// Names an output script that has no address form. Bytes that do not decode
+// into opcodes and pushes are returned as hex.
+export function getBtcOutputScriptAsm(script: Uint8Array): string {
+  try {
+    return bitcoinScript.toASM(script);
+  } catch {
+    return bufferUtils.bytesToHex(script);
+  }
+}
+
 // The transfers a confirm page may show for a PSBT, derived from what the
 // signatures commit to rather than from how the outputs look:
 // - every output committed: each output that is not change is shown. No
@@ -406,7 +421,9 @@ export function buildBtcPsbtDisplayTransfers({
   outputs,
 }: {
   authorization: IBtcPsbtAuthorization;
-  outputs: Array<Pick<IBtcOutput, 'address' | 'value' | 'payload'>>;
+  outputs: Array<
+    Pick<IBtcOutput, 'address' | 'value' | 'payload'> & { scriptAsm?: string }
+  >;
 }): IBtcPsbtDisplayTransfers {
   if (authorization.family === EBtcPsbtSighashFamily.Single) {
     return {
@@ -429,10 +446,15 @@ export function buildBtcPsbtDisplayTransfers({
   }
 
   const toTransfer = (
-    output: Pick<IBtcOutput, 'address' | 'value'>,
+    output: Pick<IBtcOutput, 'address' | 'value'> & { scriptAsm?: string },
   ): IBtcPsbtDisplayTransfer => ({
     address: output.address,
     value: output.value,
+    ...(!output.address &&
+    output.scriptAsm !== undefined &&
+    new BigNumber(output.value).gt(0)
+      ? { scriptAsm: output.scriptAsm }
+      : {}),
   });
   if (outputs.length <= 1) {
     return { sends: outputs.map(toTransfer), receives: [] };

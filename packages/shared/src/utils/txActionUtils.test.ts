@@ -65,6 +65,7 @@ describe('txActionUtils', () => {
       [ETranslations.global_asset]: 'Asset',
       [ETranslations.global_to]: 'To',
       [ETranslations.receive_address__title]: 'Receiving address',
+      [ETranslations.wallet_no_address]: 'No address',
     } as Parameters<typeof appLocale.setLocale>[1]);
   });
 
@@ -116,6 +117,77 @@ describe('txActionUtils', () => {
     expect(addressComponents.map((component) => component.address)).toEqual([
       '0xrecipient1',
     ]);
+  });
+
+  describe('UTXO output that has no address', () => {
+    const P2PK_ASM = `${'02'.padEnd(66, 'a')} OP_CHECKSIG`;
+    // pay-to-pubkey carrying the value, then a small output to an address
+    const buildScriptPayment = (): IDecodedTx =>
+      buildDecodedTx([
+        { ...buildTransfer(''), toScript: P2PK_ASM },
+        buildTransfer('bc1decoy'),
+        { ...buildTransfer(''), toScript: P2PK_ASM },
+      ]);
+    const recipientRows = (isUTXO: boolean) =>
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildScriptPayment(),
+        unsignedTx: {} as never,
+        isUTXO,
+      })
+        .filter(
+          (component): component is IDisplayComponentAddress =>
+            component.type === EParseTxComponentType.Address,
+        )
+        .map(({ label, address, tags, highlight }) => ({
+          label,
+          address,
+          tags,
+          highlight,
+        }));
+
+    it('lists the script as a recipient, in output order, marked as no address', () => {
+      expect(recipientRows(true)).toEqual([
+        {
+          label: 'To',
+          address: P2PK_ASM,
+          tags: [{ value: 'No address', displayType: 'warning' }],
+          highlight: undefined,
+        },
+        { label: 'To', address: 'bc1decoy', tags: [], highlight: true },
+      ]);
+    });
+
+    it('lists an empty script as a recipient too', () => {
+      const components =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx: buildDecodedTx([
+            { ...buildTransfer(''), toScript: '' },
+            buildTransfer('bc1decoy'),
+          ]),
+          unsignedTx: {} as never,
+          isUTXO: true,
+        });
+      expect(
+        components
+          .filter(
+            (component): component is IDisplayComponentAddress =>
+              component.type === EParseTxComponentType.Address,
+          )
+          .map(({ address, tags }) => ({ address, tags })),
+      ).toEqual([
+        {
+          address: '',
+          tags: [{ value: 'No address', displayType: 'warning' }],
+        },
+        { address: 'bc1decoy', tags: [] },
+      ]);
+    });
+
+    it('adds no script row for account-model chains', () => {
+      expect(recipientRows(false)).toEqual([
+        { label: 'To', address: 'bc1decoy', tags: [], highlight: true },
+      ]);
+    });
   });
 
   describe('transfer that names no recipient', () => {
