@@ -46,6 +46,22 @@ export const useHandleWithdraw = () => {
       onSuccess?: () => void;
     }) => {
       if (!accountId) return;
+      if (
+        withdrawType === EStakingActionType.CancelWithdrawal &&
+        earnUtils.isEtherFiProvider({ providerName: provider })
+      ) {
+        appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
+          accountId,
+          networkId,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
+          withdrawType: 'cancel',
+          onSuccess,
+        });
+        return;
+      }
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
@@ -200,6 +216,7 @@ export const useHandleStake = () => {
               accountId,
               networkId,
               spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+                providerName: protocolInfo?.provider || '',
                 networkId,
                 approveType: effectiveApproveType,
                 approveSpenderAddress,
