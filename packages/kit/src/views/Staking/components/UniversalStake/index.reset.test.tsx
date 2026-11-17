@@ -1142,6 +1142,10 @@ describe('EtherFi USDT approval reset', () => {
     await waitFor(() =>
       expect(depositTaskRegistry.find(ownerKey)).toBeUndefined(),
     );
+    expect(mockToast).not.toHaveBeenCalledWith({
+      title: 'feedback.transaction_submitted',
+      message: 'global.wallet_balance: WETH',
+    });
     expect(mockNavigate).toHaveBeenCalledTimes(2);
     expect(mockBuildStake).toHaveBeenCalledTimes(1);
 
@@ -3557,11 +3561,11 @@ describe('EtherFi USDT approval reset', () => {
   );
 
   it.each([
-    ['EtherFi submitted', 'etherfi', ['submitted'] as const, '2', 1],
+    ['EtherFi submitted', 'etherfi', ['submitted'] as const, '2', 0],
     ['EtherFi unknown', 'etherfi', ['unknown'] as const, '2', 1],
     ['EtherFi failed', 'etherfi', ['submitted', 'failed'] as const, '2', 0],
     ['EtherFi not submitted', 'etherfi', [] as const, '2', 0],
-    ['Native submitted', 'native', ['submitted'] as const, '', 1],
+    ['Native submitted', 'native', ['submitted'] as const, '', 0],
     ['Native unknown', 'native', ['unknown'] as const, '', 1],
     ['Native failed', 'native', ['submitted', 'failed'] as const, '2', 0],
     ['Native not submitted', 'native', [] as const, '2', 0],

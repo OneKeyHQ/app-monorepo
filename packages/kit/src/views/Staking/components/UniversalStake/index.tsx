@@ -2160,12 +2160,10 @@ export function UniversalStake({
           )
             return;
           if (!getCurrentDepositTaskHandle()) resetAmount();
+          if (interruption === 'submitted') return;
           Toast.message({
             title: intl.formatMessage({
-              id:
-                interruption === 'submitted'
-                  ? ETranslations.feedback_transaction_submitted
-                  : ETranslations.global_unknown,
+              id: ETranslations.global_unknown,
             }),
             message: postWrapApproveTarget?.token?.symbol
               ? `${intl.formatMessage({ id: ETranslations.global_wallet_balance })}: ${postWrapApproveTarget.token.symbol}`
