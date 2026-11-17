@@ -960,6 +960,13 @@ export interface IEarnDepositActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnManageActionIcon {
+  type: 'manage';
+  disabled: boolean;
+  text: IEarnText;
+  data?: { vault?: string };
+}
+
 export interface IEarnHistoryActionIcon {
   type: 'history';
   disabled: boolean;
@@ -1555,6 +1562,7 @@ export interface IEarnManagePageResponse {
 
 export type IEarnDetailActions =
   | IEarnDepositActionIcon
+  | IEarnManageActionIcon
   | IEarnWithdrawActionIcon
   | IEarnHistoryActionIcon
   | IEarnWithdrawOrderActionIcon

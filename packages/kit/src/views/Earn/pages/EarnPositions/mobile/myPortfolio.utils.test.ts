@@ -21,6 +21,7 @@ import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
   canRedeemFromCard,
+  getEtherFiManagedRedeem,
   hasPositionDetailPage,
   holdingRowActionOf,
   mergeRewardGroups,
@@ -557,6 +558,89 @@ describe('canRedeemFromCard', () => {
     }
     return found;
   };
+
+  const etherFiPosition = (groupId: string, disabled = false) => {
+    const original = byId(groupId);
+    return {
+      ...original,
+      protocol: 'etherfi',
+      earn: {
+        ...original.earn,
+        manage: { ...original.earn.manage, provider: 'etherfi' },
+        redeem: { disabled },
+      },
+    };
+  };
+
+  it('enables the managed EtherFi detail redeem for deposited shares', () => {
+    const position = cardOf([etherFiPosition('lido:evm--1:steth')]);
+    const actions = [
+      { type: 'manage' as const, text: { text: 'Manage' }, disabled: false },
+    ];
+    expect(
+      getEtherFiManagedRedeem({ provider: 'etherfi', position, actions }),
+    ).toEqual({ disabled: false });
+  });
+
+  it('keeps a disabled EtherFi redemption or manage action disabled', () => {
+    const enabled = cardOf([etherFiPosition('lido:evm--1:steth')]);
+    const disabled = cardOf([etherFiPosition('lido:evm--1:steth', true)]);
+    const manage = {
+      type: 'manage' as const,
+      text: { text: 'Manage' },
+      disabled: false,
+    };
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: disabled,
+        actions: [manage],
+      }),
+    ).toEqual({ disabled: true });
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: enabled,
+        actions: [{ ...manage, disabled: true }],
+      }),
+    ).toEqual({ disabled: true });
+  });
+
+  it('does not offer the managed EtherFi shortcut for pending-only holdings or unrelated providers', () => {
+    const pending = cardOf([etherFiPosition('lido:evm--1:steth:unstaking:0')]);
+    const active = cardOf([etherFiPosition('lido:evm--1:steth')]);
+    const actions = [
+      { type: 'manage' as const, text: { text: 'Manage' }, disabled: false },
+    ];
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: pending,
+        actions,
+      }),
+    ).toBeUndefined();
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'native',
+        position: active,
+        actions,
+      }),
+    ).toBeUndefined();
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: active,
+        actions: [],
+      }),
+    ).toBeUndefined();
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: undefined,
+        actions,
+      }),
+    ).toBeUndefined();
+  });
 
   it('redeems a holding with principal and a page to go to, a Pendle market included', () => {
     expect(canRedeemFromCard(cardOf([byId('lido:evm--1:steth')]))).toBe(true);
