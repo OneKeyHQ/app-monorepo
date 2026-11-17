@@ -79,15 +79,35 @@ function BaseInput(props: IBaseInputProps) {
     numberOfLinesProp,
   );
 
+  // With an extension, the background and border are painted once by the
+  // group. Painting them on each item leaves a seam where the two
+  // semi-transparent fills meet on a sub-pixel boundary (visible on Android
+  // with the translucent disabled colors).
+  const containerStyles = extension
+    ? {
+        bg: sharedStyles.backgroundColor,
+        borderWidth: sharedStyles.borderWidth,
+        borderColor: sharedStyles.borderColor,
+        borderCurve: 'continuous' as const,
+      }
+    : undefined;
+  const itemStyles = extension
+    ? { bg: '$transparent', borderWidth: 0 }
+    : undefined;
+
   return (
-    <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
+    <Group
+      borderRadius={sharedStyles.borderRadius}
+      disabled={disabled}
+      {...containerStyles}
+    >
       <Group.Item>
         <TextArea
           testID="base-input-shared-styles-textarea"
           ref={textAreaRef as any}
           value={value}
           onLayout={onLayout}
-          borderBottomWidth={extension ? 0 : undefined}
+          {...itemStyles}
           error={error}
           numberOfLines={numberOfLines}
           multiline
@@ -102,14 +122,7 @@ function BaseInput(props: IBaseInputProps) {
       </Group.Item>
       {extension ? (
         <Group.Item>
-          <Stack
-            px={sharedStyles.px}
-            py={size === 'large' ? '$3.5' : '$1.5'}
-            borderWidth={sharedStyles.borderWidth}
-            bg={sharedStyles.backgroundColor}
-            borderTopWidth={0}
-            borderColor={sharedStyles.borderColor}
-          >
+          <Stack px={sharedStyles.px} py={size === 'large' ? '$3.5' : '$1.5'}>
             {extension}
           </Stack>
         </Group.Item>
