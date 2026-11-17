@@ -7,6 +7,7 @@ import {
   getSesHarden,
   getSesHardenLevelFromRuntime,
   getSesHardenPatchWarnings,
+  getSesHardenRuntimeState,
   getSesLockdownOptions,
   maybeLockdownOneKeyRuntime,
   normalizeSesHardenLevel,
@@ -65,6 +66,71 @@ test('normalizes supported harden levels', () => {
   expect(normalizeSesHardenLevel('L3')).toBeUndefined();
   expect(normalizeSesHardenLevel(undefined)).toBeUndefined();
 });
+
+test.each(['main', 'background'] as const)(
+  'mobile diagnostics read the actual %s build state without changing web levels',
+  (runtime) => {
+    const g = globalThis as unknown as ISesHardenGlobal;
+    try {
+      g.__ONEKEY_MOBILE_LOCKDOWN_STATE__ = {
+        enabled: true,
+        runtime,
+        lockdownApplied: true,
+        evalTaming: 'no-eval',
+      };
+      expect(getSesHardenRuntimeState()).toEqual({
+        level: 'L1',
+        runtime: `mobile-${runtime}`,
+        lockdownApplied: true,
+        evalTaming: 'no-eval',
+        objectPrototypeFrozen: Object.isFrozen(Object.prototype),
+      });
+      expect(getSesHardenLevelFromRuntime()).toBe('L1');
+      expect(getSesHardenLevelFromRuntime('web')).toBe(
+        getConfiguredSesHardenLevel('web'),
+      );
+      g.__ONEKEY_MOBILE_LOCKDOWN_STATE__ = {
+        enabled: false,
+        runtime,
+        lockdownApplied: false,
+      };
+      expect(getSesHardenLevelFromRuntime()).toBe('L0');
+      expect(getSesHardenRuntimeState()?.lockdownApplied).toBe(false);
+    } finally {
+      delete g.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
+    }
+  },
+);
+
+test.each(['main', 'background'] as const)(
+  'mobile %s reports the browser-only IndexedDB probe as not applicable',
+  async (runtime) => {
+    const g = globalThis as unknown as ISesHardenGlobal;
+    try {
+      g.__ONEKEY_MOBILE_LOCKDOWN_STATE__ = {
+        enabled: false,
+        runtime,
+        lockdownApplied: false,
+      };
+      const report = await buildSesRuntimeCheckReport();
+      const names = report.checks.map((check) => check.name);
+      expect(new Set(names).size).toBe(names.length);
+      expect(report.coverage.map((item) => item.name).toSorted()).toEqual(
+        [...names].toSorted(),
+      );
+      expect(
+        report.checks.find(
+          (check) => check.name === 'IndexedDB transaction shim',
+        ),
+      ).toMatchObject({
+        status: 'info',
+        detail: expect.stringContaining('Native mobile uses Realm storage'),
+      });
+    } finally {
+      delete g.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
+    }
+  },
+);
 
 test('keeps L0 as no-lockdown', () => {
   const state = maybeLockdownOneKeyRuntime({
@@ -253,6 +319,32 @@ test('only changes eval taming in L2', () => {
     evalTaming: 'unsafe-eval',
   });
   expect(l2Options?.evalTaming).toBe('safe-eval');
+});
+
+test('web removes RegExp compile and limits production Error hooks', () => {
+  const original = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    for (const level of ['L1', 'L2'] as const) {
+      expect(getSesLockdownOptions(level, 'web')).toMatchObject({
+        regExpTaming: 'safe',
+        errorTaming: 'unsafe',
+      });
+    }
+    expect(getSesLockdownOptions('L0', 'web')).toBeUndefined();
+    expect(getSesLockdownOptions('L2', 'desktop-renderer')).toMatchObject({
+      regExpTaming: 'unsafe',
+      errorTaming: 'unsafe-debug',
+    });
+    process.env.NODE_ENV = 'development';
+    expect(getSesLockdownOptions('L2', 'web')).toMatchObject({
+      regExpTaming: 'safe',
+      errorTaming: 'unsafe-debug',
+    });
+  } finally {
+    if (original === undefined) Reflect.deleteProperty(process.env, 'NODE_ENV');
+    else process.env.NODE_ENV = original;
+  }
 });
 
 test('forces no-eval for every extension runtime regardless of level', () => {
@@ -823,6 +915,18 @@ describe('Function global escape self-check', () => {
 
     expect(check.status).toBe('fail');
   });
+
+  test.each(['mobile-main', 'mobile-background'] as const)(
+    'requires no-eval for protected %s but preserves rollback',
+    (runtime) => {
+      expect(
+        withBlockedFunction(() => runFunctionGlobalEscapeCheck('L1', runtime))
+          .status,
+      ).toBe('pass');
+      expect(runFunctionGlobalEscapeCheck('L1', runtime).status).toBe('fail');
+      expect(runFunctionGlobalEscapeCheck('L0', runtime).status).toBe('pass');
+    },
+  );
 
   test('keeps native eval as the expectation for web at L1', () => {
     // web/desktop L1 keeps native eval, so reaching globalThis is expected.
