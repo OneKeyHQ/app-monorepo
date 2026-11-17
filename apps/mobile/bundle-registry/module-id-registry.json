@@ -26725,6 +26725,7 @@
     "packages/kit/src/views/Staking/components/utils.tsx": 23766,
     "packages/kit/src/views/Staking/earnDepositTask/controller.ts": 14143,
     "packages/kit/src/views/Staking/earnDepositTask/directDepositTask.ts": 22322,
+    "packages/kit/src/views/Staking/earnDepositTask/finishRetainedRecording.ts": 5292,
     "packages/kit/src/views/Staking/earnDepositTask/interruption.ts": 1375,
     "packages/kit/src/views/Staking/earnDepositTask/lateDepositOrder.ts": 7501,
     "packages/kit/src/views/Staking/earnDepositTask/queryRetainedTaskStatus.ts": 23647,

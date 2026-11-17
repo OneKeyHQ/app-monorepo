@@ -20,6 +20,7 @@ import {
   reduceDepositTask,
 } from './state';
 import { useDepositTask } from './useDepositTask';
+import { useRetainedDepositTask } from './useRetainedDepositTask';
 
 import type { IDepositTaskHandle } from './types';
 
@@ -71,6 +72,173 @@ describe('useDepositTask', () => {
   beforeEach(() => {
     mockRecoveryAddress.mockReset().mockResolvedValue('owner');
     mockFinalStatus.mockReset().mockResolvedValue(undefined);
+  });
+
+  it.each([
+    { setup: 'approve' as const, deposit: 'ready' as const },
+    { setup: 'approve' as const, deposit: 'cancelled' as const },
+    { setup: 'wrap' as const, deposit: 'ready' as const },
+    { setup: 'wrap' as const, deposit: 'cancelled' as const },
+  ])(
+    'starts a fresh task after leaving a completed $setup with an unsent $deposit deposit',
+    async ({ setup, deposit }) => {
+      const ownerKey = `fresh-after-${setup}-${deposit}`;
+      const original = createDepositTask({
+        ...makeTask('old-task'),
+        steps: [
+          { id: setup, kind: setup },
+          { id: 'deposit', kind: 'deposit' },
+        ],
+      });
+      const snapshot = {
+        ...original,
+        currentStepIndex: 1,
+        steps: [
+          {
+            ...original.steps[0],
+            attemptId: 'setup-attempt',
+            status: { type: 'succeeded' as const, txid: 'setup-tx' },
+          },
+          {
+            ...original.steps[1],
+            ...(deposit === 'cancelled'
+              ? { attemptId: 'deposit-attempt' }
+              : {}),
+            status: { type: deposit },
+          },
+        ],
+      };
+      const state = createDepositTaskState(snapshot);
+      let executionCurrent = true;
+      const handle = {
+        ...makeHandle(snapshot),
+        taskState: state,
+        isExecutionCurrent: () => executionCurrent,
+        subscribeRecovery: jest.fn(() => () => undefined),
+        retryDetachedRecording: jest.fn(async () => undefined),
+        dispose: jest.fn(() => {
+          executionCurrent = false;
+        }),
+      };
+      const first = renderHook(() =>
+        useDepositTask('old-scope', ownerKey, null),
+      );
+      try {
+        act(() => {
+          expect(first.result.current.onTaskReady(handle)).toBe(true);
+        });
+        const concurrent = renderHook(() => useRetainedDepositTask(ownerKey));
+        await waitFor(() =>
+          expect(concurrent.result.current.status).not.toBe('checking'),
+        );
+        expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
+        expect(
+          depositTaskRegistry.reserve(
+            ownerKey,
+            createDepositTaskState(makeTask('premature-task')),
+          ),
+        ).toBeUndefined();
+        concurrent.unmount();
+        first.unmount();
+        expect(handle.dispose).toHaveBeenCalledTimes(1);
+
+        const restored = renderHook(() => useRetainedDepositTask(ownerKey));
+        await waitFor(() =>
+          expect(restored.result.current.status).toBe('none'),
+        );
+        const freshTask = {
+          ...makeTask('new-task'),
+          identity: { ...original.identity, amount: '2' },
+        };
+        const freshState = createDepositTaskState(freshTask);
+        const freshHandle = { ...makeHandle(freshTask), taskState: freshState };
+        const fresh = renderHook(() =>
+          useDepositTask('new-scope', ownerKey, null),
+        );
+        act(() => {
+          expect(fresh.result.current.onTaskReady(freshHandle)).toBe(true);
+        });
+        expect(fresh.result.current.task?.identity.amount).toBe('2');
+        expect(depositTaskRegistry.find(ownerKey)?.state).toBe(freshState);
+        fresh.unmount();
+        restored.unmount();
+      } finally {
+        const entry = depositTaskRegistry.find(ownerKey);
+        if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+      }
+    },
+  );
+
+  it('does not detach a still-active replacement handle when an old handle unmounts', async () => {
+    const ownerKey = 'overlapping-recoverable-handles';
+    const original = createDepositTask({
+      ...makeTask('shared-task'),
+      steps: [
+        { id: 'approve', kind: 'approve' },
+        { id: 'deposit', kind: 'deposit' },
+      ],
+    });
+    const snapshot = {
+      ...original,
+      currentStepIndex: 1,
+      steps: [
+        {
+          ...original.steps[0],
+          attemptId: 'approval-attempt',
+          status: { type: 'succeeded' as const, txid: 'approval-tx' },
+        },
+        { ...original.steps[1], status: { type: 'ready' as const } },
+      ],
+    };
+    const state = createDepositTaskState(snapshot);
+    const makeRecoverableHandle = () => {
+      let active = true;
+      return {
+        ...makeHandle(snapshot),
+        taskState: state,
+        isExecutionCurrent: () => active,
+        subscribeRecovery: jest.fn(() => () => undefined),
+        retryDetachedRecording: jest.fn(async () => undefined),
+        dispose: jest.fn(() => {
+          active = false;
+        }),
+      };
+    };
+    const oldHandle = makeRecoverableHandle();
+    const activeHandle = makeRecoverableHandle();
+    const oldForm = renderHook(() =>
+      useDepositTask('scope-old', ownerKey, null),
+    );
+    const activeForm = renderHook(() =>
+      useDepositTask('scope-new', ownerKey, null),
+    );
+    try {
+      act(() => {
+        expect(oldForm.result.current.onTaskReady(oldHandle)).toBe(true);
+        expect(activeForm.result.current.onTaskReady(activeHandle)).toBe(true);
+      });
+      expect(depositTaskRegistry.find(ownerKey)?.recordingHandle).toBe(
+        activeHandle,
+      );
+      oldForm.unmount();
+      expect(oldHandle.isExecutionCurrent()).toBe(false);
+      expect(activeHandle.isExecutionCurrent()).toBe(true);
+      expect(depositTaskRegistry.find(ownerKey)?.detached).toBe(false);
+
+      const entry = renderHook(() => useRetainedDepositTask(ownerKey));
+      await waitFor(() =>
+        expect(entry.result.current.status).not.toBe('checking'),
+      );
+      expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
+      expect(depositTaskRegistry.find(ownerKey)?.recordingHandle).toBe(
+        activeHandle,
+      );
+      entry.unmount();
+      activeForm.unmount();
+    } finally {
+      const entry = depositTaskRegistry.find(ownerKey);
+      if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+    }
   });
 
   it('only dismisses an uncertain remote recording after explicit action and a final transaction status', async () => {

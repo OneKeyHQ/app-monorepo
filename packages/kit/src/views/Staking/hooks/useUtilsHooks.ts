@@ -115,6 +115,7 @@ export function useTrackTokenAllowance({
   networkId,
   accountId,
   initialValue,
+  enabled = true,
   refreshOnMount = false,
   retryTrackingOnError = false,
   tokenAddress,
@@ -125,6 +126,7 @@ export function useTrackTokenAllowance({
   networkId: string;
   accountId: string;
   initialValue?: string;
+  enabled?: boolean;
   /** Fetch the current chain allowance even when a seeded value is provided. */
   refreshOnMount?: boolean;
   retryTrackingOnError?: boolean;
@@ -133,7 +135,9 @@ export function useTrackTokenAllowance({
   approveType?: EApproveType;
 }) {
   const isLegacyApprove = approveType === EApproveType.Legacy;
-  const isExistApproveTarget = !!spenderAddress;
+  const isExistApproveTarget = Boolean(
+    enabled && spenderAddress && tokenAddress,
+  );
   const shouldFetchInitialAllowance =
     isExistApproveTarget && (initialValue === undefined || refreshOnMount);
   const allowanceTargetKey = [
@@ -143,6 +147,7 @@ export function useTrackTokenAllowance({
     tokenAddress,
     spenderAddress,
     approveType ?? '',
+    String(enabled),
   ].join('|');
   const allowanceTargetKeyRef = useRef(allowanceTargetKey);
   allowanceTargetKeyRef.current = allowanceTargetKey;
@@ -154,7 +159,10 @@ export function useTrackTokenAllowance({
   }>(() => ({
     targetKey: allowanceTargetKey,
     value: initialValue ?? '0',
-    available: initialValue !== undefined && !shouldFetchInitialAllowance,
+    available:
+      isExistApproveTarget &&
+      initialValue !== undefined &&
+      !shouldFetchInitialAllowance,
     error: false,
   }));
   const allowance =
@@ -204,7 +212,10 @@ export function useTrackTokenAllowance({
     setAllowanceState({
       targetKey: allowanceTargetKey,
       value: initialValue ?? '0',
-      available: initialValue !== undefined && !shouldFetchInitialAllowance,
+      available:
+        isExistApproveTarget &&
+        initialValue !== undefined &&
+        !shouldFetchInitialAllowance,
       error: false,
     });
   }, [
@@ -212,29 +223,32 @@ export function useTrackTokenAllowance({
     initialValue,
     shouldFetchInitialAllowance,
     retryTrackingOnError,
+    isExistApproveTarget,
   ]);
-  const fetchAllowanceResponse = useCallback(
-    async () =>
-      backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-        networkId,
-        accountId,
-        tokenAddress,
-        spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-          providerName,
-          networkId,
-          approveType,
-          approveSpenderAddress: spenderAddress,
-        }),
-      }),
-    [
-      accountId,
-      approveType,
+  const fetchAllowanceResponse = useCallback(async () => {
+    if (!isExistApproveTarget) {
+      throw new OneKeyLocalError('Allowance target unavailable');
+    }
+    return backgroundApiProxy.serviceStaking.fetchTokenAllowance({
       networkId,
-      providerName,
-      spenderAddress,
+      accountId,
       tokenAddress,
-    ],
-  );
+      spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+        providerName,
+        networkId,
+        approveType,
+        approveSpenderAddress: spenderAddress,
+      }),
+    });
+  }, [
+    accountId,
+    approveType,
+    networkId,
+    providerName,
+    spenderAddress,
+    tokenAddress,
+    isExistApproveTarget,
+  ]);
   useEffect(() => {
     let cancelled = false;
     if (isExistApproveTarget) {
@@ -334,13 +348,14 @@ export function useTrackTokenAllowance({
     trackTxId,
   ]);
   const retryAllowance = useCallback(() => {
+    if (!isExistApproveTarget) return;
     setLoading(true);
     setAllowanceState((previous) => ({ ...previous, error: false }));
     setRetryRequest((previous) => ({
       targetKey: allowanceTargetKey,
       sequence: (previous?.sequence ?? 0) + 1,
     }));
-  }, [allowanceTargetKey]);
+  }, [allowanceTargetKey, isExistApproveTarget]);
   const trackAllowance = useCallback(
     (txid: string) => {
       trackedTxIdRef.current = txid;

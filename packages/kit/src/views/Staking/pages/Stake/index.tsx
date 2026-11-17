@@ -83,13 +83,16 @@ function BasicStakePage() {
     vault: protocolInfo?.vault,
   });
   const retained = useRetainedDepositTask(retainedOwnerKey);
-  const retainedTask = retained.status === 'ready' ? retained.value : null;
+  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
+  const recoveryTask =
+    isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
+  const retainedTask =
+    !isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
   const appNavigation = useAppNavigation();
   const isNativeProvider = useMemo(
     () => earnUtils.isNativeProvider({ providerName }),
     [providerName],
   );
-  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
   const supportsWrappedStake = isNativeProvider || isEtherFiProvider;
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
@@ -336,6 +339,7 @@ function BasicStakePage() {
       if (
         !effectiveApproveType ||
         !approveSpenderAddress ||
+        !effectiveStakeTokenInfo?.token?.address ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {
         return undefined;
@@ -350,7 +354,7 @@ function BasicStakePage() {
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
-          tokenAddress: effectiveStakeTokenInfo?.token.address || '',
+          tokenAddress: effectiveStakeTokenInfo.token.address,
         });
 
       return { allowanceParsed, scopeKey: allowanceScopeKey };
@@ -685,6 +689,7 @@ function BasicStakePage() {
         {retainedView || (
           <EarnStakeForm
             retainedTask={retainedTask}
+            recoveryBlocked={Boolean(recoveryTask)}
             showStandaloneKeyboardFooter
             key={`stake-input-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
             accountId={accountId}
@@ -698,35 +703,46 @@ function BasicStakePage() {
             onConfirm={onConfirm}
             isDisabled={!isStakeAssetReady}
             beforeFooter={
-              stakeAssetsError ||
-              wrappedStakeAssetsError ||
-              missingWrappedStakeAsset ||
-              selectedStakeApproval.error ? (
-                <Alert
-                  type="critical"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_an_error_occurred,
-                  })}
-                  action={{
-                    primary: intl.formatMessage({
-                      id: ETranslations.global_retry,
-                    }),
-                    onPrimaryPress: () => {
-                      if (
-                        stakeAssetsError ||
-                        wrappedStakeAssetsError ||
-                        missingWrappedStakeAsset
-                      ) {
-                        void retryStakeAssets();
-                        void retryWrappedToken();
-                      }
-                      if (selectedStakeApproval.error) {
-                        void selectedStakeApproval.retry();
-                      }
-                    },
-                  }}
-                />
-              ) : undefined
+              <>
+                {recoveryTask ? (
+                  <RetainedTaskFallback
+                    ownerKey={retainedOwnerKey}
+                    retainedTask={recoveryTask}
+                    assetsLoading={false}
+                    onRetryAssets={() => undefined}
+                    recoveryOnly
+                  />
+                ) : null}
+                {stakeAssetsError ||
+                wrappedStakeAssetsError ||
+                missingWrappedStakeAsset ||
+                selectedStakeApproval.error ? (
+                  <Alert
+                    type="critical"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    })}
+                    action={{
+                      primary: intl.formatMessage({
+                        id: ETranslations.global_retry,
+                      }),
+                      onPrimaryPress: () => {
+                        if (
+                          stakeAssetsError ||
+                          wrappedStakeAssetsError ||
+                          missingWrappedStakeAsset
+                        ) {
+                          void retryStakeAssets();
+                          void retryWrappedToken();
+                        }
+                        if (selectedStakeApproval.error) {
+                          void selectedStakeApproval.retry();
+                        }
+                      },
+                    }}
+                  />
+                ) : null}
+              </>
             }
             approveType={effectiveApproveType}
             currentAllowance={

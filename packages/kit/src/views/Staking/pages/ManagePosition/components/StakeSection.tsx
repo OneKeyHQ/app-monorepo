@@ -164,8 +164,15 @@ const StakeSectionContent = ({
     provider: providerName,
     vault: protocolInfo?.vault,
   });
-  const retained = useRetainedDepositTask(retainedOwnerKey);
-  const retainedTask = retained.status === 'ready' ? retained.value : null;
+  const retained = useRetainedDepositTask(
+    retainedOwnerKey,
+    onTaskRecoveryComplete,
+  );
+  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
+  const recoveryTask =
+    isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
+  const retainedTask =
+    !isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
   const isPendleProvider = useIsPendleProvider(providerName);
   const isNativeProvider = useMemo(
     () => earnUtils.isNativeProvider({ providerName }),
@@ -182,7 +189,6 @@ const StakeSectionContent = ({
       providerName,
     });
   }, [protocolInfo?.providerDetail.name, providerName]);
-  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
   const supportsWrappedStake = isNativeProvider || isEtherFiProvider;
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
@@ -669,6 +675,7 @@ const StakeSectionContent = ({
           !hasRequiredData ||
           !initialAllowanceTarget.approveType ||
           !initialAllowanceTarget.spenderAddress ||
+          !initialAllowanceTarget.token?.address ||
           initialAllowanceTarget.token?.isNative
         ) {
           return undefined;
@@ -690,7 +697,7 @@ const StakeSectionContent = ({
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
             }),
-            tokenAddress: initialAllowanceTarget.token?.address || '',
+            tokenAddress: initialAllowanceTarget.token.address,
           });
 
         return { allowanceParsed, scopeKey: allowanceScopeKey };
@@ -1110,6 +1117,7 @@ const StakeSectionContent = ({
         retainedView || (
           <EarnStakeForm
             retainedTask={retainedTask}
+            recoveryBlocked={Boolean(recoveryTask)}
             onLegacyApprovalCleared={onLegacyApprovalCleared}
             isLegacyApprovalBlocked={isLegacyApprovalBlocked}
             // Include protocol identity (provider/vault) so switching between
@@ -1169,12 +1177,22 @@ const StakeSectionContent = ({
                 : undefined
             }
             beforeFooter={
-              stakeAssetsError ||
-              wrappedStakeAssetsError ||
-              missingWrappedStakeAsset ||
-              selectedStakeApproval.error ? (
-                <>
-                  {beforeFooter}
+              <>
+                {beforeFooter}
+                {recoveryTask ? (
+                  <RetainedTaskFallback
+                    ownerKey={retainedOwnerKey}
+                    retainedTask={recoveryTask}
+                    assetsLoading={false}
+                    onRetryAssets={() => undefined}
+                    onFinished={onTaskRecoveryComplete}
+                    recoveryOnly
+                  />
+                ) : null}
+                {stakeAssetsError ||
+                wrappedStakeAssetsError ||
+                missingWrappedStakeAsset ||
+                selectedStakeApproval.error ? (
                   <Alert
                     type="critical"
                     title={intl.formatMessage({
@@ -1199,10 +1217,8 @@ const StakeSectionContent = ({
                       },
                     }}
                   />
-                </>
-              ) : (
-                beforeFooter
-              )
+                ) : null}
+              </>
             }
             footerActionOverride={footerActionOverride}
             showApyDetail={showApyDetail}

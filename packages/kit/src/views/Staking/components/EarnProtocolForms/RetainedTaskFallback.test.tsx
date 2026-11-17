@@ -128,6 +128,45 @@ it('checks a pending wrap while the asset list is unavailable', async () => {
   }
 });
 
+it('queries an unresolved transaction without showing the old task or an asset error', async () => {
+  mockAddress.mockReset().mockResolvedValue('0xowner');
+  mockReceipt.mockReset().mockResolvedValue(EOnChainHistoryTxStatus.Success);
+  const state = makeState();
+  const event = { taskId: 'fallback', stepId: 'wrap', attemptId: 'attempt' };
+  state.dispatch({ ...event, type: 'start' });
+  state.dispatch({ ...event, type: 'confirmationOpened' });
+  state.dispatch({ ...event, type: 'sendStarted' });
+  state.dispatch({ ...event, type: 'submitted', txid: 'wrap-tx' });
+  state.dispatch({ ...event, type: 'cancel' });
+  const token = depositTaskRegistry.reserve(ownerKey, state);
+  expect(token).toBeDefined();
+  if (!token) return;
+  try {
+    const view = render(
+      <RetainedTaskFallback
+        ownerKey={ownerKey}
+        retainedTask={{ state, task: state.getTask(), token }}
+        assetsLoading={false}
+        onRetryAssets={() => undefined}
+        recoveryOnly
+      />,
+    );
+    expect(view.queryByText('Retry assets')).toBeNull();
+    expect(view.getByText('global.pending')).toBeTruthy();
+    expect(view.queryByText('1')).toBeNull();
+    fireEvent.click(view.getByText('global.refresh'));
+    await waitFor(() =>
+      expect(state.getTask().steps[0].status.type).toBe('succeeded'),
+    );
+    expect(mockReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ txid: 'wrap-tx' }),
+    );
+    view.unmount();
+  } finally {
+    depositTaskRegistry.release(ownerKey, token);
+  }
+});
+
 it.each(['failed', 'localUnavailable'] as const)(
   'retries a %s order recording when assets are unavailable',
   async (status) => {

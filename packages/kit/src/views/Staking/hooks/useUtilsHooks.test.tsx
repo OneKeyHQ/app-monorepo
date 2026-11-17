@@ -75,6 +75,50 @@ describe('useTrackTokenAllowance', () => {
     expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
   });
 
+  it('does not fetch or retry when the token contract is missing', async () => {
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        tokenAddress: '',
+        initialValue: '5',
+        refreshOnMount: true,
+      }),
+    );
+    expect(result.current.loading).toBe(false);
+    expect(result.current.allowanceAvailable).toBe(false);
+    act(() => result.current.retryAllowance());
+    await expect(result.current.fetchAllowanceResponse()).rejects.toThrow(
+      'Allowance target unavailable',
+    );
+    expect(result.current.loading).toBe(false);
+    expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
+  });
+
+  it('ignores a late ERC-20 allowance after switching to a disabled target', async () => {
+    let resolveAllowance: (value: {
+      allowance: string;
+      allowanceParsed: string;
+    }) => void = () => undefined;
+    serviceStaking.fetchTokenAllowance.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAllowance = resolve;
+      }),
+    );
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useTrackTokenAllowance({ ...params, enabled, refreshOnMount: true }),
+      { initialProps: { enabled: true } },
+    );
+    expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+    rerender({ enabled: false });
+    await act(async () =>
+      resolveAllowance({ allowance: '10', allowanceParsed: '10' }),
+    );
+    expect(result.current.allowanceAvailable).toBe(false);
+    expect(result.current.loading).toBe(false);
+    expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+  });
+
   it('refreshes a seeded allowance when requested', async () => {
     const { result } = renderHook(() =>
       useTrackTokenAllowance({

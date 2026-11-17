@@ -478,6 +478,7 @@ type IUniversalStakeProps = {
   apr?: string;
 
   isDisabled?: boolean;
+  recoveryBlocked?: boolean;
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
@@ -549,6 +550,7 @@ export function UniversalStake({
   providerLogo,
   estimateFeeUTXO,
   isDisabled,
+  recoveryBlocked = false,
   onConfirm,
   onFeeRateChange,
   protocolInfo,
@@ -690,7 +692,12 @@ export function UniversalStake({
     finishRecordingTask,
     clearTaskBeforeAnySend,
   } = useDepositTask(approvalScopeKey, recordingOwnerKey, retainedTask);
-  const approvalScopeGuard = useCommittedEarnScopeGuard(approvalScopeKey);
+  const approvalScopeGuard = useCommittedEarnScopeGuard(
+    JSON.stringify([approvalScopeKey, recoveryBlocked]),
+  );
+  const recoveryActionGuard = useCommittedEarnScopeGuard(
+    String(recoveryBlocked),
+  );
   const recordingOwnerGuard = useCommittedEarnScopeGuard(recordingOwnerKey);
   const retainedQueryRef = useRef<AbortController | undefined>(undefined);
   useEffect(
@@ -754,7 +761,13 @@ export function UniversalStake({
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token?.address || '',
     spenderAddress: approveTarget.spenderAddress,
-    initialValue: currentAllowance ?? '0',
+    enabled: Boolean(
+      useApprove && approveTarget.token && !approveTarget.token.isNative,
+    ),
+    initialValue: preparationPolicy
+      ? currentAllowance
+      : (currentAllowance ?? '0'),
+    refreshOnMount: Boolean(preparationPolicy),
     retryTrackingOnError: Boolean(preparationPolicy),
     approveType,
   });
@@ -1361,7 +1374,7 @@ export function UniversalStake({
   useEffect(() => {
     allowanceAbortRef.current?.abort();
     setApproving(false);
-  }, [approvalScopeKey]);
+  }, [approvalScopeKey, recoveryBlocked]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -1732,6 +1745,7 @@ export function UniversalStake({
     footerActionOverride,
     isDisabled,
     isStakeAssetLoading,
+    recoveryBlocked,
     isInvalid: isDisable,
     isInvalidWithoutValidation: false,
     isInvalidAfterWrapWithoutValidation: false,
@@ -1742,6 +1756,7 @@ export function UniversalStake({
       footerActionOverride,
       isDisabled,
       isStakeAssetLoading,
+      recoveryBlocked,
       isInvalid: isDisable,
       isInvalidWithoutValidation:
         !new BigNumber(amountValue).isFinite() ||
@@ -1758,6 +1773,7 @@ export function UniversalStake({
       footerActionOverride,
       isDisabled,
       isStakeAssetLoading,
+      recoveryBlocked,
       isDisable,
       amountValue,
       isInsufficientBalance,
@@ -1772,6 +1788,7 @@ export function UniversalStake({
     if (
       !isCurrent() ||
       actionState.isDisabled ||
+      actionState.recoveryBlocked ||
       actionState.isStakeAssetLoading ||
       actionState.isInvalid ||
       actionState.footerActionOverride ||
@@ -1788,6 +1805,7 @@ export function UniversalStake({
     return Boolean(
       isCurrent() &&
       !current.isDisabled &&
+      !current.recoveryBlocked &&
       !current.isStakeAssetLoading &&
       !current.isInvalid &&
       !current.footerActionOverride &&
@@ -1808,6 +1826,7 @@ export function UniversalStake({
       return Boolean(
         isCurrent() &&
         !state.isDisabled &&
+        !state.recoveryBlocked &&
         !state.isStakeAssetLoading &&
         !checkAmountLoadingRef.current &&
         (isWrapStake && step !== 'wrap'
@@ -3340,9 +3359,20 @@ export function UniversalStake({
     const amountBN = new BigNumber(amountValue);
     return !amountBN.isNaN() && amountBN.gt(0);
   }, [amountValue]);
+  const hasVisibleTaskSetup = activeDepositTask?.steps.some((step) => {
+    if (step.kind === 'deposit' || step.status.type === 'skipped') return false;
+    if (
+      isWrapStake ||
+      shouldApprove ||
+      showStakeProgressRef.current[amountValue]
+    )
+      return true;
+    return !['waiting', 'ready', 'preparing'].includes(step.status.type);
+  });
   const isShowStakeProgress =
-    Boolean(activeDepositTask) ||
-    (isPositiveAmount &&
+    Boolean(hasVisibleTaskSetup) ||
+    (!activeDepositTask &&
+      isPositiveAmount &&
       (isWrapStake ||
         (useApprove &&
           (shouldApprove || showStakeProgressRef.current[amountValue]))));
@@ -3663,6 +3693,7 @@ export function UniversalStake({
     transactionOutputTokenAddress,
     stakeType,
     approveType,
+    recoveryBlocked,
   ].join('|');
   const runConfirmOnPress = useCallback(() => {
     if (!submissionLockRef.current) confirmOnPress();
@@ -3722,7 +3753,11 @@ export function UniversalStake({
     !depositRecordingCanFinish
       ? ''
       : guardedAction.text;
-  const effectiveConfirmOnPress = guardedAction.onPress;
+  const effectiveConfirmOnPress = useCallback(() => {
+    if (!recoveryBlocked && recoveryActionGuard.isCurrent()) {
+      guardedAction.onPress();
+    }
+  }, [guardedAction, recoveryActionGuard, recoveryBlocked]);
   const effectiveConfirmLoading = Boolean(
     (isStakeAssetLoading &&
       !depositRecordingCanRetry &&
@@ -3730,6 +3765,7 @@ export function UniversalStake({
     guardedAction.loading,
   );
   const effectiveConfirmDisabled = Boolean(
+    recoveryBlocked ||
     submitting ||
     (isStakeAssetLoading &&
       !depositRecordingCanRetry &&

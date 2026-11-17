@@ -27,12 +27,14 @@ export function RetainedTaskFallback({
   assetsLoading,
   onRetryAssets,
   onFinished,
+  recoveryOnly = false,
 }: {
   ownerKey: string;
   retainedTask: IRetainedDepositTask;
   assetsLoading: boolean;
   onRetryAssets: () => void;
   onFinished?: () => void;
+  recoveryOnly?: boolean;
 }) {
   const intl = useIntl();
   const [busy, setBusy] = useState(false);
@@ -142,11 +144,14 @@ export function RetainedTaskFallback({
     scope,
   ]);
 
+  let actionLabel = ETranslations.global_retry;
+  if (canFinish) actionLabel = ETranslations.global_done;
+  if (recoveryOnly) actionLabel = ETranslations.global_refresh;
+
   return (
     <YStack gap="$3" px="$5" py="$3">
-      {assetsLoading ? (
-        <Spinner />
-      ) : (
+      {!recoveryOnly && assetsLoading ? <Spinner /> : null}
+      {!recoveryOnly && !assetsLoading ? (
         <Alert
           type="critical"
           title={intl.formatMessage({
@@ -157,14 +162,18 @@ export function RetainedTaskFallback({
             onPrimaryPress: onRetryAssets,
           }}
         />
-      )}
+      ) : null}
       <SizableText>
         {intl.formatMessage({ id: ETranslations.global_pending })}
       </SizableText>
-      {recording?.status === 'remoteUnknown' ? (
+      {recording?.status === 'remoteUnknown' || recoveryOnly ? (
         <SizableText>
-          {intl.formatMessage({ id: ETranslations.global_sync_error })}
-          {' · '}
+          {recording?.status === 'remoteUnknown' ? (
+            <>
+              {intl.formatMessage({ id: ETranslations.global_sync_error })}
+              {' · '}
+            </>
+          ) : null}
           {intl.formatMessage({
             id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
           })}
@@ -177,11 +186,7 @@ export function RetainedTaskFallback({
           disabled={busy}
           onPress={() => void onAction()}
         >
-          {intl.formatMessage({
-            id: canFinish
-              ? ETranslations.global_done
-              : ETranslations.global_retry,
-          })}
+          {intl.formatMessage({ id: actionLabel })}
         </Button>
       ) : null}
     </YStack>

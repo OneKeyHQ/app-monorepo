@@ -8,6 +8,11 @@ import {
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import {
+  canFinishRecording,
+  finishRetainedRecording,
+  hasRecording,
+} from './finishRetainedRecording';
 import { depositTaskRegistry } from './registry';
 import { isTaskAccountCurrent } from './taskAccount';
 import { waitForDepositTaskTxStatus } from './waitForDepositTaskTxStatus';
@@ -24,34 +29,6 @@ type ITrackedTask = {
   reservation?: { ownerKey: string; token: symbol };
 };
 
-function supportsRecovery(
-  handle: IDepositTaskHandle,
-): handle is IRecoverableDepositTaskHandle {
-  return (
-    'subscribeRecovery' in handle &&
-    typeof handle.subscribeRecovery === 'function' &&
-    'retryDetachedRecording' in handle &&
-    typeof handle.retryDetachedRecording === 'function'
-  );
-}
-
-function hasRecording(task: IDepositTask | undefined) {
-  const deposit = task?.steps.at(-1);
-  return Boolean(
-    task?.recording?.txid &&
-    deposit?.kind === 'deposit' &&
-    deposit.status.type === 'handedOff' &&
-    deposit.status.txid === task.recording.txid,
-  );
-}
-
-function canFinishRecording(status: string, allowRemoteUnknown: boolean) {
-  return (
-    ['succeeded', 'superseded', 'notTracked'].includes(status) ||
-    (allowRemoteUnknown && status === 'remoteUnknown')
-  );
-}
-
 async function isRecordingFinal(
   task: IDepositTask,
   allowRemoteUnknown: boolean,
@@ -67,6 +44,17 @@ async function isRecordingFinal(
   return (
     (status === 'success' || status === 'failed') &&
     (await isTaskAccountCurrent(task.identity))
+  );
+}
+
+function supportsRecovery(
+  handle: IDepositTaskHandle,
+): handle is IRecoverableDepositTaskHandle {
+  return (
+    'subscribeRecovery' in handle &&
+    typeof handle.subscribeRecovery === 'function' &&
+    'retryDetachedRecording' in handle &&
+    typeof handle.retryDetachedRecording === 'function'
   );
 }
 
@@ -507,48 +495,16 @@ export function useDepositTask(
       const detached = detachedBlockersRef.current.get(owner.ownerKey);
       const handle = detached?.handle ?? handleRef.current;
       if (!handle) {
-        return (async () => {
-          const entry = depositTaskRegistry.find(owner.ownerKey);
-          const current = entry?.state.getTask();
-          const deposit = current?.steps.at(-1);
-          if (
-            !entry ||
-            !current ||
-            owner !== committedOwnerRef.current ||
-            (canFinish && !canFinish()) ||
-            current.taskId !== taskId ||
-            current.recording?.txid !== txid ||
-            !hasRecording(current) ||
-            !deposit?.attemptId ||
-            !canFinishRecording(current.recording.status, allowRemoteUnknown)
-          )
-            return false;
-          let accountMatches = false;
-          try {
-            accountMatches = await isTaskAccountCurrent(current.identity);
-          } catch {
-            return false;
-          }
-          if (
-            !accountMatches ||
-            !(await isRecordingFinal(current, allowRemoteUnknown))
-          )
-            return false;
-          const latest = entry.state.getTask();
-          if (
-            !accountMatches ||
-            owner !== committedOwnerRef.current ||
-            (canFinish && !canFinish()) ||
-            depositTaskRegistry.find(owner.ownerKey) !== entry ||
-            latest.taskId !== taskId ||
-            latest.steps.at(-1)?.attemptId !== deposit.attemptId ||
-            latest.recording?.txid !== txid ||
-            !hasRecording(latest) ||
-            !canFinishRecording(latest.recording.status, allowRemoteUnknown)
-          )
-            return false;
-          return depositTaskRegistry.release(owner.ownerKey, entry.token);
-        })();
+        return finishRetainedRecording({
+          ownerKey: owner.ownerKey,
+          taskId,
+          txid,
+          canFinish: () =>
+            owner === committedOwnerRef.current && (!canFinish || canFinish()),
+          allowRemoteUnknown,
+          verifyRemoteUnknown: (recordedTask) =>
+            isRecordingFinal(recordedTask, allowRemoteUnknown),
+        });
       }
       const existing = finishFlightRef.current;
       if (
@@ -660,8 +616,18 @@ export function useDepositTask(
       trackedTasks.forEach(({ handle, unsubscribe, reservation }) => {
         unsubscribe?.();
         handle.dispose();
+        const entry = reservation
+          ? depositTaskRegistry.find(reservation.ownerKey)
+          : undefined;
+        if (entry?.recordingHandle && entry.recordingHandle !== handle) return;
         if (reservation && !hasUnresolvedTask(handle.getTask())) {
           depositTaskRegistry.release(reservation.ownerKey, reservation.token);
+        } else if (reservation && supportsRecovery(handle)) {
+          depositTaskRegistry.detach(
+            reservation.ownerKey,
+            reservation.token,
+            handle,
+          );
         }
       });
       trackedTasks.clear();
