@@ -3,10 +3,7 @@
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import {
-  OneKeyInternalError,
-  UnsupportedAddressTypeError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -103,7 +100,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       return false;
     };
 
-    const result = await convertDeviceResponse(async () =>
+    const result = (await convertDeviceResponse(async () =>
       sdkGetDataFn({
         connectId,
         deviceId,
@@ -114,7 +111,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         receiveAddressPath,
         showOnOnekeyFn,
       }),
-    );
+    )) as T[] | undefined;
 
     if (!result || result.length !== usedIndexes.length) {
       throw new OneKeyInternalError(errorMessage);
@@ -241,14 +238,6 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           !hasErrorItem?.success &&
           hasErrorItem?.payload?.error
         ) {
-          if (
-            // response.payload.code === HardwareErrorCode.RuntimeError &&
-            hasErrorItem?.payload?.error?.indexOf(
-              'Failure_DataError,Forbidden key path',
-            ) !== -1
-          ) {
-            throw new UnsupportedAddressTypeError();
-          }
           throw convertDeviceError(hasErrorItem.payload);
           // throw new OneKeyInternalError(hasErrorItem.payload.error);
         }

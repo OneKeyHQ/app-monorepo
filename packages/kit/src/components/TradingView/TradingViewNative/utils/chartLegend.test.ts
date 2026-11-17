@@ -4,27 +4,61 @@ import {
   getTradingViewNativeChartLegend,
   getTradingViewNativeChartLegendRowLayout,
   getTradingViewNativeChartLegendRowLayouts,
+  getTradingViewNativeVolumeAxisLabel,
 } from './chartLegend';
 
+const CANDLE_LABELS = {
+  close: '收',
+  high: '高',
+  low: '低',
+  open: '开',
+};
+
 describe('TradingViewNative chart legend', () => {
+  it.each([6, 4])(
+    'does not pad candle values to the maximum precision of %s',
+    (priceDecimalPlaces) => {
+      const legend = getTradingViewNativeChartLegend(
+        { o: 101.73, h: 101.74, l: 101.72, c: 101.73, t: 1, v: 10 },
+        CANDLE_LABELS,
+        'candlestick',
+        undefined,
+        priceDecimalPlaces,
+      );
+      expect(legend.priceItems.slice(0, 4).map((item) => item.value)).toEqual([
+        '101.73',
+        '101.74',
+        '101.72',
+        '101.73',
+      ]);
+    },
+  );
+
   it('builds colored price and volume values from an up candle', () => {
     expect(
-      getTradingViewNativeChartLegend({
-        c: 123.456_789,
-        h: 125,
-        l: 119.5,
-        o: 120,
-        t: 1,
-        v: 1_250_000,
-      }),
+      getTradingViewNativeChartLegend(
+        {
+          c: 123.456_789,
+          h: 125,
+          l: 119.5,
+          o: 120,
+          t: 1,
+          v: 1_250_000,
+        },
+        CANDLE_LABELS,
+      ),
     ).toEqual({
       isUp: true,
       priceItems: [
-        { label: 'O', value: '120' },
-        { label: 'H', value: '125' },
-        { label: 'L', value: '119.5' },
-        { label: 'C', value: '123.457' },
-        { label: '', value: '+3.45679 (+2.88%)' },
+        { label: '开', value: '120' },
+        { label: '高', value: '125' },
+        { label: '低', value: '119.5' },
+        { label: '收', value: '123.46' },
+        {
+          label: '',
+          value: '+3.45679 (+2.88%)',
+          valueColorRole: 'trend',
+        },
       ],
       volumeItem: { label: 'Volume', value: '1.25M' },
     });
@@ -32,19 +66,22 @@ describe('TradingViewNative chart legend', () => {
 
   it('uses the down direction when the candle closes below its open', () => {
     expect(
-      getTradingViewNativeChartLegend({
-        c: 9,
-        h: 11,
-        l: 8,
-        o: 10,
-        t: 1,
-        v: 500,
-      }).isUp,
+      getTradingViewNativeChartLegend(
+        {
+          c: 9,
+          h: 11,
+          l: 8,
+          o: 10,
+          t: 1,
+          v: 500,
+        },
+        CANDLE_LABELS,
+      ).isUp,
     ).toBe(false);
   });
 
   it('shows close price and price change for a line series', () => {
-    expect(
+    const buildLegend = (chartType: 'area' | 'line') =>
       getTradingViewNativeChartLegend(
         {
           c: 9,
@@ -54,16 +91,20 @@ describe('TradingViewNative chart legend', () => {
           t: 1,
           v: 500,
         },
-        'line',
-      ),
-    ).toEqual({
+        CANDLE_LABELS,
+        chartType,
+      );
+    const expectedLegend = {
       isUp: false,
       priceItems: [
         { label: 'Price', value: '9' },
-        { label: '', value: '-1 (-10%)' },
+        { label: '', value: '-1 (-10%)', valueColorRole: 'trend' },
       ],
       volumeItem: { label: 'Volume', value: '500' },
-    });
+    };
+
+    expect(buildLegend('line')).toEqual(expectedLegend);
+    expect(buildLegend('area')).toEqual(expectedLegend);
   });
 
   it('uses the previous close for the TradingView bar-change value and color', () => {
@@ -76,6 +117,7 @@ describe('TradingViewNative chart legend', () => {
         t: 1,
         v: 10,
       },
+      CANDLE_LABELS,
       'candlestick',
       100,
     );
@@ -84,8 +126,35 @@ describe('TradingViewNative chart legend', () => {
     expect(legend.priceItems.at(-1)).toEqual({
       label: '',
       value: '+1 (+1%)',
+      valueColorRole: 'trend',
     });
   });
+
+  it.each([
+    [11.123, 4, '11.123'],
+    [110, 4, '110'],
+    [0, 4, '0'],
+    [0.000_000_123_4, 12, '0.0000001234'],
+    [11.123_456, 4, '11.1235'],
+    [Number.NaN, 4, '--'],
+  ])(
+    'trims legend padding while preserving price precision: %s',
+    (price, decimals, expected) => {
+      const legend = getTradingViewNativeChartLegend(
+        { c: price, h: price, l: price, o: price, t: 1, v: 0 },
+        CANDLE_LABELS,
+        'candlestick',
+        undefined,
+        decimals,
+      );
+      expect(legend.priceItems.slice(0, 4).map(({ value }) => value)).toEqual([
+        expected,
+        expected,
+        expected,
+        expected,
+      ]);
+    },
+  );
 
   it('formats signed candle price and percentage changes', () => {
     expect(
@@ -142,6 +211,19 @@ describe('TradingViewNative chart legend', () => {
     expect(formatTradingViewNativeVolume(0)).toBe('0');
     expect(formatTradingViewNativeVolume(Number.NaN)).toBe('--');
     expect(formatTradingViewNativeVolume(-1)).toBe('--');
+  });
+
+  it('reserves a stable volume-axis label across compact units', () => {
+    expect(
+      getTradingViewNativeVolumeAxisLabel([
+        { c: 1, h: 1, l: 1, o: 1, t: 1, v: 1500 },
+      ]),
+    ).toBe('888.888');
+    expect(
+      getTradingViewNativeVolumeAxisLabel([
+        { c: 1, h: 1, l: 1, o: 1, t: 1, v: 0 },
+      ]),
+    ).toBe('');
   });
 
   it('lays out a renderer-independent legend row', () => {

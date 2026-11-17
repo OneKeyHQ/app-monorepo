@@ -62,6 +62,7 @@ function BasicTokenPriceChart({ coinGeckoId, token }: ITokenPriceChartProps) {
       getTradingViewNativeSource({
         fallbackCoinGeckoId: coinGeckoId,
         hyperliquidCoin: '',
+        hyperliquidWhitelistBranch: 'market',
         isNative: marketNetwork?.isNative,
         marketDataSource: undefined,
         networkId: networkId ?? '',
@@ -90,7 +91,7 @@ function BasicTokenPriceChart({ coinGeckoId, token }: ITokenPriceChartProps) {
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={source}
-          enableNativeChartSettings={layoutMode === 'desktop'}
+          enableNativeChartSettings
           nativeControlsLayoutMode={layoutMode}
         />
       ) : (

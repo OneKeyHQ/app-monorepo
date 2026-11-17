@@ -45,6 +45,46 @@ const LINKED_SNAPSHOT: IIdentityExitSnapshot = {
 };
 
 describe('evaluateIdentityExitPolicy', () => {
+  test.each([
+    ['linked', LINKED_SNAPSHOT],
+    ['independent', EMAIL_SNAPSHOT],
+    ['keyless-only', { ...EMAIL_SNAPSHOT, oneKeyId: { type: 'loggedOut' } }],
+    ['onekey-id-only', { ...EMAIL_SNAPSHOT, keyless: { type: 'absent' } }],
+    [
+      'logged-out',
+      {
+        ...EMAIL_SNAPSHOT,
+        oneKeyId: { type: 'loggedOut' },
+        keyless: { type: 'absent' },
+      },
+    ],
+  ] satisfies [string, IIdentityExitSnapshot][])(
+    'requires Keyless acknowledgement only when environment switching removes Keyless: %s',
+    (_state, snapshot) => {
+      expect(
+        evaluateIdentityExitPolicy({
+          intent: { type: 'switchEnvironment', scene: 'devSettings' },
+          snapshot,
+        }),
+      ).toEqual({
+        status: 'ready',
+        presentation: { type: 'switchEnvironment' },
+        confirmation:
+          snapshot.keyless.type === 'present'
+            ? { type: 'keylessRemovalAcknowledgement' }
+            : { type: 'normal' },
+        target: {
+          logoutOneKeyId: snapshot.oneKeyId.type === 'loggedIn',
+          removeKeyless: snapshot.keyless.type === 'present',
+          clearKeylessSession:
+            snapshot.keyless.type === 'present' &&
+            (snapshot.oneKeyId.type === 'loggedOut' ||
+              snapshot === LINKED_SNAPSHOT),
+        },
+      });
+    },
+  );
+
   test('logs out Email OneKey ID without touching independent Keyless', () => {
     expect(
       evaluateIdentityExitPolicy({

@@ -1,7 +1,8 @@
 import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
+
+import { BorrowAssetToken } from '../BorrowAssetToken';
 
 import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
@@ -25,10 +26,17 @@ export const AssetField = ({
   return (
     <FieldWrapper flex={1}>
       <XStack ai="center">
-        <Token size="md" tokenImageUri={token.logoURI} />
+        <BorrowAssetToken size="md" logoURI={token.logoURI} />
         <YStack ml="$3" flex={1} gap="$0.5">
           <XStack ai="center">
-            <SizableText size="$bodyMdMedium" color="$text">
+            {/* Keep a long symbol inside the asset column instead of letting it
+                run into the right-aligned amount beside it. */}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {token.symbol}
             </SizableText>
             <CollateralBadge canBeCollateral={canBeCollateral} ml="$2" />

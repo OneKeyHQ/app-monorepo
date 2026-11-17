@@ -7,10 +7,17 @@ import { Dialog, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
+import {
+  PrimeLoginDialogCancelError,
+  PrimeLoginHandedOffToExtExpandTabError,
+} from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -30,6 +37,7 @@ import {
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from './extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from './oneKeyIdDisplayEmailUtils';
+import { showOneKeyIdLoginDialog as showLoginDialogInstance } from './oneKeyIdLoginDialogs';
 
 // import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
 
@@ -128,13 +136,21 @@ export function useOneKeyAuth() {
   const showOneKeyIdLoginDialog = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      keepFreeTrialPendingAction,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      // Extension popup only: the caller just saved the free-trial action
+      // the expand tab should continue after this login.
+      keepFreeTrialPendingAction?: boolean;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
         onCancel: () => void;
+        onReopenAfterOAuthFailure: (options?: {
+          showKeylessLogoutAction?: boolean;
+        }) => void;
+        initialShowKeylessLogoutAction?: boolean;
       }) => ReactNode;
     }) => {
       const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
@@ -150,20 +166,31 @@ export function useOneKeyAuth() {
       // The extension action popup dies on focus loss, which destroys the
       // pending launchWebAuthFlow OAuth flow (see extOneKeyIdAuthExpandTab).
       // Hand the whole login flow off to the expand tab before touching any
-      // local auth state, and settle this call as a user cancel.
+      // local auth state, and settle this call as a cancel subclass that
+      // callers can tell apart from a real user cancel.
       if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        if (!keepFreeTrialPendingAction) {
+          // This hand-off carries no free-trial action: drop one left by an
+          // abandoned earlier relay, or the expand tab would run it after
+          // this unrelated login.
+          await backgroundApiProxy.servicePrimeFreeTrial
+            .clearPendingActionCreatedBefore({ timestamp: Date.now() })
+            .catch(() => undefined);
+        }
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
         });
-        throw new PrimeLoginDialogCancelError();
+        throw new PrimeLoginHandedOffToExtExpandTabError();
       }
 
       return new Promise<void>((resolve, reject) => {
-        let isClosedByNextStep = false;
-        let isResolved = false;
+        let isSettled = false;
         const onLoginSuccessFn = async () => {
-          isResolved = true;
+          if (isSettled) {
+            return;
+          }
+          isSettled = true;
           await timerUtils.wait(200);
           if (toOneKeyIdPageOnLoginSuccess) {
             toOneKeyIdPage();
@@ -171,39 +198,58 @@ export function useOneKeyAuth() {
           resolve();
         };
         const onCancelFn = () => {
-          if (isResolved) {
+          if (isSettled) {
             return;
           }
+          isSettled = true;
           reject(new PrimeLoginDialogCancelError());
         };
-        const onCancelFirstStepFn = () => {
-          if (isClosedByNextStep) {
+        const showLoginDialog = (
+          options: { showKeylessLogoutAction?: boolean } = {},
+        ): void => {
+          if (isSettled) {
             return;
           }
-          onCancelFn();
+          let isThisDialogClosedByNextStep = false;
+          const onCancelThisDialog = () => {
+            if (isThisDialogClosedByNextStep) {
+              return;
+            }
+            onCancelFn();
+          };
+          const loginDialog = showLoginDialogInstance({
+            onCancel: onCancelThisDialog,
+            onClose: onCancelThisDialog,
+            floatingPanelProps: platformEnv.isDesktop
+              ? { width: 440 }
+              : undefined,
+            ...(platformEnv.isNative
+              ? {
+                  boundedSheetLayout: true,
+                  sheetDragArea: 'header' as const,
+                }
+              : {}),
+            renderContent: renderContent({
+              onComplete: async () => {
+                isThisDialogClosedByNextStep = true;
+                try {
+                  await loginDialog.close();
+                } catch (error) {
+                  // The close handoff owns settling the outer login promise.
+                  // A failed close must not leave it pending forever.
+                  onCancelFn();
+                  throw error;
+                }
+              },
+              onLoginSuccess: onLoginSuccessFn,
+              onCancel: onCancelFn,
+              onReopenAfterOAuthFailure: showLoginDialog,
+              initialShowKeylessLogoutAction: options.showKeylessLogoutAction,
+            }),
+          });
         };
-        const loginDialog = Dialog.show({
-          onCancel: onCancelFirstStepFn,
-          onClose: onCancelFirstStepFn,
-          floatingPanelProps: platformEnv.isDesktop
-            ? { width: 440 }
-            : undefined,
-          renderContent: renderContent({
-            onComplete: async () => {
-              isClosedByNextStep = true;
-              try {
-                await loginDialog.close();
-              } catch (error) {
-                // The close handoff owns settling the outer login promise.
-                // A failed close must not leave it pending forever.
-                onCancelFn();
-                throw error;
-              }
-            },
-            onLoginSuccess: onLoginSuccessFn,
-            onCancel: onCancelFn,
-          }),
-        });
+
+        showLoginDialog();
       });
     },
     [toOneKeyIdPage],
@@ -212,8 +258,10 @@ export function useOneKeyAuth() {
   const loginOneKeyId = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      keepFreeTrialPendingAction,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      keepFreeTrialPendingAction?: boolean;
     } = {}) => {
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
@@ -230,9 +278,12 @@ export function useOneKeyAuth() {
         // Keep the read failure distinct from a definitive no-wallet result.
         // OAuth clicks retry the probe and can offer confirmed Keyless removal
         // once the wallet row is readable again.
-        console.error(
-          'useOneKeyAuth.loginOneKeyId: prepareOneKeyIdLoginWithLocalKeyless failed, preserving local Keyless auth:',
-          localKeylessLoginPrepareErrorMessage,
+        logOneKeyIdLoginFailureReason(
+          `useOneKeyAuth local Keyless login preparation failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+          { trigger: 'interactive' },
         );
         localKeylessLoginPrepareResult = {
           status:
@@ -242,11 +293,20 @@ export function useOneKeyAuth() {
       }
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
-        renderContent: ({ onComplete, onLoginSuccess, onCancel }) => (
+        keepFreeTrialPendingAction,
+        renderContent: ({
+          onComplete,
+          onLoginSuccess,
+          onCancel,
+          onReopenAfterOAuthFailure,
+          initialShowKeylessLogoutAction,
+        }) => (
           <PrimeLoginOAuthDialog
             onComplete={onComplete}
             onLoginSuccess={onLoginSuccess}
             onCancel={onCancel}
+            onReopenAfterOAuthFailure={onReopenAfterOAuthFailure}
+            initialShowKeylessLogoutAction={initialShowKeylessLogoutAction}
             localKeylessLoginPrepareResult={localKeylessLoginPrepareResult}
             localKeylessLoginPrepareErrorMessage={
               localKeylessLoginPrepareErrorMessage
@@ -353,8 +413,14 @@ export function useOneKeyAuth() {
     // })
     () => {
       return {
-        sendCode: async ({ email }: { email: string }) => {
-          await supabaseSignInWithOtp({ email });
+        sendCode: async ({
+          email,
+          captchaToken,
+        }: {
+          email: string;
+          captchaToken?: string;
+        }) => {
+          await supabaseSignInWithOtp({ email, captchaToken });
         },
         loginWithCode: async ({
           code,

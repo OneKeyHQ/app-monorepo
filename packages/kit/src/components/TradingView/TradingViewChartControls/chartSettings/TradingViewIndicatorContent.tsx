@@ -1,32 +1,32 @@
+import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
+
 import {
-  Icon,
+  Button,
+  Divider,
   ScrollView,
-  SizableText,
   Stack,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
-  OkxIndicatorLineRow,
-  OkxIndicatorOpacitySlider,
-  OkxIndicatorParameterRow,
-  groupOkxIndicatorParameters,
+  TradingViewIndicatorLineRow,
+  TradingViewIndicatorOpacitySlider,
+  TradingViewIndicatorParameterRow,
+  groupTradingViewIndicatorParameters,
 } from './TradingViewIndicatorFields';
 import {
-  OkxIndicatorScopeTabs,
-  OkxIndicatorSidebar,
+  TradingViewIndicatorScopeTabs,
+  TradingViewIndicatorSidebar,
 } from './TradingViewIndicatorNavigation';
-import {
-  OKX_CHART_BG,
-  OKX_CHART_BORDER,
-  OKX_CHART_DIVIDER,
-  OKX_CHART_DOWN,
-  OKX_CHART_TEXT,
-  OKX_CHART_TEXT_SUBDUED,
-  OKX_CHART_UP,
-} from './TradingViewSettingsShared';
+import { TradingViewSettingsDialog } from './TradingViewSettingsDialog';
+import { SettingsGroup } from './TradingViewSettingsPrimitives';
 
+import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 import type {
   ITradingViewIndicatorSettingsValue,
   ITradingViewSettingsMockColorRole,
@@ -35,14 +35,14 @@ import type {
   ITradingViewSettingsMockLineStyle,
 } from './TradingViewSettingsMockState';
 
-const OKX_INDICATOR_SETTINGS_WIDTH = 690;
-const OKX_INDICATOR_SETTINGS_HEIGHT = 570;
-const OKX_INDICATOR_HEADER_HEIGHT = 49;
-const OKX_INDICATOR_BODY_HEIGHT = 418;
-const OKX_INDICATOR_FOOTER_HEIGHT = 62;
-const OKX_INDICATOR_SIDEBAR_WIDTH = 184;
+const TRADING_VIEW_INDICATOR_FOOTER_MIN_HEIGHT = 72;
+const TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH = 192;
+// Focused mode lives in a mobile sheet and keeps its own body budget.
+const TRADING_VIEW_INDICATOR_FOCUSED_BODY_HEIGHT = 418;
+const TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN = 16;
 
-function OkxIndicatorContent({
+function TradingViewIndicatorContent({
+  mobileLayout = false,
   indicator,
   onToggleLine,
   onLinePeriodChange,
@@ -53,6 +53,7 @@ function OkxIndicatorContent({
   onOpacityColorChange,
   onParameterChange,
 }: {
+  mobileLayout?: boolean;
   indicator: ITradingViewSettingsMockIndicator | undefined;
   onToggleLine: (lineId: string, enabled: boolean) => void;
   onLinePeriodChange: (lineId: string, period: number) => void;
@@ -73,38 +74,38 @@ function OkxIndicatorContent({
   ) => void;
   onParameterChange: (parameterId: string, value: number) => void;
 }) {
+  const intl = useIntl();
+
   if (!indicator) {
     return null;
   }
 
-  const parameterRows = groupOkxIndicatorParameters(indicator.parameters);
+  const parameterRows = groupTradingViewIndicatorParameters(
+    indicator.parameters,
+  );
 
   return (
-    <ScrollView h={OKX_INDICATOR_BODY_HEIGHT} showsVerticalScrollIndicator>
-      <YStack pt={31} pb={34} pl={31} pr={33} bg={OKX_CHART_BG}>
-        <SizableText
-          mb={22}
-          fontSize={16}
-          lineHeight={20}
-          fontWeight="700"
-          color={OKX_CHART_TEXT}
-        >
-          {indicator.title}
-        </SizableText>
+    <ScrollView
+      testID="trading-view-indicator-settings-content"
+      flex={1}
+      minHeight={0}
+      contentContainerStyle={{ pb: '$5' }}
+    >
+      {/* The mobile settings page prints the indicator name in its own
+          header, so the group only carries the title on desktop. */}
+      <SettingsGroup title={mobileLayout ? undefined : indicator.title}>
         {parameterRows.map((parameters) => (
-          <OkxIndicatorParameterRow
+          <TradingViewIndicatorParameterRow
             key={parameters[0]?.rowId ?? parameters[0]?.id}
             parameters={parameters}
             onChange={onParameterChange}
           />
         ))}
-        {indicator.lines.map((line, index) => (
-          <OkxIndicatorLineRow
+        {mobileLayout && parameterRows.length ? <Divider my="$4" /> : null}
+        {indicator.lines.map((line) => (
+          <TradingViewIndicatorLineRow
             key={line.id}
             line={line}
-            colorPickerPlacement={
-              parameterRows.length + index <= 2 ? 'bottom' : 'top'
-            }
             onToggleLine={onToggleLine}
             onPeriodChange={onLinePeriodChange}
             onStyleChange={onLineStyleChange}
@@ -112,39 +113,39 @@ function OkxIndicatorContent({
             onColorChange={onLineColorChange}
           />
         ))}
-        {indicator.showOpacity !== false ? (
-          <OkxIndicatorOpacitySlider
+      </SettingsGroup>
+      {indicator.showOpacity !== false ? (
+        <SettingsGroup>
+          <TradingViewIndicatorOpacitySlider
             value={indicator.opacity}
-            upColor={indicator.opacityColors?.upColor ?? OKX_CHART_UP}
-            downColor={indicator.opacityColors?.downColor ?? OKX_CHART_DOWN}
+            label={intl.formatMessage({
+              id: ETranslations.market_chart_indicator_transparency__label,
+            })}
+            upColor={
+              indicator.opacityColors?.upColor ??
+              TRADING_VIEW_NATIVE_THEME_COLORS.positive
+            }
+            downColor={
+              indicator.opacityColors?.downColor ??
+              TRADING_VIEW_NATIVE_THEME_COLORS.negative
+            }
             onChange={(value) => onOpacityChange(indicator.id, value)}
             onColorChange={(role, color) =>
               onOpacityColorChange(indicator.id, role, color)
             }
           />
-        ) : null}
-        {indicator.description ? (
-          <YStack mt={30} gap={10}>
-            <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
-              指标说明
-            </SizableText>
-            <SizableText
-              maxWidth={440}
-              fontSize={13}
-              lineHeight={20}
-              color={OKX_CHART_TEXT_SUBDUED}
-            >
-              {indicator.description}
-            </SizableText>
-          </YStack>
-        ) : null}
-      </YStack>
+        </SettingsGroup>
+      ) : null}
     </ScrollView>
   );
 }
 
-export function OkxIndicatorSettingsDialog({
+export function TradingViewIndicatorSettingsDialog({
+  dialogRef,
+  displayMode,
+  mobileLayout = false,
   value,
+  maxActiveSubIndicatorCount,
   selectedIndicatorScope,
   selectedIndicatorId,
   visibleIndicators,
@@ -165,7 +166,11 @@ export function OkxIndicatorSettingsDialog({
   onClose,
   isSubmitting = false,
 }: {
+  dialogRef?: ITradingViewSettingsDialogRef;
+  displayMode: 'focused' | 'full';
+  mobileLayout?: boolean;
   value: ITradingViewIndicatorSettingsValue;
+  maxActiveSubIndicatorCount: number | null;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
   selectedIndicatorId: string;
   visibleIndicators: ITradingViewSettingsMockIndicator[];
@@ -192,161 +197,150 @@ export function OkxIndicatorSettingsDialog({
   ) => void;
   onParameterChange: (parameterId: string, value: number) => void;
   onReset: () => void;
-  onConfirm?: () => void;
+  onConfirm?: () => boolean | Promise<boolean>;
   onClose?: () => void;
   isSubmitting?: boolean;
 }) {
-  return (
-    <YStack
-      testID="trading-view-indicator-settings-okx-dialog"
-      w={OKX_INDICATOR_SETTINGS_WIDTH}
-      h={OKX_INDICATOR_SETTINGS_HEIGHT}
-      overflow="hidden"
-      borderWidth={1}
-      borderColor={OKX_CHART_BORDER}
-      borderRadius={6}
-      bg={OKX_CHART_BG}
-    >
-      <XStack
-        h={OKX_INDICATOR_HEADER_HEIGHT}
-        px={24}
-        alignItems="center"
-        justifyContent="space-between"
-        borderBottomWidth={1}
-        borderBottomColor={OKX_CHART_BORDER}
+  const intl = useIntl();
+  const isFocused = displayMode === 'focused';
+  const { height: windowHeight } = useWindowDimensions();
+  const { bottom: safeAreaBottom, top: safeAreaTop } = useSafeAreaInsets();
+  const focusedMaxHeight = Math.max(
+    windowHeight -
+      safeAreaTop -
+      safeAreaBottom -
+      TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
+    0,
+  );
+
+  if (mobileLayout) {
+    const mobileMaxHeight = Math.max(focusedMaxHeight - 160, 160);
+    return (
+      <YStack
+        testID="trading-view-mobile-indicator-settings"
+        h={Math.min(
+          TRADING_VIEW_INDICATOR_FOCUSED_BODY_HEIGHT +
+            TRADING_VIEW_INDICATOR_FOOTER_MIN_HEIGHT,
+          mobileMaxHeight,
+        )}
+        maxHeight={mobileMaxHeight}
+        gap="$4"
       >
-        <SizableText
-          fontSize={16}
-          lineHeight={22}
-          fontWeight="700"
-          color={OKX_CHART_TEXT}
-        >
-          指标设置
-        </SizableText>
         <Stack
-          w={28}
-          h={28}
-          alignItems="center"
-          justifyContent="center"
-          cursor={onClose && !isSubmitting ? 'pointer' : 'default'}
-          opacity={isSubmitting ? 0.5 : 1}
+          testID="trading-view-mobile-indicator-settings-body"
+          flex={1}
+          minHeight={0}
           pointerEvents={isSubmitting ? 'none' : 'auto'}
-          onPress={onClose}
         >
-          <Icon name="CrossedSmallOutline" size="$5" color="$icon" />
+          <TradingViewIndicatorContent
+            mobileLayout
+            indicator={selectedIndicator}
+            onToggleLine={onToggleLine}
+            onLinePeriodChange={onLinePeriodChange}
+            onLineStyleChange={onLineStyleChange}
+            onLineSecondaryStyleChange={onLineSecondaryStyleChange}
+            onLineColorChange={onLineColorChange}
+            onOpacityChange={onOpacityChange}
+            onOpacityColorChange={onOpacityColorChange}
+            onParameterChange={onParameterChange}
+          />
         </Stack>
-      </XStack>
-      <YStack pointerEvents={isSubmitting ? 'none' : 'auto'}>
-        <OkxIndicatorScopeTabs
-          value={selectedIndicatorScope}
-          indicators={value.indicators}
-          onChange={onScopeChange}
-        />
-        <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>
-          <Stack
-            w={OKX_INDICATOR_SIDEBAR_WIDTH}
-            minWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-            maxWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-            flexShrink={0}
-            position="relative"
-            zIndex={1}
-            bg={OKX_CHART_BG}
-          >
-            <OkxIndicatorSidebar
-              indicators={visibleIndicators}
-              selectedIndicatorId={selectedIndicatorId}
-              onSelect={onSelectIndicator}
-              onToggle={onToggleIndicator}
-            />
-            <Stack
-              position="absolute"
-              top={0}
-              right={0}
-              bottom={0}
-              w={1}
-              zIndex={2}
-              bg={OKX_CHART_DIVIDER}
-              pointerEvents="none"
-            />
-          </Stack>
-          <Stack
+        <XStack
+          testID="trading-view-mobile-indicator-settings-footer"
+          gap="$3"
+          flexShrink={0}
+        >
+          <Button
+            testID="trading-view-indicator-settings-mock-reset"
             flex={1}
-            minWidth={0}
-            position="relative"
-            zIndex={2}
-            overflow="visible"
-            bg={OKX_CHART_BG}
+            size="large"
+            disabled={isSubmitting}
+            onPress={onReset}
           >
-            <OkxIndicatorContent
-              indicator={selectedIndicator}
-              onToggleLine={onToggleLine}
-              onLinePeriodChange={onLinePeriodChange}
-              onLineStyleChange={onLineStyleChange}
-              onLineSecondaryStyleChange={onLineSecondaryStyleChange}
-              onLineColorChange={onLineColorChange}
-              onOpacityChange={onOpacityChange}
-              onOpacityColorChange={onOpacityColorChange}
-              onParameterChange={onParameterChange}
-            />
-          </Stack>
+            {intl.formatMessage({ id: ETranslations.global_reset })}
+          </Button>
+          <Button
+            testID="trading-view-indicator-settings-mock-confirm"
+            flex={1}
+            size="large"
+            variant="primary"
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            onPress={() => void onConfirm?.()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </Button>
         </XStack>
       </YStack>
-      <XStack
-        h={OKX_INDICATOR_FOOTER_HEIGHT}
-        alignItems="center"
-        justifyContent="flex-end"
-        gap={12}
-        pr={28}
-        borderTopWidth={1}
-        borderTopColor={OKX_CHART_BORDER}
-        bg={OKX_CHART_BG}
-      >
-        <XStack
-          testID="trading-view-indicator-settings-mock-reset"
-          w={84}
-          h={36}
-          alignItems="center"
-          justifyContent="center"
-          borderRadius={18}
-          borderWidth={1}
-          borderColor="$borderStrong"
-          bg={OKX_CHART_BG}
-          cursor={isSubmitting ? 'default' : 'pointer'}
-          opacity={isSubmitting ? 0.5 : 1}
+    );
+  }
+
+  return (
+    <TradingViewSettingsDialog
+      dialogRef={dialogRef}
+      testID="trading-view-indicator-settings-dialog"
+      testIDPrefix="trading-view-indicator-settings"
+      title={intl.formatMessage({ id: ETranslations.market_indicators })}
+      isSubmitting={isSubmitting}
+      onReset={onReset}
+      onCancel={onClose}
+      onClose={onClose}
+      onConfirm={onConfirm}
+    >
+      {(footer) => (
+        <YStack
+          flex={1}
+          minHeight={0}
           pointerEvents={isSubmitting ? 'none' : 'auto'}
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          onPress={onReset}
         >
-          <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
-            重置
-          </SizableText>
-        </XStack>
-        <XStack
-          testID="trading-view-indicator-settings-mock-confirm"
-          w={84}
-          h={36}
-          alignItems="center"
-          justifyContent="center"
-          borderRadius={18}
-          bg="$bgInverse"
-          cursor={isSubmitting ? 'default' : 'pointer'}
-          opacity={isSubmitting ? 0.5 : 1}
-          pointerEvents={isSubmitting ? 'none' : 'auto'}
-          hoverStyle={{ opacity: 0.86 }}
-          pressStyle={{ opacity: 0.72 }}
-          onPress={onConfirm}
-        >
-          <SizableText
-            fontSize={14}
-            lineHeight={18}
-            fontWeight="700"
-            color="$textInverse"
+          {isFocused ? null : (
+            <TradingViewIndicatorScopeTabs
+              value={selectedIndicatorScope}
+              indicators={value.indicators}
+              maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
+              onChange={onScopeChange}
+            />
+          )}
+          <XStack
+            testID="trading-view-indicator-settings-body"
+            flex={1}
+            minHeight={0}
           >
-            确认
-          </SizableText>
-        </XStack>
-      </XStack>
-    </YStack>
+            {isFocused ? null : (
+              <YStack
+                testID="trading-view-indicator-sidebar-container"
+                width={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+                height="100%"
+                flexShrink={0}
+                minHeight={0}
+                borderRightWidth="$px"
+                borderRightColor="$neutral3"
+              >
+                <TradingViewIndicatorSidebar
+                  indicators={visibleIndicators}
+                  selectedIndicatorId={selectedIndicatorId}
+                  onSelect={onSelectIndicator}
+                  onToggle={onToggleIndicator}
+                />
+              </YStack>
+            )}
+            <YStack flex={1} minWidth={0} minHeight={0}>
+              <TradingViewIndicatorContent
+                indicator={selectedIndicator}
+                onToggleLine={onToggleLine}
+                onLinePeriodChange={onLinePeriodChange}
+                onLineStyleChange={onLineStyleChange}
+                onLineSecondaryStyleChange={onLineSecondaryStyleChange}
+                onLineColorChange={onLineColorChange}
+                onOpacityChange={onOpacityChange}
+                onOpacityColorChange={onOpacityColorChange}
+                onParameterChange={onParameterChange}
+              />
+              {footer}
+            </YStack>
+          </XStack>
+        </YStack>
+      )}
+    </TradingViewSettingsDialog>
   );
 }

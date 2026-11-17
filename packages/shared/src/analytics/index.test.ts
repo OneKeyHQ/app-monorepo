@@ -1,5 +1,7 @@
 import { Analytics } from '.';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 const mockPost = jest.fn(() => Promise.resolve());
 const mockGetDeviceCpuTier = jest.fn(() => 'high');
 const mockGetDeviceInfo = jest.fn(() =>
@@ -35,6 +37,7 @@ jest.mock('../platformEnv', () => ({
     isDev: false,
     isE2E: false,
     isNative: false,
+    isWeb: true,
     isWebEmbed: false,
     version: '1.0.0',
   },
@@ -62,10 +65,20 @@ async function waitForPostCount(expectedCount: number) {
 }
 
 describe('Analytics tier', () => {
+  let consoleWarnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
     mockGetDeviceCpuTier.mockClear();
     mockGetDeviceInfo.mockClear();
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
   });
 
   it('adds the resolved tier to event and profile requests', async () => {
@@ -95,6 +108,42 @@ describe('Analytics tier', () => {
       }),
     );
     expect(mockGetDeviceCpuTier).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends dedupe fields in the body and keeps other events unchanged', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('availabilitySnapshot', {
+      $insertId: 'snapshot-1',
+      $timestamp: 1_700_000_000_000,
+      api_wallet_ok: 3,
+    });
+
+    const [, body] = mockPost.mock.calls[0] as unknown as [
+      string,
+      {
+        insertId?: string;
+        timestamp?: number;
+        eventProps: Record<string, unknown>;
+      },
+    ];
+    expect(body.insertId).toBe('snapshot-1');
+    expect(body.timestamp).toBe(1_700_000_000_000);
+    expect(body.eventProps).toMatchObject({ api_wallet_ok: 3 });
+    expect(body.eventProps).not.toHaveProperty('$insertId');
+    expect(body.eventProps).not.toHaveProperty('$timestamp');
+
+    await analytics.trackEventAsync('testEvent', { foo: 'bar' });
+
+    const [, plainBody] = mockPost.mock.calls[1] as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(Object.keys(plainBody).toSorted()).toEqual([
+      'eventName',
+      'eventProps',
+    ]);
   });
 
   it('shares complete device info across concurrent first requests', async () => {
@@ -129,5 +178,200 @@ describe('Analytics tier', () => {
         attributes: expect.objectContaining({ tier: 3 }),
       }),
     );
+  });
+
+  it('waits for event delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('confirmedEvent', { source: 'campaign' });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'confirmedEvent',
+        eventProps: expect.objectContaining({ source: 'campaign' }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
+
+    await expect(
+      analytics.trackEventAsync('confirmedEvent', { source: 'campaign' }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(analytics.trackEventAsync('confirmedEvent')).rejects.toThrow(
+      'Analytics is not initialized',
+    );
+  });
+
+  it('waits for profile delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.updateUserProfileAsync({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/attributes',
+      expect.objectContaining({
+        distinctId: 'instance-id',
+        attributes: expect.objectContaining({
+          isOneKeyIdLoggedIn: false,
+          isPrimeActive: false,
+        }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
+
+    await expect(
+      analytics.updateUserProfileAsync({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+      }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed profile delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(
+      analytics.updateUserProfileAsync({ isOneKeyIdLoggedIn: false }),
+    ).rejects.toThrow('Analytics is not initialized');
+  });
+
+  it('resolves whenInitialized after init and immediately when already ready', async () => {
+    const analytics = new Analytics();
+    let initialized = false;
+    const pending = analytics.whenInitialized().then(() => {
+      initialized = true;
+    });
+
+    expect(initialized).toBe(false);
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    await pending;
+    expect(initialized).toBe(true);
+
+    await expect(analytics.whenInitialized()).resolves.toBeUndefined();
+  });
+
+  it('sends events with the medium fallback when tier enrichment fails', async () => {
+    mockGetDeviceCpuTier.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('segment runtime mismatch');
+    });
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({
+          deviceId: 'device-id',
+          tier: 2,
+        }),
+      }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Analytics] Failed to load device performance tier:',
+      expect.any(Error),
+    );
+  });
+
+  it('sends events when device info enrichment fails', async () => {
+    mockGetDeviceInfo.mockRejectedValueOnce(
+      new OneKeyLocalError('device info unavailable'),
+    );
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Analytics] Failed to load device info:',
+      expect.any(Error),
+    );
+  });
+});
+
+describe('Analytics redemption URL privacy', () => {
+  const originalLocation = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'location',
+  );
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+  afterEach(() => {
+    for (const [key, descriptor] of [
+      ['location', originalLocation],
+      ['window', originalWindow],
+    ] as const) {
+      if (descriptor) {
+        Object.defineProperty(globalThis, key, descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, key);
+      }
+    }
+  });
+
+  it.each([
+    [
+      'https://app.onekey.so/prime/redeem?code=PRIVATE-CODE#PRIVATE-HASH',
+      'https://app.onekey.so/prime/redeem',
+    ],
+    [
+      'https://app.onekey.so/prime/redeem/?code=PRIVATE-CODE',
+      'https://app.onekey.so/prime/redeem/',
+    ],
+    [
+      'https://app.onekey.so/wallet?ref=email#section',
+      'https://app.onekey.so/wallet?ref=email#section',
+    ],
+  ])('serializes the analytics URL for %s', async (href, expected) => {
+    const location = new URL(href);
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: location,
+    });
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location },
+    });
+    mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('primeEvent');
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventProps: expect.objectContaining({ currentUrl: expected }),
+      }),
+    );
+    expect(JSON.stringify(mockPost.mock.calls)).not.toContain('PRIVATE-CODE');
+    expect(JSON.stringify(mockPost.mock.calls)).not.toContain('PRIVATE-HASH');
+    expect(globalThis.location.href).toBe(href);
   });
 });

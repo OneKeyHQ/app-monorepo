@@ -3,15 +3,15 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   EMPTY_SWAP_PRO_POSITIONS_CACHE,
   type ISwapProPositionsCache,
+  type ISwapProPositionsRuntimeData,
   SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
+  SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
   SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER,
   SWAP_PRO_POSITIONS_CACHE_MAX_TOTAL_TOKENS,
-  SWAP_PRO_POSITIONS_CACHE_TTL_MS,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
   getValidSwapProPositionsCache,
-  resolveSwapProPositionsDisplayOwner,
-  shouldReuseSwapProPositionsCache,
   upsertSwapProPositionsCacheEntry,
+  upsertSwapProPositionsRuntimeEntry,
 } from './swapProPositionsCacheUtils';
 
 const cacheEntry = {
@@ -34,80 +34,28 @@ function buildToken(index: number, owner = 'owner'): ISwapToken {
 }
 
 describe('swapProPositionsCacheUtils', () => {
-  it('reuses a fresh cache for the same owner', () => {
-    expect(
-      shouldReuseSwapProPositionsCache({
-        cacheEntry,
-        now: 1000 + SWAP_PRO_POSITIONS_CACHE_TTL_MS - 1,
-        ownerKey: cacheEntry.ownerKey,
-      }),
-    ).toBe(true);
-  });
-
-  it('refreshes an expired cache and an explicitly refreshed cache', () => {
-    expect(
-      shouldReuseSwapProPositionsCache({
-        cacheEntry,
-        now: 1000 + SWAP_PRO_POSITIONS_CACHE_TTL_MS,
-        ownerKey: cacheEntry.ownerKey,
-      }),
-    ).toBe(false);
-    expect(
-      shouldReuseSwapProPositionsCache({
-        cacheEntry,
-        forceRefresh: true,
-        now: 1001,
-        ownerKey: cacheEntry.ownerKey,
-      }),
-    ).toBe(false);
-  });
-
-  it('never reuses another account owner cache', () => {
-    expect(
-      shouldReuseSwapProPositionsCache({
-        cacheEntry,
-        now: 1001,
-        ownerKey: 'account-2__evm--1__usd',
-      }),
-    ).toBe(false);
-  });
-
-  it('uses positions only when cache and live data match the exact owner', () => {
-    expect(
-      resolveSwapProPositionsDisplayOwner({
-        cacheByOwner: {
-          [cacheEntry.ownerKey]: cacheEntry,
+  it('bounds runtime owner snapshots by recency', () => {
+    let entries: ISwapProPositionsRuntimeData = {};
+    for (
+      let index = 0;
+      index < SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS + 1;
+      index += 1
+    ) {
+      entries = upsertSwapProPositionsRuntimeEntry({
+        entries,
+        entry: {
+          status: 'success',
+          tokens: [],
+          updatedAt: index,
         },
-        dataOwnerKey: cacheEntry.ownerKey,
-        hasPositionAccount: true,
-        positionOwnerKey: cacheEntry.ownerKey,
-        supportNetworksReady: true,
-      }),
-    ).toEqual({
-      cachedPositionEntry: cacheEntry,
-      hasCachedPositionSnapshot: true,
-      hasPositionOwner: true,
-      isLiveTokenListForCurrentOwner: true,
-    });
-  });
+        ownerKey: `owner-${index}`,
+      });
+    }
 
-  it('does not approximate a positions owner before support networks are ready', () => {
-    expect(
-      resolveSwapProPositionsDisplayOwner({
-        cacheByOwner: {
-          [cacheEntry.ownerKey]: cacheEntry,
-        },
-        dataOwnerKey: cacheEntry.ownerKey,
-        hasPositionAccount: true,
-        positionOwnerKey: '',
-        supportNetworksReady: false,
-      }),
-    ).toEqual({
-      cachedPositionEntry: undefined,
-      hasCachedPositionSnapshot: false,
-      hasPositionOwner: true,
-      isLiveTokenListForCurrentOwner: false,
-    });
+    expect(Object.keys(entries)).toHaveLength(
+      SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
+    );
+    expect(entries['owner-0']).toBeUndefined();
   });
 
   it('persists only display fields and never carries cached Stock classification', () => {

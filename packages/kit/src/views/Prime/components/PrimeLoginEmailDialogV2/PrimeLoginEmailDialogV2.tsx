@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,9 +8,11 @@ import {
   Form,
   Input,
   Stack,
+  Toast,
   YStack,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,10 +24,13 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import {
   getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
 } from '../oneKeyIdLoginToastUtils';
 import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector';
+import { PrimeLoginPasswordTestDialog } from '../PrimeDevUtils/PrimeLoginPasswordTestDialog';
+import { useEmailOtpDevTools } from '../PrimeDevUtils/useEmailOtpDevTools';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 type IPrimeLoginEmailDialogV2Props = {
@@ -36,6 +41,7 @@ type IPrimeLoginEmailDialogV2Props = {
   onConfirm?: (code: string) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   disabled?: boolean;
+  debugPanelOpenCount?: number;
   onSubmittingChange?: (isSubmitting: boolean) => void;
 } & (
   | {
@@ -62,6 +68,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     embeddedVerificationEmail,
     onEmbeddedVerificationEmailChange,
     disabled = false,
+    debugPanelOpenCount = 0,
     onSubmittingChange,
   } = props;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,13 +89,22 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     useLoginWithEmail,
     // user
   } = useOneKeyAuth();
-  const { sendCode, loginWithCode } = useLoginWithEmail();
+  const { sendCode: originalSendCode, loginWithCode: originalLoginWithCode } =
+    useLoginWithEmail();
 
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
   });
+
+  const devAuth = useEmailOtpDevTools({
+    openCount: embedded ? debugPanelOpenCount : 0,
+    email: embeddedVerificationEmail ?? form.watch('email'),
+    sendCode: originalSendCode,
+    loginWithCode: originalLoginWithCode,
+  });
+  const { sendCode, loginWithCode } = devAuth;
 
   const resetSubmittingState = useCallback(() => {
     isSubmittingRef.current = false;
@@ -99,12 +115,12 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
       const { preventClose } = options;
-      if (isSubmittingRef.current || disabled) {
+      if (isSubmittingRef.current || disabled || !devAuth.canSend) {
         preventClose?.();
         return;
       }
       await form.trigger();
-      if (!form.formState.isValid) {
+      if (!form.formState.isValid || isSubmittingRef.current) {
         preventClose?.();
         return;
       }
@@ -116,7 +132,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
       let didCloseDialogForNextStep = false;
       let didAdvanceToCodeStep = false;
       try {
-        appStorage.syncStorage.set(
+        await appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_onekey_id_login_email,
           data.email,
         );
@@ -128,7 +144,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
         }
         await onComplete();
         didCloseDialogForNextStep = true;
-        const dialog = Dialog.show({
+        const dialog = showOneKeyIdLoginDialog({
           onCancel,
           floatingPanelProps: platformEnv.isDesktop
             ? { width: 440 }
@@ -163,9 +179,12 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                     await dialog.close({ flag: 'loginSuccess' });
                     isDialogClosed = true;
                   } catch (closeError) {
-                    console.error(
-                      'OneKey ID login: dialog close failed after a committed login:',
-                      getSanitizedAuthErrorText(closeError),
+                    logOneKeyIdLoginFailureReason(
+                      `OneKey ID login dialog close failed after committed login: ${getSanitizedAuthErrorText(
+                        closeError,
+                      )}`,
+                      closeError,
+                      { trigger: 'interactive' },
                     );
                   }
                   await onLoginSuccess?.();
@@ -179,7 +198,17 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   throw error;
                 } finally {
                   if (!isDialogClosed) {
-                    await dialog.close();
+                    try {
+                      await dialog.close();
+                    } catch (closeError) {
+                      logOneKeyIdLoginFailureReason(
+                        `OneKey ID login dialog final close retry failed: ${getSanitizedAuthErrorText(
+                          closeError,
+                        )}`,
+                        closeError,
+                        { trigger: 'interactive' },
+                      );
+                    }
                   }
                 }
               }}
@@ -201,6 +230,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     },
     [
       disabled,
+      devAuth.canSend,
       embedded,
       form,
       intl,
@@ -217,6 +247,14 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
   );
 
   const handleEmbeddedLoginSuccess = useCallback(async () => {
+    if (devAuth.isTestProject || devAuth.isPasswordLogin) {
+      Toast.success({
+        title: devAuth.isPasswordLogin
+          ? 'Test Supabase password login succeeded. OneKey ID session unchanged.'
+          : 'Test Supabase OTP verified. OneKey ID session unchanged.',
+      });
+      return;
+    }
     showOneKeyIdLoginSuccessToast(intl);
     // OTP verification has already committed the login in the bg runtime.
     // Await the host dialog close before the outer continuation navigates:
@@ -227,35 +265,69 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     try {
       await onComplete();
     } catch (closeError) {
-      console.error(
-        'OneKey ID login: host dialog close failed after a committed login:',
-        getSanitizedAuthErrorText(closeError),
+      logOneKeyIdLoginFailureReason(
+        `OneKey ID login host dialog close failed after committed login: ${getSanitizedAuthErrorText(
+          closeError,
+        )}`,
+        closeError,
+        { trigger: 'interactive' },
       );
     }
     await onLoginSuccess?.();
     await showOneKeyIdLegacyOAuthBindDialog({
       type: 'post-email-login',
     });
-  }, [intl, onComplete, onLoginSuccess]);
+  }, [
+    devAuth.isPasswordLogin,
+    devAuth.isTestProject,
+    intl,
+    onComplete,
+    onLoginSuccess,
+  ]);
 
   const handleChooseAnotherSignInMethod = useCallback(() => {
     resetSubmittingState();
     onEmbeddedVerificationEmailChange?.(undefined);
   }, [onEmbeddedVerificationEmailChange, resetSubmittingState]);
 
-  const embeddedVerificationCodeContent =
-    embedded && embeddedVerificationSessionEmail ? (
-      <PrimeLoginEmailCodeDialogV2
-        key={embeddedVerificationSessionEmail}
-        active={embeddedVerificationEmail === embeddedVerificationSessionEmail}
-        sendCode={sendCode}
-        loginWithCode={loginWithCode}
-        email={embeddedVerificationSessionEmail}
-        onConfirm={onConfirm}
-        onLoginSuccess={handleEmbeddedLoginSuccess}
-        onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
-      />
-    ) : null;
+  let embeddedVerificationCodeContent: ReactNode = null;
+  if (embedded && embeddedVerificationSessionEmail) {
+    embeddedVerificationCodeContent =
+      devAuth.isPasswordLogin && devAuth.captchaOverride ? (
+        <PrimeLoginPasswordTestDialog
+          key={embeddedVerificationSessionEmail}
+          active={
+            embeddedVerificationEmail === embeddedVerificationSessionEmail
+          }
+          email={embeddedVerificationSessionEmail}
+          captchaConfig={devAuth.captchaOverride}
+          revision={devAuth.revision}
+          disabled={!devAuth.canSend}
+          loginWithPassword={devAuth.loginWithPassword}
+          onLoginSuccess={handleEmbeddedLoginSuccess}
+          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+          developmentControls={devAuth.renderControls}
+        />
+      ) : (
+        <PrimeLoginEmailCodeDialogV2
+          key={embeddedVerificationSessionEmail}
+          active={
+            embeddedVerificationEmail === embeddedVerificationSessionEmail
+          }
+          sendCode={sendCode}
+          loginWithCode={loginWithCode}
+          email={embeddedVerificationSessionEmail}
+          onConfirm={onConfirm}
+          onLoginSuccess={handleEmbeddedLoginSuccess}
+          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+          developmentControls={devAuth.renderControls}
+          captchaConfig={devAuth.captchaOverride}
+          sendCodeDisabled={!devAuth.canSend}
+          developmentConfigRevision={devAuth.revision}
+          isolatedTest={devAuth.isTestProject}
+        />
+      );
+  }
   const showEmailForm = !embedded || embeddedVerificationEmail === undefined;
 
   const titleContent = (
@@ -292,6 +364,16 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   id: ETranslations.email__label,
                 })}
                 name="email"
+                description={
+                  <Form.FieldDescription
+                    size="$bodySm"
+                    testID="prime-login-email-existing-only-hint"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.onekey_id_email_existing_only__desc,
+                    })}
+                  </Form.FieldDescription>
+                }
                 rules={{
                   validate: (value) => {
                     if (!value) {
@@ -319,6 +401,9 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   size="large"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.email_address_example__desc,
+                  })}
                   flex={1}
                   disabled={disabled || isSubmitting}
                   onChangeText={(text) => text?.trim() ?? text}
@@ -332,14 +417,20 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                 size="large"
                 testID="prime-login-email-btn"
                 loading={isSubmitting}
-                disabled={disabled || !form.formState.isValid || !isReady}
+                disabled={
+                  disabled ||
+                  !form.formState.isValid ||
+                  !isReady ||
+                  !devAuth.canSend
+                }
                 onPress={() => void submit()}
               >
                 {intl.formatMessage({
-                  id: ETranslations.sign_in_or_sign_up__action,
+                  id: ETranslations.global_sign_in,
                 })}
               </Button>
             ) : null}
+            {devAuth.renderControls(isSubmitting)}
           </YStack>
           {embedded ? null : (
             <Dialog.Footer

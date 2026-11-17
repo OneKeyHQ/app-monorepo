@@ -3,11 +3,15 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const transformTranslationEnumKey = require('./transform-translation-enum-key');
+const outputRootIndex = process.argv.indexOf('--output-root');
+if (outputRootIndex !== -1 && !process.argv[outputRootIndex + 1])
+  throw new Error('Missing --output-root value.');
+const outputRoot =
+  outputRootIndex === -1
+    ? path.resolve(__dirname, '../../..')
+    : path.resolve(process.argv[outputRootIndex + 1]);
 
-const localeJsonPath = path.join(
-  __dirname,
-  '../../../packages/shared/src/locale/json',
-);
+const localeJsonPath = path.join(outputRoot, 'packages/shared/src/locale/json');
 
 // build localeJsonMap.ts
 const jsonFiles = fs
@@ -19,7 +23,7 @@ const defaultLocaleJsonFile = jsonFiles.find((i) => i === 'en_US.json');
 const enJsonPath = path.join(localeJsonPath, enJSONFile);
 
 fs.writeFileSync(
-  path.join(__dirname, '../../../packages/shared/src/locale/localeJsonMap.ts'),
+  path.join(outputRoot, 'packages/shared/src/locale/localeJsonMap.ts'),
   `// This file is automatically created by \`yarn i18n:pull\`.
 // @ts-ignore
 /* eslint-disable  */
@@ -44,8 +48,8 @@ export { enUS };
 );
 
 const typeFile = path.join(
-  __dirname,
-  '../../../packages/shared/src/locale/enum/translations.ts',
+  outputRoot,
+  'packages/shared/src/locale/enum/translations.ts',
 );
 
 function stripGeneratedHeader(text) {

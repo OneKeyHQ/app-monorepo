@@ -4,6 +4,11 @@ import { useClipboard, useShortcuts } from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -32,6 +37,7 @@ export const useDiscoveryShortcuts = () => {
   const navigation = useAppNavigation();
 
   const { isAtBrowserTab } = useShortcutsRouteStatus();
+  const [isLocked] = useAppIsLockedAtom();
 
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
@@ -64,8 +70,9 @@ export const useDiscoveryShortcuts = () => {
         case EShortcutEvents.GoForwardHistory:
         case EShortcutEvents.GoBackHistory:
         case EShortcutEvents.Refresh:
-        case EShortcutEvents.CloseTab: {
-          if (!isAtBrowserTab.current) {
+        case EShortcutEvents.CloseTab:
+        case EShortcutEvents.SearchInPage: {
+          if (!isAtBrowserTab.current || isLocked) {
             return;
           }
           const webview = getActiveWebview(activeTabId);
@@ -90,6 +97,16 @@ export const useDiscoveryShortcuts = () => {
               case EShortcutEvents.CloseTab:
                 handleCloseWebTab();
                 break;
+              case EShortcutEvents.SearchInPage:
+                if (
+                  activeTabId &&
+                  tabs.some((tab) => tab.id === activeTabId && tab.url)
+                ) {
+                  appEventBus.emit(EAppEventBusNames.ShowFindInWebPage, {
+                    tabId: activeTabId,
+                  });
+                }
+                break;
               default:
                 break;
             }
@@ -113,7 +130,15 @@ export const useDiscoveryShortcuts = () => {
           break;
       }
     },
-    [activeTabId, copyText, handleCloseWebTab, isAtBrowserTab, navigation],
+    [
+      activeTabId,
+      copyText,
+      handleCloseWebTab,
+      isAtBrowserTab,
+      isLocked,
+      navigation,
+      tabs,
+    ],
   );
 
   useShortcuts(undefined, handleShortcuts);

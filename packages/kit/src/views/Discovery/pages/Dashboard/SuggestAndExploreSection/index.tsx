@@ -145,7 +145,7 @@ export function SuggestedAndExploreSection({
       $platform-native={{
         pb: '$16',
       }}
-      tag="section"
+      render="section"
     >
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading

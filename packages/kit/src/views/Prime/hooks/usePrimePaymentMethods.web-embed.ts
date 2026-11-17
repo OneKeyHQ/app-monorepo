@@ -15,7 +15,10 @@ import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
-import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
+import {
+  loadPurchasesSdkWeb,
+  loadPurchasesSdkWebForEmbeddedPurchase,
+} from '../purchasesSdk/purchasesSdkWebLoader';
 
 import primePaymentUtils from './primePaymentUtils';
 
@@ -219,7 +222,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       });
 
       await initSdk();
-      const { Purchases } = await loadPurchasesSdkWeb();
+      const { Purchases } = await loadPurchasesSdkWebForEmbeddedPurchase();
 
       console.log('purchasePackageWeb77632723>>>>>> initSdk done');
 
@@ -288,6 +291,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           // The web-embed page hosts RevenueCat web billing (Stripe) inside
           // the Android in-app webview
           paymentMethod: 'stripe',
+          cardCheckoutFlow: 'embedded',
         });
 
         // test credit card
@@ -297,6 +301,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         return purchase;
       } catch (error) {
         console.error('purchasePaywallPackage ERROR', error);
+        primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'stripe',
+          subscriptionPeriod,
+          featureName,
+          cardCheckoutFlow: 'embedded',
+        });
         // TODO alert error
         // errorToastUtils.toastIfError(error);
         throw error;

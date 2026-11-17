@@ -15,6 +15,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBase } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBase';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
@@ -28,6 +29,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
 
+import { showOneKeyIdLoginFailedToast } from '../../Prime/components/oneKeyIdLoginToastUtils';
 import {
   PageFrame,
   isErrorState,
@@ -622,7 +624,16 @@ function BulkExportHistoryTaskList({
   IModalBulkExportHistoryParamList,
   EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList
 >) {
+  const intl = useIntl();
+  const { isLoggedIn, loginOneKeyId, user } = useOneKeyAuth();
   const selectorSceneUrl = TASK_LIST_SELECTOR_SCENE_URL;
+
+  const handleSignIn = useCallback(() => {
+    void loginOneKeyId().catch((error) => {
+      showOneKeyIdLoginFailedToast({ error, intl });
+    });
+  }, [intl, loginOneKeyId]);
+
   const handleOpenTaskDetail = useCallback(
     (taskId: number, selectedNetworkIds: string[]) => {
       navigation.push(
@@ -637,8 +648,40 @@ function BulkExportHistoryTaskList({
     [navigation, selectorSceneUrl],
   );
 
+  if (!isLoggedIn) {
+    return (
+      <Page>
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.export_history__title,
+          })}
+        />
+        <Page.Body>
+          <Empty
+            icon="ClockTimeHistoryOutline"
+            title={intl.formatMessage({
+              id: ETranslations.sign_in_to_onekey_id__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.export_history_sign_in__desc,
+            })}
+            buttonProps={{
+              children: intl.formatMessage({
+                id: ETranslations.global_sign_in,
+              }),
+              onPress: handleSignIn,
+              testID: 'bulk-export-history-task-list-sign-in',
+            }}
+          />
+        </Page.Body>
+      </Page>
+    );
+  }
+
   return (
     <AccountSelectorProviderMirror
+      // Remount on OneKey ID change so the previous user's fetched list cannot linger.
+      key={user.onekeyUserId}
       config={{
         sceneName: EAccountSelectorSceneName.bulkExportHistory,
         sceneUrl: selectorSceneUrl,

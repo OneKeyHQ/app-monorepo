@@ -20,11 +20,18 @@ const validOhlcvData = {
 describe('Market WebSocket utilities', () => {
   it.each([
     ['1', '1m'],
-    ['60', '1h'],
-    ['1H', '1h'],
-    ['240', '4h'],
-    ['1D', '1d'],
-    ['1W', '1w'],
+    ['1m', '1m'],
+    ['60', '1H'],
+    ['1h', '1H'],
+    ['1H', '1H'],
+    ['240', '4H'],
+    ['4h', '4H'],
+    ['4H', '4H'],
+    ['1d', '1D'],
+    ['1D', '1D'],
+    ['1w', '1W'],
+    ['1W', '1W'],
+    ['1M', '1M'],
   ])('normalizes chart interval %s to %s', (input, expected) => {
     expect(normalizeMarketWsKLineInterval(input)).toBe(expected);
   });

@@ -45,6 +45,7 @@ import {
   type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
+  type IEarnUtmParams,
   type IEarnWithdrawType,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -90,6 +91,7 @@ export const WithdrawSection = ({
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
+  utm,
   useBorrowApi,
   borrowMarketAddress,
   borrowReserveAddress,
@@ -116,6 +118,7 @@ export const WithdrawSection = ({
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
@@ -362,15 +365,27 @@ export const WithdrawSection = ({
   const approveAssetToken =
     fetchedApproveAssetToken ?? fallbackApproveAssetToken;
   const withdrawApproveToken = useMemo(() => {
-    if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
+    const withdrawApprove = protocolInfo?.withdrawApprove;
+    if (!withdrawApprove?.tokenAddress || !token) {
       return token;
     }
     return {
       ...token,
-      address: protocolInfo.withdrawApprove.tokenAddress,
+      address: withdrawApprove.tokenAddress,
       isNative: false,
+      ...(withdrawApprove.inputToken && {
+        symbol: withdrawApprove.inputToken.symbol,
+        displaySymbol: undefined,
+        name: withdrawApprove.inputToken.symbol,
+        logoURI: withdrawApprove.inputToken.logoURI ?? '',
+        decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
+      }),
     };
-  }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  }, [
+    protocolInfo?.protocolInputDecimals,
+    protocolInfo?.withdrawApprove,
+    token,
+  ]);
   const approvalToken = useMemo(() => {
     if (borrowTokenApproveNeeded) {
       if (effectiveBorrowApproveInfo?.approveAsset) {
@@ -477,6 +492,7 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
@@ -1026,15 +1042,16 @@ export const WithdrawSection = ({
       onEthenaCooldownUnstakeReady?: () => void;
       withdrawType?: IEarnWithdrawType;
     }) => {
-      if (!hasRequiredData) return;
+      // Nothing was started, so the form keeps what the user typed.
+      if (!hasRequiredData) return false;
 
-      if (borrowApiCtx.isBorrow) return;
+      if (borrowApiCtx.isBorrow) return false;
 
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
       withdrawAbortRef.current = abortController;
 
-      await handleWithdraw({
+      return handleWithdraw({
         amount,
         // identity,
         protocolVault: earnUtils.shouldSendEarnProtocolVault({
@@ -1050,6 +1067,7 @@ export const WithdrawSection = ({
         outputTokenAddress: selectedReceiveTokenAddress,
         slippage: pendleSlippage,
         effectiveApy,
+        utm,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
         withdrawType,
@@ -1078,6 +1096,7 @@ export const WithdrawSection = ({
     [
       hasRequiredData,
       handleWithdraw,
+      utm,
       // identity,
       providerName,
       vault,
@@ -1110,7 +1129,8 @@ export const WithdrawSection = ({
         unsupportedAaveNativeReserve ||
         !isSelectedBorrowAssetValid
       ) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
 
       const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
@@ -1145,7 +1165,7 @@ export const WithdrawSection = ({
       };
 
       if (action === 'repay') {
-        await handleBorrowRepay({
+        return handleBorrowRepay({
           amount,
           provider,
           marketAddress,
@@ -1164,10 +1184,9 @@ export const WithdrawSection = ({
             onSuccess?.();
           },
         });
-        return;
       }
 
-      await handleBorrowWithdraw({
+      return handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
@@ -1377,7 +1396,7 @@ export const WithdrawSection = ({
         accountId={accountId}
         networkId={networkId}
         providerName=""
-        onConfirm={async () => {}}
+        onConfirm={async () => false}
         protocolVault=""
         isDisabled
         isInModalContext={isInModalContext}

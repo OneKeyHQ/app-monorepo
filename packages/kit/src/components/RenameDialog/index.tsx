@@ -3,7 +3,7 @@ import { useState } from 'react';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { IInputProps, ISelectItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -101,16 +101,33 @@ function V4AccountNameSelector({
 export function RenameInputWithNameSelector({
   value,
   onChange,
+  onBlur,
+  hasError,
+  forceHasError,
+  validationErrorMessage,
+  validationErrorTestID,
   maxLength = 8000,
   description,
   indexedAccount,
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
   inputTestID,
+  trimOuterWhitespace = false,
+  showSensitiveInfoWarning = true,
+  keyboardType,
+  autoCorrect,
+  autoCapitalize,
 }: {
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
+  // Injected by Form.Field; forwarding it lets react-hook-form re-validate
+  // on blur so a required error clears once a name is typed.
+  onBlur?: IInputProps['onBlur'];
+  hasError?: boolean;
+  forceHasError?: boolean;
+  validationErrorMessage?: string;
+  validationErrorTestID?: string;
   description?: string;
   indexedAccount?: IDBIndexedAccount;
   disabledMaxLengthLabel: boolean;
@@ -120,8 +137,16 @@ export function RenameInputWithNameSelector({
     contentType: EChangeHistoryContentType.Name;
   };
   inputTestID?: string;
+  trimOuterWhitespace?: boolean;
+  showSensitiveInfoWarning?: boolean;
+  keyboardType?: IInputProps['keyboardType'];
+  autoCorrect?: IInputProps['autoCorrect'];
+  autoCapitalize?: IInputProps['autoCapitalize'];
 }) {
   const intl = useIntl();
+  const valueLength = trimOuterWhitespace
+    ? value?.trim().length || 0
+    : value?.length || 0;
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
       if (indexedAccount) {
@@ -139,12 +164,17 @@ export function RenameInputWithNameSelector({
       <Stack>
         <Input
           testID={inputTestID}
+          error={forceHasError ?? hasError}
           size="large"
           $gtMd={{ size: 'medium' }}
-          maxLength={maxLength}
+          maxLength={trimOuterWhitespace ? undefined : maxLength}
+          keyboardType={keyboardType}
+          autoCorrect={autoCorrect}
+          autoCapitalize={autoCapitalize}
           autoFocus
           value={value}
           onChangeText={onChange}
+          onBlur={onBlur}
           flex={1}
           addOns={
             nameHistoryInfo?.entityId
@@ -164,13 +194,23 @@ export function RenameInputWithNameSelector({
           />
         ) : null}
       </Stack>
-      <Form.FieldDescription>
-        {intl.formatMessage({
-          id: ETranslations.account_name_form_helper_text,
-        })}
-      </Form.FieldDescription>
+      {validationErrorMessage ? (
+        <Form.FieldDescription
+          color="$textCritical"
+          testID={validationErrorTestID}
+        >
+          {validationErrorMessage}
+        </Form.FieldDescription>
+      ) : null}
+      {showSensitiveInfoWarning ? (
+        <Form.FieldDescription>
+          {intl.formatMessage({
+            id: ETranslations.account_name_form_helper_text,
+          })}
+        </Form.FieldDescription>
+      ) : null}
       {disabledMaxLengthLabel ? null : (
-        <Form.FieldDescription textAlign="right">{`${value?.length || 0}/${
+        <Form.FieldDescription textAlign="right">{`${valueLength}/${
           maxLength ?? ''
         }`}</Form.FieldDescription>
       )}

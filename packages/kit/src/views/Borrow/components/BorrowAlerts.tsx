@@ -79,6 +79,7 @@ export const BorrowAlerts = memo(
             accountId: networkAccount.id,
             walletId,
             indexedAccountId,
+            source: 'borrow',
           },
         });
       } catch (error) {

@@ -7,6 +7,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 export const StateActiveContainer = () => {
   const callback = useCallback(() => {
     void backgroundApiProxy.serviceNotification.clearBadgeWhenAppStart();
+    void backgroundApiProxy.serviceSetting.fetchInscriptionProtectionControl();
   }, []);
   useHandleAppStateActive(callback, {
     onActiveFromBlur: callback,

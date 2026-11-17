@@ -5,10 +5,11 @@ import { useIntl } from 'react-intl';
 import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { getUniversalSearchSource } from '../../UniversalSearch/universalSearchSource';
 import { MarketTestIDs } from '../testIDs';
 
 export function MarketHomeHeaderSearchBar() {
@@ -17,6 +18,9 @@ export function MarketHomeHeaderSearchBar() {
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        source: getUniversalSearchSource(ETabRoutes.Market),
+      },
     });
   }, [navigation]);
 

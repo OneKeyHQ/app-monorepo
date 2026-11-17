@@ -1,3 +1,5 @@
+import { withCustomUAHeaders } from '../customUA';
+
 import { healthCheckRequest } from './healthCheckRequest.sni';
 import { getSelectedIpForHost } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
@@ -6,16 +8,46 @@ jest.mock('./ipTableAdapter', () => ({
   getSelectedIpForHost: jest.fn(),
 }));
 
+jest.mock('../../logger/logger', () => ({
+  defaultLogger: {
+    ipTable: {
+      request: {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      },
+    },
+  },
+}));
+
 jest.mock('./sniRequest', () => ({
   isProxyActiveForUrl: jest.fn(),
   isSniSupported: jest.fn(),
   sniRequest: jest.fn(),
 }));
 
+jest.mock('../customUA', () => ({
+  withCustomUAHeaders: jest.fn(
+    async (_url: string, headers: Record<string, string>) => headers,
+  ),
+}));
+
+const mockedLogger = jest.requireMock('../../logger/logger') as {
+  defaultLogger: {
+    ipTable: {
+      request: {
+        warn: jest.Mock;
+        error: jest.Mock;
+      };
+    };
+  };
+};
+
 const mockedGetSelectedIpForHost = getSelectedIpForHost as unknown as jest.Mock;
 const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;
 const mockedIsSniSupported = isSniSupported as jest.Mock;
 const mockedSniRequest = sniRequest as jest.Mock;
+const mockedWithCustomUAHeaders = withCustomUAHeaders as jest.Mock;
 
 describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () => {
   const fetchMock = jest.fn();
@@ -75,6 +107,64 @@ describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () =
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  test('removes non-string headers before crossing the native boundary', async () => {
+    await healthCheckRequest({
+      url: 'https://api.example.com/health',
+      headers: {
+        valid: 'value',
+        missing: undefined,
+        empty: null,
+      } as unknown as Record<string, string>,
+    });
+
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: { valid: 'value' },
+      }),
+    );
+  });
+
+  test('injects the OneKey User-Agent into SNI health probes', async () => {
+    mockedWithCustomUAHeaders.mockImplementationOnce(
+      async (_url: string, headers: Record<string, string>) => ({
+        ...headers,
+        'User-Agent': 'OneKey iOS 6.6.1',
+      }),
+    );
+
+    await healthCheckRequest({
+      url: 'https://api.example.com/health',
+      headers: { valid: 'value' },
+    });
+
+    expect(mockedWithCustomUAHeaders).toHaveBeenCalledWith(
+      'https://api.example.com/health',
+      { valid: 'value' },
+    );
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: { valid: 'value', 'User-Agent': 'OneKey iOS 6.6.1' },
+      }),
+    );
+  });
+
+  test('removes non-string headers from the fetch fallback', async () => {
+    mockedIsProxyActiveForUrl.mockResolvedValue(true);
+
+    await healthCheckRequest({
+      url: 'https://api.example.com/health',
+      headers: {
+        valid: 'value',
+        missing: undefined,
+      } as unknown as Record<string, string>,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/health',
+      expect.objectContaining({ headers: { valid: 'value' } }),
+    );
+  });
+
   test('falls back before IP selection when proxy preflight errors', async () => {
     mockedIsProxyActiveForUrl.mockRejectedValue(new Error('preflight failed'));
 
@@ -104,5 +194,51 @@ describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () =
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not replay POST when SNI returns no response', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+
+    await expect(
+      healthCheckRequest({
+        url: 'https://api.example.com/health',
+        method: 'POST',
+      }),
+    ).rejects.toThrow('fallback disabled to avoid replay');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      mockedLogger.defaultLogger.ipTable.request.warn,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockedLogger.defaultLogger.ipTable.request.error,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('does not replay POST after an ambiguous SNI error', async () => {
+    const error = new Error('connection lost after write');
+    mockedSniRequest.mockRejectedValue(error);
+
+    await expect(
+      healthCheckRequest({
+        url: 'https://api.example.com/health',
+        method: 'POST',
+      }),
+    ).rejects.toBe(error);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('keeps the GET fallback after a non-fail-closed SNI error', async () => {
+    mockedSniRequest.mockRejectedValue(new Error('connection lost'));
+
+    await expect(
+      healthCheckRequest({ url: 'https://api.example.com/health' }),
+    ).resolves.toEqual({
+      status: 204,
+      ok: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

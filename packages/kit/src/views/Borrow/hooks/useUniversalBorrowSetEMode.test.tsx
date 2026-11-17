@@ -1,5 +1,16 @@
 /* eslint-disable import/first */
 
+// The one-time DeFi risk disclaimer (OK-59196) gates every borrow trade hook.
+// Accept it by default here; the rejection path has its own test.
+const mockEnsureRiskAccepted = jest.fn(async () => true);
+jest.mock(
+  '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog',
+  () => ({
+    __esModule: true,
+    useEarnRiskWarningGate: () => mockEnsureRiskAccepted,
+  }),
+);
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -188,6 +199,7 @@ describe('useUniversalBorrowSetEMode', () => {
         stakingInfo: {
           label: EEarnLabels.Borrow,
           protocol: 'aave',
+          protocolLogoURI: 'https://example.com/aave.png',
           tags: [EEarnLabels.Borrow],
         },
         onSuccess,
@@ -195,6 +207,13 @@ describe('useUniversalBorrowSetEMode', () => {
     });
 
     expect(confirmDialogMock).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stakingInfo: expect.objectContaining({
+          protocolLogoURI: 'https://example.com/aave.png',
+        }),
+      }),
+    );
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledWith(successData);
   });

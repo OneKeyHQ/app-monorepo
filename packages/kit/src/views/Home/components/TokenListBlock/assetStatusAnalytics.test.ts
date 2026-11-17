@@ -3,6 +3,7 @@ import {
   getWalletAssetStatusCurrency,
   getWalletAssetStatusFromTotalBalanceUsd,
   isWalletAssetStatusAggregationComplete,
+  shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
@@ -95,6 +96,27 @@ describe('TokenListBlock asset status analytics', () => {
       isWalletAssetStatusAggregationComplete({
         expectedAccounts,
         result: [{ accountId: 'account-1', networkId: 'evm--1' }],
+      }),
+    ).toBe(false);
+  });
+
+  it('defers only empty hardware portfolio snapshots with incomplete aggregation', () => {
+    expect(
+      shouldDeferEmptyHardwarePortfolioSync({
+        aggregationComplete: false,
+        totalTokenCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferEmptyHardwarePortfolioSync({
+        aggregationComplete: true,
+        totalTokenCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldDeferEmptyHardwarePortfolioSync({
+        aggregationComplete: false,
+        totalTokenCount: 1,
       }),
     ).toBe(false);
   });

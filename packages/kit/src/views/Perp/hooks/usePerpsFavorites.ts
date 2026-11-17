@@ -4,8 +4,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpTokenFavoritesPersistAtom,
+  usePerpsFavoritesOrderPersistAtom,
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatSpotPairDisplayName,
   parseDexCoin,
@@ -16,7 +18,10 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { dedupeTokenSelectorFavoriteCoins } from '../utils/tokenSelectorFavorites';
+import {
+  dedupeTokenSelectorFavoriteCoins,
+  sortTokenSelectorFavoritesBySequence,
+} from '../utils/tokenSelectorFavorites';
 
 export type IFavoriteItem = {
   mode: 'perp' | 'spot';
@@ -36,6 +41,7 @@ export function usePerpsFavorites(options?: {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [perpFavorites] = usePerpTokenFavoritesPersistAtom();
   const [spotFavorites] = useSpotTokenFavoritesPersistAtom();
+  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
   const favoritesMode =
     options?.mode === 'current'
       ? activeTradeInstrument.mode
@@ -74,16 +80,20 @@ export function usePerpsFavorites(options?: {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      // If data is missing, force refresh from API
-      if (
-        !universesByDex ||
-        universesByDex.length === 0 ||
-        universesByDex.every((u) => u.length === 0)
-      ) {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        universesByDex = res.universesByDex;
+      // Favorites on a missing dex silently fail to resolve, so a short cache is
+      // as unusable as an empty one.
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          const res =
+            await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+          universesByDex = res.universesByDex;
+        } catch {
+          // Every existing user hits this branch on the first cold start after
+          // the release, and usePromiseResult neither retries nor re-runs — a
+          // rejection would blank the bar for the whole session. The stale
+          // universe still resolves every pre-existing favorite.
+        }
       }
 
       return { mode: 'perp', data: universesByDex ?? [] };
@@ -92,7 +102,7 @@ export function usePerpsFavorites(options?: {
     { checkIsFocused: false },
   );
 
-  const favoriteItems = useMemo(() => {
+  const unorderedFavoriteItems = useMemo(() => {
     if (!uniqueFavorites.length || !taggedUniverse) {
       return [];
     }
@@ -152,6 +162,16 @@ export function usePerpsFavorites(options?: {
 
     return items;
   }, [uniqueFavorites, taggedUniverse]);
+
+  // Every consumer follows the drag order set in the favorites bar.
+  const favoriteItems = useMemo(
+    () =>
+      sortTokenSelectorFavoritesBySequence(
+        unorderedFavoriteItems,
+        favoritesOrder.sequence,
+      ),
+    [unorderedFavoriteItems, favoritesOrder.sequence],
+  );
 
   return { favoriteItems, isReady: taggedUniverse !== undefined };
 }

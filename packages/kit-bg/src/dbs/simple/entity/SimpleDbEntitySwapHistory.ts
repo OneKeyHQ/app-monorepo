@@ -1,18 +1,15 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
-import {
-  isSwapHistoryTerminalStatus,
-  markUnreadTerminalAsRead,
-} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import { markUnreadTerminalAsRead } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
-  isStockSwapHistoryItem,
-  isSwapHistoryProtocolExcluded,
+  isSwapHistoryTerminalStatus,
+  shouldDeleteSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
-  EProtocolOfExchange,
   ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -23,6 +20,8 @@ export const historyCircularBufferMaxSize = 300;
 
 export interface ISwapTxHistoryPersistList {
   histories: ISwapTxHistory[];
+  /** Durable outbox between broadcast publication and the history commit. */
+  pendingWrites?: ISwapTxHistory[];
   previewReadSeeded?: boolean;
 }
 
@@ -68,90 +67,220 @@ function shouldReplaceExistingSwapHistoryItem({
   return incomingTerminal && !existingTerminal;
 }
 
+function findSwapHistoryItemIndex(
+  histories: ISwapTxHistory[],
+  item: ISwapTxHistory,
+  oldTxId?: string,
+) {
+  if (oldTxId) {
+    return histories.findIndex((history) =>
+      isSwapHistoryItemMatchedById(history, oldTxId),
+    );
+  }
+  return histories.findIndex((history) => isSameSwapHistoryItem(history, item));
+}
+
+type ISwapHistoryFeeUpdate = Pick<
+  ISwapTxHistory['txInfo'],
+  'gasFeeInNative' | 'gasFeeFiatValue'
+>;
+
+function mergePrivateSendHistoryFees(
+  existing: ISwapTxHistory,
+  incoming: ISwapTxHistory,
+  feeUpdate?: ISwapHistoryFeeUpdate,
+): ISwapTxHistory {
+  if (
+    !isPrivateSendSwapHistoryItem(existing) ||
+    !isPrivateSendSwapHistoryItem(incoming) ||
+    !incoming.txInfo.txId ||
+    incoming.txInfo.txId !== existing.txInfo.txId ||
+    incoming.baseInfo.fromToken.networkId !==
+      existing.baseInfo.fromToken.networkId
+  ) {
+    return incoming;
+  }
+  const sameCurrency =
+    (incoming.currencyId ?? incoming.currency) ===
+    (existing.currencyId ?? existing.currency);
+  // A poll owns only the fees returned by its response, not those captured
+  // in its old request snapshot. Merge against the current row atomically.
+  const incomingFees = feeUpdate ?? incoming.txInfo;
+  return {
+    ...incoming,
+    txInfo: {
+      ...incoming.txInfo,
+      gasFeeInNative:
+        incomingFees.gasFeeInNative ??
+        existing.txInfo.gasFeeInNative ??
+        incoming.txInfo.gasFeeInNative,
+      gasFeeFiatValue:
+        incomingFees.gasFeeFiatValue ??
+        (sameCurrency ? existing.txInfo.gasFeeFiatValue : undefined) ??
+        incoming.txInfo.gasFeeFiatValue,
+    },
+  };
+}
+
+function addSwapHistoryToList(
+  histories: ISwapTxHistory[],
+  item: ISwapTxHistory,
+) {
+  const next = [...histories];
+  const existingIndex = findSwapHistoryItemIndex(next, item);
+  if (existingIndex !== -1) {
+    if (
+      shouldReplaceExistingSwapHistoryItem({
+        existing: next[existingIndex],
+        incoming: item,
+      })
+    ) {
+      next[existingIndex] = item;
+    }
+    return next;
+  }
+  next.unshift(item);
+  return next.slice(0, historyCircularBufferMaxSize);
+}
+
 export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistoryPersistList> {
   entityName = 'swapHistory';
 
   override enableCache = false;
 
   @backgroundMethod()
-  async addSwapHistoryItem(item: ISwapTxHistory) {
-    const data = await this.getRawData();
-    const histories = data?.histories ?? [];
-    const existingIndex = histories.findIndex((i) =>
-      isSameSwapHistoryItem(i, item),
-    );
-    if (existingIndex !== -1) {
-      if (
-        shouldReplaceExistingSwapHistoryItem({
-          existing: histories[existingIndex],
-          incoming: item,
-        })
-      ) {
-        histories[existingIndex] = item;
-        await this.setRawData({ ...data, histories });
+  async stagePendingSwapHistoryItem(item: ISwapTxHistory) {
+    await this.setRawData((currentData) => {
+      const histories = currentData?.histories ?? [];
+      const pendingWrites = (currentData?.pendingWrites ?? []).filter(
+        (history) => !isSameSwapHistoryItem(history, item),
+      );
+      if (!histories.some((history) => isSameSwapHistoryItem(history, item))) {
+        pendingWrites.unshift(item);
       }
-      return;
-    }
-    histories.unshift(item);
-    if (histories.length > historyCircularBufferMaxSize) {
-      histories.pop();
-    }
-    await this.setRawData({ ...data, histories });
+      return {
+        ...currentData,
+        histories,
+        pendingWrites: pendingWrites.slice(0, historyCircularBufferMaxSize),
+      };
+    });
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
-    const data = await this.getRawData();
-    const histories = data?.histories ?? [];
-    let index = histories.findIndex((i) => isSameSwapHistoryItem(i, item));
-    if (oldTxId) {
-      index = histories.findIndex((i) =>
-        isSwapHistoryItemMatchedById(i, oldTxId),
+  async commitPendingSwapHistoryItem(item: ISwapTxHistory) {
+    await this.setRawData((currentData) => {
+      const pendingWrites = currentData?.pendingWrites ?? [];
+      if (findSwapHistoryItemIndex(pendingWrites, item) === -1) {
+        return currentData ?? { histories: [] };
+      }
+      return {
+        ...currentData,
+        histories: addSwapHistoryToList(currentData?.histories ?? [], item),
+        pendingWrites: pendingWrites.filter(
+          (history) => !isSameSwapHistoryItem(history, item),
+        ),
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async recoverPendingSwapHistoryItems() {
+    const snapshot = await this.getRawData();
+    if (!snapshot?.pendingWrites?.length) {
+      return 0;
+    }
+    let recoveredCount = 0;
+    await this.setRawData((currentData) => {
+      const pendingWrites = currentData?.pendingWrites ?? [];
+      let histories = currentData?.histories ?? [];
+      [...pendingWrites].toReversed().forEach((item) => {
+        histories = addSwapHistoryToList(histories, item);
+      });
+      recoveredCount = pendingWrites.length;
+      return {
+        ...currentData,
+        histories,
+        pendingWrites: [],
+      };
+    });
+    return recoveredCount;
+  }
+
+  @backgroundMethod()
+  async addSwapHistoryItem(item: ISwapTxHistory) {
+    await this.setRawData((currentData) => ({
+      ...currentData,
+      histories: addSwapHistoryToList(currentData?.histories ?? [], item),
+    }));
+  }
+
+  @backgroundMethod()
+  async updateSwapHistoryItem(
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+  ): Promise<ISwapTxHistory | undefined> {
+    const snapshot = await this.getRawData();
+    const snapshotHistories = snapshot?.histories ?? [];
+    const snapshotPendingWrites = snapshot?.pendingWrites ?? [];
+    if (
+      findSwapHistoryItemIndex(snapshotHistories, item, oldTxId) === -1 &&
+      findSwapHistoryItemIndex(snapshotPendingWrites, item, oldTxId) === -1
+    ) {
+      return;
+    }
+
+    let updatedItem: ISwapTxHistory | undefined;
+    await this.setRawData((currentData) => {
+      let histories = [...(currentData?.histories ?? [])];
+      const pendingWrites = [...(currentData?.pendingWrites ?? [])];
+      const historyIndex = findSwapHistoryItemIndex(histories, item, oldTxId);
+      const pendingIndex = findSwapHistoryItemIndex(
+        pendingWrites,
+        item,
+        oldTxId,
       );
-    }
-    if (index !== -1) {
-      histories[index] = item;
-      await this.setRawData({ ...data, histories });
-    }
+      if (historyIndex !== -1) {
+        updatedItem = mergePrivateSendHistoryFees(
+          histories[historyIndex],
+          item,
+          feeUpdate,
+        );
+        histories[historyIndex] = updatedItem;
+      } else if (pendingIndex !== -1) {
+        updatedItem = mergePrivateSendHistoryFees(
+          pendingWrites[pendingIndex],
+          item,
+          feeUpdate,
+        );
+        histories = addSwapHistoryToList(histories, updatedItem);
+      }
+      if (pendingIndex !== -1) {
+        pendingWrites.splice(pendingIndex, 1);
+      }
+      return {
+        ...currentData,
+        histories,
+        pendingWrites,
+      };
+    });
+    return updatedItem;
   }
 
   @backgroundMethod()
   async deleteSwapHistoryItem(
     statuses?: ESwapTxHistoryStatus[],
-    options?: {
-      excludeProtocols?: EProtocolOfExchange[];
-      // Keep stock trades. The Swap/Bridge list hides stock via the token-level
-      // isStock flag, so clearing it must use the same rule (protocol exclusion
-      // alone would delete stock orders the user can't see on that tab).
-      excludeStock?: boolean;
-      // Mirror of excludeStock for the Stock history surface: only clear stock
-      // trades, keeping everything the Swap/Bridge list owns.
-      onlyStock?: boolean;
-    },
+    options?: ISwapHistoryClearOptions,
   ) {
-    const shouldKeepHistory = (history: ISwapTxHistory) => {
-      if (
-        isSwapHistoryProtocolExcluded({
-          item: history,
-          excludeProtocols: options?.excludeProtocols,
-        })
-      ) {
-        return true;
-      }
-      if (options?.excludeStock && isStockSwapHistoryItem(history)) {
-        return true;
-      }
-      if (options?.onlyStock && !isStockSwapHistoryItem(history)) {
-        return true;
-      }
-      return statuses ? !statuses.includes(history.status) : false;
-    };
-    const data = await this.getRawData();
-    const histories = data?.histories ?? [];
-    await this.setRawData({
-      ...data,
-      histories: histories.filter(shouldKeepHistory),
-    });
+    const shouldKeepHistory = (history: ISwapTxHistory) =>
+      !shouldDeleteSwapHistoryItem(history, statuses, options);
+    await this.setRawData((currentData) => ({
+      ...currentData,
+      histories: (currentData?.histories ?? []).filter(shouldKeepHistory),
+      pendingWrites: (currentData?.pendingWrites ?? []).filter(
+        shouldKeepHistory,
+      ),
+    }));
   }
 
   @backgroundMethod()
@@ -160,14 +289,17 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     useOrderId?: boolean;
     orderId?: string;
   }) {
-    const data = await this.getRawData();
-    const histories = data?.histories ?? [];
-    const newHistories = histories.filter((i) =>
+    const shouldKeepHistory = (item: ISwapTxHistory) =>
       txInfo.useOrderId
-        ? i.txInfo.orderId !== txInfo.orderId
-        : i.txInfo.txId !== txInfo.txId,
-    );
-    await this.setRawData({ ...data, histories: newHistories });
+        ? item.txInfo.orderId !== txInfo.orderId
+        : item.txInfo.txId !== txInfo.txId;
+    await this.setRawData((currentData) => ({
+      ...currentData,
+      histories: (currentData?.histories ?? []).filter(shouldKeepHistory),
+      pendingWrites: (currentData?.pendingWrites ?? []).filter(
+        shouldKeepHistory,
+      ),
+    }));
   }
 
   @backgroundMethod()
@@ -191,7 +323,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         ? { ...currentData, histories: repaired.histories }
         : (currentData ?? { histories: [] });
     });
-    return { histories: repairedData.histories, changed };
+    return { histories: repairedData?.histories ?? [], changed };
   }
 
   @backgroundMethod()
@@ -208,27 +340,35 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
 
   @backgroundMethod()
   async markUnreadTerminalPreviewRead(readAt: number) {
-    const data = await this.getRawData();
-    const histories = data?.histories ?? [];
-    const next = markUnreadTerminalAsRead(histories, readAt);
-    await this.setRawData({ ...data, histories: next });
+    await this.setRawData((currentData) => ({
+      ...currentData,
+      histories: markUnreadTerminalAsRead(currentData?.histories ?? [], readAt),
+    }));
   }
 
   @backgroundMethod()
   // Returns true only when it actually seeded this call, so the caller can run
   // the invalidation path (re-derive the pending atom) just once.
   async seedPreviewReadIfNeeded(readAt: number): Promise<boolean> {
-    const data = await this.getRawData();
-    if (data?.previewReadSeeded) {
+    const snapshot = await this.getRawData();
+    if (snapshot?.previewReadSeeded) {
       return false;
     }
-    const histories = data?.histories ?? [];
-    const next = markUnreadTerminalAsRead(histories, readAt);
-    await this.setRawData({
-      ...data,
-      histories: next,
-      previewReadSeeded: true,
+    let seeded = false;
+    await this.setRawData((currentData) => {
+      if (currentData?.previewReadSeeded) {
+        return currentData;
+      }
+      seeded = true;
+      return {
+        ...currentData,
+        histories: markUnreadTerminalAsRead(
+          currentData?.histories ?? [],
+          readAt,
+        ),
+        previewReadSeeded: true,
+      };
     });
-    return true;
+    return seeded;
   }
 }

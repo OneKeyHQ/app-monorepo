@@ -1,11 +1,18 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
+import { IP_TABLE_ENABLED } from '../constants/ipTableDefaults';
 
 import { isSniFailClosedError } from './sniFailClosedError';
 import { safeSniLogValue } from './sniLogRedaction';
+import { executeSniRequestWithAbort } from './sniRequestAbort';
 
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+import type {
+  ISniRequestConfig,
+  ISniRequestOptions,
+  ISniResponse,
+  ISniUploadFileConfig,
+} from '../types/ipTable';
 
 const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
   /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.isProxyActiveForUrl\(\)/;
@@ -16,6 +23,7 @@ const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
  */
 export async function sniRequest(
   config: ISniRequestConfig,
+  options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
   // Check if running in desktop environment
   if (!platformEnv.isDesktop) {
@@ -39,8 +47,15 @@ export async function sniRequest(
     }
 
     // Call main process via proxy
-    const response: ISniResponse =
-      await desktopApiProxy.sniRequest.request(config);
+    const response = await executeSniRequestWithAbort<
+      ISniRequestConfig,
+      ISniResponse
+    >(
+      config,
+      options,
+      (requestConfig) => desktopApiProxy.sniRequest.request(requestConfig),
+      (requestId) => desktopApiProxy.sniRequest.cancelRequest(requestId),
+    );
 
     return response;
   } catch (error) {
@@ -62,11 +77,55 @@ export async function sniRequest(
 }
 
 /**
+ * Upload a local file over the pinned-IP/SNI transport in the main process.
+ * Returns null when the desktop API is unavailable, so callers keep the
+ * domain upload path.
+ */
+export async function sniUploadFile(
+  config: ISniUploadFileConfig,
+  options?: ISniRequestOptions,
+): Promise<ISniResponse | null> {
+  if (!platformEnv.isDesktop) {
+    return null;
+  }
+  const sniRequestProxy = globalThis.desktopApiProxy?.sniRequest;
+  if (typeof sniRequestProxy?.uploadFile !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'desktop',
+      capability: 'upload_file',
+      available: false,
+      decision: 'null',
+      hostname: config.hostname,
+      ipHash: hashForLog(config.ip),
+    });
+    return null;
+  }
+
+  // Unlike request(), upload failures are surfaced so the caller can tell
+  // a timeout (no domain retry) from other failures.
+  return executeSniRequestWithAbort<ISniUploadFileConfig, ISniResponse>(
+    config,
+    options,
+    (requestConfig) => sniRequestProxy.uploadFile(requestConfig),
+    (requestId) => sniRequestProxy.cancelRequest(requestId),
+  );
+}
+
+export function isSniUploadFileSupported(): boolean {
+  if (!platformEnv.isDesktop) {
+    return false;
+  }
+  return (
+    typeof globalThis.desktopApiProxy?.sniRequest?.uploadFile === 'function'
+  );
+}
+
+/**
  * Check if SNI is supported on current platform
- * @returns true if desktop environment with desktopApiProxy available
+ * @returns true if IP_TABLE_ENABLED and desktop environment with desktopApiProxy available
  */
 export function isSniSupported(): boolean {
-  if (!platformEnv.isDesktop) {
+  if (!IP_TABLE_ENABLED || !platformEnv.isDesktop) {
     return false;
   }
 

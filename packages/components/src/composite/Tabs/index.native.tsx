@@ -9,6 +9,9 @@ import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
 interface IExtendedContainerProps extends CollapsibleProps {
   useNativeHeaderAnimation?: boolean;
+  /** Web-only content-visibility optimization; accepted for API parity. */
+  disableWebTabContentVisibility?: boolean;
+  isRouteFocused?: boolean;
   /**
    * Web-only: slot between the sticky TabBar and tab content. On native, the
    * equivalent should live inside each tab list's ListHeaderComponent, so the
@@ -26,6 +29,8 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
       pagerProps,
       headerContainerStyle,
       renderSubHeader: _renderSubHeader,
+      disableWebTabContentVisibility: _disableWebTabContentVisibility,
+      isRouteFocused: _isRouteFocused,
       ...props
     },
     ref,
@@ -64,8 +69,12 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
 );
 Container.displayName = 'NativeTabsContainer';
 
+const { Tab, ...legacyTabs } = NativeTabs;
+export { Tab };
+
+/** @deprecated Use CollapsiblePagerView and NativeScroller from react-native-pager-view. */
 export const Tabs = {
-  ...NativeTabs,
+  ...legacyTabs,
   Container,
   TabBar,
   TabBarItem,
@@ -74,6 +83,9 @@ export const Tabs = {
 
 export * from './hooks';
 export { startViewTransition } from './utils';
-export { CollapsibleTabContext } from './CollapsibleTabContext';
+export {
+  CollapsibleTabContext,
+  CollapsibleTabNameContext,
+} from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
 export { useFocusedTab } from './useFocusedTab';

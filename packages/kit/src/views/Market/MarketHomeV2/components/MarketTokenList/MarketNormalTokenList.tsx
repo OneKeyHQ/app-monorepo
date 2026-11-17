@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react';
-import type { ReactNode } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,12 +18,13 @@ import type { IMarketTimeRangeValue } from '../../types';
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
+  forceStockMetadataColumns?: boolean;
   stockCategory?: string;
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   onItemPress?: (item: IMarketToken) => void;
-  toolbar?: ReactNode;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -36,17 +36,20 @@ type IMarketNormalTokenListProps = {
   pollingInterval?: number;
   rowBg?: string;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  centerDesktopPortalContent?: boolean;
+  desktopColumnVariant?: 'default' | 'trending';
 };
 
 function MarketNormalTokenList({
   networkId = 'sol--101',
   selectedCategory,
+  forceStockMetadataColumns,
   stockCategory,
   timeRange,
   sortBy: initialSortBy,
   sortType: initialSortType,
+  useApiDefaultSort,
   onItemPress,
-  toolbar,
   tabIntegrated,
   tabName,
   listContainerProps,
@@ -56,6 +59,8 @@ function MarketNormalTokenList({
   pollingInterval,
   rowBg,
   onStockDataChange,
+  centerDesktopPortalContent,
+  desktopColumnVariant,
 }: IMarketNormalTokenListProps) {
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
@@ -67,6 +72,7 @@ function MarketNormalTokenList({
     networkId,
     initialSortBy,
     initialSortType,
+    useApiDefaultSort,
     pageSize: 20,
     type: selectedCategory,
     category: stockCategory,
@@ -110,7 +116,6 @@ function MarketNormalTokenList({
       testID="market-normal-token-list"
       networkId={networkId}
       onItemPress={onItemPress}
-      toolbar={toolbar}
       result={normalResult}
       isWatchlistMode={false}
       showEndReachedIndicator
@@ -118,10 +123,15 @@ function MarketNormalTokenList({
       tabName={tabName}
       listContainerProps={listContainerProps}
       showStockSubtitle="auto"
+      forceStockMetadataColumns={forceStockMetadataColumns}
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
+      marketTokenCategory={selectedCategory}
+      desktopColumnVariant={desktopColumnVariant}
+      timeRange={timeRange}
     />
   );
 }

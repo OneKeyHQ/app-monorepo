@@ -1,5 +1,7 @@
 export * from './components/tradingViewV2/TradingViewV2';
 export type { ITradingViewV2KLineDataFallback } from './components/tradingViewV2/hooks/useTradingViewV2';
+export { shouldReserveTradingViewNativeIndicatorQuickBar } from './components/tradingViewV2/nativeIndicatorQuickBarState';
+export type { ITradingViewNativeIndicatorQuickBarState } from './components/tradingViewV2/nativeIndicatorQuickBarState';
 export type {
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,

@@ -2,13 +2,13 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
 /* oxlint-disable import-js/order */
+import '@onekeyhq/shared/src/polyfills';
+
 import '@onekeyhq/shared/src/performance/init';
 
 if (typeof globalThis !== 'undefined') {
   globalThis.$$onekeyJsReadyAt = Date.now();
 }
-
-import '@onekeyhq/shared/src/polyfills';
 
 // Cold-start hydration: fires IndexedDB read promise + populates globalThis
 // vars before React mounts. Must run after polyfills, before any jotai atoms
@@ -26,6 +26,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import App from './App';
 
@@ -33,7 +34,6 @@ const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
-const ROOT_SERVICE_WORKER_PATH = '/service-worker.js';
 const SERVICE_WORKER_MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',
@@ -148,8 +148,14 @@ function showUpdateBanner(onRefresh) {
       bottom: '24px',
       left: '50%',
       transform: 'translateX(-50%)',
+      width: 'max-content',
+      maxWidth: 'calc(100% - 32px)',
+      maxHeight: 'calc(100% - 48px)',
+      overflowY: 'auto',
+      boxSizing: 'border-box',
       zIndex: '2147483647',
       display: 'flex',
+      flexWrap: 'wrap',
       alignItems: 'center',
       gap: '12px',
       padding: '12px 20px',
@@ -163,6 +169,8 @@ function showUpdateBanner(onRefresh) {
     });
 
     const text = document.createElement('span');
+    text.style.minWidth = '0';
+    text.style.overflowWrap = 'anywhere';
     text.textContent = formatLocaleMessage(
       ETranslations.settings_app_update_available,
       'App update available',
@@ -174,6 +182,10 @@ function showUpdateBanner(onRefresh) {
       'Refresh',
     );
     Object.assign(refreshBtn.style, {
+      flexShrink: '0',
+      maxWidth: '100%',
+      whiteSpace: 'normal',
+      overflowWrap: 'anywhere',
       padding: '6px 16px',
       borderRadius: '8px',
       border: 'none',
@@ -194,6 +206,7 @@ function showUpdateBanner(onRefresh) {
     const dismissBtn = document.createElement('button');
     dismissBtn.textContent = '\u00D7';
     Object.assign(dismissBtn.style, {
+      flexShrink: '0',
       padding: '0',
       border: 'none',
       background: 'transparent',
@@ -345,7 +358,7 @@ if (
 ) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register(ROOT_SERVICE_WORKER_PATH, {
+      .register(TRADING_VIEW_EMBED_SERVICE_WORKER_PATH, {
         scope: '/',
         updateViaCache: 'none',
       })

@@ -12,6 +12,9 @@ export type ICustomUARuntime =
 
 const ONEKEY_OFFICIAL_HOST = /\.onekey(cn|test)\.com$/i;
 const USER_AGENT_HEADER = 'User-Agent';
+// Chromium drops User-Agent set by XHR/fetch. The default-session hook consumes
+// this internal header before sending the request to the network.
+export const DESKTOP_CUSTOM_UA_HEADER = 'X-Onekey-Custom-User-Agent';
 
 let runtimeOverride: ICustomUARuntime | null = null;
 
@@ -48,8 +51,31 @@ async function isDisabledByDevSetting(): Promise<boolean> {
   }
 }
 
+function getDesktopPlatformLabel(): string {
+  if (platformEnv.isDesktopMac) return 'macOS';
+  if (platformEnv.isDesktopWin) return 'Windows';
+  if (platformEnv.isDesktopLinux) return 'Linux';
+  // The Electron main process has no desktopApi bridge, so platformEnv's
+  // desktop OS flags are all false there; Node's process.platform still is set.
+  const nodePlatform =
+    typeof process !== 'undefined' ? process.platform : undefined;
+  if (nodePlatform === 'darwin') return 'macOS';
+  if (nodePlatform === 'win32') return 'Windows';
+  if (nodePlatform === 'linux') return 'Linux';
+  return 'Desktop';
+}
+
+export function getCustomUAPlatformLabel(runtime: ICustomUARuntime): string {
+  if (runtime === 'ios-native') return 'iOS';
+  if (runtime === 'android-native') return 'Android';
+  if (runtime === 'cli-node') return 'CLI';
+  return getDesktopPlatformLabel();
+}
+
 export async function buildCustomUA(): Promise<string | null> {
-  // UA is product-token only; runtime is conveyed via X-Onekey-Request-Platform.
+  // Human-readable `OneKey <platform> <version>` (e.g. `OneKey macOS 6.6.1`),
+  // the same shape on every runtime so a log filter on the `OneKey ` prefix
+  // covers them all. Finer platform detail stays in X-Onekey-Request-Platform.
   const runtime = detectRuntime();
   if (!runtime) return null;
   if (await isDisabledByDevSetting()) return null;
@@ -57,7 +83,7 @@ export async function buildCustomUA(): Promise<string | null> {
   // substitute process.env.VERSION), so it naturally falls through to '1'.
   // App targets get the build-time substituted version.
   const version = platformEnv.version ?? '1';
-  return `OneKeyWallet/${version}`;
+  return `OneKey ${getCustomUAPlatformLabel(runtime)} ${version}`;
 }
 
 export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
@@ -65,6 +91,7 @@ export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
   const parsed = uriUtils.safeParseURL(url);
   if (!parsed) return false;
   try {
+    // Sharing an IP-table route does not expand the API UA whitelist.
     return await requestHelper.checkIsOneKeyDomain(url);
   } catch {
     // CLI and the Electron main process never call updateInterceptorRequestHelper()
@@ -103,15 +130,87 @@ function logCallerConflict(url: string, existing: string): void {
 export async function withCustomUAHeaders(
   url: string,
   headers: Record<string, string> = {},
+  options: { browserTransport?: boolean } = {},
 ): Promise<Record<string, string>> {
   const next = { ...headers };
-  if (!(await shouldInjectUAForUrl(url))) return next;
-  if (hasUserAgent(next)) {
-    const existing = next[USER_AGENT_HEADER] ?? next['user-agent'] ?? 'unknown';
-    logCallerConflict(url, existing);
+  for (const key of Object.keys(next)) {
+    if (key.toLowerCase() === DESKTOP_CUSTOM_UA_HEADER.toLowerCase()) {
+      delete next[key];
+    }
+  }
+  // The preload ships with the binary; hot-updated JS can run on an older
+  // shell that cannot consume the bridge header.
+  if (
+    options.browserTransport &&
+    platformEnv.isDesktop &&
+    globalThis.desktopApi?.supportsCustomUserAgent !== true
+  ) {
     return next;
   }
+  if (!(await shouldInjectUAForUrl(url))) return next;
   const ua = await buildCustomUA();
-  if (ua) next[USER_AGENT_HEADER] = ua;
+  if (hasUserAgent(next)) {
+    const existing = next[USER_AGENT_HEADER] ?? next['user-agent'] ?? 'unknown';
+    if (existing !== ua) logCallerConflict(url, existing);
+  } else if (ua) {
+    next[USER_AGENT_HEADER] = ua;
+  }
+  if (options.browserTransport && platformEnv.isDesktop) {
+    const key = Object.keys(next).find(
+      (name) => name.toLowerCase() === USER_AGENT_HEADER.toLowerCase(),
+    );
+    if (key) {
+      next[DESKTOP_CUSTOM_UA_HEADER] = JSON.stringify([
+        new URL(url).origin,
+        next[key],
+      ]);
+    }
+  }
+  return next;
+}
+
+export function resolveDesktopCustomUAHeaders(
+  url: string,
+  headers: Record<string, string>,
+): Record<string, string> {
+  if (
+    !Object.keys(headers).some(
+      (key) => key.toLowerCase() === DESKTOP_CUSTOM_UA_HEADER.toLowerCase(),
+    )
+  ) {
+    return headers;
+  }
+  const next = { ...headers };
+  let bridge: string | undefined;
+  for (const key of Object.keys(next)) {
+    if (key.toLowerCase() === DESKTOP_CUSTOM_UA_HEADER.toLowerCase()) {
+      bridge = next[key];
+      delete next[key];
+    }
+  }
+  if (!bridge) return next;
+  try {
+    const value: unknown = JSON.parse(bridge);
+    // The renderer already checked its endpoint whitelist and dev setting.
+    // Bind that decision to its origin so redirects cannot broaden it.
+    if (
+      !Array.isArray(value) ||
+      value.length !== 2 ||
+      value[0] !== new URL(url).origin ||
+      typeof value[1] !== 'string' ||
+      !value[1] ||
+      /[^\t\x20-\x7E\x80-\xFF]/.test(value[1])
+    ) {
+      return next;
+    }
+    for (const key of Object.keys(next)) {
+      if (key.toLowerCase() === USER_AGENT_HEADER.toLowerCase()) {
+        delete next[key];
+      }
+    }
+    next[USER_AGENT_HEADER] = value[1];
+  } catch {
+    // Malformed internal headers must not prevent the original request.
+  }
   return next;
 }

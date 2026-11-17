@@ -1,8 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+
+import { isEqual } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import {
+  getDisplayLabel,
+  sortCommissionRateItems,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
@@ -10,77 +17,100 @@ import type {
   IUseCurrentLevelCardReturn,
 } from '../types';
 
-export function useCurrentLevelCard(
-  props: ICurrentLevelCardProps,
-): IUseCurrentLevelCardReturn {
-  const { rebateConfig, rebateLevels } = props;
-
-  // Fetch level detail to get more accurate data
-  const { result: levelDetail } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getLevelDetail(),
+export function useInviteLevelDetail({ isActive }: { isActive: boolean }): {
+  levelDetail: IInviteLevelDetail | undefined;
+  refreshLevelDetail: () => Promise<void>;
+} {
+  // An unchanged poll returns the previous object, so the one-minute polling
+  // does not re-render the invite page.
+  const lastRef = useRef<IInviteLevelDetail | undefined>(undefined);
+  const { result, run } = usePromiseResult(
+    async () => {
+      const detail =
+        await backgroundApiProxy.serviceReferralCode.getLevelDetail();
+      if (lastRef.current && isEqual(detail, lastRef.current)) {
+        return lastRef.current;
+      }
+      lastRef.current = detail;
+      return detail;
+    },
     [],
     {
       initResult: undefined,
-      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }), // Auto refresh every 1 minute
+      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
+  return { levelDetail: result, refreshLevelDetail: run };
+}
+
+export function useCurrentLevelCardFromDetail(
+  props: ICurrentLevelCardProps,
+  levelDetail: IInviteLevelDetail | undefined,
+): IUseCurrentLevelCardReturn {
+  const { rebateConfig, rebateLevels } = props;
+  const intl = useIntl();
 
   return useMemo(() => {
-    // Get current level info
     const currentLevel = rebateConfig;
+    const targetLevel = levelDetail?.currentLevel ?? currentLevel.level;
 
-    // Find the basic level info from rebateLevels
+    const detailLevel =
+      levelDetail?.levels.find((level) => level.level === targetLevel) ??
+      levelDetail?.levels.find((level) => level.isCurrent);
+    const displayedLevel = detailLevel?.level ?? targetLevel;
     const basicLevelInfo = rebateLevels?.find(
-      (level) => level.level === currentLevel.level,
+      (level) => level.level === displayedLevel,
     );
 
-    // Use levelDetail for complete data if available
-    let detailLevel;
-    if (levelDetail?.levels) {
-      detailLevel = levelDetail.levels.find((level) => level.isCurrent);
-    }
+    const levelIcon =
+      detailLevel?.icon || basicLevelInfo?.icon || currentLevel.icon || '';
+    const levelLabel = getDisplayLabel(
+      intl,
+      detailLevel?.labelKey ??
+        basicLevelInfo?.labelKey ??
+        currentLevel.labelKey,
+      detailLevel?.label ?? basicLevelInfo?.label ?? currentLevel.label,
+    );
 
-    // Get level icon URL and label from API data
-    const levelIcon = detailLevel?.icon || '';
-    const levelLabel =
-      detailLevel?.label || basicLevelInfo?.label || currentLevel.label || '';
+    let commissionRates: IUseCurrentLevelCardReturn['commissionRates'] = [];
 
-    // Get commission rates from detailed level data if available
-    // Convert to array format for easier iteration in components
-    let commissionRates: Array<{
-      subject: string;
-      rate: {
-        you: number;
-        invitee: number;
-        label: string;
-      };
-    }> = [];
+    const rates =
+      detailLevel?.commissionRates ??
+      basicLevelInfo?.configs ??
+      (displayedLevel === currentLevel.level
+        ? currentLevel.configs
+        : undefined);
 
-    // Use detailed commission rates if available
-    if (detailLevel?.commissionRates) {
-      const rates = detailLevel.commissionRates;
-
-      // Convert rates to array format (similar to LevelAccordionItem)
+    if (rates) {
       if (Array.isArray(rates)) {
         commissionRates = rates.map((rate, index) => ({
-          subject: rate.labelKey ?? `${index}`,
+          subject: rate.labelKey ?? rate.commissionRatesLabelKey ?? `${index}`,
           rate: {
             you: rate.rebate,
             invitee: rate.discount,
-            label:
-              rate.commissionRatesLabel || rate.label || `Rate ${index + 1}`,
+            label: getDisplayLabel(
+              intl,
+              rate.commissionRatesLabelKey ?? rate.labelKey,
+              rate.commissionRatesLabel ?? rate.label,
+            ),
+            enabled: rate.enabled === true,
           },
         }));
       } else {
-        // Handle Record<string, IInviteLevelCommissionRate> format
         commissionRates = Object.entries(rates).map(([subject, rate]) => ({
           subject,
           rate: {
             you: rate.rebate,
             invitee: rate.discount,
-            label: rate.commissionRatesLabel || rate.label || subject,
+            label: getDisplayLabel(
+              intl,
+              rate.commissionRatesLabelKey ?? rate.labelKey,
+              rate.commissionRatesLabel ?? rate.label ?? subject,
+            ),
+            enabled: rate.enabled === true,
           },
         }));
       }
@@ -89,10 +119,9 @@ export function useCurrentLevelCard(
     }
 
     return {
-      currentLevel,
-      levelIcon,
       levelLabel,
+      levelIcon,
       commissionRates,
     };
-  }, [rebateConfig, rebateLevels, levelDetail]);
+  }, [intl, levelDetail, rebateConfig, rebateLevels]);
 }

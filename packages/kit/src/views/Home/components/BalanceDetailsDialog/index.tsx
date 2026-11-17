@@ -22,7 +22,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveInfoItems } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,6 +37,8 @@ import {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
+
+import { LocalWalletFrozenLines } from '../../../AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
 
 import type { IntlShape } from 'react-intl';
 
@@ -63,12 +65,10 @@ function BalanceDetailsContent({
   onClose?: () => void;
 }) {
   const intl = useIntl();
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const { result } = usePromiseResult(async () => {
     const [vaultSettings, { networkAccounts: n }] = await Promise.all([
-      backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId,
-      }),
+      backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
         {
           networkId,
@@ -78,13 +78,14 @@ function BalanceDetailsContent({
       ),
     ]);
 
+    const effectiveMergeDeriveAssetsEnabled =
+      mergeDeriveAssetsEnabled ?? vaultSettings?.mergeDeriveAssetsEnabled;
     const i =
       await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
         {
           networkId,
           accountId,
-          mergeDeriveAssetsEnabled:
-            mergeDeriveAssetsEnabled ?? vaultSettings?.mergeDeriveAssetsEnabled,
+          mergeDeriveAssetsEnabled: effectiveMergeDeriveAssetsEnabled,
         },
       );
 
@@ -99,8 +100,10 @@ function BalanceDetailsContent({
 
     return {
       inscriptionEnabled: i,
+      effectiveMergeDeriveAssetsEnabled,
       showDeriveItems: s,
       networkAccounts: n,
+      isLocalWallet: !!vaultSettings.localWallet,
     };
   }, [
     networkId,
@@ -110,7 +113,25 @@ function BalanceDetailsContent({
     deriveInfoItems,
   ]);
 
-  const { inscriptionEnabled, showDeriveItems, networkAccounts } = result ?? {};
+  const {
+    inscriptionEnabled,
+    effectiveMergeDeriveAssetsEnabled,
+    showDeriveItems,
+    networkAccounts,
+    isLocalWallet,
+  } = result ?? {};
+
+  // Privacy chains say why each part is frozen, and offer the password check
+  // when that is what is missing.
+  const { result: localWalletFrozen, run: refreshLocalWalletFrozen } =
+    usePromiseResult(async () => {
+      if (!isLocalWallet || !accountId) return undefined;
+      const balance =
+        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountBalance(
+          { networkId, accountId },
+        );
+      return balance?.frozen;
+    }, [isLocalWallet, accountId, networkId]);
 
   const {
     result: { overview, network, account } = {
@@ -119,6 +140,7 @@ function BalanceDetailsContent({
       account: undefined,
     },
     isLoading,
+    run: refreshDetails,
   } = usePromiseResult(
     async () => {
       if (
@@ -137,7 +159,13 @@ function BalanceDetailsContent({
         accountId,
       });
       const withCheckInscription =
-        inscriptionEnabled && settings.inscriptionProtection;
+        await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
+          {
+            networkId,
+            accountId,
+            mergeDeriveAssetsEnabled: effectiveMergeDeriveAssetsEnabled,
+          },
+        );
       let r: Partial<IFetchAccountDetailsResp> & {
         deriveItems?: {
           deriveType: string;
@@ -216,12 +244,16 @@ function BalanceDetailsContent({
         network: n,
       };
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       accountId,
       networkId,
       inscriptionEnabled,
+      effectiveMergeDeriveAssetsEnabled,
       showDeriveItems,
-      settings.inscriptionProtection,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
       networkAccounts,
     ],
     {
@@ -238,6 +270,12 @@ function BalanceDetailsContent({
   });
 
   const renderFrozenBalance = useCallback(() => {
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      !inscriptionProtectionState.serverEnabled
+    ) {
+      return null;
+    }
     if (!deriveInfoItems && networkUtils.isBTCNetwork(networkId)) {
       if (
         !(
@@ -251,26 +289,36 @@ function BalanceDetailsContent({
     return (
       <YStack {...(detailsBlockStyles as IYStackProps)}>
         <XStack justifyContent="space-between" alignItems="center">
-          <XStack>
-            <Button
-              testID="home-render-frozen-balance-btn"
-              variant="tertiary"
-              iconAfter="QuestionmarkOutline"
-              color="$textSubdued"
-              onPress={() => {
-                if (platformEnv.isDesktop || platformEnv.isNative) {
-                  onClose?.();
-                  openUrlInDiscovery({ url: whatIsFrozenBalanceUrl });
-                } else {
-                  openUrlExternal(whatIsFrozenBalanceUrl);
-                }
-              }}
-            >
+          {isLocalWallet ? (
+            // Scanned chains freeze funds for their own reasons; the ordinals
+            // label and article below are about Bitcoin inscriptions only.
+            <SizableText size="$bodyLg" color="$textSubdued" flex={1} pr="$3">
               {intl.formatMessage({
-                id: ETranslations.balance_detail_protected_ordinals,
+                id: ETranslations.privacy_balance_frozen__title,
               })}
-            </Button>
-          </XStack>
+            </SizableText>
+          ) : (
+            <XStack>
+              <Button
+                testID="home-render-frozen-balance-btn"
+                variant="tertiary"
+                iconAfter="QuestionmarkOutline"
+                color="$textSubdued"
+                onPress={() => {
+                  if (platformEnv.isDesktop || platformEnv.isNative) {
+                    onClose?.();
+                    openUrlInDiscovery({ url: whatIsFrozenBalanceUrl });
+                  } else {
+                    openUrlExternal(whatIsFrozenBalanceUrl);
+                  }
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.balance_detail_protected_ordinals,
+                })}
+              </Button>
+            </XStack>
+          )}
           {isLoading ? (
             <Skeleton.BodyLg />
           ) : (
@@ -281,6 +329,20 @@ function BalanceDetailsContent({
             </SizableText>
           )}
         </XStack>
+        {isLocalWallet && accountId ? (
+          <YStack mt="$3">
+            <LocalWalletFrozenLines
+              networkId={networkId}
+              accountId={accountId}
+              frozen={localWalletFrozen}
+              symbol={network?.symbol}
+              onVerified={() => {
+                void refreshDetails();
+                void refreshLocalWalletFrozen();
+              }}
+            />
+          </YStack>
+        ) : null}
         {showDeriveItems && networkAccounts ? (
           <YStack gap="$2" mt="$3">
             {networkAccounts.map((item, index) => {
@@ -315,7 +377,7 @@ function BalanceDetailsContent({
             })}
           </YStack>
         ) : null}
-        {inscriptionEnabled ? (
+        {inscriptionEnabled && inscriptionProtectionState.serverEnabled ? (
           <>
             <Divider my="$3" />
             <XStack justifyContent="space-between" alignItems="center">
@@ -352,12 +414,12 @@ function BalanceDetailsContent({
               <Switch
                 testID="home-switch"
                 size={ESwitchSize.small}
-                value={settings.inscriptionProtection}
-                onChange={(value) => {
-                  setSettings((v) => ({
-                    ...v,
-                    inscriptionProtection: value,
-                  }));
+                value={inscriptionProtectionState.localEnabled}
+                onChange={async (value) => {
+                  await backgroundApiProxy.serviceSetting.setInscriptionProtection(
+                    value,
+                  );
+                  await refreshDetails();
                 }}
               />
             </XStack>
@@ -371,6 +433,8 @@ function BalanceDetailsContent({
     deriveInfoItems,
     howToTransferOrdinalsAssetsUrl,
     inscriptionEnabled,
+    inscriptionProtectionState.localEnabled,
+    inscriptionProtectionState.serverEnabled,
     isLoading,
     network?.symbol,
     networkAccounts,
@@ -378,11 +442,14 @@ function BalanceDetailsContent({
     onClose,
     overview?.deriveItems,
     overview?.frozenBalanceParsed,
-    setSettings,
-    settings.inscriptionProtection,
+    refreshDetails,
     showDeriveItems,
     whatIsFrozenBalanceUrl,
     intl,
+    isLocalWallet,
+    accountId,
+    localWalletFrozen,
+    refreshLocalWalletFrozen,
   ]);
 
   return (

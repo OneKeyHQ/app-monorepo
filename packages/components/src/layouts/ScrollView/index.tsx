@@ -21,8 +21,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   NativeScrollEvent,
-  NativeScrollPoint,
   NativeSyntheticEvent,
+  ScrollViewInstance,
   ScrollViewProps as ScrollViewNativeProps,
   StyleProp,
   ViewStyle,
@@ -32,15 +32,15 @@ export type IScrollViewProps = Omit<
   ScrollViewNativeProps,
   'contentContainerStyle'
 > &
-  StackProps & {
+  Omit<StackProps, keyof ScrollViewNativeProps> & {
     contentContainerStyle?: StackProps;
   };
 
-export type IScrollViewRef = ScrollViewNative;
+export type IScrollViewRef = ScrollViewInstance;
 
 const scrollViewRefContext = createContext<{
   scrollViewRef: MutableRefObject<IScrollViewRef | null>;
-  pageOffsetRef: MutableRefObject<NativeScrollPoint>;
+  pageOffsetRef: MutableRefObject<NativeScrollEvent['contentOffset']>;
 }>({
   scrollViewRef: {
     current: {} as IScrollViewRef,
@@ -61,6 +61,7 @@ function BaseScrollView(
     children,
     onScroll,
     contentContainerStyle = {},
+    testID,
     ...props
   }: IScrollViewProps,
   forwardedRef: ForwardedRef<IScrollViewRef>,
@@ -68,6 +69,24 @@ function BaseScrollView(
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
+  const showsScrollIndicator = props.horizontal
+    ? props.showsHorizontalScrollIndicator === true
+    : props.showsVerticalScrollIndicator === true;
+  const scrollViewProps = platformEnv.isNative
+    ? restProps
+    : {
+        ...restProps,
+        // RNW only implements the false case and cannot override the global
+        // scrollbar reset when the indicator prop is true.
+        showsHorizontalScrollIndicator: undefined,
+        showsVerticalScrollIndicator: undefined,
+        dataSet: {
+          ...(restProps as { dataSet?: Record<string, string> }).dataSet,
+          onekeyScrollViewScrollbar: showsScrollIndicator
+            ? 'visible'
+            : 'hidden',
+        },
+      };
   const contentStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
     {
@@ -98,7 +117,9 @@ function BaseScrollView(
       contentContainerStyle={contentStyle}
       scrollEventThrottle={30}
       onScroll={handleScroll}
-      {...restProps}
+      // Preserve testID because RNW drops Tamagui's data-testid rewrite.
+      testID={testID}
+      {...scrollViewProps}
       refreshControl={platformEnv.isNative ? props.refreshControl : undefined}
     >
       <ScrollViewRefProvider value={value}>{children}</ScrollViewRefProvider>

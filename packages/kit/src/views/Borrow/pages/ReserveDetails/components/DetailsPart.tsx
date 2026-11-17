@@ -1,11 +1,19 @@
 import { memo, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Divider, YStack, useMedia } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  LOCALE_SEPARATORS,
+  formatLocalizedNumberString,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowFAQSection } from './BorrowFAQSection';
@@ -29,6 +37,42 @@ interface IDetailsPartProps {
   onShare?: () => void;
 }
 
+function formatOraclePrice({
+  oraclePrice,
+  currencySymbol,
+}: {
+  oraclePrice: string | undefined;
+  currencySymbol: string;
+}) {
+  if (!oraclePrice) {
+    return undefined;
+  }
+
+  const localeSeparators =
+    LOCALE_SEPARATORS[appLocale.intl.locale] ?? LOCALE_SEPARATORS.en;
+  const normalizedPrice = oraclePrice
+    .split(localeSeparators.grouping)
+    .join('')
+    .replace(localeSeparators.decimal, '.')
+    .replace(/\s/gu, '');
+  const price = new BigNumber(normalizedPrice);
+  if (!price.isFinite()) {
+    return oraclePrice;
+  }
+
+  return `${currencySymbol}${formatLocalizedNumberString(price.toFixed(2))}`;
+}
+
+function formatCompactFiatValue({
+  value,
+  currencySymbol,
+}: {
+  value: string | undefined;
+  currencySymbol: string;
+}) {
+  return value ? `${currencySymbol}${value}` : undefined;
+}
+
 const DetailsPartComponent = ({
   details,
   isLoading,
@@ -42,26 +86,43 @@ const DetailsPartComponent = ({
   onShare,
 }: IDetailsPartProps) => {
   const { gtMd } = useMedia();
+  const currencyInfo = useCurrency();
+  const formattedOraclePrice = formatOraclePrice({
+    oraclePrice: details?.oraclePrice,
+    currencySymbol: currencyInfo.symbol,
+  });
+  const formattedReserveSize = formatCompactFiatValue({
+    value: details?.reserveSize,
+    currencySymbol: currencyInfo.symbol,
+  });
+  const formattedAvailableLiquidity = formatCompactFiatValue({
+    value: details?.liquidity,
+    currencySymbol: currencyInfo.symbol,
+  });
 
-  const mobileContainerProps = useMemo(
-    () => ({
-      allowHeaderOverscroll: true,
-      renderHeader: () => (
-        <YStack px="$5" pt="$6" bg="$bgApp" pointerEvents="box-none">
-          <ReserveProtocolHeader
-            symbol={symbol}
-            logoURI={logoURI}
-            oraclePrice={details?.oraclePrice}
-            reserveSize={details?.reserveSize}
-            availableLiquidity={details?.liquidity}
-            utilizationRatio={details?.utilizationRatio}
-            platformBonus={details?.platformBonus}
-            managers={details?.managers}
-          />
-        </YStack>
-      ),
-    }),
-    [symbol, logoURI, details],
+  const mobileHeader = useMemo(
+    () => (
+      <YStack px="$5" pt="$6" bg="$bgApp" pointerEvents="box-none">
+        <ReserveProtocolHeader
+          symbol={symbol}
+          logoURI={logoURI}
+          oraclePrice={formattedOraclePrice}
+          reserveSize={formattedReserveSize}
+          availableLiquidity={formattedAvailableLiquidity}
+          utilizationRatio={details?.utilizationRatio}
+          platformBonus={details?.platformBonus}
+          managers={details?.managers}
+        />
+      </YStack>
+    ),
+    [
+      symbol,
+      logoURI,
+      details,
+      formattedOraclePrice,
+      formattedReserveSize,
+      formattedAvailableLiquidity,
+    ],
   );
 
   if (!gtMd) {
@@ -74,12 +135,18 @@ const DetailsPartComponent = ({
       >
         {details ? (
           <ReserveDetailsTabs
+            key={JSON.stringify([
+              networkId,
+              provider,
+              marketAddress,
+              reserveAddress,
+            ])}
             networkId={networkId}
             provider={provider}
             marketAddress={marketAddress}
             reserveAddress={reserveAddress}
             details={details}
-            containerProps={mobileContainerProps}
+            header={mobileHeader}
           />
         ) : null}
       </PageFrame>
@@ -101,9 +168,9 @@ const DetailsPartComponent = ({
                 symbol={symbol}
                 logoURI={logoURI}
                 onShare={onShare}
-                oraclePrice={details.oraclePrice}
-                reserveSize={details.reserveSize}
-                availableLiquidity={details.liquidity}
+                oraclePrice={formattedOraclePrice}
+                reserveSize={formattedReserveSize}
+                availableLiquidity={formattedAvailableLiquidity}
                 utilizationRatio={details.utilizationRatio}
                 platformBonus={details.platformBonus}
                 managers={details.managers}

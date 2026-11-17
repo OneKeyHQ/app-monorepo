@@ -24,6 +24,13 @@ if (harnessOutputFile) {
     app.exit(3);
   });
 } else {
+  // Strip ELECTRON_IS_DEV in packaged builds before loading the app graph so
+  // bundled `electron-is-dev` cannot be forced true via environment variables.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { app } = require('electron') as typeof import('electron');
+  if (app?.isPackaged) {
+    delete process.env.ELECTRON_IS_DEV;
+  }
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('./app');
 }

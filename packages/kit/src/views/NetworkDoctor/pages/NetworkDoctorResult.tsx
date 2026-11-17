@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -13,10 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useNetworkDoctorStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENetworkConnectivityLevel } from '@onekeyhq/shared/src/modules/NetworkDoctor/types';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { NetworkDoctorTestIDs } from '../testIDs';
@@ -53,16 +53,20 @@ function NetworkDoctorResult() {
   const connectivityLevelMap = useConnectivityLevelMap();
 
   const { status, progress, result, error } = doctorState;
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   // Only reset if status is 'completed' or 'failed', not 'running'
   // This allows background diagnostics to continue if user closes the page
+  // Check the latest status on unmount only: a new run replacing an old
+  // result while the page is open must not be reset.
   useEffect(
     () => () => {
-      if (status === 'completed' || status === 'failed') {
+      if (statusRef.current === 'completed' || statusRef.current === 'failed') {
         void backgroundApiProxy.serviceNetworkDoctor.resetNetworkDiagnostics();
       }
     },
-    [status],
+    [],
   );
 
   const handleContactSupport = useCallback(() => {

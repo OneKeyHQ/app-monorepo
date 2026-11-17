@@ -142,6 +142,7 @@ function TokenDetailsTabToolbar(props: IProps) {
   return (
     <XStack pr="$5">
       <LinearGradient
+        pointerEvents="none"
         colors={
           themeVariant === 'light'
             ? ['rgba(255,255,255,0)', 'rgba(255,255,255,1)']
@@ -160,10 +161,6 @@ function TokenDetailsTabToolbar(props: IProps) {
         floatingPanelProps={{
           width: 320,
           maxHeight: 372,
-        }}
-        sheetProps={{
-          snapPoints: [92],
-          snapPointsMode: 'percent',
         }}
         title={intl.formatMessage({
           id: ETranslations.global_select_network,

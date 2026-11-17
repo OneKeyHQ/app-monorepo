@@ -127,6 +127,7 @@ interface IApprovalParams {
   amountValue: string;
   repayAll: boolean;
   approveTarget?: IBorrowApproveTarget;
+  stakingInfo?: { protocolLogoURI?: string };
   onApprovedSubmit: () => Promise<void>;
 }
 
@@ -200,6 +201,14 @@ function tokenBalance(balanceParsed: string, address = '0xToken') {
   ];
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function createCheck(
   repayAssets: IBorrowEModeBlockerAsset[],
 ): IBorrowEModeSwitchCheck {
@@ -216,6 +225,19 @@ function createCheck(
   };
 }
 
+const ONLY_FIAT_SHORTFALL_CHECK = {
+  canSwitch: false,
+  reasons: [],
+  disableCollateralAssets: [],
+  repayAssets: [],
+  additionalRepayAssets: [],
+  additionalRepayFiatValue: '$12.34',
+  collateral: {},
+  debt: {},
+  maxLtv: {},
+  healthFactor: {},
+} satisfies IBorrowEModeSwitchCheck;
+
 function renderFlow() {
   return renderHook(() =>
     useEModeNeedActionFlow({
@@ -223,6 +245,7 @@ function renderFlow() {
       accountId: 'account-id',
       provider: 'aave',
       marketAddress: '0xMarket',
+      providerLogoURI: 'https://example.com/aave.png',
       targetEModeId: 2,
       onAllDone: jest.fn(),
     }),
@@ -276,6 +299,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       expect(result.current.activeStep?.key).toBe('repay:0xreserve');
     });
     await launchApproval(result);
+    expect(approvalMock.latestParams?.stakingInfo?.protocolLogoURI).toBe(
+      'https://example.com/aave.png',
+    );
 
     switchMock.check = null;
     switchMock.isChecking = true;
@@ -299,6 +325,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
         amount: '3',
         ignoreOrderTrackingError: true,
         reserveAddress: '0xReserve',
+        stakingInfo: expect.objectContaining({
+          protocolLogoURI: 'https://example.com/aave.png',
+        }),
       }),
     );
   });
@@ -396,6 +425,92 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     expect(universalMock.repay).not.toHaveBeenCalled();
   });
 
+  it('refetches the funding balance on refreshFundingBalances until the shortfall clears', async () => {
+    tokenMock.fetchTokensDetails
+      .mockReset()
+      .mockResolvedValueOnce(tokenBalance('0', '0xReserve'))
+      .mockResolvedValueOnce(tokenBalance('12', '0xReserve'));
+    const { result } = renderFlow();
+
+    await waitFor(() => {
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(1);
+      expect(result.current.activeShortfall).not.toBeNull();
+    });
+    expect(result.current.balanceByKey['repay:0xreserve']).toBe('0');
+
+    act(() => {
+      result.current.refreshFundingBalances();
+    });
+
+    await waitFor(() => {
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(2);
+      expect(result.current.balanceByKey['repay:0xreserve']).toBe('12');
+    });
+    expect(result.current.activeShortfall).toBeNull();
+  });
+
+  it('serializes slow balance refreshes and applies the queued result', async () => {
+    const first = createDeferred<ReturnType<typeof tokenBalance>>();
+    const second = createDeferred<ReturnType<typeof tokenBalance>>();
+    let concurrentRequests = 0;
+    let maxConcurrentRequests = 0;
+    tokenMock.fetchTokensDetails
+      .mockReset()
+      .mockImplementationOnce(async () => {
+        concurrentRequests += 1;
+        maxConcurrentRequests = Math.max(
+          maxConcurrentRequests,
+          concurrentRequests,
+        );
+        const details = await first.promise;
+        concurrentRequests -= 1;
+        return details;
+      })
+      .mockImplementationOnce(async () => {
+        concurrentRequests += 1;
+        maxConcurrentRequests = Math.max(
+          maxConcurrentRequests,
+          concurrentRequests,
+        );
+        const details = await second.promise;
+        concurrentRequests -= 1;
+        return details;
+      });
+    const { result } = renderFlow();
+
+    await waitFor(() => {
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(1);
+    });
+    act(() => {
+      result.current.refreshFundingBalances();
+      result.current.refreshFundingBalances();
+    });
+    expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(1);
+    expect(maxConcurrentRequests).toBe(1);
+
+    await act(async () => {
+      first.resolve(tokenBalance('12', '0xReserve'));
+      await first.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.balanceByKey['repay:0xreserve']).toBe('12');
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(2);
+    });
+    expect(maxConcurrentRequests).toBe(1);
+
+    await act(async () => {
+      second.resolve(tokenBalance('20', '0xReserve'));
+      await second.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.balanceByKey['repay:0xreserve']).toBe('20');
+    });
+    expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(2);
+    expect(maxConcurrentRequests).toBe(1);
+  });
+
   it('stops after approval when fresh debt has grown beyond fresh funding', async () => {
     tokenMock.fetchTokensDetails
       .mockReset()
@@ -488,7 +603,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       marketAddress: '0xMarket',
       reserveAddress: '0xReserve',
       useAsCollateral: false,
-      stakingInfo: expect.any(Object),
+      stakingInfo: expect.objectContaining({
+        protocolLogoURI: 'https://example.com/aave.png',
+      }),
       onSuccess: expect.any(Function),
       onFail: expect.any(Function),
       onCancel: expect.any(Function),
@@ -569,7 +686,12 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     await waitFor(() => {
       expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
       expect(universalMock.setEMode).toHaveBeenCalledWith(
-        expect.objectContaining({ ignoreOrderTrackingError: true }),
+        expect.objectContaining({
+          ignoreOrderTrackingError: true,
+          stakingInfo: expect.objectContaining({
+            protocolLogoURI: 'https://example.com/aave.png',
+          }),
+        }),
       );
       expect(switchMock.applyAuthoritativeCheck).toHaveBeenCalledWith({
         eModeId: 2,
@@ -584,6 +706,41 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     expect(switchMock.runCheck).not.toHaveBeenCalled();
     expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
     expect(universalMock.repay).not.toHaveBeenCalled();
+  });
+
+  it('exposes an only-fiat shortfall as unavailable without polling or switching', async () => {
+    const { result, rerender, unmount } = renderFlow();
+    await waitFor(() => {
+      expect(result.current.activeStep?.key).toBe('repay:0xreserve');
+    });
+
+    switchMock.check = ONLY_FIAT_SHORTFALL_CHECK;
+    rerender({});
+    await waitFor(() => {
+      expect(result.current.blockerDataUnavailable).toBe(true);
+      expect(result.current.activeStep?.kind).toBe('switch');
+    });
+    expect(result.current.steps.map((step) => step.key)).toEqual([
+      'repay:0xreserve',
+      'switch',
+    ]);
+
+    act(() => result.current.run());
+    await act(async () => Promise.resolve());
+    expect(universalMock.setEMode).not.toHaveBeenCalled();
+
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        jest.advanceTimersByTime(10 * 60 * 1000);
+        await Promise.resolve();
+      });
+      expect(switchMock.runCheck).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('bounds exact-tx recovery, preserves a recased pending lock, and retries by rechecking', async () => {

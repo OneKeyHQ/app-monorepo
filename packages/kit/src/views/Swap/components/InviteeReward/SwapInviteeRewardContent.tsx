@@ -1,0 +1,139 @@
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  Divider,
+  ScrollView,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { RewardHistoryList } from './components/RewardHistoryList';
+import { RewardSummaryCard } from './components/RewardSummaryCard';
+import { loadSwapInviteeReward } from './utils';
+
+interface ISwapInviteeRewardContentProps {
+  accountId?: string;
+  currentEvmAddress?: string;
+  isMobile?: boolean;
+  // Only overlay hosts pass this; the pushed modal page has nothing to dismiss.
+  onBeforeNavigate?: () => void | Promise<void>;
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  const intl = useIntl();
+
+  return (
+    <YStack minHeight={260} jc="center" ai="center" gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.global_failed })}
+      </SizableText>
+      <Button
+        testID="swap-invitee-reward-retry"
+        size="small"
+        variant="secondary"
+        onPress={onRetry}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  );
+}
+
+export function SwapInviteeRewardContent({
+  accountId,
+  currentEvmAddress,
+  isMobile,
+  onBeforeNavigate,
+}: ISwapInviteeRewardContentProps) {
+  const intl = useIntl();
+  const { result, isLoading, run } = usePromiseResult(
+    async () => {
+      if (!accountId || !currentEvmAddress) {
+        return undefined;
+      }
+
+      return loadSwapInviteeReward({
+        currentEvmAddress,
+        dependencies: {
+          getSwapInviteeRewards: (params) =>
+            backgroundApiProxy.serviceReferralCode.getSwapInviteeRewards(
+              params,
+            ),
+        },
+      });
+    },
+    [accountId, currentEvmAddress],
+    {
+      watchLoading: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  if (!accountId || !currentEvmAddress || result?.status === 'unsupported') {
+    return (
+      <InviteeRewardNoWallet
+        testID="swap-invitee-reward-onboarding"
+        onBeforeNavigate={onBeforeNavigate}
+      />
+    );
+  }
+
+  if (result?.status === 'error') {
+    return (
+      <ErrorState
+        onRetry={() => {
+          void run();
+        }}
+      />
+    );
+  }
+
+  const data = result?.status === 'success' ? result.data : undefined;
+  const distributedBonus = data
+    ? new BigNumber(data.totalBonus).minus(data.undistributed).toFixed()
+    : undefined;
+  const showLoading = Boolean(isLoading || !result);
+  const content = (
+    <YStack gap="$5">
+      <RewardSummaryCard
+        isLoading={showLoading}
+        distributedBonus={distributedBonus}
+        undistributed={data?.undistributed}
+        tokenSymbol={data?.token.symbol}
+      />
+      <Divider />
+      <YStack gap="$2">
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.referral_reward_history,
+          })}
+        </SizableText>
+        <RewardHistoryList
+          key={`${accountId}:${currentEvmAddress}`}
+          isLoading={showLoading}
+          history={data?.history}
+        />
+      </YStack>
+    </YStack>
+  );
+
+  if (isMobile) {
+    return (
+      <YStack flex={1} gap="$5" px="$5" py="$3">
+        {content}
+      </YStack>
+    );
+  }
+
+  return (
+    <ScrollView minHeight={350} maxHeight={500}>
+      {content}
+    </ScrollView>
+  );
+}

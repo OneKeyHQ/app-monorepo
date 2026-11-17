@@ -15,17 +15,18 @@ import {
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   HARDWARE_TROUBLESHOOTING_URL,
   TREZOR_TROUBLESHOOTING_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 // Define stable components outside of render function to avoid React warnings
@@ -223,7 +224,7 @@ export function ConnectionTroubleShootingAccordion({
                       )}
                 </Heading>
                 <Stack
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '-180deg' : '0deg'}
                 >
@@ -236,10 +237,10 @@ export function ConnectionTroubleShootingAccordion({
               </>
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content
               unstyled
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
@@ -283,6 +284,7 @@ export function ConnectionTroubleShootingAccordion({
 
 export function DeviceNotFoundDialogContent() {
   const intl = useIntl();
+  const dialog = useDialogInstance();
 
   return (
     <YStack gap="$2">
@@ -298,8 +300,9 @@ export function DeviceNotFoundDialogContent() {
       </Button>
       <Button
         testID="hardware-ui-contact-us-btn"
-        onPress={() => {
-          void showIntercom();
+        onPress={async () => {
+          await dialog.close();
+          await showIntercom();
         }}
         size="large"
         icon="HelpSupportOutline"
@@ -312,6 +315,7 @@ export function DeviceNotFoundDialogContent() {
 
 export function TrezorDeviceNotFoundDialogContent() {
   const intl = useIntl();
+  const dialog = useDialogInstance();
 
   return (
     <YStack gap="$2">
@@ -327,8 +331,9 @@ export function TrezorDeviceNotFoundDialogContent() {
       </Button>
       <Button
         testID="hardware-ui-contact-us-btn"
-        onPress={() => {
-          void showIntercom();
+        onPress={async () => {
+          await dialog.close();
+          await showIntercom();
         }}
         size="large"
         icon="HelpSupportOutline"

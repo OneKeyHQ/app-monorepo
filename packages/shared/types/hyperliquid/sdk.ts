@@ -4,7 +4,7 @@ import type { ESubscriptionType, IPerpsFormattedAssetCtx } from './types';
 import type * as HL from '@nktkas/hyperliquid';
 
 // WebSocket event types
-export type IWsWebData2 = HL.WebData2WsEvent;
+export type IWsWebData2 = HL.WebData2Response;
 export type IWsWebData3 = HL.WebData3WsEvent;
 export type IWsAllMids = HL.AllMidsWsEvent;
 export type IWsActiveAssetCtx = HL.ActiveAssetCtxWsEvent;
@@ -16,18 +16,30 @@ export type IWsOpenOrders = HL.OpenOrdersWsEvent;
 export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
+export type IWsTrades = HL.TradesWsEvent;
 export type IWsTwapStates = HL.TwapStatesWsEvent;
 export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
 export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
 export type ITwapState = IWsTwapStates['states'][number][1];
 export type ITwapHistoryRecord = HL.TwapHistoryResponse[number];
+export type ITwapHistoryStatusValue = ITwapHistoryRecord['status']['status'];
 export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 
 // Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
+// SDK 0.32.2 predates this field; Hyperliquid sends it for unified and
+// portfolio margin accounts as [collateral token, available after maintenance].
+export type IWsSpotStateWithAvailability = IWsSpotState & {
+  spotState: IWsSpotState['spotState'] & {
+    tokenToAvailableAfterMaintenance?: Array<[number, string]>;
+  };
+};
 export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
 export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
-export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
+export type ISpotBalance = Extract<
+  IWsSpotState['spotState']['balances'][number],
+  { token: number }
+>;
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
 export type IEventSpotAssetCtxsParameters = Record<string, never>;
 export type IEventActiveSpotAssetCtxParameters =
@@ -90,6 +102,7 @@ export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 export type IMetaAndAssetCtxsResponse = HL.MetaAndAssetCtxsResponse;
 export type IFundingHistoryRecord = HL.FundingHistoryResponse[number];
+export type IUserFunding = HL.UserFundingResponse[number];
 export type IRecentTrade = HL.RecentTradesResponse[number];
 export type IPerpAnnotation = HL.PerpAnnotationResponse;
 export type IPerpsAtOpenInterestCapResponse = HL.PerpsAtOpenInterestCapResponse;
@@ -187,7 +200,8 @@ export type IEventFastL2Parameters = {
   m?: IEventL2BookParameters['mantissa'];
 };
 export type IEventBboParameters = HL.BboWsParameters;
-export type IEventWebData2Parameters = HL.WebData2WsParameters;
+export type IEventTradesParameters = HL.TradesWsParameters;
+export type IEventWebData2Parameters = HL.WebData2Parameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
   HL.UserNonFundingLedgerUpdatesWsParameters;
@@ -213,6 +227,7 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
   [ESubscriptionType.L2]: IEventFastL2Parameters;
   [ESubscriptionType.BBO]: IEventBboParameters;
+  [ESubscriptionType.TRADES]: IEventTradesParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
 

@@ -8,6 +8,7 @@ import type {
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
+  IEarnUtmParams,
   IEarnWithdrawType,
   IProtocolInfo,
   IStakeProtocolDetails,
@@ -22,6 +23,7 @@ export enum EModalStakingRoutes {
   BorrowTokenSelect = 'BorrowTokenSelect',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowEModeSwitch = 'BorrowEModeSwitch',
+  BorrowEModeCategorySelect = 'BorrowEModeCategorySelect',
   BorrowEModeNeedAction = 'BorrowEModeNeedAction',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
@@ -49,6 +51,40 @@ interface IDetailPageInfoParams extends IBaseRouteParams {
   symbol?: string;
   provider?: string;
 }
+
+type IBorrowManagePositionRouteParams = IBaseRouteParams & {
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+  symbol: string;
+  logoURI?: string;
+  providerDisplayName?: string;
+  providerLogoURI?: string;
+  type?: EManagePositionType;
+};
+
+type IBorrowTokenSelectAction =
+  | {
+      navigateOnSelect: {
+        screen: EModalStakingRoutes.BorrowManagePosition;
+        params: Pick<
+          IBorrowManagePositionRouteParams,
+          'providerDisplayName' | 'providerLogoURI'
+        > & {
+          type: EManagePositionType;
+        };
+      };
+      onSelect?: never;
+      closeOnSelect?: never;
+    }
+  | {
+      navigateOnSelect?: never;
+      onSelect?: (asset: IBorrowAsset) => void;
+      /** Defaults to true. Set false when onSelect navigates onward itself, so
+       * the list stays underneath and Back returns to it. */
+      closeOnSelect?: boolean;
+    };
+
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
   [EModalStakingRoutes.ProtocolDetails]: IBaseRouteParams & {
@@ -80,24 +116,35 @@ export type IModalStakingParamList = {
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
+    // Campaign attribution from the Earn link that opened the detail page;
+    // rides along into the stake / withdraw request.
+    utm?: IEarnUtmParams;
+    // Fires after a deposit/withdraw confirms, before this modal pops. The
+    // inline wide-layout ManagePositionPart takes the same callback as a prop;
+    // opened as a modal there is no other way back to the caller. Same shape as
+    // the onSuccess this file already carries on the Claim routes.
+    onStakeWithdrawSuccess?: () => void;
   };
-  [EModalStakingRoutes.BorrowManagePosition]: IBaseRouteParams & {
-    provider: string;
-    marketAddress: string;
-    reserveAddress: string;
-    symbol: string;
-    logoURI?: string;
-    providerDisplayName?: string;
-    providerLogoURI?: string;
-    type?: EManagePositionType;
-  };
+  [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+    providerLogoURI?: string;
+  };
+  // Pass the scope so the picker can read live status while it is open.
+  [EModalStakingRoutes.BorrowEModeCategorySelect]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    selectedEModeId: number | null;
+    // The focused picker may have fresher status than the switch page.
+    onSelect: (eModeId: number, observedCurrentEModeId: number | null) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+    providerLogoURI?: string;
     targetEModeId: number;
     categoryLabel: string;
   };
@@ -106,8 +153,7 @@ export type IModalStakingParamList = {
     marketAddress: string;
     action: 'supply' | 'borrow';
     currentReserveAddress?: string;
-    onSelect?: (asset: IBorrowAsset) => void;
-  };
+  } & IBorrowTokenSelectAction;
   [EModalStakingRoutes.BorrowReserveDetails]: {
     networkId: string;
     provider: string;

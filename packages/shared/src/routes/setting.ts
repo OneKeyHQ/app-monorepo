@@ -18,16 +18,21 @@ export enum EModalSettingRoutes {
   SettingCustomNetwork = 'SettingCustomNetwork',
   SettingAppAutoLockModal = 'SettingAppAutoLockModal',
   SettingProtectModal = 'SettingProtectModal',
+  SettingTravelModeModal = 'SettingTravelModeModal',
   SettingReceiveRiskSupportedAssets = 'SettingReceiveRiskSupportedAssets',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
+  SettingDAppConnectionList = 'SettingDAppConnectionList',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
+  SettingDevPro2FirmwareUpdateModal = 'SettingDevPro2FirmwareUpdateModal',
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
   SettingDevSesHardenRuntimeCheckModal = 'SettingDevSesHardenRuntimeCheckModal',
   SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
+  SettingDevSniRequestQa = 'SettingDevSniRequestQa',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
+  SettingDevHardwarePathTestModal = 'SettingDevHardwarePathTestModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
   SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
   SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
@@ -35,9 +40,13 @@ export enum EModalSettingRoutes {
   SettingDevLocalSecretEnvelopeSelfTestModal = 'SettingDevLocalSecretEnvelopeSelfTestModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
+  SettingOfficialChannels = 'SettingOfficialChannels',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
+  SettingPrivacy = 'SettingPrivacy',
+  SettingPrivacyNetwork = 'SettingPrivacyNetwork',
+  SettingDevZcashRuntimeModal = 'SettingDevZcashRuntimeModal',
   // Dev JS Bundle Manager
   SettingDevBundleManagerModal = 'SettingDevBundleManagerModal',
   SettingDevBundleVersionList = 'SettingDevBundleVersionList',
@@ -46,6 +55,7 @@ export enum EModalSettingRoutes {
   SettingDevBundleUpdateStatusModal = 'SettingDevBundleUpdateStatusModal',
   SettingDevSplitBundleTestModal = 'SettingDevSplitBundleTestModal',
   SettingDevDrawingOrderStressModal = 'SettingDevDrawingOrderStressModal',
+  SettingDevLargeWalletDataCreation = 'SettingDevLargeWalletDataCreation',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -56,16 +66,26 @@ export enum ESettingsTabNames {
   OneKeyID = 'OneKeyID',
   Backup = 'Backup',
   Preferences = 'Preferences',
+  AppData = 'AppData',
   Wallet = 'Wallet',
   Security = 'Security',
   Network = 'Network',
+  // Desktop-only link tabs derived from promoted setting items.
+  Notifications = 'Notifications',
+  Connections = 'Connections',
   About = 'About',
   Search = 'Search',
   Dev = 'Dev',
 }
 
 export type IModalSettingParamList = {
-  [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
+  [EModalSettingRoutes.SettingListModal]:
+    | {
+        flag?: string;
+        /** Nested tab-navigator target (tab-navigator layouts only). */
+        screen?: ESettingsTabNames;
+      }
+    | undefined;
   [EModalSettingRoutes.SettingListSubModal]:
     | {
         name: ESettingsTabNames | string;
@@ -76,7 +96,8 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingClearAppCache]: undefined;
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
   [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
-  [EModalSettingRoutes.SettingCustomRPC]: undefined;
+  // networkId: scope the list to one chain and skip the chain picker.
+  [EModalSettingRoutes.SettingCustomRPC]: { networkId?: string } | undefined;
   [EModalSettingRoutes.SettingChainListSearch]: undefined;
   [EModalSettingRoutes.SettingCustomNetwork]:
     | {
@@ -94,16 +115,21 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingCustomTransaction]: undefined;
   [EModalSettingRoutes.SettingAppAutoLockModal]: undefined;
   [EModalSettingRoutes.SettingProtectModal]: undefined;
+  [EModalSettingRoutes.SettingTravelModeModal]: { admissionId: string };
   [EModalSettingRoutes.SettingReceiveRiskSupportedAssets]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
+  [EModalSettingRoutes.SettingDAppConnectionList]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
+  [EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
   [EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal]: undefined;
   [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
+  [EModalSettingRoutes.SettingDevSniRequestQa]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevHardwarePathTestModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevStorageGalleryModal]: undefined;
@@ -112,9 +138,20 @@ export type IModalSettingParamList = {
   };
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
+  [EModalSettingRoutes.SettingOfficialChannels]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
+  [EModalSettingRoutes.SettingPrivacy]: undefined;
+  [EModalSettingRoutes.SettingPrivacyNetwork]:
+    | {
+        networkId?: string;
+        walletId?: string;
+        accountId?: string;
+        enableSync?: boolean;
+      }
+    | undefined;
+  [EModalSettingRoutes.SettingDevZcashRuntimeModal]: undefined;
   // Dev JS Bundle Manager
   [EModalSettingRoutes.SettingDevBundleManagerModal]: undefined;
   [EModalSettingRoutes.SettingDevBundleVersionList]: undefined;
@@ -123,6 +160,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevBundleUpdateStatusModal]: undefined;
   [EModalSettingRoutes.SettingDevSplitBundleTestModal]: undefined;
   [EModalSettingRoutes.SettingDevDrawingOrderStressModal]: undefined;
+  [EModalSettingRoutes.SettingDevLargeWalletDataCreation]: undefined;
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;

@@ -4,22 +4,47 @@ import {
   Icon,
   Popover,
   SizableText,
+  Stack,
   Tooltip,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IIconProps, IStackProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IInfoIconProps {
   onPress?: () => void;
   size?: string;
+  color?: IIconProps['color'];
+  triggerPadding?: IStackProps['padding'];
   tooltip?: string | { title?: string; content: string };
 }
 
-export function InfoIcon({ onPress, size = '$5', tooltip }: IInfoIconProps) {
+export function InfoIcon({
+  onPress,
+  size = '$5',
+  color,
+  triggerPadding,
+  tooltip,
+}: IInfoIconProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const icon = <Icon name="InfoCircleOutline" size={size} onPress={onPress} />;
+  const icon = (
+    <Icon
+      name="InfoCircleOutline"
+      size={size}
+      color={color}
+      onPress={onPress}
+    />
+  );
+  const trigger = triggerPadding ? (
+    <Stack p={triggerPadding} onPress={onPress}>
+      {icon}
+    </Stack>
+  ) : (
+    icon
+  );
 
   if (tooltip) {
     const tooltipContent =
@@ -29,12 +54,13 @@ export function InfoIcon({ onPress, size = '$5', tooltip }: IInfoIconProps) {
         ? tooltip.title
         : intl.formatMessage({ id: ETranslations.global_info });
 
-    if (!gtMd) {
+    // Native Tooltip returns only its trigger, so wide tablets still open Popover.
+    if (!gtMd || platformEnv.isNative) {
       return (
         <Popover
           placement="top"
           title={tooltipTitle}
-          renderTrigger={icon}
+          renderTrigger={trigger}
           renderContent={
             <YStack px="$5" py="$4">
               <SizableText size="$bodyMd">{tooltipContent}</SizableText>
@@ -44,8 +70,8 @@ export function InfoIcon({ onPress, size = '$5', tooltip }: IInfoIconProps) {
       );
     }
 
-    return <Tooltip renderTrigger={icon} renderContent={tooltipContent} />;
+    return <Tooltip renderTrigger={trigger} renderContent={tooltipContent} />;
   }
 
-  return icon;
+  return trigger;
 }

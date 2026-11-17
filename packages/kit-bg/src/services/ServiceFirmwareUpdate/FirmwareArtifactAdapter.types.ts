@@ -1,0 +1,75 @@
+export type IFirmwareArchiveExpectedEntry = {
+  artifactId: string;
+  entryName: string;
+  expectedSize: number;
+  expectedSha256: string;
+};
+
+export type IFirmwareArtifactRoute = {
+  routeType: 'domain';
+};
+
+export type IFirmwareArtifactReceipt = {
+  artifactRef: string;
+  size: number;
+  sha256: string;
+  expectedSha256Verified: boolean;
+};
+
+export type IFirmwareArtifactLeaseDisposition =
+  | 'completed'
+  | 'safeCancelled'
+  | 'safeAbandoned';
+
+export type IFirmwareMaterializedArtifact = {
+  entryName: string;
+  receipt: IFirmwareArtifactReceipt;
+};
+
+export type IFirmwareArtifactCapabilities = {
+  firmwareArtifactProtocolVersion: number;
+  supportedRouteTypes: string[];
+  supportsArchiveMaterialization: boolean;
+  maxReadBytes: number;
+};
+
+export interface IFirmwareArtifactAdapter {
+  getCapabilities():
+    | IFirmwareArtifactCapabilities
+    | Promise<IFirmwareArtifactCapabilities>;
+  download(input: {
+    taskId: string;
+    transactionId: string;
+    leaseRef: string;
+    artifactId: string;
+    url: string;
+    route: IFirmwareArtifactRoute;
+    expectedSize?: number;
+    expectedSha256?: string;
+    maxBytes: number;
+    overallDeadlineSeconds: number;
+    // Set by bg only while developer mode + "Use pre-release config" are on;
+    // pre-release artifact hosts (developer buckets) are not pinned in advance.
+    allowPreReleaseHosts?: boolean;
+  }): Promise<IFirmwareArtifactReceipt>;
+  cancelDownloads(transactionId: string): Promise<void>;
+  materialize(input: {
+    leaseRef: string;
+    archiveArtifactRef: string;
+    expectedEntries?: readonly IFirmwareArchiveExpectedEntry[];
+  }): Promise<readonly IFirmwareMaterializedArtifact[]>;
+  open(artifactRef: string): Promise<{ readerId: string; size: number }>;
+  read(input: {
+    readerId: string;
+    offset: number;
+    length: number;
+  }): Promise<ArrayBuffer>;
+  close(readerId: string): Promise<void>;
+  createLease(transactionId: string): Promise<{ leaseRef: string }>;
+  retain(input: { leaseRef: string; artifactRef: string }): Promise<void>;
+  releaseLease(input: {
+    leaseRef: string;
+    disposition: IFirmwareArtifactLeaseDisposition;
+  }): Promise<void>;
+  sweepOrphans(): Promise<{ deletedFiles: number; deletedBytes: number }>;
+}

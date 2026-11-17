@@ -210,7 +210,7 @@ function ResourceRental() {
                   })}
                 </SizableText>
                 <View
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"
@@ -220,10 +220,10 @@ function ResourceRental() {
               </XStack>
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content
               backgroundColor="transparent"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{ opacity: 0 }}
               px="$3"

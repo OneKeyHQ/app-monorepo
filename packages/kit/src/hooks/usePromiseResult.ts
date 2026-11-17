@@ -8,7 +8,7 @@ import {
   useDeferredPromise,
   useNetInfo,
 } from '@onekeyhq/components';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useRouteIsFocusedWhenEnabled as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -32,14 +32,28 @@ export type IPromiseResultOptions<T> = {
   overrideIsFocused?: (isFocused: boolean) => boolean; // override the value of useIsFocused
   debounced?: number;
   undefinedResultIfError?: boolean;
+  // Optional background data may retain its last result without rethrowing.
+  // undefinedResultIfError takes precedence when both options are enabled.
+  keepResultIfError?: boolean;
   undefinedResultIfReRun?: boolean;
   pollingInterval?: number;
+  // Start the first deps effect directly; later interval changes keep their schedule.
+  runImmediatelyOnMount?: boolean;
+  // Run immediately when a polling interval becomes active or changes. The
+  // default keeps the historical delay so callers can opt in per request.
+  runImmediatelyOnPollingIntervalChange?: boolean;
   alwaysSetState?: boolean;
   onIsLoadingChange?: (isLoading: boolean) => void;
   // automatically revalidate when Page gets focused
   revalidateOnFocus?: boolean;
+  // Minimum elapsed time (ms) since the last run before a focus transition
+  // triggers revalidation. Defaults to 0 (always revalidate on focus).
+  focusRevalidateMinIntervalMs?: number;
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
+  // Resume this hook when React reconnects effects while preserving state.
+  // Opt in only for retained surfaces that are known to use this lifecycle.
+  resumeOnEffectReconnect?: boolean;
   testID?: string;
   /**
    * When set, enables stale-while-revalidate:
@@ -157,7 +171,10 @@ export function usePromiseResult<T>(
   }
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const _isFocused = useIsFocused({ testID: options.testID });
+  const _isFocused = useIsFocused({
+    enabled: options.checkIsFocused !== false,
+    testID: options.testID,
+  });
   const isFocusedRef = useRef<boolean>(_isFocused);
   const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = _isFocused;
@@ -177,6 +194,7 @@ export function usePromiseResult<T>(
   };
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
+  const lastFocusRunAtRef = useRef(0);
 
   // The polling continuation in the finally-block reads this synchronously,
   // so a ref is enough — no consumer reacts to the flag via React state, and
@@ -184,6 +202,11 @@ export function usePromiseResult<T>(
   const stopPollingRef = useRef(false);
 
   const isEffectValid = useRef(true);
+  useEffect(() => {
+    if (optionsRef.current.resumeOnEffectReconnect) {
+      isEffectValid.current = true;
+    }
+  }, []);
 
   const run = useMemo(
     () => {
@@ -271,6 +294,7 @@ export function usePromiseResult<T>(
         try {
           if (shouldSetState(config)) {
             didStartRequest = true;
+            lastFocusRunAtRef.current = Date.now();
             // Capture swrKey at dispatch time. If it changes mid-flight
             // (e.g. user switches wallet/account), we must NOT land
             // this result on the new scope — neither into its render
@@ -295,6 +319,7 @@ export function usePromiseResult<T>(
               nonceRef.current === nonce &&
               capturedSwrKey === swrKeyRef.current
             ) {
+              lastFocusRunAtRef.current = Date.now();
               setResult(r);
               // Only persist if the result is defined — writing
               // `undefined` would later override the caller's explicit
@@ -308,6 +333,14 @@ export function usePromiseResult<T>(
                 swrCacheUtils.set(capturedSwrKey, r);
               }
             }
+          } else if (
+            pollingInterval &&
+            config?.pollingNonce === pollingNonceRef.current &&
+            !isFocusedRef.current
+          ) {
+            // Focus can change while an automatic refresh is debounced.
+            // Keep it pending until a request can actually start.
+            isDepsChangedOnBlur.current = true;
           }
         } catch (err) {
           // AbortError is expected when IndexedDB transactions are cancelled
@@ -338,19 +371,24 @@ export function usePromiseResult<T>(
             // Swallow: scope/nonce identity check (same as success path)
             // and suppressed re-throw mirror how AbortError is already
             // treated as non-critical.
-          } else if (
-            didStartRequest &&
-            shouldApplyResult(config) &&
-            (undefinedResultIfError || isAbortError)
-          ) {
-            // Mirror the success-path gate: callers that opted into
-            // `undefinedResultIfError` expect the reset to land
-            // regardless of focus. Without this, a blur-time rejection
-            // silently keeps stale data and re-throws as an unhandled
-            // rejection.
-            setResult(undefined);
-          } else if (!isAbortError) {
-            throw err;
+          } else {
+            if (didStartRequest) {
+              lastFocusRunAtRef.current = 0;
+            }
+            if (
+              didStartRequest &&
+              shouldApplyResult(config) &&
+              (undefinedResultIfError || isAbortError)
+            ) {
+              // Mirror the success-path gate: callers that opted into
+              // `undefinedResultIfError` expect the reset to land
+              // regardless of focus. Without this, a blur-time rejection
+              // silently keeps stale data and re-throws as an unhandled
+              // rejection.
+              setResult(undefined);
+            } else if (!isAbortError && !optionsRef.current.keepResultIfError) {
+              throw err;
+            }
           }
         } finally {
           if (loadingDelay && watchLoading) {
@@ -395,11 +433,23 @@ export function usePromiseResult<T>(
       };
 
       if (optionsRef.current.debounced) {
-        const runnerDebounced = debounce(runner, optionsRef.current.debounced, {
-          leading: false,
-          trailing: true,
-        });
+        let pendingPollingNonce: number | undefined;
+        const runnerDebounced = debounce(
+          (config?: IRunnerConfig) => {
+            const pollingNonce = config?.pollingNonce ?? pendingPollingNonce;
+            pendingPollingNonce = undefined;
+            return runner(
+              pollingNonce === undefined ? config : { ...config, pollingNonce },
+            );
+          },
+          optionsRef.current.debounced,
+          { leading: false, trailing: true },
+        );
         return async (config?: IRunnerConfig) => {
+          // A manual refresh can replace a queued automatic refresh. Keep
+          // that queued run's polling ownership, but never inherit it from
+          // a run that already started (which would create another chain).
+          pendingPollingNonce = config?.pollingNonce ?? pendingPollingNonce;
           // Loading transitions are owned by the inner runner: setting
           // setLoadingTrue here would leak `isLoading=true` if the
           // route blurred during the debounce window and the runner
@@ -447,6 +497,7 @@ export function usePromiseResult<T>(
   );
 
   const runAtRef = useRef(0);
+  const isInitialRunRef = useRef(true);
   const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
     const callback = () => {
@@ -461,15 +512,24 @@ export function usePromiseResult<T>(
         pollingNonce: pollingNonceRef.current,
       });
     };
-    // execute immediately when the timer has not changed.
-    if (prevPollingInterval === optionsRef.current.pollingInterval) {
+    const runOnMount =
+      isInitialRunRef.current && optionsRef.current.runImmediatelyOnMount;
+    isInitialRunRef.current = false;
+    // Opted-in mounts avoid the timer queue; interval-change behavior is unchanged.
+    if (
+      runOnMount ||
+      prevPollingInterval === optionsRef.current.pollingInterval
+    ) {
       callback();
       // the interval duration of the call needs to be readjusted after the polling interval duration changes。
     } else {
+      const runImmediately =
+        optionsRef.current.runImmediatelyOnPollingIntervalChange;
       setTimeout(
         callback,
-        Date.now() - runAtRef.current >
-          (optionsRef.current.pollingInterval || 0)
+        runImmediately ||
+          Date.now() - runAtRef.current >
+            (optionsRef.current.pollingInterval || 0)
           ? 0
           : optionsRef.current.pollingInterval,
       );
@@ -480,10 +540,41 @@ export function usePromiseResult<T>(
   const isFocusedRefValue = isFocusedRef.current;
   const prevFocusedRef = useRef(isFocusedRefValue);
   const isLoadingRef = useRef(isLoading);
-  const runWithPollingNonce = useCallback(() => {
-    isDepsChangedOnBlur.current = false;
-    void runRef.current({ pollingNonce: pollingNonceRef.current });
-  }, [runRef]);
+  const runWithPollingNonce = useCallback(
+    (scheduleOnIdle = false) => {
+      if (
+        optionsRef.current.pollingInterval &&
+        optionsRef.current.checkIsFocused &&
+        !optionsRef.current.alwaysSetState &&
+        !isFocusedRef.current
+      ) {
+        // Keep a focus-gated reconnect pending instead of replacing the
+        // parked polling chain with a fresh interval while still blurred.
+        isDepsChangedOnBlur.current = true;
+        return undefined;
+      }
+      // An automatic refresh replaces the previous polling chain. Advance
+      // the nonce now so old ticks released on focus cannot run while the
+      // replacement waits for a native idle callback.
+      pollingNonceRef.current += 1;
+      const pollingNonce = pollingNonceRef.current;
+      const callback = () => {
+        if (pollingNonceRef.current !== pollingNonce) {
+          return;
+        }
+        isDepsChangedOnBlur.current = false;
+        void runRef.current({ pollingNonce });
+      };
+      if (scheduleOnIdle) {
+        // If blur cancels this idle callback, the next focus must retry it.
+        isDepsChangedOnBlur.current = true;
+        return requestIdleCallback(callback);
+      }
+      callback();
+      return undefined;
+    },
+    [runRef],
+  );
 
   // Most callers don't need reconnect revalidation. Avoid subscribing them
   // to global network polling updates, which can cause periodic rerenders.
@@ -512,39 +603,35 @@ export function usePromiseResult<T>(
       // On native, defer focus-recovery re-execution until the JS thread is
       // idle so the first render frame after tab switch can paint without
       // being blocked by data fetching across 40+ hooks.
-      const idleHandles: ReturnType<typeof requestIdleCallback>[] = [];
-      const scheduleRun = () => {
-        if (platformEnv.isNative) {
-          idleHandles.push(requestIdleCallback(runWithPollingNonce));
-        } else {
-          runWithPollingNonce();
-        }
-      };
-
-      // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
-      if (
+      let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
+      const minFocusInterval =
+        optionsRef.current.focusRevalidateMinIntervalMs ?? 0;
+      const isWithinFocusMinInterval =
+        minFocusInterval > 0 &&
+        lastFocusRunAtRef.current > 0 &&
+        Date.now() - lastFocusRunAtRef.current < minFocusInterval;
+      const shouldRecoverEmptyResult =
         platformEnv.isNative &&
         !isLoadingRef.current &&
         isEmptyResultRef.current &&
-        optionsRef.current.revalidateOnReconnect
-      ) {
-        scheduleRun();
-      }
-
-      if (
+        optionsRef.current.revalidateOnReconnect;
+      const shouldRevalidateOnFocus =
         prevFocusedRef.current === false &&
+        optionsRef.current.revalidateOnFocus &&
+        !isWithinFocusMinInterval;
+      if (
         isFocusedRefValue &&
-        optionsRef.current.revalidateOnFocus
+        (shouldRecoverEmptyResult ||
+          shouldRevalidateOnFocus ||
+          isDepsChangedOnBlur.current)
       ) {
-        scheduleRun();
-      } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        scheduleRun();
+        idleHandle = runWithPollingNonce(platformEnv.isNative);
       }
       prevFocusedRef.current = isFocusedRefValue;
 
       return () => {
-        if (platformEnv.isNative) {
-          idleHandles.forEach(cancelIdleCallback);
+        if (idleHandle !== undefined) {
+          cancelIdleCallback(idleHandle);
         }
       };
     }

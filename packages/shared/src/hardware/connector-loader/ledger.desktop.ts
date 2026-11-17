@@ -1,10 +1,23 @@
-import type { IConnector } from '@onekeyfe/hwk-adapter-core';
+import type { ElectronBleApi, IConnector } from '@onekeyfe/hwk-adapter-core';
 
-// Desktop (Electron): Ledger uses WebHID which works in Electron's renderer process.
-// Unlike Trezor (which needs Node USB transport in main process), Ledger DMK
-// can run directly in the renderer via the same WebHID connector as web.
+type ILedgerDesktopHost = {
+  window?: { desktopApi?: { thirdPartyBle?: ElectronBleApi } };
+};
+
 export const createLedgerConnector = async (): Promise<IConnector> => {
   const { createLedgerWebHidConnector } =
     await import('@onekeyfe/hwk-ledger-connector-webhid');
-  return createLedgerWebHidConnector();
+  const usb = createLedgerWebHidConnector();
+  const bridge = (globalThis as ILedgerDesktopHost).window?.desktopApi
+    ?.thirdPartyBle;
+  if (!bridge) return usb;
+  const [{ createLedgerElectronBleConnector }, { createCombinedConnector }] =
+    await Promise.all([
+      import('@onekeyfe/hwk-ledger-connector-electron-ble'),
+      import('@onekeyfe/hwk-adapter-core'),
+    ]);
+  return createCombinedConnector([
+    usb,
+    createLedgerElectronBleConnector(bridge),
+  ]);
 };

@@ -6,10 +6,7 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { EModalMarketRoutes, type IModalMarketParamList } from './types';
 
 const MarketDetailV2Modal = LazyLoadPage(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2", webpackPrefetch: true */ '../MarketDetailV2'
-    ),
+  () => import(/* webpackChunkName: "market-detail-v2" */ '../MarketDetailV2'),
 );
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
@@ -17,6 +14,13 @@ const MarketBannerDetailModal = LazyLoadPage(
 const MobileTokenSelectorModal = LazyLoadPage(
   () =>
     import('../MarketDetailV2/components/TokenSelector/MobileTokenSelector'),
+);
+const MarketChartSettingsModal = LazyLoadPage(
+  () => import('../MarketDetailV2/components/MarketChartSettingsModal'),
+);
+const MarketIndicatorSettingsModal = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileIndicatorSettingsPage'),
 );
 
 export { EModalMarketRoutes };
@@ -38,5 +42,14 @@ export const ModalMarketStack: IModalFlowNavigatorConfig<
   {
     name: EModalMarketRoutes.MobileTokenSelector,
     component: MobileTokenSelectorModal,
+  },
+  {
+    name: EModalMarketRoutes.MarketChartSettings,
+    component: MarketChartSettingsModal,
+    modalContentMaxHeight: 544,
+  },
+  {
+    name: EModalMarketRoutes.MarketIndicatorSettings,
+    component: MarketIndicatorSettingsModal,
   },
 ];

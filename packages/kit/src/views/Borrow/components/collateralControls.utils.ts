@@ -1,9 +1,15 @@
-import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
+import {
+  buildBorrowTag,
+  parseBorrowTag,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
 // Pure predicates for the Borrow collateral/borrowable controls.
 // Client composes server-owned flags without duplicating health-factor math.
+// Note (Aave v3.2+ liquid e-modes): enabling collateral is NOT restricted by
+// the active e-mode category — collateral outside the category simply keeps
+// its own LTV/LT instead of the boosted one. Eligibility therefore comes from
+// the server's per-reserve canBeCollateral flag plus the live
+// transaction-confirmation preview; the client adds no category-based gating.
 
 // Assets to Borrow visibility: undefined ⇒ show (missing data must not hide assets).
 export function isBorrowAssetVisible(asset: {
@@ -46,47 +52,26 @@ export function getCollateralSwitchState({
   };
 }
 
-export function getActiveEModeCollateralEligibility({
-  eModeStatus,
-  networkId,
-  reserveAddress,
+export type ICollateralCellState = 'hidden' | 'switch' | 'unavailable';
+
+// The Switch alone cannot separate "off, but you can turn it on" from "this
+// market never accepts this asset as collateral": both render as a faded OFF
+// switch, so the second reads as a dead control instead of a fact. An absent
+// canBeCollateral flag is not a verdict, so it keeps the Switch.
+export function getCollateralCellState({
+  usageAsCollateral,
+  canBeCollateral,
 }: {
-  eModeStatus: IBorrowEModeStatus | null | undefined;
-  networkId: string | undefined;
-  reserveAddress: string;
-}): boolean | undefined {
-  if (!eModeStatus) {
-    return undefined;
+  usageAsCollateral?: boolean;
+  canBeCollateral?: boolean;
+}): ICollateralCellState {
+  if (usageAsCollateral === undefined) {
+    return 'hidden';
   }
-  if (eModeStatus.eModeId === 0) {
-    return true;
+  if (usageAsCollateral === false && canBeCollateral === false) {
+    return 'unavailable';
   }
-  if (!networkId) {
-    return undefined;
-  }
-
-  const activeCategory = eModeStatus.categories.find(
-    (category) => category.eModeId === eModeStatus.eModeId,
-  );
-  if (!activeCategory) {
-    return undefined;
-  }
-
-  const normalizedReserveAddress = earnUtils.normalizeBorrowAddress({
-    networkId,
-    address: reserveAddress,
-  });
-  const categoryAsset = activeCategory.assets.find(
-    (asset) =>
-      earnUtils.normalizeBorrowAddress({
-        networkId,
-        address: asset.reserveAddress,
-      }) === normalizedReserveAddress,
-  );
-
-  // Treat assets outside the category's collateral capability as LTV-zero.
-  // The chain may enforce this through category-specific LTV-zero settings.
-  return categoryAsset?.boostedLTV === true;
+  return 'switch';
 }
 
 export function shouldReleaseCollateralSubmission({
@@ -140,16 +125,42 @@ export function getCollateralSettlementRefreshDecision({
   return 'retry';
 }
 
-// buildBorrowTag carries provider+action only (no reserve identity), so this
-// check is provider-scoped by construction: any pending setCollateral tx
-// disables ALL of that provider's switches until data refreshes.
 export function hasPendingSetCollateral({
   pendingTxs,
   provider,
+  networkId,
+  marketAddress,
+  reserveAddress,
 }: {
   pendingTxs: { stakingInfo: { tags?: string[] } }[];
   provider: string;
+  networkId: string;
+  marketAddress: string;
+  reserveAddress: string;
 }): boolean {
-  const tag = buildBorrowTag({ provider, action: 'setCollateral' });
-  return pendingTxs.some((tx) => tx.stakingInfo.tags?.includes(tag));
+  const providerTag = buildBorrowTag({ provider, action: 'setCollateral' });
+  const reserveTag = buildBorrowTag({
+    provider,
+    action: 'setCollateral',
+    setCollateralScope: { networkId, marketAddress, reserveAddress },
+  });
+
+  return pendingTxs.some((tx) => {
+    const tags = tx.stakingInfo.tags ?? [];
+    const hasReserveScopedTag = tags.some((tag) => {
+      const parsed = parseBorrowTag(tag);
+      return (
+        parsed?.provider === provider.toLowerCase() &&
+        parsed.action === 'setCollateral' &&
+        parsed.setCollateralScope !== undefined
+      );
+    });
+
+    // Older pending entries do not identify the reserve. Keep their original
+    // provider-wide lock until they settle; newly created entries use the
+    // exact reserve tag and no longer affect sibling switches.
+    return hasReserveScopedTag
+      ? tags.includes(reserveTag)
+      : tags.includes(providerTag);
+  });
 }

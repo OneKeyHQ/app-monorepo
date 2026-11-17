@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -8,6 +8,10 @@ import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 interface ISwapProTokenTransactionItemProps {
   item: IMarketTokenTransaction;
 }
+
+// Enforced row height; SwapProTokenTransactionList derives its adaptive row
+// count from this value.
+export const SWAP_PRO_TRANSACTION_ITEM_HEIGHT = 22;
 
 const FALLBACK_DISPLAY = '-';
 
@@ -33,7 +37,7 @@ const SwapProTokenTransactionItem = ({
       item.type === 'buy' ? '$textSuccess' : '$textCritical';
     let formatPriceValue = (
       <SizableText size="$bodySm" color={textColorValue}>
-        {FALLBACK_DISPLAY};
+        {FALLBACK_DISPLAY}
       </SizableText>
     );
     if (isPriceValid) {
@@ -54,7 +58,7 @@ const SwapProTokenTransactionItem = ({
 
     let formatTokenValueValue = (
       <SizableText size="$bodySm" color={textColorValue}>
-        {FALLBACK_DISPLAY};
+        {FALLBACK_DISPLAY}
       </SizableText>
     );
     if (isPriceValid && isAmountValid) {
@@ -87,11 +91,15 @@ const SwapProTokenTransactionItem = ({
     item.type,
   ]);
   return (
-    <XStack alignItems="center" justifyContent="space-between" py={3}>
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      h={SWAP_PRO_TRANSACTION_ITEM_HEIGHT}
+    >
       {formatPrice}
       {formatTokenValue}
     </XStack>
   );
 };
 
-export default SwapProTokenTransactionItem;
+export default memo(SwapProTokenTransactionItem);

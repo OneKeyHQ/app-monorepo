@@ -23,6 +23,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { PerpDesktopEmptyState } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpDesktopEmptyState';
+import { PerpMobileEmptyState } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpMobileEmptyState';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_HELP_URL,
@@ -185,8 +188,8 @@ function ExecutionTokenBadge({
   }
   return (
     <Stack
-      w={compact ? '$4' : '$5'}
-      h={compact ? '$4' : '$5'}
+      w={compact ? '$3.5' : '$5'}
+      h={compact ? '$3.5' : '$5'}
       bg={detailStatusDotColor(execution)}
       borderRadius="$full"
       alignItems="center"
@@ -258,20 +261,21 @@ export function UnifoldExecutionRow({
   onPress: () => void;
 }) {
   const intl = useIntl();
+  const isDesktopDark = useThemeVariant() === 'dark' && platformEnv.isDesktop;
   return (
     <XStack
       testID={`perps-unifold-tracker-row-${execution.executionId}`}
       p="$3"
       alignItems="center"
       gap="$3"
-      bg={platformEnv.isNative ? '$bgSubdued' : '$bgStrong'}
+      bg={isDesktopDark ? '$bgStrong' : '$bgSubdued'}
       borderRadius="$3"
       cursor="pointer"
       hoverStyle={{
-        bg: platformEnv.isNative ? '$bgHover' : '$bgStrongHover',
+        bg: isDesktopDark ? '$bgStrongHover' : '$bgHover',
       }}
       pressStyle={{
-        bg: platformEnv.isNative ? '$bgActive' : '$bgStrongActive',
+        bg: isDesktopDark ? '$bgStrongActive' : '$bgActive',
       }}
       onPress={onPress}
     >
@@ -280,7 +284,12 @@ export function UnifoldExecutionRow({
         tokenImageUri={normalizeUnifoldIconUrl(
           execution.destinationTokenIconUrl,
         )}
-        cornerBadge={<ExecutionTokenBadge execution={execution} compact />}
+        showCornerBadgeBorder={false}
+        cornerBadge={
+          <Stack x={-2} y={-2} p="$0.5" bg="$bgApp" borderRadius="$full">
+            <ExecutionTokenBadge execution={execution} compact />
+          </Stack>
+        }
       />
       <YStack flex={1} minWidth={0}>
         <SizableText
@@ -321,6 +330,7 @@ function DetailInfoRow({
   valueIconUri?: string;
   onCopy?: () => void;
 }) {
+  const isDesktopDark = useThemeVariant() === 'dark' && platformEnv.isDesktop;
   return (
     <XStack
       px="$4"
@@ -331,8 +341,16 @@ function DetailInfoRow({
       role={onCopy ? 'button' : undefined}
       cursor={onCopy ? 'pointer' : undefined}
       userSelect={onCopy ? 'none' : undefined}
-      hoverStyle={onCopy ? { bg: '$bgHover' } : undefined}
-      pressStyle={onCopy ? { bg: '$bgActive' } : undefined}
+      hoverStyle={
+        onCopy
+          ? { bg: isDesktopDark ? '$bgStrongHover' : '$bgHover' }
+          : undefined
+      }
+      pressStyle={
+        onCopy
+          ? { bg: isDesktopDark ? '$bgStrongActive' : '$bgActive' }
+          : undefined
+      }
       onPress={onCopy}
     >
       <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
@@ -370,6 +388,7 @@ function DetailLinkRow({
   value: string;
   onPress: () => void;
 }) {
+  const isDesktopDark = useThemeVariant() === 'dark' && platformEnv.isDesktop;
   return (
     <XStack
       px="$4"
@@ -378,8 +397,8 @@ function DetailLinkRow({
       alignItems="center"
       justifyContent="space-between"
       cursor="pointer"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={{ bg: isDesktopDark ? '$bgStrongHover' : '$bgHover' }}
+      pressStyle={{ bg: isDesktopDark ? '$bgStrongActive' : '$bgActive' }}
       onPress={onPress}
     >
       <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
@@ -414,6 +433,7 @@ export function UnifoldExecutionDetail({
   supportedAssets?: IUnifoldSupportedAsset[];
 }) {
   const intl = useIntl();
+  const isDesktopDark = useThemeVariant() === 'dark' && platformEnv.isDesktop;
   const { copyText } = useClipboard();
   const processing = isProcessing(execution);
   const failed = isUnifoldExecutionFailed(execution);
@@ -494,7 +514,11 @@ export function UnifoldExecutionDetail({
       ) : null}
 
       <YStack gap="$3">
-        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+        <YStack
+          bg={isDesktopDark ? '$bgStrong' : '$bgSubdued'}
+          borderRadius="$3"
+          overflow="hidden"
+        >
           <DetailInfoRow
             label={intl.formatMessage({
               id: ETranslations.perp_unifold_amount_sent__title,
@@ -548,7 +572,11 @@ export function UnifoldExecutionDetail({
           ) : null}
         </YStack>
 
-        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+        <YStack
+          bg={isDesktopDark ? '$bgStrong' : '$bgSubdued'}
+          borderRadius="$3"
+          overflow="hidden"
+        >
           <DetailInfoRow
             label={intl.formatMessage({
               id: ETranslations.perp_unifold_source_network__title,
@@ -572,7 +600,11 @@ export function UnifoldExecutionDetail({
           />
         </YStack>
 
-        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+        <YStack
+          bg={isDesktopDark ? '$bgStrong' : '$bgSubdued'}
+          borderRadius="$3"
+          overflow="hidden"
+        >
           {/* Always present: this is the id support asks for, and the caution
               banner above is what sends the user here. */}
           <DetailInfoRow
@@ -620,6 +652,7 @@ export function UnifoldExecutionDetail({
 
 export function UnifoldTrackerContent({
   recipientAddress,
+  isMobile = false,
   listHeight,
   useDialogHeader = false,
   useExternalHeader = false,
@@ -630,6 +663,7 @@ export function UnifoldTrackerContent({
   onBackPress,
 }: {
   recipientAddress: string | null;
+  isMobile?: boolean;
   listHeight?: number;
   useDialogHeader?: boolean;
   useExternalHeader?: boolean;
@@ -945,17 +979,21 @@ export function UnifoldTrackerContent({
       >
         <YStack flex={1} gap="$3">
           <TrackerIntroCard onDepositPress={onDepositPress} />
-          <YStack flex={1} py="$8" alignItems="center" gap="$2">
-            <Empty
-              icon="ClockTimeHistoryOutline"
+          {isMobile ? (
+            <PerpMobileEmptyState
+              contentOffsetY={-96}
               title={intl.formatMessage({
                 id: ETranslations.perp_unifold_no_deposits__title,
               })}
-              description={intl.formatMessage({
-                id: ETranslations.perp_unifold_history_appears_here__desc,
+            />
+          ) : (
+            <PerpDesktopEmptyState
+              contentOffsetY={-96}
+              title={intl.formatMessage({
+                id: ETranslations.perp_unifold_no_deposits__title,
               })}
             />
-          </YStack>
+          )}
         </YStack>
       </YStack>,
     );

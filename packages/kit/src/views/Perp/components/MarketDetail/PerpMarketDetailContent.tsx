@@ -27,7 +27,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHyperliquidTokenImageUris,
+  getHyperliquidTokenImageUrl,
+  isSpotInstrument,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -1039,13 +1043,16 @@ export function PerpMarketDetailContent({
         <XStack alignItems="center" gap="$2.5">
           <Token
             size="sm"
-            tokenImageUri={
-              displayName || marketDetail?.symbol || coin
-                ? getHyperliquidTokenImageUrl(
-                    displayName || marketDetail?.symbol || coin || '',
-                  )
-                : marketDetail?.image
-            }
+            {...(coin && !isSpotInstrument(coin)
+              ? { tokenImageUris: getHyperliquidTokenImageUris(coin) }
+              : {
+                  tokenImageUri:
+                    displayName || marketDetail?.symbol
+                      ? getHyperliquidTokenImageUrl(
+                          displayName || marketDetail?.symbol || '',
+                        )
+                      : marketDetail?.image,
+                })}
           />
           <SizableText size="$headingLg">
             {displayName ||

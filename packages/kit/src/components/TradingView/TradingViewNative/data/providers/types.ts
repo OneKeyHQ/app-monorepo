@@ -4,9 +4,15 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketKLinePointType } from '../../../utils/fetchMarketKLineData';
-import type { ITradingViewNativeKLineInterval } from '../tradingViewNativeIntervals';
+import type { ITradingViewNativeCandleTimeMode } from '../../types';
+import type {
+  ITradingViewNativeChartInterval,
+  ITradingViewNativeKLineInterval,
+} from '../tradingViewNativeIntervals';
 
 export interface ITradingViewNativeHistoryRequest {
+  // Initial/latest and backward pagination may cross non-trading windows.
+  allowEarlierHistory?: boolean;
   interval: ITradingViewNativeKLineInterval;
   signal: AbortSignal;
   timeFrom: number;
@@ -18,9 +24,14 @@ export interface ITradingViewNativeRealtimeSubscription {
   unsubscribe: () => Promise<void>;
 }
 
+export type ITradingViewNativeRealtimeUpdate =
+  | IMarketTokenKLineDataPoint
+  | { price: number; t: number };
+
 export interface ITradingViewNativeRealtimeSubscriptionRequest {
   interval: ITradingViewNativeKLineInterval;
-  onPoint: (point: IMarketTokenKLineDataPoint) => void;
+  getActiveInterval?: () => ITradingViewNativeKLineInterval;
+  onPoint: (point: ITradingViewNativeRealtimeUpdate) => void;
   signal: AbortSignal;
   subscriberId: string;
 }
@@ -37,6 +48,10 @@ export interface ITradingViewNativeHistoryResponse extends IMarketTokenKLineResp
 }
 
 export interface ITradingViewNativeHistoryDataProvider {
+  getCandleTimeMode?: () => ITradingViewNativeCandleTimeMode;
+  getInitialHistoryRequestCandleCount?: (
+    interval: ITradingViewNativeKLineInterval,
+  ) => number;
   getHistoryRequestCandleCount: (
     interval: ITradingViewNativeKLineInterval,
   ) => number;
@@ -47,6 +62,8 @@ export interface ITradingViewNativeHistoryDataProvider {
 }
 
 export interface ITradingViewNativeDataProvider extends ITradingViewNativeHistoryDataProvider {
+  historyRefreshInterval?: number;
+  realtimeInterval?: ITradingViewNativeChartInterval;
   isReady: boolean;
   key: string;
   supportsRealtime: boolean;

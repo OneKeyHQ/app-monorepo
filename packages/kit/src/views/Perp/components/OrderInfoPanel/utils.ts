@@ -12,7 +12,10 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpsFrontendOrder,
+  ITwapState,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -106,24 +109,56 @@ export function getTwapHistoryEventTimeMs(record: {
   return normalizeEpochMs(record.time) ?? record.state.timestamp;
 }
 
+export function getTwapSideInfo(
+  state: Pick<ITwapState, 'coin' | 'side' | 'reduceOnly'>,
+  intl: IntlShape,
+) {
+  if (isSpotInstrument(state.coin)) {
+    return {
+      text: intl.formatMessage({
+        id:
+          state.side === 'B'
+            ? ETranslations.global_buy
+            : ETranslations.global_sell,
+      }),
+      color: state.side === 'B' ? '$green11' : '$red11',
+    };
+  }
+  if (state.side === 'B') {
+    return {
+      text: state.reduceOnly
+        ? intl.formatMessage({ id: ETranslations.perp_order_close_short })
+        : intl.formatMessage({ id: ETranslations.perp_long }),
+      color: '$green11',
+    };
+  }
+  return {
+    text: state.reduceOnly
+      ? intl.formatMessage({ id: ETranslations.perp_order_close_long })
+      : intl.formatMessage({ id: ETranslations.perp_short }),
+    color: '$red11',
+  };
+}
+
 export const getPerpFillDirectionType = (
   direction?: string,
 ): IPerpFillDirectionType => {
   const normalizedDirection = direction?.trim().toLowerCase() ?? '';
 
-  if (normalizedDirection.includes('close long')) {
+  // Reversals and liquidations contain "long" or "short" but are distinct fills.
+  if (normalizedDirection === 'close long') {
     return 'closeLong';
   }
 
-  if (normalizedDirection.includes('close short')) {
+  if (normalizedDirection === 'close short') {
     return 'closeShort';
   }
 
-  if (normalizedDirection.includes('long')) {
+  if (normalizedDirection === 'open long') {
     return 'openLong';
   }
 
-  if (normalizedDirection.includes('short')) {
+  if (normalizedDirection === 'open short') {
     return 'openShort';
   }
 
@@ -151,6 +186,7 @@ export const getFillDirectionDisplayInfo = ({
 
   let color = fill.side === 'B' ? '$green11' : '$red11';
   const directionType = getPerpFillDirectionType(fill.dir);
+  const normalizedDirection = fill.dir?.trim().toLowerCase();
   let text = fill.dir ?? '';
 
   if (directionType === 'openLong') {
@@ -161,6 +197,18 @@ export const getFillDirectionDisplayInfo = ({
     text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
   } else if (directionType === 'closeShort') {
     text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
+  } else if (normalizedDirection === 'long > short') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_long_to_short__title,
+    });
+  } else if (normalizedDirection === 'short > long') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_short_to_long__title,
+    });
+  } else if (normalizedDirection === 'settlement') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_settlement__title,
+    });
   }
 
   if (fill.side === 'A') {
@@ -171,6 +219,168 @@ export const getFillDirectionDisplayInfo = ({
 };
 
 export const isSpotHoldingStableCoin = isHyperliquidSpotStableCoin;
+
+export const MIN_VISIBLE_SPOT_HOLDING_VALUE_USD = 5;
+
+export type ISpotHoldingRawBalance = {
+  coin: string;
+  total: string;
+  entryNtl?: string;
+};
+
+type ISpotUniversePriceSource = {
+  name: string;
+  baseName: string;
+  quoteName: string;
+};
+
+type ISpotPriceContext = {
+  markPx?: string;
+};
+
+export function buildSpotTokenPriceLookup({
+  spotUniverses,
+  priceMap,
+}: {
+  spotUniverses: ISpotUniversePriceSource[];
+  priceMap: Record<string, ISpotPriceContext>;
+}): Record<string, string> {
+  const lookup: Record<string, string> = {};
+
+  for (const universe of spotUniverses) {
+    if (universe.quoteName === 'USDC') {
+      const context = priceMap[universe.name];
+      if (context?.markPx) {
+        lookup[universe.baseName] = context.markPx;
+      }
+    }
+  }
+
+  for (const universe of spotUniverses) {
+    if (!lookup[universe.baseName]) {
+      const context = priceMap[universe.name];
+      if (context?.markPx) {
+        lookup[universe.baseName] = context.markPx;
+      }
+    }
+  }
+
+  return lookup;
+}
+
+export function getSpotHoldingValuation({
+  rawCoin,
+  total,
+  entryNtl,
+  midPrice,
+}: {
+  rawCoin: string;
+  total: string;
+  entryNtl?: string;
+  midPrice?: string;
+}) {
+  const totalBN = new BigNumber(total);
+  const entryNtlBN = new BigNumber(entryNtl || '0');
+  const isStable = isSpotHoldingStableCoin(rawCoin);
+  const hasPriceSource = isStable || Boolean(midPrice);
+
+  let usdcValueBN: BigNumber;
+  if (isStable) {
+    usdcValueBN = totalBN;
+  } else if (midPrice) {
+    usdcValueBN = totalBN.multipliedBy(midPrice);
+  } else {
+    usdcValueBN = entryNtlBN;
+  }
+
+  return {
+    totalBN,
+    entryNtlBN,
+    isStable,
+    hasPriceSource,
+    usdcValueBN,
+  };
+}
+
+type ISpotHoldingFilterItem = {
+  rawCoin: string;
+  total: string;
+  usdcValueNum: number;
+  hasPriceSource: boolean;
+};
+
+export function isSpotHoldingVisible(
+  balance: ISpotHoldingFilterItem,
+  hideBelowThreshold: boolean,
+): boolean {
+  if (new BigNumber(balance.total).isZero()) {
+    return false;
+  }
+
+  if (
+    !hideBelowThreshold ||
+    balance.rawCoin === 'USDC' ||
+    !balance.hasPriceSource
+  ) {
+    return true;
+  }
+
+  return (
+    !Number.isFinite(balance.usdcValueNum) ||
+    balance.usdcValueNum >= MIN_VISIBLE_SPOT_HOLDING_VALUE_USD
+  );
+}
+
+export function filterSpotHoldingBalances<T extends ISpotHoldingFilterItem>({
+  balances,
+  hideBelowThreshold,
+}: {
+  balances: T[];
+  hideBelowThreshold: boolean;
+}): T[] {
+  return balances.filter((balance) =>
+    isSpotHoldingVisible(balance, hideBelowThreshold),
+  );
+}
+
+export function getVisibleSpotHoldingsCount({
+  balances,
+  tokenPriceLookup,
+  hideBelowThreshold,
+  hasPerpsUsdc,
+}: {
+  balances: ISpotHoldingRawBalance[];
+  tokenPriceLookup: Record<string, string>;
+  hideBelowThreshold: boolean;
+  hasPerpsUsdc: boolean;
+}): number {
+  const visibleSpotBalances = filterSpotHoldingBalances({
+    balances: balances.map((balance) => {
+      const valuation = getSpotHoldingValuation({
+        rawCoin: balance.coin,
+        total: balance.total,
+        entryNtl: balance.entryNtl,
+        midPrice: tokenPriceLookup[balance.coin],
+      });
+
+      return {
+        rawCoin: balance.coin,
+        total: balance.total,
+        usdcValueNum: valuation.usdcValueBN.toNumber(),
+        hasPriceSource: valuation.hasPriceSource,
+      };
+    }),
+    hideBelowThreshold,
+  });
+  const nonUsdcCount = visibleSpotBalances.filter(
+    (balance) => balance.rawCoin !== 'USDC',
+  ).length;
+  const hasSpotUsdc = visibleSpotBalances.some(
+    (balance) => balance.rawCoin === 'USDC',
+  );
+
+  return nonUsdcCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+}
 
 export const calculateSpotHoldingPnl = ({
   total,

@@ -10,9 +10,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProAnalyticsTab,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchLimitOrderRes,
   ISwapNetwork,
@@ -27,6 +31,8 @@ import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapMarketHistoryList from './SwapMarketHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 interface ISwapProTabListContainerProps {
   onTokenPress: (token: ISwapToken) => void;
@@ -54,6 +60,19 @@ function SwapProTabListSkeleton() {
   );
 }
 
+function getSwapProAnalyticsTab(tab: ETabName | string) {
+  if (tab === ETabName.Positions) {
+    return ESwapProAnalyticsTab.POSITIONS;
+  }
+  if (tab === ETabName.SwapProOpenOrders) {
+    return ESwapProAnalyticsTab.OPEN_ORDERS;
+  }
+  if (tab === ETabName.SwapOrderHistory) {
+    return ESwapProAnalyticsTab.ORDER_HISTORY;
+  }
+  return undefined;
+}
+
 const SwapProTabListContainer = memo(
   ({
     onTokenPress,
@@ -71,12 +90,21 @@ const SwapProTabListContainer = memo(
     const [swapTypeSwitch] = useSwapTypeSwitchAtom();
     const [swapToToken] = useSwapSelectToTokenAtom();
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
+    const [currentSymbolRowHeight, setCurrentSymbolRowHeight] = useState(0);
+
+    const handleCurrentSymbolRowLayout = useCallback(
+      (event: LayoutChangeEvent) => {
+        const { height } = event.nativeEvent.layout;
+        setCurrentSymbolRowHeight((prev) => (prev === height ? prev : height));
+      },
+      [],
+    );
 
     const {
-      cachedPositionTokenList,
-      hasCachedPositionSnapshot,
-      hasPositionOwner,
-      isLiveTokenListForCurrentOwner,
+      positionLoadError,
+      positionLoading,
+      positionTokenList,
+      swapProLoadSupportNetworksTokenListRun,
     } = useSwapProSupportNetworksTokenList(
       supportNetworksList,
       supportNetworksReady,
@@ -103,7 +131,33 @@ const SwapProTabListContainer = memo(
     ]);
     const shouldRenderListContent = shouldRenderLists;
     const shouldRenderPositionsContent =
-      shouldRenderListContent || hasCachedPositionSnapshot;
+      shouldRenderListContent || positionTokenList.length > 0;
+    const retryPositions = useCallback(() => {
+      void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+        forceRefresh: true,
+      });
+    }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
+
+    const handleTabPress = useCallback(
+      (tab: ETabName) => {
+        if (activeTab === tab) {
+          return;
+        }
+        setActiveTab(tab);
+        if (!focusSwapPro) {
+          return;
+        }
+        const fromTab = getSwapProAnalyticsTab(activeTab);
+        const toTab = getSwapProAnalyticsTab(tab);
+        if (fromTab && toTab) {
+          defaultLogger.swap.swapPro.swapProTabSwitch({
+            fromTab,
+            toTab,
+          });
+        }
+      },
+      [activeTab, focusSwapPro],
+    );
 
     const changeTabToLimitOrderList = useCallback(() => {
       setActiveTab(ETabName.SwapProOpenOrders);
@@ -134,7 +188,7 @@ const SwapProTabListContainer = memo(
       };
     }, [changeTabToLimitOrderList]);
 
-    // Delay rendering heavy list components after initial render
+    // Defer heavy list components only while initial position data is pending.
     useEffect(() => {
       const timer = setTimeout(() => {
         setShouldRenderLists(true);
@@ -157,19 +211,19 @@ const SwapProTabListContainer = memo(
             <TabBarItem
               name={ETabName.Positions}
               isFocused={activeTab === ETabName.Positions}
-              onPress={setActiveTab}
+              onPress={handleTabPress}
             />
             {focusSwapPro ? (
               <TabBarItem
                 name={ETabName.SwapProOpenOrders}
                 isFocused={activeTab === ETabName.SwapProOpenOrders}
-                onPress={setActiveTab}
+                onPress={handleTabPress}
               />
             ) : null}
             <TabBarItem
               name={ETabName.SwapOrderHistory}
               isFocused={activeTab === ETabName.SwapOrderHistory}
-              onPress={setActiveTab}
+              onPress={handleTabPress}
             />
           </XStack>
         </XStack>
@@ -178,16 +232,25 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.Positions ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable />
+            {/* Measured so the Order history empty state can line up with the
+                lists that have this row above them; the row is not rendered
+                there, and no other list offset changes. */}
+            <YStack onLayout={handleCurrentSymbolRowLayout}>
+              <SwapProCurrentSymbolEnable
+                analyticsTab={
+                  focusSwapPro ? ESwapProAnalyticsTab.POSITIONS : undefined
+                }
+              />
+            </YStack>
             {shouldRenderPositionsContent ? (
               <SwapProPositionsList
                 onTokenPress={onTokenPress}
                 onSearchClick={onSearchClick}
                 filterToken={filterToken}
-                cachedTokenList={cachedPositionTokenList}
-                hasPositionOwner={hasPositionOwner}
-                hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-                isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+                positionTokenList={positionTokenList}
+                positionLoadError={positionLoadError}
+                positionLoading={positionLoading}
+                onRetry={retryPositions}
               />
             ) : (
               <SwapProTabListSkeleton />
@@ -200,7 +263,9 @@ const SwapProTabListContainer = memo(
               }
               flex={1}
             >
-              <SwapProCurrentSymbolEnable />
+              <SwapProCurrentSymbolEnable
+                analyticsTab={ESwapProAnalyticsTab.OPEN_ORDERS}
+              />
               {shouldRenderListContent ? (
                 <LimitOrderList
                   onClickCell={onOpenOrdersClick}
@@ -220,11 +285,14 @@ const SwapProTabListContainer = memo(
                 "Current tokens" toggle here, and the list shows every order
                 regardless of the shared current-symbol filter. Swap & Bridge
                 and Pro share this surface, so they clear the same (non-stock)
-                dataset. */}
+                dataset. Only the empty state is offset downwards, by the row
+                measured above, so the placeholder matches the sibling tabs
+                while real rows keep their position. */}
             {shouldRenderListContent ? (
               <XStack mx="$-6">
                 <SwapMarketHistoryList
                   isPushModal
+                  siblingRowHeight={currentSymbolRowHeight}
                   firstSectionRightAction={
                     <SwapHistoryClearButton
                       scope="swap"

@@ -6,6 +6,7 @@ import {
   EBorrowProviderEnum,
   type IBorrowAsset,
   type IBorrowBalance,
+  type IBorrowToken,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -56,13 +57,9 @@ function isSameBorrowReserveAddress({
   return false;
 }
 
-export function getBorrowAssetByReserveAddress({
-  assets,
-  reserveAddress,
-}: {
-  assets?: IBorrowAsset[];
-  reserveAddress?: string;
-}) {
+export function getBorrowAssetByReserveAddress<
+  T extends { reserveAddress: string },
+>({ assets, reserveAddress }: { assets?: T[]; reserveAddress?: string }) {
   return assets?.find((asset) =>
     isSameBorrowReserveAddress({
       reserveAddress: asset.reserveAddress,
@@ -71,6 +68,47 @@ export function getBorrowAssetByReserveAddress({
   );
 }
 
+export function getBorrowReserveTokenByAddress({
+  reserves,
+  reserveAddress,
+}: {
+  reserves?: Partial<
+    Record<
+      'supply' | 'borrow' | 'supplied' | 'borrowed',
+      {
+        assets: {
+          reserveAddress: string;
+          token: IBorrowToken;
+        }[];
+      }
+    >
+  >;
+  reserveAddress?: string;
+}): IBorrowToken | undefined {
+  const assetGroups = [
+    reserves?.supply?.assets,
+    reserves?.borrow?.assets,
+    reserves?.supplied?.assets,
+    reserves?.borrowed?.assets,
+  ];
+
+  for (const assets of assetGroups) {
+    const asset = getBorrowAssetByReserveAddress({
+      assets,
+      reserveAddress,
+    });
+    if (asset) {
+      return asset.token;
+    }
+  }
+
+  return undefined;
+}
+
+// Networks whose Aave market ships a WrappedTokenGateway the backend serves
+// (native reserveAddress === '' rows + gateway deposit/withdraw/borrow/repay
+// builds). Keep in sync with server coverage: a network missing here hides
+// the user's existing native positions from withdraw/collateral flows.
 export function shouldUseAaveNativeGateway({
   networkId,
   providerName,
@@ -80,8 +118,11 @@ export function shouldUseAaveNativeGateway({
   providerName?: string;
   reserveAddress?: string;
 }) {
+  const networkIdsMap = getNetworkIdsMap();
   return (
-    networkId === getNetworkIdsMap().eth &&
+    (networkId === networkIdsMap.eth ||
+      networkId === networkIdsMap.base ||
+      networkId === networkIdsMap.arbitrum) &&
     providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
     reserveAddress === ''
   );
@@ -195,27 +236,6 @@ export function buildAaveNativeGatewayReceiveToken({
     name: nativeToken?.name ?? 'Ether',
     symbol: nativeToken?.symbol ?? 'ETH',
   } as IToken;
-}
-
-export function shouldDowngradeAaveNativeRepayAll({
-  action,
-  networkId,
-  providerName,
-  reserveAddress,
-}: {
-  action?: string;
-  networkId?: string;
-  providerName?: string;
-  reserveAddress?: string;
-}) {
-  return (
-    action === 'repay' &&
-    shouldUseAaveNativeGateway({
-      networkId,
-      providerName,
-      reserveAddress,
-    })
-  );
 }
 
 export function resolveBorrowTokenApproveSpenderAddress({

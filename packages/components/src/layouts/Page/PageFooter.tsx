@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
@@ -9,11 +16,23 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { OptimizationView } from '../../optimization';
 
-import { useSafeAreaBottom, useTabBarHeight } from './hooks';
+import {
+  usePageFooterSafeAreaBottom,
+  usePageFooterTabBarHeight,
+  useSafeAreaBottom,
+} from './hooks';
 import { PageContext } from './PageContext';
 import { FooterActions } from './PageFooterActions';
 
-import type { IPageFooterProps } from './type';
+import type {
+  IPageDirectFooterProps,
+  IPageFooterProps,
+  IPageFooterSafeAreaBottomMode,
+} from './type';
+
+// The default FooterActions already adds $5 (20) of bottom padding. Subtracting
+// 10 preserves its existing visual gap above native system UI.
+const DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION = 10;
 
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
@@ -23,24 +42,51 @@ const Placeholder = () => {
 
 const PageFooterContainer = ({
   children,
-  disableKeyboardAnimation,
-}: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
-  const tabBarHeight = useTabBarHeight();
-  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
-  const { gtMd } = useMedia();
+  keyboardAnimationDisabled,
+  hasDefaultFooterActions,
+  safeAreaBottomMode,
+}: PropsWithChildren & {
+  keyboardAnimationDisabled: boolean;
+  hasDefaultFooterActions: boolean;
+  safeAreaBottomMode: IPageFooterSafeAreaBottomMode;
+}) => {
+  const footerSafeBottomHeight = usePageFooterSafeAreaBottom();
+  const tabBarHeight = usePageFooterTabBarHeight();
+  const { height: keyboardHeight, progress: keyboardProgress } =
+    useReanimatedKeyboardAnimation();
+  const containerOwnsSafeBottom = safeAreaBottomMode === 'container';
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0),
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const keyboardOffset = keyboardAnimationDisabled
+      ? 0
+      : Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0);
+    const safeBottomHeight = containerOwnsSafeBottom
+      ? footerSafeBottomHeight
+      : 0;
+    const adjustedSafeBottomHeight =
+      hasDefaultFooterActions &&
+      safeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        ? safeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        : safeBottomHeight;
+    const safeBottomOffset = keyboardAnimationDisabled
+      ? adjustedSafeBottomHeight
+      : adjustedSafeBottomHeight * (1 - keyboardProgress.value);
+    // Content-owned footers keep the raw inset in their children. Once the
+    // keyboard covers that region, remove it from the parent's keyboard
+    // movement so the inset is not counted twice.
+    const contentSafeBottomCompensation =
+      !keyboardAnimationDisabled && !containerOwnsSafeBottom
+        ? footerSafeBottomHeight * keyboardProgress.value
+        : 0;
+
+    return {
+      paddingBottom:
+        keyboardOffset + safeBottomOffset - contentSafeBottomCompensation,
+    };
+  });
 
   return (
-    <Animated.View
-      style={
-        gtMd || disableKeyboardAnimation || !platformEnv.isNative
-          ? undefined
-          : animatedStyle
-      }
-    >
+    <Animated.View style={platformEnv.isNative ? animatedStyle : undefined}>
       {children}
     </Animated.View>
   );
@@ -48,11 +94,24 @@ const PageFooterContainer = ({
 
 function PageFooterContext(props: IPageFooterProps) {
   const { footerRef } = useContext(PageContext);
+  const wasDirectFooterActive = !!footerRef.current.directFooterActive;
   useMemo(() => {
-    footerRef.current.props = props;
-    footerRef.current.notifyUpdate?.();
+    // Preserve the registered footer's existing initialization path unless
+    // the page is switching away from an active direct footer.
+    if (!wasDirectFooterActive) {
+      footerRef.current.props = props;
+      footerRef.current.notifyUpdate?.();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    if (!wasDirectFooterActive) return;
+    // Do not expose props from an interrupted render while switching paths.
+    footer.props = props;
+    footer.notifyUpdate?.();
+  }, [footerRef, props, wasDirectFooterActive]);
 
   useEffect(() => {
     footerRef.current.props = props;
@@ -67,10 +126,42 @@ function PageFooterContext(props: IPageFooterProps) {
   return null;
 }
 
-export function BasicPageFooter() {
+export function BasicPageFooter({
+  directProps,
+  onKeyboardLiftChange,
+}: {
+  directProps?: IPageDirectFooterProps;
+  // Reports whether the footer lifts itself above the keyboard, which also
+  // shrinks the page ScrollView above it.
+  onKeyboardLiftChange?: (isLifted: boolean) => void;
+} = {}) {
   const { footerRef } = useContext(PageContext);
+  const { gtMd } = useMedia();
   const [, setCount] = useState(0);
-  const { props: footerProps } = footerRef.current;
+  const hasDirectFooter = !!directProps?.enabled;
+  let footerProps = footerRef.current.props;
+  if (
+    directProps &&
+    (hasDirectFooter || footerRef.current.directFooterActive)
+  ) {
+    const { enabled: _enabled, ...directFooterProps } = directProps;
+    footerProps = directFooterProps;
+  }
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    const wasActive = !!footer.directFooterActive;
+    footer.directFooterActive = hasDirectFooter;
+    if (wasActive && !hasDirectFooter) {
+      setCount((count) => count + 1);
+    }
+  }, [footerRef, hasDirectFooter]);
+
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    return () => {
+      footer.directFooterActive = false;
+    };
+  }, [footerRef]);
   useEffect(() => {
     footerRef.current.notifyUpdate = () => {
       setCount((i) => i + 1);
@@ -81,18 +172,33 @@ export function BasicPageFooter() {
     };
   }, [footerRef]);
 
-  return footerProps ? (
+  const keyboardAnimationDisabled =
+    !!footerProps?.disableKeyboardAnimation || gtMd;
+  const isLiftedByKeyboard = !!footerProps && !keyboardAnimationDisabled;
+  useEffect(() => {
+    onKeyboardLiftChange?.(isLiftedByKeyboard);
+  }, [isLiftedByKeyboard, onKeyboardLiftChange]);
+
+  if (!footerProps) {
+    return <Placeholder />;
+  }
+
+  const {
+    children,
+    disableKeyboardAnimation: _disableKeyboardAnimation,
+    safeAreaBottomMode = 'container',
+    ...footerActionsProps
+  } = footerProps;
+  const hasDefaultFooterActions = !children;
+
+  return (
     <PageFooterContainer
-      disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
+      keyboardAnimationDisabled={keyboardAnimationDisabled}
+      hasDefaultFooterActions={hasDefaultFooterActions}
+      safeAreaBottomMode={safeAreaBottomMode}
     >
-      {footerProps.children ? (
-        footerProps.children
-      ) : (
-        <FooterActions {...footerProps} />
-      )}
+      {children || <FooterActions {...footerActionsProps} />}
     </PageFooterContainer>
-  ) : (
-    <Placeholder />
   );
 }
 

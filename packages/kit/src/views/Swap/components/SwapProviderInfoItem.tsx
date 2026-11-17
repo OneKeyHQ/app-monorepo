@@ -11,7 +11,9 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapServiceFeeOverview } from './SwapServiceFeeOverview';
@@ -22,18 +24,33 @@ interface ISwapProviderInfoItemProps {
   toToken?: ISwapToken;
   providerIcon: string;
   providerName: string;
-  showLock?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
   testID?: string;
   percentageFee?: number;
   percentOriginFee?: number;
+  showFeeInfo?: boolean;
+  titleProps?: ISizableTextProps;
+  valueProps?: ISizableTextProps;
+  // Smaller provider logo for tight layouts like Pro mode info rows
+  compact?: boolean;
+  // Show an '--' placeholder (instead of nothing) while no provider info is
+  // available; the row is not pressable in that state
+  showEmptyPlaceholder?: boolean;
+  // Display configured provider metadata before a quote has token inputs.
+  // This never enables the provider action without both tokens.
+  allowProviderWithoutTokens?: boolean;
 }
 
 const SwapProviderInfoItemTitleContent = ({
   percentageFee,
   percentOriginFee,
-}: Pick<ISwapProviderInfoItemProps, 'percentageFee' | 'percentOriginFee'>) => {
+  titleProps,
+  showFeeInfo = true,
+}: Pick<
+  ISwapProviderInfoItemProps,
+  'percentageFee' | 'percentOriginFee' | 'titleProps' | 'showFeeInfo'
+>) => {
   const intl = useIntl();
 
   return (
@@ -43,15 +60,18 @@ const SwapProviderInfoItemTitleContent = ({
         color="$textSubdued"
         userSelect="none"
         mr="$1"
+        {...titleProps}
       >
         {intl.formatMessage({
           id: ETranslations.swap_page_provider_provider,
         })}
       </SizableText>
-      <SwapServiceFeeOverview
-        percentageFee={percentageFee}
-        percentOriginFee={percentOriginFee}
-      />
+      {showFeeInfo ? (
+        <SwapServiceFeeOverview
+          percentageFee={percentageFee}
+          percentOriginFee={percentOriginFee}
+        />
+      ) : null}
     </XStack>
   );
 };
@@ -66,19 +86,41 @@ const SwapProviderInfoItem = ({
   toToken,
   providerIcon,
   providerName,
-  showLock: _showLock,
   onPress,
   isLoading,
   testID,
   percentageFee,
   percentOriginFee,
+  showFeeInfo,
+  titleProps,
+  valueProps,
+  compact,
+  showEmptyPlaceholder,
+  allowProviderWithoutTokens = false,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
+  const logoSize = compact ? '$4' : '$5';
+  const rowMinHeight = compact ? '$5' : undefined;
+  // providerLogo is optional on quotes (and providerName can be absent on
+  // malformed ones), so the row counts as empty only when BOTH are missing —
+  // a partially-described provider still has a live quote and stays pressable
+  const hasTokens = !!fromToken && !!toToken;
+  const isEmpty =
+    (!providerName && !providerIcon) ||
+    (!hasTokens && !allowProviderWithoutTokens);
+  const pressHandler = !isEmpty && hasTokens ? onPress : undefined;
   return (
-    <XStack testID={testID} justifyContent="space-between" alignItems="center">
+    <XStack
+      testID={testID}
+      justifyContent="space-between"
+      alignItems="center"
+      minHeight={rowMinHeight}
+    >
       <SwapProviderInfoItemTitleContentMemo
         percentageFee={percentageFee}
         percentOriginFee={percentOriginFee}
+        showFeeInfo={showFeeInfo}
+        titleProps={titleProps}
       />
       {isLoading ? (
         <Stack py="$1">
@@ -88,11 +130,16 @@ const SwapProviderInfoItem = ({
         <XStack
           alignItems="center"
           userSelect="none"
-          hoverStyle={onPress ? { opacity: 0.5 } : undefined}
-          onPress={onPress}
-          cursor={onPress ? 'pointer' : undefined}
+          hoverStyle={pressHandler ? { opacity: 0.5 } : undefined}
+          onPress={pressHandler}
+          cursor={pressHandler ? 'pointer' : undefined}
         >
-          {!providerIcon || !fromToken || !toToken ? null : (
+          {isEmpty && showEmptyPlaceholder ? (
+            <SizableText size="$bodyMdMedium" {...valueProps}>
+              {UNAVAILABLE_DISPLAY}
+            </SizableText>
+          ) : null}
+          {isEmpty ? null : (
             <>
               {isBest ? (
                 <Badge badgeSize="sm" badgeType="success" marginRight="$2">
@@ -101,31 +148,37 @@ const SwapProviderInfoItem = ({
                   })}
                 </Badge>
               ) : null}
-              <Stack position="relative" w="$5" h="$5">
-                <Image
-                  source={{ uri: providerIcon }}
-                  w="$5"
-                  h="$5"
-                  borderRadius="$1"
-                />
-                <Stack
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  borderRadius="$1"
-                  borderWidth="$px"
-                  borderColor="$borderSubdued"
-                  pointerEvents="none"
-                />
-              </Stack>
-              <SizableText size="$bodyMdMedium" ml="$1">
-                {providerName ?? ''}
+              {providerIcon ? (
+                <Stack position="relative" w={logoSize} h={logoSize}>
+                  <Image
+                    source={{ uri: providerIcon }}
+                    w={logoSize}
+                    h={logoSize}
+                    borderRadius="$1"
+                  />
+                  <Stack
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    right={0}
+                    bottom={0}
+                    borderRadius="$1"
+                    borderWidth="$px"
+                    borderColor="$borderSubdued"
+                    pointerEvents="none"
+                  />
+                </Stack>
+              ) : null}
+              <SizableText
+                size="$bodyMdMedium"
+                ml={providerIcon ? '$1' : undefined}
+                {...valueProps}
+              >
+                {providerName}
               </SizableText>
             </>
           )}
-          {onPress ? (
+          {pressHandler ? (
             <Icon
               name="ChevronRightSmallOutline"
               size="$5"

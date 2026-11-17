@@ -5,6 +5,11 @@
 // but not yet in the public spec — keep them here as a living contract and
 // update once the doc is published.
 
+import {
+  EGasAccountRequestStage,
+  getGasAccountErrorCode,
+  isGasAccountUnclassifiedServerError,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export enum EGasAccountErrorStrategy {
@@ -18,15 +23,36 @@ export enum EGasAccountErrorStrategy {
   Hint = 'hint',
 }
 
-type IGasAccountErrorEntry = {
+export type IGasAccountErrorEntry = {
   strategy: EGasAccountErrorStrategy;
   // Alias from tech-spec §7.1 when available; otherwise a descriptive tag.
   alias: string;
   messageKey: ETranslations;
+  // Copy to use when the same code is returned by estimate-fee (nothing was
+  // sent yet, so "may already be submitted" would mislead). Falls back to
+  // `messageKey`.
+  estimateMessageKey?: ETranslations;
   // When true, swallow the user-facing Toast for this code while still
   // running the strategy side-effects (Fallback re-estimate, Hint reject, etc).
   suppressToast?: boolean;
+  // When true, the failed send may already have reached the chain. The
+  // confirm page latches on it (see `gasAccountSubmitResultUnknownAtom`) so
+  // no later estimate round or confirm tap can send a second tx.
+  resultUnknown?: true;
 };
+
+// Result-unknown submit outcomes (OK-64746 backend contract, 2026-10-15): the
+// execute/transport step failed after the request may have reached the
+// chain. Never auto-resend as self-paid, never swap the quote, never reset
+// the locked nonce — those paths double-send. Hint the user to check activity.
+const RESULT_UNKNOWN_ENTRY_BASE = {
+  strategy: EGasAccountErrorStrategy.Hint,
+  resultUnknown: true,
+  messageKey:
+    ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+  estimateMessageKey:
+    ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
+} as const;
 
 export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
   // --- Refresh: re-estimate to fetch a fresh quote ---
@@ -97,18 +123,6 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     messageKey:
       ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
   },
-  90_200: {
-    strategy: EGasAccountErrorStrategy.Fallback,
-    alias: 'UPSTREAM_UNAVAILABLE',
-    messageKey:
-      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
-  },
-  90_205: {
-    strategy: EGasAccountErrorStrategy.Fallback,
-    alias: 'UPSTREAM_UNAVAILABLE',
-    messageKey:
-      ETranslations.wallet_gas_sponsor_unavailable_switched_to_network_fee__msg,
-  },
   // Same semantics as 40216 but emitted by the upstream sponsor service.
   90_208: {
     strategy: EGasAccountErrorStrategy.Fallback,
@@ -118,8 +132,10 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
   },
 
   // --- Hint only: terminal for this attempt, surface to user and dApp ---
+  // Another request may be executing this quote, so the tx may land.
   40_203: {
     strategy: EGasAccountErrorStrategy.Hint,
+    resultUnknown: true,
     alias: 'GAS_ACCOUNT_QUOTE_ALREADY_USED',
     messageKey:
       ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
@@ -162,6 +178,27 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
     alias: 'UPSTREAM_SPONSOR_BUSY',
     messageKey: ETranslations.wallet_gas_sponsor_busy_try_again_later__msg,
   },
+
+  // --- Hint, result unknown: the tx may already be broadcast ---
+  // Prime-local validation plus OnChain 40200/40204/40206/40207; older
+  // backends still fold "quote already used" (40203) in here, so another
+  // request may be executing this quote.
+  90_200: {
+    ...RESULT_UNKNOWN_ENTRY_BASE,
+    alias: 'UPSTREAM_UNAVAILABLE',
+  },
+  // Execute failed for a mix of causes (nonce conflict, OnChain codes Prime
+  // does not map). Some are confirmed not-submitted, but the App only sees
+  // the code, so the whole bucket is treated as result unknown.
+  90_205: {
+    ...RESULT_UNKNOWN_ENTRY_BASE,
+    alias: 'UPSTREAM_EXECUTE_FAILED',
+  },
+  // Execute transport failure (timeout / 5xx / disconnect).
+  90_219: {
+    ...RESULT_UNKNOWN_ENTRY_BASE,
+    alias: 'UPSTREAM_EXECUTE_TRANSPORT_FAILED',
+  },
 };
 
 export function getGasAccountErrorEntry(
@@ -171,4 +208,40 @@ export function getGasAccountErrorEntry(
     return undefined;
   }
   return GAS_ACCOUNT_ERROR_TABLE[code];
+}
+
+// Prefer this over `getGasAccountErrorEntry(code)` at request call sites.
+// `stage` is the request the error came from. Only after send-transaction was
+// issued is the unclassified Prime 400 (see gasAccountErrorUtils) a
+// result-unknown outcome; at estimate time — or when the stage is unknown —
+// nothing is known to have been sent, so that 400 keeps its ordinary
+// handling instead of a "may already be submitted" hint.
+export function getGasAccountErrorEntryForError(
+  error: unknown,
+  stage: EGasAccountRequestStage | undefined,
+): IGasAccountErrorEntry | undefined {
+  const entry = getGasAccountErrorEntry(getGasAccountErrorCode(error));
+  if (entry) {
+    return entry;
+  }
+  if (
+    stage === EGasAccountRequestStage.Send &&
+    isGasAccountUnclassifiedServerError(error)
+  ) {
+    return GAS_ACCOUNT_ERROR_TABLE[90_219];
+  }
+  return undefined;
+}
+
+// Copy for a mapped error. An estimate-time failure sent nothing, so it uses
+// `estimateMessageKey` where the table provides one; send-time and
+// unknown-stage failures keep the submit copy, which is the safe default.
+export function getGasAccountErrorMessageKey(
+  entry: IGasAccountErrorEntry,
+  stage: EGasAccountRequestStage | undefined,
+): ETranslations {
+  if (stage === EGasAccountRequestStage.Estimate) {
+    return entry.estimateMessageKey ?? entry.messageKey;
+  }
+  return entry.messageKey;
 }

@@ -2,6 +2,8 @@ import BigNumber from 'bignumber.js';
 
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
+import type { IOBLevel } from './types';
+
 // BigNumber-based precision functions with string I/O for precision preservation
 function floorBN(value: BigNumber, decimals = 0): BigNumber {
   const multiplier = new BigNumber(10).pow(decimals);
@@ -101,4 +103,73 @@ export function getOrderBookLiveMidPrice({
   tradingMidPrice?: string;
 }): string | undefined {
   return isSpot ? spotMidPrice : tradingMidPrice;
+}
+
+export type IOrderBookHoverSummary = {
+  averagePrice: string;
+  totalSize: string;
+  totalNotional: string;
+};
+
+export function getOrderBookDistanceFromMid(
+  price: string | number,
+  midPrice: string | number,
+): string | null {
+  const priceBN = new BigNumber(price);
+  const midPriceBN = new BigNumber(midPrice);
+  if (
+    !priceBN.isFinite() ||
+    !midPriceBN.isFinite() ||
+    priceBN.isNegative() ||
+    midPriceBN.isLessThanOrEqualTo(0)
+  ) {
+    return null;
+  }
+  return priceBN
+    .minus(midPriceBN)
+    .abs()
+    .dividedBy(midPriceBN)
+    .multipliedBy(100)
+    .toFixed();
+}
+
+export function getOrderBookHoverSummary(
+  levels: readonly Pick<IOBLevel, 'price' | 'size' | 'cumSize'>[],
+  hoveredIndex: number,
+): IOrderBookHoverSummary | null {
+  if (
+    !Number.isInteger(hoveredIndex) ||
+    hoveredIndex < 0 ||
+    hoveredIndex >= levels.length
+  ) {
+    return null;
+  }
+
+  const hoveredLevel = levels[hoveredIndex];
+  const totalSize = new BigNumber(hoveredLevel.cumSize);
+  if (!totalSize.isFinite() || totalSize.isLessThanOrEqualTo(0)) {
+    return null;
+  }
+
+  let totalNotional = new BigNumber(0);
+  for (let index = 0; index <= hoveredIndex; index += 1) {
+    const level = levels[index];
+    const price = new BigNumber(level.price);
+    const size = new BigNumber(level.size);
+    if (
+      !price.isFinite() ||
+      !size.isFinite() ||
+      price.isNegative() ||
+      size.isNegative()
+    ) {
+      return null;
+    }
+    totalNotional = totalNotional.plus(price.multipliedBy(size));
+  }
+
+  return {
+    averagePrice: totalNotional.dividedBy(totalSize).toFixed(),
+    totalSize: totalSize.toFixed(),
+    totalNotional: totalNotional.toFixed(),
+  };
 }

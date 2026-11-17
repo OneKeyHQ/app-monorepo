@@ -1,7 +1,7 @@
 import path from 'path';
 
-import { type BrowserWindow, Tray, nativeImage } from 'electron';
-import isDev from 'electron-is-dev';
+import { type BrowserWindow, Tray, app, nativeImage } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import {
@@ -19,6 +19,8 @@ import {
   onTrayWindowVisibilityChange,
   showTrayWindow,
 } from './trayWindow';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 const POLL_INTERVAL_MS = 30_000;
 // Backstop for when the renderer never responds (main-window crash, etc.).

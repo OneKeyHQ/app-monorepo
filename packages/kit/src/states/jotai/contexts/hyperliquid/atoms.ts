@@ -10,6 +10,7 @@ import {
   getReduceOnlyPositionMaxSize,
   getScaleOrderReferencePrice,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -18,7 +19,6 @@ import {
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -251,6 +251,7 @@ export const {
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;
+  tradeHistoryDetailsOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
   favoritesBarSpotActive: boolean;
@@ -262,10 +263,17 @@ export const {
 } = contextAtom<ITradeRouteViewState>({
   routeFocused: false,
   tokenSelectorOpen: false,
+  tradeHistoryDetailsOpen: false,
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,
 });
+
+// Token pickers open right now. `tokenSelectorOpen` follows it, so closing one
+// picker cannot drop the live prices another open picker relies on.
+export const { atom: openTokenSelectorsAtom } = contextAtom<readonly string[]>(
+  [],
+);
 
 export type IBBOPriceMode =
   | null
@@ -320,6 +328,8 @@ export interface ITradingFormData {
   twapDurationMinutes?: string;
   twapRandomize?: boolean;
   twapReduceOnly?: boolean;
+  twapTriggerPrice?: string;
+  twapStopPrice?: string;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -358,6 +368,8 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     twapDurationMinutes: '10',
     twapRandomize: true,
     twapReduceOnly: false,
+    twapTriggerPrice: '',
+    twapStopPrice: '',
   });
 
 export type ITradingFormOrderPriceParams = Pick<
@@ -937,7 +949,7 @@ function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
   const key = `${dexIndex}-${assetId}`;
   let entry = perpsCtxByCoinAtomCache.get(key);
   if (!entry) {
-    const ctxIndex = dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
+    const ctxIndex = toCtxIndex(assetId, dexIndex);
     // selectAtom passes prevSlice to the selector. Returning prevSlice when
     // fields are unchanged makes Jotai's Object.is check pass, so the derived
     // atom's value stays the same reference → dependents skip re-evaluation.

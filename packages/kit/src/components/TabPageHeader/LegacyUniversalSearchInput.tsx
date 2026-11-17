@@ -14,12 +14,14 @@ import {
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 
 // Fully-rounded pill matching SearchBar's own borderRadius="$full"; the bar's
 // fill is made transparent (below) so this Liquid Glass material shows through.
@@ -34,22 +36,37 @@ export function LegacyUniversalSearchInput({
   // its search doesn't surface market/perp/wallet results (OK-56756).
   filterTypes,
   glass = false,
+  tabRoute,
+  allowInTravelMode = false,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
   initialTab?: 'market' | 'dapp';
   filterTypes?: EUniversalSearchType[];
   glass?: boolean;
+  tabRoute: ETabRoutes;
+  allowInTravelMode?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
+    if (
+      !allowInTravelMode &&
+      tabRoute !== ETabRoutes.Home &&
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+    ) {
+      return;
+    }
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
-      params:
-        initialTab || filterTypes ? { initialTab, filterTypes } : undefined,
+      params: {
+        source: getUniversalSearchSource(tabRoute),
+        ...(initialTab ? { initialTab } : {}),
+        ...(filterTypes ? { filterTypes } : {}),
+      },
     });
-  }, [navigation, initialTab, filterTypes]);
+  }, [allowInTravelMode, filterTypes, initialTab, navigation, tabRoute]);
 
   // iOS 26 only: host the search bar inside a Liquid Glass capsule. Off iOS 26
   // (and every other platform) isLiquidGlassAvailable() is false, so this stays
@@ -147,12 +164,13 @@ export function LegacyUniversalSearchInput({
   );
 }
 
-export function MDUniversalSearchInput() {
+export function MDUniversalSearchInput({ tabRoute }: { tabRoute: ETabRoutes }) {
   const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
     <XStack px="$pagePadding" pt="$0.5">
       <LegacyUniversalSearchInput
         size="medium"
+        tabRoute={tabRoute}
         containerProps={{
           width: '100%',
           $gtLg: undefined,

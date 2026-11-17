@@ -76,7 +76,7 @@ export function CustomAccordionItem({
       >
         <SizableText>{title}</SizableText>
         <View
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_TRANSFORM}
           rotate={isOpen ? '0deg' : '-90deg'}
           transformOrigin="center"
@@ -86,7 +86,7 @@ export function CustomAccordionItem({
       </Stack>
 
       <YStack
-        animation="quick"
+        transition="quick"
         animateOnly={ANIMATE_ONLY_OPACITY}
         opacity={isOpen ? 1 : 0}
         overflow="hidden"

@@ -12,7 +12,7 @@ export { ReferralBenefitsList } from './ReferralBenefitsList';
 export { SimpleTabs } from './SimpleTabs';
 export { StatCard } from './StatCard';
 export type { IStatCardProps } from './StatCard';
-export {
-  RewardHeaderLayout,
-  ResponsiveThreeColumnLayout,
-} from './RewardHeaderLayout';
+export { RewardHeaderLayout } from './RewardHeaderLayout';
+export { ReferFriendsLoadError } from './ReferFriendsLoadError';
+export { RewardSummaryCard } from './RewardSummaryCard';
+export { RewardDateRangeField } from './RewardDateRangeField';

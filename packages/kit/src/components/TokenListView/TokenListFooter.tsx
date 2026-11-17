@@ -13,6 +13,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -47,8 +48,11 @@ import {
   meta,
   subcell,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
+import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
 import { Currency } from '../Currency';
 
+import { getTokenListFooterLayout } from './tokenListRowLayout';
+import { getTokenListFooterLeading } from './tokenListRowLayoutShared';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
@@ -111,6 +115,7 @@ function TokenListFooter(props: IProps) {
     nonZeroIds,
     smallBalanceFiatValue: smallBalanceTokensFiatValue,
     generation: listStructureGeneration,
+    ownerKey: listStructureOwnerKey,
   } = listStructure;
 
   // Reconstruct the small-balance rows from the home meta cells. Each row is an
@@ -126,10 +131,10 @@ function TokenListFooter(props: IProps) {
       }
     }
     return rows;
-    // listStructureGeneration is the structure identity; smallBalanceIds is
-    // captured at the same generation. store is stable for the provider.
+    // Generations restart on owner changes, which also replace the per-key
+    // atoms. Both fields identify the metadata and cells for these rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, listStructureGeneration]);
+  }, [store, listStructureOwnerKey, listStructureGeneration]);
 
   // `keys` is only a change/identity token downstream (used as the modal's
   // list-version string), so the joined small-balance ids are sufficient.
@@ -173,13 +178,46 @@ function TokenListFooter(props: IProps) {
       );
     }
 
-    return resultTokens;
+    return resultTokens.length === smallBalanceTokens.length
+      ? smallBalanceTokens
+      : resultTokens;
   }, [
     smallBalanceTokens,
     hideZeroBalanceTokens,
     hideDeFiMarkedTokens,
     nonZeroIdsSet,
   ]);
+
+  // Record<$key, ITokenFiat> for the given ids — aggregate ids resolve through
+  // the derived aggCell, normal ids through cell.
+  const getFiatMap = useCallback(
+    (ids: readonly string[]) => {
+      const map: Record<string, ITokenFiat> = {};
+      for (const id of ids) {
+        const aggregate = isAgg(id, store.get(meta(store, id)));
+        const fiat = store.get(
+          aggregate ? aggCell(store, id) : cell(store, id),
+        );
+        if (fiat) {
+          map[id] = fiat;
+        }
+      }
+      return map;
+    },
+    [store],
+  );
+
+  // Visible and hidden fiat can offset while the BG total stays unchanged.
+  // Subscribe to the filtered cells instead of using that total as a price tick.
+  const filteredSmallBalanceFiatValue = useTokenFiatSubtotal(
+    filteredSmallBalanceTokens === smallBalanceTokens
+      ? undefined
+      : filteredSmallBalanceTokens,
+  );
+  const displayedSmallBalanceFiatValue =
+    filteredSmallBalanceTokens === smallBalanceTokens
+      ? smallBalanceTokensFiatValue
+      : filteredSmallBalanceFiatValue;
 
   const filteredRiskyTokens = useMemo(() => {
     if (riskyOwnerKey !== currentOwnerKey) {
@@ -220,16 +258,7 @@ function TokenListFooter(props: IProps) {
     // its own isolated store via refresh*, and a wrong shape renders blank
     // balances.
 
-    // map: Record<$key, ITokenFiat> for the small-balance ids — aggregate ids
-    // resolve through the derived aggCell, normal ids through cell.
-    const smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
-    for (const id of smallBalanceIds) {
-      const aggregate = isAgg(id, store.get(meta(store, id)));
-      const fiat = store.get(aggregate ? aggCell(store, id) : cell(store, id));
-      if (fiat) {
-        smallBalanceTokenListMap[id] = fiat;
-      }
-    }
+    const smallBalanceTokenListMap = getFiatMap(smallBalanceIds);
 
     // nested aggregate fiat map: Record<aggKey, Record<networkId, ITokenFiat>>
     // for the aggregate small-balance ids, read from the per-network sub-cells
@@ -260,6 +289,7 @@ function TokenListFooter(props: IProps) {
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
         tokenList: {
           tokens: filteredSmallBalanceTokens,
           keys: smallBalanceTokenKeys,
@@ -282,8 +312,10 @@ function TokenListFooter(props: IProps) {
     account,
     network,
     wallet,
+    indexedAccount?.id,
     smallBalanceTokens.length,
     smallBalanceIds,
+    getFiatMap,
     store,
     listStructure.aggMembership,
     navigation,
@@ -406,36 +438,51 @@ function TokenListFooter(props: IProps) {
     };
   }, [run]);
 
+  const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
+  const { gtMd } = useMedia();
+  const footerLeading = getTokenListFooterLeading(gtMd);
+
   return (
-    <Stack mx={tableLayout ? undefined : '$2'}>
+    <Stack mx={footerLayout.mx}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
           userSelect="none"
-          {...(tableLayout && plainMode
-            ? undefined
-            : {
-                px: '$3',
-                mx: 0,
-              })}
+          {...footerLayout.itemProps}
         >
-          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
-            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
+          <XStack
+            flexGrow={1}
+            flexBasis={0}
+            minWidth={0}
+            alignItems="center"
+            gap={footerLeading.gap}
+          >
+            <Stack
+              width={footerLeading.boxSize}
+              height={footerLeading.boxSize}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size="$6"
+                size={footerLeading.iconSize}
               />
             </Stack>
             <ListItem.Text
+              flexShrink={1}
+              minWidth={0}
               primary={`${
                 filteredSmallBalanceTokens.length
               } ${intl.formatMessage({
                 id: ETranslations.low_value_assets,
               })}`}
-              {...(tableLayout && {
-                primaryTextProps: { size: '$bodyMdMedium' },
-              })}
+              primaryTextProps={{
+                numberOfLines: 1,
+                ...(tableLayout && { size: '$bodyMdMedium' }),
+              }}
             />
             {tableLayout ? (
               <Popover
@@ -470,37 +517,44 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          <Stack
+          <XStack
             flexGrow={1}
             flexBasis={0}
-            justifyContent="center"
-            alignItems="flex-end"
+            justifyContent="flex-end"
+            alignItems="center"
           >
             <Currency
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
               sourceCurrency="usd"
               textAlign="right"
+              hideValue
             >
-              {smallBalanceTokensFiatValue}
+              {displayedSmallBalanceFiatValue}
             </Currency>
-          </Stack>
+          </XStack>
         </ListItem>
       ) : null}
       {!isSearchMode && filteredRiskyTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressRiskyTokens}
           userSelect="none"
-          {...(tableLayout && plainMode
-            ? undefined
-            : {
-                px: '$3',
-                mx: 0,
-              })}
+          {...footerLayout.itemProps}
         >
-          <XStack alignItems="center" gap="$3" flex={1}>
-            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
-              <Icon name="ErrorSolid" color="$iconSubdued" size="$6" />
+          <XStack alignItems="center" gap={footerLeading.gap} flex={1}>
+            <Stack
+              width={footerLeading.boxSize}
+              height={footerLeading.boxSize}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
+              <Icon
+                name="ErrorSolid"
+                color="$iconSubdued"
+                size={footerLeading.iconSize}
+              />
             </Stack>
             <ListItem.Text
               primary={intl.formatMessage(

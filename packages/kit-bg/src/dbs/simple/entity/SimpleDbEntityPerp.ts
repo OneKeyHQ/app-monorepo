@@ -68,6 +68,7 @@ export interface IPerpsAccountDisplayCacheSummary {
   totalMarginUsed: string | undefined;
   crossAccountValue: string | undefined;
   crossMaintenanceMarginUsed: string | undefined;
+  isolatedMarginUsed: string | undefined;
   totalNtlPos: string | undefined;
   totalRawUsd: string | undefined;
   withdrawable: string | undefined;
@@ -86,6 +87,7 @@ export interface IPerpsAccountDisplayCacheSpotBalances {
   accountAddress: string;
   balances: IPerpsAccountDisplayCacheSpotBalanceItem[];
   spotTotalUsd: string | undefined;
+  hasUnsupportedBalances?: boolean;
 }
 
 export interface IPerpsAccountDisplayCacheEntry {
@@ -143,6 +145,7 @@ export interface ISimpleDbPerpData {
   tradingUniverse?: IPerpsUniverse[] | undefined; // legacy single-dex
   marginTablesMap?: IMarginTablesMap; // legacy single-dex
   tradingUniverses?: IPerpsUniverse[][]; // multi-dex
+  tradingUniversesUpdatedAt?: number;
   marginTablesMapList?: Array<IMarginTablesMap | undefined>;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
@@ -294,6 +297,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getTradingUniverse(): Promise<{
     universesByDex: IPerpsUniverse[][];
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
+    updatedAt?: number;
   }> {
     const config = await this.getPerpData();
     const tradingUniverses = config.tradingUniverses;
@@ -322,6 +326,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     return {
       universesByDex,
       marginTablesMapByDex,
+      updatedAt: config.tradingUniversesUpdatedAt,
     };
   }
 
@@ -340,6 +345,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         marginTablesMap: marginTablesMapList?.[0],
         tradingUniverses: universes,
         tradingUniverse: universes?.[0],
+        tradingUniversesUpdatedAt: Date.now(),
       }),
     );
   }

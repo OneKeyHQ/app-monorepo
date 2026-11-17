@@ -46,7 +46,13 @@ export function ScrollView({
   ]);
 
   return (
-    <YStack flex={1} style={style} ref={ref as any} width={width}>
+    <YStack
+      flex={1}
+      style={style}
+      ref={ref as any}
+      width={width}
+      className="onekey-tabs-scroll-view"
+    >
       {children}
     </YStack>
   );

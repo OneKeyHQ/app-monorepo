@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   DashText,
   DebugRenderTracker,
   Divider,
@@ -16,6 +17,9 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -23,13 +27,14 @@ import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
   useSpotActiveAssetCtxAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
@@ -39,15 +44,21 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  getDexIndexByAssetId,
+  getDexIndexByCoin,
+  isPerpsUniverseCacheComplete,
+  toAssetId,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
   formatAssetCtx,
   getSpotMarketCapValue,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import {
-  PERP_LAYOUT_CONFIG,
-  XYZ_ASSET_ID_OFFSET,
-} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { useShowPortfolio } from '../../hooks/useShowPortfolio';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
@@ -63,9 +74,72 @@ const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
 const TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP = 4;
 const TICKER_BAR_PRICE_SECTION_WIDTH = 90;
 const TICKER_BAR_WIDE_PRICE_SECTION_WIDTH = 120;
-const TICKER_BAR_SPOT_PRICE_SECTION_WIDTH = 168;
 const TICKER_BAR_WIDE_MARK_PRICE_LENGTH = 8;
 const TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH = 15;
+
+// The background points the subscription at the new coin before trading
+// metadata resolves, so activeAsset carries the new coin with assetId still
+// undefined for ~150ms. Indexing is positional either way (assetId is
+// offset + index), so resolving the same index from the coin costs nothing in
+// accuracy and keeps the cached ctx reachable across that gap. (OK-60692)
+let universesByDexCache: IPerpsUniverse[][] | undefined;
+let universesByDexInFlight: Promise<IPerpsUniverse[][] | undefined> | undefined;
+
+async function readCompletePerpsUniversesByDex() {
+  let { universesByDex } =
+    await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+  if (!isPerpsUniverseCacheComplete(universesByDex)) {
+    // Cold start can read SimpleDB before the metadata refresh lands. The
+    // refresh is single-flight and cold start already starts one, so this
+    // joins it rather than adding a request. Mirrors usePerpsFavorites.
+    await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+    ({ universesByDex } =
+      await backgroundApiProxy.serviceHyperliquid.getTradingUniverse());
+  }
+  // An empty array is truthy, so caching an unfinished read would pin every
+  // later lookup to it and keep the strip flashing skeletons for the rest of
+  // the session. Leave it uncached and let the next call retry.
+  if (isPerpsUniverseCacheComplete(universesByDex)) {
+    universesByDexCache = universesByDex;
+  }
+  return universesByDex;
+}
+
+function loadPerpsUniversesByDex() {
+  if (universesByDexCache) {
+    return Promise.resolve(universesByDexCache);
+  }
+  if (!universesByDexInFlight) {
+    universesByDexInFlight = readCompletePerpsUniversesByDex()
+      // Every ticker-bar cell awaits this promise, so one rejection would
+      // surface seven times over. The coin lookup degrades to the assetId
+      // path on undefined, which is the pre-fix behavior.
+      .catch(() => undefined)
+      .finally(() => {
+        universesByDexInFlight = undefined;
+      });
+  }
+  return universesByDexInFlight;
+}
+
+function useTickerBarCoinCtxLocation() {
+  const { result: universesByDex } = usePromiseResult(
+    loadPerpsUniversesByDex,
+    [],
+    { checkIsFocused: false },
+  );
+  return useCallback(
+    (coin: string) => {
+      if (!coin) return undefined;
+      const dexIndex = getDexIndexByCoin(coin);
+      const ctxIndex =
+        universesByDex?.[dexIndex]?.findIndex((item) => item.name === coin) ??
+        -1;
+      return ctxIndex < 0 ? undefined : { dexIndex, ctxIndex };
+    },
+    [universesByDex],
+  );
+}
 
 function isValidPerpFormattedCtx(
   ctx: ReturnType<typeof formatAssetCtx> | undefined,
@@ -74,14 +148,30 @@ function isValidPerpFormattedCtx(
   return Number.isFinite(markPriceNumber) && markPriceNumber > 0;
 }
 
+// Mirrors the mobile header: a ctx left over from the previous pair must not
+// render under the new one. The perp branch already matches on coin, and the
+// instrument is written optimistically at switch start, so the spot branch
+// needs the same guard to stay blank until its own ctx arrives.
+function useTickerBarSpotAssetCtx() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const matched = spotAssetCtx?.coin === activeTradeInstrument.coin;
+  return matched ? spotAssetCtx : undefined;
+}
+
 function useTickerBarPerpAssetCtx() {
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
+  const resolveCoinCtxLocation = useTickerBarCoinCtxLocation();
+  // perpsActiveAssetAtom writes a fresh object on every set, so depending on
+  // it wholesale would re-run this memo (and its BigNumber formatting) across
+  // all ticker-bar cells whenever universe/margin changed.
+  const { assetId: activeAssetId, coin: activeCoin } = activeAsset;
 
   const resolved = useMemo(() => {
     if (
-      assetCtx?.coin === activeAsset.coin &&
+      assetCtx?.coin === activeCoin &&
       isValidPerpFormattedCtx(assetCtx.ctx)
     ) {
       return {
@@ -90,19 +180,26 @@ function useTickerBarPerpAssetCtx() {
       };
     }
 
-    if (activeAsset.assetId === undefined) {
+    const location =
+      activeAssetId === undefined
+        ? resolveCoinCtxLocation(activeCoin)
+        : (() => {
+            const dexIndex = getDexIndexByAssetId(activeAssetId);
+            return {
+              dexIndex,
+              ctxIndex: toCtxIndex(activeAssetId, dexIndex),
+            };
+          })();
+
+    if (!location) {
       return {
         assetCtx,
         source: 'empty' as const,
       };
     }
 
-    const dexIndex = activeAsset.assetId >= XYZ_ASSET_ID_OFFSET ? 1 : 0;
-    const ctxIndex =
-      dexIndex === 1
-        ? activeAsset.assetId - XYZ_ASSET_ID_OFFSET
-        : activeAsset.assetId;
-    const cachedCtx = allAssetCtxs.assetCtxsByDex?.[dexIndex]?.[ctxIndex];
+    const cachedCtx =
+      allAssetCtxs.assetCtxsByDex?.[location.dexIndex]?.[location.ctxIndex];
     const formattedCachedCtx = cachedCtx
       ? formatAssetCtx(cachedCtx)
       : undefined;
@@ -115,13 +212,22 @@ function useTickerBarPerpAssetCtx() {
 
     return {
       assetCtx: {
-        coin: activeAsset.coin,
-        assetId: activeAsset.assetId,
+        coin: activeCoin,
+        assetId: toAssetId({
+          dexIndex: location.dexIndex,
+          index: location.ctxIndex,
+        }),
         ctx: formattedCachedCtx,
       },
       source: 'allDexsAssetCtxs' as const,
     };
-  }, [activeAsset.assetId, activeAsset.coin, allAssetCtxs, assetCtx]);
+  }, [
+    activeAssetId,
+    activeCoin,
+    allAssetCtxs,
+    assetCtx,
+    resolveCoinCtxLocation,
+  ]);
 
   useEffect(() => {
     if (resolved.source === 'allDexsAssetCtxs') {
@@ -158,16 +264,17 @@ function formatTickerBarChange24hDisplay({
 
 function useTickerBarIsLoading() {
   const { currentToken } = usePerpSession();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const isSpot = tradingMode === 'spot';
   if (isSpot) {
     // Spot: only loading if spot ctx hasn't arrived yet.
     // Don't gate on isReady (perps WS connection state) — spot data
     // flows through the same WS but isReady can be temporarily false
     // during mode transitions while the spot subscription is active.
-    return !spotAssetCtx?.ctx;
+    return !spotCtx?.ctx;
   }
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
@@ -227,12 +334,13 @@ const TickerBarMarkPriceView = memo(
 TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
 
 function TickerBarMarkPrice() {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const isSpot = tradingMode === 'spot';
   const formattedMarkPrice = formatLocalizedNumberString(
-    (isSpot ? spotAssetCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
+    (isSpot ? spotCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
   );
   const isLoading = useTickerBarIsLoading();
   useEffect(() => {
@@ -257,41 +365,34 @@ function TickerBarMarkPrice() {
 }
 
 const TickerBarChange24hView = memo(
-  ({
-    changeDisplay,
-    isLoading,
-  }: {
-    changeDisplay: string;
-    isLoading: boolean;
-  }) => (
+  ({ changeDisplay }: { changeDisplay: string }) => (
     <DebugRenderTracker
       name="TickerBarChange24h"
       position="bottom-right"
       offsetY={10}
     >
-      <SkeletonContainer isLoading={isLoading} width={120} height={16}>
-        <SizableText
-          size="$bodyXs"
-          textTransform="none"
-          fontWeight="600"
-          letterSpacing={0.2}
-          lineHeight={12}
-          color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
-          numberOfLines={1}
-        >
-          {changeDisplay}
-        </SizableText>
-      </SkeletonContainer>
+      <SizableText
+        size="$bodyXs"
+        textTransform="none"
+        fontWeight="600"
+        letterSpacing={0.2}
+        lineHeight={12}
+        color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
+        numberOfLines={1}
+      >
+        {changeDisplay}
+      </SizableText>
     </DebugRenderTracker>
   ),
 );
 TickerBarChange24hView.displayName = 'TickerBarChange24hView';
 
 export function TickerBarChange24h() {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const spotCtx = useTickerBarSpotAssetCtx();
+  const displayCtx = tradingMode === 'spot' ? spotCtx?.ctx : assetCtx?.ctx;
   const changeDisplay = useMemo(() => {
     return formatTickerBarChange24hDisplay({
       change24h: displayCtx?.change24h,
@@ -300,11 +401,8 @@ export function TickerBarChange24h() {
   }, [displayCtx?.change24h, displayCtx?.change24hPercent]);
   const isLoading = useTickerBarIsLoading();
 
-  return (
-    <TickerBarChange24hView
-      changeDisplay={changeDisplay}
-      isLoading={isLoading}
-    />
+  return isLoading ? null : (
+    <TickerBarChange24hView changeDisplay={changeDisplay} />
   );
 }
 
@@ -400,12 +498,13 @@ const TickerBar24hVolumeView = memo(
 TickerBar24hVolumeView.displayName = 'TickerBar24hVolumeView';
 
 function TickerBar24hVolume() {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const isSpot = tradingMode === 'spot';
   const volume24h = isSpot
-    ? spotAssetCtx?.ctx?.volume24h || '0'
+    ? spotCtx?.ctx?.volume24h || '0'
     : assetCtx?.ctx?.volume24h || '0';
   const formattedVolume24h = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(volume24h.toString()),
@@ -521,11 +620,11 @@ const TickerBarMarketCapView = memo(
 TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
 
 function TickerBarMarketCap() {
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const marketCap = getSpotMarketCapValue(
-    spotAssetCtx?.ctx,
-    spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotCtx?.ctx,
+    spotCtx?.baseName ?? spotCtx?.coin,
     spotMarketCaps,
   );
   const formattedMarketCap = marketCap
@@ -655,6 +754,21 @@ const TickerBarFundingRateView = memo(
     isLoading: boolean;
   }) => {
     const intl = useIntl();
+    const { showPortfolio: showFundingAnalysis } = useShowPortfolio({
+      initialChartType: 'funding',
+    });
+    const tooltipRef = useRef<ITooltipRef>({
+      closeTooltip: () => Promise.resolve(),
+      openTooltip: () => Promise.resolve(),
+    });
+    const handleViewFundingHistory = useCallback(() => {
+      void tooltipRef.current.closeTooltip();
+      appEventBus.emit(EAppEventBusNames.PerpShowFundingHistory, undefined);
+    }, []);
+    const handleViewFundingAnalysis = useCallback(() => {
+      void tooltipRef.current.closeTooltip();
+      void showFundingAnalysis();
+    }, [showFundingAnalysis]);
     return (
       <DebugRenderTracker name="TickerBarFundingRate">
         <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
@@ -666,6 +780,7 @@ const TickerBarFundingRateView = memo(
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
             <XStack alignItems="baseline" gap="$2">
               <Tooltip
+                ref={tooltipRef}
                 hovering
                 renderTrigger={
                   <XStack alignItems="baseline" gap="$2">
@@ -846,6 +961,30 @@ const TickerBarFundingRateView = memo(
                         })}
                       </SizableText>
                     </YStack>
+                    <YStack gap="$3" width="100%">
+                      <Button
+                        width="100%"
+                        size="small"
+                        variant="secondary"
+                        testID="perp-desktop-view-funding-history-button"
+                        onPress={handleViewFundingHistory}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_history__action,
+                        })}
+                      </Button>
+                      <Button
+                        width="100%"
+                        size="small"
+                        variant="secondary"
+                        testID="perp-desktop-view-funding-analysis-button"
+                        onPress={handleViewFundingAnalysis}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.perp_view_funding_analysis__action,
+                        })}
+                      </Button>
+                    </YStack>
                   </YStack>
                 }
               />
@@ -859,15 +998,15 @@ const TickerBarFundingRateView = memo(
 TickerBarFundingRateView.displayName = 'TickerBarFundingRateView';
 
 function TickerBarFundingRate() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const fundingRateStr = assetCtx?.ctx?.fundingRate || '0';
   const fundingRate = parseFloat(fundingRateStr);
   const fundingRatePercent = (fundingRate * 100).toFixed(4);
   const hourlyFundingRate = (fundingRate * 100).toFixed(4);
-  const dailyFundingRate = (fundingRate * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRate * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRate * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRate * 100 * 24 * 365).toFixed(2);
+  const dailyFundingRate = (fundingRate * 100 * 24).toFixed(4);
+  const weeklyFundingRate = (fundingRate * 100 * 24 * 7).toFixed(4);
+  const monthlyFundingRate = (fundingRate * 100 * 24 * 30).toFixed(4);
+  const annualizedFundingRate = (fundingRate * 100 * 24 * 365).toFixed(4);
   const countdown = useFundingCountdown();
   const isLoading = useTickerBarIsLoading();
 
@@ -888,13 +1027,14 @@ function TickerBarFundingRate() {
 
 function PerpTickerBarDesktop() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
   const priceSectionWidth = useMemo(() => {
     if (isSpot) {
-      return TICKER_BAR_SPOT_PRICE_SECTION_WIDTH;
+      return TICKER_BAR_WIDE_PRICE_SECTION_WIDTH;
     }
 
     const formattedMarkPrice = formatLocalizedNumberString(

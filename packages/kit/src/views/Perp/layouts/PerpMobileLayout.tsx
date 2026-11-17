@@ -9,15 +9,16 @@ import {
   DebugRenderTracker,
   IconButton,
   RefreshControl,
-  SizableText,
   XStack,
   YStack,
+  useIsSplitMainActive,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsCustomSettingsAtom,
   usePerpsPendingInfoPanelTabAtom,
   usePerpsSpotBalancesAtom,
   useSpotActiveOpenOrdersAtom,
@@ -28,6 +29,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -38,18 +40,28 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
-  usePerpsActiveTwapOrdersAtom,
   useTradeRouteViewStateAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
+import {
+  PERP_MOBILE_CHART_BAR_SCROLL_INSET,
+  PerpMobileChartPanel,
+} from '../components/PerpMobileChartPanel';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
+import { PerpMobileTabBarItem } from '../components/PerpMobileTabBarItem';
+import {
+  PerpMobileTopChartContent,
+  PerpMobileTopChartProvider,
+  PerpMobileTopChartTicker,
+} from '../components/PerpMobileTopChartProvider';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
-import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import { usePerpsAccountScopedActiveTwapOrders } from '../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../hooks/usePerpsAccountScopedCacheAddress';
+import { useVisibleSpotHoldingsCount } from '../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
 import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
 import {
@@ -58,6 +70,8 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+
+import type { ISpotHoldingRawBalance } from '../components/OrderInfoPanel/utils';
 
 export enum ETabName {
   Positions = 'Positions',
@@ -105,26 +119,58 @@ export const TabBarItem = memo(
         position="bottom-center"
         name={`PerpMobileLayout_TabBarItem_${name}`}
       >
-        <XStack
-          py="$2"
-          borderBottomWidth={isFocused ? '$0.5' : '$0'}
-          borderBottomColor="$borderActive"
+        <PerpMobileTabBarItem
+          label={displayTitle}
+          isFocused={isFocused}
           onPress={() => onPress(name)}
-          mb={-2}
-        >
-          <SizableText size="$bodyMdMedium" pr="$0.5">
-            {displayTitle}
-          </SizableText>
-        </XStack>
+        />
       </DebugRenderTracker>
     );
   },
 );
 
+const MobileHoldingsTabBarItem = memo(
+  ({
+    isFocused,
+    onPress,
+    balances,
+    hasPerpsUsdc,
+  }: {
+    isFocused: boolean;
+    onPress: (name: ETabName) => void;
+    balances: ISpotHoldingRawBalance[];
+    hasPerpsUsdc: boolean;
+  }) => {
+    const holdingsCount = useVisibleSpotHoldingsCount({
+      balances,
+      hasPerpsUsdc,
+    });
+
+    return (
+      <TabBarItem
+        name={ETabName.Balances}
+        isFocused={isFocused}
+        onPress={onPress}
+        tabCount={holdingsCount > 0 ? `(${holdingsCount})` : ''}
+      />
+    );
+  },
+);
+
 TabBarItem.displayName = 'TabBarItem';
+MobileHoldingsTabBarItem.displayName = 'MobileHoldingsTabBarItem';
 
 export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
+  const isSplitMainActive = useIsSplitMainActive();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const chartPosition = perpsCustomSettings.chartPosition ?? 'bottom';
+  const shouldShowTopChart = chartPosition === 'top' && !isSplitMainActive;
+  const shouldShowBottomChart =
+    chartPosition === 'bottom' && !isSplitMainActive;
+  const [bottomChartScrollInset, setBottomChartScrollInset] = useState(
+    PERP_MOBILE_CHART_BAR_SCROLL_INSET,
+  );
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const [pendingInfoPanelTab, setPendingInfoPanelTab] =
     usePerpsPendingInfoPanelTabAtom();
@@ -202,12 +248,13 @@ export function PerpMobileLayout() {
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
-  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
   const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+  const { twapOrders } =
+    usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
@@ -232,11 +279,7 @@ export function PerpMobileLayout() {
       dataAccountAddress: spotOpenOrdersState.accountAddress,
       data: spotOpenOrdersState.openOrders,
     }).length +
-    getPerpsAccountScopedListData({
-      activeAccountAddress: currentUserAddress,
-      dataAccountAddress: twapOrdersState.accountAddress,
-      data: twapOrdersState.twapOrders,
-    }).length;
+    twapOrders.length;
   const shouldUseCachedSpotBalances =
     !isSpotBalancesLoaded &&
     Boolean(currentUserAddress) &&
@@ -246,6 +289,10 @@ export function PerpMobileLayout() {
     ? (cachedSpotBalances?.balances ?? balances)
     : balances;
 
+  const hasPerpsUsdc =
+    !isUnifiedAccountMode &&
+    !!accountSummary?.totalRawUsd &&
+    new BigNumber(accountSummary.totalRawUsd).gt(0);
   const holdingsCount = useMemo(() => {
     const nonUsdcSpotCount = displayBalances.filter(
       (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
@@ -253,12 +300,8 @@ export function PerpMobileLayout() {
     const hasSpotUsdc = displayBalances.some(
       (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
     );
-    const hasPerpsUsdc =
-      !isUnifiedAccountMode &&
-      !!accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0);
     return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, displayBalances, isUnifiedAccountMode]);
+  }, [displayBalances, hasPerpsUsdc]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -273,13 +316,6 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
-
-  const holdingsTabCount = useMemo(() => {
-    if (holdingsCount > 0) {
-      return `(${holdingsCount})`;
-    }
-    return '';
-  }, [holdingsCount]);
 
   const handleTraceLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
@@ -336,6 +372,13 @@ export function PerpMobileLayout() {
     [handleTraceLayout],
   );
 
+  const handleTickerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      handleTraceLayout('tickerBar', event);
+    },
+    [handleTraceLayout],
+  );
+
   useEffect(() => {
     tracePerpsMobileLayout('perpTab.counts.state', {
       activeTab,
@@ -357,124 +400,154 @@ export function PerpMobileLayout() {
   ]);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: '$bgApp' }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
-      showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[1]}
-      onLayout={handleScrollViewportLayout}
-      onContentSizeChange={handleContentSizeChange}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-    >
-      <YStack onLayout={(event) => handleTraceLayout('alerts', event)}>
-        <PerpTips />
-        <PerpMobileNetworkAlert />
-      </YStack>
+    <YStack flex={1} position="relative" bg="$bgApp">
+      <PerpMobileTopChartProvider isEnabled={shouldShowTopChart}>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: '$bgApp' }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            // The floating chart bar overlays the scroll viewport bottom.
+            paddingBottom:
+              (tabBarHeight ?? 0) +
+              (shouldShowBottomChart ? bottomChartScrollInset : 0),
+          }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          stickyHeaderIndices={[1]}
+          onLayout={handleScrollViewportLayout}
+          onContentSizeChange={handleContentSizeChange}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
+          <YStack onLayout={(event) => handleTraceLayout('alerts', event)}>
+            <PerpTips />
+            <PerpMobileNetworkAlert />
+          </YStack>
 
-      <YStack onLayout={(event) => handleTraceLayout('tickerBar', event)}>
-        <PerpTickerBar />
-      </YStack>
-      <XStack
-        gap="$3"
-        px="$4"
-        pb="$4"
-        onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
-      >
-        {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
+          <PerpMobileTopChartTicker onLayout={handleTickerLayout} />
+          <PerpMobileTopChartContent />
+          <XStack
+            gap="$3.5"
+            px="$4"
+            pb="$4"
+            onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
+          >
+            {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
+            <YStack
+              flex={35}
+              flexBasis={0}
+              minWidth={0}
+              onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
+            >
+              <PerpOrderBook />
+            </YStack>
+            <YStack
+              flex={65}
+              flexBasis={0}
+              minWidth={0}
+              onLayout={(event) =>
+                handleTraceLayout('tradingPanelColumn', event)
+              }
+            >
+              <PerpTradingPanel isMobile />
+            </YStack>
+          </XStack>
+          <XStack
+            bg="$bgApp"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+            justifyContent="space-between"
+            alignItems="center"
+            pr="$4"
+            pl="$4"
+            onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
+          >
+            <XStack gap="$5">
+              <TabBarItem
+                name={ETabName.Positions}
+                isFocused={activeTab === ETabName.Positions}
+                onPress={setActiveTab}
+                tabCount={positionsTabCount}
+              />
+              <TabBarItem
+                name={ETabName.OpenOrders}
+                isFocused={activeTab === ETabName.OpenOrders}
+                onPress={setActiveTab}
+                tabCount={openOrdersTabCount}
+              />
+              <MobileHoldingsTabBarItem
+                isFocused={activeTab === ETabName.Balances}
+                onPress={setActiveTab}
+                balances={displayBalances}
+                hasPerpsUsdc={hasPerpsUsdc}
+              />
+            </XStack>
+            <IconButton
+              testID="perp-icon-btn"
+              variant="tertiary"
+              size="small"
+              borderRadius="$full"
+              icon="ClockTimeHistoryOutline"
+              onPress={handleViewTradesHistory}
+            />
+          </XStack>
+          <YStack
+            flex={1}
+            onLayout={(event) => handleTraceLayout('tabContent', event)}
+          >
+            <YStack
+              display={activeTab === ETabName.Positions ? 'flex' : 'none'}
+              flex={1}
+              onLayout={(event) => handleTraceLayout('positionsPanel', event)}
+            >
+              <PerpPositionsList
+                handleViewTpslOrders={handleViewTpslOrders}
+                isMobile
+                disableListScroll
+              />
+            </YStack>
+            <YStack
+              display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
+              flex={1}
+              onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
+            >
+              <PerpOpenOrdersList
+                isMobile
+                isPanelActive={activeTab === ETabName.OpenOrders}
+                disableListScroll
+              />
+            </YStack>
+            <YStack
+              display={activeTab === ETabName.Balances ? 'flex' : 'none'}
+              flex={1}
+              onLayout={(event) => handleTraceLayout('balancesPanel', event)}
+            >
+              <SpotBalanceList isMobile disableListScroll />
+            </YStack>
+          </YStack>
+        </ScrollView>
+      </PerpMobileTopChartProvider>
+      {(platformEnv.isNativeIOS26Plus || platformEnv.isNativeAndroid) &&
+      chartPosition === 'bottom' &&
+      (tabBarHeight ?? 0) > 0 ? (
         <YStack
-          flex={35}
-          flexBasis={0}
-          minWidth={0}
-          onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
-        >
-          <PerpOrderBook />
-        </YStack>
-        <YStack
-          flex={65}
-          flexBasis={0}
-          minWidth={0}
-          onLayout={(event) => handleTraceLayout('tradingPanelColumn', event)}
-        >
-          <PerpTradingPanel isMobile />
-        </YStack>
-      </XStack>
-      <XStack
-        bg="$bgApp"
-        borderBottomWidth="$0.5"
-        borderBottomColor="$borderSubdued"
-        justifyContent="space-between"
-        alignItems="center"
-        pr="$4"
-        pl="$4"
-        onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
-      >
-        <XStack gap="$5">
-          <TabBarItem
-            name={ETabName.Positions}
-            isFocused={activeTab === ETabName.Positions}
-            onPress={setActiveTab}
-            tabCount={positionsTabCount}
-          />
-          <TabBarItem
-            name={ETabName.OpenOrders}
-            isFocused={activeTab === ETabName.OpenOrders}
-            onPress={setActiveTab}
-            tabCount={openOrdersTabCount}
-          />
-          <TabBarItem
-            name={ETabName.Balances}
-            isFocused={activeTab === ETabName.Balances}
-            onPress={setActiveTab}
-            tabCount={holdingsTabCount}
-          />
-        </XStack>
-        <IconButton
-          testID="perp-icon-btn"
-          variant="tertiary"
-          size="small"
-          borderRadius="$full"
-          icon="ClockTimeHistoryOutline"
-          onPress={handleViewTradesHistory}
+          testID="perp-ios26-tab-bar-background"
+          position="absolute"
+          right={0}
+          bottom={0}
+          left={0}
+          h={tabBarHeight}
+          bg="$bgApp"
+          pointerEvents="none"
         />
-      </XStack>
-      <YStack
-        flex={1}
-        onLayout={(event) => handleTraceLayout('tabContent', event)}
-      >
-        <YStack
-          display={activeTab === ETabName.Positions ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('positionsPanel', event)}
-        >
-          <PerpPositionsList
-            handleViewTpslOrders={handleViewTpslOrders}
-            isMobile
-            useTabsList={false}
-            disableListScroll
-          />
-        </YStack>
-        <YStack
-          display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
-        >
-          <PerpOpenOrdersList
-            isMobile
-            isPanelActive={activeTab === ETabName.OpenOrders}
-            useTabsList={false}
-            disableListScroll
-          />
-        </YStack>
-        <YStack
-          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('balancesPanel', event)}
-        >
-          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
-        </YStack>
-      </YStack>
-    </ScrollView>
+      ) : null}
+      {shouldShowBottomChart ? (
+        <PerpMobileChartPanel
+          bottomOffset={tabBarHeight ?? 0}
+          onScrollInsetChange={setBottomChartScrollInset}
+        />
+      ) : null}
+    </YStack>
   );
 }

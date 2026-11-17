@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Empty } from '@onekeyhq/components';
 import type { IIllustrationName } from '@onekeyhq/components/src/primitives/Illustration';
+import { useIndexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,15 +24,33 @@ type IProps = {
   autoCreateAddress?: boolean;
   createAllDeriveTypes?: boolean;
   createAllEnabledNetworks?: boolean;
+  onCreateAddress?: () => void | Promise<void>;
+  createAddressLabel?: string;
+  onCreateDone?: ComponentProps<
+    typeof LazyAccountSelectorCreateAddressButton
+  >['onCreateDone'];
 };
 
 const num = 0;
 
 function EmptyAccount(props: IProps) {
-  const { autoCreateAddress, createAllDeriveTypes, createAllEnabledNetworks } =
-    props;
+  const {
+    autoCreateAddress,
+    createAllDeriveTypes,
+    createAllEnabledNetworks,
+    onCreateAddress,
+    createAddressLabel,
+    onCreateDone,
+  } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+  const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
+
+  const isCreatingAddress = Boolean(
+    addressCreationState &&
+    addressCreationState.walletId === activeAccount?.wallet?.id &&
+    addressCreationState.indexedAccountId === activeAccount?.indexedAccount?.id,
+  );
 
   const emptyMessage = useMemo(() => {
     let illustration: IIllustrationName | undefined;
@@ -65,42 +85,59 @@ function EmptyAccount(props: IProps) {
     return { title, description, illustration };
   }, [intl, activeAccount]);
 
+  const createAddressButton = (() => {
+    if (!activeAccount?.canCreateAddress) {
+      return null;
+    }
+    if (onCreateAddress) {
+      return (
+        <Empty.Button
+          testID="account-selector-create-address-btn"
+          loading={isCreatingAddress}
+          onPress={() => void onCreateAddress()}
+        >
+          {createAddressLabel ??
+            intl.formatMessage({ id: ETranslations.global_create_address })}
+        </Empty.Button>
+      );
+    }
+    return (
+      <LazyAccountSelectorCreateAddressButton
+        num={num}
+        selectAfterCreate
+        autoCreateAddress={autoCreateAddress}
+        createAllDeriveTypes={createAllDeriveTypes}
+        createAllEnabledNetworks={createAllEnabledNetworks}
+        account={{
+          walletId: activeAccount?.wallet?.id,
+          networkId: activeAccount?.network?.id,
+          indexedAccountId: activeAccount?.indexedAccount?.id,
+          deriveType: activeAccount?.deriveType,
+        }}
+        buttonRender={Empty.Button}
+        onCreateDone={(result) => {
+          onCreateDone?.(result);
+          if (
+            networkUtils.isAllNetwork({
+              networkId: activeAccount?.network?.id,
+            })
+          ) {
+            appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+          }
+        }}
+      >
+        {createAddressLabel}
+      </LazyAccountSelectorCreateAddressButton>
+    );
+  })();
+
   return (
     <Empty
       testID="Wallet-No-Address-Empty"
       illustration={emptyMessage.illustration}
       title={emptyMessage.title}
       description={emptyMessage.description}
-      button={
-        activeAccount?.canCreateAddress ? (
-          <LazyAccountSelectorCreateAddressButton
-            num={num}
-            selectAfterCreate
-            autoCreateAddress={autoCreateAddress}
-            createAllDeriveTypes={createAllDeriveTypes}
-            createAllEnabledNetworks={createAllEnabledNetworks}
-            account={{
-              walletId: activeAccount?.wallet?.id,
-              networkId: activeAccount?.network?.id,
-              indexedAccountId: activeAccount?.indexedAccount?.id,
-              deriveType: activeAccount?.deriveType,
-            }}
-            buttonRender={Empty.Button}
-            onCreateDone={() => {
-              if (
-                networkUtils.isAllNetwork({
-                  networkId: activeAccount?.network?.id,
-                })
-              ) {
-                appEventBus.emit(
-                  EAppEventBusNames.AccountDataUpdate,
-                  undefined,
-                );
-              }
-            }}
-          />
-        ) : null
-      }
+      button={createAddressButton}
     />
   );
 }

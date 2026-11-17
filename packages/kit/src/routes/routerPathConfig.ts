@@ -2,6 +2,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EDAppConnectionModal,
+  EModalFirmwareUpdateRoutes,
   EModalReferFriendsRoutes,
   EModalRewardCenterRoutes,
   EModalRoutes,
@@ -17,6 +18,7 @@ import {
   EActionCenterPages,
   EFullScreenPushRoutes,
 } from '@onekeyhq/shared/src/routes/fullScreenPush';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 export interface IRoutePathConfig {
   name: string;
@@ -51,6 +53,10 @@ const settingPathConfig = [
     name: EModalSettingRoutes.SettingProtectModal,
     rewrite: '/protection',
   }),
+  route({
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    rewrite: '/dapp-connections',
+  }),
 ];
 
 const appUpdatePathConfig = [
@@ -62,6 +68,10 @@ const appUpdatePathConfig = [
     name: EAppUpdateRoutes.FeaturedChangelogPreview,
     rewrite: '/changelog-preview',
   }),
+];
+
+const firmwareUpdatePathConfig = [
+  route({ name: EModalFirmwareUpdateRoutes.ChangeLog }),
 ];
 
 const stakingPathConfig = [
@@ -95,6 +105,7 @@ const dAppConnectionPathConfig = Object.values(EDAppConnectionModal)
 
 const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.TxConfirmFromDApp }),
+  route({ name: EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.LnurlPayRequest }),
   route({ name: EModalSignatureConfirmRoutes.LnurlWithdraw }),
@@ -122,6 +133,10 @@ const modalRouteNames = Object.values(EModalRoutes).filter(
 );
 
 const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
+  [EModalRoutes.PrimeModal]: route({
+    name: EModalRoutes.PrimeModal,
+    children: [route({ name: EPrimePages.PrimeCloudSync })],
+  }),
   [EModalRoutes.MainModal]: route({
     name: EModalRoutes.MainModal,
     children: mainModalPathConfig,
@@ -136,6 +151,10 @@ const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
     name: EModalRoutes.AppUpdateModal,
     rewrite: '/update',
     children: appUpdatePathConfig,
+  }),
+  [EModalRoutes.FirmwareUpdateModal]: route({
+    name: EModalRoutes.FirmwareUpdateModal,
+    children: firmwareUpdatePathConfig,
   }),
   [EModalRoutes.StakingModal]: route({
     name: EModalRoutes.StakingModal,

@@ -154,7 +154,7 @@ export function useTokenSelector({
   const tokenSelectorTriggerProps = useMemo<ITokenSelectorTriggerProps>(() => {
     const baseProps: ITokenSelectorTriggerProps = {
       selectedTokenImageUri: tokenImageUri,
-      selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+      selectedTokenSymbol: tokenSymbol,
       selectedNetworkImageUri: networkLogoURI,
     };
 

@@ -1,21 +1,13 @@
 import { useIntl } from 'react-intl';
 
 import type { useInTabDialog } from '@onekeyhq/components';
-import {
-  Button,
-  Divider,
-  Empty,
-  ScrollView,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Divider, ScrollView, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
+import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
 import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -25,43 +17,14 @@ import { RewardSummaryCard } from './components/RewardSummaryCard';
 interface IInviteeRewardContentProps {
   walletAddress: string;
   isMobile?: boolean;
-}
-
-function NoWalletEmptyState() {
-  const intl = useIntl();
-  const toOnBoardingPage = useToOnBoardingPage();
-
-  return (
-    <YStack flex={1} jc="center" ai="center" py="$10">
-      <Empty
-        icon="WalletOutline"
-        title={intl.formatMessage({
-          id: ETranslations.referral_apply_code_no_wallet,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.referral_apply_code_no_wallet_desc,
-        })}
-      />
-      <Button
-        testID="perp-to-on-boarding-page-btn"
-        mt="$5"
-        onPress={() => {
-          void toOnBoardingPage();
-        }}
-      >
-        {intl.formatMessage({
-          id: platformEnv.isWebDappMode
-            ? ETranslations.global_connect_wallet
-            : ETranslations.global_create_wallet,
-        })}
-      </Button>
-    </YStack>
-  );
+  // Only overlay hosts pass this; the pushed modal page has nothing to dismiss.
+  onBeforeNavigate?: () => void | Promise<void>;
 }
 
 export function InviteeRewardContent({
   walletAddress,
   isMobile,
+  onBeforeNavigate,
 }: IInviteeRewardContentProps) {
   const intl = useIntl();
   const { result: data, isLoading } = usePromiseResult(
@@ -79,19 +42,24 @@ export function InviteeRewardContent({
   );
 
   if (!walletAddress) {
-    return <NoWalletEmptyState />;
+    return (
+      <InviteeRewardNoWallet
+        testID="perp-to-on-boarding-page-btn"
+        onBeforeNavigate={onBeforeNavigate}
+      />
+    );
   }
+
+  const showLoading = isLoading !== false;
 
   const content = (
     <YStack gap="$5">
-      <YStack gap="$5">
-        <RewardSummaryCard
-          isLoading={isLoading}
-          totalBonus={data?.totalBonus}
-          undistributed={data?.undistributed}
-          tokenSymbol={data?.token.symbol}
-        />
-      </YStack>
+      <RewardSummaryCard
+        isLoading={showLoading}
+        totalBonus={data?.totalBonus}
+        undistributed={data?.undistributed}
+        tokenSymbol={data?.token.symbol}
+      />
       <Divider />
       <YStack gap="$2">
         <SizableText size="$headingSm">
@@ -100,7 +68,8 @@ export function InviteeRewardContent({
           })}
         </SizableText>
         <RewardHistoryList
-          isLoading={isLoading}
+          key={walletAddress}
+          isLoading={showLoading}
           history={data?.history}
           token={data?.token}
         />
@@ -140,7 +109,12 @@ export async function showInviteeRewardDialog(
     },
     renderContent: (
       <PerpsProviderMirror>
-        <InviteeRewardContent walletAddress={walletAddress} />
+        <InviteeRewardContent
+          walletAddress={walletAddress}
+          onBeforeNavigate={async () => {
+            await dialogInTabRef.close();
+          }}
+        />
       </PerpsProviderMirror>
     ),
     showFooter: false,

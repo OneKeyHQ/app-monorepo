@@ -1,6 +1,8 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import {
   EPasswordMode,
@@ -8,6 +10,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 import type { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
+import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
@@ -31,6 +34,23 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     },
   });
 
+export type IHyperLiquidAgentPasswordStatusAtom = {
+  isPasswordSet: boolean;
+  requiresPasswordSetupOrVerify: boolean;
+};
+export const {
+  target: hyperLiquidAgentPasswordStatusAtom,
+  use: useHyperLiquidAgentPasswordStatusAtom,
+} = globalAtom<IHyperLiquidAgentPasswordStatusAtom>({
+  persist: false,
+  name: EAtomNames.hyperLiquidAgentPasswordStatusAtom,
+  initialValue: {
+    isPasswordSet: false,
+    requiresPasswordSetupOrVerify:
+      !platformEnv.isNative && !platformEnv.isWebDappMode,
+  },
+});
+
 // this atom is used to trigger password prompt not add other state
 export type IPasswordPromptPromiseTriggerAtom = {
   passwordPromptPromiseTriggerData:
@@ -38,7 +58,10 @@ export type IPasswordPromptPromiseTriggerAtom = {
         idNumber: number;
         type: EPasswordPromptType;
         dialogProps?: IDialogShowProps;
+        enforcePasswordErrorProtection?: boolean;
+        manualPasswordOnly?: boolean;
         skipPostVerifyBackgroundTasks?: boolean;
+        kdfParams?: IPbkdf2KdfParams;
       }
     | undefined;
 };
@@ -105,8 +128,14 @@ export const { target: passwordModeAtom, use: usePasswordModeAtom } =
     return passwordMode;
   });
 
+// Nothing here is awaited, so declaring the read `async` only made the value a
+// pending promise on every passwordPersistAtom write, suspending every reader
+// for a tick. Keep it synchronous.
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
-  globalAtomComputed<Promise<boolean | undefined>>(async (get) => {
+  globalAtomComputed<boolean | undefined>((get) => {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      return false;
+    }
     const platformSupport = platformEnv.isExtension || platformEnv.isDesktop;
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (
@@ -119,7 +148,12 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
   globalAtomComputed<boolean>((get) => {
     const { isMigrationModalOpen, isProcessing } = get(v4migrationAtom.atom());
-    if (isMigrationModalOpen || isProcessing) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode' ||
+      isMigrationModalOpen ||
+      isProcessing
+    ) {
       return false;
     }
     const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());
@@ -130,12 +164,14 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       }
 
       const isNeverLock = isNeverLockDuration(appLockDuration);
+      const { unLock } = get(passwordAtom.atom());
 
       if (isNeverLock) {
-        return false;
+        // Native secure storage preserves the existing Never semantics across
+        // cold starts. Browser-class targets treat Never as session-only.
+        return platformEnv.isNative ? false : !unLock;
       }
 
-      const { unLock } = get(passwordAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;

@@ -36,6 +36,8 @@ export type IIdentityExitSnapshot = {
 export type IIdentityExitExecutionTarget = {
   logoutOneKeyId: boolean;
   removeKeyless: boolean;
+  explicitLocalOneKeyIdLogout?: boolean;
+  explicitLocalKeylessRemoval?: boolean;
   clearKeylessSession?: boolean;
   switchOAuthProvider?: EOAuthSocialLoginProvider;
   allowUnknownKeylessSessionIdentity?: boolean;
@@ -113,6 +115,25 @@ export function evaluateIdentityExitPolicy({
     keyless?.sessionIdentityError ||
     // TODO: i18n
     'The OneKey ID and local Keyless session identities do not match.';
+
+  if (intent.type === 'switchEnvironment') {
+    return {
+      status: 'ready',
+      presentation: { type: 'switchEnvironment' },
+      confirmation: keyless
+        ? { type: 'keylessRemovalAcknowledgement' }
+        : { type: 'normal' },
+      target: {
+        logoutOneKeyId: hasOneKeyId,
+        removeKeyless: Boolean(keyless),
+        clearKeylessSession:
+          Boolean(keyless) &&
+          (!hasOneKeyId || isLinked) &&
+          linkage !== 'unknown' &&
+          !isKeylessSessionIdentityUnknown,
+      },
+    };
+  }
 
   if (intent.type === 'recoverMalformedKeyless') {
     return blocked(

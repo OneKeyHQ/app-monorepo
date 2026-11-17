@@ -6,8 +6,12 @@ import timerUtils from '../utils/timerUtils';
 
 export const HYPER_LIQUID_ORIGIN = 'https://app.hyperliquid.xyz';
 export const HYPER_LIQUID_WEBVIEW_TRADE_URL = `${HYPER_LIQUID_ORIGIN}/trade?isOneKeyBuiltInPerpView=true`;
+export const WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS = 2000;
+export const WEBVIEW_PERP_TRADE_REQUEST_TTL_MS = 60_000;
 
 export const PERPS_ROUTE_PATH = '/perps';
+export const DEFAULT_PERPS_SLIPPAGE = 0.08;
+export const PERP_USER_FUNDING_HISTORY_LIMIT = 2000;
 export const HYPERLIQUID_AGENT_CREDENTIAL_PREFIX = 'hyperliquid-agent';
 export const HYPERLIQUID_REFERRAL_CODE = '1KREF';
 export const HYPERLIQUID_AGENT_TTL_DEFAULT = timerUtils.getTimeDurationMs({
@@ -59,6 +63,7 @@ export const PERPS_USER_FILLS_TIME_RANGE = timerUtils.getTimeDurationMs({
 
 export const PERPS_HISTORY_FILLS_URL = 'https://hypurrscan.io/address/';
 export const PERPS_TWAP_HISTORY_URL = `${HYPER_LIQUID_ORIGIN}/twapHistory/`;
+export const PERPS_FUNDING_HISTORY_URL = `${HYPER_LIQUID_ORIGIN}/fundingHistory/`;
 
 /**
  * Filtered transaction types in account ledger history

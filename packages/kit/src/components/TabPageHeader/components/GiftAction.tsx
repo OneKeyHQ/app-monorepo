@@ -1,34 +1,45 @@
-import { useCallback } from 'react';
-
-import { useIntl } from 'react-intl';
-
 import type { IButtonProps } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub/ActivityHubAction';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useReferFriends } from '../../../hooks/useReferFriends';
+function EarnActivityHubAction({
+  size = 'medium',
+}: {
+  size?: IButtonProps['size'];
+}) {
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const handleOpenReferral = useOpenReferralPage();
+
+  return (
+    <ActivityHubAction
+      source="Earn"
+      size={size}
+      open={isTravelMode ? false : undefined}
+      triggerProps={{ disabled: isTravelMode }}
+      onOpenReferral={handleOpenReferral}
+    />
+  );
+}
 
 export function GiftAction({
-  source = 'Earn',
   size = 'medium',
-  copyAsUrl = false,
 }: {
-  source?: 'Earn' | 'Perps';
   size?: IButtonProps['size'];
-  copyAsUrl?: boolean;
 }) {
-  const { shareReferRewards } = useReferFriends();
-  const handleShareReferRewards = useCallback(() => {
-    void shareReferRewards(undefined, undefined, source, copyAsUrl);
-  }, [shareReferRewards, source, copyAsUrl]);
-  const intl = useIntl();
   return (
-    <HeaderIconButton
-      testID="header-gift-action"
-      title={intl.formatMessage({ id: ETranslations.referral_title })}
-      icon="GiftOutline"
-      size={size}
-      onPress={handleShareReferRewards}
-    />
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <EarnActivityHubAction size={size} />
+    </AccountSelectorProviderMirror>
   );
 }

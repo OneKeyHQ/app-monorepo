@@ -12,6 +12,8 @@ const baseFiles = [
   '!build/static/bin/**/*',
   'package.json',
   '!README.md',
+  '!**/*.map',
+  '!build/static/images/icons/{512x512.icns,512x512@2x.png,background.tiff,dmg.icns,icon.icns,installerIcon.ico,installerSidebar.bmp}',
 ];
 
 // Prebuild exclusion globs per platform.

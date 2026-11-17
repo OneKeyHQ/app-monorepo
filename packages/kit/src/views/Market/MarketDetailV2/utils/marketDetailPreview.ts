@@ -1,31 +1,42 @@
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockDetailPreview,
+  IMarketTokenDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
-import type { IMarketToken } from '../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import { isMarketTokenDecimalsReady } from './marketTokenIdentity';
 
-type IBuildMarketTokenDetailPreviewInput = Pick<
-  IMarketToken,
-  | 'address'
-  | 'networkId'
-  | 'name'
-  | 'symbol'
-  | 'decimals'
-  | 'isNative'
-  | 'price'
-  | 'change24h'
-  | 'marketCap'
-  | 'liquidity'
-  | 'holders'
-  | 'turnover'
-  | 'tokenImageUri'
-  | 'tokenImageUris'
-  | 'communityRecognized'
-  | 'stock'
->;
+type IBuildMarketTokenDetailPreviewInput = Omit<
+  IMarketTokenDetailPreview,
+  'decimals' | 'selectedAt'
+> & { decimals?: number };
 
 type IBuildMarketSearchTokenDetailPreviewInput = IMarketSearchV2Token & {
   networkLogoURI?: string;
 };
+
+export function hasValidMarketDetailPreview({
+  isStockRoute,
+  stockPreview,
+  previews,
+  tokenAddress,
+  networkId,
+}: {
+  isStockRoute: boolean;
+  stockPreview?: IMarketStockDetailPreview;
+  previews: Array<IMarketTokenDetailPreview | undefined>;
+  tokenAddress: string;
+  networkId: string;
+}) {
+  if (isStockRoute) {
+    return Boolean(stockPreview);
+  }
+
+  return previews.some(
+    (preview) =>
+      preview?.address === tokenAddress && preview.networkId === networkId,
+  );
+}
 
 function toOptionalNumber(value: unknown) {
   if (value === undefined || value === null || value === '') {
@@ -47,8 +58,11 @@ function toFirstOptionalNumber(...values: unknown[]) {
 
 export function buildMarketTokenDetailPreview(
   token: IBuildMarketTokenDetailPreviewInput,
-): IMarketTokenDetailPreview {
+): IMarketTokenDetailPreview | undefined {
+  if (!isMarketTokenDecimalsReady(token)) return undefined;
+
   return {
+    firstTradeTime: token.firstTradeTime,
     address: token.address,
     networkId: token.networkId,
     isNative: token.isNative,
@@ -89,5 +103,64 @@ export function buildMarketSearchTokenDetailPreview(
     communityRecognized: token.communityRecognized,
     stock: token.stock,
     selectedAt: Date.now(),
+  };
+}
+
+export function buildMarketStockDetailPreview({
+  stockId,
+  symbol,
+  name,
+  logoUrl,
+  price,
+  priceChange24hPercent,
+  quoteUpdatedAt,
+  quote,
+}: {
+  stockId?: unknown;
+  symbol?: unknown;
+  name?: unknown;
+  logoUrl?: unknown;
+  price?: unknown;
+  priceChange24hPercent?: unknown;
+  quoteUpdatedAt?: unknown;
+  quote?: IMarketStockDetailPreview['quote'];
+}): IMarketStockDetailPreview | undefined {
+  if (
+    typeof stockId !== 'string' ||
+    !stockId ||
+    typeof symbol !== 'string' ||
+    !symbol ||
+    typeof name !== 'string' ||
+    !name
+  ) {
+    return undefined;
+  }
+
+  const quotePrice = toOptionalNumber(
+    quote?.source === 'share' ? quote.price : price,
+  );
+  let shareQuote: IMarketStockDetailPreview['quote'];
+  if (quotePrice !== undefined && quotePrice >= 0) {
+    const change = toOptionalNumber(
+      quote?.priceChange24hPercent ?? priceChange24hPercent,
+    );
+    const updatedAt = quote?.quoteUpdatedAt ?? quoteUpdatedAt;
+    shareQuote = {
+      source: 'share',
+      price: String(quotePrice),
+      ...(change === undefined
+        ? undefined
+        : { priceChange24hPercent: String(change) }),
+      ...(typeof updatedAt === 'string'
+        ? { quoteUpdatedAt: updatedAt }
+        : undefined),
+    };
+  }
+  return {
+    stockId,
+    symbol,
+    name,
+    logoUrl: typeof logoUrl === 'string' ? logoUrl : '',
+    ...(shareQuote ? { quote: shareQuote } : undefined),
   };
 }

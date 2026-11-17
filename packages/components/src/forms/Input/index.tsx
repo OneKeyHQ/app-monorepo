@@ -13,7 +13,6 @@ import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/sr
 import noop from 'lodash/noop';
 
 import {
-  Group,
   getFontSize,
   useProps,
   useThemeName,
@@ -24,7 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
-import { Icon } from '../../primitives';
+import { Group, Icon } from '../../primitives';
 
 import { Input as TMInput } from './Input';
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
@@ -42,12 +41,11 @@ import type {
   IPasteEventPayload,
 } from '@onekeyfe/react-native-text-input';
 import type {
-  HostComponent,
+  HostInstance,
   MeasureLayoutOnSuccessCallback,
   MeasureOnSuccessCallback,
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputFocusEventData,
+  TextInputFocusEvent,
+  TextInputInstance,
 } from 'react-native';
 
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
@@ -78,6 +76,8 @@ export type IInputProps = {
   clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
   selectTextOnFocus?: boolean;
+  /** Move the initial Android selection to the start. Defaults to true. */
+  autoScrollToTop?: boolean;
   /**
    * Auto scroll to top delay in milliseconds.
    * Default is 250ms, only works on Android.
@@ -98,8 +98,25 @@ export type IInputProps = {
 export type IInputRef = {
   focus: () => void;
   blur: () => void;
+  setSelection?: (start: number, end: number) => void;
   setNativeProps?: (props: Record<string, unknown>) => void;
 };
+
+// Password managers (1Password, LastPass, Bitwarden, Dashlane) anchor their
+// inline menus to any field they classify as fillable, then fight the person
+// for focus. Spread this on deliberately secure fields — hardware passphrases,
+// device pairing codes — to keep them out. `autoComplete` is platform-guarded:
+// on iOS "new-password" maps to textContentType=newPassword, which invites the
+// strong-password overlay — the native cousin of the same interference.
+export const passwordManagerIgnoreProps = {
+  autoComplete: platformEnv.isNative
+    ? ('off' as const)
+    : ('new-password' as const),
+  'data-form-type': 'other',
+  'data-1p-ignore': '',
+  'data-lpignore': 'true',
+  'data-bwignore': 'true',
+} as const;
 
 const SIZE_MAPPINGS = {
   'large': {
@@ -120,12 +137,20 @@ const SIZE_MAPPINGS = {
 };
 
 export const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
+  ? (
+      ref: RefObject<TextInputInstance | null>,
+      waitMs = 250,
+      enabled = true,
+    ) => {
       useEffect(() => {
-        setTimeout(() => {
+        if (!enabled) {
+          return;
+        }
+        const timeout = setTimeout(() => {
           ref.current?.setSelection?.(0, 0);
         }, waitMs);
-      }, [ref, waitMs]);
+        return () => clearTimeout(timeout);
+      }, [ref, waitMs, enabled]);
     }
   : () => {};
 
@@ -142,7 +167,7 @@ const useReadOnlyStyle = (readOnly = false) =>
   );
 
 export const useAutoFocus = (
-  inputRef: RefObject<TextInput | null>,
+  inputRef: RefObject<TextInputInstance | null>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
 ) => {
@@ -185,7 +210,7 @@ export const useFixAndroidInputValueDisplay = platformEnv.isNativeAndroid
 export const useOnWebPaste = platformEnv.isNative
   ? noop
   : (
-      inputRef: RefObject<TextInput> | null,
+      inputRef: RefObject<TextInputInstance | null> | null,
       onPaste?: (event: IPasteEventParams) => void,
     ) => {
       useEffect(() => {
@@ -266,6 +291,7 @@ function BaseInput(
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
+    autoScrollToTop,
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
@@ -280,12 +306,51 @@ function BaseInput(
     error,
     size,
   });
+  // Tamagui v2 Group only zeroes the joined corners of its items and no longer
+  // passes its radius down, so addons round their outer corners themselves to
+  // keep hover/press backgrounds inside the container border.
+  // Keep physical left/right corners, as Group does: native RTL already swaps
+  // left/right styles (doLeftAndRightSwapInRTL), so flipping them on
+  // I18nManager.isRTL would round the inner side instead.
+  const containerBorderRadius =
+    containerProps?.borderRadius ?? sharedStyles.borderRadius;
+  const addOnsBorderRadius =
+    addOnsContainerProps?.borderRadius ?? containerBorderRadius;
   const themeName = useThemeName();
-  const inputRef: RefObject<TextInput | null> | null = useRef(null);
+  const inputRef: RefObject<TextInputInstance | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
   const { clearText, getClipboard, supportPaste, onPasteClearText } =
     useClipboard();
+
+  // Tamagui/RNW silently drop unknown `data-*` props (and `dataSet`) before
+  // they reach the DOM node, so honor them imperatively on web — this is what
+  // makes `passwordManagerIgnoreProps` (and the older scattered `data-*`
+  // declarations) actually land.
+  const dataAttributes = platformEnv.isNative
+    ? '[]'
+    : JSON.stringify(
+        Object.entries(props).filter(([name]) => name.startsWith('data-')),
+      );
+  const appliedDataAttributeNamesRef = useRef<string[]>([]);
+  useEffect(() => {
+    const node = inputRef.current as unknown as HTMLInputElement | null;
+    if (!node || typeof node.setAttribute !== 'function') {
+      return;
+    }
+    const entries = JSON.parse(dataAttributes) as Array<[string, unknown]>;
+    const names = entries.map(([name]) => name);
+    appliedDataAttributeNamesRef.current
+      .filter((name) => !names.includes(name))
+      .forEach((name) => node.removeAttribute(name));
+    appliedDataAttributeNamesRef.current = names;
+    entries.forEach(([name, attrValue]) => {
+      node.setAttribute(
+        name,
+        attrValue === true ? '' : String(attrValue ?? ''),
+      );
+    });
+  }, [dataAttributes]);
 
   const onPaste = useCallback(
     (event: IPasteEventParams) => {
@@ -384,7 +449,7 @@ function BaseInput(
 
   useOnWebPaste(inputRef, onPaste);
 
-  useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
+  useAutoScrollToTop(inputRef, autoScrollTopDelayMs, autoScrollToTop);
 
   useImperativeHandle(forwardedRef, () => ({
     focus: () => {
@@ -393,10 +458,11 @@ function BaseInput(
     blur: () => {
       inputRef.current?.blur();
     },
+    setSelection: (start: number, end: number) => {
+      inputRef.current?.setSelection?.(start, end);
+    },
     measureLayout: (
-      relativeToNativeComponentRef:
-        | React.ElementRef<HostComponent<unknown>>
-        | number,
+      relativeToNativeComponentRef: HostInstance | number,
       onSuccess: MeasureLayoutOnSuccessCallback,
       onFail?: () => void,
     ) =>
@@ -422,10 +488,11 @@ function BaseInput(
   const shownValue = useFixAndroidInputValueDisplay(value);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
-    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: TextInputFocusEvent) => {
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
-        const currentTarget = e.currentTarget;
+        // On native the event target is always a host element, never a tag.
+        const currentTarget = e.currentTarget as HostInstance;
         void timerUtils.setTimeoutPromised(() => {
           currentTarget?.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },
@@ -463,6 +530,8 @@ function BaseInput(
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
+            borderTopLeftRadius={containerBorderRadius}
+            borderBottomLeftRadius={containerBorderRadius}
             {...leftAddOnProps}
             size={size}
             error={error}
@@ -504,7 +573,7 @@ function BaseInput(
           autoFocus={reloadAutoFocus}
           value={shownValue}
           onFocus={handleFocus as any}
-          selectTextOnFocus={selectTextOnFocus}
+          selectTextOnFocus={selectTextOnFocus && !platformEnv.isNativeAndroid}
           editable={editable}
           secureTextEntry={usedSecureTextEntry}
           {...readOnlyStyle}
@@ -539,7 +608,6 @@ function BaseInput(
             borderRadius={sharedStyles.borderRadius}
             orientation="horizontal"
             disabled={disabled}
-            disablePassBorderRadius="start"
             {...(addOnsContainerProps as any)}
           >
             {addOns.map(
@@ -581,6 +649,10 @@ function BaseInput(
                         error={error}
                         onPress={onPress}
                         tooltipProps={tooltipProps}
+                        {...(index === addOns.length - 1 && {
+                          borderTopRightRadius: addOnsBorderRadius,
+                          borderBottomRightRadius: addOnsBorderRadius,
+                        })}
                         {...addOnsItemProps}
                         {...addOnRest}
                       />

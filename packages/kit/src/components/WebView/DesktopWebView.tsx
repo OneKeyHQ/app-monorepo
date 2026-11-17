@@ -285,7 +285,7 @@ const DesktopWebView = forwardRef(
         const innerHandleDidStartNavigationNavigation = (
           event: DidStartNavigationEvent,
         ) => {
-          const { isMainFrame, url } = event ?? {};
+          const { isMainFrame, isInPlace, url } = event ?? {};
           if (isMainFrame && onShouldStartLoadWithRequest && url) {
             const shouldLoad = onShouldStartLoadWithRequest({
               url,
@@ -296,7 +296,8 @@ const DesktopWebView = forwardRef(
               return;
             }
           }
-          if (isMainFrame) {
+          // In-page navigation keeps the current document and emits no new dom-ready.
+          if (isMainFrame && !isInPlace) {
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
@@ -339,6 +340,16 @@ const DesktopWebView = forwardRef(
             !onShouldStartLoadWithRequest({ url, isTopFrame: true })
           ) {
             webviewRef.current?.stop();
+            return;
+          }
+          // Electron does not raise `did-start-navigation` again for a 3xx
+          // target, so without this every consumer of onDidStartNavigation
+          // keeps the pre-redirect URL: the dApp modal would show the entry
+          // host in its header and notify account changes to the wrong origin,
+          // and a Discovery tab would keep the pre-redirect address. RN WebView
+          // reports the final URL, so this only closes a desktop-side gap.
+          if (isMainFrame) {
+            onDidStartNavigation?.(event);
           }
         };
 

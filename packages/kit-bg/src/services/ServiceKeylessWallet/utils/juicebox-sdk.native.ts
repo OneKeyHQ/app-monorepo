@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file */
-import NativeSDK, {
+import {
   type Authentication,
   type Configuration as NativeConfiguration,
   type PinHashingMode,
@@ -7,7 +7,25 @@ import NativeSDK, {
 } from '@phantom/react-native-juicebox-sdk';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+type INativeSDK =
+  (typeof import('@phantom/react-native-juicebox-sdk'))['default'];
+
+const nativeSDK: INativeSDK | undefined = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (require('@phantom/react-native-juicebox-sdk') as { default: INativeSDK })
+      .default;
+
+function getNativeSDK(): INativeSDK {
+  if (!nativeSDK) {
+    throw new OneKeyLocalError(
+      'Keyless wallets are unavailable on Mac Catalyst',
+    );
+  }
+  return nativeSDK;
+}
 
 export class Configuration implements NativeConfiguration {
   realms: Realm[];
@@ -40,12 +58,19 @@ export class Client {
     guesses: number,
   ): Promise<void> {
     const auth = await this.getAuthentication();
-    await NativeSDK.register(this.config, auth, pin, secret, userInfo, guesses);
+    await getNativeSDK().register(
+      this.config,
+      auth,
+      pin,
+      secret,
+      userInfo,
+      guesses,
+    );
   }
 
   async recover(pin: Uint8Array, userInfo: Uint8Array): Promise<Uint8Array> {
     const auth = await this.getAuthentication();
-    return NativeSDK.recover(this.config, auth, pin, userInfo);
+    return getNativeSDK().recover(this.config, auth, pin, userInfo);
   }
 
   private async getAuthentication(): Promise<Authentication> {

@@ -63,6 +63,7 @@ export function getPrimaryLineKind({
   waitingSwitchUnlock,
   kind,
   hasWalletBalance,
+  hasShortfall,
 }: {
   active: boolean;
   approveSubStatus: IApproveSubStatus;
@@ -70,6 +71,7 @@ export function getPrimaryLineKind({
   waitingSwitchUnlock: boolean;
   kind: ICompactStepKind;
   hasWalletBalance: boolean;
+  hasShortfall: boolean;
 }): IPrimaryLineKind {
   if (!active) {
     return null;
@@ -83,7 +85,9 @@ export function getPrimaryLineKind({
   if (waitingSwitchUnlock) {
     return 'waitingSwitchUnlock';
   }
-  if (kind === 'repay' && hasWalletBalance) {
+  // A shortfall hands the balance figures to the funding card, which prints
+  // them next to the fix. Keeping this line too would state them twice.
+  if (kind === 'repay' && hasWalletBalance && !hasShortfall) {
     return 'walletBalance';
   }
   return null;
@@ -105,4 +109,38 @@ export function getAuxiliaryLineKind({
     return 'usdtReset';
   }
   return null;
+}
+
+// Preserve the whole translation when it cannot be split into two lines.
+const BALANCE_SHORTFALL_SEPARATOR = ' \u00b7 ';
+
+export function splitBalanceShortfallLines(message: string): string[] {
+  const parts = message.split(BALANCE_SHORTFALL_SEPARATOR);
+  return parts.length === 2 ? parts : [message];
+}
+
+// Offer funding only for an idle, underfunded repay with a swap target.
+export function shouldShowFundingFooter({
+  canRetryCheck,
+  funding,
+  isBusy,
+  pendingGuardBlocksAction,
+  hasUnderfundedActiveRepay,
+  hasSwapTarget,
+}: {
+  canRetryCheck: boolean;
+  funding: boolean;
+  isBusy: boolean;
+  pendingGuardBlocksAction: boolean;
+  hasUnderfundedActiveRepay: boolean;
+  hasSwapTarget: boolean;
+}): boolean {
+  return (
+    !canRetryCheck &&
+    !funding &&
+    !isBusy &&
+    !pendingGuardBlocksAction &&
+    hasUnderfundedActiveRepay &&
+    hasSwapTarget
+  );
 }

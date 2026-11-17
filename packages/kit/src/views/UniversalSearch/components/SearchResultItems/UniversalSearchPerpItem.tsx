@@ -3,8 +3,9 @@ import { useCallback, useMemo } from 'react';
 import {
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
-  rootNavigationRef,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -12,6 +13,14 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  TOKEN_SELECTOR_NAME_GAP,
+  TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -20,41 +29,60 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { XYZ_DEX_PREFIX } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IUniversalSearchPerp } from '@onekeyhq/shared/types/search';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchPerp,
+} from '@onekeyhq/shared/types/search';
 
 import { MarketPerpsStarV2 } from '../../../Market/components/MarketStarV2';
 
 const shouldShowFavoriteButton =
   !platformEnv.isExtensionUiPopup && !platformEnv.isExtensionUiSidePanel;
 
+const STAR_GLYPH_SIZE = '$4';
+// The mobile selector rows pull their 24px star slot left by the 16px glyph's
+// 4px inset, so the glyph itself sits on the 20px gutter.
+const MOBILE_STAR_SLOT_GUTTER_OFFSET = -4;
+
 interface IUniversalSearchPerpItemProps {
   item: IUniversalSearchPerp;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchPerpItem({
   item,
   getSearchInput,
+  source,
 }: IUniversalSearchPerpItemProps) {
   const [{ isMounted }] = useMarketWatchListV2Atom();
+  const { gtMd } = useMedia();
   const navigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
   const { assetType, logoUrl, name, maxLeverage, midPx, subtitle } =
     item.payload;
 
   const isPerpsType = assetType === 'perps';
-  // For perps type, coin is just name; for xyz type, coin needs prefix
+  // `assetType` is the dex prefix itself, so assuming xyz for every non-main
+  // result would send `xyz:UNITREE` for a para asset.
   const coin = useMemo(
-    () => (isPerpsType ? name : `${XYZ_DEX_PREFIX}${name}`),
-    [isPerpsType, name],
+    () => buildCoinFromSearchAssetType({ assetType, name }) ?? '',
+    [assetType, name],
   );
-  const tag = isPerpsType ? `${maxLeverage}X` : 'xyz';
+  const dexLabel = isPerpsType ? undefined : assetType;
+  // The search index sends a bare-symbol logo, which 404s for `para:UNITREE`
+  // and renders Stacks for `para:STX`. The dex-prefixed asset is the right one.
+  const tokenImageUris = useMemo(
+    () => (isPerpsType ? undefined : getHyperliquidTokenImageUris(coin)),
+    [coin, isPerpsType],
+  );
 
   const handlePress = useCallback(() => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: coin,
@@ -63,6 +91,20 @@ export function UniversalSearchPerpItem({
 
     setPerpPageEnterSource(EPerpPageEnterSource.UniversalSearch);
     setTimeout(async () => {
+      try {
+        // A missing intent only costs the first-mount restore, so this
+        // must not be able to abort the tap. Recorded before the navigation
+        // that mounts the Perp tab, so the claiming initial-select cannot
+        // run ahead of it.
+        await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+          {
+            coin,
+            mode: 'perp',
+          },
+        );
+      } catch {
+        // ignore
+      }
       navigation.switchTab(ETabRoutes.Perp);
       try {
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
@@ -75,17 +117,6 @@ export function UniversalSearchPerpItem({
       } catch (error) {
         console.error('Failed to change active asset:', error);
         return;
-      }
-      if (platformEnv.isNative) {
-        // rootNavigationRef needed because search modal's navigation context can't push into Perp tab's stack
-        setTimeout(() => {
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Perp,
-            params: {
-              screen: EModalPerpRoutes.MobilePerpMarket,
-            },
-          });
-        }, 500);
       }
       setTimeout(() => {
         universalSearchActions.current.addIntoRecentSearchList({
@@ -104,22 +135,44 @@ export function UniversalSearchPerpItem({
     name,
     assetType,
     navigation,
+    source,
     universalSearchActions,
   ]);
+
+  // An unknown dex cannot be opened or favorited; rendering the row would give a
+  // silent no-op on tap and let the star persist an empty `perpsCoin`.
+  if (!coin) {
+    return null;
+  }
 
   return (
     <ListItem
       jc="space-between"
       onPress={handlePress}
       renderAvatar={
-        <XStack alignItems="center" gap="$2">
+        // The star and its spacing match the Market selector rows in the
+        // stock and token sections, so this row's logo lines up with theirs.
+        <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
           {shouldShowFavoriteButton && isMounted ? (
-            <MarketPerpsStarV2 perpsCoin={coin} size="small" />
+            <Stack
+              width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+              ml={gtMd ? 0 : MOBILE_STAR_SLOT_GUTTER_OFFSET}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <MarketPerpsStarV2
+                perpsCoin={coin}
+                size="small"
+                customIconSize={STAR_GLYPH_SIZE}
+              />
+            </Stack>
           ) : null}
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={logoUrl}
+            {...(tokenImageUris
+              ? { tokenImageUris }
+              : { tokenImageUri: logoUrl })}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
@@ -138,47 +191,19 @@ export function UniversalSearchPerpItem({
               {name}
             </SizableText>
             <XStack gap="$1">
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textSubdued"
-                  lineHeight={16}
-                >
-                  {tag}
-                </SizableText>
-              </XStack>
-              {subtitle ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgInfo"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
-                >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
-                    color="$textInfo"
-                    lineHeight={16}
-                  >
-                    {subtitle}
-                  </SizableText>
-                </XStack>
+              {maxLeverage > 0 ? (
+                <LeverageBadge leverage={maxLeverage} />
               ) : null}
+              <PerpDexBadge dexLabel={dexLabel} />
             </XStack>
           </XStack>
         }
         secondary={
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {`${name} - USDC`}
-          </SizableText>
+          subtitle ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {subtitle}
+            </SizableText>
+          ) : undefined
         }
       />
       <NumberSizeableText

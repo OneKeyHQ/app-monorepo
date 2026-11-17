@@ -1,0 +1,54 @@
+diff --git a/node_modules/@tamagui/animations-reanimated/dist/cjs/createAnimations.native.js b/node_modules/@tamagui/animations-reanimated/dist/cjs/createAnimations.native.js
+index 8694706..1bedebc 100644
+--- a/node_modules/@tamagui/animations-reanimated/dist/cjs/createAnimations.native.js
++++ b/node_modules/@tamagui/animations-reanimated/dist/cjs/createAnimations.native.js
+@@ -403,7 +403,12 @@ var applyAnimation = function (targetValue, config, callback, seedValue) {
+   } else {
+     animatedValue = (0, import_react_native_reanimated.withSpring)(targetValue, reanimatedConfig, callback);
+   }
+-  if (seedValue !== void 0 || validateStartAsColor) {
++  // OneKey patch: initial style evaluation returns a primitive, not an animation descriptor.
++  // if (seedValue !== void 0 || validateStartAsColor) {
++  if (
++    (seedValue !== void 0 || validateStartAsColor) &&
++    typeof animatedValue?.onStart === 'function'
++  ) {
+     var innerOnStart = animatedValue.onStart;
+     animatedValue.onStart = function (animation, value, timestamp, previousAnimation) {
+       "worklet";
+diff --git a/node_modules/@tamagui/animations-reanimated/dist/esm/createAnimations.native.js b/node_modules/@tamagui/animations-reanimated/dist/esm/createAnimations.native.js
+index d833759..55e8960 100644
+--- a/node_modules/@tamagui/animations-reanimated/dist/esm/createAnimations.native.js
++++ b/node_modules/@tamagui/animations-reanimated/dist/esm/createAnimations.native.js
+@@ -363,7 +363,12 @@ var applyAnimation = function (targetValue, config, callback, seedValue) {
+   } else {
+     animatedValue = withSpring(targetValue, reanimatedConfig, callback);
+   }
+-  if (seedValue !== void 0 || validateStartAsColor) {
++  // OneKey patch: initial style evaluation returns a primitive, not an animation descriptor.
++  // if (seedValue !== void 0 || validateStartAsColor) {
++  if (
++    (seedValue !== void 0 || validateStartAsColor) &&
++    typeof animatedValue?.onStart === 'function'
++  ) {
+     var innerOnStart = animatedValue.onStart;
+     animatedValue.onStart = function (animation, value, timestamp, previousAnimation) {
+       "worklet";
+diff --git a/node_modules/@tamagui/animations-reanimated/src/createAnimations.tsx b/node_modules/@tamagui/animations-reanimated/src/createAnimations.tsx
+index 966b0db..8e78cc3 100644
+--- a/node_modules/@tamagui/animations-reanimated/src/createAnimations.tsx
++++ b/node_modules/@tamagui/animations-reanimated/src/createAnimations.tsx
+@@ -426,7 +426,12 @@ const applyAnimation = (
+   // wrapper substitutes the seed for whatever start value reanimated passes.
+   // color history gets the same treatment only when reanimated's own parser
+   // rejects it, preserving valid in-flight values during interruption.
+-  if (seedValue !== undefined || validateStartAsColor) {
++  // OneKey patch: initial style evaluation returns a primitive, not an animation descriptor.
++  // if (seedValue !== undefined || validateStartAsColor) {
++  if (
++    (seedValue !== undefined || validateStartAsColor) &&
++    typeof animatedValue?.onStart === 'function'
++  ) {
+     const innerOnStart = animatedValue.onStart
+     animatedValue.onStart = (
+       animation: unknown,

@@ -1,8 +1,9 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { I18nManager, StyleSheet } from 'react-native';
 
 import type {
   IButtonProps,
@@ -24,12 +25,14 @@ import {
   Popover,
   ScrollView,
   SizableText,
+  Spinner,
   Stack,
   Tooltip,
   XStack,
   YStack,
   glassBarItem,
   rootNavigationRef,
+  runAfterActionListClose,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
   useMedia,
@@ -39,27 +42,32 @@ import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dar
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
-  useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getUpdateFileType } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
   ESettingsTabNames,
-  ETabRoutes,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -68,24 +76,30 @@ import {
   EFullScreenPushRoutes,
 } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EPrimeFreeTrialPendingActionType } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { getDeviceManagementWallets } from '../../states/jotai/contexts/deviceDetails/deviceStateManagement';
+import { canAccessBulkSend } from '../../views/BulkSend/access';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
+import { useFirmwareUpdateDetectStatus } from '../../views/FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
+import { usePrimeFeatureAccess } from '../../views/Prime/hooks/usePrimeFeatureAccess';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
+import { logSettingCategoryOpened } from '../../views/Setting/pages/Tab/settingsAnalytics';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -94,8 +108,11 @@ import {
 } from '../AppUpdate';
 import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
+import { useReviewControl } from '../ReviewControl';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
+
+import { buildMoreActionGridLayout } from './gridLayout';
 
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
@@ -104,6 +121,12 @@ const LazyHomeFirmwareUpdateReminder = lazy(async () => {
   const { HomeFirmwareUpdateReminder } =
     await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder');
   return { default: HomeFirmwareUpdateReminder };
+});
+
+const LazyHomeFirmwareUpdateDetect = lazy(async () => {
+  const { HomeFirmwareUpdateDetect } =
+    await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateDetect');
+  return { default: HomeFirmwareUpdateDetect };
 });
 
 const LazyPrimeUserBadge = lazy(async () => {
@@ -126,17 +149,67 @@ function MoreActionProvider({ children }: PropsWithChildren) {
   );
 }
 
-const ONE_KEY_ID_ROW_PRESS_STYLE = { opacity: 0.7 } as const;
-const ONE_KEY_ID_ROW_HOVER_STYLE = { opacity: 0.88 } as const;
+const MORE_ACTION_ITEM_PRESS_STYLE = { opacity: 0.7 } as const;
+const MORE_ACTION_ITEM_HOVER_STYLE = { opacity: 0.88 } as const;
+const MORE_ACTION_CANVAS_DARK_STYLE = { bg: '$bgApp' } as const;
+const MORE_ACTION_CARD_DARK_STYLE = { bg: '$neutral2' } as const;
+const MORE_ACTION_DESKTOP_ICON_HOVER_STYLE = {
+  bg: '$bgStrongHover',
+} as const;
+const MORE_ACTION_DESKTOP_ICON_DARK_HOVER_STYLE = { bg: '$gray5' } as const;
+const MORE_ACTION_DESKTOP_ICON_PRESS_STYLE = {
+  bg: '$bgStrongActive',
+  scale: 0.96,
+} as const;
+const MORE_ACTION_DESKTOP_ICON_DARK_PRESS_STYLE = {
+  bg: '$gray6',
+  scale: 0.96,
+} as const;
+const MORE_ACTION_DESKTOP_BADGE_HOVER_STYLE = { bg: '$gray4' } as const;
+const MORE_ACTION_DESKTOP_BADGE_DARK_HOVER_STYLE = { bg: '$gray6' } as const;
+const MORE_ACTION_DESKTOP_BADGE_PRESS_STYLE = { bg: '$gray5' } as const;
+const MORE_ACTION_DESKTOP_BADGE_DARK_PRESS_STYLE = { bg: '$gray7' } as const;
+const MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE = { color: '$text' } as const;
+const MORE_ACTION_DESKTOP_ROW_HOVER_STYLE = { bg: '$bgHover' } as const;
+// Default zh / en menus fit under this cap; other locales may wrap and scroll.
+const MORE_ACTION_DESKTOP_POPOVER_MAX_HEIGHT = 680;
+const MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 'auto',
+  minHeight: 0,
+} as const;
+const MORE_ACTION_DESKTOP_BODY_OVERFLOW_STYLE = {
+  overflowY: 'auto',
+} as const;
 
-function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
+function pickDesktopThemeStyle<TDark, TLight>(
+  isDesktopMode: boolean,
+  isDarkTheme: boolean,
+  darkStyle: TDark,
+  lightStyle: TLight,
+): TDark | TLight | undefined {
+  if (!isDesktopMode) {
+    return undefined;
+  }
+  return isDarkTheme ? darkStyle : lightStyle;
+}
+
+function MoreActionContentHeaderItem({
+  onPress,
+  ignorePress,
+  ...props
+}: IIconButtonProps & { ignorePress?: boolean }) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
+      if (ignorePress) {
+        return;
+      }
       await closePopover?.();
       onPress?.(event);
     },
-    [closePopover, onPress],
+    [closePopover, ignorePress, onPress],
   );
   return (
     <IconButton
@@ -156,10 +229,16 @@ function MoreActionContentHeader({
 }) {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const handleCustomerSupport = useCallback(() => {
+    if (isTravelMode) {
+      return;
+    }
     void showIntercom();
-  }, []);
+  }, [isTravelMode]);
 
   const {
     activeAccount: { account, network },
@@ -212,6 +291,7 @@ function MoreActionContentHeader({
                 await extUtils.openPanelOnActionClick(false);
                 window.close();
               },
+              trackID: 'wallet-popup-mode',
             },
         {
           title: intl.formatMessage({
@@ -279,6 +359,7 @@ function MoreActionContentHeader({
           })}
           icon="HelpSupportOutline"
           onPress={handleCustomerSupport}
+          trackID="wallet-customer-support"
         />,
       ),
       glassBarItem(
@@ -290,6 +371,7 @@ function MoreActionContentHeader({
           onPress={() => {
             void handleScan();
           }}
+          trackID="wallet-scan"
         />,
       ),
     ],
@@ -308,18 +390,16 @@ function MoreActionContentHeader({
   return (
     <XStack
       px="$5"
-      pt="$4"
-      pb="$2"
+      pt={isDesktopMode ? '$3' : '$4'}
+      pb={isDesktopMode ? '$1.5' : '$2'}
       ai="center"
       jc="space-between"
-      bg={isDesktopMode ? '$bg' : '$bgApp'}
+      bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
       zIndex={10}
+      flexShrink={0}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
-      $platform-web={{
-        position: 'sticky',
-        top: 0,
-      }}
     >
       {showBackButton ? (
         <NavBackButton onPress={handleBack} />
@@ -335,6 +415,9 @@ function MoreActionContentHeader({
             title={item.title}
             icon={item.icon as IKeyOfIcons}
             onPress={item.onPress}
+            ignorePress={
+              isTravelMode && item.trackID === 'wallet-customer-support'
+            }
             trackID={item.trackID}
           />
         ))}
@@ -343,11 +426,17 @@ function MoreActionContentHeader({
   );
 }
 
-function MoreActionContentFooter() {
+function MoreActionAboutCard({
+  isDesktopMode = false,
+}: {
+  isDesktopMode?: boolean;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -360,62 +449,71 @@ function MoreActionContentFooter() {
     },
   );
 
-  const handleAbout = useCallback(async () => {
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.About,
-      },
+  const handleAbout = useCallback(() => {
+    if (isTravelMode) {
+      return;
+    }
+    defaultLogger.ui.button.click({
+      trackId: 'wallet-about',
     });
-  }, [closePopover, navigation]);
+    logSettingCategoryOpened({
+      category: ESettingsTabNames.About,
+      source: 'moreActions',
+    });
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.SettingModal, {
+          screen: EModalSettingRoutes.SettingListSubModal,
+          params: {
+            name: ESettingsTabNames.About,
+          },
+        });
+      },
+      { waitForAnimation: false },
+    );
+  }, [closePopover, isTravelMode, navigation]);
 
   return (
     <XStack
-      px="$1"
-      pb="$1"
-      bg={isDesktopMode ? '$bg' : '$bgApp'}
-      borderBottomLeftRadius="$3"
-      borderBottomRightRadius="$3"
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderTopColor={isDesktopMode ? '$neutral3' : '$borderSubdued'}
-      $platform-web={{
-        position: 'sticky',
-        bottom: 0,
+      testID="action-center-about"
+      mx={isDesktopMode ? '$1' : '$5'}
+      minHeight={isDesktopMode ? 40 : 44}
+      px="$4"
+      py={isDesktopMode ? '$2' : '$2.5'}
+      jc="space-between"
+      ai="center"
+      bg={isDesktopMode ? '$transparent' : '$bg'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CARD_DARK_STYLE}
+      onPress={handleAbout}
+      borderRadius={isDesktopMode ? '$2' : '$4'}
+      borderCurve="continuous"
+      overflow="hidden"
+      userSelect="none"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
       }}
     >
-      <XStack
-        flex={1}
-        px="$4"
-        py="$2"
-        mt="$1"
-        jc="space-between"
-        onPress={handleAbout}
-        borderRadius="$2"
-        userSelect="none"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-      >
-        <XStack gap="$1" ai="center" jc="center">
-          <Icon name="InfoCircleOutline" color="$icon" size="$4" />
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
-          </SizableText>
-        </XStack>
-        <XStack gap="$1" ai="center" jc="center">
-          <SizableText size="$bodyMdMedium" color="$textDisabled">
-            {versionString}
-          </SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            color="$iconSubdued"
-            size="$4"
-          />
-        </XStack>
+      <XStack gap="$1" ai="center" jc="center" flexShrink={0}>
+        <Icon name="InfoCircleOutline" color="$icon" size="$4" />
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
+        </SizableText>
+      </XStack>
+      <XStack gap="$1" ai="center" jc="flex-end" flexShrink={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textDisabled"
+          numberOfLines={1}
+          ellipsizeMode="middle"
+          flexShrink={1}
+        >
+          {versionString}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$4" />
       </XStack>
     </XStack>
   );
@@ -425,159 +523,245 @@ interface IMoreActionContentGridItemProps {
   title: IIconButtonProps['title'];
   icon?: IIconButtonProps['icon'];
   testID?: string;
-  trackID?: string;
+  trackID: string;
   onPress: () => void;
+  ignorePress?: boolean;
   showRedDot?: boolean;
+  showUnreadDot?: boolean;
   showBadges?: boolean;
   badges?: number;
   lottieSrc?: any;
   isPrimeFeature?: boolean;
   hidePrimeBadge?: boolean;
+  keepOpenOnPress?: boolean;
+  disabled?: boolean;
+  isLoading?: boolean;
 }
 
 function MoreActionContentGridItem({
   title,
   icon,
   onPress,
+  ignorePress,
   testID,
   trackID,
   showRedDot,
+  showUnreadDot,
   showBadges,
   badges = 0,
   lottieSrc,
   isPrimeFeature,
   hidePrimeBadge,
-}: IMoreActionContentGridItemProps) {
+  keepOpenOnPress,
+  disabled,
+  isLoading,
+  isDesktopMode,
+  isDarkTheme,
+}: IMoreActionContentGridItemProps & {
+  isDesktopMode: boolean;
+  isDarkTheme: boolean;
+}) {
   const { closePopover } = usePopoverContext();
-  const { isPrimeAvailable } = usePrimeAvailable();
 
-  const handlePress = useCallback(async () => {
-    await closePopover?.();
-    setTimeout(() => {
-      if (trackID) {
-        defaultLogger.ui.button.click({
-          trackId: trackID,
-        });
-      }
+  const handlePress = useCallback(() => {
+    if (ignorePress || disabled) {
+      return;
+    }
+    defaultLogger.ui.button.click({
+      trackId: trackID,
     });
-    onPress();
-  }, [closePopover, onPress, trackID]);
+    if (keepOpenOnPress) return onPress();
+    return runAfterActionListClose(() => closePopover?.(), onPress, {
+      waitForAnimation: false,
+    });
+  }, [closePopover, disabled, ignorePress, keepOpenOnPress, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
-  const themeVariant = useThemeVariant();
-
-  if (isPrimeFeature && !isPrimeAvailable) {
-    return null;
+  const desktopIconHoverStyle = pickDesktopThemeStyle(
+    isDesktopMode,
+    isDarkTheme,
+    MORE_ACTION_DESKTOP_ICON_DARK_HOVER_STYLE,
+    MORE_ACTION_DESKTOP_ICON_HOVER_STYLE,
+  );
+  const desktopIconPressStyle = pickDesktopThemeStyle(
+    isDesktopMode,
+    isDarkTheme,
+    MORE_ACTION_DESKTOP_ICON_DARK_PRESS_STYLE,
+    MORE_ACTION_DESKTOP_ICON_PRESS_STYLE,
+  );
+  const desktopBadgeHoverStyle = pickDesktopThemeStyle(
+    isDesktopMode,
+    isDarkTheme,
+    MORE_ACTION_DESKTOP_BADGE_DARK_HOVER_STYLE,
+    MORE_ACTION_DESKTOP_BADGE_HOVER_STYLE,
+  );
+  const desktopBadgePressStyle = pickDesktopThemeStyle(
+    isDesktopMode,
+    isDarkTheme,
+    MORE_ACTION_DESKTOP_BADGE_DARK_PRESS_STYLE,
+    MORE_ACTION_DESKTOP_BADGE_PRESS_STYLE,
+  );
+  // `$theme-dark` does not match on desktop/web (class is on <body>,
+  // selector is `:root.t_dark`). Do not change the global class.
+  let iconBg: '$bgSubdued' | '$gray3' | '$bg' = '$bgSubdued';
+  if (isDarkTheme) {
+    iconBg = isDesktopMode ? '$gray3' : '$bg';
+  }
+  let primeBadgeBg: '$bg' | '$gray3' | '$gray4' = '$bg';
+  if (isDarkTheme) {
+    primeBadgeBg = '$gray4';
+  } else if (isDesktopMode) {
+    primeBadgeBg = '$gray3';
   }
 
   return (
     <YStack
       testID={testID}
-      onPress={handlePress}
+      onPress={disabled ? undefined : handlePress}
+      accessibilityState={{ disabled: !!disabled, busy: !!isLoading }}
       group
-      flexBasis="25%"
-      py="$2.5"
+      w="$20"
+      flexShrink={1}
+      py="$1"
       ai="center"
       jc="flex-start"
       gap="$1"
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      hoverStyle={isDesktopMode ? undefined : MORE_ACTION_ITEM_HOVER_STYLE}
+      pressStyle={isDesktopMode ? undefined : MORE_ACTION_ITEM_PRESS_STYLE}
       userSelect="none"
     >
-      <YStack>
-        {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
-        {lottieSrc ? (
-          <Stack w="$6" h="$6" ai="center" jc="center">
-            <LottieView width={32} height={32} source={lottieSrc} />
-          </Stack>
-        ) : null}
-        {showRedDot ? (
-          <Stack
-            position="absolute"
-            right="$-2"
-            top="$-2"
-            alignItems="flex-end"
-            w="$10"
-            pointerEvents="none"
-          >
+      <Stack
+        w="$10"
+        h="$10"
+        ai="center"
+        jc="center"
+        bg={iconBg}
+        $group-hover={desktopIconHoverStyle}
+        $group-press={desktopIconPressStyle}
+        borderRadius="$3"
+        borderCurve="continuous"
+        position="relative"
+      >
+        <YStack>
+          {isLoading ? <Spinner size="small" /> : null}
+          {!isLoading && icon ? (
+            <Icon size="$6" color="$icon" name={icon} />
+          ) : null}
+          {!isLoading && lottieSrc ? (
+            <Stack w="$8" h="$8" ai="center" jc="center">
+              <LottieView width={32} height={32} source={lottieSrc} />
+            </Stack>
+          ) : null}
+          {showRedDot ? (
             <Stack
-              bg="$bgApp"
-              borderRadius="$full"
-              borderWidth={2}
-              borderColor="$transparent"
+              position="absolute"
+              right="$-2"
+              top="$-2"
+              alignItems="flex-end"
+              w="$10"
+              pointerEvents="none"
             >
               <Stack
-                px="$1"
+                bg={iconBg}
                 borderRadius="$full"
-                bg="$bgCriticalStrong"
-                minWidth="$4"
-                height="$4"
-                alignItems="center"
-                justifyContent="center"
+                borderWidth={2}
+                borderColor="$transparent"
               >
-                {showBadges ? (
-                  <SizableText color="$textOnColor" size="$bodySm">
-                    {badges && badges > 99 ? '99+' : badges}
-                  </SizableText>
-                ) : (
-                  <Stack
-                    width="$1"
-                    height="$1"
-                    backgroundColor="white"
-                    borderRadius="$full"
-                  />
-                )}
+                <Stack
+                  px="$1"
+                  borderRadius="$full"
+                  bg="$bgCriticalStrong"
+                  minWidth="$4"
+                  height="$4"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {showBadges ? (
+                    <SizableText color="$textOnColor" size="$bodySm">
+                      {badges && badges > 99 ? '99+' : badges}
+                    </SizableText>
+                  ) : (
+                    <Stack
+                      width="$1"
+                      height="$1"
+                      backgroundColor="white"
+                      borderRadius="$full"
+                    />
+                  )}
+                </Stack>
               </Stack>
             </Stack>
-          </Stack>
+          ) : null}
+        </YStack>
+        {showUnreadDot ? (
+          <SupportUnreadDot
+            testID="more-action-support-unread-dot"
+            top={6}
+            right={6}
+          />
         ) : null}
         {/* Only show Prime badge for non-Prime users */}
         {isPrimeFeature && !hidePrimeBadge && !isPrimeUser ? (
           <Stack
             position="absolute"
-            right={-10}
-            top={-4}
-            backgroundColor={themeVariant === 'light' ? '#F1F1F1' : '#3A3A3A'}
-            px="$1"
-            borderRadius="$full"
-            borderWidth="$px"
-            borderColor="$bgApp"
+            top={0}
+            right={I18nManager.isRTL ? undefined : 0}
+            left={I18nManager.isRTL ? 0 : undefined}
+            h="$4"
+            pl={I18nManager.isRTL ? 4 : 5}
+            pr={I18nManager.isRTL ? 5 : 4}
+            ai="center"
+            jc="center"
+            bg={primeBadgeBg}
+            $group-hover={desktopBadgeHoverStyle}
+            $group-press={desktopBadgePressStyle}
+            borderTopRightRadius={I18nManager.isRTL ? undefined : '$3'}
+            borderBottomLeftRadius={I18nManager.isRTL ? undefined : '$3'}
+            borderTopLeftRadius={I18nManager.isRTL ? '$3' : undefined}
+            borderBottomRightRadius={I18nManager.isRTL ? '$3' : undefined}
+            zIndex="$1"
+            pointerEvents="none"
           >
             <Icon color="$iconSubdued" size="$3" name="PrimeOutline" />
           </Stack>
         ) : null}
+      </Stack>
+      <YStack w="100%" ai="center">
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          $group-hover={
+            isDesktopMode ? MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE : undefined
+          }
+          $group-press={
+            isDesktopMode ? MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE : undefined
+          }
+          numberOfLines={2}
+          textAlign="center"
+        >
+          {title}
+        </SizableText>
       </YStack>
-      <SizableText
-        size="$bodySmMedium"
-        color="$textSubdued"
-        numberOfLines={2}
-        textAlign="center"
-      >
-        {title}
-      </SizableText>
     </YStack>
-  );
-}
-
-function MoreActionDivider() {
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
-  return (
-    <XStack py="$2">
-      <Divider borderColor={isDesktopMode ? '$neutral3' : '$borderSubdued'} />
-    </XStack>
   );
 }
 
 function MoreActionOneKeyId() {
   const intl = useIntl();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const { closePopover } = usePopoverContext();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const rowHoverStyle = isDesktopMode
+    ? MORE_ACTION_DESKTOP_ROW_HOVER_STYLE
+    : MORE_ACTION_ITEM_HOVER_STYLE;
+  const rowPressStyle = isDesktopMode
+    ? MORE_ACTION_DESKTOP_ROW_HOVER_STYLE
+    : MORE_ACTION_ITEM_PRESS_STYLE;
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -603,40 +787,61 @@ function MoreActionOneKeyId() {
 
   const navigation = useAppNavigation();
 
-  const handleNavigateToOneKeyId = useCallback(async () => {
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.OneKeyId,
-    });
+  const handleNavigateToOneKeyId = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.OneKeyId,
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, navigation]);
 
-  const handlePress = useCallback(async () => {
-    if (isLoggedIn) {
-      await handleNavigateToOneKeyId();
-    } else {
-      await closePopover?.();
-      await loginOneKeyId({
-        toOneKeyIdPageOnLoginSuccess: false,
-      });
+  const handlePress = useCallback(() => {
+    if (isTravelMode && !isLoggedIn) {
+      return;
     }
-  }, [isLoggedIn, handleNavigateToOneKeyId, closePopover, loginOneKeyId]);
+    defaultLogger.ui.button.click({
+      trackId: 'wallet-onekey-id',
+    });
+    if (isLoggedIn) {
+      return handleNavigateToOneKeyId();
+    }
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () =>
+        loginOneKeyId({
+          toOneKeyIdPageOnLoginSuccess: false,
+        }),
+      { waitForAnimation: false },
+    );
+  }, [
+    isTravelMode,
+    isLoggedIn,
+    handleNavigateToOneKeyId,
+    closePopover,
+    loginOneKeyId,
+  ]);
 
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   if (!isLoggedIn) {
     return (
       <XStack
+        testID="more-action-onekey-id"
         alignItems="center"
-        py="$4"
-        px="$4"
-        mx="$1"
+        py={isDesktopMode ? '$2.5' : '$4'}
+        px={isDesktopMode ? '$3' : '$4'}
+        mx={isDesktopMode ? '$2' : '$1'}
         mt="$1"
         userSelect="none"
         justifyContent="space-between"
         onPress={handlePress}
-        borderRadius="$2"
-        hoverStyle={ONE_KEY_ID_ROW_HOVER_STYLE}
-        pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
+        borderRadius={isDesktopMode ? '$3' : '$2'}
+        hoverStyle={rowHoverStyle}
+        pressStyle={rowPressStyle}
       >
         <XStack alignItems="center" gap="$3" flex={1}>
           <OneKeyIdAvatar size="$10" />
@@ -671,18 +876,19 @@ function MoreActionOneKeyId() {
 
   return (
     <XStack
+      testID="more-action-onekey-id"
       alignItems="center"
-      py="$4"
-      px="$4"
-      mx="$1"
+      py={isDesktopMode ? '$2.5' : '$4'}
+      px={isDesktopMode ? '$3' : '$4'}
+      mx={isDesktopMode ? '$2' : '$1'}
       mt="$1"
       gap="$5"
       userSelect="none"
       justifyContent="space-between"
-      onPress={handleNavigateToOneKeyId}
-      borderRadius="$2"
-      hoverStyle={ONE_KEY_ID_ROW_HOVER_STYLE}
-      pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
+      onPress={handlePress}
+      borderRadius={isDesktopMode ? '$3' : '$2'}
+      hoverStyle={rowHoverStyle}
+      pressStyle={rowPressStyle}
     >
       <XStack alignItems="center" gap="$3" flex={1}>
         <OneKeyIdAvatar size="$14" />
@@ -739,26 +945,7 @@ const useIsShowRedDot = () => {
 const useIsNeedUpgradeFirmware = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
-  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
-  const { result } = usePromiseResult(async () => {
-    if (!connectId) return undefined;
-    const detectResult = detectStatus?.[connectId];
-    const shouldUpdate =
-      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const detectInfo =
-      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
-        {
-          connectId,
-        },
-      );
-    return {
-      shouldUpdate,
-      detectResult,
-    };
-  }, [connectId, detectStatus]);
-
-  return result?.shouldUpdate;
+  return useFirmwareUpdateDetectStatus(connectId)?.hasUpgrade;
 };
 
 const useIsShowWalletXfpStatus = () => {
@@ -835,6 +1022,16 @@ function UpdateReminders() {
   ) : null;
 }
 
+const TRAVEL_MODE_IGNORED_MORE_ACTIONS = new Set([
+  'wallet-customer-support',
+  'wallet-lock-now',
+  'wallet-backup',
+  'wallet-address-book',
+  'wallet-network',
+  'wallet-referral',
+  'wallet-redeem',
+]);
+
 function BaseMoreActionGrid({
   title,
   items,
@@ -844,58 +1041,79 @@ function BaseMoreActionGrid({
   items: IMoreActionContentGridItemProps[];
   onTitleMultipleClick?: () => void;
 }) {
-  const displayItems = useMemo(() => {
-    const remainder = items.length % 4;
-    if (remainder !== 0) {
-      const paddingCount = 4 - remainder;
-      return [
-        ...items,
-        ...Array(paddingCount).fill(null),
-      ] as IMoreActionContentGridItemProps[];
-    }
-    return items;
-  }, [items]);
+  const { isPrimeAvailable } = usePrimeAvailable();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isDarkTheme = useThemeVariant() === 'dark';
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const rows = useMemo(
+    () =>
+      buildMoreActionGridLayout(
+        isTravelMode
+          ? items.map((item) =>
+              TRAVEL_MODE_IGNORED_MORE_ACTIONS.has(item.trackID)
+                ? { ...item, ignorePress: true }
+                : item,
+            )
+          : items,
+        isPrimeAvailable,
+      ),
+    [isPrimeAvailable, isTravelMode, items],
+  );
   const titleContent = (
     <SizableText
       size="$headingMd"
       color="$text"
       numberOfLines={1}
       ellipsizeMode="middle"
-      px={onTitleMultipleClick ? undefined : '$5'}
-      pb={onTitleMultipleClick ? undefined : '$1'}
       userSelect="none"
     >
       {title}
     </SizableText>
   );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
   return (
-    <YStack>
-      {onTitleMultipleClick ? (
-        <MultipleClickStack px="$5" pb="$1" onPress={onTitleMultipleClick}>
-          {titleContent}
-        </MultipleClickStack>
-      ) : (
-        titleContent
-      )}
-      <YStack gap="$2" px="$4">
-        {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
-          (_, rowIndex) => (
-            <XStack key={rowIndex} flexWrap="nowrap">
-              {displayItems
-                .slice(rowIndex * 4, (rowIndex + 1) * 4)
-                .map((item, colIndex) =>
-                  item ? (
-                    <MoreActionContentGridItem
-                      key={rowIndex * 4 + colIndex}
-                      {...item}
-                    />
-                  ) : (
-                    <XStack flexBasis="25%" key={rowIndex * 4 + colIndex} />
-                  ),
-                )}
-            </XStack>
-          ),
+    <YStack gap={isDesktopMode ? '$0.5' : '$1'}>
+      <XStack
+        pl={I18nManager.isRTL ? '$0' : '$6'}
+        pr={I18nManager.isRTL ? '$6' : '$0'}
+      >
+        {onTitleMultipleClick ? (
+          <MultipleClickStack onPress={onTitleMultipleClick}>
+            {titleContent}
+          </MultipleClickStack>
+        ) : (
+          titleContent
         )}
+      </XStack>
+      <YStack gap={isDesktopMode ? '$2' : '$3'}>
+        {rows.map((row, rowIndex) => (
+          <XStack
+            key={rowIndex}
+            flexWrap="nowrap"
+            alignItems="stretch"
+            justifyContent="space-between"
+            px="$1"
+          >
+            {row.map((item, colIndex) =>
+              item ? (
+                <MoreActionContentGridItem
+                  key={colIndex}
+                  {...item}
+                  isDesktopMode={isDesktopMode}
+                  isDarkTheme={isDarkTheme}
+                />
+              ) : (
+                <Stack key={colIndex} w="$20" flexShrink={1} />
+              ),
+            )}
+          </XStack>
+        ))}
       </YStack>
     </YStack>
   );
@@ -905,6 +1123,9 @@ function MoreActionGeneralGrid() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const handleSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -913,8 +1134,11 @@ function MoreActionGeneralGrid() {
   }, [navigation]);
 
   const handleLock = useCallback(async () => {
+    if (isTravelMode) {
+      return;
+    }
     await onLock();
-  }, [onLock]);
+  }, [isTravelMode, onLock]);
 
   const {
     activeAccount: { account, network },
@@ -976,11 +1200,12 @@ function MoreActionGeneralGrid() {
             title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
             icon: 'LockOutline' as const,
             onPress: handleLock,
+            ignorePress: isTravelMode,
             trackID: 'wallet-lock-now',
           }
         : undefined,
     ].filter(Boolean);
-  }, [handleLock, handlePrime, handleScan, handleSettings, intl]);
+  }, [handleLock, handlePrime, handleScan, handleSettings, intl, isTravelMode]);
   return (
     <BaseMoreActionGrid
       title={intl.formatMessage({ id: ETranslations.global_general })}
@@ -992,19 +1217,33 @@ function MoreActionGeneralGrid() {
   );
 }
 
+type IMoreActionActiveContext = {
+  walletId?: string;
+  networkId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
+};
+
 const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToBulkSend = useNavigateToBulkSend();
   const showBulkSendModeDialog = useBulkSendModeDialog();
-  const handleBackup = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Backup,
-      },
-    });
-  }, [navigation]);
+  const openSettingsCategory = useCallback(
+    (category: ESettingsTabNames) => {
+      logSettingCategoryOpened({
+        category,
+        source: 'moreActions',
+      });
+      navigation.pushModal(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingListSubModal,
+        params: {
+          name: category,
+        },
+      });
+    },
+    [navigation],
+  );
   const onPressAddressBook = useShowAddressBook({
     useNewModal: true,
   });
@@ -1012,53 +1251,35 @@ const MoreActionWalletGrid = () => {
     void onPressAddressBook(navigation);
   }, [onPressAddressBook, navigation]);
 
-  const handleNetwork = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Network,
-      },
-    });
-  }, [navigation]);
-
-  const handleSecurity = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Security,
-      },
-    });
-  }, [navigation]);
-
-  const handlePreferences = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Preferences,
-      },
-    });
-  }, [navigation]);
-
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { user, isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
+  // Access without free-trial metering (E2E / Prime); free users go through
+  // the gate.
+  const hasBulkSendAccess = canAccessBulkSend({
+    isE2E: platformEnv.isE2E === true,
+    isPrimeActive: Boolean(isPrimeSubscriptionActive),
+    oneKeyUserId: user?.onekeyUserId,
+  });
   const {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const checkIsPrimeUser = useCallback(
-    (showFeature: EPrimeFeatures) => {
-      if (isPrimeActive && user?.onekeyUserId) {
-        return true;
-      }
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params: {
-          fromFeature: showFeature,
-          networkId: network?.id,
-        },
-      });
-      return false;
-    },
-    [isPrimeActive, navigation, network?.id, user?.onekeyUserId],
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  // Latest selection, compared after the gate's async steps so a changed
+  // context does not continue the old action. Each entry passes the parts it
+  // acts on.
+  const activeContextRef = useRef<IMoreActionActiveContext>({});
+  activeContextRef.current = {
+    walletId: wallet?.id,
+    networkId: network?.id,
+    accountId: account?.id,
+    indexedAccountId: indexedAccount?.id,
+  };
+  const isSameActiveContext = useCallback(
+    (context: IMoreActionActiveContext) => () =>
+      (Object.keys(context) as (keyof IMoreActionActiveContext)[]).every(
+        (key) => activeContextRef.current[key] === context[key],
+      ),
+    [],
   );
   const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
@@ -1068,7 +1289,23 @@ const MoreActionWalletGrid = () => {
 
     if (!networkId) return;
 
-    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
+    const access = await ensureFeatureAccess({
+      featureId: EPrimeFeatures.BulkCopyAddresses,
+      networkId: network?.id,
+      isContextValid: isSameActiveContext({
+        walletId: wallet?.id,
+        networkId: network?.id,
+      }),
+      extPopup: {
+        mode: 'pendingAction',
+        action: {
+          type: EPrimeFreeTrialPendingActionType.BulkCopyAddresses,
+          walletId: wallet?.id,
+          networkId,
+        },
+      },
+    });
+    if (!access.granted) return;
 
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
@@ -1077,11 +1314,33 @@ const MoreActionWalletGrid = () => {
         networkId,
       },
     });
-  }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
+  }, [
+    network?.id,
+    ensureFeatureAccess,
+    isSameActiveContext,
+    navigation,
+    wallet?.id,
+  ]);
 
   const openBulkSendModule = useCallback(async () => {
-    if (!checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
-      return;
+    if (!hasBulkSendAccess) {
+      // The bulk send pages open in the extension expand tab, which runs the
+      // login and page-level gate itself.
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.BulkSend,
+        networkId: network?.id,
+        // Bulk send opens with this account as the sender.
+        isContextValid: isSameActiveContext({
+          walletId: wallet?.id,
+          networkId: network?.id,
+          accountId: account?.id,
+          indexedAccountId: indexedAccount?.id,
+        }),
+        extPopup: { mode: 'passThrough' },
+      });
+      if (!access.granted) {
+        return;
+      }
     }
 
     showBulkSendModeDialog({
@@ -1098,20 +1357,45 @@ const MoreActionWalletGrid = () => {
     network?.id,
     account?.id,
     indexedAccount?.id,
+    wallet?.id,
     navigateToBulkSend,
     showBulkSendModeDialog,
-    checkIsPrimeUser,
+    ensureFeatureAccess,
+    isSameActiveContext,
+    hasBulkSendAccess,
   ]);
 
-  const openAddressRiskCheckModule = useCallback(() => {
-    if (!checkIsPrimeUser(EPrimeFeatures.AddressRiskCheck)) {
+  const openAddressRiskCheckModule = useCallback(async () => {
+    const access = await ensureFeatureAccess({
+      featureId: EPrimeFeatures.AddressRiskCheck,
+      networkId: network?.id,
+      loginOnly: true,
+      isContextValid: isSameActiveContext({
+        walletId: wallet?.id,
+        networkId: network?.id,
+      }),
+      extPopup: {
+        mode: 'pendingAction',
+        action: {
+          type: EPrimeFreeTrialPendingActionType.AddressRiskCheck,
+          networkId: network?.id,
+        },
+      },
+    });
+    if (!access.granted) {
       return;
     }
     navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
       screen: EModalAddressRiskCheckRoutes.AddressRiskCheckInput,
       params: { networkId: network?.id },
     });
-  }, [checkIsPrimeUser, navigation, network?.id]);
+  }, [
+    ensureFeatureAccess,
+    isSameActiveContext,
+    navigation,
+    network?.id,
+    wallet?.id,
+  ]);
 
   const items = useMemo(() => {
     return [
@@ -1120,7 +1404,8 @@ const MoreActionWalletGrid = () => {
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
-            onPress: handleBackup,
+            onPress: () => openSettingsCategory(ESettingsTabNames.Backup),
+            trackID: 'wallet-backup',
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1130,25 +1415,29 @@ const MoreActionWalletGrid = () => {
             }),
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
+            trackID: 'wallet-address-book',
           },
       platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
             icon: 'GlobusOutline' as const,
-            onPress: handleNetwork,
+            onPress: () => openSettingsCategory(ESettingsTabNames.Network),
+            trackID: 'wallet-network',
           },
       {
         title: intl.formatMessage({ id: ETranslations.global_preferences }),
         icon: 'SliderThreeOutline' as const,
-        onPress: handlePreferences,
+        onPress: () => openSettingsCategory(ESettingsTabNames.Preferences),
+        trackID: 'wallet-preferences',
       },
       platformEnv.isWebDappMode
         ? undefined
         : {
             title: intl.formatMessage({ id: ETranslations.global_security }),
             icon: 'Shield2CheckOutline' as const,
-            onPress: handleSecurity,
+            onPress: () => openSettingsCategory(ESettingsTabNames.Security),
+            trackID: 'wallet-security',
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1178,7 +1467,7 @@ const MoreActionWalletGrid = () => {
             }),
             icon: 'ChevronDoubleUpOutline' as const,
             onPress: () => {
-              if (!isPrimeUser) {
+              if (!hasBulkSendAccess) {
                 defaultLogger.prime.subscription.primeEntryClick({
                   featureName: EPrimeFeatures.BulkSend,
                   entryPoint: 'moreActions',
@@ -1188,7 +1477,7 @@ const MoreActionWalletGrid = () => {
               void openBulkSendModule();
             },
             trackID: 'bulk-send-in-more-action',
-            isPrimeFeature: true,
+            isPrimeFeature: !platformEnv.isE2E,
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1205,7 +1494,7 @@ const MoreActionWalletGrid = () => {
                   isPrimeActive,
                 });
               }
-              openAddressRiskCheckModule();
+              void openAddressRiskCheckModule();
             },
             trackID: 'address-risk-check-in-more-action',
             isPrimeFeature: true,
@@ -1213,13 +1502,11 @@ const MoreActionWalletGrid = () => {
     ].filter(Boolean);
   }, [
     handleAddressBook,
-    handleBackup,
-    handleNetwork,
-    handlePreferences,
-    handleSecurity,
     intl,
+    openSettingsCategory,
     isPrimeActive,
     isPrimeUser,
+    hasBulkSendAccess,
     openBulkCopyAddressesModule,
     openBulkSendModule,
     openAddressRiskCheckModule,
@@ -1232,35 +1519,50 @@ const MoreActionWalletGrid = () => {
   );
 };
 
-// Ext popup/side panel hides the bottom tab bar, so the Developer tab loses its
-// only entry point there; surface it in this More menu in dev builds instead.
-const showDevModeEntryInMoreMenu =
-  platformEnv.isDev &&
-  (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel);
+// Native development opens Developer from this More menu.
+const showDevModeEntryInMoreMenu = platformEnv.isDev && platformEnv.isNative;
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
+  const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
-  const { closePopover } = usePopoverContext();
+  const { closePopover, open } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
   const themeVariant = useThemeVariant();
-  const { toReferFriendsPage } = useReferFriends();
+  const { toReferFriendsPage, isReferralEntryPending, isReferralEntryLoading } =
+    useReferFriends({
+      isEntryActive: open !== false,
+      beforeNavigate: closePopover,
+    });
   const handleReferFriends = useCallback(() => {
     void toReferFriendsPage();
   }, [toReferFriendsPage]);
 
-  const handleRedeem = useCallback(async () => {
-    await closePopover?.();
-    const { showRedemptionCenterDialog } =
-      await import('../../views/Redemption/components/RedemptionCenterDialog');
-    showRedemptionCenterDialog({ source: 'more_action' });
+  const handleRedeem = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      async () => {
+        const { showRedemptionCenterDialog } =
+          await import('../../views/Redemption/components/RedemptionCenterDialog');
+        showRedemptionCenterDialog({ source: 'more_action' });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover]);
 
-  const handleDevMode = useCallback(async () => {
-    await closePopover?.();
-    navigation.switchTab(ETabRoutes.Developer);
+  const handleDevMode = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.DeveloperModal, {
+          screen: ETabDeveloperRoutes.TabDeveloper,
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, navigation]);
 
   const items = useMemo(() => {
@@ -1268,8 +1570,10 @@ const MoreActionMoreGrid = () => {
       {
         title: intl.formatMessage({ id: ETranslations.settings_contact_us }),
         icon: 'HelpSupportOutline' as const,
+        testID: 'more-action-support' as const,
         onPress: handleHelpAndSupport,
         trackID: 'wallet-customer-support',
+        showUnreadDot: hasUnreadSupportMessages,
       },
 
       {
@@ -1278,18 +1582,27 @@ const MoreActionMoreGrid = () => {
           themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
         testID: 'referral' as const,
         onPress: handleReferFriends,
+        trackID: 'wallet-referral',
+        keepOpenOnPress: true,
+        disabled: isReferralEntryPending,
+        isLoading: isReferralEntryLoading,
       },
-      {
-        title: intl.formatMessage({ id: ETranslations.global_redeem }),
-        icon: 'TicketOutline' as const,
-        onPress: handleRedeem,
-        trackID: 'wallet-redeem',
-      },
+      ...(showReviewControlledFeatures
+        ? [
+            {
+              title: intl.formatMessage({ id: ETranslations.global_redeem }),
+              icon: 'TicketOutline' as const,
+              onPress: handleRedeem,
+              trackID: 'wallet-redeem',
+            },
+          ]
+        : []),
       ...(showDevModeEntryInMoreMenu
         ? [
             {
               title: intl.formatMessage({ id: ETranslations.global_dev_mode }),
               icon: 'CodeBracketsOutline' as const,
+              testID: 'more-action-dev-mode' as const,
               onPress: handleDevMode,
               trackID: 'wallet-dev-mode',
             },
@@ -1298,11 +1611,15 @@ const MoreActionMoreGrid = () => {
     ];
   }, [
     handleHelpAndSupport,
+    hasUnreadSupportMessages,
     handleRedeem,
     intl,
     themeVariant,
     handleReferFriends,
+    isReferralEntryPending,
+    isReferralEntryLoading,
     handleDevMode,
+    showReviewControlledFeatures,
   ]);
   return (
     <BaseMoreActionGrid
@@ -1312,24 +1629,42 @@ const MoreActionMoreGrid = () => {
   );
 };
 
+function MoreActionMenuCard({
+  isDesktopMode = false,
+}: {
+  isDesktopMode?: boolean;
+}) {
+  return (
+    <YStack
+      mx={isDesktopMode ? '$0' : '$5'}
+      py={isDesktopMode ? '$2' : '$4'}
+      gap={isDesktopMode ? '$3' : '$4'}
+      bg={isDesktopMode ? '$transparent' : '$bg'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CARD_DARK_STYLE}
+      borderRadius={isDesktopMode ? '$0' : '$4'}
+      borderCurve="continuous"
+      overflow="hidden"
+    >
+      <MoreActionGeneralGrid />
+      <MoreActionWalletGrid />
+      <MoreActionMoreGrid />
+    </YStack>
+  );
+}
+
 function MoreActionDevice() {
   const intl = useIntl();
   const { pushToDeviceList } = useDeviceManagerNavigation();
-  const { result: hwQrWalletList = [] } = usePromiseResult<
+  const hwQrWalletListResult = usePromiseResult<
     Array<IDeviceManagementListItem>
   >(
     async () => {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          skipDuplicateDeviceSameType: true,
         });
-      const devices: Array<IDeviceManagementListItem> = Object.values(r)
-        .filter(
-          (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) && !item.wallet.deprecated,
-        )
-        .toSorted((a, b) => {
+      const devices: Array<IDeviceManagementListItem> =
+        getDeviceManagementWallets(Object.values(r)).toSorted((a, b) => {
           // Sort by walletOrder or fallback to walletNo
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;
           const orderB = b.wallet.walletOrder || b.wallet.walletNo;
@@ -1352,22 +1687,47 @@ function MoreActionDevice() {
       checkIsFocused: false,
     },
   );
+  const hwQrWalletList = hwQrWalletListResult.result ?? [];
+  const refreshHwQrWalletList = hwQrWalletListResult.run;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    }, [refreshHwQrWalletList]),
+  );
+
+  useEffect(() => {
+    const refreshWallets = () => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWallets);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWallets);
+    };
+  }, [refreshHwQrWalletList]);
 
   const handleDevice = useCallback(() => {
+    defaultLogger.ui.button.click({
+      trackId: 'wallet-device-management',
+    });
     pushToDeviceList();
   }, [pushToDeviceList]);
 
   return (
     <YStack
-      bg="$bgSubdued"
+      bg="$bg"
+      $theme-dark={MORE_ACTION_CARD_DARK_STYLE}
       borderRadius="$4"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$neutral3"
+      borderCurve="continuous"
       mx="$5"
-      mt="$1"
-      mb="$2"
       px="$4"
       onPress={handleDevice}
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
     >
       {hwQrWalletList.length > 0 ? (
         <>
@@ -1440,22 +1800,73 @@ function MoreActionDevice() {
   );
 }
 
-function BaseMoreActionContent() {
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
+function MoreActionFixedFooter({ isDesktopMode }: { isDesktopMode: boolean }) {
   return (
-    <YStack flex={1}>
-      <ScrollView overflow="scroll" flex={1}>
-        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
-        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
-        {isDesktopMode ? null : <MoreActionDevice />}
-        <MoreActionDivider />
-        <MoreActionGeneralGrid />
-        <MoreActionDivider />
-        <MoreActionWalletGrid />
-        <MoreActionDivider />
-        <MoreActionMoreGrid />
-      </ScrollView>
-      <MoreActionContentFooter />
+    <YStack
+      py={isDesktopMode ? '$1' : '$2'}
+      bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+      flexShrink={0}
+      borderTopWidth={isDesktopMode ? StyleSheet.hairlineWidth : 0}
+      borderTopColor="$borderSubdued"
+      borderBottomLeftRadius="$3"
+      borderBottomRightRadius="$3"
+    >
+      <MoreActionAboutCard isDesktopMode={isDesktopMode} />
+    </YStack>
+  );
+}
+
+function BaseMoreActionContent({ fixedFooter }: { fixedFooter: boolean }) {
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const body = (
+    <>
+      {platformEnv.isWebDappMode ? null : <UpdateReminders />}
+      {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
+      {isDesktopMode && !platformEnv.isWebDappMode ? (
+        <Divider mx="$5" mt="$1" mb="$1" borderColor="$neutral3" />
+      ) : null}
+      <YStack
+        gap="$4"
+        pt={platformEnv.isWebDappMode && !isDesktopMode ? '$4' : undefined}
+        pb={isDesktopMode ? '$0' : '$5'}
+      >
+        {isDesktopMode || isTravelMode ? null : <MoreActionDevice />}
+        <MoreActionMenuCard isDesktopMode={isDesktopMode} />
+        {fixedFooter ? null : (
+          <MoreActionAboutCard isDesktopMode={isDesktopMode} />
+        )}
+      </YStack>
+    </>
+  );
+
+  return (
+    <YStack
+      flex={isDesktopMode ? undefined : 1}
+      minHeight={isDesktopMode ? undefined : 0}
+      {...(isDesktopMode ? MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE : undefined)}
+      bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+    >
+      {isDesktopMode ? (
+        <YStack
+          overflow="hidden"
+          style={MORE_ACTION_DESKTOP_BODY_OVERFLOW_STYLE}
+          {...MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE}
+        >
+          {body}
+        </YStack>
+      ) : (
+        <ScrollView overflow="scroll" flex={1}>
+          {body}
+        </ScrollView>
+      )}
+      {fixedFooter ? (
+        <MoreActionFixedFooter isDesktopMode={isDesktopMode} />
+      ) : null}
     </YStack>
   );
 }
@@ -1463,9 +1874,13 @@ function BaseMoreActionContent() {
 export function MoreActionContentPage() {
   return (
     <MoreActionProvider>
-      <YStack flex={1}>
+      <YStack
+        flex={1}
+        bg="$bgSubdued"
+        $theme-dark={MORE_ACTION_CANVAS_DARK_STYLE}
+      >
         <MoreActionContentHeader showBackButton />
-        <BaseMoreActionContent />
+        <BaseMoreActionContent fixedFooter={false} />
       </YStack>
     </MoreActionProvider>
   );
@@ -1492,27 +1907,32 @@ function MoreActionContent({
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
-    rootNavigationRef.current?.addListener('__unsafe_action__', ({ data }) => {
-      if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
-        void closePopover?.();
-      }
-    });
+    const unsubscribe = rootNavigationRef.current?.addListener(
+      '__unsafe_action__',
+      ({ data }) => {
+        if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
+          void closePopover?.();
+        }
+      },
+    );
+    return () => {
+      unsubscribe?.();
+    };
   }, [closePopover]);
   return (
     <MoreActionProvider>
-      <YStack minHeight={600} {...containerStyle}>
+      <YStack
+        maxHeight={
+          isDesktopMode ? MORE_ACTION_DESKTOP_POPOVER_MAX_HEIGHT : undefined
+        }
+        overflow={isDesktopMode ? 'hidden' : undefined}
+        minHeight={0}
+        bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+        $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+        {...containerStyle}
+      >
         <MoreActionContentHeader />
-        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
-        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
-        {isDesktopMode ? null : <MoreActionDevice />}
-        <MoreActionDivider />
-        <MoreActionGeneralGrid />
-        <MoreActionDivider />
-        <MoreActionWalletGrid />
-        <MoreActionDivider />
-        <MoreActionMoreGrid />
-        <YStack flex={1} />
-        <MoreActionContentFooter />
+        <BaseMoreActionContent fixedFooter />
       </YStack>
     </MoreActionProvider>
   );
@@ -1559,18 +1979,18 @@ function Dot({
   );
 }
 
-function MoreButtonWithDot({
-  onPress: _onPress,
-}: {
-  onPress?: IButtonProps['onPress'];
-}) {
+function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const isShowRedDot = useIsShowRedDot();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
 
   // Large dot for mobile
   const dot = useMemo(() => {
+    if (hasUnreadSupportMessages) {
+      return <Dot color="$bgCriticalStrong" />;
+    }
     if (isShowUpgradeDot) {
       return (
         <Dot
@@ -1582,18 +2002,23 @@ function MoreButtonWithDot({
       );
     }
     return null;
-  }, [isDesktopMode, isShowUpgradeDot]);
+  }, [hasUnreadSupportMessages, isDesktopMode, isShowUpgradeDot]);
 
   // Small dot for desktop (similar to DesktopTabItem)
   const desktopDot = useMemo(() => {
-    if (!isShowUpgradeDot && !isShowRedDot) return null;
+    if (!isShowUpgradeDot && !isShowRedDot && !hasUnreadSupportMessages) {
+      return null;
+    }
     return (
       <Stack
         width="$3"
         height="$3"
-        // Update dot uses accent (brand green) to match the header "Update
-        // now" button; the notification (non-update) dot stays critical red.
-        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
+        // Unread support takes priority over the green update indicator.
+        bg={
+          isShowUpgradeDot && !hasUnreadSupportMessages
+            ? '$bgAccent'
+            : '$bgCriticalStrong'
+        }
         borderRadius="$full"
         position="absolute"
         right={-4}
@@ -1602,7 +2027,7 @@ function MoreButtonWithDot({
         borderColor="$bgSidebar"
       />
     );
-  }, [isShowUpgradeDot, isShowRedDot]);
+  }, [isShowUpgradeDot, isShowRedDot, hasUnreadSupportMessages]);
 
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.FullScreenPush, {
@@ -1615,7 +2040,13 @@ function MoreButtonWithDot({
 
   if (isDesktopMode) {
     return (
-      <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
+      <YStack
+        testID="more-action-desktop"
+        p="$2"
+        borderRadius="$2"
+        hoverStyle={{ bg: '$bgHover' }}
+        onPress={onPress}
+      >
         <Stack position="relative">
           <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
@@ -1647,6 +2078,7 @@ function MoreActionButtonCmp() {
 
   const trigger = (
     <Tooltip
+      triggerAsChild
       placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
       renderContent={intl.formatMessage({
@@ -1663,7 +2095,7 @@ function MoreActionButtonCmp() {
       floatingPanelProps={{
         maxWidth: 384,
         width: 384,
-        height: 600,
+        maxHeight: MORE_ACTION_DESKTOP_POPOVER_MAX_HEIGHT,
         p: 0,
         overflow: 'hidden',
         style: { transformOrigin: 'bottom left' },
@@ -1680,6 +2112,11 @@ function MoreActionButtonCmp() {
 export function MoreActionButton() {
   return (
     <MoreActionProvider>
+      {platformEnv.isWebDappMode ? null : (
+        <Suspense fallback={null}>
+          <LazyHomeFirmwareUpdateDetect />
+        </Suspense>
+      )}
       <MoreActionButtonCmp />
     </MoreActionProvider>
   );

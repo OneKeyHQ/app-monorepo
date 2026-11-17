@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { RECENT_NETWORKS_LIMIT } from '@onekeyhq/shared/src/consts/networkConsts';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -39,7 +40,7 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
 
   @backgroundMethod()
   async getRecentNetworks({
-    limit = 5,
+    limit = RECENT_NETWORKS_LIMIT,
     availableNetworks,
   }: {
     limit?: number;

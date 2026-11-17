@@ -111,6 +111,10 @@ export abstract class KeyringQrBase extends KeyringBase {
     const { responseUr: signatureUr } =
       await this.backgroundApi.serviceQrWallet.startTwoWayAirGapScanUr({
         requestUr: signRequestUr,
+        diagnostic:
+          'unsignedTx' in params
+            ? params.unsignedTx.solanaTxDiagnostic
+            : undefined,
       });
 
     const signedTx = await options.signedResultBuilder({

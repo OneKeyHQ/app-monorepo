@@ -1,5 +1,6 @@
 // This file has been automatically migrated to valid ESM format by Storybook
 // (SB10 loads it as real ESM — `__dirname`/`require` are no longer provided).
+import { execFileSync } from 'node:child_process';
 import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +23,11 @@ const REPO_ROOT = path.resolve(CONFIG_DIR, '../../..');
 const EMPTY_STUB = path.join(CONFIG_DIR, 'stubs/empty.ts');
 
 const fromRoot = (p: string) => path.join(REPO_ROOT, p);
+
+// Same App-owned icon table the rspack/webpack builds alias (see
+// development/onekey-icons/build.js); without it the SDK falls back to an
+// empty provider and every <Icon> renders blank.
+const ICON_ASSETS_DIR = fromRoot('development/generated/onekey-icons/web');
 
 // ---------------------------------------------------------------------------
 // Resolve alignment — ported from development/rspack/rspack.base.config.ts
@@ -78,6 +84,10 @@ const RNW_REMAPPED_LIBRARY_IDS = new Set(
 );
 
 const ONEKEY_ALIASES: { find: RegExp; replacement: string }[] = [
+  {
+    find: /^#onekey-icon-assets$/,
+    replacement: path.join(ICON_ASSETS_DIR, 'assetUrls.ts'),
+  },
   { find: /^react-native$/, replacement: 'react-native-web' },
   // react-native/Libraries/* -> react-native-web internals ($ exact match)
   ...RNW_LIBRARIES_REMAPS.map(([id, rnwPath]) => ({
@@ -236,6 +246,11 @@ const config: StorybookConfig = {
     const { viteCommonjs } = await import('@originjs/vite-plugin-commonjs');
     const isDev = configType !== 'PRODUCTION';
     const defines = buildDefines(isDev);
+    execFileSync(
+      process.execPath,
+      [fromRoot('development/onekey-icons/generate-icons.mjs')],
+      { cwd: REPO_ROOT, stdio: 'inherit' },
+    );
 
     const merged = mergeConfig(viteConfig, {
       plugins: [
@@ -298,6 +313,11 @@ const config: StorybookConfig = {
           loader: { '.js': 'jsx' },
           define: defines,
         },
+      },
+      build: {
+        // External <use> cannot resolve icon SVGs inlined as data URLs.
+        assetsInlineLimit: (filePath: string) =>
+          filePath.startsWith(ICON_ASSETS_DIR) ? false : undefined,
       },
       server: {
         fs: {

@@ -36,6 +36,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { MessageConfirmExtraInfo } from '../../SignatureConfirm/components/SignatureConfirmExtraInfo';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
@@ -165,7 +166,12 @@ function SignMessageModal() {
     riskLevel,
     urlSecurityInfo,
     isRiskSignMethod,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
+  } = useRiskDetection({
+    origin: $sourceInfo?.origin ?? '',
+    unsignedMessage,
+    walletConnectVerifyContext: $sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: $sourceInfo?.isWalletConnectRequest,
+  });
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
@@ -269,6 +275,7 @@ function SignMessageModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
+            sourceInfo={$sourceInfo}
             title={intl.formatMessage({
               id: ETranslations.dapp_connect_initiate_message_signature_request,
             })}
@@ -290,6 +297,11 @@ function SignMessageModal() {
               <DAppAccountListStandAloneItem readonly />
             )}
             <DAppSignMessageContent unsignedMessage={unsignedMessage} />
+            <MessageConfirmExtraInfo
+              accountId={accountId}
+              networkId={networkId}
+              unsignedMessage={unsignedMessage}
+            />
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>

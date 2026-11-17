@@ -3,10 +3,15 @@ import { NativeModules } from 'react-native';
 import {
   configureRevenueCat,
   getRevenueCatRecurringPriceUnit,
+  getRevenueCatStorefront,
 } from './revenueCatNativeCompatibility.native';
 
 const mockConfigure = jest.fn<void, [unknown]>();
 const mockSetupPurchases = jest.fn();
+const mockGetStorefront = jest.fn<
+  Promise<{ countryCode: string } | null>,
+  []
+>();
 let mockIsNative = true;
 let mockIsNativeAndroid = true;
 
@@ -24,6 +29,7 @@ jest.mock('react-native-purchases', () => ({
   __esModule: true,
   default: {
     configure: (params: unknown) => mockConfigure(params),
+    getStorefront: () => mockGetStorefront(),
     PURCHASES_ARE_COMPLETED_BY_TYPE: { REVENUECAT: 'REVENUECAT' },
     // cspell:disable-next-line
     STOREKIT_VERSION: { DEFAULT: 'DEFAULT' },
@@ -40,11 +46,15 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isNativeAndroid() {
       return mockIsNativeAndroid;
     },
+    get isNativeIOS() {
+      return mockIsNative && !mockIsNativeAndroid;
+    },
   },
 }));
 
 type IMockRevenueCatNativeModule = {
   getVirtualCurrencies?: jest.Mock;
+  getStorefront?: jest.Mock;
 };
 
 const mockNativeModule =
@@ -56,6 +66,7 @@ describe('revenueCatNativeCompatibility', () => {
     mockIsNative = true;
     mockIsNativeAndroid = true;
     delete mockNativeModule.getVirtualCurrencies;
+    delete mockNativeModule.getStorefront;
   });
 
   it('uses the current bridge and major units when the native capability exists', () => {
@@ -91,5 +102,23 @@ describe('revenueCatNativeCompatibility', () => {
     mockIsNativeAndroid = false;
 
     expect(getRevenueCatRecurringPriceUnit()).toBe('major');
+  });
+
+  it('skips Storefront on Android and on iOS shells without the native method', async () => {
+    await expect(getRevenueCatStorefront()).resolves.toBeNull();
+    mockIsNativeAndroid = false;
+    await expect(getRevenueCatStorefront()).resolves.toBeNull();
+    expect(mockGetStorefront).not.toHaveBeenCalled();
+  });
+
+  it('reads the current purchase Storefront on capable iOS shells', async () => {
+    mockIsNativeAndroid = false;
+    mockNativeModule.getStorefront = jest.fn();
+    mockGetStorefront.mockResolvedValue({ countryCode: 'CHN' });
+    await expect(getRevenueCatStorefront()).resolves.toEqual({
+      countryCode: 'CHN',
+    });
+    mockGetStorefront.mockRejectedValueOnce(new Error('StoreKit unavailable'));
+    await expect(getRevenueCatStorefront()).resolves.toBeNull();
   });
 });

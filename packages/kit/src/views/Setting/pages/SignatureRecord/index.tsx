@@ -2,13 +2,22 @@ import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Page,
+  SearchBar,
+  Stack,
+  Tab,
+  Tabs,
+  XStack,
+} from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SettingTestIDs } from '../../testIDs';
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from '../Tab/settingsSurface';
 
 import { ConnectedSites } from './ConnectedSites';
 import { SignatureContext } from './Context';
@@ -19,7 +28,7 @@ const ListHeaderComponent = () => {
   const intl = useIntl();
   const { searchContent, setSearchContent } = useContext(SignatureContext);
   return (
-    <Stack px="$4" w="100%" bg="$bgApp" pt="$2.5">
+    <Stack px={SETTINGS_PAGE_CONTENT_PADDING_X} w="100%" bg="$bgApp" pt="$2.5">
       <SearchBar
         value={searchContent}
         onChangeText={setSearchContent}
@@ -81,6 +90,7 @@ const PageView = () => {
   const onPress = useCallback(() => {
     onShowChainSelector({
       defaultNetworkId: networkId,
+      excludeAllNetworkItem: false,
       onSelect(network) {
         setNetworkId?.(network.id);
       },
@@ -104,29 +114,29 @@ const PageView = () => {
           <Tabs.Container
             renderHeader={() => <ListHeaderComponent />}
             containerStyle={{ flex: 1 }}
-            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+            renderTabBar={(props) => <TabBar {...props} />}
           >
-            <Tabs.Tab
+            <Tab
               name={intl.formatMessage({
                 id: ETranslations.settings_transactions,
               })}
             >
               <Transactions />
-            </Tabs.Tab>
-            <Tabs.Tab
+            </Tab>
+            <Tab
               name={intl.formatMessage({
                 id: ETranslations.settings_sign_text,
               })}
             >
               <SignText />
-            </Tabs.Tab>
-            <Tabs.Tab
+            </Tab>
+            <Tab
               name={intl.formatMessage({
                 id: ETranslations.explore_dapp_connections,
               })}
             >
               <ConnectedSites />
-            </Tabs.Tab>
+            </Tab>
           </Tabs.Container>
         </Page.Body>
       </SignatureContext.Provider>

@@ -14,13 +14,143 @@ import {
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
+  getStockReceiveDisplayScope,
+  isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  isStockReceivePairSynced,
+  isStockReceiveQuoteCurrent,
   mergeStockChartRealtimePoint,
+  shouldDeferStockInitialContent,
+  shouldInvalidateStockReceiveSnapshot,
+  shouldResetStockTradeQuoteState,
   shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 
 describe('SwapStockDesktopContainer utils', () => {
+  it('invalidates on a failed current request before fetching starts, but not on ordinary quote expiry', () => {
+    const failed = {
+      hasPositiveAmount: true,
+      matchesAccount: true,
+      completed: true,
+      shouldRefreshQuote: true,
+      currentEventProviderKeys: [],
+    };
+    expect(shouldInvalidateStockReceiveSnapshot(failed)).toBe(true);
+    expect(
+      shouldInvalidateStockReceiveSnapshot({
+        ...failed,
+        currentEventProviderKeys: ['a-one'],
+      }),
+    ).toBe(false);
+    expect(
+      shouldInvalidateStockReceiveSnapshot({
+        ...failed,
+        matchesAccount: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldInvalidateStockReceiveSnapshot({ ...failed, completed: false }),
+    ).toBe(false);
+  });
+  it('only snapshots a quote produced by the current completed request', () => {
+    const quote = {
+      eventId: 'current-event',
+      info: { provider: 'a', providerName: 'one' },
+    };
+    const input = {
+      quote,
+      eventId: 'current-event',
+      currentEventProviderKeys: ['a-one'],
+      matchesAccount: true,
+      matchesTrade: true,
+    };
+    expect(isStockReceiveQuoteCurrent(input)).toBe(true);
+    expect(
+      isStockReceiveQuoteCurrent({ ...input, currentEventProviderKeys: [] }),
+    ).toBe(false);
+    expect(
+      isStockReceiveQuoteCurrent({
+        ...input,
+        currentEventProviderKeys: ['b-two'],
+      }),
+    ).toBe(false);
+    expect(
+      isStockReceiveQuoteCurrent({ ...input, eventId: 'another-event' }),
+    ).toBe(false);
+    expect(
+      isStockReceiveQuoteCurrent({ ...input, matchesAccount: false }),
+    ).toBe(false);
+    expect(isStockReceiveQuoteCurrent({ ...input, matchesTrade: false })).toBe(
+      false,
+    );
+  });
+  it('rejects another tab pair while the stock execution pair is restoring', () => {
+    const input = {
+      fromTokenKey: 'pay',
+      toTokenKey: 'stock',
+      stockTokenKey: 'stock',
+      payTokenKey: 'pay',
+      tradeSide: ESwapStockTradeSide.Buy,
+    };
+    expect(isStockReceivePairSynced(input)).toBe(true);
+    expect(
+      isStockReceivePairSynced({
+        ...input,
+        fromTokenKey: 'swap-a',
+        toTokenKey: 'swap-b',
+      }),
+    ).toBe(false);
+    expect(isStockReceivePairSynced({ ...input, payTokenKey: '' })).toBe(false);
+    expect(
+      isStockReceivePairSynced({
+        ...input,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(false);
+    expect(
+      isStockReceivePairSynced({
+        ...input,
+        tradeSide: ESwapStockTradeSide.Sell,
+        fromTokenKey: 'stock',
+        toTokenKey: 'pay',
+      }),
+    ).toBe(true);
+  });
+  it('isolates receive display by account, addresses, tokens, side and amount', () => {
+    const input = {
+      accounts: ['wallet', 'account'],
+      fromAddress: 'sender',
+      toAddress: 'recipient',
+      fromTokenKey: 'chain:pay',
+      toTokenKey: 'chain:stock',
+      tradeSide: ESwapStockTradeSide.Buy,
+      amount: '2',
+      currencyId: 'usd',
+    };
+    const scope = getStockReceiveDisplayScope(input);
+    expect(scope).toBeDefined();
+    for (const changed of [
+      { accounts: ['wallet', 'other-account'] },
+      { fromAddress: 'other-sender' },
+      { toAddress: 'other-recipient' },
+      { fromTokenKey: 'other-chain:pay' },
+      { toTokenKey: 'chain:other-stock' },
+      { tradeSide: ESwapStockTradeSide.Sell },
+      { amount: '3' },
+      // USD and CAD can both render as "$" but require distinct values.
+      { currencyId: 'cad' },
+    ]) {
+      expect(getStockReceiveDisplayScope({ ...input, ...changed })).not.toBe(
+        scope,
+      );
+    }
+    expect(
+      getStockReceiveDisplayScope({ ...input, toAddress: undefined }),
+    ).toBeUndefined();
+  });
+
   it('defaults the stock chart range to one week', () => {
     expect(STOCK_CHART_DEFAULT_RANGE).toBe('1W');
   });
@@ -82,6 +212,33 @@ describe('SwapStockDesktopContainer utils', () => {
       coinGeckoId: undefined,
       isLoading: false,
     });
+  });
+
+  it('settles a failed CoinGecko lookup without an id', () => {
+    const tokenScope = 'evm--1:0xstock';
+
+    expect(
+      getStockChartCoinGeckoIdState({
+        lookupResult: { cacheable: false, tokenScope },
+        networkId: 'evm--1',
+        tokenScope,
+      }),
+    ).toEqual({ coinGeckoId: undefined, isLoading: false });
+  });
+
+  it('requests the stock chart after a missing CoinGecko id settles', () => {
+    expect(
+      isStockChartRequestReady({
+        chartCacheReady: true,
+        coinGeckoIdLoading: false,
+      }),
+    ).toBe(true);
+    expect(
+      isStockChartRequestReady({
+        chartCacheReady: true,
+        coinGeckoIdLoading: true,
+      }),
+    ).toBe(false);
   });
 
   it('ignores a completed CoinGecko lookup from another token scope', () => {
@@ -147,17 +304,11 @@ describe('SwapStockDesktopContainer utils', () => {
     });
   });
 
-  it('keeps market-status loading and closed actions neutral', () => {
+  it('keeps market-status loading actions neutral', () => {
     expect(
       getStockDisabledActionButtonProps(
         ESwapStockTradeSide.Buy,
         ESwapStockChannelStage.CheckingMarketStatus,
-      ),
-    ).toBeUndefined();
-    expect(
-      getStockDisabledActionButtonProps(
-        ESwapStockTradeSide.Sell,
-        ESwapStockChannelStage.MarketClosed,
       ),
     ).toBeUndefined();
   });
@@ -200,40 +351,113 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
   });
 
-  it('keeps the selected localized Stock subtitle while detail loads', () => {
+  it('coordinates cold Stock content until the channel finishes initializing', () => {
     expect(
-      getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: false,
+      [
+        ESwapStockChannelStage.InitializingStock,
+        ESwapStockChannelStage.CheckingMarketStatus,
+        ESwapStockChannelStage.InitializingPayToken,
+      ].map((channelStage) =>
+        shouldDeferStockInitialContent({
+          channelStage,
+          startedWithoutContent: true,
+        }),
+      ),
+    ).toEqual([true, true, true]);
+    expect(
+      shouldDeferStockInitialContent({
+        channelStage: ESwapStockChannelStage.Ready,
+        startedWithoutContent: true,
       }),
-    ).toBe('英特尔');
+    ).toBe(false);
   });
 
-  it('prefers the localized detail subtitle after detail loads', () => {
+  it('keeps warm Stock display content visible while the channel revalidates', () => {
+    expect(
+      shouldDeferStockInitialContent({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        startedWithoutContent: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('resets Stock quote state only when external identity loading starts', () => {
+    expect(
+      shouldResetStockTradeQuoteState({
+        identityLoading: true,
+        previousIdentityLoading: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldResetStockTradeQuoteState({
+        identityLoading: true,
+        previousIdentityLoading: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockTradeQuoteState({
+        identityLoading: false,
+        previousIdentityLoading: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows token-label skeletons while the selected Stock detail is loading', () => {
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasTokenData: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasTokenData: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.MarketUnavailable,
+        hasTokenData: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not reuse the selected token subtitle while detail loads', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: true,
+        tokenDetailStockSubtitle: undefined,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('prefers the detail subtitle after detail loads', () => {
+    expect(
+      getStockMarketTokenSubtitle({
         tokenDetailStockSubtitle: '英特尔公司',
       }),
     ).toBe('英特尔公司');
   });
 
-  it('falls back to the raw token name only before Stock metadata loads', () => {
+  it('uses the selected token subtitle while detail silently refreshes', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: false,
+        currentStockSubtitle: 'Apple',
       }),
-    ).toBe('Intel (Ondo Tokenized)');
+    ).toBe('Apple');
+  });
+
+  it('falls back to the detail underlying asset name when subtitle is missing', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: true,
+        tokenDetailStockSubtitle: ' ',
+        tokenDetailStockUnderlyingAssetName: 'SK hynix Inc.',
       }),
-    ).toBeUndefined();
+    ).toBe('SK hynix Inc.');
+  });
+
+  it('does not expose a raw token name when detail metadata is missing', () => {
+    expect(getStockMarketTokenSubtitle({})).toBeUndefined();
   });
 
   it('shows Stock action loading until the current quote event settles', () => {

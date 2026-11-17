@@ -1,9 +1,11 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
-import QRCodeUtil from 'qrcode';
-
 import { Stack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
+import {
+  drawDotQRCodeOnCanvas,
+  drawRoundedRect,
+} from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IRookieShareData,
@@ -49,31 +51,6 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = src;
   });
-}
-
-function drawRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x, y, width, height, radius);
-  } else {
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-  }
 }
 
 function wrapText(
@@ -146,6 +123,10 @@ function setLetterSpacing(
 }
 
 const CANVAS_SIZE = 640;
+// render at 2x logical size for crisp output (same as ReceiveShare): the QR
+// here is only 88 logical px, and the dot geometry needs the extra device
+// pixels to survive the recompression sharing apps apply
+const CANVAS_SCALE = 2;
 const CANVAS_CONFIG = getCanvasConfig(CANVAS_SIZE);
 
 export const ShareImageGenerator = forwardRef<
@@ -174,8 +155,11 @@ export const ShareImageGenerator = forwardRef<
       referralPill,
       spacing,
     } = CANVAS_CONFIG;
-    canvas.width = size;
-    canvas.height = size;
+    // setting width/height resets the context state, so the scale below never
+    // compounds across repeated generate() calls
+    canvas.width = size * CANVAS_SCALE;
+    canvas.height = size * CANVAS_SCALE;
+    ctx.scale(CANVAS_SCALE, CANVAS_SCALE);
 
     try {
       const gradient = ctx.createLinearGradient(0, 0, size, size);
@@ -220,9 +204,11 @@ export const ShareImageGenerator = forwardRef<
       const cardY = (availableHeight - cardHeight) / 2;
 
       ctx.shadowColor = card.shadowColor;
-      ctx.shadowBlur = card.shadowBlur;
+      // shadow blur/offset are device-space per the canvas spec — the
+      // ctx.scale(CANVAS_SCALE) above does not apply to them, so scale by hand
+      ctx.shadowBlur = card.shadowBlur * CANVAS_SCALE;
       ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = card.shadowOffsetY;
+      ctx.shadowOffsetY = card.shadowOffsetY * CANVAS_SCALE;
 
       ctx.fillStyle = card.backgroundColor;
       drawRoundedRect(
@@ -364,24 +350,13 @@ export const ShareImageGenerator = forwardRef<
         const qrCodeX = size - footer.paddingX - qrCode.size;
 
         try {
-          const qrCodeDataUrl = await QRCodeUtil.toDataURL(referralUrl, {
-            width: qrCode.size,
-            margin: 0,
-            color: {
-              dark: qrCode.color,
-              light: '#FFFFFF',
-            },
+          await drawDotQRCodeOnCanvas(ctx, {
+            value: referralUrl,
+            x: qrCodeX,
+            y: qrCodeY,
+            size: qrCode.size,
+            darkColor: qrCode.color,
           });
-          const qrCodeImg = await loadImage(qrCodeDataUrl);
-          if (qrCodeImg) {
-            ctx.drawImage(
-              qrCodeImg,
-              qrCodeX,
-              qrCodeY,
-              qrCode.size,
-              qrCode.size,
-            );
-          }
         } catch (error) {
           if (platformEnv.isDev) {
             console.error('Failed to generate QR code:', error);
@@ -429,7 +404,11 @@ export const ShareImageGenerator = forwardRef<
       pointerEvents="none"
       zIndex={-1}
     >
-      <canvas ref={canvasRef} width={CANVAS_SIZE} height={CANVAS_SIZE} />
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_SIZE * CANVAS_SCALE}
+        height={CANVAS_SIZE * CANVAS_SCALE}
+      />
     </Stack>
   );
 });

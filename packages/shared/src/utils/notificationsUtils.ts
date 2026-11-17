@@ -3,11 +3,13 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import {
+  ENotificationCommand,
   ENotificationPermission,
   ENotificationPushMessageAckAction,
   ENotificationPushMessageMode,
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
@@ -20,6 +22,8 @@ import {
   EModalAssetDetailRoutes,
   EModalReferFriendsRoutes,
   EModalRoutes,
+  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
   EWebViewRoutes,
@@ -28,6 +32,7 @@ import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
 import extUtils from './extUtils';
+import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
@@ -92,6 +97,7 @@ const popToMainRoute = async () => {
 
 export async function navigateToNotificationDetailByLocalParams({
   payload,
+  navigationAction,
   localParams: originalLocalParams,
   getEarnAccount,
 }: {
@@ -99,10 +105,21 @@ export async function navigateToNotificationDetailByLocalParams({
     screen: string;
     params: Record<string, any>;
   };
+  navigationAction?: 'push';
   localParams: Record<string, string | undefined>;
   getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
+  // Covers callers that bypass parseNotificationPayload (the mode=dialog
+  // navigate action): throwing surfaces their fallback dialog instead of
+  // dispatching push(undefined).
+  if (typeof screen !== 'string' || !screen) {
+    throw new OneKeyLocalError(
+      'navigateToNotificationDetail: payload has no target screen',
+    );
+  }
+  const isLegacyModalPush =
+    navigationAction === 'push' && screen === ERootRoutes.Modal;
   // Recursively find and merge the deepest params
 
   const localParams = { ...originalLocalParams };
@@ -112,11 +129,28 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams = targetParams.params;
   }
 
-  if (targetParams) {
-    if (targetParams?.networkId) {
+  const hasLocalTemplate =
+    isLegacyModalPush &&
+    Object.values(targetParams || {}).some(
+      (value) => typeof value === 'string' && /\{local_\w+\}/.test(value),
+    );
+
+  if (targetParams && (!isLegacyModalPush || hasLocalTemplate)) {
+    const networkId =
+      typeof targetParams.networkId === 'string'
+        ? targetParams.networkId.replace(
+            /\{local_(\w+)\}/g,
+            (match, param: string) => localParams[param] || match,
+          )
+        : undefined;
+    if (
+      networkId &&
+      !networkId.includes('{local_') &&
+      !networkUtils.isAllNetwork({ networkId })
+    ) {
       const accountInfos = await getEarnAccount({
         accountId: localParams.accountId || '',
-        networkId: targetParams.networkId,
+        networkId,
         indexedAccountId: localParams.indexedAccountId || '',
       });
       if (accountInfos) {
@@ -158,23 +192,71 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams.source = 'notification';
   }
 
-  // Handle Market/Earn tab redirection for native platforms
-  // On native, Market and Earn are sub-tabs within Discovery, not separate tabs
-  // Returns a function that performs the redirection when called
+  // Handle Earn tab redirection and legacy Discovery-embedded Market payload
+  // compatibility for native platforms. On native in 6.7+, Market is a
+  // standalone tab while Earn remains a sub-tab within Discovery.
+  if (
+    platformEnv.isNative &&
+    screen === ERootRoutes.Main &&
+    navigationParams?.screen === ETabRoutes.Discovery
+  ) {
+    const subScreen = navigationParams.params?.screen as string | undefined;
+    const isLegacyDiscoveryMarketSubRoute =
+      subScreen === ETabMarketRoutes.TabMarket ||
+      subScreen === ETabMarketRoutes.MarketDetail ||
+      subScreen === ETabMarketRoutes.MarketDetailV2 ||
+      subScreen === ETabMarketRoutes.MarketStockDetail ||
+      subScreen === ETabMarketRoutes.MarketNativeDetail ||
+      subScreen === ETabMarketRoutes.MarketBannerDetail;
+    const isLegacyDiscoveryMarketTab =
+      (!subScreen || subScreen === ETabDiscoveryRoutes.TabDiscovery) &&
+      (navigationParams.params?.params?.defaultTab ===
+        ETranslations.global_market ||
+        navigationParams.params?.defaultTab === ETranslations.global_market);
+
+    if (isLegacyDiscoveryMarketSubRoute) {
+      navigationParams.screen = ETabRoutes.Market;
+    } else if (isLegacyDiscoveryMarketTab) {
+      navigationParams.screen = ETabRoutes.Market;
+      const rawNestedParams =
+        subScreen === ETabDiscoveryRoutes.TabDiscovery
+          ? navigationParams.params?.params
+          : navigationParams.params;
+      // The outer navigate `pop` option is not inherited by the nested Market
+      // stack; React Navigation reads `pop` from the nested params instead, so
+      // set it here to pop existing detail routes back to TabMarket.
+      if (rawNestedParams && typeof rawNestedParams === 'object') {
+        const {
+          defaultTab: _defaultTab,
+          screen: _screen,
+          params: _params,
+          ...restParams
+        } = rawNestedParams as Record<string, unknown>;
+        navigationParams.params =
+          Object.keys(restParams).length > 0
+            ? {
+                screen: ETabMarketRoutes.TabMarket,
+                params: restParams,
+                pop: true,
+              }
+            : { screen: ETabMarketRoutes.TabMarket, pop: true };
+      } else {
+        navigationParams.params = {
+          screen: ETabMarketRoutes.TabMarket,
+          pop: true,
+        };
+      }
+    }
+  }
+
   const createNativeTabRedirection = () => {
     let tab:
       | ETranslations.global_browser
       | ETranslations.global_earn
-      | ETranslations.global_market
       | undefined;
-    if (platformEnv.isNative) {
-      if (navigationParams?.screen === ETabRoutes.Market) {
-        navigationParams.screen = ETabRoutes.Discovery;
-        tab = ETranslations.global_market;
-      } else if (navigationParams?.screen === ETabRoutes.Earn) {
-        navigationParams.screen = ETabRoutes.Discovery;
-        tab = ETranslations.global_earn;
-      }
+    if (platformEnv.isNative && navigationParams?.screen === ETabRoutes.Earn) {
+      navigationParams.screen = ETabRoutes.Discovery;
+      tab = ETranslations.global_earn;
     }
     // Return a function that emits the event after navigation completes
     return () => {
@@ -209,7 +291,8 @@ export async function navigateToNotificationDetailByLocalParams({
     if (
       appGlobals.$tabletMainViewNavigationRef?.current &&
       navigationParams?.screen &&
-      !navigationParams?.params?.screen
+      (!navigationParams?.params?.screen ||
+        navigationParams?.params?.screen === ETabMarketRoutes.TabMarket)
     ) {
       const redirectTab = createNativeTabRedirection();
       appGlobals.$tabletMainViewNavigationRef.current.navigate(
@@ -237,6 +320,37 @@ export async function navigateToNotificationDetailByLocalParams({
       redirectTab();
     }
   } else if (screen === ERootRoutes.Modal) {
+    if (isLegacyModalPush) {
+      if (
+        navigationParams?.screen === EModalRoutes.NotificationsModal &&
+        navigationParams?.params?.screen ===
+          EModalNotificationsRoutes.NotificationList
+      ) {
+        const state = appGlobals.$navigationRef.current?.getState();
+        const currentRoute = state?.routes[state.index ?? 0];
+        const currentModalParams = currentRoute?.params as
+          | { screen?: EModalRoutes }
+          | undefined;
+        const currentModalState = currentRoute?.state;
+        const currentModalRoute =
+          currentModalState?.routes[currentModalState.index ?? 0];
+        if (
+          currentRoute?.name === ERootRoutes.Modal &&
+          (currentModalRoute?.name ?? currentModalParams?.screen) ===
+            EModalRoutes.NotificationsModal
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.UpdateNotificationBadge,
+            undefined,
+          );
+          return;
+        }
+      }
+      appGlobals.$navigationRef.current?.dispatch(
+        StackActions.push(screen, navigationParams),
+      );
+      return;
+    }
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();
     if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Modal) {
@@ -266,32 +380,147 @@ export interface INavigateToNotificationDetailParams {
 export type INotificationPageNavigationEvent =
   IAppEventBusPayload[EAppEventBusNames.ShowNotificationPageNavigation];
 
-// --- Durable page-navigation delivery -------------------------------------
-// Notification page-navigation (e.g. Perps deep-link) is emitted via
-// appEventBus. On native, the click is processed in the BACKGROUND runtime
-// (system push / cold start) and reaches the foreground via the cross-process
-// bus — but during a cold start the foreground UI handler is mounted LATE, so a
-// plain emit is dropped (the race that broke OK-55681).
-//
-// To make it cold-start safe we register a PERMANENT foreground listener at
-// module load that BUFFERS the latest intent, and let the UI register a
-// processor that drains the buffer whenever it mounts. The intent therefore
-// survives until the UI is ready, regardless of ordering.
+// Foreground page events are buffered after they reach this JS runtime. Native
+// BG legacy and page clicks keep their latest intent in one BG slot:
+// SharedRPC writes made before main installs its observer are not replayed.
 type INotificationPageNavigationProcessor = (
   event: INotificationPageNavigationEvent,
-) => void;
+) => void | Promise<void>;
+type IConsumePendingLegacyNavigation = () => Promise<
+  INotificationPageNavigationEvent | undefined
+>;
+type INotificationPageNavigationRegistration = {
+  processor: INotificationPageNavigationProcessor;
+  consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation;
+  retryCount: number;
+  retryTimer?: ReturnType<typeof setTimeout>;
+};
 
-let notificationPageNavigationProcessor: INotificationPageNavigationProcessor | null =
+const LEGACY_NAVIGATION_RETRY_DELAYS = [250, 1000, 3000];
+
+let notificationPageNavigationRegistration: INotificationPageNavigationRegistration | null =
   null;
 let pendingNotificationPageNavigationEvent: INotificationPageNavigationEvent | null =
   null;
+let pendingLegacyNavigationEvent: INotificationPageNavigationEvent | undefined;
+let pendingTakenLegacyNavigationEvent:
+  | INotificationPageNavigationEvent
+  | undefined;
+let legacyNavigationDrainPromise: Promise<void> | undefined;
+let legacyNavigationDrainDirty = false;
+
+export function takePendingLegacyNavigationEvent() {
+  const pending = pendingLegacyNavigationEvent;
+  pendingLegacyNavigationEvent = undefined;
+  return pending;
+}
+
+function scheduleLegacyNavigationRetry(
+  registration: INotificationPageNavigationRegistration,
+) {
+  if (notificationPageNavigationRegistration !== registration) {
+    return;
+  }
+  legacyNavigationDrainDirty = true;
+  const delay = LEGACY_NAVIGATION_RETRY_DELAYS[registration.retryCount];
+  registration.retryCount += 1;
+  if (delay !== undefined) {
+    registration.retryTimer = setTimeout(() => {
+      if (notificationPageNavigationRegistration !== registration) {
+        return;
+      }
+      registration.retryTimer = undefined;
+      startLegacyNavigationDrain();
+    }, delay);
+  }
+}
+
+async function drainPendingLegacyNavigation() {
+  for (;;) {
+    const registration = notificationPageNavigationRegistration;
+    if (!registration?.consumePendingLegacyNavigation) {
+      return;
+    }
+    let event = pendingTakenLegacyNavigationEvent;
+    if (event) {
+      pendingTakenLegacyNavigationEvent = undefined;
+    } else if (legacyNavigationDrainDirty) {
+      legacyNavigationDrainDirty = false;
+      try {
+        event = await registration.consumePendingLegacyNavigation();
+      } catch (error) {
+        console.error(
+          'Failed to consume pending legacy notification navigation',
+          error,
+        );
+        scheduleLegacyNavigationRetry(registration);
+        return;
+      }
+    } else {
+      return;
+    }
+
+    if (event) {
+      const currentRegistration = notificationPageNavigationRegistration;
+      if (!currentRegistration?.consumePendingLegacyNavigation) {
+        pendingTakenLegacyNavigationEvent = event;
+        return;
+      }
+      try {
+        await currentRegistration.processor(event);
+      } catch (error) {
+        console.error(
+          'Failed to process legacy notification navigation',
+          error,
+        );
+      }
+    }
+  }
+}
+
+function startLegacyNavigationDrain() {
+  const registration = notificationPageNavigationRegistration;
+  if (
+    legacyNavigationDrainPromise ||
+    !registration?.consumePendingLegacyNavigation ||
+    registration.retryTimer !== undefined ||
+    // The initial attempt can schedule three retries; the fourth failure stops.
+    registration.retryCount > LEGACY_NAVIGATION_RETRY_DELAYS.length ||
+    (!legacyNavigationDrainDirty && !pendingTakenLegacyNavigationEvent)
+  ) {
+    return;
+  }
+  legacyNavigationDrainPromise = Promise.resolve()
+    .then(drainPendingLegacyNavigation)
+    .finally(() => {
+      legacyNavigationDrainPromise = undefined;
+      startLegacyNavigationDrain();
+    });
+}
+
+function requestLegacyNavigationDrain() {
+  const registration = notificationPageNavigationRegistration;
+  if (registration) {
+    registration.retryCount = 0;
+    if (registration.retryTimer !== undefined) {
+      clearTimeout(registration.retryTimer);
+      registration.retryTimer = undefined;
+    }
+  }
+  legacyNavigationDrainDirty = true;
+  startLegacyNavigationDrain();
+}
 
 function deliverNotificationPageNavigation(
   event: INotificationPageNavigationEvent,
 ) {
-  if (notificationPageNavigationProcessor) {
+  if (event.navigationAction === 'push' || event.isNativeBackgroundNavigation) {
+    requestLegacyNavigationDrain();
+    return;
+  }
+  if (notificationPageNavigationRegistration) {
     pendingNotificationPageNavigationEvent = null;
-    notificationPageNavigationProcessor(event);
+    void notificationPageNavigationRegistration.processor(event);
     return;
   }
   pendingNotificationPageNavigationEvent = event;
@@ -299,16 +528,34 @@ function deliverNotificationPageNavigation(
 
 export function registerNotificationPageNavigationProcessor(
   processor: INotificationPageNavigationProcessor,
+  consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation,
 ) {
-  notificationPageNavigationProcessor = processor;
+  const previousRegistration = notificationPageNavigationRegistration;
+  if (previousRegistration?.retryTimer !== undefined) {
+    clearTimeout(previousRegistration.retryTimer);
+    previousRegistration.retryTimer = undefined;
+  }
+  const registration: INotificationPageNavigationRegistration = {
+    processor,
+    consumePendingLegacyNavigation,
+    retryCount: 0,
+  };
+  notificationPageNavigationRegistration = registration;
   const pending = pendingNotificationPageNavigationEvent;
   if (pending) {
     pendingNotificationPageNavigationEvent = null;
-    processor(pending);
+    void processor(pending);
+  }
+  if (consumePendingLegacyNavigation) {
+    requestLegacyNavigationDrain();
   }
   return () => {
-    if (notificationPageNavigationProcessor === processor) {
-      notificationPageNavigationProcessor = null;
+    if (registration.retryTimer !== undefined) {
+      clearTimeout(registration.retryTimer);
+      registration.retryTimer = undefined;
+    }
+    if (notificationPageNavigationRegistration === registration) {
+      notificationPageNavigationRegistration = null;
     }
   };
 }
@@ -354,6 +601,120 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+type INotificationCommandPayload = {
+  action?: string;
+  data?: Record<string, unknown>;
+  conversationId?: unknown;
+};
+
+// Throws on malformed JSON; callers decide how to fall back.
+function parseNotificationCommandPayload(
+  payload: string | undefined,
+): INotificationCommandPayload {
+  const parsed = JSON.parse(payload || '{}') as INotificationCommandPayload;
+  return {
+    ...parsed,
+    action:
+      typeof parsed.action === 'string' ? parsed.action.trim() : parsed.action,
+  };
+}
+
+export function isSupportReplyPushMessage(
+  messageInfo: INotificationPushMessageInfo,
+): boolean {
+  const { extras } = messageInfo;
+  if (
+    normalizeNotificationMode(extras?.mode) !==
+    ENotificationPushMessageMode.command
+  ) {
+    return false;
+  }
+  try {
+    return (
+      parseNotificationCommandPayload(extras?.payload).action ===
+      ENotificationCommand.openSupportConversation
+    );
+  } catch {
+    return false;
+  }
+}
+
+function toSupportConversationId(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value.trim() || undefined;
+  }
+  if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+  return undefined;
+}
+
+function parseSupportConversationCommand(
+  payload: { data?: Record<string, unknown>; conversationId?: unknown },
+  params?: Record<string, unknown>,
+) {
+  // Keep receive-time refresh and click routing on the same backend contract.
+  // Prefer params, data, then the top-level id; empty values do not hide a
+  // usable fallback, while a present invalid value must still be rejected.
+  const candidates: {
+    source: 'extras.params' | 'data' | 'payload';
+    value: unknown;
+  }[] = [
+    { source: 'extras.params', value: params?.conversationId },
+    { source: 'data', value: payload.data?.conversationId },
+    { source: 'payload', value: payload.conversationId },
+  ];
+  const selected = candidates.find(
+    ({ value }) =>
+      value !== undefined &&
+      value !== null &&
+      !(typeof value === 'string' && value.trim() === ''),
+  );
+  const conversationId = toSupportConversationId(selected?.value);
+  return {
+    conversationId,
+    conversationIdSource: selected?.source,
+    hasUnusableConversationId:
+      selected !== undefined && conversationId === undefined,
+  };
+}
+
+export function getSupportConversationFromNotification({
+  extras,
+}: {
+  extras?: {
+    mode?: ENotificationPushMessageMode | string | number;
+    payload?: string;
+    params?: Record<string, unknown>;
+  };
+}) {
+  if (
+    extras?.mode === undefined ||
+    normalizeNotificationMode(extras.mode) !==
+      ENotificationPushMessageMode.command
+  )
+    return;
+  try {
+    const command: unknown = JSON.parse(extras.payload || '{}');
+    if (!command || typeof command !== 'object') return;
+    const payload = command as {
+      action?: unknown;
+      data?: Record<string, unknown>;
+      conversationId?: unknown;
+    };
+    if (
+      typeof payload.action !== 'string' ||
+      payload.action.trim() !== ENotificationCommand.openSupportConversation
+    )
+      return;
+    const { conversationId, hasUnusableConversationId } =
+      parseSupportConversationCommand(payload, extras.params);
+    if (!hasUnusableConversationId) return { conversationId };
+  } catch {
+    // Receiving a malformed push must not interrupt other notifications.
+  }
+}
+
 export function parseNotificationPayload(
   mode: ENotificationPushMessageMode | string | number,
   payload: string | undefined,
@@ -366,12 +727,26 @@ export function parseNotificationPayload(
     };
     [key: string]: any;
   },
-) {
+): boolean {
+  // The `false` branches include deliberate no-ops (blocked WebView URL,
+  // empty payload, unknown mode) that never run `fallbackHandler`, so callers
+  // cannot use the handler alone to detect that nothing happened.
   const normalizedMode = normalizeNotificationMode(mode);
   switch (normalizedMode) {
     case ENotificationPushMessageMode.page:
       try {
         const payloadObj = JSON.parse(payload || '');
+        // `JSON.parse('{}')` succeeds, so a payload with no target used to
+        // reach the navigator as `push(undefined)` — a silent dead tap.
+        if (
+          !payloadObj ||
+          typeof payloadObj !== 'object' ||
+          typeof payloadObj.screen !== 'string' ||
+          !payloadObj.screen
+        ) {
+          fallbackHandler();
+          return false;
+        }
         // When mode=page targets the WebView overlay, apply the same URL safety
         // and source enforcement as mode=openInApp to prevent policy bypass.
         // Without this guard an attacker could craft a page payload that routes
@@ -384,39 +759,53 @@ export function parseNotificationPayload(
             leaf = leaf.params as Record<string, unknown>;
           }
           const url = typeof leaf.url === 'string' ? leaf.url : null;
-          if (!url || !isAllowedWebViewUrl(url)) break;
+          if (!url || !isAllowedWebViewUrl(url)) return false;
           // Force source so resolveOverlayDisplay enforces notification-entry
           // display restrictions (hides attacker-supplied title, etc.).
           leaf.source = 'notification';
         }
-        appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+        const event: INotificationPageNavigationEvent = {
           payload: payloadObj,
           extras,
-        });
+        };
+        if (platformEnv.isNative && platformEnv.isNativeBackgroundThread) {
+          // Main treats this broadcast only as a wake for the BG-owned slot.
+          event.isNativeBackgroundNavigation = true;
+          pendingLegacyNavigationEvent = event;
+        }
+        appEventBus.emit(
+          EAppEventBusNames.ShowNotificationPageNavigation,
+          event,
+        );
+        return true;
       } catch (_error) {
         fallbackHandler();
+        return false;
       }
-      break;
     case ENotificationPushMessageMode.dialog:
       try {
         const payloadObj = JSON.parse(payload || '');
         appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
           payload: payloadObj,
         });
+        return true;
       } catch (_error) {
         fallbackHandler();
+        return false;
       }
-
-      break;
     case ENotificationPushMessageMode.openInBrowser:
-      if (payload) {
-        // The push protocol's openInBrowser mode promises the OS browser;
-        // openInApp below is the in-app counterpart.
-        openUrlExternal(payload, { useSystemBrowser: true });
+      if (!payload || !/^https?:\/\//i.test(payload.trim())) {
+        return false;
       }
-      break;
+      // The push protocol's openInBrowser mode promises the OS browser;
+      // openInApp below is the in-app counterpart.
+      openUrlExternal(payload, { useSystemBrowser: true });
+      return true;
     case ENotificationPushMessageMode.openInApp:
-      if (payload) {
+      if (!payload) {
+        return false;
+      }
+      {
         // payload accepts two shapes — both end up in the root-level WebView
         // overlay; the kit-side subscriber runs the same URL safety policy
         // as in-app callers:
@@ -460,7 +849,7 @@ export function parseNotificationPayload(
         // check inside the kit subscriber, but extension background bypasses
         // it because the subscriber doesn't exist in that runtime.
         if (!isAllowedWebViewUrl(webViewParams.url)) {
-          break;
+          return false;
         }
         // `appEventBus` is in-process per runtime, and the
         // `ShowNotificationInWebViewOverlay` subscriber lives in the kit UI
@@ -476,36 +865,74 @@ export function parseNotificationPayload(
             webViewParams,
           );
         }
+        return true;
       }
-      break;
     case ENotificationPushMessageMode.openInDapp:
-      appEventBus.emit(
-        EAppEventBusNames.ShowNotificationInDappPage,
-        payload as string,
-      );
-      break;
+      if (!payload) {
+        return false;
+      }
+      if (!isAllowedWebViewUrl(payload)) {
+        defaultLogger.app.error.log(
+          'parseNotificationPayload: blocked unsafe url in openInDapp',
+        );
+        return false;
+      }
+      appEventBus.emit(EAppEventBusNames.ShowNotificationInDappPage, payload);
+      return true;
     case ENotificationPushMessageMode.command:
       try {
-        const { action, data } = JSON.parse(payload || '{}') as {
-          action?: string;
-          data?: Record<string, unknown>;
-        };
+        const parsedPayload = parseNotificationCommandPayload(payload);
+        const { action, data } = parsedPayload;
         if (!action) {
           fallbackHandler();
-          return;
+          return false;
         }
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
+        if (action === ENotificationCommand.openSupportConversation) {
+          const {
+            conversationId,
+            conversationIdSource,
+            hasUnusableConversationId,
+          } = parseSupportConversationCommand(parsedPayload, extras?.params);
+          defaultLogger.notification.support.supportReplyReceived({
+            mode:
+              typeof mode === 'string' || typeof mode === 'number'
+                ? mode
+                : undefined,
+            action,
+            conversationId,
+            conversationIdSource,
+            msgId:
+              typeof extras?.params?.msgId === 'string'
+                ? extras.params.msgId
+                : undefined,
+          });
+          if (hasUnusableConversationId) {
+            fallbackHandler();
+            return false;
+          }
+          void appGlobals.$backgroundApiProxy.serviceNotification
+            .requestOpenSupportConversation({
+              sourceNodeId: platformEnv.isExtensionUi
+                ? appEventBus.nodeId
+                : undefined,
+              conversationId,
+            })
+            .catch(fallbackHandler);
+          return true;
+        }
         appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
           action,
           data: mergedData,
         });
+        return true;
       } catch (_error) {
         fallbackHandler();
+        return false;
       }
-      break;
     default:
-      break;
+      return false;
   }
 }
 
@@ -533,6 +960,22 @@ async function navigateToNotificationDetail({
       );
     });
   }
+
+  // OK-66809: record the clicked notification routing inputs before mode
+  // handling. This funnel sees both system-push and message-center clicks, so
+  // an old-version payload (mode != command) or a missing payload is still
+  // diagnosable even when no support command log follows.
+  // JPush extras deliver mode as a STRING (e.g. "6"); the in-app message
+  // center delivers it as a NUMBER. Keep both values verbatim for diagnosis.
+  const rawClickedMode = mode as unknown;
+  defaultLogger.notification.support.supportReplyClicked({
+    mode:
+      typeof rawClickedMode === 'string' || typeof rawClickedMode === 'number'
+        ? rawClickedMode
+        : undefined,
+    hasPayload: !!payload,
+    isFromNotificationClick: !!isFromNotificationClick,
+  });
 
   if (isFromNotificationClick) {
     // `$navigationRef` only exists in the foreground runtime. On native this
@@ -641,7 +1084,14 @@ async function navigateToNotificationDetail({
       screens: routes,
       routeParams: params,
     });
-    if (
+    if (platformEnv.isNativeBackgroundThread) {
+      const event: INotificationPageNavigationEvent = {
+        payload: modalParams,
+        navigationAction: 'push',
+      };
+      pendingLegacyNavigationEvent = event;
+      appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, event);
+    } else if (
       navigation &&
       routes?.length === 3 &&
       routes?.[0] === ERootRoutes.Modal

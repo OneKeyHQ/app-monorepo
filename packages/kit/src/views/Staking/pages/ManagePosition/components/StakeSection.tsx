@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -35,6 +35,7 @@ import type {
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
+  IEarnUtmParams,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -61,7 +62,14 @@ import type {
 } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
-export const StakeSection = ({
+function isSameStakeAsset(a: IEarnTokenItem, b: IEarnTokenItem) {
+  return (
+    normalizeStakeTokenAddress(a.info) === normalizeStakeTokenAddress(b.info) &&
+    a.info.symbol.toLowerCase() === b.info.symbol.toLowerCase()
+  );
+}
+
+const StakeSectionContent = ({
   accountId,
   networkId,
   tokenInfo,
@@ -74,6 +82,7 @@ export const StakeSection = ({
   suppressPlatformBonus,
   isInModalContext,
   fallbackTokenImageUri,
+  utm,
   protocolSwitchConfig,
   ongoingValidator,
   useBorrowApi,
@@ -100,6 +109,7 @@ export const StakeSection = ({
   suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   ongoingValidator?: IEarnSelectField;
   useBorrowApi?: boolean;
@@ -184,45 +194,60 @@ export const StakeSection = ({
     };
   }, [accountId, borrowApiCtx, networkId, protocolInfo?.borrowAllowance]);
 
-  const { result: stakeAssetsList } = usePromiseResult(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !(isPendleProvider || isNativeProvider) ||
-        !accountId ||
-        !stakeAssetsSymbol
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
+  const { result: stakeAssetsList, isLoading: isStakeAssetsLoading } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !(isPendleProvider || isNativeProvider) ||
+          !accountId ||
+          !stakeAssetsSymbol
+        ) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
+          accountId,
+          networkId,
+          provider: providerName,
+          symbol: stakeAssetsSymbol,
+          vault: protocolInfo?.vault || undefined,
+          action: 'stake',
+        });
+      },
+      [
+        hasRequiredData,
+        isPendleProvider,
+        isNativeProvider,
         accountId,
         networkId,
-        provider: providerName,
-        symbol: stakeAssetsSymbol,
-        vault: protocolInfo?.vault || undefined,
-        action: 'stake',
-      });
-    },
-    [
-      hasRequiredData,
-      isPendleProvider,
-      isNativeProvider,
-      accountId,
-      networkId,
-      providerName,
-      protocolInfo?.vault,
-      stakeAssetsSymbol,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
+        providerName,
+        protocolInfo?.vault,
+        stakeAssetsSymbol,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
 
   const selectableStakeAssets = useMemo(() => {
     return stakeAssetsList?.assets ?? [];
   }, [stakeAssetsList?.assets]);
+  const reconciledStakeAssetsRef = useRef(selectableStakeAssets);
+
+  const isWaitingForStakeAsset =
+    Boolean(hasRequiredData && accountId && stakeAssetsSymbol) &&
+    !isBorrowStake &&
+    (isPendleProvider || isNativeProvider) &&
+    ((!selectedStakeAsset && isStakeAssetsLoading !== false) ||
+      (selectableStakeAssets.length > 0 &&
+        (!selectedStakeAsset ||
+          (reconciledStakeAssetsRef.current !== selectableStakeAssets &&
+            !selectableStakeAssets.some((asset) =>
+              isSameStakeAsset(asset, selectedStakeAsset),
+            )))));
 
   useEffect(() => {
+    reconciledStakeAssetsRef.current = selectableStakeAssets;
     if (!selectableStakeAssets.length) {
       setSelectedStakeAsset(undefined);
       return;
@@ -230,20 +255,9 @@ export const StakeSection = ({
 
     setSelectedStakeAsset((prev) => {
       if (prev) {
-        const prevAddress = normalizeStakeTokenAddress({
-          address: prev.info.address,
-          isNative: prev.info.isNative,
-        });
-        const matchedPrev = selectableStakeAssets.find((asset) => {
-          const assetAddress = normalizeStakeTokenAddress({
-            address: asset.info.address,
-            isNative: asset.info.isNative,
-          });
-          return (
-            assetAddress === prevAddress &&
-            asset.info.symbol.toLowerCase() === prev.info.symbol.toLowerCase()
-          );
-        });
+        const matchedPrev = selectableStakeAssets.find((asset) =>
+          isSameStakeAsset(asset, prev),
+        );
         if (matchedPrev) {
           return matchedPrev;
         }
@@ -537,6 +551,7 @@ export const StakeSection = ({
             accountId,
             networkId,
             spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+              networkId,
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
             }),
@@ -576,14 +591,15 @@ export const StakeSection = ({
       stakeType: confirmStakeType,
       onStepChange,
     }: IApproveConfirmFnParams) => {
-      if (!hasRequiredData) return;
+      // Nothing was started, so the form keeps what the user typed.
+      if (!hasRequiredData) return false;
 
       const token = effectiveStakeTokenInfo?.token as IToken;
       const effectiveStakeType = confirmStakeType ?? nativeStakeType;
 
-      if (borrowApiCtx.isBorrow) return;
+      if (borrowApiCtx.isBorrow) return false;
 
-      await handleStake({
+      return handleStake({
         amount,
         approveType,
         permitSignature,
@@ -595,6 +611,7 @@ export const StakeSection = ({
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         slippage: pendleSlippage,
         effectiveApy,
+        utm,
         stakeType: effectiveStakeType,
         postWrapStakeToken:
           effectiveStakeType === 'wrap'
@@ -660,6 +677,7 @@ export const StakeSection = ({
       hasRequiredData,
       effectiveStakeTokenInfo?.token,
       handleStake,
+      utm,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.vault,
       btcFeeRate,
@@ -711,7 +729,8 @@ export const StakeSection = ({
         !borrowApiCtx.isBorrow ||
         unsupportedAaveNativeReserve
       ) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
 
       const token = tokenInfo?.token as IToken;
@@ -742,7 +761,7 @@ export const StakeSection = ({
         tags.push(protocolInfo.stakeTag);
       }
 
-      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+      return (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
         amount,
         provider,
         marketAddress,
@@ -814,6 +833,7 @@ export const StakeSection = ({
         networkId={networkId}
         balance="0"
         tokenImageUri={fallbackTokenImageUri}
+        tokenImageLoading={!tokenInfo?.token && !fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
         isDisabled
         approveTarget={{
@@ -890,7 +910,16 @@ export const StakeSection = ({
           tokenImageUri={
             effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
           }
+          // Token metadata not in yet and no image came from route params:
+          // skeleton the icon rather than flashing the placeholder coin.
+          // Guarded on the metadata being absent (not merely on a missing
+          // image) so a token that genuinely has no logo still renders its
+          // fallback instead of a skeleton that never resolves (OK-59961).
+          tokenImageLoading={
+            !effectiveStakeTokenInfo?.token && !fallbackTokenImageUri
+          }
           tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
+          isStakeAssetLoading={isWaitingForStakeAsset}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
@@ -944,3 +973,25 @@ export const StakeSection = ({
     </>
   );
 };
+
+export function StakeSection(
+  props: ComponentProps<typeof StakeSectionContent>,
+) {
+  const provider = props.protocolInfo?.provider ?? '';
+  const needsAssetList =
+    !props.useBorrowApi &&
+    (earnUtils.isNativeProvider({ providerName: provider }) ||
+      earnUtils.isPendleProvider({ providerName: provider }));
+  const key = needsAssetList
+    ? JSON.stringify([
+        props.accountId,
+        props.networkId,
+        provider,
+        props.protocolInfo?.vault,
+        props.protocolInfo?.symbol,
+        Boolean(props.tokenInfo),
+      ])
+    : 'default';
+
+  return <StakeSectionContent key={key} {...props} />;
+}

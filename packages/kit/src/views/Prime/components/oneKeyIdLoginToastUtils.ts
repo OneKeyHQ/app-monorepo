@@ -1,18 +1,42 @@
 import { Toast } from '@onekeyhq/components';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EOAuthSocialLoginProvider,
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
+} from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  markOneKeyIdFailureServerLogged as markOneKeyIdFailureServerLoggedSerializable,
+  toPlainErrorObject,
+  wasOneKeyIdFailureServerLogged as wasOneKeyIdFailureServerLoggedSerializable,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import type {
+  IOneKeyIdAuthFailureStep,
+  IOneKeyIdAuthFailureTrigger,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import {
+  isSupabaseAuthError,
+  isSupabaseAuthTransportError,
+} from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 
 import { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
 
+import type { IOAuthLoginCancelErrorData } from '../../../components/OneKeyAuth/OAuthPopup/types';
 import type { IntlShape } from 'react-intl';
 
 export { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
 
-const ONEKEY_ID_FAILURE_SERVER_LOGGED = '$$onekeyIdFailureServerLogged';
+const oneKeyIdFailureServerLoggedErrors = new WeakSet<object>();
+const oneKeyIdFailureReasonLoggedErrors = new WeakSet<object>();
 
 // Mark an error whose reason was ALREADY sent to @LogToServer at its source
 // (e.g. persistKeylessOAuthSession's onekeyIdSessionPersistFailed), so the
@@ -20,16 +44,18 @@ const ONEKEY_ID_FAILURE_SERVER_LOGGED = '$$onekeyIdFailureServerLogged';
 // same failure.
 export function markOneKeyIdFailureServerLogged(error: unknown) {
   if (error && typeof error === 'object') {
-    (error as Record<string, unknown>)[ONEKEY_ID_FAILURE_SERVER_LOGGED] = true;
+    oneKeyIdFailureServerLoggedErrors.add(error);
+    markOneKeyIdFailureServerLoggedSerializable(error);
   }
 }
 
-function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
+export function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
   return (
-    (error as Record<string, unknown>)[ONEKEY_ID_FAILURE_SERVER_LOGGED] === true
+    oneKeyIdFailureServerLoggedErrors.has(error) ||
+    wasOneKeyIdFailureServerLoggedSerializable(error)
   );
 }
 
@@ -47,19 +73,6 @@ function getLoginFailureReason(error: unknown): string | undefined {
   return undefined;
 }
 
-function shouldSkipOneKeyIdLoginFailedToast(error: unknown) {
-  const err = error as IOneKeyError | undefined;
-
-  // Skip the manual login-failed toast when the global auto toast has already
-  // been shown for this error, auto toast is explicitly disabled, or the user
-  // canceled the login flow (dialog/OAuth cancel, aborted request, etc.)
-  return (
-    errorToastUtils.wasAutoToastShown(error) ||
-    err?.autoToast === false ||
-    errorToastUtils.isUserCancelStyleError(error)
-  );
-}
-
 export function showOneKeyIdLoginSuccessToast(intl: IntlShape) {
   Toast.success({
     title: intl.formatMessage({ id: ETranslations.id_login_success }),
@@ -73,35 +86,54 @@ export function showOneKeyIdLoginFailedToast({
   error: unknown;
   intl: IntlShape;
 }) {
-  if (shouldSkipOneKeyIdLoginFailedToast(error)) {
+  const err = error as IOneKeyError | undefined;
+  if (errorToastUtils.isUserCancelStyleError(error)) {
     return;
   }
 
-  const err = error as IOneKeyError | undefined;
-  // Keep the underlying reason in diagnostics without exposing raw SDK,
-  // server, or platform error text in the client UI.
   const errorMessage = getLoginFailureReason(error);
+  const safeErrorMessage = errorMessage
+    ? scrubSensitiveErrorMessageText(errorMessage)
+    : undefined;
+
+  // The global auto-toast path only emits UI state. Preserve the underlying
+  // reason before skipping this fallback toast, unless the source already
+  // wrote an equivalent server event.
+  if (errorToastUtils.wasAutoToastShown(error) || err?.autoToast === false) {
+    if (!wasOneKeyIdFailureServerLogged(error)) {
+      logOneKeyIdLoginFailureReason(
+        `OneKey ID fallback toast skipped: ${
+          safeErrorMessage ||
+          scrubSensitiveErrorMessageText(err?.className || 'unknown')
+        }`,
+        error,
+        { trigger: 'interactive' },
+      );
+    }
+    return;
+  }
 
   // Skip when the source already logged this reason to the server
   // (persistKeylessOAuthSession) to avoid a duplicate @LogToServer event.
   if (!wasOneKeyIdFailureServerLogged(error)) {
     defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
-      reason: scrubSensitiveErrorMessageText(
-        errorMessage || err?.className || 'unknown',
-      ),
+      reason:
+        safeErrorMessage ||
+        scrubSensitiveErrorMessageText(err?.className || 'unknown'),
     });
   }
 
-  Toast.error({
-    // NOTE: the dedicated `id_login_failed` key is not present in the current
-    // auto-generated translations (dropped when merging the newer x i18n
-    // generation), so use the existing generic error message instead of
-    // hand-editing the generated locale files. Restore `id_login_failed` via
-    // `yarn i18n:pull` when reconciling this branch.
-    title: intl.formatMessage({
-      id: ETranslations.global_unknown_error_retry_message,
-    }),
-  });
+  if (isPrimeUserBannedError(error)) {
+    errorToastUtils.showToastOfError(new OneKeyErrorPrimeUserBanned());
+  } else {
+    Toast.error({
+      title:
+        safeErrorMessage ||
+        intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        }),
+    });
+  }
 
   // This fallback toast has now surfaced the error. Mark it so the global
   // unhandledrejection handler (autoToast errors flow there when a caller
@@ -109,9 +141,13 @@ export function showOneKeyIdLoginFailedToast({
   // Objects only: writing a property on a string/primitive throwable would
   // itself throw in strict mode (same guard as markOneKeyIdFailureServerLogged).
   if (err && typeof err === 'object') {
-    (
-      err as IOneKeyError & { $$autoToastErrorTriggered?: boolean }
-    ).$$autoToastErrorTriggered = true;
+    try {
+      (
+        err as IOneKeyError & { $$autoToastErrorTriggered?: boolean }
+      ).$$autoToastErrorTriggered = true;
+    } catch {
+      // Some third-party errors are frozen; the fallback toast already won.
+    }
   }
 }
 
@@ -148,29 +184,184 @@ export function getSanitizedAuthErrorText(error: unknown): string {
 // failure classes into one string). Deliberately does NOT touch the
 // onekeyIdLoginFailedToast event or its dedupe mark: that event strictly
 // means "the fallback toast was shown" and keeps firing on its own terms.
-export function logOneKeyIdLoginFailureReason(reason: string) {
+// Skipping an already-logged error object only covers rethrows; repeats of
+// the same failure with new error objects are limited by the logger scene.
+// Write `reason` as `<code-authored location>: <details>`: only the text
+// before the first ": " is sent to the server (see getOneKeyIdAuthFailureSite),
+// so never put error text or user input in front of it.
+export function logOneKeyIdLoginFailureReason(
+  reason: string,
+  error?: unknown,
+  {
+    step,
+    trigger,
+  }: {
+    step?: IOneKeyIdAuthFailureStep;
+    // Leave unset only when the code is shared by user actions and passive
+    // checks alike.
+    trigger?: IOneKeyIdAuthFailureTrigger;
+  } = {},
+) {
+  if (
+    error &&
+    typeof error === 'object' &&
+    oneKeyIdFailureReasonLoggedErrors.has(error)
+  ) {
+    return;
+  }
+  // No console output here: the logger's local error entry already prints in
+  // dev, and only for occurrences the repeat limiter lets through.
   const safeReason = scrubSensitiveErrorMessageText(reason);
-  console.error(safeReason);
   defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
     reason: safeReason,
+    step,
+    trigger,
+    error,
   });
+  if (error && typeof error === 'object') {
+    oneKeyIdFailureReasonLoggedErrors.add(error);
+  }
+}
+
+// Google Play services reports "this device cannot reach Google" as
+// CommonStatusCodes.NETWORK_ERROR; @react-native-google-signin delivers the
+// status as a string code.
+const GOOGLE_PLAY_SERVICES_NETWORK_ERROR_CODE = '7';
+
+// chrome.identity.launchWebAuthFlow rejects with this fixed message when any
+// page of the sign-in flow fails to load. Chrome shows no error page of its
+// own, and does not say whether the auth service or the provider failed.
+const EXT_AUTH_PAGE_LOAD_FAILED_MESSAGE =
+  'Authorization page could not be loaded';
+
+// Decide what an OAuth sign-in failure means for the user and, when a signal
+// reliably identifies it, which hop failed. Any other failure keeps the
+// generic copy and reports no step.
+export function getOAuthSignInFailureInfo({
+  error,
+  provider,
+}: {
+  error: unknown;
+  provider: EOAuthSocialLoginProvider;
+}): {
+  step?: IOneKeyIdAuthFailureStep;
+  key?: ETranslations;
+  values?: Record<string, string>;
+} {
+  if (isSupabaseAuthError(error)) {
+    return {
+      step: 'auth',
+      // Only when the auth server was never reached: a rate limit or a
+      // server error is not something the user's network can fix.
+      // Not global_network_error: the auto toast drops that exact copy.
+      key: isSupabaseAuthTransportError(error)
+        ? ETranslations.auth_sign_in_network_failed__msg
+        : undefined,
+    };
+  }
+  const { code, message } = (error ?? {}) as {
+    code?: unknown;
+    message?: unknown;
+  };
+  const values = { provider: getOAuthSocialLoginProviderName(provider) };
+  if (
+    platformEnv.isNativeAndroid &&
+    provider === EOAuthSocialLoginProvider.Google &&
+    code === GOOGLE_PLAY_SERVICES_NETWORK_ERROR_CODE
+  ) {
+    return {
+      step: 'provider',
+      key: ETranslations.auth_provider_sign_in_page_failed__msg,
+      values,
+    };
+  }
+  if (
+    platformEnv.isExtension &&
+    typeof message === 'string' &&
+    message.includes(EXT_AUTH_PAGE_LOAD_FAILED_MESSAGE)
+  ) {
+    return {
+      key: ETranslations.auth_provider_sign_in_page_failed__msg,
+      values,
+    };
+  }
+  // The browser never came back; whether the page loaded is unknown.
+  if (message === OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE) {
+    return { key: ETranslations.auth_provider_sign_in_page_hint__msg, values };
+  }
+  return {};
+}
+
+// Sign-in UI is mostly a web page: a browser tab or popup, or a web auth
+// session (what the Google SDK opens on iOS as well). A page that cannot load
+// ends as a user cancel, which the app cannot tell from a deliberate one.
+// Stay silent the first time; when the same provider is cancelled again
+// shortly after, offer a conditional network hint.
+// Not counted, because a cancel there says nothing about a page: the
+// extension, where Chrome shows its sign-in window only after the page has
+// loaded, and native sign-in sheets (the Apple sheet on iOS has no page; Play
+// services on Android reports an unreachable Google as an error instead).
+const OAUTH_CANCEL_HINT_WINDOW_MS = 5 * 60 * 1000;
+let lastCancelledOAuthSignIn:
+  | { provider: EOAuthSocialLoginProvider; at: number }
+  | undefined;
+
+export function noteOAuthSignInOutcome({
+  intl,
+  provider,
+  cancelError,
+}: {
+  intl: IntlShape;
+  provider: EOAuthSocialLoginProvider;
+  // The cancel that ended the attempt; leave out for any other outcome.
+  cancelError?: unknown;
+}) {
+  const cancelData = (
+    cancelError as { data?: IOAuthLoginCancelErrorData } | undefined
+  )?.data;
+  const cancelled = Boolean(cancelError) && !cancelData?.systemSheet;
+  const previous = lastCancelledOAuthSignIn;
+  const now = Date.now();
+  lastCancelledOAuthSignIn = cancelled ? { provider, at: now } : undefined;
+  if (
+    cancelled &&
+    !platformEnv.isExtension &&
+    previous?.provider === provider &&
+    now - previous.at < OAUTH_CANCEL_HINT_WINDOW_MS
+  ) {
+    Toast.message({
+      title: intl.formatMessage(
+        { id: ETranslations.auth_provider_sign_in_page_hint__msg },
+        { provider: getOAuthSocialLoginProviderName(provider) },
+      ),
+    });
+  }
 }
 
 // Standard shape for "hide the raw cause from the UI, keep it in
 // diagnostics": server-log the stable English reason, then throw a localized
-// error for toasts and dialogs.
+// error for toasts and dialogs. The localized error always ends a flow the
+// user started, so the failure counts as interactive.
 export function throwLocalizedOneKeyIdLoginError({
   intl,
   reason,
   key = ETranslations.global_unknown_error_retry_message,
+  values,
+  step,
 }: {
   intl: IntlShape;
   reason: string;
   key?: ETranslations;
+  values?: Record<string, string>;
+  step?: IOneKeyIdAuthFailureStep;
 }): never {
-  logOneKeyIdLoginFailureReason(reason);
-  throw new OneKeyLocalError({
-    message: intl.formatMessage({ id: key }),
+  const error = new OneKeyLocalError({
+    message: intl.formatMessage({ id: key }, values),
     key,
   });
+  logOneKeyIdLoginFailureReason(reason, error, {
+    step,
+    trigger: 'interactive',
+  });
+  throw error;
 }

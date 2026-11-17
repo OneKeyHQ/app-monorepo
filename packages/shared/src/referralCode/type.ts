@@ -1,3 +1,5 @@
+import type { IEarnSummaryV2 } from '../../types/staking';
+
 export interface IRewardToken {
   networkId: string;
   address: string;
@@ -11,6 +13,13 @@ interface IRewardBalance {
   amount: string;
   fiatValue: string;
   usdValue: string;
+}
+
+export interface IRebateUserInviteSummary {
+  token: IRewardToken;
+  amount: string;
+  fiatValue: string;
+  usdValue?: string;
 }
 
 interface IReward {
@@ -33,6 +42,19 @@ export interface IWithdrawAddress {
   updatedAt: string;
 }
 
+// Server-owned, already localized. The app shows `description` as-is and
+// never keeps its own channel or token list.
+export interface IInviteRewardScope {
+  subject: string;
+  description: string;
+}
+
+// `GET /rebate/v1/invite/reward-scopes`. A product without server config is
+// left out.
+export interface IInviteRewardScopesResponse {
+  rewardScopes?: IInviteRewardScope[];
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -48,7 +70,12 @@ export interface IInviteSummary {
   totalRewards: string;
   levelPercent: string;
   nextRebateLevel?: string;
-  Onchain: IReward;
+  Onchain: IReward & {
+    swap?: IRebateUserInviteSummary[];
+  };
+  Perp: IReward & {
+    available: IRewardBalance[];
+  };
   rebateConfig: {
     level: number;
     emoji: string;
@@ -225,6 +252,130 @@ export interface IPerpsInvitesParams {
   cursor?: string;
 }
 
+export interface ISwapCumulativeRewardsParams {
+  timeRange?: ISwapRebateTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+}
+
+export interface ISwapCumulativeRewardsResponse {
+  pendingReward: string;
+  pendingRewardFiatValue: string;
+  undistributedReward: string;
+  undistributedRewardFiatValue: string;
+  totalReward: string;
+  totalRewardFiatValue: string;
+  totalVolume: string;
+  totalVolumeFiatValue: string;
+  totalFee: string;
+  totalFeeFiatValue: string;
+  invitedAddresses: number;
+  walletCount: number;
+  nextDistribution: string;
+  token: IRewardToken;
+}
+
+export interface ISwapInviteItem {
+  _id: string;
+  address: string;
+  invitationTime: string | null;
+  inviteCode: string;
+  inviteCodeRemark: string;
+  firstTradeTime: string | null;
+  volume: string;
+  volumeFiatValue: string;
+  fee: string;
+  feeFiatValue: string;
+  reward: string;
+  rewardFiatValue: string;
+  hasUndistributed: boolean;
+  token: IRewardToken;
+}
+
+export interface ISwapInvitesResponse {
+  total: number;
+  cursor: string | null;
+  items: ISwapInviteItem[];
+}
+
+export type ISwapInvitesSortBy =
+  | 'volume'
+  | 'fee'
+  | 'reward'
+  | 'invitationTime'
+  | 'firstTradeTime';
+
+export type ISwapInvitesSortOrder = 'asc' | 'desc';
+
+export interface ISwapInvitesParams {
+  tab: 'undistributed' | 'total';
+  hideZeroVolume?: boolean;
+  sortBy?: ISwapInvitesSortBy;
+  sortOrder?: ISwapInvitesSortOrder;
+  cursor?: string;
+  limit?: number;
+  timeRange?: ISwapRebateTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+}
+
+export type ISwapRewardStatus = 'PENDING' | 'AVAILABLE' | 'ARCHIVE';
+
+export type ISwapRebateTimeRange = Exclude<
+  EExportTimeRange,
+  EExportTimeRange.Custom
+>;
+
+export interface ISwapRecordsParams {
+  inviteeId?: string;
+  status?: ISwapRewardStatus;
+  timeRange?: ISwapRebateTimeRange;
+  startTime?: number;
+  endTime?: number;
+  inviteCode?: string;
+}
+
+export interface ISwapRecordItem {
+  address: string;
+  period: string;
+  tradingVolume: string;
+  tradingVolumeFiatValue: string;
+  amount: string;
+  amountFiatValue: string;
+  token: IRewardToken;
+  status: ISwapRewardStatus;
+  distributedTx: string | null;
+}
+
+export interface ISwapRecordsResponse {
+  total: number;
+  fiatValue: string;
+  items: ISwapRecordItem[];
+}
+
+export interface ISwapInviteeRewardsParams {
+  walletAddress: string;
+  networkId?: string;
+}
+
+export interface ISwapInviteeRewardHistoryItem {
+  date: string;
+  tx: string;
+  amount: string;
+  token: IRewardToken;
+}
+
+export interface ISwapInviteeRewardsResponse {
+  /** Cumulative reward amount, including the undistributed amount. */
+  totalBonus: string;
+  /** Confirmed reward amount that has not been distributed yet. */
+  undistributed: string;
+  token: IRewardToken;
+  history: ISwapInviteeRewardHistoryItem[];
+}
+
 export interface IEarnPositionItem {
   key: string;
   networkId: string;
@@ -337,6 +488,18 @@ export interface IInvitePostConfig {
       };
     };
     Perps?: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
+    Swap?: {
       title: string;
       subtitle: string;
       for_you: {
@@ -483,12 +646,17 @@ export enum EExportTimeRange {
   OneMonth = '1month',
   ThreeMonths = '3months',
   SixMonths = '6months',
+  Today = 'today',
+  ThisWeek = 'thisWeek',
+  ThisMonth = 'thisMonth',
+  ThirtyDays = '30days',
   Custom = 'custom',
 }
 
 export enum EExportTab {
   Earn = 'Earn',
   Perp = 'Perp',
+  Swap = 'Swap',
 }
 
 export interface IExportInviteDataParams {
@@ -536,8 +704,21 @@ export interface IPerpsInviteeRewardHistoryItem {
 export interface IPerpsInviteeRewardsResponse {
   history: IPerpsInviteeRewardHistoryItem[];
   token: IPerpsInviteeRewardToken;
+  /** Distributed amount. Unlike Swap, this does not include `undistributed`. */
   totalBonus: string;
+  /** Confirmed reward amount that has not been distributed yet. */
   undistributed: string;
+}
+
+// Invitee rewards aggregated by a single EVM address
+export type IInviteeRewardsModuleResult<T> =
+  | { status: 'success'; data: T }
+  | { status: 'error' };
+
+export interface IInviteeRewardsOverview {
+  perps: IInviteeRewardsModuleResult<IPerpsInviteeRewardsResponse>;
+  swap: IInviteeRewardsModuleResult<ISwapInviteeRewardsResponse>;
+  earn: IInviteeRewardsModuleResult<IEarnSummaryV2>;
 }
 
 // Batch check wallet bound referral code types

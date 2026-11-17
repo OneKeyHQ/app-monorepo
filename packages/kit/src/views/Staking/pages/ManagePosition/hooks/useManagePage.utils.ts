@@ -76,7 +76,7 @@ export function buildManagePageApproveInfo({
   }
 
   return {
-    allowance: approve?.allowance ?? '0',
+    allowance: approve?.allowance,
     approveType: normalizeApproveType(approve?.approveType),
     approveAsset: approve?.approveAsset ?? approveAsset,
     approveTarget: resolvedApproveTarget,

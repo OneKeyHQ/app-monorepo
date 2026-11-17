@@ -114,9 +114,9 @@ const BtcFeeRateInputDialogContent = ({
         }}
         options={feeOptions.map((o) => ({
           value: o.type,
-          label: (
+          label: ({ active, color }) => (
             <SizableText
-              color={feeType === o.type ? '$textInteractive' : '$textSubdued'}
+              color={active ? '$textInteractive' : color}
               size="$bodyMdMedium"
               textAlign="center"
             >
@@ -146,7 +146,7 @@ const BtcFeeRateInputDialogContent = ({
           {customFeeRateErr ? (
             <SizableText
               pt="$1.5"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{
                 opacity: 0,

@@ -1,12 +1,19 @@
 import { useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  buildMarketStockTokenMetadata,
+  resolveMarketStockId,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -46,9 +53,13 @@ export function useSwapStockTokenDetail({
   enabled?: boolean;
   token?: ISwapToken;
 }) {
+  const locale = useLocaleVariant().toLowerCase();
   const tokenKey = getTokenIdentityKey(token);
+  const stockId = resolveMarketStockId(token ?? {});
   const isActive = Boolean(enabled && token?.networkId && tokenKey);
-  const tokenDetailScope = isActive ? tokenKey : '';
+  // Stock metadata contains localized fields. Include the active locale in the
+  // scope so a locale switch cannot hydrate the previous language's detail.
+  const tokenDetailScope = isActive ? `${tokenKey}:${locale}` : '';
   const lastGoodTokenDetailRef = useRef<IStockTokenDetailFetchState | null>(
     null,
   );
@@ -78,9 +89,43 @@ export function useSwapStockTokenDetail({
             },
           );
         const responseToken = response?.data?.token;
+        // The token endpoint may omit its parent asset id. Retain the verified
+        // selection's relation without copying asset display fields into token metadata.
+        const responseMatchesSelection =
+          responseToken &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: responseToken.networkId ?? token.networkId,
+              contractAddress: responseToken.address,
+            },
+            token2: {
+              networkId: token.networkId,
+              contractAddress: token.contractAddress,
+            },
+          });
+        const responseStockId = resolveMarketStockId(responseToken ?? {});
+        if (
+          response.code !== 0 ||
+          (responseToken?.stock &&
+            (!responseMatchesSelection ||
+              (stockId && responseStockId && stockId !== responseStockId)))
+        ) {
+          throw new OneKeyLocalError(
+            'Stock token detail does not match the selected token',
+          );
+        }
+        const responseStockToken = responseToken?.stock
+          ? {
+              ...responseToken,
+              stock: buildMarketStockTokenMetadata(
+                responseToken.stock,
+                responseStockId ?? stockId,
+              ),
+            }
+          : undefined;
         const nextState: IStockTokenDetailFetchState = {
           scope: tokenDetailScope,
-          token: responseToken?.stock ? responseToken : undefined,
+          token: responseStockToken,
           perpsInfo: responseToken?.stock
             ? response?.data?.perpsInfo
             : undefined,
@@ -129,18 +174,24 @@ export function useSwapStockTokenDetail({
       token?.networkId,
       tokenDetailScope,
       tokenKey,
+      stockId,
     ],
     {
       initResult: EMPTY_STOCK_TOKEN_DETAIL_STATE,
       // Keep the interval identity stable so enabling a quote-driven detail
       // check starts immediately instead of preserving the old cadence.
       pollingInterval: SWAP_STOCK_DETAIL_POLLING_INTERVAL_MS,
+      resumeOnEffectReconnect: true,
       swrKey:
         isActive && tokenDetailScope
           ? swrKeys.swapStockTokenDetail({
               tokenScope: tokenDetailScope,
             })
           : undefined,
+      // Same rule as the market stock detail cache: only a payload that
+      // actually carries a token may seed the next cold start. The empty
+      // fallback a failed tick returns must stay in this mount.
+      swrShouldPersist: (result) => Boolean(result?.token),
     },
   );
   useEffect(() => {

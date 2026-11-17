@@ -127,10 +127,10 @@ const RiskSkeleton = () => (
 const FaqSkeleton = () => (
   <YStack gap="$6">
     <SectionTitleSkeleton />
-    <YStack gap="$2">
+    <YStack>
       {Array.from({ length: 4 }).map((_, index) => (
-        <XStack key={index} px="$2" py="$1" mx="$-2">
-          <Skeleton width="100%" height={16} borderRadius="$2" />
+        <XStack key={index} py="$5">
+          <Skeleton width="100%" height={24} borderRadius="$2" />
         </XStack>
       ))}
     </YStack>

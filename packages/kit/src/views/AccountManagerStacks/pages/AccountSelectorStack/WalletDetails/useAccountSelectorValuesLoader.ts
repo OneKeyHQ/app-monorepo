@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   accountSelectorDeFiMapAtom,
   accountSelectorValuesMapAtom,
@@ -9,6 +8,8 @@ import type {
   IAccountSelectorDeFiItem,
   IAccountSelectorValueItem,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import { buildAccountSelectorAccountsValuesDataOnce } from './accountSelectorValuesRequest';
 
 const BATCH_SIZE = 50;
 
@@ -123,9 +124,10 @@ export function useAccountSelectorValuesLoader({
 
         try {
           const { accountsValue, accountsDeFiOverview } =
-            await backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsValuesData(
-              { accounts: batch, linkedNetworkId },
-            );
+            await buildAccountSelectorAccountsValuesDataOnce({
+              accounts: batch,
+              linkedNetworkId,
+            });
 
           if (isCancelled(currentLoadId, loadingIdRef)) return;
 

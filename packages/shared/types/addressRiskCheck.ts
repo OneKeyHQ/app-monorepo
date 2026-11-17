@@ -71,4 +71,7 @@ export type IAddressRiskCheckRecentItem = {
   // Local timestamp of the latest local write. Used as a deterministic
   // tie-breaker when multiple records have the same server check time.
   updatedAt: number;
+  // Full result of that check, shown again when a free-trial user can no
+  // longer run a new check. Missing on records written before it was stored.
+  result?: IAddressRiskCheckResult;
 };

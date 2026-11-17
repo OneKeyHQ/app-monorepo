@@ -1,5 +1,5 @@
 /* cspell:ignore Infini */
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +12,6 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
@@ -20,9 +19,11 @@ import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAut
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeAppleStorePayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -32,22 +33,8 @@ import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/P
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
 
-import {
-  getPrimeSubscriptionManagementTarget,
-  resolvePrimeSubscriptionManagementTarget,
-} from './primeSubscriptionManagementUtils';
-
-// Crypto pay is not available on iOS / Android Google Play builds (store
-// policy, integration plan §2), so those builds must not surface the Infini
-// management entry either (plan §10 regression criterion): skip the Infini
-// lookup entirely and keep the original RevenueCat manage-url behavior.
-const isInfiniManageSupported =
-  !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
-
-// Grace period before the loading dialog appears: waits that resolve faster
-// than this stay dialog-free, so an (almost) settled lookup never flashes a
-// loading frame.
-const LOADING_DIALOG_DELAY_MS = 150;
+import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
+import { usePrimeSubscriptionManagementTarget } from './usePrimeSubscriptionManagementTarget';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -62,7 +49,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const primeSubscription = user?.primeSubscription;
   const isPrime = primeSubscription?.isActive;
   const primeExpiredAt = primeSubscription?.expiresAt;
-  const subscriptionManageUrl = user?.subscriptionManageUrl;
   const currentOneKeyUserId = user?.onekeyUserId;
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -70,96 +56,50 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const { purchase } = usePrimePurchaseCallback();
   const navigation = useAppNavigation();
 
+  const managementTarget = usePrimeSubscriptionManagementTarget({
+    primeSubscription,
+    onekeyUserId: currentOneKeyUserId,
+  });
+
   const handleManageSubscription = useCallback(async () => {
-    const currentUserInfo = {
-      primeSubscription,
-      subscriptionManageUrl,
-    };
-    const currentTarget = getPrimeSubscriptionManagementTarget({
-      userInfo: currentUserInfo,
-      isInfiniManageSupported,
-    });
-    const openTarget = (
-      target: ReturnType<typeof getPrimeSubscriptionManagementTarget>,
-    ) => {
-      if (target.type === 'infini') {
-        navigation.push(EPrimePages.PrimeInfiniSubscription);
-        return true;
-      }
-      if (target.type === 'external') {
-        openUrlUtils.openUrlExternal(target.url);
-        return true;
-      }
-      return false;
-    };
-    if (openTarget(currentTarget)) {
+    if (managementTarget?.type === 'infini') {
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'infiniPage',
+      });
+      navigation.push(EPrimePages.PrimeInfiniSubscription);
       return;
     }
-
-    let loadingDialog: IDialogInstance | undefined;
-    const loadingTimerId = setTimeout(() => {
-      loadingDialog = Dialog.loading({
-        title: intl.formatMessage({ id: ETranslations.global_preparing }),
+    if (managementTarget?.type === 'external') {
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'externalUrl',
       });
-    }, LOADING_DIALOG_DELAY_MS);
-    try {
-      const resolvedTarget = await resolvePrimeSubscriptionManagementTarget({
-        currentUserInfo,
-        isInfiniManageSupported,
-        fetchFreshUserInfo: async () => {
-          const { userInfo } =
-            await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-          return userInfo;
-        },
-        fetchInfiniSubscription: async () => {
-          if (!currentOneKeyUserId) {
-            return undefined;
+      if (
+        platformEnv.isDesktopMac &&
+        managementTarget.url === APPLE_SUBSCRIPTION_MANAGEMENT_URL
+      ) {
+        try {
+          const opened =
+            await globalThis.desktopApiProxy?.system?.openAppStoreSubscriptions?.();
+          if (opened) {
+            return;
           }
-          return backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
-            expectedOneKeyUserId: currentOneKeyUserId,
-          });
-        },
-      });
-      if (openTarget(resolvedTarget)) {
-        return;
+        } catch {
+          // Older shells reject unknown proxy methods. Fall back to Apple's
+          // HTTPS entry point if the API or native handoff is unavailable.
+        }
       }
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.prime_manage_subscription,
-        }),
-        // TODO: Replace with subscription_management_channel_unavailable__msg
-        // after the key is added to Lokalise and translations are pulled.
-        message:
-          'Unable to manage this subscription because its channel is missing or unsupported, and no management URL was provided.',
-      });
-    } catch (error) {
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
-    } finally {
-      // Clear the pending timer first: a refresh that resolved inside the
-      // grace period would otherwise still pop the dialog afterwards, with
-      // nothing left to close it.
-      clearTimeout(loadingTimerId);
-      void loadingDialog?.close();
+      openUrlUtils.openUrlExternal(managementTarget.url);
+      return;
     }
-  }, [
-    currentOneKeyUserId,
-    intl,
-    navigation,
-    primeSubscription,
-    subscriptionManageUrl,
-  ]);
-
-  const refreshUserInfo = useCallback(async () => {
-    void getCustomerInfo();
-    void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-  }, [getCustomerInfo]);
-
-  useEffect(() => {
-    if (isPrime && !subscriptionManageUrl) {
-      void refreshUserInfo();
-    }
-  }, [isPrime, refreshUserInfo, subscriptionManageUrl]);
+    defaultLogger.prime.subscription.primeManageSubscriptionClick({
+      target: 'unresolved',
+    });
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.prime_subscription_management_unsupported__msg,
+      }),
+    });
+  }, [intl, managementTarget, navigation]);
 
   const handleLogout = useConfirmOneKeyIdLogout({
     reason: 'PrimeUserInfoMoreButton Logout Button',
@@ -216,23 +156,41 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      {/* Shown for every Prime user immediately — waiting for the channel
-       routing data (Infini lookup / RevenueCat manage url) made the item pop
-       in noticeably late. The click handler resolves the destination behind
-       a loading dialog instead, and falls back to a refresh + toast when
-       neither channel resolves (e.g. sandbox payment succeeded locally but
-       the server state lags). */}
-      {isPrime ? (
+      {isPrimeAppleStorePayment() ? null : (
         <ActionList.Item
+          testID={PrimeTestIDs.redemptionMenuItem}
+          label={intl.formatMessage({
+            id: ETranslations.prime_redeem__action,
+          })}
+          icon="TicketOutline"
+          onClose={handleActionListClose}
+          onPress={async (close) => {
+            close();
+            if (currentOneKeyUserId) {
+              const isPrimeActiveBeforeRedeem = Boolean(isPrime);
+              defaultLogger.prime.subscription.primeRedemptionEntryClick({
+                isPrimeActiveBeforeRedeem,
+              });
+              if (platformEnv.isNative) {
+                await timerUtils.wait(500);
+              }
+              showPrimeRedemptionDialog({
+                expectedOneKeyUserId: currentOneKeyUserId,
+                isPrimeActiveBeforeRedeem,
+              });
+            }
+          }}
+        />
+      )}
+
+      {isPrime && currentOneKeyUserId ? (
+        <ActionList.Item
+          testID={PrimeTestIDs.manageSubscriptionMenuItem}
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          // Declaring the `close` param opts out of ActionList's
-          // close-after-onPress behavior: the menu must close before the
-          // destination is resolved, otherwise it would stay open underneath
-          // the loading dialog until the resolution finishes.
           onPress={async (close) => {
             close();
             await handleManageSubscription();

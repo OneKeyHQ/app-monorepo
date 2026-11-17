@@ -24,7 +24,13 @@ import {
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
-import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import {
+  clearPendingSidePanelBgToUiMessage,
+  pendingSidePanelBgToUiMessage,
+  shouldFlushPendingSidePanelMessage,
+  sidePanelState,
+  sidePanelUiState,
+} from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
 const SIDE_PANEL_DAPP_MOUNT_ACK_TIMEOUT_MS = 3000;
@@ -471,11 +477,28 @@ export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === SIDE_PANEL_PORT_NAME) {
       sidePanelState.isOpen = true;
+      let didPushOnboardingModal = false;
       if (pendingKeylessGetStartedParams) {
         port.postMessage(
           buildKeylessGetStartedModalMessage(pendingKeylessGetStartedParams),
         );
         pendingKeylessGetStartedParams = undefined;
+        didPushOnboardingModal = true;
+      }
+
+      // Flush a push produced while no port existed (the panel was still
+      // booting). Consumed either way — a stale entry is dropped here, never
+      // left behind for a later connect to pick up.
+      if (pendingSidePanelBgToUiMessage.value) {
+        const shouldFlush = shouldFlushPendingSidePanelMessage({
+          now: Date.now(),
+          stashedAt: pendingSidePanelBgToUiMessage.stashedAt,
+          didPushOnboardingModal,
+        });
+        if (shouldFlush) {
+          port.postMessage(pendingSidePanelBgToUiMessage.value);
+        }
+        clearPendingSidePanelBgToUiMessage();
       }
 
       let dappRejectId: string | number | undefined;
@@ -601,6 +624,11 @@ export const setupSidePanelPortInUI = () => {
       switch (type) {
         case 'pushModal':
           {
+            // OK-58962: record synchronously, before any await. Latches for
+            // the page's lifetime — see the note on sidePanelUiState. This is
+            // the only signal a Keyless-hosted panel gets, since that flow
+            // page-loads the panel without going through ServiceDApp.openModal.
+            sidePanelUiState.hasReceivedPushedModal = true;
             const { screen, params } = payload.modalParams;
             const rejectId = extractDappRejectIdFromModalParams(
               payload.modalParams,

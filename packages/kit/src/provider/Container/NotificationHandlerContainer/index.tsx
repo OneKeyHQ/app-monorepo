@@ -2,25 +2,35 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
 import {
+  appIsLocked,
+  tradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
   type INotificationPageNavigationEvent,
   navigateToNotificationDetailByLocalParams,
   registerNotificationPageNavigationProcessor,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
+  ENotificationCommand,
   ENotificationViewDialogActionType,
   type INotificationViewDialogPayload,
 } from '@onekeyhq/shared/types/notification';
@@ -39,6 +49,7 @@ import {
   NotificationHandlerDiscoveryProvider,
   useNotificationDappNavigation,
 } from './NotificationDappNavigation';
+import { recoverPerpsSubscriptionsAfterNavigation } from './perpsSubscriptionRecovery';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -125,6 +136,7 @@ function BaseNotificationHandlerContainer() {
     const handleShowNotificationPageNavigation = async ({
       payload: payloadObj,
       extras,
+      navigationAction,
     }: INotificationPageNavigationEvent) => {
       const localParams = getLocalParams();
 
@@ -143,9 +155,25 @@ function BaseNotificationHandlerContainer() {
 
       if (perpToken) {
         try {
+          // Recorded before the atom write so no cold start can observe the
+          // coin without it: on that path the Perp page restores its persisted
+          // instrument, which predates this tap and would win. Isolated because
+          // losing it only costs that restore — it must not skip the writes and
+          // the event below.
+          await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+            { coin: perpToken, mode: 'perp' },
+          );
+        } catch {
+          // ignore
+        }
+        try {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
+          // changeActiveAsset only writes perpsActiveAssetAtom, so a leftover
+          // spot mode would make the resync read spotActiveAssetAtom and drop
+          // this coin.
+          await tradingModeAtom.set('perp');
           // Notify an already-mounted Perp page (via PerpsGlobalEffects) to
           // switch its active instrument; without this the coin switch is a
           // no-op when the Perp page was already opened (banner deep-link case).
@@ -153,32 +181,69 @@ function BaseNotificationHandlerContainer() {
             mode: 'perp',
             coin: perpToken,
           });
+          // Start the reconnect now so it overlaps the ~350ms of
+          // popToMainRoute + wait, rather than waiting for route focus.
+          // Never while locked: resumeSubscriptions enables the handler
+          // unconditionally, and the user has to unlock before anything
+          // renders anyway — unlock recovery resumes on its own.
+          const isAppLocked = await appIsLocked.get();
+          if (!isAppLocked) {
+            void backgroundApiProxy.serviceHyperliquidSubscription
+              .resumeSubscriptions()
+              .catch((error) => {
+                defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                  type: 'prewarm_subscriptions',
+                  coin: perpToken,
+                  error,
+                });
+              });
+          }
         } catch (error) {
           console.error('Failed to change perps active asset:', error);
         }
       }
 
-      navigateToNotificationDetailByLocalParams({
-        payload: payloadObj,
-        localParams,
-        getEarnAccount: (props) =>
-          backgroundApiProxy.serviceStaking.getEarnAccount(props),
-      }).catch((error) => {
+      try {
+        await navigateToNotificationDetailByLocalParams({
+          payload: payloadObj,
+          navigationAction,
+          localParams,
+          getEarnAccount: (props) =>
+            backgroundApiProxy.serviceStaking.getEarnAccount(props),
+        });
+        await timerUtils.wait(0);
+        if (isPerpNavigation) {
+          await recoverPerpsSubscriptionsAfterNavigation({
+            isAppVisible: getCurrentVisibilityState,
+            isAppLocked: () => appIsLocked.get(),
+            readDisabledCount: () =>
+              backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
+        }
+      } catch (error) {
         console.error(error);
         showFallbackUpdateDialog(null);
-      });
+      }
     };
     const handleShowNotificationInWebViewOverlay = (
       params: IWebViewPageParams,
     ) => {
       openWebView(params);
     };
-    // Durable registration: drains any intent buffered before this UI mounted
-    // (cold-start safe), instead of a transient appEventBus.on that drops
-    // events emitted before the handler was registered.
+    // Pull the BG-owned legacy intent after the UI processor registers. The
+    // event wake may have arrived before main installed its SharedRPC observer.
     const unregisterPageNavigationProcessor =
       registerNotificationPageNavigationProcessor(
         handleShowNotificationPageNavigation,
+        platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+          ? () =>
+              backgroundApiProxy.serviceNotification.consumePendingLegacyNavigation()
+          : undefined,
       );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,
@@ -189,23 +254,36 @@ function BaseNotificationHandlerContainer() {
       handleShowNotificationInWebViewOverlay,
     );
 
-    const handleExecuteCommand = ({
+    const handleExecuteCommand = async ({
       action,
       data,
     }: {
       action: string;
       data?: Record<string, unknown>;
     }) => {
-      const context = { toInviteRewardPage, openHardwareSalesOrderDetail };
-      const success = executeNotificationCommand(action, context, data);
-      if (!success) {
-        showFallbackUpdateDialog(null);
+      try {
+        const success = await executeNotificationCommand(
+          action,
+          {
+            toInviteRewardPage,
+            openHardwareSalesOrderDetail,
+          },
+          data,
+        );
+        if (!success) {
+          showFallbackUpdateDialog(null);
+        }
+      } catch (error) {
+        errorToastUtils.showToastOfError(error);
       }
     };
     appEventBus.on(
       EAppEventBusNames.ExecuteNotificationCommand,
       handleExecuteCommand,
     );
+    void handleExecuteCommand({
+      action: ENotificationCommand.openSupportConversation,
+    });
 
     return () => {
       appEventBus.off(

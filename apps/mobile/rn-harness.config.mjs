@@ -34,6 +34,7 @@ const config = {
         profile: 'pixel_7',
       }),
       bundleId: 'so.onekey.app.wallet',
+      activityName: '.StandardLauncher',
     }),
   ],
   defaultRunner: 'ios',
@@ -41,6 +42,7 @@ const config = {
   bridgeTimeout: 1_200_000,
   bundleStartTimeout: 120_000,
   maxAppRestarts: 3,
+  resetEnvironmentBetweenTestFiles: true,
 };
 
 export default config;

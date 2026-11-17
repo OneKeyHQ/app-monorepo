@@ -1,0 +1,433 @@
+/**
+ * The write-behind half of the web/desktop UI snapshot store.
+ *
+ * A flush that fails re-queues its keys, and the tail that reschedules the
+ * successor of a slow flush cannot tell the two apart by itself. Left
+ * unbounded that pair reopens a permanently broken database for the life of
+ * the page, which is a documented state — a private window, an exhausted
+ * quota, IndexedDB blocked — not an exotic one.
+ */
+import { OneKeyLocalError } from '../../errors';
+
+// The node test environment has no IndexedDB globals, and the store only
+// needs the range object to hand to its object store.
+const globalWithKeyRange = globalThis as unknown as {
+  IDBKeyRange?: {
+    bound: (lower: string, upper: string) => { lower: string; upper: string };
+  };
+};
+globalWithKeyRange.IDBKeyRange ??= {
+  bound: (lower: string, upper: string) => ({ lower, upper }),
+};
+
+function describeDeleteTarget(target: unknown) {
+  if (typeof target === 'string') {
+    return target;
+  }
+  const range = target as { lower: string; upper: string };
+  return `range:${range.lower}..${range.upper}`;
+}
+
+let openAttempts = 0;
+let openShouldFail = true;
+let putCalls: { key: string; value: string }[] = [];
+let deleteCalls: string[] = [];
+/** Puts and deletes in the order the store issued them. */
+let operations: string[] = [];
+/** Stands in for an exhausted quota: only the transaction that asks to run
+ *  when storage is full gets through. */
+let quotaRejectsWrites = false;
+/** Stands in for a namespace range delete that aborts. */
+let rangeDeleteShouldFail = false;
+/** Stands in for a per-key delete that aborts. */
+let keyDeleteShouldFail = false;
+let releaseTransaction: (() => void) | undefined;
+
+jest.mock('../../IndexedDBPromised', () => ({
+  IndexedDBPromised: class {
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor, @typescript-eslint/no-empty-function
+    constructor(_options: unknown) {}
+
+    async open() {
+      openAttempts += 1;
+      if (openShouldFail) {
+        throw new OneKeyLocalError('indexeddb unavailable');
+      }
+    }
+
+    async createBucketTransaction(
+      _storeNames: unknown,
+      _mode: unknown,
+      options?: { allowWhenStorageFull?: boolean },
+    ) {
+      if (quotaRejectsWrites && !options?.allowWhenStorageFull) {
+        throw new OneKeyLocalError('disk is full');
+      }
+      if (releaseTransaction) {
+        await new Promise<void>((resolve) => {
+          releaseTransaction = resolve;
+        });
+      }
+      return {
+        objectStore: () => ({
+          put: (value: string, key: string) => {
+            putCalls.push({ key, value });
+            operations.push(`put:${key}`);
+            return Promise.resolve();
+          },
+          delete: (key: unknown) => {
+            if (rangeDeleteShouldFail && typeof key !== 'string') {
+              return Promise.reject(
+                new OneKeyLocalError('range delete aborted'),
+              );
+            }
+            if (keyDeleteShouldFail && typeof key === 'string') {
+              return Promise.reject(new OneKeyLocalError('delete aborted'));
+            }
+            deleteCalls.push(describeDeleteTarget(key));
+            operations.push(`delete:${describeDeleteTarget(key)}`);
+            return Promise.resolve();
+          },
+          clear: () => Promise.resolve(),
+        }),
+        done: Promise.resolve(),
+      };
+    }
+  },
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const {
+  __resetWebUiSnapshotStoreForTests,
+  createWebUiSnapshotSyncBackend,
+  flushUiSnapshotStoreNow,
+  primeWebUiSnapshotStore,
+} = require('./webUiSnapshotStore') as typeof import('./webUiSnapshotStore');
+
+const FLUSH_DEBOUNCE_MS = 2000;
+// One first attempt plus the retries the store allows before it goes quiet.
+const MAX_OPEN_ATTEMPTS_PER_WRITE = 4;
+
+/** Let the flush's own promise chain settle between timer steps. */
+async function settle() {
+  for (let i = 0; i < 8; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+  }
+}
+
+describe('webUiSnapshotStore write-behind', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    openAttempts = 0;
+    openShouldFail = true;
+    putCalls = [];
+    deleteCalls = [];
+    operations = [];
+    quotaRejectsWrites = false;
+    rangeDeleteShouldFail = false;
+    keyDeleteShouldFail = false;
+    releaseTransaction = undefined;
+    __resetWebUiSnapshotStoreForTests();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('stops reopening a database that never comes back', async () => {
+    const backend = createWebUiSnapshotSyncBackend('ctx-atom-snapshot');
+    backend.commit({
+      entries: [{ key: 'a', value: 'first' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    // Far more wake-ups than the cap, with no further writes.
+    for (let i = 0; i < 20; i += 1) {
+      jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS * 4);
+      // eslint-disable-next-line no-await-in-loop
+      await settle();
+    }
+
+    expect(openAttempts).toBeGreaterThan(0);
+    expect(openAttempts).toBeLessThanOrEqual(MAX_OPEN_ATTEMPTS_PER_WRITE);
+  });
+
+  it('tries again once a real write arrives', async () => {
+    const backend = createWebUiSnapshotSyncBackend('ctx-atom-snapshot');
+    backend.commit({
+      entries: [{ key: 'a', value: 'first' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    for (let i = 0; i < 20; i += 1) {
+      jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS * 4);
+      // eslint-disable-next-line no-await-in-loop
+      await settle();
+    }
+    const attemptsAfterGivingUp = openAttempts;
+
+    backend.commit({
+      entries: [{ key: 'b', value: 'second' }],
+      commitMarker: { key: 'manifest', value: 'm2' },
+    });
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    expect(openAttempts).toBeGreaterThan(attemptsAfterGivingUp);
+  });
+
+  it('keeps an explicit flush waiting for the key written after it started', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('ctx-atom-snapshot');
+    backend.commit({
+      entries: [{ key: 'a', value: 'first' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    // Hold the first flush inside its transaction.
+    releaseTransaction = () => undefined;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    // Written after that flush took its key list, so it is not in it.
+    backend.commit({
+      entries: [{ key: 'b', value: 'second' }],
+      commitMarker: { key: 'manifest', value: 'm2' },
+    });
+    const explicit = flushUiSnapshotStoreNow();
+
+    // Let the first flush finish, but never advance the debounce timer: the
+    // only thing that can persist `b` before `explicit` resolves is the
+    // explicit flush itself.
+    releaseTransaction?.();
+    releaseTransaction = undefined;
+    await explicit;
+
+    expect(
+      putCalls.some(
+        ({ key, value }) => key === 'ctx-atom-snapshot:b' && value === 'second',
+      ),
+    ).toBe(true);
+  });
+
+  it('deletes even when the quota rejected the write in the same batch', async () => {
+    openShouldFail = false;
+    quotaRejectsWrites = true;
+    // One queue serves every namespace, so a put and a delete from two of
+    // them share a batch — which is the case a full quota has to survive.
+    const writer = createWebUiSnapshotSyncBackend('ctx-atom-snapshot');
+    const sweeper = createWebUiSnapshotSyncBackend('market-token-detail');
+    writer.commit({
+      entries: [{ key: 'a', value: 'first' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    sweeper.remove(['stale']);
+
+    await flushUiSnapshotStoreNow();
+
+    expect(putCalls).toHaveLength(0);
+    expect(deleteCalls).toEqual(['market-token-detail:stale']);
+
+    // Only the rejected write is queued again: the delete already landed, so
+    // retrying it would spend the store's attempts on a record that is gone.
+    quotaRejectsWrites = false;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    expect(putCalls.map(({ key }) => key).toSorted()).toEqual([
+      'ctx-atom-snapshot:a',
+      'ctx-atom-snapshot:manifest',
+    ]);
+    expect(deleteCalls).toEqual(['market-token-detail:stale']);
+  });
+
+  it('clears a namespace on disk, including records it never read', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    // Nothing primed this namespace, so the map names none of its records —
+    // which is the case the wallet deletion has to survive.
+    backend.clearNamespace();
+
+    await flushUiSnapshotStoreNow();
+
+    expect(deleteCalls).toEqual(['range:swr-wallet-list:..swr-wallet-list;']);
+  });
+
+  it('clears the namespace before the writes queued after it', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.clearNamespace();
+    backend.commit({
+      entries: [{ key: 'd:wallet-2', value: 'fresh' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    expect(operations).toEqual([
+      'delete:range:swr-wallet-list:..swr-wallet-list;',
+      'put:swr-wallet-list:d:wallet-2',
+      'put:swr-wallet-list:manifest',
+    ]);
+  });
+
+  it('holds back the writes of a namespace whose clear failed', async () => {
+    openShouldFail = false;
+    rangeDeleteShouldFail = true;
+    const cleared = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    const untouched = createWebUiSnapshotSyncBackend('swr-market-token-detail');
+    cleared.clearNamespace();
+    // Queued after the clear, so the retry's range delete would take it.
+    cleared.commit({
+      entries: [{ key: 'd:wallet-2', value: 'kept' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    untouched.commit({
+      entries: [{ key: 'd:btc', value: 'unrelated' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    // The other namespace is not held up by it.
+    expect(putCalls.map(({ key }) => key).toSorted()).toEqual([
+      'swr-market-token-detail:d:btc',
+      'swr-market-token-detail:manifest',
+    ]);
+
+    rangeDeleteShouldFail = false;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    // The clear lands first, then the writes it was going to delete.
+    expect(operations.slice(-3)).toEqual([
+      'delete:range:swr-wallet-list:..swr-wallet-list;',
+      'put:swr-wallet-list:d:wallet-2',
+      'put:swr-wallet-list:manifest',
+    ]);
+  });
+
+  /**
+   * `get()` reads a record by key and never consults the manifest, so the
+   * physical record must not outlive the manifest entry that deleted it. The
+   * two land in separate transactions here, so the delete has to go first.
+   */
+  it('deletes records before writing the manifest that drops them', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [{ key: 'd:wallet-2', value: 'fresh' }],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    expect(operations).toEqual([
+      'delete:swr-wallet-list:d:wallet-1',
+      'put:swr-wallet-list:d:wallet-2',
+      'put:swr-wallet-list:manifest',
+    ]);
+  });
+
+  it('holds the manifest back when the delete it depends on failed', async () => {
+    openShouldFail = false;
+    keyDeleteShouldFail = true;
+    const backend = createWebUiSnapshotSyncBackend('swr-acc-sel-values');
+    const untouched = createWebUiSnapshotSyncBackend('swr-market-token-detail');
+    // What `createSnapshotCacheSync.remove()` produces: a manifest that no
+    // longer lists the key, and the key's record to delete.
+    backend.commit({
+      entries: [],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+    untouched.commit({
+      entries: [{ key: 'd:btc', value: 'unrelated' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    // `get()` reads a record by key and never consults the manifest, so a
+    // marker published now would drop a record that is still readable.
+    expect(putCalls.map(({ key }) => key)).not.toContain(
+      'swr-acc-sel-values:manifest',
+    );
+    expect(putCalls.map(({ key }) => key).toSorted()).toEqual([
+      'swr-market-token-detail:d:btc',
+      'swr-market-token-detail:manifest',
+    ]);
+
+    keyDeleteShouldFail = false;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    expect(operations.slice(-2)).toEqual([
+      'delete:swr-acc-sel-values:d:wallet-1',
+      'put:swr-acc-sel-values:manifest',
+    ]);
+  });
+
+  it('reports a delete that did not reach the database', async () => {
+    openShouldFail = false;
+    keyDeleteShouldFail = true;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    // A caller that waited in order to be sure — a wallet deletion, before the
+    // surface that asked for it can close — must not read this as committed:
+    // the removal is back on the queue behind a timer this runtime may not
+    // live to see.
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(false);
+
+    keyDeleteShouldFail = false;
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(true);
+    expect(operations).toContain('delete:swr-wallet-list:d:wallet-1');
+  });
+
+  it('reports a commit when the database took the whole batch', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [{ key: 'd:wallet-2', value: 'fresh' }],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(true);
+    // Nothing pending is a commit too, not a failure.
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(true);
+  });
+
+  it('reports the database that never opened', async () => {
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(false);
+  });
+
+  it('does not prime back a namespace this session cleared', () => {
+    openShouldFail = false;
+    const cleared = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    const untouched = createWebUiSnapshotSyncBackend('swr-market-token-detail');
+    cleared.clearNamespace();
+
+    // The startup read began before the clear and lands after it.
+    primeWebUiSnapshotStore([
+      ['swr-wallet-list:d:wallet-1', 'stale'],
+      ['swr-market-token-detail:d:btc', 'unrelated'],
+    ]);
+
+    expect(cleared.read('d:wallet-1')).toBeUndefined();
+    expect(untouched.read('d:btc')).toBe('unrelated');
+  });
+});

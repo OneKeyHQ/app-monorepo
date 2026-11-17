@@ -2,6 +2,7 @@ import {
   getPerpsAccountScopedListData,
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
+  isPerpsAccountSelectionResolved,
   shouldPreserveColdStartButtonVisualState,
 } from './accountScopedData';
 
@@ -72,6 +73,58 @@ describe('isPerpsAccountAddressMatched', () => {
         dataAccountAddress: undefined,
       }),
     ).toBe(false);
+  });
+});
+
+describe('isPerpsAccountSelectionResolved', () => {
+  it('waits for the selected wallet and Perps selection to finish', () => {
+    expect(
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: false,
+        selectAccountLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: true,
+        selectAccountLoading: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('requires the active Perps account to match the selected account', () => {
+    expect(
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: true,
+        selectAccountLoading: false,
+        selectedAccountId: 'hd-1--m/44/60/0/0/0',
+        activeAccountId: null,
+      }),
+    ).toBe(false);
+    expect(
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: true,
+        selectAccountLoading: false,
+        selectedIndexedAccountId: 'indexed-1',
+        activeIndexedAccountId: 'indexed-1',
+      }),
+    ).toBe(true);
+  });
+
+  it('resolves a disconnected wallet only after stale Perps account IDs clear', () => {
+    expect(
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: true,
+        selectAccountLoading: false,
+        activeAccountId: 'hd-1--m/44/60/0/0/0',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: true,
+        selectAccountLoading: false,
+      }),
+    ).toBe(true);
   });
 });
 

@@ -17,6 +17,11 @@ export function useSystemColorScheme(delay = 500) {
     (preferences: Appearance.AppearancePreferences) => {
       resetCurrentTimeout();
 
+      if (delay === 0) {
+        setColorScheme(preferences.colorScheme);
+        return;
+      }
+
       ref.current = setTimeout(() => {
         setColorScheme(preferences.colorScheme);
       }, delay);

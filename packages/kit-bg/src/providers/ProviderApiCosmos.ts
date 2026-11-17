@@ -100,6 +100,11 @@ class ProviderApiCosmos extends ProviderApiBase {
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
+        isWalletConnectRequest: request.isWalletConnectRequest,
+        walletConnectTopic: request.isWalletConnectRequest
+          ? (request.data as { walletConnectTopic?: string } | undefined)
+              ?.walletConnectTopic
+          : undefined,
         newNetworkId: networkId,
         oldNetworkId,
       });
@@ -349,6 +354,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const account = await this._getAccount(request, networkId);
 
+    this.assertAccountAddress(account.account, params.signer);
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -411,6 +417,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
+    this.assertAccountAddress(account.account, params.signer);
 
     const encodedTx = params.signDoc;
     const accountNumberBN = new BigNumber(encodedTx.accountNumber || '0');
@@ -545,6 +552,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
       const account = await this._getAccount(request, networkId);
+      this.assertAccountAddress(account.account, params.signer);
 
       await this._switchNetwork(request, networkId);
 

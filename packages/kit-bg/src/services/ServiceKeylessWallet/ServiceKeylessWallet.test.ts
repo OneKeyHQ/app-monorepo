@@ -24,6 +24,14 @@ const mockDevSettingsAtom = {
   get: jest.fn(),
   set: jest.fn(),
 };
+const mockNonDbKdfParams = {
+  kdfBackend: 'webcrypto' as const,
+  enablePbkdf2Cache: true,
+};
+
+jest.mock('@onekeyhq/shared/src/appCrypto/modules/pbkdf2', () => ({
+  getPbkdf2KdfParamsForNonDbTx: jest.fn(() => mockNonDbKdfParams),
+}));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -168,8 +176,10 @@ const {
   require('@onekeyhq/core/src/secret');
 const {
   EOAuthSocialLoginProvider,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2,
   KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID,
+  KEYLESS_ENCRYPTION_ITERATIONS,
   KEYLESS_SUPABASE_PROJECT_URL,
 } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1800,7 +1810,66 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
     expect(encryptStringAsync).toHaveBeenCalledWith(
       expect.objectContaining({
+        ...mockNonDbKdfParams,
         password: backendSharePayloadV2Password,
+      }),
+    );
+  });
+
+  test('uses the non-transaction KDF backend for mnemonic payloads', async () => {
+    const { serviceAny } = createService();
+    encryptStringAsync.mockResolvedValue('encrypted-mnemonic');
+    decryptStringAsync.mockResolvedValue('mnemonic');
+
+    await expect(
+      serviceAny.encryptKeylessMnemonic({
+        mnemonic: 'mnemonic',
+        mnemonicPassword: 'random-mnemonic-password',
+      }),
+    ).resolves.toBe('encrypted-mnemonic');
+    await expect(
+      serviceAny.decryptKeylessMnemonic({
+        encryptedMnemonic: 'encrypted-mnemonic',
+        mnemonicPassword: 'random-mnemonic-password',
+      }),
+    ).resolves.toBe('mnemonic');
+
+    expect(encryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      }),
+    );
+    expect(decryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      }),
+    );
+  });
+
+  test('uses the non-transaction KDF backend for v1 backend share payloads', async () => {
+    const { serviceAny } = createService();
+    encryptStringAsync.mockResolvedValue('encrypted-payload');
+    decryptStringAsync.mockResolvedValue(JSON.stringify(backendShareData));
+
+    await serviceAny.encryptKeylessBackendSharePayloadV1({
+      backendShareData,
+    });
+    await serviceAny.decryptKeylessBackendSharePayloadV1({
+      backendShare: `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}cipher`,
+    });
+
+    expect(encryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      }),
+    );
+    expect(decryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       }),
     );
   });
@@ -1826,6 +1895,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(decryptStringAsync).toHaveBeenCalledTimes(1);
     expect(decryptStringAsync).toHaveBeenCalledWith(
       expect.objectContaining({
+        ...mockNonDbKdfParams,
         password: backendSharePayloadV2Password,
       }),
     );
@@ -2447,7 +2517,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token passcode handling', ()
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ status: 'unavailable' });
 
     expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
@@ -2488,7 +2558,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     });
   });
 
-  test('interactive migration re-checks blob presence inside the lock and returns null without any exchange when it is gone', async () => {
+  test('interactive migration re-checks blob presence inside the lock and returns unavailable without any exchange when it is gone', async () => {
     const { serviceAny, wallet, backgroundApi } = createService();
     // Blob exists at the cheap pre-prompt check, but is gone by the time the
     // exchange lock is acquired (the passive path consumed it and removed it
@@ -2511,7 +2581,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ status: 'unavailable' });
 
     expect(
       backgroundApi.servicePassword.promptPasswordVerify,
@@ -2529,6 +2599,204 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     expect(
       backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
     ).not.toHaveBeenCalled();
+  });
+
+  test('upgrades a valid legacy Keyless credential before OneKey ID bind guidance', async () => {
+    const { service, serviceAny, backgroundApi } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest
+      .fn()
+      .mockResolvedValueOnce('legacy-refresh-token')
+      .mockResolvedValueOnce('rotated-refresh-token');
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+
+    const result = await (
+      service as unknown as {
+        ensureKeylessCredentialReadyForOneKeyIdBind: () => Promise<{
+          status: string;
+          hasLocalKeylessWallet?: boolean;
+        }>;
+      }
+    ).ensureKeylessCredentialReadyForOneKeyIdBind();
+
+    expect(result).toEqual({
+      status: 'ready',
+      hasLocalKeylessWallet: true,
+    });
+    expect(
+      backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
+    ).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      refreshToken: 'rotated-refresh-token',
+      expectedWalletId: WALLET_ID,
+    });
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('keeps bind guidance available when the migrated legacy identity mismatches', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet = jest.fn(
+      async () => ({ status: 'identityMismatch' as const }),
+    );
+
+    await expect(
+      service.ensureKeylessCredentialReadyForOneKeyIdBind(),
+    ).resolves.toEqual({
+      status: 'ready',
+      hasLocalKeylessWallet: true,
+    });
+  });
+
+  test('allows bind guidance without prompting when passcode is required on click', async () => {
+    const { service, serviceAny, backgroundApi } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    backgroundApi.servicePassword.getCachedPassword.mockResolvedValue(null);
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    await expect(
+      service.ensureKeylessCredentialReadyForOneKeyIdBind(),
+    ).resolves.toEqual({
+      status: 'requiresPasscode',
+      hasLocalKeylessWallet: true,
+    });
+
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('prompts for passcode on continuation and reuses the local legacy Keyless identity', async () => {
+    const { service, serviceAny, backgroundApi } = createService({
+      password: undefined,
+    });
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.getActiveKeylessOAuthAccessToken = jest.fn(async () => null);
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.getLegacyKeylessOAuthRefreshToken = jest
+      .fn()
+      .mockResolvedValueOnce('legacy-refresh-token')
+      .mockResolvedValueOnce('rotated-refresh-token');
+    serviceAny.saveLegacyKeylessOAuthRefreshToken = jest.fn(
+      async () => undefined,
+    );
+    serviceAny.removeLegacyKeylessOAuthTokens = jest.fn(async () => undefined);
+    serviceAny.validateKeylessAccessTokenMatchesLocalWallet = jest.fn(
+      async () => undefined,
+    );
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: TOKEN,
+        refresh_token: 'rotated-refresh-token',
+      }),
+    } as any);
+
+    await expect(
+      service.continueOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: 'ready',
+      accessToken: TOKEN,
+      provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
+    });
+
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
+    ).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      refreshToken: 'rotated-refresh-token',
+      expectedWalletId: WALLET_ID,
+    });
+  });
+
+  test('keeps a retryable legacy credential in the local continuation path', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.getActiveKeylessOAuthAccessToken = jest.fn(async () => null);
+    serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet = jest.fn(
+      async () => ({ status: 'unavailable' as const }),
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+
+    await expect(
+      service.continueOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: 'retryable',
+      provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
+    });
+  });
+
+  test('routes a mismatched migrated credential to fresh OAuth without retrying the blob', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.getActiveKeylessOAuthAccessToken = jest.fn(async () => null);
+    serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet = jest.fn(
+      async () => ({ status: 'identityMismatch' as const }),
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+
+    await expect(
+      service.continueOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: 'needOAuthLogin',
+      provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
+    });
+    expect(serviceAny.hasLegacyKeylessOAuthRefreshToken).not.toHaveBeenCalled();
+  });
+
+  test('reports no local Keyless wallet without touching credential storage', async () => {
+    const { service, serviceAny } = createService({ wallet: undefined });
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn();
+
+    await expect(
+      service.ensureKeylessCredentialReadyForOneKeyIdBind(),
+    ).resolves.toEqual({
+      status: 'noLocalKeyless',
+      hasLocalKeylessWallet: false,
+    });
+    expect(serviceAny.hasLegacyKeylessOAuthRefreshToken).not.toHaveBeenCalled();
   });
 
   test('interactive migration queues behind the exchange lock and then consumes the freshly rotated blob token', async () => {
@@ -2574,7 +2842,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       })
-      .then((result: string | null) => {
+      .then((result: unknown) => {
         migrateResolved = true;
         return result;
       });
@@ -2589,7 +2857,10 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
 
     releaseExchangeLock();
 
-    await expect(migratePromise).resolves.toBe(TOKEN);
+    await expect(migratePromise).resolves.toEqual({
+      status: 'migrated',
+      accessToken: TOKEN,
+    });
     // The in-lock re-read exchanged the rotated token (not a stale copy)…
     expect(fetchSpy).toHaveBeenCalledWith(
       `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`,
@@ -2620,7 +2891,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
   });
 
   test('interactive migration persists the rotated token before wallet validation so a mismatch cannot strand the consumed token', async () => {
-    const { serviceAny, wallet, backgroundApi } = createService();
+    const { service, serviceAny, wallet, backgroundApi } = createService();
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
     serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
       async () => 'legacy-refresh-token',
@@ -2649,7 +2920,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ status: 'identityMismatch' });
 
     // The rotated token must be persisted back even though validation
     // failed — the blob would otherwise keep the consumed token and the
@@ -2666,6 +2937,17 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
       backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
     ).not.toHaveBeenCalled();
     expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+
+    await expect(
+      service.continueOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: 'needOAuthLogin',
+      provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
+    });
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -2927,7 +3209,7 @@ describe('ServiceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless', () => {
   test('propagates a transient wallet-read failure instead of reporting NoLocalKeyless', async () => {
     // A transient serviceAccount.getKeylessWallet() failure is UNKNOWN state,
     // not "no wallet". prepare must NOT swallow it into a status: the passive
-    // upgrade-bind gate (checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt)
+    // upgrade-bind gate (claimOneKeyIdOAuthBindPrompt)
     // relies on the throw to skip its 24h throttle and retry, and reporting
     // NoLocalKeyless would let loginOneKeyId's full-logout branch clear the
     // shared keyless session slot + legacy OAuth blobs. Only the login UI

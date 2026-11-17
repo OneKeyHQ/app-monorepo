@@ -11,7 +11,11 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
-import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
+import type {
+  IBadgeProps,
+  IXStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -29,19 +33,26 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { ListItem } from '../../../components/ListItem';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EarnTestIDs } from '../testIDs';
+import {
+  EARN_MOBILE_RECOMMENDED_ASSET_COUNT,
+  pickMobileRecommendedAssets,
+} from '../utils/recommendedAssetsUtils';
 
 import { AprText } from './AprText';
+import { EARN_LIST_ROW_GAP } from './earnListRhythm';
 
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
 const CARD_PADDING_H = 20;
 const INITIAL_VISIBLE_COUNT = 4;
-const SKELETON_ITEM_COUNT = 4;
+const DESKTOP_SKELETON_ITEM_COUNT = 4;
 
 type IRecommendedLayoutVariant = 'mobile-list' | 'card-carousel';
 
@@ -53,9 +64,11 @@ const RecommendedBadges = memo(
   ({
     token,
     containerProps,
+    badgeProps,
   }: {
     token: IRecommendAsset;
     containerProps?: IXStackProps;
+    badgeProps?: IBadgeProps;
   }) => {
     if (!token.badges?.length) {
       return null;
@@ -75,6 +88,7 @@ const RecommendedBadges = memo(
             badgeType={badge.badgeType}
             badgeSize="sm"
             userSelect="none"
+            {...badgeProps}
           >
             <Badge.Text>{badge.tag}</Badge.Text>
           </Badge>
@@ -177,6 +191,7 @@ const RecommendedItem = memo(
 
     return (
       <YStack
+        testID={EarnTestIDs.recommendedItem(token.symbol)}
         role="button"
         gap="$2"
         px="$4"
@@ -201,7 +216,7 @@ const RecommendedItem = memo(
         <XStack gap="$3" ai="center" width="100%">
           <Token tokenImageUri={token.logoURI} size="md" />
           <SizableText size="$bodyLgMedium" flex={1} numberOfLines={1}>
-            {token.symbol}
+            {earnUtils.getDisplaySymbol(token)}
           </SizableText>
           <RecommendedBadges token={token} />
         </XStack>
@@ -224,11 +239,63 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
+// Extract the number from the server-side available.text (a localized label
+// followed by the amount, e.g. "Active 220.09") and build "Balance {number}"
+// on the client, so we do not depend on the server copy format (OK-58877).
+//
+// This scrape rests on an invariant the server currently guarantees: the
+// amount is produced by formatNumberWithFlag, which hard-codes '.' as the
+// decimal separator and ',' as the group separator, so the digits are always
+// ASCII regardless of locale — only the surrounding label is translated, and
+// no locale pack embeds a digit in that label. If the server ever switches to
+// locale-aware number formatting (comma decimals, non-Latin digits), this
+// silently truncates or blanks the balance. The durable fix is a structured
+// numeric field on IRecommendV2Token rather than parsing display copy
+// (PR 12791 review P2).
+const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
+function extractAvailableNumber(text?: string) {
+  return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
+}
+
+// The mobile list row is one line of title plus the balance. On native the
+// title has to stay on one line and take its height from its content: Yoga
+// keeps the flex basis it resolved for a `flex: 1` item and reuses the cached
+// measurements of nodes that were not dirtied, so one narrower layout pass
+// (the tab page is padded by stale landscape safe-area insets for a pass when
+// the fullscreen chart rotates back to portrait) wrapped the badge onto a
+// second line and left that two-line height behind once the width was back.
+// The title and the balance then drifted apart, or the rows kept the taller
+// height and ran into the next block (OK-67080). Browsers resolve the wrap
+// again on every layout, so web keeps wrapping long badge sets.
+const LIST_TITLE_ROW_PROPS: IXStackProps = platformEnv.isNative
+  ? { overflow: 'hidden' }
+  : { flex: 1, flexWrap: 'wrap' };
+// One line also has to hold a badge set that is wider than the row (several
+// badges, a long translation, a narrow screen). The symbol is what identifies
+// the row, so on native it keeps its width and the badges give way: the group
+// and each badge shrink, and a badge that got narrower ends its label with an
+// ellipsis. Nothing is cut off at the row edge and the symbol is never
+// squeezed out.
+const LIST_SYMBOL_FLEX_SHRINK = platformEnv.isNative ? 0 : 1;
+const LIST_BADGES_CONTAINER_PROPS: IXStackProps = platformEnv.isNative
+  ? {
+      justifyContent: 'flex-start',
+      flexWrap: 'nowrap',
+      flexShrink: 1,
+      overflow: 'hidden',
+    }
+  : { justifyContent: 'flex-start', flexShrink: 0 };
+const LIST_BADGE_PROPS: IBadgeProps | undefined = platformEnv.isNative
+  ? { flexShrink: 1 }
+  : undefined;
+
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
   const onPress = useRecommendedItemPress(token);
+  const availableNumber = extractAvailableNumber(token.available?.text);
 
   return (
     <ListItem
+      testID={EarnTestIDs.recommendedItem(token.symbol)}
       userSelect="none"
       onPress={onPress}
       renderAvatar={
@@ -238,18 +305,30 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
       <ListItem.Text
         flex={1}
         primary={
-          <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
-            <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-              {token.symbol}
+          <XStack gap="$2" ai="center" minWidth={0} {...LIST_TITLE_ROW_PROPS}>
+            <SizableText
+              size="$bodyLgMedium"
+              flexShrink={LIST_SYMBOL_FLEX_SHRINK}
+              numberOfLines={1}
+            >
+              {earnUtils.getDisplaySymbol(token)}
             </SizableText>
             <RecommendedBadges
               token={token}
-              containerProps={{
-                justifyContent: 'flex-start',
-                flexShrink: 0,
-              }}
+              containerProps={LIST_BADGES_CONTAINER_PROPS}
+              badgeProps={LIST_BADGE_PROPS}
             />
           </XStack>
+        }
+        secondary={
+          // Balance subtitle (OK-58877): number taken from available.text. The
+          // "Balance:" caption was dropped — the row already sits under the
+          // holdings section, so the label only cost width in longer locales.
+          availableNumber ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {availableNumber}
+            </SizableText>
+          ) : undefined
         }
       />
       <YStack alignItems="flex-end" justifyContent="center">
@@ -379,7 +458,7 @@ function WebRecommendedScroller({
         pr="$4"
         opacity={showLeftArrow ? 1 : 0}
         pointerEvents={showLeftArrow ? 'auto' : 'none'}
-        animation="quick"
+        transition="quick"
         animateOnly={['opacity']}
         style={{
           background:
@@ -407,7 +486,7 @@ function WebRecommendedScroller({
         pl="$4"
         opacity={showRightArrow ? 1 : 0}
         pointerEvents={showRightArrow ? 'auto' : 'none'}
-        animation="quick"
+        transition="quick"
         animateOnly={['opacity']}
         style={{
           background:
@@ -540,7 +619,10 @@ function RecommendedSectionContainer({
     <YStack gap="$3">
       <YStack gap="$1" pointerEvents="box-none" px="$pagePadding">
         <SizableText size="$headingLg" pointerEvents="box-none">
-          {intl.formatMessage({ id: ETranslations.market_trending })}
+          {/* Holdings-based recommendations, "Earns on your holding" (OK-58506) */}
+          {intl.formatMessage({
+            id: ETranslations.earns_on_your_holding__title,
+          })}
         </SizableText>
       </YStack>
       {children}
@@ -583,8 +665,10 @@ function RecommendedSectionSkeleton({
         variant={variant}
         disableHorizontalBleed={disableHorizontalBleed}
       >
-        <YStack>
-          {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
+        <YStack gap={EARN_LIST_ROW_GAP}>
+          {Array.from({
+            length: EARN_MOBILE_RECOMMENDED_ASSET_COUNT,
+          }).map((_, index) => (
             <RecommendedListSkeletonItem key={index} />
           ))}
         </YStack>
@@ -592,13 +676,13 @@ function RecommendedSectionSkeleton({
     );
   }
 
-  const skeletonCards = Array.from({ length: SKELETON_ITEM_COUNT }).map(
-    (_, index) => (
-      <YStack key={index} width={CARD_WIDTH} overflow="hidden">
-        <RecommendedCardSkeletonItem />
-      </YStack>
-    ),
-  );
+  const skeletonCards = Array.from({
+    length: DESKTOP_SKELETON_ITEM_COUNT,
+  }).map((_, index) => (
+    <YStack key={index} width={CARD_WIDTH} overflow="hidden">
+      <RecommendedCardSkeletonItem />
+    </YStack>
+  ));
 
   const Scroller = platformEnv.isNative
     ? NativeRecommendedScroller
@@ -610,7 +694,9 @@ function RecommendedSectionSkeleton({
       variant={variant}
       disableHorizontalBleed={disableHorizontalBleed}
     >
-      <Scroller itemCount={SKELETON_ITEM_COUNT}>{skeletonCards}</Scroller>
+      <Scroller itemCount={DESKTOP_SKELETON_ITEM_COUNT}>
+        {skeletonCards}
+      </Scroller>
     </RecommendedSectionContainer>
   );
 }
@@ -631,10 +717,18 @@ export function RecommendedSection({
   const media = useMedia();
   const [showAll, setShowAll] = useState(false);
   const variant = getRecommendedLayoutVariant(media.gtMd);
-  const visibleTokens = showAll
-    ? tokens
-    : tokens.slice(0, INITIAL_VISIBLE_COUNT);
-  const shouldShowMore = !showAll && tokens.length > INITIAL_VISIBLE_COUNT;
+  const mobileRecommendedTokens = useMemo(
+    () => pickMobileRecommendedAssets(tokens),
+    [tokens],
+  );
+  let visibleTokens = mobileRecommendedTokens;
+  if (variant === 'card-carousel') {
+    visibleTokens = showAll ? tokens : tokens.slice(0, INITIAL_VISIBLE_COUNT);
+  }
+  const shouldShowMore =
+    variant === 'card-carousel' &&
+    !showAll &&
+    tokens.length > INITIAL_VISIBLE_COUNT;
 
   if (showSkeleton) {
     return (
@@ -662,9 +756,13 @@ export function RecommendedSection({
         disableHorizontalBleed={disableHorizontalBleed}
       >
         <YStack>
-          {visibleTokens.map((token) => (
-            <RecommendedListItem key={token.symbol} token={token} />
-          ))}
+          {/* The gap wraps the rows only — the show-more button keeps its own
+              pt, so pulling it inside would stack gap + pt above it (OK-59904) */}
+          <YStack gap={EARN_LIST_ROW_GAP}>
+            {visibleTokens.map((token) => (
+              <RecommendedListItem key={token.symbol} token={token} />
+            ))}
+          </YStack>
           {showMoreButton}
         </YStack>
       </RecommendedSectionContainer>

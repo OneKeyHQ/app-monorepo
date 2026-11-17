@@ -23,7 +23,6 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTokenMetadataAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -37,6 +36,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import {
   SWAP_QUOTE_INPUT_DEBOUNCE_MS,
@@ -45,11 +45,11 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapDirectionType,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
-  type ISwapToken,
-  type ISwapTokenMetadata,
+  type ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
 import LimitExpirySelect from '../../components/LimitExpirySelect';
@@ -58,6 +58,7 @@ import SwapApprovingItem from '../../components/SwapApprovingItem';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
@@ -65,12 +66,15 @@ import {
   useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapQuoteTokenTaxPercentages } from '../../utils/swapTokenTaxUtils';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
+import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
+  fixedReverseRate?: boolean;
   onOpenProviderList?: () => void;
   refreshAction: (manual?: boolean) => void;
 }
@@ -81,10 +85,12 @@ function SwapQuoteResultAccordion({
   children,
   disabled,
   renderTrigger,
+  footer,
 }: {
   children: ReactNode;
   disabled: boolean;
   renderTrigger: (open: boolean) => ReactNode;
+  footer?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -97,44 +103,50 @@ function SwapQuoteResultAccordion({
   }, []);
 
   return (
-    <Accordion
-      type="single"
-      collapsible
-      value={isOpen ? SWAP_ACCORDION_VALUE : ''}
-      onValueChange={onValueChange}
-    >
-      <Accordion.Item value={SWAP_ACCORDION_VALUE}>
-        <Accordion.Trigger
-          unstyled
-          testID={SwapTestIDs.quoteDetailsToggle}
-          borderWidth={0}
-          bg="$transparent"
-          p="$0"
-          cursor="pointer"
-          disabled={disabled}
-        >
-          {({ open }: { open: boolean }) => renderTrigger(open)}
-        </Accordion.Trigger>
-        <HeightTransition hide={!isOpen}>
-          <Accordion.Content
-            forceMount
-            gap="$4"
+    <YStack gap="$3">
+      <Accordion
+        type="single"
+        collapsible
+        value={isOpen ? SWAP_ACCORDION_VALUE : ''}
+        onValueChange={onValueChange}
+      >
+        <Accordion.Item value={SWAP_ACCORDION_VALUE}>
+          <Accordion.Trigger
+            unstyled
+            testID={SwapTestIDs.quoteDetailsToggle}
+            borderWidth={0}
+            bg="$transparent"
             p="$0"
-            pointerEvents={isOpen ? 'auto' : 'none'}
-            aria-hidden={!isOpen}
-            accessibilityElementsHidden={!isOpen}
-            importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
-            {...(platformEnv.isNative ? {} : { inert: !isOpen })}
+            cursor="pointer"
+            disabled={disabled}
           >
-            {children}
-          </Accordion.Content>
-        </HeightTransition>
-      </Accordion.Item>
-    </Accordion>
+            {({ open }: { open: boolean }) => renderTrigger(open)}
+          </Accordion.Trigger>
+          <HeightTransition hide={!isOpen}>
+            <Accordion.Content
+              forceMount
+              gap="$4"
+              p="$0"
+              pointerEvents={isOpen ? 'auto' : 'none'}
+              aria-hidden={!isOpen}
+              accessibilityElementsHidden={!isOpen}
+              importantForAccessibility={
+                isOpen ? 'auto' : 'no-hide-descendants'
+              }
+              {...(platformEnv.isNative ? {} : { inert: !isOpen })}
+            >
+              {children}
+            </Accordion.Content>
+          </HeightTransition>
+        </Accordion.Item>
+      </Accordion>
+      {footer}
+    </YStack>
   );
 }
 
 const SwapQuoteResult = ({
+  fixedReverseRate,
   onOpenProviderList,
   quoteResult,
   refreshAction,
@@ -143,8 +155,20 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  // External-wallet accounts pay the fee estimated by the connected wallet
+  // itself, so the "Free" claim never holds; show the real quoted fee, and
+  // fall back to the "zero fee with OneKey wallet" promo copy only when the
+  // quote carries no fee estimate (OK-61254).
+  const fromAccountId = swapFromAddressInfo?.accountInfo?.account?.id;
+  const isExternalAccount = useMemo(
+    () =>
+      fromAccountId
+        ? accountUtils.isExternalAccount({ accountId: fromAccountId })
+        : false,
+    [fromAccountId],
+  );
 
   const [
     { swapApprovingTransaction, swapApprovingLoading },
@@ -196,13 +220,7 @@ const SwapQuoteResult = ({
   }, [slippageItem.key, slippageItem.value]);
 
   const calculateTaxItem = useCallback(
-    (
-      tokenBuyTaxBps: BigNumber,
-      tokenSellTaxBps: BigNumber,
-      tokenInfo?: ISwapToken,
-    ) => {
-      const showTax = BigNumber.maximum(tokenBuyTaxBps, tokenSellTaxBps);
-      const finalShowTax = showTax.dividedBy(100).toNumber();
+    (taxPercentage: string, tokenInfo?: ISwapTokenBase) => {
       return (
         <SwapCommonInfoItem
           title={intl.formatMessage(
@@ -213,7 +231,7 @@ const SwapQuoteResult = ({
           )}
           isLoading={isQuotePresentationLoading}
           valueComponent={
-            <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
+            <SizableText size="$bodyMdMedium">{`${taxPercentage}%`}</SizableText>
           }
         />
       );
@@ -221,51 +239,8 @@ const SwapQuoteResult = ({
     [intl, isQuotePresentationLoading],
   );
 
-  const tokenMetadataParse = useCallback(
-    (
-      tokenMetadata: ISwapTokenMetadata,
-      fromTokenInfo?: ISwapToken,
-      toTokenInfo?: ISwapToken,
-    ) => {
-      const buyToken = tokenMetadata?.buyToken;
-      const sellToken = tokenMetadata?.sellToken;
-      let buyTaxItem = null;
-      let sellTaxItem = null;
-      const buyTokenBuyTaxBps = new BigNumber(
-        buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
-      );
-      const buyTokenSellTaxBps = new BigNumber(
-        buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
-      );
-      const sellTokenBuyTaxBps = new BigNumber(
-        sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
-      );
-      const sellTokenSellTaxBps = new BigNumber(
-        sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
-      );
-      if (buyTokenBuyTaxBps.gt(0) || buyTokenSellTaxBps.gt(0)) {
-        buyTaxItem = calculateTaxItem(
-          buyTokenBuyTaxBps,
-          buyTokenSellTaxBps,
-          toTokenInfo,
-        );
-      }
-      if (sellTokenBuyTaxBps.gt(0) || sellTokenSellTaxBps.gt(0)) {
-        sellTaxItem = calculateTaxItem(
-          sellTokenBuyTaxBps,
-          sellTokenSellTaxBps,
-          fromTokenInfo,
-        );
-      }
-      return (
-        <>
-          {sellTaxItem}
-          {buyTaxItem}
-        </>
-      );
-    },
-    [calculateTaxItem],
-  );
+  const { buyTaxPercentage, sellTaxPercentage } =
+    getSwapQuoteTokenTaxPercentages(quoteResultForDisplay);
 
   const quoting = isQuotePresentationLoading;
 
@@ -274,6 +249,14 @@ const SwapQuoteResult = ({
   const isWaitingForQuote =
     quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
   const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
+  // OK-58690: a quote event error without any displayable result used to
+  // render nothing at all here, which removed the manual refresh entry and
+  // made this row pop in/out around auto refreshes. Keep the row mounted;
+  // with no rate available it falls into the "failed to fetch the quote"
+  // copy — an event failure is not a liquidity problem, so it must not
+  // reuse the no-provider presentation.
+  const isQuoteEventErrorWithoutResult =
+    quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay;
   const showNoProvider =
     quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
     !hasQuoteResultForDisplay;
@@ -331,9 +314,6 @@ const SwapQuoteResult = ({
       </XStack>
     );
   }
-  if (quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay) {
-    return null;
-  }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     if (
       quoteResultForDisplay?.protocol === EProtocolOfExchange.LIMIT &&
@@ -350,7 +330,6 @@ const SwapQuoteResult = ({
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             toToken={toToken}
-            showLock={!!quoteResultForDisplay?.allowanceResult}
             percentageFee={quoteResultForDisplay?.fee?.percentageFee}
             percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
             onPress={
@@ -373,6 +352,13 @@ const SwapQuoteResult = ({
             />
           ) : null}
 
+          <SwapQuoteRiskAlert
+            quote={quoteResultForDisplay}
+            fromToken={fromToken}
+            toToken={toToken}
+            isLoading={isQuotePresentationLoading}
+            hasQuoteError={quoteUiPhase === ESwapQuoteUiPhase.Error}
+          />
           <LimitExpirySelect
             currentSelectExpiryValue={swapLimitExpirySelect}
             onSelectExpiryValue={setSwapLimitExpirySelect}
@@ -390,7 +376,8 @@ const SwapQuoteResult = ({
   if (
     (swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
       quoteResultForDisplay?.isWrapped ||
-      showNoProvider) &&
+      showNoProvider ||
+      isQuoteEventErrorWithoutResult) &&
     fromToken &&
     toToken &&
     !new BigNumber(fromAmountDebounce.value).isZero() &&
@@ -403,8 +390,18 @@ const SwapQuoteResult = ({
           swapQuoteLoading ||
           isStaleRefreshing
         }
+        footer={
+          <SwapQuoteRiskAlert
+            quote={quoteResultForDisplay}
+            fromToken={fromToken}
+            toToken={toToken}
+            isLoading={isQuotePresentationLoading}
+            hasQuoteError={quoteUiPhase === ESwapQuoteUiPhase.Error}
+          />
+        }
         renderTrigger={(open) => (
           <SwapQuoteResultRate
+            fixedReverse={fixedReverseRate}
             rate={quoteResultForDisplay?.instantRate}
             quoting={quoting}
             fromToken={fromToken}
@@ -439,7 +436,6 @@ const SwapQuoteResult = ({
             isLoading={isQuotePresentationLoading}
             fromToken={fromToken}
             toToken={toToken}
-            showLock={!!quoteResultForDisplay?.allowanceResult}
             percentageFee={quoteResultForDisplay?.fee?.percentageFee}
             percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
             onPress={
@@ -478,7 +474,9 @@ const SwapQuoteResult = ({
             })}
             isLoading={isQuotePresentationLoading}
             valueComponent={
-              quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
+              quoteResultForDisplay?.fee?.isFreeNetworkFee &&
+              (!isExternalAccount ||
+                !quoteResultForDisplay?.fee?.estimatedFeeFiatValue) ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon
                     name="PartyCelebrateSolid"
@@ -488,7 +486,9 @@ const SwapQuoteResult = ({
                   />
                   <SizableText size="$bodyMdMedium" color="$textSuccess">
                     {intl.formatMessage({
-                      id: ETranslations.prime_status_free,
+                      id: isExternalAccount
+                        ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
+                        : ETranslations.prime_status_free,
                     })}
                   </SizableText>
                 </XStack>
@@ -518,11 +518,16 @@ const SwapQuoteResult = ({
             }
           />
         ) : null}
-        {swapTokenMetadata?.swapTokenMetadata
-          ? tokenMetadataParse(
-              swapTokenMetadata?.swapTokenMetadata,
-              fromToken,
-              toToken,
+        {sellTaxPercentage
+          ? calculateTaxItem(
+              sellTaxPercentage,
+              quoteResultForDisplay?.fromTokenInfo,
+            )
+          : null}
+        {buyTaxPercentage
+          ? calculateTaxItem(
+              buyTaxPercentage,
+              quoteResultForDisplay?.toTokenInfo,
             )
           : null}
       </SwapQuoteResultAccordion>

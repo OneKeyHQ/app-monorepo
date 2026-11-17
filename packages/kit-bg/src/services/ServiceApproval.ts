@@ -1,7 +1,10 @@
+import { isNil, uniqBy } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -314,6 +317,119 @@ class ServiceApproval extends ServiceBase {
     }
 
     return true;
+  }
+
+  // The home dot treats a review on All Networks as covering every network,
+  // while a single-network review only covers that network.
+  @backgroundMethod()
+  async shouldShowRiskApprovalsDot({
+    networkId,
+    accountId,
+    indexedAccountId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountId: string;
+    indexedAccountId?: string;
+    accountAddress?: string;
+  }) {
+    const { approvalAlertResurfaceDays } =
+      await this.getApprovalResurfaceDaysConfig();
+    const resurfaceMs = timerUtils.getTimeDurationMs({
+      day: approvalAlertResurfaceDays,
+    });
+    const now = Date.now();
+    const countStaleReviews = async (
+      targets: { networkId: string; accountId: string }[],
+    ) => {
+      const reviewTimes =
+        await this.backgroundApi.simpleDb.approval.getRiskApprovalsLastReviewTimes(
+          targets,
+        );
+      return reviewTimes.filter(
+        (time) => isNil(time) || now - time > resurfaceMs,
+      ).length;
+    };
+
+    const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+    const coveringTargets = [{ networkId, accountId }];
+    if (!isAllNetwork) {
+      const allNetworkAccountId = await this._getAllNetworkAccountIdSafe({
+        accountId,
+        indexedAccountId,
+      });
+      if (allNetworkAccountId) {
+        coveringTargets.push({
+          networkId: getNetworkIdsMap().onekeyall,
+          accountId: allNetworkAccountId,
+        });
+      }
+    }
+    // Skip the approvals request while a covering review is still fresh.
+    if ((await countStaleReviews(coveringTargets)) < coveringTargets.length) {
+      return false;
+    }
+
+    const { contractApprovals } = await this.fetchAccountApprovals({
+      networkId,
+      accountId,
+      indexedAccountId,
+      accountAddress,
+    });
+    const riskApprovals = contractApprovals.filter(
+      (item) => item.isRiskContract,
+    );
+    if (riskApprovals.length === 0) {
+      return false;
+    }
+    if (!isAllNetwork) {
+      return true;
+    }
+    const riskTargets = uniqBy(
+      riskApprovals,
+      (item) => `${item.networkId}_${item.accountId}`,
+    ).map((item) => ({ networkId: item.networkId, accountId: item.accountId }));
+    return (await countStaleReviews(riskTargets)) > 0;
+  }
+
+  async _getAllNetworkAccountIdSafe({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    indexedAccountId?: string;
+  }) {
+    if (accountUtils.isOthersAccount({ accountId })) {
+      return accountId;
+    }
+    if (!indexedAccountId) {
+      return undefined;
+    }
+    try {
+      return await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
+        {
+          indexedAccountId,
+          networkId: getNetworkIdsMap().onekeyall,
+          deriveType: 'default',
+        },
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async markRiskApprovalsDotSeen({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateRiskApprovalsDotConfig({
+      networkId,
+      accountId,
+    });
   }
 
   @backgroundMethod()

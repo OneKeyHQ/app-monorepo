@@ -1,9 +1,11 @@
+import type { EUniversalSearchSource } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 const searchTypeTrackingNameMap: Record<EUniversalSearchType, string> = {
   [EUniversalSearchType.Address]: 'address',
   [EUniversalSearchType.MarketToken]: 'tokens',
   [EUniversalSearchType.V2MarketToken]: 'market',
+  [EUniversalSearchType.MarketStock]: 'stocks',
   [EUniversalSearchType.AccountAssets]: 'myAssets',
   [EUniversalSearchType.Dapp]: 'dApps',
   [EUniversalSearchType.Perp]: 'perps',
@@ -15,6 +17,10 @@ export function getSearchTypeTrackingName(type: EUniversalSearchType): string {
 }
 
 export interface IUniversalSearchParams {
+  /**
+   * Business page where the search modal was opened
+   */
+  source: EUniversalSearchSource;
   /**
    * The search text entered by the user
    */
@@ -30,6 +36,7 @@ export interface IUniversalSearchParams {
 }
 
 export interface ISearchResultClickParams {
+  source: EUniversalSearchSource;
   searchText: string;
   type: EUniversalSearchType;
   itemId: string;

@@ -11,8 +11,11 @@ import { StockTokenCheckScene } from './scenes/stockTokenCheck';
 import { StockTradeAlertScene } from './scenes/stockTradeAlert';
 import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
 import { SwapKlineScene } from './scenes/swapKline';
+import { SwapLowSlippageWarningScene } from './scenes/swapLowSlippageWarning';
 import { SwapOrderLongPendingWarningScene } from './scenes/swapOrderLongPendingWarning';
+import { SwapProScene } from './scenes/swapPro';
 import { SwapQuoteScene } from './scenes/swapQuote';
+import { SwapReviewScene } from './scenes/swapReview';
 import { SwapSendTxScene } from './scenes/swapSendTx';
 import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
 import { TradeCategorySwitchScene } from './scenes/tradeCategorySwitch';
@@ -41,11 +44,18 @@ export class SwapScope extends BaseScope {
 
   swapQuote = this.createScene('swapQuote', SwapQuoteScene);
 
+  swapReview = this.createScene('swapReview', SwapReviewScene);
+
   enterSwap = this.createScene('enterSwap', EnterSwapScene);
 
   swapEstimateFee = this.createScene('swapEstimateFee', SwapEstimateFeeScene);
 
   swapKline = this.createScene('swapKline', SwapKlineScene);
+
+  swapLowSlippageWarning = this.createScene(
+    'swapLowSlippageWarning',
+    SwapLowSlippageWarningScene,
+  );
 
   stockTokenCheck = this.createScene('stockTokenCheck', StockTokenCheckScene);
 
@@ -64,4 +74,6 @@ export class SwapScope extends BaseScope {
     'swapOrderLongPendingWarning',
     SwapOrderLongPendingWarningScene,
   );
+
+  swapPro = this.createScene('swapPro', SwapProScene);
 }

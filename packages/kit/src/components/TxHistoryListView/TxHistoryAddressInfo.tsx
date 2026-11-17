@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import {
   Badge,
   Icon,
@@ -17,9 +19,14 @@ import type { GestureResponderEvent } from 'react-native';
 function TxHistoryAddressInfo({
   address,
   badge,
+  popoverProps,
 }: {
   address: string;
   badge: IAddressBadge;
+  popoverProps?: Pick<
+    ComponentProps<typeof Popover>,
+    'open' | 'onOpenChange' | 'renderTrigger'
+  >;
 }) {
   const { copyText } = useClipboard();
   const { gtMd } = useMedia();
@@ -99,6 +106,7 @@ function TxHistoryAddressInfo({
           ) : null}
         </YStack>
       }
+      {...popoverProps}
     />
   );
 }

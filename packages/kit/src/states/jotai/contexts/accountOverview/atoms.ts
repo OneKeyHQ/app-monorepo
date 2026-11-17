@@ -1,3 +1,5 @@
+import type { IPortfolioCategoryRefreshResult } from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync';
+import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -65,6 +67,29 @@ export const {
   initialized: false,
 });
 
+export type IHomePrivacyTokenStatus = {
+  accountId: string;
+  networkId: string;
+  status: ILocalWalletSyncStatus;
+  needsVerification?: boolean;
+};
+
+export const {
+  atom: homePrivacyTokenStatusAtom,
+  use: useHomePrivacyTokenStatusAtom,
+} = contextAtom<IHomePrivacyTokenStatus | undefined>(undefined);
+
+export type IHomeMoneroEnableRequest = {
+  walletId: string;
+  indexedAccountId: string;
+  accountId: string;
+  networkId: string;
+};
+
+export const { use: useHomeMoneroEnableRequestAtom } = contextAtom<
+  IHomeMoneroEnableRequest | undefined
+>(undefined);
+
 export const {
   atom: lastConfirmedOverviewBalanceAtom,
   use: useLastConfirmedOverviewBalanceAtom,
@@ -84,6 +109,36 @@ export const {
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.lastConfirmedOverviewBalanceAtom,
   },
 );
+
+export const {
+  atom: portfolioCategoryRefreshAtom,
+  use: usePortfolioCategoryRefreshAtom,
+} = contextAtom<{
+  ownerKey: string;
+  requestId: number;
+  isRefreshing: boolean;
+  failedSources: IPortfolioCategoryRefreshResult['failedSources'];
+  heldTotalFiatUsd?: string;
+  data?: IPortfolioCategoryRefreshResult;
+  dataRequestId?: number;
+  retry?: () => void;
+}>({ ownerKey: '', requestId: 0, isRefreshing: false, failedSources: [] });
+
+// The amount and categories currently rendered in the Home balance header.
+// Portfolio sync reads this owner-scoped view instead of fetching a second
+// valuation when it builds the device payload.
+export const {
+  atom: homePortfolioDisplayAtom,
+  use: useHomePortfolioDisplayAtom,
+} = contextAtom<{
+  ownerKey: string;
+  totalFiatUsd?: string;
+  tokenFiatUsd?: string;
+  defiFiatUsd?: string;
+  perpsFiatUsd?: string;
+  isLive: boolean;
+  categoryRevision?: number;
+}>({ ownerKey: '', isLive: false });
 
 export const {
   atom: overviewTokenCacheStateAtom,
@@ -130,11 +185,12 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
-    hasRiskApprovals: boolean;
-    riskApprovalsCount: number;
+    ownerKey: string;
+    // Risk approvals the user has not reviewed within the resurface window.
+    showRiskApprovalsDot: boolean;
   }>({
-    hasRiskApprovals: false,
-    riskApprovalsCount: 0,
+    ownerKey: '',
+    showRiskApprovalsDot: false,
   });
 
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =

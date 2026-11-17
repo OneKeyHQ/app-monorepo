@@ -18,11 +18,16 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-export function CloudAccountBar() {
+export function CloudAccountBar({
+  refreshNonce = 0,
+}: {
+  refreshNonce?: number;
+}) {
   const intl = useIntl();
   const { result: cloudAccountInfo } = usePromiseResult(async () => {
     return backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Successful page-owned authorization invalidates the mounted account query.
+  }, [refreshNonce]);
 
   const googleEmail = useMemo(() => {
     return cloudAccountInfo?.googleDrive?.userInfo?.user?.email;

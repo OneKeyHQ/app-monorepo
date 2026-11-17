@@ -69,7 +69,6 @@ export function usePaymentTokenPrice(
     {
       watchLoading: true,
       pollingInterval: 5000, // 5 seconds
-      undefinedResultIfReRun: true,
     },
   );
 

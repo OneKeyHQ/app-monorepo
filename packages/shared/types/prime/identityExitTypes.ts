@@ -1,3 +1,4 @@
+import type { EPrimeAuthSessionSource } from './primeTypes';
 import type { EOAuthSocialLoginProvider } from '../../src/consts/authConsts';
 
 export type IIdentityExitPlanId = string & {
@@ -12,10 +13,22 @@ export type IKeylessOAuthSessionRollbackHandle = string & {
   readonly __keylessOAuthSessionRollbackHandle: 'IKeylessOAuthSessionRollbackHandle';
 };
 
+export type IExplicitLocalOneKeyIdLogoutProjection = {
+  authSessionSource?: EPrimeAuthSessionSource;
+  oneKeyIdAuthState?: 'loggedIn' | 'loggedOut';
+  isLoggedIn: boolean;
+  isLoggedInOnServer: boolean;
+  onekeyUserId?: string;
+};
+
 export type IIdentityExitIntent =
   | {
+      type: 'switchEnvironment';
+      scene: 'devSettings';
+    }
+  | {
       type: 'logoutOneKeyId';
-      scene: 'profile' | 'referral';
+      scene: 'profile' | 'referral' | 'devSettings';
     }
   | {
       type: 'switchOneKeyIdAccount';
@@ -52,6 +65,10 @@ export type IIdentityExitFlowResult =
 
 export type IIdentityExitPlan =
   | {
+      status: 'completed';
+      receipt: Extract<IIdentityExitReceipt, { status: 'completed' }>;
+    }
+  | {
       status: 'blocked';
       code:
         | 'STATE_UNAVAILABLE'
@@ -66,6 +83,7 @@ export type IIdentityExitPlan =
       expiresAt: number;
       presentation:
         | { type: 'oneKeyIdOnly' }
+        | { type: 'switchEnvironment' }
         | {
             type: 'keylessOnly';
             currentProvider: EOAuthSocialLoginProvider;
@@ -92,7 +110,7 @@ export type IIdentityExitPlan =
 
 export type IExecuteIdentityExitParams = {
   planId: IIdentityExitPlanId;
-  acknowledgement?: 'keylessWalletRemoval';
+  acknowledgement?: 'oneKeyIdLogout' | 'keylessWalletRemoval';
 };
 
 export type IStartIndependentOneKeyIdOAuth = {

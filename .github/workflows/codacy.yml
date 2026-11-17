@@ -1,61 +1,79 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-# This workflow checks out code, performs a Codacy security scan
-# and integrates the results with the
-# GitHub Advanced Security code scanning feature.  For more information on
-# the Codacy security scan action usage and parameters, see
-# https://github.com/codacy/codacy-analysis-cli-action.
-# For more information on Codacy Analysis CLI in general, see
-# https://github.com/codacy/codacy-analysis-cli.
-
 name: Codacy Security Scan
 
 on:
   push:
-    branches: [ "onekey" ]
+    branches: [ "x", "hotfix/*", "release/*" ]
   pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ "onekey" ]
+    branches: [ "x", "hotfix/*", "release/*" ]
   schedule:
-    - cron: '36 17 * * 0'
+    - cron: "36 17 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   codacy-security-scan:
-    permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: Codacy Security Scan
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    env:
+      CODACY_CLI_VERSION: 1.0.0-main.380.sha.27e119a
+      CODACY_CLI_SHA256: 3811e1240381a0414de43ecfea3fdbd660ef72f793019a1d2c0ee3a1b0fb980e
     steps:
-      # Checkout the repository to the GitHub Actions runner
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
-      - name: Run Codacy Analysis CLI
-        uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
-        with:
-          # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
-          # You can also omit the token and run the tools that support default configurations
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          verbose: true
-          output: results.sarif
-          format: sarif
-          # Adjust severity of non-security issues
-          gh-code-scanning-compat: true
-          # Force 0 exit code to allow SARIF file generation
-          # This will handover control about PR rejection to the GitHub side
-          max-allowed-issues: 2147483647
+      - name: Install Codacy CLI v2
+        run: |
+          archive="${RUNNER_TEMP}/codacy-cli-v2.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/codacy/codacy-cli-v2/releases/download/${CODACY_CLI_VERSION}/codacy-cli-v2_${CODACY_CLI_VERSION}_linux_amd64.tar.gz" \
+            --output "${archive}"
+          echo "${CODACY_CLI_SHA256}  ${archive}" | sha256sum --check
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}"
+          "${RUNNER_TEMP}/codacy-cli-v2" version
 
-      # Upload the SARIF file generated in the previous step
-      - name: Upload SARIF results file
-        uses: github/codeql-action/upload-sarif@v2
+      - name: Initialize Codacy default configuration
+        run: "${RUNNER_TEMP}/codacy-cli-v2 init"
+
+      - name: Run Codacy security analysis
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/codacy-cli-v2" analyze \
+            --tool opengrep \
+            --format sarif \
+            --output results.sarif \
+            .
+          test -s results.sarif
+          if ! jq -e '.runs | type == "array" and length > 0' results.sarif > /dev/null; then
+            echo "::error::Codacy Opengrep produced no SARIF runs; analysis did not execute"
+            exit 1
+          fi
+
+      - name: Normalize SARIF for GitHub
+        run: |
+          set -euo pipefail
+          jq '(.runs[].tool.driver.rules //= [])' \
+            results.sarif > normalized-results.sarif
+          test -s normalized-results.sarif
+          jq -e '
+            .version == "2.1.0" and
+            (.runs | type == "array" and length > 0) and
+            all(.runs[]; (.tool.driver.rules | type) == "array")
+          ' normalized-results.sarif > /dev/null
+          mv normalized-results.sarif results.sarif
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
+          category: codacy-opengrep

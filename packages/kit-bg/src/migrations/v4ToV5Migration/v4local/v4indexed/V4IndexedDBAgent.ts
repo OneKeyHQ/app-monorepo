@@ -2,6 +2,7 @@ import { isNil, isNumber } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import storageChecker from '@onekeyhq/shared/src/storageChecker/storageChecker';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { V4LocalDbAgentBase } from '../V4LocalDbAgentBase';
@@ -98,6 +99,10 @@ export class V4IndexedDBAgent
     alwaysCreate: boolean;
   }) {
     if (!this.txPair || alwaysCreate) {
+      // Raw readwrite path (bypasses IndexedDBPromised): keep the disk-full
+      // guard the IndexedDB shim used to apply here before it became
+      // measurement-only.
+      storageChecker.checkIfDiskIsFullSync();
       const dbTx = db.transaction(V4_ALL_LOCAL_DB_STORE_NAMES, 'readwrite');
 
       const contextStore = this._getOrCreateObjectStore(

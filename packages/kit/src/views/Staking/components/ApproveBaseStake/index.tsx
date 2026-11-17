@@ -32,6 +32,7 @@ import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -47,6 +48,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
@@ -61,7 +63,7 @@ import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
@@ -135,6 +137,7 @@ export function ApproveBaseStake({
   rewardAssets,
   poolFee,
 }: PropsWithChildren<IApproveBaseStakeProps>) {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -909,6 +912,8 @@ export function ApproveBaseStake({
           currency: currentValue ? symbol : undefined,
         }}
         enableMaxAmount
+        usePercentageKeyboardAccessory
+        onAmountFocusChange={onAmountFocusChange}
         onSelectPercentageStage={onSelectPercentageStage}
       />
       {platformEnv.isDev ? (
@@ -1013,7 +1018,7 @@ export function ApproveBaseStake({
                       borderRadius="$2"
                     />
                     <SizableText size="$bodyMd">
-                      {capitalizeString(providerName || '')}
+                      {getEarnProviderDisplayName(providerName || '')}
                     </SizableText>
                   </XStack>
                   <XStack>
@@ -1025,7 +1030,7 @@ export function ApproveBaseStake({
                       </SizableText>
                     )}
                     <YStack
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={
                         open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
@@ -1046,9 +1051,9 @@ export function ApproveBaseStake({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
+            <Accordion.HeightAnimator transition="quick">
               <Accordion.Content
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 px={0}
@@ -1099,9 +1104,12 @@ export function ApproveBaseStake({
             }}
           />
         </Stack>
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
+        {platformEnv.isNativeIOSPhone ? null : (
+          <PercentageStageOnKeyboard
+            isAmountFocused={isAmountFocused}
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        )}
       </Page.Footer>
     </StakingFormWrapper>
   );

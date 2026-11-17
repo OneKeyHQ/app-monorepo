@@ -18,6 +18,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,26 +30,25 @@ import {
   formatSegmentLocalRange,
   getDeviceUtcOffsetLabel,
   getUSMarketTradingHours,
-  isOndoUSMarketStock,
   resolveUSTradingHoursActiveRow,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
-type ILiquidityLevel = 'high' | 'moderate' | 'low' | 'none';
+import type { GestureResponderEvent } from 'react-native';
+
+type ILiquidityLevel = 'high' | 'moderate' | 'low';
 
 const LIQUIDITY_LABELS: Record<ILiquidityLevel, ETranslations> = {
   high: ETranslations.trading_hours_liquidity_high,
   moderate: ETranslations.trading_hours_liquidity_moderate,
   low: ETranslations.trading_hours_liquidity_low,
-  none: ETranslations.trading_hours_liquidity_none,
 };
 
 const LIQUIDITY_FILLED_BARS: Record<ILiquidityLevel, number> = {
   high: 4,
   moderate: 2,
   low: 1,
-  none: 0,
 };
 
 const ROW_META: Array<{
@@ -91,7 +91,9 @@ const ROW_META: Array<{
     row: 'halts',
     icon: 'PauseOutline',
     titleId: ETranslations.trading_hours_trading_halts,
-    liquidity: 'none',
+    // A halt pauses the UNDERLYING stock, not token trading — on-chain
+    // liquidity thins out but does not vanish (OK-58986).
+    liquidity: 'low',
   },
 ];
 
@@ -174,6 +176,7 @@ function SessionRow({
   icon,
   title,
   isActive,
+  showNowBadge = true,
   liquidity,
   dense,
   children,
@@ -181,6 +184,8 @@ function SessionRow({
   icon: IKeyOfIcons;
   title: string;
   isActive: boolean;
+  /** Off during session gaps — "Now" would contradict the awaiting chip. */
+  showNowBadge?: boolean;
   liquidity: ILiquidityLevel;
   dense?: boolean;
   children: ReactNode;
@@ -210,7 +215,7 @@ function SessionRow({
             <SizableText size={dense ? '$bodyMdMedium' : '$bodyLgMedium'}>
               {title}
             </SizableText>
-            {isActive ? (
+            {isActive && showNowBadge ? (
               <Stack
                 bg="$iconSuccess"
                 borderRadius="$full"
@@ -271,7 +276,7 @@ function TradingHoursContent({
   dense?: boolean;
 }) {
   const intl = useIntl();
-  const marketStatus = useUSMarketStatus();
+  const { format, formatDate } = useFormatDate();
   const pagePx = dense ? '$4' : '$5';
   const detailTextSize = dense ? '$bodySm' : '$bodyMd';
 
@@ -284,26 +289,41 @@ function TradingHoursContent({
 
   const tradingHours = useMemo(() => getUSMarketTradingHours(now), [now]);
 
+  const marketStatus = useUSMarketStatus();
   const activeRow = resolveUSTradingHoursActiveRow({
+    status: marketStatus,
     isOpen: stock.isOpen,
     isPaused: stock.isPaused,
-    status: marketStatus,
     tradingHours,
     now,
   });
+  // During a gap the "Now" pill would contradict the chip's "Awaiting open"
+  // — keep the upcoming session row highlighted but drop the pill. The
+  // closed/halts rows are not gap-driven, so their pill stays.
+  const showNowBadge =
+    !tradingHours.isNowInSessionGap ||
+    activeRow === 'closed' ||
+    activeRow === 'halts';
+  // Past the overnight close the timeline still describes the cycle that
+  // just ended: the now-dot pins to its far right while the highlighted
+  // (upcoming) pre-market segment sits at its far left — hide it rather than
+  // point at both ends at once.
+  const isCycleEdgeGap =
+    tradingHours.isNowInSessionGap &&
+    now.getTime() >= tradingHours.cycleEndInstant;
   const dimmed = activeRow === 'closed' || activeRow === 'halts';
-  // 7×24 instrument while the market is closed: the subtitle switches to the
-  // dedicated 24/7 copy, which also makes the generic risk notice redundant.
-  const isClosedTradable = activeRow === 'closed' && stock.isOpen === true;
+  // 7×24 instrument while the market is closed (the "24/7" chip state): the
+  // subtitle switches to the dedicated around-the-clock copy, which also
+  // makes the generic risk notice redundant.
+  // A US listing is never 7×24; its `isOpen` only disagrees when stale.
+  const is247TradableClosed =
+    activeRow === 'closed' && stock.isOpen === true && !stock.isUSListing;
 
   const weekendSpanText = useMemo(() => {
-    const formatWeekendBoundary = (instant: number) =>
-      intl.formatDate(new Date(instant), {
-        weekday: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
+    const formatWeekendBoundary = (instant: number) => {
+      const date = new Date(instant);
+      return `${format(date, 'EEE')} ${formatDate(date, { onlyTime: true })}`;
+    };
     return intl.formatMessage(
       { id: ETranslations.trading_hours_market_closed_time },
       {
@@ -311,7 +331,7 @@ function TradingHoursContent({
         end: formatWeekendBoundary(tradingHours.weekendEndInstant),
       },
     );
-  }, [intl, tradingHours]);
+  }, [intl, tradingHours, format, formatDate]);
 
   // The badge used to surface `stock.description` via a hover tooltip; the
   // panel replaces that tooltip, so re-surface the note here. Only the first
@@ -332,15 +352,16 @@ function TradingHoursContent({
       <YStack px={pagePx} pt="$1">
         <SizableText size={detailTextSize} color="$textSubdued">
           {intl.formatMessage({
-            id: isClosedTradable
+            id: is247TradableClosed
               ? ETranslations.trading_hours_closed_tradable_description
               : ETranslations.trading_hours_description,
           })}
         </SizableText>
       </YStack>
 
-      {/* The whole timeline is meaningless while closed/halted — hide it. */}
-      {dimmed ? null : (
+      {/* The whole timeline is meaningless while closed/halted, and lies at
+          the cycle edge — hide it. */}
+      {dimmed || isCycleEdgeGap ? null : (
         <YStack px={pagePx} pt={dense ? '$3' : '$4'} pb="$1" gap="$1.5">
           <TradingHoursTimeline
             segments={tradingHours.segments}
@@ -429,6 +450,7 @@ function TradingHoursContent({
               icon={icon}
               title={title}
               isActive={isActive}
+              showNowBadge={showNowBadge}
               liquidity={liquidity}
               dense={dense}
             >
@@ -438,7 +460,7 @@ function TradingHoursContent({
         })}
       </YStack>
 
-      {isClosedTradable ? null : (
+      {is247TradableClosed ? null : (
         <YStack px={pagePx} pt="$2">
           <SizableText size="$bodySm" color="$textDisabled">
             {intl.formatMessage({
@@ -539,11 +561,13 @@ function getNodeRect(node: unknown): DOMRect | null {
 function TradingHoursHoverPopover({
   stock,
   renderTrigger,
+  defaultOpen = false,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
 
@@ -568,6 +592,13 @@ function TradingHoursHoverPopover({
       openTimerRef.current = null;
       setIsOpen(true);
     }, HOVER_OPEN_DELAY_MS);
+  }, []);
+  const handleTriggerPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+    setIsOpen(true);
+  }, []);
+  const handleContentPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
   }, []);
   useEffect(() => cancelPendingOpen, [cancelPendingOpen]);
 
@@ -630,18 +661,28 @@ function TradingHoursHoverPopover({
     <Popover
       open={isOpen}
       onOpenChange={setIsOpen}
+      // Start-aligned: some hosts stretch the trigger to the full column
+      // (the inline status row measures that width), and the default
+      // `bottom-end` would then float the panel far from the status chip.
+      placement="bottom-start"
       title={<TradingHoursTitle />}
       renderTrigger={
         <Stack
+          testID="trading-hours-popover-trigger"
           {...({ ref: triggerRef } as object)}
           onHoverIn={handleHoverIn}
           onHoverOut={cancelPendingOpen}
+          onPress={handleTriggerPress}
         >
           {renderTrigger}
         </Stack>
       }
       renderContent={
-        <Stack {...({ ref: contentRef } as object)}>
+        <Stack
+          testID="trading-hours-popover-content"
+          {...({ ref: contentRef } as object)}
+          onPress={handleContentPress}
+        >
           <TradingHoursContent stock={stock} showInlineHeader dense />
         </Stack>
       }
@@ -661,16 +702,29 @@ function TradingHoursHoverPopover({
 export function TradingHoursTrigger({
   stock,
   renderTrigger,
+  defaultOpen = false,
+  onDefaultOpenConsumed,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
+  onDefaultOpenConsumed?: () => void;
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+  const openOnLoad = useRef(defaultOpen);
+  useEffect(() => {
+    if (openOnLoad.current) {
+      openOnLoad.current = false;
+      if (useSheetDialog && stock.isUSListing !== false) {
+        showTradingHoursDialog(stock);
+      }
+      onDefaultOpenConsumed?.();
+    }
+  }, [onDefaultOpenConsumed, stock, useSheetDialog]);
 
-  // Trading hours only apply to Ondo's US-session model — other issuers
-  // (xStocks etc.) run 7×24, so their badge stays a plain, non-tappable one.
-  if (!isOndoUSMarketStock(stock.source)) {
+  // US trading hours describe nothing about a non-US listing.
+  if (stock.isUSListing === false) {
     return <>{renderTrigger}</>;
   }
 
@@ -691,6 +745,10 @@ export function TradingHoursTrigger({
   }
 
   return (
-    <TradingHoursHoverPopover stock={stock} renderTrigger={renderTrigger} />
+    <TradingHoursHoverPopover
+      stock={stock}
+      renderTrigger={renderTrigger}
+      defaultOpen={openOnLoad.current}
+    />
   );
 }

@@ -1,14 +1,3 @@
-import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
-
-/**
- * Whether a stock's market is explicitly closed. `isOpen === false` means closed;
- * `undefined` means status unknown/unavailable (NOT closed). Shared so every
- * surface uses the same `=== false` rule instead of re-inlining it.
- */
-export function isStockMarketClosed(stock?: IMarketStockInfo): boolean {
-  return stock?.isOpen === false;
-}
-
 /**
  * Standard classifier for a tokenized stock's market-status alert.
  *

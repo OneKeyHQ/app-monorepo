@@ -8,6 +8,7 @@ import {
   EModalAddressBookRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { IAddressItem } from '../type';
@@ -18,6 +19,12 @@ export const useAddressBookItems = (networkId?: string, exact?: boolean) => {
     async () => {
       noopObject(updateTimestamp);
       noopObject(networkId);
+      if (
+        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+      ) {
+        return { items: [] };
+      }
       return backgroundApiProxy.serviceAddressBook.getNetworkItems({
         networkId,
         exact,

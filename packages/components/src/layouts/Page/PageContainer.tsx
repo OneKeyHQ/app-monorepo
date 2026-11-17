@@ -10,23 +10,36 @@ import type { IPageProps } from './type';
 
 export function PageContainer({
   children,
-  lazyLoad,
   fullPage,
   testID,
+  backgroundColor,
+  directFooter,
 }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
   return useMemo(
     () => (
-      <BasicPage lazyLoad={lazyLoad} fullPage={fullPage} testID={testID}>
+      <BasicPage
+        fullPage={fullPage}
+        testID={testID}
+        backgroundColor={backgroundColor}
+      >
         {scrollEnabled ? (
           <ScrollView {...scrollProps}>{children}</ScrollView>
         ) : (
           children
         )}
-        <BasicPageFooter />
+        <BasicPageFooter directProps={directFooter} />
       </BasicPage>
     ),
-    [lazyLoad, fullPage, testID, scrollEnabled, scrollProps, children],
+    [
+      fullPage,
+      testID,
+      backgroundColor,
+      scrollEnabled,
+      scrollProps,
+      children,
+      directFooter,
+    ],
   );
 }

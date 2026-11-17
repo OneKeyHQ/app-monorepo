@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalPerpRoutes,
   type IModalPerpParamList,
@@ -35,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
@@ -90,7 +92,10 @@ interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
 }
 
 function MarkPrice({ coin }: { coin: string }) {
-  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    allowActiveAssetFallback: true,
+  });
   return (
     <SizableText size="$bodyMdMedium">{midFormattedByDecimals}</SizableText>
   );
@@ -193,7 +198,12 @@ const SetTpslForm = memo(
   }: ISetTpslFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
-    const { mid: midPrice } = usePerpsMidPrice({ coin });
+    const ensureTradingEnabled = useEnsureTradingEnabled();
+    const { mid: midPrice } = usePerpsMidPrice({
+      coin,
+      szDecimals,
+      allowActiveAssetFallback: true,
+    });
 
     const activePositions = usePerpsAccountScopedActivePositions();
     const [activeAccount] = usePerpsActiveAccountAtom();
@@ -312,7 +322,7 @@ const SetTpslForm = memo(
         }
 
         try {
-          await hyperliquidActions.current.ensureTradingEnabled();
+          await ensureTradingEnabled();
           const symbolMeta =
             await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
               coin: order.coin,
@@ -333,7 +343,7 @@ const SetTpslForm = memo(
           console.error('SetTpslModal handleCancelOrder error:', error);
         }
       },
-      [canSubmitForScopedAccount, hyperliquidActions],
+      [canSubmitForScopedAccount, ensureTradingEnabled, hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -510,7 +520,7 @@ const SetTpslForm = memo(
         }
         setIsSubmitting(true);
 
-        await hyperliquidActions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const scopeChangeErrorTitle = getPositionTpslScopeChangeErrorTitle({
           initialScopeKey: initialScopeKeyRef.current,
           currentScopeKey: latestScopeKeyRef.current,
@@ -664,6 +674,7 @@ const SetTpslForm = memo(
       positionSize,
       assetId,
       isLongPosition,
+      ensureTradingEnabled,
       hyperliquidActions,
       onClose,
       midPrice,
@@ -682,7 +693,7 @@ const SetTpslForm = memo(
 
     return (
       <YStack flex={1}>
-        <YStack flex={1} gap="$3" pb="$6">
+        <YStack flex={1} gap="$3" pb={platformEnv.isNative ? '$8' : '$4'}>
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -830,7 +841,7 @@ const SetTpslForm = memo(
                     segments={4}
                     snapTapToSegment
                     sliderHeight={4}
-                    showBubble={false}
+                    showBubble
                   />
                 </YStack>
               </YStack>
@@ -851,7 +862,7 @@ const SetTpslForm = memo(
             {intl.formatMessage({
               id: ETranslations.perp_confirm_order,
             })}
-          </Button>{' '}
+          </Button>
         </TradingGuardWrapper>
       </YStack>
     );

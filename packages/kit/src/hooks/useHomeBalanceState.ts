@@ -13,7 +13,12 @@ import {
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
 import { useListStructureAtom } from '../states/jotai/contexts/tokenList';
 
-export type IHomeBalanceState = 'unknown' | 'zero' | 'positive';
+import { resolveHomeBalanceState } from './homeBalanceState';
+import { usePersistedOwnerWorth } from './usePersistedOwnerWorth';
+
+import type { IHomeBalanceState } from './homeBalanceState';
+
+export type { IHomeBalanceState } from './homeBalanceState';
 
 // Module-scoped so every hook instance shares one latch — WalletActions
 // remounts when a wallet's backup state flips, and a per-instance latch
@@ -35,7 +40,7 @@ const fundedOwners = new Set<string>();
 appEventBus.on(EAppEventBusNames.WalletRemove, () => fundedOwners.clear());
 appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 
-// Three sources:
+// Four sources, composed by `resolveHomeBalanceState` in this order:
 //   1. Held tokens (TokenList cells structure `fundedIds`, the STRICT
 //      positive-balance / risk-filtered set) — a "funded" override, latched
 //      per owner for the session. Fiat worth is a partial sum: tokens without
@@ -50,8 +55,14 @@ appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 //      only written after the "fully ready" signal. Without this fallback, the
 //      header can show a real balance number while we still report `unknown`,
 //      hiding the action row and banner until the slow confirmation completes.
+//   4. The owner's persisted account value (`simpleDb.accountValue`, the same
+//      number the account selector row shows). An empty account under All
+//      Networks has none of the above until its whole fan-out commits — the
+//      live worth is reset on the switch and only written back by the
+//      authoritative commit — so without this source the action row stayed
+//      blank for the entire fan-out (20 s with every network enabled).
 // A `sticky` ref keeps the last non-`unknown` state for the brief moment
-// during account switches when neither source has data for the new owner yet.
+// during account switches when no source has data for the new owner yet.
 //
 // Requires the tokenList jotai context (HomeTokenListProviderMirror) in scope.
 export function useHomeBalanceState(): IHomeBalanceState {
@@ -153,15 +164,27 @@ export function useHomeBalanceState(): IHomeBalanceState {
     hasHoldingsNow ||
     (!!holdingsOwnerKey && fundedOwners.has(holdingsOwnerKey));
 
-  const computed = useMemo<IHomeBalanceState>(() => {
-    if (!wallet) return 'unknown';
-    if (hasHoldings) return 'positive';
-    if (cached !== undefined) {
-      return new BigNumber(cached).isZero() ? 'zero' : 'positive';
-    }
-    if (liveIsPositive === undefined) return 'unknown';
-    return liveIsPositive ? 'positive' : 'zero';
-  }, [wallet, hasHoldings, cached, liveIsPositive]);
+  // Lowest-precedence source: only consulted once the sources above are
+  // silent, so a stale persisted value can at most pick the initial layout
+  // until the live data for this owner lands and overrides it.
+  const persistedWorth = usePersistedOwnerWorth({
+    accountId: account?.id,
+    indexedAccountId: indexedAccount?.id,
+    networkId: network?.id,
+    isAllNetworks: network?.isAllNetworks,
+  });
+
+  const computed = useMemo<IHomeBalanceState>(
+    () =>
+      resolveHomeBalanceState({
+        hasWallet: !!wallet,
+        hasHoldings,
+        confirmedWorth: cached,
+        liveIsPositive,
+        persistedWorth,
+      }),
+    [wallet, hasHoldings, cached, liveIsPositive, persistedWorth],
+  );
 
   // Sticky must be wallet-scoped. Without the key check, switching from a
   // funded wallet to a freshly-imported $0 wallet keeps reporting 'positive'

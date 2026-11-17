@@ -29,6 +29,13 @@ let mockCapturedMethod:
   | (() => Promise<IPaymentTokenPriceResult | undefined>)
   | undefined;
 let mockCapturedDeps: unknown[] = [];
+let mockCapturedOptions:
+  | {
+      pollingInterval?: number;
+      undefinedResultIfReRun?: boolean;
+      watchLoading?: boolean;
+    }
+  | undefined;
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -44,9 +51,15 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
     method: () => Promise<IPaymentTokenPriceResult | undefined>,
     deps: unknown[],
+    options?: {
+      pollingInterval?: number;
+      undefinedResultIfReRun?: boolean;
+      watchLoading?: boolean;
+    },
   ) => {
     mockCapturedMethod = method;
     mockCapturedDeps = deps;
+    mockCapturedOptions = options;
     return {
       result: mockPromiseResult,
       isLoading: false,
@@ -70,6 +83,7 @@ describe('usePaymentTokenPrice', () => {
     mockPromiseResult = undefined;
     mockCapturedMethod = undefined;
     mockCapturedDeps = [];
+    mockCapturedOptions = undefined;
   });
 
   it('requests token detail with the selected currency and returns a currency-aware key', async () => {
@@ -125,5 +139,15 @@ describe('usePaymentTokenPrice', () => {
 
     expect(result.current.price?.toFixed()).toBe('9');
     expect(result.current.tokenKey).toBe('evm--1:0xusdc:cny');
+  });
+
+  it('keeps the previous price while polling for a refresh', () => {
+    renderHook(() => usePaymentTokenPrice(paymentToken, 'evm--1', 'cny'));
+
+    expect(mockCapturedOptions).toEqual({
+      pollingInterval: 5000,
+      watchLoading: true,
+    });
+    expect(mockCapturedOptions).not.toHaveProperty('undefinedResultIfReRun');
   });
 });

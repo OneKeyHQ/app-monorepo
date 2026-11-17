@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ScrollView } from 'react-native';
 
@@ -11,36 +11,40 @@ import {
 } from '@onekeyhq/components';
 import type { EPageType } from '@onekeyhq/components';
 import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProTokenMarketDetailInfoAtom,
-  useSwapProTokenMarketDetailPerpsInfoAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
-  StockMarketStatusAlert,
-  getStockMarketClosedDescription,
-  resolveStockMarketStatusCase,
-} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+  type EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProAnalyticsTokenSelectFrom,
+  ESwapProTradeType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   estimateMarketPresetGasFeeFiatValues,
   resolveMarketPresetNativeTokenPrice,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   useSwapPositionsSupportTokenListAction,
   useSwapProInputToken,
@@ -49,7 +53,7 @@ import {
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 import { SwapTestIDs } from '../../testIDs';
-import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
+import { getSwapProDepositAccountInfo } from '../../utils/swapProAccountUtils';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -62,9 +66,12 @@ import type {
   IMarketPresetPriorityFeeFiatEstimateMap,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+import type { ScrollViewInstance } from 'react-native';
 
 interface ISwapProContainerProps {
+  storeName: EJotaiContextStoreNames;
   pageType?: EPageType;
+  isFocused: boolean;
   onProSelectToken: (autoSearch?: boolean) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSwapProActionClick: () => void;
@@ -78,6 +85,7 @@ interface ISwapProContainerProps {
   marketPresetSettings?: IMarketPresetSettingsState;
   config: {
     isLoading: boolean;
+    isAccountContextReady: boolean;
     speedConfigReady: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
@@ -88,7 +96,9 @@ interface ISwapProContainerProps {
 }
 
 const SwapProContainer = ({
+  storeName,
   pageType,
+  isFocused,
   onProSelectToken,
   onOpenOrdersClick,
   onSwapProActionClick,
@@ -103,7 +113,7 @@ const SwapProContainer = ({
   config,
 }: ISwapProContainerProps) => {
   const {
-    isLoading,
+    isAccountContextReady,
     speedConfigReady,
     speedConfig,
     balanceLoading,
@@ -120,36 +130,61 @@ const SwapProContainer = ({
     useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
-  // Pro-mode stock market-closed alert (reuses the shared StockMarketStatusAlert).
-  // Pro keeps its own token detail/perps atoms, so read those here. When the
-  // stock market is closed we show the standard alert instead of the generic
-  // error alert; the action button is already disabled (no valid quote).
-  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
-  const [proPerpsInfo] = useSwapProTokenMarketDetailPerpsInfoAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const { navigateToPerps } = usePerpsNavigation(
-    EPerpPageEnterSource.SwapProStockClosed,
-  );
-  const proStockHlTicker = proPerpsInfo?.hlTicker;
-  const proStockHasPerps = Boolean(proStockHlTicker);
-  const proStockClosedTimeText = getStockMarketClosedDescription(
-    proTokenDetail?.stock?.description,
-  );
-  // Guard on the selected token so a stale Pro detail (the detail atom is not
-  // cleared on token switch) can't drive the closed alert for another token.
-  const isProStockMarketClosed = isSelectedProStockMarketClosed(
-    proTokenDetail,
-    swapProSelectToken,
-  );
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [settingsAtom] = useSettingsPersistAtom();
-  const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
-    useSwapProTokenInfoSync();
+  const {
+    syncInputTokenBalance,
+    syncToTokenPrice,
+    netAccountRes,
+    indexedAccountId: resolvedIndexedAccountId,
+    accountId: resolvedAccountId,
+  } = useSwapProTokenInfoSync();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  // The Pro pay token can sit on another network than the selected account's.
+  // Wait for its selected identity and wallet metadata together. Pro owns the
+  // selected derive type, so its pending account must not use the generic
+  // on-demand lookup (which resolves the network's global derive type).
+  const depositAccountInfo = useMemo(
+    () =>
+      getSwapProDepositAccountInfo({
+        activeAccount,
+        networkAccount: netAccountRes.result,
+        indexedAccountId: resolvedIndexedAccountId,
+        accountId: resolvedAccountId,
+        selectedWalletId: selectedAccount.walletId,
+      }),
+    [
+      activeAccount,
+      netAccountRes.result,
+      resolvedAccountId,
+      resolvedIndexedAccountId,
+      selectedAccount.walletId,
+    ],
+  );
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount: depositAccountInfo,
+    enabled: Boolean(depositAccountInfo),
+    onClose: syncInputTokenBalance,
+  });
+  // The Pro panel's Top up chip is always visible, so it must not count the
+  // low-balance funnel event the way the zero-balance action button does.
+  const onProTopUpPress = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount: depositAccountInfo,
+    enabled: Boolean(depositAccountInfo),
+    onClose: syncInputTokenBalance,
+    logLowBalance: false,
+  });
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
@@ -194,13 +229,26 @@ const SwapProContainer = ({
 
   const onTokenPressCallback = useCallback(
     (token: ISwapToken) => {
+      if (
+        !token.isStock &&
+        !equalTokenNoCaseSensitive({
+          token1: token,
+          token2: swapProSelectToken,
+        })
+      ) {
+        defaultLogger.swap.swapPro.swapProTokenSwitch({
+          selectFrom: ESwapProAnalyticsTokenSelectFrom.POSITIONS,
+          tokenSymbol: token.symbol,
+          network: token.networkId,
+        });
+      }
       onTokenPress(token);
       scrollViewRef.current?.scrollTo({
         y: 0,
         animated: true,
       });
     },
-    [onTokenPress],
+    [onTokenPress, swapProSelectToken],
   );
 
   const netAccountAddress = netAccountRes.result?.addressDetail.address;
@@ -295,7 +343,7 @@ const SwapProContainer = ({
             cleanInputAmount();
             onProSelectToken();
           }}
-          configLoading={isLoading}
+          configLoading={!speedConfigReady}
         />
         {/* On mobile this candlestick button moved up into the top header
             capsule (SwapProKLineHeaderButton); keep it inline on desktop. */}
@@ -312,6 +360,7 @@ const SwapProContainer = ({
       <XStack mt="$2" gap="$4" pb="$2.5" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           <SwapProTradeInfoPanel
+            isFocused={isFocused}
             supportSpeedSwap={supportSpeedSwap}
             onPricePress={(price) => {
               if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -325,15 +374,18 @@ const SwapProContainer = ({
         </YStack>
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
           <SwapProTradingPanel
+            storeName={storeName}
             supportSpeedSwap={!!supportSpeedSwap}
             swapProConfig={speedConfig}
-            configLoading={isLoading}
+            configLoading={!speedConfigReady}
             configReady={speedConfigReady}
             balanceLoading={balanceLoading}
             limitPriceUseMarketPrice={limitPriceUseMarketPrice}
             onBalanceMax={onBalanceMaxPress}
             onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
+            onDepositToTrade={depositAccountInfo ? onDepositToTrade : undefined}
+            onTopUpPress={depositAccountInfo ? onProTopUpPress : undefined}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}
             cleanInputAmount={cleanInputAmount}
@@ -344,27 +396,10 @@ const SwapProContainer = ({
           />
         </YStack>
       </XStack>
-      {isProStockMarketClosed ? (
-        <StockMarketStatusAlert
-          statusCase={resolveStockMarketStatusCase({
-            isOpen: false,
-            isPaused: proTokenDetail?.stock?.isPaused,
-            hasOpenTime: Boolean(proStockClosedTimeText),
-            hasPerps: proStockHasPerps,
-          })}
-          timeText={proStockClosedTimeText}
-          onTradePerps={
-            proStockHlTicker
-              ? () => navigateToPerps(proStockHlTicker)
-              : undefined
-          }
-        />
-      ) : (
-        <SwapProErrorAlert
-          title={swapProErrorAlert?.title}
-          message={swapProErrorAlert?.message}
-        />
-      )}
+      <SwapProErrorAlert
+        title={isAccountContextReady ? swapProErrorAlert?.title : undefined}
+        message={isAccountContextReady ? swapProErrorAlert?.message : undefined}
+      />
       <SwapProTabListContainer
         onTokenPress={onTokenPressCallback}
         onOpenOrdersClick={onOpenOrdersClick}

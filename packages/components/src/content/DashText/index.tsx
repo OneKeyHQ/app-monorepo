@@ -1,4 +1,10 @@
-import { type CSSProperties, useCallback, useMemo, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,7 +25,17 @@ export interface IDashTextProps extends ISizableTextProps {
   dashColor?: string;
   dashThickness?: number;
   dashSpacing?: number;
-  children: string;
+  /**
+   * Draw the dashes on the text box's bottom edge instead of under it, so the
+   * element measures exactly as tall as plain text. Use it wherever the label
+   * shares a line with plain ones: in flow the dashes add height, and a
+   * centred row then lifts the dashed text above the rest.
+   */
+  dashOverlay?: boolean;
+  // Widened from `string` so a formatted value (a price, a percentage) can
+  // carry the same dashes as a plain label. Every existing caller passes a
+  // string, which is still a ReactNode.
+  children: ReactNode;
   length?: number;
   /** When set, wraps with Tooltip on desktop and Popover on mobile */
   tooltip?: string;
@@ -46,6 +62,7 @@ function DashTextCore({
   dashThickness = 0.5,
   dashSpacing = 1,
   dashColor = '$borderStrong',
+  dashOverlay = false,
   length = 200,
   ...textProps
 }: Omit<
@@ -102,20 +119,25 @@ function DashTextCore({
     setTextWidth(event.nativeEvent.layout.width);
   }, []);
 
+  const overlayProps = dashOverlay
+    ? ({ position: 'absolute', bottom: 0, left: 0, right: 0 } as const)
+    : undefined;
+
   if (!platformEnv.isNative) {
     return (
       <YStack alignItems="flex-start" style={webDashWrapperStyle}>
-        <SizableText {...textProps} paddingBottom="$0.2">
+        <SizableText {...textProps} paddingBottom={dashOverlay ? 0 : '$0.2'}>
           {children}
         </SizableText>
         {length > 0 ? (
           <YStack
             width="100%"
-            mt={dashSpacing}
+            mt={dashOverlay ? 0 : dashSpacing}
             height={resolvedDashThickness}
             bg={dashColor}
             pointerEvents="none"
             style={webDashLineStyle}
+            {...overlayProps}
           />
         ) : null}
       </YStack>
@@ -125,7 +147,7 @@ function DashTextCore({
   return (
     <YStack alignItems="flex-start">
       <YStack onLayout={handleLayout}>
-        <SizableText {...textProps} paddingBottom="$0.2">
+        <SizableText {...textProps} paddingBottom={dashOverlay ? 0 : '$0.2'}>
           {children}
         </SizableText>
       </YStack>
@@ -136,6 +158,7 @@ function DashTextCore({
           overflow="hidden"
           flexWrap="nowrap"
           width={textWidth || 0}
+          {...overlayProps}
         >
           {textWidth > 0
             ? Array.from({ length }, (_, i) => (
@@ -218,7 +241,13 @@ export function DashText({
 
   return (
     <Popover
-      title={tooltipTitle ?? rest.children}
+      // The sheet needs a title and a formatted node makes no sense as one,
+      // so a non-string child falls back to empty and asks the caller for
+      // `tooltipTitle` instead. Node children only appear on desktop, which
+      // takes the tooltip branch above and never reaches this.
+      title={
+        tooltipTitle ?? (typeof rest.children === 'string' ? rest.children : '')
+      }
       placement={tooltipPlacement as IPopoverProps['placement']}
       renderTrigger={trigger}
       renderContent={popoverContent}

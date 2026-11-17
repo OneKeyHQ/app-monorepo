@@ -1,0 +1,338 @@
+/* cspell:ignore hoverable Hoverable */
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+
+import {
+  autoUpdate,
+  computePosition,
+  flip,
+  offset as offsetMiddleware,
+  shift,
+  size,
+} from '@floating-ui/dom';
+import {
+  OVERLAY_LEVEL_ORDER,
+  getAnchoredTransformOrigin,
+} from '@onekeyfe/react-native-native-overlay';
+
+import type {
+  FlipOptions,
+  OffsetOptions,
+  Placement,
+  VirtualElement,
+} from '@floating-ui/dom';
+import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
+
+// Keep the panel this far from the viewport edges.
+const VIEWPORT_PADDING = 8;
+// Lets the pointer cross the gap between trigger and panel.
+const DEFAULT_HOVER_CLOSE_DELAY_MS = 100;
+
+export type IPopoverHoverable =
+  | boolean
+  | { delay?: number | { open?: number; close?: number } };
+
+export function getHoverDelays(hoverable: IPopoverHoverable | undefined) {
+  if (!hoverable || hoverable === true) {
+    return { open: 0, close: DEFAULT_HOVER_CLOSE_DELAY_MS };
+  }
+  const { delay } = hoverable;
+  if (typeof delay === 'number') {
+    return { open: delay, close: delay };
+  }
+  return {
+    open: delay?.open ?? 0,
+    close: delay?.close ?? DEFAULT_HOVER_CLOSE_DELAY_MS,
+  };
+}
+
+/**
+ * Anchors the panel to the trigger while open (Floating UI: offset, flip,
+ * shift, and a max height from the available space) and follows scroll /
+ * resize / layout changes of either.
+ *
+ * The panel animates inside an unscaled offset parent, so positioning uses
+ * the same coordinates throughout the enter animation and on completion.
+ */
+export type IAnchorRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function virtualAnchor(rect: IAnchorRect): VirtualElement {
+  return {
+    getBoundingClientRect: () => ({
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      top: rect.y,
+      left: rect.x,
+      right: rect.x + rect.width,
+      bottom: rect.y + rect.height,
+    }),
+  };
+}
+
+export function useAnchoredPosition({
+  open,
+  triggerRef,
+  anchorElement,
+  anchorRect,
+  panel,
+  placement,
+  offset,
+  allowFlip,
+}: {
+  open: boolean;
+  triggerRef: RefObject<unknown>;
+  anchorElement?: HTMLElement;
+  /** Used when there is no trigger element to measure. */
+  anchorRect?: IAnchorRect;
+  /** The panel element: it mounts a render after `open` flips. */
+  panel: HTMLDivElement | null;
+  placement: Placement;
+  offset: OffsetOptions;
+  allowFlip: boolean | FlipOptions;
+}) {
+  const updateRef = useRef<(() => void) | undefined>(undefined);
+  // Callers pass inline offset objects; re-anchor only when the value changes.
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  const offsetKey =
+    typeof offset === 'object' ? JSON.stringify(offset) : String(offset);
+  const allowFlipRef = useRef(allowFlip);
+  allowFlipRef.current = allowFlip;
+  const allowFlipKey =
+    typeof allowFlip === 'object' ? JSON.stringify(allowFlip) : allowFlip;
+  const anchorRectKey = anchorRect
+    ? `${anchorRect.x},${anchorRect.y},${anchorRect.width},${anchorRect.height}`
+    : '';
+  const anchorRectRef = useRef(anchorRect);
+  anchorRectRef.current = anchorRect;
+  useLayoutEffect(() => {
+    const triggerElement = triggerRef.current as HTMLElement | null;
+    const reference: HTMLElement | VirtualElement | null =
+      triggerElement ??
+      anchorElement ??
+      (anchorRectRef.current ? virtualAnchor(anchorRectRef.current) : null);
+    const floating = panel;
+    if (!open || !reference || !floating) {
+      return;
+    }
+    const update = () => {
+      void computePosition(reference, floating, {
+        strategy: 'absolute',
+        placement,
+        middleware: [
+          offsetMiddleware(offsetRef.current),
+          allowFlipRef.current
+            ? flip({
+                padding: VIEWPORT_PADDING,
+                ...(typeof allowFlipRef.current === 'object'
+                  ? allowFlipRef.current
+                  : undefined),
+              })
+            : undefined,
+          shift({ padding: VIEWPORT_PADDING }),
+          size({
+            padding: VIEWPORT_PADDING,
+            apply({ availableHeight }) {
+              floating.style.maxHeight = `${Math.max(
+                0,
+                Math.floor(availableHeight),
+              )}px`;
+            },
+          }),
+        ],
+      }).then(({ x, y, placement: resolvedPlacement }) => {
+        floating.style.left = `${x}px`;
+        floating.style.top = `${y}px`;
+        // The overlay scales the panel from the side facing the trigger and
+        // reads the placement after flip from here. The enter animation can
+        // start before this first position resolves, so also correct the
+        // origin of a run already in flight.
+        floating.dataset.placement = resolvedPlacement;
+        const transformOrigin = getAnchoredTransformOrigin(resolvedPlacement);
+        if (transformOrigin) {
+          floating.style.transformOrigin = transformOrigin;
+        }
+      });
+    };
+    updateRef.current = update;
+    const cleanup = autoUpdate(reference, floating, update, {
+      // Pager headers can move with a sibling scroller's CSS timeline.
+      animationFrame: Boolean(anchorElement),
+    });
+    return () => {
+      updateRef.current = undefined;
+      cleanup();
+    };
+  }, [
+    allowFlipKey,
+    anchorElement,
+    anchorRectKey,
+    offsetKey,
+    open,
+    panel,
+    placement,
+    triggerRef,
+  ]);
+  return useCallback(() => updateRef.current?.(), []);
+}
+
+function overlayRank(element: Element | null): [number, number] | undefined {
+  const entry = element?.closest<HTMLElement>('[data-onekey-overlay-entry]');
+  const layer = entry?.closest('[data-onekey-overlay-layer]');
+  if (!entry || !layer) {
+    return undefined;
+  }
+  const level = layer.getAttribute(
+    'data-onekey-overlay-layer',
+  ) as IOverlayLevel;
+  return [OVERLAY_LEVEL_ORDER[level] ?? 0, Number(entry.dataset.stackOrder)];
+}
+
+function isRankedAbove(target: Element, own: Element) {
+  const targetRank = overlayRank(target);
+  const ownRank = overlayRank(own);
+  if (!targetRank || !ownRank) {
+    return false;
+  }
+  return (
+    targetRank[0] > ownRank[0] ||
+    (targetRank[0] === ownRank[0] && targetRank[1] > ownRank[1])
+  );
+}
+
+/**
+ * Closes the popover on a press outside the panel and the trigger. Presses
+ * inside an overlay stacked above it (a nested select, a dialog opened from
+ * the panel) keep it open.
+ */
+export function useOutsidePress({
+  enabled,
+  panelRef,
+  triggerRef,
+  onOutsidePress,
+}: {
+  enabled: boolean;
+  panelRef: RefObject<HTMLDivElement | null>;
+  triggerRef: RefObject<unknown>;
+  onOutsidePress: () => void;
+}) {
+  const onOutsidePressRef = useRef(onOutsidePress);
+  onOutsidePressRef.current = onOutsidePress;
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      const panel = panelRef.current;
+      const trigger = triggerRef.current as HTMLElement | null;
+      if (
+        !target ||
+        !panel ||
+        panel.contains(target) ||
+        trigger?.contains(target) ||
+        isRankedAbove(target, panel)
+      ) {
+        return;
+      }
+      onOutsidePressRef.current();
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+    };
+  }, [enabled, panelRef, triggerRef]);
+}
+
+/**
+ * Hover-driven open state: entering the trigger opens after the open delay,
+ * leaving the trigger or the panel closes after the close delay unless the
+ * pointer enters the other one first. Returns a cancellation callback for
+ * explicit trigger presses.
+ */
+export function useHoverOpen({
+  hoverable,
+  triggerRef,
+  panel,
+  open,
+  onOpen,
+  onClose,
+}: {
+  hoverable: IPopoverHoverable | undefined;
+  triggerRef: RefObject<unknown>;
+  panel: HTMLDivElement | null;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const callbacksRef = useRef({ onOpen, onClose, open });
+  callbacksRef.current = { onOpen, onClose, open };
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+  }, []);
+  // A committed close supersedes earlier hover requests; reentry gets a new timer.
+  useLayoutEffect(() => {
+    if (!open) {
+      clear();
+    }
+  }, [clear, open]);
+  const delays = getHoverDelays(hoverable);
+  const openDelay = delays.open;
+  const closeDelay = delays.close;
+  const scheduleClose = useCallback(() => {
+    clear();
+    timerRef.current = setTimeout(() => {
+      if (callbacksRef.current.open) {
+        callbacksRef.current.onClose();
+      }
+    }, closeDelay);
+  }, [clear, closeDelay]);
+
+  useEffect(() => {
+    const trigger = triggerRef.current as HTMLElement | null;
+    if (!hoverable || !trigger) {
+      return;
+    }
+    const scheduleOpen = () => {
+      clear();
+      timerRef.current = setTimeout(() => {
+        if (!callbacksRef.current.open) {
+          callbacksRef.current.onOpen();
+        }
+      }, openDelay);
+    };
+    trigger.addEventListener('mouseenter', scheduleOpen);
+    trigger.addEventListener('mouseleave', scheduleClose);
+    return () => {
+      clear();
+      trigger.removeEventListener('mouseenter', scheduleOpen);
+      trigger.removeEventListener('mouseleave', scheduleClose);
+    };
+  }, [clear, hoverable, openDelay, scheduleClose, triggerRef]);
+
+  // An exiting panel must not cancel a new open scheduled on the trigger.
+  useEffect(() => {
+    if (!hoverable || !panel) {
+      return;
+    }
+    panel.addEventListener('mouseenter', clear);
+    panel.addEventListener('mouseleave', scheduleClose);
+    return () => {
+      panel.removeEventListener('mouseenter', clear);
+      panel.removeEventListener('mouseleave', scheduleClose);
+    };
+  }, [clear, hoverable, panel, scheduleClose]);
+
+  return clear;
+}

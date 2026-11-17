@@ -14,7 +14,9 @@ import {
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
@@ -41,12 +43,17 @@ import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/
 import type { ITradeType } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 interface ISwapProTradingPanelProps {
+  storeName: EJotaiContextStoreNames;
   swapProConfig: ISwapProSpeedConfig;
   balanceLoading: boolean;
   configLoading: boolean;
   configReady: boolean;
   supportSpeedSwap: boolean;
   onSwapProActionClick: () => void;
+  onDepositToTrade?: () => void;
+  // Top up chip entry: always visible, so it does not count the low-balance
+  // funnel event the zero-balance action button counts.
+  onTopUpPress?: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
   cleanInputAmount: () => void;
@@ -60,6 +67,7 @@ interface ISwapProTradingPanelProps {
 }
 
 const SwapProTradingPanel = ({
+  storeName,
   supportSpeedSwap,
   swapProConfig,
   balanceLoading,
@@ -67,6 +75,8 @@ const SwapProTradingPanel = ({
   configReady,
   onBalanceMax,
   onSwapProActionClick,
+  onDepositToTrade,
+  onTopUpPress,
   handleSelectAccountClick,
   onSelectPercentageStage,
   limitPriceUseMarketPrice,
@@ -131,6 +141,10 @@ const SwapProTradingPanel = ({
       if (value === swapProTradeType) return;
       cleanInputAmount();
       setSwapProTradeType(value);
+      defaultLogger.swap.swapPro.swapProTradeTypeChange({
+        fromType: swapProTradeType,
+        toType: value,
+      });
     },
     [cleanInputAmount, setSwapProTradeType, swapProTradeType],
   );
@@ -218,6 +232,8 @@ const SwapProTradingPanel = ({
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}
+          onDepositPress={onTopUpPress}
+          storeName={storeName}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
         {swapProTradeType === ESwapProTradeType.MARKET ? (
@@ -302,6 +318,7 @@ const SwapProTradingPanel = ({
       <YStack flex={1} />
       <SwapProActionButton
         onSwapProActionClick={onSwapProActionClick}
+        onDepositToTrade={onDepositToTrade}
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}
         supportSpeedSwap={supportSpeedSwap}

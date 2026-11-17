@@ -93,6 +93,7 @@ function renderUseEModeSwitch() {
       accountId: 'account-id',
       provider: 'aave',
       marketAddress: '0xMarket',
+      providerLogoURI: 'https://example.com/aave.png',
       onSwitched: jest.fn(),
     }),
   );
@@ -102,6 +103,88 @@ describe('useEModeSwitch runCheck result', () => {
   beforeEach(() => {
     backgroundMock.borrowSwitchCheckEMode.mockReset();
     setEModeMock.mockReset();
+  });
+
+  it.each([0, 2])(
+    'passes the market logo when selecting E-Mode %s',
+    async (id) => {
+      const check = { ...createCheck(''), canSwitch: true, reasons: [] };
+      backgroundMock.borrowSwitchCheckEMode.mockResolvedValue({
+        code: 0,
+        data: check,
+      });
+      setEModeMock.mockResolvedValue(check);
+      const { result } = renderUseEModeSwitch();
+      await act(async () => {
+        await result.current.runCheck(id);
+      });
+      await act(async () => {
+        await result.current.confirmSwitch();
+      });
+      expect(setEModeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eModeId: id,
+          stakingInfo: expect.objectContaining({
+            protocol: 'Aave',
+            protocolLogoURI: 'https://example.com/aave.png',
+          }),
+        }),
+      );
+    },
+  );
+
+  it('uses the current market logo after the scope changes', async () => {
+    const check = { ...createCheck(''), canSwitch: true, reasons: [] };
+    backgroundMock.borrowSwitchCheckEMode.mockResolvedValue({
+      code: 0,
+      data: check,
+    });
+    setEModeMock.mockResolvedValue(check);
+    const { result, rerender } = renderHook(
+      ({
+        provider,
+        marketAddress,
+        providerLogoURI,
+      }: {
+        provider: string;
+        marketAddress: string;
+        providerLogoURI: string;
+      }) =>
+        useEModeSwitch({
+          networkId: 'evm--1',
+          accountId: 'account-id',
+          provider,
+          marketAddress,
+          providerLogoURI,
+          onSwitched: jest.fn(),
+        }),
+      {
+        initialProps: {
+          provider: 'aave',
+          marketAddress: '0xFirst',
+          providerLogoURI: 'https://example.com/first.png',
+        },
+      },
+    );
+    rerender({
+      provider: 'aave',
+      marketAddress: '0xSecond',
+      providerLogoURI: 'https://example.com/second.png',
+    });
+    await act(async () => {
+      await result.current.runCheck(2);
+    });
+    await act(async () => {
+      await result.current.confirmSwitch();
+    });
+    expect(setEModeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        marketAddress: '0xSecond',
+        stakingInfo: expect.objectContaining({
+          protocolLogoURI: 'https://example.com/second.png',
+        }),
+      }),
+    );
   });
 
   it('returns the same authoritative check that it commits', async () => {

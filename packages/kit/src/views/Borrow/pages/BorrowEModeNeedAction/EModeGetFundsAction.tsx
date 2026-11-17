@@ -1,55 +1,45 @@
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList, SizableText, XStack } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
 import { BorrowTestIDs } from '@onekeyhq/kit/src/views/Borrow/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function EModeGetFundsAction({
   symbol,
-  items,
   onPress,
+  loading,
 }: {
   symbol: string;
-  items: IActionListItemProps[];
   onPress: () => void;
+  loading?: boolean;
 }) {
   const intl = useIntl();
-  const label = intl.formatMessage(
-    { id: ETranslations.defi_emode_get_symbol__action },
-    { symbol },
-  );
 
   return (
-    <XStack alignSelf="flex-start">
-      <ActionList
-        title={label}
-        placement="bottom-start"
-        items={items}
-        renderTrigger={
-          <XStack
-            testID={BorrowTestIDs.eModeNeedActionGetFundsBtn}
-            ai="center"
-            cursor="pointer"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.6 }}
-            focusable
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-              outlineWidth: 2,
-            }}
-            role="button"
-            aria-label={label}
-            onPress={onPress}
-          >
-            <SizableText size="$bodyMdMedium" color="$textInfo">
-              {label}
-            </SizableText>
-          </XStack>
-        }
-      />
-    </XStack>
+    <Button
+      testID={BorrowTestIDs.eModeNeedActionGetFundsBtn}
+      variant="primary"
+      loading={loading}
+      flexGrow={1}
+      flexShrink={1}
+      textEllipsis
+      $md={
+        {
+          size: 'large',
+          // Split the footer evenly with the blocked action, the same way
+          // Page.Footer's own confirm does. Only under $md: above it the
+          // button container is content-sized (ml: auto in a row), and
+          // basis-0 children there share the sum of their content widths
+          // equally instead, which truncates the longer label.
+          flexBasis: 0,
+        } as IButtonProps
+      }
+      onPress={onPress}
+    >
+      {`${intl.formatMessage({
+        id: ETranslations.global_swap,
+      })} ${symbol}`.trim()}
+    </Button>
   );
 }

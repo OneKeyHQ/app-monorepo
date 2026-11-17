@@ -6,7 +6,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
-  ISwapTokenBase,
+  ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -15,8 +15,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-const WRAPPED_PROVIDER_NAME = 'Wrap Contract';
-const WRAPPED_INSTANT_RATE = '1';
+export { buildWrappedSwapQuoteResult as buildWrappedMarketQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/wrappedQuoteUtils';
 
 export function assertMarketReviewQuoteResult(
   quoteResult?: IFetchQuoteResult,
@@ -191,36 +190,6 @@ export function normalizeMarketReviewQuoteResult({
   };
 }
 
-export function buildWrappedMarketQuoteResult({
-  fromToken,
-  toToken,
-  amount,
-  providerLogo,
-}: {
-  fromToken: ISwapTokenBase;
-  toToken: ISwapTokenBase;
-  amount: string;
-  providerLogo?: string;
-}): IFetchQuoteResult {
-  return {
-    protocol: EProtocolOfExchange.SWAP,
-    info: {
-      provider: 'wrapped',
-      providerName: WRAPPED_PROVIDER_NAME,
-      providerLogo,
-    },
-    fromTokenInfo: fromToken,
-    toTokenInfo: toToken,
-    fromAmount: amount,
-    toAmount: amount,
-    instantRate: WRAPPED_INSTANT_RATE,
-    isWrapped: true,
-    fee: {
-      percentageFee: 0,
-    },
-  };
-}
-
 export function buildMarketApproveInfos({
   fromUserAddress,
   quoteResult,
@@ -321,12 +290,14 @@ export function canReuseMarketSigningQuoteResult(
 }
 
 export function buildMarketSwapApprovingTransaction({
+  analyticsSwapInfo,
   quoteResult,
   amount,
   useAddress,
   spenderAddress,
   isResetApprove,
 }: {
+  analyticsSwapInfo?: ISwapTxInfo;
   quoteResult: IFetchQuoteResult;
   amount: string;
   useAddress: string;
@@ -334,6 +305,7 @@ export function buildMarketSwapApprovingTransaction({
   isResetApprove?: boolean;
 }): ISwapApproveTransaction {
   return {
+    analyticsSwapInfo,
     swapType: getSwapExecutionTypeFromQuoteResult(quoteResult),
     protocol: quoteResult.protocol ?? EProtocolOfExchange.SWAP,
     provider: quoteResult.info.provider,

@@ -26,12 +26,11 @@ export function AirGapQrcodeDialogContainer() {
     const fn = (
       event: IAppEventBusPayload[EAppEventBusNames.ShowAirGapQrcode],
     ) => {
-      const { drawType, valueUr, title } = event;
+      const { valueUr, title } = event;
       void hideQrToast?.();
       const toast = SecureQRToast.show({
         title,
         valueUr,
-        drawType,
         dismissOnOverlayPress: false,
         showConfirmButton: Boolean(event.promiseId),
 

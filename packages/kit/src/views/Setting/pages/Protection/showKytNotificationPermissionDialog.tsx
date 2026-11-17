@@ -1,6 +1,7 @@
 import { type IntlShape } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import { type IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   enableNotificationsBestEffort,
@@ -15,10 +16,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export async function promptKytNotificationPermissionIfNeeded({
   navigation,
   intl,
+  stayOnCurrentPage = false,
+  shouldContinue = () => true,
 }: {
   navigation: IAppNavigation;
   intl: IntlShape;
-}): Promise<void> {
+  stayOnCurrentPage?: boolean;
+  shouldContinue?: () => boolean;
+}): Promise<IDialogInstance | undefined> {
   try {
     if (await isNotificationFullyEnabled()) {
       return;
@@ -30,7 +35,10 @@ export async function promptKytNotificationPermissionIfNeeded({
     // the user can still enable notifications manually from settings.
     return;
   }
-  Dialog.show({
+  if (!shouldContinue()) {
+    return;
+  }
+  return Dialog.show({
     icon: 'BellOutline',
     title: intl.formatMessage({
       id: ETranslations.notifications_intro_title,
@@ -46,7 +54,13 @@ export async function promptKytNotificationPermissionIfNeeded({
     }),
     onConfirm: async ({ close }) => {
       await close();
-      await enableNotificationsBestEffort({ navigation });
+      if (shouldContinue()) {
+        await enableNotificationsBestEffort({
+          navigation,
+          stayOnCurrentPage,
+          shouldContinue,
+        });
+      }
     },
   });
 }

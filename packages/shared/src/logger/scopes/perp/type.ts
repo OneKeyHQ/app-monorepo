@@ -16,10 +16,6 @@ export enum EPerpPageEnterSource {
   Shortcut = 'shortcut',
   // Handoff from the Trade tab (e.g. the stock market-closed alert → Perps).
   Trade = 'trade',
-  // Handoff from the Market token-detail stock market-closed alert → Perps.
-  MarketStockClosed = 'marketStockClosed',
-  // Handoff from the Swap Pro-mode stock market-closed alert → Perps.
-  SwapProStockClosed = 'swapProStockClosed',
   DirectUrl = 'directUrl',
 }
 
@@ -77,6 +73,27 @@ export interface IPerpTradeButtonClickParams {
 
 export type TPerpAccountSnapshotStatus = 'ready' | 'notCreated' | 'unsupported';
 
+export type TPerpDepositEntrySource =
+  | 'header'
+  | 'home'
+  | 'webAccountPanel'
+  | 'tradingPanel'
+  | 'portfolio'
+  | 'positions'
+  | 'holdings'
+  | 'balance'
+  | 'accountPanel'
+  | 'tradingGuard'
+  | 'enableTrading';
+
+export type TPerpDepositMethod = 'connectedWallet' | 'depositAddress';
+
+export type TPerpDepositAddressSelectionSource = 'default' | 'user';
+
+export type TPerpDepositRoute = 'directArbitrum' | 'relay';
+
+export type TPerpDepositErrorStage = 'build' | 'approve' | 'sign' | 'broadcast';
+
 export interface IPerpAccountStatusParams {
   source: EPerpPageEnterSource;
   walletType: string;
@@ -94,15 +111,32 @@ export interface IPerpAccountStatusParams {
 }
 
 export interface IPerpDepositInitiateParams {
-  userAddress: string;
-  receiverAddress: string;
   walletType: string;
   txId?: string;
   token: IPerpsDepositToken;
   amount: string;
   toAmount: string;
+  depositRoute: TPerpDepositRoute;
   status: ESwapTxHistoryStatus;
-  errorMessage?: string;
+  errorStage?: TPerpDepositErrorStage;
+  errorCode?: string;
+}
+
+export interface IPerpDepositMethodPanelViewParams {
+  entrySource: TPerpDepositEntrySource;
+  walletType: string;
+}
+
+export interface IPerpDepositMethodSelectParams extends IPerpDepositMethodPanelViewParams {
+  depositMethod: TPerpDepositMethod;
+}
+
+export interface IPerpDepositAddressSourceSelectParams extends IPerpDepositMethodPanelViewParams {
+  sourceTokenSymbol: string;
+  sourceChainType: string;
+  sourceChainId: string;
+  sourceChainName: string;
+  selectionSource: TPerpDepositAddressSelectionSource;
 }
 
 export interface IPerpUserSelectDepositTokenParams {

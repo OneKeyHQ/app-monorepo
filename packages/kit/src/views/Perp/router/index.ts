@@ -18,6 +18,7 @@ import {
   loadPerpsDepositSelectTokenModal,
 } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import { loadPerpsMobileMarketPage } from '../utils/preloadPerpsMobileMarketPage';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -27,13 +28,15 @@ const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
 );
 
+const PerpTradeHistoryDetails = LazyLoadPage(
+  () => import('../components/OrderInfoPanel/PerpTradeHistoryDetails'),
+);
+
 const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
-const MobilePerpMarketPage = LazyLoadPage(
-  () => import('../pages/MobilePerpMarket'),
-);
+const MobilePerpMarketPage = LazyLoadPage(loadPerpsMobileMarketPage);
 
 const MobileTokenSelectorLazyPage = LazyLoadPage(
   loadPerpsMobileTokenSelectorPage,
@@ -142,6 +145,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.PerpTradersHistoryList,
     component: PerpTradersHistoryList,
+  },
+  {
+    name: EModalPerpRoutes.PerpTradeHistoryDetails,
+    component: PerpTradeHistoryDetails,
   },
   {
     name: EModalPerpRoutes.MobilePerpMarket,

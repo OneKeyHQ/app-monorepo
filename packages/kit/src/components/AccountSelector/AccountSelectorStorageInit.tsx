@@ -13,22 +13,26 @@ export function AccountSelectorStorageInit() {
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
   const initFromStorage = useCallback(
-    () =>
+    (trigger: 'mount' | 'wallet-clear') =>
       actions.current.initFromStorage({
         sceneName,
         sceneUrl,
+        trigger,
       }),
     [actions, sceneName, sceneUrl],
   );
 
   useEffect(() => {
-    void initFromStorage();
+    void initFromStorage('mount');
   }, [initFromStorage]);
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.WalletClear, initFromStorage);
+    const handleWalletClear = () => {
+      void initFromStorage('wallet-clear');
+    };
+    appEventBus.on(EAppEventBusNames.WalletClear, handleWalletClear);
     return () => {
-      appEventBus.off(EAppEventBusNames.WalletClear, initFromStorage);
+      appEventBus.off(EAppEventBusNames.WalletClear, handleWalletClear);
     };
   }, [initFromStorage]);
 

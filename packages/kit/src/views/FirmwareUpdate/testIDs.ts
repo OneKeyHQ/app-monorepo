@@ -2,6 +2,8 @@ export const FirmwareUpdateTestIDs = {
   // --- Change Log ---
   updateNowBtn: 'firmware-update-now-btn',
   changeLogAccordion: 'firmware-update-changelog-accordion',
+  usbSuggestionContinueBtn: 'firmware-update-usb-suggestion-continue-btn',
+  usbSuggestionDownloadBtn: 'firmware-update-usb-suggestion-download-btn',
 
   // --- Check List ---
   checklistCheckbox: 'firmware-update-checklist-checkbox',

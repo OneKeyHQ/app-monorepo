@@ -9,6 +9,7 @@ import type {
   IProtocolSummary,
   IResolvedDeFiPositionAction,
 } from '../../types/defi';
+import type { IMarketPreferredToken } from '../../types/market';
 import type { ISendTxOnSuccessData, IUtxoAddressInfo } from '../../types/tx';
 
 export enum EModalAssetDetailRoutes {
@@ -63,6 +64,16 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;
+    tokenImageUri?: string;
+    tokenSymbol?: string;
+    /**
+     * The wallet asset the caller launched Market from. Lets the trade
+     * actions resolve the network and contract address even when market
+     * data has not mapped that platform; entries that only know the
+     * CoinGecko id omit it. The legacy route forwards this identity to
+     * the V2 detail page.
+     */
+    preferredToken?: IMarketPreferredToken;
   };
   [EModalAssetDetailRoutes.MarketChart]: {
     isNative: boolean;
@@ -87,6 +98,9 @@ export type IModalAssetDetailsParamList = {
     notificationId?: string;
     notificationAccountId?: string;
     historyTx: IAccountHistoryTx | undefined;
+    // Which pool tab this was opened from, for chains whose public and private
+    // history come from different sources.
+    privacyChainPoolId?: number;
     isAllNetworks?: boolean;
     checkIsFocused?: boolean;
     allowClickAccountNameSwitch?: boolean;
@@ -95,6 +109,7 @@ export type IModalAssetDetailsParamList = {
     accountId: string;
     networkId: string;
     txId: string;
+    privacyChainPoolId?: number;
     inputs?: IUtxoAddressInfo[];
     outputs?: IUtxoAddressInfo[];
   };

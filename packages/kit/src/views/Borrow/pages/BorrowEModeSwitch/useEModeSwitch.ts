@@ -19,6 +19,7 @@ export function useEModeSwitch({
   accountId,
   provider,
   marketAddress,
+  providerLogoURI,
   onSwitched,
   getCategoryLabel,
 }: {
@@ -26,6 +27,7 @@ export function useEModeSwitch({
   accountId: string;
   provider: string;
   marketAddress: string;
+  providerLogoURI?: string;
   onSwitched: () => void;
   // Resolves the category name for the success toast; the hook only knows the
   // eModeId, the label lives in the page's rows / route params.
@@ -59,12 +61,13 @@ export function useEModeSwitch({
     (): IStakingInfo => ({
       label: EEarnLabels.Borrow,
       protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+      protocolLogoURI: providerLogoURI,
       tags: [
         EEarnLabels.Borrow,
         buildBorrowTag({ provider, action: 'setEMode' }),
       ],
     }),
-    [provider],
+    [provider, providerLogoURI],
   );
 
   const runCheck = useCallback(
@@ -177,6 +180,11 @@ export function useEModeSwitch({
           onSwitched();
         },
       });
+      // undefined = the flow never started (risk disclaimer declined); leave the
+      // switch state exactly as it was, the finally below releases the lock.
+      if (!latestCheck) {
+        return;
+      }
       if (!latestCheck.canSwitch) {
         applyAuthoritativeCheck({
           eModeId: targetEModeId,

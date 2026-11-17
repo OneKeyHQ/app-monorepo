@@ -2,6 +2,9 @@ export type IReferralBindDisplayStatus =
   | 'bind'
   | 'bound'
   | 'notApplicable'
+  // A wallet that can never take a referral code (QR, watch-only, imported,
+  // external, hidden or third-party hardware, TON mnemonic).
+  | 'unsupported'
   | 'unknown';
 
 type IReferralBindState = {
@@ -9,6 +12,22 @@ type IReferralBindState = {
   bindable?: boolean;
   bindWindowReason?: string;
 };
+
+export function isBindWindowExpiredError(
+  error:
+    | {
+        message?: string;
+        data?: { message?: string; messageId?: string };
+      }
+    | null
+    | undefined,
+): boolean {
+  return (
+    error?.data?.messageId === 'exceeded_bind_window' ||
+    error?.data?.message === 'exceeded_bind_window' ||
+    error?.message === 'exceeded_bind_window'
+  );
+}
 
 export function canBindReferralCode(
   status: IReferralBindState | null | undefined,

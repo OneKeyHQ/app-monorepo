@@ -2,18 +2,23 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { DashText, SizableText, XStack, useMedia } from '@onekeyhq/components';
+import { DashText, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { PORTFOLIO_TOKEN_COLUMN_WIDTH } from './portfolioColumnConstants';
 
 const commonTextProps = {
   size: '$bodySmMedium',
   color: '$textSubdued',
 } as const;
 
+// The numeric columns share the row as equal flex thirds (explicit zero basis
+// — Tamagui's `flex` keeps `flex-basis: auto`), so the first column hugs the
+// left edge and the last one the right edge at any container width. The item
+// rows use the same shares and the same 20px edge insets, keeping the two in
+// column alignment.
 function PortfolioHeaderNormalBase() {
   const intl = useIntl();
-  const { gtXl } = useMedia();
-  const columnWidth = gtXl ? 240 : 130;
 
   return (
     <XStack
@@ -23,13 +28,19 @@ function PortfolioHeaderNormalBase() {
       backgroundColor="$bgApp"
       gap="$6"
     >
-      <SizableText {...commonTextProps} w={100}>
+      <SizableText {...commonTextProps} w={PORTFOLIO_TOKEN_COLUMN_WIDTH}>
         {intl.formatMessage({ id: ETranslations.perp_relay_token__title })}
       </SizableText>
-      <SizableText {...commonTextProps} w={columnWidth} textAlign="right">
+      <SizableText
+        {...commonTextProps}
+        flex={1}
+        flexBasis={0}
+        minWidth={0}
+        textAlign="right"
+      >
         {intl.formatMessage({ id: ETranslations.global_balance })}
       </SizableText>
-      <XStack w={columnWidth} justifyContent="flex-end">
+      <XStack flex={1} flexBasis={0} minWidth={0} justifyContent="flex-end">
         <DashText
           size="$bodySmMedium"
           color="$textSubdued"
@@ -44,7 +55,7 @@ function PortfolioHeaderNormalBase() {
           })}
         </DashText>
       </XStack>
-      <XStack w={columnWidth} justifyContent="flex-end">
+      <XStack flex={1} flexBasis={0} minWidth={0} justifyContent="flex-end">
         <DashText
           size="$bodySmMedium"
           color="$textSubdued"

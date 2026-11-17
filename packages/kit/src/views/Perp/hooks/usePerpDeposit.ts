@@ -28,6 +28,7 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { TPerpDepositErrorStage } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
@@ -62,6 +63,7 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { getPerpDepositErrorCode } from '../utils/perpDepositAnalytics';
 
 import { shouldWaitForPerpsDepositQuoteAccount } from './usePerpDepositUtils';
 
@@ -259,7 +261,15 @@ const usePerpDeposit = (
       },
     });
   }, [token]);
-  const { result, isLoading: isDepositQuoteAccountLoading } = usePromiseResult(
+  const depositQuoteAccountScope = [
+    indexedAccountId ?? '',
+    selectedAccountId ?? '',
+    token?.networkId ?? '',
+  ].join('::');
+  const {
+    result: depositQuoteAccount,
+    isLoading: isDepositQuoteAccountLoading,
+  } = usePromiseResult(
     async () => {
       if (
         selectedAction !== 'deposit' ||
@@ -291,6 +301,7 @@ const usePerpDeposit = (
             networkId: PERPS_NETWORK_ID,
           });
         return {
+          scope: depositQuoteAccountScope,
           accountId: accountAddressInfo.id,
           fromUserAddress: accountAddressInfo.addressDetail.address,
           perpReceiverAddress: perpAccount.addressDetail.address,
@@ -304,11 +315,17 @@ const usePerpDeposit = (
       token?.networkId,
       checkFromTokenFiatValue,
       selectedAccountId,
+      depositQuoteAccountScope,
     ],
     {
       watchLoading: true,
     },
   );
+  // Loading is set in an effect; reject the previous scope during render too.
+  const result =
+    depositQuoteAccount?.scope === depositQuoteAccountScope
+      ? depositQuoteAccount
+      : undefined;
   const accountId = useMemo(() => {
     return result?.accountId ?? '';
   }, [result?.accountId]);
@@ -378,7 +395,10 @@ const usePerpDeposit = (
       return;
     }
     if (shouldWaitForDepositQuoteAccount) {
-      setPerpDepositQuoteLoading(true);
+      await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
+      if (isActiveQuoteRequest(requestId)) {
+        setPerpDepositQuoteLoading(true);
+      }
       return;
     }
     try {
@@ -923,6 +943,8 @@ const usePerpDeposit = (
         networkId: token.networkId,
         accountId,
         unsignedTx: updatedUnsignedTxItem,
+        // a replayed payload is recorded as it is on the wire
+        signedTx: res,
         feeInfo: {
           feeInfo: gasInfo as IFeeInfoUnit,
           total,
@@ -1210,25 +1232,29 @@ const usePerpDeposit = (
     if (!token?.networkId) {
       throw new OneKeyError('token.networkId is required');
     }
-    const { transferInfo, encodedTx, swapInfo } =
-      await buildQuoteRes(perpDepositQuote);
-    const { unsignedTxArr } = await getApproveUnSignedTxArr(
-      perpDepositQuote?.result,
-    );
-    const gasFeeInfos = await estimateNetworkFee(
-      {
-        networkId: token?.networkId,
-        accountId,
-        transfersInfo: transferInfo ? [transferInfo] : undefined,
-        encodedTx,
-        swapInfo,
-      },
-      unsignedTxArr,
-    );
+    let errorStage: TPerpDepositErrorStage = 'build';
     try {
+      const { transferInfo, encodedTx, swapInfo } =
+        await buildQuoteRes(perpDepositQuote);
+      errorStage = 'approve';
+      const { unsignedTxArr } = await getApproveUnSignedTxArr(
+        perpDepositQuote.result,
+      );
+      errorStage = 'build';
+      const gasFeeInfos = await estimateNetworkFee(
+        {
+          networkId: token.networkId,
+          accountId,
+          transfersInfo: transferInfo ? [transferInfo] : undefined,
+          encodedTx,
+          swapInfo,
+        },
+        unsignedTxArr,
+      );
+      errorStage = 'sign';
       const res = await perpSendTxAction(
         {
-          networkId: token?.networkId,
+          networkId: token.networkId,
           accountId,
           transfersInfo: transferInfo ? [transferInfo] : undefined,
           encodedTx,
@@ -1259,39 +1285,42 @@ const usePerpDeposit = (
           fromAmount: amount,
         });
         defaultLogger.perp.deposit.perpDepositInitiate({
-          userAddress: result?.fromUserAddress ?? '',
-          receiverAddress: result?.perpReceiverAddress ?? '',
           walletType: activePerpsAccount.walletType ?? 'unknown',
           token,
           amount,
           toAmount: perpDepositQuote.result.toAmount,
+          depositRoute: 'relay',
           status: ESwapTxHistoryStatus.SUCCESS,
           txId: res.txid,
         });
       } else {
         defaultLogger.perp.deposit.perpDepositInitiate({
-          userAddress: result?.fromUserAddress ?? '',
-          receiverAddress: result?.perpReceiverAddress ?? '',
           walletType: activePerpsAccount.walletType ?? 'unknown',
           token,
           amount,
           toAmount: perpDepositQuote.result.toAmount,
+          depositRoute: 'relay',
           status: ESwapTxHistoryStatus.FAILED,
-          errorMessage: 'txid not found',
+          errorStage: 'broadcast',
+          errorCode: 'txidNotFound',
         });
       }
-    } catch (e: any) {
+    } catch (error) {
       defaultLogger.perp.deposit.perpDepositInitiate({
-        userAddress: result?.fromUserAddress ?? '',
-        receiverAddress: result?.perpReceiverAddress ?? '',
         walletType: activePerpsAccount.walletType ?? 'unknown',
         token,
         amount,
         toAmount: perpDepositQuote.result.toAmount,
+        depositRoute: 'relay',
         status: ESwapTxHistoryStatus.FAILED,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        errorMessage: e?.message ?? '',
+        errorStage,
+        errorCode: getPerpDepositErrorCode(error),
       });
+      // Preserve the legacy send/sign behavior while allowing preparation
+      // failures to reach the modal's error handling instead of closing it.
+      if (errorStage === 'build' || errorStage === 'approve') {
+        throw error;
+      }
     }
   }, [
     perpDepositQuote,
@@ -1305,8 +1334,6 @@ const usePerpDeposit = (
     handlePerpDepositTxSuccess,
     activePerpsAccount.walletType,
     amount,
-    result?.fromUserAddress,
-    result?.perpReceiverAddress,
   ]);
 
   const shouldSignEveryTime = useMemo(() => {

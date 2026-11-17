@@ -22,25 +22,45 @@ import type { IDialogFooterProps } from './type';
 
 const mdSizeLargeStyle = { size: 'large' } as any;
 
+// `Dialog.Form` is lazy: it registers its form after the rest of the dialog has
+// mounted, and registers a fresh one whenever it remounts. Subscribing once to
+// whatever `getForm()` happened to return at mount therefore left `disabledOn`
+// watching a form nobody types into, and the confirm button stayed disabled for
+// the life of the dialog no matter what the user entered — the lock screen's
+// reset dialog could not be confirmed at all (OK-62416). Follow the dialog's
+// own registration announcement instead of assuming a single, early form.
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
 ) => {
   const { disabledOn, disabled } = props || {};
   const { getForm } = useDialogInstance();
+  const { dialogInstance } = useContext(DialogContext);
+  const subscribeFormChange = dialogInstance?.subscribeFormChange;
   const [, updateStatus] = useState(0);
   useEffect(() => {
-    const form = getForm();
-    if (form && disabledOn) {
-      const subscription = form.watch(() => {
+    if (!disabledOn) {
+      return;
+    }
+    let subscription: { unsubscribe: () => void } | undefined;
+    const watchCurrentForm = () => {
+      subscription?.unsubscribe();
+      subscription = getForm()?.watch(() => {
         updateStatus((i) => i + 1);
       });
-      return () => {
-        if (subscription) {
-          subscription.unsubscribe();
-        }
-      };
-    }
-  }, [disabledOn, getForm]);
+    };
+    watchCurrentForm();
+    const unsubscribeFormChange = subscribeFormChange?.(() => {
+      watchCurrentForm();
+      // The form this button reads is a different object now, so its value has
+      // never been through `disabledOn` — re-evaluate rather than wait for a
+      // change `watch` would report.
+      updateStatus((i) => i + 1);
+    });
+    return () => {
+      unsubscribeFormChange?.();
+      subscription?.unsubscribe();
+    };
+  }, [disabledOn, getForm, subscribeFormChange]);
   return typeof disabled !== 'undefined' ? disabled : disabledOn?.({ getForm });
 };
 
@@ -129,6 +149,7 @@ export function Footer(props: IDialogFooterProps) {
     confirmButtonProps = {},
     onCancelText,
     tone,
+    leadingContent,
     extraContent,
   } = restProps;
   const { onCancel } = props;
@@ -142,6 +163,7 @@ export function Footer(props: IDialogFooterProps) {
     <>
       {showFooter ? (
         <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
+          {leadingContent}
           {showCancelButton ? (
             <Button
               flexGrow={1}
@@ -191,6 +213,7 @@ function BasicFooterAction({
   confirmButtonProps = {},
   tone,
   trackID,
+  leadingContent,
   extraContent,
 }: IDialogFooterProps) {
   const intl = useIntl();
@@ -210,6 +233,7 @@ function BasicFooterAction({
       onCancelText,
       trackID,
       tone,
+      leadingContent,
       extraContent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -232,6 +256,7 @@ function BasicFooterAction({
         onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
       trackID,
       tone,
+      leadingContent,
       extraContent,
     };
     footerRef.notifyUpdate?.();
@@ -250,6 +275,7 @@ function BasicFooterAction({
     tone,
     footerRef,
     intl,
+    leadingContent,
     extraContent,
   ]);
   return null;

@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -106,6 +107,25 @@ export class KeyringQr extends KeyringQrBase {
       throw new OneKeyLocalError('addressEncoding not found');
     }
 
+    // Fresh-address (multi-address) change outputs live on an unused `1/x`
+    // path, so they are absent from addressToPath (built from utxos + the
+    // current receive address). Resolve them from the encodedTx payload so the
+    // PSBT output carries bip32Derivation and the device recognizes change.
+    const changeAddressToPath: Record<
+      string,
+      { relPath: string; fullPath: string }
+    > = {};
+    const { outputs: encodedOutputs } = unsignedTx.encodedTx as IEncodedTxBtc;
+    for (const output of encodedOutputs ?? []) {
+      const bip44Path = output.payload?.bip44Path;
+      if (output.payload?.isChange && bip44Path && output.address) {
+        changeAddressToPath[output.address] = {
+          fullPath: bip44Path,
+          relPath: bip44Path.split('/').slice(-2).join('/'),
+        };
+      }
+    }
+
     let unsignedPsbt: Psbt | undefined;
     const signedTx = await this.baseSignByQrcode(params, {
       signRequestUrBuilder: async ({
@@ -120,8 +140,11 @@ export class KeyringQr extends KeyringQrBase {
           unsignedTx,
           btcExtraInfo,
           buildInputMixinInfo: async ({ address }) => {
-            const relPath = btcExtraInfo?.addressToPath?.[address]?.relPath;
-            const fullPath = btcExtraInfo?.addressToPath?.[address]?.fullPath;
+            const pathInfo =
+              btcExtraInfo?.addressToPath?.[address] ??
+              changeAddressToPath[address];
+            const relPath = pathInfo?.relPath;
+            const fullPath = pathInfo?.fullPath;
             if (!relPath) {
               throw new OneKeyLocalError('relPath not found');
             }

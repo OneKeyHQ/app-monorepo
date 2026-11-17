@@ -54,6 +54,7 @@ type IBuildUnsignedTxParams = {
   onFail?: (error: Error) => void;
   onCancel?: () => void;
   onBeforeSend?: () => void | Promise<void>;
+  isNavigationCurrent?: () => boolean;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sameModal?: boolean;
@@ -67,7 +68,8 @@ type IBuildUnsignedTxParams = {
   isInternalTransfer?: boolean;
   disableMev?: boolean;
   // Gas Account scenario code for backend scenario gate.
-  // When omitted, resolved from stakingInfo/swapInfo/isInternalSwap flags; defaults to 'send'.
+  // When omitted, resolved from transferPayload.isPrivateSend and
+  // stakingInfo/swapInfo/isInternalSwap flags; defaults to 'send'.
   // Callers with scenarios not derivable from those flags (perps, dapp) must set it explicitly.
   gasAccountScenario?: IGasAccountScenario;
 };
@@ -76,6 +78,9 @@ function resolveGasAccountScenario(
   params: IBuildUnsignedTxParams,
 ): IGasAccountScenario {
   if (params.gasAccountScenario) return params.gasAccountScenario;
+  // Private Send rides the internal-swap pipeline (isInternalSwap=true), so
+  // this branch must run before the swap one.
+  if (params.transferPayload?.isPrivateSend) return 'privateSend';
   if (params.isInternalSwap || params.swapInfo) return 'swap';
   if (params.stakingInfo) return 'earn';
   return 'send';
@@ -131,6 +136,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onFail,
         onCancel,
         onBeforeSend,
+        isNavigationCurrent,
         broadcastDeadline,
         beforeBroadcastAction,
         transferPayload: transferPayloadBase,
@@ -147,6 +153,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         ...rest
       } = params;
       let transferPayload = transferPayloadBase;
+      if (isNavigationCurrent && !isNavigationCurrent()) {
+        return;
+      }
       try {
         let unsignedTxs: IUnsignedTxPro[] = [];
         if (unsignedTxsFromParams?.length) {
@@ -180,6 +189,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
                   accountId,
                   encodedTx,
                   transfersInfo,
+                  transferPayload,
                   swapInfo,
                   stakingInfo,
                   prevNonce,
@@ -198,6 +208,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
                   stakingInfo,
                   encodedTx,
                   transfersInfo,
+                  transferPayload,
                   ...rest,
                 },
               ),
@@ -218,9 +229,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           });
         }
 
-        const target = params.isInternalSwap
-          ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
-          : EModalSignatureConfirmRoutes.TxConfirm;
+        const target =
+          params.isInternalSwap && !transferPayloadBase?.isPrivateSend
+            ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
+            : EModalSignatureConfirmRoutes.TxConfirm;
 
         try {
           const preActionsBeforeConfirmResult =
@@ -240,6 +252,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           noop();
         }
 
+        if (isNavigationCurrent && !isNavigationCurrent()) {
+          return;
+        }
         const gasAccountScenario = resolveGasAccountScenario(params);
 
         if (sameModal) {

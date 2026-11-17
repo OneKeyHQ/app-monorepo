@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
+import {
+  testDomainSpeed,
+  testIpSpeed,
+} from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import type { IIpTableRemoteConfig } from '@onekeyhq/shared/src/request/types/ipTable';
 
 import ServiceIpTable from './ServiceIpTable';
@@ -66,6 +70,8 @@ jest.mock('./ServiceBase', () => ({
 }));
 
 const DOMAIN = 'onekeycn.com';
+const mockedTestDomainSpeed = testDomainSpeed as jest.Mock;
+const mockedTestIpSpeed = testIpSpeed as jest.Mock;
 
 function buildConfig(ip: string, version = 1): IIpTableRemoteConfig {
   return {
@@ -157,6 +163,45 @@ describe('ServiceIpTable resilience', () => {
     );
     expect((service as any).pendingConfigChangeRerun.get(DOMAIN)).toBe(
       'periodic',
+    );
+  });
+
+  it('scores API endpoints only with wallet health probes', async () => {
+    const { service, ipTableDb } = createService();
+    const config = buildConfig('1.1.1.1', 1);
+
+    jest.spyOn(service as any, 'isIpTableEnabled').mockResolvedValue(true);
+    const testMultipleTimesSpy = jest
+      .spyOn(service as any, 'testMultipleTimes')
+      .mockImplementation(async (...args: unknown[]) => {
+        const testFn = args[0] as () => Promise<number>;
+        return testFn();
+      });
+    jest.spyOn(service, 'getConfig').mockResolvedValue({
+      config,
+      runtime: undefined,
+    });
+    mockedTestDomainSpeed.mockResolvedValue(20);
+    mockedTestIpSpeed.mockResolvedValue(25);
+
+    await (service as any).selectBestEndpointForDomainInternal(DOMAIN, {
+      trigger: 'periodic',
+    });
+
+    expect(testMultipleTimesSpy).toHaveBeenCalledTimes(2);
+    expect(mockedTestDomainSpeed).toHaveBeenCalledTimes(1);
+    expect(mockedTestIpSpeed).toHaveBeenCalledWith(
+      '1.1.1.1',
+      DOMAIN,
+      expect.any(String),
+      expect.any(Number),
+    );
+    expect(ipTableDb.commitSpeedTestResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: DOMAIN,
+        lastBestIp: '1.1.1.1',
+        selection: '',
+      }),
     );
   });
 

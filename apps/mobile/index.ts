@@ -8,6 +8,8 @@ type IReactNativeDeviceUtilsModule =
   typeof import('@onekeyfe/react-native-device-utils');
 type ISentryModule =
   typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
+type INativeStorageContractViolationModule =
+  typeof import('@onekeyhq/shared/src/storage/nativeStorageContractViolation');
 type IAppModule = typeof import('./App');
 
 (
@@ -15,6 +17,11 @@ type IAppModule = typeof import('./App');
     __ONEKEY_RUNTIME_KIND__?: 'main' | 'background';
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
+
+require('@onekeyhq/shared/src/polyfills');
+const { markRuntimePolyfillsReady } =
+  require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
+markRuntimePolyfillsReady();
 
 // ── On-device Storybook workbench: independent top-level entry ──
 //
@@ -28,13 +35,16 @@ type IAppModule = typeof import('./App');
 // normal bundles (STORYBOOK_ENABLED unset), so this branch adds nothing to
 // production. Main runtime only; the background runtime is never started.
 if (process.env.STORYBOOK_ENABLED === 'true') {
-  require('@onekeyhq/shared/src/polyfills');
   const { I18nManager } =
     require('react-native') as typeof import('react-native');
   I18nManager.allowRTL(true);
   const { registerRootComponent } = require('expo') as IExpoModule;
   registerRootComponent((require('./.rnstorybook') as IAppModule).default);
 } else {
+  const { preventNativeStorageBootstrapSplashAutoHide } =
+    require('./src/backgroundThread/nativeStorageBootstrapSplash') as typeof import('./src/backgroundThread/nativeStorageBootstrapSplash');
+  preventNativeStorageBootstrapSplashAutoHide();
+
   // Startup profiler — gated by `ONEKEY_STARTUP_PROFILE=1` at build time.
   // When OFF this is a single `if (enabled) return;` check with no observable
   // overhead. When ON it monkey-patches Metro's `__r` so every module's factory
@@ -45,54 +55,6 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
 
   require('@onekeyhq/shared/src/performance/init');
   require('./jsReady');
-  require('@onekeyhq/shared/src/polyfills');
-
-  // ── Jotai Cold Start SSR — Phase 1: Snapshot Pre-read ──
-  //
-  // Pattern analogous to SSR hydration:
-  //   "Server" = previous session that saved atom values to MMKV
-  //   "Transfer" = MMKV cold-start cache (synchronous, survives app restart)
-  //   "Hydration" = hydrateContextColdStartCacheForProvider seeds scoped atoms
-  //                  on provider mount from the snapshot on globalThis
-  //   "First Paint" = React renders cached data immediately (no skeleton)
-  //   "Revalidation" = BG thread fetches fresh data, atoms update in-place
-  //
-  // This block pre-reads the snapshot from MMKV into globalThis before any
-  // module evaluates, so the scoped hydrator can use it as initial atom values.
-  // Without this, atoms start empty → skeleton → wait for network → ~2s slower.
-  try {
-    const { coldStartCacheStorage: _coldStartCache } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    const { EAppSyncStorageKeys: _keys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-
-    const _ctxRaw = _coldStartCache.getString(
-      _keys.onekey_jotai_context_atoms_snapshot,
-    );
-    if (_ctxRaw) {
-      const { normalizeSwapColdStartCacheSnapshot: _normalizeSwapSnapshot } =
-        require('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils') as typeof import('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils');
-      const { CONTEXT_ATOM_COLD_START_CACHE_KEYS: _ctxAtomKeys } =
-        require('@onekeyhq/shared/src/consts/jotaiConsts') as typeof import('@onekeyhq/shared/src/consts/jotaiConsts');
-      const _ctxSnapshot = _normalizeSwapSnapshot(JSON.parse(_ctxRaw));
-      (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = _ctxSnapshot;
-      const _perpsL2BookColdCacheEntry = Object.entries(_ctxSnapshot).find(
-        ([_key]) => _key.endsWith(`::${_ctxAtomKeys.perpsL2BookColdCacheAtom}`),
-      );
-      if (_perpsL2BookColdCacheEntry) {
-        (globalThis as any).__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__ =
-          _perpsL2BookColdCacheEntry[1];
-      }
-      const { NativeLogger: _NL, LogLevel: _LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      _NL.write(
-        _LL.Info,
-        `[StartupTiming] MMKV contextAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
-      );
-    }
-  } catch {
-    /* MMKV not available yet */
-  }
 
   // Install production split bundle loader before any async imports execute.
   // In dev mode __SEGMENT_MANIFEST__ is undefined so this is a no-op.
@@ -116,18 +78,6 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
       _LL2.Info,
       `[StartupTiming] segment loader installed in ${Date.now() - _segStart}ms (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
     );
-  }
-
-  // Pre-warm critical home page icon segments so they're loaded by first render.
-  // Must run AFTER segment loader install (line 64) and BEFORE React mount.
-  if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
-    const { warmCriticalIcons } =
-      require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
-    warmCriticalIcons();
-
-    const { prewarmColdStartImagesFromSnapshot } =
-      require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
-    void prewarmColdStartImagesFromSnapshot();
   }
 
   // Install native error logger for Release mode debugging.
@@ -184,6 +134,10 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
     );
   }
 
+  const nativeStorageContractViolation =
+    require('@onekeyhq/shared/src/storage/nativeStorageContractViolation') as INativeStorageContractViolationModule;
+  nativeStorageContractViolation.installNativeStorageContractViolationMainHandler();
+
   const _transportStart = Date.now();
   require('./src/backgroundThread/setupMainThreadBackgroundRunner');
 
@@ -194,7 +148,8 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
     require('@onekeyhq/shared/src/modules3rdParty/sentry') as ISentryModule;
   const { ReactNativeDeviceUtils } =
     require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
-  const App = (require('./App') as IAppModule).default;
+  const { NativeStorageBootstrapRoot } =
+    require('./src/backgroundThread/NativeStorageBootstrapRoot') as typeof import('./src/backgroundThread/NativeStorageBootstrapRoot');
 
   {
     const _e = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number;
@@ -217,6 +172,7 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
 
   ReactNativeDeviceUtils.initEventListeners();
   initSentry();
+  nativeStorageContractViolation.markNativeStorageContractViolationSentryReady();
 
   // Install Sentry event processor that tags split-bundle integrity crashes.
   // Must run AFTER initSentry() so the SDK's isolation scope is up. See
@@ -249,18 +205,5 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
 
   I18nManager.allowRTL(true);
 
-  if (typeof globalThis.nativePerformanceNow === 'function') {
-    globalThis.$$onekeyAppWillMountFromPerformanceNow =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      globalThis.nativePerformanceNow();
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.log(
-        'onekeyAppWillMountFromPerformanceNow',
-        (globalThis.$$onekeyAppWillMountFromPerformanceNow || 0) -
-          (globalThis.$$onekeyJsReadyFromPerformanceNow || 0),
-      );
-    }
-  }
-  registerRootComponent(App);
+  registerRootComponent(NativeStorageBootstrapRoot);
 }

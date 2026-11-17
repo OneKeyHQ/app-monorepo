@@ -37,7 +37,7 @@
 //! Usage: onekey-ble-pair <pair|is-paired|forget|inspect> --address AA:BB:..:FF
 
 #[cfg(windows)]
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 #[cfg(windows)]
 use std::sync::{Mutex, OnceLock};
 #[cfg(windows)]
@@ -83,6 +83,99 @@ fn init_log_file() {
 #[cfg(windows)]
 static ACCEPT_MS: AtomicU64 = AtomicU64::new(u64::MAX);
 
+// The host's half of the numeric comparison, fed by the parent over stdin.
+// Accepting unconditionally skips that comparison and leaves no way to cancel:
+// after Accept() an abort can only drop the link, which reads as a dead peer.
+#[cfg(windows)]
+const DECISION_PENDING: u8 = 0;
+#[cfg(windows)]
+const DECISION_CONFIRM: u8 = 1;
+#[cfg(windows)]
+const DECISION_CANCEL: u8 = 2;
+#[cfg(windows)]
+static DECISION: AtomicU8 = AtomicU8::new(DECISION_PENDING);
+
+/// Poll interval while the delegate waits for the parent's decision.
+#[cfg(windows)]
+const DECISION_POLL_MS: u64 = 25;
+
+/// Backstop so a parent that never answers cannot wedge the helper; the device
+/// gives up on its own pairing window long before this.
+#[cfg(windows)]
+const DECISION_TIMEOUT_MS: u64 = 120_000;
+
+/// Hold the ceremony until the parent decides, then Accept (or not) and release
+/// the deferral. Completing WITHOUT Accept is what makes Windows send the device
+/// an SMP Pairing Failed, so it shows the cancel and leaves pairing mode.
+#[cfg(windows)]
+fn await_decision(
+    args: &windows::Devices::Enumeration::DevicePairingRequestedEventArgs,
+    kind: &str,
+) -> windows::core::Result<()> {
+    let deferral = args.GetDeferral()?;
+    let started = t_ms();
+    diag(&format!("{kind}: awaiting host confirmation"));
+
+    let decision = loop {
+        let current = DECISION.load(Ordering::SeqCst);
+        if current != DECISION_PENDING {
+            break current;
+        }
+        if t_ms().saturating_sub(started) >= DECISION_TIMEOUT_MS {
+            // Treat silence as refusal: never bond a device nobody confirmed.
+            break DECISION_CANCEL;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(DECISION_POLL_MS));
+    };
+
+    let waited = t_ms().saturating_sub(started);
+    if decision == DECISION_CONFIRM {
+        args.Accept()?;
+        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
+        diag(&format!(
+            "accepted {kind} after {waited}ms (device confirmation pending)"
+        ));
+    } else {
+        diag(&format!(
+            "declined {kind} after {waited}ms; the device is told via SMP Pairing Failed"
+        ));
+    }
+    deferral.Complete()?;
+    Ok(())
+}
+
+/// Watch stdin for a `confirm` / `cancel` line. EOF (parent closed the pipe or
+/// died) counts as a cancel, so the device is told rather than left to time out.
+#[cfg(windows)]
+fn spawn_decision_reader() {
+    std::thread::spawn(|| {
+        use std::io::BufRead;
+        let stdin = std::io::stdin();
+        for line in stdin.lock().lines() {
+            let Ok(line) = line else { break };
+            let decision = match line.trim() {
+                "confirm" => DECISION_CONFIRM,
+                "cancel" => DECISION_CANCEL,
+                _ => continue,
+            };
+            // First decision wins; a later line cannot flip a settled ceremony.
+            let _ = DECISION.compare_exchange(
+                DECISION_PENDING,
+                decision,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            );
+            return;
+        }
+        let _ = DECISION.compare_exchange(
+            DECISION_PENDING,
+            DECISION_CANCEL,
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+        );
+    });
+}
+
 #[cfg(windows)]
 fn t_ms() -> u64 {
     START
@@ -120,6 +213,12 @@ fn main() {
     // closing may be pointless — or may be the only thing that lets it advertise
     // again. Runtime-selectable so both halves can be tried from one build.
     let keep_link = args.iter().any(|a| a == "--keep-link");
+
+    // Only `pair` has a ceremony to gate; the read-only commands never block on
+    // a decision, and starting the reader for them would just hold their stdin.
+    if command == "pair" {
+        spawn_decision_reader();
+    }
 
     let result = pollster::block_on(async {
         match command {
@@ -482,19 +581,18 @@ mod win {
                 let kind = args.PairingKind()?;
                 diag(&format!("PairingRequested kind={kind:?}"));
                 match kind {
-                    // Numeric comparison: surface the pin so the user can check
-                    // it against the device screen, then accept.
+                    // Numeric comparison: surface the pin, then hold the
+                    // ceremony until the parent says the user matched it.
                     DevicePairingKinds::ConfirmPinMatch => {
                         let pin = args.Pin()?;
                         super::emit(&format!(
                             r#"{{"type":"pairing","pin":"{}"}}"#,
                             super::json_escape(&pin.to_string())
                         ));
-                        args.Accept()?;
-                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
-                        diag("accepted ConfirmPinMatch (device confirmation pending)");
+                        super::await_decision(&args, "ConfirmPinMatch")?;
                     }
-                    // Device shows a pin; Windows just needs a yes. Surface it too.
+                    // Device shows a pin; Windows just needs a yes. Same gate:
+                    // the user is still confirming a code they can read.
                     DevicePairingKinds::DisplayPin => {
                         if let Ok(pin) = args.Pin() {
                             super::emit(&format!(
@@ -502,9 +600,7 @@ mod win {
                                 super::json_escape(&pin.to_string())
                             ));
                         }
-                        args.Accept()?;
-                        ACCEPT_MS.store(t_ms(), Ordering::SeqCst);
-                        diag("accepted DisplayPin");
+                        super::await_decision(&args, "DisplayPin")?;
                     }
                     // Just-works: no code, so nothing ties the bond to the device
                     // in front of the user. A Safe 7 has a screen and always

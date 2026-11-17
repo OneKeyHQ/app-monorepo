@@ -1,3 +1,4 @@
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IBorrowEModeBlockerAsset,
   IBorrowEModeSwitchCheck,
@@ -61,14 +62,16 @@ function createCheck({
 }
 
 function createRepayStep(check: IBorrowEModeSwitchCheck) {
-  const asset = check.repayAssets[0] ?? check.additionalRepayAssets[0];
+  const asset = checkIsDefined(
+    check.repayAssets?.[0] ?? check.additionalRepayAssets?.[0],
+  );
   return blockerSteps([
     {
       kind: 'repay',
       reserveAddress: asset.reserveAddress,
       symbol: asset.token.symbol,
       amountValue: asset.borrowed?.number,
-      hfSafety: check.additionalRepayAssets.includes(asset),
+      hfSafety: check.additionalRepayAssets?.includes(asset) ?? false,
     },
   ])[0];
 }

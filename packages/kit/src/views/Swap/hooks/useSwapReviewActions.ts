@@ -7,6 +7,8 @@ import {
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -20,14 +22,31 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  ESwapReviewRebuildPhase,
+  isSwapReviewConfirmBlocked,
+} from '../utils/swapReviewRebuildStateMachine';
+import {
   ESwapReviewApproveTransactionSource,
+  buildSwapStepFailurePatch,
   getSwapReviewApproveTransaction,
+  hasSwapStepSubmitResultUnknown,
+  updateSwapReviewStep,
 } from '../utils/swapReviewState';
 
+import { useSwapReviewRebuildStateMachine } from './useSwapReviewRebuildStateMachine';
+
+import type {
+  ISwapReviewAnalytics,
+  ISwapReviewPreparation,
+} from '../utils/swapReviewAnalytics';
 import type {
   ISwapReviewAdapter,
   ISwapReviewState,
 } from '../utils/swapReviewState';
+
+export type ISwapReviewRebuildOptions = {
+  onExecutionReady?: () => void;
+};
 
 function mergeReviewStateSteps(prevSteps: ISwapStep[], nextSteps: ISwapStep[]) {
   return nextSteps.map((nextStep, index) => {
@@ -53,6 +72,9 @@ function mergeReviewStateSteps(prevSteps: ISwapStep[], nextSteps: ISwapStep[]) {
 
     if (typeof prevStep.canRetry !== 'undefined') {
       mergedStep.canRetry = prevStep.canRetry;
+    }
+    if (prevStep.submitResultUnknown) {
+      mergedStep.submitResultUnknown = true;
     }
 
     return mergedStep;
@@ -82,17 +104,13 @@ function useReviewStepStateActions() {
 
   const updateStep = useCallback(
     (stepIndex: number, partialStep: Partial<ISwapStep>) => {
-      setSwapSteps((prev) => {
-        const nextSteps = [...prev.steps];
-        nextSteps[stepIndex] = {
-          ...nextSteps[stepIndex],
-          ...partialStep,
-        };
-        return {
-          ...prev,
-          steps: nextSteps,
-        };
-      });
+      setSwapSteps((prev) =>
+        updateSwapReviewStep({
+          reviewState: prev,
+          stepIndex,
+          partialStep,
+        }),
+      );
     },
     [setSwapSteps],
   );
@@ -121,10 +139,12 @@ function useReviewStepStateActions() {
 }
 
 export function useSwapReviewActions({
+  reviewAnalytics,
   adapter,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
 }: {
   adapter: ISwapReviewAdapter;
+  reviewAnalytics?: ISwapReviewAnalytics;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
 }) {
   const intl = useIntl();
@@ -140,6 +160,12 @@ export function useSwapReviewActions({
   const swapStepsStateRef = useRef(swapStepsState);
   const { replaceReviewState, setBeforeActionsLoading, updateStep } =
     useReviewStepStateActions();
+  const {
+    state: reviewRebuildState,
+    stateRef: reviewRebuildStateRef,
+    begin: beginReviewRebuild,
+    resetUncommittedError: resetUncommittedReviewRebuildError,
+  } = useSwapReviewRebuildStateMachine();
 
   adapterRef.current = adapter;
   intlRef.current = intl;
@@ -187,10 +213,13 @@ export function useSwapReviewActions({
       data?: IFetchQuoteResult,
       currentFromToken?: IFetchQuoteResult['fromTokenInfo'],
       currentToToken?: IFetchQuoteResult['toTokenInfo'],
+      reviewPreparation?: ISwapReviewPreparation,
     ) => {
       setBeforeActionsLoading(true);
       try {
         const reviewState = await adapter.prepareReview({
+          reviewAnalytics,
+          reviewPreparation,
           fromAmount: data?.fromAmount,
           fromToken: currentFromToken,
           toToken: currentToToken,
@@ -226,12 +255,111 @@ export function useSwapReviewActions({
     },
     [
       adapter,
+      reviewAnalytics,
       replaceReviewState,
       setBeforeActionsLoading,
       setSwapSteps,
       swapStepNetFeeLevel.networkFeeLevel,
       swapStepNetFeeLevel.customPriorityFee,
     ],
+  );
+
+  const rebuildReviewWithSlippage = useCallback(
+    async (slippagePercentage: number, options?: ISwapReviewRebuildOptions) => {
+      let expectedQuoteResult = swapStepsStateRef.current.quoteResult;
+      const rebuildReview = adapterRef.current.rebuildReview;
+      if (!expectedQuoteResult || !rebuildReview) {
+        throw new OneKeyLocalError(
+          'Current swap quote does not support rebuilding',
+        );
+      }
+
+      const operation = beginReviewRebuild(slippagePercentage);
+      let executionReady = false;
+      const isCurrentReview = () =>
+        operation.isCurrent() &&
+        swapStepsStateRef.current.quoteResult === expectedQuoteResult;
+      const assertCurrentReview = () => {
+        if (!isCurrentReview()) {
+          throw new OneKeyLocalError('Swap review changed while rebuilding');
+        }
+      };
+      const commitExecutionReview = (reviewState: ISwapReviewState) => {
+        if (executionReady) {
+          return;
+        }
+        assertCurrentReview();
+        executionReady = true;
+        expectedQuoteResult = reviewState.quoteResult;
+        operation.advance(ESwapReviewRebuildPhase.EstimatingFee);
+        const coreReviewState = {
+          ...reviewState,
+          preSwapData: {
+            ...reviewState.preSwapData,
+            swapBuildLoading: false,
+            estimateNetworkFeeLoading: true,
+            stepBeforeActionsError: undefined,
+          },
+        };
+        swapStepsStateRef.current = coreReviewState;
+        replaceReviewState(coreReviewState);
+        options?.onExecutionReady?.();
+      };
+
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          swapBuildLoading: true,
+          estimateNetworkFeeLoading: false,
+          stepBeforeActionsError: undefined,
+        },
+      }));
+
+      try {
+        const reviewState = await rebuildReview({
+          slippagePercentage,
+          networkFeeLevel: networkFeeLevelRef.current,
+          customPriorityFee: customPriorityFeeRef.current,
+          isCurrent: isCurrentReview,
+          onPhaseChange: (phase) => {
+            assertCurrentReview();
+            operation.advance(phase);
+          },
+          onExecutionReady: commitExecutionReview,
+        });
+        assertCurrentReview();
+        if (!executionReady) {
+          commitExecutionReview(reviewState);
+        }
+        const finalReviewState = {
+          ...reviewState,
+          preSwapData: {
+            ...reviewState.preSwapData,
+            swapBuildLoading: false,
+            estimateNetworkFeeLoading: false,
+            stepBeforeActionsError: undefined,
+          },
+        };
+        swapStepsStateRef.current = finalReviewState;
+        replaceReviewState(finalReviewState);
+        operation.resolve();
+      } catch (error) {
+        if (isCurrentReview()) {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              swapBuildLoading: false,
+              estimateNetworkFeeLoading: false,
+            },
+          }));
+          operation.reject();
+        }
+        throw error;
+      }
+    },
+    [beginReviewRebuild, replaceReviewState, setSwapSteps],
   );
 
   const preSwapStepsStart = useCallback(
@@ -248,6 +376,11 @@ export function useSwapReviewActions({
         swapStepsValues?.quoteResult ?? currentSwapStepsState.quoteResult;
 
       if (!steps.length) {
+        return;
+      }
+      // A result-unknown sponsored send already happened in this review: the
+      // tx may be on chain, so nothing here may run again (OK-64746).
+      if (hasSwapStepSubmitResultUnknown(steps)) {
         return;
       }
 
@@ -381,10 +514,17 @@ export function useSwapReviewActions({
               break;
             }
           } catch (error) {
-            markStepFailed(
-              i,
-              error instanceof Error ? error.message : undefined,
-            );
+            updateStep(i, {
+              stepSubTitle: undefined,
+              ...buildSwapStepFailurePatch({
+                error,
+                errorMessage:
+                  error instanceof Error ? error.message : undefined,
+                resultUnknownMessage: currentIntl.formatMessage({
+                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                }),
+              }),
+            });
             break;
           }
         }
@@ -473,13 +613,42 @@ export function useSwapReviewActions({
     updateStep,
   ]);
 
-  const onConfirm = useCallback(() => {
-    void preSwapStepsStart();
-  }, [preSwapStepsStart]);
+  const onConfirm = useCallback(
+    (onConfirmStart?: () => void) => {
+      if (isSwapReviewConfirmBlocked(reviewRebuildStateRef.current.phase)) {
+        return;
+      }
+
+      const confirm = async () => {
+        const currentReviewState = swapStepsStateRef.current;
+        if (currentReviewState.preSwapData.requiresSlippageRebuildOnConfirm) {
+          const slippagePercentage = currentReviewState.preSwapData.slippage;
+          if (typeof slippagePercentage !== 'number') {
+            throw new OneKeyLocalError(
+              'Invalidated swap review is missing slippage',
+            );
+          }
+          await rebuildReviewWithSlippage(slippagePercentage);
+        }
+
+        onConfirmStart?.();
+        await preSwapStepsStart();
+      };
+
+      void confirm().catch((error) => {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      });
+    },
+    [preSwapStepsStart, rebuildReviewWithSlippage, reviewRebuildStateRef],
+  );
 
   return {
     onConfirm,
     preSwapBeforeStepActions,
     preSwapStepsStart,
+    rebuildReviewWithSlippage,
+    reviewRebuildState,
+    resetUncommittedReviewRebuildError,
   };
 }

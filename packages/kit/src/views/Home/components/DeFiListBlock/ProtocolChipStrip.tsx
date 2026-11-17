@@ -159,7 +159,7 @@ function ProtocolChipBase({
       // Reduced-motion users get instant state changes (bg, focus
       // ring) instead of the quick fade — matches the same opt-out the
       // page scroller uses in DeFiContainer for `scrollTo`.
-      animation={reducedMotion ? undefined : 'quick'}
+      transition={reducedMotion ? undefined : 'quick'}
       animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
     >
       <Stack
@@ -214,7 +214,7 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
         : { right: 0, pl: '$4', pr: '$1' })}
       opacity={visible ? 1 : 0}
       pointerEvents={visible ? 'auto' : 'none'}
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_OPACITY}
       style={{ background: isLeft ? FADE_LEFT : FADE_RIGHT }}
     >
@@ -231,7 +231,7 @@ function ArrowAffordance({ side, visible, onPress }: IArrowAffordanceProps) {
         // tactile even when the bg-shift alone is subtle.
         hoverStyle={{ bg: '$gray4' }}
         pressStyle={{ bg: '$gray5', scale: 0.96 }}
-        animation="quick"
+        transition="quick"
         onPress={onPress}
       />
     </Stack>
@@ -244,6 +244,8 @@ type IProtocolChipStripProps = {
   isAllNetworks?: boolean;
   activeKey: string | null;
   onPressChip: (protocol: IDeFiProtocol) => void;
+  onPageScrollIntent?: () => void;
+  getPageScroller?: () => HTMLElement | null;
   onHeightChange?: (height: number) => void;
   // 0 = strip hidden + offset upward, 1 = fully visible + at rest.
   // Written by the page's pin tracker each scroll frame so the emergence
@@ -267,6 +269,8 @@ function ProtocolChipStripBase({
   isAllNetworks,
   activeKey,
   onPressChip,
+  onPageScrollIntent,
+  getPageScroller,
   onHeightChange,
   revealProgress,
 }: IProtocolChipStripProps) {
@@ -349,8 +353,10 @@ function ProtocolChipStripBase({
       if (absDeltaY <= Math.abs(event.deltaX) || absDeltaY === 0) return;
 
       const pageScroller =
+        getPageScroller?.() ??
         findScrollableAncestorFromLocalNode(wheelForwardNode);
       if (!pageScroller) return;
+      onPageScrollIntent?.();
 
       const deltaY = getWheelDeltaYInPixels(event, pageScroller);
       const maxScrollTop = Math.max(
@@ -372,7 +378,7 @@ function ProtocolChipStripBase({
     return () => {
       wheelForwardNode.removeEventListener('wheel', onWheel);
     };
-  }, [wheelForwardNode]);
+  }, [getPageScroller, onPageScrollIntent, wheelForwardNode]);
 
   const updateArrows = useCallback(() => {
     const el = getScrollEl();

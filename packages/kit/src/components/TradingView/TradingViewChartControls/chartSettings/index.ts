@@ -1,5 +1,8 @@
 export { ChartSettingsDialogContent } from './ChartSettingsDialogContent';
-export { TradingViewChartSettings } from './TradingViewChartSettings';
+export {
+  TradingViewChartSettings,
+  TradingViewChartTypeSettingsRow,
+} from './TradingViewChartSettings';
 export type { ITradingViewChartSettingsProps } from './TradingViewChartSettings';
 export { showTradingViewChartSettingsDialog } from './showTradingViewChartSettingsDialog';
 export { TradingViewIndicatorSettings } from './TradingViewIndicatorSettings';

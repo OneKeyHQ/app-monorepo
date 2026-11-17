@@ -1,6 +1,9 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 
+import { getListedNetworkMap } from '../config/networkIds';
+import { PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS } from '../consts/primeConsts';
+
 import { generateUUID } from './miscUtils';
 import { normalizeTokenContractAddress } from './tokenUtils';
 
@@ -119,6 +122,43 @@ export function normalizePrimeInfiniContractAddress({
     networkId,
     address: contractAddress,
   });
+}
+
+export function isValidPrimeInfiniPaymentContract({
+  chain,
+  networkId,
+  token,
+  contractAddress,
+}: {
+  chain: string;
+  networkId: string;
+  token: string;
+  contractAddress: unknown;
+}): boolean {
+  if (typeof contractAddress !== 'string') {
+    return false;
+  }
+  if (contractAddress !== '') {
+    return Boolean(contractAddress.trim());
+  }
+  // An empty contract identifies the native asset, not a token with missing
+  // metadata.
+  const network = getListedNetworkMap()[networkId.trim()];
+  const normalizedChain = normalizeIdentityValue(chain);
+  return Boolean(
+    network &&
+    !network.isAllNetworks &&
+    !network.isAggregateNetwork &&
+    typeof network.symbol === 'string' &&
+    normalizeIdentityValue(token) === normalizeIdentityValue(network.symbol) &&
+    // Native symbols cannot identify a chain because several networks share
+    // symbols such as ETH. Match only the selected network's chain names.
+    [network.name, network.code, network.shortcode, network.shortname].some(
+      (networkChain) =>
+        typeof networkChain === 'string' &&
+        normalizedChain === normalizeIdentityValue(networkChain),
+    ),
+  );
 }
 
 export function isSamePrimeInfiniNetworkAddress({
@@ -351,11 +391,11 @@ export function isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
     !isPrimeInfiniPaymentExplicitlyFailedSnapshot(payment) &&
     !isPrimeInfiniPaymentExplicitlyExpiredSnapshot(payment) &&
     !isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(payment) &&
-    now < payment.expiresAt
+    now + PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS < payment.expiresAt
   );
 }
 
-export function isPrimeInfiniPurchaseCompletedSnapshot({
+export function isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
   baseline,
   purchaseStatusSnapshot,
 }: {
@@ -380,6 +420,53 @@ export function isPrimeInfiniPurchaseCompletedSnapshot({
     baseline.infiniPeriodEnd !== undefined &&
     infiniSubscription?.currentPeriodEnd &&
     infiniSubscription.currentPeriodEnd > baseline.infiniPeriodEnd,
+  );
+}
+
+export function isPrimeInfiniPurchaseCompletedSnapshot({
+  baseline,
+  purchaseStatusSnapshot,
+}: {
+  baseline: Pick<
+    IPrimeInfiniPendingPaymentSession['baseline'],
+    | 'wasPrimeActive'
+    | 'primeExpiresAt'
+    | 'infiniPeriodEnd'
+    | 'infiniSubscriptionId'
+  >;
+  purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+}) {
+  const { primeSubscription, infiniSubscription } = purchaseStatusSnapshot;
+  // Initial-purchase sessions created before this baseline was persisted have
+  // no Infini period. Renewals still require their explicit previous period.
+  const baselineInfiniPeriodEnd =
+    baseline.infiniPeriodEnd ?? (baseline.wasPrimeActive ? undefined : 0);
+  const hasNewInfiniPeriod = Boolean(
+    baselineInfiniPeriodEnd !== undefined &&
+    infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription.currentPeriodEnd > baselineInfiniPeriodEnd,
+  );
+  if (baseline.wasPrimeActive) {
+    return hasNewInfiniPeriod;
+  }
+
+  const hasInfiniChannel = primeSubscription?.subscriptions?.some(
+    (subscription) => subscription.channel?.trim().toLowerCase() === 'infini',
+  );
+  const currentInfiniSubscriptionId =
+    infiniSubscription?.subscriptionId?.trim();
+  const hasStatusOnlyActiveInfiniSubscription = Boolean(
+    baseline.infiniSubscriptionId !== undefined &&
+    currentInfiniSubscriptionId &&
+    currentInfiniSubscriptionId !== baseline.infiniSubscriptionId &&
+    !infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription?.status?.toLowerCase() === 'active',
+  );
+  return Boolean(
+    primeSubscription?.isActive &&
+    (hasInfiniChannel ||
+      hasNewInfiniPeriod ||
+      hasStatusOnlyActiveInfiniSubscription),
   );
 }
 

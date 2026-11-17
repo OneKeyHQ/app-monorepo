@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { Haptics } from '@onekeyhq/components';
 import type { IUnifiedNetworkSelectorRouteParams } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -8,19 +9,29 @@ import {
   useAccountSelectorSceneInfo,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
+import { useRecentNetworksCacheSync } from '../../../views/ChainSelector/components/useRecentNetworksCacheSync';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
 export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
     num,
   });
 
   const navigation = useAppNavigation();
+
+  const isHomeScene =
+    sceneName === EAccountSelectorSceneName.home ||
+    sceneName === EAccountSelectorSceneName.homeUrlAccount;
+  useRecentNetworksCacheSync({
+    enabled: isHomeScene,
+    walletId: activeAccount?.wallet?.id,
+    accountId: activeAccount?.account?.id,
+  });
 
   const showUnifiedNetworkSelector = useCallback(
     ({
@@ -32,7 +43,8 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
       onNetworksChanged?: () => Promise<void>;
       defaultTab?: IUnifiedNetworkSelectorRouteParams['defaultTab'];
     } = {}) => {
-      actions.current.showUnifiedNetworkSelector({
+      Haptics.selection();
+      void runAccountSelectorAction('showUnifiedNetworkSelector', {
         navigation,
         num,
         sceneName,
@@ -42,17 +54,16 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
         recordNetworkHistoryEnabled,
         onNetworksChanged,
         defaultTab,
-        editable:
-          sceneName === EAccountSelectorSceneName.home ||
-          sceneName === EAccountSelectorSceneName.homeUrlAccount,
+        editable: isHomeScene,
       });
     },
     [
-      actions,
       defaultNetworkId,
+      isHomeScene,
       networkIds,
       navigation,
       num,
+      runAccountSelectorAction,
       sceneName,
       sceneUrl,
     ],

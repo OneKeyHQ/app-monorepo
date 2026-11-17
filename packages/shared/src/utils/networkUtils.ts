@@ -6,7 +6,7 @@ import {
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
-  getDefaultEnabledNetworksInAllNetworks,
+  getDefaultEnabledNetworkIdsInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
@@ -18,6 +18,8 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_SOL,
   IMPL_TRON,
+  IMPL_XMR,
+  IMPL_ZCASH,
   SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
@@ -26,9 +28,8 @@ import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
 
-const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
 const defaultEnabledNetworkIds = new Set(
-  defaultEnabledNetworks.map((n) => n.id),
+  getDefaultEnabledNetworkIdsInAllNetworks(),
 );
 
 function parseNetworkId({ networkId }: { networkId: string }) {
@@ -56,6 +57,12 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
 
 function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
   return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
+}
+
+// Chains whose vault settings declare `localWallet`, known before those
+// settings load; a kit-bg test keeps the two in step.
+function isLocalWalletNetwork({ networkId }: { networkId: string }) {
+  return [IMPL_ZCASH, IMPL_XMR].includes(getNetworkImpl({ networkId }));
 }
 
 function isTronNetworkByNetworkId(networkId?: string) {
@@ -266,6 +273,7 @@ function getEnabledNFTNetworkIds(): string[] {
     networkIdsMap.arbitrum,
     networkIdsMap.avalanche,
     networkIdsMap.sol,
+    networkIdsMap.hyperevm,
   ];
 }
 
@@ -306,6 +314,64 @@ function getEnabledExportHistoryNetworkIds(): string[] {
   ];
 }
 
+// Fixed "Popular" block for address / receive network lists, ordered by
+// receive volume over the last 30 days. Networks missing from the available
+// list are skipped, not back-filled. A server list can replace it later.
+export const POPULAR_NETWORK_IDS: string[] = [
+  'tron--0x2b6653dc', // Tron
+  'btc--0', // Bitcoin
+  'evm--1', // Ethereum
+  'evm--56', // BNB Chain
+  'sol--101', // Solana
+  'evm--42161', // Arbitrum
+  'evm--137', // Polygon
+  'evm--8453', // Base
+  'evm--4663', // Robinhood Chain
+  'xrp--0', // XRP Ledger
+];
+
+export type INetworkListSection = {
+  title?: string;
+  data: IServerNetwork[];
+};
+
+// Popular block first (fixed order), then the rest grouped by the first
+// letter of the name. Popular networks never repeat in the letter groups.
+export function buildPopularFirstNetworkSections({
+  networks,
+  popularNetworkIds = POPULAR_NETWORK_IDS,
+  popularTitle,
+}: {
+  networks: IServerNetwork[];
+  popularNetworkIds?: string[];
+  popularTitle?: string;
+}): INetworkListSection[] {
+  const byId = new Map(networks.map((network) => [network.id, network]));
+  const popular = popularNetworkIds
+    .map((id) => byId.get(id))
+    .filter((network): network is IServerNetwork => !!network);
+  const popularSet = new Set(popular.map((network) => network.id));
+
+  const groups: Record<string, IServerNetwork[]> = {};
+  networks.forEach((network) => {
+    if (popularSet.has(network.id)) {
+      return;
+    }
+    const char = (network.name[0] ?? '#').toUpperCase();
+    if (!groups[char]) {
+      groups[char] = [];
+    }
+    groups[char].push(network);
+  });
+  const letterSections = Object.entries(groups)
+    .map(([title, data]) => ({ title, data }))
+    .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
+
+  return popular.length
+    ? [{ title: popularTitle, data: popular }, ...letterSections]
+    : letterSections;
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -317,6 +383,7 @@ export default {
   isLightningNetworkByNetworkId,
   isSolanaNetworkByNetworkId,
   isTronNetworkByNetworkId,
+  isLocalWalletNetwork,
   isBTCNetwork,
   isBTCMainnet,
   getBtcDappNetworkName,

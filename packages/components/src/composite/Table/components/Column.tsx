@@ -53,6 +53,8 @@ export function Column<T>({
       jc={jc}
       ai="center"
       alignItems="center"
+      // The design sets 2px between a header label and its sort chevron.
+      gap="$0.5"
       width={width}
       onPress={onPress}
       cursor={cursor}

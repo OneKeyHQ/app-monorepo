@@ -1,23 +1,66 @@
-import { Dialog } from '@onekeyhq/components';
+import { useEffect, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Dialog, SizableText } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import type { IAppleSignInResult } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppleAuth';
 import {
   MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN,
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
   OAUTH_CALLBACK_DESKTOP_PATH,
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
   OAUTH_FLOW_TIMEOUT_MS,
+  OAUTH_WAITING_HINT_DELAY_MS,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import {
   OAuthLoginCancelError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
 import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
+
+// The system browser never tells the app that a sign-in page failed to load,
+// so after a while the waiting dialog suggests checking the network.
+function OAuthWaitingHint({
+  provider,
+}: {
+  provider: IOAuthPopupOptions['provider'];
+}) {
+  const intl = useIntl();
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setVisible(true),
+      OAUTH_WAITING_HINT_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, []);
+  if (!visible) {
+    return null;
+  }
+  return (
+    <SizableText size="$bodyMd" color="$textSubdued" pb="$5">
+      {intl.formatMessage(
+        { id: ETranslations.auth_provider_sign_in_page_hint__msg },
+        {
+          provider: getOAuthSocialLoginProviderName(
+            provider as EOAuthSocialLoginProvider | undefined,
+          ),
+        },
+      )}
+    </SizableText>
+  );
+}
 
 // ============================================================================
 // Desktop OAuth Popup Implementation
@@ -61,7 +104,14 @@ export class OAuthPopup extends OAuthPopupBase {
       const serverResult =
         await globalThis.desktopApiProxy.oauthLocalServer.startServer();
       port = serverResult.port;
-    } catch {
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `Desktop OAuth local server start failed: ${getSanitizedErrorLogText(
+          error,
+        )}`,
+        trigger: 'interactive',
+        error,
+      });
       throw new OneKeyLocalError(
         'Failed to start OAuth local server. Please try again.',
       );
@@ -195,7 +245,7 @@ export class OAuthPopup extends OAuthPopupBase {
     });
 
     if (error) {
-      throw new OneKeyLocalError(error.message);
+      throw error;
     }
 
     if (!data.session) {
@@ -227,7 +277,7 @@ export class OAuthPopup extends OAuthPopupBase {
   private static async openWithBrowser(
     options: IOAuthPopupOptions,
   ): Promise<IOAuthPopupResult> {
-    const { authUrl, client, handleSessionPersistence } = options;
+    const { authUrl, client, handleSessionPersistence, provider } = options;
 
     if (!authUrl) {
       throw new OneKeyLocalError('OAuth URL is required');
@@ -312,7 +362,17 @@ export class OAuthPopup extends OAuthPopupBase {
               session: { accessToken, refreshToken },
             });
           } catch (error) {
-            await cleanupFn.cleanup();
+            try {
+              await cleanupFn.cleanup();
+            } catch (cleanupError) {
+              defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+                reason: `Desktop OAuth cleanup failed while preserving the original failure: ${getSanitizedErrorLogText(
+                  cleanupError,
+                )}`,
+                trigger: 'interactive',
+                error: cleanupError,
+              });
+            }
             reject(OAuthPopup.wrapError(error, 'OAuth failed'));
           }
         };
@@ -349,6 +409,10 @@ export class OAuthPopup extends OAuthPopupBase {
             description: appLocale.intl.formatMessage({
               id: ETranslations.logging_you_in_desc,
             }),
+            renderContent: <OAuthWaitingHint provider={provider} />,
+            // The hint carries its own spacing, so the dialog keeps its
+            // usual height until the hint appears.
+            contentContainerProps: { pb: '$0' },
             showFooter: true,
             showConfirmButton: false,
             showCancelButton: true,
@@ -399,7 +463,7 @@ export class OAuthPopup extends OAuthPopupBase {
             }
             settled = true;
             void cleanupFn.cleanup().finally(() => {
-              reject(new OneKeyLocalError('OAuth sign-in timed out'));
+              reject(new OneKeyLocalError(OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE));
             });
           }, OAUTH_FLOW_TIMEOUT_MS);
         } catch (error) {

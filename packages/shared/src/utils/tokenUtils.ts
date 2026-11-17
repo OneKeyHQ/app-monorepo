@@ -14,6 +14,10 @@ import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import tokenRebaseUtils from './tokenRebaseUtils';
 import {
+  getTokenNetworkAliasMap,
+  tokenizeTokenSearchKeywords,
+} from './tokenSelectorCrossNetworkUtils';
+import {
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
 } from './tokenValueUtils';
@@ -23,6 +27,7 @@ import type {
   IAccountToken,
   IAggregateToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
   IToken,
   ITokenData,
   ITokenFiat,
@@ -132,6 +137,28 @@ function networkFieldsContainKeyword(
     network.code?.toLowerCase().includes(kw) ||
     network.shortname?.toLowerCase().includes(kw) ||
     network.shortcode?.toLowerCase().includes(kw) ||
+    // Curated aliases ("trc20", "波场") are exact-equality only, so a partial
+    // word like "trc" can never scope a search through them.
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
+    false
+  );
+}
+
+// TRUE only when the keyword names the network itself ("eth" → Ethereum's
+// code). Includes-hits (`networkFieldsContainKeyword`) are too loose to act as
+// a qualifier for a keyword that already hits the token: Cyber's code "cyeth"
+// contains "eth", but "eth" is a symbol search there, not a chain scope.
+function networkFieldsEqualKeyword(
+  network: IServerNetwork | undefined,
+  kw: string,
+): boolean {
+  if (!network) return false;
+  return (
+    network.name?.toLowerCase() === kw ||
+    network.code?.toLowerCase() === kw ||
+    network.shortname?.toLowerCase() === kw ||
+    network.shortcode?.toLowerCase() === kw ||
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
     false
   );
 }
@@ -164,6 +191,49 @@ export function buildTokenSearchKeywordQueries(keywords?: string): string[] {
   return Array.from(queries);
 }
 
+/**
+ * Normalize raw token search hits before they are deduped:
+ * - A hit that omits `info.networkId` belongs to the request's scoped network,
+ *   so stamp it there. Under an all-networks request it cannot be resolved to
+ *   a concrete network (it could never open a receive address), so drop it.
+ * - Defense-in-depth (OK-60860): the backend index may still return tokens on
+ *   delisted networks (dropped from the catalog via status TRASH) or on
+ *   networks this app version does not know at all; drop those too. The
+ *   catalog is optional so a transient lookup failure fails open.
+ */
+export function normalizeTokenSearchResults({
+  items,
+  requestNetworkId,
+  availableNetworkIds,
+}: {
+  items: IFetchTokenDetailItem[];
+  requestNetworkId: string;
+  availableNetworkIds?: Set<string>;
+}): IFetchTokenDetailItem[] {
+  const isAllNetworkRequest = networkUtils.isAllNetwork({
+    networkId: requestNetworkId,
+  });
+  const result: IFetchTokenDetailItem[] = [];
+  items.forEach((item) => {
+    let { networkId } = item.info;
+    if (!networkId) {
+      if (isAllNetworkRequest) {
+        return;
+      }
+      networkId = requestNetworkId;
+    }
+    if (availableNetworkIds && !availableNetworkIds.has(networkId)) {
+      return;
+    }
+    result.push(
+      networkId === item.info.networkId
+        ? item
+        : { ...item, info: { ...item.info, networkId } },
+    );
+  });
+  return result;
+}
+
 enum ESearchStrength {
   BOTH = 1,
   NETWORK_ONLY = 2,
@@ -174,6 +244,12 @@ function computeSearchStrength(
   token: IAccountToken,
   keywords: string[],
   network: IServerNetwork | undefined,
+  // Original trimmed search string, set ONLY when the tokenizer split a
+  // whitespace-free input (e.g. "usdt.tether-token.near"). Contract addresses
+  // legitimately contain separator chars (TON base64url, NEAR dots, Move ::),
+  // and per-word AND matching would never reassemble them — so an exact
+  // full-string address hit short-circuits as matched.
+  fullSearchKey?: string,
 ): {
   matched: boolean;
   strength: ESearchStrength;
@@ -183,6 +259,14 @@ function computeSearchStrength(
   // qualifier: it is a symbol search that merely collides with a chain name.
   hasPureNetworkKeyword: boolean;
 } {
+  if (fullSearchKey && token.address?.toLowerCase() === fullSearchKey) {
+    return {
+      matched: true,
+      strength: ESearchStrength.TOKEN_ONLY,
+      hasPureNetworkKeyword: false,
+    };
+  }
+
   let anyTokenHit = false;
   let anyNetworkHit = false;
   let hasPureNetworkKeyword = false;
@@ -197,7 +281,12 @@ function computeSearchStrength(
         hasPureNetworkKeyword: false,
       };
     if (hitToken) anyTokenHit = true;
-    if (hitNetwork) anyNetworkHit = true;
+    // A keyword that also hits the token only counts as a network qualifier
+    // when it names the network exactly; a substring hit on the chain code
+    // must not lift an empty ETH@Cyber above held ETH on other chains.
+    if (hitNetwork && (!hitToken || networkFieldsEqualKeyword(network, kw))) {
+      anyNetworkHit = true;
+    }
     if (hitNetwork && !hitToken) hasPureNetworkKeyword = true;
   }
 
@@ -223,6 +312,7 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch,
   tokenFiatMap,
   localAggregateTokenListMap,
+  flattenAggregateTokens,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -235,20 +325,63 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch?: boolean;
   tokenFiatMap?: Record<string, ITokenFiat>;
   localAggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+  // Search-mode aggregate flatten (Receive): output every matched sub row
+  // instead of the grouped aggregate row. Off by default — all other callers
+  // keep the grouped behavior.
+  flattenAggregateTokens?: boolean;
 }) {
   let mergedTokens = tokens;
 
   if (searchAll && searchTokenList) {
-    const aggregateTokens = Object.values(aggregateTokenListMap ?? {}).flatMap(
-      (token) => token.tokens,
+    // Only an aggregate that has a row in `tokens` can stand in for its
+    // members (grouped row or flattened subs). The selector folds aggregate
+    // rows from the enabled-network fan-out alone, so a backend hit whose
+    // aggregate is absent — the account holds none of it on an enabled
+    // network — must stay as a plain row or it disappears from the results.
+    const presentAggregateKeys = new Set(
+      tokens
+        .filter((token) => token.isAggregateToken)
+        .map((token) => token.$key),
+    );
+    const aggregateTokens: IAccountToken[] = [];
+    // Members of ABSENT aggregates keep their backend hits as plain rows;
+    // remember their config `order` so those rows rank the way the server
+    // lists the members (Robinhood first for USDG) instead of backend order.
+    const buildMemberKey = (token: IAccountToken) =>
+      `${token.address}_${token.networkId ?? ''}`;
+    const absentMemberOrderByKey = new Map<string, number>();
+    Object.entries(aggregateTokenListMap ?? {}).forEach(
+      ([aggregateKey, aggregate]) => {
+        if (presentAggregateKeys.has(aggregateKey)) {
+          aggregateTokens.push(...aggregate.tokens);
+          return;
+        }
+        aggregate.tokens.forEach((member) => {
+          if (!isNil(member.order)) {
+            absentMemberOrderByKey.set(buildMemberKey(member), member.order);
+          }
+        });
+      },
     );
 
-    const filteredSearchTokenList = searchTokenList.filter(
-      (token) =>
-        !aggregateTokens.find(
-          (t) => t.address === token.address && t.networkId === token.networkId,
-        ),
-    );
+    const filteredSearchTokenList = searchTokenList
+      .filter(
+        (token) =>
+          !aggregateTokens.find(
+            (t) =>
+              t.address === token.address && t.networkId === token.networkId,
+          ),
+      )
+      .map((token, index) => ({
+        token,
+        index,
+        order:
+          absentMemberOrderByKey.get(buildMemberKey(token)) ??
+          Number.MAX_SAFE_INTEGER,
+      }))
+      // Config-ordered member hits first, everything else keeps backend order.
+      .toSorted((a, b) => a.order - b.order || a.index - b.index)
+      .map(({ token }) => token);
 
     mergedTokens = mergedTokens.concat(filteredSearchTokenList);
     mergedTokens = uniqBy(
@@ -281,13 +414,28 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
+  const keywords = tokenizeTokenSearchKeywords(trimmedSearchKey);
   if (keywords.length === 0) return [];
+
+  // A1 fallback: only a whitespace-free input can be a contract address the
+  // tokenizer tore apart, so only then is the full-string check armed.
+  const fullSearchKey =
+    keywords.length > 1 && !/\s/.test(trimmedSearchKey)
+      ? trimmedSearchKey
+      : undefined;
 
   const results: Array<{
     token: IAccountToken;
     strength: ESearchStrength;
+    exactSymbolHit: boolean;
   }> = [];
+
+  const hasExactSymbolKeywordHit = (token: IAccountToken): boolean =>
+    keywords.some(
+      (kw) =>
+        kw === token.symbol?.toLowerCase() ||
+        kw === token.commonSymbol?.toLowerCase(),
+    );
 
   for (const token of mergedTokens) {
     if (token.isAggregateToken) {
@@ -296,12 +444,13 @@ export function getFilteredTokenBySearchKey({
       const matchedSubs: Array<{
         token: IAccountToken;
         strength: ESearchStrength;
+        exactSymbolHit: boolean;
         hasPureNetworkKeyword: boolean;
       }> = [];
       for (const sub of subTokens) {
         const network = networksMap?.[sub.networkId ?? ''];
         const { matched, strength, hasPureNetworkKeyword } =
-          computeSearchStrength(sub, keywords, network);
+          computeSearchStrength(sub, keywords, network, fullSearchKey);
         if (matched) {
           const localSub = localAggregateTokenListMap?.[
             token.$key
@@ -309,38 +458,53 @@ export function getFilteredTokenBySearchKey({
           matchedSubs.push({
             token: localSub ?? sub,
             strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(localSub ?? sub),
             hasPureNetworkKeyword,
           });
         }
       }
 
       if (matchedSubs.length > 0) {
-        // Split into network-specific sub rows ONLY on an EXPLICIT network
-        // qualifier ('usdc eth'). A single word hitting a sub's token AND
-        // network at once ('eth' = ETH symbol + Ethereum chain — same for
-        // sol/trx/bnb/pol) is a symbol search: keep the aggregate row grouped.
-        const networkQualifiedMatches = matchedSubs.filter(
-          (s) => s.hasPureNetworkKeyword,
-        );
-        if (networkQualifiedMatches.length > 0) {
-          results.push(...networkQualifiedMatches);
+        if (flattenAggregateTokens) {
+          // Search-mode flatten: every matched sub becomes its own
+          // per-network row, whether or not the query carried an explicit
+          // network qualifier. Owned copies were already substituted above.
+          results.push(...matchedSubs);
         } else {
-          results.push({
-            token,
-            // Rank the grouped row by its best sub match so a token+network
-            // double-hit ('eth') is not buried at TOKEN_ONLY below every
-            // network-qualified plain row.
-            strength: Math.min(...matchedSubs.map((s) => s.strength)),
-          });
+          // Split into network-specific sub rows ONLY on an EXPLICIT network
+          // qualifier ('usdc eth'). A single word hitting a sub's token AND
+          // network at once ('eth' = ETH symbol + Ethereum chain — same for
+          // sol/trx/bnb/pol) is a symbol search: keep the aggregate row
+          // grouped.
+          const networkQualifiedMatches = matchedSubs.filter(
+            (s) => s.hasPureNetworkKeyword,
+          );
+          if (networkQualifiedMatches.length > 0) {
+            results.push(...networkQualifiedMatches);
+          } else {
+            results.push({
+              token,
+              // Rank the grouped row by its best sub match so a token+network
+              // double-hit ('eth') is not buried at TOKEN_ONLY below every
+              // network-qualified plain row.
+              strength: Math.min(...matchedSubs.map((s) => s.strength)),
+              exactSymbolHit: hasExactSymbolKeywordHit(token),
+            });
+          }
         }
       } else {
         const { matched, strength } = computeSearchStrength(
           token,
           keywords,
           undefined,
+          fullSearchKey,
         );
         if (matched) {
-          results.push({ token, strength });
+          results.push({
+            token,
+            strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(token),
+          });
         }
       }
     } else {
@@ -349,25 +513,47 @@ export function getFilteredTokenBySearchKey({
         token,
         keywords,
         network,
+        fullSearchKey,
       );
       if (matched) {
-        results.push({ token, strength });
+        results.push({
+          token,
+          strength,
+          exactSymbolHit: hasExactSymbolKeywordHit(token),
+        });
       }
     }
   }
 
   if (tokenFiatMap) {
     results.sort((a, b) => {
+      // An exact symbol hit ("eth" → ETH, "usdt" → USDT) is the token the
+      // user typed, so it outranks every includes hit (aUSDT) and every
+      // network-only hit regardless of match strength or fiat: otherwise
+      // "eth" buries ETH on other chains under every held token whose only
+      // match is the Ethereum network name.
+      if (a.exactSymbolHit !== b.exactSymbolHit) {
+        return a.exactSymbolHit ? -1 : 1;
+      }
       if (a.strength !== b.strength) return a.strength - b.strength;
-      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
-      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
-      return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
-        fa.isNaN() ? new BigNumber(-1) : fa,
+      // A row without a fiat record (network disabled under All Networks, or
+      // a backend hit) renders as zero, so it must rank as zero too — ranking
+      // it below the zero-record rows would push a disabled network's member
+      // behind every enabled one regardless of config order.
+      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? 0);
+      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? 0);
+      return (fb.isNaN() ? new BigNumber(0) : fb).comparedTo(
+        fa.isNaN() ? new BigNumber(0) : fa,
       );
     });
   }
 
-  return results.map((r) => r.token);
+  // Two server aggregate configs may share one sub token; emitting it twice
+  // would collide FlashList keys. First occurrence wins, preserving sort.
+  return uniqBy(
+    results.map((r) => r.token),
+    (token) => token.$key,
+  );
 }
 
 export function sortTokensByFiatValue({
@@ -443,6 +629,23 @@ export function sortTokensByName({
   });
 }
 
+// Members of a multi-chain token: owned members first so their accountId /
+// balance win over the global config copy of the same network.
+export function mergeAggregateTokenMembers({
+  aggregateSubTokenList,
+  allAggregateTokenList,
+}: {
+  aggregateSubTokenList?: IAccountToken[];
+  allAggregateTokenList?: IAccountToken[];
+}): IAccountToken[] {
+  return uniqBy(
+    [...(aggregateSubTokenList ?? []), ...(allAggregateTokenList ?? [])].filter(
+      (token) => !!token.networkId,
+    ),
+    (token) => token.networkId,
+  );
+}
+
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
   return tokens.toSorted((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {
@@ -473,14 +676,34 @@ export function mergeDeriveTokenListMap({
   mergeDeriveAssets?: boolean;
 }) {
   const newTargetMap = { ...targetMap };
-  const newSourceMap = { ...sourceMap };
+  mergeDeriveTokenListMapInto({
+    sourceMap,
+    targetMap: newTargetMap,
+    mergeDeriveAssets,
+  });
+  return newTargetMap;
+}
+
+/** Append into a caller-owned map without copying its accumulated keys. */
+export function mergeDeriveTokenListMapInto({
+  sourceMap,
+  targetMap,
+  mergeDeriveAssets,
+}: {
+  sourceMap: Record<string, ITokenFiat>;
+  targetMap: Record<string, ITokenFiat>;
+  mergeDeriveAssets?: boolean;
+}): void {
   if (mergeDeriveAssets) {
-    forEach(newSourceMap, (value, key) => {
+    forEach(sourceMap, (value, key) => {
       const keyArr = key.split('_');
       const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
-      const mergedToken = newTargetMap[groupDeriveKey];
+      const previousToken = targetMap[groupDeriveKey];
 
-      if (mergedToken && !newTargetMap[key]) {
+      if (previousToken && !targetMap[key]) {
+        // Raw entries can still alias a cache round; only the combined value
+        // belongs to this merge and may be changed.
+        const mergedToken = { ...previousToken };
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
@@ -537,21 +760,17 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceFiatValue ?? 0)
           .toFixed();
 
-        newTargetMap[groupDeriveKey] = {
-          ...mergedToken,
-        };
+        targetMap[groupDeriveKey] = mergedToken;
       } else {
-        newTargetMap[groupDeriveKey] = {
+        targetMap[groupDeriveKey] = {
           ...value,
         };
       }
     });
   }
 
-  return {
-    ...newTargetMap,
-    ...newSourceMap,
-  };
+  // Raw keys override derived keys only after the whole source was folded.
+  Object.assign(targetMap, sourceMap);
 }
 
 export function mergeNestedAggregateTokenMap({
@@ -1455,7 +1674,19 @@ export function buildAggregateTokenListData(params: {
         ],
       };
     } else {
-      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push(token);
+      // Later members must carry the same config metadata as the first one:
+      // the token selector folds every network into one accumulated map, and
+      // `sortTokensByOrder` would otherwise leave members without `order` in
+      // response-arrival order.
+      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push({
+        ...token,
+        accountId,
+        networkId,
+        order: aggregateToken.order,
+        commonSymbol: aggregateToken.commonSymbol,
+        networkName,
+        logoURI: aggregateToken.logoURI,
+      });
     }
 
     newAggregateTokenMap[aggregateTokenListMapKey] = {
@@ -1660,6 +1891,37 @@ export function filterAccountTokenListByLimit({
   };
 }
 
+export type ITokenKeyMissingFromMap = {
+  group: 'tokens' | 'smallBalanceTokens' | 'riskTokens';
+  $key: string;
+  symbol: string;
+};
+
+/**
+ * Rows of a token-list response that have no entry in their own group's
+ * `map`. Home renders such a row with a "--" price and an empty balance /
+ * value column (OK-66042), and nothing on the client side can recover the
+ * missing fiat, so the mismatch is worth logging at the response boundary.
+ */
+export function findTokenKeysMissingFromMap(
+  resp: Pick<
+    IFetchAccountTokensResp,
+    'tokens' | 'smallBalanceTokens' | 'riskTokens'
+  >,
+): ITokenKeyMissingFromMap[] {
+  const missing: ITokenKeyMissingFromMap[] = [];
+  (['tokens', 'smallBalanceTokens', 'riskTokens'] as const).forEach((group) => {
+    const tokenData = resp[group];
+    const map = tokenData?.map ?? {};
+    (tokenData?.data ?? []).forEach((token) => {
+      if (token.$key && !map[token.$key]) {
+        missing.push({ group, $key: token.$key, symbol: token.symbol ?? '' });
+      }
+    });
+  });
+  return missing;
+}
+
 export function calculateAccountTokensValue({
   accountId,
   networkId,
@@ -1688,6 +1950,31 @@ export function calculateAccountTokensValue({
 
   const key = accountUtils.buildAccountValueKey({ accountId, networkId });
   return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
+}
+
+/**
+ * The All Networks worth map restricted to the accounts of the current run.
+ *
+ * Per-network settles merge their key into the map and only an `updateAll`
+ * commit replaces it, so after an enabled-network change the disabled
+ * network's key survives until that commit — and for good when the run's
+ * cache probe misses and every request then fails. Returns `worth` itself
+ * when no key is dropped, so callers can skip the write.
+ */
+export function retainAccountsWorth({
+  worth,
+  accountValueKeys,
+}: {
+  worth: Record<string, string>;
+  accountValueKeys: ReadonlySet<string>;
+}): Record<string, string> {
+  const entries = Object.entries(worth);
+  if (entries.every(([key]) => accountValueKeys.has(key))) {
+    return worth;
+  }
+  return Object.fromEntries(
+    entries.filter(([key]) => accountValueKeys.has(key)),
+  );
 }
 
 export function validateTokenAmount({

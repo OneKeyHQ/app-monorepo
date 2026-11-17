@@ -1,0 +1,43 @@
+plugins { id 'com.android.library' }
+
+def repositoryRoot = rootProject.projectDir.toPath().resolve('../../..').normalize().toFile()
+def preparedSource = providers.exec {
+    workingDir repositoryRoot
+    commandLine 'node', new File(repositoryRoot, 'development/scripts/prepare-mmkv-source.js')
+}.standardOutput.asText.get().trim()
+def mmkvSource = new File(preparedSource)
+def architectures = rootProject.findProperty('reactNativeArchitectures')?.split(',') ?: ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
+
+android {
+    namespace 'com.zhongwuzw.mmkv'
+    compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion rootProject.ext.ndkVersion
+
+    defaultConfig {
+        minSdk rootProject.ext.minSdkVersion
+        // Preserve the published fork's shared-C++ loader contract.
+        buildConfigField 'String', 'FLAVOR', '"SharedCpp"'
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared', "-DMMKV_SOURCE_DIR=${mmkvSource.absolutePath}"
+                cppFlags '-DMMKV_STL_SHARED=1'
+                abiFilters(*architectures)
+            }
+        }
+        consumerProguardFiles new File(mmkvSource, 'Android/MMKV/mmkv/proguard-rules.pro')
+    }
+    sourceSets {
+        main {
+            java.srcDirs = [new File(mmkvSource, 'Android/MMKV/mmkv/src/main/java')]
+            aidl.srcDirs = [new File(mmkvSource, 'Android/MMKV/mmkv/src/main/aidl')]
+        }
+    }
+    externalNativeBuild { cmake { path 'CMakeLists.txt'; version '3.22.1' } }
+    buildFeatures { buildConfig true; prefab true; prefabPublishing true; aidl true }
+    prefab { mmkv { headers new File(mmkvSource, 'Core/include').absolutePath } }
+}
+
+dependencies {
+    implementation 'io.github.zhongwuzw:annotation:2.4.1'
+    implementation 'androidx.annotation:annotation:1.9.1'
+}

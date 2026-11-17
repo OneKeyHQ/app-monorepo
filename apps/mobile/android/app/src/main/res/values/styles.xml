@@ -11,6 +11,11 @@
 
   <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
     <item name="android:navigationBarColor" tools:targetApi="21">@color/navigationBarColor</item>
+    <!-- Edge-to-edge draws app content behind the navigation bar; the contrast
+         scrim would paint a near-opaque band over it. Bar icon colors follow
+         the app theme through expo-navigation-bar setStyle. -->
+    <item name="android:enforceNavigationBarContrast" tools:targetApi="29">false</item>
+    <item name="expoEnforceNavigationBarContrast">false</item>
     <item name="android:textColor">@android:color/black</item>
     <item name="android:textColorHighlight">@color/textSelectionHighlight</item>
     <item name="android:editTextStyle">@style/ResetEditText</item>

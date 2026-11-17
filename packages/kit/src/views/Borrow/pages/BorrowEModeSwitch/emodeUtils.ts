@@ -75,6 +75,8 @@ export interface IEModeRow {
   isOff: boolean;
 }
 
+// Both screens derive rows from their live status so the picker can follow
+// category changes while it is open.
 export function buildEModeRows(
   status: IBorrowEModeStatus | null | undefined,
   offLabel: string,
@@ -109,32 +111,46 @@ export function buildEModeRows(
   return [offRow, ...categoryRows];
 }
 
-export function buildEModeSelectDescription({
-  row,
-  currentEModeId,
-  currentText,
-  offText,
-  formatMaxLtv,
-  needsActionText,
-}: {
+type IEModeRowSubtitleParams = {
   row: IEModeRow;
-  currentEModeId: number;
-  currentText: string;
   offText: string;
   formatMaxLtv: (ltv: string) => string;
   needsActionText: string;
+};
+
+// Picker rows always show LTV, including the base market LTV for Off.
+export function buildEModeRowSubtitle({
+  row,
+  offText,
+  formatMaxLtv,
+  needsActionText,
+}: IEModeRowSubtitleParams): string {
+  const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
+  if (!parts.length && row.isOff) {
+    parts.push(offText);
+  }
+  if (row.canSwitch === false) {
+    parts.push(needsActionText);
+  }
+  return parts.join(' · ');
+}
+
+export function buildEModeSelectDescription({
+  currentEModeId,
+  currentText,
+  ...subtitleParams
+}: IEModeRowSubtitleParams & {
+  currentEModeId: number;
+  currentText: string;
 }): string {
+  const { row, offText } = subtitleParams;
   if (row.eModeId === currentEModeId) {
     return currentText;
   }
   if (row.isOff) {
     return offText;
   }
-  const parts = row.ltv ? [formatMaxLtv(row.ltv)] : [];
-  if (row.canSwitch === false) {
-    parts.push(needsActionText);
-  }
-  return parts.join(' · ');
+  return buildEModeRowSubtitle(subtitleParams);
 }
 
 export interface IEModeSelectionResolution {
@@ -220,27 +236,6 @@ export function resolveEModeViewState({
 export function normalizeEModeLabel(raw: string): string {
   const normalized = raw.replace(/_+|\//g, ' ').replace(/\s+/g, ' ').trim();
   return normalized || raw;
-}
-
-// The mockup reads a rising Max LTV in $textSuccess, but the server sends a
-// plain "$text" color on maxLtv (see the switch-check response sample doc).
-// Accent locally, and only when both sides parse as percentages and the value
-// rises; falls, ties, and non-numeric values return undefined so the caller
-// keeps the server color.
-export function resolveLtvAccentColor(
-  current?: IEarnText,
-  latest?: IEarnText,
-): string | undefined {
-  const parse = (t?: IEarnText) => {
-    const n = Number.parseFloat(t?.text ?? '');
-    return Number.isFinite(n) ? n : undefined;
-  };
-  const before = parse(current);
-  const after = parse(latest);
-  if (before !== undefined && after !== undefined && after > before) {
-    return '$textSuccess';
-  }
-  return undefined;
 }
 
 export function shouldShowCurrentHealthFactorSkeleton({

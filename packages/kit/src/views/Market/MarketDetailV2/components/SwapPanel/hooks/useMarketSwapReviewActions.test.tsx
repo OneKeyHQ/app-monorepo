@@ -11,6 +11,7 @@ import {
   swapStepsAtom,
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import { ESwapReviewRebuildPhase } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewRebuildStateMachine';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -108,12 +109,21 @@ function createReviewState({
 function createAdapter(): jest.Mocked<IMarketSwapReviewAdapter> {
   return {
     prepareReview: jest.fn(),
+    rebuildReview: jest.fn(),
     sendApproveTx: jest.fn(),
     sendSwapTx: jest.fn(),
     sendWrappedTx: jest.fn(),
     sendSignMessage: jest.fn(),
     buildApproveInfos: jest.fn(),
   };
+}
+
+function createDeferred() {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 type ISendMarketSwapParams = Parameters<
@@ -273,6 +283,108 @@ describe('useMarketSwapReviewActions', () => {
     );
   });
 
+  it('rebuilds an invalidated slippage review before starting confirmation', async () => {
+    const adapter = createAdapter();
+    const rebuildReview = jest.fn();
+    adapter.rebuildReview = rebuildReview;
+    const onConfirmStart = jest.fn();
+    const rebuiltGasInfos = [
+      {
+        encodeTx: { data: '0xrebuilt' } as never,
+        gasInfo: {} as never,
+      },
+    ];
+    const rebuiltReviewState = createReviewState({
+      steps: [
+        {
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+      quoteResult: createQuoteResult({
+        slippage: 1,
+      }),
+      preSwapData: {
+        slippage: 1,
+        swapBuildResultData: {
+          orderId: 'rebuilt-order',
+        },
+        netWorkFee: {
+          gasFeeFiatValue: '1.23',
+          gasInfos: rebuiltGasInfos,
+        },
+      },
+    });
+    rebuildReview.mockResolvedValue(rebuiltReviewState);
+    adapter.sendSwapTx.mockImplementation(async (params) => {
+      params?.onBroadcast?.({ txHash: '0xswap' });
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return {
+          actions,
+          swapSteps,
+        };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+            quoteResult: createQuoteResult({
+              slippage: 1,
+            }),
+            preSwapData: {
+              slippage: 1,
+              swapBuildResultData: undefined,
+              netWorkFee: undefined,
+              requiresSlippageRebuildOnConfirm: true,
+            },
+          }),
+        ),
+      },
+    );
+
+    act(() => {
+      result.current.actions.onConfirm(onConfirmStart);
+    });
+
+    await waitFor(() => {
+      expect(adapter.sendSwapTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gasInfos: rebuiltGasInfos,
+          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+        }),
+      );
+    });
+    expect(rebuildReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slippagePercentage: 1,
+        networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+        customPriorityFee: undefined,
+      }),
+    );
+    expect(onConfirmStart).toHaveBeenCalledTimes(1);
+    expect(onConfirmStart.mock.invocationCallOrder[0]).toBeLessThan(
+      adapter.sendSwapTx.mock.invocationCallOrder[0],
+    );
+    expect(result.current.swapSteps.preSwapData).toEqual(
+      expect.objectContaining({
+        slippage: 1,
+      }),
+    );
+    expect(
+      result.current.swapSteps.preSwapData.requiresSlippageRebuildOnConfirm,
+    ).toBeUndefined();
+  });
+
   it('keeps preSwapStepsStart stable across swap step updates', async () => {
     const adapter = createAdapter();
     adapter.sendSwapTx.mockImplementation(
@@ -322,6 +434,111 @@ describe('useMarketSwapReviewActions', () => {
     expect(result.current.actions.preSwapStepsStart).toBe(
       initialPreSwapStepsStart,
     );
+  });
+
+  it('releases editing after execution rebuild and blocks confirm until fee is ready', async () => {
+    const adapter = createAdapter();
+    const feeEstimate = createDeferred();
+    const onExecutionReady = jest.fn();
+    const coreReviewState = createReviewState({
+      steps: [
+        {
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+      quoteResult: createQuoteResult({
+        toAmount: '2600',
+        slippage: 2,
+      }),
+      preSwapData: {
+        slippage: 2,
+      },
+    });
+    const finalReviewState = createReviewState({
+      steps: coreReviewState.steps,
+      quoteResult: coreReviewState.quoteResult,
+      preSwapData: {
+        slippage: 2,
+        netWorkFee: {
+          gasFeeFiatValue: '0.01',
+        },
+      },
+    });
+    adapter.rebuildReview = jest.fn(async (params) => {
+      expect(params.isCurrent()).toBe(true);
+      params.onPhaseChange(ESwapReviewRebuildPhase.BuildingTransaction);
+      params.onPhaseChange(ESwapReviewRebuildPhase.PreparingExecution);
+      params.onExecutionReady(coreReviewState);
+      await feeEstimate.promise;
+      return finalReviewState;
+    });
+    adapter.sendSwapTx.mockResolvedValue();
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return { actions, swapSteps };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    let rebuildPromise: Promise<void> | undefined;
+    act(() => {
+      rebuildPromise = result.current.actions.rebuildReviewWithSlippage(2, {
+        onExecutionReady,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.actions.reviewRebuildState.phase).toBe(
+        ESwapReviewRebuildPhase.EstimatingFee,
+      );
+      expect(onExecutionReady).toHaveBeenCalledTimes(1);
+    });
+    expect(result.current.swapSteps.preSwapData.toTokenAmount).toBe('2600');
+    expect(result.current.swapSteps.preSwapData.estimateNetworkFeeLoading).toBe(
+      true,
+    );
+
+    act(() => {
+      result.current.actions.onConfirm();
+    });
+    expect(adapter.sendSwapTx).not.toHaveBeenCalled();
+
+    await act(async () => {
+      feeEstimate.resolve();
+      await rebuildPromise;
+    });
+
+    expect(result.current.actions.reviewRebuildState.phase).toBe(
+      ESwapReviewRebuildPhase.Ready,
+    );
+    expect(result.current.swapSteps.preSwapData.estimateNetworkFeeLoading).toBe(
+      false,
+    );
+    expect(
+      result.current.swapSteps.preSwapData.netWorkFee?.gasFeeFiatValue,
+    ).toBe('0.01');
+
+    act(() => {
+      result.current.actions.onConfirm();
+    });
+    await waitFor(() => {
+      expect(adapter.sendSwapTx).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('uses the review store fee level when refreshing prebuild data', async () => {
@@ -519,6 +736,99 @@ describe('useMarketSwapReviewActions', () => {
       true,
     );
     expect(result.current.swapSteps.preSwapData.netWorkFee).toBeUndefined();
+  });
+
+  it('retries a failed approval without repeating a successful reset or sending the swap', async () => {
+    const adapter = createAdapter();
+    adapter.sendApproveTx
+      .mockRejectedValueOnce(new Error('Enable Passphrase on the device'))
+      .mockImplementationOnce(async ({ onBroadcast }) => {
+        onBroadcast?.({ txHash: '0xapprove', amount: '1' });
+      });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return { actions, swapSteps };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.SUCCESS,
+                isResetApprove: true,
+                canRetry: true,
+              },
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.READY,
+                isResetApprove: false,
+                canRetry: true,
+                shouldWaitApproved: true,
+              },
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+            quoteResult: createQuoteResult({
+              allowanceResult: {
+                allowanceTarget: '0xspender',
+                amount: '1',
+              },
+            }),
+          }),
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.preSwapStepsStart();
+    });
+
+    expect(result.current.swapSteps.steps[0].status).toBe(
+      ESwapStepStatus.SUCCESS,
+    );
+    expect(result.current.swapSteps.steps[1]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.FAILED,
+        errorMessage: 'Enable Passphrase on the device',
+      }),
+    );
+    expect(result.current.swapSteps.steps[2].status).toBe(
+      ESwapStepStatus.READY,
+    );
+    expect(adapter.sendApproveTx).toHaveBeenCalledTimes(1);
+    expect(adapter.sendApproveTx).toHaveBeenCalledWith(
+      expect.objectContaining({ isResetApprove: false }),
+    );
+    expect(adapter.sendSwapTx).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.actions.preSwapStepsStart();
+    });
+
+    expect(result.current.swapSteps.steps[0].status).toBe(
+      ESwapStepStatus.SUCCESS,
+    );
+    expect(result.current.swapSteps.steps[1]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.PENDING,
+        txHash: '0xapprove',
+        errorMessage: undefined,
+      }),
+    );
+    expect(result.current.swapSteps.steps[2].status).toBe(
+      ESwapStepStatus.READY,
+    );
+    expect(adapter.sendApproveTx).toHaveBeenCalledTimes(2);
+    expect(adapter.sendApproveTx).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isResetApprove: false }),
+    );
+    expect(adapter.sendSwapTx).not.toHaveBeenCalled();
   });
 
   it('starts an approve step through the review-visible swap approving state', async () => {

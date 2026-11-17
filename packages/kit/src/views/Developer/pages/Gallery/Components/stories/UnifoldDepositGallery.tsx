@@ -40,10 +40,13 @@ import { Layout } from './utils/Layout';
 // can be reviewed on every platform before shipping.
 
 const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
+const SOL_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/sol.svg';
 // Chain icons live under /networks/, not /chains/ — the wrong path 404s and
 // the QR centre logo renders as a broken image.
 const ARB_ICON =
   'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
+const SOLANA_ICON =
+  'https://api.unifold.io/api/public/icons/networks/svg/solana.svg';
 const SYNTHETIC_RECIPIENT = '0x1111111111111111111111111111111111111111';
 const SYNTHETIC_DEPOSIT_ADDRESS = '0x8dE690AcD6A938d0aE3bE6e08Ce80a54Bb0b928D';
 const SYNTHETIC_TX =
@@ -270,6 +273,35 @@ const SUPPORTED_ASSETS: IUnifoldSupportedAsset[] = [
 const SELECTION = {
   asset: SUPPORTED_ASSETS[0],
   chain: SUPPORTED_ASSETS[0].chains[0],
+};
+
+const NATIVE_ASSETS: IUnifoldSupportedAsset[] = [
+  {
+    symbol: 'SOL',
+    name: 'Solana',
+    icon_url: SOL_ICON,
+    is_newly_added: false,
+    is_stablecoin: false,
+    chains: [
+      {
+        chain_id: 'solana',
+        chain_name: 'Solana',
+        chain_type: 'solana',
+        icon_url: SOLANA_ICON,
+        token_address: 'native',
+        decimals: 9,
+        estimated_price_impact_percent: 0.1,
+        max_slippage_percent: 0.25,
+        estimated_processing_time: 60,
+        minimum_deposit_amount_usd: 3,
+      },
+    ],
+  },
+];
+
+const NATIVE_SELECTION = {
+  asset: NATIVE_ASSETS[0],
+  chain: NATIVE_ASSETS[0].chains[0],
 };
 
 // Production widths: the desktop dialog gives the body 360pt (400 panel − 2×$5)
@@ -824,6 +856,18 @@ function TransferPiecesGallery() {
           assets={undefined}
           selection={null}
           loading
+          onSelectToken={() => {}}
+          onSelectChain={() => {}}
+        />
+      </YStack>
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          Source selector · native token
+        </SizableText>
+        <UnifoldSourceSelector
+          assets={NATIVE_ASSETS}
+          selection={NATIVE_SELECTION}
+          loading={false}
           onSelectToken={() => {}}
           onSelectChain={() => {}}
         />

@@ -1,24 +1,33 @@
 import BigNumber from 'bignumber.js';
 
-import type { IEarnText } from '@onekeyhq/shared/types/staking';
+import type { IBorrowBalance } from '@onekeyhq/shared/types/staking';
 
-import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
-
+import { BorrowBalanceText } from './BorrowBalanceText';
 import { FieldWrapper } from './FieldWrapper';
 
 type IAmountFieldProps = {
-  title: IEarnText;
-  description: IEarnText;
+  balance: IBorrowBalance;
 };
 
-export const AmountField = ({ title, description }: IAmountFieldProps) => {
-  const isZero = new BigNumber(title.text || 0).isZero();
+export const AmountField = ({ balance }: IAmountFieldProps) => {
+  const isZero = new BigNumber(balance.title.text || 0).isZero();
 
   return (
     <FieldWrapper ai="flex-end">
-      <EarnText text={title} size="$bodyMdMedium" color="$text" />
-      {!isZero ? (
-        <EarnText text={description} size="$bodySm" color="$textSubdued" />
+      <BorrowBalanceText
+        kind="balance"
+        text={balance.title}
+        value={balance.number ?? balance.amount}
+        size="$bodyMdMedium"
+        color="$text"
+      />
+      {!isZero && balance.description ? (
+        <BorrowBalanceText
+          kind="fiat"
+          text={balance.description}
+          size="$bodySm"
+          color="$textSubdued"
+        />
       ) : null}
     </FieldWrapper>
   );

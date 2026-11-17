@@ -1,15 +1,23 @@
 /* eslint-disable camelcase */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { isArray } from 'lodash';
 import isString from 'lodash/isString';
 
 import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   EMessageTypesCommon,
   EMessageTypesSolana,
@@ -31,6 +39,61 @@ type ISolanaSendOptions = {
   /** Maximum number of times for the RPC node to retry sending the transaction to the leader. */
   maxRetries?: number;
 };
+
+// Decoding failures are dapp input errors: bs58 and the offchain message encoder throw their
+// own error types, which would reach the dapp instead of a JSON-RPC invalidParams.
+function decodeBase58Message(message: string) {
+  try {
+    return bs58.decode(message);
+  } catch {
+    throw web3Errors.rpc.invalidParams(
+      'message must be a base58 encoded string',
+    );
+  }
+}
+
+function decodeRequiredSigners(requiredSigners: string[]): Uint8Array[] {
+  const decoded: Uint8Array[] = [];
+  for (const signer of requiredSigners) {
+    let bytes: Uint8Array | undefined;
+    try {
+      bytes = bs58.decode(signer);
+    } catch {
+      bytes = undefined;
+    }
+    if (!bytes || bytes.length !== 32) {
+      throw web3Errors.rpc.invalidParams(
+        'requiredSigners must be base58 encoded 32-byte public keys',
+      );
+    }
+    decoded.push(bytes);
+  }
+  return decoded;
+}
+
+// The spec sets no ceiling; this only keeps a dapp from handing the signer an unbounded body.
+const MAX_OFFCHAIN_MESSAGE_V1_BYTES = 1024 * 1024;
+const MAX_OFFCHAIN_MESSAGE_V1_SIGNERS = 255;
+
+function buildOffchainMessageV1Bytes(
+  message: string,
+  requiredSigners: string[],
+): Uint8Array {
+  const decodedSigners = decodeRequiredSigners(requiredSigners);
+  try {
+    return OffchainMessage.createOffChainMessageV1Bytes({
+      message,
+      requiredSigners: decodedSigners,
+    });
+  } catch (error) {
+    // Uniqueness and the 255 signer cap are enforced by the encoder, so they surface here.
+    throw web3Errors.rpc.invalidParams(
+      error instanceof Error
+        ? error.message
+        : 'invalid offchain message params',
+    );
+  }
+}
 
 @backgroundClass()
 class ProviderApiSolana extends ProviderApiBase {
@@ -111,14 +174,52 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string },
   ) {
+    return this.signTransactionWithAccountCheck(request, params);
+  }
+
+  private assertTransactionAccount(
+    account: INetworkAccount,
+    encodedTx: string,
+  ) {
+    const transaction = parseToNativeTx(encodedTx);
+    if (!transaction) {
+      throw web3Errors.rpc.invalidParams('Invalid transaction');
+    }
+    const message =
+      transaction instanceof VersionedTransaction
+        ? transaction.message
+        : transaction.compileMessage();
+    const accountKeys =
+      'accountKeys' in message
+        ? message.accountKeys
+        : message.staticAccountKeys;
+    const signers = accountKeys.slice(0, message.header.numRequiredSignatures);
+    if (!signers.some((key) => key.toBase58() === account.address)) {
+      throw web3Errors.provider.unauthorized();
+    }
+  }
+
+  private async signTransactionWithAccountCheck(
+    request: IJsBridgeMessagePayload,
+    params: { message: string },
+    expectedAccountId?: string,
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
 
     if (typeof params.message !== 'string') {
       throw web3Errors.rpc.invalidInput();
     }
+
+    if (
+      accountId !== account.id ||
+      (expectedAccountId && expectedAccountId !== accountId)
+    ) {
+      throw web3Errors.provider.unauthorized();
+    }
+    this.assertTransactionAccount(account, params.message);
 
     const rawTx =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -150,9 +251,17 @@ class ProviderApiSolana extends ProviderApiBase {
 
     console.log('solana signAllTransactions', request, params);
 
+    const { account } = (await this.getAccountsInfo(request))[0];
+    for (const tx of txsToBeSigned) {
+      this.assertTransactionAccount(account, tx);
+    }
     const ret: string[] = [];
     for (const tx of txsToBeSigned) {
-      const signedTx = await this.signTransaction(request, { message: tx });
+      const signedTx = await this.signTransactionWithAccountCheck(
+        request,
+        { message: tx },
+        account.id,
+      );
       ret.push(signedTx);
     }
     return ret;
@@ -170,9 +279,11 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    this.assertTransactionAccount(account, message);
 
     const txid =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -215,7 +326,7 @@ class ProviderApiSolana extends ProviderApiBase {
         request,
         unsignedMessage: {
           type: EMessageTypesCommon.SIGN_MESSAGE,
-          message: bs58.decode(message).toString(),
+          message: decodeBase58Message(message).toString(),
         },
         networkId: networkId ?? '',
         accountId: accountId ?? '',
@@ -228,27 +339,118 @@ class ProviderApiSolana extends ProviderApiBase {
   @providerApiMethod()
   public async solSignOffchainMessage(
     request: IJsBridgeMessagePayload,
-    params: {
-      message: string;
-      version?: number;
-      applicationDomain?: string;
-    },
+    params:
+      | {
+          /** Version 0. `message` is base58 encoded bytes. */
+          version?: 0;
+          message: string;
+          applicationDomain?: string;
+        }
+      | {
+          /**
+           * Version 1 of the Solana offchain message spec.
+           * https://github.com/solana-foundation/SRFCs/discussions/3
+           * `message` is the UTF-8 body verbatim; the wallet builds the preamble.
+           */
+          version: 1;
+          message: string;
+          /** Base58 encoded 32-byte signer public keys. */
+          requiredSigners: string[];
+        },
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { message, version, applicationDomain } = params;
 
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
 
-    console.log('solana signOffchainMessage', request, params);
+    const versionKind = classifyOffchainMessageVersion(params.version);
+    if (versionKind === 'unsupported') {
+      throw web3Errors.rpc.invalidParams(
+        'unsupported offchain message version',
+      );
+    }
+
+    // classifyOffchainMessageVersion decides what is supported; this reads the
+    // discriminant, which is what narrows the params to their version 1 shape.
+    if (params.version === 1) {
+      const { message, requiredSigners } = params;
+
+      if (!isString(message) || message.length === 0) {
+        throw web3Errors.rpc.invalidParams(
+          'message must be a non-empty UTF-8 string',
+        );
+      }
+      if (!isArray(requiredSigners) || requiredSigners.length === 0) {
+        throw web3Errors.rpc.invalidParams(
+          'requiredSigners must be a non-empty array',
+        );
+      }
+      if (requiredSigners.length > MAX_OFFCHAIN_MESSAGE_V1_SIGNERS) {
+        throw web3Errors.rpc.invalidParams(
+          `requiredSigners must hold at most ${MAX_OFFCHAIN_MESSAGE_V1_SIGNERS} public keys`,
+        );
+      }
+      if (Buffer.byteLength(message, 'utf8') > MAX_OFFCHAIN_MESSAGE_V1_BYTES) {
+        throw web3Errors.rpc.invalidParams(
+          `message must be at most ${MAX_OFFCHAIN_MESSAGE_V1_BYTES} bytes`,
+        );
+      }
+      // Never trust the dapp. The spec requires requiredSigners to "contain the public key of
+      // `account`", so a missing address means the requirement cannot be verified and the
+      // request must be rejected rather than signed.
+      if (!address || !requiredSigners.includes(address)) {
+        throw web3Errors.rpc.invalidParams(
+          'requiredSigners must contain the public key of the connected account',
+        );
+      }
+
+      // Built here as well as on the signing path. Both go through the same encoder, so the
+      // bytes returned to the dapp are exactly the bytes that were signed.
+      const signedOffchainMessage = buildOffchainMessageV1Bytes(
+        message,
+        requiredSigners,
+      );
+
+      // The air-gap data types only implement version 0. Reject QR requests before opening a
+      // confirmation screen; OneKey hardware handles version 1 in its Solana keyring.
+      if (accountId && accountUtils.isQrAccount({ accountId })) {
+        throw web3Errors.rpc.methodNotSupported(
+          'Version 1 Solana offchain messages are not supported by QR wallets',
+        );
+      }
+
+      const signature =
+        await this.backgroundApi.serviceDApp.openSignMessageModal({
+          request,
+          unsignedMessage: {
+            type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+            // UTF-8 body verbatim, not base58: version 1 leaves encoding to the wallet.
+            message,
+            payload: {
+              version: 1,
+              requiredSigners,
+            },
+          },
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+        });
+
+      return {
+        signature,
+        publicKey: address ?? '',
+        signedOffchainMessage: bs58.encode(signedOffchainMessage),
+      };
+    }
+
+    const { message, version, applicationDomain } = params;
 
     const signature = await this.backgroundApi.serviceDApp.openSignMessageModal(
       {
         request,
         unsignedMessage: {
           type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
-          message: bs58.decode(message).toString(),
+          message: decodeBase58Message(message).toString(),
           payload: {
             version: version ?? 0,
             applicationDomain,

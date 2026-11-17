@@ -34,25 +34,29 @@ const dragZoneStyle = {
 //        - `no-drag` holes covering the clickable controls inside it.
 //      All overlays are body-level, position:fixed, opacity:0,
 //      pointer-events:none.
-//   3. On resize / DPI change / aria-hidden (tab, modal) flips and zone
-//      mount/unmount the overlays are cleared, recomputed and re-attached
-//      (debounced, with a max-wait guard).
-//   Fresh overlays => never stale; invisible => no flicker; one central place
-//   => replaces (and removes) the previous per-instance ghost-mirror.
+//   3. Each tab keeps its own header DOM/marker, but this manager only measures
+//      visible zones. A scoped MutationObserver catches controls added or
+//      replaced after the last pass and changes that move existing controls;
+//      ResizeObserver catches size changes without DOM mutations. Ancestor
+//      aria-hidden changes, zone mount/unmount, window resize and DPR changes
+//      cover visibility and geometry changes outside the header subtree.
+//      All triggers share a debounce with a maximum wait before rebuilding.
+//   Rebuilt overlays track the observed changes without visible flicker; one
+//   central place replaces the previous per-instance ghost-mirror.
 // =============================================================================
 
 const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
 const MODAL_SCREEN_SELECTOR = '.onekey-modal-screen';
+const OVERLAY_ENTRY_SELECTOR = '[data-onekey-overlay-entry]';
 const RECOMPUTE_DEBOUNCE = 200;
-// A continuous stream of triggers (e.g. live window resizing fires `resize`
-// rapidly) keeps resetting the debounce timer. MAX_WAIT guarantees a recompute
-// fires at least this often so the draggable region is never starved while the
-// events keep coming.
+// Content can update every frame. The debounce coalesces a burst, while
+// MAX_WAIT still rebuilds periodically if updates never settle.
 const RECOMPUTE_MAX_WAIT = 600;
 
 // Descendants of a drag zone that must stay clickable → punched as no-drag holes.
+// Custom clickable elements need an explicit app-region-no-drag marker.
 const NO_DRAG_SELECTOR = [
   '.app-region-no-drag',
   'input',
@@ -73,6 +77,16 @@ const NO_DRAG_SELECTOR = [
 let started = false;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingSince = 0;
+let animationFrame: number | undefined;
+let sizeObserver: ResizeObserver | null = null;
+let contentObserver: MutationObserver | null = null;
+// observe() also reports the initial size, which must not reschedule.
+const observedSizes = new WeakMap<Element, string>();
+const observedAnimations = new WeakSet<Animation>();
+
+function toSizeKey(rect: DOMRect) {
+  return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+}
 
 // Neutralize the real app-region of every marker zone AND everything inside it
 // (drag, no-drag controls, `.app-region-no-drag`, is_GroupFrame, …). Inside a
@@ -155,18 +169,80 @@ function recompute() {
     return;
   }
   clearSynRegions();
+  const measured: Array<[Element, DOMRect]> = [];
   const zones = Array.from(
     document.querySelectorAll(`.${MARKER_CLASS}`),
   ).filter((z) => {
     const r = z.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 && isZoneShown(z);
+    if (r.width <= 0 || r.height <= 0) {
+      // A collapsed zone gets no overlay but must resync once it expands.
+      measured.push([z, r]);
+      return false;
+    }
+    return isZoneShown(z);
   });
   const drags: HTMLDivElement[] = [];
   const holes: HTMLDivElement[] = [];
+  const overlayEntries = Array.from(
+    document.querySelectorAll(OVERLAY_ENTRY_SELECTOR),
+  ).filter(isZoneShown);
+  let movingControls = false;
+  // Web Animations move controls without DOM mutations or resize events.
+  for (const entry of overlayEntries) {
+    for (const animation of entry.getAnimations?.({ subtree: true }) ?? []) {
+      if (animation.playState === 'running') {
+        const effect = animation.effect as KeyframeEffect | null;
+        const target = effect?.target;
+        const movesGeometry = effect
+          ?.getKeyframes?.()
+          .some((frame) =>
+            [
+              'transform',
+              'translate',
+              'scale',
+              'left',
+              'top',
+              'width',
+              'height',
+            ].some((property) => property in frame),
+          );
+        if (
+          target instanceof Element &&
+          movesGeometry &&
+          (target.matches(NO_DRAG_SELECTOR) ||
+            target.querySelector(NO_DRAG_SELECTOR))
+        ) {
+          movingControls = true;
+        }
+        if (!observedAnimations.has(animation)) {
+          observedAnimations.add(animation);
+          const handleAnimationEnd = () => {
+            animation.removeEventListener('finish', handleAnimationEnd);
+            animation.removeEventListener('cancel', handleAnimationEnd);
+            observedAnimations.delete(animation);
+            scheduleRecompute();
+          };
+          animation.addEventListener('finish', handleAnimationEnd);
+          animation.addEventListener('cancel', handleAnimationEnd);
+        }
+      }
+    }
+  }
   for (const zone of zones) {
-    drags.push(makeRegionEl(zone.getBoundingClientRect(), 'drag'));
-    zone.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+    const zoneRect = zone.getBoundingClientRect();
+    measured.push([zone, zoneRect]);
+    drags.push(makeRegionEl(zoneRect, 'drag'));
+  }
+  // Portalled controls can overlap the title bar without belonging to a header.
+  // Append their holes after the synthesized drag regions as well.
+  const controlRoots = [...zones, ...overlayEntries];
+  for (const controlRoot of controlRoots) {
+    controlRoot.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+      if (!isZoneShown(nd)) {
+        return;
+      }
       const r = (nd as HTMLElement).getBoundingClientRect();
+      measured.push([nd, r]);
       if (r.width > 0 && r.height > 0) {
         holes.push(makeRegionEl(r, 'no-drag'));
       }
@@ -174,6 +250,50 @@ function recompute() {
   }
   drags.forEach((d) => document.body.appendChild(d));
   holes.forEach((h) => document.body.appendChild(h));
+  observeSizes(measured);
+  observeContent(controlRoots);
+  if (movingControls && animationFrame === undefined) {
+    animationFrame = requestAnimationFrame(() => {
+      animationFrame = undefined;
+      recompute();
+    });
+  }
+}
+
+// Watch visible headers and overlay entries. Child/attribute/text mutations catch controls
+// inserted after the last size-observer pass, or controls shifted by a sibling
+// without changing their own size. Rebind after every pass so an inactive tab
+// or removed control stops generating work. The synthesized overlays live under
+// body, outside these observed subtrees, so rebuilding cannot trigger a loop.
+// Pure position animation without a DOM mutation or size change is outside
+// these observers; such a header animation needs its own end-of-motion trigger.
+function observeContent(zones: Element[]) {
+  if (!contentObserver) {
+    return;
+  }
+  contentObserver.disconnect();
+  for (const zone of zones) {
+    contentObserver.observe(zone, {
+      attributes: true,
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+  }
+}
+
+// A control can resize after a recompute (e.g. a header badge filled in by async
+// data) without any other trigger firing, which leaves its hole stale.
+function observeSizes(measured: Array<[Element, DOMRect]>) {
+  if (!sizeObserver) {
+    return;
+  }
+  sizeObserver.disconnect();
+  for (const [el, rect] of measured) {
+    observedSizes.set(el, toSizeKey(rect));
+    // Holes are cut from the border box, so padding-only growth must count too.
+    sizeObserver.observe(el, { box: 'border-box' });
+  }
 }
 
 function runRecompute() {
@@ -218,6 +338,9 @@ function startManager() {
   // Window geometry: resize, maximize, fullscreen toggle and docked-DevTools
   // open/close (all change the renderer's CSS-pixel viewport).
   globalThis.addEventListener('resize', scheduleRecompute);
+  // macOS hides the existing window on close; refresh native regions on reopen.
+  globalThis.addEventListener('focus', runRecompute);
+  document.addEventListener('visibilitychange', runRecompute);
 
   // devicePixelRatio change — i.e. the window moved to a monitor with a
   // different scale factor. A pure dpr change does NOT reliably fire `resize`
@@ -239,18 +362,44 @@ function startManager() {
   };
   armDprQuery();
 
-  // react-navigation keeps inactive tab screens mounted and only flips
-  // aria-hidden on their ancestors when switching tabs / opening a modal — that
-  // does NOT mount/unmount the zones, so it must be observed explicitly. The
-  // filter keeps this cheap: the callback only runs on aria-hidden changes
-  // (rare), not on general DOM churn. (Other layout changes are covered by the
-  // resize listener and by per-instance mount/unmount in the hook below.)
-  const mo = new MutationObserver(scheduleRecompute);
+  // Track inactive screens and page/global overlay entries outside the headers.
+  // Ignore unrelated child-list changes, including our synthesized regions.
+  const mo = new MutationObserver((records) => {
+    const entriesChanged = records.some((record) =>
+      [...record.addedNodes, ...record.removedNodes].some(
+        (node) =>
+          node instanceof Element &&
+          (node.matches(OVERLAY_ENTRY_SELECTOR) ||
+            node.querySelector(OVERLAY_ENTRY_SELECTOR)),
+      ),
+    );
+    if (entriesChanged) {
+      // Start tracking before a short enter animation can finish.
+      runRecompute();
+    } else if (records.some((record) => record.type === 'attributes')) {
+      scheduleRecompute();
+    }
+  });
   mo.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['aria-hidden'],
+    childList: true,
     subtree: true,
   });
+
+  sizeObserver = new ResizeObserver((entries) => {
+    const resized = entries.some(
+      ({ target }) =>
+        observedSizes.get(target) !== toSizeKey(target.getBoundingClientRect()),
+    );
+    if (resized) {
+      scheduleRecompute();
+    }
+  });
+
+  // The content observer is scoped to visible zones in observeContent(). Its
+  // potentially frequent callbacks use the same debounce/max-wait scheduler.
+  contentObserver = new MutationObserver(scheduleRecompute);
 
   // Initial pass — run it synchronously (not debounced) so the draggable region
   // exists on the first commit instead of ~200ms later, otherwise the title bar
@@ -263,9 +412,8 @@ function useDesktopDragRegionManager(enabled: boolean) {
     if (!enabled || typeof document === 'undefined') {
       return undefined;
     }
-    // Ensure the singleton is running, then resync — a drag zone (re)mounted,
-    // e.g. in-tab navigation pushed a screen with a different header. This is
-    // the targeted replacement for a document-wide childList observer.
+    // Ensure the singleton is running, then resync when a zone (re)mounts.
+    // Content changes within an existing zone are handled by its observer.
     startManager();
     scheduleRecompute();
     return () => {
@@ -293,7 +441,7 @@ function DesktopDragZoneBoxMac({
   disabled,
   ...rest
 }: IDesktopDragZoneBoxProps) {
-  // Start the global imperative drag-region manager (idempotent + ref-counted).
+  // Start the global imperative drag-region manager (idempotent singleton).
   useDesktopDragRegionManager(!disabled);
 
   // Only carry the marker class (its real app-region is neutralized by the

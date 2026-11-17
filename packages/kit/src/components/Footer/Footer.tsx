@@ -1,24 +1,20 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  ActionList,
-  Icon,
-  SizableText,
-  XStack,
-  useOnRouterChange,
-} from '@onekeyhq/components';
+import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { NetworkStatus } from '../NetworkStatus';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
+import { useDesktopWebFooterRoute } from './desktopWebFooterRoute';
+import { perpFooterConfig } from './perpFooterConfig';
 
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
@@ -34,6 +30,14 @@ const LazyPerpFooterTicker = lazy(async () => {
   const { PerpFooterTickerLazyImpl } = await import('./PerpFooterLazyContent');
   return {
     default: PerpFooterTickerLazyImpl,
+  };
+});
+
+const LazyPerpFooterNetworkStatus = lazy(async () => {
+  const { PerpFooterNetworkStatusLazyImpl } =
+    await import('./PerpFooterLazyContent');
+  return {
+    default: PerpFooterNetworkStatusLazyImpl,
   };
 });
 
@@ -107,45 +111,33 @@ export function PerpFooterActions() {
           })}
         </SizableText>
       </XStack>
-      <ActionList
-        title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={menuTrigger}
-        sections={[
-          {
-            items: links.map((item) => ({
-              label: intl.formatMessage({ id: item.translationKey }),
-              onPress: () => {
-                if (item.onPress) {
-                  item.onPress();
-                } else if (item.href) {
-                  openUrlExternal(item.href);
-                }
-              },
-            })),
-          },
-        ]}
-      />
+      {perpFooterConfig.showMoreMenu ? (
+        <ActionList
+          title={intl.formatMessage({ id: ETranslations.global_more })}
+          renderTrigger={menuTrigger}
+          sections={[
+            {
+              items: links.map((item) => ({
+                label: intl.formatMessage({ id: item.translationKey }),
+                onPress: () => {
+                  if (item.onPress) {
+                    item.onPress();
+                  } else if (item.href) {
+                    openUrlExternal(item.href);
+                  }
+                },
+              })),
+            },
+          ]}
+        />
+      ) : null}
     </XStack>
   );
 }
 
 export function Footer() {
   const intl = useIntl();
-  const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
-
-  useOnRouterChange((state) => {
-    if (!state) {
-      setCurrentTab(ETabRoutes.Home);
-      return;
-    }
-    const rootState = state?.routes.find(
-      ({ name }) => name === ERootRoutes.Main,
-    )?.state;
-    const currentTabName = rootState?.routeNames
-      ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
-      : (rootState?.routes[0].name as ETabRoutes);
-    setCurrentTab(currentTabName);
-  });
+  const { currentTab, hidden } = useDesktopWebFooterRoute();
 
   const links = useMemo(() => getLinks(), []);
 
@@ -162,7 +154,7 @@ export function Footer() {
     [intl, links],
   );
 
-  if (currentTab === ETabRoutes.WebviewPerpTrade) {
+  if (hidden) {
     return null;
   }
 
@@ -172,7 +164,7 @@ export function Footer() {
     <XStack
       width="100%"
       pl="$2"
-      pr="$6"
+      pr={isInPerpRoute ? perpFooterConfig.paddingRight : '$6'}
       py="$2"
       borderTopWidth={1}
       borderTopColor="$borderSubdued"
@@ -182,7 +174,13 @@ export function Footer() {
       justifyContent="space-between"
     >
       <XStack gap="$2" alignItems="center" flexShrink={0}>
-        <NetworkStatus />
+        {isInPerpRoute ? (
+          <Suspense fallback={null}>
+            <LazyPerpFooterNetworkStatus />
+          </Suspense>
+        ) : (
+          <NetworkStatus />
+        )}
         {isInPerpRoute ? (
           <Suspense fallback={null}>
             <LazyPerpFooterRefreshButton />

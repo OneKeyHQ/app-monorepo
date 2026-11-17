@@ -24,8 +24,10 @@ import {
 import {
   ECustomOneKeyHardwareError,
   type IOneKeyError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { shouldHideFirmwareUpdateInternalError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -33,6 +35,7 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ImgEnterBootGuideMini from '../assets/enter-boot-guide-mini.png';
+import { resolveFirmwareUpdateErrorPresentation } from '../componentsV2/firmwareUpdateErrorPresentation';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
@@ -216,12 +219,57 @@ export function useFirmwareUpdateErrors({
   const defaultRetryText = intl.formatMessage({
     id: ETranslations.global_retry,
   });
+  const firmwareUpdateCode = error?.payload?.params?.firmwareUpdateCode;
+  const hasInternalFirmwareUpdateFailureCode =
+    typeof firmwareUpdateCode === 'string' &&
+    firmwareUpdateCode.startsWith('Firmware');
   return useMemo<{
     content: React.ReactNode;
     detail?: React.ReactNode;
     onRetryHandler?: () => void;
     retryText: string;
   }>(() => {
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [
+          HardwareErrorCode.BridgeNeedsPermission,
+          ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+          HardwareErrorCode.BlePoweredOff,
+          HardwareErrorCode.BleUnsupported,
+          ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport,
+          HardwareErrorCode.DeviceCheckDeviceIdError,
+        ],
+      })
+    ) {
+      const presentation = resolveFirmwareUpdateErrorPresentation({
+        error,
+        result,
+        lastFirmwareTipMessage,
+        intl,
+      });
+      const { action } = presentation;
+      return {
+        content: (
+          <CommonError
+            title={presentation.title}
+            message={presentation.message}
+          />
+        ),
+        detail: presentation.tutorialUrl ? (
+          <RichSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            linkList={{ url: { url: presentation.tutorialUrl } }}
+          >
+            {ETranslations.update_follow_online_tutorial_to_proceed_manually}
+          </RichSizeableText>
+        ) : undefined,
+        onRetryHandler:
+          action.kind === 'link' ? () => openUrlExternal(action.url) : onRetry,
+        retryText: action.kind === 'link' ? action.text : defaultRetryText,
+      };
+    }
     if (
       isHardwareErrorByCode({
         error,
@@ -253,6 +301,26 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            message={intl.formatMessage({
+              id: ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
         code: HardwareErrorCode.FirmwareUpdateDownloadFailed,
       })
     ) {
@@ -265,6 +333,30 @@ export function useFirmwareUpdateErrors({
             })}
             message={intl.formatMessage({
               id: ETranslations.update_check_connection_try_again,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: HardwareErrorCode.FirmwareVerificationFailed,
+      }) ||
+      hasInternalFirmwareUpdateFailureCode
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_update_failed,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.global_network_doctor_action_contact_support_persist,
             })}
           />
         ),
@@ -476,6 +568,25 @@ export function useFirmwareUpdateErrors({
       };
     }
 
+    if (shouldHideFirmwareUpdateInternalError(error)) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.hardware_third_party_device_disconnected,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_device_disconnected_desc,
+            })}
+            displayTroubleshooting
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
     if (error) {
       let message = error?.message;
 
@@ -503,7 +614,15 @@ export function useFirmwareUpdateErrors({
       content: null,
       retryText: defaultRetryText,
     };
-  }, [intl, error, lastFirmwareTipMessage, defaultRetryText, onRetry, result]);
+  }, [
+    intl,
+    error,
+    lastFirmwareTipMessage,
+    defaultRetryText,
+    onRetry,
+    result,
+    hasInternalFirmwareUpdateFailureCode,
+  ]);
 }
 
 function WorkflowErrors({
@@ -516,12 +635,13 @@ function WorkflowErrors({
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
   const intl = useIntl();
-  const { onRetryHandler, content, retryText } = useFirmwareUpdateErrors({
-    error,
-    onRetry,
-    result,
-    lastFirmwareTipMessage: undefined,
-  });
+  const { onRetryHandler, content, detail, retryText } =
+    useFirmwareUpdateErrors({
+      error,
+      onRetry,
+      result,
+      lastFirmwareTipMessage: undefined,
+    });
   return (
     <>
       <FirmwareUpdatePageFooter
@@ -534,6 +654,7 @@ function WorkflowErrors({
         }}
       />
       {content}
+      {detail}
     </>
   );
 }

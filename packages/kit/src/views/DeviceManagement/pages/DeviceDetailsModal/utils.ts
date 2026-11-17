@@ -1,20 +1,10 @@
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-type IDeviceConnectionInfo = {
-  vendor?: EHardwareVendor;
-  connectId?: string;
-  deviceId?: string;
-  bleConnectId?: string;
-  settings?: {
-    vendorModel?: string;
-    vendorModelName?: string;
-  };
-  settingsRaw?: string;
-};
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export const TREZOR_AUTO_LOCK_OPTIONS = [
   { minute: 1 },
@@ -37,7 +27,7 @@ export function canOpenDeviceManagementDetails(
   vendor: EHardwareVendor | undefined,
 ) {
   const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
-  return profile.supportsDeviceManagementDetails;
+  return profile.deviceManager.details;
 }
 
 export function buildDeviceDetailsVisibility({
@@ -52,34 +42,52 @@ export function buildDeviceDetailsVisibility({
   const profile = !isQrWallet && vendor ? getVendorProfile(vendor) : undefined;
   return {
     vendorProfile: profile,
-    showFirmwareActions:
-      Boolean(profile?.supportsFirmwareUpdate) && hasLoadedDevice,
+    showFirmwareActions: Boolean(profile?.firmware.update) && hasLoadedDevice,
     showDeviceSettings:
-      Boolean(profile?.supportsDeviceSettings) && hasLoadedDevice,
-    showDeviceSupport: Boolean(profile?.supportsDeviceAbout) && hasLoadedDevice,
+      Boolean(profile?.deviceManager.settings) && hasLoadedDevice,
+    showDeviceSupport: Boolean(profile?.deviceManager.about) && hasLoadedDevice,
     showPassphraseSettings:
-      Boolean(profile?.supportsPassphraseSetting) && hasLoadedDevice,
+      Boolean(profile?.passphrase.setting) && hasLoadedDevice,
     showDeviceConnection: !isQrWallet && hasLoadedDevice,
   };
 }
 
-export function canShowTrezorBleBinding(
-  device: IDeviceConnectionInfo | undefined,
-  platform: {
-    isDesktop?: boolean;
-    isSupportDesktopBle?: boolean;
-  } = platformEnv,
+export function shouldShowDeviceInteractiveSections(
+  deviceType: EDeviceType | undefined,
+  deviceStateReady: boolean,
 ) {
-  // Stay visible even after a bleConnectId is bound: a stored BLE connectId can
-  // go stale (device wiped/re-flashed → new peripheral id, or OS bond dropped),
-  // and the signing-time fallback has no path to re-bind an already-bound
-  // device. Keeping this entry lets the user re-pick and overwrite the stale
-  // connectId instead of getting stuck on repeated reconnect failures.
-  return (
-    thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platform) &&
-    device?.vendor === EHardwareVendor.trezor &&
-    Boolean(device.connectId) &&
-    Boolean(device.deviceId) &&
-    thirdPartyDeviceUtils.isTrezorBleSupportedDevice(device)
-  );
+  return Boolean(deviceType) || deviceStateReady;
+}
+
+export type IFirmwareTypeChangeAvailability =
+  | 'enabled'
+  | 'comingSoon'
+  | 'hidden';
+
+export function getFirmwareTypeChangeAvailability(
+  deviceType: EDeviceType | undefined,
+): IFirmwareTypeChangeAvailability {
+  if (isProtocolV2ProductType(deviceType)) {
+    return 'hidden';
+  }
+  if (deviceType && deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
+    return 'enabled';
+  }
+  return 'hidden';
+}
+
+export async function syncRelevantDeviceStateEvent<T>({
+  event,
+  applyEvent,
+  refresh,
+}: {
+  event: T;
+  applyEvent: (event: T) => Promise<boolean>;
+  refresh: () => Promise<unknown>;
+}) {
+  const applied = await applyEvent(event);
+  if (applied) {
+    await refresh();
+  }
+  return applied;
 }

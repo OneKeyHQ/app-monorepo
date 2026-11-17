@@ -17,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
@@ -233,7 +234,7 @@ const AdjustPositionMarginForm = memo(
               {selectedLabel}
             </SizableText>
             <Icon
-              name="ChevronDownSmallOutline"
+              name="ChevronTriangleDownSmallSolid"
               size="$4"
               color="$iconSubdued"
             />
@@ -244,7 +245,7 @@ const AdjustPositionMarginForm = memo(
 
     return (
       <YStack flex={1}>
-        <YStack flex={1} gap="$4" pb="$6">
+        <YStack flex={1} gap="$4" pb={platformEnv.isNative ? '$6' : '$4'}>
           {/* Position Info */}
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
@@ -285,7 +286,7 @@ const AdjustPositionMarginForm = memo(
             </XStack>
           </YStack>
 
-          <YStack gap="$2">
+          <YStack gap="$3">
             <TradingFormInput
               label={intl.formatMessage({
                 id: ETranslations.dexmarket_details_history_amount,

@@ -17,12 +17,14 @@
  * Usage:
  *   node scenarios/regression.mjs list
  *   node scenarios/regression.mjs dapp-cold-start-desktop --url https://onekey.so
+ *   node scenarios/regression.mjs tabs-scroll-extent-desktop # CDP 9222 (yarn app:desktop)
  *   node scenarios/regression.mjs gift-storm-desktop          # CDP 9222 (yarn app:desktop)
  *   node scenarios/regression.mjs gift-storm-web              # CDP 9223 (Chrome --remote-debugging-port=9223 on the web build)
  *   node scenarios/regression.mjs gift-storm-rn --platform ios
  *   node scenarios/regression.mjs gift-storm-rn --platform android
  *
  * Env (shared): ROUNDS, REGRESSION=1 (exit 1 if reproduced, 0 if clean).
+ * Env (Tabs): TAB_SWITCH_ROUNDS (default 8), HOME_TABS_EVIDENCE_DIR.
  * Env (cdp targets): CDP_URL_DESKTOP (falls back to CDP_URL, default 9222),
  *   CDP_URL_WEB (default 9223). Separate names so a desktop CDP_URL override
  *   can't silently redirect the web scenario.
@@ -102,19 +104,25 @@ async function connectCdpMainWindow(cdpUrl) {
     );
   }
   let page = null;
-  for (const c of browser.contexts()) {
-    for (const p of c.pages()) {
-      try {
-        if ((await p.locator('[data-testid^="tab-modal"]').count()) > 0) {
-          page = p;
-          break;
+  await waitForCondition(
+    'OneKey main window on CDP',
+    async () => {
+      for (const c of browser.contexts()) {
+        for (const p of c.pages()) {
+          try {
+            if ((await p.locator('[data-testid^="tab-modal"]').count()) > 0) {
+              page = p;
+              return true;
+            }
+          } catch {
+            /* page may be navigating */
+          }
         }
-      } catch {
-        /* page may be navigating */
       }
-    }
-    if (page) break;
-  }
+      return false;
+    },
+    30_000,
+  );
   if (!page) {
     // Detach only — never browser.close(), it would kill the user's running app
     // (see references/rules/electron-cdp.md). connectOverCDP leaks no process.
@@ -604,6 +612,743 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
   return reportVerification('dapp-cold-start-desktop', checks);
 }
 
+const HOME_TAB_TEST_IDS = [
+  ['Spot', 'home-tab-portfolio', 'portfolio'],
+  ['Perps', 'home-tab-perps', 'perps'],
+  ['DeFi', 'home-tab-defi', 'defi'],
+  ['NFT', 'home-tab-nft', 'nft'],
+  ['History', 'home-tab-history', 'history'],
+];
+const HOME_BLANK_TOLERANCE_PX = 160;
+const HOME_CLIP_TOLERANCE_PX = 2;
+
+// Read the focused SDK owner and painted business content. A stretched pager
+// wrapper cannot count as a painted leaf or prove that the real tail is reachable.
+async function measureHomeTab(page) {
+  return page.evaluate(() => {
+    const visible = (element) => {
+      const rect = element.getBoundingClientRect();
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0 ||
+        rect.bottom <= 0 ||
+        rect.top >= innerHeight
+      )
+        return false;
+      for (let node = element; node; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        if (
+          style.display === 'none' ||
+          style.visibility === 'hidden' ||
+          node.hasAttribute('inert')
+        )
+          return false;
+      }
+      return true;
+    };
+    const owner = [
+      ...document.querySelectorAll('[data-collapsible-pager-scroll]'),
+    ].find(
+      (node) =>
+        node.getAttribute('data-collapsible-pager-active') === 'true' &&
+        visible(node),
+    );
+    if (!(owner instanceof HTMLElement)) return null;
+    const rect = owner.getBoundingClientRect();
+    const fiberKey = Object.keys(owner).find((key) =>
+      key.startsWith('__reactFiber'),
+    );
+    let pager = null;
+    for (
+      let fiber = fiberKey ? owner[fiberKey] : null, depth = 0;
+      fiber && depth < 100;
+      fiber = fiber.return, depth += 1
+    ) {
+      const instance = fiber.stateNode;
+      if (
+        instance &&
+        typeof instance.pages === 'function' &&
+        instance.configuredScrollElement
+      ) {
+        pager = {
+          selected: instance.state.selectedPage,
+          selectedKey: String(
+            instance.pages()[instance.state.selectedPage]?.key ?? '',
+          ).slice(2),
+          ownerIsActual: instance.configuredScrollElement.element === owner,
+          headerHeight: instance.headerSlot?.getBoundingClientRect().height,
+          stickyHeight: instance.stickySlot?.getBoundingClientRect().height,
+        };
+        break;
+      }
+    }
+    let paintedBottom = null;
+    let paintedBottomAbs = 0;
+    const isPainted = (node) => {
+      if (['IMG', 'SVG', 'CANVAS', 'VIDEO'].includes(node.tagName)) return true;
+      return [...node.childNodes].some(
+        (child) => child.nodeType === 3 && child.textContent.trim(),
+      );
+    };
+    for (const node of owner.querySelectorAll('*')) {
+      if (node instanceof HTMLElement && isPainted(node)) {
+        const leafRect = node.getBoundingClientRect();
+        if (
+          leafRect.width > 0 &&
+          leafRect.height > 0 &&
+          leafRect.right > rect.left &&
+          leafRect.left < rect.right
+        ) {
+          let excluded = false;
+          for (
+            let ancestor = node;
+            ancestor && ancestor !== owner;
+            ancestor = ancestor.parentElement
+          ) {
+            const style = getComputedStyle(ancestor);
+            if (
+              style.display === 'none' ||
+              style.visibility === 'hidden' ||
+              style.position === 'fixed' ||
+              style.position === 'sticky'
+            ) {
+              excluded = true;
+              break;
+            }
+          }
+          if (!excluded) {
+            paintedBottomAbs = Math.max(
+              paintedBottomAbs,
+              leafRect.bottom - rect.top + owner.scrollTop,
+            );
+            if (leafRect.bottom > rect.top && leafRect.top < rect.bottom) {
+              paintedBottom = Math.max(
+                paintedBottom ?? 0,
+                Math.min(leafRect.bottom, rect.bottom),
+              );
+            }
+          }
+        }
+      }
+    }
+    const defiContent = owner.querySelector(
+      '[data-testid="home-defi-tab-content"]',
+    );
+    const contentRect = defiContent?.getBoundingClientRect();
+    const max = owner.scrollHeight - owner.clientHeight;
+    const key = owner.getAttribute('data-collapsible-pager-scroll-key') || '';
+    const isDefi = key.startsWith('defi:');
+    return {
+      key,
+      active: owner.getAttribute('data-collapsible-pager-active'),
+      top: owner.scrollTop,
+      max,
+      scrollHeight: owner.scrollHeight,
+      clientHeight: owner.clientHeight,
+      ownerRect: rect.toJSON(),
+      pager,
+      headerInset: owner.style
+        .getPropertyValue('--ok-collapsible-pager-header-inset')
+        .trim(),
+      stickyInset: owner.style
+        .getPropertyValue('--ok-collapsible-pager-sticky-inset')
+        .trim(),
+      atBottom: Math.abs(owner.scrollTop - max) <= 2,
+      paintedBottom,
+      paintedBottomAbs,
+      blankSpacePx:
+        paintedBottom === null
+          ? Math.round(rect.height)
+          : Math.round(Math.max(0, rect.bottom - paintedBottom)),
+      // A short page can legitimately leave empty viewport below its content.
+      // Dead space only exists when the owner can scroll far beyond its header.
+      hasLongRange:
+        max > (pager?.headerHeight ?? 0) + (pager?.stickyHeight ?? 0) + 160,
+      defiReady:
+        isDefi &&
+        defiContent instanceof HTMLElement &&
+        visible(defiContent) &&
+        defiContent.querySelectorAll(
+          '[data-testid="defi-protocol-header-link"]',
+        ).length > 0 &&
+        defiContent.querySelectorAll('[data-testid^="defi-position-action"]')
+          .length > 0,
+      defiContentBottom: contentRect?.bottom ?? null,
+      defiContentHeight: contentRect?.height ?? null,
+      // DeFi is a real, non-virtual content tree. Virtual Spot/NFT/History
+      // instead gate on actual wheel reach and a painted tail at the bottom.
+      clippedPx:
+        isDefi && contentRect
+          ? Math.round(
+              Math.max(
+                0,
+                contentRect.bottom - rect.bottom,
+                paintedBottomAbs - owner.scrollHeight,
+              ),
+            )
+          : 0,
+      viewport: { width: innerWidth, height: innerHeight },
+    };
+  });
+}
+
+async function saveHomeTabEvidence(page, name, data) {
+  const directory = process.env.HOME_TABS_EVIDENCE_DIR;
+  if (!directory) return;
+  fs.mkdirSync(directory, { recursive: true });
+  const stem = path.join(directory, name.replace(/[^a-z0-9-]/gi, '-'));
+  fs.writeFileSync(
+    `${stem}.json`,
+    JSON.stringify({ at: new Date().toISOString(), ...data }, null, 2),
+  );
+  await page.screenshot({ path: `${stem}.png` });
+}
+
+function captureHomeUiErrors(page, scenario) {
+  const counts = { console: 0, page: 0 };
+  const file = process.env.HOME_TABS_EVIDENCE_DIR
+    ? path.join(process.env.HOME_TABS_EVIDENCE_DIR, `${scenario}-errors.jsonl`)
+    : null;
+  const record = (kind, message) => {
+    counts[kind] += 1;
+    if (!file) return;
+    const safeText = String(message)
+      .replace(/https?:\/\/[^\s]+/g, '[url]')
+      .replace(/0x[0-9a-fA-F]{40,}/g, '[address]')
+      .replace(/[a-zA-Z0-9_=-]{60,}/g, '[redacted]')
+      .slice(0, 500);
+    fs.appendFileSync(
+      file,
+      `${JSON.stringify({ at: new Date().toISOString(), kind, text: safeText })}\n`,
+    );
+  };
+  page.on('console', (message) => {
+    if (message.type() === 'error') record('console', message.text());
+  });
+  page.on('pageerror', (error) => record('page', error.message));
+  return counts;
+}
+
+async function gotoHomeTab(page, tab) {
+  await page.locator(`[data-testid="${tab[1]}"]:visible`).click();
+  await waitForCondition(
+    `active ${tab[0]} SDK owner`,
+    async () => {
+      const measure = await measureHomeTab(page);
+      return (
+        measure?.key.startsWith(`${tab[2]}:`) &&
+        measure.pager?.selectedKey === tab[2] &&
+        measure.pager?.ownerIsActual === true
+      );
+    },
+    20_000,
+  );
+  await sleep(350);
+  return measureHomeTab(page);
+}
+
+async function wheelHomeTabToBottom(page, expectedTab) {
+  let stable = 0;
+  let priorMax = -1;
+  for (let round = 0; round < 100; round += 1) {
+    const before = await measureHomeTab(page);
+    if (
+      !before?.key.startsWith(`${expectedTab[2]}:`) ||
+      before.pager?.ownerIsActual !== true
+    ) {
+      throw new Error(
+        `${expectedTab[0]} lost its actual SDK owner while scrolling`,
+      );
+    }
+    const rect = before.ownerRect;
+    await page.mouse.move(
+      rect.left + rect.width / 2,
+      Math.min(rect.bottom - 80, rect.top + rect.height / 2),
+    );
+    await page.mouse.wheel(0, 950);
+    await sleep(180);
+    const after = await measureHomeTab(page);
+    if (after?.atBottom && Math.abs(after.max - priorMax) <= 2) stable += 1;
+    else stable = 0;
+    priorMax = after?.max ?? -1;
+    if (stable >= 4) return after;
+  }
+  const final = await measureHomeTab(page);
+  throw new Error(
+    `${expectedTab[0]} did not reach a stable real bottom: ${final?.top}/${final?.max}`,
+  );
+}
+
+function homeTailChecks(sample, tab) {
+  const ownerReady = Boolean(
+    sample &&
+    sample.active === 'true' &&
+    sample.key.startsWith(`${tab[2]}:`) &&
+    sample.pager?.selectedKey === tab[2] &&
+    sample.pager?.ownerIsActual === true &&
+    sample.pager.headerHeight > 0 &&
+    sample.pager.stickyHeight > 0 &&
+    sample.headerInset === `${sample.pager.headerHeight}px` &&
+    sample.stickyInset === `${sample.pager.stickyHeight}px`,
+  );
+  return {
+    ownerReady,
+    atBottom: sample?.atBottom === true,
+    paintedTail:
+      typeof sample?.paintedBottom === 'number' &&
+      (!sample.hasLongRange || sample.blankSpacePx <= HOME_BLANK_TOLERANCE_PX),
+    contentFits: sample?.clippedPx <= HOME_CLIP_TOLERANCE_PX,
+    defiBusinessReady: tab[2] !== 'defi' || sample?.defiReady === true,
+  };
+}
+
+async function runTabsScrollExtentDesktop(cdpUrl) {
+  const { page } = await connectCdpMainWindow(cdpUrl);
+  const uiErrors = captureHomeUiErrors(page, 'extent');
+  if (await page.locator('[data-testid="password-input"]:visible').count()) {
+    throw new Error(
+      'Desktop app is locked. Unlock before Home scroll verification.',
+    );
+  }
+  const defi = HOME_TAB_TEST_IDS[2];
+  const nft = HOME_TAB_TEST_IDS[3];
+  const checks = [];
+  await gotoHomeTab(page, defi);
+  await waitForCondition(
+    'real DeFi positions and protocols',
+    async () => (await measureHomeTab(page))?.defiReady,
+    45_000,
+  );
+  const ready = await measureHomeTab(page);
+  await saveHomeTabEvidence(page, 'extent-defi-ready', {
+    tab: defi[0],
+    measure: ready,
+  });
+  checks.push({
+    name: 'real DeFi data ready on actual owner',
+    pass: homeTailChecks(ready, defi).ownerReady && ready.defiReady,
+    detail: `key=${ready.key} H/S=${ready.headerInset}/${ready.stickyInset}`,
+  });
+  const firstBottom = await wheelHomeTabToBottom(page, defi);
+  await saveHomeTabEvidence(page, 'extent-defi-first-bottom', {
+    tab: defi[0],
+    measure: firstBottom,
+  });
+  checks.push({
+    name: 'initial DeFi tail reachable without clipping or dead scroll',
+    pass: Object.values(homeTailChecks(firstBottom, defi)).every(Boolean),
+    detail: `top=${firstBottom.top}/${firstBottom.max} blank=${firstBottom.blankSpacePx} clipped=${firstBottom.clippedPx}`,
+  });
+
+  const rounds = Number(process.env.TAB_SWITCH_ROUNDS || 8);
+  for (let round = 1; round <= rounds; round += 1) {
+    const savedTop = (await measureHomeTab(page)).top;
+    await gotoHomeTab(page, nft);
+    const nftBottom = await wheelHomeTabToBottom(page, nft);
+    await saveHomeTabEvidence(page, `extent-nft-bottom-${round}`, {
+      tab: nft[0],
+      measure: nftBottom,
+    });
+    checks.push({
+      name: `NFT real tail reachable round ${round}`,
+      pass: Object.values(homeTailChecks(nftBottom, nft)).every(Boolean),
+      detail: `top=${nftBottom.top}/${nftBottom.max} blank=${nftBottom.blankSpacePx}`,
+    });
+    await gotoHomeTab(page, defi);
+    await sleep(650);
+    const restored = await measureHomeTab(page);
+    checks.push({
+      name: `DeFi scroll restored after NFT round ${round}`,
+      pass:
+        homeTailChecks(restored, defi).ownerReady &&
+        Math.abs(restored.top - savedTop) <= 2,
+      detail: `saved=${savedTop} restored=${restored.top} max=${restored.max}`,
+    });
+    const bottom = await wheelHomeTabToBottom(page, defi);
+    checks.push({
+      name: `DeFi tail after NFT round ${round}`,
+      pass: Object.values(homeTailChecks(bottom, defi)).every(Boolean),
+      detail: `top=${bottom.top}/${bottom.max} blank=${bottom.blankSpacePx}`,
+    });
+  }
+
+  // The overview More tile and the position Show more button control real
+  // DeFi content. Their grow/shrink checks replace the old synthetic DOM probe.
+  const content = page
+    .locator('[data-testid="home-defi-tab-content"]:visible')
+    .first();
+  let toggle = page
+    .locator('[data-testid="home-render-content-btn"]:visible')
+    .first();
+  if ((await toggle.count()) && /show less/i.test(await toggle.innerText())) {
+    await toggle.click();
+    await sleep(1700);
+  }
+  const collapsed = await wheelHomeTabToBottom(page, defi);
+  const moreTile = content.locator('[role="button"][aria-label^="View more"]');
+  toggle = page
+    .locator('[data-testid="home-render-content-btn"]:visible')
+    .first();
+  const expansionTarget =
+    (await toggle.count()) && /show more/i.test(await toggle.innerText())
+      ? toggle
+      : null;
+  if (expansionTarget) {
+    await expansionTarget.click();
+    await sleep(1700);
+    const expanded = await wheelHomeTabToBottom(page, defi);
+    await saveHomeTabEvidence(page, 'extent-defi-more', {
+      tab: defi[0],
+      measure: expanded,
+      beforeMax: collapsed.max,
+    });
+    checks.push({
+      name: 'real DeFi More grows scrollable content and tail remains reachable',
+      pass:
+        expanded.max > collapsed.max + 20 &&
+        Object.values(homeTailChecks(expanded, defi)).every(Boolean),
+      detail: `max=${collapsed.max}->${expanded.max}`,
+    });
+    const less = page
+      .locator('[data-testid="home-render-content-btn"]:visible')
+      .first();
+    if (!(await less.count()) || !/show less/i.test(await less.innerText())) {
+      checks.push({
+        name: 'DeFi Show less available after expansion',
+        pass: false,
+      });
+    } else {
+      await less.click();
+      await sleep(1700);
+      const shrunk = await wheelHomeTabToBottom(page, defi);
+      await saveHomeTabEvidence(page, 'extent-defi-less', {
+        tab: defi[0],
+        measure: shrunk,
+        beforeMax: expanded.max,
+      });
+      checks.push({
+        name: 'real DeFi Less shrinks content without dead scroll',
+        pass:
+          shrunk.max < expanded.max - 20 &&
+          Object.values(homeTailChecks(shrunk, defi)).every(Boolean),
+        detail: `max=${expanded.max}->${shrunk.max}`,
+      });
+    }
+  } else {
+    checks.push({
+      name: 'DeFi Show more/less available for this dataset',
+      pass: false,
+      detail: 'No visible Show more control',
+    });
+  }
+
+  // The overview card has a separate More tile from the position list toggle.
+  if (await moreTile.count()) {
+    const overviewBefore = await measureHomeTab(page);
+    await moreTile.first().click();
+    await sleep(700);
+    const overviewAfter = await wheelHomeTabToBottom(page, defi);
+    await saveHomeTabEvidence(page, 'extent-defi-overview-more', {
+      tab: defi[0],
+      beforeMax: overviewBefore.max,
+      measure: overviewAfter,
+    });
+    checks.push({
+      name: 'DeFi overview More reveals real protocol cards',
+      pass:
+        overviewAfter.max > overviewBefore.max + 20 &&
+        Object.values(homeTailChecks(overviewAfter, defi)).every(Boolean),
+      detail: `max=${overviewBefore.max}->${overviewAfter.max}`,
+    });
+  }
+
+  const stripState = () =>
+    page.evaluate(() => {
+      const button = document.querySelector(
+        '[data-testid="home-defi-protocol-chip-scroll-right-btn"]',
+      );
+      const root = button?.parentElement?.parentElement;
+      const scroller = [...(root?.querySelectorAll('*') ?? [])].find(
+        (node) =>
+          node instanceof HTMLElement &&
+          node.scrollWidth - node.clientWidth > 20 &&
+          node.clientWidth > 100,
+      );
+      const arrow = (direction) => {
+        const element = document.querySelector(
+          `[data-testid="home-defi-protocol-chip-scroll-${direction}-btn"]`,
+        );
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const hit = document.elementFromPoint(x, y);
+        return {
+          x,
+          y,
+          hit: hit === element || element.contains(hit),
+          pointer: getComputedStyle(element).pointerEvents,
+          parentOpacity: getComputedStyle(element.parentElement).opacity,
+        };
+      };
+      return {
+        left: scroller?.scrollLeft ?? null,
+        max: scroller ? scroller.scrollWidth - scroller.clientWidth : null,
+        leftArrow: arrow('left'),
+        rightArrow: arrow('right'),
+      };
+    });
+  const initialStrip = await stripState();
+  let beforeRight = initialStrip;
+  let afterLeft = null;
+  if (initialStrip.rightArrow?.hit !== true && initialStrip.leftArrow?.hit) {
+    await page.mouse.click(initialStrip.leftArrow.x, initialStrip.leftArrow.y);
+    await sleep(550);
+    afterLeft = await stripState();
+    beforeRight = afterLeft;
+  }
+  let afterRight = null;
+  if (beforeRight.rightArrow?.hit) {
+    await page.mouse.click(beforeRight.rightArrow.x, beforeRight.rightArrow.y);
+    await sleep(550);
+    afterRight = await stripState();
+  }
+  await saveHomeTabEvidence(page, 'extent-defi-chip-arrows', {
+    initialStrip,
+    afterLeft,
+    afterRight,
+  });
+  checks.push({
+    name: 'sticky protocol strip arrows scroll horizontally by real pointer',
+    pass:
+      initialStrip.left !== null &&
+      (afterLeft === null || afterLeft.left < initialStrip.left - 2) &&
+      afterRight !== null &&
+      afterRight.left > beforeRight.left + 2,
+    detail: `${initialStrip.left}->${afterLeft?.left ?? '-'}->${afterRight?.left ?? '-'}`,
+  });
+  const chip = await page.evaluate(() => {
+    const button = document.querySelector(
+      '[data-testid="home-defi-protocol-chip-scroll-right-btn"]',
+    );
+    const root = button?.parentElement?.parentElement;
+    if (!root) return null;
+    const all = [...root.querySelectorAll('[role="button"]')].filter(
+      (node) => !node.hasAttribute('data-testid'),
+    );
+    const labels = all.map((node) => node.innerText?.split('\n')[0] || '');
+    const rect = root.getBoundingClientRect();
+    for (let index = 0; index < all.length; index += 1) {
+      const node = all[index];
+      const r = node.getBoundingClientRect();
+      const x = (r.left + r.right) / 2,
+        y = (r.top + r.bottom) / 2;
+      if (
+        node.getAttribute('aria-current') !== 'location' &&
+        labels[index] &&
+        labels.filter((label) => label === labels[index]).length === 1 &&
+        r.left >= rect.left + 4 &&
+        r.right <= rect.right - 4 &&
+        document.elementFromPoint(x, y)?.closest('[role="button"]') === node
+      ) {
+        return { index, x, y, name: labels[index] };
+      }
+    }
+    return null;
+  });
+  if (!chip) {
+    checks.push({
+      name: 'visible inactive protocol chip available for navigation',
+      pass: false,
+    });
+  } else {
+    const before = await measureHomeTab(page);
+    await page.mouse.click(chip.x, chip.y);
+    await sleep(900);
+    const readTarget = () =>
+      page.evaluate((index) => {
+        const button = document.querySelector(
+          '[data-testid="home-defi-protocol-chip-scroll-right-btn"]',
+        );
+        const root = button?.parentElement?.parentElement;
+        const chips = [
+          ...(root?.querySelectorAll('[role="button"]') ?? []),
+        ].filter((node) => !node.hasAttribute('data-testid'));
+        const name = chips[index]?.innerText?.split('\n')[0] || '';
+        const headers = [
+          ...document.querySelectorAll(
+            '[data-testid="defi-protocol-header-link"]',
+          ),
+        ]
+          .map((link) => link.parentElement)
+          .filter((node) => node?.innerText?.trim() === name);
+        const header =
+          headers.length === 1 ? headers[0].getBoundingClientRect() : null;
+        const strip = root?.getBoundingClientRect();
+        return {
+          selected: chips[index]?.getAttribute('aria-current') === 'location',
+          name,
+          headerCount: headers.length,
+          headerTop: header?.top ?? null,
+          headerBottom: header?.bottom ?? null,
+          stripBottom: strip?.bottom ?? null,
+        };
+      }, chip.index);
+    const early = {
+      at: Date.now(),
+      top: (await measureHomeTab(page)).top,
+      target: await readTarget(),
+    };
+    let priorTop = Number.NaN;
+    let stableTopSamples = 0;
+    await waitForCondition(
+      'real protocol smooth navigation settles',
+      async () => {
+        const current = await measureHomeTab(page);
+        stableTopSamples =
+          Math.abs(current.top - priorTop) < 1 ? stableTopSamples + 1 : 0;
+        priorTop = current.top;
+        return stableTopSamples >= 3;
+      },
+      6000,
+    );
+    const result = await readTarget();
+    const after = await measureHomeTab(page);
+    const headerVisible =
+      result.headerCount === 1 &&
+      result.headerTop !== null &&
+      result.headerBottom > result.stripBottom + 1 &&
+      result.headerTop < after.ownerRect.bottom - 1;
+    const headerAligned =
+      headerVisible &&
+      (Math.abs(result.headerTop - result.stripBottom) <= 24 || after.atBottom);
+    await saveHomeTabEvidence(page, 'extent-defi-chip-navigation', {
+      tab: defi[0],
+      chip: chip.name,
+      early,
+      target: result,
+      beforeTop: before.top,
+      measure: after,
+    });
+    checks.push({
+      name: 'real protocol chip navigates to its visible business header',
+      pass:
+        result.selected &&
+        result.name === chip.name &&
+        after.top !== before.top &&
+        headerAligned &&
+        homeTailChecks(after, defi).ownerReady,
+      detail: `${chip.name} top=${before.top}->${after.top} header=${result.headerTop} stickyBottom=${result.stripBottom}`,
+    });
+  }
+
+  const summary = {
+    scenario: 'tabs-scroll-extent-desktop',
+    at: new Date().toISOString(),
+    checks,
+    uiErrors,
+  };
+  if (process.env.HOME_TABS_EVIDENCE_DIR)
+    fs.writeFileSync(
+      path.join(process.env.HOME_TABS_EVIDENCE_DIR, 'extent-summary.json'),
+      JSON.stringify(summary, null, 2),
+    );
+  return reportVerification('tabs-scroll-extent-desktop', checks);
+}
+
+async function runTabsBlankSpaceDesktop(cdpUrl) {
+  const { page } = await connectCdpMainWindow(cdpUrl);
+  const uiErrors = captureHomeUiErrors(page, 'blank');
+  if (await page.locator('[data-testid="password-input"]:visible').count()) {
+    throw new Error(
+      'Desktop app is locked. Unlock before Home blank-space verification.',
+    );
+  }
+  const available = [];
+  for (const tab of HOME_TAB_TEST_IDS) {
+    if (await page.locator(`[data-testid="${tab[1]}"]:visible`).count())
+      available.push(tab);
+  }
+  if (available.length < 2 || !available.some((tab) => tab[2] === 'defi')) {
+    throw new Error('Need visible Home DeFi and at least one other real tab');
+  }
+  const samples = [];
+  const sample = async (label, tab, shot = false) => {
+    await gotoHomeTab(page, tab);
+    if (tab[2] === 'defi')
+      await waitForCondition(
+        'real DeFi business data',
+        async () => (await measureHomeTab(page))?.defiReady,
+        45_000,
+      );
+    const measure = await wheelHomeTabToBottom(page, tab);
+    const checks = homeTailChecks(measure, tab);
+    const row = { label, tab: tab[0], measure, checks };
+    samples.push(row);
+    log(
+      `${label}: top=${measure.top}/${measure.max} blank=${measure.blankSpacePx} clipped=${measure.clippedPx} actual=${measure.pager?.ownerIsActual} ${Object.values(checks).every(Boolean) ? 'clean' : 'FAIL'}`,
+    );
+    if (shot) await saveHomeTabEvidence(page, `blank-${label}`, row);
+  };
+  for (const tab of available) await sample(`rest-${tab[0]}`, tab, true);
+  for (const from of available) {
+    for (const to of available.filter((tab) => tab !== from)) {
+      await gotoHomeTab(page, from);
+      await wheelHomeTabToBottom(page, from);
+      await sample(
+        `${from[0]}-to-${to[0]}`,
+        to,
+        to[2] === 'defi' || from[2] === 'defi',
+      );
+    }
+  }
+  if (process.env.HOME_TABS_EVIDENCE_DIR) {
+    fs.writeFileSync(
+      path.join(process.env.HOME_TABS_EVIDENCE_DIR, 'blank-samples.json'),
+      JSON.stringify(samples, null, 2),
+    );
+    fs.writeFileSync(
+      path.join(process.env.HOME_TABS_EVIDENCE_DIR, 'blank-ui-errors.json'),
+      JSON.stringify(uiErrors, null, 2),
+    );
+  }
+  const failed = samples.filter(
+    (row) => !Object.values(row.checks).every(Boolean),
+  );
+  return reportVerification('tabs-blank-space-desktop', [
+    {
+      name: 'all Home tab transitions reach the requested actual SDK owner',
+      pass: failed.every((row) => row.checks.ownerReady),
+      detail: `${samples.length} measured samples`,
+    },
+    {
+      name: 'real wheel reaches a stable bottom in every tab',
+      pass: failed.every((row) => row.checks.atBottom),
+      detail: `${samples.length} measured samples`,
+    },
+    {
+      name: 'no dead scroll beyond painted business tail',
+      pass: failed.every((row) => row.checks.paintedTail),
+      detail: failed
+        .filter((row) => !row.checks.paintedTail)
+        .map((row) => `${row.label}:${row.measure.blankSpacePx}px`)
+        .join(', '),
+    },
+    {
+      name: 'DeFi real content not clipped',
+      pass: failed.every((row) => row.checks.contentFits),
+      detail: failed
+        .filter((row) => !row.checks.contentFits)
+        .map((row) => `${row.label}:${row.measure.clippedPx}px`)
+        .join(', '),
+    },
+    {
+      name: 'DeFi positions and protocols ready when sampled',
+      pass: failed.every((row) => row.checks.defiBusinessReady),
+    },
+  ]);
+}
+
 // Ported from the former cdp-repro-gift-storm.mjs. The detection
 // signal — console "Maximum update depth", JS heap, evaluate RTT — is CDP-only,
 // which is exactly why this scenario stays on CDP.
@@ -923,6 +1668,28 @@ const scenarios = {
           process.env.CDP_URL ||
           'http://127.0.0.1:9222',
         flags,
+      ),
+  },
+  'tabs-scroll-extent-desktop': {
+    backend: 'cdp',
+    describe:
+      'Verify Home DeFi/NFT actual SDK scroll owner, real tails, More/less, and chip navigation. CDP 9222.',
+    run: () =>
+      runTabsScrollExtentDesktop(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
+      ),
+  },
+  'tabs-blank-space-desktop': {
+    backend: 'cdp',
+    describe:
+      'Verify real Home tab tails and limited dead-scroll checks after ordered tab switches. CDP 9222.',
+    run: () =>
+      runTabsBlankSpaceDesktop(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
       ),
   },
   'gift-storm-desktop': {

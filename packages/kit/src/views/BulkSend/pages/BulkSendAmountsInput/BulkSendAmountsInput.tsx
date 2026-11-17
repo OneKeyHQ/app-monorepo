@@ -23,6 +23,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -41,6 +42,7 @@ import {
   EModalRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -58,6 +60,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
+import BulkSendSplitTxAlert from '../../components/BulkSendSplitTxAlert';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import {
   DEFAULT_INTERVAL_SETTINGS,
@@ -164,6 +167,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     balance: isOneToMany
       ? (displayBalance ?? tokenDetails?.balanceParsed)
       : undefined,
+    minTransferAmount,
   });
 
   // Mobile-only: preview mode means TransactionDetail is visible for Specified/Range
@@ -179,6 +183,17 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   );
   const isNativeBatchTransfer =
     vaultSettings?.nativeBatchTransferEnabled ?? false;
+
+  // Tell users up front that a large list is split and signed per tx
+  const maxTransfersPerTx = vaultSettings?.bulkSendMaxTransfersPerTx;
+  const splitTxCount = useMemo(
+    () =>
+      isOneToMany
+        ? bulkSendUtils.chunkBulkSendTransfers(transfersInfo, maxTransfersPerTx)
+            .length
+        : 0,
+    [isOneToMany, transfersInfo, maxTransfersPerTx],
+  );
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(
@@ -407,10 +422,16 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             });
 
           if (!allowanceResponse?.isApproved) {
+            // Stamp the same snapshot multiplier the transfers carry so the
+            // review card re-derives the display-basis approve amount and
+            // the approve editors keep failing closed on scaled tokens.
             const baseTokenInfo = {
               ...tokenInfo,
               isNative: !!tokenInfo.isNative,
               name: tokenInfo.name ?? tokenInfo.symbol,
+              ...(tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+                ? { balanceMultiplier: rebaseMultiplier }
+                : {}),
             };
 
             // USDT-like tokens require reset approval first
@@ -443,17 +464,19 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
               accountId,
               approveInfo,
               prevNonce,
+              // Lets a retry skip an approve that was already broadcast
+              withUuid: true,
             });
           prevNonce = unsignedTx.nonce;
           unsignedTxs.push(unsignedTx);
         }
         unsignedTxs.push(
-          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          ...(await backgroundApiProxy.serviceSend.prepareBulkSendTransferTxs({
             networkId,
             accountId,
             transfersInfo: rawTransfersInfo,
             prevNonce,
-          }),
+          })),
         );
       }
 
@@ -804,6 +827,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       <Page.Body>
         <BulkSendContentWrapper>
           <BulkSendHeader bulkSendMode={bulkSendMode} />
+          {splitTxCount > 1 ? (
+            <BulkSendSplitTxAlert txCount={splitTxCount} mb="$2" />
+          ) : null}
           {media.gtMd ? <TableLayout /> : <MobileLayout />}
         </BulkSendContentWrapper>
       </Page.Body>
@@ -911,6 +937,7 @@ function BulkSendAmountsInputContent({
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasCustomAmounts = useMemo(
     () =>
@@ -1364,6 +1391,7 @@ function BulkSendAmountsInputContent({
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
       balance,
+      transferCount: isOneToMany ? transfersInfo.length : undefined,
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
@@ -1375,6 +1403,7 @@ function BulkSendAmountsInputContent({
     amountInputValues.rangeMax,
     amountInputValues.rangeMin,
     isOneToMany,
+    transfersInfo.length,
     minTransferAmount,
     senderBalances,
     displayBalance,
@@ -1471,9 +1500,9 @@ function BulkSendAmountsInputContent({
           ...prev,
           isRefreshing: true,
         }));
-        const [checkInscriptionProtectionEnabled, vaultSettings] =
+        const [effectiveInscriptionProtection, vaultSettings] =
           await Promise.all([
-            backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
               {
                 networkId,
                 accountId,
@@ -1484,7 +1513,7 @@ function BulkSendAmountsInputContent({
             }),
           ]);
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+          effectiveInscriptionProtection && vaultSettings.hasFrozenBalance;
 
         try {
           const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
@@ -1534,7 +1563,16 @@ function BulkSendAmountsInputContent({
         }
       }
     },
-    [networkId, accountId, tokenInfo, bulkSendMode],
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      networkId,
+      accountId,
+      tokenInfo,
+      bulkSendMode,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+    ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
@@ -1569,7 +1607,7 @@ function BulkSendAmountsInputContent({
               try {
                 const withCheckInscription =
                   vaultSettings.hasFrozenBalance &&
-                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  (await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
                     {
                       networkId,
                       accountId: sender.accountId,
@@ -1722,6 +1760,8 @@ function BulkSendAmountsInputContent({
         setSenderBalancesLoading(false);
       }
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       networkId,
       tokenInfo,
@@ -1729,6 +1769,8 @@ function BulkSendAmountsInputContent({
       senders,
       accountId,
       buildSenderBalanceAddressKey,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

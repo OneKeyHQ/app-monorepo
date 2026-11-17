@@ -30,6 +30,19 @@ import { trackHardwareWalletConnection } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
+function getCreatedQrWalletDeviceType(result: unknown) {
+  if (!result || typeof result !== 'object' || !('device' in result)) {
+    return EDeviceType.Pro;
+  }
+  const { device } = result;
+  if (!device || typeof device !== 'object' || !('deviceType' in device)) {
+    return EDeviceType.Pro;
+  }
+  return device.deviceType === EDeviceType.Pro2
+    ? EDeviceType.Pro2
+    : EDeviceType.Pro;
+}
+
 function ConnectQRCodePage() {
   const { createQrWallet } = useCreateQrWallet();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
@@ -55,7 +68,7 @@ function ConnectQRCodePage() {
         },
         isSoftwareWalletOnlyUser,
       });
-      await createQrWallet({
+      const result = await createQrWallet({
         isOnboarding: true,
         isOnboardingV2: true,
         onFinalizeWalletSetupError: () => {
@@ -72,7 +85,7 @@ function ConnectQRCodePage() {
 
       void trackHardwareWalletConnection({
         status: 'success',
-        deviceType: EDeviceType.Pro,
+        deviceType: getCreatedQrWalletDeviceType(result),
         isSoftwareWalletOnlyUser,
         hardwareTransportType: 'QRCode',
       });

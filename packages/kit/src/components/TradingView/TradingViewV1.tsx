@@ -13,6 +13,7 @@ interface IBaseTradingViewProps {
   baseToken: string;
   targetToken: string;
   onLoadEnd: () => void;
+  onLoadError?: () => void;
   /**
    * Optional fields that are primarily used by TradingViewV2.
    * They are declared here as optional so that shared callers (e.g. <TradingView />)

@@ -80,6 +80,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
+  [ESubscriptionType.TRADES]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
   [ESubscriptionType.SPOT_STATE]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
@@ -167,12 +171,16 @@ export function getOrderBookSubscriptionCoin(
 export function getSubscriptionResumeAction({
   isOpen,
   isClosedOrClosing,
+  isStreamStale,
 }: {
   isOpen: boolean;
   isClosedOrClosing: boolean;
+  isStreamStale?: boolean;
 }): 'reconcile' | 'reconnect' | 'waitForOpen' {
   if (isOpen) {
-    return 'reconcile';
+    // A half-dead socket after app suspension still reports OPEN; only trust
+    // it while the stream has shown recent life.
+    return isStreamStale ? 'reconnect' : 'reconcile';
   }
   return isClosedOrClosing ? 'reconnect' : 'waitForOpen';
 }

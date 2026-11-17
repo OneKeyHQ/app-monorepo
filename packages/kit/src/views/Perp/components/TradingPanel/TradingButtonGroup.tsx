@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { MutableRefObject } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -29,6 +30,7 @@ import {
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
   useTradingFormEmptySizeParams,
@@ -48,7 +50,6 @@ import {
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -62,7 +63,6 @@ import type {
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -70,6 +70,17 @@ import {
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  formatTwapMinimumOrderNotional,
+  formatTwapPriceForOrder,
+  getTwapStopPriceErrorKey,
+  getTwapTriggerAbove,
+  isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   getSpotTokenDisplayName,
   parseDexCoin,
@@ -87,17 +98,28 @@ import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimi
 import {
   type IEnableTradingWithDepositFallbackResult,
   useConfirmHyperliquidTerms,
+  useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
-import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import {
+  usePreloadPerpsUnifoldDepositModals,
+  useShowDepositWithdrawModal,
+} from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { useTwapReferencePrice } from '../../hooks/useTwapReferencePrice';
 import { PerpTestIDs } from '../../testIDs';
-import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import {
+  getPerpsAccountKey,
+  shouldPreserveColdStartButtonVisualState,
+} from '../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
-import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
-import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import {
+  getEnableTradingDialogConfirmDecision,
+  shouldShowPerpsFirstDepositPrompt,
+} from '../../utils/enableTradingDialogConfirm';
+import { isBelowMinimumOrderValue } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -120,19 +142,24 @@ import {
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
+import { PerpsFirstDepositPromptCard } from './components/PerpsFirstDepositPromptCard';
+import {
+  type ISizeInputMinimumOrderAction,
+  getMinimumOrderToastActionProps,
+} from './inputs/SizeInput';
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
-
 interface ITradingButtonGroupProps {
   isMobile: boolean;
   isLiveStatusPending?: boolean;
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
+  onRequestSizeInputFocus?: () => void;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
 }
 
 function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
@@ -152,7 +179,10 @@ function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
         iconAfter="LockOutline"
         iconColor="$iconSubdued"
       >
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
+        <SizableText
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+          color="$textSubdued"
+        >
           {intl.formatMessage({
             id: ETranslations.trading_unavailable__action,
           })}
@@ -169,6 +199,10 @@ interface ISideButtonProps {
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
   marketDataFreshness: IPerpsMarketDataFreshness;
   handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
+  onRequestSizeInputFocus?: () => void;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
   justifyContent?:
     | 'flex-start'
     | 'flex-end'
@@ -183,18 +217,6 @@ const PERPS_WEBSOCKET_OPEN_READY_STATE = 1;
 const noopHandleConfirm: (
   overrideSide?: 'long' | 'short',
 ) => Promise<void> = async () => undefined;
-
-function getPerpsAccountKey(account: {
-  accountId?: string | null;
-  indexedAccountId?: string | null;
-  accountAddress?: string | null;
-}) {
-  const accountId = account.accountId ?? account.indexedAccountId;
-  if (!accountId && !account.accountAddress) {
-    return undefined;
-  }
-  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
-}
 
 function hasPerpsOrderSizeInput(
   formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
@@ -235,26 +257,40 @@ async function getLatestPerpsMarketDataFreshness() {
 // Est. Liq price isolated into its own leaf: it owns the price-driven
 // `useLiquidationPrice` subscription, so a price tick re-renders ONLY this
 // text node instead of the whole side button. Value is debounced (~10Hz).
-const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
-  const liquidationPrice = useDebounce(useLiquidationPrice(side), 100);
-  if (liquidationPrice) {
-    return (
-      <NumberSizeableText
-        size="$bodySm"
-        color="$text"
-        formatter="price"
-        formatterOptions={{ currency: '$' }}
-      >
-        {liquidationPrice.toNumber()}
-      </NumberSizeableText>
+const EstLiqPriceLeaf = memo(
+  ({
+    side,
+    size,
+    textSize = '$bodySmMedium',
+  }: {
+    side: 'long' | 'short';
+    size: BigNumber;
+    textSize?: '$bodySmMedium' | '$bodyXsMedium';
+  }) => {
+    const liquidationPrice = useDebounce(
+      useLiquidationPrice({ side, size }),
+      100,
     );
-  }
-  return (
-    <SizableText size="$bodySm" color="$text">
-      --
-    </SizableText>
-  );
-});
+    if (liquidationPrice) {
+      return (
+        <NumberSizeableText
+          size={textSize}
+          fontFamily="$body"
+          color="$text"
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+        >
+          {liquidationPrice.toNumber()}
+        </NumberSizeableText>
+      );
+    }
+    return (
+      <SizableText size={textSize} fontFamily="$body" color="$text">
+        --
+      </SizableText>
+    );
+  },
+);
 EstLiqPriceLeaf.displayName = 'EstLiqPriceLeaf';
 
 function getPerpSideButtonStyles(isLong: boolean) {
@@ -415,9 +451,13 @@ function SideButtonInternal({
   enableTradingModeOverride,
   marketDataFreshness,
   handleConfirm,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
+  const actions = useHyperliquidActions();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
@@ -429,7 +469,8 @@ function SideButtonInternal({
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const isSpot = tradingMode === 'spot';
   // SizeInput already collapses 'margin' → 'usd' in spot to keep the input
   // box consistent. Mirror that here so secondary text and minimum-order
@@ -458,15 +499,24 @@ function SideButtonInternal({
   const [activePositionsValue] = usePerpsActivePositionAtom();
 
   const [isSubmitting] = useTradingLoadingAtom();
-  const { midPriceBN } = useTradingPrice();
+  const { midPriceBN } = useTradingPrice({
+    allowSpotMarkPriceFallback: formData.orderMode !== 'twap',
+  });
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
+  const {
+    sizePriceBN: twapReferencePriceBN,
+    markPriceBN: twapTriggerReferencePriceBN,
+  } = useTwapReferencePrice({
+    midPriceBN,
+    enabled: formData.orderMode === 'twap',
+  });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
@@ -526,27 +576,10 @@ function SideButtonInternal({
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
 
-  const isMinimumOrderNotMetForSide = useMemo(() => {
-    if (
-      !shouldApplyMinimumOrderGuard({
-        isSpot,
-        orderMode: formData.orderMode,
-        orderType: formData.type,
-        hasBboPriceMode: Boolean(formData.bboPriceMode),
-      })
-    ) {
-      return false;
-    }
-    if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
-      return false;
-    return orderValue.lt(10);
-  }, [
-    formData.bboPriceMode,
-    formData.orderMode,
-    formData.type,
-    isSpot,
-    orderValue,
-  ]);
+  const isMinimumOrderNotMetForSide = useMemo(
+    () => isBelowMinimumOrderValue(orderValue),
+    [orderValue],
+  );
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -794,6 +827,8 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapReferencePriceBN,
+    twapTriggerReferencePriceBN,
   });
   latestOrderPanelStateRef.current = {
     activeAsset,
@@ -820,6 +855,8 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapReferencePriceBN,
+    twapTriggerReferencePriceBN,
   };
 
   type ILatestOrderPanelState = typeof latestOrderPanelStateRef.current;
@@ -848,6 +885,8 @@ function SideButtonInternal({
         priceError: latestPriceError,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
+        twapReferencePriceBN: latestTwapReferencePriceBN,
+        twapTriggerReferencePriceBN: latestTwapTriggerReferencePriceBN,
       } = orderPanelState;
 
       if (
@@ -972,19 +1011,118 @@ function SideButtonInternal({
 
       if (latestIsTwapMode) {
         const duration = Number(latestFormData.twapDurationMinutes ?? 0);
+        if (!isValidTwapDuration(duration)) {
+          Toast.message({
+            title: intl.formatMessage(
+              { id: ETranslations.perp_twap_duration_range__msg },
+              {
+                min: TWAP_MIN_DURATION_MINUTES,
+                max: TWAP_MAX_DURATION_MINUTES,
+              },
+            ),
+          });
+          return 'invalidTwapConfig' as const;
+        }
+        const rawTriggerPrice = latestFormData.twapTriggerPrice?.trim();
+        const rawStopPrice = latestFormData.twapStopPrice?.trim();
         if (
-          !Number.isInteger(duration) ||
-          duration < TWAP_MIN_DURATION_MINUTES ||
-          duration > TWAP_MAX_DURATION_MINUTES
+          !latestTwapReferencePriceBN.isFinite() ||
+          latestTwapReferencePriceBN.lte(0) ||
+          ((rawTriggerPrice || rawStopPrice) &&
+            (!latestTwapTriggerReferencePriceBN.isFinite() ||
+              latestTwapTriggerReferencePriceBN.lte(0)))
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.provider_unavailable,
+            }),
+          });
+          return 'marketDataUnavailable' as const;
+        }
+        const triggerPrice = formatTwapPriceForOrder({
+          price: rawTriggerPrice,
+          szDecimals: latestSzDecimals,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
+        if (
+          rawTriggerPrice &&
+          (!triggerPrice ||
+            typeof getTwapTriggerAbove({
+              triggerPrice,
+              markPrice: latestTwapTriggerReferencePriceBN,
+            }) !== 'boolean')
         ) {
           Toast.message({
-            title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+            title: intl.formatMessage({
+              id: ETranslations.perps_input_trigger_price,
+            }),
+          });
+          return 'invalidTwapConfig' as const;
+        }
+        const stopPrice = formatTwapPriceForOrder({
+          price: rawStopPrice,
+          szDecimals: latestSzDecimals,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
+        if (
+          rawStopPrice &&
+          (!stopPrice ||
+            !isTwapStopPriceValid({
+              isBuy: validationSide === 'long',
+              stopPrice,
+              referencePrice: latestTwapTriggerReferencePriceBN,
+              triggerPrice,
+            }))
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: getTwapStopPriceErrorKey({
+                isBuy: validationSide === 'long',
+                triggerPrice,
+              }),
+            }),
           });
           return 'invalidTwapConfig' as const;
         }
       }
 
       const isSliderMode = latestFormData.sizeInputMode === 'slider';
+      if (latestIsTwapMode) {
+        if (
+          !isTwapTotalNotionalValid({
+            size: latestComputedSizeForSide,
+            price: latestTwapReferencePriceBN,
+            szDecimals: latestSzDecimals,
+          })
+        ) {
+          const minimumOrderAction = minimumOrderActionRef?.current;
+          Toast.message({
+            title: minimumOrderAction
+              ? intl.formatMessage(
+                  { id: ETranslations.perp_size_least },
+                  { amount: minimumOrderAction.amountLabel },
+                )
+              : intl.formatMessage(
+                  { id: ETranslations.perp_twap_min_order_notional__msg },
+                  {
+                    amount: formatTwapMinimumOrderNotional({
+                      price: latestTwapReferencePriceBN,
+                      szDecimals: latestSzDecimals,
+                    }),
+                  },
+                ),
+            ...getMinimumOrderToastActionProps(
+              minimumOrderAction,
+              intl.formatMessage({
+                id: ETranslations.fill_minimum_amount__action,
+              }),
+            ),
+          });
+          onRequestSizeInputFocus?.();
+          return 'invalidTwapConfig' as const;
+        }
+      }
+
       const hasSizeEmpty = isSliderMode
         ? !latestFormData.sizePercent || latestFormData.sizePercent <= 0
         : !latestFormData.size || latestFormData.size.trim() === '';
@@ -999,17 +1137,20 @@ function SideButtonInternal({
           (!latestComputedSizeForSide.gt(0) ||
             latestIsMinimumOrderNotMetForSide))
       ) {
+        const minimumOrderAction = minimumOrderActionRef?.current;
         Toast.message({
           title: intl.formatMessage(
             { id: ETranslations.perp_order_size_small },
-            { amount: '$10' },
+            { amount: minimumOrderAction?.amountLabel ?? '$10' },
           ),
-          message: latestIsSpot
-            ? undefined
-            : intl.formatMessage({
-                id: ETranslations.perp_order_size_small__desc,
-              }),
+          ...getMinimumOrderToastActionProps(
+            minimumOrderAction,
+            intl.formatMessage({
+              id: ETranslations.fill_minimum_amount__action,
+            }),
+          ),
         });
+        onRequestSizeInputFocus?.();
         return hasSizeEmpty
           ? ('emptySize' as const)
           : ('minimumOrderNotMet' as const);
@@ -1043,29 +1184,6 @@ function SideButtonInternal({
             }),
           });
           return 'invalidScaleConfig' as const;
-        }
-      }
-
-      if (latestIsTwapMode) {
-        const duration = Number(latestFormData.twapDurationMinutes ?? 0);
-        const estimatedSlices = Math.max(
-          1,
-          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-        );
-        const totalNotional = latestComputedSizeForSide.multipliedBy(
-          latestEffectivePriceBN,
-        );
-        const averageSliceNotional = totalNotional.dividedBy(estimatedSlices);
-        if (
-          !averageSliceNotional.isFinite() ||
-          averageSliceNotional.lt(SCALE_ORDER_MIN_NOTIONAL)
-        ) {
-          Toast.message({
-            title: intl.formatMessage({
-              id: ETranslations.perp_twap_small_slice__msg,
-            }),
-          });
-          return 'invalidTwapConfig' as const;
         }
       }
 
@@ -1193,7 +1311,12 @@ function SideButtonInternal({
 
       return undefined;
     },
-    [intl, showNoEnoughMarginToast],
+    [
+      intl,
+      minimumOrderActionRef,
+      onRequestSizeInputFocus,
+      showNoEnoughMarginToast,
+    ],
   );
 
   const requestOrderPanelEnableTrading = useCallback(
@@ -1329,6 +1452,29 @@ function SideButtonInternal({
       };
 
       const preEnableOrderPanelState = latestOrderPanelStateRef.current;
+      if (
+        preEnableOrderPanelState.isTwapMode &&
+        preEnableOrderPanelState.formData.side !== side &&
+        preEnableOrderPanelState.formData.twapStopPrice?.trim()
+      ) {
+        // Keep the price protection while the user reviews the opposite side.
+        actions.current.updateTradingForm({
+          side,
+          size: '',
+          sizePercent: 0,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
+          twapStopPrice: preEnableOrderPanelState.formData.twapStopPrice,
+        });
+        Toast.message({
+          title: intl.formatMessage({
+            id:
+              side === 'long'
+                ? ETranslations.perp_scale_upper_price_placeholder__desc
+                : ETranslations.perp_scale_lower_price_placeholder__desc,
+          }),
+        });
+        return;
+      }
       let hasLoggedDeferredClick = false;
 
       if (shouldEnableTradingBeforeOrder) {
@@ -1493,6 +1639,7 @@ function SideButtonInternal({
         })
       ) {
         showOrderConfirmDialog({
+          sourcePage,
           overrideSide: side,
           intl,
           aggressiveLimitPriceWarning,
@@ -1591,7 +1738,7 @@ function SideButtonInternal({
   const desktopCostTooltipTrigger = useMemo(
     () => (
       <DashText
-        size="$bodySm"
+        size="$bodyXs"
         color="$textSubdued"
         cursor="default"
         dashThickness={0.5}
@@ -1613,7 +1760,7 @@ function SideButtonInternal({
   const desktopLiqPriceTooltipTrigger = useMemo(
     () => (
       <DashText
-        size="$bodySm"
+        size="$bodyXs"
         color="$textSubdued"
         cursor="default"
         dashThickness={0.5}
@@ -1648,8 +1795,8 @@ function SideButtonInternal({
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
+            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 16 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -1710,7 +1857,8 @@ function SideButtonInternal({
               </DashText>
 
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodySmMedium"
+                fontFamily="$body"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -1737,7 +1885,7 @@ function SideButtonInternal({
                 })}
               </DashText>
 
-              <EstLiqPriceLeaf side={side} />
+              <EstLiqPriceLeaf side={side} size={computedSizeForSide} />
             </XStack>
           </YStack>
         ) : null}
@@ -1747,7 +1895,7 @@ function SideButtonInternal({
     );
   }
   return (
-    <YStack gap="$2" flex={1} onLayout={handleLayout}>
+    <YStack gap="$2" flex={1} minWidth={0} onLayout={handleLayout}>
       {actionButton}
       {shouldShowCostAndLiqPrice ? (
         <YStack gap="$1.5">
@@ -1756,7 +1904,8 @@ function SideButtonInternal({
               {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
             </SizableText>
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodySmMedium"
+              fontFamily="$body"
               color="$text"
               formatter="value"
               formatterOptions={{ currency: '$' }}
@@ -1765,7 +1914,12 @@ function SideButtonInternal({
             </NumberSizeableText>
           </XStack> */}
 
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               triggerAsChild="except-style"
@@ -1774,8 +1928,10 @@ function SideButtonInternal({
             />
 
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodyXs"
               color="$text"
+              maxWidth="100%"
+              textAlign={isLong ? 'left' : 'right'}
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
@@ -1783,7 +1939,12 @@ function SideButtonInternal({
             </NumberSizeableText>
           </XStack>
 
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               triggerAsChild="except-style"
@@ -1791,7 +1952,11 @@ function SideButtonInternal({
               renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
-            <EstLiqPriceLeaf side={side} />
+            <EstLiqPriceLeaf
+              side={side}
+              size={computedSizeForSide}
+              textSize="$bodyXsMedium"
+            />
           </XStack>
         </YStack>
       ) : null}
@@ -1806,6 +1971,8 @@ function EmptySizeSideButton({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
   justifyContent = 'flex-start',
 }: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
   const intl = useIntl();
@@ -1818,7 +1985,8 @@ function EmptySizeSideButton({
     enableTradingModeOverride ?? enableTradingMode;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const formData = useTradingFormOrderPriceParams();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const isSpot = tradingMode === 'spot';
@@ -1826,7 +1994,8 @@ function EmptySizeSideButton({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingPanel');
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -2121,17 +2290,20 @@ function EmptySizeSideButton({
           symbol: activeTradeInstrument.coin,
         });
       }
+      const minimumOrderAction = minimumOrderActionRef?.current;
       Toast.message({
         title: intl.formatMessage(
           { id: ETranslations.perp_order_size_small },
-          { amount: '$10' },
+          { amount: minimumOrderAction?.amountLabel ?? '$10' },
         ),
-        message: isSpot
-          ? undefined
-          : intl.formatMessage({
-              id: ETranslations.perp_order_size_small__desc,
-            }),
+        ...getMinimumOrderToastActionProps(
+          minimumOrderAction,
+          intl.formatMessage({
+            id: ETranslations.fill_minimum_amount__action,
+          }),
+        ),
       });
+      onRequestSizeInputFocus?.();
     },
     1000,
     {
@@ -2189,8 +2361,8 @@ function EmptySizeSideButton({
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
+            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 16 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -2233,7 +2405,8 @@ function EmptySizeSideButton({
                 }
               />
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodySmMedium"
+                fontFamily="$body"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -2268,7 +2441,11 @@ function EmptySizeSideButton({
                   </YStack>
                 }
               />
-              <SizableText size="$bodySm" color="$text">
+              <SizableText
+                size="$bodySmMedium"
+                fontFamily="$body"
+                color="$text"
+              >
                 --
               </SizableText>
             </XStack>
@@ -2280,11 +2457,16 @@ function EmptySizeSideButton({
   }
 
   return (
-    <YStack gap="$2" flex={1} onLayout={handleLayout}>
+    <YStack gap="$2" flex={1} minWidth={0} onLayout={handleLayout}>
       {button}
       {isSpot ? null : (
         <YStack gap="$1.5">
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               renderContent={intl.formatMessage({
@@ -2292,7 +2474,7 @@ function EmptySizeSideButton({
               })}
               renderTrigger={
                 <DashText
-                  size="$bodySm"
+                  size="$bodyXs"
                   color="$textSubdued"
                   cursor="default"
                   dashThickness={0.5}
@@ -2304,8 +2486,11 @@ function EmptySizeSideButton({
               }
             />
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodyXsMedium"
+              fontFamily="$body"
               color="$text"
+              maxWidth="100%"
+              textAlign={isLong ? 'left' : 'right'}
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
@@ -2313,7 +2498,12 @@ function EmptySizeSideButton({
             </NumberSizeableText>
           </XStack>
 
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               renderContent={intl.formatMessage({
@@ -2321,7 +2511,7 @@ function EmptySizeSideButton({
               })}
               renderTrigger={
                 <DashText
-                  size="$bodySm"
+                  size="$bodyXs"
                   color="$textSubdued"
                   cursor="default"
                   dashThickness={0.5}
@@ -2332,7 +2522,7 @@ function EmptySizeSideButton({
                 </DashText>
               }
             />
-            <SizableText size="$bodySm" color="$text">
+            <SizableText size="$bodyXsMedium" fontFamily="$body" color="$text">
               --
             </SizableText>
           </XStack>
@@ -2371,8 +2561,11 @@ function TradingButtonGroupLive({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
@@ -2393,6 +2586,8 @@ function TradingButtonGroupLive({
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2407,6 +2602,8 @@ function TradingButtonGroupLive({
       return (
         <YStack gap="$3">
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2415,6 +2612,8 @@ function TradingButtonGroupLive({
             handleConfirm={handleConfirm}
           />
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2427,8 +2626,10 @@ function TradingButtonGroupLive({
     }
     return (
       <XStack gap="$2.5" mt="$4">
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2438,8 +2639,10 @@ function TradingButtonGroupLive({
             justifyContent="flex-start"
           />
         </XStack>
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2468,8 +2671,11 @@ function TradingButtonGroupEmptySize({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';
@@ -2483,6 +2689,8 @@ function TradingButtonGroupEmptySize({
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2495,12 +2703,16 @@ function TradingButtonGroupEmptySize({
       return (
         <YStack gap="$3">
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
             enableTradingModeOverride={enableTradingModeOverride}
           />
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2511,8 +2723,10 @@ function TradingButtonGroupEmptySize({
     }
     return (
       <XStack gap="$2.5" mt="$4">
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2520,8 +2734,10 @@ function TradingButtonGroupEmptySize({
             justifyContent="flex-start"
           />
         </XStack>
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2540,12 +2756,76 @@ function TradingButtonGroup({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
+  const intl = useIntl();
   const formData = useTradingFormEmptySizeParams();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const requestFirstDepositAction = useFirstDepositAction();
+  const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
+  const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
+  firstDepositAccountKeyRef.current = firstDepositAccountKey;
+  const shouldShowFirstDepositPrompt = shouldShowPerpsFirstDepositPrompt({
+    status: perpsAccountStatus,
+    isLiveStatusPending,
+    isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+  });
+  usePreloadPerpsUnifoldDepositModals(
+    shouldShowFirstDepositPrompt &&
+      !perpConfigCommon?.ipDisablePerp &&
+      perpConfigCommon?.unifoldDepositEnabled === true,
+  );
+  const handleFirstDepositPress = useCallback(() => {
+    const accountKey = firstDepositAccountKey;
+    void requestFirstDepositAction({
+      shouldIgnoreResult: () =>
+        Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
+    });
+  }, [firstDepositAccountKey, requestFirstDepositAction]);
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
+
+  if (shouldShowFirstDepositPrompt) {
+    return (
+      <YStack gap="$3">
+        <PerpsFirstDepositPromptCard />
+        <Button
+          width="100%"
+          size="medium"
+          childrenAsText={false}
+          borderRadius="$full"
+          variant="primary"
+          onPress={handleFirstDepositPress}
+          testID="perp-new-user-trading-panel-deposit-btn"
+          h={36}
+        >
+          <YStack alignItems="center" gap={2}>
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color="$textInverse"
+              numberOfLines={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_deposit,
+              })}
+            </SizableText>
+          </YStack>
+        </Button>
+      </YStack>
+    );
+  }
 
   if (shouldUseEmptySizeTradingButtons(formData)) {
     return (
       <TradingButtonGroupEmptySize
+        onRequestSizeInputFocus={onRequestSizeInputFocus}
+        minimumOrderActionRef={minimumOrderActionRef}
         isMobile={isMobile}
         isLiveStatusPending={isLiveStatusPending}
         enableTradingModeOverride={enableTradingModeOverride}
@@ -2555,6 +2835,8 @@ function TradingButtonGroup({
 
   return (
     <TradingButtonGroupLive
+      onRequestSizeInputFocus={onRequestSizeInputFocus}
+      minimumOrderActionRef={minimumOrderActionRef}
       isMobile={isMobile}
       isLiveStatusPending={isLiveStatusPending}
       enableTradingModeOverride={enableTradingModeOverride}

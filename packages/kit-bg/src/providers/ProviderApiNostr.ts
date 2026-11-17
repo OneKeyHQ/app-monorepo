@@ -59,7 +59,7 @@ class ProviderApiNostr extends ProviderApiBase {
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
       );
-    if (!accountsInfo) {
+    if (!accountsInfo?.length) {
       throw web3Errors.provider.unauthorized();
     }
     return accountsInfo;
@@ -123,9 +123,17 @@ class ProviderApiNostr extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const { accountInfo: { accountId, networkId, walletId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, walletId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
+    if (
+      params.event.pubkey !== undefined &&
+      (typeof params.event.pubkey !== 'string' ||
+        !account.pub ||
+        params.event.pubkey.toLowerCase() !== account.pub.toLowerCase())
+    ) {
+      throw web3Errors.provider.unauthorized();
+    }
 
     const cachedPassword =
       await this.backgroundApi.servicePassword.getCachedPassword();

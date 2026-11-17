@@ -42,7 +42,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { chunk as chunkArray, isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
@@ -65,8 +65,15 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  createSolanaTxDiagnosticContext,
+  logSolanaTxDiagnostic,
+} from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
@@ -82,8 +89,15 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type {
+  ISolanaBlockhashDiagnostic,
+  ISolanaTxDiagnosticContext,
+} from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -96,37 +110,74 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import { ESignedTxBroadcastStatus } from '../../types';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
+import {
+  BUBBLEGUM_PROGRAM_ID,
+  SPL_ACCOUNT_COMPRESSION_PROGRAM_ID,
+  buildBubblegumTransferInstruction,
+  decodeBubblegumTransferInstruction,
+  getBubblegumAssetId,
+  parseConcurrentMerkleTreeAccount,
+  truncateProofForCanopy,
+} from './sdkSol/bubblegum';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
-import ClientSol from './sdkSol/ClientSol';
+import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
+import {
+  MPL_CORE_PROGRAM_ID,
+  buildMplCoreTransferInstruction,
+  decodeMplCoreTransferInstruction,
+  isMplCoreAssetFrozen,
+  parseMplCoreAssetAccount,
+  parseMplCoreCollectionAccount,
+} from './sdkSol/mplCore';
+import { getSolanaSwapRent } from './solanaRentUtils';
+import {
+  inspectSolTxDiagnostic,
+  withSolTxDiagnosticBlockhash,
+} from './solTxDiagnostics';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
   CREATE_TOKEN_ACCOUNT_RENT,
-  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  canRefreshSolTxBlockhash,
+  getSolTxRecentBlockhash,
   isCustomProgram,
-  isTxOverSize,
+  isDurableNonceSolTx,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
   parseComputeUnitPrice,
   parseNativeTxDetail,
+  replaceSolTxRecentBlockhash,
   tokenRecordAddress,
 } from './utils';
 
-import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
+import type { IBubblegumTransferDecoded } from './sdkSol/bubblegum';
+import type {
+  IMplCoreAssetInfo,
+  IMplCoreCollectionInfo,
+  IMplCoreTransferDecoded,
+} from './sdkSol/mplCore';
+import type {
+  IAssociatedTokenInfo,
+  IDasAsset,
+  IParsedAccountInfo,
+} from './types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -146,7 +197,93 @@ import type {
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
 
+// A pending Solana tx that never reached the ledger leaves no signature
+// status. Its blockhash lives 150 blocks (~30 s at 200 ms slots, up to ~60 s
+// on slower cadences) and the broadcast retries add a few seconds more, so an
+// unseen tx older than this window is dropped.
+const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  minute: 3,
+});
+// Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
+const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
+// A fresh blockhash can trail a lagging node by a slot or two, which clears in
+// a few seconds; an expired one never comes back. Two retries cover the lag
+// case without making the user wait a minute for a verdict that was already
+// final on the first attempt.
+const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
+// getSignatureStatuses accepts at most 256 signatures per request.
+const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
+// Wall-clock fallback for the broadcast status check when the node cannot
+// answer isBlockhashValid: a blockhash lives 150 blocks (~30-60 s at any
+// cadence the cluster has run at), so an unseen signature this much older
+// than its broadcast attempt can never land unless the chain has halted.
+const SOL_SIGNED_TX_MAX_VALIDITY_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
+// Hard cap on one status check, measured from its start. A node that keeps
+// reporting the blockhash valid for this long is broken; give up with an
+// error rather than guess either way.
+const SOL_BROADCAST_STATUS_MAX_WAIT_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
+const SOL_BROADCAST_STATUS_POLL_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  seconds: 2,
+});
+
+function isSolBlockhashNotFoundError(error: unknown): boolean {
+  return (
+    (error as OneKeyError | undefined)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE ||
+    Boolean(
+      (error as Error | undefined)?.message?.includes(
+        SOL_BLOCKHASH_NOT_FOUND_MESSAGE,
+      ),
+    )
+  );
+}
+
+// Both broadcast paths surface the raw node text ("Error JSON RPC response:
+// Transaction simulation failed: Blockhash not found"); replace it with the
+// user-facing copy while keeping the code the retry check matches on. Solana
+// mainnet runs 200 ms slots since 2026-10-09, so a blockhash is only valid for
+// ~30 s; hardware/QR signing slower than that lands here, and the copy tells
+// the user to confirm faster next time.
+function normalizeSolBroadcastError(error: unknown): unknown {
+  if (!isSolBlockhashNotFoundError(error)) {
+    return error;
+  }
+  return new OneKeyLocalError({
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_sol_tx_expired__msg,
+    }),
+    code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
+  });
+}
+
+// A durable-nonce tx has no blockhash expiry: it stays valid until its nonce
+// advances, so an unseen signature after the timeout does not mean the chain
+// will never execute it. Only a payload positively parsed as a plain blockhash
+// tx may be timed out; unreadable payloads stay pending.
+function hasSolBlockhashExpiry(encodedTx: IDecodedTx['encodedTx']): boolean {
+  if (typeof encodedTx !== 'string' || !encodedTx) {
+    return false;
+  }
+  try {
+    const nativeTx = parseToNativeTx(encodedTx);
+    return Boolean(nativeTx) && !isDurableNonceSolTx(nativeTx as INativeTxSol);
+  } catch {
+    return false;
+  }
+}
+
 export default class Vault extends VaultBase {
+  override getTxDiagnosticContext(unsignedTx: IUnsignedTxPro) {
+    return withSolTxDiagnosticBlockhash(
+      unsignedTx.solanaTxDiagnostic,
+      unsignedTx.encodedTx,
+    );
+  }
+
   override coreApi = coreChainApi.sol.hd;
 
   override keyringMap: IKeyringMap = {
@@ -155,6 +292,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -181,7 +319,14 @@ export default class Vault extends VaultBase {
     ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
   > {
     const client = await this.getClient();
-    return client.getSignatureStatuses(signatures);
+    // The RPC rejects more than 256 signatures per call; batch and keep the
+    // caller's order so the result still lines up with the input.
+    const batches = await Promise.all(
+      chunkArray(signatures, SOL_SIGNATURE_STATUSES_MAX_PER_CALL).map((batch) =>
+        client.getSignatureStatuses(batch),
+      ),
+    );
+    return batches.flat();
   }
 
   override async buildAccountAddressDetail(
@@ -205,7 +350,7 @@ export default class Vault extends VaultBase {
   }
 
   override async buildEncodedTx(
-    params: IBuildEncodedTxParams,
+    params: IBuildEncodedTxParams & { diagnostic?: ISolanaTxDiagnosticContext },
   ): Promise<IEncodedTxSol> {
     const { transfersInfo } = params;
 
@@ -213,19 +358,27 @@ export default class Vault extends VaultBase {
       if (transfersInfo.length === 1) {
         return this._buildEncodedTxFromTransfer({
           transferInfo: transfersInfo[0],
+          diagnostic: params.diagnostic,
         });
       }
-      return this._buildEncodedTxFromBatchTransfer({ transfersInfo });
+      return this._buildEncodedTxFromBatchTransfer({
+        transfersInfo,
+        diagnostic: params.diagnostic,
+      });
     }
 
     throw new OneKeyInternalError();
   }
 
-  async _buildEncodedTxFromTransfer(params: { transferInfo: ITransferInfo }) {
+  async _buildEncodedTxFromTransfer(params: {
+    transferInfo: ITransferInfo;
+    diagnostic?: ISolanaTxDiagnosticContext;
+  }) {
     const { transferInfo } = params;
 
     return this._buildEncodedTxFromBatchTransfer({
       transfersInfo: [transferInfo],
+      diagnostic: params.diagnostic,
     });
   }
 
@@ -271,6 +424,51 @@ export default class Vault extends VaultBase {
     } else {
       // ata - associated token account
       const tokenAddress = tokenInfo?.address ?? nftInfo?.nftAddress ?? '';
+
+      if (nftInfo) {
+        // Compressed NFTs (Bubblegum) have no mint / token accounts; detect
+        // them first so the SPL path below never builds an unusable tx.
+        const compressedNft = await this._resolveCompressedNft({
+          assetId: tokenAddress,
+        });
+        if (compressedNft) {
+          instructions.push(
+            ...(await this._buildCompressedNFTInstructions({
+              asset: compressedNft,
+              source,
+              destination,
+            })),
+          );
+          return instructions;
+        }
+        // Metaplex Core assets do have an on-chain account (so the cNFT guard
+        // lets them through) but no mint either; route them before any
+        // token-program lookup.
+        const mplCoreAsset = await this._resolveMplCoreAsset({
+          assetId: tokenAddress,
+        });
+        if (mplCoreAsset) {
+          // Collection-level plugins (permanent freeze, external adapters)
+          // apply to every asset in the collection.
+          const mplCoreCollection =
+            mplCoreAsset.updateAuthority.type === 'collection'
+              ? await this._resolveMplCoreCollection({
+                  address: mplCoreAsset.updateAuthority.address,
+                })
+              : null;
+          instructions.push(
+            ...this._buildMplCoreNFTInstructions({
+              asset: mplCoreAsset,
+              collection: mplCoreCollection,
+              assetId: new PublicKey(tokenAddress),
+              source,
+              destination,
+            }),
+          );
+          return instructions;
+        }
+      }
+
       const tokenSendAddress = tokenInfo?.sendAddress;
       const mint = new PublicKey(tokenAddress);
       let destinationAta = destination;
@@ -372,6 +570,7 @@ export default class Vault extends VaultBase {
 
   async _buildEncodedTxFromBatchTransfer(params: {
     transfersInfo: ITransferInfo[];
+    diagnostic?: ISolanaTxDiagnosticContext;
   }): Promise<IEncodedTxSol> {
     const { transfersInfo } = params;
     const transferInfo = transfersInfo[0];
@@ -388,7 +587,9 @@ export default class Vault extends VaultBase {
     const source = new PublicKey(from);
     const instructions: TransactionInstruction[] = [];
 
-    const { recentBlockhash } = await this._getRecentBlockHash();
+    const { recentBlockhash } = await this._getRecentBlockHash(
+      params.diagnostic,
+    );
 
     const devSettings =
       await this.backgroundApi.serviceDevSetting.getDevSetting();
@@ -641,7 +842,8 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-    const { recentBlockhash } = await this._getRecentBlockHash();
+    const fetched = await this._getRecentBlockHash();
+    const { recentBlockhash } = fetched;
 
     if (nativeTx instanceof Transaction) {
       nativeTx.recentBlockhash = recentBlockhash;
@@ -658,40 +860,291 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return { ...unsignedTx, encodedTx: newEncodedTx };
+    const solanaTxDiagnostic = withSolTxDiagnosticBlockhash(
+      unsignedTx.solanaTxDiagnostic,
+      newEncodedTx,
+      fetched,
+    );
+    logSolanaTxDiagnostic(solanaTxDiagnostic, {
+      stage: 'refresh',
+      status: 'succeeded',
+    });
+    return { ...unsignedTx, encodedTx: newEncodedTx, solanaTxDiagnostic };
   }
 
-  async _getRecentBlockHash() {
-    let lastRpcErrorMessage = '';
-
-    const client = await this.getClient();
-
-    for (let i = 0; i < 5; i += 1) {
-      try {
-        const resp = await client.getLatestBlockHash();
-        if (!isNil(resp.recentBlockhash) && !isNil(resp.lastValidBlockHeight)) {
-          return resp;
-        }
-      } catch (e: any) {
-        const rpcErrorData = e?.data as
-          | {
-              code: number;
-              message: string;
-              data: any;
-            }
-          | undefined;
-        if (e && rpcErrorData) {
-          lastRpcErrorMessage = rpcErrorData.message;
-        }
-      }
-      await timerUtils.wait(1000);
+  override async refreshUnsignedTxBeforeSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    const nativeTx = parseToNativeTx(unsignedTx.encodedTx as IEncodedTxSol);
+    const diagnostic = unsignedTx.solanaTxDiagnostic;
+    const details = inspectSolTxDiagnostic(unsignedTx.encodedTx);
+    if (!nativeTx || !canRefreshSolTxBlockhash(nativeTx)) {
+      logSolanaTxDiagnostic(diagnostic, {
+        ...details,
+        stage: 'refresh',
+        status: 'skipped',
+      });
+      return unsignedTx;
+    }
+    const refreshStartedAt = Date.now();
+    logSolanaTxDiagnostic(diagnostic, {
+      ...details,
+      stage: 'refresh',
+      status: 'started',
+    });
+    let fetched: Awaited<ReturnType<Vault['_getRecentBlockHash']>>;
+    let recentBlockhash: string;
+    let lastValidBlockHeight: number;
+    try {
+      fetched = await this._getRecentBlockHash(diagnostic);
+      ({ recentBlockhash, lastValidBlockHeight } = fetched);
+    } catch (error) {
+      // Signing with the original blockhash is still the best effort when
+      // the RPC is unreachable; the broadcast reports the real outcome.
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'refresh',
+        status: 'failed',
+        reason: 'fetchFailed',
+        durationMs: Date.now() - refreshStartedAt,
+        ...getSolanaDiagnosticError(error),
+      });
+      return unsignedTx;
     }
 
-    throw new OneKeyLocalError(
-      `Solana getLatestBlockHash retry times exceeded: ${
-        lastRpcErrorMessage || ''
-      }`,
+    const encodedTx = replaceSolTxRecentBlockhash({
+      nativeTx,
+      recentBlockhash,
+      lastValidBlockHeight,
+    });
+    const solanaTxDiagnostic = withSolTxDiagnosticBlockhash(
+      diagnostic,
+      encodedTx,
+      fetched,
     );
+    logSolanaTxDiagnostic(solanaTxDiagnostic, {
+      ...details,
+      stage: 'refresh',
+      status: 'succeeded',
+      durationMs: Date.now() - refreshStartedAt,
+    });
+    return { ...unsignedTx, encodedTx, solanaTxDiagnostic };
+  }
+
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    attemptedAt,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+  }): Promise<ESignedTxBroadcastStatus> {
+    const { txid } = signedTx;
+    if (!txid) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const nativeTx =
+      typeof signedTx.encodedTx === 'string'
+        ? parseToNativeTx(signedTx.encodedTx)
+        : undefined;
+    // A durable-nonce tx never expires, and a re-sign of it is
+    // byte-identical anyway, so there is no verdict to wait for.
+    if (nativeTx && isDurableNonceSolTx(nativeTx)) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const blockhash = nativeTx ? getSolTxRecentBlockhash(nativeTx) : undefined;
+    const client = await this.getClient();
+    const startedAt = Date.now();
+    for (;;) {
+      // The lookup searches transaction history, so `null` only means the
+      // signature has not reached the ledger yet: it may still be in flight
+      // on a node ahead of this one, so keep asking until its blockhash is
+      // gone.
+      const [status] = (await this.getSignatureStatuses([txid])) ?? [];
+      if (status) {
+        // A tx that executed with an error consumed its signature; a fresh
+        // one cannot pay twice.
+        return isNil(status.err)
+          ? ESignedTxBroadcastStatus.Broadcast
+          : ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      // The node's own view of the blockhash is the verdict; the wall clock
+      // only decides when the node cannot answer, because block time, not
+      // elapsed time, is what expires a blockhash.
+      let isBlockhashStillValid: boolean | undefined;
+      if (blockhash) {
+        try {
+          isBlockhashStillValid = await client.isBlockhashValid(blockhash);
+        } catch (error) {
+          console.error(
+            'SOL checkSignedTxBroadcastStatus: isBlockhashValid failed',
+            error,
+          );
+        }
+      }
+      if (isBlockhashStillValid === false) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (
+        isBlockhashStillValid === undefined &&
+        Date.now() - attemptedAt >= SOL_SIGNED_TX_MAX_VALIDITY_MS
+      ) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (Date.now() - startedAt >= SOL_BROADCAST_STATUS_MAX_WAIT_MS) {
+        throw new OneKeyLocalError(
+          'Solana broadcast status is still unknown; try again later',
+        );
+      }
+      await timerUtils.wait(SOL_BROADCAST_STATUS_POLL_INTERVAL_MS);
+    }
+  }
+
+  override async isSignedTxRejectedByBroadcast(
+    error: unknown,
+  ): Promise<boolean> {
+    // Preflight refused the payload, so no node ever held it.
+    return isSolBlockhashNotFoundError(error);
+  }
+
+  override async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    const now = Date.now();
+    const candidates = pendingTxs.filter((tx) => {
+      const { txid, createdAt, encodedTx } = tx.decodedTx;
+      return (
+        Boolean(txid) &&
+        !isNil(createdAt) &&
+        now - createdAt >= SOL_PENDING_TX_DROPPED_TIMEOUT_MS &&
+        hasSolBlockhashExpiry(encodedTx)
+      );
+    });
+    if (!candidates.length) {
+      return [];
+    }
+
+    try {
+      const statuses = await this.getSignatureStatuses(
+        candidates.map((tx) => tx.decodedTx.txid),
+      );
+      if (!statuses || statuses.length !== candidates.length) {
+        return [];
+      }
+      // `null` (not `undefined`) is the RPC's explicit "never seen" answer,
+      // even with searchTransactionHistory; anything else keeps the tx pending
+      // for the regular detail polling to settle.
+      return candidates.filter((_, index) => statuses[index] === null);
+    } catch (error) {
+      console.error('SOL getDroppedPendingTxs: status lookup failed', error);
+      return [];
+    }
+  }
+
+  override async buildHistoryTx(
+    params: Parameters<VaultBase['buildHistoryTx']>[0],
+  ): Promise<IAccountHistoryTx> {
+    const historyTx = await super.buildHistoryTx(params);
+    // refreshUnsignedTxBeforeSign may have re-stamped the blockhash after the
+    // decoded tx was built from the original payload. Every Solana keyring
+    // returns the exact payload it signed as signedTx.encodedTx, so persist
+    // that one as the record of what was broadcast.
+    const signedEncodedTx = params.signedTx?.encodedTx;
+    if (typeof signedEncodedTx === 'string' && signedEncodedTx) {
+      historyTx.decodedTx.encodedTx = signedEncodedTx;
+    }
+    return historyTx;
+  }
+
+  async _getRecentBlockHash(diagnostic?: ISolanaTxDiagnosticContext): Promise<
+    {
+      recentBlockhash: string;
+      lastValidBlockHeight: number;
+    } & ISolanaBlockhashDiagnostic
+  > {
+    const fetchStartedAt = Date.now();
+    let lastRpcErrorMessage = '';
+    let attempts = 0;
+    let lastError: unknown;
+    logSolanaTxDiagnostic(diagnostic, {
+      stage: 'blockhashFetch',
+      status: 'started',
+    });
+    try {
+      const client = await this.getClient();
+
+      for (let i = 0; i < 5; i += 1) {
+        attempts = i + 1;
+        try {
+          const resp = await client.getLatestBlockHash();
+          if (
+            !isNil(resp.recentBlockhash) &&
+            !isNil(resp.lastValidBlockHeight)
+          ) {
+            const result = {
+              ...resp,
+              blockhashFetchedAt: Date.now(),
+              blockhashFetchAttempts: i + 1,
+              blockhashFetchDurationMs: Date.now() - fetchStartedAt,
+            };
+            // The context belongs only to this background request. UI receives
+            // a copy later; no cache or shared main/bg heap is assumed.
+            let fetchedDiagnostic: ISolanaTxDiagnosticContext | undefined;
+            if (diagnostic) {
+              try {
+                fetchedDiagnostic = {
+                  correlationId: diagnostic.correlationId,
+                  startedAt: diagnostic.startedAt,
+                  recentBlockhash: result.recentBlockhash,
+                  lastValidBlockHeight: result.lastValidBlockHeight,
+                  contextSlot: result.contextSlot,
+                  commitment: result.commitment,
+                  blockhashFetchedAt: result.blockhashFetchedAt,
+                  blockhashFetchAttempts: result.blockhashFetchAttempts,
+                  blockhashFetchDurationMs: result.blockhashFetchDurationMs,
+                };
+                Object.assign(diagnostic, fetchedDiagnostic);
+              } catch {
+                // A frozen diagnostic wrapper must not prevent signing.
+              }
+            }
+            logSolanaTxDiagnostic(fetchedDiagnostic, {
+              stage: 'blockhashFetch',
+              status: 'succeeded',
+            });
+            return result;
+          }
+        } catch (e: any) {
+          lastError = e;
+          const rpcErrorData = e?.data as
+            | {
+                code: number;
+                message: string;
+                data: any;
+              }
+            | undefined;
+          if (e && rpcErrorData) {
+            lastRpcErrorMessage = rpcErrorData.message;
+          }
+        }
+        await timerUtils.wait(1000);
+      }
+
+      throw new OneKeyLocalError(
+        `Solana getLatestBlockHash retry times exceeded: ${
+          lastRpcErrorMessage || ''
+        }`,
+      );
+    } catch (error) {
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'blockhashFetch',
+        status: 'failed',
+        attempts,
+        durationMs: Date.now() - fetchStartedAt,
+        ...getSolanaDiagnosticError(lastError ?? error),
+      });
+      throw error;
+    }
   }
 
   async _getTokenProgramId({
@@ -725,6 +1178,255 @@ export default class Vault extends VaultBase {
     }
 
     return TOKEN_PROGRAM_ID;
+  }
+
+  // Returns the DAS asset when it is a compressed NFT, null when the asset
+  // should take the regular SPL/pNFT path. When DAS is unavailable (backend
+  // without DAS upstream → "Method not found", or the asset is not indexed)
+  // the mint account decides: no account on chain means it can only be a
+  // cNFT, which we cannot transfer without DAS.
+  async _resolveCompressedNft({
+    assetId,
+  }: {
+    assetId: string;
+  }): Promise<IDasAsset | null> {
+    const client = await this.getClient();
+    let asset: IDasAsset | undefined;
+    try {
+      asset = await client.getAsset(assetId);
+    } catch {
+      const mintAccountInfo = await client.getAccountInfo({
+        address: assetId,
+        encoding: EParamsEncodings.BASE64,
+      });
+      if (!mintAccountInfo) {
+        throw new OneKeyLocalError(
+          'Compressed NFT transfer is not supported yet',
+        );
+      }
+      return null;
+    }
+    if (!asset?.compression?.compressed) {
+      return null;
+    }
+    // The DAS response is untrusted input for the tx builder; make sure it
+    // describes the asset the user picked before any of it is used.
+    if (asset.id !== assetId) {
+      throw new OneKeyLocalError(
+        'Compressed NFT data does not match the requested asset',
+      );
+    }
+    return asset;
+  }
+
+  async _buildCompressedNFTInstructions({
+    asset,
+    source,
+    destination,
+  }: {
+    asset: IDasAsset;
+    source: PublicKey;
+    destination: PublicKey;
+  }): Promise<TransactionInstruction[]> {
+    const { compression, ownership } = asset;
+    if (!compression || !ownership) {
+      throw new OneKeyLocalError('Compressed NFT data is incomplete');
+    }
+    if (asset.burnt) {
+      throw new OneKeyLocalError('Compressed NFT has been burnt');
+    }
+    if (ownership.owner !== source.toString()) {
+      throw new OneKeyLocalError('Compressed NFT is not owned by the sender');
+    }
+
+    // The chain only verifies that the leaf and proof are consistent with
+    // each other, not which asset the wallet meant to move. Tie the tree and
+    // leaf back to the asset id (a PDA of both) and require the proof to be
+    // for that same tree, so a mismatched DAS response cannot yield a valid
+    // transfer of a different cNFT.
+    const merkleTree = new PublicKey(compression.tree);
+    const derivedAssetId = getBubblegumAssetId({
+      merkleTree,
+      nonce: compression.leaf_id,
+    });
+    if (derivedAssetId.toBase58() !== asset.id) {
+      throw new OneKeyLocalError(
+        'Compressed NFT data does not match the requested asset',
+      );
+    }
+
+    const client = await this.getClient();
+    const assetProof = await client.getAssetProof(asset.id);
+    if (assetProof.tree_id !== compression.tree) {
+      throw new OneKeyLocalError(
+        'Compressed NFT proof does not match the asset merkle tree',
+      );
+    }
+    const treeAccountInfo = await client.getAccountInfo({
+      address: compression.tree,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (!treeAccountInfo) {
+      throw new OneKeyLocalError(
+        'Compressed NFT merkle tree account not found',
+      );
+    }
+    // Bubblegum V2 trees share the V1 header layout but are owned by
+    // mpl-account-compression and need `transfer_v2` with different helper
+    // programs; fail fast instead of signing a tx that preflight rejects.
+    if (
+      treeAccountInfo.owner.toString() !==
+      SPL_ACCOUNT_COMPRESSION_PROGRAM_ID.toBase58()
+    ) {
+      throw new OneKeyLocalError(
+        'Bubblegum V2 compressed NFT transfer is not supported yet',
+      );
+    }
+    const { canopyDepth } = parseConcurrentMerkleTreeAccount(
+      Buffer.from(treeAccountInfo.data[0], 'base64'),
+    );
+    const proof = truncateProofForCanopy({
+      proof: assetProof.proof,
+      canopyDepth,
+    });
+
+    const instruction = buildBubblegumTransferInstruction({
+      merkleTree,
+      leafOwner: source,
+      leafDelegate: ownership.delegate
+        ? new PublicKey(ownership.delegate)
+        : source,
+      newLeafOwner: destination,
+      root: assetProof.root,
+      dataHash: compression.data_hash,
+      creatorHash: compression.creator_hash,
+      nonce: compression.leaf_id,
+      index: compression.leaf_id,
+      proof,
+    });
+
+    // Deep trees with a shallow canopy need more proof accounts than a single
+    // transaction can carry; fail here instead of at broadcast. The trial
+    // message uses a placeholder blockhash and leaves headroom for the
+    // priority-fee instruction that is prepended by the caller.
+    const trialMessage = new TransactionMessage({
+      payerKey: source,
+      recentBlockhash: PublicKey.default.toString(),
+      instructions: [
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }),
+        instruction,
+      ],
+    }).compileToV0Message([]);
+    let trialSize = Number.POSITIVE_INFINITY;
+    try {
+      trialSize = new VersionedTransaction(trialMessage).serialize().length;
+    } catch {
+      // web3.js encodes into a PACKET_DATA_SIZE buffer and throws
+      // "encoding overruns Uint8Array" once the message exceeds it.
+    }
+    if (trialSize > PACKET_DATA_SIZE) {
+      throw new OneKeyLocalError(
+        'Compressed NFT proof is too large to fit in a single transaction',
+      );
+    }
+
+    return [instruction];
+  }
+
+  // Returns the parsed Core asset when `assetId` is an account owned by the
+  // Metaplex Core program; null for anything else (SPL mint, missing account).
+  async _resolveMplCoreAsset({
+    assetId,
+  }: {
+    assetId: string;
+  }): Promise<IMplCoreAssetInfo | null> {
+    const client = await this.getClient();
+    const accountInfo = await client.getAccountInfo({
+      address: assetId,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (
+      !accountInfo ||
+      accountInfo.owner.toString() !== MPL_CORE_PROGRAM_ID.toBase58()
+    ) {
+      return null;
+    }
+    return parseMplCoreAssetAccount(Buffer.from(accountInfo.data[0], 'base64'));
+  }
+
+  // Returns the parsed collection when `address` is a CollectionV1 account
+  // owned by the Core program; null when it is missing, in which case the
+  // program reports the problem itself.
+  async _resolveMplCoreCollection({
+    address,
+  }: {
+    address: string;
+  }): Promise<IMplCoreCollectionInfo | null> {
+    const client = await this.getClient();
+    const accountInfo = await client.getAccountInfo({
+      address,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (
+      !accountInfo ||
+      accountInfo.owner.toString() !== MPL_CORE_PROGRAM_ID.toBase58()
+    ) {
+      return null;
+    }
+    return parseMplCoreCollectionAccount(
+      Buffer.from(accountInfo.data[0], 'base64'),
+    );
+  }
+
+  _buildMplCoreNFTInstructions({
+    asset,
+    collection,
+    assetId,
+    source,
+    destination,
+  }: {
+    asset: IMplCoreAssetInfo;
+    // The asset's collection when its update authority is one; collection
+    // plugins apply to the asset as well.
+    collection: IMplCoreCollectionInfo | null;
+    assetId: PublicKey;
+    source: PublicKey;
+    destination: PublicKey;
+  }): TransactionInstruction[] {
+    if (asset.owner !== source.toString()) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT is not owned by the sender',
+      );
+    }
+    // Marketplace listings and staking freeze the asset inside the wallet;
+    // the program rejects the transfer, so fail before anything is signed.
+    if (isMplCoreAssetFrozen({ asset, collection })) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT is frozen and cannot be transferred',
+      );
+    }
+    // Oracle / LifecycleHook adapters need extra accounts appended to
+    // TransferV1 that this wallet does not derive; without them the program
+    // rejects the transfer, so refuse up front instead of at simulation.
+    if (
+      asset.hasExternalTransferPlugin ||
+      collection?.hasExternalTransferPlugin
+    ) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT with an Oracle or lifecycle hook plugin is not supported yet',
+      );
+    }
+    return [
+      buildMplCoreTransferInstruction({
+        asset: assetId,
+        collection:
+          asset.updateAuthority.type === 'collection'
+            ? new PublicKey(asset.updateAuthority.address)
+            : null,
+        payer: source,
+        newOwner: destination,
+      }),
+    ];
   }
 
   async _getAssociatedTokenAddress({
@@ -1088,16 +1790,10 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _extractATADetailsFromEncodedTx(
-    encodedTx: IEncodedTxSol,
+  async _extractATADetailsFromInstructions(
+    instructions: TransactionInstruction[],
   ): Promise<IATADetails[]> {
     const ataDetails: IATADetails[] = [];
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-    const client = await this.getClient();
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client,
-    });
 
     // Track ATAs created in this transaction for quick lookup
     const createdAta: Record<string, IATADetails> = {};
@@ -1215,6 +1911,43 @@ export default class Vault extends VaultBase {
 
     for (const instruction of instructions) {
       if (isCustomProgram(instruction.programId.toString())) {
+        hasCustomProgram = true;
+      }
+
+      const bubblegumTransfer = decodeBubblegumTransferInstruction(instruction);
+      if (bubblegumTransfer) {
+        actions.push(
+          await this._buildCompressedNFTTransferAction({
+            transfer: bubblegumTransfer,
+            amountToSend,
+          }),
+        );
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (instruction.programId.equals(BUBBLEGUM_PROGRAM_ID)) {
+        // Only `transfer` is decoded locally. Bubblegum is in the known
+        // Metaplex set, so any other instruction (burn, delegate, ...) would
+        // otherwise be dropped silently; treat it as custom so the tx falls
+        // back to the server-parsed UNKNOWN view instead.
+        hasCustomProgram = true;
+      }
+
+      const mplCoreTransfer = decodeMplCoreTransferInstruction(instruction);
+      const mplCoreAction = mplCoreTransfer
+        ? await this._buildMplCoreNFTTransferAction({
+            transfer: mplCoreTransfer,
+            amountToSend,
+          })
+        : null;
+      if (mplCoreAction) {
+        actions.push(mplCoreAction);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (instruction.programId.equals(MPL_CORE_PROGRAM_ID)) {
+        // Same rule as Bubblegum: only a TransferV1 whose asset owner can be
+        // established is decoded locally.
         hasCustomProgram = true;
       }
 
@@ -1433,25 +2166,164 @@ export default class Vault extends VaultBase {
     return actions;
   }
 
+  async _buildCompressedNFTTransferAction({
+    transfer,
+    amountToSend,
+  }: {
+    transfer: IBubblegumTransferDecoded;
+    amountToSend: string | undefined;
+  }): Promise<IDecodedTxAction> {
+    // Metadata comes from DAS; the wallet NFT detail API cannot address a
+    // cNFT (no itemId), so degrade to an unnamed NFT transfer if DAS fails.
+    let name = '';
+    let symbol = '';
+    let icon = '';
+    try {
+      const client = await this.getClient();
+      const asset = await client.getAsset(transfer.assetId);
+      name = asset.content?.metadata?.name ?? '';
+      symbol = asset.content?.metadata?.symbol ?? name;
+      icon = asset.content?.links?.image ?? '';
+    } catch {
+      // keep empty metadata
+    }
+    // Direction is derived from the transfer `from`: use the signing
+    // authority so a transfer this wallet signs as leafDelegate counts as a
+    // spend, while the action keeps the real owner as `from` for display.
+    const transferInfo: IDecodedTxTransferInfo = {
+      from: transfer.authority,
+      to: transfer.newLeafOwner,
+      tokenIdOnNetwork: transfer.assetId,
+      icon,
+      name,
+      symbol,
+      amount: amountToSend ?? '1',
+      isNFT: true,
+      NFTType: ENFTType.ERC721,
+    };
+    return this.buildTxTransferAssetAction({
+      from: transfer.leafOwner,
+      to: transfer.newLeafOwner,
+      transfers: [transferInfo],
+    });
+  }
+
+  // TransferV1 only names the signing authority, which is a Transfer Delegate
+  // rather than the owner when someone else's asset is moved, so the sender
+  // is read from the asset itself. Returns null when the owner cannot be
+  // established; the caller then leaves the tx to the server-parsed view
+  // instead of guessing from the signer.
+  async _buildMplCoreNFTTransferAction({
+    transfer,
+    amountToSend,
+  }: {
+    transfer: IMplCoreTransferDecoded;
+    amountToSend: string | undefined;
+  }): Promise<IDecodedTxAction | null> {
+    let owner: string | undefined;
+    let name = '';
+    let symbol = '';
+    let icon = '';
+    try {
+      const client = await this.getClient();
+      try {
+        const asset = await client.getAsset(transfer.asset);
+        owner = asset.ownership?.owner;
+        name = asset.content?.metadata?.name ?? '';
+        symbol = asset.content?.metadata?.symbol ?? name;
+        icon = asset.content?.links?.image ?? '';
+      } catch {
+        // DAS unavailable: the on-chain account is read below.
+      }
+      if (!owner) {
+        const accountInfo = await client.getAccountInfo({
+          address: transfer.asset,
+          encoding: EParamsEncodings.BASE64,
+        });
+        if (accountInfo) {
+          const parsed = parseMplCoreAssetAccount(
+            Buffer.from(accountInfo.data[0], 'base64'),
+          );
+          owner = parsed.owner;
+          name = name || parsed.name;
+          symbol = symbol || parsed.name;
+        }
+      }
+    } catch {
+      // Neither source reachable: `owner` stays unset.
+    }
+    if (!owner) {
+      return null;
+    }
+    const transferInfo: IDecodedTxTransferInfo = {
+      from: owner,
+      to: transfer.newOwner,
+      tokenIdOnNetwork: transfer.asset,
+      icon,
+      name,
+      symbol,
+      amount: amountToSend ?? '1',
+      isNFT: true,
+      NFTType: ENFTType.ERC721,
+    };
+    return this.buildTxTransferAssetAction({
+      from: owner,
+      to: transfer.newOwner,
+      transfers: [transferInfo],
+    });
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
-    if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx({
-        encodedTx: encodedTx as IEncodedTxSol,
-        swapInfo: params.swapInfo,
+    const diagnostic = createSolanaTxDiagnosticContext();
+    logSolanaTxDiagnostic(diagnostic, { stage: 'built', status: 'started' });
+    try {
+      const encodedTx =
+        params.encodedTx ??
+        (await this.buildEncodedTx({ ...params, diagnostic }));
+      if (encodedTx) {
+        const unsignedTx = await this._buildUnsignedTxFromEncodedTx({
+          encodedTx: encodedTx as IEncodedTxSol,
+          swapInfo: params.swapInfo,
+          diagnostic,
+        });
+        const solanaTxDiagnostic = withSolTxDiagnosticBlockhash(
+          diagnostic,
+          unsignedTx.encodedTx,
+        );
+        const details = inspectSolTxDiagnostic(unsignedTx.encodedTx);
+        let reason = details.reason;
+        if (!reason && solanaTxDiagnostic?.blockhashFetchedAt === undefined) {
+          reason = 'blockhashAcquisitionUnobserved';
+        }
+        logSolanaTxDiagnostic(solanaTxDiagnostic, {
+          ...details,
+          stage: 'built',
+          status: 'succeeded',
+          reason,
+        });
+        return { ...unsignedTx, solanaTxDiagnostic };
+      }
+      throw new OneKeyInternalError();
+    } catch (error) {
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'built',
+        status: 'failed',
+        ...getSolanaDiagnosticError(error),
       });
+      throw error;
     }
-    throw new OneKeyInternalError();
   }
 
   async _buildUnsignedTxFromEncodedTx({
     encodedTx,
     swapInfo,
+    diagnostic,
   }: {
     encodedTx: IEncodedTxSol;
     swapInfo?: ISwapTxInfo;
+    diagnostic?: ISolanaTxDiagnosticContext;
   }) {
     const accountAddress = await this.getAccountAddress();
 
@@ -1461,7 +2333,7 @@ export default class Vault extends VaultBase {
     if (swapInfo && swapInfo.swapBuildResData.OKXTxObject) {
       const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
       const { recentBlockhash, lastValidBlockHeight } =
-        await this._getRecentBlockHash();
+        await this._getRecentBlockHash(diagnostic);
 
       if (nativeTx instanceof Transaction) {
         nativeTx.recentBlockhash = recentBlockhash;
@@ -1481,8 +2353,17 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // Extract ATA details from the encoded transaction for hardware signing
-    const ataDetails = await this._extractATADetailsFromEncodedTx(newEncodedTx);
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx: parseToNativeTx(newEncodedTx) as INativeTxSol,
+      client,
+    });
+    const ataDetails =
+      await this._extractATADetailsFromInstructions(instructions);
+    const solanaRent =
+      swapInfo && swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND
+        ? await getSolanaSwapRent({ instructions, accountAddress, client })
+        : undefined;
 
     return {
       payload: {
@@ -1490,6 +2371,7 @@ export default class Vault extends VaultBase {
         ataDetails: ataDetails.length > 0 ? ataDetails : undefined,
       },
       encodedTx: newEncodedTx,
+      solanaRent,
     };
   }
 
@@ -1790,6 +2672,7 @@ export default class Vault extends VaultBase {
     });
 
     const computeUnitLimit = parseComputeUnitLimit(instructions);
+    const computeUnitPriceInTx = parseComputeUnitPrice(instructions);
 
     return {
       encodedTx,
@@ -1798,83 +2681,22 @@ export default class Vault extends VaultBase {
           baseFee: String(BASE_FEE),
           computeUnitPriceDecimals: COMPUTE_UNIT_PRICE_DECIMALS,
           computeUnitLimit: String(computeUnitLimit),
+          computeUnitPriceInTx,
         },
       },
     };
   }
 
-  override async attachFeeInfoToDAppEncodedTx(params: {
+  override async attachFeeInfoToDAppEncodedTx(_params: {
     encodedTx: IEncodedTxSol;
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxSol> {
-    const { encodedTx, feeInfo } = params;
-
-    const devSettings =
-      await this.backgroundApi.serviceDevSetting.getDevSetting();
-    if (devSettings.enabled && devSettings.settings?.disableSolanaPriorityFee) {
-      return '';
-    }
-
-    const client = await this.getClient();
-    const accountAddress = await this.getAccountAddress();
-    let computeUnitPrice = '0';
-
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-
-    // check if the tx is partially signed
-    if (nativeTx.signatures && nativeTx.signatures.length > 1) {
-      return '';
-    }
-
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client: await this.getClient(),
-    });
-
-    const computeUnitPriceFromInstructions =
-      parseComputeUnitPrice(instructions);
-
-    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
-      // If the DApp tx  includes prioritization fee,
-      // try replacing it with another one to see if that works.
-
-      const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
-        encodedTx,
-        feeInfo: {
-          ...feeInfo,
-          feeSol: {
-            computeUnitPrice: '1',
-          },
-        },
-      });
-
-      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
-    }
-
-    if (isNil(feeInfo.feeSol?.computeUnitPrice)) {
-      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
-        accountAddress,
-      ]);
-      computeUnitPrice = String(prioritizationFee);
-    } else {
-      computeUnitPrice = feeInfo.feeSol.computeUnitPrice;
-    }
-
-    const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
-      encodedTx,
-      feeInfo: {
-        ...feeInfo,
-        feeSol: {
-          computeUnitPrice,
-        },
-      },
-    });
-
-    if (isTxOverSize(encodedTxWithFee)) {
-      return '';
-    }
-
-    return encodedTxWithFee;
+    // dApp-built transactions must stay byte-identical. dApps that broadcast on
+    // their own (signTransaction) compare the returned message with the one they
+    // sent and reject any wallet-side rewrite (e.g. Jupiter Lend).
+    // Returning '' tells SendConfirmFromDApp to keep the raw tx and lock the fee
+    // editor, the same contract the BTC PSBT path uses. See OK-64196.
+    return '';
   }
 
   override async getCustomRpcEndpointStatus(
@@ -1898,12 +2720,27 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     const client = new ClientCustomRpcSol(rpcUrl);
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    let txid: string;
+    try {
+      txid = await client.broadcastTransaction(signedTx.rawTx);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
     return {
       ...signedTx,
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      return await super.broadcastTransaction(params);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
   }
 
   override async validateSendAmount({
@@ -1933,11 +2770,16 @@ export default class Vault extends VaultBase {
   override async checkShouldRetryBroadcastTx(
     error: FailedAttemptError,
   ): Promise<boolean> {
-    if (
-      (error as unknown as OneKeyError)?.code ===
-      BLOCK_HASH_NOT_FOUND_ERROR_CODE
-    ) {
-      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+    // A custom RPC node answers with a plain JSON-RPC error (no OneKey code).
+    // The blockhash comes from the proxy node, so a custom node lagging a few
+    // slots behind rejects it transiently the same way the proxy does with
+    // 40028; retry both alike.
+    if (isSolBlockhashNotFoundError(error)) {
+      const attemptNumber = error?.attemptNumber || 1;
+      if (attemptNumber > SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS) {
+        return false;
+      }
+      await timerUtils.wait(attemptNumber * 1000);
       return true;
     }
     return false;

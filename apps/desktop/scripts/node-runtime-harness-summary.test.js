@@ -6,33 +6,20 @@ const {
 
 const createPassingReport = () => ({
   arch: 'x64',
-  autoDownload: false,
   canonicalDriftsAfterAppInit: [],
   canonicalDriftsAfterRepair: [],
   canonicalDriftsBeforeAppLoad: [],
   canonicalNodeGlobalCheckNames: ['global.Buffer'],
-  checkForUpdatesCallCount: 0,
-  checkForUpdatesCalled: false,
   driftsAfterAppInit: [],
   driftsAfterRepair: [],
   driftsBeforeRepair: [],
-  electron: '39.8.9',
+  electron: '43.1.1',
   isPackaged: true,
-  node: '22.22.1',
+  node: '24.18.0',
   nodeRuntimeCheckNames: ['global.Buffer', 'node:fs.readFile'],
   platform: 'linux',
   processType: 'browser',
   repairs: [],
-  stagingResult: {
-    afterExists: true,
-    beforeExists: false,
-    errorCode: null,
-    errorMessage: null,
-    fileByteLength: 36,
-    fileUuidFormat: true,
-    idLength: 36,
-    success: true,
-  },
 });
 
 const evaluate = (report, childExitCode = 0) =>
@@ -55,7 +42,6 @@ describe('node runtime harness summary', () => {
     expect(summary).toContain(
       'PASS    node:fs.readFile         load=PASS after-repair=PASS init=PASS canonical=N/A repair=NONE',
     );
-    expect(summary).toContain('PASS    Staging ID file UUID format');
     expect(
       summary.trimEnd().endsWith('[NODE_RUNTIME_INTEGRITY] FINAL RESULT: PASS'),
     ).toBe(true);
@@ -65,7 +51,6 @@ describe('node runtime harness summary', () => {
     const report = createPassingReport();
     report.driftsBeforeRepair = [{ name: 'global.Buffer' }];
     report.repairs = [{ name: 'global.Buffer' }];
-    report.stagingResult.fileUuidFormat = false;
     const result = evaluate(report, 2);
     const summary = formatConsoleSummary(result);
 
@@ -76,10 +61,8 @@ describe('node runtime harness summary', () => {
     expect(summary).toContain(
       'PASS    node:fs.readFile         load=PASS after-repair=PASS init=PASS canonical=N/A repair=NONE',
     );
-    expect(summary).toContain('FAIL    Staging ID file UUID format');
-    expect(summary).toContain('FAILED CHECKS (3):');
+    expect(summary).toContain('FAILED CHECKS (2):');
     expect(summary).toContain('- Node API: global.Buffer');
-    expect(summary).toContain('- updater: Staging ID file UUID format');
     expect(
       summary.trimEnd().endsWith('[NODE_RUNTIME_INTEGRITY] FINAL RESULT: FAIL'),
     ).toBe(true);

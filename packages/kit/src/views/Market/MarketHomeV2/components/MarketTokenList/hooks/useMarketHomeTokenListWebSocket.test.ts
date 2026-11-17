@@ -65,6 +65,24 @@ describe('market home token list websocket helpers', () => {
     expect(nextTokens[0].change24h).toBe(20);
   });
 
+  test('marks a live change as present when the feed had none', () => {
+    const token = buildToken({ change24h: 0, priceChangeRaw: undefined });
+
+    const nextTokens = applyMarketTokenListLiveOverrides({
+      tokens: [token],
+      liveTokenOverrides: [
+        {
+          networkId: token.networkId,
+          address: token.address,
+          change24h: 3.5,
+        },
+      ],
+    });
+
+    expect(nextTokens[0].change24h).toBe(3.5);
+    expect(nextTokens[0].priceChangeRaw).toBe('3.5');
+  });
+
   test('keeps stored websocket prices when only the base price snapshot changed', () => {
     const token = buildToken({ priceChangeBasePrice: 100 });
     const storedOverride = {

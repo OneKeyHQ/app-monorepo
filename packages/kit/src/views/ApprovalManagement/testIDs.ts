@@ -10,6 +10,7 @@ export const ApprovalManagementTestIDs = {
 
   // --- Approved Token Item ---
   tokenItemCheckbox: 'approval-management-token-item-checkbox',
+  permit2InfoBtn: 'approval-management-permit2-info-btn',
   tokenRevokeBtn: 'approval-management-token-revoke-btn',
 
   // --- Approval Actions ---

@@ -372,7 +372,7 @@ function MarketMdColumn({
               userSelect="none"
               size="$bodyMdMedium"
               color="white"
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{
                 showPlusMinusSigns: true,
               }}

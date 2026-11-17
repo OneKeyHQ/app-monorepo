@@ -1,5 +1,7 @@
 import {
+  swapDefaultConfigStatusAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
@@ -16,6 +18,7 @@ type ISwapContextStore = ReturnType<typeof createStore>;
 export function hydrateSwapDefaultTokensFromGlobalHomeSnapshot(
   store: ISwapContextStore,
 ) {
+  const defaultConfigStatus = store.get(swapDefaultConfigStatusAtom());
   const hasSelectedTokens = Boolean(
     store.get(swapSelectFromTokenAtom()) || store.get(swapSelectToTokenAtom()),
   );
@@ -24,7 +27,9 @@ export function hydrateSwapDefaultTokensFromGlobalHomeSnapshot(
   }
 
   const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
+    defaultConfigStatus,
     swapType: store.get(swapTypeSwitchAtom()),
+    swapNetworks: store.get(swapNetworks()),
   });
   if (!defaultTokens) {
     return false;

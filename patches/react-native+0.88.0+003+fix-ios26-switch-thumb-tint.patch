@@ -1,0 +1,23 @@
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm
+index a7484b3..4add3ef 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Switch/RCTSwitchComponentView.mm
+@@ -62,6 +62,18 @@ - (void)prepareForRecycle
+   _isInitialValueSet = NO;
+ }
+ 
++- (void)didMoveToWindow
++{
++  [super didMoveToWindow];
++  if (@available(iOS 26.0, *)) {
++    UIColor *thumbTintColor = _switchView.thumbTintColor;
++    if (_switchView.window != nil && thumbTintColor != nil) {
++      // OneKey patch: iOS 26 may ignore a thumb tint assigned before the switch enters a window.
++      _switchView.thumbTintColor = thumbTintColor;
++    }
++  }
++}
++
+ + (ComponentDescriptorProvider)componentDescriptorProvider
+ {
+   return concreteComponentDescriptorProvider<SwitchComponentDescriptor>();

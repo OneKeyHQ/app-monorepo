@@ -19,6 +19,10 @@ import {
 } from '@onekeyhq/shared/types/qrCode';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  isInvalidQrCodeError,
+  isRetryableQrParseFailure,
+} from '../utils/isInvalidQrCodeError';
 
 import useParseQRCode from './useParseQRCode';
 
@@ -48,14 +52,26 @@ export default function useScanQrCode() {
               showProTutorial,
               callback: async ({ value, popNavigation }) => {
                 if (value?.length > 0) {
-                  const parseValue = await parseQRCode.parse(value, {
-                    autoExecuteParsedAction,
-                    handlers,
-                    account,
-                    network,
-                    tokens,
-                    popNavigation,
-                  });
+                  let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
+                  try {
+                    parseValue = await parseQRCode.parse(value, {
+                      autoExecuteParsedAction,
+                      handlers,
+                      account,
+                      network,
+                      tokens,
+                      popNavigation,
+                    });
+                  } catch (error) {
+                    // A transient parse failure retries the frame; an action error stays
+                    // a dropped frame, as before. The page stays open for both.
+                    if (isRetryableQrParseFailure(error))
+                      return { retry: true };
+                    if (!isInvalidQrCodeError(error)) throw error;
+                    // The parse closed the scan page; end the scan with its error.
+                    reject(error);
+                    return {};
+                  }
                   if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                     const animationValue = parseValue.data as IAnimationValue;
                     if (animationValue.fullData) {

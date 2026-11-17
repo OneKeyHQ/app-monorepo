@@ -1,20 +1,24 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
-import { ListEndIndicator, SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
+import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
-import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
+import {
+  BannerDetailListColumnHeader,
+  resolveBannerDetailColumnMode,
+} from './BannerDetailListColumnHeader';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { FlatListProps } from 'react-native';
+import type { FlatListProps, LayoutChangeEvent } from 'react-native';
 
 type IBannerDetailTokenFlatListProps = {
   data: IMarketToken[];
@@ -25,6 +29,8 @@ type IBannerDetailTokenFlatListProps = {
   onItemPress: (item: IMarketToken) => void;
 };
 
+// The mobile list for token banners: the mobile Trending tab's rows under the
+// banner's sortable column header.
 export function BannerDetailTokenFlatList({
   data,
   isLoading,
@@ -35,24 +41,31 @@ export function BannerDetailTokenFlatList({
 }: IBannerDetailTokenFlatListProps) {
   const intl = useIntl();
   const tabBarHeight = useTabBarHeight();
+  const [listWidth, setListWidth] = useState(0);
+  const columnMode = resolveBannerDetailColumnMode(listWidth);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
 
-  const sortedData = useMemo(() => {
-    if (changeSortType) {
-      return data.toSorted((a, b) =>
-        changeSortType === 'asc'
-          ? a.change24h - b.change24h
-          : b.change24h - a.change24h,
-      );
-    }
-
-    return data;
-  }, [changeSortType, data]);
+  const sortedData = useMemo(
+    () =>
+      sortMarketTokenListData({
+        data,
+        field: changeSortType ? 'change24h' : undefined,
+        order: changeSortType,
+      }),
+    [changeSortType, data],
+  );
 
   const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(
     ({ item }) => (
-      <TokenListItem item={item} onPress={() => onItemPress(item)} />
+      <TokenListItem
+        item={item}
+        onPress={() => onItemPress(item)}
+        bannerColumnMode={columnMode}
+      />
     ),
-    [onItemPress],
+    [columnMode, onItemPress],
   );
 
   const keyExtractor = useCallback((item: IMarketToken) => item.id, []);
@@ -71,14 +84,22 @@ export function BannerDetailTokenFlatList({
   }, [intl, isLoading]);
 
   return (
-    <Stack flex={1}>
+    <Stack flex={1} onLayout={onListLayout}>
       <BannerDetailListColumnHeader
+        // Same label as the mobile home lists: the row's second line is the
+        // token's volume.
+        primaryColumnTitle={`${intl.formatMessage({
+          id: ETranslations.global_name,
+        })} / ${intl.formatMessage({
+          id: ETranslations.market_stock_volume__title,
+        })}`}
         changeSortType={changeSortType}
         change24hColumnTitle={change24hColumnTitle}
         onChangeSortPress={onChangeSortPress}
+        columnMode={columnMode}
       />
       {isLoading && sortedData.length === 0 ? (
-        <TokenListSkeleton count={15} />
+        <TokenListSkeleton count={15} bannerColumnMode={columnMode} />
       ) : (
         <FlatList<IMarketToken>
           style={{ flex: 1 }}
@@ -89,10 +110,7 @@ export function BannerDetailTokenFlatList({
           initialNumToRender={15}
           maxToRenderPerBatch={20}
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
-          ListEmptyComponent={emptyComponent}
-          ListFooterComponent={
-            sortedData.length > 0 ? <ListEndIndicator /> : null
-          }
+          ListEmptyComponent={emptyComponent ?? undefined}
         />
       )}
     </Stack>

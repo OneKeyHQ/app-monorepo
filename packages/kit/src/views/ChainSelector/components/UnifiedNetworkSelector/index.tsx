@@ -422,6 +422,7 @@ function UnifiedNetworkSelector() {
         await actions.current.updateSelectedAccountNetwork({
           num,
           networkId: item.id,
+          reason: 'userSelectNetwork',
         });
       } finally {
         // Surgically drop only the ChainSelectorModal route. popStack() triggers
@@ -458,8 +459,9 @@ function UnifiedNetworkSelector() {
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
-            cacheContext: { walletId, accountId },
           });
+          // The listener below refreshes `networkMeta`, and that refresh is
+          // what writes the new state into the SWR cache.
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
@@ -467,7 +469,7 @@ function UnifiedNetworkSelector() {
         }
       },
     });
-  }, [navigation, handleNetworkPressItem, networksState, walletId, accountId]);
+  }, [navigation, handleNetworkPressItem, networksState]);
 
   const handleEditCustomNetwork = useCallback(
     async (network: IServerNetwork) => {
@@ -539,8 +541,11 @@ function UnifiedNetworkSelector() {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
           enabledNetworks: networksState.enabledNetworks,
           disabledNetworks: networksState.disabledNetworks,
-          cacheContext: { walletId, accountId },
         });
+
+        // Same as V2: the entry belongs to the hook in this runtime, so the
+        // refresh that follows the save is what updates it.
+        void refreshNetworkMeta({ alwaysSetState: true });
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
@@ -554,6 +559,7 @@ function UnifiedNetworkSelector() {
         void actions.current.updateSelectedAccountNetwork({
           num,
           networkId: getNetworkIdsMap().onekeyall,
+          reason: 'unifiedNetworkEnableFlow',
         });
       }
 
@@ -579,6 +585,7 @@ function UnifiedNetworkSelector() {
     networksState.enabledNetworks,
     num,
     onNetworksChanged,
+    refreshNetworkMeta,
     walletId,
     isSameEnabledNetworks,
     isOthersWallet,
@@ -861,6 +868,7 @@ export default function UnifiedNetworkSelectorPage() {
 
   return (
     <AccountSelectorProviderMirror
+      perfDebugName="unified-network-selector"
       config={{
         sceneName: sceneName ?? EAccountSelectorSceneName.home,
         sceneUrl: sceneUrl ?? '',

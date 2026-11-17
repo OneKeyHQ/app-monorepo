@@ -7,28 +7,25 @@ const path = require('path');
 const newVersion = process.argv[2];
 if (!newVersion) {
   console.error('Usage: yarn onekeyhq:modules:upgrade <version>');
-  console.error('Example: yarn onekeyhq:modules:upgrade 3.0.12');
   process.exit(1);
 }
 
 const ROOT = path.resolve(__dirname, '../..');
 const files = [
   path.join(ROOT, 'package.json'),
-  path.join(ROOT, 'packages/components/package.json'),
-  path.join(ROOT, 'apps/mobile/package.json'),
+  ...['apps', 'packages'].flatMap((directory) =>
+    fs
+      .readdirSync(path.join(ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(ROOT, directory, entry.name, 'package.json'))
+      .filter((file) => fs.existsSync(file)),
+  ),
 ];
 
-// Match @onekeyfe/react-native-* versions like "3.0.11" or "npm:@onekeyfe/...@3.0.11"
-const VERSION_RE = /3\.0\.\d+/;
-
-const isAppModulesRef = (name, value) => {
-  if (name.startsWith('@onekeyfe/react-native-')) return true;
-  if (name === '@onekeyfe/react-native-native-logger') return true;
-  if (typeof value === 'string' && value.includes('@onekeyfe/react-native-')) {
-    return true;
-  }
-  return false;
-};
+// ble-utils is published independently from the app-modules SDK.
+const isAppModulesPackage = (name) =>
+  name.startsWith('@onekeyfe/react-native-') &&
+  name !== '@onekeyfe/react-native-ble-utils';
 
 let totalUpdated = 0;
 
@@ -41,11 +38,14 @@ for (const file of files) {
   for (const section of ['dependencies', 'devDependencies', 'resolutions']) {
     if (pkg[section]) {
       for (const [name, value] of Object.entries(pkg[section])) {
-        if (isAppModulesRef(name, value) && VERSION_RE.test(value)) {
-          const newValue = value.replace(VERSION_RE, newVersion);
-          if (newValue !== value) {
-            pkg[section][name] = newValue;
-            fileUpdated += 1;
+        if (typeof value === 'string') {
+          const alias = value.match(/^npm:((?:@[^/]+\/)?[^@]+)@/);
+          if (isAppModulesPackage(alias ? alias[1] : name)) {
+            const newValue = alias ? `${alias[0]}${newVersion}` : newVersion;
+            if (newValue !== value) {
+              pkg[section][name] = newValue;
+              fileUpdated += 1;
+            }
           }
         }
       }

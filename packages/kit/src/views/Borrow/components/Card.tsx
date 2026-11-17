@@ -52,11 +52,11 @@ export const Card = ({
                 justifyContent="space-between"
                 alignItems="center"
               >
-                <SizableText size="$headingMd" color="$textText">
+                <SizableText size="$headingMd" color="$text">
                   {title}
                 </SizableText>
                 <View
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"

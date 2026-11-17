@@ -8,18 +8,23 @@ import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
-import type { IUniversalSearchDapp } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchDapp,
+} from '@onekeyhq/shared/types/search';
 
 import { useWebSiteHandler } from '../../../Discovery/hooks/useWebSiteHandler';
 
 interface IUniversalSearchDappItemProps {
   item: IUniversalSearchDapp;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchDappItem({
   item,
   getSearchInput,
+  source,
 }: IUniversalSearchDappItemProps) {
   const { name, dappId, logo } = item.payload;
   const isGoogle = isGoogleSearchItem(dappId);
@@ -81,6 +86,7 @@ export function UniversalSearchDappItem({
 
   const handlePress = useCallback(() => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: dappId ?? '',
@@ -157,6 +163,7 @@ export function UniversalSearchDappItem({
     dappId,
     universalSearchActions,
     processSearchInput,
+    source,
   ]);
 
   return (

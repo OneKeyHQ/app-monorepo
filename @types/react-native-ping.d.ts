@@ -1,12 +1,10 @@
 declare module 'react-native-ping' {
   interface IPingOptions {
     timeout?: number;
-    interval?: number;
+    payloadSize?: number;
   }
 
-  const Ping: {
-    start: (target: string, options?: IPingOptions) => Promise<number>;
+  export const Ping: {
+    start: (target: string, options: IPingOptions) => Promise<number>;
   };
-
-  export default Ping;
 }

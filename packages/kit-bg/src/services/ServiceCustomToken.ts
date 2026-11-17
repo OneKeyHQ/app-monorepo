@@ -17,6 +17,12 @@ import ServiceBase from './ServiceBase';
 import type { IAllNetworkAccountsParamsForApi } from './ServiceAllNetwork/ServiceAllNetwork';
 import type { ICustomTokenDBStruct } from '../dbs/simple/entity/SimpleDbEntityCustomTokens';
 
+export type ICustomTokenAccountNetworkPair = {
+  accountId: string;
+  networkId: string;
+  accountXpubOrAddress?: string | null;
+};
+
 @backgroundClass()
 class ServiceCustomToken extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -187,6 +193,49 @@ class ServiceCustomToken extends ServiceBase {
       networkId,
       customTokensRawData,
     });
+  }
+
+  // One bridge round-trip for every account/network pair. The per-pair
+  // getters only read simpleDb, so an all-networks caller otherwise pays a
+  // request per network for no background work.
+  @backgroundMethod()
+  public async getCustomTokensBatch({
+    pairs,
+  }: {
+    pairs: ICustomTokenAccountNetworkPair[];
+  }) {
+    const customTokensRawData =
+      (await this.backgroundApi.simpleDb.customTokens.getRawData()) ??
+      undefined;
+    const tokens = await Promise.all(
+      pairs.map((pair) =>
+        this.backgroundApi.simpleDb.customTokens.getCustomTokens({
+          ...pair,
+          customTokensRawData,
+        }),
+      ),
+    );
+    return tokens.flat();
+  }
+
+  @backgroundMethod()
+  public async getHiddenTokensBatch({
+    pairs,
+  }: {
+    pairs: ICustomTokenAccountNetworkPair[];
+  }) {
+    const customTokensRawData =
+      (await this.backgroundApi.simpleDb.customTokens.getRawData()) ??
+      undefined;
+    const tokens = await Promise.all(
+      pairs.map((pair) =>
+        this.backgroundApi.simpleDb.customTokens.getHiddenTokens({
+          ...pair,
+          customTokensRawData,
+        }),
+      ),
+    );
+    return tokens.flat();
   }
 
   async getAllCustomTokensByStatus(

@@ -1,4 +1,3 @@
-import { getSdkError } from '@walletconnect/utils';
 import { uniq } from 'lodash';
 
 import {
@@ -35,10 +34,18 @@ import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnecti
 
 import ServiceBase from '../ServiceBase';
 
+import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappSide } from './WalletConnectDappSide';
+import { walletConnectDiagnostics } from './WalletConnectDiagnostics';
 
 import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
+
+function getSupportedNamespaceImpl(namespace: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(namespaceToImplsMap, namespace)
+    ? namespaceToImplsMap[namespace as INamespaceUnion]
+    : undefined;
+}
 
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
@@ -50,6 +57,22 @@ class ServiceWalletConnect extends ServiceBase {
   dappSide = new WalletConnectDappSide({
     backgroundApi: this.backgroundApi,
   });
+
+  @backgroundMethod()
+  async getWalletSideDiagnostics() {
+    return walletConnectDiagnostics.getSnapshot();
+  }
+
+  @backgroundMethod()
+  async getDappSideConnectionProgress() {
+    // Read only: opening a progress UI must never initialize a client or socket.
+    return this.dappSide.getConnectionProgress();
+  }
+
+  @backgroundMethod()
+  async clearWalletSideDiagnosticEvents() {
+    walletConnectDiagnostics.clear();
+  }
 
   @backgroundMethod()
   async abortConnectPairing({ uri }: { uri: string }) {
@@ -255,7 +278,7 @@ class ServiceWalletConnect extends ServiceBase {
     let index = 0;
     // Filter supported chains from requiredNamespace
     for (const namespace of Object.keys(requiredNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const impl = getSupportedNamespaceImpl(namespace);
       if (!impl) {
         throw new OneKeyLocalError('Namespace not supported');
       }
@@ -275,7 +298,7 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Filter supported chains from optionalNamespace
     for (const namespace of Object.keys(optionalNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const impl = getSupportedNamespaceImpl(namespace);
       // Skip namespaces not supported by the wallet
       if (impl) {
         const existImpl = supported.find((s) => s.impl === impl);
@@ -286,12 +309,15 @@ class ServiceWalletConnect extends ServiceBase {
             optionalNamespaces,
             namespace,
           );
-          supported.push({
-            impl,
-            accountSelectorNum: index + WalletConnectAccountSelectorNumStartAt,
-            networkIds,
-          });
-          index += 1;
+          if (networkIds.length > 0) {
+            supported.push({
+              impl,
+              accountSelectorNum:
+                index + WalletConnectAccountSelectorNumStartAt,
+              networkIds,
+            });
+            index += 1;
+          }
         }
       }
     }
@@ -313,8 +339,11 @@ class ServiceWalletConnect extends ServiceBase {
     const processNamespaces = async (
       namespaces: ProposalTypes.RequiredNamespaces,
       notSupportedChains: string[] = [],
+      isOptionalNamespace = false,
     ) => {
-      for (const [key, value] of Object.entries(namespaces)) {
+      for (const [key, value] of Object.entries(namespaces).filter(
+        ([namespaceKey]) => getSupportedNamespaceImpl(namespaceKey),
+      )) {
         const namespace = key as INamespaceUnion;
         const { chains } = value;
         const impl = namespaceToImplsMap[namespace];
@@ -334,13 +363,18 @@ class ServiceWalletConnect extends ServiceBase {
             ]
           : filteredChains;
 
-        supportedNamespaces[namespace] = {
-          chains: mergedChains,
-          methods: supportMethodsMap[namespace] ?? [],
-          events: supportEventsMap[namespace],
-          accounts:
-            mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
-        };
+        if (
+          !isOptionalNamespace ||
+          (mergedChains.length > 0 && account?.address)
+        ) {
+          supportedNamespaces[namespace] = {
+            chains: mergedChains,
+            methods: supportMethodsMap[namespace] ?? [],
+            events: supportEventsMap[namespace],
+            accounts:
+              mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
+          };
+        }
       }
     };
     // Process required namespaces
@@ -353,16 +387,11 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
-      const isEmptyRequiredNamespace =
-        Object.keys(proposal.params.requiredNamespaces).length <= 0;
-      const filteredOptionalNamespaces = isEmptyRequiredNamespace
-        ? proposal.params.optionalNamespaces
-        : Object.fromEntries(
-            Object.entries(proposal.params.optionalNamespaces).filter(
-              ([key]) => key in proposal.params.requiredNamespaces,
-            ),
-          );
-      await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
+      await processNamespaces(
+        proposal.params.optionalNamespaces,
+        notSupportedChains,
+        true,
+      );
     }
 
     console.log('supportedNamespaces: ', supportedNamespaces);
@@ -389,7 +418,7 @@ class ServiceWalletConnect extends ServiceBase {
     // emit `session_delete` event to dapp
     return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
       topic,
-      reason: getSdkError('USER_DISCONNECTED'),
+      reason: await walletConnectClient.getSdkErrorLazy('USER_DISCONNECTED'),
     });
   }
 
@@ -526,11 +555,12 @@ class ServiceWalletConnect extends ServiceBase {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
     if (rawData?.data?.walletConnect) {
-      for (const [key, value] of Object.entries(rawData.data.walletConnect)) {
+      for (const value of Object.values(rawData.data.walletConnect)) {
         if (value.walletConnectTopic === topic) {
-          void this.backgroundApi.serviceDApp.disconnectWebsite({
-            origin: key,
+          await this.backgroundApi.serviceDApp.disconnectWebsite({
+            origin: value.origin,
             storageType: 'walletConnect',
+            walletConnectTopic: topic,
           });
         }
       }

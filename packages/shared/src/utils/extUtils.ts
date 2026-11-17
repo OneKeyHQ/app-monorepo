@@ -6,6 +6,7 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
+import { generateUUID } from './miscUtils';
 import { buildModalRouteParams } from './routeUtils';
 
 /**
@@ -237,6 +238,60 @@ async function openExpandTab(
   return tab;
 }
 
+const BROWSER_SESSION_ID_STORAGE_KEY = 'onekeyBrowserSessionId';
+let browserSessionIdRequest: Promise<string | undefined> | undefined;
+
+async function readOrCreateBrowserSessionId(
+  sessionStorage: chrome.storage.SessionStorageArea,
+): Promise<string | undefined> {
+  const stored = await sessionStorage.get(BROWSER_SESSION_ID_STORAGE_KEY);
+  const storedId: unknown = stored?.[BROWSER_SESSION_ID_STORAGE_KEY];
+  if (typeof storedId === 'string' && storedId) {
+    return storedId;
+  }
+  const createdId = generateUUID();
+  await sessionStorage.set({ [BROWSER_SESSION_ID_STORAGE_KEY]: createdId });
+  return createdId;
+}
+
+// An id for the current browser session, shared by the extension background
+// and its pages. chrome.storage.session is cleared when the browser exits, so
+// a new id marks persisted tab / window ids as stale.
+async function getBrowserSessionId(): Promise<string | undefined> {
+  // All UI callers go through ServiceApp, so the background owns creation
+  // even when Web Locks are unavailable. UI-local promises cannot coordinate
+  // separate extension runtimes.
+  if (!platformEnv.isExtensionBackground) {
+    return undefined;
+  }
+  if (browserSessionIdRequest) {
+    return browserSessionIdRequest;
+  }
+  const request = (async () => {
+    const sessionStorage = globalThis.chrome?.storage?.session;
+    if (!sessionStorage) {
+      return undefined;
+    }
+    try {
+      const locks = globalThis.navigator?.locks;
+      if (locks) {
+        return await locks.request(BROWSER_SESSION_ID_STORAGE_KEY, () =>
+          readOrCreateBrowserSessionId(sessionStorage),
+        );
+      }
+      return await readOrCreateBrowserSessionId(sessionStorage);
+    } catch {
+      return undefined;
+    }
+  })();
+  browserSessionIdRequest = request;
+  try {
+    return await request;
+  } finally {
+    browserSessionIdRequest = undefined;
+  }
+}
+
 export function closeExtensionPopupAfterExpandTabOpen() {
   if (platformEnv.isExtensionUiPopup) {
     setTimeout(globalThis.close, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
@@ -328,6 +383,32 @@ function focusExistWindow({
   });
 }
 
+// Brings an existing tab and its window to the front. Works without the
+// `tabs` permission; resolves false when the tab no longer exists.
+function focusTab(tabId: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.tabs.update(tabId, { active: true }, (tab) => {
+      // Reading lastError keeps Chrome from logging an unchecked error.
+      if (chrome.runtime.lastError || !tab) {
+        resolve(false);
+        return;
+      }
+      focusExistWindow({ windowId: tab.windowId });
+      resolve(true);
+    });
+  });
+}
+
+function removeTab(tabId: number): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.tabs.remove(tabId, () => {
+      // The user may have closed the tab already.
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
+}
+
 async function openPermissionSettings() {
   // oxlint-disable-next-line @cspell/spellchecker
   // chrome://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
@@ -351,6 +432,9 @@ export default {
   openSidePanel,
   resetSidePanelPath,
   focusExistWindow,
+  focusTab,
+  removeTab,
+  getBrowserSessionId,
   openPanelOnActionClick,
   openPermissionSettings,
 };

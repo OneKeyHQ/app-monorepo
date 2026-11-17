@@ -45,6 +45,10 @@ export function ManagePageV2ReceiveInput({
     () => earnUtils.extractAmountFromText(receive?.description),
     [receive?.description],
   );
+  const displayReceiveAmount = useMemo(() => {
+    const amountBN = new BigNumber(receiveAmount);
+    return !amountBN.isNaN() && amountBN.isGreaterThan(0) ? receiveAmount : '';
+  }, [receiveAmount]);
 
   const receiveFiatValue = useMemo(() => {
     const amountBN = new BigNumber(receiveAmount || '0');
@@ -118,7 +122,7 @@ export function ManagePageV2ReceiveInput({
       }
       disabled
       forceSubduedBackground
-      value={receiveAmount}
+      value={displayReceiveAmount}
       onChange={() => {}}
       onBlur={() => {}}
       tokenSelectorTriggerProps={receiveTokenSelectorTriggerProps}

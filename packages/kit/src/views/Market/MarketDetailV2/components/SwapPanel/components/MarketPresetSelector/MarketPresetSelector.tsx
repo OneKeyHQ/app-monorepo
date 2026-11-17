@@ -11,6 +11,7 @@ import {
   Divider,
   Heading,
   Icon,
+  IconButton,
   Input,
   NumberSizeableText,
   ScrollView,
@@ -58,6 +59,7 @@ import {
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
+  isMarketPresetAutoSlippage,
   isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
   shouldShowMarketPresetPriorityFeeTooltip,
@@ -99,6 +101,7 @@ type IMarketPresetSelectorProps = {
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
   variant?: ITradingWidgetMainButtonVariant;
+  settingsButtonOnly?: boolean;
 };
 
 type IDraftPresetSettings = Partial<
@@ -1545,8 +1548,9 @@ export function MarketPresetSelector({
   estimatePriorityFeeFiatValues,
   presetSettings,
   slippageIconName = 'SliderVerOutline',
-  showAutoSlippageLabel = false,
+  showAutoSlippageLabel = true,
   variant,
+  settingsButtonOnly,
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -1606,10 +1610,22 @@ export function MarketPresetSelector({
     return null;
   }
 
+  if (settingsButtonOnly) {
+    // Figma 25672:54914 - see SlippageSetting's header variant: icon-only
+    // action with a 20 glyph and a circular hover background.
+    return (
+      <IconButton
+        testID="market-stock-preset-settings"
+        size="small"
+        variant="tertiary"
+        icon="SliderHorOutline"
+        onPress={openPresetDialog}
+      />
+    );
+  }
+
   const slippageLabel =
-    resolvedVariant === 'compact' &&
-    showAutoSlippageLabel &&
-    selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.AUTO
+    showAutoSlippageLabel && isMarketPresetAutoSlippage(selectedPresetKey)
       ? intl.formatMessage({ id: ETranslations.global_auto })
       : `${selectedSlippageValue}%`;
   const priorityFeeLabel = getPriorityFeeLabel({

@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import { RefreshControl, useTheme } from '@onekeyhq/components';
 import type { IRefreshControlType } from '@onekeyhq/components';
@@ -16,6 +16,8 @@ export const onHomePageRefresh = () => {
   });
 };
 
+const REFRESHING_INDICATOR_DURATION_MS = 1200;
+
 export interface IPullToRefreshProps extends Omit<
   IRefreshControlType,
   'onRefresh' | 'refreshing'
@@ -25,14 +27,23 @@ export interface IPullToRefreshProps extends Omit<
 
 function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
   const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
   const theme = useTheme();
 
   const handleRefresh = useCallback(() => {
-    onRefresh?.();
+    // Keep repeated native refresh events within one refresh cycle.
+    if (refreshingRef.current) {
+      return;
+    }
+    refreshingRef.current = true;
     setRefreshing(true);
+    // Arm the reset before invoking onRefresh so a synchronous throw cannot
+    // leave the guard stuck and silently disable every later pull.
     setTimeout(() => {
+      refreshingRef.current = false;
       setRefreshing(false);
-    }, 1200);
+    }, REFRESHING_INDICATOR_DURATION_MS);
+    onRefresh?.();
     defaultLogger.account.wallet.walletPullToRefresh();
   }, [onRefresh]);
 
