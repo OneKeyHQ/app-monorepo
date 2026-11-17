@@ -113,7 +113,7 @@ index 1e4ef94..16bd529 100644
              APP_GUID: guid,
              // Windows bug - entry in Software\Microsoft\Windows\CurrentVersion\Uninstall cannot have \ symbols (dir)
 diff --git a/node_modules/app-builder-lib/out/targets/snap.js b/node_modules/app-builder-lib/out/targets/snap.js
-index be3bb87..1b25951 100644
+index be3bb87..3ae7d09 100644
 --- a/node_modules/app-builder-lib/out/targets/snap.js
 +++ b/node_modules/app-builder-lib/out/targets/snap.js
 @@ -58,10 +58,15 @@ class SnapTarget extends core_1.Target {
@@ -144,6 +144,32 @@ index be3bb87..1b25951 100644
              apps: {
                  [snapName]: appDescriptor,
              },
+@@ -156,6 +163,25 @@ class SnapTarget extends core_1.Target {
+         if (options.assumes != null) {
+             snap.assumes = (0, builder_util_runtime_1.asArray)(options.assumes);
+         }
++        // OneKey patch: preserve the generated command and insert the wrapper after desktop setup.
++        if (options.executableWrapper != null) {
++            const wrapper = options.executableWrapper;
++            if (snap.base !== "core24" || this.isUseTemplateApp || !/^[a-zA-Z0-9_./-]+$/.test(wrapper) || wrapper.startsWith("/") || wrapper.split("/").includes("..")) {
++                throw new builder_util_1.InvalidConfigurationError("Snap executableWrapper requires a relative script path and a non-template core24 build");
++            }
++            const launchScripts = snap.parts["launch-scripts"];
++            if (!launchScripts || launchScripts["override-build"] != null) {
++                throw new builder_util_1.InvalidConfigurationError("Unexpected Snap launch-scripts template");
++            }
++            launchScripts["override-build"] = [
++                "set -eu",
++                "craftctl default",
++                'launcher="$CRAFT_PART_INSTALL/desktop-gnome-specific.sh"',
++                'test "$(grep -Fxc \'exec "$@"\' "$launcher")" -eq 1',
++                `sed -i 's|^exec "$@"$|exec /bin/bash "$SNAP/${wrapper}" "$@"|' "$launcher"`,
++                'bash -n "$launcher"',
++            ].join("\n");
++        }
+         return snap;
+     }
+     async build(appOutDir, arch) {
 diff --git a/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh b/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh
 index b7f4752..f257d39 100644
 --- a/node_modules/app-builder-lib/templates/nsis/assistedInstaller.nsh
@@ -270,3 +296,31 @@ index 917b3da..22de560 100644
    ${endif}
 
    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
+diff --git a/node_modules/app-builder-lib/out/options/SnapOptions.d.ts b/node_modules/app-builder-lib/out/options/SnapOptions.d.ts
+index bac6613..85643d3 100644
+--- a/node_modules/app-builder-lib/out/options/SnapOptions.d.ts
++++ b/node_modules/app-builder-lib/out/options/SnapOptions.d.ts
+@@ -1,6 +1,8 @@
+ import { TargetSpecificOptions } from "../core";
+ import { CommonLinuxOptions } from "./linuxOptions";
+ export interface SnapOptions extends CommonLinuxOptions, TargetSpecificOptions {
++    /** Bash wrapper path inside a non-template core24 snap, run after desktop initialization. */
++    readonly executableWrapper?: string | null;
+     /**
+      * A snap of type base to be used as the execution environment for this snap. Examples: `core`, `core18`, `core20`, `core22`. Defaults to `core20`
+      */
+diff --git a/node_modules/app-builder-lib/scheme.json b/node_modules/app-builder-lib/scheme.json
+index cfd4404..20b1bb0 100644
+--- a/node_modules/app-builder-lib/scheme.json
++++ b/node_modules/app-builder-lib/scheme.json
+@@ -5774,6 +5774,10 @@
+     "SnapOptions": {
+       "additionalProperties": false,
+       "properties": {
++        "executableWrapper": {
++          "description": "Bash wrapper path inside a non-template core24 snap, run after desktop initialization.",
++          "type": ["string", "null"]
++        },
+         "after": {
+           "anyOf": [
+             {
