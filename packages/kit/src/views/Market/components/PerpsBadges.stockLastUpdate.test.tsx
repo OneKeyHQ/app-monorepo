@@ -245,7 +245,7 @@ describe('StockMarketStatusBadge token price mode', () => {
       />,
     );
     expect(
-      screen.getByText(ETranslations.dexmarket_stock_status_open),
+      screen.getByText(ETranslations.market_token_trading__title),
     ).toBeTruthy();
     expect(
       screen.queryByText(ETranslations.trading_hours_market_closed),
@@ -254,12 +254,12 @@ describe('StockMarketStatusBadge token price mode', () => {
     expect(screen.queryByText(/07:58 UTC\+8/)).toBeNull();
 
     fireEvent.click(
-      screen.getByText(ETranslations.dexmarket_stock_status_open),
+      screen.getByText(ETranslations.market_token_trading__title),
     );
     expect(mockShowTradingHoursDialog).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: ETranslations.dexmarket_stock_status_open,
-        description: expect.stringContaining('24/7') as string,
+        title: ETranslations.market_token_trading__title,
+        description: ETranslations.market_token_trading_24_7__desc,
       }),
     );
   });

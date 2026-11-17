@@ -463,7 +463,7 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   },
   [EUSMarketStatusVariant.TokenTradable]: {
     icon: 'ChartTrendingOutline',
-    titleId: ETranslations.dexmarket_stock_status_open,
+    titleId: ETranslations.market_token_trading__title,
     bg: '$bgSuccess',
     color: '$textSuccess',
   },
@@ -490,6 +490,7 @@ function useStockTokenStatus(
   tokenTrading: IStockTokenTradingStatus | undefined,
   stock: IMarketStockInfo | undefined,
 ): IResolvedStockTokenStatus | undefined {
+  const intl = useIntl();
   const tradingHours = tokenTrading?.tradingHours;
   // Only a 24/5 token that reports no open flag of its own falls back to the
   // US session.
@@ -516,7 +517,9 @@ function useStockTokenStatus(
     variant,
     description:
       variant === EUSMarketStatusVariant.TokenTradable
-        ? getStockTokenTradableDescription(tradingHours.days)
+        ? intl.formatMessage({
+            id: getStockTokenTradableDescriptionId(tradingHours.days),
+          })
         : undefined,
     // A 24/5 token reopens with the US overnight session, which is what the
     // listing's next open reports when the token sends none of its own.
@@ -525,11 +528,12 @@ function useStockTokenStatus(
   };
 }
 
-// TODO(i18n): placeholder copy until the translation keys land.
-function getStockTokenTradableDescription(days: string | undefined) {
+function getStockTokenTradableDescriptionId(
+  days: string | undefined,
+): ETranslations {
   return isAlwaysOpenTradingDays(days)
-    ? 'This token trades 24/7. Trading may be paused temporarily during major corporate actions, such as stock splits or reverse splits.'
-    : 'This token trades 24/5, following US market sessions. Trading may be paused temporarily during major corporate actions, such as stock splits or reverse splits.';
+    ? ETranslations.market_token_trading_24_7__desc
+    : ETranslations.market_token_trading_24_5__desc;
 }
 
 /**
@@ -872,7 +876,7 @@ const StockMarketStatusBadge = memo(
             Dialog.show({
               icon: 'ChartTrendingOutline',
               title: intl.formatMessage({
-                id: ETranslations.dexmarket_stock_status_open,
+                id: ETranslations.market_token_trading__title,
               }),
               description: tokenStatus?.description,
               showCancelButton: false,
