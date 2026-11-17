@@ -19,6 +19,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import type { IMarketWidgetConfiguration } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
@@ -113,6 +115,13 @@ type IFetchMarketTokenListOptions = {
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
+  @backgroundMethod()
+  async setMarketWidgetConfiguration(
+    configuration: IMarketWidgetConfiguration,
+  ) {
+    await marketWidget.setConfiguration(configuration);
+  }
+
   @backgroundMethod()
   async updateMarketHomePreferences(preferences: IMarketHomePreferences) {
     await marketHomePreferencesAtom.set((prev) => ({
