@@ -22,13 +22,14 @@ import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
 import type { ITradingViewIndicatorOption } from '../TradingViewChartControls/types';
 
 let mockBackHandler: (() => boolean) | undefined;
+let mockWindowWidth = 844;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
 jest.mock('react-native', () => ({
-  useWindowDimensions: () => ({ width: 844, height: 390 }),
+  useWindowDimensions: () => ({ width: mockWindowWidth, height: 390 }),
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -201,6 +202,7 @@ describe('TradingViewNativeFullscreenIndicatorPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockBackHandler = undefined;
+    mockWindowWidth = 844;
   });
 
   it.each([
@@ -288,6 +290,25 @@ describe('TradingViewNativeFullscreenIndicatorPanel', () => {
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['indicators', 'settings', 'editor'] as const)(
+    'closes the full-width %s view of a narrow window from its header',
+    (view) => {
+      mockWindowWidth = 320;
+      expect(getTradingViewNativeFullscreenIndicatorPanelWidth(320)).toBe(320);
+      const { onClose } = renderPanel();
+      if (view !== 'indicators') {
+        fireEvent.click(screen.getByTestId(`${PANEL}-settings-trigger`));
+      }
+      if (view === 'editor') {
+        fireEvent.click(
+          screen.getByTestId('trading-view-mobile-indicator-settings-MA'),
+        );
+      }
+      fireEvent.click(screen.getByTestId(`${PANEL}-close`));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('closes once from the backdrop', () => {
     const { onClose } = renderPanel();

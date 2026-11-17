@@ -432,6 +432,17 @@ export function TradingViewNativeFullscreenIndicatorPanel({
                 testID={`${TEST_ID}-settings-trigger`}
               />
             ) : null}
+            {/* A narrow window (e.g. iPad Split View) gives the panel its full
+                width, leaving no backdrop to tap and no back on iOS. */}
+            <IconButton
+              icon="CrossedLargeOutline"
+              variant="tertiary"
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.global_close,
+              })}
+              onPress={requestClose}
+              testID={`${TEST_ID}-close`}
+            />
           </XStack>
           {content}
         </YStack>
