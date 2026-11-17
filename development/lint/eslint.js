@@ -25,14 +25,15 @@ const OXLINT_TARGET_FILE_RE = /\.(?:[cm]?[jt]s|[jt]sx)$/u;
 // for unchanged files, so it forces a full scan.
 const CSPELL_FULL_SCAN_FILES = new Set([
   '.oxlintrc.json',
-  'cspell.json',
   'development/spellCheckerSkipWords.txt',
   'development/lint/eslint.js',
-  'package.json',
   'yarn.lock',
 ]);
+// CSpell also searches every directory for config files (any case, such as
+// cSpell.json, including TypeScript configs) and the `cspell` field of any
+// package.json, so every manifest counts as a config file.
 const CSPELL_CONFIG_FILE_RE =
-  /(?:^|\/)\.?cspell[^/]*\.(?:json|jsonc|ya?ml|[cm]?js|toml)$/u;
+  /(?:^|\/)(?:package\.json|\.?cspell[^/]*\.(?:jsonc?|ya?ml|[cm]?js|toml)|\.?cspell\.config\.[cm]?ts)$/iu;
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 

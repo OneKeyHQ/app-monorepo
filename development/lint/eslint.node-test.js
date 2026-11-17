@@ -270,7 +270,10 @@ test('forces a full spellchecker scan when its configuration, dictionaries or ve
     'package.json',
     'development/lint/eslint.js',
     'packages/kit/.cspell.json',
+    'packages/kit/package.json',
     'apps/web/cspell.config.yaml',
+    'apps/web/cspell.config.ts',
+    'apps/desktop/.vscode/cSpell.json',
   ]) {
     assert.equal(
       getCspellFullScanReason(['src/a.ts', file]),
@@ -279,7 +282,7 @@ test('forces a full spellchecker scan when its configuration, dictionaries or ve
   }
   assert.equal(
     getCspellFullScanReason([
-      'packages/kit/package.json',
+      'packages/kit/src/package.json.ts',
       'packages/kit/src/cspellUtils.ts',
       'docs/readme.md',
     ]),
@@ -424,6 +427,24 @@ test('renaming cspell.json away forces a full scan (real git diff)', () => {
     assert.deepEqual(resolveInRepo(repoDir), {
       mode: 'full',
       reason: 'cspell.json changed',
+    });
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test('changing a workspace package.json forces a full scan (real git diff)', () => {
+  const { repoDir, git, write } = createGitRepo();
+  try {
+    write(
+      'packages/kit/package.json',
+      '{"cspell":{"flagWords":["navigator"]}}\n',
+    );
+    git('add', '-A');
+    git('commit', '-qm', 'add workspace cspell settings');
+    assert.deepEqual(resolveInRepo(repoDir), {
+      mode: 'full',
+      reason: 'packages/kit/package.json changed',
     });
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
