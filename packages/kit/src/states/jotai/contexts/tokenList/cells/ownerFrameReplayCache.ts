@@ -133,6 +133,11 @@ function pruneValuationToStructure(
   };
 }
 
+// Bumped on every clear, so a caller filling the cache from an async answer
+// can tell the cache was cleared (a wallet / account removal) while it waited.
+let clearGeneration = 0;
+const clearListeners = new Set<() => void>();
+
 /**
  * Record the payload the shell just applied for `(storeName, ownerKey, kind)`.
  * A currency change drops the owner's remembered valuation and risky frames
@@ -273,6 +278,11 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
     };
   }
   replayCache.set(key, next);
+  if (slotChanged || kind === 'risky') {
+    for (const listener of clearListeners) {
+      listener();
+    }
+  }
   while (replayCache.size > OWNER_REPLAY_CACHE_CAP) {
     const lru = replayCache.keys().next().value;
     if (lru === undefined) {
@@ -306,11 +316,6 @@ export function getOwnerReplayFrames({
   replayCache.set(key, frames);
   return frames;
 }
-
-// Bumped on every clear, so a caller filling the cache from an async answer
-// can tell the cache was cleared (a wallet / account removal) while it waited.
-let clearGeneration = 0;
-const clearListeners = new Set<() => void>();
 
 export function registerOwnerReplayCacheClearListener(
   listener: () => void,

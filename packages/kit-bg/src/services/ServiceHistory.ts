@@ -86,7 +86,10 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
-import { perpsDepositOrderAtom } from '../states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  perpsDepositOrderAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
 import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
