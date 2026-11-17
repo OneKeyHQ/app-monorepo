@@ -5,6 +5,8 @@ import {
   getDeviceUtcOffsetLabel,
   getUSMarketNextOpenCountdown,
   getUSMarketTradingHours,
+  isAlwaysOpenTradingDays,
+  resolveStockTokenStatusVariant,
   resolveUSMarketStatusVariant,
   resolveUSTradingHoursActiveRow,
   usMarketSessionKeyFromBackendSession,
@@ -677,5 +679,101 @@ describe('getUSMarketNextOpenCountdown', () => {
       }),
     ).toBeUndefined();
     expect(getUSMarketNextOpenCountdown({ now })).toBeUndefined();
+  });
+});
+
+describe('resolveStockTokenStatusVariant', () => {
+  // Saturday noon New York: the US market is closed for the weekend.
+  const SATURDAY = new Date('2026-01-17T17:00:00Z');
+  // Monday 22:00 New York: overnight session.
+  const OVERNIGHT = new Date('2026-01-20T03:00:00Z');
+
+  it('recognizes the always-open window spellings', () => {
+    expect(isAlwaysOpenTradingDays('7 × 24')).toBe(true);
+    expect(isAlwaysOpenTradingDays(' 7x24 ')).toBe(true);
+    expect(isAlwaysOpenTradingDays('5 × 24')).toBe(false);
+    expect(isAlwaysOpenTradingDays(undefined)).toBe(false);
+  });
+
+  it('returns undefined without token trading hours', () => {
+    expect(
+      resolveStockTokenStatusVariant({ status: status('REGULAR') }),
+    ).toBeUndefined();
+  });
+
+  it('reads a 7×24 token as tradable through a market closure', () => {
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '7 × 24', isMarketOpen: true },
+        status: status('CLOSED'),
+        now: SATURDAY,
+      }),
+    ).toBe(EUSMarketStatusVariant.TokenTradable);
+  });
+
+  it('reads a paused token as halted', () => {
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '7 × 24', isPaused: true },
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24', isMarketOpen: true },
+        isPaused: true,
+        status: status('REGULAR'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+  });
+
+  it("follows a 24/5 token's own open flag over the market status", () => {
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24', isMarketOpen: true },
+        status: status('OVERNIGHT'),
+        now: OVERNIGHT,
+      }),
+    ).toBe(EUSMarketStatusVariant.TokenTradable);
+    // The token reports itself open while the market status says closed.
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24', isMarketOpen: true },
+        status: status('CLOSED'),
+        now: SATURDAY,
+      }),
+    ).toBe(EUSMarketStatusVariant.TokenTradable);
+    // The token reports itself closed while the market status says open.
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24', isMarketOpen: false },
+        status: status('REGULAR'),
+        now: new Date('2026-01-15T15:00:00Z'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+  });
+
+  it('falls back to the US sessions without a token open flag', () => {
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24' },
+        status: status('CLOSED'),
+        now: SATURDAY,
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+    // A session gap keeps token trading available.
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24' },
+        status: status('PRE_MARKET'),
+        now: GAP_NOW,
+      }),
+    ).toBe(EUSMarketStatusVariant.TokenTradable);
+    // Clock fallback while the market status is unavailable.
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '5 × 24' },
+        now: SATURDAY,
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
   });
 });

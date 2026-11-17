@@ -12,6 +12,7 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Icon,
   Image,
   SizableText,
@@ -35,9 +36,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EUSMarketStatusVariant,
   getUSMarketNextOpenCountdown,
+  isAlwaysOpenTradingDays,
+  resolveStockTokenStatusVariant,
   resolveUSMarketStatusVariant,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
-import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockInfo,
+  IMarketStockTokenVariant,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { formatStockLastUpdateTime } from '../utils/stockLastUpdate';
 
@@ -455,7 +461,76 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
     bg: '$bgCritical',
     color: '$textCritical',
   },
+  [EUSMarketStatusVariant.TokenTradable]: {
+    icon: 'ChartTrendingOutline',
+    titleId: ETranslations.dexmarket_stock_status_open,
+    bg: '$bgSuccess',
+    color: '$textSuccess',
+  },
 };
+
+/**
+ * The selected token's own trading status, shown in place of the underlying
+ * market's while the detail page displays the token price.
+ */
+export type IStockTokenTradingStatus = {
+  tradingHours?: IMarketStockTokenVariant['tradingHours'];
+  isPaused?: boolean;
+};
+
+type IResolvedStockTokenStatus = {
+  variant: EUSMarketStatusVariant | undefined;
+  /** Explains the tradable state; other states open the trading-hours panel. */
+  description?: string;
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
+};
+
+function useStockTokenStatus(
+  tokenTrading: IStockTokenTradingStatus | undefined,
+  stock: IMarketStockInfo | undefined,
+): IResolvedStockTokenStatus | undefined {
+  const tradingHours = tokenTrading?.tradingHours;
+  // Only a 24/5 token that reports no open flag of its own falls back to the
+  // US session.
+  const marketStatus = useUSMarketStatus({
+    enabled:
+      Boolean(tradingHours) &&
+      !isAlwaysOpenTradingDays(tradingHours?.days) &&
+      typeof tradingHours?.isMarketOpen !== 'boolean',
+  });
+  const isPaused = tokenTrading?.isPaused;
+  const variant = useMemo(
+    () =>
+      resolveStockTokenStatusVariant({
+        tradingHours,
+        isPaused,
+        status: marketStatus,
+      }),
+    [isPaused, marketStatus, tradingHours],
+  );
+  if (!tokenTrading || !tradingHours || !variant) {
+    return undefined;
+  }
+  return {
+    variant,
+    description:
+      variant === EUSMarketStatusVariant.TokenTradable
+        ? getStockTokenTradableDescription(tradingHours.days)
+        : undefined,
+    // A 24/5 token reopens with the US overnight session, which is what the
+    // listing's next open reports when the token sends none of its own.
+    nextOpenTime: tradingHours.nextOpenTime ?? stock?.nextOpenTime,
+    nextOpenMinutes: tradingHours.nextOpenMinutes ?? stock?.nextOpenMinutes,
+  };
+}
+
+// TODO(i18n): placeholder copy until the translation keys land.
+function getStockTokenTradableDescription(days: string | undefined) {
+  return isAlwaysOpenTradingDays(days)
+    ? 'This token trades 24/7. Trading may be paused temporarily during major corporate actions, such as stock splits or reverse splits.'
+    : 'This token trades 24/5, following US market sessions. Trading may be paused temporarily during major corporate actions, such as stock splits or reverse splits.';
+}
 
 /**
  * Market status chip for tokenized stocks of every issuer (see OK-58043).
@@ -482,8 +557,11 @@ const StockIsOpenBadge = memo(
     inlineSize = 'md',
     showLastUpdate = true,
     availableWidth: containerWidth,
+    tokenStatus,
   }: {
     stock: IMarketStockInfo;
+    /** Replaces the underlying market's status with the token's own. */
+    tokenStatus?: IResolvedStockTokenStatus;
     disableTooltip?: boolean;
     variant?: 'badge' | 'inline';
     /** Mobile detail headers use the compact `sm` inline row. */
@@ -500,20 +578,23 @@ const StockIsOpenBadge = memo(
     // gap-transient variants once the gap ends. Other isOpen values resolve
     // clock-free (Closed / Halted / no chip), so skip the fetch for them.
     const marketStatus = useUSMarketStatus({
-      enabled: isOpen === true && isUSListing !== false,
+      enabled: !tokenStatus && isOpen === true && isUSListing !== false,
     });
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
-    const variant = useMemo(
+    const marketVariant = useMemo(
       () =>
-        resolveUSMarketStatusVariant({
-          isUSListing,
-          isOpen,
-          isPaused,
-          status: marketStatus,
-        }),
-      [isUSListing, isOpen, isPaused, marketStatus],
+        tokenStatus
+          ? undefined
+          : resolveUSMarketStatusVariant({
+              isUSListing,
+              isOpen,
+              isPaused,
+              status: marketStatus,
+            }),
+      [isUSListing, isOpen, isPaused, marketStatus, tokenStatus],
     );
+    const variant = tokenStatus ? tokenStatus.variant : marketVariant;
 
     // Outside regular trading the share price is frozen, so the inline chip
     // reports when it last moved. While the market trades the quote is live
@@ -527,6 +608,11 @@ const StockIsOpenBadge = memo(
       ) {
         return undefined;
       }
+      // A token's price keeps moving even while a 24/5 token is closed, so
+      // only the share price has a meaningful last move to report.
+      if (tokenStatus) {
+        return undefined;
+      }
       const time = formatStockLastUpdateTime(stock.priceUpdatedAt);
       if (!time) {
         return undefined;
@@ -534,7 +620,14 @@ const StockIsOpenBadge = memo(
       return `${intl.formatMessage({
         id: ETranslations.market_last_updated,
       })} ${time}`;
-    }, [displayVariant, intl, showLastUpdate, stock.priceUpdatedAt, variant]);
+    }, [
+      displayVariant,
+      intl,
+      showLastUpdate,
+      stock.priceUpdatedAt,
+      tokenStatus,
+      variant,
+    ]);
 
     // Measured so a translation that outgrows the row drops the countdown
     // instead of running under the trade panel beside it. The text stack is
@@ -579,8 +672,10 @@ const StockIsOpenBadge = memo(
       enabled:
         displayVariant === 'inline' &&
         variant === EUSMarketStatusVariant.Closed,
-      nextOpenTime: stock.nextOpenTime,
-      nextOpenMinutes: stock.nextOpenMinutes,
+      nextOpenTime: tokenStatus ? tokenStatus.nextOpenTime : stock.nextOpenTime,
+      nextOpenMinutes: tokenStatus
+        ? tokenStatus.nextOpenMinutes
+        : stock.nextOpenMinutes,
     });
 
     // A countdown that ticks down to a shorter string can fit again, so every
@@ -622,7 +717,15 @@ const StockIsOpenBadge = memo(
     const inlineMetaTextSize = isCompactInline ? '$bodySm' : '$bodyMd';
     const badge =
       displayVariant === 'inline' ? (
-        <XStack alignItems="center" gap="$1" onLayout={handleRowLayout}>
+        // A status row, not text or a link: without an explicit cursor the
+        // labels show a text caret and the gaps an arrow, so the cursor
+        // flickers while it moves across the row.
+        <XStack
+          alignItems="center"
+          gap="$1"
+          cursor="default"
+          onLayout={handleRowLayout}
+        >
           {/* Figma 26560:24978 pads the icon box by 2px so the glyph is not
               flush against the label's cap height. */}
           <Stack
@@ -682,7 +785,10 @@ const StockIsOpenBadge = memo(
         </XStack>
       );
 
-    if (disableTooltip || !description || platformEnv.isNative) {
+    const tooltipDescription = tokenStatus
+      ? tokenStatus.description
+      : description;
+    if (disableTooltip || !tooltipDescription || platformEnv.isNative) {
       return badge;
     }
 
@@ -690,7 +796,7 @@ const StockIsOpenBadge = memo(
       <LazyTooltip
         hovering
         placement="bottom"
-        renderContent={description}
+        renderContent={tooltipDescription}
         renderTrigger={<Stack cursor="pointer">{badge}</Stack>}
       />
     );
@@ -709,12 +815,18 @@ const StockMarketStatusBadge = memo(
     variant,
     inlineSize,
     showLastUpdate,
+    tokenTrading,
   }: {
     stock?: IMarketStockInfo;
     variant?: 'badge' | 'inline';
     inlineSize?: 'md' | 'sm';
     showLastUpdate?: boolean;
+    /** Pass while the token price is shown: the chip follows that token. */
+    tokenTrading?: IStockTokenTradingStatus;
   }) => {
+    const intl = useIntl();
+    const media = useMedia();
+    const tokenStatus = useStockTokenStatus(tokenTrading, stock);
     const stockKey =
       stock && stock.isUSListing !== false
         ? `${stock.source ?? ''}:${stock.stockId ?? stock.title ?? stock.subtitle}`
@@ -736,16 +848,53 @@ const StockMarketStatusBadge = memo(
     if (!stock) {
       return null;
     }
+    const isTokenTradable =
+      tokenStatus?.variant === EUSMarketStatusVariant.TokenTradable;
+    const useSheetDialog = platformEnv.isNative || media.md;
     const trigger = (
       <StockIsOpenBadge
         stock={stock}
-        disableTooltip
+        tokenStatus={tokenStatus}
+        // A tradable token explains itself in a hover tooltip on wide screens.
+        disableTooltip={!isTokenTradable || useSheetDialog}
         variant={variant}
         inlineSize={inlineSize}
         showLastUpdate={showLastUpdate}
         availableWidth={variant === 'inline' ? availableWidth : undefined}
       />
     );
+    if (isTokenTradable) {
+      const tradableTrigger = useSheetDialog ? (
+        <Stack
+          cursor="pointer"
+          onPress={(event) => {
+            event.stopPropagation();
+            Dialog.show({
+              icon: 'ChartTrendingOutline',
+              title: intl.formatMessage({
+                id: ETranslations.dexmarket_stock_status_open,
+              }),
+              description: tokenStatus?.description,
+              showCancelButton: false,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_ok,
+              }),
+            });
+          }}
+        >
+          {trigger}
+        </Stack>
+      ) : (
+        trigger
+      );
+      return variant === 'inline' ? (
+        <Stack onLayout={handleLayout}>
+          <Stack alignSelf="flex-start">{tradableTrigger}</Stack>
+        </Stack>
+      ) : (
+        tradableTrigger
+      );
+    }
     if (stock.isUSListing === false) {
       return trigger;
     }

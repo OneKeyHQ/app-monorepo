@@ -224,3 +224,80 @@ describe('StockIsOpenBadge last update segment', () => {
     expect(screen.queryByText(/market.last_updated/)).toBeNull();
   });
 });
+
+describe('StockMarketStatusBadge token price mode', () => {
+  afterEach(() => {
+    mockResolveVariant.mockReset();
+    mockShowTradingHoursDialog.mockReset();
+  });
+
+  it('reports a 7×24 token as trading and explains it on press', () => {
+    // The listing itself is closed; the token chip must not follow it.
+    mockResolveVariant.mockReturnValue(EUSMarketStatusVariant.Closed);
+    render(
+      <StockMarketStatusBadge
+        stock={stock}
+        variant="inline"
+        showLastUpdate
+        tokenTrading={{
+          tradingHours: { days: '7 × 24', isMarketOpen: true },
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(ETranslations.dexmarket_stock_status_open),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(ETranslations.trading_hours_market_closed),
+    ).toBeNull();
+    // A tradable token's quote is live, so no last update is shown.
+    expect(screen.queryByText(/07:58 UTC\+8/)).toBeNull();
+
+    fireEvent.click(
+      screen.getByText(ETranslations.dexmarket_stock_status_open),
+    );
+    expect(mockShowTradingHoursDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: ETranslations.dexmarket_stock_status_open,
+        description: expect.stringContaining('24/7') as string,
+      }),
+    );
+  });
+
+  it('reports a closed 24/5 token with a countdown but no last update', () => {
+    mockResolveVariant.mockReturnValue(EUSMarketStatusVariant.Open);
+    render(
+      <StockMarketStatusBadge
+        stock={{ ...stock, isOpen: true }}
+        variant="inline"
+        showLastUpdate
+        tokenTrading={{
+          tradingHours: { days: '5 × 24', isMarketOpen: false },
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(ETranslations.trading_hours_market_closed),
+    ).toBeTruthy();
+    // The token price keeps moving while closed, so the share's last move
+    // must not be reported against it.
+    expect(screen.queryByText(/07:58 UTC\+8/)).toBeNull();
+    expect(screen.getByText(ETranslations.market_opens_in)).toBeTruthy();
+  });
+
+  it('reports a paused token as halted', () => {
+    render(
+      <StockMarketStatusBadge
+        stock={stock}
+        variant="inline"
+        tokenTrading={{
+          tradingHours: { days: '7 × 24', isMarketOpen: true },
+          isPaused: true,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(ETranslations.trading_hours_trading_halts),
+    ).toBeTruthy();
+  });
+});

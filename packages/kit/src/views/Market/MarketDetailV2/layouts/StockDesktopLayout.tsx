@@ -107,6 +107,8 @@ import {
   STOCK_DETAIL_HORIZONTAL_GUTTER,
 } from './stockDesktopLayoutConstants';
 
+import type { IStockTokenTradingStatus } from '../../components/PerpsBadges';
+
 type IStockDetailTab = 'overview' | 'position';
 
 // The Overview / My position tab row: the anchor for entries that open the
@@ -362,6 +364,18 @@ function StockPriceHeader({
         selectedTokenVariant?.tradingHours?.isPaused,
     });
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
+  // The token price follows the token selected in the trade panel, so its
+  // status does too: switching to a 24/5 token outside its hours reads closed.
+  const tokenTrading = useMemo<IStockTokenTradingStatus | undefined>(
+    () =>
+      !isSharePrice && selectedTokenVariant
+        ? {
+            tradingHours: selectedTokenVariant.tradingHours,
+            isPaused: selectedTokenVariant.isPaused,
+          }
+        : undefined,
+    [isSharePrice, selectedTokenVariant],
+  );
 
   const changeValueText = priceChangeValue?.toFixed();
 
@@ -449,12 +463,14 @@ function StockPriceHeader({
             </SizableText>
           </XStack>
         </XStack>
-        {/* The token price updates around the clock, so its quote is never
-            stale — only the share price reports when it last moved. */}
+        {/* With the token price shown, the chip reports the selected token's
+            own status. Token prices keep moving even while a 24/5 token is
+            closed, so only the share price reports when it last moved. */}
         <StockMarketStatusBadge
           stock={stockStatus}
           variant="inline"
           showLastUpdate={isSharePrice}
+          tokenTrading={tokenTrading}
         />
       </YStack>
 
