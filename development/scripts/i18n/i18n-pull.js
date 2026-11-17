@@ -6,6 +6,7 @@
 //                                     onekey-i18n main)
 //   yarn i18n:pull --pr 12 [--wait]   the CI preview of an open onekey-i18n PR;
 //                                     such files must not be merged into x
+//     [--commit <sha>]                only if the PR head is still that commit
 //
 // ONEKEY_I18N_CHANNEL=test reads app-test instead, which an onekey-i18n branch
 // publishes while it is being tried.
@@ -34,6 +35,7 @@ async function run(
     args,
     options: {
       pr: { type: 'string' },
+      commit: { type: 'string' },
       wait: { type: 'boolean' },
       'output-root': { type: 'string' },
     },
@@ -48,7 +50,12 @@ async function run(
   const { source, login } = await api.identity();
   log(`GitHub access: ${source}${login ? `, GitHub user ${login}` : ''}`);
   const result = values.pr
-    ? await fromPullRequest({ pr: values.pr, wait: values.wait, api })
+    ? await fromPullRequest({
+        pr: values.pr,
+        commit: values.commit,
+        wait: values.wait,
+        api,
+      })
     : await fromRelease({ api });
   const commit = result.commit.slice(0, 10);
   log(

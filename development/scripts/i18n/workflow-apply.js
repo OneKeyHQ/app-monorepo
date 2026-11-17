@@ -188,7 +188,10 @@ async function applyPlan({
     receipt.status = 'pulling';
     writeJson(receiptFile, receipt);
     await Promise.resolve(
-      pullImpl(plan, root, undefined, { pr: receipt.proposal?.number }),
+      pullImpl(plan, root, undefined, {
+        pr: receipt.proposal?.number,
+        commit: receipt.proposal?.commit,
+      }),
     );
     receipt.verification = verifyLocal(plan, root, before);
     receipt.status = 'complete';

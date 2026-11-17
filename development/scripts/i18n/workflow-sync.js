@@ -61,13 +61,15 @@ function assertGeneratedBaseline(root, sync) {
 }
 
 // Pulls the latest onekey-i18n release, or, after apply opened an onekey-i18n
-// PR, waits for that PR's CI preview and pulls it.
-function pull(_record, root, outputRoot, { pr } = {}) {
+// PR, waits for that PR's CI preview and pulls it, refusing a PR head that
+// moved away from the commit apply created.
+function pull(_record, root, outputRoot, { pr, commit } = {}) {
   execFileSync(
     process.execPath,
     [
       path.join(root, 'development/scripts/i18n/i18n-pull.js'),
       ...(pr ? ['--pr', String(pr), '--wait'] : []),
+      ...(pr && commit ? ['--commit', commit] : []),
       ...(outputRoot ? ['--output-root', outputRoot] : []),
     ],
     { cwd: root, stdio: 'inherit' },

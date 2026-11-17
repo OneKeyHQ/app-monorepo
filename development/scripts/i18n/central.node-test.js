@@ -806,6 +806,27 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
     }),
     /have no i18n-preview artifact/,
   );
+
+  // apply passes the commit it created: a PR head that moved since is refused
+  // before anything is downloaded, and the same head is pulled as usual.
+  const moved = fakeApi(routes);
+  await assert.rejects(
+    fromPullRequest({ pr: 12, commit: 'h0', wait: true, api: moved }),
+    /onekey-i18n PR #12 has moved to h1 since h0/,
+  );
+  assert.deepEqual(
+    moved.calls.map(([kind, endpoint]) => `${kind} ${endpoint}`),
+    [`GET ${REPO}/pulls/12`],
+  );
+  polls = 0;
+  const pinned = await fromPullRequest({
+    pr: 12,
+    commit: 'h1',
+    wait: true,
+    intervalMs: 1,
+    api: fakeApi(routes),
+  });
+  assert.equal(pinned.commit, 'h1');
 });
 
 test('locale files are never written outside the locale directory', (t) => {

@@ -402,10 +402,13 @@ async function sourceFromCommit({ commit, api = githubApi() }) {
 
 /**
  * App files from an onekey-i18n PR's CI preview artifact. With wait, polls
- * until a run for the PR head has uploaded it (up to timeoutMs).
+ * until a run for the PR head has uploaded it (up to timeoutMs). With commit
+ * (apply passes the one it created), a PR head that has moved since is
+ * refused before anything is downloaded.
  */
 async function fromPullRequest({
   pr,
+  commit,
   wait = false,
   timeoutMs = 10 * 60_000,
   intervalMs = 10_000,
@@ -413,6 +416,10 @@ async function fromPullRequest({
 }) {
   const pull = await api.get(`/repos/${CENTRAL_REPO}/pulls/${pr}`);
   const headSha = pull.head.sha;
+  if (commit && headSha !== commit)
+    throw new Error(
+      `onekey-i18n PR #${pr} has moved to ${headSha.slice(0, 10)} since ${commit.slice(0, 10)}; review its new commits before pulling.`,
+    );
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const { workflow_runs: runs } = await api.get(

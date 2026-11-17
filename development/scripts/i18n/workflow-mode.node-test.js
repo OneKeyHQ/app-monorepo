@@ -63,6 +63,35 @@ test('default completion creates new keys and reuses existing translations witho
   );
 });
 
+test('apply pulls the preview of the exact commit it proposed', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  api.client.finalize = async () => ({
+    number: 9,
+    url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/9',
+    branch: 'i18n/app-x',
+    commit: 'c2',
+    files: [],
+  });
+  const prepared = await prepare(
+    ctx,
+    api,
+    singleDraft('travel_mode__title', ctx.translations(), ctx.root),
+  );
+  const pulls = [];
+  await applyPlan({
+    file: prepared.file,
+    approval: prepared.plan.approval,
+    client: api.client,
+    root: ctx.root,
+    pullImpl: (plan, root, _outputRoot, options) => {
+      pulls.push(options);
+      fakePull(plan, root);
+    },
+  });
+  assert.deepEqual(pulls, [{ pr: 9, commit: 'c2' }]);
+});
+
 test('preview refuses a new key whose name only an archived onekey-i18n key uses', async (t) => {
   const ctx = fixture(t);
   const api = fakeClient(ctx);
