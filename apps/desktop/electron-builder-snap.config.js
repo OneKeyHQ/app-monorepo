@@ -12,6 +12,10 @@ module.exports = {
     'files': [...baseFiles, ...linuxExcludePrebuilds],
     'extraResources': [
       {
+        'from': 'scripts/snap-gpu-wrapper.sh',
+        'to': 'snap-gpu-wrapper.sh',
+      },
+      {
         'from': 'app/build/static/bin/bridge/linux-${arch}',
         'to': 'bin/bridge',
       },
@@ -29,6 +33,8 @@ module.exports = {
   // Refer: https://canonical-snap.readthedocs-hosted.com/reference/development/interfaces/raw-usb-interface/
   'snap': {
     'base': 'core24',
+    // Run after desktop initialization so its GPU defaults cannot override the provider.
+    'executableWrapper': 'app/resources/snap-gpu-wrapper.sh',
     'plugs': [
       'default',
       'raw-usb',
@@ -74,18 +80,10 @@ module.exports = {
       '-usr/sbin',
       '-usr/bin',
     ],
-    // gpu-2404 provides Mesa DRI/EGL drivers. desktop-common.sh sets some
-    // GPU paths for gnome-platform, but gpu-2404 paths must also be present.
-    // Both arch triplets are listed so the same config works for x64 and arm64.
+    // The executable wrapper obtains GPU paths from the connected provider at runtime.
     'environment': {
       'LD_LIBRARY_PATH': [
         '$SNAP_LIBRARY_PATH',
-        // gpu-2404 MUST come before staged libs so its libgbm.so.1 // cspell:disable-line
-        // is loaded instead of the staged one (which hardcodes host paths).
-        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu',
-        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/gbm',
-        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu',
-        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/gbm',
         '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu',
         '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu',
         '$SNAP/lib:$SNAP/usr/lib',
@@ -93,17 +91,6 @@ module.exports = {
         '$SNAP/lib/aarch64-linux-gnu:$SNAP/usr/lib/aarch64-linux-gnu',
         '$LD_LIBRARY_PATH',
       ].join(':'),
-      // Mesa DRI driver search path (gpu-2404 content snap).
-      'LIBGL_DRIVERS_PATH': [
-        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/dri',
-        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/dri',
-      ].join(':'),
-      // EGL vendor ICD discovery for GLVND (gpu-2404 content snap). // cspell:disable-line
-      // desktop-common.sh only sets this if /var/lib/snapd/lib/glvnd exists, // cspell:disable-line
-      // which is empty on most systems. Without this, libEGL cannot find
-      // libEGL_mesa.so.0 and EGL initialization fails.
-      '__EGL_VENDOR_LIBRARY_DIRS':
-        '$SNAP/gpu-2404/usr/share/glvnd/egl_vendor.d',
       // GIO extra modules (libgiolibproxy, etc.) from gnome-platform content snap. // cspell:disable-line
       // Use GIO_EXTRA_MODULES (not GIO_MODULE_DIR) because the latter only
       // accepts a single directory. Both arch triplets are listed since only
