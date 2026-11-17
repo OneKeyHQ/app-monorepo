@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 import {
@@ -171,18 +172,24 @@ function FaqInfo({
 
 export const FaqSection = ({
   details,
+  symbol,
 }: {
   details?: IStakeProtocolDetails;
+  symbol: string;
 }) => {
   const { result: solutions } = usePromiseResult(
     async () =>
       details
         ? backgroundApiProxy.serviceStaking.getFAQList({
-            symbol: details.token.info.symbol,
+            symbol: earnUtils.isEtherFiProvider({
+              providerName: details.provider.name,
+            })
+              ? symbol
+              : details.token.info.symbol,
             provider: details.provider.name,
           })
         : Promise.resolve([]),
-    [details],
+    [details, symbol],
     {
       initResult: [],
     },
