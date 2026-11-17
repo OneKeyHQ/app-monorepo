@@ -79,7 +79,7 @@ export function computeProfileDrawerMarks(
     supportKnown,
     firmwareUpdateKeys,
   } = signals;
-  // Travel mode masks the notification state and disables these rows, so a
+  // Travel mode masks the notification state and these rows don't open, so a
   // mark there could never be cleared.
   const notificationsPending =
     !isTravelMode && (!notificationGuideOpened || unreadNotifications > 0);

@@ -32,10 +32,7 @@ function ProfileAvatarWithDot() {
     ),
   ].join(', ');
   return (
-    <ProfileAvatarFrame
-      label={label}
-      dot={avatarReasons.length ? 'critical' : undefined}
-    >
+    <ProfileAvatarFrame label={label} dot={avatarReasons.length > 0}>
       <OneKeyIdAvatar size="$10" showSocialBadge={false} />
     </ProfileAvatarFrame>
   );

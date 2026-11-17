@@ -19,7 +19,7 @@ export function ProfileAvatarFrame({
   children,
 }: {
   label: string;
-  dot?: 'critical' | 'accent';
+  dot?: boolean;
   children: ReactNode;
 }) {
   const pressed = useSharedValue(0);
@@ -59,7 +59,7 @@ export function ProfileAvatarFrame({
             borderRadius="$full"
             borderWidth={2}
             borderColor="$bgApp"
-            bg={dot === 'critical' ? '$bgCriticalStrong' : '$bgAccent'}
+            bg="$bgCriticalStrong"
             pointerEvents="none"
           />
         ) : null}

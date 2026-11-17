@@ -9,6 +9,7 @@ import {
   IconButton,
   ScrollView,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -56,6 +57,7 @@ const LazyPrimeUserBadge = lazy(async () => {
 });
 
 const ROW_PRESS_STYLE = { bg: '$bgActive' } as const;
+const IDENTITY_PRESS_STYLE = { opacity: 0.6 } as const;
 const NOTIFICATION_COUNT_CAP = 99;
 
 // On iOS a CJK label (PingFang glyphs inside the brand font's line box) sits
@@ -82,9 +84,10 @@ function DrawerRow({
   trackID,
   onPress,
   badge,
-  trailing,
   ariaNote,
   disabled,
+  ignorePress,
+  loading,
   subdued = false,
   testID,
 }: {
@@ -93,31 +96,38 @@ function DrawerRow({
   item: IProfileDrawerItem;
   trackID: string;
   onPress: () => void;
-  // Sits right after the label, unlike trailing at the far end.
+  // Sits right after the label.
   badge?: ReactNode;
-  trailing?: ReactNode;
-  // What a trailing dot means, for screen readers.
+  // What the badge says, for screen readers.
   ariaNote?: string;
   disabled?: boolean;
+  // Looks and presses as usual but does nothing, like the More menu's
+  // entries in travel mode.
+  ignorePress?: boolean;
+  // A spinner at the row's end while the entry is still on its way.
+  loading?: boolean;
   subdued?: boolean;
   testID?: string;
 }) {
-  const hadMark = !!badge || !!trailing;
+  const hadMark = !!badge;
   const handlePress = useCallback(() => {
-    if (disabled) return;
+    if (disabled || ignorePress || loading) return;
     defaultLogger.ui.button.click({ trackId: trackID });
     defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
       item,
       hadMark,
     });
     onPress();
-  }, [disabled, hadMark, item, onPress, trackID]);
+  }, [disabled, hadMark, ignorePress, item, loading, onPress, trackID]);
   return (
     <XStack
       testID={testID}
+      // One element for screen readers, so the label below is what they read.
+      accessible
       role="button"
       aria-label={ariaNote ? `${label}, ${ariaNote}` : label}
       aria-disabled={disabled}
+      aria-busy={loading}
       minHeight={56}
       mx="$-3"
       px="$3"
@@ -127,7 +137,7 @@ function DrawerRow({
       borderRadius="$3"
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
-      pressStyle={disabled ? undefined : ROW_PRESS_STYLE}
+      pressStyle={disabled || loading ? undefined : ROW_PRESS_STYLE}
       onPress={handlePress}
     >
       <Icon name={icon} size="$6" color={subdued ? '$iconSubdued' : '$icon'} />
@@ -146,7 +156,7 @@ function DrawerRow({
         {badge}
       </XStack>
       <Stack flex={1} />
-      {trailing}
+      {loading ? <Spinner size="small" /> : null}
     </XStack>
   );
 }
@@ -163,7 +173,8 @@ function NotificationCount({ count }: { count?: number }) {
     <XStack
       minWidth="$5"
       h="$5"
-      px="$2"
+      // A single digit stays a 20pt circle; more digits stretch it.
+      px="$1.5"
       borderRadius="$full"
       bg="$bgCriticalSubdued"
       alignItems="center"
@@ -178,8 +189,6 @@ function NotificationCount({ count }: { count?: number }) {
   );
 }
 
-// The count's pill in the success tone, with words: an update is a status to
-// act on, not something unread.
 const UPDATE_PILL_LABEL_IDS: Record<IProfileDrawerAppUpdate, ETranslations> = {
   available: ETranslations.hardware_status_update_available,
   updating: ETranslations.global_updating,
@@ -241,6 +250,7 @@ function DrawerScanButton() {
       trackID="wallet-scan"
       variant="secondary"
       icon="ScanOutline"
+      accessible
       aria-label={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
       hitSlop={HEADER_BUTTON_HIT_SLOP}
       onPress={handleScan}
@@ -251,20 +261,22 @@ function DrawerScanButton() {
 // Lock sits beside scan: both are one-tap actions, and the bottom of the
 // drawer stays free for support. Shown only with a passcode, like Settings ›
 // Auto-lock: without one nothing can lock, and the tap would only start
-// passcode setup.
+// passcode setup. In travel mode it looks as usual but does nothing, as in
+// the More menu.
 function DrawerLockButton() {
   const intl = useIntl();
   const onLock = useOnLock();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
   const isTravelMode = isTravelModeActive();
   const handleLock = useCallback(() => {
+    if (isTravelMode) return;
     defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
       item: 'lock',
       hadMark: false,
     });
     closeProfileDrawer();
     void onLock();
-  }, [onLock]);
+  }, [isTravelMode, onLock]);
   if (!isPasswordSet) return null;
   return (
     <IconButton
@@ -272,8 +284,10 @@ function DrawerLockButton() {
       trackID="wallet-lock-now"
       variant="secondary"
       icon="LockOutline"
+      // An icon has nothing for a screen reader to read, so the button must
+      // be the element itself.
+      accessible
       aria-label={intl.formatMessage({ id: ETranslations.settings_lock_now })}
-      disabled={isTravelMode}
       hitSlop={HEADER_BUTTON_HIT_SLOP}
       onPress={handleLock}
     />
@@ -295,6 +309,8 @@ function DrawerIdentity() {
   }, [isLoggedIn]);
 
   const handleOneKeyId = useCallback(() => {
+    // Signing in looks as usual but does nothing in travel mode, as in the
+    // More menu.
     if (!isLoggedIn && isTravelMode) return;
     defaultLogger.ui.button.click({ trackId: 'wallet-onekey-id' });
     defaultLogger.wallet.profileDrawer.profileDrawerItemClicked({
@@ -316,18 +332,17 @@ function DrawerIdentity() {
   });
   const name = user?.nickname || 'OneKey ID';
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
-  const signInDisabled = !isLoggedIn && isTravelMode;
   const label = isLoggedIn ? `${name}, OneKey ID` : signIn;
 
   return (
     <YStack gap="$3">
       <XStack alignItems="flex-start" justifyContent="space-between">
+        {/* Hidden from screen readers: the name or sign-in line below is the
+            same button with words. */}
         <Stack
-          role="button"
-          aria-label={label}
-          aria-disabled={signInDisabled}
+          aria-hidden
           hitSlop={4}
-          pressStyle={{ opacity: 0.7 }}
+          pressStyle={IDENTITY_PRESS_STYLE}
           onPress={handleOneKeyId}
         >
           <OneKeyIdAvatar size="$14" showSocialBadge={false} />
@@ -342,6 +357,7 @@ function DrawerIdentity() {
       {isLoggedIn ? (
         <XStack
           testID="profile-drawer-onekey-id"
+          accessible
           role="button"
           aria-label={label}
           alignSelf="flex-start"
@@ -350,7 +366,7 @@ function DrawerIdentity() {
           gap="$2"
           py="$1"
           hitSlop={8}
-          pressStyle={{ opacity: 0.6 }}
+          pressStyle={IDENTITY_PRESS_STYLE}
           onPress={handleOneKeyId}
         >
           <SizableText
@@ -370,16 +386,15 @@ function DrawerIdentity() {
       ) : (
         <XStack
           testID="profile-drawer-sign-in"
+          accessible
           role="button"
           aria-label={label}
-          aria-disabled={signInDisabled}
           alignSelf="flex-start"
           alignItems="center"
           gap="$1"
           py="$1"
           hitSlop={8}
-          opacity={signInDisabled ? 0.5 : 1}
-          pressStyle={signInDisabled ? undefined : { opacity: 0.6 }}
+          pressStyle={IDENTITY_PRESS_STYLE}
           onPress={handleOneKeyId}
         >
           <SizableText
@@ -448,6 +463,7 @@ function DrawerAccountRow() {
   return (
     <XStack
       testID="profile-drawer-account"
+      accessible
       role="button"
       aria-label={[title, walletName].filter(Boolean).join(', ')}
       minHeight={56}
@@ -472,7 +488,8 @@ function DrawerAccountRow() {
           wallet={wallet}
         />
       )}
-      {/* The ⌄ stays with the name, as on the sign-in line above. */}
+      {/* The chevron stays with the name, as on the sign-in line above:
+          ⌄ switches accounts, › goes to adding the first wallet. */}
       <XStack flexShrink={1} alignItems="center" gap="$1">
         <SizableText
           size="$headingLg"
@@ -483,7 +500,15 @@ function DrawerAccountRow() {
         >
           {title}
         </SizableText>
-        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        <Icon
+          name={
+            hasNoUsableWallet
+              ? 'ChevronRightSmallOutline'
+              : 'ChevronDownSmallOutline'
+          }
+          size="$5"
+          color="$iconSubdued"
+        />
       </XStack>
     </XStack>
   );
@@ -508,13 +533,21 @@ function ProfileDrawerBody() {
   const appUpdateLabel = marks.appUpdate
     ? intl.formatMessage({ id: UPDATE_PILL_LABEL_IDS[marks.appUpdate] })
     : undefined;
+  // The never-opened dot has no number, so it reads as "New".
+  let notificationsNote: string | undefined;
+  if (marks.notifications) {
+    notificationsNote = marks.notifications.count
+      ? String(marks.notifications.count)
+      : intl.formatMessage({ id: ETranslations.explore_badge_new });
+  }
   const beforeReferralNavigate = useCallback(async () => {
     closeProfileDrawer();
   }, []);
-  const { toReferFriendsPage, isReferralEntryPending } = useReferFriends({
-    isEntryActive: isOpen,
-    beforeNavigate: beforeReferralNavigate,
-  });
+  const { toReferFriendsPage, isReferralEntryPending, isReferralEntryLoading } =
+    useReferFriends({
+      isEntryActive: isOpen,
+      beforeNavigate: beforeReferralNavigate,
+    });
 
   const handlers = useMemo(
     () => ({
@@ -589,17 +622,15 @@ function ProfileDrawerBody() {
           item="notifications"
           trackID="wallet-notifications"
           onPress={handlers.notifications}
+          // Dimmed in travel mode like the header bell it replaces; the
+          // More menu's entries below keep their look instead.
           disabled={isTravelMode}
           badge={
             marks.notifications ? (
               <NotificationCount count={marks.notifications.count} />
             ) : null
           }
-          ariaNote={
-            marks.notifications?.count
-              ? String(marks.notifications.count)
-              : undefined
-          }
+          ariaNote={notificationsNote}
         />
         {isTravelMode ? null : (
           <DrawerRow
@@ -634,7 +665,10 @@ function ProfileDrawerBody() {
           item="referral"
           trackID="wallet-referral"
           onPress={handlers.referral}
-          disabled={isTravelMode || isReferralEntryPending}
+          // Waiting on the sign-in check keeps the row as it is; the
+          // spinner comes in if the wait gets noticeable.
+          ignorePress={isTravelMode || isReferralEntryPending}
+          loading={isReferralEntryLoading}
         />
         {showRedeem ? (
           <DrawerRow
@@ -644,7 +678,7 @@ function ProfileDrawerBody() {
             item="redeem"
             trackID="wallet-redeem"
             onPress={handlers.redeem}
-            disabled={isTravelMode}
+            ignorePress={isTravelMode}
           />
         ) : null}
         <Stack flexGrow={1} minHeight="$6" />
@@ -673,7 +707,7 @@ function ProfileDrawerBody() {
           item="support"
           trackID="wallet-customer-support"
           onPress={handlers.support}
-          disabled={isTravelMode}
+          ignorePress={isTravelMode}
           subdued
           badge={
             marks.support ? <NotificationCount count={marks.support} /> : null
