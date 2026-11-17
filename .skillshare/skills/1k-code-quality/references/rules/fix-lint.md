@@ -12,10 +12,12 @@ yarn agent:check --profile commit
 ```
 
 **✅ Recommended**: For agent workflows, use `yarn agent:check --profile commit`.
-It runs staged lint and type checks while keeping detailed command output in
-`node_modules/.cache/agent-checks`.
+It runs worktree `oxlint --fix` and `oxfmt` in addition to staged checks and
+stores logs in `node_modules/.cache/agent-checks`. Inspect modified/untracked
+files first and preserve unrelated user work. Do not use it for read-only
+review; read remote status with `--profile ci --pr <number>` instead.
 
-### Full Project Validation (For CI or Pre-PR)
+### Full Project Validation (For CI Or Failed-Gate Diagnosis)
 ```bash
 # Comprehensive lint (~1 minute)
 yarn lint
@@ -36,7 +38,7 @@ Use this when:
 # For agent workflows (recommended)
 yarn agent:check --profile commit
 
-# Or for full project check
+# Only when diagnosing a failed full-project check
 yarn lint 2>&1 | tail -100
 ```
 
@@ -144,15 +146,15 @@ function Parent() {
 # For agent workflows (recommended)
 yarn agent:check --profile commit
 
-# Or for full project check
+# Only when diagnosing a failed full-project check
 yarn lint 2>&1 | tail -50
 ```
 
 ## Pre-commit Workflow
 
-For fast pre-commit validation, only lint modified files:
+For pre-commit validation, inspect worktree auto-fixes as well as staged checks:
 ```bash
-# Run staged lint and type checks with compact output
+# Run worktree auto-fixes and staged checks with compact output
 yarn agent:check --profile commit
 
 # Then commit

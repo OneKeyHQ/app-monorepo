@@ -222,6 +222,7 @@ export enum EAppEventBusNames {
   DevLargeWalletDataCreationProgress = 'DevLargeWalletDataCreationProgress',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
+  EarnServerOrderSettled = 'EarnServerOrderSettled',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',
