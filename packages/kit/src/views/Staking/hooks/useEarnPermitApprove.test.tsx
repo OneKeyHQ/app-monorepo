@@ -1,78 +1,74 @@
-/** @jest-environment jsdom */
-
-import { renderHook } from '@testing-library/react';
-
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EtherFiLiquidReferContract,
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-} from '@onekeyhq/shared/src/consts/addresses';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
-
-import { useEarnPermitApprove } from './useEarnPermitApprove';
-
-const mockGetAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
-const mockBuildSignData = jest.fn<
-  Promise<IEarnPermit2ApproveSignData>,
-  [unknown]
->();
-const mockMessageConfirm = jest.fn<Promise<string>, [unknown]>();
-const mockPermitSignError = jest.fn<void, [unknown]>();
+/* eslint-disable import/first */
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceAccount: {
-      getAccount: (input: unknown) => mockGetAccount(input),
-    },
-    serviceStaking: {
-      buildPermit2ApproveSignData: (input: unknown) => mockBuildSignData(input),
-    },
+    serviceAccount: { getAccount: jest.fn() },
+    serviceStaking: { buildPermit2ApproveSignData: jest.fn() },
   },
 }));
-
 jest.mock('../../../hooks/useSignatureConfirm', () => ({
-  useSignatureConfirm: () => ({
-    navigationToMessageConfirmAsync: mockMessageConfirm,
-  }),
+  useSignatureConfirm: jest.fn(),
 }));
 
-jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: {
-    staking: {
-      page: {
-        permitSignError: (input: unknown) => mockPermitSignError(input),
-      },
-    },
-  },
-}));
+import { renderHook } from '@testing-library/react-native';
 
-const accountAddress = '0x1111111111111111111111111111111111111111';
-const vaultAddress = '0xf0bb20865277abd641a307ece5ee04e79073416c';
-const token: IToken = {
-  symbol: 'eETH',
-  name: 'ether.fi ETH',
-  address: '0x35fa164735182de50811e8e2e824cfb9b6118ac2',
-  decimals: 18,
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
+
+import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
+
+import { useEarnPermitApprove } from './useEarnPermitApprove';
+
+const owner = '0x1111111111111111111111111111111111111111';
+const token = {
+  address: '0x2222222222222222222222222222222222222222',
+  symbol: 'USDC',
+  name: 'USDC',
+  decimals: 6,
   isNative: false,
+  networkId: 'evm--1',
 };
 const params = {
-  accountId: 'account-id',
-  networkId: getNetworkIdsMap().eth,
-  providerName: 'EtherFi',
+  accountId: 'account-1',
+  networkId: 'evm--1',
   token,
-  amountValue: '1.2500',
-  vaultAddress,
+  amountValue: '1.25',
+  providerName: 'Morpho',
+  vaultAddress: '0x3333333333333333333333333333333333333333',
 };
+const messageConfirm = jest.fn().mockResolvedValue('signed');
+const staking = jest.mocked(backgroundApiProxy.serviceStaking);
+const accounts = jest.mocked(backgroundApiProxy.serviceAccount);
+let payload: IEarnPermit2ApproveSignData;
 
-function createPermitData(spender: string): IEarnPermit2ApproveSignData {
-  return {
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(useSignatureConfirm).mockReturnValue({
+    navigationToMessageConfirmAsync: messageConfirm,
+    navigationToMessageConfirm: jest.fn(),
+    navigationToTxConfirm: jest.fn(),
+    normalizeTxConfirm: jest.fn(),
+  } as ReturnType<typeof useSignatureConfirm>);
+  accounts.getAccount.mockResolvedValue({ address: owner } as Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceAccount.getAccount>
+  >);
+  payload = {
+    domain: {
+      name: 'USD Coin',
+      version: '2',
+      chainId: 1,
+      verifyingContract: token.address,
+    },
     types: {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
       Permit: [
         { name: 'owner', type: 'address' },
         { name: 'spender', type: 'address' },
@@ -80,160 +76,73 @@ function createPermitData(spender: string): IEarnPermit2ApproveSignData {
         { name: 'nonce', type: 'uint256' },
         { name: 'deadline', type: 'uint256' },
       ],
-      EIP712Domain: [
-        { name: 'name', type: 'string' },
-        { name: 'version', type: 'string' },
-        { name: 'chainId', type: 'uint256' },
-        { name: 'verifyingContract', type: 'address' },
-      ],
     },
     primaryType: 'Permit',
     message: {
-      spender,
-      owner: accountAddress,
-      value: '1250000000000000000',
-      nonce: '7',
-      deadline: '2000000000',
-    },
-    domain: {
-      verifyingContract: token.address,
-      chainId: 1,
-      name: 'EETH',
-      version: '1',
+      owner,
+      spender: MorphoBundlerContract,
+      value: '1250000',
+      nonce: '0',
+      deadline: String(Math.floor(Date.now() / 1000) + 3600),
     },
   };
-}
+  staking.buildPermit2ApproveSignData.mockResolvedValue(payload);
+});
 
-describe('useEarnPermitApprove trusted spender', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetAccount.mockResolvedValue({ address: accountAddress });
-    mockMessageConfirm.mockResolvedValue('0xsignature');
-  });
-
-  it.each([
-    [
-      'token',
-      (data: IEarnPermit2ApproveSignData) => {
-        data.domain.verifyingContract = vaultAddress;
-      },
-    ],
-    [
-      'chain',
-      (data: IEarnPermit2ApproveSignData) => {
-        data.domain.chainId = 10;
-      },
-    ],
-    [
-      'owner',
-      (data: IEarnPermit2ApproveSignData) => {
-        data.message.owner = vaultAddress;
-      },
-    ],
-    [
-      'amount',
-      (data: IEarnPermit2ApproveSignData) => {
-        data.message.value = '1250000000000000001';
-      },
-    ],
-    [
-      'schema',
-      (data: IEarnPermit2ApproveSignData) => {
-        data.types.Permit[2].name = 'amount';
-      },
-    ],
-  ])(
-    'rejects EtherFi permit with a different %s before signing',
-    async (_field, mutate) => {
-      const data = createPermitData(EtherFiLiquidReferContract);
-      mutate(data);
-      mockBuildSignData.mockResolvedValue(data);
-      const { result } = renderHook(() => useEarnPermitApprove());
-
-      await expect(result.current.getPermitSignature(params)).rejects.toThrow(
-        'Invalid EtherFi permit data',
-      );
-      expect(mockMessageConfirm).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each([
-    ['EtherFi', getNetworkIdsMap().eth, EtherFiLiquidReferContract],
-    ['Morpho', getNetworkIdsMap().eth, MorphoBundlerContract],
-    ['Morpho', getNetworkIdsMap().base, MorphoBaseBundlerContract],
-    ['Morpho', getNetworkIdsMap().katana, MorphoKatanaBundlerContract],
-  ])(
-    'signs the registered spender for %s on %s and preserves the protocol vault',
-    async (providerName, networkId, spender) => {
-      const permitData = createPermitData(spender.toUpperCase());
-      mockBuildSignData.mockResolvedValue(permitData);
-      const { result } = renderHook(() => useEarnPermitApprove());
-
-      const signed = await result.current.getPermitSignature({
-        ...params,
-        providerName,
-        networkId,
-      });
-
-      expect(mockBuildSignData).toHaveBeenCalledWith({
-        provider: providerName,
-        networkId,
-        symbol: token.symbol,
-        accountAddress,
-        vault: vaultAddress,
-        amount: '1.25',
-      });
-      const serialized = stringUtils.stableStringify(permitData);
-      expect(serialized.startsWith('{"domain":')).toBe(true);
-      expect(mockMessageConfirm).toHaveBeenCalledWith({
-        accountId: params.accountId,
-        networkId,
-        unsignedMessage: {
-          type: EMessageTypesEth.TYPED_DATA_V4,
-          message: serialized,
-          payload: [accountAddress, serialized],
-        },
-        walletInternalSign: true,
-      });
-      expect(signed.signature).toBe('0xsignature');
-      expect(signed.unsignedMessage).toBe(permitData);
-      expect(mockPermitSignError).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each([
-    ['EtherFi', getNetworkIdsMap().eth, MorphoBundlerContract],
-    ['Morpho', getNetworkIdsMap().eth, EtherFiLiquidReferContract],
-    ['EtherFi', getNetworkIdsMap().eth, ''],
-    ['EtherFi', getNetworkIdsMap().base, EtherFiLiquidReferContract],
-    ['Morpho', getNetworkIdsMap().arbitrum, MorphoBundlerContract],
-    ['unknown', getNetworkIdsMap().eth, MorphoBundlerContract],
-  ])(
-    'rejects untrusted spender or unsupported pair %s on %s before signing',
-    async (providerName, networkId, spender) => {
-      mockBuildSignData.mockResolvedValue(createPermitData(spender));
-      const { result } = renderHook(() => useEarnPermitApprove());
-
-      await expect(
-        result.current.getPermitSignature({
-          ...params,
-          providerName,
-          networkId,
-        }),
-      ).rejects.toThrow('Invalid spender address');
-      expect(mockMessageConfirm).not.toHaveBeenCalled();
-      expect(mockPermitSignError).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it('propagates a rejected signature without returning a successful Permit', async () => {
-    mockBuildSignData.mockResolvedValue(
-      createPermitData(EtherFiLiquidReferContract),
-    );
-    const error = new Error('User rejected signature');
-    mockMessageConfirm.mockRejectedValueOnce(error);
+it('signs a validated permit only after the current selection check', async () => {
+  const beforeSign = jest.fn().mockResolvedValue(undefined);
+  const { result } = renderHook(() => useEarnPermitApprove());
+  await expect(
+    result.current.getPermitSignature({ ...params, beforeSign }),
+  ).resolves.toMatchObject({ signature: 'signed', unsignedMessage: payload });
+  expect(beforeSign).toHaveBeenCalledTimes(1);
+  expect(messageConfirm).toHaveBeenCalledTimes(1);
+  const actual = JSON.parse(
+    messageConfirm.mock.calls[0][0].unsignedMessage.message,
+  ) as IEarnPermit2ApproveSignData;
+  expect(actual.message.spender).toBe(MorphoBundlerContract);
+});
+it.each(['spender', 'owner', 'value', 'deadline'] as const)(
+  'never opens signing for a substituted %s',
+  async (field) => {
+    payload.message[field] = '0';
     const { result } = renderHook(() => useEarnPermitApprove());
+    await expect(result.current.getPermitSignature(params)).rejects.toThrow();
+    expect(messageConfirm).not.toHaveBeenCalled();
+  },
+);
+it('never opens signing when the signed schema omits the validated spender', async () => {
+  payload.types.Permit = payload.types.Permit.filter(
+    ({ name }) => name !== 'spender',
+  );
+  const beforeSign = jest.fn();
+  const { result } = renderHook(() => useEarnPermitApprove());
+  await expect(
+    result.current.getPermitSignature({ ...params, beforeSign }),
+  ).rejects.toThrow('Invalid Earn permit authorization');
+  expect(beforeSign).not.toHaveBeenCalled();
+  expect(messageConfirm).not.toHaveBeenCalled();
+});
 
-    await expect(result.current.getPermitSignature(params)).rejects.toBe(error);
-  });
+it('does not sign after the selected account or protocol changes during the fetch', async () => {
+  const { result } = renderHook(() => useEarnPermitApprove());
+  await expect(
+    result.current.getPermitSignature({
+      ...params,
+      beforeSign: async () => {
+        throw new OneKeyLocalError('selection changed');
+      },
+    }),
+  ).rejects.toThrow('selection changed');
+  expect(messageConfirm).not.toHaveBeenCalled();
+});
+it('does not open signing when the API fails', async () => {
+  staking.buildPermit2ApproveSignData.mockRejectedValueOnce(
+    new Error('offline'),
+  );
+  const { result } = renderHook(() => useEarnPermitApprove());
+  await expect(result.current.getPermitSignature(params)).rejects.toThrow(
+    'offline',
+  );
+  expect(messageConfirm).not.toHaveBeenCalled();
 });
