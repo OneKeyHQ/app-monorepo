@@ -1,8 +1,510 @@
+diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts
+index eba0e61..fb83425 100644
+--- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts
++++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts
+@@ -13,6 +13,22 @@ type BleDebugLogger = (entry: BleDebugLogEntry) => void;
+ /** Replace sensitive values at any depth; everything else is forwarded verbatim. */
+ declare function redactBleDebugLogData(data?: Record<string, unknown>): Record<string, unknown> | undefined;
+
++type WindowsBlePairingDecision = 'confirm' | 'cancel';
++interface WindowsBlePairingRequest {
++    id: string;
++    vendor: string;
++    /** Numeric comparison only. Never persist or log this value. */
++    pin: string;
++    /** Close the prompt immediately when aborted; ignore any later UI answer. */
++    signal: AbortSignal;
++}
++interface WindowsBlePairingOptions {
++    /** Absolute path to the SDK's helper, copied outside Electron's ASAR. */
++    helperPath: string;
++    /** Resolve only after the user compares the code and confirms or cancels. */
++    onPairingRequest(request: WindowsBlePairingRequest): Promise<WindowsBlePairingDecision>;
++}
++
+ /**
+  * Main-process allowlist entry for one vendor key. The renderer only names the vendor; which
+  * peripherals it may see and which GATT profile and framing it may use are decided here, so an
+@@ -35,7 +51,7 @@ declare const DEFAULT_THIRD_PARTY_BLE_VENDORS: Readonly<Record<string, ThirdPart
+
+ /** Device info the main process returns to the renderer over IPC. */
+ interface ThirdPartyBleDeviceInfo {
+-    /** Stable id (noble peripheral.id) used as connectId. */
++    /** Discovery locator (noble peripheral.id), used as connectId. May rotate; not wallet identity. */
+     id: string;
+     name?: string;
+     rssi?: number;
+@@ -155,9 +171,11 @@ interface NobleCharacteristicLike {
+ }
+ type NobleFactory = () => NobleLike;
+ interface NobleBleHandlerOptions {
++    /** Windows OS bonding before GATT connect. Omit to retain native-only behavior. */
++    windowsPairing?: WindowsBlePairingOptions;
+     /** Override for tests; defaults to `require('@stoprocent/noble')`. */
+     nobleFactory?: NobleFactory;
+-    /** Override the overall connect timeout (tests only; defaults to 31s). */
++    /** Override GATT connect timeout (tests only; defaults to 31s), excluding OS pairing. */
+     connectTimeoutMs?: number;
+     /** Override the subscribe timeout (tests only; defaults to 60s). */
+     subscribeTimeoutMs?: number;
+@@ -172,6 +190,7 @@ interface NobleBleHandlerOptions {
+ declare class NobleBleHandler {
+     private _noble;
+     private readonly _factory;
++    private readonly _windowsPairing?;
+     private readonly _connectTimeoutMs;
+     private readonly _subscribeTimeoutMs;
+     private readonly _logger?;
+@@ -258,6 +277,7 @@ declare class NobleBleHandler {
+         id: string;
+         name?: string;
+     }>;
++    private _connectWithTimeout;
+     private _connectInner;
+     disconnect(id: string): Promise<void>;
+     subscribe(id: string): Promise<void>;
+@@ -327,4 +347,4 @@ declare function withThirdPartyBleIpcErrors(ipcMain: IpcMainLike): IpcMainLike;
+  */
+ declare function initThirdPartyBleSupport(webContents: WebContentsLike, options?: InitThirdPartyBleSupportOptions): ThirdPartyBleSupportHandle;
+
+-export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
++export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, type WindowsBlePairingDecision, type WindowsBlePairingOptions, type WindowsBlePairingRequest, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
+diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts
+index 7efe993..e3e171f 100644
+--- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts
++++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts
+@@ -13,6 +13,22 @@ type BleDebugLogger = (entry: BleDebugLogEntry) => void;
+ /** Replace sensitive values at any depth; everything else is forwarded verbatim. */
+ declare function redactBleDebugLogData(data?: Record<string, unknown>): Record<string, unknown> | undefined;
+
++type WindowsBlePairingDecision = 'confirm' | 'cancel';
++interface WindowsBlePairingRequest {
++    id: string;
++    vendor: string;
++    /** Numeric comparison only. Never persist or log this value. */
++    pin: string;
++    /** Close the prompt immediately when aborted; ignore any later UI answer. */
++    signal: AbortSignal;
++}
++interface WindowsBlePairingOptions {
++    /** Absolute path to the SDK's helper, copied outside Electron's ASAR. */
++    helperPath: string;
++    /** Resolve only after the user compares the code and confirms or cancels. */
++    onPairingRequest(request: WindowsBlePairingRequest): Promise<WindowsBlePairingDecision>;
++}
++
+ /**
+  * Main-process allowlist entry for one vendor key. The renderer only names the vendor; which
+  * peripherals it may see and which GATT profile and framing it may use are decided here, so an
+@@ -35,7 +51,7 @@ declare const DEFAULT_THIRD_PARTY_BLE_VENDORS: Readonly<Record<string, ThirdPart
+
+ /** Device info the main process returns to the renderer over IPC. */
+ interface ThirdPartyBleDeviceInfo {
+-    /** Stable id (noble peripheral.id) used as connectId. */
++    /** Discovery locator (noble peripheral.id), used as connectId. May rotate; not wallet identity. */
+     id: string;
+     name?: string;
+     rssi?: number;
+@@ -155,9 +171,11 @@ interface NobleCharacteristicLike {
+ }
+ type NobleFactory = () => NobleLike;
+ interface NobleBleHandlerOptions {
++    /** Windows OS bonding before GATT connect. Omit to retain native-only behavior. */
++    windowsPairing?: WindowsBlePairingOptions;
+     /** Override for tests; defaults to `require('@stoprocent/noble')`. */
+     nobleFactory?: NobleFactory;
+-    /** Override the overall connect timeout (tests only; defaults to 31s). */
++    /** Override GATT connect timeout (tests only; defaults to 31s), excluding OS pairing. */
+     connectTimeoutMs?: number;
+     /** Override the subscribe timeout (tests only; defaults to 60s). */
+     subscribeTimeoutMs?: number;
+@@ -172,6 +190,7 @@ interface NobleBleHandlerOptions {
+ declare class NobleBleHandler {
+     private _noble;
+     private readonly _factory;
++    private readonly _windowsPairing?;
+     private readonly _connectTimeoutMs;
+     private readonly _subscribeTimeoutMs;
+     private readonly _logger?;
+@@ -258,6 +277,7 @@ declare class NobleBleHandler {
+         id: string;
+         name?: string;
+     }>;
++    private _connectWithTimeout;
+     private _connectInner;
+     disconnect(id: string): Promise<void>;
+     subscribe(id: string): Promise<void>;
+@@ -327,4 +347,4 @@ declare function withThirdPartyBleIpcErrors(ipcMain: IpcMainLike): IpcMainLike;
+  */
+ declare function initThirdPartyBleSupport(webContents: WebContentsLike, options?: InitThirdPartyBleSupportOptions): ThirdPartyBleSupportHandle;
+
+-export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
++export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, type WindowsBlePairingDecision, type WindowsBlePairingOptions, type WindowsBlePairingRequest, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
-index 9170842..73f7a8b 100644
+index 9170842..11349b6 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
-@@ -198,7 +198,7 @@ var requestedServiceUuids = (options) => {
+@@ -37,7 +37,7 @@ __export(index_exports, {
+ module.exports = __toCommonJS(index_exports);
+
+ // src/NobleBleHandler.ts
+-var import_hwk_adapter_core = require("@onekeyfe/hwk-adapter-core");
++var import_hwk_adapter_core3 = require("@onekeyfe/hwk-adapter-core");
+
+ // src/debugLog.ts
+ var REDACTED_KEYS = /* @__PURE__ */ new Set([
+@@ -174,6 +174,350 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
+   trezor: trezorProfile
+ });
+
++// src/windowsPairing.ts
++var import_hwk_adapter_core2 = require("@onekeyfe/hwk-adapter-core");
++
++// src/windowsPairingHelper.ts
++var import_child_process = require("child_process");
++var import_hwk_adapter_core = require("@onekeyfe/hwk-adapter-core");
++function isHelperEvent(value) {
++  if (!value || typeof value !== "object") return false;
++  const event = value;
++  switch (event.type) {
++    case "diag":
++      return typeof event.t_ms === "number" && typeof event.msg === "string";
++    case "link":
++      return typeof event.connected === "boolean";
++    case "pairing-result":
++      return typeof event.status === "number" && Number.isInteger(event.status);
++    case "pairing":
++      return typeof event.pin === "string";
++    case "paired":
++    case "already-paired":
++      return true;
++    case "error":
++      return typeof event.message === "string";
++    default:
++      return false;
++  }
++}
++var PAIR_TIMEOUT_MS = 6e4;
++var PAIR_COMPLETION_TIMEOUT_MS = 3e4;
++var PAIR_DECLINE_GRACE_MS = 5e3;
++function helperFailure(message) {
++  const status = /DevicePairingResultStatus\((\d+)\)/.exec(message)?.[1];
++  return status === void 0 ? { code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed, message, params: { phase: "pairing" } } : {
++    code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
++    message,
++    params: { phase: "pairing", pairingStatus: Number(status) }
++  };
++}
++function pairWindowsBleDevice(options, target, signal, logger) {
++  return new Promise((resolve, reject) => {
++    const log = (event, data) => {
++      try {
++        logger?.({ level: "info", scope: "windows-pairing", event, data });
++      } catch {
++      }
++    };
++    const prompt = new AbortController();
++    const child = (0, import_child_process.spawn)(options.helperPath, ["pair", "--address", target.address], {
++      stdio: ["pipe", "pipe", "pipe"],
++      windowsHide: true
++    });
++    let settled = false;
++    let failure;
++    let outcome;
++    let waitingForDecision = false;
++    let decisionSent = false;
++    let stdout = "";
++    let confirmationTimer;
++    let disconnectTimer;
++    let completionTimer;
++    let killTimer;
++    const clearDisconnect = () => {
++      clearTimeout(disconnectTimer);
++      disconnectTimer = void 0;
++    };
++    const stopWaiting = () => {
++      waitingForDecision = false;
++      clearTimeout(confirmationTimer);
++      clearDisconnect();
++    };
++    const lockFailure = (error) => {
++      failure ?? (failure = error);
++      stopWaiting();
++      prompt.abort();
++    };
++    const decline = (error) => {
++      if (settled || failure) return;
++      lockFailure(error);
++      clearTimeout(timer);
++      clearTimeout(completionTimer);
++      child.stdin?.write("cancel\n", (error2) => {
++        if (error2) child.kill();
++      });
++      killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS);
++    };
++    const timeout = (message, params = {}) => decline({
++      code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
++      message,
++      params: { phase: "pairing", timedOut: true, ...params }
++    });
++    const timer = setTimeout(
++      () => timeout(`BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`),
++      PAIR_TIMEOUT_MS
++    );
++    const cancel = () => decline({
++      code: import_hwk_adapter_core.HardwareErrorCode.BlePairingCancelled,
++      message: "BLE pairing declined by user",
++      params: { phase: "pairing" }
++    });
++    const decide = (decision) => {
++      if (settled || failure || prompt.signal.aborted || decisionSent) return;
++      decisionSent = true;
++      stopWaiting();
++      if (decision !== "confirm") {
++        cancel();
++        return;
++      }
++      clearTimeout(timer);
++      completionTimer = setTimeout(
++        () => timeout(
++          `BLE pairing did not complete ${PAIR_COMPLETION_TIMEOUT_MS}ms after confirmation`
++        ),
++        PAIR_COMPLETION_TIMEOUT_MS
++      );
++      child.stdin?.write("confirm\n", (error) => {
++        if (error) {
++          decline({
++            code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++            message: "BLE pairing helper could not receive confirmation",
++            params: { phase: "pairing" }
++          });
++        }
++      });
++    };
++    const finish = (error) => {
++      if (settled) return;
++      settled = true;
++      signal.removeEventListener("abort", cancel);
++      clearTimeout(timer);
++      clearTimeout(completionTimer);
++      clearTimeout(killTimer);
++      stopWaiting();
++      prompt.abort();
++      const reason = failure ?? error;
++      if (reason) reject((0, import_hwk_adapter_core.createHwkError)(reason));
++      else if (outcome) resolve(outcome);
++      else
++        reject(
++          (0, import_hwk_adapter_core.createHwkError)({
++            code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
++            message: "BLE pairing did not complete",
++            params: { phase: "pairing" }
++          })
++        );
++    };
++    signal.addEventListener("abort", cancel, { once: true });
++    if (signal.aborted) cancel();
++    const endDisconnected = () => {
++      if (!waitingForDecision) return;
++      decline({
++        code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
++        message: "BLE pairing ended because the device disconnected",
++        params: { phase: "pairing", deviceDisconnected: true }
++      });
++    };
++    child.stdout?.on("data", (chunk) => {
++      stdout += chunk.toString("utf8");
++      let newline = stdout.indexOf("\n");
++      while (newline >= 0) {
++        const line = stdout.slice(0, newline).trim();
++        stdout = stdout.slice(newline + 1);
++        newline = stdout.indexOf("\n");
++        if (!line) continue;
++        let event;
++        try {
++          event = JSON.parse(line);
++        } catch {
++          log("helper.stdout.invalid");
++          continue;
++        }
++        if (!isHelperEvent(event)) {
++          log("helper.event.invalid");
++          continue;
++        }
++        log("helper.event", { type: event.type });
++        if (event.type === "pairing" && !failure && !decisionSent && !prompt.signal.aborted) {
++          if (waitingForDecision) continue;
++          waitingForDecision = true;
++          confirmationTimer = setTimeout(
++            () => timeout("BLE pairing confirmation timed out", { confirmationTimedOut: true }),
++            target.vendor === "ledger" ? 3e4 : PAIR_TIMEOUT_MS
++          );
++          const { pin } = event;
++          void Promise.resolve().then(() => {
++            if (prompt.signal.aborted) return "cancel";
++            return options.onPairingRequest({
++              id: target.id,
++              vendor: target.vendor,
++              pin,
++              signal: prompt.signal
++            });
++          }).then(decide, () => decide("cancel"));
++        } else if (event.type === "link") {
++          if (event.connected) clearDisconnect();
++          else if (waitingForDecision && !failure && !disconnectTimer) {
++            if (target.vendor === "trezor") {
++              disconnectTimer = setTimeout(endDisconnected, 1e3);
++            } else endDisconnected();
++          }
++        } else if (event.type === "pairing-result") {
++          log("helper.result", { status: event.status });
++          if (event.status === 0 || event.status === 3) {
++            stopWaiting();
++            prompt.abort();
++          } else {
++            lockFailure(
++              helperFailure(`pairing failed with status DevicePairingResultStatus(${event.status})`)
++            );
++            killTimer ?? (killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS));
++          }
++        } else if (event.type === "error") {
++          lockFailure(helperFailure(event.message));
++          killTimer ?? (killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS));
++        } else if (event.type === "paired" || event.type === "already-paired") {
++          outcome = event.type;
++          stopWaiting();
++          prompt.abort();
++        } else if (event.type === "diag") {
++          log("helper.diag", { elapsedMs: event.t_ms, message: event.msg });
++        }
++      }
++    });
++    child.stderr?.on("data", () => void 0);
++    child.stdin?.on("error", () => {
++      if (settled) return;
++      lockFailure({
++        code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++        message: "BLE pairing helper input pipe closed",
++        params: { phase: "pairing" }
++      });
++      child.kill();
++    });
++    child.on(
++      "error",
++      (error) => finish({
++        code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++        message: `BLE pairing helper failed to run: ${error.message}`,
++        params: { phase: "pairing" }
++      })
++    );
++    child.on("close", (code) => {
++      log("helper.closed", { code });
++      finish(
++        code === 0 ? void 0 : helperFailure(`BLE pairing helper exited with code ${code ?? "unknown"}`)
++      );
++    });
++  });
++}
++
++// src/windowsPairing.ts
++var pairingQueue = Promise.resolve();
++var cancelledError = () => (0, import_hwk_adapter_core2.createHwkError)({
++  code: import_hwk_adapter_core2.HardwareErrorCode.BlePairingCancelled,
++  message: "BLE connect cancelled",
++  params: { phase: "connect" }
++});
++var connectFacts = (error) => error?.params ?? {};
++function waitForRetry(signal) {
++  return new Promise((resolve, reject) => {
++    const onAbort = () => {
++      clearTimeout(timer);
++      signal.removeEventListener("abort", onAbort);
++      reject(cancelledError());
++    };
++    const timer = setTimeout(() => {
++      signal.removeEventListener("abort", onAbort);
++      resolve();
++    }, 3e3);
++    signal.addEventListener("abort", onAbort, { once: true });
++    if (signal.aborted) onAbort();
++  });
++}
++var WindowsBlePairing = class {
++  constructor(options, logger) {
++    this.pending = /* @__PURE__ */ new Set();
++    this.options = options;
++    this.logger = logger;
++  }
++  cancel(target) {
++    for (const entry of this.pending) {
++      if (!target || target.vendor === entry.vendor && (target.id === void 0 || target.id === entry.id)) {
++        entry.controller.abort();
++      }
++    }
++  }
++  async connect(id, vendor, device, pauseScan, connect) {
++    if (vendor !== "ledger" && vendor !== "trezor") return connect();
++    const entry = { id, vendor, controller: new AbortController() };
++    this.pending.add(entry);
++    const { signal } = entry.controller;
++    const assertActive = () => {
++      if (signal.aborted) throw cancelledError();
++    };
++    try {
++      let outcome = "skipped";
++      const address = device?.address;
++      if (address) {
++        await pauseScan();
++        assertActive();
++        const operation = pairingQueue.then(async () => {
++          assertActive();
++          return pairWindowsBleDevice(this.options, { id, vendor, address }, signal, this.logger);
++        });
++        pairingQueue = operation.then(
++          () => void 0,
++          () => void 0
++        );
++        let onAbort;
++        const aborted = new Promise((_, reject) => {
++          onAbort = () => reject(cancelledError());
++          signal.addEventListener("abort", onAbort, { once: true });
++        });
++        try {
++          outcome = await Promise.race([operation, aborted]);
++        } finally {
++          signal.removeEventListener("abort", onAbort);
++        }
++      }
++      assertActive();
++      try {
++        return await connect();
++      } catch (error) {
++        assertActive();
++        const facts = connectFacts(error);
++        if (outcome === "paired" && !facts.timedOut) {
++          await waitForRetry(signal);
++          assertActive();
++          return connect();
++        }
++        if (vendor === "ledger" && outcome === "already-paired" && facts.gattUnreachable && typeof facts.msSinceLink === "number" && facts.msSinceLink < 2e3) {
++          throw (0, import_hwk_adapter_core2.createHwkError)({
++            code: import_hwk_adapter_core2.HardwareErrorCode.BleBondInvalid,
++            message: "The Ledger dropped the link Windows holds a pairing for",
++            params: { phase: "connect", ...facts }
++          });
++        }
++        throw error;
++      }
++    } finally {
++      this.pending.delete(entry);
++    }
++  }
++};
++
+ // src/NobleBleHandler.ts
+ var DEFAULT_NOBLE_FACTORY = () => {
+   const noble = require("@stoprocent/noble");
+@@ -198,7 +542,7 @@ var requestedServiceUuids = (options) => {
    const uuids = requested.filter((uuid) => typeof uuid === "string");
    return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
  };
@@ -11,27 +513,90 @@ index 9170842..73f7a8b 100644
    const adv = p.advertisement ?? {};
    return {
      id: p.id,
-@@ -206,7 +206,8 @@ var peripheralToInfo = (p) => {
+@@ -206,7 +550,8 @@ var peripheralToInfo = (p) => {
      localName: adv.localName,
      rssi: p.rssi,
      isConnectable: p.connectable ?? null,
 -    advertisedServiceUuids: adv.serviceUuids,
-+    // OneKey patch: partial advertisements must retain services already observed.
-+    advertisedServiceUuids: [...new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
++    // A name-only packet must not erase previously advertised services.
++    advertisedServiceUuids: [.../* @__PURE__ */ new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
      serviceSolicitationUuids: adv.serviceSolicitationUuids,
      txPowerLevel: adv.txPowerLevel,
      manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
-@@ -265,7 +266,8 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+@@ -224,13 +569,13 @@ var nativeErrorFields = (error) => {
+   const { nativeErrorDomain, nativeErrorCode } = error ?? {};
+   return { nativeErrorDomain, nativeErrorCode };
+ };
+-var shuttingDownError = () => (0, import_hwk_adapter_core.createHwkError)({
+-  code: import_hwk_adapter_core.HardwareErrorCode.UnknownError,
++var shuttingDownError = () => (0, import_hwk_adapter_core3.createHwkError)({
++  code: import_hwk_adapter_core3.HardwareErrorCode.UnknownError,
+   message: "Desktop BLE is shutting down"
+ });
+-var invariantError = (message) => (0, import_hwk_adapter_core.createHwkError)({ code: import_hwk_adapter_core.HardwareErrorCode.UnknownError, message });
+-var bluetoothUnavailableError = (state) => (0, import_hwk_adapter_core.createHwkError)({
+-  code: import_hwk_adapter_core.HardwareErrorCode.DevicePermissionDenied,
++var invariantError = (message) => (0, import_hwk_adapter_core3.createHwkError)({ code: import_hwk_adapter_core3.HardwareErrorCode.UnknownError, message });
++var bluetoothUnavailableError = (state) => (0, import_hwk_adapter_core3.createHwkError)({
++  code: import_hwk_adapter_core3.HardwareErrorCode.DevicePermissionDenied,
+   message: `Bluetooth is unavailable (state: ${state})`,
+   params: {
+     permissionDeniedReason: state === "unauthorized" ? "permissionDenied" : "bluetoothTurnedOff",
+@@ -239,33 +584,33 @@ var bluetoothUnavailableError = (state) => (0, import_hwk_adapter_core.createHwk
+ });
+ var BLE_UNUSABLE_STATES = /* @__PURE__ */ new Set(["poweredOff", "unauthorized", "unsupported"]);
+ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+-  if ((0, import_hwk_adapter_core.isHardwareErrorCode)(error?.code)) return error;
++  if ((0, import_hwk_adapter_core3.isHardwareErrorCode)(error?.code)) return error;
+   const native = nativeErrorFields(error);
+   const params = { phase, ...native, ...facts };
+   if (native.nativeErrorDomain === "CBErrorDomain" && native.nativeErrorCode === 14) {
+-    return (0, import_hwk_adapter_core.createHwkError)({
+-      code: import_hwk_adapter_core.HardwareErrorCode.BleBondInvalid,
++    return (0, import_hwk_adapter_core3.createHwkError)({
++      code: import_hwk_adapter_core3.HardwareErrorCode.BleBondInvalid,
+       message: "The device removed its Bluetooth pairing with this computer",
+       params
+     });
    }
-   return (0, import_hwk_adapter_core.createHwkError)({
-     code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
+   if (native.nativeErrorDomain === "CBATTErrorDomain" && native.nativeErrorCode === 15) {
+-    return (0, import_hwk_adapter_core.createHwkError)({
+-      code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
++    return (0, import_hwk_adapter_core3.createHwkError)({
++      code: import_hwk_adapter_core3.HardwareErrorCode.BlePairingTimeout,
+       message: "Bluetooth pairing did not complete",
+       params
+     });
+   }
+   if (linkLost || phase === "write") {
+-    return (0, import_hwk_adapter_core.createHwkError)({
+-      code: import_hwk_adapter_core.HardwareErrorCode.DeviceDisconnected,
++    return (0, import_hwk_adapter_core3.createHwkError)({
++      code: import_hwk_adapter_core3.HardwareErrorCode.DeviceDisconnected,
+       message: `BLE link dropped during ${phase}`,
+       params
+     });
+   }
+-  return (0, import_hwk_adapter_core.createHwkError)({
+-    code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
 -    message: `BLE ${phase} failed`,
-+    // OneKey patch: retain the native GATT failure instead of hiding its cause.
++  return (0, import_hwk_adapter_core3.createHwkError)({
++    code: import_hwk_adapter_core3.HardwareErrorCode.BleConnectFailed,
 +    message: error instanceof Error ? error.message : `BLE ${phase} failed`,
      params
    });
  };
-@@ -450,12 +452,12 @@ var NobleBleHandler = class {
+@@ -328,6 +673,9 @@ var NobleBleHandler = class {
+     this._connectTimeoutMs = options.connectTimeoutMs ?? BLE_CONNECT_TIMEOUT_MS;
+     this._subscribeTimeoutMs = options.subscribeTimeoutMs ?? BLE_SUBSCRIBE_TIMEOUT_MS;
+     this._logger = options.logger;
++    if (process.platform === "win32" && options.windowsPairing) {
++      this._windowsPairing = new WindowsBlePairing(options.windowsPairing, options.logger);
++    }
+     this._vendors = new Map(Object.entries(options.vendors ?? DEFAULT_THIRD_PARTY_BLE_VENDORS));
+   }
+   _resolveVendor(vendor) {
+@@ -450,12 +798,12 @@ var NobleBleHandler = class {
          this._keptByMemory.add(id);
          this._log("info", "scan.keptByMemory", { id });
        }
@@ -46,12 +611,10 @@ index 9170842..73f7a8b 100644
      }
      return result;
    }
-@@ -566,6 +568,13 @@ var NobleBleHandler = class {
+@@ -566,6 +914,11 @@ var NobleBleHandler = class {
        this._scanOwners.delete(vendor);
        if (this._scanOwners.size > 0) return;
      }
-+    // OneKey patch: Windows pairs after discovery stops. Preserve the selected
-+    // peripheral while bonding, when the device may stop advertising.
 +    if (process.platform === "win32") {
 +      this._scanOwners.clear();
 +      await this._pauseScan();
@@ -60,7 +623,7 @@ index 9170842..73f7a8b 100644
      await this._stopContinuousScan();
    }
    /**
-@@ -580,7 +589,7 @@ var NobleBleHandler = class {
+@@ -580,7 +933,7 @@ var NobleBleHandler = class {
      )) {
        return null;
      }
@@ -69,11 +632,501 @@ index 9170842..73f7a8b 100644
    }
    /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
    async readRssi(id) {
+@@ -592,12 +945,13 @@ var NobleBleHandler = class {
+   }
+   /** Abandon matching pairing attempts without touching another owner's links. */
+   async cancelPairing(options) {
++    this._windowsPairing?.cancel(options);
+     const matches = (id, vendor) => options === void 0 || vendor === options.vendor && (options.id === void 0 || id === options.id);
+     for (const attempt of this._connectAttempts) {
+       if (!matches(attempt.id, attempt.vendor)) continue;
+       attempt.abandon(
+-        (0, import_hwk_adapter_core.createHwkError)({
+-          code: import_hwk_adapter_core.HardwareErrorCode.BlePairingCancelled,
++        (0, import_hwk_adapter_core3.createHwkError)({
++          code: import_hwk_adapter_core3.HardwareErrorCode.BlePairingCancelled,
+           message: `connect cancelled: ${attempt.id}`,
+           params: { phase: "connect" }
+         })
+@@ -708,6 +1062,23 @@ var NobleBleHandler = class {
+     if (!this._resolveVendor(options.vendor).profile.acceptsConnect(options)) {
+       throw invariantError(`BLE GATT profile not allowed for ${options.vendor}`);
+     }
++    this._assertActive();
++    if (this._windowsPairing) {
++      const peripheral = this._discovered.get(id);
++      const { profile } = this._resolveVendor(options.vendor);
++      const remembered = this._advertisedUuids.get(id);
++      const device = peripheral && matchesPeripheral(peripheral, profile, void 0, remembered) ? peripheralToInfo(peripheral, remembered) : void 0;
++      return this._windowsPairing.connect(
++        id,
++        options.vendor,
++        device,
++        () => this.stopScan(options.vendor),
++        () => this._connectWithTimeout(id, options)
++      );
++    }
++    return this._connectWithTimeout(id, options);
++  }
++  async _connectWithTimeout(id, options) {
+     this._assertActive();
+     const claim = { abandoned: false };
+     let abandon;
+@@ -720,8 +1091,8 @@ var NobleBleHandler = class {
+     });
+     const timer = setTimeout(() => {
+       abandon(
+-        (0, import_hwk_adapter_core.createHwkError)({
+-          code: import_hwk_adapter_core.HardwareErrorCode.DeviceNotFound,
++        (0, import_hwk_adapter_core3.createHwkError)({
++          code: import_hwk_adapter_core3.HardwareErrorCode.DeviceNotFound,
+           message: `connect timed out after ${this._connectTimeoutMs}ms`,
+           // A device no scan surfaced is not advertising; the Ledger adapter retries that one.
+           params: {
+@@ -812,8 +1183,8 @@ var NobleBleHandler = class {
+         route: "none",
+         discoveredCount: this._discovered.size
+       });
+-      throw (0, import_hwk_adapter_core.createHwkError)({
+-        code: import_hwk_adapter_core.HardwareErrorCode.DeviceNotFound,
++      throw (0, import_hwk_adapter_core3.createHwkError)({
++        code: import_hwk_adapter_core3.HardwareErrorCode.DeviceNotFound,
+         message: `BLE device not found: ${id}`,
+         params: { phase: "connect", notAdvertising: true }
+       });
+@@ -856,8 +1227,8 @@ var NobleBleHandler = class {
+       const writeChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === writeUuid);
+       const notifyChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === notifyUuid);
+       if (!writeChar || !notifyChar) {
+-        throw (0, import_hwk_adapter_core.createHwkError)({
+-          code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++        throw (0, import_hwk_adapter_core3.createHwkError)({
++          code: import_hwk_adapter_core3.HardwareErrorCode.BleConnectFailed,
+           message: `BLE device ${id} lacks the expected characteristics`,
+           params: { phase: "connect" }
+         });
+@@ -948,8 +1319,8 @@ var NobleBleHandler = class {
+     const expired = new Promise((_, reject) => {
+       timer = setTimeout(() => {
+         reject(
+-          (0, import_hwk_adapter_core.createHwkError)({
+-            code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++          (0, import_hwk_adapter_core3.createHwkError)({
++            code: import_hwk_adapter_core3.HardwareErrorCode.BleConnectFailed,
+             message: `subscribe timed out after ${this._subscribeTimeoutMs}ms`,
+             params: { phase: "subscribe" }
+           })
+@@ -976,8 +1347,8 @@ var NobleBleHandler = class {
+     if (peripheral.state !== "connected") {
+       return toCanonicalBleError(error, "subscribe", { linkLost: true });
+     }
+-    return (0, import_hwk_adapter_core.createHwkError)({
+-      code: import_hwk_adapter_core.HardwareErrorCode.BleBondInvalid,
++    return (0, import_hwk_adapter_core3.createHwkError)({
++      code: import_hwk_adapter_core3.HardwareErrorCode.BleBondInvalid,
+       message: "The device refused the Bluetooth pairing this computer holds",
+       params: { phase: "subscribe", asyncStatus: 3 }
+     });
+@@ -1035,6 +1406,7 @@ var NobleBleHandler = class {
+   dispose() {
+     if (this._disposePromise) return this._disposePromise;
+     this._disposed = true;
++    this._windowsPairing?.cancel();
+     this._clearIdleStop();
+     this._scanning = false;
+     this._onNotification = void 0;
+@@ -1130,8 +1502,8 @@ var NobleBleHandler = class {
+     this._assertActive();
+     const entry = this._connected.get(id);
+     if (!entry) {
+-      throw (0, import_hwk_adapter_core.createHwkError)({
+-        code: import_hwk_adapter_core.HardwareErrorCode.DeviceDisconnected,
++      throw (0, import_hwk_adapter_core3.createHwkError)({
++        code: import_hwk_adapter_core3.HardwareErrorCode.DeviceDisconnected,
+         message: `BLE device is not connected: ${id}`
+       });
+     }
+@@ -1200,13 +1572,13 @@ var NobleBleHandler = class {
+ };
+
+ // src/main.ts
+-var import_hwk_adapter_core2 = require("@onekeyfe/hwk-adapter-core");
++var import_hwk_adapter_core4 = require("@onekeyfe/hwk-adapter-core");
+ function createThirdPartyBleIpcErrorResponse(error) {
+   const { message, code, params } = error ?? {};
+   const serialized = {
+     message: typeof message === "string" ? message : "Unknown error",
+     // A host error's own code (the app's -99999) must not read as a HardwareErrorCode.
+-    ...(0, import_hwk_adapter_core2.isHardwareErrorCode)(code) ? { code } : {}
++    ...(0, import_hwk_adapter_core4.isHardwareErrorCode)(code) ? { code } : {}
+   };
+   if (params && typeof params === "object") {
+     try {
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
-index 499f5a7..1fdc3ac 100644
+index 499f5a7..61d2913 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
-@@ -142,7 +142,7 @@ var requestedServiceUuids = (options) => {
+@@ -11,7 +11,7 @@ import {
+ } from "./chunk-O6YS25TV.mjs";
+
+ // src/NobleBleHandler.ts
+-import { HardwareErrorCode, createHwkError, isHardwareErrorCode } from "@onekeyfe/hwk-adapter-core";
++import { HardwareErrorCode as HardwareErrorCode3, createHwkError as createHwkError3, isHardwareErrorCode } from "@onekeyfe/hwk-adapter-core";
+
+ // src/debugLog.ts
+ var REDACTED_KEYS = /* @__PURE__ */ new Set([
+@@ -118,6 +118,350 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
+   trezor: trezorProfile
+ });
+
++// src/windowsPairing.ts
++import { HardwareErrorCode as HardwareErrorCode2, createHwkError as createHwkError2 } from "@onekeyfe/hwk-adapter-core";
++
++// src/windowsPairingHelper.ts
++import { spawn } from "child_process";
++import { HardwareErrorCode, createHwkError } from "@onekeyfe/hwk-adapter-core";
++function isHelperEvent(value) {
++  if (!value || typeof value !== "object") return false;
++  const event = value;
++  switch (event.type) {
++    case "diag":
++      return typeof event.t_ms === "number" && typeof event.msg === "string";
++    case "link":
++      return typeof event.connected === "boolean";
++    case "pairing-result":
++      return typeof event.status === "number" && Number.isInteger(event.status);
++    case "pairing":
++      return typeof event.pin === "string";
++    case "paired":
++    case "already-paired":
++      return true;
++    case "error":
++      return typeof event.message === "string";
++    default:
++      return false;
++  }
++}
++var PAIR_TIMEOUT_MS = 6e4;
++var PAIR_COMPLETION_TIMEOUT_MS = 3e4;
++var PAIR_DECLINE_GRACE_MS = 5e3;
++function helperFailure(message) {
++  const status = /DevicePairingResultStatus\((\d+)\)/.exec(message)?.[1];
++  return status === void 0 ? { code: HardwareErrorCode.BleConnectFailed, message, params: { phase: "pairing" } } : {
++    code: HardwareErrorCode.BlePairingTimeout,
++    message,
++    params: { phase: "pairing", pairingStatus: Number(status) }
++  };
++}
++function pairWindowsBleDevice(options, target, signal, logger) {
++  return new Promise((resolve, reject) => {
++    const log = (event, data) => {
++      try {
++        logger?.({ level: "info", scope: "windows-pairing", event, data });
++      } catch {
++      }
++    };
++    const prompt = new AbortController();
++    const child = spawn(options.helperPath, ["pair", "--address", target.address], {
++      stdio: ["pipe", "pipe", "pipe"],
++      windowsHide: true
++    });
++    let settled = false;
++    let failure;
++    let outcome;
++    let waitingForDecision = false;
++    let decisionSent = false;
++    let stdout = "";
++    let confirmationTimer;
++    let disconnectTimer;
++    let completionTimer;
++    let killTimer;
++    const clearDisconnect = () => {
++      clearTimeout(disconnectTimer);
++      disconnectTimer = void 0;
++    };
++    const stopWaiting = () => {
++      waitingForDecision = false;
++      clearTimeout(confirmationTimer);
++      clearDisconnect();
++    };
++    const lockFailure = (error) => {
++      failure ?? (failure = error);
++      stopWaiting();
++      prompt.abort();
++    };
++    const decline = (error) => {
++      if (settled || failure) return;
++      lockFailure(error);
++      clearTimeout(timer);
++      clearTimeout(completionTimer);
++      child.stdin?.write("cancel\n", (error2) => {
++        if (error2) child.kill();
++      });
++      killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS);
++    };
++    const timeout = (message, params = {}) => decline({
++      code: HardwareErrorCode.BlePairingTimeout,
++      message,
++      params: { phase: "pairing", timedOut: true, ...params }
++    });
++    const timer = setTimeout(
++      () => timeout(`BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`),
++      PAIR_TIMEOUT_MS
++    );
++    const cancel = () => decline({
++      code: HardwareErrorCode.BlePairingCancelled,
++      message: "BLE pairing declined by user",
++      params: { phase: "pairing" }
++    });
++    const decide = (decision) => {
++      if (settled || failure || prompt.signal.aborted || decisionSent) return;
++      decisionSent = true;
++      stopWaiting();
++      if (decision !== "confirm") {
++        cancel();
++        return;
++      }
++      clearTimeout(timer);
++      completionTimer = setTimeout(
++        () => timeout(
++          `BLE pairing did not complete ${PAIR_COMPLETION_TIMEOUT_MS}ms after confirmation`
++        ),
++        PAIR_COMPLETION_TIMEOUT_MS
++      );
++      child.stdin?.write("confirm\n", (error) => {
++        if (error) {
++          decline({
++            code: HardwareErrorCode.BleConnectFailed,
++            message: "BLE pairing helper could not receive confirmation",
++            params: { phase: "pairing" }
++          });
++        }
++      });
++    };
++    const finish = (error) => {
++      if (settled) return;
++      settled = true;
++      signal.removeEventListener("abort", cancel);
++      clearTimeout(timer);
++      clearTimeout(completionTimer);
++      clearTimeout(killTimer);
++      stopWaiting();
++      prompt.abort();
++      const reason = failure ?? error;
++      if (reason) reject(createHwkError(reason));
++      else if (outcome) resolve(outcome);
++      else
++        reject(
++          createHwkError({
++            code: HardwareErrorCode.BlePairingTimeout,
++            message: "BLE pairing did not complete",
++            params: { phase: "pairing" }
++          })
++        );
++    };
++    signal.addEventListener("abort", cancel, { once: true });
++    if (signal.aborted) cancel();
++    const endDisconnected = () => {
++      if (!waitingForDecision) return;
++      decline({
++        code: HardwareErrorCode.BlePairingTimeout,
++        message: "BLE pairing ended because the device disconnected",
++        params: { phase: "pairing", deviceDisconnected: true }
++      });
++    };
++    child.stdout?.on("data", (chunk) => {
++      stdout += chunk.toString("utf8");
++      let newline = stdout.indexOf("\n");
++      while (newline >= 0) {
++        const line = stdout.slice(0, newline).trim();
++        stdout = stdout.slice(newline + 1);
++        newline = stdout.indexOf("\n");
++        if (!line) continue;
++        let event;
++        try {
++          event = JSON.parse(line);
++        } catch {
++          log("helper.stdout.invalid");
++          continue;
++        }
++        if (!isHelperEvent(event)) {
++          log("helper.event.invalid");
++          continue;
++        }
++        log("helper.event", { type: event.type });
++        if (event.type === "pairing" && !failure && !decisionSent && !prompt.signal.aborted) {
++          if (waitingForDecision) continue;
++          waitingForDecision = true;
++          confirmationTimer = setTimeout(
++            () => timeout("BLE pairing confirmation timed out", { confirmationTimedOut: true }),
++            target.vendor === "ledger" ? 3e4 : PAIR_TIMEOUT_MS
++          );
++          const { pin } = event;
++          void Promise.resolve().then(() => {
++            if (prompt.signal.aborted) return "cancel";
++            return options.onPairingRequest({
++              id: target.id,
++              vendor: target.vendor,
++              pin,
++              signal: prompt.signal
++            });
++          }).then(decide, () => decide("cancel"));
++        } else if (event.type === "link") {
++          if (event.connected) clearDisconnect();
++          else if (waitingForDecision && !failure && !disconnectTimer) {
++            if (target.vendor === "trezor") {
++              disconnectTimer = setTimeout(endDisconnected, 1e3);
++            } else endDisconnected();
++          }
++        } else if (event.type === "pairing-result") {
++          log("helper.result", { status: event.status });
++          if (event.status === 0 || event.status === 3) {
++            stopWaiting();
++            prompt.abort();
++          } else {
++            lockFailure(
++              helperFailure(`pairing failed with status DevicePairingResultStatus(${event.status})`)
++            );
++            killTimer ?? (killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS));
++          }
++        } else if (event.type === "error") {
++          lockFailure(helperFailure(event.message));
++          killTimer ?? (killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS));
++        } else if (event.type === "paired" || event.type === "already-paired") {
++          outcome = event.type;
++          stopWaiting();
++          prompt.abort();
++        } else if (event.type === "diag") {
++          log("helper.diag", { elapsedMs: event.t_ms, message: event.msg });
++        }
++      }
++    });
++    child.stderr?.on("data", () => void 0);
++    child.stdin?.on("error", () => {
++      if (settled) return;
++      lockFailure({
++        code: HardwareErrorCode.BleConnectFailed,
++        message: "BLE pairing helper input pipe closed",
++        params: { phase: "pairing" }
++      });
++      child.kill();
++    });
++    child.on(
++      "error",
++      (error) => finish({
++        code: HardwareErrorCode.BleConnectFailed,
++        message: `BLE pairing helper failed to run: ${error.message}`,
++        params: { phase: "pairing" }
++      })
++    );
++    child.on("close", (code) => {
++      log("helper.closed", { code });
++      finish(
++        code === 0 ? void 0 : helperFailure(`BLE pairing helper exited with code ${code ?? "unknown"}`)
++      );
++    });
++  });
++}
++
++// src/windowsPairing.ts
++var pairingQueue = Promise.resolve();
++var cancelledError = () => createHwkError2({
++  code: HardwareErrorCode2.BlePairingCancelled,
++  message: "BLE connect cancelled",
++  params: { phase: "connect" }
++});
++var connectFacts = (error) => error?.params ?? {};
++function waitForRetry(signal) {
++  return new Promise((resolve, reject) => {
++    const onAbort = () => {
++      clearTimeout(timer);
++      signal.removeEventListener("abort", onAbort);
++      reject(cancelledError());
++    };
++    const timer = setTimeout(() => {
++      signal.removeEventListener("abort", onAbort);
++      resolve();
++    }, 3e3);
++    signal.addEventListener("abort", onAbort, { once: true });
++    if (signal.aborted) onAbort();
++  });
++}
++var WindowsBlePairing = class {
++  constructor(options, logger) {
++    this.pending = /* @__PURE__ */ new Set();
++    this.options = options;
++    this.logger = logger;
++  }
++  cancel(target) {
++    for (const entry of this.pending) {
++      if (!target || target.vendor === entry.vendor && (target.id === void 0 || target.id === entry.id)) {
++        entry.controller.abort();
++      }
++    }
++  }
++  async connect(id, vendor, device, pauseScan, connect) {
++    if (vendor !== "ledger" && vendor !== "trezor") return connect();
++    const entry = { id, vendor, controller: new AbortController() };
++    this.pending.add(entry);
++    const { signal } = entry.controller;
++    const assertActive = () => {
++      if (signal.aborted) throw cancelledError();
++    };
++    try {
++      let outcome = "skipped";
++      const address = device?.address;
++      if (address) {
++        await pauseScan();
++        assertActive();
++        const operation = pairingQueue.then(async () => {
++          assertActive();
++          return pairWindowsBleDevice(this.options, { id, vendor, address }, signal, this.logger);
++        });
++        pairingQueue = operation.then(
++          () => void 0,
++          () => void 0
++        );
++        let onAbort;
++        const aborted = new Promise((_, reject) => {
++          onAbort = () => reject(cancelledError());
++          signal.addEventListener("abort", onAbort, { once: true });
++        });
++        try {
++          outcome = await Promise.race([operation, aborted]);
++        } finally {
++          signal.removeEventListener("abort", onAbort);
++        }
++      }
++      assertActive();
++      try {
++        return await connect();
++      } catch (error) {
++        assertActive();
++        const facts = connectFacts(error);
++        if (outcome === "paired" && !facts.timedOut) {
++          await waitForRetry(signal);
++          assertActive();
++          return connect();
++        }
++        if (vendor === "ledger" && outcome === "already-paired" && facts.gattUnreachable && typeof facts.msSinceLink === "number" && facts.msSinceLink < 2e3) {
++          throw createHwkError2({
++            code: HardwareErrorCode2.BleBondInvalid,
++            message: "The Ledger dropped the link Windows holds a pairing for",
++            params: { phase: "connect", ...facts }
++          });
++        }
++        throw error;
++      }
++    } finally {
++      this.pending.delete(entry);
++    }
++  }
++};
++
+ // src/NobleBleHandler.ts
+ var DEFAULT_NOBLE_FACTORY = () => {
+   const noble = __require("@stoprocent/noble");
+@@ -142,7 +486,7 @@ var requestedServiceUuids = (options) => {
    const uuids = requested.filter((uuid) => typeof uuid === "string");
    return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
  };
@@ -82,27 +1135,85 @@ index 499f5a7..1fdc3ac 100644
    const adv = p.advertisement ?? {};
    return {
      id: p.id,
-@@ -150,7 +150,8 @@ var peripheralToInfo = (p) => {
+@@ -150,7 +494,8 @@ var peripheralToInfo = (p) => {
      localName: adv.localName,
      rssi: p.rssi,
      isConnectable: p.connectable ?? null,
 -    advertisedServiceUuids: adv.serviceUuids,
-+    // OneKey patch: partial advertisements must retain services already observed.
-+    advertisedServiceUuids: [...new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
++    // A name-only packet must not erase previously advertised services.
++    advertisedServiceUuids: [.../* @__PURE__ */ new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
      serviceSolicitationUuids: adv.serviceSolicitationUuids,
      txPowerLevel: adv.txPowerLevel,
      manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
-@@ -209,7 +210,8 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+@@ -168,13 +513,13 @@ var nativeErrorFields = (error) => {
+   const { nativeErrorDomain, nativeErrorCode } = error ?? {};
+   return { nativeErrorDomain, nativeErrorCode };
+ };
+-var shuttingDownError = () => createHwkError({
+-  code: HardwareErrorCode.UnknownError,
++var shuttingDownError = () => createHwkError3({
++  code: HardwareErrorCode3.UnknownError,
+   message: "Desktop BLE is shutting down"
+ });
+-var invariantError = (message) => createHwkError({ code: HardwareErrorCode.UnknownError, message });
+-var bluetoothUnavailableError = (state) => createHwkError({
+-  code: HardwareErrorCode.DevicePermissionDenied,
++var invariantError = (message) => createHwkError3({ code: HardwareErrorCode3.UnknownError, message });
++var bluetoothUnavailableError = (state) => createHwkError3({
++  code: HardwareErrorCode3.DevicePermissionDenied,
+   message: `Bluetooth is unavailable (state: ${state})`,
+   params: {
+     permissionDeniedReason: state === "unauthorized" ? "permissionDenied" : "bluetoothTurnedOff",
+@@ -187,29 +532,29 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+   const native = nativeErrorFields(error);
+   const params = { phase, ...native, ...facts };
+   if (native.nativeErrorDomain === "CBErrorDomain" && native.nativeErrorCode === 14) {
+-    return createHwkError({
+-      code: HardwareErrorCode.BleBondInvalid,
++    return createHwkError3({
++      code: HardwareErrorCode3.BleBondInvalid,
+       message: "The device removed its Bluetooth pairing with this computer",
+       params
+     });
    }
-   return createHwkError({
-     code: HardwareErrorCode.BleConnectFailed,
+   if (native.nativeErrorDomain === "CBATTErrorDomain" && native.nativeErrorCode === 15) {
+-    return createHwkError({
+-      code: HardwareErrorCode.BlePairingTimeout,
++    return createHwkError3({
++      code: HardwareErrorCode3.BlePairingTimeout,
+       message: "Bluetooth pairing did not complete",
+       params
+     });
+   }
+   if (linkLost || phase === "write") {
+-    return createHwkError({
+-      code: HardwareErrorCode.DeviceDisconnected,
++    return createHwkError3({
++      code: HardwareErrorCode3.DeviceDisconnected,
+       message: `BLE link dropped during ${phase}`,
+       params
+     });
+   }
+-  return createHwkError({
+-    code: HardwareErrorCode.BleConnectFailed,
 -    message: `BLE ${phase} failed`,
-+    // OneKey patch: retain the native GATT failure instead of hiding its cause.
++  return createHwkError3({
++    code: HardwareErrorCode3.BleConnectFailed,
 +    message: error instanceof Error ? error.message : `BLE ${phase} failed`,
      params
    });
  };
-@@ -394,12 +396,12 @@ var NobleBleHandler = class {
+@@ -272,6 +617,9 @@ var NobleBleHandler = class {
+     this._connectTimeoutMs = options.connectTimeoutMs ?? BLE_CONNECT_TIMEOUT_MS;
+     this._subscribeTimeoutMs = options.subscribeTimeoutMs ?? BLE_SUBSCRIBE_TIMEOUT_MS;
+     this._logger = options.logger;
++    if (process.platform === "win32" && options.windowsPairing) {
++      this._windowsPairing = new WindowsBlePairing(options.windowsPairing, options.logger);
++    }
+     this._vendors = new Map(Object.entries(options.vendors ?? DEFAULT_THIRD_PARTY_BLE_VENDORS));
+   }
+   _resolveVendor(vendor) {
+@@ -394,12 +742,12 @@ var NobleBleHandler = class {
          this._keptByMemory.add(id);
          this._log("info", "scan.keptByMemory", { id });
        }
@@ -117,12 +1228,10 @@ index 499f5a7..1fdc3ac 100644
      }
      return result;
    }
-@@ -510,6 +512,13 @@ var NobleBleHandler = class {
+@@ -510,6 +858,11 @@ var NobleBleHandler = class {
        this._scanOwners.delete(vendor);
        if (this._scanOwners.size > 0) return;
      }
-+    // OneKey patch: Windows pairs after discovery stops. Preserve the selected
-+    // peripheral while bonding, when the device may stop advertising.
 +    if (process.platform === "win32") {
 +      this._scanOwners.clear();
 +      await this._pauseScan();
@@ -131,7 +1240,7 @@ index 499f5a7..1fdc3ac 100644
      await this._stopContinuousScan();
    }
    /**
-@@ -524,7 +533,7 @@ var NobleBleHandler = class {
+@@ -524,7 +877,7 @@ var NobleBleHandler = class {
      )) {
        return null;
      }
@@ -140,3 +1249,117 @@ index 499f5a7..1fdc3ac 100644
    }
    /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
    async readRssi(id) {
+@@ -536,12 +889,13 @@ var NobleBleHandler = class {
+   }
+   /** Abandon matching pairing attempts without touching another owner's links. */
+   async cancelPairing(options) {
++    this._windowsPairing?.cancel(options);
+     const matches = (id, vendor) => options === void 0 || vendor === options.vendor && (options.id === void 0 || id === options.id);
+     for (const attempt of this._connectAttempts) {
+       if (!matches(attempt.id, attempt.vendor)) continue;
+       attempt.abandon(
+-        createHwkError({
+-          code: HardwareErrorCode.BlePairingCancelled,
++        createHwkError3({
++          code: HardwareErrorCode3.BlePairingCancelled,
+           message: `connect cancelled: ${attempt.id}`,
+           params: { phase: "connect" }
+         })
+@@ -652,6 +1006,23 @@ var NobleBleHandler = class {
+     if (!this._resolveVendor(options.vendor).profile.acceptsConnect(options)) {
+       throw invariantError(`BLE GATT profile not allowed for ${options.vendor}`);
+     }
++    this._assertActive();
++    if (this._windowsPairing) {
++      const peripheral = this._discovered.get(id);
++      const { profile } = this._resolveVendor(options.vendor);
++      const remembered = this._advertisedUuids.get(id);
++      const device = peripheral && matchesPeripheral(peripheral, profile, void 0, remembered) ? peripheralToInfo(peripheral, remembered) : void 0;
++      return this._windowsPairing.connect(
++        id,
++        options.vendor,
++        device,
++        () => this.stopScan(options.vendor),
++        () => this._connectWithTimeout(id, options)
++      );
++    }
++    return this._connectWithTimeout(id, options);
++  }
++  async _connectWithTimeout(id, options) {
+     this._assertActive();
+     const claim = { abandoned: false };
+     let abandon;
+@@ -664,8 +1035,8 @@ var NobleBleHandler = class {
+     });
+     const timer = setTimeout(() => {
+       abandon(
+-        createHwkError({
+-          code: HardwareErrorCode.DeviceNotFound,
++        createHwkError3({
++          code: HardwareErrorCode3.DeviceNotFound,
+           message: `connect timed out after ${this._connectTimeoutMs}ms`,
+           // A device no scan surfaced is not advertising; the Ledger adapter retries that one.
+           params: {
+@@ -756,8 +1127,8 @@ var NobleBleHandler = class {
+         route: "none",
+         discoveredCount: this._discovered.size
+       });
+-      throw createHwkError({
+-        code: HardwareErrorCode.DeviceNotFound,
++      throw createHwkError3({
++        code: HardwareErrorCode3.DeviceNotFound,
+         message: `BLE device not found: ${id}`,
+         params: { phase: "connect", notAdvertising: true }
+       });
+@@ -800,8 +1171,8 @@ var NobleBleHandler = class {
+       const writeChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === writeUuid);
+       const notifyChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === notifyUuid);
+       if (!writeChar || !notifyChar) {
+-        throw createHwkError({
+-          code: HardwareErrorCode.BleConnectFailed,
++        throw createHwkError3({
++          code: HardwareErrorCode3.BleConnectFailed,
+           message: `BLE device ${id} lacks the expected characteristics`,
+           params: { phase: "connect" }
+         });
+@@ -892,8 +1263,8 @@ var NobleBleHandler = class {
+     const expired = new Promise((_, reject) => {
+       timer = setTimeout(() => {
+         reject(
+-          createHwkError({
+-            code: HardwareErrorCode.BleConnectFailed,
++          createHwkError3({
++            code: HardwareErrorCode3.BleConnectFailed,
+             message: `subscribe timed out after ${this._subscribeTimeoutMs}ms`,
+             params: { phase: "subscribe" }
+           })
+@@ -920,8 +1291,8 @@ var NobleBleHandler = class {
+     if (peripheral.state !== "connected") {
+       return toCanonicalBleError(error, "subscribe", { linkLost: true });
+     }
+-    return createHwkError({
+-      code: HardwareErrorCode.BleBondInvalid,
++    return createHwkError3({
++      code: HardwareErrorCode3.BleBondInvalid,
+       message: "The device refused the Bluetooth pairing this computer holds",
+       params: { phase: "subscribe", asyncStatus: 3 }
+     });
+@@ -979,6 +1350,7 @@ var NobleBleHandler = class {
+   dispose() {
+     if (this._disposePromise) return this._disposePromise;
+     this._disposed = true;
++    this._windowsPairing?.cancel();
+     this._clearIdleStop();
+     this._scanning = false;
+     this._onNotification = void 0;
+@@ -1074,8 +1446,8 @@ var NobleBleHandler = class {
+     this._assertActive();
+     const entry = this._connected.get(id);
+     if (!entry) {
+-      throw createHwkError({
+-        code: HardwareErrorCode.DeviceDisconnected,
++      throw createHwkError3({
++        code: HardwareErrorCode3.DeviceDisconnected,
+         message: `BLE device is not connected: ${id}`
+       });
+     }

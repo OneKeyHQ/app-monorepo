@@ -62,3 +62,8 @@ Security scanner caveat:
 Root-level dependency scanners may still report versions from the monorepo root
 `yarn.lock`. That does not by itself describe the dependencies installed into
 the packaged desktop app from this app directory.
+
+## Third-party Bluetooth pairing
+
+See [SDK ownership and release transition](../docs/third-party-ble.md). The App
+provides the dialog and executable path; the SDK owns the pairing lifecycle.
