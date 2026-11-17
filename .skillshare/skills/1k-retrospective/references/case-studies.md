@@ -1702,3 +1702,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The gas-price hardware sign message has no access-list field, so the device signs a legacy payload. Since the Trezor integration the builder assembled an EIP-2930 transaction locally whenever `accessList` was truthy, attaching the legacy signature to different bytes that recover to another sender. The existing test asserted the type 1 assembly itself and never compared it with what the device signs.
 **Fix**: Drop `accessList` and `txType` on the gas-price hardware path so the locally assembled transaction is the legacy one the device signed. Tests compare the serialized bytes with the list-less legacy transaction for non-empty and empty lists.
 **Catchable by**: NEW — not covered (when a signer has its own message format, assert that the bytes assembled locally are the bytes it signs, including empty-array and optional-field inputs)
+
+## Case: Address risk signal count pushed out of the risk intelligence card (OK-67493)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React component); verified on the iOS simulator in English and Chinese.
+**Symptom**: In the address risk check Risk intelligence list, a long category description such as `Fake airdrop claim, Wallet drainer, Approval phishing` left only `3` of `3 signals` / `3 个信号` visible; the rest of the count was outside the card.
+**Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
+**Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) — use the longest realistic content in each row, not only short sample text.
