@@ -40,10 +40,12 @@ const EMPTY_SDK_RESULT: ISdkPackagesResult = { packages: EMPTY_PACKAGES };
 
 function classifyPackagesError(error: unknown) {
   const errorAnalytics = getPrimePurchaseErrorAnalytics(error);
+  const errorMessage = (error as { message?: unknown } | null | undefined)
+    ?.message;
   const failureKind = getPrimePackagesFailureKind({
     ...errorAnalytics,
-    isEmptyOffering:
-      (error as IOneKeyError | undefined)?.message === EMPTY_OFFERING_MESSAGE,
+    isEmptyOffering: errorMessage === EMPTY_OFFERING_MESSAGE,
+    errorMessage: typeof errorMessage === 'string' ? errorMessage : undefined,
   });
   return { errorAnalytics, failureKind };
 }

@@ -15,8 +15,9 @@ type ISdkResult = {
   failure?: unknown;
   simulatedFaultActive?: boolean;
 };
-const mockRequests: Array<() => Promise<ISdkResult>> = [];
-const mockWebRequests: Array<() => Promise<IPackage[]>> = [];
+type IPackagesLoaderResult = ISdkResult | IPackage[];
+const mockRequests: Array<() => Promise<IPackagesLoaderResult>> = [];
+const mockWebRequests: Array<() => Promise<IPackagesLoaderResult>> = [];
 let mockSdkResult: ISdkResult | undefined;
 let mockWebResult: IPackage[] | undefined;
 const mockGetPackages = jest.fn<Promise<IPackage[]>, []>();
@@ -31,13 +32,13 @@ let mockIsNativeAndroid = false;
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
-    request: () => Promise<ISdkResult>,
+    request: () => Promise<IPackagesLoaderResult>,
     _deps: unknown[],
     options: { initResult: unknown },
   ) => {
     // The card-price loader starts from [], the SDK loader from an object.
     if (Array.isArray(options.initResult)) {
-      mockWebRequests.push(request as () => Promise<IPackage[]>);
+      mockWebRequests.push(request);
       return {
         result: mockWebResult ?? [],
         isLoading: false,
@@ -129,11 +130,15 @@ async function loadPackages() {
   let error: unknown;
   await act(async () => {
     if (webRequest) {
-      mockWebResult = await webRequest();
+      const webResult = await webRequest();
+      mockWebResult = Array.isArray(webResult) ? webResult : [];
     }
     try {
-      mockSdkResult = await request();
-      packages = mockSdkResult.packages;
+      const sdkResult = await request();
+      if (!Array.isArray(sdkResult)) {
+        mockSdkResult = sdkResult;
+        packages = sdkResult.packages;
+      }
     } catch (e) {
       error = e;
     }
@@ -211,7 +216,19 @@ describe('Prime subscription loading fail states', () => {
     });
   });
 
-  it('treats an empty Apple offering as product unavailable', async () => {
+  it('keeps an empty Apple offering on the generic fail state for a CHN Storefront', async () => {
+    const { hook } = await loadPackages();
+    expect(hook.result.current.packagesFailure).toEqual({
+      kind: 'unknown',
+      storefrontCountryCode: 'CHN',
+    });
+  });
+
+  it('shows the China tip when RevenueCat reports no registered products without a code', async () => {
+    mockGetPackages.mockRejectedValue({
+      message:
+        'None of the products registered in the RevenueCat dashboard could be fetched',
+    });
     const { hook } = await loadPackages();
     expect(hook.result.current.packagesFailure).toEqual({
       kind: 'productUnavailable',
@@ -259,7 +276,7 @@ describe('Prime subscription loading fail states', () => {
     mockGetStorefront.mockResolvedValue({ countryCode: 'US' });
     const { hook } = await loadPackages();
     expect(hook.result.current.packagesFailure).toEqual({
-      kind: 'productUnavailable',
+      kind: 'unknown',
       storefrontCountryCode: 'US',
     });
   });
@@ -372,7 +389,7 @@ describe('Prime subscription loading fail states', () => {
     expect(mockGetPackagesWebFallback).not.toHaveBeenCalled();
     expect(hook.result.current.packages).toEqual([]);
     expect(hook.result.current.packagesFailure).toEqual({
-      kind: 'productUnavailable',
+      kind: 'unknown',
       storefrontCountryCode: 'US',
     });
   });

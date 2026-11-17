@@ -66,13 +66,49 @@ describe('Prime packages fail state classification', () => {
     ).toBe('network');
   });
 
-  it('treats an empty offering as product unavailable', () => {
+  it('keeps an empty offering on the generic fail state, including a CHN Storefront', () => {
+    const kind = getPrimePackagesFailureKind({
+      underlyingErrorCategory: 'unknown',
+      isEmptyOffering: true,
+      errorMessage: 'Prime subscription packages unavailable',
+    });
+    expect(kind).toBe('unknown');
+    expect(
+      getPrimePackagesFailureDescriptionId({
+        kind,
+        storefrontCountryCode: 'CHN',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('treats a missing code plus the RevenueCat product message as unavailable products', () => {
+    const message =
+      'None of the products registered in the RevenueCat dashboard could be fetched';
+    const kind = getPrimePackagesFailureKind({
+      underlyingErrorCategory: 'unknown',
+      errorMessage: message,
+    });
+    expect(kind).toBe('productUnavailable');
+    expect(
+      getPrimePackagesFailureDescriptionId({
+        kind,
+        storefrontCountryCode: 'CHN',
+      }),
+    ).toBe(ETranslations.prime_subscription_china_storefront__msg);
     expect(
       getPrimePackagesFailureKind({
-        underlyingErrorCategory: 'unknown',
-        isEmptyOffering: true,
+        errorCode: '23',
+        underlyingErrorCategory: 'storeConfig',
+        errorMessage: `[Simulated] ${message}`,
       }),
     ).toBe('productUnavailable');
+    expect(
+      getPrimePackagesFailureKind({
+        errorCode: '10',
+        underlyingErrorCategory: 'network',
+        errorMessage: message,
+      }),
+    ).toBe('network');
   });
 
   it('uses product guidance only for a product-specific configuration failure', () => {

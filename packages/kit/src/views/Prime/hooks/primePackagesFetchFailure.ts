@@ -34,16 +34,51 @@ const NETWORK_ERROR_CODES = new Set([
   '35', // OFFLINE_CONNECTION_ERROR
 ]);
 
+// RevenueCat's own wording when the store returned none of the offering
+// products. Code 23 and a missing code use this sentence; other failures do
+// not. Kept in sync with the #14407 China-storefront check.
+const REVENUECAT_REGISTERED_PRODUCTS_UNAVAILABLE =
+  'None of the products registered in the RevenueCat dashboard could be fetched';
+
+type IPrimePackagesFailureInput = Pick<
+  IPrimePurchaseErrorAnalytics,
+  'errorCode' | 'underlyingErrorCategory'
+> & {
+  // The store returned an offering with no packages. That alone is not a
+  // region limit.
+  isEmptyOffering?: boolean;
+  errorMessage?: string;
+};
+
+// Code 5 is store product-not-available. Code 23 and a missing code count when
+// the RevenueCat registered-products sentence is present, including when
+// diagnostics found that sentence on a nested bridge error. Other codes do not.
+function isPrimeProductUnavailableEvidence({
+  errorCode,
+  underlyingErrorCategory,
+  errorMessage,
+}: IPrimePackagesFailureInput): boolean {
+  if (errorCode === '5') {
+    return true;
+  }
+  if (errorCode !== '23' && errorCode !== undefined) {
+    return false;
+  }
+  if (
+    typeof errorMessage === 'string' &&
+    errorMessage.includes(REVENUECAT_REGISTERED_PRODUCTS_UNAVAILABLE)
+  ) {
+    return true;
+  }
+  return underlyingErrorCategory === 'productUnavailable';
+}
+
 export function getPrimePackagesFailureKind({
   errorCode,
   underlyingErrorCategory,
   isEmptyOffering,
-}: Pick<
-  IPrimePurchaseErrorAnalytics,
-  'errorCode' | 'underlyingErrorCategory'
-> & {
-  isEmptyOffering?: boolean;
-}): IPrimePackagesFailureKind {
+  errorMessage,
+}: IPrimePackagesFailureInput): IPrimePackagesFailureKind {
   if (
     (errorCode && NETWORK_ERROR_CODES.has(errorCode)) ||
     underlyingErrorCategory === 'network'
@@ -56,11 +91,16 @@ export function getPrimePackagesFailureKind({
   if (errorCode === '3') {
     return 'purchaseNotAllowed';
   }
-  // Only product-specific configuration errors justify account/storefront copy.
+  // Empty list: generic fail/retry. Do not use the China-region tip.
+  if (isEmptyOffering) {
+    return 'unknown';
+  }
   if (
-    errorCode === '5' ||
-    (errorCode === '23' && underlyingErrorCategory === 'productUnavailable') ||
-    isEmptyOffering
+    isPrimeProductUnavailableEvidence({
+      errorCode,
+      underlyingErrorCategory,
+      errorMessage,
+    })
   ) {
     return 'productUnavailable';
   }

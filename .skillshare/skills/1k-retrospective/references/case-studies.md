@@ -1653,3 +1653,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Card checkout is supported on non-Play APKs, so the web price fallback starts beside the SDK load. The simulated fault was read only inside the SDK loader. A real card price list replaced the empty SDK result and cleared `packagesFailure`.
 **Fix**: While the simulated fault is active, skip the card-price fallback and ignore card prices already loaded. Production fallback after a real SDK failure is unchanged. Android APK tests cover an error-code fault, an empty offering, and a real store failure that still shows card prices.
 **Catchable by**: Section 6: When a fallback runs in parallel with a fault injection, assert the injected failure still wins on the platform where that fallback is enabled.
+
+## Case: Empty Prime offering reused the China storefront hint (OK-61369)
+**Date**: 2026-11-17 | **Platforms**: Apple store payments on iOS and Mac App Store. The hint is copy only; purchase behavior is unchanged. Android, desktop, web, and extension do not show the China tip.
+**Symptom**: An empty plan list on a CHN Storefront showed the mainland-China region message. A RevenueCat "none of the products registered" error with no code did not.
+**Root Cause**: The fail-state classifier treated every empty offering as product-unavailable, which is the only kind that selects the China tip. It required code 23 before trusting the registered-products message, so a missing code fell through to a generic failure.
+**Fix**: Keep an empty offering on the generic fail/retry state. Treat code 5, and code 23 or a missing code plus the registered-products sentence, as product-unavailable so a CHN Storefront still gets the China tip. Regression tests cover both boundaries.
+**Catchable by**: Section 4: When replacing a helper, preserve the helper's negative cases (empty result is not a region limit) as well as the positive message match.
