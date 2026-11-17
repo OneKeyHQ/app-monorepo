@@ -108,6 +108,7 @@ describe('travelModeCommandPolicy', () => {
     ['serviceMarketV2', 'fetchMarketPerpsTokenList'],
     ['serviceMarketV2', 'fetchMarketTokenList'],
     ['serviceMarketV2', 'fetchMarketTokenListBatch'],
+    ['serviceMarketV2', 'setMarketWidgetConfiguration'],
     ['serviceNetwork', 'getAllNetworkIds'],
     ['serviceNetwork', 'getGlobalDeriveTypeOfNetwork'],
     ['serviceSwap', 'checkStableCoinsList'],
