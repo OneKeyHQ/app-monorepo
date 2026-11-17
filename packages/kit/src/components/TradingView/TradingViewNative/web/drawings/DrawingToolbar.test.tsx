@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,15 +51,18 @@ jest.mock('@onekeyhq/components', () => {
     opacity?: number;
     children?: ReactNode;
   }) {
-    const attributes = {
-      'data-testid': testID,
-      'aria-expanded': props['aria-expanded'],
-      'aria-label': props['aria-label'],
-      role: props.role,
-      disabled: props.disabled,
-      style: { ...props.style, opacity: props.opacity },
-      onClick: onPress,
-    };
+    // Like the real components, an unset prop keeps what `render` provides.
+    const attributes = Object.fromEntries(
+      Object.entries({
+        'data-testid': testID,
+        'aria-expanded': props['aria-expanded'],
+        'aria-label': props['aria-label'],
+        role: props.role,
+        disabled: props.disabled,
+        style: { ...props.style, opacity: props.opacity },
+        onClick: onPress,
+      }).filter(([, value]) => value !== undefined),
+    );
     if (typeof element === 'string') {
       return createElement(element, attributes, children);
     }
@@ -188,4 +192,47 @@ it('keeps drawing tool icons at full opacity while another coin restores its dra
       }),
     ).opacity,
   ).toBe('1');
+});
+
+it('keeps menu keys with the toolbar that has focus and closes a menu that focus leaves', async () => {
+  render(
+    <>
+      <Toolbar coin="BTC" enabled />
+      <Toolbar coin="ETH" enabled />
+    </>,
+  );
+  const [first, second] = screen.getAllByTestId('chart-drawing-toolbar');
+  const [firstMenuButton] = within(first).getAllByRole('button', {
+    expanded: false,
+  });
+  const [secondMenuButton] = within(second).getAllByRole('button', {
+    expanded: false,
+  });
+  await waitFor(() => {
+    expect(firstMenuButton.hasAttribute('disabled')).toBe(false);
+    expect(secondMenuButton.hasAttribute('disabled')).toBe(false);
+  });
+  const items = (toolbar: HTMLElement) =>
+    within(toolbar).queryAllByRole('menuitemradio');
+  const press = (key: string) =>
+    fireEvent.keyDown(document.activeElement ?? document.body, { key });
+
+  // The first menu opens with the pointer, the second from the keyboard.
+  fireEvent.click(firstMenuButton);
+  act(() => secondMenuButton.focus());
+  fireEvent.click(secondMenuButton);
+  expect(items(first).length).toBeGreaterThan(1);
+  expect(items(second).length).toBeGreaterThan(1);
+
+  press('ArrowDown');
+  expect(document.activeElement).toBe(items(second)[0]);
+  press('ArrowDown');
+  expect(document.activeElement).toBe(items(second)[1]);
+  press('Home');
+  expect(document.activeElement).toBe(items(second)[0]);
+
+  act(() => firstMenuButton.focus());
+  expect(items(second)).toHaveLength(0);
+  press('ArrowDown');
+  expect(document.activeElement).toBe(items(first)[0]);
 });
