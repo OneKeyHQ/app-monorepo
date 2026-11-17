@@ -1,37 +1,45 @@
 import type { RefObject } from 'react';
-import { createRef, useCallback, useEffect, useMemo } from 'react';
+import { createRef } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import { overlayToastStore } from '@onekeyfe/react-native-native-overlay';
 
-import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
-import { usePageWidth } from '../../hooks/usePage';
-import { useMedia } from '../../hooks/useStyle';
-import {
-  Icon,
-  Image,
-  SizableText,
-  View,
-  XStack,
-  YStack,
-} from '../../primitives';
-import { Spinner } from '../../primitives/Spinner/Spinner';
 import { mountImperativeOverlay } from '../../shared/imperativeOverlayMount';
 
-import { NativeStorageRecoveryToastActions } from './NativeStorageRecoveryToastActions';
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
-import { dismissToast, showMessage } from './showMessage';
+import {
+  TOAST_LINK_URL_IN_APP_PREFIX,
+  TOAST_LINK_URL_PREFIX,
+} from './toastRichText';
+import {
+  buildMessageToastSpec,
+  buildNotificationToastSpec,
+  toastActionId,
+} from './toastSpec';
+import {
+  getToastStyleContext,
+  subscribeToastStyleContext,
+} from './toastStyleContext';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
-import type { IToastMessageOptions } from './type';
+import type { IToastAction, IToastHaptic } from './toastSpec';
+import type { IToastStyleContext } from './toastStyleContext';
 import type { IPortalManager } from '../../hocs';
-import type { IKeyOfIcons, ISizableTextProps } from '../../primitives';
+import type { IKeyOfIcons } from '../../primitives';
+import type {
+  IOverlayToastPosition,
+  IOverlayToastSpec,
+} from '@onekeyfe/react-native-native-overlay';
+import type { IntlShape } from 'react-intl';
+
+export type { IToastAction, IToastActionVariant } from './toastSpec';
 
 export interface IToastProps {
   toastId?: string;
@@ -41,7 +49,11 @@ export interface IToastProps {
   imageUri?: string;
   duration?: number;
   actionsAlign?: 'left' | 'right';
-  actions?: JSX.Element | JSX.Element[];
+  /**
+   * Buttons under the message. A toast is drawn by the platform from plain
+   * data, so an action is a description of a small `Button`, not an element.
+   */
+  actions?: IToastAction | IToastAction[];
   onClose?: () => void;
   nativeStorageRecoveryTestSessionId?: string;
 }
@@ -50,14 +62,14 @@ export interface IToastBaseProps extends IToastProps {
   title: string;
   message?: string;
   duration?: number;
-  haptic?: 'success' | 'warning' | 'info' | 'error' | 'loading' | 'none';
+  haptic?: IToastHaptic;
   preset?: 'done' | 'error' | 'none' | 'custom';
   /**
    * Change the position of the toast.
    * Only works on web platform.
    * @platform web
    */
-  position?: IToastMessageOptions['position'];
+  position?: IOverlayToastPosition;
 }
 
 export interface IToastNotificationProps extends IToastBaseProps {
@@ -65,163 +77,101 @@ export interface IToastNotificationProps extends IToastBaseProps {
   iconImageUri?: string;
 }
 
-const iconMap = {
-  success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
-  error: <Icon name="ErrorSolid" color="$iconCritical" size="$5" />,
-  info: <Icon name="InfoCircleSolid" color="$iconInfo" size="$5" />,
-  warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
-  loading: <Spinner size="small" />,
-};
-
-const underlineTextPropsStatic = {
-  color: '$textSubdued' as const,
-};
-
-function RenderLines({
-  size,
-  children: text,
-  color,
-}: {
-  children?: string;
-  size: ISizableTextProps['size'];
-  color: ISizableTextProps['color'];
-}) {
-  const { HyperlinkText } = useSettingConfig();
-  if (!text) {
-    return null;
-  }
-  const lines = text?.split('\n') || [];
-
-  if (lines.length === 0) {
-    return null;
-  }
-
-  return (
-    <YStack>
-      {lines.map((line, index) => (
-        <HyperlinkText
-          key={index}
-          color={color}
-          textTransform="none"
-          userSelect="none"
-          underlineTextProps={underlineTextPropsStatic}
-          size={size}
-          wordWrap="break-word"
-          translationId={line as ETranslations}
-          defaultMessage={line}
-        />
-      ))}
-    </YStack>
-  );
+/** Where a link inside toast text points. */
+export interface IToastLink {
+  /** `url` leaves the app, `urlInApp` opens inside it. */
+  kind: 'url' | 'urlInApp';
+  url: string;
 }
 
-const platformWebOverflowStyle = {
-  overflow: 'hidden' as const,
-};
+const RECOVERY_ACTION_TEST_ID = 'native-storage-repair-toast-action';
 
-const platformAndroidPaddingStyle = {
-  paddingTop: '$0.5' as const,
-};
+let toastLinkHandler: ((link: IToastLink) => void) | undefined;
 
-export function ToastContent({
+/**
+ * The app decides how a link in toast text opens (deep links, the in-app
+ * browser). Until one is registered a link opens in the system browser.
+ */
+export function setToastLinkHandler(
+  handler: ((link: IToastLink) => void) | undefined,
+) {
+  toastLinkHandler = handler;
+}
+
+function openToastLink(link: string) {
+  let parsed: IToastLink | undefined;
+  if (link.startsWith(TOAST_LINK_URL_IN_APP_PREFIX)) {
+    parsed = {
+      kind: 'urlInApp',
+      url: link.slice(TOAST_LINK_URL_IN_APP_PREFIX.length),
+    };
+  } else if (link.startsWith(TOAST_LINK_URL_PREFIX)) {
+    parsed = { kind: 'url', url: link.slice(TOAST_LINK_URL_PREFIX.length) };
+  }
+  if (!parsed?.url) {
+    return;
+  }
+  if (toastLinkHandler) {
+    toastLinkHandler(parsed);
+    return;
+  }
+  openUrlExternal(parsed.url);
+}
+
+function toActionList(actions: IToastProps['actions']): IToastAction[] {
+  if (!actions) {
+    return [];
+  }
+  return Array.isArray(actions) ? actions : [actions];
+}
+
+// A toast that reports a recoverable native storage failure carries a retry
+// button, unless the caller already supplied one.
+function withRecoveryAction({
   title,
   message,
-  icon,
-  maxWidth,
   actions,
-  onClose,
-  actionsAlign = 'right',
-  nativeStorageRecoveryTestSessionId,
-  onRequestClose,
+  testSessionId,
+  close,
+  intl,
 }: {
   title: string;
   message?: string;
-  maxWidth?: number;
-  icon?: JSX.Element;
-  onClose?: () => void;
-  actions?: IToastProps['actions'];
-  actionsAlign?: 'left' | 'right';
-  nativeStorageRecoveryTestSessionId?: string;
-  onRequestClose?: () => void | Promise<void>;
-}) {
-  const { height } = useWindowDimensions();
-  const pageWidth = usePageWidth();
-  const media = useMedia();
-  useEffect(
-    () => () => {
-      onClose?.();
+  actions: IToastAction[];
+  testSessionId?: string;
+  close: () => void;
+  intl: IntlShape;
+}): IToastAction[] {
+  const target = platformEnv.isNative
+    ? getNativeStorageRecoveryToastTarget(title, message)
+    : undefined;
+  if (
+    !target ||
+    actions.some((action) => action.testID === RECOVERY_ACTION_TEST_ID)
+  ) {
+    return actions;
+  }
+  let pending = false;
+  return [
+    ...actions,
+    {
+      label: intl.formatMessage({ id: ETranslations.global_retry }),
+      testID: RECOVERY_ACTION_TEST_ID,
+      onPress: () => {
+        if (pending) return;
+        pending = true;
+        try {
+          close();
+        } finally {
+          requestNativeStorageRecovery(
+            target,
+            target === 'appStorage' ? testSessionId : undefined,
+          );
+          pending = false;
+        }
+      },
     },
-    [onClose],
-  );
-  const platformNativeStyle = useMemo(
-    () => ({
-      maxHeight: height - 200,
-      width: Math.min(pageWidth, 640) - 64,
-    }),
-    [height, pageWidth],
-  );
-  return (
-    <YStack
-      flex={1}
-      maxWidth={maxWidth}
-      maxHeight={height - 100}
-      $platform-native={platformNativeStyle}
-      $platform-web={platformWebOverflowStyle}
-    >
-      <XStack gap={icon ? '$2' : 0}>
-        {icon ? (
-          <View
-            $platform-android={platformAndroidPaddingStyle}
-            width="$5.5"
-            height="$5.5"
-          >
-            {icon}
-          </View>
-        ) : null}
-
-        <YStack flex={1} gap="$1">
-          {title ? (
-            <RenderLines color="$text" size="$headingSm">
-              {title}
-            </RenderLines>
-          ) : null}
-
-          {message ? (
-            <RenderLines
-              color="$textSubdued"
-              size={media.gtMd ? '$bodyMd' : '$bodySm'}
-            >
-              {message}
-            </RenderLines>
-          ) : null}
-
-          {actions ||
-          (platformEnv.isNative &&
-            getNativeStorageRecoveryToastTarget(title, message)) ? (
-            <XStack
-              gap="$2"
-              justifyContent={
-                actionsAlign === 'left' ? 'flex-start' : 'flex-end'
-              }
-              paddingTop="$3"
-              paddingRight="$0.5"
-              paddingBottom="$0.5"
-            >
-              <NativeStorageRecoveryToastActions
-                title={title}
-                message={message}
-                actions={actions}
-                nativeStorageRecoveryTestSessionId={
-                  nativeStorageRecoveryTestSessionId
-                }
-                onRequestClose={onRequestClose}
-              />
-            </XStack>
-          ) : null}
-        </YStack>
-      </XStack>
-    </YStack>
-  );
+  ];
 }
 
 const toastIdMap = new Map<string, [number, number]>();
@@ -266,13 +216,77 @@ const handleToastId = ({
   }
   return handleClose;
 };
-function createToastCloseHandler() {
-  let instance: ReturnType<typeof showMessage> | undefined;
-  return {
-    close: () => instance?.close(),
-    attach: (value: ReturnType<typeof showMessage>) => {
-      instance = value;
+
+interface IActiveToast {
+  build: (context: IToastStyleContext) => IOverlayToastSpec;
+  /** The row as last built, for routing a press to its handler. */
+  actions: () => IToastAction[];
+  onClose: () => void;
+  onPress?: () => void;
+  /** False while it waits for the style context to draw with. */
+  shown: boolean;
+}
+
+// The toasts this module has on screen or waiting, so a theme or layout
+// change can redraw them and a toast requested before the host mounted can
+// appear once it has.
+const activeToasts = new Map<string, IActiveToast>();
+
+function presentToast(id: string, toast: IActiveToast) {
+  const context = getToastStyleContext();
+  if (!context) {
+    return;
+  }
+  const spec = toast.build(context);
+  if (toast.shown) {
+    overlayToastStore.update(spec);
+    return;
+  }
+  toast.shown = true;
+  overlayToastStore.show(spec, {
+    onClose: () => {
+      // Shown again under the same id: that toast owns the entry now.
+      if (activeToasts.get(id) === toast) {
+        activeToasts.delete(id);
+      }
+      toast.onClose();
     },
+    onAction: (actionId) => {
+      const action = toast
+        .actions()
+        .find((_, index) => toastActionId(index) === actionId);
+      void action?.onPress?.();
+    },
+    onLink: openToastLink,
+    onPress: () => toast.onPress?.(),
+  });
+}
+
+subscribeToastStyleContext(() => {
+  activeToasts.forEach((toast, id) => presentToast(id, toast));
+});
+
+function closeToast(id: string, toast: IActiveToast) {
+  if (activeToasts.get(id) !== toast) {
+    return;
+  }
+  if (!toast.shown) {
+    activeToasts.delete(id);
+    toast.onClose();
+    return;
+  }
+  overlayToastStore.dismiss(id);
+}
+
+function showToast(id: string, toast: IActiveToast) {
+  const previous = activeToasts.get(id);
+  if (previous && !previous.shown) {
+    previous.onClose();
+  }
+  activeToasts.set(id, toast);
+  presentToast(id, toast);
+  return {
+    close: () => closeToast(id, toast),
   };
 }
 
@@ -283,7 +297,6 @@ function toastMessage({
   icon,
   duration = 5000,
   haptic,
-  preset = 'custom',
   actions,
   actionsAlign = 'right',
   position,
@@ -292,147 +305,42 @@ function toastMessage({
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
-  const hapticColorMap: Record<string, ColorTokens> = {
-    success: '$iconSuccess',
-    error: '$iconCritical',
-    warning: '$iconCaution',
-    info: '$iconInfo',
+  const id = toastId ?? overlayToastStore.createId();
+  let close = () => {};
+  const callerActions = toActionList(actions);
+  let resolvedActions: IToastAction[] | undefined;
+  // The retry label needs the app's locale, which arrives with the context.
+  const resolveActions = (context: IToastStyleContext) => {
+    resolvedActions ??= withRecoveryAction({
+      title,
+      message,
+      actions: callerActions,
+      testSessionId: nativeStorageRecoveryTestSessionId,
+      close: () => close(),
+      intl: context.intl,
+    });
+    return resolvedActions;
   };
-  // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
-  const iconElement = icon ? (
-    <Icon
-      name={icon}
-      color={hapticColorMap[haptic ?? ''] ?? '$iconCritical'}
-      size="$5"
-    />
-  ) : (
-    iconMap[haptic as keyof typeof iconMap]
-  );
-  const closeHandler = createToastCloseHandler();
-  const instance: ReturnType<typeof showMessage> = showMessage({
-    renderContent: (props) => (
-      <ToastContent
-        onClose={handleClose}
-        title={title}
-        maxWidth={props?.width}
-        message={message}
-        icon={iconElement}
-        actions={actions}
-        actionsAlign={actionsAlign}
-        nativeStorageRecoveryTestSessionId={nativeStorageRecoveryTestSessionId}
-        onRequestClose={closeHandler.close}
-      />
-    ),
-    toastId,
-    duration,
-    haptic,
-    preset,
-    position,
+  const instance = showToast(id, {
+    build: (context) =>
+      buildMessageToastSpec(context, {
+        id,
+        title,
+        message,
+        icon,
+        haptic,
+        duration,
+        // Native toasts always land at the top.
+        position: platformEnv.isNative ? undefined : position,
+        actions: resolveActions(context),
+        actionsAlign,
+      }),
+    actions: () => resolvedActions ?? callerActions,
+    onClose: handleClose,
+    shown: false,
   });
-  closeHandler.attach(instance);
+  close = instance.close;
   return instance;
-}
-
-function ToastNotificationContent({
-  title,
-  message,
-  icon,
-  iconImageUri,
-  imageUri,
-  onClose,
-  onPress,
-  actions,
-  actionsAlign = 'right',
-  nativeStorageRecoveryTestSessionId,
-  onRequestClose,
-}: IToastNotificationProps & { onRequestClose?: () => void | Promise<void> }) {
-  const pageWidth = usePageWidth();
-  useEffect(
-    () => () => {
-      onClose?.();
-    },
-    [onClose],
-  );
-  const handlePress = useCallback(() => {
-    onPress?.();
-  }, [onPress]);
-  const iconImageSource = useMemo(
-    () => (iconImageUri ? { uri: iconImageUri } : undefined),
-    [iconImageUri],
-  );
-  const IconElement = useMemo(() => {
-    if (iconImageUri && iconImageSource) {
-      return <Image source={iconImageSource} size={18} />;
-    }
-    return (
-      <Icon size={18} name={icon || 'SpeakerPromoteOutline'} color="$icon" />
-    );
-  }, [iconImageUri, iconImageSource, icon]);
-  const imageSource = useMemo(
-    () => (imageUri ? { uri: imageUri } : undefined),
-    [imageUri],
-  );
-  const platformNativeWidthStyle = useMemo(
-    () => ({
-      width: Math.min(pageWidth, 640) - 64,
-    }),
-    [pageWidth],
-  );
-  return (
-    <XStack
-      gap="$2"
-      cursor="pointer"
-      onPress={handlePress}
-      flex={1}
-      $platform-native={platformNativeWidthStyle}
-    >
-      <XStack
-        bg="$bgStrong"
-        borderRadius="$full"
-        ai="center"
-        jc="center"
-        w={28}
-        h={28}
-      >
-        {IconElement}
-      </XStack>
-      <YStack flex={1} gap={2} flexShrink={1} minWidth={0}>
-        <SizableText size="$headingSm" numberOfLines={2} flexShrink={1}>
-          {title}
-        </SizableText>
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={3}
-          flexShrink={1}
-        >
-          {message}
-        </SizableText>
-        {actions ||
-        (platformEnv.isNative &&
-          getNativeStorageRecoveryToastTarget(title, message)) ? (
-          <XStack
-            gap="$2"
-            justifyContent={actionsAlign === 'left' ? 'flex-start' : 'flex-end'}
-            paddingTop="$3"
-          >
-            <NativeStorageRecoveryToastActions
-              title={title}
-              message={message}
-              actions={actions}
-              nativeStorageRecoveryTestSessionId={
-                nativeStorageRecoveryTestSessionId
-              }
-              onRequestClose={onRequestClose}
-            />
-          </XStack>
-        ) : null}
-      </YStack>
-      {imageUri && imageSource ? (
-        <Image borderRadius="$1" size="$12" source={imageSource} />
-      ) : null}
-    </XStack>
-  );
 }
 
 function toastNotification({
@@ -443,8 +351,6 @@ function toastNotification({
   iconImageUri,
   imageUri,
   duration = 5000,
-  haptic,
-  preset = 'custom',
   actions,
   actionsAlign = 'right',
   position,
@@ -454,33 +360,56 @@ function toastNotification({
 }: IToastNotificationProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
-  const closeHandler = createToastCloseHandler();
-  const instance: ReturnType<typeof showMessage> = showMessage({
-    renderContent: (_props) => (
-      <ToastNotificationContent
-        onClose={handleClose}
-        title={title}
-        imageUri={imageUri}
-        message={message}
-        icon={icon}
-        iconImageUri={iconImageUri}
-        actions={actions}
-        actionsAlign={actionsAlign}
-        onPress={onPress}
-        nativeStorageRecoveryTestSessionId={nativeStorageRecoveryTestSessionId}
-        onRequestClose={closeHandler.close}
-      />
-    ),
-    duration,
-    haptic,
-    preset,
-    position,
+  // A notification never reuses a card: every call is its own toast.
+  const id = overlayToastStore.createId();
+  let close = () => {};
+  // The caller's actions; a storage recovery toast adds its repair action.
+  const isRecovery =
+    platformEnv.isNative &&
+    !!getNativeStorageRecoveryToastTarget(title, message);
+  const callerActions = toActionList(actions);
+  let resolvedActions: IToastAction[] | undefined;
+  const resolveActions = (context: IToastStyleContext) => {
+    if (!isRecovery) {
+      resolvedActions = callerActions;
+      return callerActions;
+    }
+    resolvedActions ??= withRecoveryAction({
+      title,
+      message,
+      actions: callerActions,
+      testSessionId: nativeStorageRecoveryTestSessionId,
+      close: () => close(),
+      intl: context.intl,
+    });
+    return resolvedActions;
+  };
+  const instance = showToast(id, {
+    build: (context) =>
+      buildNotificationToastSpec(context, {
+        id,
+        title,
+        message,
+        icon,
+        iconImageUri,
+        imageUri,
+        duration,
+        position: platformEnv.isNative ? undefined : position,
+        actions: resolveActions(context),
+        actionsAlign,
+        pressable: true,
+      }),
+    actions: () => resolvedActions ?? [],
+    onClose: handleClose,
+    onPress,
+    shown: false,
   });
-  closeHandler.attach(instance);
+  close = instance.close;
   return instance;
 }
 
-export { default as Toaster } from './Toaster';
+export { ToastContent } from './ToastContent';
+export { ToastHost, ToastHost as Toaster } from './ToastHost';
 
 export type IToastShowResult = {
   close: (extra?: { flag?: string }) => void | Promise<void>;
@@ -572,7 +501,10 @@ export const Toast = {
   Close: ShowToasterClose,
   dismiss: (id: string) => {
     toastIdMap.delete(id);
-    dismissToast(id);
+    const toast = activeToasts.get(id);
+    if (toast) {
+      closeToast(id, toast);
+    }
   },
 };
 export type IToast = typeof Toast;

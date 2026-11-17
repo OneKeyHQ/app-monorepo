@@ -128,17 +128,13 @@ export function PerpTradingButton({
         : intl.formatMessage({
             id: ETranslations.perp_insufficient_margin__title,
           }),
-      actions: (
-        <Button
-          testID={PerpTestIDs.MarginToastDepositButton}
-          size="small"
-          variant="primary"
-          disabled={isDepositDisabled}
-          onPress={handleDepositFromToast}
-        >
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </Button>
-      ),
+      actions: {
+        testID: PerpTestIDs.MarginToastDepositButton,
+        variant: 'primary',
+        disabled: isDepositDisabled,
+        label: intl.formatMessage({ id: ETranslations.perp_trade_deposit }),
+        onPress: handleDepositFromToast,
+      },
       actionsAlign: 'left',
       toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
     });

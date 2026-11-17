@@ -293,8 +293,8 @@ textarea {
   }
 }
 
-/* custom sonner toast styles, should remove if the burnt library support such api to custom styles */
-[data-sonner-toast] {
+/* Keep a toast card inside a narrow window. */
+[data-onekey-toast] {
   max-width: calc(100vw - 32px);
 }
 
