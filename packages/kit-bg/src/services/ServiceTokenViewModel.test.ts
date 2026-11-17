@@ -655,6 +655,21 @@ describe('ServiceTokenViewModel', () => {
     expect(Object.keys(pulled.structure?.metaPatch ?? {})).toEqual(['a', 'b']);
     expect(pulled.valuation?.changedFiatById.a.fiatValue).toBe('80');
     expect(pulled.valuation?.changedFiatById.b.fiatValue).toBe('50');
+
+    // Round 3 (v2): `b` remains listed in `orderedTokens`, but its fiat entry is omitted from `tokenListMap`
+    mockEmit.mockClear();
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'accDelta__net',
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        tokenListMap: {
+          a: makeFiat({ balance: '8', fiatValue: '80', price: 10 }),
+        },
+      }),
+    );
+    const valDeltaRemoved = valuationEmits()[0];
+    expect(valDeltaRemoved.isDelta).toBe(true);
+    expect(valDeltaRemoved.valuation.removedFiatIds).toEqual(['b']);
   });
 
   it('REPLACES (does not concat) the owner slices each round — a shorter list shrinks orderedIds', () => {

@@ -84,6 +84,18 @@ function mergeValues<T>(
   return next === current ? previous : { ...previous, [num]: next };
 }
 
+function buildValuesQuerySliceKey(
+  accounts: Parameters<IBuildValues>[0]['accounts'],
+  linkedNetworkId?: string,
+): string {
+  return `${linkedNetworkId ?? ''}|${accounts
+    .map(
+      (a) =>
+        `${a.accountId}:${a.networkId}:${a.indexedAccountId ?? ''}:${a.accountAddress ?? ''}:${a.xpub ?? ''}`,
+    )
+    .join(',')}`;
+}
+
 export async function loadAccountSelectorValuesV2(
   { num, accountsForValuesQuery, valuesQueryId, linkedNetworkId }: ILoadParams,
   {
@@ -157,6 +169,10 @@ export async function loadAccountSelectorValuesV2(
         activeQueryId &&
         response &&
         (('queryExpired' in response && response.queryExpired) ||
+          ('querySliceKey' in response &&
+            typeof response.querySliceKey === 'string' &&
+            response.querySliceKey !==
+              buildValuesQuerySliceKey(batch, linkedNetworkId)) ||
           response.accountsValue?.length !== batch.length ||
           response.accountsValue.some(
             (v, idx) => v && v.accountId !== batch[idx]?.accountId,

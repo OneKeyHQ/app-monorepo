@@ -1529,5 +1529,104 @@ describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
     expect(rebuiltSnapshot.slotId).toBe('slot-2');
     expect(rebuiltSnapshot.tokens.map((t) => t.$key)).toEqual(['eth']);
     expect(rebuiltSnapshot.map.eth?.fiatValue).toBe('4500');
+
+    // 4. Still-listed token whose fiat is omitted in a refresh does not retain stale balance in replay snapshot
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 0,
+        isDelta: true,
+        structureVersion: 1,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 1,
+          orderedIds: ['eth', 'usdc'],
+          fundedIds: ['eth', 'usdc'],
+          metaPatch: {
+            usdc: makeToken({ symbol: 'USDC' }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth_usdc__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 0,
+        isDelta: true,
+        valuationVersion: 1,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 1,
+          changedFiatById: {
+            eth: makeFiat({ balance: '1', fiatValue: '4500' }),
+            usdc: makeFiat({ balance: '50', fiatValue: '50' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 1,
+        isDelta: true,
+        structureVersion: 2,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 2,
+          orderedIds: ['eth', 'usdc'],
+          fundedIds: ['eth'],
+          metaPatch: {},
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth_usdc__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        baseVersion: 1,
+        isDelta: true,
+        valuationVersion: 2,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 2,
+          changedFiatById: {},
+          removedFiatIds: ['usdc'],
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    const omittedFiatSnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 2);
+    expect(omittedFiatSnapshot.tokens.map((t) => t.$key)).toEqual([
+      'eth',
+      'usdc',
+    ]);
+    expect(omittedFiatSnapshot.map.eth?.fiatValue).toBe('4500');
+    expect(omittedFiatSnapshot.map.usdc).toBeUndefined();
   });
 });

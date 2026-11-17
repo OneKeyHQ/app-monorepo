@@ -115,6 +115,8 @@ export interface IStructureSnapshot {
 export interface IValuationFrame {
   changedFiatById: Record<ITokenKey, ITokenFiat>;
   changedAggFiat: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  removedFiatIds?: ITokenKey[];
+  removedAggFiat?: Record<IAggKey, INetworkId[]>;
   storeData: IJotaiContextStoreData;
   ownerKey: string;
   /**

@@ -45,6 +45,26 @@ import type {
   IVaultSettings,
 } from '../vaults/types';
 
+let valuesQueryInstanceSequence = 0;
+
+function buildValuesQuerySliceKey(
+  accounts: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    accountAddress?: string;
+    xpub?: string;
+  }[],
+  linkedNetworkId?: string,
+): string {
+  return `${linkedNetworkId ?? ''}|${accounts
+    .map(
+      (a) =>
+        `${a.accountId}:${a.networkId}:${a.indexedAccountId ?? ''}:${a.accountAddress ?? ''}:${a.xpub ?? ''}`,
+    )
+    .join(',')}`;
+}
+
 function hasStoredAccountAddress(account: IDBAccount): boolean {
   if (account.address) {
     return true;
@@ -1086,6 +1106,7 @@ class ServiceAccountSelector extends ServiceBase {
 
     const valuesQueryId = this._retainAccountsForValuesQuery(
       accountsForValuesQuery,
+      linkedNetworkId,
     );
 
     return {
@@ -1098,17 +1119,22 @@ class ServiceAccountSelector extends ServiceBase {
     };
   }
 
+  private readonly _valuesQueryPrefix = `${(valuesQueryInstanceSequence += 1)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
   private _valuesQuerySequence = 0;
 
   private _valuesQueryCache = new Map<
     string,
     {
-      accountId: string;
-      networkId: string;
-      indexedAccountId?: string;
-      accountAddress?: string;
-      xpub?: string;
-    }[]
+      linkedNetworkId?: string;
+      accounts: {
+        accountId: string;
+        networkId: string;
+        indexedAccountId?: string;
+        accountAddress?: string;
+        xpub?: string;
+      }[];
+    }
   >();
 
   private _retainAccountsForValuesQuery(
@@ -1119,10 +1145,11 @@ class ServiceAccountSelector extends ServiceBase {
       accountAddress?: string;
       xpub?: string;
     }[],
+    linkedNetworkId?: string,
   ): string {
     this._valuesQuerySequence += 1;
-    const queryId = `acct-values-query-${this._valuesQuerySequence}`;
-    this._valuesQueryCache.set(queryId, accounts);
+    const queryId = `acct-values-query-${this._valuesQueryPrefix}-${this._valuesQuerySequence}`;
+    this._valuesQueryCache.set(queryId, { linkedNetworkId, accounts });
     while (this._valuesQueryCache.size > 16) {
       const oldest = this._valuesQueryCache.keys().next().value;
       if (!oldest) {
@@ -1194,15 +1221,17 @@ class ServiceAccountSelector extends ServiceBase {
   }) {
     let resolvedAccounts = accounts;
     let queryExpired = false;
+    let usedQueryCache = false;
     if (queryId) {
       const cached = this._valuesQueryCache.get(queryId);
-      if (cached) {
+      if (cached && cached.linkedNetworkId === linkedNetworkId) {
         this._valuesQueryCache.delete(queryId);
         this._valuesQueryCache.set(queryId, cached);
         resolvedAccounts =
           typeof limit === 'number'
-            ? cached.slice(offset, offset + limit)
-            : cached.slice(offset);
+            ? cached.accounts.slice(offset, offset + limit)
+            : cached.accounts.slice(offset);
+        usedQueryCache = true;
       } else if (!accounts.length) {
         queryExpired = true;
       }
@@ -1240,6 +1269,14 @@ class ServiceAccountSelector extends ServiceBase {
           .catch(() => accountsDeFiOverviewRaw);
     return {
       ...(queryExpired ? { queryExpired: true } : undefined),
+      ...(usedQueryCache
+        ? {
+            querySliceKey: buildValuesQuerySliceKey(
+              resolvedAccounts,
+              linkedNetworkId,
+            ),
+          }
+        : undefined),
       accountsValue,
       accountsDeFiOverview,
     };

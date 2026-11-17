@@ -367,6 +367,15 @@ export function applyValuationFrame(
           }
         }
       }
+      if (frame.removedFiatIds) {
+        for (const k of frame.removedFiatIds) {
+          const cellAtom = P.cells.get(k);
+          if (cellAtom && deps.get(cellAtom) !== undefined) {
+            startFrameUpdate();
+            deps.set(cellAtom, undefined);
+          }
+        }
+      }
 
       // Publish each aggregate after all its changed sub-cells are written.
       for (const aggKey of Object.keys(frame.changedAggFiat)) {
@@ -393,6 +402,32 @@ export function applyValuationFrame(
           } finally {
             if (updating && startedUpdate) {
               deps.set(updating, false);
+            }
+          }
+        }
+      }
+      if (frame.removedAggFiat) {
+        for (const aggKey of Object.keys(frame.removedAggFiat)) {
+          const byNet = P.aggSubCells.get(aggKey);
+          if (byNet) {
+            const updating = P.aggUpdating.get(aggKey);
+            let startedUpdate = false;
+            try {
+              for (const netId of frame.removedAggFiat[aggKey]) {
+                const subAtom = byNet.get(netId);
+                if (subAtom && deps.get(subAtom) !== undefined) {
+                  startFrameUpdate();
+                  if (updating && !startedUpdate && !deps.get(updating)) {
+                    startedUpdate = true;
+                    deps.set(updating, true);
+                  }
+                  deps.set(subAtom, undefined);
+                }
+              }
+            } finally {
+              if (updating && startedUpdate) {
+                deps.set(updating, false);
+              }
             }
           }
         }

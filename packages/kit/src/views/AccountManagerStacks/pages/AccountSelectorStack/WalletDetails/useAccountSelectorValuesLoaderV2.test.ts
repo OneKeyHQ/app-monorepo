@@ -424,5 +424,75 @@ describe('account V2 balance scheduling', () => {
       'fallback-0',
       'fallback-1',
     ]);
+
+    // Simulate a colliding `queryId` from another network/address scope (same `accountId` and length,
+    // different `querySliceKey`) -> falls back to sending full `accounts` batch.
+    deps.buildValues.mockReset();
+    deps.buildValues
+      .mockResolvedValueOnce({
+        querySliceKey: 'evm--1|hd-1--0:evm--1:hd-1--0:0x111:',
+        accountsValue: [
+          {
+            accountId: 'hd-1--0',
+            currency: 'usd',
+            value: { 'hd-1--0_evm--1': '10' },
+          },
+        ],
+        accountsDeFiOverview: [
+          {
+            overview: {},
+            perpsNetWorthUsd: '10',
+          },
+        ],
+      } as Awaited<ReturnType<IBuildValues>>)
+      .mockResolvedValueOnce({
+        accountsValue: [
+          {
+            accountId: 'hd-1--0',
+            currency: 'usd',
+            value: { 'hd-1--0_all--0': '30' },
+          },
+        ],
+        accountsDeFiOverview: [
+          {
+            overview: {},
+            perpsNetWorthUsd: '30',
+          },
+        ],
+      } as Awaited<ReturnType<IBuildValues>>);
+
+    await loadAccountSelectorValuesV2(
+      {
+        num: 2,
+        accountsForValuesQuery: [
+          {
+            accountId: 'hd-1--0',
+            networkId: 'all--0',
+            indexedAccountId: 'hd-1--0',
+            accountAddress: '',
+            xpub: '',
+          },
+        ],
+        valuesQueryId: 'acct-values-query-1',
+        linkedNetworkId: undefined,
+      },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(2);
+    expect(deps.buildValues.mock.calls[1][0]).toEqual({
+      accounts: [
+        {
+          accountId: 'hd-1--0',
+          networkId: 'all--0',
+          indexedAccountId: 'hd-1--0',
+          accountAddress: '',
+          xpub: '',
+        },
+      ],
+      linkedNetworkId: undefined,
+    });
+    expect(deps.valuesAtom.read()[2]?.['hd-1--0']?.deFi?.perpsNetWorthUsd).toBe(
+      '30',
+    );
   });
 });

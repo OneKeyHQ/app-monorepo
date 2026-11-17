@@ -94,18 +94,43 @@ function buildReplayKey(storeName: string, ownerKey: string): string {
 function pruneValuationToStructure(
   valuation: IValuationFrame,
   structure: IStructureSnapshot | undefined,
+  options?: {
+    prevStructure?: IStructureSnapshot;
+    explicitlyUpdatedFiatKeys?: Set<string>;
+  },
 ): IValuationFrame {
+  const {
+    removedFiatIds: _removedFiatIds,
+    removedAggFiat: _removedAggFiat,
+    ...restValuation
+  } = valuation;
   if (!structure) {
-    return valuation;
+    return restValuation;
   }
   const liveKeys = new Set<string>([
     ...structure.orderedIds,
     ...structure.smallBalanceIds,
   ]);
+  const fundedSet = new Set<string>(structure.fundedIds ?? []);
+  const prevFundedSet = options?.prevStructure?.fundedIds
+    ? new Set<string>(options.prevStructure.fundedIds)
+    : undefined;
+  const checkFundedConsistency =
+    fundedSet.size > 0 || (prevFundedSet?.size ?? 0) > 0;
   const aggMembership = structure.aggMembership ?? {};
   const prunedFiatById: Record<string, ITokenFiat> = {};
   for (const [k, fiat] of Object.entries(valuation.changedFiatById)) {
-    if (liveKeys.has(k) && !(k in aggMembership)) {
+    const lostFundedBalance =
+      checkFundedConsistency &&
+      !options?.explicitlyUpdatedFiatKeys?.has(k) &&
+      Number(fiat?.balance) > 0 &&
+      !fundedSet.has(k);
+    if (
+      fiat &&
+      liveKeys.has(k) &&
+      !(k in aggMembership) &&
+      !lostFundedBalance
+    ) {
       prunedFiatById[k] = fiat;
     }
   }
@@ -116,7 +141,7 @@ function pruneValuationToStructure(
       const memberSet = new Set<string>(members);
       let nextByNet: Record<string, ITokenFiat> | undefined;
       for (const [netId, fiat] of Object.entries(byNet)) {
-        if (memberSet.has(netId)) {
+        if (fiat && memberSet.has(netId)) {
           nextByNet ??= {};
           nextByNet[netId] = fiat;
         }
@@ -127,7 +152,7 @@ function pruneValuationToStructure(
     }
   }
   return {
-    ...valuation,
+    ...restValuation,
     changedFiatById: prunedFiatById,
     changedAggFiat: prunedAggFiat,
   };
@@ -181,6 +206,7 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
       base = { currencyId, structure: existing.structure };
     }
   }
+  const prevStructureSnapshot = base.structure?.structure;
   let storedPayload: IOwnerReplayPayloadByKind[K] = payload;
   if (kind === 'structure') {
     const structPush = payload as IStructurePush;
@@ -240,6 +266,11 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
         ...prevVal.valuation.changedFiatById,
         ...valPush.valuation.changedFiatById,
       };
+      if (valPush.valuation.removedFiatIds) {
+        for (const removedKey of valPush.valuation.removedFiatIds) {
+          delete mergedFiatById[removedKey];
+        }
+      }
       const mergedAggFiat: Record<string, Record<string, ITokenFiat>> = {
         ...prevVal.valuation.changedAggFiat,
       };
@@ -251,6 +282,20 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
           ...byNet,
         };
       }
+      if (valPush.valuation.removedAggFiat) {
+        for (const [aggKey, netIds] of Object.entries(
+          valPush.valuation.removedAggFiat,
+        )) {
+          const existingByNet = mergedAggFiat[aggKey];
+          if (existingByNet) {
+            const nextByNet = { ...existingByNet };
+            for (const netId of netIds) {
+              delete nextByNet[netId];
+            }
+            mergedAggFiat[aggKey] = nextByNet;
+          }
+        }
+      }
       const prunedValuation = pruneValuationToStructure(
         {
           ...valPush.valuation,
@@ -258,6 +303,12 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
           changedAggFiat: mergedAggFiat,
         },
         base.structure?.structure,
+        {
+          prevStructure: prevStructureSnapshot,
+          explicitlyUpdatedFiatKeys: new Set(
+            Object.keys(valPush.valuation.changedFiatById),
+          ),
+        },
       );
       storedPayload = {
         ownerKey: valPush.ownerKey,
@@ -274,6 +325,7 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
       valuation: pruneValuationToStructure(
         next.valuation.valuation,
         next.structure.structure,
+        { prevStructure: prevStructureSnapshot },
       ),
     };
   }

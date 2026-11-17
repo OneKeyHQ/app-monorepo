@@ -706,6 +706,12 @@ class ServiceTokenViewModel extends ServiceBase {
         deltaChangedFiatById[key] = nextFiat;
       }
     }
+    const removedFiatIds: ITokenKey[] = [];
+    for (const key of Object.keys(prevFiatByKey)) {
+      if (!(key in valuation.changedFiatById)) {
+        removedFiatIds.push(key);
+      }
+    }
     const deltaChangedAggFiat: Record<
       IAggKey,
       Record<INetworkId, ITokenFiat>
@@ -723,6 +729,19 @@ class ServiceTokenViewModel extends ServiceBase {
       }
       if (changedNetEntries) {
         deltaChangedAggFiat[aggKey] = changedNetEntries;
+      }
+    }
+    const removedAggFiat: Record<IAggKey, INetworkId[]> = {};
+    for (const aggKey of Object.keys(prevAggFiatByKey)) {
+      const prevByNet = prevAggFiatByKey[aggKey];
+      const nextByNet = valuation.changedAggFiat[aggKey];
+      if (prevByNet && nextByNet) {
+        const missingNets = Object.keys(prevByNet).filter(
+          (netId) => !(netId in nextByNet) || !nextByNet[netId],
+        );
+        if (missingNets.length > 0) {
+          removedAggFiat[aggKey] = missingNets;
+        }
       }
     }
 
@@ -745,6 +764,10 @@ class ServiceTokenViewModel extends ServiceBase {
                 ...valuation,
                 changedFiatById: deltaChangedFiatById,
                 changedAggFiat: deltaChangedAggFiat,
+                ...(removedFiatIds.length > 0 ? { removedFiatIds } : undefined),
+                ...(Object.keys(removedAggFiat).length > 0
+                  ? { removedAggFiat }
+                  : undefined),
               },
             }
           : {
