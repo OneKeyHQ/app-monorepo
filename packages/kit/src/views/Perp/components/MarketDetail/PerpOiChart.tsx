@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import {
   type ILightweightChartProps,
   LightweightChart,
@@ -30,11 +31,13 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { fetchPerpOiHistory } from '../../utils/fetchPerpOiHistory';
-import { getPerpFundingTooltipPosition } from '../../utils/fundingChart';
+import {
+  PERP_DATA_CHART_HEIGHT,
+  getPerpFundingTooltipPosition,
+} from '../../utils/fundingChart';
 
 import type { IPerpOiHistoryRange } from '../../utils/fetchPerpOiHistory';
 
-const CHART_HEIGHT = 244;
 const OI_CACHE_NAMESPACE = swrCacheNamespaces.perpsOiHistory;
 const USE_WEB_SNAPSHOT_STORE = Platform.select({
   native: false,
@@ -146,14 +149,6 @@ export function PerpOiChart({
       : undefined;
   const history = cachedHistory ?? current?.history;
   const data = history?.data;
-  const historyStart = range === 'history' ? data?.[0]?.[0] : undefined;
-  const lastSample = data?.at(-1)?.[0];
-  const showLastSample =
-    lastSample !== undefined &&
-    (history?.stale ||
-      cachedHistory !== undefined ||
-      current?.refreshFailed ||
-      Date.now() - lastSample * 1000 > 2 * pollingInterval);
   const title = intl.formatMessage({
     id: ETranslations.perp_token_bar_open_Interest,
   });
@@ -186,7 +181,7 @@ export function PerpOiChart({
           x: hoveredPoint.x,
           y: hoveredPoint.y,
           chartWidth,
-          chartHeight: CHART_HEIGHT,
+          chartHeight: PERP_DATA_CHART_HEIGHT,
           tooltipWidth,
           tooltipHeight: isMobile ? 52 : 56,
           leftPriceScaleWidth: priceScaleMinimumWidth,
@@ -199,10 +194,7 @@ export function PerpOiChart({
   const ranges: Array<{ key: IPerpOiHistoryRange; label: string }> = [
     { key: '24h', label: '24H' },
     { key: '7d', label: '7D' },
-    {
-      key: 'history',
-      label: intl.formatMessage({ id: ETranslations.global_history }),
-    },
+    { key: 'history', label: '90D' },
   ];
 
   return (
@@ -215,7 +207,18 @@ export function PerpOiChart({
       borderRadius="$3"
       gap="$2"
     >
-      <SizableText size="$headingMd">{title}</SizableText>
+      <XStack alignItems="center" gap="$1">
+        <SizableText size="$headingMd">{title}</SizableText>
+        <InfoIcon
+          size="$4"
+          tooltip={{
+            title,
+            content: intl.formatMessage({
+              id: ETranslations.perp_open_interest_tooltip,
+            }),
+          }}
+        />
+      </XStack>
       <XStack
         alignItems="center"
         justifyContent="space-between"
@@ -248,29 +251,6 @@ export function PerpOiChart({
             </ButtonFrame>
           ))}
         </XStack>
-        {historyStart || showLastSample ? (
-          <XStack alignItems="center" gap="$2">
-            {historyStart ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatDate(historyStart * 1000, {
-                  dateStyle: 'medium',
-                  timeZone,
-                })}
-              </SizableText>
-            ) : null}
-            {showLastSample ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.market_last_updated,
-                })}{' '}
-                {formatDate(new Date(lastSample * 1000), {
-                  hideSeconds: true,
-                  timeZone,
-                })}
-              </SizableText>
-            ) : null}
-          </XStack>
-        ) : null}
       </XStack>
       {data?.length ? (
         <YStack
@@ -280,7 +260,7 @@ export function PerpOiChart({
         >
           <LightweightChart
             data={data}
-            height={CHART_HEIGHT}
+            height={PERP_DATA_CHART_HEIGHT}
             lineWidth={2}
             priceFormatter={formatOpenInterestUsd}
             priceScalePosition="left"
@@ -345,7 +325,7 @@ export function PerpOiChart({
         </YStack>
       ) : (
         <YStack
-          height={CHART_HEIGHT}
+          height={PERP_DATA_CHART_HEIGHT}
           alignItems="center"
           justifyContent="center"
           gap="$2"

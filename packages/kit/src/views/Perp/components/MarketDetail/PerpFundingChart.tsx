@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { colorTokens } from '@tamagui/themes';
 import { colord } from 'colord';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -12,7 +11,6 @@ import {
   XStack,
   YStack,
   useTheme,
-  useThemeName,
 } from '@onekeyhq/components';
 import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
@@ -25,6 +23,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { usePerpFundingHistory } from '../../hooks/usePerpMarketDetail';
 import {
   type IPerpFundingChartInterval,
+  PERP_DATA_CHART_HEIGHT,
   buildPerpFundingChartData,
   getPerpFundingTooltipPosition,
 } from '../../utils/fundingChart';
@@ -45,7 +44,8 @@ const FUNDING_INTERVAL_ITEMS: Array<{
 const FUNDING_POSITIVE_COLOR = '#31E72F';
 const FUNDING_NEGATIVE_COLOR = '#EF4444';
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
-const FUNDING_CHART_AREA_FILL_ALPHA = 0.18;
+const FUNDING_CHART_AREA_FILL_ALPHA = 0.2;
+const FUNDING_CHART_BASE_FILL_ALPHA = 0.04;
 const DESKTOP_TOOLTIP_WIDTH = 200;
 const MOBILE_TOOLTIP_WIDTH = 144;
 const MOBILE_CUMULATIVE_TOOLTIP_WIDTH = 160;
@@ -54,8 +54,6 @@ const CUMULATIVE_TOOLTIP_HEIGHT = 92;
 const MOBILE_TOOLTIP_HEIGHT = 52;
 const MOBILE_CUMULATIVE_TOOLTIP_HEIGHT = 72;
 const TOOLTIP_PADDING = 8;
-const DESKTOP_CHART_PANEL_HEIGHT = 364;
-const MOBILE_CHART_PANEL_HEIGHT = 384;
 const DESKTOP_CHART_FONT_SIZE = 11;
 const MOBILE_CHART_FONT_SIZE = 9;
 const DESKTOP_PRICE_SCALE_MINIMUM_WIDTH = 64;
@@ -67,11 +65,9 @@ function formatFundingPercent(value: number) {
   return `${normalizedValue.toFixed(Math.abs(normalizedValue) < 0.1 ? 4 : 2)}%`;
 }
 
-function getFundingChartFillColor(color: string) {
+function getFundingChartFillColor(color: string, alpha: number) {
   const parsedColor = colord(color);
-  return parsedColor.isValid()
-    ? parsedColor.alpha(FUNDING_CHART_AREA_FILL_ALPHA).toRgbString()
-    : color;
+  return parsedColor.isValid() ? parsedColor.alpha(alpha).toRgbString() : color;
 }
 
 function createFundingBaselineOptions({
@@ -82,11 +78,23 @@ function createFundingBaselineOptions({
   return {
     baseValue: { type: 'price', price: 0 },
     topLineColor: palette.positive,
-    topFillColor1: getFundingChartFillColor(palette.positiveFill),
-    topFillColor2: getFundingChartFillColor(palette.positiveFill),
+    topFillColor1: getFundingChartFillColor(
+      palette.positive,
+      FUNDING_CHART_AREA_FILL_ALPHA,
+    ),
+    topFillColor2: getFundingChartFillColor(
+      palette.positive,
+      FUNDING_CHART_BASE_FILL_ALPHA,
+    ),
     bottomLineColor: palette.negative,
-    bottomFillColor1: getFundingChartFillColor(palette.negativeFill),
-    bottomFillColor2: getFundingChartFillColor(palette.negativeFill),
+    bottomFillColor1: getFundingChartFillColor(
+      palette.negative,
+      FUNDING_CHART_BASE_FILL_ALPHA,
+    ),
+    bottomFillColor2: getFundingChartFillColor(
+      palette.negative,
+      FUNDING_CHART_AREA_FILL_ALPHA,
+    ),
   };
 }
 
@@ -131,8 +139,6 @@ type IFundingChartHoverData = {
 type IFundingChartPalette = {
   positive: string;
   negative: string;
-  positiveFill: string;
-  negativeFill: string;
 };
 
 type IFundingChartVariant = 'workspace' | 'mobile';
@@ -221,7 +227,7 @@ function FundingChartPanel({
   onIntervalChange,
   palette,
   baselineOptions,
-  lineWidth = 1,
+  lineWidth = 2,
   periodFundingRateData,
   showLastValue = true,
   timeZone,
@@ -248,7 +254,7 @@ function FundingChartPanel({
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const isMobile = variant === 'mobile';
-  const [chartSize, setChartSize] = useState({ width: 0, height: 180 });
+  const [chartWidth, setChartWidth] = useState(0);
   const [hoveredData, setHoveredData] = useState<
     IFundingChartHoverData | undefined
   >();
@@ -308,7 +314,7 @@ function FundingChartPanel({
   }
   const tooltipWidth = Math.min(
     preferredTooltipWidth,
-    Math.max(0, chartSize.width - TOOLTIP_PADDING * 2),
+    Math.max(0, chartWidth - TOOLTIP_PADDING * 2),
   );
   let tooltipHeight = periodFundingRateData
     ? CUMULATIVE_TOOLTIP_HEIGHT
@@ -323,8 +329,8 @@ function FundingChartPanel({
       ? getPerpFundingTooltipPosition({
           x: hoveredData.x,
           y: hoveredData.y,
-          chartWidth: chartSize.width,
-          chartHeight: chartSize.height,
+          chartWidth,
+          chartHeight: PERP_DATA_CHART_HEIGHT,
           tooltipWidth,
           tooltipHeight,
           leftPriceScaleWidth: priceScaleMinimumWidth,
@@ -339,10 +345,6 @@ function FundingChartPanel({
       flexShrink={isMobile ? 0 : 1}
       flexBasis={isMobile ? undefined : 480}
       width={isMobile ? '100%' : undefined}
-      height={isMobile ? MOBILE_CHART_PANEL_HEIGHT : DESKTOP_CHART_PANEL_HEIGHT}
-      minHeight={
-        isMobile ? MOBILE_CHART_PANEL_HEIGHT : DESKTOP_CHART_PANEL_HEIGHT
-      }
       minWidth={isMobile ? 0 : 320}
       p={isMobile ? '$0' : '$3'}
       borderWidth={isMobile ? 0 : '$px'}
@@ -375,8 +377,8 @@ function FundingChartPanel({
         </XStack>
       </YStack>
       <YStack
-        flex={1}
-        minHeight={0}
+        height={PERP_DATA_CHART_HEIGHT}
+        flexShrink={0}
         position="relative"
         overflow="hidden"
         onLayout={(event) => {
@@ -384,20 +386,12 @@ function FundingChartPanel({
             0,
             Math.floor(event.nativeEvent.layout.width),
           );
-          const nextHeight = Math.max(
-            100,
-            Math.floor(event.nativeEvent.layout.height),
-          );
-          setChartSize((currentSize) =>
-            currentSize.width === nextWidth && currentSize.height === nextHeight
-              ? currentSize
-              : { width: nextWidth, height: nextHeight },
-          );
+          setChartWidth(nextWidth);
         }}
       >
         <LightweightChart
           data={data}
-          height={chartSize.height}
+          height={PERP_DATA_CHART_HEIGHT}
           lineColor={palette.positive}
           lineWidth={isMobile ? lineWidth : Math.max(lineWidth, 2)}
           showPriceScale
@@ -485,7 +479,6 @@ export function PerpFundingChart({
 }) {
   const intl = useIntl();
   const theme = useTheme();
-  const themeName = useThemeName();
   const timeZone = useDeviceTimeZone();
   const [fundingInterval, setFundingInterval] =
     useState<IPerpFundingChartInterval>('8h');
@@ -531,10 +524,8 @@ export function PerpFundingChart({
     () => ({
       positive: theme.bgAccent?.val ?? FUNDING_POSITIVE_COLOR,
       negative: theme.bgCriticalStrong?.val ?? FUNDING_NEGATIVE_COLOR,
-      positiveFill: colorTokens[themeName].green.green3,
-      negativeFill: colorTokens[themeName].red.red3,
     }),
-    [theme.bgAccent?.val, theme.bgCriticalStrong?.val, themeName],
+    [theme.bgAccent?.val, theme.bgCriticalStrong?.val],
   );
   const baselineOptions = useMemo(
     () =>

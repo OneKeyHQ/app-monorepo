@@ -2,6 +2,8 @@ import BigNumber from 'bignumber.js';
 
 import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+export const PERP_DATA_CHART_HEIGHT = 244;
+
 export type IPerpFundingChartInterval = '1h' | '8h' | '1d';
 
 export type IPerpFundingChartPoint = {

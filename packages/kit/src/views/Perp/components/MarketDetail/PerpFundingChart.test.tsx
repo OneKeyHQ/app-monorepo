@@ -18,6 +18,7 @@ type IMockLightweightChartProps = {
   baselineOptions?: BaselineSeriesPartialOptions;
   data: IMarketTokenChart;
   fontSize?: number;
+  height?: number;
   hideCrosshairPriceLabel?: boolean;
   lineWidth?: number;
   priceFormatterPrecision?: number;
@@ -79,18 +80,8 @@ jest.mock('@onekeyhq/components', () => {
       bgAccent: { val: '#31E72F' },
       bgCriticalStrong: { val: '#EF4444' },
     }),
-    useThemeName: () => 'dark',
   };
 });
-
-jest.mock('@tamagui/themes', () => ({
-  colorTokens: {
-    dark: {
-      green: { green3: '#0F291E' },
-      red: { red3: '#3C181A' },
-    },
-  },
-}));
 
 jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   LightweightChart: (props: IMockLightweightChartProps) =>
@@ -204,6 +195,7 @@ describe('PerpFundingChart', () => {
           [28_800, 0.003],
         ],
         hideCrosshairPriceLabel: true,
+        height: 244,
         lineWidth: 2,
         priceFormatterPrecision: 4,
         priceScalePosition: 'left',
@@ -220,6 +212,7 @@ describe('PerpFundingChart', () => {
           [28_800, 0.006],
         ],
         hideCrosshairPriceLabel: true,
+        height: 244,
         lineWidth: 2,
         priceFormatterPrecision: 4,
         priceScalePosition: 'left',
@@ -240,10 +233,10 @@ describe('PerpFundingChart', () => {
     );
     expect(mockLightweightChart.mock.calls[0][0].baselineOptions).toEqual(
       expect.objectContaining({
-        topFillColor1: 'rgba(15, 41, 30, 0.18)',
-        topFillColor2: 'rgba(15, 41, 30, 0.18)',
-        bottomFillColor1: 'rgba(60, 24, 26, 0.18)',
-        bottomFillColor2: 'rgba(60, 24, 26, 0.18)',
+        topFillColor1: 'rgba(49, 231, 47, 0.2)',
+        topFillColor2: 'rgba(49, 231, 47, 0.04)',
+        bottomFillColor1: 'rgba(239, 68, 68, 0.04)',
+        bottomFillColor2: 'rgba(239, 68, 68, 0.2)',
       }),
     );
     expect(
@@ -317,7 +310,8 @@ describe('PerpFundingChart', () => {
       expect(props).toEqual(
         expect.objectContaining({
           fontSize: 9,
-          lineWidth: 1,
+          height: 244,
+          lineWidth: 2,
           priceScaleMinimumWidth: 48,
         }),
       );
