@@ -301,8 +301,9 @@ class CentralClient {
    * files after the release that was read, so nobody else's edit is
    * overwritten. With a key (apply passes its approval) the branch is named
    * after it, so a rerun reuses the PR an earlier run opened even if GitHub's
-   * answer was lost, or opens it from the branch that run created. An existing
-   * branch is never moved. Returns null without changes.
+   * answer was lost, or opens it from the branch that run created, but only
+   * while that branch holds exactly this change. An existing branch is never
+   * moved. Returns null without changes.
    */
   async finalize({ title, body, branchHint = PROJECT_SLUG, key }) {
     if (this.changed.size === 0) return null;
@@ -315,8 +316,14 @@ class CentralClient {
         `${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${named}`)}`,
       );
       if (open) {
+        // Copy pushed to that PR since would otherwise ride on this approval.
+        const held = await this.commitHoldingChange(repo, named, files);
+        if (!held)
+          throw new Error(
+            `onekey-i18n PR #${open.number} (${named}) no longer holds exactly this plan's change. Review it, then close it or prepare a new plan.`,
+          );
         this.changed.clear();
-        return proposalOf(open, named, open.head.sha, files);
+        return proposalOf(open, named, held, files);
       }
     }
     const head = (await this.api.get(`${repo}/git/ref/heads/${this.base}`))
@@ -375,26 +382,15 @@ class CentralClient {
       });
     } catch (error) {
       if (!named || error.status !== 422) throw error;
-      // The branch exists without an open PR. Use it as is only when it is one
-      // commit holding exactly these files (an earlier run that did not open
-      // its PR, possibly on an older base); moving it would drop whatever was
-      // pushed there since.
-      const compared = await this.api.get(
-        `${repo}/compare/${this.base}...${branch}`,
-      );
-      const onBranch = Object.fromEntries(
-        compared.files.map((item) => [item.filename, item.sha]),
-      );
-      if (
-        compared.ahead_by !== 1 ||
-        compared.files.length !== tree.length ||
-        tree.some((item) => onBranch[item.path] !== item.sha)
-      )
+      // The branch exists without an open PR (an earlier run that did not
+      // open it). Use it as is; moving it would drop whatever was pushed there.
+      const held = await this.commitHoldingChange(repo, branch, files);
+      if (!held)
         throw new Error(
           `onekey-i18n branch ${branch} already exists without an open PR and holds other content. Inspect it and any PR it had, delete it if it is stale, then rerun apply.`,
           { cause: error },
         );
-      proposed = compared.commits.at(-1).sha;
+      proposed = held;
     }
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,
@@ -404,6 +400,29 @@ class CentralClient {
     });
     this.changed.clear();
     return proposalOf(pull, branch, proposed, files);
+  }
+
+  /**
+   * The commit on `branch` that holds exactly this change: one commit ahead
+   * of the base (which may have moved on since), changing these files, and
+   * only these, to this content (git blob ids computed here). Null when the
+   * branch holds anything else.
+   */
+  async commitHoldingChange(repo, branch, files) {
+    const compared = await this.api.get(
+      `${repo}/compare/${this.base}...${branch}`,
+    );
+    const onBranch = Object.fromEntries(
+      compared.files.map((item) => [item.filename, item.sha]),
+    );
+    const exact =
+      compared.ahead_by === 1 &&
+      compared.files.length === files.length &&
+      files.every(
+        (file) =>
+          onBranch[`${PROJECT_PATH}/${file}`] === blobSha(this.fileText(file)),
+      );
+    return exact ? compared.commits.at(-1).sha : null;
   }
 }
 

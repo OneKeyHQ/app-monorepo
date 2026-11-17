@@ -358,19 +358,38 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
   };
   const edit = (client) =>
     client.updateTranslation(translationId('global::cancel', 'zh_CN'), '取消');
-
-  // GitHub opened the PR but its answer was lost: the rerun finds that PR.
-  const opened = fakeApi({
-    ...commitRoutes().routes,
-    [lookup]: [
-      {
-        number: 7,
-        html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
-        user: { login: 'originalix' },
-        head: { sha: 'c5' },
-      },
-    ],
+  // The git blob id of the edited file, as the branch would hold it.
+  const zhFile = 'projects/app/locales/zh_CN.json';
+  const probe = new CentralClient({
+    api: fakeApi({}),
+    source: sourceFixture(),
   });
+  await edit(probe);
+  const zhSha = blobSha(probe.fileText('locales/zh_CN.json'));
+  const comparison = (overrides) => ({
+    behind_by: 3,
+    commits: [{ sha: 'c5' }],
+    ahead_by: 1,
+    files: [{ filename: zhFile, sha: zhSha }],
+    ...overrides,
+  });
+
+  // GitHub opened the PR but its answer was lost: the rerun finds that PR and
+  // reuses it while its branch still holds exactly this change.
+  const openPr = (compared) =>
+    fakeApi({
+      ...commitRoutes().routes,
+      [lookup]: [
+        {
+          number: 7,
+          html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+          user: { login: 'originalix' },
+          head: { sha: compared.commits.at(-1).sha },
+        },
+      ],
+      [`GET ${REPO}/compare/main...${branch}`]: compared,
+    });
+  const opened = openPr(comparison({}));
   const rerun = new CentralClient({ api: opened, source: sourceFixture() });
   await edit(rerun);
   assert.deepEqual(await rerun.finalize(proposal), {
@@ -386,10 +405,32 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
     [],
   );
 
+  // Copy pushed to that PR since: the rerun stops instead of adopting it.
+  for (const compared of [
+    comparison({ ahead_by: 2, commits: [{ sha: 'c5' }, { sha: 'c6' }] }),
+    comparison({
+      files: [
+        { filename: zhFile, sha: zhSha },
+        { filename: 'projects/app/keys.json', sha: 'b8' },
+      ],
+    }),
+  ]) {
+    const appended = openPr(compared);
+    const retry = new CentralClient({ api: appended, source: sourceFixture() });
+    await edit(retry);
+    await assert.rejects(
+      retry.finalize(proposal),
+      /PR #7 \(i18n\/app-feat-x-0123456789ab\) no longer holds exactly this plan's change/,
+    );
+    assert.deepEqual(
+      appended.calls.filter(([method]) => method !== 'GET'),
+      [],
+    );
+  }
+
   // The branch exists without a PR. It is used as is when it is one commit
   // holding exactly this change, even if main has moved on since (behind_by);
   // with anything else on it, it is left alone and apply stops.
-  const zhFile = 'projects/app/locales/zh_CN.json';
   const existingBranch = (compared) => {
     const { routes, bodies } = commitRoutes();
     const api = fakeApi({
@@ -400,13 +441,10 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
           status: 422,
         });
       },
-      [`GET ${REPO}/compare/main...${branch}`]: {
-        behind_by: 3,
+      [`GET ${REPO}/compare/main...${branch}`]: comparison({
         commits: [{ sha: 'c8' }],
-        ahead_by: 1,
-        files: [{ filename: zhFile, sha: 'b1' }],
         ...compared,
-      },
+      }),
     });
     return {
       api,
@@ -426,7 +464,7 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
     { files: [{ filename: zhFile, sha: 'b7' }] },
     {
       files: [
-        { filename: zhFile, sha: 'b1' },
+        { filename: zhFile, sha: zhSha },
         { filename: 'projects/app/keys.json', sha: 'b8' },
       ],
     },
