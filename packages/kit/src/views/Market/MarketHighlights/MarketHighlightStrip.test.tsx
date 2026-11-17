@@ -184,7 +184,7 @@ it('opens the details with prefetched quotes beyond the five carousel headlines'
   );
 });
 
-it('opens the full list from a later headline without selecting its scroll position', () => {
+it('passes the clicked headline for initial modal positioning', () => {
   jest.useFakeTimers();
   const items: IMarketHighlight[] = ['First', 'Later'].map((title) => ({
     highlightId: title,
@@ -203,6 +203,7 @@ it('opens the full list from a later headline without selecting its scroll posit
     expect(mockPushModal).toHaveBeenLastCalledWith(expect.anything(), {
       screen: expect.anything(),
       params: {
+        initialHighlightId: 'Later',
         initialHighlights: { locale: 'en-US', items },
         initialQuotes: [],
       },

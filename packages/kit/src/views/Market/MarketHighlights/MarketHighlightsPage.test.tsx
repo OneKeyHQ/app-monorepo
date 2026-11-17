@@ -1,14 +1,33 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { act, fireEvent, render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketHighlightsPage } from './MarketHighlightsPage';
+import { useInitialHighlightScroll } from './useInitialHighlightScroll';
 
 let mockWide = false;
+const mockFinish = jest.fn();
+const mockInitialScroll = {
+  scrollRef: { current: null },
+  viewportRef: { current: null },
+  contentRef: { current: null },
+  targetRef: { current: null },
+  visible: true,
+  onPageMounted: jest.fn(),
+  finish: mockFinish,
+  onViewportLayout: jest.fn(),
+  onContentLayout: jest.fn(),
+  onTargetLayout: jest.fn(),
+  onDescriptionMeasured: jest.fn(),
+  onScroll: jest.fn(),
+};
+jest.mock('./useInitialHighlightScroll', () => ({
+  useInitialHighlightScroll: jest.fn(() => mockInitialScroll),
+}));
 const mockItems: IMarketHighlight[] = ['first', 'selected', 'last'].map(
   (id) => ({
     highlightId: id,
@@ -35,69 +54,34 @@ jest.mock('react-intl', () => ({
   }),
 }));
 jest.mock('@onekeyhq/components', () => {
-  const { forwardRef, useImperativeHandle, useEffect, useState } =
-    jest.requireActual<typeof import('react')>('react');
   const Stack = ({
     children,
     testID,
-    onLayout,
-    height,
+    onTouchStart,
+    opacity,
   }: PropsWithChildren<{
-    height?: number;
     testID?: string;
-    onLayout?: (event: { nativeEvent: { layout: { height: number } } }) => void;
-  }>) => {
-    useEffect(() => {
-      if (testID === 'market-highlights-list')
-        onLayout?.({ nativeEvent: { layout: { height: 600 } } });
-      if (testID === 'market-highlights-list-footer' && height !== undefined)
-        onLayout?.({ nativeEvent: { layout: { height } } });
-    }, [testID, onLayout, height]);
-    return <div>{children}</div>;
-  };
+    onTouchStart?: React.TouchEventHandler<HTMLDivElement>;
+    opacity?: number;
+  }>) => (
+    <div data-testid={testID} onTouchStart={onTouchStart} style={{ opacity }}>
+      {children}
+    </div>
+  );
   return {
     s: (value: number) => value,
     Page: Object.assign(Stack, { Header: () => null, Body: Stack }),
     XStack: Stack,
     YStack: Stack,
     Stack,
+    ScrollView: Stack,
+    SizableText: Stack,
     IconButton: () => null,
     HeaderIconButton: () => null,
-    Popover: () => null,
-    SizableText: Stack,
-    ListView: forwardRef(function MockList(
-      {
-        data,
-        ListFooterComponent,
-      }: { data: IMarketHighlight[]; ListFooterComponent: React.ReactNode },
-      ref,
-    ) {
-      const [visibleIndex, setVisibleIndex] = useState(0);
-      useImperativeHandle(ref, () => ({
-        scrollToIndex: ({ index }: { index: number }) => {
-          setVisibleIndex(index);
-          return Promise.resolve();
-        },
-        scrollToOffset: ({ offset }: { offset: number }) =>
-          setVisibleIndex(Math.floor(offset / 200)),
-        getLayout: (index: number) => ({ y: index * 200 }),
-        getFirstItemOffset: () => 10,
-      }));
-      return (
-        <div>
-          <span data-testid="first-visible-headline">
-            {data[visibleIndex].title}
-          </span>
-          <button
-            type="button"
-            onClick={() => setVisibleIndex(data.length - 1)}
-          >
-            Scroll to last
-          </button>
-          {ListFooterComponent}
-        </div>
-      );
-    }),
+    Icon: () => null,
+    Spinner: () => null,
+    Popover: ({ renderTrigger }: { renderTrigger: React.ReactNode }) =>
+      renderTrigger,
     useMedia: () => ({ gtMd: mockWide }),
   };
 });
@@ -147,41 +131,36 @@ jest.mock('./useMarketHighlightQuotes', () => ({
   useMarketHighlightQuotes: () => undefined,
 }));
 
-it.each([
-  { wide: false, native: false },
-  { wide: true, native: false },
-  { wide: false, native: true },
-  { wide: true, native: true },
-])(
-  'opens at the first headline on every visit (wide=$wide, native=$native)',
-  async ({ wide, native }) => {
-    jest.useFakeTimers();
-    mockWide = wide;
-    platformEnv.isNative = native;
-    let view = render(<MarketHighlightsPage />);
-    try {
-      expect(view.getByTestId('first-visible-headline').textContent).toBe(
-        'first',
-      );
-      await act(async () => jest.advanceTimersByTimeAsync(1000));
-      expect(view.getByTestId('first-visible-headline').textContent).toBe(
-        'first',
-      );
-      fireEvent.click(view.getByRole('button', { name: 'Scroll to last' }));
-      view.rerender(<MarketHighlightsPage />);
-      await act(async () => jest.advanceTimersByTimeAsync(1000));
-      expect(view.getByTestId('first-visible-headline').textContent).toBe(
-        'last',
-      );
-      view.unmount();
-      view = render(<MarketHighlightsPage />);
-      await act(async () => jest.advanceTimersByTimeAsync(1000));
-      expect(view.getByTestId('first-visible-headline').textContent).toBe(
-        'first',
-      );
-    } finally {
-      view.unmount();
-      jest.useRealTimers();
-    }
+beforeEach(() => {
+  mockFinish.mockClear();
+  mockInitialScroll.visible = true;
+  platformEnv.isNative = false;
+  mockWide = true;
+});
+
+it('passes the clicked headline to initial positioning and hides content until it is ready', () => {
+  mockInitialScroll.visible = false;
+  const view = render(<MarketHighlightsPage />);
+  expect(useInitialHighlightScroll).toHaveBeenLastCalledWith(
+    mockItems,
+    'selected',
+  );
+  expect(view.getByTestId('market-highlights-scroll').style.opacity).toBe('0');
+});
+
+it.each(['wheel', 'pointerDown', 'keyDown', 'click'] as const)(
+  'stops pending positioning on web %s',
+  (event) => {
+    const view = render(<MarketHighlightsPage />);
+    fireEvent[event](view.getByTestId('market-highlights-list'));
+    expect(mockFinish).toHaveBeenCalledTimes(1);
   },
 );
+
+it('stops pending positioning on native touch', () => {
+  platformEnv.isNative = true;
+  mockWide = false;
+  const view = render(<MarketHighlightsPage />);
+  fireEvent.touchStart(view.getByTestId('market-highlights-list'));
+  expect(mockFinish).toHaveBeenCalledTimes(1);
+});

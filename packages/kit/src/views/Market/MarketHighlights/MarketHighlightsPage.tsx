@@ -8,10 +8,10 @@ import {
   HeaderIconButton,
   Icon,
   IconButton,
-  ListView,
   NumberSizeableText,
   Page,
   Popover,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -25,6 +25,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -44,6 +45,7 @@ import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailIm
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
+import { useInitialHighlightScroll } from './useInitialHighlightScroll';
 import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
 import { useMarketHighlights } from './useMarketHighlights';
 
@@ -53,7 +55,6 @@ import type {
   IModalMarketParamList,
 } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
-import type { ListRenderItem } from 'react-native';
 
 const MAX_CARD_ASSETS = 3;
 const ASSET_SLOT_MAX_WIDTH = 240;
@@ -139,7 +140,13 @@ function HighlightInfo({
   );
 }
 
-function HighlightsDisclaimer({ wide }: { wide: boolean }) {
+function HighlightsDisclaimer({
+  wide,
+  onOpen,
+}: {
+  wide: boolean;
+  onOpen: () => void;
+}) {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.earn_disclaimer });
   const testID = 'market-highlights-disclaimer';
@@ -151,6 +158,9 @@ function HighlightsDisclaimer({ wide }: { wide: boolean }) {
   return (
     <Popover
       title={title}
+      onOpenChange={(open) => {
+        if (open) onOpen();
+      }}
       showHeader={!wide}
       placement="bottom-end"
       // Desktop matches the default Tooltip panel (width, padding, text).
@@ -189,9 +199,11 @@ function HighlightsDisclaimer({ wide }: { wide: boolean }) {
 function HighlightDescription({
   description,
   wide,
+  onMeasured,
 }: {
   description: string;
   wide: boolean;
+  onMeasured: () => void;
 }) {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(false);
@@ -209,7 +221,10 @@ function HighlightDescription({
         width="100%"
         opacity={0}
         pointerEvents="none"
-        onLayout={({ nativeEvent }) => setFullHeight(nativeEvent.layout.height)}
+        onLayout={({ nativeEvent }) => {
+          setFullHeight(nativeEvent.layout.height);
+          onMeasured();
+        }}
       >
         <SizableText size="$bodyMd">{description}</SizableText>
       </YStack>
@@ -390,11 +405,13 @@ function HighlightCard({
   quotes,
   onAssetPress,
   wide,
+  onDescriptionMeasured,
 }: {
   item: IMarketHighlight;
   quotes?: Map<string, IMarketHighlightQuote>;
   onAssetPress: (asset: IMarketHighlightAsset) => void;
   wide: boolean;
+  onDescriptionMeasured: (id: string) => void;
 }) {
   const publishedAt = new Date(item.publishedAt);
   const time = formatRelativeTimeAbbr(publishedAt);
@@ -446,6 +463,7 @@ function HighlightCard({
         key={item.description}
         description={item.description}
         wide={wide}
+        onMeasured={() => onDescriptionMeasured(item.highlightId)}
       />
       <YStack
         flexDirection={wide ? 'row' : 'column'}
@@ -518,10 +536,6 @@ function MarketHighlightsContent() {
   const title = intl.formatMessage({
     id: ETranslations.market_market_highlights,
   });
-  const renderHeaderRight = useCallback(
-    () => <HighlightsDisclaimer wide={false} />,
-    [],
-  );
   const { popStack } = useAppNavigation();
   const { navigateToPerps } = usePerpsNavigation();
   const toDetailPage = useToDetailPage({ switchToMarketTabFirst: true });
@@ -533,6 +547,12 @@ function MarketHighlightsContent() {
     [items],
   );
   const quotes = useMarketHighlightQuotes(assets, initialQuotes);
+  const initialHighlightId = route.params?.initialHighlightId;
+  const initialScroll = useInitialHighlightScroll(items, initialHighlightId);
+  const renderHeaderRight = useCallback(
+    () => <HighlightsDisclaimer wide={false} onOpen={initialScroll.finish} />,
+    [initialScroll.finish],
+  );
   useEffect(() => {
     if (!quotes) return;
     prewarmMarketTokenImages(
@@ -563,22 +583,9 @@ function MarketHighlightsContent() {
     },
     [navigateToPerps, popStack, toDetailPage],
   );
-  const renderItem = useCallback<ListRenderItem<IMarketHighlight>>(
-    ({ item }) => (
-      <YStack px={wide ? '$5' : '$4'} pb="$3">
-        <HighlightCard
-          item={item}
-          quotes={quotes}
-          onAssetPress={onAssetPress}
-          wide={wide}
-        />
-      </YStack>
-    ),
-    [onAssetPress, quotes, wide],
-  );
 
-  return (
-    <Page>
+  const content = (
+    <Page onMounted={initialScroll.onPageMounted}>
       <Page.Header
         headerShown={!wide}
         title={title}
@@ -606,18 +613,75 @@ function MarketHighlightsContent() {
             <SizableText size="$headingLg" flex={1}>
               {title}
             </SizableText>
-            <HighlightsDisclaimer wide />
+            <HighlightsDisclaimer wide onOpen={initialScroll.finish} />
           </XStack>
         ) : null}
         {items?.length ? (
-          <YStack testID="market-highlights-list" flex={1} minHeight={0}>
-            <ListView
-              data={items}
-              keyExtractor={(item) => item.highlightId}
-              renderItem={renderItem}
-              ListHeaderComponent={<Stack height={LIST_EDGE_SPACING} />}
-              ListFooterComponent={<Stack height={LIST_EDGE_SPACING} />}
-            />
+          <YStack
+            ref={initialScroll.viewportRef}
+            testID="market-highlights-list"
+            flex={1}
+            minHeight={0}
+            onLayout={initialScroll.onViewportLayout}
+            onTouchStart={initialScroll.finish}
+          >
+            {!initialScroll.visible ? (
+              <YStack
+                position="absolute"
+                inset={0}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Spinner />
+              </YStack>
+            ) : null}
+            <ScrollView
+              ref={initialScroll.scrollRef}
+              testID="market-highlights-scroll"
+              opacity={initialScroll.visible ? 1 : 0}
+              pointerEvents={initialScroll.visible ? 'auto' : 'none'}
+              accessibilityElementsHidden={!initialScroll.visible}
+              aria-hidden={!initialScroll.visible}
+              scrollEventThrottle={16}
+              onScroll={initialScroll.onScroll}
+              onScrollBeginDrag={initialScroll.finish}
+            >
+              <YStack
+                ref={initialScroll.contentRef}
+                onLayout={initialScroll.onContentLayout}
+                collapsable={false}
+                py={LIST_EDGE_SPACING}
+              >
+                {items.map((item) => (
+                  <YStack
+                    key={item.highlightId}
+                    ref={
+                      item.highlightId === initialHighlightId
+                        ? initialScroll.targetRef
+                        : undefined
+                    }
+                    onLayout={
+                      item.highlightId === initialHighlightId
+                        ? initialScroll.onTargetLayout
+                        : undefined
+                    }
+                    collapsable={false}
+                    px={wide ? '$5' : '$4'}
+                    pb="$3"
+                  >
+                    <HighlightCard
+                      item={item}
+                      quotes={quotes}
+                      onAssetPress={onAssetPress}
+                      wide={wide}
+                      onDescriptionMeasured={
+                        initialScroll.onDescriptionMeasured
+                      }
+                    />
+                  </YStack>
+                ))}
+              </YStack>
+            </ScrollView>
           </YStack>
         ) : (
           <YStack flex={1} alignItems="center" justifyContent="center" gap="$3">
@@ -639,6 +703,19 @@ function MarketHighlightsContent() {
         )}
       </Page.Body>
     </Page>
+  );
+  return platformEnv.isNative ? (
+    content
+  ) : (
+    <div
+      style={{ display: 'contents' }}
+      onWheelCapture={initialScroll.finish}
+      onPointerDownCapture={initialScroll.finish}
+      onKeyDownCapture={initialScroll.finish}
+      onClickCapture={initialScroll.finish}
+    >
+      {content}
+    </div>
   );
 }
 

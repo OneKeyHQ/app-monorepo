@@ -37,6 +37,7 @@ export type IModalMarketParamList = {
   };
   [EModalMarketRoutes.MarketHighlights]:
     | {
+        initialHighlightId?: string;
         initialQuotes?: [string, IMarketHighlightQuote][];
         initialHighlights?: IMarketHighlightsPreview;
       }
