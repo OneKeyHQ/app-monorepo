@@ -560,6 +560,21 @@ test('Sync now uses the hardware key and asks for a password only when needed', 
   );
 });
 
+test('unfinished hardware sync reports pending instead of a sync error', async () => {
+  mockConfig.isCloudSyncEnabledKeyless = true;
+  mockSyncNow.mockResolvedValueOnce(false);
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+
+  await act(() => result.current.syncNow());
+
+  expect(mockHideLoading).toHaveBeenCalledTimes(1);
+  expect(mockToast).toHaveBeenCalledWith({
+    method: 'warning',
+    title: 'global.pending',
+  });
+  expect(mockDialogShow).not.toHaveBeenCalled();
+});
+
 test('leaving the page cancels a pending device request', () => {
   const { unmount } = renderHook(() => useHardwareCloudSyncKey());
   unmount();

@@ -292,8 +292,9 @@ describe('split view', () => {
     const panel = getChartProps('ETH');
     expect(panel?.storageNamespace).toBe('perps');
     expect(panel?.nativeControlsLayoutMode).toBe('desktop');
-    // Trading, drawings and page-level controls stay with the trading chart.
-    expect(panel?.enableDrawings).toBeUndefined();
+    // Every panel can be drawn on.
+    expect(panel?.enableDrawings).toBe(true);
+    // Trading and page-level controls stay with the trading chart.
     expect(panel?.onReferenceLineAction).toBeUndefined();
     expect(panel?.onPriceSelect).toBeUndefined();
     expect(panel?.onChartSwitch).toBeUndefined();
