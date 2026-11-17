@@ -585,12 +585,14 @@ class ServicePrimeCloudSync extends ServiceBase {
   private scheduleReconciliation(nextRetryAt: number, spaceId: string) {
     this.clearReconciliationTimer();
     const generation = this.publicAccountSnapshotImportGeneration;
-    const keyGeneration =
-      this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
+    // Page cleanup cancels hardware prompts without changing the selected key.
+    // Hardware key commits invalidate the credential generation above instead.
+    const walletGeneration =
+      this.backgroundApi.serviceKeylessCloudSync.getKeylessWalletSelectionGeneration();
     const isCurrent = () =>
       generation === this.publicAccountSnapshotImportGeneration &&
-      keyGeneration ===
-        this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
+      walletGeneration ===
+        this.backgroundApi.serviceKeylessCloudSync.getKeylessWalletSelectionGeneration();
     this.reconciliationTimer = setTimeout(
       () => {
         this.reconciliationTimer = undefined;

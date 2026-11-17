@@ -1132,11 +1132,28 @@ describe('hardware Cloud key source lifecycle', () => {
     const { service } = setup();
     const selectedWalletId = 'public-test-keyless-wallet';
     const before = service.getCloudAccountImportGeneration();
+    const beforeSelection = service.getKeylessWalletSelectionGeneration();
     await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
     const selected = service.getCloudAccountImportGeneration();
+    const selectedWallet = service.getKeylessWalletSelectionGeneration();
     expect(selected).toBeGreaterThan(before);
+    expect(selectedWallet).toBeGreaterThan(beforeSelection);
     await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
     expect(service.getCloudAccountImportGeneration()).toBe(selected);
+    expect(service.getKeylessWalletSelectionGeneration()).toBe(selectedWallet);
+  });
+
+  test('page cleanup cancels hardware operations without changing the selected wallet generation', async () => {
+    const { service } = setup();
+    const beforeImport = service.getCloudAccountImportGeneration();
+    const beforeSelection = service.getKeylessWalletSelectionGeneration();
+
+    await service.cancelHardwareCloudKeyOperation();
+
+    expect(service.getCloudAccountImportGeneration()).toBeGreaterThan(
+      beforeImport,
+    );
+    expect(service.getKeylessWalletSelectionGeneration()).toBe(beforeSelection);
   });
 
   test('turning sync off deletes the stored hardware key and its memory cache', async () => {

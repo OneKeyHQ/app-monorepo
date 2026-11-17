@@ -218,6 +218,11 @@ function harness(
   );
   const sourceMutex = new Semaphore(1);
   let keyGeneration = 0;
+  let hardwareOperationGeneration = 0;
+  const cancelHardwareCloudKeyOperation = jest.fn(async () => {
+    hardwareOperationGeneration += 1;
+    return true;
+  });
   const isLocked = jest.fn(async () => false);
   const runWithCloudSyncKeyLock = jest.fn((operation: () => Promise<unknown>) =>
     sourceMutex.runExclusive(operation),
@@ -228,7 +233,10 @@ function harness(
       serviceApp: { isAppLocked: isLocked },
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
-        getCloudAccountImportGeneration: () => keyGeneration,
+        getCloudAccountImportGeneration: () =>
+          keyGeneration + hardwareOperationGeneration,
+        getKeylessWalletSelectionGeneration: () => keyGeneration,
+        cancelHardwareCloudKeyOperation,
       },
     },
   });
@@ -333,6 +341,7 @@ function harness(
   return {
     service,
     sourceMutex,
+    cancelHardwareCloudKeyOperation,
     pool,
     remote,
     check,
@@ -495,6 +504,60 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
     expect(h.pool.size).toBe(4500);
   });
+
+  test.each(['waiting', 'blocked'] as const)(
+    'leaving the Cloud page preserves a %s retry when the source is unchanged',
+    async (status) => {
+      const h = harness(status === 'waiting' ? 4500 : 0);
+      if (status === 'blocked') {
+        jest
+          .spyOn(h.service, 'fillingSyncItemsMissingDataFromRawData')
+          .mockRejectedValueOnce(
+            new OneKeyLocalError('Temporary local processing failure'),
+          );
+        await expect(h.run()).rejects.toThrow(
+          'Temporary local processing failure',
+        );
+      } else await expect(h.run()).resolves.toBe(false);
+      const state = h.config().cloudSyncReconciliation;
+      expect(state?.status).toBe(status);
+      if (!state?.nextRetryAt)
+        throw new OneKeyLocalError('Missing retry deadline');
+      const checksBeforeRetry = h.check.mock.calls.length;
+
+      // The Cloud page cleanup cancels device prompts even when none is open.
+      await h.cancelHardwareCloudKeyOperation();
+      await jest.advanceTimersByTimeAsync(state.nextRetryAt - Date.now());
+
+      expect(h.check).toHaveBeenCalledTimes(checksBeforeRetry + 1);
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+      });
+    },
+  );
+
+  test.each(['source', 'space', 'cancel'] as const)(
+    'a scheduled retry stays cancelled after a %s change',
+    async (change) => {
+      const h = harness(4500);
+      await h.run();
+      const checksBeforeRetry = h.check.mock.calls.length;
+      if (change === 'source') h.changeSource();
+      else if (change === 'cancel')
+        await h.service.cancelPublicAccountSnapshotImport();
+      else
+        jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+          masterPasswordUUID: 'other-space',
+          primeAccountSalt: 'public-fixture',
+          securityPasswordR1: 'unused-test-only',
+        });
+
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(h.check).toHaveBeenCalledTimes(checksBeforeRetry);
+    },
+  );
 
   test.each(['locked', 'offline'] as const)(
     'a completed run recovers a persisted deletion after %s shutdown and service recreation',

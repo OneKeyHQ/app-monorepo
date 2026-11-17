@@ -264,6 +264,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return this.hardwareCloudKeyGeneration + this.cloudAccountImportGeneration;
   }
 
+  getKeylessWalletSelectionGeneration(): number {
+    return this.cloudAccountImportGeneration;
+  }
+
   private hardwareCloudKeyGeneration = 0;
 
   private hardwareCloudKeyPending = false;
