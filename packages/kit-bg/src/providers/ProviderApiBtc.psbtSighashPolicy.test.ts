@@ -364,6 +364,35 @@ describe('ProviderApiBtc PSBT sighash policy', () => {
     expect(h.approve).not.toHaveBeenCalled();
   });
 
+  it('confirms a multi-psbt request one by one when an output with value has no address', async () => {
+    const h = setup();
+    // Pay-to-pubkey has no address form. One overview row would add its value
+    // to a total labelled with the decoy address alone.
+    const { output: p2pkScript } = payments.p2pk({
+      pubkey: Buffer.from(attacker.pub, 'hex'),
+      network: psbtNetwork,
+    });
+    if (!p2pkScript) {
+      throw new OneKeyLocalError('failed to build p2pk test fixture');
+    }
+    const p2pkPaymentPsbtHex = buildPsbtHex({
+      inputs: [
+        { txid: TXID_VICTIM, vout: 2, value: 100_000n, script: victim.script },
+      ],
+      outputs: [
+        { script: p2pkScript, value: 98_000n },
+        { script: decoy.script, value: 546n },
+      ],
+    });
+    await expect(
+      h.run('signPsbts', {
+        psbtHexs: [paymentPsbtHex(), p2pkPaymentPsbtHex],
+      }),
+    ).rejects.toBe(approval);
+    expect(h.createBatch).not.toHaveBeenCalled();
+    expect(h.approve).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['a string alias of an input', '0'],
     ['an index past the last input', 5],
