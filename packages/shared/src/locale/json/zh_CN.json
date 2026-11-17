@@ -3512,6 +3512,8 @@
   "or__label": "或",
   "order_changed_try_again__msg": "委托已发生变化，请刷新后重试。",
   "order_no_longer_eligible_for_chase__msg": "当前委托已不支持追单。",
+  "os_end_of_support_notice__desc": "更新系统以继续获取新功能和安全修复。",
+  "os_end_of_support_notice__title": "OneKey 即将仅支持 {osName} 及以上版本",
   "out_title_dust_sweep": "小额兑换",
   "p2pkh_desc": "以“1”开头。P2PKH (m/44'/0'/0')",
   "p2sh_p2wpkh_desc": "以“bc1q”开头。P2SH-P2WPKH (m/84'/0'/0')",

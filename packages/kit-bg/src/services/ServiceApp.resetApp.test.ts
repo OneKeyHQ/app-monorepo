@@ -47,6 +47,13 @@ jest.mock('../migrations/v4ToV5Migration/v4appStorage', () => ({
   },
 }));
 
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage',
+  () => ({
+    resetIntercomVisitorStorage: jest.fn(async () => {}),
+  }),
+);
+
 jest.mock('@onekeyhq/shared/src/storage/instance/syncStorageInstance', () => {
   const actual = jest.requireActual<
     typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance')
@@ -75,6 +82,7 @@ jest.mock(
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
+import { resetIntercomVisitorStorage } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
@@ -509,6 +517,37 @@ describe('ServiceApp.resetApp', () => {
 
     expect(endResetting).toHaveBeenCalledTimes(1);
     expect(restartApp).not.toHaveBeenCalled();
+  });
+
+  test('continues wallet erasure when support Keychain cleanup fails', async () => {
+    platformEnv.isNative = true;
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: { stopPersistenceForReset: jest.fn(async () => {}) },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn(async () => []),
+        },
+      },
+    });
+    jest
+      .mocked(resetIntercomVisitorStorage)
+      .mockRejectedValueOnce(new OneKeyLocalError('Keychain unavailable'));
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const resetLocalDb = jest.spyOn(localDb, 'reset');
+
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).resolves.toBeUndefined();
+    expect(resetIntercomVisitorStorage).toHaveBeenCalledTimes(1);
+    expect(
+      jest.mocked(resetIntercomVisitorStorage).mock.invocationCallOrder[0],
+    ).toBeLessThan(clear.mock.invocationCallOrder[0]);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(resetLocalDb).toHaveBeenCalledTimes(1);
   });
 
   test('cleans security-critical storage before rejecting a native AppStorage clear failure', async () => {

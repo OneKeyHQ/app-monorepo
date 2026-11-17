@@ -3517,6 +3517,8 @@ export enum ETranslations {
   or__label = 'or__label',
   order_changed_try_again__msg = 'order_changed_try_again__msg',
   order_no_longer_eligible_for_chase__msg = 'order_no_longer_eligible_for_chase__msg',
+  os_end_of_support_notice__desc = 'os_end_of_support_notice__desc',
+  os_end_of_support_notice__title = 'os_end_of_support_notice__title',
   out_title_dust_sweep = 'out_title_dust_sweep',
   p2pkh_desc = 'p2pkh_desc',
   p2sh_p2wpkh_desc = 'p2sh_p2wpkh_desc',

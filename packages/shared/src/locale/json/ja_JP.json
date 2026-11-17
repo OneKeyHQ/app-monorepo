@@ -3512,6 +3512,8 @@
   "or__label": "または",
   "order_changed_try_again__msg": "注文が変更されました。更新してもう一度お試しください。",
   "order_no_longer_eligible_for_chase__msg": "この注文は追跡できなくなりました。",
+  "os_end_of_support_notice__desc": "新機能とセキュリティ修正を引き続き受け取るには、システムをアップデートしてください。",
+  "os_end_of_support_notice__title": "OneKey はまもなく {osName} 以降が必要になります",
   "out_title_dust_sweep": "少額残高の整理",
   "p2pkh_desc": "\"1\"で始まる。P2PKH (m/44'/0'/0')",
   "p2sh_p2wpkh_desc": "\"bc1q\"で始まります。P2SH-P2WPKH (m/84'/0'/0')",

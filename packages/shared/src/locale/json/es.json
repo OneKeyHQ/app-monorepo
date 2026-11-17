@@ -3512,6 +3512,8 @@
   "or__label": "o",
   "order_changed_try_again__msg": "La orden ha cambiado. Actualiza e inténtalo de nuevo.",
   "order_no_longer_eligible_for_chase__msg": "Esta orden ya no puede seguirse.",
+  "os_end_of_support_notice__desc": "Actualiza tu sistema para seguir recibiendo nuevas funciones y correcciones de seguridad.",
+  "os_end_of_support_notice__title": "OneKey pronto requerirá {osName} o posterior",
   "out_title_dust_sweep": "Conversión de dust",
   "p2pkh_desc": "Comienza con \"1\". P2PKH (m/44'/0'/0')",
   "p2sh_p2wpkh_desc": "Comienza con \"bc1q\". P2SH-P2WPKH (m/84'/0'/0')",

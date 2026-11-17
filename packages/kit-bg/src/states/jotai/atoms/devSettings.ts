@@ -149,10 +149,6 @@ export interface IDevSettings {
   // Optional public fixture profile, persisted so isolated E2E runs can restart
   // without sharing the default software key's old Cloud data.
   hardwareCloudSyncSoftwareKeyProfile?: string;
-  // Override the hosted support (Intercom) page URL on extension only.
-  // Only honored while dev mode is enabled; the session bridge then
-  // trusts this URL's origin instead of the production one.
-  intercomSupportUrl?: string;
   // Kill-switch on Android: when enabled alongside dev mode, disables
   // automatic USB+BLE ('react-native-combined') in @onekeyfe/hd-ble-sdk and
   // forces BLE-only mode.
