@@ -283,12 +283,12 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
       detail: 'L0 不启用 SES，因此没有 regExpTaming。',
     },
     l1: {
-      emoji: '❌',
+      emoji: platformEnv.isNative || platformEnv.isWeb ? '✅' : '❌',
       detail:
         "Web/native 使用 'safe' 移除旧 compile 接口；其他 runtime 保持各自配置。",
     },
     l2: {
-      emoji: '❌',
+      emoji: platformEnv.isNative || platformEnv.isWeb ? '✅' : '❌',
       detail: 'L2 的 RegExp 策略与 L1 相同，按当前平台配置。',
     },
   },
