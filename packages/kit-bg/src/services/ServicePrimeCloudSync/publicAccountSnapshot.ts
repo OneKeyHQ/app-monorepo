@@ -442,6 +442,18 @@ export function publicAccountIdentityEqual(
       /^(0x)?([\da-f]{64}|(02|03)[\da-f]{64}|04[\da-f]{128})$/i.test(pub)
     )
       pub = pub.toLowerCase();
+    let addresses = 'addresses' in account ? (account.addresses ?? {}) : {};
+    // Older Realm SIMPLE projections omitted this redundant mapping. Only
+    // fold the canonical singleton; different or additional addresses conflict.
+    if (
+      account.type === EDBAccountType.SIMPLE &&
+      ['lightning', 'tlightning', 'scdo'].includes(account.impl) &&
+      (account.impl === 'scdo' || account.relPath === '0/0') &&
+      Object.keys(addresses).length === 1 &&
+      addresses['0/0'] === account.address
+    ) {
+      addresses = {};
+    }
     return {
       impl: account.impl,
       type: account.type,
@@ -459,7 +471,7 @@ export function publicAccountIdentityEqual(
       ...(!['btc', 'evm', 'sol'].includes(account.impl)
         ? {
             relPath: account.relPath,
-            addresses: 'addresses' in account ? (account.addresses ?? {}) : {},
+            addresses,
             xpubSegwit:
               'xpubSegwit' in account ? (account.xpubSegwit ?? '') : '',
           }

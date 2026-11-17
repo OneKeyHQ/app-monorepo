@@ -9,6 +9,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
   buildPublicAccountSnapshot,
+  publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
@@ -21,6 +22,7 @@ import { rememberPublicAccountSnapshotWrite } from '../../services/ServicePrimeC
 import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import { EIndexedDBBucketNames } from './types';
 
 import type {
@@ -44,6 +46,11 @@ import type {
   ILocalDBTxUpdateRecordsParams,
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+// Exercise the production projection without loading the native Realm engine.
+jest.mock('./realm/base/RealmObjectBase', () => ({
+  RealmObjectBase: jest.fn(),
+}));
 
 const XFP = `12345678--xpub${'A'.repeat(107)}`;
 const WALLET: IDBWallet = {
@@ -79,6 +86,29 @@ class PublicAccountTestDb extends LocalDbBase {
   stores = new Map<ELocalDBStoreNames, Map<string, IDBBaseObject>>();
 
   writes: ELocalDBStoreNames[] = [];
+
+  useRealmAccountProjection = false;
+
+  projectRecord<T extends ELocalDBStoreNames>(
+    name: T,
+    record: ILocalDBRecord<T> | undefined,
+  ) {
+    if (
+      !record ||
+      name !== ELocalDBStoreNames.Account ||
+      !this.useRealmAccountProjection
+    )
+      return record;
+    const value = record as IDBAccount;
+    const row = Object.assign(
+      Object.create(RealmSchemaAccount.prototype) as RealmSchemaAccount,
+      value,
+      {
+        addresses: { toJSON: () => ({ ...value.addresses }) },
+      },
+    );
+    return row.record as ILocalDBRecord<T>;
+  }
 
   beforeTransaction?: () => void;
 
@@ -138,8 +168,11 @@ class PublicAccountTestDb extends LocalDbBase {
   }: ILocalDBTxGetRecordsByIdsParams<T>): Promise<
     ILocalDBTxGetRecordsByIdsResult<T>
   > {
-    const records = ids.map(
-      (id) => this.stores.get(name)?.get(id) as ILocalDBRecord<T> | undefined,
+    const records = ids.map((id) =>
+      this.projectRecord(
+        name,
+        this.stores.get(name)?.get(id) as ILocalDBRecord<T> | undefined,
+      ),
     );
     return {
       records,
@@ -350,6 +383,106 @@ describe('wallet metadata avatar seed sync', () => {
 });
 
 describe('LocalDbBase.importPublicCloudAccounts', () => {
+  it.each(['lightning', 'tlightning', 'scdo'])(
+    '%s survives production Realm projection, legacy missing maps and genuine conflicts',
+    async (impl) => {
+      const fixture = (await publicAccountAllChainFixtures()).find(
+        (item) => item.impl === impl,
+      );
+      if (!fixture) throw new OneKeyLocalError('Missing chain fixture');
+      const db = new PublicAccountTestDb();
+      db.useRealmAccountProjection = true;
+      const target = publicAccountAllChainWallet(fixture.kind, 'hw-1');
+      target.associatedDevice = 'local-device';
+      db.put(ELocalDBStoreNames.Device, {
+        id: 'local-device',
+        settingsRaw: '{"vendor":"onekey"}',
+      });
+      db.put(ELocalDBStoreNames.Wallet, target);
+      const snapshot = buildPublicAccountSnapshot({
+        wallet: publicAccountAllChainWallet(fixture.kind),
+        account: fixture.account,
+      });
+      if (!snapshot) throw new OneKeyLocalError('Missing public snapshot');
+      const copied = publicAccountSnapshotToAccount(snapshot, target.id);
+      if (impl !== 'scdo') {
+        expect(
+          publicAccountIdentityEqual(
+            { ...copied, relPath: '0/1' },
+            { ...copied, relPath: '0/1', addresses: {} },
+          ),
+        ).toBe(false);
+      }
+      const params = {
+        walletId: target.id,
+        expectedWallet: {
+          ...snapshot.wallet,
+          associatedDevice: target.associatedDevice,
+          passphraseState: target.passphraseState,
+        },
+        accounts: [copied],
+        isCurrent: () => true,
+      };
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        added: 1,
+        conflicts: 0,
+      });
+      const read = await db.getRecordsByIds({
+        name: ELocalDBStoreNames.Account,
+        ids: [copied.id],
+      });
+      expect(read.records[0]?.addresses).toEqual(copied.addresses);
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        unchanged: 1,
+        conflicts: 0,
+      });
+      expect(
+        await db.deletePublicCloudAccounts({
+          ...params,
+          sourceItemsByAccountId: db.prepareSources([copied]),
+        }),
+      ).toMatchObject({ deleted: 1, conflicts: 0 });
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        added: 1,
+      });
+      // An old read-modify-write could have persisted an empty dictionary.
+      db.put(ELocalDBStoreNames.Account, { ...copied, addresses: {} });
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        unchanged: 1,
+        conflicts: 0,
+      });
+      for (const changed of [
+        { ...copied, addresses: { '0/0': 'different-address' } },
+        {
+          ...copied,
+          addresses: { ...copied.addresses, '0/1': copied.address },
+        },
+        { ...copied, address: 'different-address' },
+        { ...copied, pub: 'different-public-key' },
+        { ...copied, relPath: '0/1' },
+      ]) {
+        db.put(ELocalDBStoreNames.Account, changed);
+        expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+          conflicts: 1,
+          unchanged: 0,
+        });
+        expect(
+          await db.deletePublicCloudAccounts({
+            ...params,
+            sourceItemsByAccountId: db.prepareSources([copied]),
+          }),
+        ).toMatchObject({ deleted: 0, conflicts: 1 });
+      }
+      db.put(ELocalDBStoreNames.Account, { ...copied, addresses: {} });
+      expect(
+        await db.deletePublicCloudAccounts({
+          ...params,
+          sourceItemsByAccountId: db.prepareSources([copied]),
+        }),
+      ).toMatchObject({ deleted: 1, conflicts: 0 });
+    },
+  );
+
   it.each(PUBLIC_ACCOUNT_ALL_CHAIN_IMPLS)(
     '%s public records use real transactional import, delete and index allocation',
     async (impl) => {

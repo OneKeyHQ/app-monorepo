@@ -709,6 +709,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               if (!isCurrent()) return;
               await primeCloudSyncPersistAtom.set((value) => {
                 if (
+                  !isCurrent() ||
                   value.cloudSyncReconciliation?.spaceId !== spaceId ||
                   value.cloudSyncReconciliation.unfinished
                 )
@@ -740,7 +741,14 @@ class ServicePrimeCloudSync extends ServiceBase {
           })
           .catch((error) => errorUtils.autoPrintErrorIgnore(error));
       }
-      return this.localReplayPromise;
+      await this.localReplayPromise;
+      // Pending local dependencies must not hide later changes in other wallets.
+      // Timer retries remain local-only; lifecycle/manual wakes compare the full
+      // downloaded summary through the normal bounded, single-flight runner.
+      if (reason === 'timer' || !isCurrent()) return;
+      const selected = await this.getSyncCredentialSafe();
+      if (!isCurrent() || cloudSyncItemBuilder.getPwdHash(selected) !== spaceId)
+        return;
     }
     if (reason === 'timer' && state?.reason === 'backend-unverified') return;
     return this.startServerSyncFlowSilently({

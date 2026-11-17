@@ -324,6 +324,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
 export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;
   address: string;
+  addresses?: Record<string, string>;
 };
 export type IDBUtxoAccount = IDBBaseAccount & {
   pub?: string; // TODO rename pubKey to pub

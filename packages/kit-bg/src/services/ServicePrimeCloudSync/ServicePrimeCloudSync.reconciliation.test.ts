@@ -601,6 +601,148 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
+  test.each(['startup', 'unlock', 'network', 'foreground', 'manual'] as const)(
+    'persistent local pending does not hide later remote changes on %s',
+    async (reason) => {
+      const h = harness(1);
+      await h.run();
+      const pending = h.remote[0];
+      const row = h.pool.get(pending.key);
+      const state = h.config().cloudSyncReconciliation;
+      if (!row || !state) throw new OneKeyLocalError('Missing test state');
+      row.localSceneUpdated = false;
+      h.patchConfig({
+        cloudSyncReconciliation: { ...state, status: 'partial' },
+        publicAccountSnapshotStatus: {
+          needsUpdate: 0,
+          pending: 1,
+          conflicts: 0,
+          rejected: 0,
+          added: 0,
+          unchanged: 0,
+        },
+      });
+      h.writePool.mockClear();
+      const added = serverItem(1);
+      const addedTimestamp = added.dataTimestamp;
+      if (addedTimestamp === undefined)
+        throw new OneKeyLocalError('Missing fixture timestamp');
+      h.remote.push(added);
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(h.pool.get(added.key)?.isDeleted).toBe(false);
+      h.remote[1] = {
+        ...added,
+        isDeleted: true,
+        dataTimestamp: addedTimestamp + 1,
+      };
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(h.pool.get(added.key)).toMatchObject({
+        isDeleted: true,
+        dataTime: addedTimestamp + 1,
+      });
+      await h.service.resumeCloudSyncReconciliation({ reason });
+      expect(h.check).toHaveBeenCalledTimes(4);
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'partial',
+        unfinished: false,
+      });
+      expect(h.pool.get(pending.key)?.localSceneUpdated).toBe(false);
+      // The pending payload remains in each summary, so it is not downloaded
+      // again merely because scene application cannot yet finish.
+      expect(h.writePool).toHaveBeenCalledTimes(2);
+      for (const [request, options] of h.check.mock.calls.slice(1)) {
+        expect(request.localItems).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: pending.key }),
+          ]),
+        );
+        expect(options).toMatchObject({
+          reconciliation: { version: 1, maxItems: 500 },
+        });
+      }
+      for (const [write] of h.writePool.mock.calls)
+        expect(write.items.map((item) => item.id)).toEqual([added.key]);
+    },
+  );
+
+  test.each(['source', 'selected-space', 'cancel'] as const)(
+    'partial wake does not check remotely after %s changes during replay',
+    async (change) => {
+      const h = harness();
+      await h.run();
+      const state = h.config().cloudSyncReconciliation;
+      if (!state) throw new OneKeyLocalError('Missing test state');
+      h.patchConfig({
+        cloudSyncReconciliation: { ...state, status: 'partial' },
+      });
+      h.replay.mockImplementationOnce(async () => {
+        if (change === 'source') h.changeSource();
+        else if (change === 'cancel')
+          await h.service.cancelPublicAccountSnapshotImport();
+        else
+          jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+            masterPasswordUUID: 'other-space',
+            primeAccountSalt: 'public-fixture',
+            securityPasswordR1: 'unused-test-only',
+          });
+      });
+      await h.service.resumeCloudSyncReconciliation({ reason: 'foreground' });
+      expect(h.check).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('partial automatic wakes respect backoff while manual retry compares immediately', async () => {
+    const h = harness();
+    await h.run();
+    const state = h.config().cloudSyncReconciliation;
+    if (!state) throw new OneKeyLocalError('Missing test state');
+    h.patchConfig({
+      cloudSyncReconciliation: {
+        ...state,
+        status: 'partial',
+        nextRetryAt: Date.now() + 30_000,
+      },
+    });
+    h.replay.mockClear();
+    for (const reason of [
+      'startup',
+      'unlock',
+      'network',
+      'foreground',
+      'timer',
+    ] as const)
+      await h.service.resumeCloudSyncReconciliation({ reason });
+    expect(h.replay).not.toHaveBeenCalled();
+    expect(h.check).toHaveBeenCalledTimes(1);
+    await h.service.resumeCloudSyncReconciliation({ reason: 'manual' });
+    expect(h.replay).toHaveBeenCalledTimes(2);
+    expect(h.check).toHaveBeenCalledTimes(2);
+  });
+
+  test('concurrent partial wakes share replay and the bounded comparison', async () => {
+    const h = harness();
+    await h.run();
+    const state = h.config().cloudSyncReconciliation;
+    if (!state) throw new OneKeyLocalError('Missing test state');
+    h.patchConfig({ cloudSyncReconciliation: { ...state, status: 'partial' } });
+    h.replay.mockClear();
+    const entered = deferred<void>();
+    const release = deferred<void>();
+    h.replay.mockImplementationOnce(async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    const wakes = (['foreground', 'network', 'manual'] as const).map((reason) =>
+      h.service.resumeCloudSyncReconciliation({ reason }),
+    );
+    await entered.promise;
+    expect(h.replay).toHaveBeenCalledTimes(1);
+    release.resolve();
+    await Promise.all(wakes);
+    expect(h.replay).toHaveBeenCalledTimes(2);
+    expect(h.check).toHaveBeenCalledTimes(2);
+  });
+
   test('a stale timer does not restart a completed reconciliation', async () => {
     const h = harness();
     await h.run();
@@ -1202,7 +1344,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
-  test('a downloaded future format remains local pending work without repeated network draining', async () => {
+  test('a downloaded future format remains in the summary without downloading its payload again', async () => {
     const h = harness(1);
     const remote = h.remote[0];
     jest.mocked(simpleDb.cloudSyncAccountIssues.getRawData).mockResolvedValue({
@@ -1229,7 +1371,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
     const requests = h.check.mock.calls.length;
     await h.service.resumeCloudSyncReconciliation({ reason: 'foreground' });
-    expect(h.check).toHaveBeenCalledTimes(requests);
+    expect(h.check).toHaveBeenCalledTimes(requests + 1);
+    expect(h.writePool).toHaveBeenCalledTimes(1);
     expect(h.replay).toHaveBeenCalled();
   });
 
@@ -1252,7 +1395,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     );
   });
 
-  test('a completed Cloud drain with local pending issues replays locally without a new network check', async () => {
+  test('a timer replays local pending issues without a new network check', async () => {
     const h = harness();
     h.patchConfig({
       cloudSyncReconciliation: {
@@ -1290,7 +1433,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         },
       });
     });
-    await h.service.resumeCloudSyncReconciliation({ reason: 'foreground' });
+    await h.service.resumeCloudSyncReconciliation({ reason: 'timer' });
     expect(h.replay).toHaveBeenCalledTimes(1);
     expect(h.check).not.toHaveBeenCalled();
     expect(h.config().cloudSyncReconciliation).toMatchObject({
@@ -1337,8 +1480,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         });
       });
       await h.service.resumeCloudSyncReconciliation({ reason });
-      expect(h.replay).toHaveBeenCalledTimes(1);
-      expect(h.check).toHaveBeenCalledTimes(requests);
+      expect(h.replay).toHaveBeenCalledTimes(2);
+      expect(h.check).toHaveBeenCalledTimes(requests + 1);
       expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
     },
   );
