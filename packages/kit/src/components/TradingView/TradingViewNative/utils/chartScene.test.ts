@@ -1,3 +1,4 @@
+// cspell:ignore Donchian
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -1745,4 +1746,71 @@ describe('crosshair in empty chart space', () => {
       );
     },
   );
+
+  it('adds a legend row for each added overlay and skips hidden boundary lines', () => {
+    const indicatorPoints = buildLinearPoints(30);
+    const hiddenLine = {
+      color: '#123456',
+      enabled: false,
+      period: 0,
+      style: 'solid' as const,
+    };
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['WMA', 'SUPERTREND', 'VWAP', 'DC']),
+      indicatorSettings: {
+        DC: {
+          active: true,
+          id: 'DC',
+          lines: { upper: hiddenLine },
+          parameters: {},
+          transparency: 0,
+        },
+      },
+      points: indicatorPoints,
+    });
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: indicatorPoints,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const legendLabels = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'legend' &&
+      command.customPaintId?.startsWith('chart.mainIndicator.')
+        ? [command]
+        : [],
+    );
+    const labelTexts = legendLabels
+      .map(({ text }) => text)
+      .filter((text) => /^[A-Z]/.test(text));
+
+    // The hidden upper Donchian line still bounds the fill but has no readout.
+    expect(labelTexts).toEqual([
+      'WMA5',
+      'WMA10',
+      'WMA20',
+      'SUPERTREND',
+      'VWAP',
+      'DC',
+      'LB',
+    ]);
+    const rowYByLabel = new Map(legendLabels.map(({ text, y }) => [text, y]));
+    expect(rowYByLabel.get('WMA20')).toBe(rowYByLabel.get('WMA5'));
+    expect(rowYByLabel.get('SUPERTREND')).toBeGreaterThan(
+      rowYByLabel.get('WMA5') ?? Number.POSITIVE_INFINITY,
+    );
+    expect(rowYByLabel.get('VWAP')).toBeGreaterThan(
+      rowYByLabel.get('SUPERTREND') ?? Number.POSITIVE_INFINITY,
+    );
+    expect(rowYByLabel.get('LB')).toBe(rowYByLabel.get('DC'));
+  });
 });

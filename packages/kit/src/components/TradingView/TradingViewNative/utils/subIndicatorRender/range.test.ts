@@ -284,4 +284,22 @@ describe('TradingViewNative sub-indicator value range', () => {
     expect(getRange(pane, 0, 3)).toBeNull();
     expect(getRange(createPane())).toBeNull();
   });
+
+  it('keeps circle markers on their baseline whatever their values are', () => {
+    const pane = createPane({
+      series: [
+        createSeries({ id: 'momentum', values: [0.2, 0.4, 0.3] }),
+        createSeries({
+          baseline: 0,
+          id: 'state',
+          type: 'circles',
+          values: [1, -1, 1],
+        }),
+      ],
+    });
+
+    const range = getRange(pane, 0, 3);
+    expect(range?.minValue).toBe(0);
+    expect(range?.maxValue).toBe(0.4);
+  });
 });

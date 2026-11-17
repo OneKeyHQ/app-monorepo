@@ -99,7 +99,10 @@ function getLinearValueRange({
       }
     }
 
-    if (shouldIncludeSeries) {
+    if (shouldIncludeSeries && series.style.type === 'circles') {
+      // Circles sit on the baseline whatever their values are.
+      includeValue(series.style.baseline);
+    } else if (shouldIncludeSeries) {
       const seriesEndIndex = Math.min(normalizedEndIndex, series.values.length);
       for (
         let index = Math.min(normalizedStartIndex, seriesEndIndex);

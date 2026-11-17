@@ -1350,10 +1350,21 @@ export function buildTradingViewNativeChartScene({
         (legendHeight, row) => legendHeight + row.backgroundRect.height,
         0,
       );
-    for (const indicator of ['MA', 'EMA'] as const) {
+    // One legend row per indicator whose series carry a legend label.
+    for (const indicator of [
+      'MA',
+      'EMA',
+      'WMA',
+      'VWMA',
+      'SUPERTREND',
+      'ENV',
+      'VWAP',
+      'DC',
+    ] as const) {
       const items = indicatorSeries.flatMap((series) => {
         const value = series.values[legendPointIndex];
         return series.indicator === indicator &&
+          series.visible !== false &&
           series.legendLabel &&
           value !== null &&
           value !== undefined &&

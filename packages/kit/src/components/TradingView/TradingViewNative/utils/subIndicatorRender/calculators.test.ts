@@ -1,20 +1,39 @@
-// cspell:ignore MACD StochRSI TRIX trix
+// cspell:ignore bollinger BRAR KDJ keltner MACD SKDJ StochRSI TRIX trix
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TRADING_VIEW_NATIVE_SUB_INDICATORS,
+  calculateTradingViewNativeAverageTrueRange,
+  calculateTradingViewNativeBrar,
+  calculateTradingViewNativeBullBearPower,
   calculateTradingViewNativeCommodityChannelIndex,
   calculateTradingViewNativeDirectionalMovementIndex,
+  calculateTradingViewNativeDma,
   calculateTradingViewNativeEaseOfMovement,
+  calculateTradingViewNativeKdj,
+  calculateTradingViewNativeKst,
+  calculateTradingViewNativeMaSlope,
   calculateTradingViewNativeMacd,
+  calculateTradingViewNativeMassIndex,
   calculateTradingViewNativeMomentum,
   calculateTradingViewNativeMoneyFlowIndex,
+  calculateTradingViewNativeNegativeVolumeIndex,
   calculateTradingViewNativeOnBalanceVolume,
+  calculateTradingViewNativePriceMomentumOscillator,
+  calculateTradingViewNativePriceVolumeTrend,
+  calculateTradingViewNativePsychologicalLine,
+  calculateTradingViewNativeQqe,
+  calculateTradingViewNativeRankCorrelationIndex,
   calculateTradingViewNativeRateOfChange,
   calculateTradingViewNativeRelativeStrengthIndex,
+  calculateTradingViewNativeRelativeVolatilityIndex,
+  calculateTradingViewNativeSkdj,
+  calculateTradingViewNativeSqueezeMomentum,
   calculateTradingViewNativeStochasticRsi,
+  calculateTradingViewNativeTrendStrengthIndex,
   calculateTradingViewNativeTrix,
   calculateTradingViewNativeVolume,
+  calculateTradingViewNativeVolumeRatio,
   calculateTradingViewNativeWilliamsR,
 } from '../chartIndicators';
 
@@ -29,18 +48,37 @@ import type {
 import type { ITradingViewNativeSubIndicator } from '../chartIndicators';
 
 const EXPECTED_PLOT_IDS = {
+  ATR: ['atr'],
+  BBP: ['bbp'],
+  BRAR: ['br', 'ar'],
   CCI: ['cci', 'movingAverage'],
+  DMA: ['dif', 'movingAverage'],
   DMI: ['plusDi', 'minusDi', 'dx', 'adx', 'adxr'],
   EMV: ['emv'],
+  KDJ: ['k', 'd', 'j'],
+  KST: ['kst', 'signal'],
   MACD: ['macd', 'signal', 'histogram'],
+  MASS: ['mass'],
   MFI: ['mfi'],
   MTM: ['momentum'],
+  NVI: ['nvi', 'movingAverage'],
   OBV: ['obv', 'movingAverage'],
+  PMO: ['pmo', 'signal'],
+  PSY: ['psy', 'movingAverage'],
+  PVT: ['pvt'],
+  QQE: ['rsi', 'fast', 'slow'],
+  RCI: ['short', 'middle', 'long'],
   ROC: ['roc'],
   RSI: ['rsi', 'movingAverage'],
+  RVI: ['rvi', 'signal'],
+  SKDJ: ['k', 'd'],
+  SLOPE: ['slope'],
+  SMI: ['momentum', 'squeeze'],
   StochRSI: ['k', 'd'],
   TRIX: ['trix'],
+  TSI: ['tsi'],
   VOL: ['volume', 'movingAverage', 'smoothedMovingAverage'],
+  VR: ['vr', 'movingAverage'],
   WR: ['williamsR'],
 } as const satisfies Record<ITradingViewNativeSubIndicator, readonly string[]>;
 
@@ -371,6 +409,199 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
       null,
       2,
     ]);
+  });
+
+  it('passes every input of the extended indicators to its algorithm', () => {
+    const points = buildTestPoints(60);
+    const closes = points.map((point) => point.c);
+
+    expect(
+      calculate('KDJ', points, { dPeriod: 2, kPeriod: 4, period: 5 }).plots,
+    ).toEqual(
+      calculateTradingViewNativeKdj(points, {
+        dPeriod: 2,
+        kPeriod: 4,
+        period: 5,
+      }),
+    );
+    expect(
+      calculate('SKDJ', points, { period: 5, smoothingPeriod: 2 }).plots,
+    ).toEqual(
+      calculateTradingViewNativeSkdj(points, { period: 5, smoothingPeriod: 2 }),
+    );
+    expect(
+      calculate('DMA', points, {
+        longPeriod: 7,
+        movingAveragePeriod: 2,
+        shortPeriod: 3,
+      }).plots,
+    ).toEqual(
+      calculateTradingViewNativeDma(closes, {
+        longPeriod: 7,
+        movingAveragePeriod: 2,
+        shortPeriod: 3,
+      }),
+    );
+    expect(
+      calculate('VR', points, { movingAveragePeriod: 2, period: 5 }).plots,
+    ).toEqual(
+      calculateTradingViewNativeVolumeRatio(points, {
+        movingAveragePeriod: 2,
+        period: 5,
+      }),
+    );
+    expect(calculate('BRAR', points, { period: 5 }).plots).toEqual(
+      calculateTradingViewNativeBrar(points, 5),
+    );
+    expect(
+      calculate('PSY', points, { movingAveragePeriod: 2, period: 5 }).plots,
+    ).toEqual(
+      calculateTradingViewNativePsychologicalLine(closes, {
+        movingAveragePeriod: 2,
+        period: 5,
+      }),
+    );
+    expect(calculate('PVT', points).plots).toEqual({
+      pvt: calculateTradingViewNativePriceVolumeTrend(points),
+    });
+    expect(calculate('ATR', points, { period: 5 }).plots).toEqual({
+      atr: calculateTradingViewNativeAverageTrueRange(points, 5),
+    });
+    expect(
+      calculate('SMI', points, {
+        bollingerMultiplier: 1.5,
+        bollingerPeriod: 6,
+        keltnerMultiplier: 1.2,
+        keltnerPeriod: 7,
+        momentumPeriod: 4,
+      }).plots,
+    ).toEqual(
+      calculateTradingViewNativeSqueezeMomentum(points, {
+        bollingerMultiplier: 1.5,
+        bollingerPeriod: 6,
+        keltnerMultiplier: 1.2,
+        keltnerPeriod: 7,
+        momentumPeriod: 4,
+      }),
+    );
+    expect(calculate('TSI', points, { period: 5 }).plots).toEqual({
+      tsi: calculateTradingViewNativeTrendStrengthIndex(closes, 5),
+    });
+    expect(
+      calculate('RVI', points, { period: 5, signalPeriod: 3 }).plots,
+    ).toEqual(
+      calculateTradingViewNativeRelativeVolatilityIndex(closes, {
+        period: 5,
+        signalPeriod: 3,
+      }),
+    );
+    expect(
+      calculate('QQE', points, {
+        fastFactor: 1.5,
+        rsiPeriod: 5,
+        slowFactor: 3.5,
+        smoothingPeriod: 3,
+      }).plots,
+    ).toEqual(
+      calculateTradingViewNativeQqe(closes, {
+        fastFactor: 1.5,
+        rsiPeriod: 5,
+        slowFactor: 3.5,
+        smoothingPeriod: 3,
+      }),
+    );
+    expect(calculate('MASS', points, { period: 5 }).plots).toEqual({
+      mass: calculateTradingViewNativeMassIndex(points, 5),
+    });
+    expect(
+      calculate('KST', points, {
+        rocPeriod1: 2,
+        rocPeriod2: 3,
+        rocPeriod3: 4,
+        rocPeriod4: 5,
+        signalPeriod: 3,
+        smoothingPeriod1: 2,
+        smoothingPeriod2: 3,
+        smoothingPeriod3: 4,
+        smoothingPeriod4: 5,
+      }).plots,
+    ).toEqual(
+      calculateTradingViewNativeKst(closes, {
+        rocPeriods: [2, 3, 4, 5],
+        signalPeriod: 3,
+        smoothingPeriods: [2, 3, 4, 5],
+      }),
+    );
+    expect(calculate('BBP', points, { period: 5 }).plots).toEqual({
+      bbp: calculateTradingViewNativeBullBearPower(points, 5),
+    });
+    expect(calculate('NVI', points, { movingAveragePeriod: 5 }).plots).toEqual(
+      calculateTradingViewNativeNegativeVolumeIndex(points, 5),
+    );
+    expect(
+      calculate('PMO', points, {
+        firstPeriod: 5,
+        secondPeriod: 4,
+        signalPeriod: 3,
+      }).plots,
+    ).toEqual(
+      calculateTradingViewNativePriceMomentumOscillator(closes, {
+        firstPeriod: 5,
+        secondPeriod: 4,
+        signalPeriod: 3,
+      }),
+    );
+    expect(
+      calculate('RCI', points, {
+        longPeriod: 9,
+        middlePeriod: 6,
+        shortPeriod: 3,
+      }).plots,
+    ).toEqual({
+      long: calculateTradingViewNativeRankCorrelationIndex(closes, 9),
+      middle: calculateTradingViewNativeRankCorrelationIndex(closes, 6),
+      short: calculateTradingViewNativeRankCorrelationIndex(closes, 3),
+    });
+    expect(
+      calculate('SLOPE', points, { lookback: 2, period: 5 }).plots,
+    ).toEqual({
+      slope: calculateTradingViewNativeMaSlope(closes, {
+        lookback: 2,
+        period: 5,
+      }),
+    });
+  });
+
+  it('colors BBP by sign, SLOPE by direction and SMI dots by squeeze state', () => {
+    const points = buildTestPoints(60);
+    const bbp = calculate('BBP', points);
+    const slope = calculate('SLOPE', points);
+    const smi = calculate('SMI', points);
+
+    bbp.plots.bbp.forEach((value, index) => {
+      let expected: number | null = null;
+      if (value !== null) {
+        expected = value >= 0 ? 1 : 0;
+      }
+      expect(bbp.paletteIndexes.power[index]).toBe(expected);
+    });
+    slope.plots.slope.forEach((value, index) => {
+      let expected: number | null = null;
+      if (value !== null) {
+        expected = value >= (slope.plots.slope[index - 1] ?? 0) ? 1 : 0;
+      }
+      expect(slope.paletteIndexes.direction[index]).toBe(expected);
+    });
+    smi.plots.squeeze.forEach((value, index) => {
+      let expected: number | null = null;
+      if (value !== null) {
+        expected = [1, 2, 0][value + 1] ?? null;
+      }
+      expect(smi.paletteIndexes.squeeze[index]).toBe(expected);
+    });
+    expect(
+      new Set(slope.paletteIndexes.direction.filter((value) => value !== null)),
+    ).toEqual(new Set([0, 1]));
   });
 
   it('falls back to definition defaults for malformed resolved settings', () => {

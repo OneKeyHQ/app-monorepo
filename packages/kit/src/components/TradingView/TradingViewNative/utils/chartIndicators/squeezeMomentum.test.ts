@@ -1,0 +1,69 @@
+// cspell:ignore bollinger keltner
+import {
+  TRADING_VIEW_NATIVE_SQUEEZE_NONE,
+  TRADING_VIEW_NATIVE_SQUEEZE_OFF,
+  TRADING_VIEW_NATIVE_SQUEEZE_ON,
+  calculateTradingViewNativeSqueezeMomentum,
+} from './squeezeMomentum';
+import {
+  buildTradingViewNativeIndicatorTestPoints,
+  getFirstTradingViewNativeFiniteValueIndex,
+} from './testUtils';
+
+describe('TradingViewNative squeeze momentum indicator', () => {
+  // Closes rise by one a bar; each bar spans one above to one below its close.
+  const points = buildTradingViewNativeIndicatorTestPoints(
+    Array.from({ length: 12 }, (_, index) => 100 + index),
+  );
+  const options = { bollingerPeriod: 3, keltnerPeriod: 3, momentumPeriod: 2 };
+
+  it('measures how far the close leads the middle of its recent range', () => {
+    const { momentum } = calculateTradingViewNativeSqueezeMomentum(
+      points,
+      options,
+    );
+
+    // The range midpoint and the average both trail a steady rise by one.
+    expect(getFirstTradingViewNativeFiniteValueIndex(momentum)).toBe(3);
+    expect(momentum[11]).toBeCloseTo(1, 10);
+  });
+
+  it('reports a squeeze while the Bollinger Bands sit inside the Keltner Channel', () => {
+    const { squeeze } = calculateTradingViewNativeSqueezeMomentum(points, {
+      ...options,
+      bollingerMultiplier: 2,
+      keltnerMultiplier: 1.5,
+    });
+
+    expect(getFirstTradingViewNativeFiniteValueIndex(squeeze)).toBe(3);
+    expect(squeeze[11]).toBe(TRADING_VIEW_NATIVE_SQUEEZE_ON);
+  });
+
+  it('reports a released squeeze while the Bollinger Bands sit outside', () => {
+    const { squeeze } = calculateTradingViewNativeSqueezeMomentum(points, {
+      ...options,
+      bollingerMultiplier: 5,
+      keltnerMultiplier: 1.5,
+    });
+
+    expect(squeeze[11]).toBe(TRADING_VIEW_NATIVE_SQUEEZE_OFF);
+  });
+
+  it('reports neither state when the two bands have the same width', () => {
+    // Both widths are zero on bars that never move.
+    const flatPoints = Array.from({ length: 8 }, (_, index) => ({
+      c: 10,
+      h: 10,
+      l: 10,
+      o: 10,
+      t: index,
+      v: 1,
+    }));
+    const { squeeze } = calculateTradingViewNativeSqueezeMomentum(
+      flatPoints,
+      options,
+    );
+
+    expect(squeeze[7]).toBe(TRADING_VIEW_NATIVE_SQUEEZE_NONE);
+  });
+});

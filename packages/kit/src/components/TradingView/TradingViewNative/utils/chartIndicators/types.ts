@@ -7,8 +7,14 @@ import type {
 export const TRADING_VIEW_NATIVE_INDICATORS = [
   'MA',
   'EMA',
+  'WMA',
+  'VWMA',
   'BOLL',
   'SAR',
+  'SUPERTREND',
+  'ENV',
+  'VWAP',
+  'DC',
 ] as const;
 
 export type ITradingViewNativeIndicator =

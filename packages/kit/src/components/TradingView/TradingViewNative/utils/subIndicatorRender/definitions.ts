@@ -1,4 +1,4 @@
-// cspell:ignore ADXR MACD StochRSI TRIX
+// cspell:ignore ADXR BRAR DIFMA KDJ MACD MANVI MAPSY MAVR SKDJ StochRSI TRIX
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from '../chartIndicators';
@@ -73,6 +73,24 @@ function createIntegerInput({
     type: 'integer',
     ...(visibleWhenPlotIds ? { visibleWhenPlotIds } : {}),
   };
+}
+
+function createFloatInput({
+  defaultValue,
+  id,
+  max = 100,
+  min = 0,
+  step = 0.1,
+  title,
+}: {
+  defaultValue: number;
+  id: string;
+  max?: number;
+  min?: number;
+  step?: number;
+  title: string;
+}): ITradingViewNativeSubIndicatorInputDefinition {
+  return { defaultValue, id, max, min, step, title, type: 'float' };
 }
 
 function createPlot({
@@ -719,6 +737,627 @@ const DEFINITIONS = {
     scale: createAutoScale(),
     shortTitle: 'CCI',
     title: 'Commodity Channel Index',
+  },
+  KDJ: {
+    bands: [],
+    description: 'Stochastic Oscillator',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'KDJ',
+    inputs: [
+      createIntegerInput({ defaultValue: 9, id: 'period', title: 'Length' }),
+      createIntegerInput({ defaultValue: 3, id: 'kPeriod', title: 'K' }),
+      createIntegerInput({ defaultValue: 3, id: 'dPeriod', title: 'D' }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'k', title: 'K' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'd',
+        title: 'D',
+        zOrder: 11,
+      }),
+      createPlot({
+        color: DEFAULT_OSCILLATOR_COLOR,
+        id: 'j',
+        title: 'J',
+        zOrder: 12,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'KDJ',
+    title: 'Stochastic Oscillator',
+  },
+  SKDJ: {
+    bands: [],
+    description: 'Slow Stochastic Oscillator',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'SKDJ',
+    inputs: [
+      createIntegerInput({ defaultValue: 9, id: 'period', title: 'Length' }),
+      createIntegerInput({
+        defaultValue: 3,
+        id: 'smoothingPeriod',
+        title: 'Smoothing Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'k', title: 'K' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'd',
+        title: 'D',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'SKDJ',
+    title: 'Slow Stochastic Oscillator',
+  },
+  DMA: {
+    bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
+    description: 'Different of Moving Average',
+    fills: [],
+    format: { type: 'inherit' },
+    indicator: 'DMA',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 10,
+        id: 'shortPeriod',
+        title: 'Short Length',
+      }),
+      createIntegerInput({
+        defaultValue: 50,
+        id: 'longPeriod',
+        title: 'Long Length',
+      }),
+      createIntegerInput({
+        defaultValue: 10,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'dif', title: 'DIF' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'DIFMA',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'DMA',
+    title: 'Different of Moving Average',
+  },
+  VR: {
+    bands: [],
+    description: 'Volume Ratio',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'VR',
+    inputs: [
+      createIntegerInput({ defaultValue: 26, id: 'period', title: 'Length' }),
+      createIntegerInput({
+        defaultValue: 6,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'vr', title: 'VR' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MAVR',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'VR',
+    title: 'Volume Ratio',
+  },
+  BRAR: {
+    bands: [],
+    description: 'Popularity and Willingness Index',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'BRAR',
+    inputs: [
+      createIntegerInput({ defaultValue: 26, id: 'period', title: 'Length' }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'br', title: 'BR' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'ar',
+        title: 'AR',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'BRAR',
+    title: 'Popularity and Willingness Index',
+  },
+  PSY: {
+    bands: [],
+    description: 'Psychological Line',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'PSY',
+    inputs: [
+      createIntegerInput({ defaultValue: 12, id: 'period', title: 'Length' }),
+      createIntegerInput({
+        defaultValue: 6,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'psy', title: 'PSY' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MAPSY',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'PSY',
+    title: 'Psychological Line',
+  },
+  PVT: {
+    bands: [],
+    description: 'Price Volume Trend',
+    fills: [],
+    format: { type: 'volume' },
+    indicator: 'PVT',
+    inputs: [],
+    palettes: [],
+    plots: [createPlot({ color: DEFAULT_LINE_COLOR, id: 'pvt', title: 'PVT' })],
+    scale: createAutoScale(),
+    shortTitle: 'PVT',
+    title: 'Price Volume Trend',
+  },
+  ATR: {
+    bands: [],
+    description: 'Average True Range',
+    fills: [],
+    format: { type: 'inherit' },
+    indicator: 'ATR',
+    inputs: [
+      createIntegerInput({ defaultValue: 14, id: 'period', title: 'Length' }),
+    ],
+    palettes: [],
+    plots: [createPlot({ color: DEFAULT_LINE_COLOR, id: 'atr', title: 'ATR' })],
+    scale: createAutoScale(),
+    shortTitle: 'ATR',
+    title: 'Average True Range',
+  },
+  SMI: {
+    bands: [],
+    description: 'Squeeze Momentum Indicator',
+    fills: [],
+    format: { type: 'inherit' },
+    indicator: 'SMI',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 20,
+        id: 'bollingerPeriod',
+        title: 'BB Length',
+      }),
+      createFloatInput({
+        defaultValue: 2,
+        id: 'bollingerMultiplier',
+        title: 'BB Mult',
+      }),
+      createIntegerInput({
+        defaultValue: 20,
+        id: 'keltnerPeriod',
+        title: 'KC Length',
+      }),
+      createFloatInput({
+        defaultValue: 1.5,
+        id: 'keltnerMultiplier',
+        title: 'KC Mult',
+      }),
+      createIntegerInput({
+        defaultValue: 12,
+        id: 'momentumPeriod',
+        title: 'Momentum Length',
+      }),
+    ],
+    palettes: [
+      createPalette({
+        colors: [
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued,
+          TRADING_VIEW_NATIVE_THEME_COLORS.negativeSubdued,
+          TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+        ],
+        id: 'momentum',
+        title: 'Momentum',
+      }),
+      // Squeeze on, squeeze off, neither.
+      createPalette({
+        colors: [
+          TRADING_VIEW_NATIVE_THEME_COLORS.warning,
+          TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+          DEFAULT_BAND_COLOR,
+        ],
+        id: 'squeeze',
+        title: 'Squeeze',
+      }),
+    ],
+    plots: [
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        id: 'momentum',
+        paletteId: 'momentum',
+        title: 'VAL',
+        type: 'columns',
+      }),
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+        id: 'squeeze',
+        paletteId: 'squeeze',
+        title: 'SQZ',
+        type: 'circles',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'SMI',
+    title: 'Squeeze Momentum Indicator',
+  },
+  TSI: {
+    bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
+    description: 'Trend Strength Index',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'TSI',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 14,
+        id: 'period',
+        min: 2,
+        title: 'Length',
+      }),
+    ],
+    palettes: [],
+    plots: [createPlot({ color: DEFAULT_LINE_COLOR, id: 'tsi', title: 'TSI' })],
+    scale: createAutoScale(),
+    shortTitle: 'TSI',
+    title: 'Trend Strength Index',
+  },
+  RVI: {
+    bands: [],
+    description: 'Relative Volatility Index',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'RVI',
+    inputs: [
+      createIntegerInput({ defaultValue: 10, id: 'period', title: 'Length' }),
+      createIntegerInput({
+        defaultValue: 14,
+        id: 'signalPeriod',
+        title: 'Signal Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'rvi', title: 'RVI' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'signal',
+        title: 'Signal',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'RVI',
+    title: 'Relative Volatility Index',
+  },
+  QQE: {
+    bands: [],
+    description: 'Quantitative Qualitative Estimation',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'QQE',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 14,
+        id: 'rsiPeriod',
+        title: 'RSI Length',
+      }),
+      createIntegerInput({
+        defaultValue: 2,
+        id: 'smoothingPeriod',
+        title: 'Smoothing Length',
+      }),
+      createFloatInput({
+        defaultValue: 2.618,
+        id: 'fastFactor',
+        step: 0.001,
+        title: 'Fast Factor',
+      }),
+      createFloatInput({
+        defaultValue: 4.236,
+        id: 'slowFactor',
+        step: 0.001,
+        title: 'Slow Factor',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'rsi', title: 'QQE' }),
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+        id: 'fast',
+        title: 'Fast',
+        zOrder: 11,
+      }),
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+        id: 'slow',
+        title: 'Slow',
+        zOrder: 12,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'QQE',
+    title: 'Quantitative Qualitative Estimation',
+  },
+  MASS: {
+    bands: [],
+    description: 'Mass Index',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'MASS',
+    inputs: [
+      createIntegerInput({ defaultValue: 10, id: 'period', title: 'Length' }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'mass', title: 'MASS' }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'MASS',
+    title: 'Mass Index',
+  },
+  KST: {
+    bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
+    description: 'Know Sure Thing',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'KST',
+    inputs: [
+      ...[10, 15, 20, 30].map((defaultValue, index) =>
+        createIntegerInput({
+          defaultValue,
+          id: `rocPeriod${index + 1}`,
+          title: `ROC ${index + 1}`,
+        }),
+      ),
+      ...[10, 10, 10, 15].map((defaultValue, index) =>
+        createIntegerInput({
+          defaultValue,
+          id: `smoothingPeriod${index + 1}`,
+          title: `SMA ${index + 1}`,
+        }),
+      ),
+      createIntegerInput({
+        defaultValue: 9,
+        id: 'signalPeriod',
+        title: 'Signal Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'kst', title: 'KST' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'signal',
+        title: 'Signal',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'KST',
+    title: 'Know Sure Thing',
+  },
+  BBP: {
+    bands: [],
+    description: 'Bull Bear Power',
+    fills: [],
+    format: { type: 'inherit' },
+    indicator: 'BBP',
+    inputs: [
+      createIntegerInput({ defaultValue: 13, id: 'period', title: 'Length' }),
+    ],
+    palettes: [
+      createPalette({
+        colors: [
+          TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        ],
+        id: 'power',
+        title: 'Bear and bull power',
+      }),
+    ],
+    plots: [
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        id: 'bbp',
+        paletteId: 'power',
+        title: 'BBP',
+        type: 'columns',
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'BBP',
+    title: 'Bull Bear Power',
+  },
+  NVI: {
+    bands: [],
+    description: 'Negative Volume Index',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'NVI',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 255,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'nvi', title: 'NVI' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MANVI',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'NVI',
+    title: 'Negative Volume Index',
+  },
+  PMO: {
+    bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
+    description: 'Price Momentum Oscillator',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'PMO',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 35,
+        id: 'firstPeriod',
+        title: 'Length 1',
+      }),
+      createIntegerInput({
+        defaultValue: 20,
+        id: 'secondPeriod',
+        title: 'Length 2',
+      }),
+      createIntegerInput({
+        defaultValue: 10,
+        id: 'signalPeriod',
+        title: 'Signal Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'pmo', title: 'PMO' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'signal',
+        title: 'Signal',
+        zOrder: 11,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'PMO',
+    title: 'Price Momentum Oscillator',
+  },
+  RCI: {
+    bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
+    description: 'Rank Correlation Index Ribbon',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'RCI',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 10,
+        id: 'shortPeriod',
+        max: 500,
+        min: 2,
+        title: 'Short Length',
+      }),
+      createIntegerInput({
+        defaultValue: 30,
+        id: 'middlePeriod',
+        max: 500,
+        min: 2,
+        title: 'Middle Length',
+      }),
+      createIntegerInput({
+        defaultValue: 50,
+        id: 'longPeriod',
+        max: 500,
+        min: 2,
+        title: 'Long Length',
+      }),
+    ],
+    palettes: [],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'short', title: 'Short' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'middle',
+        title: 'Middle',
+        zOrder: 11,
+      }),
+      createPlot({
+        color: DEFAULT_OSCILLATOR_COLOR,
+        id: 'long',
+        title: 'Long',
+        zOrder: 12,
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'RCI',
+    title: 'Rank Correlation Index Ribbon',
+  },
+  SLOPE: {
+    bands: [createBand({ id: 'zero', title: 'Zero', value: 0 })],
+    description: 'Moving Average Slope',
+    fills: [],
+    format: { precision: 2, type: 'price' },
+    indicator: 'SLOPE',
+    inputs: [
+      createIntegerInput({
+        defaultValue: 1,
+        id: 'lookback',
+        title: 'Lookback',
+      }),
+      createIntegerInput({
+        defaultValue: 20,
+        id: 'period',
+        title: 'MA Length',
+      }),
+    ],
+    palettes: [
+      // Falling, rising.
+      createPalette({
+        colors: [
+          TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        ],
+        id: 'direction',
+        title: 'Slope direction',
+      }),
+    ],
+    plots: [
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        id: 'slope',
+        paletteId: 'direction',
+        title: 'SLOPE',
+      }),
+    ],
+    scale: createAutoScale(),
+    shortTitle: 'SLOPE',
+    title: 'Moving Average Slope',
   },
 } satisfies Record<
   ITradingViewNativeSubIndicator,
