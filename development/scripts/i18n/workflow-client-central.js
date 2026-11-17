@@ -139,14 +139,23 @@ class CentralClient {
       localKey(key),
       localKey(key).replaceAll('.', '::'),
     ]);
-    const found = Object.entries(keyMeta).filter(
-      ([ref, meta]) => !meta.archived && variants.has(meta.name ?? ref),
+    const matches = Object.entries(keyMeta).filter(([ref, meta]) =>
+      variants.has(meta.name ?? ref),
     );
+    const found = matches.filter(([, meta]) => !meta.archived);
     if (found.length > 1)
       throw new Error(
         `Ambiguous key variants for ${key} in onekey-i18n: ${found
           .map(([ref]) => ref)
           .join(', ')}. Resolve the duplicate there first.`,
+      );
+    // Only archived keys use this name: creating it would fail after approval,
+    // so preview stops here instead.
+    if (!found.length && matches.length)
+      throw new Error(
+        `${key} is archived in onekey-i18n (${matches
+          .map(([ref]) => ref)
+          .join(', ')}). Choose another key name.`,
       );
     if (!found.length) return null;
     const [ref, meta] = found[0];
