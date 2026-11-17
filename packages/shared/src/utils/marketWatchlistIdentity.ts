@@ -1,6 +1,30 @@
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_SOL,
+  IMPL_SUI,
+  IMPL_TRON,
+} from '../engine/engineConsts';
+
+import networkUtils from './networkUtils';
 import { normalizeTokenContractAddress } from './tokenUtils';
 
 import type { IMarketWatchListItemV2 } from '../../types/market';
+
+function isLegacyNativeFavorite(item: IMarketWatchListItemV2) {
+  if (item.isNative !== undefined) return item.isNative;
+  const address = item.contractAddress;
+  if (address === '') return true;
+  const impl = networkUtils.getNetworkImpl({ networkId: item.chainId });
+  // Account-name chains can have a real contract named "native".
+  if (address === 'native') {
+    return [IMPL_BTC, IMPL_EVM, IMPL_SOL, IMPL_SUI, IMPL_TRON].includes(impl);
+  }
+  return (
+    (impl === IMPL_EVM && /^0x(?:0{40}|e{40})$/i.test(address)) ||
+    (impl === IMPL_SUI && /^0x0{0,63}2::sui::SUI$/.test(address))
+  );
+}
 
 export function getMarketWatchlistKey(item: IMarketWatchListItemV2): string {
   if (item.assetId) return `asset:${item.assetId}`;
@@ -32,11 +56,7 @@ export function findLegacyMarketWatchlistItem(
   // List APIs can use a different native address alias than the persisted favorite.
   return (
     candidates.find((item) => getMarketWatchlistKey(item) === key) ??
-    (identity.isNative
-      ? candidates.find(
-          (item) => item.isNative ?? item.contractAddress.length < 30,
-        )
-      : undefined)
+    (identity.isNative ? candidates.find(isLegacyNativeFavorite) : undefined)
   );
 }
 

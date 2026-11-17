@@ -17,6 +17,79 @@ beforeEach(() => {
   mockWatchlist = [];
 });
 
+it.each([false, true])(
+  'never uses an old NEAR contract favorite as the native favorite (native saved: %s)',
+  (hasNative) => {
+    const contract = {
+      chainId: 'near--0',
+      contractAddress: 'usdt.tether-token.near',
+    };
+    mockWatchlist = [
+      contract,
+      ...(hasNative ? [{ chainId: 'near--0', contractAddress: '' }] : []),
+    ];
+    jest.mocked(useRoute).mockReturnValue({
+      key: 'detail',
+      name: 'MarketDetailV2',
+      params: { network: 'near', tokenAddress: '', isNative: true },
+    });
+    const { result } = renderHook(() => useMarketDetailWatchlistIdentity());
+    expect(result.current.watchlistContractAddress).toBe('');
+    const key = getMarketWatchlistKey({
+      chainId: 'near--0',
+      contractAddress: result.current.watchlistContractAddress ?? '',
+    });
+    expect(
+      mockWatchlist.some((item) => getMarketWatchlistKey(item) === key),
+    ).toBe(hasNative);
+    expect(key).not.toBe(getMarketWatchlistKey(contract));
+  },
+);
+
+it.each([
+  { network: 'btc', chainId: 'btc--0', contractAddress: 'native' },
+  {
+    network: 'eth',
+    chainId: 'evm--1',
+    contractAddress: '0x0000000000000000000000000000000000000000',
+  },
+  { network: 'sui', chainId: 'sui--mainnet', contractAddress: '0x2::sui::SUI' },
+])(
+  'keeps the verified native alias for old $network favorites without isNative',
+  ({ network, chainId, contractAddress }) => {
+    mockWatchlist = [{ chainId, contractAddress }];
+    jest.mocked(useRoute).mockReturnValue({
+      key: 'detail',
+      name: 'MarketDetailV2',
+      params: { network, tokenAddress: '', isNative: true },
+    });
+    const { result } = renderHook(() => useMarketDetailWatchlistIdentity());
+    expect(result.current.watchlistContractAddress).toBe(contractAddress);
+  },
+);
+
+it.each([
+  { chainId: 'evm--1', contractAddress: '0xusdt' },
+  { chainId: 'near--0', contractAddress: 'native' },
+  {
+    chainId: 'near--0',
+    contractAddress: '0x0000000000000000000000000000000000000000',
+  },
+  { chainId: 'sui--mainnet', contractAddress: '0x2::other::OTHER' },
+])(
+  'does not infer a native favorite from a contract alias on $chainId',
+  ({ chainId, contractAddress }) => {
+    mockWatchlist = [{ chainId, contractAddress }];
+    jest.mocked(useRoute).mockReturnValue({
+      key: 'detail',
+      name: 'MarketDetailV2',
+      params: { network: chainId, tokenAddress: '', isNative: true },
+    });
+    const { result } = renderHook(() => useMarketDetailWatchlistIdentity());
+    expect(result.current.watchlistContractAddress).toBe('');
+  },
+);
+
 it('uses the stored native favorite address when the list API returns another alias', () => {
   mockWatchlist = [{ chainId: 'evm--1', contractAddress: '', isNative: true }];
   jest.mocked(useRoute).mockReturnValue({

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
@@ -48,7 +48,18 @@ export function useLegacyMarketAsset({
   const isLegacyFavorite = Boolean(
     findLegacyMarketWatchlistItem(watchlist.data, identity),
   );
-  const tokenSymbol = isNative ? (network?.symbol ?? '') : (symbol ?? '');
+  // Native detail loading releases its preview before asset resolution completes.
+  const retainedSymbol = useRef<{ identity: typeof identity; symbol?: string }>(
+    undefined,
+  );
+  if (retainedSymbol.current?.identity !== identity) {
+    retainedSymbol.current = { identity, symbol };
+  } else if (symbol) {
+    retainedSymbol.current.symbol = symbol;
+  }
+  const tokenSymbol = isNative
+    ? (network?.symbol ?? '')
+    : (retainedSymbol.current.symbol ?? '');
   const shouldResolve = Boolean(
     !isStockRoute &&
     !marketTokenCategory &&

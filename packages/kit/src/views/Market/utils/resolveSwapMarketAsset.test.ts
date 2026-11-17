@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IMarketAssetDetailData,
   IMarketAssetVariant,
@@ -93,6 +94,115 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('resolveSwapMarketAsset', () => {
+  it('verifies a search candidate even when it is absent from category first pages', async () => {
+    mockSearch.mockResolvedValue([
+      { assetId: 'ethereum', network: 'evm--1', isNative: true },
+    ]);
+    mockList.mockResolvedValue({
+      list: [{ assetId: 'other', symbol: 'OTHER' }],
+      total: 1000,
+    });
+    mockDetail.mockResolvedValue(detail('ethereum'));
+    await expect(
+      resolveSwapMarketAsset(token, new AbortController().signal, {
+        searchAndSymbolOnly: true,
+      }),
+    ).resolves.toMatchObject({ marketTokenId: 'ethereum', network: 'evm--1' });
+    expect(mockDetail).toHaveBeenCalledTimes(1);
+    expect(mockDetail).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'ethereum' }),
+    );
+  });
+
+  it('rejects a search-only candidate whose asset detail has a different contract', async () => {
+    const contract = {
+      ...token,
+      tokenAddress: '0xusdt',
+      symbol: 'USDT',
+      isNative: false,
+    };
+    mockSearch.mockResolvedValue([
+      {
+        assetId: 'tether',
+        network: contract.networkId,
+        address: contract.tokenAddress,
+        isNative: false,
+      },
+    ]);
+    mockDetail.mockResolvedValue(
+      detail('tether', {
+        ...variant,
+        isNative: false,
+        tokenAddress: '0xother',
+      }),
+    );
+    await expect(
+      resolveSwapMarketAsset(contract, new AbortController().signal, {
+        searchAndSymbolOnly: true,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockDetail).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'tether' }),
+    );
+  });
+
+  it.each(['candidate', 'category'])(
+    'keeps the matching-symbol contract candidate pending after a %s fails',
+    async (failureSource) => {
+      const contract = {
+        ...token,
+        tokenAddress: '0xusdt',
+        symbol: 'USDT',
+        isNative: false,
+      };
+      mockConfig.mockResolvedValue({
+        code: 0,
+        data: { assetCategories: [{ category: 'defi' }] },
+      });
+      mockList.mockImplementation(async ({ type }) => {
+        if (type === 'defi' && failureSource === 'category')
+          throw new OneKeyLocalError('category offline');
+        return {
+          list:
+            type === 'defi'
+              ? []
+              : [
+                  ...(failureSource === 'candidate'
+                    ? [{ assetId: 'bad', symbol: 'USDT' }]
+                    : []),
+                  { assetId: 'tether', symbol: 'USDT' },
+                ],
+          total: 2,
+        };
+      });
+      let finish!: (value: IMarketAssetDetailData) => void;
+      mockDetail.mockImplementation(({ assetId }) =>
+        assetId === 'bad'
+          ? Promise.reject(new Error('candidate offline'))
+          : new Promise((resolve) => {
+              finish = resolve;
+            }),
+      );
+      const result = resolveSwapMarketAsset(
+        contract,
+        new AbortController().signal,
+        { searchAndSymbolOnly: true },
+      );
+      await jest.advanceTimersByTimeAsync(1000);
+      finish(
+        detail('tether', {
+          ...variant,
+          isNative: false,
+          tokenAddress: contract.tokenAddress,
+        }),
+      );
+      await expect(result).resolves.toMatchObject({
+        marketTokenId: 'tether',
+        tokenAddress: contract.tokenAddress,
+      });
+    },
+  );
+
   it('does not scan unrelated asset details for an unsupported legacy favorite', async () => {
     mockList.mockResolvedValue({
       list: Array.from({ length: 100 }, (_, index) => ({

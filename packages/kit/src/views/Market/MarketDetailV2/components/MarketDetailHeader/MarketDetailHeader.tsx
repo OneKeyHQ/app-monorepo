@@ -436,7 +436,7 @@ export function MarketDetailHeader({
   const { checked: starChecked, onPress: onStarPress } = useStarV2Checked({
     ...listingIdentity,
     chainId: networkId ?? '',
-    contractAddress: tokenDetail?.address ?? '',
+    contractAddress: watchlistContractAddress ?? tokenDetail?.address ?? '',
     from: EWatchlistFrom.Detail,
     tokenSymbol: headerIdentity.symbol,
     isNative,

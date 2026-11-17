@@ -263,6 +263,140 @@ it('does not repeat a successful lookup on focus or network recovery', async () 
   expect(mockDetail).not.toHaveBeenCalled();
 });
 
+it('keeps resolving a contract when native token-detail loading disposes its preview symbol', async () => {
+  const usdt = {
+    networkId: 'evm--1',
+    symbol: 'USDT',
+    assetId: 'tether',
+    address: '0xusdt',
+  };
+  mockWatchlist = [{ chainId: usdt.networkId, contractAddress: usdt.address }];
+  mockSearch.mockResolvedValue([
+    { network: usdt.networkId, address: usdt.address, isNative: false },
+  ]);
+  mockList.mockResolvedValue({ list: [usdt], total: 1 });
+  let finish!: (value: ReturnType<typeof assetDetail>) => void;
+  mockDetail.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const { result, rerender } = renderHook(
+    ({ symbol }: { symbol?: string }) =>
+      useLegacyMarketAsset({
+        ...legacyEth,
+        tokenAddress: usdt.address,
+        isNative: false,
+        symbol,
+      }),
+    { initialProps: { symbol: usdt.symbol as string | undefined } },
+  );
+  await waitFor(() => expect(finish).toBeDefined());
+  rerender({ symbol: undefined });
+  await act(async () => {
+    finish(assetDetail(usdt, false));
+  });
+  await waitFor(() =>
+    expect(result.current.assetParams?.marketTokenId).toBe('tether'),
+  );
+  expect(mockSearch).toHaveBeenCalledTimes(1);
+
+  mockIsFocused = false;
+  rerender({ symbol: undefined });
+  mockIsFocused = true;
+  rerender({ symbol: undefined });
+  expect(mockSearch).toHaveBeenCalledTimes(1);
+});
+
+it('does not reuse a released preview symbol for another contract identity', async () => {
+  mockWatchlist = [
+    { chainId: 'evm--1', contractAddress: '0xfirst' },
+    { chainId: 'evm--1', contractAddress: '0xsecond' },
+  ];
+  mockSearch.mockResolvedValue([]);
+  mockList.mockResolvedValue({
+    list: [{ assetId: 'first', symbol: 'FIRST' }],
+    total: 1,
+  });
+  mockDetail.mockResolvedValue(
+    assetDetail(
+      {
+        networkId: 'evm--1',
+        symbol: 'FIRST',
+        assetId: 'first',
+        address: '0xfirst',
+      },
+      false,
+    ),
+  );
+  const { result, rerender } = renderHook(
+    ({ tokenAddress, symbol }: { tokenAddress: string; symbol?: string }) =>
+      useLegacyMarketAsset({
+        ...legacyEth,
+        tokenAddress,
+        isNative: false,
+        symbol,
+      }),
+    {
+      initialProps: {
+        tokenAddress: '0xfirst',
+        symbol: 'FIRST' as string | undefined,
+      },
+    },
+  );
+  await waitFor(() =>
+    expect(result.current.assetParams?.marketTokenId).toBe('first'),
+  );
+  mockDetail.mockClear();
+  rerender({ tokenAddress: '0xsecond', symbol: undefined });
+  await waitFor(() => expect(result.current.isResolving).toBe(false));
+  expect(result.current.assetParams).toBeUndefined();
+  expect(mockDetail).not.toHaveBeenCalled();
+});
+
+it.each(['focus', 'network'])(
+  'retries a contract lookup after preview disposal on %s recovery',
+  async (recovery) => {
+    const usdt = {
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      assetId: 'tether',
+      address: '0xusdt',
+    };
+    mockWatchlist = [
+      { chainId: usdt.networkId, contractAddress: usdt.address },
+    ];
+    mockSearch.mockResolvedValue([]);
+    mockList.mockResolvedValue({ list: [usdt], total: 1 });
+    mockDetail.mockRejectedValue(new Error('offline'));
+    const { result, rerender } = renderHook(
+      ({ symbol }: { symbol?: string }) =>
+        useLegacyMarketAsset({
+          ...legacyEth,
+          tokenAddress: usdt.address,
+          isNative: false,
+          symbol,
+        }),
+      { initialProps: { symbol: usdt.symbol as string | undefined } },
+    );
+    await waitFor(() => expect(result.current.isResolving).toBe(false), {
+      timeout: 3000,
+    });
+    rerender({ symbol: undefined });
+    mockDetail.mockResolvedValue(assetDetail(usdt, false));
+    if (recovery === 'focus') mockIsFocused = false;
+    else mockIsOnline = false;
+    rerender({ symbol: undefined });
+    mockIsFocused = true;
+    mockIsOnline = true;
+    rerender({ symbol: undefined });
+    await waitFor(() =>
+      expect(result.current.assetParams?.marketTokenId).toBe('tether'),
+    );
+  },
+);
+
 it.each([
   { isStockRoute: true },
   { networkId: 'evm--11155111' },
