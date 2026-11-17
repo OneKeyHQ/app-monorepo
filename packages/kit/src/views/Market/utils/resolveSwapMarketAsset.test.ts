@@ -94,6 +94,62 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('resolveSwapMarketAsset', () => {
+  it.each(['request', 'variant'])(
+    'falls back to list assets when a search-only candidate has a failed %s',
+    async (failureSource) => {
+      mockSearch.mockResolvedValue([
+        { assetId: 'search-only', network: token.networkId, isNative: true },
+      ]);
+      mockList.mockResolvedValue({
+        list: [{ assetId: 'listed', symbol: 'OTHER' }],
+        total: 1,
+      });
+      mockDetail.mockImplementation(({ assetId }) => {
+        if (assetId !== 'search-only') return Promise.resolve(detail(assetId));
+        return failureSource === 'request'
+          ? Promise.reject(new OneKeyLocalError('search candidate offline'))
+          : Promise.resolve(detail(assetId, { ...variant, variantId: '' }));
+      });
+      const result = resolveSwapMarketAsset(
+        token,
+        new AbortController().signal,
+      );
+      await jest.advanceTimersByTimeAsync(2000);
+      await expect(result).resolves.toMatchObject({
+        marketTokenId: 'listed',
+        network: token.networkId,
+        isNative: true,
+      });
+      expect(mockDetail.mock.calls.map(([request]) => request.assetId)).toEqual(
+        ['search-only', 'listed'],
+      );
+    },
+  );
+
+  it('keeps legacy lookups scoped to relevant assets after a search candidate fails', async () => {
+    mockSearch.mockResolvedValue([
+      { assetId: 'search-only', network: token.networkId, isNative: true },
+    ]);
+    mockList.mockResolvedValue({
+      list: Array.from({ length: 100 }, (_, index) => ({
+        assetId: `other-${index}`,
+        symbol: 'OTHER',
+      })),
+      total: 100,
+    });
+    mockDetail.mockRejectedValue(
+      new OneKeyLocalError('search candidate offline'),
+    );
+    const result = resolveSwapMarketAsset(token, new AbortController().signal, {
+      searchAndSymbolOnly: true,
+    });
+    await jest.advanceTimersByTimeAsync(2000);
+    await expect(result).resolves.toBeUndefined();
+    expect(mockDetail.mock.calls.map(([request]) => request.assetId)).toEqual([
+      'search-only',
+    ]);
+  });
+
   it('verifies a search candidate even when it is absent from category first pages', async () => {
     mockSearch.mockResolvedValue([
       { assetId: 'ethereum', network: 'evm--1', isNative: true },
