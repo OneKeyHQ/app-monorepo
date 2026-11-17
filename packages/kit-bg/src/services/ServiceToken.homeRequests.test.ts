@@ -82,6 +82,9 @@ function makeApi() {
       getAccountXpub: jest.fn().mockResolvedValue(undefined),
       getAccountAddressForApi: jest.fn().mockResolvedValue('fixture-address'),
       buildAccountXpubOrAddress: jest.fn().mockResolvedValue('fixture-address'),
+      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: jest
+        .fn()
+        .mockResolvedValue({ networkAccounts: [] }),
     },
     serviceCustomToken: {
       getCustomTokens: jest.fn().mockResolvedValue([]),
@@ -137,6 +140,7 @@ function makeApi() {
         ),
         updateAccountTokenList: jest.fn().mockResolvedValue(undefined),
         updateAccountTokenListByCache: jest.fn().mockResolvedValue(undefined),
+        updateTokens: jest.fn().mockResolvedValue(undefined),
         getAccountTokenList: jest.fn().mockResolvedValue({
           tokenList: [],
           smallBalanceTokenList: [],
@@ -340,6 +344,28 @@ describe('ServiceToken native Home request lifetime', () => {
   it('rechecks after an awaited cache write before returning a large response', async () => {
     const write = deferred<void>();
     const started = deferred<void>();
+    const data = getEmptyTokenData();
+    Object.assign(data.tokens, {
+      data: [
+        {
+          $key: 'evm--1_native',
+          address: '',
+          decimals: 18,
+          isNative: true,
+          name: 'Ether',
+          symbol: 'ETH',
+        },
+      ],
+      map: {
+        'evm--1_native': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '1',
+          price: 1,
+        },
+      },
+    });
+    fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
     api.simpleDb.localTokens.updateAccountTokenList.mockImplementation(
       async () => {
         started.resolve();
@@ -357,6 +383,7 @@ describe('ServiceToken native Home request lifetime', () => {
     await service.invalidateHomeTokenRequests(token(2));
     write.resolve();
     await rejected;
+    expect(api.simpleDb.localTokens.updateTokens).not.toHaveBeenCalled();
   });
 
   it('tags single-network writes with their request start order', async () => {
@@ -762,8 +789,71 @@ describe('ServiceToken native Home request lifetime', () => {
     });
 
     expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledTimes(1);
+    expect(
+      fetchTokenListMock.mock.calls[0][0].requestApiParams,
+    ).not.toHaveProperty('homeIngest');
+    expect(
+      fetchTokenListMock.mock.calls[0][0].requestApiParams,
+    ).not.toHaveProperty('mergeDeriveAddressData');
     expect(resp.homeIngested).toBe(true);
     expect(resp.homeCreateAtNetworkWorth).toBe('2500');
     expect(resp.tokens.data).toEqual([]);
+  });
+
+  it('aborts an outer merge-derive Home request during account enumeration and preserves settledAccountId on ingest', async () => {
+    const enumerate = deferred<{
+      networkAccounts: { account: { id: string } }[];
+    }>();
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockReturnValueOnce(
+      enumerate.promise,
+    );
+
+    const abortedPending = service.fetchAccountTokens({
+      accountId: 'indexed-1',
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      flag: 'home-token-list',
+      mergeDeriveAddressData: true,
+      homeIngest: {
+        ownerKey: 'home-owner',
+        storeName: 'homeTokenList',
+        settledAccountId: 'btc-active-account',
+      },
+    });
+    expect(service._fetchAccountTokensControllers).toHaveLength(1);
+    await service.abortFetchAccountTokens({
+      includedFlags: ['home-token-list'],
+    });
+    enumerate.resolve({
+      networkAccounts: [{ account: { id: 'btc-derive-1' } }],
+    });
+    await expect(abortedPending).rejects.toMatchObject({
+      name: 'CanceledError',
+    });
+    expect(api.serviceTokenViewModel.ingestRound).not.toHaveBeenCalled();
+
+    api.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mockResolvedValueOnce(
+      {
+        networkAccounts: [{ account: { id: 'btc-derive-1' } }],
+      },
+    );
+    await service.fetchAccountTokens({
+      accountId: 'indexed-1',
+      indexedAccountId: 'indexed-1',
+      networkId: 'btc--0',
+      flag: 'home-token-list',
+      mergeDeriveAddressData: true,
+      homeIngest: {
+        ownerKey: 'home-owner',
+        storeName: 'homeTokenList',
+        settledAccountId: 'btc-active-account',
+      },
+    });
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'btc-active-account',
+        networkId: 'btc--0',
+      }),
+    );
   });
 });

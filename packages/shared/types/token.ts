@@ -114,6 +114,7 @@ export type IHomeTokenRequest = IHomeTokenRequestInvalidation & {
 export type IHomeSingleNetworkIngestOptions = {
   ownerKey: string;
   storeName: string;
+  settledAccountId?: string;
   keepDefault?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   customTokens?: ICustomTokenItem[];
