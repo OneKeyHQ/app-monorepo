@@ -203,11 +203,12 @@ final class MarketWidgetClient {
     static List<MarketWidgetData.Asset> decodeHot(JSONObject envelope) throws Exception {
         if (envelope.getInt("code") != 0) throw new IOException("Hot coins unavailable");
         JSONArray items = envelope.getJSONArray("data");
+        if (items.length() > 100) throw new IOException("Too many hot coin results");
         List<MarketWidgetData.Asset> result = new ArrayList<>();
         Set<String> keys = new HashSet<>();
-        for (int index = 0; index < Math.min(items.length(), MarketWidgetData.MAX_ASSETS); index++) {
-            JSONObject item = items.getJSONObject(index);
-            if (item.has("stockId") || item.has("perpsCoin")) continue;
+        for (int index = 0; index < items.length() && result.size() < MarketWidgetData.MAX_ASSETS; index++) {
+            JSONObject item = items.optJSONObject(index);
+            if (item == null || item.has("stockId") || item.has("perpsCoin")) continue;
             try {
                 MarketWidgetData.Asset asset = new MarketWidgetData.Asset(new JSONObject()
                     .put("kind", "token").put("chainId", item.getString("network"))

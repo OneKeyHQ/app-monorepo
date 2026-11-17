@@ -247,7 +247,7 @@ public final class MarketWidgetContractTest {
         assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
         JSONObject asset = configuration.getJSONArray("assets").getJSONObject(0);
         for (String key : new String[]{"symbol", "name", "iconUrl"}) {
-            asset.put(key, "iconUrl".equals(key) ? "https://example.com/eth.png" : "updated");
+            asset.put(key, "iconUrl".equals(key) ? "https://uni.onekey-asset.com/eth.png" : "updated");
             assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
             assertFalse(MarketWidgetStore.setConfiguration(context, configuration.toString()));
         }
@@ -294,7 +294,7 @@ public final class MarketWidgetContractTest {
             .put("symbol", "OLD").put("name", "Old name");
         MarketWidgetData.Asset first = new MarketWidgetData.Asset(identity);
         identity.put("requestTokenAddress", "0xeeee").put("symbol", "ETH").put("name", "Ethereum")
-            .put("iconUrl", "https://example.com/eth.png");
+            .put("iconUrl", "https://uni.onekey-asset.com/eth.png");
         MarketWidgetData.Asset latest = new MarketWidgetData.Asset(identity);
         assertEquals(first.key(), latest.key());
         Map<String, MarketWidgetRefreshService.AssetRequest> requests = new LinkedHashMap<>();
@@ -607,6 +607,69 @@ public final class MarketWidgetContractTest {
         assertEquals("AbCd", trending.get(1).contractAddress);
         assertEquals("", MarketWidgetData.imageUrl("http://example.com/coin.png"));
         assertEquals("", MarketWidgetData.imageUrl("https://user:password@example.com/icon.png"));
+    }
+
+    @Test
+    public void hotLimitCountsOnlyValidDistinctCoinsAfterFiltering() throws Exception {
+        JSONArray items = new JSONArray();
+        for (int index = 0; index < 20; index++) items.put(index % 2 == 0
+            ? new JSONObject().put("stockId", "AAPL") : new JSONObject().put("perpsCoin", "BTC"));
+        items.put(JSONObject.NULL).put("malformed").put(new JSONObject().put("symbol", "INVALID"));
+        JSONObject bitcoin = new JSONObject().put("network", "btc--0").put("address", "")
+            .put("isNative", true).put("symbol", "BTC");
+        items.put(bitcoin).put(bitcoin);
+        for (int index = 0; index < 30; index++) items.put(new JSONObject().put("network", "evm--1")
+            .put("address", "0x" + index).put("symbol", "COIN" + index));
+        java.util.List<MarketWidgetData.Asset> result = MarketWidgetClient.decodeHot(
+            new JSONObject().put("code", 0).put("data", items));
+        assertEquals(20, result.size());
+        assertEquals("BTC", result.get(0).symbol);
+        assertEquals("COIN18", result.get(19).symbol);
+        assertEquals(20, result.stream().map(MarketWidgetData.Asset::key).distinct().count());
+    }
+
+    @Test
+    public void hotResultsRejectAnUnboundedResponse() throws Exception {
+        JSONArray items = new JSONArray();
+        for (int index = 0; index < 101; index++) items.put(new JSONObject().put("perpsCoin", "BTC"));
+        try {
+            MarketWidgetClient.decodeHot(new JSONObject().put("code", 0).put("data", items));
+            fail("Oversized trending responses must be rejected before filtering");
+        } catch (java.io.IOException expected) { }
+    }
+
+    @Test
+    public void iconUrlsAllowOnlyApprovedImageHosts() throws Exception {
+        for (String allowed : new String[] {
+            "https://onekey-asset.com/icon.png", "https://uni.onekey-asset.com/icon.png?size=96",
+            "https://UNI.ONEKEY-ASSET.COM/icon.png", "https://coin-images.coingecko.com/coins/1.png",
+            "https://assets.coingecko.com/icon.png",
+        }) assertEquals(allowed, MarketWidgetData.imageUrl(allowed));
+        for (String rejected : new String[] {
+            "https://example.com/icon.png", "https://localhost/icon.png", "https://127.0.0.1/icon.png",
+            "https://192.168.1.1/icon.png", "https://169.254.169.254/icon.png", "https://[::1]/icon.png",
+            "https://evilonekey-asset.com/icon.png", "https://uni.onekey-asset.com.evil.com/icon.png",
+            "https://assets.coingecko.com.evil.com/icon.png", "https://private.assets.coingecko.com/icon.png",
+            "https://uni.onekey-asset.com:443/icon.png", "https://uni.onekey-asset.com:8443/icon.png",
+            "https://user:password@uni.onekey-asset.com/icon.png", "http://uni.onekey-asset.com/icon.png",
+            "https://evil.com\\uni.onekey-asset.com/icon.png", "https://uni.onekey-asset.com%2fevil.com/icon.png",
+        }) assertEquals(rejected, "", MarketWidgetData.imageUrl(rejected));
+        String blocked = "https://127.0.0.1/icon.png";
+        MarketWidgetData.Asset asset = new MarketWidgetData.Asset(new JSONObject().put("kind", "asset")
+            .put("assetId", "bitcoin").put("logoURL", blocked));
+        assertEquals("", asset.iconUrl);
+        assertEquals("", new MarketWidgetData.Quote(BigDecimal.ONE, null, "BTC", "Bitcoin", 12345L, blocked).iconUrl);
+    }
+
+    @Test
+    public void iconRefreshRejectsPrivateUrlsBeforeOpeningAConnection() throws Exception {
+        MarketWidgetData.Asset asset = new MarketWidgetData.Asset(new JSONObject().put("kind", "asset")
+            .put("assetId", "icon-security-" + UUID.randomUUID()));
+        MarketWidgetStore.setConfiguration(context, new JSONObject().put("schemaVersion", 1)
+            .put("assets", new JSONArray().put(asset.json())).toString());
+        assertTrue(MarketWidgetStore.contains(context, asset));
+        MarketWidgetImages.fetch(context, asset, "https://127.0.0.1:1/icon.png");
+        assertFalse(new java.io.File(new java.io.File(context.getCacheDir(), "market_widget_icons"), asset.key() + ".png").exists());
     }
 
     @Test

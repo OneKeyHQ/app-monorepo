@@ -247,10 +247,18 @@ final class MarketWidgetData {
     }
 
     static String imageUrl(String raw) {
-        if (raw.length() > 2048) return "";
-        Uri uri = Uri.parse(raw);
-        return "https".equals(uri.getScheme()) && uri.getHost() != null
-            && uri.getUserInfo() == null ? raw : "";
+        if (raw == null || raw.length() > 2048) return "";
+        try {
+            java.net.URI uri = new java.net.URI(raw);
+            String host = uri.getHost();
+            if (!"https".equals(uri.getScheme()) || host == null
+                || uri.getUserInfo() != null || uri.getPort() != -1) return "";
+            host = host.toLowerCase(Locale.ROOT);
+            return host.equals("onekey-asset.com") || host.endsWith(".onekey-asset.com")
+                || host.equals("coin-images.coingecko.com") || host.equals("assets.coingecko.com") ? raw : "";
+        } catch (java.net.URISyntaxException ignored) {
+            return "";
+        }
     }
 
     static BigDecimal number(Object value) {
