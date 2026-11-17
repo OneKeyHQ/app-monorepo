@@ -16,7 +16,9 @@
     "stats:v3": "yarn clean && cross-env NODE_ENV=production EXT_MANIFEST_V3=1 RSPACK_FULL_STATS=1 NODE_OPTIONS=\"--max-old-space-size=8192\" rspack build --config-loader jiti --json=build/rspack-stats.json",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:firefox": "node ./scripts/build-firefox.js",
+    "pack:firefox": "node ./scripts/package-firefox.js"
   },
   "private": true,
   "dependencies": {

@@ -720,7 +720,7 @@ export function createBaseConfig({
                   // are never jest, so no isJest guard is needed.
                   // Absolute checkout paths otherwise change emitted sizes and
                   // can push CI past a splitChunks boundary compared to local.
-                  ...(!isDev && platform === 'web'
+                  ...(!isDev
                     ? [
                         [
                           path.join(

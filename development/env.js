@@ -11,6 +11,15 @@ const envPaths = [
   path.resolve(__dirname, '../.env'),
 ].filter((p) => fs.existsSync(p));
 
+if (process.env.ONEKEY_REPRODUCIBLE_BUILD === '1') {
+  const versionPath = path.resolve(__dirname, '../.env.version');
+  envPaths.splice(
+    0,
+    envPaths.length,
+    ...envPaths.filter((p) => p === versionPath),
+  );
+}
+
 const results = [
   dotenv.config({
     path: envPaths,
@@ -31,7 +40,14 @@ if (process.env.NODE_ENV !== 'production') {
   process.env.BUNDLE_VERSION = process.env.BUNDLE_VERSION || '99999999';
 }
 
-process.env.BUILD_TIME = Date.now();
+process.env.BUILD_TIME = process.env.BUILD_TIME || Date.now();
+
+if (
+  !/^\d{13}$/.test(process.env.BUILD_TIME) ||
+  !Number.isSafeInteger(Number(process.env.BUILD_TIME))
+) {
+  throw new Error('BUILD_TIME must be a Unix timestamp in milliseconds.');
+}
 
 const errorResult = results.find((result) => result.error);
 

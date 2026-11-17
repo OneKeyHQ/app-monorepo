@@ -24,6 +24,12 @@ import type {
   RspackPluginInstance,
 } from '@rspack/core';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createBuildManifest } =
+  require('../../apps/ext/scripts/lib/firefox-build') as {
+    createBuildManifest: () => object;
+  };
+
 const platform = 'ext';
 
 const compilerNames = {
@@ -59,6 +65,31 @@ function createExtensionBootAssetsPlugin(): RspackPluginInstance {
                 ),
               );
             },
+          );
+        },
+      );
+    },
+  };
+}
+
+function createFirefoxBuildManifestPlugin(): RspackPluginInstance {
+  return {
+    apply(compiler: Compiler): void {
+      compiler.hooks.thisCompilation.tap(
+        'FirefoxBuildManifestPlugin',
+        (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'FirefoxBuildManifestPlugin',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () =>
+              compilation.emitAsset(
+                'firefox-build.json',
+                new rspack.sources.RawSource(
+                  `${JSON.stringify(createBuildManifest(), null, 2)}\n`,
+                ),
+              ),
           );
         },
       );
@@ -314,6 +345,14 @@ function createCompilerConfig({
     ...plugins,
     createChromeExtensionV3ViolationPlugin(),
   ];
+  if (targetBrowser === 'firefox') {
+    config.module = config.module || {};
+    config.module.rules = config.module.rules || [];
+    config.module.rules.push({
+      test: /[\\/]@zip\.js[\\/]zip\.js[\\/]lib[\\/]zip-core-base\.js$/,
+      loader: path.resolve(__dirname, 'loaders/zip-base-uri-loader.js'),
+    });
+  }
   return config;
 }
 
@@ -418,6 +457,11 @@ function createPagesConfig(basePath: string): RspackOptions {
       createHtmlPlugin({ name: entries.uiPasskey, basePath }),
       createHtmlPlugin({ name: entries.offscreen, basePath }),
       createCopyPlugin(basePath),
+      ...(!isDev &&
+      targetBrowser === 'firefox' &&
+      process.env.ONEKEY_REPRODUCIBLE_BUILD === '1'
+        ? [createFirefoxBuildManifestPlugin()]
+        : []),
       ...(!isDev ? [createExtensionBootAssetsPlugin()] : []),
     ],
   });

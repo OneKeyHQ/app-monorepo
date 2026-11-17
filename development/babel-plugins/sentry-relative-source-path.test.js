@@ -49,3 +49,41 @@ it('preserves an explicitly supplied source annotation', () => {
 
   expect(output).toContain('data-sentry-source-file="manual.tsx"');
 });
+
+it('preserves third-party paths used by Sentry compatibility exclusions', () => {
+  const rootDir = '/checkout/app-monorepo';
+  const filename = `${rootDir}/node_modules/@react-navigation/elements/src/Header.tsx`;
+  const options = {
+    babelrc: false,
+    configFile: false,
+    filename,
+    parserOpts: { plugins: ['jsx'], sourceFileName: filename },
+  };
+  const original = transformSync(source, {
+    ...options,
+    plugins: ['@sentry/babel-plugin-component-annotate'],
+  }).code;
+  const normalized = transformSync(source, {
+    ...options,
+    plugins: [
+      [relativeSourcePath, { rootDir }],
+      '@sentry/babel-plugin-component-annotate',
+    ],
+  }).code;
+  expect(normalized).toBe(original);
+  expect(normalized).not.toContain('data-sentry-source-file');
+});
+
+it('normalizes Windows first-party paths and keeps relative paths stable', () => {
+  const rootDir = 'C:\\checkout\\app-monorepo';
+  const file = {
+    opts: {
+      parserOpts: { sourceFileName: `${rootDir}\\packages\\kit\\Panel.tsx` },
+    },
+  };
+  const plugin = relativeSourcePath(null, { rootDir });
+  plugin.pre(file);
+  expect(file.opts.parserOpts.sourceFileName).toBe('packages/kit/Panel.tsx');
+  plugin.pre(file);
+  expect(file.opts.parserOpts.sourceFileName).toBe('packages/kit/Panel.tsx');
+});

@@ -166,7 +166,8 @@
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
     "check:release-age": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts diff",
-    "check:release-age:full": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts full"
+    "check:release-age:full": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts full",
+    "app:ext:build:firefox": "node apps/ext/scripts/build-firefox.js"
   },
   "minimumReleaseAge": {
     "days": 7,
