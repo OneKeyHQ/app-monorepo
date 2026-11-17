@@ -45,6 +45,8 @@ const TXID_VICTIM = '11'.repeat(32);
 const TXID_FAKE = '22'.repeat(32);
 const SIGHASH_SINGLE_ANYONECANPAY =
   Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY;
+const SIGHASH_NONE_ANYONECANPAY =
+  Transaction.SIGHASH_NONE | Transaction.SIGHASH_ANYONECANPAY;
 const INVALID_PARAMS = -32_602;
 
 initBitcoinEcc();
@@ -359,6 +361,75 @@ describe('ProviderApiBtc PSBT sighash policy', () => {
       }),
     ).resolves.toEqual(['signed']);
     expect(h.createBatch).toHaveBeenCalledTimes(1);
+    expect(h.approve).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a string alias of an input', '0'],
+    ['an index past the last input', 5],
+  ])('refuses %s as a toSignInputs index', async (_name, index) => {
+    const h = setup();
+    await expect(
+      h.run('signPsbt', {
+        psbtHex: paymentPsbtHex(),
+        options: { toSignInputs: [{ index }] },
+      }),
+    ).rejects.toMatchObject({
+      code: INVALID_PARAMS,
+      message: expect.stringContaining(
+        `Input index ${String(index)} is not a valid input of this PSBT`,
+      ),
+    });
+    expect(h.approve).not.toHaveBeenCalled();
+  });
+
+  it('refuses, for a signer not bound to the request, an account input outside it that does not commit to every output', async () => {
+    // A device may sign input 1 as well, with the sighash type it declares.
+    const psbtHex = buildPsbtHex({
+      inputs: [
+        { txid: TXID_VICTIM, vout: 1, value: 100_000n, script: victim.script },
+        {
+          txid: TXID_VICTIM,
+          vout: 2,
+          value: 5_000_000n,
+          script: victimOtherAddress.script,
+          sighashType: SIGHASH_NONE_ANYONECANPAY,
+        },
+      ],
+      outputs: [
+        { script: decoy.script, value: 50_000n },
+        { script: victim.script, value: 5_049_000n },
+      ],
+    });
+    const params = { psbtHex, options: { toSignInputs: [{ index: 0 }] } };
+
+    mockIsPsbtSignerBoundToRequest.mockReturnValue(false);
+    const h = setup();
+    await expect(h.run('signPsbt', params)).rejects.toMatchObject({
+      code: INVALID_PARAMS,
+      message: expect.stringContaining(
+        'Input 1 is outside the signing request and must not declare sighash type 0x82',
+      ),
+    });
+    expect(h.approve).not.toHaveBeenCalled();
+
+    // A software keyring signs input 0 and nothing else.
+    mockIsPsbtSignerBoundToRequest.mockReturnValue(true);
+    await expect(h.run('signPsbt', params)).rejects.toBe(approval);
+  });
+
+  it('refuses a multi-psbt request before its first confirmation when a later psbt is refused', async () => {
+    const h = setup();
+    await expect(
+      h.run('signPsbts', {
+        psbtHexs: [listingPsbtHex(), reportedPsbtHex()],
+      }),
+    ).rejects.toMatchObject({
+      code: INVALID_PARAMS,
+      message: expect.stringContaining(
+        'SIGHASH_SINGLE input 0 must pay its matching output to the signing account',
+      ),
+    });
     expect(h.approve).not.toHaveBeenCalled();
   });
 });

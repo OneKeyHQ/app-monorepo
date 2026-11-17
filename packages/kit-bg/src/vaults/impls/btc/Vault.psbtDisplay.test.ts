@@ -36,6 +36,8 @@ const SIGHASH_SINGLE_ANYONECANPAY =
   Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY;
 const SIGHASH_ALL_ANYONECANPAY =
   Transaction.SIGHASH_ALL | Transaction.SIGHASH_ANYONECANPAY;
+const SIGHASH_NONE_ANYONECANPAY =
+  Transaction.SIGHASH_NONE | Transaction.SIGHASH_ANYONECANPAY;
 
 initBitcoinEcc();
 const ECPair = getBitcoinECPair();
@@ -194,6 +196,46 @@ const change = (value: bigint): ITestOutput => ({
 });
 
 describe('VaultBtc.buildDecodedPsbtTx', () => {
+  it('refuses an index that is not an input of the psbt', async () => {
+    const unsignedTx = buildUnsignedTx({
+      inputs: [victimInput(100_000n)],
+      outputs: [
+        { script: decoy.script, value: 98_000n, address: decoy.address },
+      ],
+      signIndexes: [5],
+    });
+    await expect(decode(unsignedTx)).rejects.toThrow(
+      'Input index 5 is not a valid input of this PSBT',
+    );
+  });
+
+  it('refuses, for a signer not bound to the request, an account input outside it that does not commit to every output', async () => {
+    const unsignedTx = buildUnsignedTx({
+      inputs: [
+        victimInput(100_000n),
+        {
+          txid: TXID_VICTIM,
+          vout: 1,
+          value: 5_000_000n,
+          script: victim.script,
+          address: victim.address,
+          sighashType: SIGHASH_NONE_ANYONECANPAY,
+        },
+      ],
+      outputs: [
+        { script: decoy.script, value: 50_000n, address: decoy.address },
+        change(5_048_000n),
+      ],
+    });
+    await expect(decode(unsignedTx, deviceKeyring)).rejects.toThrow(
+      'Input 1 is outside the signing request and must not declare sighash type 0x82',
+    );
+    // A software keyring signs input 0 and nothing else.
+    expect((await decode(unsignedTx)).sends).toEqual([
+      { to: decoy.address, amount: '0.0005' },
+    ]);
+  });
+
   it('shows an external output even if it is flagged as inscription structure', async () => {
     // An unsigned input mirroring the attacker output used to earn it this
     // flag, and the flag used to drop it from the confirm page.

@@ -814,6 +814,33 @@ class ProviderApiBtc extends ProviderApiBase {
         options: getSignPsbtOptionsForPsbtIndex({ options, index }),
       });
     }
+    // Each psbt is checked again when its turn comes. Checking them all here
+    // first keeps a psbt that will be refused from surfacing only after the
+    // ones before it were confirmed and signed for nothing.
+    if (psbtHexs.length > 1) {
+      const { accountId, networkId, address } =
+        (await this.getAccountsInfo(request))[0].accountInfo ?? {};
+      if (accountId && networkId) {
+        const signingAccount =
+          await this.backgroundApi.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+        for (let index = 0; index < psbtHexs.length; index += 1) {
+          await this.buildPsbtSignFlowPayload({
+            psbt: Psbt.fromHex(formatPsbtHex(psbtHexs[index]), {
+              network: psbtNetwork,
+            }),
+            psbtNetwork,
+            options: getSignPsbtOptionsForPsbtIndex({ options, index }),
+            accountId,
+            networkId,
+            address,
+            account: signingAccount,
+          });
+        }
+      }
+    }
     const result: string[] = [];
     for (let i = 0; i < psbtHexs.length; i += 1) {
       // UniSat-compatible `signPsbts` passes `options` as an array (one
@@ -1184,14 +1211,7 @@ class ProviderApiBtc extends ProviderApiBase {
     // even where the change display below only knows the connected one.
     const utxoAccount = account as unknown as IDBUtxoAccount;
     const sighashFamily = getBtcPsbtSighashFamily({ psbt, inputsToSign });
-    // Only a SIGHASH_SINGLE request depends on what the signer guarantees, so
-    // the vault is not loaded for any other request.
-    const rejectSighashSingle =
-      sighashFamily === EBtcPsbtSighashFamily.Single &&
-      !(
-        (await vaultFactory.getVault({ networkId, accountId })) as VaultBtc
-      ).isPsbtSignerBoundToRequest();
-    const policyViolation = findBtcPsbtSignPolicyViolation({
+    const policyParams = {
       psbt,
       psbtNetwork,
       inputsToSign,
@@ -1207,8 +1227,22 @@ class ProviderApiBtc extends ProviderApiBase {
         ...(ownedAddresses ?? []),
         ...(address ? [address] : []),
       ],
-      rejectSighashSingle,
+    };
+    // The request is first held to the rule for a signer that is not bound to
+    // it, which only adds refusals. A request that passes is fine for any
+    // signer, so the vault is loaded only for one that does not.
+    let policyViolation = findBtcPsbtSignPolicyViolation({
+      ...policyParams,
+      isSignerBoundToRequest: false,
     });
+    if (
+      policyViolation &&
+      (
+        (await vaultFactory.getVault({ networkId, accountId })) as VaultBtc
+      ).isPsbtSignerBoundToRequest()
+    ) {
+      policyViolation = findBtcPsbtSignPolicyViolation(policyParams);
+    }
     if (policyViolation) {
       throw web3Errors.rpc.invalidParams(policyViolation.message);
     }

@@ -1,7 +1,8 @@
 import { scriptPkToAddress } from '.';
 
 import BigNumber from 'bignumber.js';
-import { Transaction } from 'bitcoinjs-lib';
+import { Psbt, Transaction } from 'bitcoinjs-lib';
+import { isEqual } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -9,7 +10,7 @@ import { getPsbtInputUtxo } from './providerUtils';
 
 import type { ITxInputToSign } from '../../../types';
 import type { IBtcOutput } from '../types';
-import type { Psbt, networks } from 'bitcoinjs-lib';
+import type { networks } from 'bitcoinjs-lib';
 
 // What a signature commits to on the output side. This, not the PSBT as the
 // dapp presented it, bounds what the signer can lose: outputs outside the
@@ -113,19 +114,57 @@ export type IBtcPsbtSignPolicyParams = {
   // Without it only the sighash rules are checked, for the signer layer that
   // has no account context.
   ownedAddresses?: string[];
-  // Set for a signer that may sign inputs outside `inputsToSign`, or with a
-  // sighash type other than the declared one. A SIGHASH_SINGLE summary stands
-  // for exactly the requested inputs signed as declared, so it cannot
-  // describe what such a signer authorizes.
-  rejectSighashSingle?: boolean;
+  // False for a signer that may sign inputs outside `inputsToSign`, or with a
+  // sighash type other than the declared one. Two things then no longer hold:
+  // - a SIGHASH_SINGLE summary stands for exactly the requested inputs signed
+  //   as declared, so it cannot describe what such a signer authorizes;
+  // - an input outside the request may be signed as well, so it must commit
+  //   to every output like the requested ones do.
+  // Defaults to true: the software signer signs the requested inputs only.
+  isSignerBoundToRequest?: boolean;
 };
+
+function formatSighashType(sighashType: number | undefined) {
+  return `0x${(sighashType ?? 0).toString(16).padStart(2, '0')}`;
+}
+
+// An input outside the request that the signer could still sign: not yet
+// finalized, and spending an address of the account. An input whose address
+// cannot be told apart from the account's counts as signable.
+function isBtcPsbtInputSignableOutsideRequest({
+  psbt,
+  psbtNetwork,
+  index,
+  ownedAddressSet,
+}: {
+  psbt: Psbt;
+  psbtNetwork: networks.Network;
+  index: number;
+  ownedAddressSet: Set<string> | undefined;
+}) {
+  const input = psbt.data.inputs[index];
+  if (input.finalScriptSig || input.finalScriptWitness) {
+    return false;
+  }
+  if (!ownedAddressSet) {
+    return true;
+  }
+  let address = '';
+  try {
+    const { script } = getPsbtInputUtxo({ psbt, index });
+    address = scriptPkToAddress(Buffer.from(script), psbtNetwork);
+  } catch {
+    // No usable UTXO record: the owner is unknown.
+  }
+  return !address || ownedAddressSet.has(address);
+}
 
 function resolveBtcPsbtSignedInputs({
   psbt,
   psbtNetwork,
   inputsToSign,
   ownedAddresses,
-  rejectSighashSingle,
+  isSignerBoundToRequest = true,
 }: IBtcPsbtSignPolicyParams):
   | { violation: IBtcPsbtSignPolicyViolation }
   | {
@@ -145,6 +184,16 @@ function resolveBtcPsbtSignedInputs({
   const requestedIndexes = new Set<number>();
 
   for (const { index } of inputsToSign) {
+    // The index is dapp-supplied. Aliases of one input ("0", [0]) are distinct
+    // Set keys, and an out-of-range index reads as an undeclared sighash.
+    if (!Number.isSafeInteger(index) || index < 0 || index >= psbt.inputCount) {
+      return {
+        violation: {
+          index,
+          message: `Input index ${String(index)} is not a valid input of this PSBT`,
+        },
+      };
+    }
     // An input is given up once. A repeated index would be summarized once
     // per repeat and inflate what the request appears to pay and return.
     if (requestedIndexes.has(index)) {
@@ -169,9 +218,9 @@ function resolveBtcPsbtSignedInputs({
           index,
           message: isNone
             ? `SIGHASH_NONE is not supported for input ${index}`
-            : `Sighash type 0x${(sighashType ?? 0)
-                .toString(16)
-                .padStart(2, '0')} is not supported for input ${index}`,
+            : `Sighash type ${formatSighashType(
+                sighashType,
+              )} is not supported for input ${index}`,
         },
       };
     }
@@ -191,7 +240,7 @@ function resolveBtcPsbtSignedInputs({
 
     if (sighashClass.family === EBtcPsbtSighashFamily.All) {
       signedInputs.push({ index });
-    } else if (rejectSighashSingle) {
+    } else if (!isSignerBoundToRequest) {
       return {
         violation: {
           index,
@@ -235,6 +284,32 @@ function resolveBtcPsbtSignedInputs({
     }
   }
 
+  if (!isSignerBoundToRequest) {
+    for (let index = 0; index < psbt.inputCount; index += 1) {
+      const sighashType = psbt.data.inputs[index].sighashType;
+      if (
+        !requestedIndexes.has(index) &&
+        classifyBtcSighashType(sighashType)?.family !==
+          EBtcPsbtSighashFamily.All &&
+        isBtcPsbtInputSignableOutsideRequest({
+          psbt,
+          psbtNetwork,
+          index,
+          ownedAddressSet,
+        })
+      ) {
+        return {
+          violation: {
+            index,
+            message: `Input ${index} is outside the signing request and must not declare sighash type ${formatSighashType(
+              sighashType,
+            )}`,
+          },
+        };
+      }
+    }
+  }
+
   return {
     family: family ?? EBtcPsbtSighashFamily.All,
     hasAnyoneCanPay,
@@ -270,6 +345,52 @@ export function buildBtcPsbtAuthorization(
       };
     }),
   };
+}
+
+const BTC_PSBT_SIGNATURE_FIELDS = [
+  'partialSig',
+  'tapKeySig',
+  'tapScriptSig',
+  'finalScriptSig',
+  'finalScriptWitness',
+] as const;
+
+// A device hands back the whole PSBT and may have signed inputs the request
+// did not name. Those inputs are put back to the signatures they arrived
+// with, so nothing is released beyond what the confirm page described. The
+// device result is returned as is when there is nothing to drop.
+export function dropBtcPsbtSignaturesOutsideRequest({
+  unsignedPsbt,
+  signedPsbtHex,
+  inputsToSign,
+  network,
+}: {
+  unsignedPsbt: Psbt;
+  signedPsbtHex: string;
+  inputsToSign: readonly Pick<ITxInputToSign, 'index'>[];
+  network: networks.Network;
+}): string {
+  const requestedIndexes = new Set(inputsToSign.map(({ index }) => index));
+  const signedPsbt = Psbt.fromHex(signedPsbtHex, { network });
+  let hasDropped = false;
+  signedPsbt.data.inputs.forEach((input, index) => {
+    if (requestedIndexes.has(index)) {
+      return;
+    }
+    const original = unsignedPsbt.data.inputs[index];
+    BTC_PSBT_SIGNATURE_FIELDS.forEach((field) => {
+      if (isEqual(input[field], original?.[field])) {
+        return;
+      }
+      hasDropped = true;
+      if (original?.[field] === undefined) {
+        delete input[field];
+      } else {
+        Object.assign(input, { [field]: original[field] });
+      }
+    });
+  });
+  return hasDropped ? signedPsbt.toHex() : signedPsbtHex;
 }
 
 // The transfers a confirm page may show for a PSBT, derived from what the

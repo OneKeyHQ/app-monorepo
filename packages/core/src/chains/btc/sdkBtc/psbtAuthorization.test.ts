@@ -17,6 +17,7 @@ import {
   buildBtcPsbtAuthorization,
   buildBtcPsbtDisplayTransfers,
   classifyBtcSighashType,
+  dropBtcPsbtSignaturesOutsideRequest,
   findBtcPsbtSignPolicyViolation,
   getBtcPsbtSighashFamily,
 } from './psbtAuthorization';
@@ -32,6 +33,8 @@ const SIGHASH_SINGLE_ANYONECANPAY =
   Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY;
 const SIGHASH_ALL_ANYONECANPAY =
   Transaction.SIGHASH_ALL | Transaction.SIGHASH_ANYONECANPAY;
+const SIGHASH_NONE_ANYONECANPAY =
+  Transaction.SIGHASH_NONE | Transaction.SIGHASH_ANYONECANPAY;
 
 initBitcoinEcc();
 const ECPair = getBitcoinECPair();
@@ -45,7 +48,7 @@ function makeP2wpkh() {
   if (!address || !output) {
     throw new OneKeyLocalError('failed to build p2wpkh test fixture');
   }
-  return { address, script: output };
+  return { address, script: output, keyPair };
 }
 
 type ITestInput = {
@@ -284,7 +287,7 @@ describe('findBtcPsbtSignPolicyViolation', () => {
         psbtNetwork,
         inputsToSign: [{ index: 0 }],
         ownedAddresses: [victim.address],
-        rejectSighashSingle: true,
+        isSignerBoundToRequest: false,
       });
     expect(findUnbound(buildListingPsbt())).toEqual({
       index: 0,
@@ -321,6 +324,202 @@ describe('findBtcPsbtSignPolicyViolation', () => {
       outputs: [{ script: victim.script, value: 99_000n }],
     });
     expect(find(psbt, [0], [victim.address])).toBeUndefined();
+  });
+
+  it.each([
+    ['a string alias of an input', '0'],
+    ['an array alias of an input', [0]],
+    ['a negative index', -1],
+    ['an index past the last input', 1],
+    ['a fractional index', 0.5],
+  ])('rejects %s as an input index', (_name, index) => {
+    // The index is dapp-supplied. '0' and [0] read input 0 without being
+    // equal to the number 0, so a repeat written that way is not seen as one.
+    expect(
+      findBtcPsbtSignPolicyViolation({
+        psbt: buildListingPsbt(),
+        psbtNetwork,
+        inputsToSign: [{ index: index as unknown as number }],
+        ownedAddresses: [victim.address],
+      }),
+    ).toEqual({
+      index,
+      message: `Input index ${String(index)} is not a valid input of this PSBT`,
+    });
+  });
+
+  it('does not let an alias repeat an input index', () => {
+    expect(
+      findBtcPsbtSignPolicyViolation({
+        psbt: buildListingPsbt(),
+        psbtNetwork,
+        inputsToSign: [{ index: 0 }, { index: '0' as unknown as number }],
+        ownedAddresses: [victim.address],
+      }),
+    ).toBeDefined();
+  });
+
+  describe('for a signer that is not bound to the request', () => {
+    // Input 0 is requested and commits to every output. Input 1 is not
+    // requested; a device that signs whatever it holds a key for may sign it
+    // too, with the sighash type it declares.
+    const buildWithInputOutsideRequest = ({
+      script,
+      sighashType,
+    }: {
+      script: Uint8Array;
+      sighashType?: number;
+    }) =>
+      buildPsbt({
+        inputs: [
+          victimInput(),
+          {
+            txid: TXID_VICTIM,
+            vout: 1,
+            value: 5_000_000n,
+            script,
+            sighashType,
+          },
+        ],
+        outputs: [
+          { script: attacker.script, value: 50_000n },
+          { script: victim.script, value: 5_049_000n },
+        ],
+      });
+    const findUnbound = (psbt: Psbt, ownedAddresses?: string[]) =>
+      findBtcPsbtSignPolicyViolation({
+        psbt,
+        psbtNetwork,
+        inputsToSign: [{ index: 0 }],
+        ownedAddresses,
+        isSignerBoundToRequest: false,
+      });
+
+    it.each([
+      [Transaction.SIGHASH_NONE, '0x02'],
+      [SIGHASH_NONE_ANYONECANPAY, '0x82'],
+      [Transaction.SIGHASH_SINGLE, '0x03'],
+      [SIGHASH_SINGLE_ANYONECANPAY, '0x83'],
+      [0x04, '0x04'],
+    ])(
+      'rejects an account input outside the request that declares sighash %i',
+      (sighashType, hex) => {
+        const psbt = buildWithInputOutsideRequest({
+          script: victim.script,
+          sighashType,
+        });
+        expect(findUnbound(psbt, [victim.address])).toEqual({
+          index: 1,
+          message: `Input 1 is outside the signing request and must not declare sighash type ${hex}`,
+        });
+      },
+    );
+
+    it.each([undefined, Transaction.SIGHASH_ALL, SIGHASH_ALL_ANYONECANPAY])(
+      'allows an account input outside the request that commits to every output: %s',
+      (sighashType) => {
+        const psbt = buildWithInputOutsideRequest({
+          script: victim.script,
+          sighashType,
+        });
+        expect(findUnbound(psbt, [victim.address])).toBeUndefined();
+      },
+    );
+
+    it("allows another party's input outside the request, whatever it declares", () => {
+      // The seller input of a marketplace purchase: the signer holds no key
+      // for it.
+      const psbt = buildWithInputOutsideRequest({
+        script: attacker.script,
+        sighashType: SIGHASH_SINGLE_ANYONECANPAY,
+      });
+      expect(findUnbound(psbt, [victim.address])).toBeUndefined();
+    });
+
+    it('allows an account input outside the request that is already finalized', () => {
+      const psbt = buildWithInputOutsideRequest({
+        script: victim.script,
+        sighashType: SIGHASH_NONE_ANYONECANPAY,
+      });
+      psbt.data.inputs[1].finalScriptWitness = Buffer.from('00', 'hex');
+      expect(findUnbound(psbt, [victim.address])).toBeUndefined();
+    });
+
+    it('treats every unsigned input outside the request as signable when the account addresses are unknown', () => {
+      const psbt = buildWithInputOutsideRequest({
+        script: attacker.script,
+        sighashType: SIGHASH_SINGLE_ANYONECANPAY,
+      });
+      expect(findUnbound(psbt)?.index).toBe(1);
+    });
+
+    it('is not applied to a signer that signs the requested inputs only', () => {
+      const psbt = buildWithInputOutsideRequest({
+        script: victim.script,
+        sighashType: SIGHASH_NONE_ANYONECANPAY,
+      });
+      expect(find(psbt, [0], [victim.address])).toBeUndefined();
+    });
+  });
+});
+
+describe('dropBtcPsbtSignaturesOutsideRequest', () => {
+  // Both inputs belong to the account; only input 0 is requested.
+  const buildTwoInputPsbt = () =>
+    buildPsbt({
+      inputs: [
+        victimInput(),
+        {
+          txid: TXID_VICTIM,
+          vout: 1,
+          value: 5_000_000n,
+          script: victim.script,
+          sighashType: SIGHASH_NONE_ANYONECANPAY,
+        },
+      ],
+      outputs: [
+        { script: attacker.script, value: 50_000n },
+        { script: victim.script, value: 5_049_000n },
+      ],
+    });
+  const drop = (unsignedPsbt: Psbt, signedPsbtHex: string) =>
+    dropBtcPsbtSignaturesOutsideRequest({
+      unsignedPsbt,
+      signedPsbtHex,
+      inputsToSign: [{ index: 0 }],
+      network: psbtNetwork,
+    });
+
+  it('drops a signature the device added to an input outside the request', () => {
+    const unsignedPsbt = buildTwoInputPsbt();
+    const deviceResult = unsignedPsbt.clone();
+    deviceResult.signInput(0, victim.keyPair);
+    deviceResult.signInput(1, victim.keyPair, [SIGHASH_NONE_ANYONECANPAY]);
+
+    const released = Psbt.fromHex(drop(unsignedPsbt, deviceResult.toHex()), {
+      network: psbtNetwork,
+    });
+    expect(released.data.inputs[0].partialSig).toHaveLength(1);
+    expect(released.data.inputs[1].partialSig).toBeUndefined();
+  });
+
+  it('returns the device result untouched when only requested inputs were signed', () => {
+    const unsignedPsbt = buildTwoInputPsbt();
+    const deviceResult = unsignedPsbt.clone();
+    deviceResult.signInput(0, victim.keyPair);
+    const deviceResultHex = deviceResult.toHex();
+
+    expect(drop(unsignedPsbt, deviceResultHex)).toBe(deviceResultHex);
+  });
+
+  it('keeps a signature an input outside the request already carried', () => {
+    const unsignedPsbt = buildTwoInputPsbt();
+    unsignedPsbt.signInput(1, victim.keyPair, [SIGHASH_NONE_ANYONECANPAY]);
+    const deviceResult = unsignedPsbt.clone();
+    deviceResult.signInput(0, victim.keyPair);
+    const deviceResultHex = deviceResult.toHex();
+
+    expect(drop(unsignedPsbt, deviceResultHex)).toBe(deviceResultHex);
   });
 });
 

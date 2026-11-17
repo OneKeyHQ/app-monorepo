@@ -416,15 +416,16 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
-  // Whether the signer releases signatures for exactly the inputs in
-  // `inputsToSign`, each made with the sighash type that input declares. A
-  // SIGHASH_SINGLE confirm page is only truthful under that guarantee.
+  // Whether the signer signs exactly the inputs in `inputsToSign`, each with
+  // the sighash type that input declares. A SIGHASH_SINGLE confirm page is
+  // only truthful under that guarantee, and without it an input outside the
+  // request has to commit to every output as well.
   // - Software keyrings sign nothing but the requested inputs, as declared.
   // - Keystone results are verified against the declared types and reduced
   //   to the requested inputs (verifyKeystonePsbt).
   // - OneKey firmware signs every input that carries one of its key
-  //   derivations, always with SIGHASH_DEFAULT; Ledger and QR results are
-  //   returned as the device produced them.
+  //   derivations, always with SIGHASH_DEFAULT; Ledger signs every input
+  //   that matches its wallet policy, with the type the input declares.
   isPsbtSignerBoundToRequest(): boolean {
     const { keyring } = this;
     return (
@@ -457,6 +458,29 @@ export default class VaultBtc extends VaultBase {
     if (!nativeToken) {
       throw new OneKeyInternalError('Native token not found');
     }
+
+    // BTC has no server simulation: this decode is all the user sees before
+    // signing. It is derived from what the requested signatures commit to,
+    // and throws for a request whose commitment cannot back a display. It
+    // runs first: nothing below may read an input index it has not accepted.
+    const psbtNetwork = toPsbtNetwork(network);
+    const utxoAccount = account as IDBUtxoAccount;
+    const authorization = buildBtcPsbtAuthorization({
+      psbt: Psbt.fromHex(checkIsDefined(encodedTx.psbtHex), {
+        network: psbtNetwork,
+      }),
+      psbtNetwork,
+      inputsToSign,
+      ownedAddresses: buildOwnedAddressesForBatchDisplay({
+        primaryAddress: account.address,
+        addressMaps: [
+          utxoAccount.addresses,
+          utxoAccount.customAddresses,
+          utxoAccount.findAddresses,
+        ],
+      }),
+      isSignerBoundToRequest: this.isPsbtSignerBoundToRequest(),
+    });
 
     const { allUtxoList } = await this._collectUTXOsInfoByApi();
 
@@ -502,27 +526,6 @@ export default class VaultBtc extends VaultBase {
 
     const originalUtxoTo = outputs.map(toUtxoAddressInfo);
 
-    // BTC has no server simulation: this decode is all the user sees before
-    // signing. It is derived from what the requested signatures commit to,
-    // and throws for a request whose commitment cannot back a display.
-    const psbtNetwork = toPsbtNetwork(network);
-    const utxoAccount = account as IDBUtxoAccount;
-    const authorization = buildBtcPsbtAuthorization({
-      psbt: Psbt.fromHex(checkIsDefined(encodedTx.psbtHex), {
-        network: psbtNetwork,
-      }),
-      psbtNetwork,
-      inputsToSign,
-      ownedAddresses: buildOwnedAddressesForBatchDisplay({
-        primaryAddress: account.address,
-        addressMaps: [
-          utxoAccount.addresses,
-          utxoAccount.customAddresses,
-          utxoAccount.findAddresses,
-        ],
-      }),
-      rejectSighashSingle: !this.isPsbtSignerBoundToRequest(),
-    });
     const displayTransfers = buildBtcPsbtDisplayTransfers({
       authorization,
       outputs,

@@ -8,6 +8,7 @@ import {
   initBitcoinEcc,
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { dropBtcPsbtSignaturesOutsideRequest } from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
@@ -506,7 +507,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const { unsignedTx, signOnly, deviceParams } = params;
     const checkedDeviceParams = checkIsDefined(deviceParams);
     const { dbDevice } = checkedDeviceParams;
-    const { psbtHex } = unsignedTx.encodedTx as IEncodedTxBtc;
+    const { psbtHex, inputsToSign = [] } =
+      unsignedTx.encodedTx as IEncodedTxBtc;
 
     if (!psbtHex) {
       throw new OneKeyLocalError('signPsbt requires psbtHex');
@@ -529,14 +531,14 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     this.assertPsbtSignPolicy({
       psbt: BitcoinJS.Psbt.fromHex(psbtHex, { network: btcNetwork }),
       btcNetwork,
-      inputsToSign: (unsignedTx.encodedTx as IEncodedTxBtc).inputsToSign ?? [],
+      inputsToSign,
+      dbAccount: dbAccount as IDBUtxoAccount,
     });
 
     let enrichedPsbtHex = psbtHex;
 
     if (isTaprootPath(dbAccount.path)) {
-      const { inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
-      if (inputsToSign?.length) {
+      if (inputsToSign.length) {
         const fpResult = await callLedgerWithFingerprint(
           this.backgroundApi,
           dbDevice,
@@ -607,7 +609,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       });
     }
 
-    const signedPsbtHex = result.payload.signedPsbt;
+    // The device signs every input that matches its wallet policy.
+    const signedPsbtHex = dropBtcPsbtSignaturesOutsideRequest({
+      unsignedPsbt: BitcoinJS.Psbt.fromHex(enrichedPsbtHex, {
+        network: btcNetwork,
+      }),
+      signedPsbtHex: result.payload.signedPsbt,
+      inputsToSign,
+      network: btcNetwork,
+    });
 
     let rawTx = '';
     let finalizedPsbtHex = '';
@@ -617,12 +627,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         network: btcNetwork,
       });
 
-      const { inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
-      if (inputsToSign) {
-        inputsToSign.forEach((v) => {
-          finalizedPsbt.finalizeInput(v.index);
-        });
-      }
+      inputsToSign.forEach((v) => {
+        finalizedPsbt.finalizeInput(v.index);
+      });
 
       if (!signOnly) {
         rawTx = finalizedPsbt.extractTransaction().toHex();
