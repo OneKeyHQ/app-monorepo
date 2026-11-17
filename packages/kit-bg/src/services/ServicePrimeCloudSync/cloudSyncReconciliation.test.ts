@@ -254,7 +254,7 @@ describe('bounded Cloud reconciliation with full summaries', () => {
     expect(result.nextRetryAt).toBeDefined();
   });
 
-  test('old large backend replies are handled once without claiming completion or new response caps', async () => {
+  test('legacy full check replies complete without pagination metadata or new response caps', async () => {
     const h = harness();
     const batch = Array.from({ length: 700 }, (_, index) =>
       record(index, 'public-data-'.repeat(250)),
@@ -264,8 +264,8 @@ describe('bounded Cloud reconciliation with full summaries', () => {
     );
     const result = await runCloudSyncReconciliation({ adapter: h.adapter });
     expect(result).toMatchObject({
-      status: 'backend-unverified',
-      unfinished: true,
+      status: 'complete',
+      unfinished: false,
       requests: 1,
       received: 700,
     });
@@ -274,7 +274,7 @@ describe('bounded Cloud reconciliation with full summaries', () => {
     expect(result.nextRetryAt).toBeUndefined();
   });
 
-  test('a legacy processing failure never starts a second compatibility check in the same run', async () => {
+  test('a legacy processing failure stays blocked without starting a second check in the same run', async () => {
     const h = harness();
     h.check.mockResolvedValue(
       response({ diff: [record(0)], reconciliation: undefined }),
@@ -283,7 +283,7 @@ describe('bounded Cloud reconciliation with full summaries', () => {
     expect(
       await runCloudSyncReconciliation({ adapter: h.adapter }),
     ).toMatchObject({
-      status: 'backend-unverified',
+      status: 'blocked',
       reason: 'retry-exhausted',
       failures: 1,
       requests: 1,
@@ -294,7 +294,6 @@ describe('bounded Cloud reconciliation with full summaries', () => {
   });
 
   test.each([
-    undefined,
     {
       version: 2,
       diffBeforeLimit: true,
@@ -327,7 +326,7 @@ describe('bounded Cloud reconciliation with full summaries', () => {
       maxBytes: 1024 * 1024,
     },
   ])(
-    'unrecognized declarations only permit one compatibility pass: %j',
+    'unrecognized pagination declarations cannot be mistaken for a full response: %j',
     async (declaration) => {
       const h = harness();
       h.check.mockResolvedValue(
@@ -339,19 +338,21 @@ describe('bounded Cloud reconciliation with full summaries', () => {
         }),
       );
       expect(
-        (await runCloudSyncReconciliation({ adapter: h.adapter })).status,
-      ).toBe('backend-unverified');
+        await runCloudSyncReconciliation({ adapter: h.adapter }),
+      ).toMatchObject({ status: 'blocked', reason: 'invalid-response' });
       expect(h.check).toHaveBeenCalledTimes(1);
+      expect(h.apply).not.toHaveBeenCalled();
     },
   );
 
-  test('a local verifier can reject a declaration without manufacturing backend verification', async () => {
+  test('a rejected pagination declaration cannot report completion', async () => {
     const h = harness(1000);
     h.adapter.isBoundedCheckVerified = () => false;
     expect(
-      (await runCloudSyncReconciliation({ adapter: h.adapter })).status,
-    ).toBe('backend-unverified');
+      await runCloudSyncReconciliation({ adapter: h.adapter }),
+    ).toMatchObject({ status: 'blocked', reason: 'invalid-response' });
     expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.apply).not.toHaveBeenCalled();
   });
 
   test('verified response count and serialized bytes are hard limits before application', async () => {

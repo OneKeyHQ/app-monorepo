@@ -218,6 +218,11 @@ function harness(
   );
   const sourceMutex = new Semaphore(1);
   let keyGeneration = 0;
+  let hardwareOperationGeneration = 0;
+  const cancelHardwareCloudKeyOperation = jest.fn(async () => {
+    hardwareOperationGeneration += 1;
+    return true;
+  });
   const isLocked = jest.fn(async () => false);
   const runWithCloudSyncKeyLock = jest.fn((operation: () => Promise<unknown>) =>
     sourceMutex.runExclusive(operation),
@@ -228,7 +233,10 @@ function harness(
       serviceApp: { isAppLocked: isLocked },
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
-        getCloudAccountImportGeneration: () => keyGeneration,
+        getCloudAccountImportGeneration: () =>
+          keyGeneration + hardwareOperationGeneration,
+        getKeylessWalletSelectionGeneration: () => keyGeneration,
+        cancelHardwareCloudKeyOperation,
       },
     },
   });
@@ -333,6 +341,7 @@ function harness(
   return {
     service,
     sourceMutex,
+    cancelHardwareCloudKeyOperation,
     pool,
     remote,
     check,
@@ -495,6 +504,60 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
     expect(h.pool.size).toBe(4500);
   });
+
+  test.each(['waiting', 'blocked'] as const)(
+    'leaving the Cloud page preserves a %s retry when the source is unchanged',
+    async (status) => {
+      const h = harness(status === 'waiting' ? 4500 : 0);
+      if (status === 'blocked') {
+        jest
+          .spyOn(h.service, 'fillingSyncItemsMissingDataFromRawData')
+          .mockRejectedValueOnce(
+            new OneKeyLocalError('Temporary local processing failure'),
+          );
+        await expect(h.run()).rejects.toThrow(
+          'Temporary local processing failure',
+        );
+      } else await expect(h.run()).resolves.toBe(false);
+      const state = h.config().cloudSyncReconciliation;
+      expect(state?.status).toBe(status);
+      if (!state?.nextRetryAt)
+        throw new OneKeyLocalError('Missing retry deadline');
+      const checksBeforeRetry = h.check.mock.calls.length;
+
+      // The Cloud page cleanup cancels device prompts even when none is open.
+      await h.cancelHardwareCloudKeyOperation();
+      await jest.advanceTimersByTimeAsync(state.nextRetryAt - Date.now());
+
+      expect(h.check).toHaveBeenCalledTimes(checksBeforeRetry + 1);
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        unfinished: false,
+      });
+    },
+  );
+
+  test.each(['source', 'space', 'cancel'] as const)(
+    'a scheduled retry stays cancelled after a %s change',
+    async (change) => {
+      const h = harness(4500);
+      await h.run();
+      const checksBeforeRetry = h.check.mock.calls.length;
+      if (change === 'source') h.changeSource();
+      else if (change === 'cancel')
+        await h.service.cancelPublicAccountSnapshotImport();
+      else
+        jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+          masterPasswordUUID: 'other-space',
+          primeAccountSalt: 'public-fixture',
+          securityPasswordR1: 'unused-test-only',
+        });
+
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(h.check).toHaveBeenCalledTimes(checksBeforeRetry);
+    },
+  );
 
   test.each(['locked', 'offline'] as const)(
     'a completed run recovers a persisted deletion after %s shutdown and service recreation',
@@ -837,8 +900,61 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     },
   );
 
+  test('a legacy full check applies every record, replays scenes and reports completion', async () => {
+    const h = harness(700);
+    h.check.mockResolvedValue(
+      reply({ diff: h.remote, reconciliation: undefined }),
+    );
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.pool.size).toBe(700);
+    expect(h.committedBatches.every((size) => size <= 50)).toBe(true);
+    expect(h.replay).toHaveBeenCalledTimes(1);
+    expect(h.updateLastSyncTime).toHaveBeenCalled();
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      reason: 'finished',
+      unfinished: false,
+      requests: 1,
+      applied: 700,
+    });
+    await jest.advanceTimersByTimeAsync(120_000);
+    expect(h.check).toHaveBeenCalledTimes(1);
+  });
+
+  test('startup recovers a persisted backend-unverified state through its retry timer', async () => {
+    const h = harness();
+    h.check.mockResolvedValue(reply({ reconciliation: undefined }));
+    h.patchConfig({
+      cloudSyncReconciliation: {
+        version: 1,
+        spaceId: 'public-root-space',
+        status: 'blocked',
+        reason: 'backend-unverified',
+        unfinished: true,
+        failures: 0,
+        requests: 1,
+        rounds: 1,
+        received: 0,
+        applied: 0,
+        uploaded: 0,
+        nextRetryAt: Date.now() + 60_000,
+        updatedAt: Date.now(),
+      },
+    });
+    await h.service.resumeCloudSyncReconciliation({ reason: 'startup' });
+    expect(h.check).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      reason: 'finished',
+      unfinished: false,
+    });
+  });
+
   test.each([400, 422])(
-    'strict legacy status %s falls back once without capability and never drains a second legacy batch',
+    'strict legacy status %s falls back once without capability and completes the full response',
     async (status) => {
       const h = harness(700);
       h.check.mockImplementationOnce(async () => {
@@ -846,7 +962,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           response: { status },
         });
       });
-      await expect(h.run()).resolves.toBe(false);
+      await expect(h.run()).resolves.toBe(true);
       expect(h.check).toHaveBeenCalledTimes(2);
       expect(h.check.mock.calls[0][1]?.reconciliation).toBeDefined();
       expect(h.check.mock.calls[1][1]?.reconciliation).toBeUndefined();
@@ -855,9 +971,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       );
       expect(h.pool.size).toBe(700);
       expect(h.config().cloudSyncReconciliation).toMatchObject({
-        status: 'blocked',
-        reason: 'backend-unverified',
-        unfinished: true,
+        status: 'complete',
+        reason: 'finished',
+        unfinished: false,
         requests: 2,
       });
       await jest.advanceTimersByTimeAsync(2000);
@@ -1003,22 +1119,19 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(upload).toHaveBeenCalledTimes(1);
   });
 
-  test('local mutations share one cooldown retry without starting a legacy polling loop', async () => {
+  test('legacy checks complete local mutations without starting a polling loop', async () => {
     const h = harness();
     h.check.mockResolvedValue({ ...reply(), reconciliation: undefined });
     await h.run();
-    expect(h.config().cloudSyncReconciliation?.reason).toBe(
-      'backend-unverified',
-    );
-    for (let index = 0; index < 20; index += 1)
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      unfinished: false,
+    });
+    for (let index = 0; index < 3; index += 1)
       await h.service.startServerSyncFlowSilently({ localMutation: true });
-    expect(h.check).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(59_999);
-    expect(h.check).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(1);
-    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.check).toHaveBeenCalledTimes(4);
     await jest.advanceTimersByTimeAsync(120_000);
-    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.check).toHaveBeenCalledTimes(4);
   });
 
   test.each(['locked', 'offline'] as const)(
@@ -1026,6 +1139,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     async (blocked) => {
       const h = harness();
       h.check.mockResolvedValue({ ...reply(), reconciliation: undefined });
+      h.check.mockResolvedValueOnce(reply({ diff: [serverItem(0)] }));
+      jest
+        .spyOn(h.service, 'saveServerSyncItemsToLocal')
+        .mockResolvedValueOnce(undefined);
       await h.run();
       await h.service.startServerSyncFlowSilently({ localMutation: true });
       if (blocked === 'locked') h.isLocked.mockResolvedValue(true);
@@ -1046,6 +1163,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     async (change) => {
       const h = harness();
       h.check.mockResolvedValue({ ...reply(), reconciliation: undefined });
+      h.check.mockResolvedValueOnce(reply({ diff: [serverItem(0)] }));
+      jest
+        .spyOn(h.service, 'saveServerSyncItemsToLocal')
+        .mockResolvedValueOnce(undefined);
       await h.run();
       await h.service.startServerSyncFlowSilently({ localMutation: true });
       if (change === 'cancel')

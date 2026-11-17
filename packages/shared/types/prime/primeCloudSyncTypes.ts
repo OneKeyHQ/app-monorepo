@@ -111,6 +111,7 @@ export type ICloudSyncCheckServerStatusResult = {
   obsoleted: string[];
   pwdHash: string;
   serverTime: number;
+  // Absent for legacy full responses; recognized declarations opt into pagination.
   reconciliation?: ICloudSyncReconciliationContract;
 };
 
