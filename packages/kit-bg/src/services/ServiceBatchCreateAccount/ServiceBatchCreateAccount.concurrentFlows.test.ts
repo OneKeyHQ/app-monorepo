@@ -1,11 +1,46 @@
+import localDb from '../../dbs/local/localDb';
 import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
 } from '../ServiceHardwareUI/HardwareProcessingManager';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import ServiceBatchCreateAccount from './ServiceBatchCreateAccount';
 
 import type { IBatchCreateAccountProgressInfo } from './ServiceBatchCreateAccount';
+
+describe('explicit batch account creation entry', () => {
+  test('mints the capability inside the background and revokes it before returning', async () => {
+    const service = Object.create(
+      ServiceBatchCreateAccount.prototype,
+    ) as ServiceBatchCreateAccount;
+    let captured: object | undefined;
+    let active = false;
+    const inner = jest
+      .spyOn(service, 'startBatchCreateAccountsFlow')
+      .mockImplementation(async (payload) => {
+        captured = payload.params.publicAccountCreationContext;
+        active = isPublicAccountCreationContext(captured);
+        return { accountsForCreate: [] };
+      });
+    await service.startBatchCreateAccountsFlowForUserCreation({
+      mode: 'normal',
+      params: {
+        walletId: 'hd-1',
+        networkId: 'evm--1',
+        deriveType: 'default',
+        indexes: [0],
+        saveToDb: true,
+      },
+    });
+    expect(active).toBe(true);
+    expect(isPublicAccountCreationContext(captured)).toBe(false);
+    inner.mockRestore();
+  });
+});
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -311,4 +346,49 @@ describe('ServiceBatchCreateAccount overlapping flows', () => {
     expect(batchBuildAccounts).toHaveBeenCalledTimes(2);
     expect(service.isCreateFlowCancelled).toBe(false);
   });
+});
+
+describe('explicit recreation of retained chain rows', () => {
+  test.each([
+    [false, true],
+    [true, true],
+    [true, false],
+  ])(
+    'only a trusted user creation revives a tombstoned existing row (explicit=%s, deleted=%s)',
+    async (explicit, deleted) => {
+      const service = Object.create(
+        ServiceBatchCreateAccount.prototype,
+      ) as ServiceBatchCreateAccount;
+      const account = {
+        id: 'hd-1--public-test-account',
+        existsInDb: true,
+      } as Parameters<
+        ServiceBatchCreateAccount['updateAccountExistsInDb']
+      >[0]['account'];
+      const read = jest.fn(async () => ({ isDeleted: deleted }));
+      Object.assign(localDb, {
+        getAccountSafe: jest.fn(async () => account),
+        getSyncItemSafe: read,
+      });
+      Object.assign(service, {
+        backgroundApi: {
+          servicePrimeCloudSync: {
+            syncManagers: {
+              account: {
+                buildSyncKeyInfo: async () => ({ key: 'public-test-key' }),
+              },
+            },
+          },
+        },
+      });
+      await withPublicAccountCreationContext(async (context) => {
+        await service.updateAccountExistsInDb({
+          account,
+          publicAccountCreationContext: explicit ? context : undefined,
+        });
+      });
+      expect(account.existsInDb).toBe(!explicit || !deleted);
+      expect(read).toHaveBeenCalledTimes(explicit ? 1 : 0);
+    },
+  );
 });

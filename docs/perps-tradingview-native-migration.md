@@ -186,10 +186,13 @@ indicators are saved in `perpsTradingViewMultiChartPersistAtom`. Mobile layouts
 and the native apps keep the single chart.
 
 - The first panel is always the active trade instrument and keeps every trading
-  integration: lines with cancel/drag, the order menu, fill marks and drawings.
+  integration: lines with cancel/drag, the order menu and fill marks.
 - An extra panel shows any perp or spot token picked from the regular token
   selector. It has its own interval and indicators, shows the account's lines
-  and fill marks for its token read-only, and has no drawings or order menu.
+  and fill marks for its token read-only, and has no order menu.
+- Every panel has the drawing tools. Drawings are saved per token, not per
+  panel: panels showing the same token share them live, including undo, and a
+  token keeps its drawings when it moves between panels.
 - Its Trade button switches the trade instrument to its token and puts the
   previously traded token in the panel, so nothing leaves the screen.
 - A new panel starts on a liquid token that is not on screen yet and copies the
