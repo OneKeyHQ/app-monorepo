@@ -1310,6 +1310,14 @@ export const swrKeys = {
     [NS.marketHomeConfig, 'v1', locale].join(':'),
   marketHomeHighlights: (locale: string) =>
     [NS.marketHomeHighlights, 'v1', locale].join(':'),
+  marketHighlightQuotes: (locale: string, identities: string[]) =>
+    [
+      NS.marketHighlightQuotes,
+      'v1',
+      locale,
+      'usd',
+      JSON.stringify([...new Set(identities)].toSorted()),
+    ].join(':'),
   marketHomeStocks: (queryKey: string) =>
     [NS.marketHomeStocks, 'v1', queryKey].join(':'),
   marketStockDetail: ({

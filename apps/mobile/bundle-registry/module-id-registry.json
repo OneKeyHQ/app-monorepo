@@ -25230,6 +25230,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/utils/stockTokenVariant.ts": 11357,
     "packages/kit/src/views/Market/MarketHighlights/MarketHighlightStrip.tsx": 23812,
     "packages/kit/src/views/Market/MarketHighlights/MarketHighlightsPage.tsx": 20605,
+    "packages/kit/src/views/Market/MarketHighlights/useInitialHighlightScroll.ts": 4096,
     "packages/kit/src/views/Market/MarketHighlights/useMarketHighlightQuotes.ts": 11762,
     "packages/kit/src/views/Market/MarketHighlights/useMarketHighlights.ts": 14298,
     "packages/kit/src/views/Market/MarketHome.tsx": 23704,
