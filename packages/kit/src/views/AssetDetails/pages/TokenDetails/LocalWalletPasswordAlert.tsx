@@ -165,14 +165,25 @@ export function LocalWalletPasswordAlert({
       : undefined;
   }, [accountId, networkId, ownerKey]);
   useEffect(() => {
-    const refresh = () => {
+    const refresh = (payload?: {
+      accounts?: { accountId: string; networkId: string }[];
+    }) => {
+      if (
+        payload?.accounts?.length &&
+        !payload.accounts.some(
+          (item) =>
+            item.networkId === networkId && item.accountId === accountId,
+        )
+      ) {
+        return;
+      }
       void run();
     };
     appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
     };
-  }, [run]);
+  }, [accountId, networkId, run]);
   const { isVerifying, verify } = useLocalWalletPasswordVerify({
     networkId,
     accountId,

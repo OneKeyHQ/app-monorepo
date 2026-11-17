@@ -261,6 +261,7 @@ export const OWNER_VM_CAP = 32;
 /** pull-blob key for the per-owner diff `prev`. */
 const PREV_BLOB_KEY = 'prev';
 /** pull-blob key for the per-owner merged raw list. */
+const MAX_RETAINED_HOME_ROUNDS = 1024;
 const RAW_BLOB_KEY = 'raw';
 
 /** A fresh diff `prev` (generation starts at -1, like the UI producer). */
@@ -370,7 +371,7 @@ class ServiceTokenViewModel extends ServiceBase {
     this.homeRoundSequence += 1;
     const ref = `${this.homeRoundPrefix}:${this.homeRoundSequence}`;
     entries.set(ref, { source, round });
-    if (entries.size > 128) {
+    if (entries.size > MAX_RETAINED_HOME_ROUNDS) {
       const oldest = entries.keys().next().value;
       if (oldest) entries.delete(oldest);
     }

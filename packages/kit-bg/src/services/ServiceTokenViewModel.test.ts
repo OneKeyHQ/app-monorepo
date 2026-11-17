@@ -253,7 +253,7 @@ describe('Home token round references', () => {
     ).resolves.toBe(false);
   });
 
-  it('bounds each source to two versions and the active-owner directory to 128 references', async () => {
+  it('bounds each source to two versions and the active-owner directory to 1024 references', async () => {
     const svc = makeService();
     const first = svc.retainHomeTokenRound({
       homeRequest: request(1),
@@ -280,7 +280,7 @@ describe('Home token round references', () => {
       }),
     ).resolves.toBe(true);
     let last = '';
-    for (let index = 0; index < 129; index += 1) {
+    for (let index = 0; index < 1025; index += 1) {
       last = svc.retainHomeTokenRound({
         homeRequest: request(1),
         round: round(`v${index}`, `network-${index}`),

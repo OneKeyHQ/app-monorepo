@@ -429,4 +429,40 @@ describe('ServiceAccountProfile.queryAddress address book on a privacy chain', (
       backgroundApi.serviceAddressBook.getItemsByNetwork,
     ).not.toHaveBeenCalled();
   });
+
+  it('resolves address book and wallet labels in a single batch call', async () => {
+    const { service } = makeService();
+    const { promiseAllSettledEnhanced } = jest.requireMock<
+      typeof import('@onekeyhq/shared/src/utils/promiseUtils')
+    >('@onekeyhq/shared/src/utils/promiseUtils');
+    jest
+      .mocked(promiseAllSettledEnhanced)
+      .mockImplementation(async (tasks) =>
+        Promise.all(
+          tasks.map((task) => (typeof task === 'function' ? task() : task)),
+        ),
+      );
+    jest
+      .spyOn(service, 'queryAddress')
+      .mockImplementation(async ({ address }) => ({
+        input: address,
+        addressBookName: address === '0x1' ? 'Book / Alice' : undefined,
+        walletAccountName:
+          address === '0x2' ? 'Wallet 1 / Account 1' : undefined,
+      }));
+
+    const labels = await service.queryAddressLabelsBatch({
+      targets: [
+        { key: 'evm--1_0x1', networkId: 'evm--1', address: '0x1' },
+        { key: 'evm--1_0x2', networkId: 'evm--1', address: '0x2' },
+        { key: 'evm--1_0x3', networkId: 'evm--1', address: '0x3' },
+      ],
+    });
+
+    expect(labels).toEqual({
+      'evm--1_0x1': 'Book / Alice',
+      'evm--1_0x2': 'Wallet 1 / Account 1',
+      'evm--1_0x3': undefined,
+    });
+  });
 });

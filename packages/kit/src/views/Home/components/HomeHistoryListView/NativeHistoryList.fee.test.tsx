@@ -391,6 +391,7 @@ it.each([true, false])(
           mockResolveVault = resolve;
         }),
     );
+    mockGetVaultSettings.mockClear();
     const props = {
       ...baseProps,
       showIcon: false,
@@ -406,6 +407,7 @@ it.each([true, false])(
     expect(mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout).toBe(
       true,
     );
+    expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
     const fee = () =>
       (mockSnapshot.rows.find((row) => row.type === 'activity') as ActivityRow)
         .fee;
@@ -414,5 +416,6 @@ it.each([true, false])(
       mockResolveVault({ hideFeeInfoInHistoryList: hidden });
     });
     expect(fee()?.hidden).toBe(hidden);
+    expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
   },
 );

@@ -29,6 +29,7 @@ const mockGetBalance = jest.fn<
 >();
 const mockVerify = jest.fn<Promise<void>, [IAccountParams]>();
 const mockCloseDialog = jest.fn(async () => undefined);
+const mockAppEventBusOn = jest.fn<void, unknown[]>();
 const mockShowDialog = jest.fn((_params: IVerifyDialog) => ({
   close: mockCloseDialog,
   isExist: () => true,
@@ -52,7 +53,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: { RefreshTokenList: 'RefreshTokenList' },
-  appEventBus: { on: jest.fn(), off: jest.fn() },
+  appEventBus: {
+    on: (...args: unknown[]) => mockAppEventBusOn(...args),
+    off: jest.fn(),
+  },
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -271,4 +275,34 @@ it('closes the dialog on unmount and rejects its stale confirmation', async () =
   });
   expect(mockVerify).not.toHaveBeenCalled();
   expect(onVerified).not.toHaveBeenCalled();
+});
+
+it('ignores RefreshTokenList events scoped to other accounts', async () => {
+  mockAppEventBusOn.mockClear();
+  render(<LocalWalletPasswordAlert {...accountParams} />);
+  await screen.findByTestId('privacy-password-alert');
+  expect(mockGetBalance).toHaveBeenCalledTimes(1);
+
+  const listener = mockAppEventBusOn.mock.calls
+    .filter(([event]) => event === 'RefreshTokenList')
+    .at(-1)?.[1] as
+    | ((payload?: {
+        accounts?: { accountId: string; networkId: string }[];
+      }) => void)
+    | undefined;
+  expect(listener).toBeDefined();
+
+  await act(async () => {
+    listener?.({
+      accounts: [{ networkId: 'evm--1', accountId: 'hd-1--0' }],
+    });
+  });
+  expect(mockGetBalance).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    listener?.({
+      accounts: [accountParams],
+    });
+  });
+  expect(mockGetBalance).toHaveBeenCalledTimes(2);
 });

@@ -944,6 +944,29 @@ class ServiceAccountProfile extends ServiceBase {
     return result;
   }
 
+  @backgroundMethod()
+  public async queryAddressLabelsBatch({
+    targets,
+  }: {
+    targets: { key: string; networkId: string; address: string }[];
+  }): Promise<Record<string, string | undefined>> {
+    const labels: Record<string, string | undefined> = {};
+    await promiseAllSettledEnhanced(
+      targets.map(({ key, networkId, address }) => async () => {
+        const result = await this.queryAddress({
+          networkId,
+          address,
+          enableAddressBook: true,
+          enableWalletName: true,
+          skipValidateAddress: true,
+        });
+        labels[key] = result.addressBookName || result.walletAccountName;
+      }),
+      { concurrency: 4, continueOnError: true },
+    );
+    return labels;
+  }
+
   private async handleNameSolve(
     networkId: string,
     address: string,

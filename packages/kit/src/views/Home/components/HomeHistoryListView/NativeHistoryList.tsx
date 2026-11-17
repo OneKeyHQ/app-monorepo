@@ -298,8 +298,19 @@ export function NativeHistoryList(
   const networkRequestIdentity = JSON.stringify({
     scope: props.frozenTopIdentityKey,
     targets: networkTargets.toSorted(([a], [b]) => a.localeCompare(b)),
+    tableLayout,
     retry: networkMetadataRetry,
   });
+  const vaultPromiseCacheRef = useRef(
+    new Map<
+      string,
+      Promise<
+        Awaited<
+          ReturnType<typeof backgroundApiProxy.serviceNetwork.getVaultSettings>
+        >
+      >
+    >(),
+  );
   const networkCacheRef = useRef(
     new Map<
       string,
@@ -307,9 +318,10 @@ export function NativeHistoryList(
         vault: Awaited<
           ReturnType<typeof backgroundApiProxy.serviceNetwork.getVaultSettings>
         >;
-        token: Awaited<
+        token?: Awaited<
           ReturnType<typeof backgroundApiProxy.serviceToken.getNativeToken>
         >;
+        tokenLoaded?: boolean;
       }
     >(),
   );
@@ -317,21 +329,50 @@ export function NativeHistoryList(
     async () => {
       // This JSON is produced locally above; derive requests from its identity so
       // value-only row updates never restart metadata queries.
-      const { targets } = JSON.parse(networkRequestIdentity) as {
+      const { targets, tableLayout: needsNativeToken } = JSON.parse(
+        networkRequestIdentity,
+      ) as {
         targets: [string, { networkId: string; accountId: string }][];
+        tableLayout: boolean;
       };
       const cache = networkCacheRef.current;
+      const vaultPromises = vaultPromiseCacheRef.current;
+      const getVault = (networkId: string) => {
+        let pending = vaultPromises.get(networkId);
+        if (!pending) {
+          pending = backgroundApiProxy.serviceNetwork
+            .getVaultSettings({ networkId })
+            .catch((error: unknown) => {
+              if (vaultPromises.get(networkId) === pending) {
+                vaultPromises.delete(networkId);
+              }
+              throw error;
+            });
+          vaultPromises.set(networkId, pending);
+        }
+        return pending;
+      };
       await promiseAllSettledEnhanced(
         targets
-          .filter(([key]) => !cache.has(key))
+          .filter(([key]) => {
+            const cached = cache.get(key);
+            return !cached || (needsNativeToken && !cached.tokenLoaded);
+          })
           .map(([key, target]) => async () => {
+            const cached = cache.get(key);
             const [vault, token] = await Promise.all([
-              backgroundApiProxy.serviceNetwork.getVaultSettings({
-                networkId: target.networkId,
-              }),
-              backgroundApiProxy.serviceToken.getNativeToken(target),
+              cached
+                ? Promise.resolve(cached.vault)
+                : getVault(target.networkId),
+              needsNativeToken
+                ? backgroundApiProxy.serviceToken.getNativeToken(target)
+                : Promise.resolve(cached?.token),
             ]);
-            cache.set(key, { vault, token });
+            cache.set(key, {
+              vault,
+              token,
+              tokenLoaded: needsNativeToken || cached?.tokenLoaded,
+            });
           }),
         { concurrency: 4, continueOnError: true },
       );
@@ -500,21 +541,44 @@ export function NativeHistoryList(
         targets: [string, { networkId: string; address: string }][];
       };
       const cache = addressCacheRef.current;
-      await promiseAllSettledEnhanced(
-        targets
-          .filter(([key]) => !cache.has(key))
-          .map(([key, target]) => async () => {
-            const result =
-              await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      const missingTargets = targets.filter(([key]) => !cache.has(key));
+      if (missingTargets.length > 0) {
+        if (
+          typeof backgroundApiProxy.serviceAccountProfile
+            ?.queryAddressLabelsBatch === 'function'
+        ) {
+          const batchLabels = await backgroundApiProxy.serviceAccountProfile
+            .queryAddressLabelsBatch({
+              targets: missingTargets.map(([key, target]) => ({
+                key,
                 ...target,
-                enableAddressBook: true,
-                enableWalletName: true,
-                skipValidateAddress: true,
-              });
-            cache.set(key, result.addressBookName || result.walletAccountName);
-          }),
-        { concurrency: 4, continueOnError: true },
-      );
+              })),
+            })
+            .catch(() => undefined);
+          if (batchLabels) {
+            for (const [key] of missingTargets) {
+              cache.set(key, batchLabels[key]);
+            }
+          }
+        } else {
+          await promiseAllSettledEnhanced(
+            missingTargets.map(([key, target]) => async () => {
+              const result =
+                await backgroundApiProxy.serviceAccountProfile.queryAddress({
+                  ...target,
+                  enableAddressBook: true,
+                  enableWalletName: true,
+                  skipValidateAddress: true,
+                });
+              cache.set(
+                key,
+                result.addressBookName || result.walletAccountName,
+              );
+            }),
+            { concurrency: 4, continueOnError: true },
+          );
+        }
+      }
       return Object.fromEntries(targets.map(([key]) => [key, cache.get(key)]));
     }, [addressRequestIdentity]);
   useEffect(() => {
