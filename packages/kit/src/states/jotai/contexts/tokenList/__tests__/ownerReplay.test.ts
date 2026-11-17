@@ -50,6 +50,7 @@ import {
   getOwnerReplayCacheSize,
   getOwnerReplayFrames,
   rememberOwnerReplayFrame,
+  tryBuildHomeSnapshotFromOwnerReplay,
 } from '../cells/ownerFrameReplayCache';
 import {
   replayOwnerFrames,
@@ -1258,5 +1259,66 @@ describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it('reconstructs IHomeTokenListSnapshot directly from ownerFrameReplayCache without cross-bridge pulls when riskyCount is 0', () => {
+    clearOwnerReplayCache();
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['eth'],
+          smallBalanceIds: ['usdc'],
+          metaPatch: {
+            eth: makeToken({ symbol: 'ETH' }),
+            usdc: makeToken({ symbol: 'USDC' }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth_usdc_',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 0,
+          changedFiatById: {
+            eth: makeFiat({ fiatValue: '2000' }),
+            usdc: makeFiat({ fiatValue: '1' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const snapshot = tryBuildHomeSnapshotFromOwnerReplay({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      generation: 0,
+    });
+    expect(snapshot).toBeDefined();
+    expect(snapshot?.tokens.map((t) => t.$key)).toEqual(['eth', 'usdc']);
+    expect(snapshot?.keys).toBe('eth_usdc_');
+    expect(snapshot?.accountId).toBe('acc-1');
+    expect(snapshot?.networkId).toBe('evm--1');
+    expect(snapshot?.map.eth?.fiatValue).toBe('2000');
+    expect(snapshot?.map.usdc?.fiatValue).toBe('1');
   });
 });

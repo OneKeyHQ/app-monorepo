@@ -1084,13 +1084,53 @@ class ServiceAccountSelector extends ServiceBase {
       //
     }
 
+    const valuesQueryId = this._retainAccountsForValuesQuery(
+      accountsForValuesQuery,
+    );
+
     return {
       sectionData,
       focusedWalletInfo,
       accountsCount,
       mergeDeriveAssetsEnabled,
       accountsForValuesQuery,
+      valuesQueryId,
     };
+  }
+
+  private _valuesQuerySequence = 0;
+
+  private _valuesQueryCache = new Map<
+    string,
+    {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[]
+  >();
+
+  private _retainAccountsForValuesQuery(
+    accounts: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[],
+  ): string {
+    this._valuesQuerySequence += 1;
+    const queryId = `acct-values-query-${this._valuesQuerySequence}`;
+    this._valuesQueryCache.set(queryId, accounts);
+    while (this._valuesQueryCache.size > 16) {
+      const oldest = this._valuesQueryCache.keys().next().value;
+      if (!oldest) {
+        break;
+      }
+      this._valuesQueryCache.delete(oldest);
+    }
+    return queryId;
   }
 
   @backgroundMethod()
@@ -1135,6 +1175,9 @@ class ServiceAccountSelector extends ServiceBase {
   @backgroundMethod()
   async buildAccountSelectorAccountsValuesData({
     accounts,
+    queryId,
+    offset = 0,
+    limit,
     linkedNetworkId,
   }: {
     accounts: {
@@ -1144,12 +1187,31 @@ class ServiceAccountSelector extends ServiceBase {
       accountAddress?: string;
       xpub?: string;
     }[];
+    queryId?: string;
+    offset?: number;
+    limit?: number;
     linkedNetworkId?: string;
   }) {
-    const accountsDeFiOverviewRaw =
-      await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
-        accounts,
-      });
+    let resolvedAccounts = accounts;
+    let queryExpired = false;
+    if (queryId) {
+      const cached = this._valuesQueryCache.get(queryId);
+      if (cached) {
+        this._valuesQueryCache.delete(queryId);
+        this._valuesQueryCache.set(queryId, cached);
+        resolvedAccounts =
+          typeof limit === 'number'
+            ? cached.slice(offset, offset + limit)
+            : cached.slice(offset);
+      } else if (!accounts.length) {
+        queryExpired = true;
+      }
+    }
+    const accountsDeFiOverviewRaw = queryExpired
+      ? []
+      : await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: resolvedAccounts,
+        });
     // Compound-key shape consumed by `calculateAccountTotalValue`; the
     // per-address `getAllNetworkAccountsValue` would yield Record<networkId,
     // worth> and silently miss every compound-key lookup downstream. The
@@ -1157,23 +1219,27 @@ class ServiceAccountSelector extends ServiceBase {
     // caching disabled, so the per-account form paid a fresh
     // deserialization per row — a 50-row selector batch turned into 50
     // reads). Extra fields on the account objects are ignored by the callee.
-    const accountsValue =
-      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
-        { accounts },
-      );
+    const accountsValue = queryExpired
+      ? []
+      : await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
+          { accounts: resolvedAccounts },
+        );
     // Perps worth is additive display data — a failed lazy-module load must
     // never break this batch's tokens/DeFi values, so fall back to the raw
     // overview on any load error.
-    const accountsDeFiOverview = await this._getPerpsWorth()
-      .then((perpsWorth) =>
-        perpsWorth.buildDeFiOverviewWithPerps({
-          accounts,
-          linkedNetworkId,
-          accountsDeFiOverview: accountsDeFiOverviewRaw,
-        }),
-      )
-      .catch(() => accountsDeFiOverviewRaw);
+    const accountsDeFiOverview = queryExpired
+      ? accountsDeFiOverviewRaw
+      : await this._getPerpsWorth()
+          .then((perpsWorth) =>
+            perpsWorth.buildDeFiOverviewWithPerps({
+              accounts: resolvedAccounts,
+              linkedNetworkId,
+              accountsDeFiOverview: accountsDeFiOverviewRaw,
+            }),
+          )
+          .catch(() => accountsDeFiOverviewRaw);
     return {
+      ...(queryExpired ? { queryExpired: true } : undefined),
       accountsValue,
       accountsDeFiOverview,
     };

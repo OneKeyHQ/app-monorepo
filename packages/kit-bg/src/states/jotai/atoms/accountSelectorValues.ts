@@ -49,6 +49,7 @@ export const {
 } = globalAtom<IAccountSelectorValuesMap>({
   name: EAtomNames.accountSelectorValuesMapAtom,
   initialValue: {},
+  syncAcrossRuntimes: false,
 });
 
 export const {
@@ -57,4 +58,5 @@ export const {
 } = globalAtom<IAccountSelectorDeFiMap>({
   name: EAtomNames.accountSelectorDeFiMapAtom,
   initialValue: {},
+  syncAcrossRuntimes: false,
 });

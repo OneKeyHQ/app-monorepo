@@ -359,4 +359,70 @@ describe('account V2 balance scheduling', () => {
       jest.useRealTimers();
     }
   });
+
+  it('uses valuesQueryId to avoid sending account batches back to BG and falls back when queryExpired is returned', async () => {
+    const deps = dependencies();
+    const listAccounts = accounts(60);
+    deps.buildValues.mockImplementation(async (params) => {
+      const offset = params.offset ?? 0;
+      const limit = params.limit ?? listAccounts.length;
+      const slice = params.queryId
+        ? listAccounts.slice(offset, offset + limit)
+        : params.accounts;
+      return result({
+        accounts: slice,
+        linkedNetworkId: params.linkedNetworkId,
+      });
+    });
+
+    await loadAccountSelectorValuesV2(
+      {
+        num: 0,
+        accountsForValuesQuery: listAccounts,
+        valuesQueryId: 'acct-values-query-1',
+      },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(2);
+    expect(deps.buildValues.mock.calls[0][0]).toEqual({
+      accounts: [],
+      queryId: 'acct-values-query-1',
+      offset: 0,
+      limit: 50,
+      linkedNetworkId: undefined,
+    });
+    expect(deps.buildValues.mock.calls[1][0]).toEqual({
+      accounts: [],
+      queryId: 'acct-values-query-1',
+      offset: 50,
+      limit: 10,
+      linkedNetworkId: undefined,
+    });
+    expect(Object.keys(deps.valuesAtom.read()[0] ?? {})).toHaveLength(60);
+
+    // Simulate cache eviction in BG (`queryExpired: true`) -> retries with full batch.
+    deps.buildValues.mockReset();
+    deps.buildValues
+      .mockResolvedValueOnce({
+        queryExpired: true,
+        accountsValue: [],
+        accountsDeFiOverview: [],
+      } as Awaited<ReturnType<IBuildValues>>)
+      .mockImplementation(result);
+
+    await loadAccountSelectorValuesV2(
+      {
+        num: 1,
+        accountsForValuesQuery: accounts(2, 'fallback'),
+        valuesQueryId: 'evicted-query',
+      },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(2);
+    expect(deps.buildValues.mock.calls[1][0].accounts).toHaveLength(2);
+    expect(Object.keys(deps.valuesAtom.read()[1] ?? {})).toEqual([
+      'fallback-0',
+      'fallback-1',
+    ]);
+  });
 });

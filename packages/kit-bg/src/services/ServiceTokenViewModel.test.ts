@@ -13,7 +13,11 @@
  * `appEventBus.emit` is mocked to capture payloads.
  */
 import type { IAllNetworkSnapshotRound } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IHomeTokenRequest,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { settingsPersistAtom } from '../states/jotai/atoms';
 
@@ -1210,6 +1214,81 @@ describe('ServiceTokenViewModel', () => {
 
       expect(result?.frames.structure?.orderedIds).toEqual(['live']);
       expect(result?.worth).toBeUndefined();
+    });
+
+    it('persists aggregate maps in BG and inherits nonZeroInputs on ingestHomeTokenRounds', async () => {
+      const updateLocalAggregateTokenMap = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const updateLocalAggregateTokenListMap = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const svc = new ServiceTokenViewModel({
+        backgroundApi: {
+          serviceToken: {
+            updateLocalAggregateTokenMap,
+            updateLocalAggregateTokenListMap,
+          },
+        },
+      } as unknown as ConstructorParameters<typeof ServiceTokenViewModel>[0]);
+      const homeRequest: IHomeTokenRequest = {
+        mainRuntimeId: 'main-1',
+        generation: 1,
+        ownerKey: 'acc1__onekeyall',
+      };
+      const ref = svc.retainHomeTokenRound({
+        homeRequest,
+        origin: 'live',
+        round: {
+          accountId: 'acc1',
+          networkId: 'evm--1',
+          tokens: {
+            data: [makeToken('eth', { isNative: true })],
+            keys: 'eth',
+            map: {
+              eth: makeFiat({ balance: '1', fiatValue: '2000', price: 2000 }),
+            },
+          },
+          smallBalanceTokens: { data: [], keys: '', map: {} },
+          riskTokens: { data: [], keys: '', map: {} },
+          aggregateTokenListMap: {
+            agg_eth: { tokens: [makeToken('eth', { networkId: 'evm--1' })] },
+          },
+          aggregateTokenMap: {
+            agg_eth: makeFiat({ balance: '1', fiatValue: '2000', price: 2000 }),
+          },
+        },
+      });
+      await svc.ingestHomeTokenRounds({
+        homeRequest,
+        ownerKey: 'acc1__onekeyall',
+        accountId: 'acc1',
+        networkId: 'onekeyall',
+        storeData: STORE_DATA,
+        keepDefault: true,
+        homeDefaultTokenMap: {
+          eth: { networkId: 'evm--1', logoURI: '', symbol: 'ETH', order: 0 },
+        },
+        roundRefs: [ref],
+        source: 'progPaint',
+        homePublication: 1,
+      });
+      expect(updateLocalAggregateTokenMap).not.toHaveBeenCalled();
+
+      await svc.ingestHomeTokenRounds({
+        homeRequest,
+        ownerKey: 'acc1__onekeyall',
+        accountId: 'acc1',
+        networkId: 'onekeyall',
+        storeData: STORE_DATA,
+        keepDefault: true,
+        roundRefs: [ref],
+        source: 'authoritative',
+        homePublication: 2,
+        persistAggregateMaps: true,
+      });
+      expect(updateLocalAggregateTokenMap).toHaveBeenCalledTimes(1);
+      expect(updateLocalAggregateTokenListMap).toHaveBeenCalledTimes(1);
     });
   });
 });

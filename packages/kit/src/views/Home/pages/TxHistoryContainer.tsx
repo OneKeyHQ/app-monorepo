@@ -17,10 +17,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import {
-  useCurrencyPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
@@ -144,7 +141,6 @@ function TxHistoryListContainer(
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
-  const [{ currencyMap }] = useCurrencyPersistAtom();
 
   const updateHistoryData = useCallback(
     (txs: IAccountHistoryTx[]) => {
@@ -202,7 +198,6 @@ function TxHistoryListContainer(
     filterLowValue: settings.isFilterLowValueHistoryEnabled,
     excludeTestNetwork: true,
     sourceCurrency: settings.currencyInfo.id,
-    currencyMap,
     limit,
     mergeDerive: mergeDeriveAddressData,
     indexedAccountId: indexedAccount?.id ?? '',
@@ -464,7 +459,6 @@ function TxHistoryListContainer(
                 filterLowValue: settings.isFilterLowValueHistoryEnabled,
                 excludeTestNetwork: true,
                 sourceCurrency: settings.currencyInfo.id,
-                currencyMap,
                 limit,
               },
             );
@@ -478,7 +472,6 @@ function TxHistoryListContainer(
             filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
             sourceCurrency: settings.currencyInfo.id,
-            currencyMap,
             limit,
           });
           aggregatedHasMoreOnChainHistory = !!r.hasMoreOnChainHistory;
@@ -587,7 +580,6 @@ function TxHistoryListContainer(
       settings.isFilterScamHistoryEnabled,
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
-      currencyMap,
       limit,
       updateHistoryData,
       onFirstPageResponse,
@@ -629,35 +621,51 @@ function TxHistoryListContainer(
       let accountHistoryTxs: IAccountHistoryTx[] = [];
 
       if (mergeDeriveAddressData) {
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId: indexedAccountId ?? '',
-              excludeEmptyAccount: true,
-            },
-          );
+        if (
+          'getAccountsLocalHistoryTxsForMergeDerive' in
+          backgroundApiProxy.serviceHistory
+        ) {
+          accountHistoryTxs =
+            await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxsForMergeDerive(
+              {
+                indexedAccountId: indexedAccountId ?? '',
+                networkId,
+                filterScam: settings.isFilterScamHistoryEnabled,
+                filterLowValue: settings.isFilterLowValueHistoryEnabled,
+                sourceCurrency: settings.currencyInfo.id,
+                limit: HISTORY_PAGE_SIZE,
+              },
+            );
+        } else {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId: indexedAccountId ?? '',
+                excludeEmptyAccount: true,
+              },
+            );
 
-        const resp = await Promise.all(
-          networkAccounts.map((networkAccount) =>
-            backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
-              accountId: networkAccount.account?.id ?? '',
-              networkId,
-              filterScam: settings.isFilterScamHistoryEnabled,
-              filterLowValue: settings.isFilterLowValueHistoryEnabled,
-              sourceCurrency: settings.currencyInfo.id,
-              currencyMap,
-            }),
-          ),
-        );
-        accountHistoryTxs = resp
-          .flat()
-          .toSorted(
-            (b, a) =>
-              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          )
-          .slice(0, HISTORY_PAGE_SIZE);
+          const resp = await Promise.all(
+            networkAccounts.map((networkAccount) =>
+              backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
+                accountId: networkAccount.account?.id ?? '',
+                networkId,
+                filterScam: settings.isFilterScamHistoryEnabled,
+                filterLowValue: settings.isFilterLowValueHistoryEnabled,
+                sourceCurrency: settings.currencyInfo.id,
+              }),
+            ),
+          );
+          accountHistoryTxs = resp
+            .flat()
+            .toSorted(
+              (b, a) =>
+                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+            )
+            .slice(0, HISTORY_PAGE_SIZE);
+        }
       } else {
         accountHistoryTxs =
           await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
@@ -667,7 +675,6 @@ function TxHistoryListContainer(
             filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
             sourceCurrency: settings.currencyInfo.id,
-            currencyMap,
           });
       }
 
@@ -729,7 +736,6 @@ function TxHistoryListContainer(
     updateSearchKey,
     wallet?.id,
     settings.currencyInfo.id,
-    currencyMap,
     identityKey,
   ]);
 

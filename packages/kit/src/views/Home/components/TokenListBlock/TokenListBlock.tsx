@@ -142,7 +142,6 @@ import {
   buildAggregateTokenListData,
   calculateAccountTokensValue,
   flattenAggregateTokensMap,
-  getMergedDeriveTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -469,6 +468,7 @@ function TokenListBlock({
     setEnabledKeys: setPipelineEnabledKeys,
     ingestLiveRound,
     buildAuthoritativeSnapshot,
+    hasSnapshotRoundRefs,
     commitAuthoritativeIngest,
   } = pipeline;
   const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
@@ -2504,18 +2504,23 @@ function TokenListBlock({
       }
       setSilentPortfolioPayload(undefined);
 
+      const snapshotHasBgRoundRefs = Boolean(hasSnapshotRoundRefs?.(snapshot));
       if (shouldSyncTokenFilterToOverview) {
-        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          aggregateTokenMap: snapshot.aggregateTokenMap,
-        });
+        if (!snapshotHasBgRoundRefs) {
+          void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+            networkId: network?.id ?? '',
+            accountId: account?.id ?? '',
+            aggregateTokenMap: snapshot.aggregateTokenMap,
+          });
 
-        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          aggregateTokenListMap: snapshot.aggregateTokenListMap,
-        });
+          void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap(
+            {
+              networkId: network?.id ?? '',
+              accountId: account?.id ?? '',
+              aggregateTokenListMap: snapshot.aggregateTokenListMap,
+            },
+          );
+        }
 
         updateAccountWorth({
           accountId: mergeDeriveAddressData
@@ -2631,7 +2636,13 @@ function TokenListBlock({
               : undefined,
         });
       }
-      commitAuthoritativeIngest(snapshot, homeRequest);
+      if (snapshotHasBgRoundRefs && shouldSyncTokenFilterToOverview) {
+        commitAuthoritativeIngest(snapshot, homeRequest, {
+          persistAggregateMaps: true,
+        });
+      } else {
+        commitAuthoritativeIngest(snapshot, homeRequest);
+      }
 
       updateTokenListState({
         initialized: true,
@@ -2783,6 +2794,7 @@ function TokenListBlock({
     network?.id,
     portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
+    hasSnapshotRoundRefs,
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
@@ -2865,127 +2877,62 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
-      let cachedWorthCurrency: string | undefined;
 
-      if (mergeDeriveAddressData) {
-        const { networkAccounts } =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId: indexedAccount?.id ?? '',
-              excludeEmptyAccount: true,
-            },
-          );
-
-        if (cancelled || !isHomeTokenRequestCurrent(homeRequest)) return;
-        const resp = await Promise.all(
-          networkAccounts.map((networkAccount) =>
-            backgroundApiProxy.serviceToken.getAccountLocalTokens({
-              homeRequest,
-              accountId: networkAccount.account?.id ?? '',
-              networkId,
-              accountAddress: networkAccount.account?.address ?? '',
-              xpub:
-                // @ts-expect-error
-                networkAccount.account?.xpubSegwit ||
-                // @ts-expect-error
-                networkAccount.account?.xpub,
-            }),
-          ),
-        );
-        hasLocalTokenCache = resp.some((item) => item.hasCache);
-        // All `resp` entries come from the same multi-network request and
-        // share the storage currency; pick the first non-empty tag.
-        cachedWorthCurrency = resp.find((r) => r.currency)?.currency;
-
-        const params = resp.map((r) => {
-          if (r.accountId && r.networkId) {
-            tokenListWorth = {
-              ...tokenListWorth,
-              [accountUtils.buildAccountValueKey({
-                accountId: r.accountId,
-                networkId: r.networkId,
-              })]: r.tokenListValue,
-            };
-          }
-          tokenListValue = new BigNumber(tokenListValue)
-            .plus(r.tokenListValue ?? '0')
-            .toFixed();
-          return {
-            tokens: {
-              data: r.tokenList,
-              keys: '',
-              map: pickTokenListFiatMap({
-                tokens: r.tokenList,
-                tokenListMap: r.tokenListMap,
-              }),
-            },
-            smallBalanceTokens: {
-              data: r.smallBalanceTokenList,
-              keys: '',
-              map: pickTokenListFiatMap({
-                tokens: r.smallBalanceTokenList,
-                tokenListMap: r.tokenListMap,
-              }),
-            },
-            riskTokens: {
-              data: r.riskyTokenList,
-              keys: '',
-              map: pickTokenListFiatMap({
-                tokens: r.riskyTokenList,
-                tokenListMap: r.tokenListMap,
-              }),
-            },
-          };
+      const dispatchedNonZeroInputs =
+        cellsIngestInputsRef.current.nonZeroInputs;
+      const localTokens =
+        await backgroundApiProxy.serviceToken.getAccountLocalTokens({
+          homeRequest,
+          accountId,
+          networkId,
+          indexedAccountId: indexedAccount?.id,
+          mergeDeriveAddressData,
+          accountAddress,
+          xpub,
+          homeIngest: ENABLE_BG_TOKEN_VIEW_MODEL
+            ? {
+                ownerKey: cellsIngestInputsRef.current.ownerKey,
+                storeName: EJotaiContextStoreNames.homeTokenList,
+                settledAccountId: account?.id,
+                keepDefault: dispatchedNonZeroInputs.keepDefault,
+                homeDefaultTokenMap:
+                  dispatchedNonZeroInputs.homeDefaultTokenMap,
+                customTokens: dispatchedNonZeroInputs.customTokens,
+                omitResponseTokenLists: true,
+              }
+            : undefined,
         });
+      hasLocalTokenCache = localTokens.hasCache;
+      const cachedWorthCurrency = localTokens.currency;
 
-        const tokenListData = getMergedDeriveTokenData({
-          data: params,
-          mergeDeriveAssetsEnabled: true,
-        });
-
-        tokenList = tokenListData.tokenList.tokens;
-        smallBalanceTokenList =
-          tokenListData.smallBalanceTokenList.smallBalanceTokens;
-        riskyTokenList = tokenListData.riskyTokenList.riskyTokens;
-        tokenListMap = tokenListData.tokenListMap;
-        smallBalanceTokenListMap = tokenListData.smallBalanceTokenListMap;
-        riskyTokenListMap = tokenListData.riskyTokenListMap;
-      } else {
-        const localTokens =
-          await backgroundApiProxy.serviceToken.getAccountLocalTokens({
-            homeRequest,
-            accountId,
-            networkId,
-            accountAddress,
-            xpub,
-          });
-        hasLocalTokenCache = localTokens.hasCache;
-        cachedWorthCurrency = localTokens.currency;
-
-        tokenList = localTokens.tokenList;
-        smallBalanceTokenList = localTokens.smallBalanceTokenList;
-        riskyTokenList = localTokens.riskyTokenList;
-        tokenListMap = pickTokenListFiatMap({
-          tokens: tokenList,
-          tokenListMap: localTokens.tokenListMap,
-        });
-        smallBalanceTokenListMap = pickTokenListFiatMap({
-          tokens: smallBalanceTokenList,
-          tokenListMap: localTokens.tokenListMap,
-        });
-        riskyTokenListMap = pickTokenListFiatMap({
-          tokens: riskyTokenList,
-          tokenListMap: localTokens.tokenListMap,
-        });
-        tokenListValue = localTokens.tokenListValue;
-        tokenListWorth = {
-          [accountUtils.buildAccountValueKey({
-            accountId,
-            networkId,
-          })]: localTokens.tokenListValue,
-        };
-      }
+      tokenList = localTokens.tokenList;
+      smallBalanceTokenList = localTokens.smallBalanceTokenList;
+      riskyTokenList = localTokens.riskyTokenList;
+      tokenListMap = pickTokenListFiatMap({
+        tokens: tokenList,
+        tokenListMap: localTokens.tokenListMap,
+      });
+      smallBalanceTokenListMap = pickTokenListFiatMap({
+        tokens: smallBalanceTokenList,
+        tokenListMap: localTokens.tokenListMap,
+      });
+      riskyTokenListMap = pickTokenListFiatMap({
+        tokens: riskyTokenList,
+        tokenListMap: localTokens.tokenListMap,
+      });
+      tokenListValue = localTokens.tokenListValue;
+      tokenListWorth = localTokens.homeAccountWorth ?? {
+        [accountUtils.buildAccountValueKey({
+          accountId,
+          networkId,
+        })]: localTokens.tokenListValue,
+      };
+      const isLocalCacheTokensEmpty =
+        localTokens.hasNonEmptyTokens !== undefined
+          ? !localTokens.hasNonEmptyTokens
+          : isEmpty(tokenList) &&
+            isEmpty(smallBalanceTokenList) &&
+            isEmpty(riskyTokenList);
 
       // Owner-change or unmount happened while we were awaiting the local
       // token cache — drop the result so we don't overwrite the new owner's
@@ -3017,31 +2964,54 @@ function TokenListBlock({
       }: {
         source: 'singleCacheSeed' | 'singleEmptyCacheSeed';
       }) => {
-        void backgroundApiProxy.serviceTokenViewModel
-          .ingestRound({
-            homeRequest,
-            ...buildHomeTokenListCacheIngestRound({
+        if (!localTokens.homeIngested) {
+          void backgroundApiProxy.serviceTokenViewModel
+            .ingestRound({
+              homeRequest,
+              ...buildHomeTokenListCacheIngestRound({
+                ownerKey: cellsIngestInputsRef.current.ownerKey,
+                accountId: account?.id,
+                networkId,
+                tokenList,
+                smallBalanceTokenList,
+                riskyTokenList,
+                tokenListMap,
+                smallBalanceTokenListMap,
+                riskyTokenListMap,
+                keepDefault:
+                  cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+                homeDefaultTokenMap:
+                  cellsIngestInputsRef.current.nonZeroInputs
+                    .homeDefaultTokenMap,
+                customTokens:
+                  cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+                source,
+              }),
+            })
+            .catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
+            });
+        } else if (
+          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap !==
+            dispatchedNonZeroInputs.homeDefaultTokenMap ||
+          cellsIngestInputsRef.current.nonZeroInputs.customTokens !==
+            dispatchedNonZeroInputs.customTokens
+        ) {
+          void backgroundApiProxy.serviceTokenViewModel
+            .refreshOwnerNonZeroInputs?.({
+              homeRequest,
               ownerKey: cellsIngestInputsRef.current.ownerKey,
-              accountId: account?.id,
-              networkId,
-              tokenList,
-              smallBalanceTokenList,
-              riskyTokenList,
-              tokenListMap,
-              smallBalanceTokenListMap,
-              riskyTokenListMap,
               keepDefault:
                 cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
               homeDefaultTokenMap:
                 cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
               customTokens:
                 cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-              source,
-            }),
-          })
-          .catch((error) => {
-            if (!isRequestCanceledError(error)) console.error(error);
-          });
+            })
+            ?.catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
+            });
+        }
         if (isAccountSwitchDiagnosticsEnabled()) {
           defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
             {
@@ -3061,11 +3031,7 @@ function TokenListBlock({
         }
       };
 
-      if (
-        isEmpty(tokenList) &&
-        isEmpty(smallBalanceTokenList) &&
-        isEmpty(riskyTokenList)
-      ) {
+      if (isLocalCacheTokensEmpty) {
         if (hasLocalTokenCache) {
           setOverviewTokenCacheState({
             ownerKey: buildOverviewOwnerKey(account?.id, networkId),

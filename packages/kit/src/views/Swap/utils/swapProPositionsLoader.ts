@@ -387,8 +387,9 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       : undefined;
     const tasks = accountRequests.map(({ account, scopes }) => {
       const { apiAddress, networkId: accountNetworkId, accountId } = account;
+      const stockScopes = scopes.filter((scope) => scope.stockOnly);
       return async () => {
-        const tokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+        const rawTokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
           networkId: accountNetworkId,
           accountNetworkId,
           accountAddress: apiAddress,
@@ -398,6 +399,34 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
           throwOnError: true,
           currency: positionCurrencyId,
           protocol: ESwapTabSwitchType.SWAP,
+          ...(stockScopes.length
+            ? {
+                includeStockMarketMetadata: true,
+                requestLocale,
+              }
+            : {}),
+        });
+        const stockCandidateRawTokens = stockScopes.length
+          ? rawTokens.filter((token) =>
+              hasTradePositionBalance(token.balanceParsed),
+            )
+          : [];
+        const bgResolvedStockMetadata =
+          stockCandidateRawTokens.length > 0 &&
+          stockCandidateRawTokens.every(
+            (token) => token.stockMarketResolved === true,
+          );
+        const tokens = rawTokens.map((token) => {
+          if (!('stockMarketResolved' in token)) {
+            return token;
+          }
+          const {
+            stockMarketResolved: _resolved,
+            isStock: _isStock,
+            stock: _stock,
+            ...cleanToken
+          } = token;
+          return cleanToken;
         });
         for (const scope of scopes) {
           if (!scope.stockOnly) {
@@ -411,15 +440,22 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
 
         let stockMetadataFailed = false;
         let stockTokens: ISwapToken[] | undefined;
-        const stockScopes = scopes.filter((scope) => scope.stockOnly);
         if (stockScopes.length) {
           try {
-            const stockCandidateTokens = tokens.filter((token) =>
-              hasTradePositionBalance(token.balanceParsed),
-            );
-            if (stockCandidateTokens.length === 0) {
+            if (stockCandidateRawTokens.length === 0) {
               stockTokens = [];
+            } else if (bgResolvedStockMetadata) {
+              stockTokens = stockCandidateRawTokens.flatMap((token) => {
+                if (!token.isStock || !token.stock) {
+                  return [];
+                }
+                const { stockMarketResolved: _resolved, ...stockToken } = token;
+                return [stockToken];
+              });
             } else {
+              const stockCandidateTokens = tokens.filter((token) =>
+                hasTradePositionBalance(token.balanceParsed),
+              );
               const response =
                 await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
                   {

@@ -336,6 +336,64 @@ test('allows simpleDb immediate methods and reports missing decorators', () => {
   assert.match(violations[0].message, /servicePrime\.hidden is not exposed/u);
 });
 
+test('flags banned UI cross-bridge round-trip methods and currencyMap arguments', () => {
+  const serviceFile = 'packages/kit-bg/src/services/ServiceBridgeCheck.ts';
+  const uiFile = 'packages/kit/src/views/Example.ts';
+  const sources = new Map([
+    [
+      serviceFile,
+      `
+        ${DECORATOR_IMPORT}
+        class ServiceToken {
+          @backgroundMethod()
+          async mergeTokenMetadataWithCustomDataBatch() {}
+        }
+        class ServiceHistory {
+          @backgroundMethod()
+          async fetchAccountHistory() {}
+        }
+      `,
+    ],
+    [
+      uiFile,
+      `
+        import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+        export async function run(currencyMap: Record<string, unknown>) {
+          await backgroundApiProxy.serviceToken.mergeTokenMetadataWithCustomDataBatch({
+            tokens: [],
+          });
+          await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId: 'acc-1',
+            networkId: 'evm--1',
+            currencyMap,
+          });
+        }
+      `,
+    ],
+  ]);
+  const getAst = createAstGetter(sources);
+  const classIndex = collectClassIndex([serviceFile], getAst);
+  const { dynamicAccesses, references } = collectUiReferences([uiFile], getAst);
+  const violations = findContractViolations({
+    classIndex,
+    dynamicAccesses,
+    immediateMethods: new Set(),
+    references,
+    serviceTypes: new Map([
+      ['serviceToken', 'ServiceToken'],
+      ['serviceHistory', 'ServiceHistory'],
+    ]),
+    simpleDbTypes: new Map(),
+  });
+
+  assert.equal(violations.length, 2);
+  assert.match(
+    violations[0].message,
+    /mergeTokenMetadataWithCustomDataBatchSync/u,
+  );
+  assert.match(violations[1].message, /must not pass currencyMap/u);
+});
+
 test('ignores tracked source files deleted from the worktree', (t) => {
   const rootDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'background-api-contract-'),

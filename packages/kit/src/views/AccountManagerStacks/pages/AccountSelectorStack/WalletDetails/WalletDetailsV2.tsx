@@ -379,6 +379,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const { valuesLoaded } = useAccountSelectorValuesLoaderV2({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
+    valuesQueryId: listDataResult?.valuesQueryId,
     linkedNetworkId,
   });
   const valueDisplayCacheKey = useMemo(
