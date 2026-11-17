@@ -104,11 +104,14 @@ const getDefaultPanelSource: ITradingViewNativeMultiChartProps['getDefaultPanelS
   };
 
 // An extra split-view panel: any token's candles with the account's lines and
-// fills for it, read-only. Trading stays with the first panel.
+// fills for it, read-only. Trading stays with the first panel; drawing tools
+// are available whenever the first panel has them.
 function PerpNativePanelCandles({
+  enableDrawings,
   mainSource,
   panel,
 }: {
+  enableDrawings?: boolean;
   mainSource: ITradingViewNativeSource;
   panel: ITradingViewNativeMultiChartPanel;
 }) {
@@ -160,6 +163,7 @@ function PerpNativePanelCandles({
       storageNamespace="perps"
       priceDecimalPlaces={priceDecimalPlaces}
       isPricePrecisionLoading={priceDecimalPlaces === undefined}
+      enableDrawings={enableDrawings}
       nativeControlsLayoutMode="desktop"
       chartComponents={chartComponents}
       nativeControlsLeading={
@@ -231,6 +235,7 @@ export function PerpNativeSplitCandles({
         key={getTradingViewNativeSourceKey(panel.source)}
         panel={panel}
         mainSource={source}
+        enableDrawings={props.enableDrawings}
       />
     );
   return (

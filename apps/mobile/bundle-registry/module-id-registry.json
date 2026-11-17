@@ -23128,6 +23128,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/advancedLevels.ts": 1994,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/axisGeometry.ts": 24003,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/dataWindow.ts": 17707,
+    "packages/kit/src/components/TradingView/TradingViewNative/drawings/drawingDocument.ts": 4165,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/drawingHistory.ts": 401,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/drawingText.ts": 18062,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/fibonacci.ts": 12961,
