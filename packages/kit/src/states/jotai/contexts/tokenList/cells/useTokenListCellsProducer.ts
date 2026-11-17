@@ -470,6 +470,20 @@ export function useTokenListCellsProducer(
           }
           // Re-stamp storeData to THIS store so apply's identity guard passes.
           const projection = ensureStoreProjection(store);
+          if (
+            push.slotId &&
+            projection.appliedSlotId &&
+            push.slotId !== projection.appliedSlotId
+          ) {
+            projection.curGeneration = -1;
+          }
+          rememberOwnerReplayFrame({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+            kind: 'structure',
+            payload: push,
+            currencyId: currencyIdRef.current,
+          });
           applyStructureSnapshot(
             store,
             projection,
@@ -479,13 +493,6 @@ export function useTokenListCellsProducer(
           projection.lastRoundProvisional = !!structure.provisional;
           projection.appliedSlotId = push.slotId ?? projection.appliedSlotId;
           projection.appliedStructureVersion = push.structureVersion;
-          rememberOwnerReplayFrame({
-            storeName: identity.resolvedStoreName,
-            ownerKey: push.ownerKey,
-            kind: 'structure',
-            payload: push,
-            currencyId: currencyIdRef.current,
-          });
         },
         fromPull: (pulled) =>
           pulled.structure

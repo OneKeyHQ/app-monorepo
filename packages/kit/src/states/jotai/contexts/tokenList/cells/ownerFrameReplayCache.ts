@@ -161,11 +161,20 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
   const existing = replayCache.get(key);
   // Re-insert on every touch so the Map order stays LRU.
   replayCache.delete(key);
+  const existingSlotId =
+    existing?.structure?.slotId ??
+    existing?.valuation?.slotId ??
+    existing?.risky?.slotId;
+  const slotChanged = Boolean(
+    payload.slotId && existingSlotId && payload.slotId !== existingSlotId,
+  );
   let base: IOwnerReplayFrames = { currencyId };
-  if (existing?.currencyId === currencyId) {
-    base = existing;
-  } else if (existing?.structure) {
-    base = { currencyId, structure: existing.structure };
+  if (!slotChanged) {
+    if (existing?.currencyId === currencyId) {
+      base = existing;
+    } else if (existing?.structure) {
+      base = { currencyId, structure: existing.structure };
+    }
   }
   let storedPayload: IOwnerReplayPayloadByKind[K] = payload;
   if (kind === 'structure') {
@@ -301,11 +310,21 @@ export function getOwnerReplayFrames({
 // Bumped on every clear, so a caller filling the cache from an async answer
 // can tell the cache was cleared (a wallet / account removal) while it waited.
 let clearGeneration = 0;
+const clearListeners = new Set<() => void>();
+
+export function registerOwnerReplayCacheClearListener(
+  listener: () => void,
+): void {
+  clearListeners.add(listener);
+}
 
 /** Drop every remembered owner (tests / clear-data). */
 export function clearOwnerReplayCache(): void {
   clearGeneration += 1;
   replayCache.clear();
+  for (const listener of clearListeners) {
+    listener();
+  }
 }
 
 export function getOwnerReplayCacheGeneration(): number {
@@ -315,6 +334,29 @@ export function getOwnerReplayCacheGeneration(): number {
 /** Number of remembered owners (tests). */
 export function getOwnerReplayCacheSize(): number {
   return replayCache.size;
+}
+
+/**
+ * Peek the BG slotId currently remembered for `(storeName, ownerKey)` without
+ * mutating LRU order. Used by `useHomeTokenListSnapshot` to detect when an
+ * owner's BG slot was evicted and recreated at `generation: 0`.
+ */
+export function getOwnerReplaySlotId({
+  storeName = 'homeTokenList',
+  ownerKey,
+}: {
+  storeName?: string;
+  ownerKey: string;
+}): string | undefined {
+  if (!storeName || !ownerKey) {
+    return undefined;
+  }
+  const frames = replayCache.get(buildReplayKey(storeName, ownerKey));
+  return (
+    frames?.structure?.slotId ??
+    frames?.valuation?.slotId ??
+    frames?.risky?.slotId
+  );
 }
 
 export function tryBuildHomeSnapshotFromOwnerReplay({
@@ -331,14 +373,17 @@ export function tryBuildHomeSnapshotFromOwnerReplay({
       keys: string;
       map: Record<string, ITokenFiat>;
       cacheKey: string;
+      slotId?: string;
       ownerKey: string;
       accountId: string | undefined;
       networkId: string | undefined;
     }
   | undefined {
   const replay = getOwnerReplayFrames({ storeName, ownerKey });
-  const struct = replay?.structure?.structure;
-  const val = replay?.valuation?.valuation;
+  const structPush = replay?.structure;
+  const valPush = replay?.valuation;
+  const struct = structPush?.structure;
+  const val = valPush?.valuation;
   if (
     !struct ||
     !val ||
@@ -348,12 +393,22 @@ export function tryBuildHomeSnapshotFromOwnerReplay({
     return undefined;
   }
   if (
+    structPush?.slotId &&
+    valPush?.slotId &&
+    structPush.slotId !== valPush.slotId
+  ) {
+    return undefined;
+  }
+  if (
     val.structureGeneration !== undefined &&
     val.structureGeneration !== generation
   ) {
     return undefined;
   }
-  if ((struct.riskyCount ?? 0) > 0) {
+  if (
+    (struct.riskyCount ?? 0) > 0 ||
+    (replay?.risky?.riskyTokens.length ?? 0) > 0
+  ) {
     return undefined;
   }
   const tokens: IAccountToken[] = [];
@@ -371,8 +426,41 @@ export function tryBuildHomeSnapshotFromOwnerReplay({
     }
     tokens.push({ ...tokenMeta, $key: id });
   }
+  const aggKeys = new Set<string>([
+    ...Object.keys(struct.aggMembership ?? {}),
+    ...Object.keys(struct.ownedAggregateTokenListMap ?? {}),
+    ...Object.keys(val.changedAggFiat ?? {}),
+  ]);
+  const aggregateMemberFiatById: Record<string, ITokenFiat> = {};
+  for (const aggKey of aggKeys) {
+    const memberIds = struct.aggMembership?.[aggKey] ?? [];
+    const memberTokens =
+      struct.ownedAggregateTokenListMap?.[aggKey]?.tokens ?? [];
+    const byNet = val.changedAggFiat?.[aggKey];
+    if (memberIds.length > 0 || memberTokens.length > 0) {
+      if (!byNet || memberTokens.length !== memberIds.length) {
+        return undefined;
+      }
+      const seenNetworks = new Set<string>();
+      for (const subToken of memberTokens) {
+        const subKey = subToken.$key;
+        const netId = subToken.networkId;
+        if (!subKey || !netId || seenNetworks.has(netId)) {
+          return undefined;
+        }
+        const memberFiat = byNet[netId];
+        if (!memberFiat) {
+          return undefined;
+        }
+        seenNetworks.add(netId);
+        aggregateMemberFiatById[subKey] = memberFiat;
+      }
+    }
+  }
+  const slotId = structPush?.slotId ?? valPush?.slotId;
   const map: Record<string, ITokenFiat> = {
     ...val.changedFiatById,
+    ...aggregateMemberFiatById,
     ...flattenAggregateTokensMap(val.changedAggFiat),
   };
   return {
@@ -380,6 +468,7 @@ export function tryBuildHomeSnapshotFromOwnerReplay({
     keys: struct.rawKeys,
     map,
     cacheKey: `${ownerKey}@${generation}`,
+    ...(slotId ? { slotId } : undefined),
     ownerKey,
     accountId: struct.settledAccountId,
     networkId: struct.settledNetworkId,

@@ -38,7 +38,9 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { useListStructureAtom } from '../atoms';
 
 import {
-  OWNER_REPLAY_CACHE_CAP,
+  getOwnerReplayCacheGeneration,
+  getOwnerReplaySlotId,
+  registerOwnerReplayCacheClearListener,
   tryBuildHomeSnapshotFromOwnerReplay,
 } from './ownerFrameReplayCache';
 import { useHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
@@ -49,6 +51,8 @@ export interface IHomeTokenListSnapshot {
   map: Record<string, ITokenFiat>;
   /** Owner/generation cache key for guarding stale usePromiseResult values. */
   cacheKey: string;
+  /** BG slotId the snapshot was built from, when known. */
+  slotId?: string;
   /** Request ownerKey used for this pull. */
   ownerKey: string;
   /** SETTLED owner identity from the BG VM (lags on purpose, design C-F1). */
@@ -66,45 +70,71 @@ const EMPTY_SNAPSHOT: IHomeTokenListSnapshot = {
   networkId: undefined,
 };
 
+interface ISnapshotInflightEntry {
+  slotId: string | undefined;
+  clearGeneration: number;
+  promise: Promise<IHomeTokenListSnapshot>;
+}
+
 /**
  * Module-level inflight/result cache so the N home consumers that all call this
  * hook (Send/Receive/Buy/ViewInExplorer/More/TxHistory/...) collapse onto ONE
- * pair of PULLs per `(ownerKey, generation)` instead of each firing its own.
- * Keyed by `ownerKey@generation`; a new key supersedes (and evicts) every older
- * one, so the map holds a single entry and never grows. A rejected pull is
- * dropped so the next consumer retries instead of inheriting a pinned failure.
+ * pair of PULLs per `(ownerKey, slotId, generation)` instead of each firing its
+ * own. Keyed by `ownerKey@generation` and validated against the current BG
+ * `slotId` and `clearGeneration`; a new key or rebuilt BG slot supersedes (and
+ * evicts) every older one, so the map holds a single entry and never serves a
+ * stale slot after BG LRU eviction. A rejected pull is dropped so the next
+ * consumer retries instead of inheriting a pinned failure.
  */
-const snapshotInflight = new Map<string, Promise<IHomeTokenListSnapshot>>();
+const snapshotInflight = new Map<string, ISnapshotInflightEntry>();
 
 export function clearHomeTokenListSnapshotCache(): void {
   snapshotInflight.clear();
 }
 
+registerOwnerReplayCacheClearListener(clearHomeTokenListSnapshotCache);
+
 export function fetchHomeTokenListSnapshot(
   ownerKey: string,
   generation: number,
+  expectedSlotId?: string,
 ): Promise<IHomeTokenListSnapshot> {
   const cacheKey = `${ownerKey}@${generation}`;
+  const clearGeneration = getOwnerReplayCacheGeneration();
+  const currentSlotId =
+    expectedSlotId ??
+    getOwnerReplaySlotId({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+      ownerKey,
+    });
   const existing = snapshotInflight.get(cacheKey);
-  if (existing) {
-    snapshotInflight.delete(cacheKey);
-    snapshotInflight.set(cacheKey, existing);
-    return existing;
+  if (
+    existing &&
+    existing.clearGeneration === clearGeneration &&
+    existing.slotId === currentSlotId
+  ) {
+    return existing.promise;
   }
-  const ownerPrefix = `${ownerKey}@`;
-  for (const key of snapshotInflight.keys()) {
-    if (key.startsWith(ownerPrefix)) {
-      snapshotInflight.delete(key);
-    }
-  }
+  snapshotInflight.clear();
+  const entry: ISnapshotInflightEntry = {
+    slotId: currentSlotId,
+    clearGeneration,
+    promise: Promise.resolve(EMPTY_SNAPSHOT),
+  };
   const pending = (async (): Promise<IHomeTokenListSnapshot> => {
     await Promise.resolve();
+    const latestSlotId = getOwnerReplaySlotId({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+      ownerKey,
+    });
+    entry.slotId = latestSlotId;
     const fromReplay = tryBuildHomeSnapshotFromOwnerReplay({
       storeName: EJotaiContextStoreNames.homeTokenList,
       ownerKey,
       generation,
     });
     if (fromReplay) {
+      entry.slotId = fromReplay.slotId ?? latestSlotId;
       return fromReplay;
     }
     const [raw, map] = await Promise.all([
@@ -116,22 +146,19 @@ export function fetchHomeTokenListSnapshot(
       keys: raw.keys,
       map,
       cacheKey,
+      ...(latestSlotId ? { slotId: latestSlotId } : undefined),
       ownerKey,
       accountId: raw.accountId,
       networkId: raw.networkId,
     };
   })().catch((e) => {
-    snapshotInflight.delete(cacheKey);
+    if (snapshotInflight.get(cacheKey) === entry) {
+      snapshotInflight.delete(cacheKey);
+    }
     throw e;
   });
-  snapshotInflight.set(cacheKey, pending);
-  while (snapshotInflight.size > OWNER_REPLAY_CACHE_CAP) {
-    const lruKey = snapshotInflight.keys().next().value;
-    if (lruKey === undefined) {
-      break;
-    }
-    snapshotInflight.delete(lruKey);
-  }
+  entry.promise = pending;
+  snapshotInflight.set(cacheKey, entry);
   return pending;
 }
 
@@ -154,6 +181,12 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
   // Reactive trigger consumed as a dep below: bumps only on a structure frame
   // (not price ticks), so the snapshot re-pulls when the home list changes.
   const structureGeneration = listStructure.generation;
+  const replaySlotId = ownerKey
+    ? getOwnerReplaySlotId({
+        storeName: EJotaiContextStoreNames.homeTokenList,
+        ownerKey,
+      })
+    : undefined;
   const expectedCacheKey = ownerKey ? `${ownerKey}@${structureGeneration}` : '';
 
   const { result } = usePromiseResult(
@@ -162,12 +195,17 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
         return EMPTY_SNAPSHOT;
       }
       // Shared inflight/result cache (above) collapses the N home consumers'
-      // identical PULLs for this `(ownerKey, generation)` into one round-trip
-      // pair; `structureGeneration` is the cache axis (it bumps only on a
-      // structure frame, never on a price tick).
-      return fetchHomeTokenListSnapshot(ownerKey, structureGeneration);
+      // identical PULLs for this `(ownerKey, slotId, generation)` into one
+      // round-trip pair; `structureGeneration` + `replaySlotId` are the cache
+      // axes (they bump only on a structure frame or BG slot recreation, never
+      // on a price tick).
+      return fetchHomeTokenListSnapshot(
+        ownerKey,
+        structureGeneration,
+        replaySlotId,
+      );
     },
-    [ownerKey, structureGeneration],
+    [ownerKey, structureGeneration, replaySlotId],
     {
       initResult: EMPTY_SNAPSHOT,
       checkIsFocused: false,
