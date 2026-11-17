@@ -32,6 +32,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
+import { CloudSyncReconciliationEffect } from './CloudSyncReconciliationEffect';
 import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
@@ -421,6 +422,7 @@ function PrimeGlobalEffectView() {
   return (
     <>
       <KYTIntroOnMount />
+      <CloudSyncReconciliationEffect />
       {isReady ? <PrimeGlobalEffectAfterAuthReady /> : null}
     </>
   );

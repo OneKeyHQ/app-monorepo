@@ -592,6 +592,7 @@ export function useHardwareCloudSyncKey() {
             callerName: 'Manual hardware Cloud sync',
             noDebounceUpload: true,
             forceSync: true,
+            bypassRetryBackoff: true,
             askPasswordOnlyIfHdXfpMissing: true,
           },
         );

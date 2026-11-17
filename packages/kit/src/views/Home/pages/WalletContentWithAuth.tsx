@@ -12,13 +12,18 @@ function WalletContentWithAuth({
   networkId: string;
   accountId: string;
 }>) {
-  // Process only hardware accounts for the Lightning Network
+  // Background reads never request Lightning service authorization implicitly.
   if (
     networkUtils.isLightningNetworkByNetworkId(networkId) &&
-    accountUtils.isHwAccount({ accountId })
+    (accountUtils.isHwAccount({ accountId }) ||
+      accountUtils.isHdAccount({ accountId }))
   ) {
     return (
-      <LNHardwareWalletAuth networkId={networkId} accountId={accountId}>
+      <LNHardwareWalletAuth
+        key={`${networkId}:${accountId}`}
+        networkId={networkId}
+        accountId={accountId}
+      >
         {children}
       </LNHardwareWalletAuth>
     );

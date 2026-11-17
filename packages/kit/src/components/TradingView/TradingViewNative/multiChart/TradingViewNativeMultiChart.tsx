@@ -139,7 +139,7 @@ const Panel = memo(
     );
     const content = renderPanel(panel);
     // The first panel stays outside the scope: it keeps the host's own
-    // interval, indicators and drawings whether or not the view is split.
+    // interval and indicators whether or not the view is split.
     return isMain ? (
       content
     ) : (
