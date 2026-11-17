@@ -14,8 +14,6 @@ import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 const MARKET_FOOTER_BUTTON_WIDTH = '47%';
-const MARKET_FOOTER_BUTTON_HEIGHT = 36;
-const MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT = 20;
 
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
 // intercepts touches in the tab bar area, preventing RN's built-in touch
@@ -87,9 +85,7 @@ function PerpMarketFooter() {
         <View style={styles.buttonContainer}>
           <Button
             width="100%"
-            height={MARKET_FOOTER_BUTTON_HEIGHT}
-            size="small"
-            py="$0"
+            size="large"
             borderRadius="$full"
             bg={longButtonStyle.bg}
             justifyContent="center"
@@ -98,8 +94,7 @@ function PerpMarketFooter() {
             testID="page-footer-cancel"
           >
             <SizableText
-              size="$bodyMdMedium"
-              lineHeight={MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT}
+              size="$bodyLgMedium"
               color={longButtonStyle.textColor}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -121,9 +116,7 @@ function PerpMarketFooter() {
           <Button
             variant="primary"
             width="100%"
-            height={MARKET_FOOTER_BUTTON_HEIGHT}
-            size="small"
-            py="$0"
+            size="large"
             borderRadius="$full"
             bg={shortButtonStyle.bg}
             justifyContent="center"
@@ -132,8 +125,7 @@ function PerpMarketFooter() {
             testID="page-footer-confirm"
           >
             <SizableText
-              size="$bodyMdMedium"
-              lineHeight={MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT}
+              size="$bodyLgMedium"
               color={shortButtonStyle.textColor}
               numberOfLines={1}
               ellipsizeMode="tail"

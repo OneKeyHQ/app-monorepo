@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
@@ -16,6 +16,10 @@ import PreSwapConfirmResult, {
 
 const mockLottiePause = jest.fn();
 const mockLottieResume = jest.fn();
+const mockCallOrder: string[] = [];
+const mockDialogClose = jest.fn(async () => {
+  mockCallOrder.push('close');
+});
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -56,6 +60,7 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: MockStack,
     XStack: MockStack,
     YStack: MockStack,
+    useDialogInstance: () => ({ close: mockDialogClose }),
     useMedia: () => ({ md: false }),
   };
 });
@@ -71,8 +76,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
   SUPPORT_URL: 'https://help.onekey.so',
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
-  showIntercom: jest.fn(),
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  showIntercom: jest.fn(async () => {
+    mockCallOrder.push('support');
+  }),
 }));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
@@ -88,6 +95,19 @@ const failedStep: ISwapStep = {
 };
 
 describe('PreSwapConfirmResult', () => {
+  it('closes the review dialog before opening support', async () => {
+    mockCallOrder.length = 0;
+    render(
+      <PreSwapConfirmResult
+        lastStep={failedStep}
+        supportUrl="https://help.onekey.so/articles/1"
+      />,
+    );
+
+    fireEvent.click(screen.getByText(ETranslations.swap_review_tx_failed_2));
+    await waitFor(() => expect(mockCallOrder).toEqual(['close', 'support']));
+  });
+
   it('offers Retry for an ordinary failed step', () => {
     const onConfirm = jest.fn();
     render(
@@ -134,6 +154,24 @@ describe('PreSwapConfirmResult', () => {
     expect(screen.getByTestId('result-lottie')).toBeTruthy();
     fireEvent.click(screen.getByText(ETranslations.global_done));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows processing before an order has a transaction hash', () => {
+    render(
+      <PreSwapConfirmResult
+        lastStep={{
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.PENDING,
+        }}
+        pendingTitle={ETranslations.global_processing}
+        showPendingHistoryHint={false}
+      />,
+    );
+    expect(screen.getByText(ETranslations.global_processing)).toBeTruthy();
+    expect(
+      screen.queryByText(ETranslations.feedback_transaction_submitted),
+    ).toBeNull();
+    expect(screen.queryByText(ETranslations.swap_review_tx_pending)).toBeNull();
   });
 });
 

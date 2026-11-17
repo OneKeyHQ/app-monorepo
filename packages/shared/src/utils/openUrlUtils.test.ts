@@ -473,7 +473,6 @@ describe('dismissNativeInAppBrowser', () => {
 describe('openUrlInApp (extension)', () => {
   const mockNavigate = jest.fn();
   const mockTabsCreate = jest.fn();
-  const supportUrl = 'https://intercom.onekey.so/#bridge=message-channel-v1';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -489,15 +488,6 @@ describe('openUrlInApp (extension)', () => {
     mockEnv.isNative = true;
     mockEnv.isExtension = false;
   });
-
-  it.each(['A', null])(
-    'keeps a support session owned by %s inside the wallet',
-    (intercomUserId) => {
-      openUrlInApp(supportUrl, 'Support', { intercomUserId });
-      expect(mockNavigate).toHaveBeenCalledTimes(1);
-      expect(mockTabsCreate).not.toHaveBeenCalled();
-    },
-  );
 
   it('still opens ordinary links in a browser tab', () => {
     openUrlInApp('https://onekey.so/', 'OneKey');

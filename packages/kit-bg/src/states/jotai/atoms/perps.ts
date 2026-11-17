@@ -32,8 +32,10 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import {
   type ITradingViewNativeChartSettings,
   type ITradingViewNativeIndicatorSettings,
+  type ITradingViewNativeMultiChartLayout,
   createTradingViewNativeChartSettings,
   createTradingViewNativeIndicatorSettings,
+  createTradingViewNativeMultiChartLayout,
 } from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   IUnifoldDepositExecution,
@@ -75,6 +77,15 @@ export const {
       },
     ],
   },
+});
+
+export const {
+  target: perpsTradingViewMultiChartPersistAtom,
+  use: usePerpsTradingViewMultiChartPersistAtom,
+} = globalAtom<ITradingViewNativeMultiChartLayout>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewMultiChartPersistAtom,
+  initialValue: createTradingViewNativeMultiChartLayout(),
 });
 
 // Shared by Market entries and Web Perps, including expanded extension windows.

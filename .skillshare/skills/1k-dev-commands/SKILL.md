@@ -15,12 +15,14 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 - `yarn app:desktop` - Start desktop Electron app development with Rspack
   - **Runtime**: 30-60 seconds to start
   - **Common issues**: Node version conflicts, missing native dependencies
-  - **Troubleshooting**: Run `yarn clean && yarn reinstall` if startup fails
+  - **Troubleshooting**: Inspect startup logs first; use clean/reinstall only
+    when evidence points to stale build artifacts or broken dependencies
 
 - `yarn app:web:rspack` - Start web development server (port 3000)
   - **Runtime**: 15-30 seconds to start
   - **Common issues**: Port 3000 already in use, rspack compilation errors
-  - **Troubleshooting**: Kill existing processes on port 3000, check console for specific errors
+  - **Troubleshooting**: Identify the process using port 3000 before stopping
+    it; preserve unrelated sessions and check console errors
 
 - `yarn app:ext` - Start browser extension development with Rspack
   - **Runtime**: 20-40 seconds to start
@@ -83,7 +85,10 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 
 **Use this for fast agent pre-commit validation:**
 
-- `yarn agent:check --profile commit` - Runs staged lint and type checks with compact output
+- `yarn agent:check --profile commit` - Runs worktree auto-fixes, staged lint,
+  type checks, and repository checks with compact output. Matching modified and
+  untracked JS/TS files may be changed by `oxlint --fix` and `oxfmt`; inspect the
+  worktree first and preserve unrelated user changes.
 
 **Pre-commit workflow:**
 
@@ -91,19 +96,17 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 yarn agent:check --profile commit && git commit -m "your message"
 ```
 
-### CI Commands (Full Project Check)
+### PR Readiness And Remote Status
 
-**These run in CI pipeline or for comprehensive validation:**
+- `yarn agent:check --profile pr` - Local checks and auto-fixes plus remote
+  CI/review status. Use for implementation readiness, not read-only review.
+- `yarn agent:check --profile ci --pr <number>` - Remote CI/review status without
+  local auto-fixes; writes local logs.
+- `yarn lint` - Full project check for CI. For agent validation use the profiles
+  above; use lower-level lint/type commands to diagnose a failed gate.
 
-- `yarn lint` - Comprehensive linting (TypeScript, oxlint, folder structure, i18n)
-  - **Expected runtime**: ~1 minute
-  - **Zero tolerance**: ALL warnings and errors MUST be fixed
-  - **Use case**: CI pipeline and comprehensive pre-PR checks
 - Do not run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`.
-  ESLint entries are legacy compatibility remnants; active lint validation uses
-  oxlint through `agent:check` or `yarn lint`.
-- `yarn test` - Jest test execution
-  - **Use case**: CI pipeline and test validation
+  ESLint entries are legacy compatibility remnants.
 
 ### Other Tools
 
@@ -112,6 +115,10 @@ yarn agent:check --profile commit && git commit -m "your message"
 
 ## Testing
 
+- Run the relevant package's test script or a focused Jest test with
+  `yarn jest --runTestsByPath <test-file>`. Avoid the ambiguous root `yarn test`.
+- Select tests by failure modes and acceptance criteria; passing lint/types
+  alone does not establish runtime correctness.
 - Jest configuration in `jest.config.js`
 - Test setup in `jest-setup.js`
 - Tests located in `@tests/` directories within packages

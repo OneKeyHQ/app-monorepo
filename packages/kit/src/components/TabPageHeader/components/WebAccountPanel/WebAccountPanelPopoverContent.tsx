@@ -5,10 +5,10 @@ import { useIntl } from 'react-intl';
 
 import { AnimatePresence, Stack, YStack } from '@onekeyhq/components';
 import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { PerpsActivityCenterContent } from '@onekeyhq/kit/src/views/Perp/components/PerpsActivityCenterAction';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';

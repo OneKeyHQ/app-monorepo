@@ -8,39 +8,29 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Tabs,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
-import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
 import { buildStockMarketRow } from '../MarketNativeList/marketNativeListRows';
 import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
-import { MobileMarketStockListItem } from './MobileMarketStockListItem';
-
-import type { FlatListProps } from 'react-native';
 
 const EMPTY_DATA: IMarketStockPublicItem[] = [];
 
 type IMobileMarketStockFlatListProps = {
   selectedCategoryId: string;
-  listContainerProps: {
-    paddingBottom: number;
-  };
   shouldSuppressItemPress?: () => boolean;
 };
 
 function MobileMarketStockFlatListImpl({
   selectedCategoryId,
-  listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketStockFlatListProps) {
   const intl = useIntl();
@@ -71,14 +61,6 @@ function MobileMarketStockFlatListImpl({
     },
     [shouldSuppressItemPress, toMarketStockDetailPage],
   );
-
-  const renderItem: FlatListProps<IMarketStockPublicItem>['renderItem'] =
-    useCallback(
-      ({ item }) => (
-        <MobileMarketStockListItem item={item} onPress={handleItemPress} />
-      ),
-      [handleItemPress],
-    );
 
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
@@ -159,44 +141,16 @@ function MobileMarketStockFlatListImpl({
   );
 
   const tabBarHeight = useScrollContentTabBarOffset();
-  if (!platformEnv.isNative) {
-    return (
-      <WebMarketCompactList<IMarketStockPublicItem>
-        data={showSkeleton ? EMPTY_DATA : items}
-        buildRow={buildStockMarketRow}
-        onPress={handleItemPress}
-        empty={ListEmptyComponent}
-        contentPaddingBottom={tabBarHeight}
-        onEndReached={handleEndReached}
-        footer={ListFooterComponent}
-        testID={MarketTestIDs.stockList}
-      />
-    );
-  }
-
   return (
-    <Tabs.FlatList<IMarketStockPublicItem>
-      testID={MarketTestIDs.stockList}
-      showsVerticalScrollIndicator={false}
+    <WebMarketCompactList<IMarketStockPublicItem>
       data={showSkeleton ? EMPTY_DATA : items}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.stockId}
+      buildRow={buildStockMarketRow}
+      onPress={handleItemPress}
+      empty={ListEmptyComponent}
+      contentPaddingBottom={tabBarHeight}
       onEndReached={handleEndReached}
-      onEndReachedThreshold={0.2}
-      initialNumToRender={10}
-      maxToRenderPerBatch={20}
-      windowSize={platformEnv.isNativeAndroid ? 7 : 3}
-      removeClippedSubviews={platformEnv.isNativeIOS}
-      ListFooterComponent={ListFooterComponent ?? undefined}
-      ListEmptyComponent={ListEmptyComponent}
-      contentContainerStyle={{
-        ...(platformEnv.isNative
-          ? getMarketNativeCompactListStyle(false)
-          : { paddingTop: 4 }),
-        paddingBottom: platformEnv.isNativeAndroid
-          ? listContainerProps.paddingBottom
-          : tabBarHeight,
-      }}
+      footer={ListFooterComponent}
+      testID={MarketTestIDs.stockList}
     />
   );
 }

@@ -3505,6 +3505,8 @@
   "or__label": "或",
   "order_changed_try_again__msg": "委託已發生變更，請重新整理後再試。",
   "order_no_longer_eligible_for_chase__msg": "當前委託已不支援追單。",
+  "os_end_of_support_notice__desc": "更新系統以繼續獲取新功能和安全修復。",
+  "os_end_of_support_notice__title": "OneKey 即將僅支援 {osName} 及以上版本",
   "out_title_dust_sweep": "小額兌換",
   "p2pkh_desc": "以「1」開頭。P2PKH (m/44'/0'/0')",
   "p2sh_p2wpkh_desc": "以「bc1q」開頭。P2SH-P2WPKH (m/84'/0'/0')",
