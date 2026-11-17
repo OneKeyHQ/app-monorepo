@@ -718,8 +718,9 @@ describe('indicatorSettingsAdapter', () => {
     ).find(({ indicator }) => indicator === 'SMI');
 
     // The squeeze palette is still listed so that its theme colors resolve.
+    // Down replaces the falling negative color, up the rising positive one.
     expect(instance?.settings?.palettes).toEqual({
-      momentum: ['#AA0000', '#00AA00', '$red6', '$red9'],
+      momentum: ['#AA0000', '#00AA00', '$red6', '$green6'],
       squeeze: ['$amber9', '$cyan9', '$neutral9'],
     });
     expect(

@@ -79,4 +79,26 @@ describe('TradingViewNative range based indicators', () => {
       calculateTradingViewNativeLinearRegression([1, Number.NaN, 3], 2),
     ).toEqual([null, null, null]);
   });
+
+  it('reports no deviation for a flat window whatever its level', () => {
+    // 0.1 has no exact binary form, so averaging its squares would not cancel.
+    for (const level of [0.1, 1e-9, 123_456.789]) {
+      const deviations = calculateTradingViewNativeRollingStandardDeviation(
+        Array.from({ length: 30 }, () => level),
+        20,
+      );
+      expect(deviations.slice(19)).toEqual(Array.from({ length: 11 }, () => 0));
+    }
+  });
+
+  it('keeps a small deviation around a large price', () => {
+    const values = Array.from(
+      { length: 20 },
+      (_, index) => 1_000_000 + (index % 2 === 0 ? 0.001 : -0.001),
+    );
+
+    expect(
+      calculateTradingViewNativeRollingStandardDeviation(values, 20)[19],
+    ).toBeCloseTo(0.001, 9);
+  });
 });

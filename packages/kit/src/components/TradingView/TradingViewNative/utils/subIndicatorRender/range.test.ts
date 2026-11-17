@@ -302,4 +302,26 @@ describe('TradingViewNative sub-indicator value range', () => {
     expect(range?.minValue).toBe(0);
     expect(range?.maxValue).toBe(0.4);
   });
+
+  it('gives circle markers no range while none of them is in view', () => {
+    const circles = createSeries({
+      baseline: 0,
+      id: 'state',
+      type: 'circles',
+      values: [null, null, 1],
+    });
+
+    expect(getRange(createPane({ series: [circles] }), 0, 2)).toBeNull();
+    expect(getRange(createPane({ series: [circles] }), 0, 3)).not.toBeNull();
+    // A line of the same pane still sets the range on its own.
+    const range = getRange(
+      createPane({
+        series: [createSeries({ id: 'momentum', values: [0.2, 0.4] }), circles],
+      }),
+      0,
+      2,
+    );
+    expect(range?.minValue).toBe(0.2);
+    expect(range?.maxValue).toBe(0.4);
+  });
 });

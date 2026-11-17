@@ -298,6 +298,24 @@ function createDirectionPaletteIndexes(
   });
 }
 
+// The squeeze momentum palette keeps that order in its first two colors and
+// adds the fading shades after them: falling negative, rising positive,
+// rising negative, falling positive. The MACD histogram palette orders the
+// same four cases as rising positive, falling positive, rising negative,
+// falling negative.
+const MOMENTUM_PALETTE_INDEX_BY_MACD_PALETTE_INDEX = [1, 3, 2, 0] as const;
+
+function createMomentumPaletteIndexes(
+  values: ITradingViewNativeIndicatorValues,
+): Array<number | null> {
+  return createMacdPaletteIndexes(values).map((macdPaletteIndex) =>
+    macdPaletteIndex === null
+      ? null
+      : (MOMENTUM_PALETTE_INDEX_BY_MACD_PALETTE_INDEX[macdPaletteIndex] ??
+        null),
+  );
+}
+
 // Squeeze on, squeeze off, neither: the order of the squeeze palette.
 function createSqueezePaletteIndexes(
   squeeze: ITradingViewNativeIndicatorValues,
@@ -670,7 +688,11 @@ function calculateRawSubIndicator(
     case 'PVT':
       return {
         paletteIndexes: {},
-        plots: { pvt: calculateTradingViewNativePriceVolumeTrend(points) },
+        plots: {
+          pvt: calculateTradingViewNativePriceVolumeTrend(points, {
+            zeroVolumeIsMissing,
+          }),
+        },
       };
     case 'ATR':
       return {
@@ -700,7 +722,7 @@ function calculateRawSubIndicator(
       });
       return {
         paletteIndexes: {
-          momentum: createMacdPaletteIndexes(result.momentum),
+          momentum: createMomentumPaletteIndexes(result.momentum),
           squeeze: createSqueezePaletteIndexes(result.squeeze),
         },
         plots: { momentum: result.momentum, squeeze: result.squeeze },
@@ -783,6 +805,7 @@ function calculateRawSubIndicator(
       const result = calculateTradingViewNativeNegativeVolumeIndex(
         points,
         getNumberInput(indicator, inputs, 'movingAveragePeriod'),
+        { zeroVolumeIsMissing },
       );
       return {
         paletteIndexes: {},

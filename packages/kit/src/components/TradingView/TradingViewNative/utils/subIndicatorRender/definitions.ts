@@ -975,12 +975,14 @@ const DEFINITIONS = {
       }),
     ],
     palettes: [
+      // Falling negative, rising positive, rising negative, falling positive.
+      // The first two are the colors the down and up settings replace.
       createPalette({
         colors: [
-          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
-          TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued,
-          TRADING_VIEW_NATIVE_THEME_COLORS.negativeSubdued,
           TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          TRADING_VIEW_NATIVE_THEME_COLORS.negativeSubdued,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued,
         ],
         id: 'momentum',
         title: 'Momentum',

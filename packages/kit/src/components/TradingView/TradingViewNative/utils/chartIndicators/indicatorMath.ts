@@ -49,6 +49,30 @@ export function getTradingViewNativePriceMidpoint(
   return toTradingViewNativeFiniteValue((point.h + point.l) / 2);
 }
 
+/**
+ * Whether a bar's volume was reported. With `zeroVolumeIsMissing`, a zero
+ * means "not reported" instead of "nothing traded": stock feeds send zero for
+ * bars they have no volume for, such as after hours.
+ */
+export function hasTradingViewNativeReportedVolume(
+  volume: unknown,
+  zeroVolumeIsMissing: boolean,
+): volume is number {
+  return (
+    isTradingViewNativeFiniteValue(volume) &&
+    (!zeroVolumeIsMissing || volume > 0)
+  );
+}
+
+/** Whether any bar traded at all. A source without volume sends only zeros. */
+export function hasTradingViewNativeAnyVolume(
+  points: readonly IMarketTokenKLineDataPoint[],
+): boolean {
+  return points.some(
+    (point) => isTradingViewNativeFiniteValue(point?.v) && point.v > 0,
+  );
+}
+
 export type ITradingViewNativePriceField = 'c' | 'h' | 'l' | 'o' | 'v';
 
 export function getTradingViewNativePointValues(
@@ -102,7 +126,14 @@ export function calculateTradingViewNativeTrueRange(
   });
 }
 
-/** Population standard deviation over a full window. */
+/**
+ * Population standard deviation over a full window.
+ *
+ * The deviations are taken from the window's first value and then from their
+ * own mean. Subtracting two large averages instead (`E[x^2] - E[x]^2`) loses
+ * the small difference to rounding: a flat window would report a tiny
+ * non-zero deviation, and a high price that barely moves a wrong one.
+ */
 export function calculateTradingViewNativeRollingStandardDeviation(
   values: readonly (number | null | undefined)[],
   period: number,
@@ -112,24 +143,26 @@ export function calculateTradingViewNativeRollingStandardDeviation(
     if (endIndex < normalizedPeriod - 1) {
       return null;
     }
-    let sum = 0;
-    let squaredSum = 0;
-    for (
-      let index = endIndex - normalizedPeriod + 1;
-      index <= endIndex;
-      index += 1
-    ) {
+    const startIndex = endIndex - normalizedPeriod + 1;
+    const origin = values[startIndex];
+    if (!isTradingViewNativeFiniteValue(origin)) {
+      return null;
+    }
+    let offsetSum = 0;
+    for (let index = startIndex; index <= endIndex; index += 1) {
       const value = values[index];
       if (!isTradingViewNativeFiniteValue(value)) {
         return null;
       }
-      sum += value;
-      squaredSum += value * value;
+      offsetSum += value - origin;
     }
-    const average = sum / normalizedPeriod;
-    return Math.sqrt(
-      Math.max(squaredSum / normalizedPeriod - average * average, 0),
-    );
+    const averageOffset = offsetSum / normalizedPeriod;
+    let squaredDeviationSum = 0;
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      const deviation = (values[index] ?? origin) - origin - averageOffset;
+      squaredDeviationSum += deviation * deviation;
+    }
+    return Math.sqrt(squaredDeviationSum / normalizedPeriod);
   });
 }
 

@@ -10,8 +10,14 @@ import type { ITradingViewNativeIndicatorValues } from './subIndicatorTypes';
 /**
  * Rank correlation index: Spearman's rank correlation between time and value
  * over a full window, times 100. It is 100 when every bar is higher than the
- * one before and -100 when every bar is lower. Equal values share the average
- * of their ranks.
+ * one before and -100 when every bar is lower.
+ *
+ * Equal values share the average of their ranks, and the result still comes
+ * from the squared rank differences. That is the indicator's definition on
+ * the charts it is matched against, even though with ties it is no longer the
+ * exact correlation of the ranks: a window with one repeated close reads
+ * -87.58 there, where the tie-corrected correlation would be -88.15, and a
+ * completely flat window reads 50.
  */
 export function calculateTradingViewNativeRankCorrelationIndex(
   values: readonly (number | null | undefined)[],

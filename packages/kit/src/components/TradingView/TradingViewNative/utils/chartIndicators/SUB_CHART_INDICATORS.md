@@ -613,6 +613,8 @@ Notes:
 - `BBP` is a single series; the column color follows its sign. `SLOPE` is colored by whether it rose or fell from the previous bar.
 - `SQZ` is drawn as a dot on the zero line of every bar; the readout shows the state value.
 - `MANVI` starts from the first value because a 255-bar warm-up would hide it on most charts, and the reference readouts do the same.
+- `NVI` and `PVT` follow the OBV rule of section 4.5 for bars without volume. A bar whose volume is not a finite number, or is `0` on a source that uses `0` for "no volume for this bar" (the stock source), has no value and is skipped: the next bar with volume is compared with the last bar that had volume, so a missing volume is never read as a drop in volume. A source that reports no volume on any bar has no `NVI` and no `PVT` at all, instead of a flat line at the starting value.
+- `RCI` gives equal values the average of their ranks and still uses the squared-rank-difference formula above. With ties that is not the exact correlation of the ranks (a completely flat window reads `50`), but it is what the reference readouts show: a window with one repeated close reads `-87.58` there, and the tie-corrected correlation would be `-88.15`.
 - The `SLOPE` factor `6392` is not derived from the formula. It is the scale the reference readouts apply to the relative change, measured for lookbacks of 1 and 2, average lengths of 10 and 20, and hourly and daily bars. Without it the line has the same shape and a different readout.
 - `QQE`'s trailing lines hold a level that was set several bars earlier, so on a short history they still depend on how the band smoothing warmed up. On the 123-candle reference history the two lines differ from the reference readout by about 0.05; the `QQE` line itself matches.
 
@@ -650,7 +652,9 @@ ENV         w[i]    = exp(-i^2 / (2 * bandwidth^2)),  i = 0 ... lookback - 1
             Upper   = Centre + Width,  Lower = Centre - Width
 ```
 
-`ENV` uses only the current and earlier bars, so it never repaints. Its first value appears on bar number `2 * lookback - 2` (the 198th bar with the defaults); a chart with less history shows no envelope.
+`ENV` uses only the current and earlier bars, so it never repaints.
+
+Both of its windows shrink to the bars that exist while the history is shorter than they are: the centre renormalizes the weights of the bars it has, and the width averages the distances it has. The band starts once the history covers three bandwidths (bar 24 with the defaults), where the weights of older bars are already about 1% of the latest bar's, and never later than bar `lookback`. From bar `2 * lookback - 2` on (the 198th with the defaults) both windows are full and the values are exactly those of the formula above, which is where they match the reference readouts. The reference chart shows nothing before that bar; Native shows the shortened-window estimate instead, because a stock chart first loads 100 candles and a native-token chart 200.
 
 ### 8.3 Not Added
 

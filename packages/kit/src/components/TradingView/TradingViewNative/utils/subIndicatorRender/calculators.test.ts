@@ -592,6 +592,23 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
       }
       expect(slope.paletteIndexes.direction[index]).toBe(expected);
     });
+    // Falling negative, rising positive, rising negative, falling positive.
+    smi.plots.momentum.forEach((value, index) => {
+      let expected: number | null = null;
+      if (value !== null) {
+        const previousValue = smi.plots.momentum[index - 1];
+        const isRising = previousValue === null || value > previousValue;
+        if (value > 0) {
+          expected = isRising ? 1 : 3;
+        } else {
+          expected = isRising ? 2 : 0;
+        }
+      }
+      expect(smi.paletteIndexes.momentum[index]).toBe(expected);
+    });
+    expect(
+      new Set(smi.paletteIndexes.momentum.filter((value) => value !== null)),
+    ).toEqual(new Set([0, 1, 2, 3]));
     smi.plots.squeeze.forEach((value, index) => {
       let expected: number | null = null;
       if (value !== null) {
@@ -602,6 +619,40 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
     expect(
       new Set(slope.paletteIndexes.direction.filter((value) => value !== null)),
     ).toEqual(new Set([0, 1]));
+  });
+
+  it('passes the missing-volume contract to the indicators that compare volumes', () => {
+    const points = buildTestPoints(30).map((point, index) =>
+      index % 7 === 3 ? { ...point, v: 0 } : point,
+    );
+
+    for (const zeroVolumeIsMissing of [false, true]) {
+      const options = { zeroVolumeIsMissing };
+      expect(
+        calculateTradingViewNativeSubIndicator(
+          createResolvedInstance('NVI'),
+          points,
+          options,
+        ).plots,
+      ).toEqual(
+        calculateTradingViewNativeNegativeVolumeIndex(points, 255, options),
+      );
+      expect(
+        calculateTradingViewNativeSubIndicator(
+          createResolvedInstance('PVT'),
+          points,
+          options,
+        ).plots,
+      ).toEqual({
+        pvt: calculateTradingViewNativePriceVolumeTrend(points, options),
+      });
+    }
+    // The two contracts give different results for these points.
+    expect(
+      calculateTradingViewNativePriceVolumeTrend(points, {
+        zeroVolumeIsMissing: true,
+      }),
+    ).not.toEqual(calculateTradingViewNativePriceVolumeTrend(points));
   });
 
   it('falls back to definition defaults for malformed resolved settings', () => {

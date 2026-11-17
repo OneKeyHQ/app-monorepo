@@ -50,20 +50,21 @@ describe('TradingViewNative squeeze momentum indicator', () => {
   });
 
   it('reports neither state when the two bands have the same width', () => {
-    // Both widths are zero on bars that never move.
-    const flatPoints = Array.from({ length: 8 }, (_, index) => ({
-      c: 10,
-      h: 10,
-      l: 10,
-      o: 10,
-      t: index,
-      v: 1,
-    }));
-    const { squeeze } = calculateTradingViewNativeSqueezeMomentum(
-      flatPoints,
-      options,
-    );
+    // Both widths are zero on bars that never move, at any price level.
+    for (const price of [10, 0.1]) {
+      const flatPoints = Array.from({ length: 50 }, (_, index) => ({
+        c: price,
+        h: price,
+        l: price,
+        o: price,
+        t: index,
+        v: 1,
+      }));
+      const { momentum, squeeze } =
+        calculateTradingViewNativeSqueezeMomentum(flatPoints);
 
-    expect(squeeze[7]).toBe(TRADING_VIEW_NATIVE_SQUEEZE_NONE);
+      expect(squeeze[49]).toBe(TRADING_VIEW_NATIVE_SQUEEZE_NONE);
+      expect(momentum[49]).toBeCloseTo(0, 12);
+    }
   });
 });

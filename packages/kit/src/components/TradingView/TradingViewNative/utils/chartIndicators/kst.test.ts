@@ -52,15 +52,51 @@ describe('TradingViewNative KST, NVI, PMO and slope indicators', () => {
     );
   });
 
-  it('keeps the negative volume index through a bar it cannot compare', () => {
-    const { nvi } = calculateTradingViewNativeNegativeVolumeIndex(
-      buildTradingViewNativeIndicatorTestPoints(
-        [10, 11, 12.1],
-        [100, Number.NaN, 50],
-      ),
+  it('leaves a bar without volume out and compares the next bar across it', () => {
+    const { movingAverage, nvi } =
+      calculateTradingViewNativeNegativeVolumeIndex(
+        buildTradingViewNativeIndicatorTestPoints(
+          [10, 11, 12.1],
+          [100, Number.NaN, 50],
+        ),
+        3,
+      );
+
+    // The last bar traded less than the first, 21% above its close.
+    expectTradingViewNativeIndicatorValuesToBeCloseTo(nvi, [1000, null, 1210]);
+    expectTradingViewNativeIndicatorValuesToBeCloseTo(movingAverage, [
+      1000,
+      null,
+      1105,
+    ]);
+  });
+
+  it('does not read a missing stock volume as a drop in volume', () => {
+    const points = buildTradingViewNativeIndicatorTestPoints(
+      [100, 110, 110],
+      [1000, 0, 1000],
     );
 
-    expect(nvi).toEqual([1000, 1000, 1000]);
+    // Zero is a real volume by default, so the middle bar counts as a drop.
+    expect(calculateTradingViewNativeNegativeVolumeIndex(points).nvi).toEqual([
+      1000, 1100, 1100,
+    ]);
+    // A stock feed sends zero when it has no volume for the bar.
+    expect(
+      calculateTradingViewNativeNegativeVolumeIndex(points, 255, {
+        zeroVolumeIsMissing: true,
+      }).nvi,
+    ).toEqual([1000, null, 1000]);
+  });
+
+  it('has no negative volume index for a source without volume', () => {
+    const { movingAverage, nvi } =
+      calculateTradingViewNativeNegativeVolumeIndex(
+        buildTradingViewNativeIndicatorTestPoints([10, 11, 12], [0, 0, 0]),
+      );
+
+    expect(nvi).toEqual([null, null, null]);
+    expect(movingAverage).toEqual([null, null, null]);
   });
 
   it('smooths the one-bar percentage change twice for PMO', () => {

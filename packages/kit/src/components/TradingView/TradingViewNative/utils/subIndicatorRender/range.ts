@@ -100,8 +100,20 @@ function getLinearValueRange({
     }
 
     if (shouldIncludeSeries && series.style.type === 'circles') {
-      // Circles sit on the baseline whatever their values are.
-      includeValue(series.style.baseline);
+      // Circles sit on the baseline whatever their values are, so the values
+      // only decide whether there is a circle to make room for.
+      const seriesEndIndex = Math.min(normalizedEndIndex, series.values.length);
+      for (
+        let index = Math.min(normalizedStartIndex, seriesEndIndex);
+        index < seriesEndIndex;
+        index += 1
+      ) {
+        const value = series.values[index];
+        if (value !== null && value !== undefined && Number.isFinite(value)) {
+          includeValue(series.style.baseline);
+          break;
+        }
+      }
     } else if (shouldIncludeSeries) {
       const seriesEndIndex = Math.min(normalizedEndIndex, series.values.length);
       for (

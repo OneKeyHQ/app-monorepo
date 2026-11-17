@@ -100,4 +100,32 @@ describe('TradingViewNative DMA, VR, BRAR, PSY and PVT indicators', () => {
       [0, 20, null, 50],
     );
   });
+
+  it('measures the change across a bar whose stock volume is missing', () => {
+    const points = buildTradingViewNativeIndicatorTestPoints(
+      [10, 11, 12.1, 13.31],
+      [100, 200, 0, 300],
+    );
+
+    // A real zero volume adds nothing; the next bar changes 10% from it.
+    expectTradingViewNativeIndicatorValuesToBeCloseTo(
+      calculateTradingViewNativePriceVolumeTrend(points),
+      [0, 20, 20, 50],
+    );
+    // A missing volume leaves the bar out; the next bar changes 21% from 11.
+    expectTradingViewNativeIndicatorValuesToBeCloseTo(
+      calculateTradingViewNativePriceVolumeTrend(points, {
+        zeroVolumeIsMissing: true,
+      }),
+      [0, 20, null, 83],
+    );
+  });
+
+  it('has no trend for a source without volume', () => {
+    expect(
+      calculateTradingViewNativePriceVolumeTrend(
+        buildTradingViewNativeIndicatorTestPoints([10, 11, 12], [0, 0, 0]),
+      ),
+    ).toEqual([null, null, null]);
+  });
 });

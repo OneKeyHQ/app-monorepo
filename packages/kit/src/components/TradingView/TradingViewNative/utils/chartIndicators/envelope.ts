@@ -10,7 +10,6 @@ import {
   getTradingViewNativePointValues,
   isTradingViewNativeFiniteValue,
 } from './indicatorMath';
-import { calculateTradingViewNativeSimpleMovingAverage } from './ma';
 import { normalizeTradingViewNativeIndicatorPeriod } from './normalizePeriod';
 import {
   getTradingViewNativeIndicatorLine,
@@ -25,6 +24,10 @@ const ENVELOPE_BANDWIDTH = 8;
 const ENVELOPE_MULTIPLIER = 3;
 const ENVELOPE_LOOKBACK = 100;
 const ENVELOPE_BACKGROUND_OPACITY = 0.08;
+// The band starts once the history covers this many bandwidths: a Gaussian
+// weight three bandwidths back is about 1% of the latest bar's.
+const ENVELOPE_WARM_UP_BANDWIDTHS = 3;
+const ENVELOPE_MIN_WARM_UP_LENGTH = 2;
 
 export interface ITradingViewNativeEnvelopeOptions {
   bandwidth?: number;
@@ -41,8 +44,16 @@ export interface ITradingViewNativeEnvelopeResult {
  * Kernel-smoothed envelope. The centre is a Gaussian-weighted average of the
  * latest `lookback` values, so it never uses future bars and never repaints.
  * The band is that centre plus and minus `multiplier` times the average
- * distance between the values and the centre over the previous `lookback - 1`
+ * distance between the values and the centre over the latest `lookback - 1`
  * bars.
+ *
+ * Both windows shrink to the bars that exist while the history is shorter
+ * than they are, and the band starts once the history covers three
+ * bandwidths, where the weights of older bars are already negligible. Waiting
+ * for both full windows would leave the default settings without a band for
+ * the first 197 bars, which is more history than some charts load at first.
+ * From the bar that has both full windows on, the values are those of the
+ * full windows.
  */
 export function calculateTradingViewNativeEnvelope(
   values: readonly (number | null | undefined)[],
@@ -57,61 +68,86 @@ export function calculateTradingViewNativeEnvelope(
   const normalizedMultiplier = Number.isFinite(multiplier)
     ? Math.max(multiplier, 0)
     : ENVELOPE_MULTIPLIER;
+  const hasBandwidth = Number.isFinite(bandwidth) && bandwidth > 0;
+  const warmUpLength = Math.min(
+    normalizedLookback,
+    Math.max(
+      hasBandwidth ? Math.ceil(ENVELOPE_WARM_UP_BANDWIDTHS * bandwidth) : 0,
+      ENVELOPE_MIN_WARM_UP_LENGTH,
+    ),
+  );
+  // weightSums[count] is the total weight of the latest `count` bars.
   const weights: number[] = [];
-  let weightSum = 0;
+  const weightSums: number[] = [0];
   for (let offset = 0; offset < normalizedLookback; offset += 1) {
     // A zero bandwidth leaves all the weight on the latest bar.
-    const weight =
-      Number.isFinite(bandwidth) && bandwidth > 0
-        ? Math.exp(-(offset * offset) / (2 * bandwidth * bandwidth))
-        : Number(offset === 0);
+    const weight = hasBandwidth
+      ? Math.exp(-(offset * offset) / (2 * bandwidth * bandwidth))
+      : Number(offset === 0);
     weights.push(weight);
-    weightSum += weight;
+    weightSums.push((weightSums[offset] ?? 0) + weight);
   }
 
   const centres = buildTradingViewNativeIndicatorValues(
     values.length,
     (endIndex) => {
-      if (endIndex < normalizedLookback - 1) {
-        return null;
-      }
+      const windowLength = Math.min(endIndex + 1, normalizedLookback);
       let sum = 0;
-      for (let offset = 0; offset < normalizedLookback; offset += 1) {
+      for (let offset = 0; offset < windowLength; offset += 1) {
         const value = values[endIndex - offset];
         if (!isTradingViewNativeFiniteValue(value)) {
           return null;
         }
         sum += value * (weights[offset] ?? 0);
       }
-      return sum / weightSum;
+      return sum / (weightSums[windowLength] ?? 1);
     },
   );
-  const distances = buildTradingViewNativeIndicatorValues(
-    values.length,
-    (index) => {
-      const value = values[index];
-      const centre = centres[index];
-      return isTradingViewNativeFiniteValue(value) &&
-        isTradingViewNativeFiniteValue(centre)
-        ? Math.abs(value - centre)
-        : null;
-    },
-  );
-  const averageDistances = calculateTradingViewNativeSimpleMovingAverage(
-    distances,
-    Math.max(normalizedLookback - 1, 1),
-  );
-  const getBand = (direction: 1 | -1) =>
-    buildTradingViewNativeIndicatorValues(values.length, (index) => {
-      const centre = centres[index];
-      const averageDistance = averageDistances[index];
-      return isTradingViewNativeFiniteValue(centre) &&
-        isTradingViewNativeFiniteValue(averageDistance)
-        ? centre + direction * normalizedMultiplier * averageDistance
-        : null;
-    });
 
-  return { lower: getBand(-1), upper: getBand(1) };
+  const distanceWindowLength = Math.max(normalizedLookback - 1, 1);
+  const lower: ITradingViewNativeIndicatorValues = Array(values.length).fill(
+    null,
+  );
+  const upper: ITradingViewNativeIndicatorValues = Array(values.length).fill(
+    null,
+  );
+  let distanceSum = 0;
+  let distanceCount = 0;
+  const getDistance = (index: number) => {
+    const value = values[index];
+    const centre = centres[index];
+    return isTradingViewNativeFiniteValue(value) &&
+      isTradingViewNativeFiniteValue(centre)
+      ? Math.abs(value - centre)
+      : null;
+  };
+  for (let index = 0; index < values.length; index += 1) {
+    const distance = getDistance(index);
+    if (distance !== null) {
+      distanceSum += distance;
+      distanceCount += 1;
+    }
+    const expiredDistance = getDistance(index - distanceWindowLength);
+    if (expiredDistance !== null) {
+      distanceSum -= expiredDistance;
+      distanceCount -= 1;
+    }
+    const windowLength = Math.min(index + 1, distanceWindowLength);
+    const centre = centres[index];
+    if (
+      index + 1 >= warmUpLength &&
+      distanceCount === windowLength &&
+      isTradingViewNativeFiniteValue(centre)
+    ) {
+      const width = (normalizedMultiplier * distanceSum) / windowLength;
+      if (Number.isFinite(width)) {
+        lower[index] = centre - width;
+        upper[index] = centre + width;
+      }
+    }
+  }
+
+  return { lower, upper };
 }
 
 export function buildTradingViewNativeEnvelopeSeries(
