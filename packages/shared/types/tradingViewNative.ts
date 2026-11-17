@@ -221,3 +221,70 @@ export function createTradingViewNativeIndicatorSettings(): ITradingViewNativeIn
     subIndicators: [],
   };
 }
+
+export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
+
+export type ITradingViewNativeSource =
+  | {
+      kind: 'asset';
+      assetId: string;
+    }
+  | {
+      kind: 'hyperliquid';
+      coin: string;
+      environment: ITradingViewNativeHyperliquidEnvironment;
+    }
+  | {
+      kind: 'market';
+      fallbackCoinGeckoId?: string;
+      isNative?: boolean;
+      networkId: string;
+      tokenAddress: string;
+      symbol: string;
+      realtime: 'disabled' | 'websocket';
+    }
+  | {
+      kind: 'stock';
+      stockId: string;
+    };
+
+export const TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS = [
+  '1',
+  '2h',
+  '2v',
+  '3',
+  '4',
+] as const;
+
+export type ITradingViewNativeMultiChartPreset =
+  (typeof TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS)[number];
+
+/** Track fractions of one preset's grid; each axis sums to 1. */
+export type ITradingViewNativeMultiChartSizes = {
+  columns: number[];
+  rows: number[];
+};
+
+export type ITradingViewNativeMultiChartPanelState = {
+  source?: ITradingViewNativeSource;
+  indicatorSettings?: ITradingViewNativeIndicatorSettings;
+};
+
+export type ITradingViewNativeMultiChartLayout = {
+  preset: ITradingViewNativeMultiChartPreset;
+  /**
+   * State of the extra panels by panel ID. The first panel is not stored: it
+   * always shows the host's own source with the host's own preferences.
+   */
+  panels: Partial<Record<string, ITradingViewNativeMultiChartPanelState>>;
+  sizes?: Partial<
+    Record<
+      ITradingViewNativeMultiChartPreset,
+      ITradingViewNativeMultiChartSizes
+    >
+  >;
+};
+
+export function createTradingViewNativeMultiChartLayout(): ITradingViewNativeMultiChartLayout {
+  return { preset: '1', panels: {} };
+}

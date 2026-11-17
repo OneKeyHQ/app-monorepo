@@ -142,6 +142,7 @@ class ServiceMarketV2 extends ServiceBase {
       this._marketTokenBatchCache.clear();
       void this.memoizedFetchMarketTokenList.clear();
       void this.memoizedFetchMarketStockByTicker.clear();
+      void this.memoizedFetchMarketListingAssetQuote.clear();
     });
   }
 
@@ -182,6 +183,30 @@ class ServiceMarketV2 extends ServiceBase {
     {
       maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
       promise: true,
+    },
+  );
+
+  private memoizedFetchMarketListingAssetQuote = memoizee(
+    async (
+      assetId: string,
+    ): Promise<IMarketListingWatchlistQuote | undefined> => {
+      const { asset, market } =
+        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+          assetId,
+          currency: 'usd',
+          autoHandleError: false,
+        });
+      return {
+        ...market,
+        symbol: asset.symbol,
+        name: asset.name,
+        logoUrl: asset.logoUrl,
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 15 }),
+      promise: true,
+      max: 200,
     },
   );
 
@@ -820,18 +845,7 @@ class ServiceMarketV2 extends ServiceBase {
     identity: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
   ): Promise<IMarketListingWatchlistQuote | undefined> {
     if (identity.assetId) {
-      const { asset, market } =
-        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
-          assetId: identity.assetId,
-          currency: 'usd',
-          autoHandleError: false,
-        });
-      return {
-        ...market,
-        symbol: asset.symbol,
-        name: asset.name,
-        logoUrl: asset.logoUrl,
-      };
+      return this.memoizedFetchMarketListingAssetQuote(identity.assetId);
     }
     if (identity.stockId) {
       return (
@@ -840,6 +854,27 @@ class ServiceMarketV2 extends ServiceBase {
       );
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async fetchMarketListingWatchlistQuotes(
+    identities: Array<Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>>,
+  ): Promise<Array<IMarketListingWatchlistQuote | undefined>> {
+    if (identities.length === 0) {
+      return [];
+    }
+    const limit = pLimit(4);
+    return Promise.all(
+      identities.map((identity) =>
+        limit(async () => {
+          try {
+            return await this.fetchMarketListingWatchlistQuote(identity);
+          } catch {
+            return undefined;
+          }
+        }),
+      ),
+    );
   }
 
   @backgroundMethod()

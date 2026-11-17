@@ -192,6 +192,7 @@ const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPa
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    indicatorPanesStorageKey,
     loadDrawingHistory,
     enableDrawings = false,
     enableNavigationControls = true,
@@ -235,7 +236,7 @@ export const TradingViewNativeChart = memo(
     const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
-      drawingStorageKey,
+      indicatorPanesStorageKey ?? drawingStorageKey,
     );
     const { panes: subIndicatorPanes } = indicatorPanes;
     const [chartSize, setChartSize] = useState<ITradingViewNativeChartSize>({

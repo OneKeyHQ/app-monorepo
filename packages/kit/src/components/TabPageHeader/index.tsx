@@ -120,6 +120,7 @@ function BaseDesktopTabPageHeader({
             customHeaderRightItems
           )}
           <XStack pl="$5" alignItems="center">
+            <HeaderUpdateButton />
             <HeaderNotificationIconButton testID="header-right-notification" />
           </XStack>
         </>
@@ -144,7 +145,7 @@ function BaseDesktopTabPageHeader({
           </XStack>
         ) : null}
         <XStack alignItems="center">
-          {tabRoute === ETabRoutes.Home ? <HeaderUpdateButton /> : null}
+          <HeaderUpdateButton />
           <HeaderNotificationIconButton testID="header-right-notification" />
         </XStack>
       </>

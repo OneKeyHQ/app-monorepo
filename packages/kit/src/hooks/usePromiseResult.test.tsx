@@ -1945,5 +1945,111 @@ describe('usePromiseResult', () => {
       // was needed.
       expect(method).toHaveBeenCalledTimes(1);
     });
+
+    it('throttles focus revalidation within focusRevalidateMinIntervalMs while preserving polling and error recovery', async () => {
+      jest.useFakeTimers();
+      try {
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [method], {
+            revalidateOnFocus: true,
+            focusRevalidateMinIntervalMs: 15_000,
+          }),
+        );
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+
+        // Blur and refocus within 2s (< 15s min interval) — should not revalidate.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+
+        // Advance past 15s min interval, then blur and refocus — should revalidate.
+        act(() => {
+          jest.advanceTimersByTime(14_000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('still recovers an empty result on native refocus within focusRevalidateMinIntervalMs', async () => {
+      jest.useFakeTimers();
+      const prevIsNative = platformEnv.isNative;
+      platformEnv.isNative = true;
+      try {
+        let shouldReturnEmpty = true;
+        const method = jest.fn(async () =>
+          shouldReturnEmpty ? ([] as string[]) : ['recovered'],
+        );
+        const { result } = renderHook(() =>
+          usePromiseResult(method, [method], {
+            revalidateOnFocus: true,
+            revalidateOnReconnect: true,
+            focusRevalidateMinIntervalMs: 15_000,
+          }),
+        );
+
+        await act(async () => {
+          jest.runAllTimers();
+          await Promise.resolve();
+        });
+        expect(result.current.result).toEqual([]);
+
+        shouldReturnEmpty = false;
+        method.mockClear();
+
+        // Refocus within 2s (< 15s min interval) after an empty result — empty recovery should still fire.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          jest.runAllTimers();
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+        expect(result.current.result).toEqual(['recovered']);
+
+        // Subsequent refocus within 2s (< 15s min interval) with non-empty result should be throttled.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          jest.runAllTimers();
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+      } finally {
+        platformEnv.isNative = prevIsNative;
+        jest.useRealTimers();
+      }
+    });
   });
 });

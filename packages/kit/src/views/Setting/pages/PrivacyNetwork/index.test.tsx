@@ -304,20 +304,23 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
     disabled,
     renderAvatar,
     renderItemText,
+    minHeight,
   }: {
     onPress?: () => void;
     disabled?: boolean;
     title?: string;
-    subtitle?: string;
+    subtitle?: ReactNode;
     testID?: string;
     children?: ReactNode;
     renderAvatar?: ReactNode;
     renderItemText?: ReactNode;
+    minHeight?: string | number;
   }) =>
     onPress ? (
       <button
         type="button"
         data-testid={testID}
+        data-min-height={minHeight}
         onClick={onPress}
         disabled={disabled}
       >
@@ -331,7 +334,7 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
         {children}
       </button>
     ) : (
-      <div data-testid={testID}>
+      <div data-testid={testID} data-min-height={minHeight}>
         {renderAvatar}
         {renderItemText ?? (
           <>
@@ -1023,6 +1026,48 @@ describe('Privacy network settings for a temp wallet', () => {
         'zec--0:hd-1--1': scanProgress(),
         'xmr--0:hd-2--0': scanProgress(),
       };
+    });
+
+    it('keeps row space without an empty subtitle across sync state changes', async () => {
+      mockProgress = {};
+      const { rerender } = render(
+        <PrivacyNetworkSettings networkId="zec--0" />,
+      );
+      const row = await screen.findByTestId('privacy-sync-progress');
+      expect(progressText(row)).toBe(ETranslations.global_preparing);
+      expect(row.getAttribute('data-min-height')).toBe('$20');
+      expect(screen.queryByTestId('privacy-sync-progress-detail')).toBeNull();
+      expect(screen.getByTestId('privacy-sync-pause-btn')).toBeTruthy();
+
+      mockProgress = {
+        'zec--0:hd-1--0': scanProgress(),
+        'zec--0:hd-1--1': scanProgress(),
+      };
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      expect(screen.getByTestId('privacy-sync-progress')).toBe(row);
+      expect(row.getAttribute('data-min-height')).toBe('$20');
+      expect(
+        screen.getByTestId('privacy-sync-progress-detail').textContent,
+      ).toBe('50 / 100 · 50.0%');
+
+      mockProgress = {};
+      mockPausedNetworks = ['zec--0'];
+      mockBoostingNetworks = ['xmr--0'];
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      expect(screen.getByTestId('privacy-sync-progress')).toBe(row);
+      expect(progressText(row)).toBe(ETranslations.syncing_paused__title);
+      expect(row.getAttribute('data-min-height')).toBe('$20');
+      expect(screen.queryByTestId('privacy-sync-progress-detail')).toBeNull();
+      expect(screen.getByTestId('privacy-sync-resume-btn')).toBeTruthy();
+
+      mockPausedNetworks = [];
+      mockBoostingNetworks = ['zec--0', 'xmr--0'];
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      expect(screen.getByTestId('privacy-sync-progress')).toBe(row);
+      expect(progressText(row)).toBe(ETranslations.global_preparing);
+      expect(row.getAttribute('data-min-height')).toBe('$20');
+      expect(screen.queryByTestId('privacy-sync-progress-detail')).toBeNull();
+      expect(screen.getByTestId('privacy-sync-pause-btn')).toBeTruthy();
     });
 
     it('pauses and resumes the selected chain without changing account controls or another chain', async () => {

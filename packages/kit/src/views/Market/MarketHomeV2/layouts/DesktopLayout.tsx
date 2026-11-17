@@ -202,7 +202,7 @@ export function DesktopLayout({
   const hasActivated = (name: string) => everActiveTabsRef.current.has(name);
 
   // Ref so renderTabBar can update activeTabName immediately on press
-  // without recreating the callback (which would break collapsible tab memoisation).
+  // without recreating the pager callback.
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
   const handleTabChangeRef = useRef(handleTabChange);

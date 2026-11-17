@@ -13,9 +13,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
+import { HeaderScrollGestureContext } from '../HeaderScrollGestureContext';
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
-import { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
 import type { LayoutChangeEvent } from 'react-native';
