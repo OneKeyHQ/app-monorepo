@@ -611,7 +611,7 @@ export function DustSweepSummary({
           ? Math.round(windowHeight * MOBILE_SHEET_MAX_HEIGHT_RATIO)
           : undefined
       }
-      flexShrink={0}
+      flexShrink={desktop ? 1 : 0}
       px="$5"
       pt={desktop ? '$5' : '$0'}
       pb={desktop ? '$5' : 33}
@@ -714,14 +714,14 @@ export function DustSweepSummary({
           </YStack>
         </>
       ) : null}
-      {!selecting && desktop ? result : null}
-      {!selecting && !desktop ? (
+      {!selecting ? (
         <ScrollView
-          // Size to the result (web defaults the basis to 0) and shrink only
-          // when the panel hits its cap.
+          // Keep actions visible when result reasons exceed the card or sheet.
+          testID="dust-sweep-result-scroll"
           flexGrow={0}
           flexShrink={1}
           flexBasis="auto"
+          minHeight={0}
           showsVerticalScrollIndicator={false}
         >
           {result}
