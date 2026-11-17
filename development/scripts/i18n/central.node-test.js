@@ -257,7 +257,7 @@ test('edits commit canonical files to a new onekey-i18n branch and open a PR', a
   for (const text of Object.values(written))
     assert.equal(text, toStableJson(JSON.parse(text)));
   const keys = JSON.parse(written['keys.json']);
-  assert.deepEqual(keys.travel_mode__title.platforms, ['web']);
+  assert.deepEqual(keys.travel_mode__title, { platforms: ['web'] });
   assert.equal(keys['global::ok'], undefined);
   assert.deepEqual(JSON.parse(written['locales/zh_CN.json']), {
     'global::cancel': '取消',
@@ -426,6 +426,83 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
       false,
     );
   }
+});
+
+test('a plan that adds a key can be rerun after its PR failed to open', async (t) => {
+  t.mock.timers.enable({
+    apis: ['Date'],
+    now: Date.parse('2026-11-17T00:00:00Z'),
+  });
+  const branch = 'i18n/app-feat-x-0123456789ab';
+  const proposal = {
+    title: 't',
+    branchHint: 'app-feat-x',
+    key: '0123456789ab',
+  };
+  const lookup = `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(
+    `OneKeyHQ:${branch}`,
+  )}`;
+  // Blob ids depend on content, as in git.
+  const blobsByContent = {
+    [`POST ${REPO}/git/blobs`]: (body) => ({ sha: blobSha(body.content) }),
+  };
+  const addKey = (client) =>
+    client.create(
+      {
+        key: 'travel_mode__title',
+        translations: { en_US: 'Travel Mode', zh_CN: '旅行模式' },
+      },
+      { en_US: 'en_US', zh_CN: 'zh_CN' },
+    );
+
+  // First run: the branch is created, then opening the PR fails.
+  const first = commitRoutes();
+  const run1 = new CentralClient({
+    api: fakeApi({
+      ...first.routes,
+      ...blobsByContent,
+      [lookup]: [],
+      [`POST ${REPO}/pulls`]: () => {
+        throw Object.assign(new Error('HTTP 502'), { status: 502 });
+      },
+    }),
+    source: sourceFixture(),
+  });
+  await addKey(run1);
+  await assert.rejects(run1.finalize(proposal), /502/);
+
+  // The rerun, a second later, builds the same files and opens the PR from
+  // the branch the first run left.
+  t.mock.timers.tick(1000);
+  const second = commitRoutes();
+  const run2 = new CentralClient({
+    api: fakeApi({
+      ...second.routes,
+      ...blobsByContent,
+      [lookup]: [],
+      [`POST ${REPO}/git/refs`]: () => {
+        throw Object.assign(new Error('Reference already exists'), {
+          status: 422,
+        });
+      },
+      [`GET ${REPO}/compare/main...${branch}`]: {
+        ahead_by: 1,
+        behind_by: 0,
+        commits: [{ sha: 'c8' }],
+        files: first.bodies.tree.tree.map((item) => ({
+          filename: item.path,
+          sha: item.sha,
+        })),
+      },
+    }),
+    source: sourceFixture(),
+  });
+  await addKey(run2);
+  const result = await run2.finalize(proposal);
+  assert.deepEqual(
+    [result.number, result.commit, second.bodies.pull.head],
+    [9, 'c8', branch],
+  );
 });
 
 test('a client bound to a commit reads that commit instead of the release', async () => {

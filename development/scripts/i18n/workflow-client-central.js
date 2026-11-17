@@ -183,8 +183,9 @@ class CentralClient {
           `${name}: a new key needs base language (${base}) text.`,
         );
       ref = name;
+      // As onekey-i18n's own editor writes it: no creation time, so a rerun
+      // of the same plan builds the same keys.json.
       state.keyMeta[ref] = {
-        createdAt: new Date().toISOString(),
         platforms: ['web'],
         ...(isPlainObject(values[base]) ? { plural: true } : {}),
       };
