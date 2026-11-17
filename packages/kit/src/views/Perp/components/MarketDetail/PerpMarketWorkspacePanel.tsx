@@ -29,7 +29,7 @@ const WORKSPACE_VIEW_ITEMS: Array<{
   { key: 'chart', translationId: ETranslations.market_chart },
   { key: 'orderBook', translationId: ETranslations.perps_order_book },
   { key: 'info', translationId: ETranslations.global_info },
-  { key: 'funding', translationId: ETranslations.trade_stock_market_data },
+  { key: 'funding', translationId: ETranslations.settings_data },
 ];
 
 function WorkspaceTabButton({
