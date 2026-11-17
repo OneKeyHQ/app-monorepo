@@ -50,6 +50,7 @@ let mockIsLoggedIn = true;
 let mockDarkTheme = false;
 let mockRecallProgress: IPerpsRecallProgress | null = null;
 let mockRecallEnded = false;
+let mockActivityCards: IActivityHubCampaign[] = [];
 const mockRecallRefresh = jest.fn();
 const mockVisibilityListeners = new Set<(visible: boolean) => void>();
 jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
@@ -117,7 +118,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     return useAtom(mockPerpsCustomSettingsAtom);
   },
   usePerpsCommonConfigPersistAtom: () => [
-    { perpConfigCommon: { activityCards: [] } },
+    { perpConfigCommon: { activityCards: mockActivityCards } },
   ],
 }));
 jest.mock('react-native-svg', () => ({
@@ -813,6 +814,7 @@ describe('Perps recall activity integration', () => {
     mockRecallProgress = progress;
     appLocale.setLocale(mockLocale, appLocale.intl.messages);
     mockRecallEnded = false;
+    mockActivityCards = [];
     getDefaultStore().set(mockPerpsCustomSettingsAtom, {
       showTradeMarks: true,
     });
@@ -1743,6 +1745,73 @@ describe('Perps recall activity integration', () => {
     ).toBeTruthy();
     expect(view.container.querySelector('circle[stroke="#22AB15"]')).toBeNull();
   });
+
+  it.each(['ended', 'deadline', 'paid', 'skipped'] as const)(
+    'keeps %s recall results accessible without counting an ongoing activity',
+    async (state) => {
+      mockGtMd = true;
+      mockRecallEnded = state === 'ended' || state === 'deadline';
+      mockRecallProgress = {
+        ...progress,
+        activityStatus: state === 'ended' ? 'ended' : 'running',
+        payoutStatus:
+          state === 'paid' || state === 'skipped' ? state : 'pending',
+      };
+      render(<PerpsActivityCenterContent {...recallMenuProps} />);
+
+      expect(screen.queryByText(/perps_ongoing_events/)).toBeNull();
+      expect(mockHubShown).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignCount: 0 }),
+      );
+      fireEvent.click(screen.getByTestId('activity-hub-detail-entry'));
+      await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+      renderDialog();
+      expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    },
+  );
+
+  it.each([true, false])(
+    'keeps final results outside the ongoing campaign section (wide screen: %s)',
+    (wideScreen) => {
+      mockGtMd = wideScreen;
+      platformEnv.isNative = !wideScreen;
+      mockRecallEnded = true;
+      mockActivityCards = CAMPAIGNS;
+      render(<PerpsActivityCenterContent {...recallMenuProps} />);
+
+      const heading = screen.getByText(
+        `${ETranslations.perps_ongoing_events} (1)`,
+      );
+      const detailCard = screen.getByTestId('activity-hub-detail-entry');
+      expect(detailCard.nextElementSibling).toBe(heading);
+      expect(heading.nextElementSibling).toBe(getCampaignCard().parentElement);
+      expect(mockHubShown).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignCount: 1 }),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'retains the final result in the Perps menu (popover: %s)',
+    (menuPopoverLayout) => {
+      mockRecallEnded = true;
+      render(
+        <PerpsActivityCenterContent
+          {...recallMenuProps}
+          menuLayout
+          menuPopoverLayout={menuPopoverLayout}
+        />,
+      );
+
+      expect(screen.getAllByTestId('activity-hub-detail-entry')).toHaveLength(
+        1,
+      );
+      expect(screen.queryByText(/perps_ongoing_events/)).toBeNull();
+      expect(mockHubShown).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignCount: 0 }),
+      );
+    },
+  );
 
   it('uses a wide hub for recall content even without configured campaign links', async () => {
     mockGtMd = true;

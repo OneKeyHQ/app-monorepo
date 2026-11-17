@@ -65,7 +65,7 @@ function usePerpsActivityHubProps(
   viewportRef?: RefObject<IScrollViewRef | null>,
 ) {
   const intl = useIntl();
-  const { progress, instanceId } = usePerpsRecallProgress();
+  const { progress, instanceId, hasEnded } = usePerpsRecallProgress();
   const { isBannerHidden, setBannerHidden } = usePerpsRecallBannerVisibility({
     instanceId,
     progress,
@@ -81,6 +81,7 @@ function usePerpsActivityHubProps(
   const detailEntry: IActivityHubDetailEntry | undefined = progress
     ? {
         title: intl.formatMessage({ id: ETranslations.perps_recall__title }),
+        isEnded: hasEnded || progress.payoutStatus !== 'pending',
         subtitle: intl.formatMessage({
           id: ETranslations.perps_recall_progress__desc,
         }),

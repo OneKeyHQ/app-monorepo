@@ -21,6 +21,7 @@ export type IActivityHubSource = IReferralShareSource;
 export type IActivityHubOpenReferral = (tab?: IReferralPageTab) => void;
 export type IActivityHubDetailEntry = {
   title: string;
+  isEnded?: boolean;
   subtitle?: string;
   icon: IButtonProps['icon'];
   illustration?: ReactNode;
