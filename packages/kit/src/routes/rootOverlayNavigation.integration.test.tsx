@@ -105,27 +105,39 @@ const animation = {
 
 let mockSetLateOpen: (open: boolean) => void;
 let mockSetSecureOpen: (open: boolean) => void;
+let mockSetOrdinaryOpen: (open: boolean) => void;
 function MainPage() {
   const [open, setOpen] = useState(true);
   const [lateOpen, setLateOpen] = useState(false);
   const [secureOpen, setSecureOpen] = useState(false);
+  const [ordinaryOpen, setOrdinaryOpen] = useState(false);
   useLayoutEffect(() => {
     mockSetLateOpen = setLateOpen;
     mockSetSecureOpen = setSecureOpen;
+    mockSetOrdinaryOpen = setOrdinaryOpen;
   }, []);
   return (
     <PageOverlayOwner>
       <OverlayView
         visible={open}
         scope="page"
+        keepVisibleBehindNavigationModal
         animation={animation}
         dismissOnBackPress
         onRequestDismiss={() => setOpen(false)}
       >
         <input aria-label="Deposit amount" defaultValue="1000" />
       </OverlayView>
-      <OverlayView visible={lateOpen} scope="page" animation={animation}>
+      <OverlayView
+        visible={lateOpen}
+        scope="page"
+        animation={animation}
+        keepVisibleBehindNavigationModal
+      >
         <input aria-label="Late background amount" />
+      </OverlayView>
+      <OverlayView visible={ordinaryOpen} scope="page" animation={animation}>
+        <input aria-label="Ordinary amount" defaultValue="200" />
       </OverlayView>
       <OverlayView visible={secureOpen} level="secure" animation={animation}>
         <input aria-label="Secure amount" />
@@ -148,6 +160,7 @@ function ReceivePage() {
       <OverlayView
         visible={open}
         scope="page"
+        keepVisibleBehindNavigationModal
         animation={animation}
         dismissOnBackPress
         onRequestDismiss={() => setOpen(false)}
@@ -288,6 +301,7 @@ it('preserves child Dialog identity, order and draft across a WebView round trip
   act(() => navigation.navigate(ERootRoutes.WebView));
   await screen.findByLabelText('WebView amount');
   await waitFor(() => expect(isInert(child)).toBe(true));
+  expect(getComputedStyle(child).visibility).toBe('hidden');
   expect(overlayStore.getBlockingTop()).toBeUndefined();
   act(() => navigation.goBack());
   await waitFor(() => {
@@ -298,6 +312,44 @@ it('preserves child Dialog identity, order and draft across a WebView round trip
   expect(overlayStore.getBlockingTop()?.seq).toBe(entry?.seq);
   expect(screen.getByLabelText('Child amount')).toBe(child);
   expect((child as HTMLInputElement).value).toBe('124');
+  expect(getComputedStyle(child).visibility).toBe('visible');
+});
+
+it('applies mixed dialog policies within the same owner and restores them across full-screen coverage', async () => {
+  mount();
+  const amount = await screen.findByLabelText('Deposit amount');
+  act(() => mockSetOrdinaryOpen(true));
+  const ordinary = await screen.findByLabelText('Ordinary amount');
+  const ordinaryEntry = overlayStore.getBlockingTop();
+  fireEvent.change(ordinary, { target: { value: '201' } });
+  act(() => navigation.navigate(ERootRoutes.Modal));
+  const receive = await screen.findByLabelText('Receive amount');
+  await waitFor(() => {
+    expect(getComputedStyle(ordinary).visibility).toBe('hidden');
+    expect(getComputedStyle(amount).visibility).toBe('visible');
+  });
+  expect(isInert(ordinary)).toBe(true);
+  expect(isInert(amount)).toBe(true);
+  expect(document.activeElement).toBe(receive);
+  expect(overlayStore.getBlockingTop()).toBeUndefined();
+  act(() => navigation.navigate(ERootRoutes.WebView));
+  await screen.findByLabelText('WebView amount');
+  await waitFor(() =>
+    expect(getComputedStyle(amount).visibility).toBe('hidden'),
+  );
+  act(() => navigation.goBack());
+  await waitFor(() => {
+    expect(getComputedStyle(amount).visibility).toBe('visible');
+    expect(getComputedStyle(ordinary).visibility).toBe('hidden');
+  });
+  act(() => navigation.goBack());
+  await waitFor(() => {
+    expect(getComputedStyle(ordinary).visibility).toBe('visible');
+    expect(overlayStore.getBlockingTop()?.id).toBe(ordinaryEntry?.id);
+    expect(isInert(ordinary)).toBe(false);
+  });
+  expect(screen.getByLabelText('Ordinary amount')).toBe(ordinary);
+  expect((ordinary as HTMLInputElement).value).toBe('201');
 });
 it('retains legacy selection and lets the focused host with no entry pass through', () => {
   const store = new OverlayStore();
@@ -326,22 +378,29 @@ it('retains legacy selection and lets the focused host with no entry pass throug
   store.finalize(old.id);
 });
 
-it('prevents delayed background Dialog presentation and dismissal from stealing route focus', async () => {
-  mount();
-  act(() => navigation.navigate(ERootRoutes.Modal));
-  const receive = await screen.findByLabelText('Receive amount');
-  expect(document.activeElement).toBe(receive);
-  act(() => mockSetLateOpen(true));
-  const late = await screen.findByLabelText('Late background amount');
-  expect(isInert(late)).toBe(true);
-  expect(document.activeElement).toBe(receive);
-  expect(overlayStore.getBlockingTop()).toBeUndefined();
-  act(() => mockSetLateOpen(false));
-  await waitFor(() =>
-    expect(screen.queryByLabelText('Late background amount')).toBeNull(),
-  );
-  expect(document.activeElement).toBe(receive);
-});
+it.each([false, true])(
+  'keeps late background dialogs hidden during or after the navigation commit: sameBatch=%s',
+  async (sameBatch) => {
+    mount();
+    act(() => {
+      navigation.navigate(ERootRoutes.Modal);
+      if (sameBatch) mockSetLateOpen(true);
+    });
+    const receive = await screen.findByLabelText('Receive amount');
+    expect(document.activeElement).toBe(receive);
+    if (!sameBatch) act(() => mockSetLateOpen(true));
+    const late = await screen.findByLabelText('Late background amount');
+    expect(isInert(late)).toBe(true);
+    expect(getComputedStyle(late).visibility).toBe('hidden');
+    expect(document.activeElement).toBe(receive);
+    expect(overlayStore.getBlockingTop()).toBeUndefined();
+    act(() => mockSetLateOpen(false));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Late background amount')).toBeNull(),
+    );
+    expect(document.activeElement).toBe(receive);
+  },
+);
 it('keeps global security blocking through route changes and does not restore an inactive route input', async () => {
   mount();
   act(() => navigation.navigate(ERootRoutes.Modal));

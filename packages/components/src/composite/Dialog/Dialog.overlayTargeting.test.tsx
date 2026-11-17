@@ -13,6 +13,28 @@ import { renderToContainer } from './renderToContainer';
 
 const mockPageScope: { hostKey?: string; ownerKey?: string } = {};
 
+it('passes explicit retention without changing a separately opened dialog default', () => {
+  mockPageScope.hostKey = 'main';
+  mockPageScope.ownerKey = 'perp';
+  const { result } = renderHook(() => useInTabDialog());
+  result.current.show({ keepVisibleBehindNavigationModal: true });
+  const retained = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement<{
+    keepVisibleBehindNavigationModal?: boolean;
+  }>;
+  expect(retained.props.keepVisibleBehindNavigationModal).toBe(true);
+  result.current.show({});
+  const ordinary = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement<{
+    keepVisibleBehindNavigationModal?: boolean;
+  }>;
+  expect(ordinary.props.keepVisibleBehindNavigationModal).toBeUndefined();
+  delete mockPageScope.hostKey;
+  delete mockPageScope.ownerKey;
+});
+
 jest.mock('./OverlayDialogPresentation', () => ({
   OverlayDialogPresentation: ({
     children,

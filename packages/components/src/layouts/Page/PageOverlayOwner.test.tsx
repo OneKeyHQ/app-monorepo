@@ -24,6 +24,7 @@ import { PageOverlayOwner } from './PageOverlayOwner';
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 const mockSetPageVisible = jest.fn();
+const mockSetPageState = jest.fn();
 const mockRemovePage = jest.fn();
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   ...(() => {
@@ -56,6 +57,9 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
         );
       },
       overlayStore: {
+        setPageState: (...args: unknown[]) => {
+          mockSetPageState(...args);
+        },
         setPageVisible: (...args: unknown[]) => {
           mockSetPageVisible(...args);
         },
@@ -256,7 +260,7 @@ it('keeps a nested route as a separate page owner', () => {
   view.unmount();
 });
 
-it('keeps a covered owner visible without preserving an inactive screen inside its host', () => {
+it('reports modal coverage separately from an inactive or fully covered owner', () => {
   const listeners = new Set<() => void>();
   const tabs = {
     key: 'tabs',
@@ -306,19 +310,22 @@ it('keeps a covered owner visible without preserving an inactive screen inside i
     </NavigationContainerRefContext.Provider>,
   );
   const update = () => act(() => listeners.forEach((listener) => listener()));
-  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  expect(mockSetPageState).toHaveBeenLastCalledWith('perp', 'active');
   root.index = 1;
   update();
-  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  expect(mockSetPageState).toHaveBeenLastCalledWith(
+    'perp',
+    'covered-by-navigation-modal',
+  );
   tabs.index = 1;
   update();
-  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', false);
+  expect(mockSetPageState).toHaveBeenLastCalledWith('perp', 'hidden');
   tabs.index = 0;
   root.routes[1].name = 'webview';
   update();
-  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', false);
+  expect(mockSetPageState).toHaveBeenLastCalledWith('perp', 'hidden');
   root.index = 0;
   update();
-  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  expect(mockSetPageState).toHaveBeenLastCalledWith('perp', 'active');
   view.unmount();
 });

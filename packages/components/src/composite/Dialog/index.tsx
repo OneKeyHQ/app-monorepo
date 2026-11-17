@@ -328,6 +328,7 @@ function DialogFrame({
   nativeCentered = false,
   overlayLevel: overlayLevelProp,
   overlayPage,
+  keepVisibleBehindNavigationModal = false,
   onExited,
   trackID,
   useInitialSafeAreaBottomInsetFallback = false,
@@ -657,6 +658,7 @@ function DialogFrame({
       onExited={onExited}
       onAnimationComplete={sheetProps?.onAnimationComplete}
       page={overlayPage}
+      keepVisibleBehindNavigationModal={keepVisibleBehindNavigationModal}
       cardProps={cardProps}
       testID={testID}
     >
@@ -669,6 +671,7 @@ type ICustomDialogMount = Pick<
   IDialogContainerProps,
   | 'overlayLevel'
   | 'overlayPage'
+  | 'keepVisibleBehindNavigationModal'
   | 'onExited'
   | 'onClose'
   | 'onBeforeClose'
@@ -739,6 +742,9 @@ function BaseDialogContainer(
         ...props,
         overlayLevel: customMount.overlayLevel,
         overlayPage: customMount.overlayPage,
+        keepVisibleBehindNavigationModal:
+          props.keepVisibleBehindNavigationModal ??
+          customMount.keepVisibleBehindNavigationModal,
         onExited: forwardOnExited,
       }
     : props;
@@ -1029,6 +1035,8 @@ function dialogShow({
       const mount = {
         overlayLevel,
         overlayPage,
+        keepVisibleBehindNavigationModal:
+          props.keepVisibleBehindNavigationModal,
         onExited: handleExited,
         onClose: newOnClose,
         onBeforeClose: sharedBeforeClose,

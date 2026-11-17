@@ -35,6 +35,7 @@ export function showPerpPortfolioDialog(
   } = {},
 ) {
   const dialogRef = dialogInTab.show({
+    keepVisibleBehindNavigationModal: true,
     title: getPortfolioTitle(intl),
     showFooter: false,
     floatingPanelProps: { width: 960 },

@@ -50,6 +50,7 @@ export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   onAnimationComplete?: (info: { open: boolean }) => void;
   /** Page scope: the page's root-route host and the owning page. */
   page?: { hostKey: string; ownerKey: string };
+  keepVisibleBehindNavigationModal?: boolean;
   /** Centered card only: the former floating panel styling (width, bg…). */
   cardProps?: IOverlayDialogCardProps;
   testID?: string;
@@ -71,6 +72,7 @@ export function OverlayDialogPresentation({
   onExited,
   onAnimationComplete,
   page,
+  keepVisibleBehindNavigationModal = false,
   cardProps,
   testID,
   children,
@@ -161,6 +163,9 @@ export function OverlayDialogPresentation({
       scope={page ? 'page' : 'global'}
       hostKey={page?.hostKey}
       ownerKey={page?.ownerKey}
+      keepVisibleBehindNavigationModal={
+        !!page && !platformEnv.isNative && keepVisibleBehindNavigationModal
+      }
       presentation={isSheet ? 'sheet' : 'center'}
       sheet={isSheet ? sheet : undefined}
       backdrop={backdrop}

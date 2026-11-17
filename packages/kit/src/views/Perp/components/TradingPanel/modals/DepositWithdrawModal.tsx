@@ -3116,6 +3116,7 @@ export async function showDepositWithdrawDialog(
   }
 
   const dialogInTabRef = dialogInTab.show({
+    keepVisibleBehindNavigationModal: params.actionType === 'deposit',
     title: getDepositWithdrawTitle(params.actionType, intl),
     renderContent: (
       // In-tab dialogs render through the IN_PAGE_TAB_CONTAINER portal at the

@@ -77,6 +77,39 @@ const dialogProps = {
   children: <div data-testid="dialog-body">Body</div>,
 };
 
+it.each([undefined, false, true])(
+  'applies explicit cover retention only to Web page dialogs: %s',
+  (keepVisible) => {
+    nativeEnv.isNative = false;
+    const view = render(
+      <OverlayDialogPresentation
+        {...dialogProps}
+        page={pageScope}
+        keepVisibleBehindNavigationModal={keepVisible}
+      />,
+    );
+    expect(mockProps.keepVisibleBehindNavigationModal).toBe(
+      keepVisible === true,
+    );
+    view.rerender(
+      <OverlayDialogPresentation
+        {...dialogProps}
+        keepVisibleBehindNavigationModal={keepVisible}
+      />,
+    );
+    expect(mockProps.keepVisibleBehindNavigationModal).toBe(false);
+    nativeEnv.isNative = true;
+    view.rerender(
+      <OverlayDialogPresentation
+        {...dialogProps}
+        page={pageScope}
+        keepVisibleBehindNavigationModal={keepVisible}
+      />,
+    );
+    expect(mockProps.keepVisibleBehindNavigationModal).toBe(false);
+  },
+);
+
 afterEach(() => {
   nativeEnv.isNative = true;
   nativeEnv.isNativeAndroid = true;

@@ -3,19 +3,22 @@
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
-import { DialogContainer } from '.';
+import { Dialog, DialogContainer } from '.';
 
 import { act, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { renderToContainer } from './renderToContainer';
 
 import type { IDialogContainerProps } from './type';
 
 // Exercise Dialog's close guard through the overlay host's dismissal contract.
 const mockOverlayPresentation = jest.fn();
 const mockBody = <span>body</span>;
+const mockClose = async () => undefined;
 
 jest.mock('@onekeyhq/components', () => {
   const Wrapper = ({ children }: { children?: ReactNode }) => (
@@ -58,7 +61,13 @@ jest.mock('../../content/Keyboard', () => ({
   Keyboard: { dismissWithDelay: jest.fn() },
 }));
 jest.mock('../../content/SheetGrabber', () => ({ SheetGrabber: () => null }));
-jest.mock('../../hocs', () => ({}));
+jest.mock('../../hocs', () => ({
+  EPortalContainerConstantName: {
+    FULL_WINDOW_OVERLAY_PORTAL: 'global',
+    APP_STATE_LOCK_CONTAINER_OVERLAY: 'lock',
+    PASSWORD_VERIFY_CONTAINER_PORTAL: 'secure',
+  },
+}));
 jest.mock('../../hooks', () => ({
   useKeyboardEventWithoutNavigation: jest.fn(),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
@@ -94,7 +103,55 @@ jest.mock('./Header', () => {
   };
 });
 jest.mock('./DialogScrollView', () => ({}));
-jest.mock('./renderToContainer', () => ({}));
+jest.mock('./renderToContainer', () => ({
+  renderToContainer: jest.fn(() => ({ destroy: jest.fn(), update: jest.fn() })),
+}));
+
+it.each([undefined, false, true])(
+  'passes the explicit cover policy through direct and custom dialog mounts: %s',
+  (keepVisible) => {
+    platformEnv.isNative = false;
+    const props = {
+      showHeader: false,
+      showFooter: false,
+      renderContent: mockBody,
+      overlayPage: { hostKey: 'main', ownerKey: 'perp' },
+      keepVisibleBehindNavigationModal: keepVisible,
+    };
+    Dialog.show(props);
+    const direct = jest
+      .mocked(renderToContainer)
+      .mock.calls.at(-1)?.[1] as ReactElement;
+    const view = render(direct);
+    expect(
+      mockOverlayPresentation.mock.calls.at(-1)?.[0]
+        .keepVisibleBehindNavigationModal,
+    ).toBe(keepVisible === true);
+    view.unmount();
+    Dialog.show({
+      ...props,
+      dialogContainer: ({ ref }) => (
+        <section>
+          <DialogContainer
+            ref={ref}
+            showHeader={false}
+            showFooter={false}
+            renderContent={mockBody}
+            onClose={mockClose}
+          />
+        </section>
+      ),
+    });
+    const custom = jest
+      .mocked(renderToContainer)
+      .mock.calls.at(-1)?.[1] as ReactElement;
+    render(custom);
+    expect(
+      mockOverlayPresentation.mock.calls.at(-1)?.[0]
+        .keepVisibleBehindNavigationModal,
+    ).toBe(keepVisible === true);
+  },
+);
 
 async function pressSystemClose(
   props: Partial<IDialogContainerProps> & {

@@ -22,6 +22,7 @@ import { registerImperativeOverlayPage } from '../../shared/imperativeOverlayMou
 
 import { PageContext } from './PageContext';
 
+import type { IOverlayPageState } from '@onekeyfe/react-native-native-overlay';
 import type {
   NavigationProp,
   NavigationState,
@@ -60,13 +61,13 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
   return true;
 }
 
-function isOwnerVisibleInRoot(
+function getOwnerNavigationState(
   root: NavigationState,
   hostKey: string,
   ownerKey: string,
-) {
+): IOverlayPageState {
   const hostIndex = root.routes.findIndex((route) => route.key === hostKey);
-  if (hostIndex < 0 || hostIndex > root.index) return false;
+  if (hostIndex < 0 || hostIndex > root.index) return 'hidden';
   if (
     root.routes
       .slice(hostIndex + 1, root.index + 1)
@@ -76,19 +77,21 @@ function isOwnerVisibleInRoot(
           route.name !== ERootRoutes.iOSFullScreen,
       )
   ) {
-    return false;
+    return 'hidden';
   }
-  // Covered root routes can remain visible; inactive screens inside a host cannot.
+  // Report navigation facts; each dialog chooses whether to remain visible when covered.
+  const activeState =
+    hostIndex === root.index ? 'active' : 'covered-by-navigation-modal';
   const host = root.routes[hostIndex];
-  if (host.key === ownerKey) return true;
+  if (host.key === ownerKey) return activeState;
   let state: NavigationState | PartialState<NavigationState> | undefined =
     host.state;
   while (state) {
     const route = state.routes[state.index ?? 0];
-    if (route?.key === ownerKey) return true;
+    if (route?.key === ownerKey) return activeState;
     state = route?.state;
   }
-  return false;
+  return 'hidden';
 }
 
 /**
@@ -171,12 +174,17 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
       const root = !platformEnv.isNative
         ? rootNavigation?.getRootState()
         : undefined;
-      overlayStore.setPageVisible(
-        ownerKey,
-        root && hostKey
-          ? isOwnerVisibleInRoot(root, hostKey, ownerKey)
-          : isOwnerActiveWithinHost(navigation, ownerKey),
-      );
+      if (root && hostKey) {
+        overlayStore.setPageState(
+          ownerKey,
+          getOwnerNavigationState(root, hostKey, ownerKey),
+        );
+      } else {
+        overlayStore.setPageVisible(
+          ownerKey,
+          isOwnerActiveWithinHost(navigation, ownerKey),
+        );
+      }
     };
     const unsubscribeListeners: Array<() => void> = [];
     let current: INavigation | undefined = navigation;

@@ -1,8 +1,127 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayPageHost.web.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayPageHost.web.js
+index 85e9701..8cb91c5 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayPageHost.web.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayPageHost.web.js
+@@ -1,8 +1,11 @@
+ "use strict";
+ 
+-import { useEffect, useRef } from 'react';
+-import { useSuspendedPageOwners } from "./useSuspendedPageOwners.js";
+-import { registerOverlayPageHost, syncOverlayInert } from "./web/overlayLayers.js";
++import { useEffect, useRef, useSyncExternalStore } from 'react';
++
++// OneKey patch: native keeps owner-level suspension; Web supports mixed entry policies.
++// import { useSuspendedPageOwners } from './useSuspendedPageOwners';
++import { overlayStore } from "./OverlayStore.js";
++import { ENTRY_ATTRIBUTE, registerOverlayPageHost, syncOverlayInert } from "./web/overlayLayers.js";
+ import { jsx as _jsx } from "react/jsx-runtime";
+ const OWNER_ATTRIBUTE = 'data-overlay-owner';
+ 
+@@ -15,7 +18,9 @@ export function OverlayPageHost({
+   hostKey
+ }) {
+   const ref = useRef(null);
+-  const suspendedOwners = useSuspendedPageOwners(hostKey);
++  // OneKey patch: an opted-in entry must not inherit a sibling's suspension.
++  // const suspendedOwners = useSuspendedPageOwners(hostKey);
++  const snapshot = useSyncExternalStore(overlayStore.subscribe, overlayStore.getSnapshot, overlayStore.getSnapshot);
+   useEffect(() => {
+     const element = ref.current;
+     if (!element) {
+@@ -28,10 +33,19 @@ export function OverlayPageHost({
+     if (!element) {
+       return;
+     }
+-    const suspended = new Set(suspendedOwners);
++    // OneKey patch: entries with the same owner may have different cover policies.
++    // const suspended = new Set(suspendedOwners);
++    const entries = new Map(snapshot.entries.filter(entry => entry.hostKey === hostKey).map(entry => [entry.id, entry]));
+     const applySuspension = () => {
+-      element.querySelectorAll(`[${OWNER_ATTRIBUTE}]`).forEach(node => {
+-        const hidden = suspended.has(node.getAttribute(OWNER_ATTRIBUTE) ?? '') || node.getAttribute('aria-hidden') === 'true';
++      element
++      // OneKey patch: use stable entry ids for visibility and parked-node cleanup.
++      // .querySelectorAll<HTMLElement>(`[${OWNER_ATTRIBUTE}]`)
++      .querySelectorAll(`[${ENTRY_ATTRIBUTE}]`).forEach(node => {
++        const entry = entries.get(node.getAttribute(ENTRY_ATTRIBUTE) ?? '');
++        const hidden =
++        // OneKey patch: never reveal an entry after its store record has disappeared.
++        // suspended.has(node.getAttribute(OWNER_ATTRIBUTE) ?? '') ||
++        !entry || entry.suspended || node.getAttribute('aria-hidden') === 'true';
+         node.style.visibility = hidden ? 'hidden' : '';
+       });
+       // Combine suspension with blocking-level isolation; resuming an owner
+@@ -44,10 +58,14 @@ export function OverlayPageHost({
+       childList: true,
+       subtree: true,
+       attributes: true,
+-      attributeFilter: [OWNER_ATTRIBUTE, 'aria-hidden']
++      // OneKey patch: portal content can change presentation cycles without remounting.
++      // attributeFilter: [OWNER_ATTRIBUTE, 'aria-hidden'],
++      attributeFilter: [ENTRY_ATTRIBUTE, 'aria-hidden']
+     });
+     return () => observer.disconnect();
+-  }, [hostKey, suspendedOwners]);
++    // OneKey patch: follow per-entry state even if its owner stays the same.
++    // }, [hostKey, suspendedOwners]);
++  }, [hostKey, snapshot]);
+   return /*#__PURE__*/_jsx("div", {
+     ref: ref,
+     style: {
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
-index c4c4de1..93fb292 100644
+index c4c4de1..1182645 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
-@@ -136,6 +136,16 @@ export class OverlayStore {
+@@ -25,7 +25,10 @@ export class OverlayStore {
+   queued = [];
+   handlers = new Map();
+   closingTimers = new Map();
+-  pageVisibility = new Map();
++  // OneKey patch: distinguish modal coverage from an inactive or hidden page.
++  // private readonly pageVisibility = new Map<string, boolean>();
++  pageStates = new Map();
++  retainedPageEntries = new Set();
+   listeners = new Set();
+   snapshot = {
+     entries: [],
+@@ -67,6 +70,7 @@ export class OverlayStore {
+       replaceKey: request.replaceKey,
+       hostKey: scope === 'page' ? request.hostKey : undefined,
+       ownerKey: scope === 'page' ? request.ownerKey : undefined,
++      keepVisibleBehindNavigationModal: scope === 'page' && request.keepVisibleBehindNavigationModal === true,
+       dismissible: request.dismissible ?? blocking,
+       statusBarStyle: request.statusBarStyle,
+       blocking,
+@@ -75,7 +79,9 @@ export class OverlayStore {
+       dismissReason: undefined,
+       seq: this.seq
+     };
+-    entry.suspended = this.isOwnerHidden(entry);
++    // OneKey patch: the root layout updates focus before page-owner passive effects.
++    // entry.suspended = this.isOwnerHidden(entry);
++    entry.suspended = this.isOwnerHidden(entry) || entry.scope === 'page' && !this.isPageHostFocused(entry.hostKey);
+     this.handlers.set(entry.id, handlers);
+     if (entry.strategy === 'replace') {
+       this.replaceIn(entry);
+@@ -104,6 +110,9 @@ export class OverlayStore {
+     this.clearClosingTimer(id);
+     entry.phase = 'active';
+     entry.dismissReason = undefined;
++    // OneKey patch: reopening in the background is not retention of an existing presentation.
++    this.retainedPageEntries.delete(id);
++    entry.suspended = this.isOwnerHidden(entry) || entry.scope === 'page' && !this.isPageHostFocused(entry.hostKey);
+     this.emit();
+   }
+ 
+@@ -115,6 +124,7 @@ export class OverlayStore {
+     }
+     this.clearClosingTimer(id);
+     this.shown.delete(id);
++    this.retainedPageEntries.delete(id);
+     this.promoteQueued();
+     this.emit();
+     this.notifyRemoved(id, entry.dismissReason ?? 'programmatic');
+@@ -136,23 +146,63 @@ export class OverlayStore {
      dropped.forEach(e => this.notifyRemoved(e.id, reason));
    }
  
@@ -10,6 +129,13 @@ index c4c4de1..93fb292 100644
 +  setFocusedPageHost(hostKey) {
 +    if (this.focusedPageHost === hostKey) return;
 +    this.focusedPageHost = hostKey;
++    // OneKey patch: a rapid push/pop may restore focus before owner state changes.
++    for (const entry of this.shown.values()) {
++      if (entry.scope === 'page' && this.isPageHostFocused(entry.hostKey) && (this.pageStates.get(entry.ownerKey ?? '') ?? 'active') === 'active') {
++        entry.suspended = false;
++      }
++    }
++    this.promoteQueued();
 +    this.emit();
 +  }
 +  isPageHostFocused(hostKey) {
@@ -18,8 +144,68 @@ index c4c4de1..93fb292 100644
 +
    /** Native / navigation signal: the owning page was covered, detached or restored. */
    setPageVisible(ownerKey, visible) {
-     if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
-@@ -180,7 +190,10 @@ export class OverlayStore {
+-    if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
++    // OneKey patch: preserve the legacy two-state API used by native clients.
++    this.setPageState(ownerKey, visible ? 'active' : 'hidden');
++  }
++
++  /** Web navigation facts only; visual retention is explicitly selected per entry. */
++  setPageState(ownerKey, state) {
++    const previous = this.pageStates.get(ownerKey) ?? 'active';
++    if (previous === state) {
+       return;
+     }
+-    this.pageVisibility.set(ownerKey, visible);
++    // OneKey patch: only entries already visible before losing the page can be retained.
++    // this.pageVisibility.set(ownerKey, visible);
++    this.pageStates.set(ownerKey, state);
+     for (const entry of this.shown.values()) {
+       if (entry.ownerKey === ownerKey) {
+-        entry.suspended = !visible;
++        if (previous === 'active') {
++          if (entry.keepVisibleBehindNavigationModal && !entry.suspended && entry.phase === 'active') {
++            this.retainedPageEntries.add(entry.id);
++          } else {
++            this.retainedPageEntries.delete(entry.id);
++          }
++        }
++        if (state === 'active') this.retainedPageEntries.delete(entry.id);
++        // OneKey patch: modal coverage must not opt in an entire page owner.
++        // entry.suspended = !visible;
++        entry.suspended = this.isOwnerHidden(entry);
+       }
+     }
+     for (const entry of this.queued) {
+       if (entry.ownerKey === ownerKey) {
+-        entry.suspended = !visible;
++        // OneKey patch: queued entries have never been visible and cannot be retained.
++        // entry.suspended = !visible;
++        entry.suspended = this.isOwnerHidden(entry);
+       }
+     }
+-    if (visible) {
++    // OneKey patch: only returning to the active page can promote background requests.
++    // if (visible) {
++    if (state === 'active') {
+       this.promoteQueued();
+     }
+     this.emit();
+@@ -164,10 +214,13 @@ export class OverlayStore {
+     this.queued = this.queued.filter(e => e.ownerKey !== ownerKey);
+     for (const entry of this.shown.values()) {
+       if (entry.ownerKey === ownerKey) {
++        this.retainedPageEntries.delete(entry.id);
+         this.dismissWithoutEmit(entry.id, 'page-removed');
+       }
+     }
+-    this.pageVisibility.delete(ownerKey);
++    // OneKey patch: discard navigation facts when the page is removed.
++    // this.pageVisibility.delete(ownerKey);
++    this.pageStates.delete(ownerKey);
+     this.emit();
+     dropped.forEach(e => this.notifyRemoved(e.id, 'page-removed'));
+   }
+@@ -180,7 +233,10 @@ export class OverlayStore {
    resolveBack(focusedHostKey) {
      // Non-blocking entries take back / Escape only when they ask to be
      // dismissible (an anchored popover); toasts do not.
@@ -31,7 +217,7 @@ index c4c4de1..93fb292 100644
      const top = candidates[candidates.length - 1];
      if (!top) {
        return {
-@@ -206,7 +219,10 @@ export class OverlayStore {
+@@ -206,7 +262,10 @@ export class OverlayStore {
      } = this.snapshot;
      for (let i = entries.length - 1; i >= 0; i -= 1) {
        const entry = entries[i];
@@ -43,8 +229,36 @@ index c4c4de1..93fb292 100644
          return entry;
        }
      }
+@@ -242,10 +301,16 @@ export class OverlayStore {
+     }
+   }
+   isOwnerHidden(entry) {
+-    return entry.scope === 'page' && entry.ownerKey !== undefined && this.pageVisibility.get(entry.ownerKey) === false;
++    // OneKey patch: inactive pages always hide; modal-covered pages retain only explicit entries.
++    // return entry.scope === 'page' && entry.ownerKey !== undefined && this.pageVisibility.get(entry.ownerKey) === false;
++    if (entry.scope !== 'page' || entry.ownerKey === undefined) return false;
++    const state = this.pageStates.get(entry.ownerKey) ?? 'active';
++    return state === 'hidden' || state === 'covered-by-navigation-modal' && (!entry.keepVisibleBehindNavigationModal || !this.retainedPageEntries.has(entry.id));
+   }
+   canPromote(entry) {
+-    if (this.isOwnerHidden(entry)) {
++    // OneKey patch: stale owner facts cannot promote a queued entry in a background host.
++    // if (this.isOwnerHidden(entry)) {
++    if (this.isOwnerHidden(entry) || entry.scope === 'page' && !this.isPageHostFocused(entry.hostKey)) {
+       return false;
+     }
+     const laneKey = laneKeyOf(entry);
+@@ -263,6 +328,8 @@ export class OverlayStore {
+       const laneKey = laneKeyOf(entry);
+       if (!promotedLanes.has(laneKey) && this.canPromote(entry)) {
+         entry.phase = 'active';
++        // OneKey patch: a deferred request can promote after focus returns before owner facts change.
++        entry.suspended = this.isOwnerHidden(entry);
+         this.shown.set(entry.id, entry);
+         promotedLanes.add(laneKey);
+       } else {
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
-index 278937f..cc28aed 100644
+index 278937f..5b5889a 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
 @@ -29,8 +29,20 @@ const ISOLATED_EVENT_HANDLERS = {
@@ -200,7 +414,18 @@ index 278937f..cc28aed 100644
      }).sort((a, b) => {
        const aOrder = a.tabIndex > 0 ? a.tabIndex : Infinity;
        const bOrder = b.tabIndex > 0 ? b.tabIndex : Infinity;
-@@ -235,6 +282,12 @@ function WebOverlayEntry({
+@@ -214,7 +261,9 @@ function WebOverlayEntry({
+   };
+   return /*#__PURE__*/_jsxs("div", {
+     ref: entryRef,
+-    [ENTRY_ATTRIBUTE]: '',
++    // OneKey patch: identify entries independently of their shared page owner.
++    // [ENTRY_ATTRIBUTE]: '',
++    [ENTRY_ATTRIBUTE]: entryId,
+     ...(ownerKey ? {
+       [OVERLAY_OWNER_ATTRIBUTE]: ownerKey
+     } : {}),
+@@ -235,6 +284,12 @@ function WebOverlayEntry({
        visibility: parked ? 'hidden' : undefined
      },
      ...ISOLATED_EVENT_HANDLERS,
@@ -213,7 +438,7 @@ index 278937f..cc28aed 100644
      onKeyDownCapture: onKeyDownCapture,
      children: [showBackdrop ? /*#__PURE__*/_jsx("div", {
        ref: backdropRef,
-@@ -352,6 +405,8 @@ export function OverlayView(props) {
+@@ -352,6 +407,8 @@ export function OverlayView(props) {
    return /*#__PURE__*/createPortal(/*#__PURE__*/_jsx(WebOverlayEntry, {
      parked: parked,
      entryId: entry?.id ?? parkedId,
@@ -222,6 +447,18 @@ index 278937f..cc28aed 100644
      stackOrder: entry?.seq ?? 0,
      levelOrder: OVERLAY_LEVEL_ORDER[level],
      presented: !parked && presented,
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/useOverlayController.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/useOverlayController.js
+index 03b2be9..ffbd677 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/useOverlayController.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/useOverlayController.js
+@@ -69,6 +69,7 @@ export function useOverlayController(props) {
+       scope,
+       hostKey,
+       ownerKey,
++      keepVisibleBehindNavigationModal: props.keepVisibleBehindNavigationModal,
+       level,
+       strategy,
+       priority,
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
 index dc32352..9660d54 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
@@ -248,18 +485,27 @@ index dc32352..9660d54 100644
      }
    };
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
-index 4d11a0b..4e8ff11 100644
+index 4d11a0b..b3225ea 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
-@@ -22,6 +22,7 @@ export declare class OverlayStore {
+@@ -1,4 +1,4 @@
+-import type { IOverlayDismissReason, IOverlayEntry, IOverlayRequest, IOverlaySnapshot } from './types';
++import type { IOverlayDismissReason, IOverlayEntry, IOverlayPageState, IOverlayRequest, IOverlaySnapshot } from './types';
+ export interface IOverlayEntryHandlers {
+     /** Called once when the entry leaves the store (finalized or dropped from the queue). */
+     onRemoved?: (reason: IOverlayDismissReason) => void;
+@@ -22,7 +22,9 @@ export declare class OverlayStore {
      private queued;
      private readonly handlers;
      private readonly closingTimers;
+-    private readonly pageVisibility;
 +    private focusedPageHost;
-     private readonly pageVisibility;
++    private readonly pageStates;
++    private readonly retainedPageEntries;
      private readonly listeners;
      private snapshot;
-@@ -41,6 +42,9 @@ export declare class OverlayStore {
+     constructor(options?: IOverlayStoreOptions);
+@@ -41,8 +43,13 @@ export declare class OverlayStore {
          belowLevel?: IOverlayEntry['level'];
          reason?: IOverlayDismissReason;
      }): void;
@@ -268,21 +514,204 @@ index 4d11a0b..4e8ff11 100644
 +    isPageHostFocused(hostKey: string | undefined): boolean;
      /** Native / navigation signal: the owning page was covered, detached or restored. */
      setPageVisible(ownerKey: string, visible: boolean): void;
++    /** Web navigation facts only; visual retention is explicitly selected per entry. */
++    setPageState(ownerKey: string, state: IOverlayPageState): void;
      /** The owning page left the navigation state for good. */
+     removePage(ownerKey: string): void;
+     /**
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts
+index 8fb8983..c5bd97f 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts
+@@ -34,6 +34,8 @@ export interface IOverlayViewProps {
+     scope?: IOverlayScope;
+     hostKey?: string;
+     ownerKey?: string;
++    /** Web page scope only; preserve existing content while a navigation modal covers its page. Defaults to false. */
++    keepVisibleBehindNavigationModal?: boolean;
+     level?: IOverlayLevel;
+     strategy?: IOverlayStrategy;
+     priority?: number;
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/types.d.ts b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/types.d.ts
+index de5c2d6..1f9187b 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/types.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/types.d.ts
+@@ -1,4 +1,6 @@
+ export type IOverlayScope = 'global' | 'page';
++/** Navigation facts; individual entries choose their modal-cover presentation policy. */
++export type IOverlayPageState = 'active' | 'covered-by-navigation-modal' | 'hidden';
+ export type IOverlayLevel = 'modal' | 'hardware' | 'secure' | 'toast' | 'lock' | 'debug';
+ export type IOverlayStrategy = 'stack' | 'queue' | 'replace';
+ export type IOverlayPhase = 'queued' | 'active' | 'closing';
+@@ -22,6 +24,8 @@ export interface IOverlayRequest {
+     hostKey?: string;
+     /** Required for `page` scope: the nearest page that owns the entry. */
+     ownerKey?: string;
++    /** Web page scope only: retain an already visible entry behind a navigation modal. Defaults to false. */
++    keepVisibleBehindNavigationModal?: boolean;
+     /** Receives back / Escape. Defaults to true for blocking levels. */
+     dismissible?: boolean;
+     /** Blocks interaction with everything below. Defaults by level. */
+@@ -41,6 +45,7 @@ export interface IOverlayEntry {
+     replaceKey: string | undefined;
+     hostKey: string | undefined;
+     ownerKey: string | undefined;
++    keepVisibleBehindNavigationModal?: boolean;
+     dismissible: boolean;
+     blocking: boolean;
+     statusBarStyle: IOverlayStatusBarStyle | undefined;
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayPageHost.web.tsx b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayPageHost.web.tsx
+index 7515b07..9a0ef14 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayPageHost.web.tsx
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayPageHost.web.tsx
+@@ -1,7 +1,13 @@
+-import { useEffect, useRef } from 'react';
++import { useEffect, useRef, useSyncExternalStore } from 'react';
+ 
+-import { useSuspendedPageOwners } from './useSuspendedPageOwners';
+-import { registerOverlayPageHost, syncOverlayInert } from './web/overlayLayers';
++// OneKey patch: native keeps owner-level suspension; Web supports mixed entry policies.
++// import { useSuspendedPageOwners } from './useSuspendedPageOwners';
++import { overlayStore } from './OverlayStore';
++import {
++  ENTRY_ATTRIBUTE,
++  registerOverlayPageHost,
++  syncOverlayInert,
++} from './web/overlayLayers';
+ 
+ const OWNER_ATTRIBUTE = 'data-overlay-owner';
+ 
+@@ -12,7 +18,13 @@ const OWNER_ATTRIBUTE = 'data-overlay-owner';
+  */
+ export function OverlayPageHost({ hostKey }: { hostKey: string }) {
+   const ref = useRef<HTMLDivElement>(null);
+-  const suspendedOwners = useSuspendedPageOwners(hostKey);
++  // OneKey patch: an opted-in entry must not inherit a sibling's suspension.
++  // const suspendedOwners = useSuspendedPageOwners(hostKey);
++  const snapshot = useSyncExternalStore(
++    overlayStore.subscribe,
++    overlayStore.getSnapshot,
++    overlayStore.getSnapshot
++  );
+ 
+   useEffect(() => {
+     const element = ref.current;
+@@ -27,13 +39,25 @@ export function OverlayPageHost({ hostKey }: { hostKey: string }) {
+     if (!element) {
+       return;
+     }
+-    const suspended = new Set(suspendedOwners);
++    // OneKey patch: entries with the same owner may have different cover policies.
++    // const suspended = new Set(suspendedOwners);
++    const entries = new Map(
++      snapshot.entries
++        .filter((entry) => entry.hostKey === hostKey)
++        .map((entry) => [entry.id, entry])
++    );
+     const applySuspension = () => {
+       element
+-        .querySelectorAll<HTMLElement>(`[${OWNER_ATTRIBUTE}]`)
++        // OneKey patch: use stable entry ids for visibility and parked-node cleanup.
++        // .querySelectorAll<HTMLElement>(`[${OWNER_ATTRIBUTE}]`)
++        .querySelectorAll<HTMLElement>(`[${ENTRY_ATTRIBUTE}]`)
+         .forEach((node) => {
++          const entry = entries.get(node.getAttribute(ENTRY_ATTRIBUTE) ?? '');
+           const hidden =
+-            suspended.has(node.getAttribute(OWNER_ATTRIBUTE) ?? '') ||
++            // OneKey patch: never reveal an entry after its store record has disappeared.
++            // suspended.has(node.getAttribute(OWNER_ATTRIBUTE) ?? '') ||
++            !entry ||
++            entry.suspended ||
+             node.getAttribute('aria-hidden') === 'true';
+           node.style.visibility = hidden ? 'hidden' : '';
+         });
+@@ -47,10 +71,14 @@ export function OverlayPageHost({ hostKey }: { hostKey: string }) {
+       childList: true,
+       subtree: true,
+       attributes: true,
+-      attributeFilter: [OWNER_ATTRIBUTE, 'aria-hidden'],
++      // OneKey patch: portal content can change presentation cycles without remounting.
++      // attributeFilter: [OWNER_ATTRIBUTE, 'aria-hidden'],
++      attributeFilter: [ENTRY_ATTRIBUTE, 'aria-hidden'],
+     });
+     return () => observer.disconnect();
+-  }, [hostKey, suspendedOwners]);
++    // OneKey patch: follow per-entry state even if its owner stays the same.
++    // }, [hostKey, suspendedOwners]);
++  }, [hostKey, snapshot]);
+ 
+   return (
+     <div
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
-index 59c8f8c..fd94fe5 100644
+index 59c8f8c..099b569 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
-@@ -62,6 +62,8 @@ export class OverlayStore {
+@@ -4,6 +4,7 @@ import { OVERLAY_LEVEL_ORDER, isBlockingLevel } from './OverlayLevels';
+ import type {
+   IOverlayDismissReason,
+   IOverlayEntry,
++  IOverlayPageState,
+   IOverlayRequest,
+   IOverlaySnapshot,
+ } from './types';
+@@ -62,7 +63,13 @@ export class OverlayStore {
      ReturnType<typeof setTimeout>
    >();
  
+-  private readonly pageVisibility = new Map<string, boolean>();
 +  private focusedPageHost: string | null | undefined;
 +
-   private readonly pageVisibility = new Map<string, boolean>();
++  // OneKey patch: distinguish modal coverage from an inactive or hidden page.
++  // private readonly pageVisibility = new Map<string, boolean>();
++  private readonly pageStates = new Map<string, IOverlayPageState>();
++
++  private readonly retainedPageEntries = new Set<string>();
  
    private readonly listeners = new Set<() => void>();
-@@ -198,6 +200,19 @@ export class OverlayStore {
+ 
+@@ -117,6 +124,8 @@ export class OverlayStore {
+       replaceKey: request.replaceKey,
+       hostKey: scope === 'page' ? request.hostKey : undefined,
+       ownerKey: scope === 'page' ? request.ownerKey : undefined,
++      keepVisibleBehindNavigationModal:
++        scope === 'page' && request.keepVisibleBehindNavigationModal === true,
+       dismissible: request.dismissible ?? blocking,
+       statusBarStyle: request.statusBarStyle,
+       blocking,
+@@ -125,7 +134,11 @@ export class OverlayStore {
+       dismissReason: undefined,
+       seq: this.seq,
+     };
+-    entry.suspended = this.isOwnerHidden(entry);
++    // OneKey patch: the root layout updates focus before page-owner passive effects.
++    // entry.suspended = this.isOwnerHidden(entry);
++    entry.suspended =
++      this.isOwnerHidden(entry) ||
++      (entry.scope === 'page' && !this.isPageHostFocused(entry.hostKey));
+     this.handlers.set(entry.id, handlers);
+ 
+     if (entry.strategy === 'replace') {
+@@ -155,6 +168,11 @@ export class OverlayStore {
+     this.clearClosingTimer(id);
+     entry.phase = 'active';
+     entry.dismissReason = undefined;
++    // OneKey patch: reopening in the background is not retention of an existing presentation.
++    this.retainedPageEntries.delete(id);
++    entry.suspended =
++      this.isOwnerHidden(entry) ||
++      (entry.scope === 'page' && !this.isPageHostFocused(entry.hostKey));
+     this.emit();
+   }
+ 
+@@ -166,6 +184,7 @@ export class OverlayStore {
+     }
+     this.clearClosingTimer(id);
+     this.shown.delete(id);
++    this.retainedPageEntries.delete(id);
+     this.promoteQueued();
+     this.emit();
+     this.notifyRemoved(id, entry.dismissReason ?? 'programmatic');
+@@ -198,23 +217,74 @@ export class OverlayStore {
      dropped.forEach((e) => this.notifyRemoved(e.id, reason));
    }
  
@@ -290,6 +719,17 @@ index 59c8f8c..fd94fe5 100644
 +  setFocusedPageHost(hostKey: string | null | undefined): void {
 +    if (this.focusedPageHost === hostKey) return;
 +    this.focusedPageHost = hostKey;
++    // OneKey patch: a rapid push/pop may restore focus before owner state changes.
++    for (const entry of this.shown.values()) {
++      if (
++        entry.scope === 'page' &&
++        this.isPageHostFocused(entry.hostKey) &&
++        (this.pageStates.get(entry.ownerKey ?? '') ?? 'active') === 'active'
++      ) {
++        entry.suspended = false;
++      }
++    }
++    this.promoteQueued();
 +    this.emit();
 +  }
 +
@@ -301,8 +741,72 @@ index 59c8f8c..fd94fe5 100644
 +
    /** Native / navigation signal: the owning page was covered, detached or restored. */
    setPageVisible(ownerKey: string, visible: boolean): void {
-     if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
-@@ -247,9 +262,11 @@ export class OverlayStore {
+-    if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
++    // OneKey patch: preserve the legacy two-state API used by native clients.
++    this.setPageState(ownerKey, visible ? 'active' : 'hidden');
++  }
++
++  /** Web navigation facts only; visual retention is explicitly selected per entry. */
++  setPageState(ownerKey: string, state: IOverlayPageState): void {
++    const previous = this.pageStates.get(ownerKey) ?? 'active';
++    if (previous === state) {
+       return;
+     }
+-    this.pageVisibility.set(ownerKey, visible);
++    // OneKey patch: only entries already visible before losing the page can be retained.
++    // this.pageVisibility.set(ownerKey, visible);
++    this.pageStates.set(ownerKey, state);
+     for (const entry of this.shown.values()) {
+       if (entry.ownerKey === ownerKey) {
+-        entry.suspended = !visible;
++        if (previous === 'active') {
++          if (
++            entry.keepVisibleBehindNavigationModal &&
++            !entry.suspended &&
++            entry.phase === 'active'
++          ) {
++            this.retainedPageEntries.add(entry.id);
++          } else {
++            this.retainedPageEntries.delete(entry.id);
++          }
++        }
++        if (state === 'active') this.retainedPageEntries.delete(entry.id);
++        // OneKey patch: modal coverage must not opt in an entire page owner.
++        // entry.suspended = !visible;
++        entry.suspended = this.isOwnerHidden(entry);
+       }
+     }
+     for (const entry of this.queued) {
+       if (entry.ownerKey === ownerKey) {
+-        entry.suspended = !visible;
++        // OneKey patch: queued entries have never been visible and cannot be retained.
++        // entry.suspended = !visible;
++        entry.suspended = this.isOwnerHidden(entry);
+       }
+     }
+-    if (visible) {
++    // OneKey patch: only returning to the active page can promote background requests.
++    // if (visible) {
++    if (state === 'active') {
+       this.promoteQueued();
+     }
+     this.emit();
+@@ -226,10 +296,13 @@ export class OverlayStore {
+     this.queued = this.queued.filter((e) => e.ownerKey !== ownerKey);
+     for (const entry of this.shown.values()) {
+       if (entry.ownerKey === ownerKey) {
++        this.retainedPageEntries.delete(entry.id);
+         this.dismissWithoutEmit(entry.id, 'page-removed');
+       }
+     }
+-    this.pageVisibility.delete(ownerKey);
++    // OneKey patch: discard navigation facts when the page is removed.
++    // this.pageVisibility.delete(ownerKey);
++    this.pageStates.delete(ownerKey);
+     this.emit();
+     dropped.forEach((e) => this.notifyRemoved(e.id, 'page-removed'));
+   }
+@@ -247,9 +320,11 @@ export class OverlayStore {
          e.phase === 'active' &&
          !e.suspended &&
          (e.blocking || e.dismissible) &&
@@ -316,7 +820,7 @@ index 59c8f8c..fd94fe5 100644
      );
      const top = candidates[candidates.length - 1];
      if (!top) {
-@@ -274,7 +291,10 @@ export class OverlayStore {
+@@ -274,7 +349,10 @@ export class OverlayStore {
          entry &&
          entry.phase !== 'closing' &&
          !entry.suspended &&
@@ -328,8 +832,47 @@ index 59c8f8c..fd94fe5 100644
        ) {
          return entry;
        }
+@@ -326,15 +404,25 @@ export class OverlayStore {
+   }
+ 
+   private isOwnerHidden(entry: IOverlayEntry): boolean {
++    // OneKey patch: inactive pages always hide; modal-covered pages retain only explicit entries.
++    // return entry.scope === 'page' && entry.ownerKey !== undefined && this.pageVisibility.get(entry.ownerKey) === false;
++    if (entry.scope !== 'page' || entry.ownerKey === undefined) return false;
++    const state = this.pageStates.get(entry.ownerKey) ?? 'active';
+     return (
+-      entry.scope === 'page' &&
+-      entry.ownerKey !== undefined &&
+-      this.pageVisibility.get(entry.ownerKey) === false
++      state === 'hidden' ||
++      (state === 'covered-by-navigation-modal' &&
++        (!entry.keepVisibleBehindNavigationModal ||
++          !this.retainedPageEntries.has(entry.id)))
+     );
+   }
+ 
+   private canPromote(entry: IOverlayEntry): boolean {
+-    if (this.isOwnerHidden(entry)) {
++    // OneKey patch: stale owner facts cannot promote a queued entry in a background host.
++    // if (this.isOwnerHidden(entry)) {
++    if (
++      this.isOwnerHidden(entry) ||
++      (entry.scope === 'page' && !this.isPageHostFocused(entry.hostKey))
++    ) {
+       return false;
+     }
+     const laneKey = laneKeyOf(entry);
+@@ -353,6 +441,8 @@ export class OverlayStore {
+       const laneKey = laneKeyOf(entry);
+       if (!promotedLanes.has(laneKey) && this.canPromote(entry)) {
+         entry.phase = 'active';
++        // OneKey patch: a deferred request can promote after focus returns before owner facts change.
++        entry.suspended = this.isOwnerHidden(entry);
+         this.shown.set(entry.id, entry);
+         promotedLanes.add(laneKey);
+       } else {
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
-index 9695f1e..8df1f72 100644
+index 9695f1e..ed9d134 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
 @@ -52,8 +52,30 @@ const ISOLATED_EVENT_HANDLERS = {
@@ -454,7 +997,7 @@ index 9695f1e..8df1f72 100644
        callbacksRef.current.onDismissed();
        return;
      }
-@@ -157,10 +238,11 @@ function WebOverlayEntry({
+@@ -157,16 +238,18 @@ function WebOverlayEntry({
        if (backdropRef.current) {
          backdropRef.current.style.opacity = '1';
        }
@@ -470,7 +1013,15 @@ index 9695f1e..8df1f72 100644
      }
      // A sheet is measured as a whole; other presentations by the children
      // of the full-window React root.
-@@ -194,15 +276,17 @@ function WebOverlayEntry({
+     const contentRoot = isSheet
+       ? content
+-      : (sheetRef.current?.firstElementChild as HTMLElement | null) ?? content;
++      : ((sheetRef.current?.firstElementChild as HTMLElement | null) ??
++        content);
+     const transition = direction === 'in' ? animation.enter : animation.exit;
+     const running = [
+       animateTransition(
+@@ -194,15 +277,17 @@ function WebOverlayEntry({
          if (direction === 'in') {
            callbacksRef.current.onPresented();
          } else {
@@ -491,7 +1042,7 @@ index 9695f1e..8df1f72 100644
  
    useEffect(
      () => registerOverlayDismissRequester(entryId, onRequestDismiss),
-@@ -262,31 +346,12 @@ function WebOverlayEntry({
+@@ -262,31 +347,12 @@ function WebOverlayEntry({
      )
        .filter((node) => {
          if (
@@ -528,7 +1079,20 @@ index 9695f1e..8df1f72 100644
        })
        .sort((a, b) => {
          const aOrder = a.tabIndex > 0 ? a.tabIndex : Infinity;
-@@ -330,6 +395,15 @@ function WebOverlayEntry({
+@@ -311,7 +377,11 @@ function WebOverlayEntry({
+   return (
+     <div
+       ref={entryRef}
+-      {...{ [ENTRY_ATTRIBUTE]: '' }}
++      {...{
++        // OneKey patch: identify entries independently of their shared page owner.
++        // [ENTRY_ATTRIBUTE]: '',
++        [ENTRY_ATTRIBUTE]: entryId,
++      }}
+       {...(ownerKey ? { [OVERLAY_OWNER_ATTRIBUTE]: ownerKey } : {})}
+       data-stack-order={stackOrder}
+       data-overlay-level-order={levelOrder}
+@@ -330,6 +400,15 @@ function WebOverlayEntry({
          visibility: parked ? 'hidden' : undefined,
        }}
        {...ISOLATED_EVENT_HANDLERS}
@@ -544,7 +1108,7 @@ index 9695f1e..8df1f72 100644
        onKeyDownCapture={onKeyDownCapture}
      >
        {showBackdrop ? (
-@@ -473,6 +547,8 @@ export function OverlayView(props: IOverlayViewProps) {
+@@ -473,6 +552,8 @@ export function OverlayView(props: IOverlayViewProps) {
        key="entry"
        parked={parked}
        entryId={entry?.id ?? parkedId}
@@ -553,6 +1117,91 @@ index 9695f1e..8df1f72 100644
        stackOrder={entry?.seq ?? 0}
        levelOrder={OVERLAY_LEVEL_ORDER[level]}
        presented={!parked && presented}
+@@ -485,12 +566,12 @@ export function OverlayView(props: IOverlayViewProps) {
+       onPresented={onHostPresented}
+       onDismissed={onHostDismissed}
+       onRequestDismiss={onHostRequestDismiss}
+-      sheet={presentation === 'sheet' ? sheet ?? {} : undefined}
++      sheet={presentation === 'sheet' ? (sheet ?? {}) : undefined}
+       // Inside a page host all levels share one stacking context.
+       zIndex={
+         scope === 'page'
+           ? OVERLAY_LEVEL_ORDER[level] * 1000 + (entry?.seq ?? 0)
+-          : entry?.seq ?? 0
++          : (entry?.seq ?? 0)
+       }
+       ownerKey={scope === 'page' ? ownerKey : undefined}
+       testID={testID}
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts
+index 8efa4c2..37b4ed9 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts
+@@ -48,6 +48,8 @@ export interface IOverlayViewProps {
+   scope?: IOverlayScope;
+   hostKey?: string;
+   ownerKey?: string;
++  /** Web page scope only; preserve existing content while a navigation modal covers its page. Defaults to false. */
++  keepVisibleBehindNavigationModal?: boolean;
+   level?: IOverlayLevel;
+   strategy?: IOverlayStrategy;
+   priority?: number;
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/types.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/types.ts
+index 3f25bbc..a639427 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/types.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/types.ts
+@@ -1,5 +1,11 @@
+ export type IOverlayScope = 'global' | 'page';
+ 
++/** Navigation facts; individual entries choose their modal-cover presentation policy. */
++export type IOverlayPageState =
++  | 'active'
++  | 'covered-by-navigation-modal'
++  | 'hidden';
++
+ export type IOverlayLevel =
+   | 'modal'
+   | 'hardware'
+@@ -41,6 +47,8 @@ export interface IOverlayRequest {
+   hostKey?: string;
+   /** Required for `page` scope: the nearest page that owns the entry. */
+   ownerKey?: string;
++  /** Web page scope only: retain an already visible entry behind a navigation modal. Defaults to false. */
++  keepVisibleBehindNavigationModal?: boolean;
+   /** Receives back / Escape. Defaults to true for blocking levels. */
+   dismissible?: boolean;
+   /** Blocks interaction with everything below. Defaults by level. */
+@@ -61,6 +69,7 @@ export interface IOverlayEntry {
+   replaceKey: string | undefined;
+   hostKey: string | undefined;
+   ownerKey: string | undefined;
++  keepVisibleBehindNavigationModal?: boolean;
+   dismissible: boolean;
+   blocking: boolean;
+   statusBarStyle: IOverlayStatusBarStyle | undefined;
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/useOverlayController.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/useOverlayController.ts
+index 944e829..09d9147 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/useOverlayController.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/useOverlayController.ts
+@@ -87,8 +87,8 @@ export function useOverlayController(
+   const entry = useMemo(
+     () =>
+       entryId
+-        ? snapshot.entries.find((e) => e.id === entryId) ??
+-          snapshot.queued.find((e) => e.id === entryId)
++        ? (snapshot.entries.find((e) => e.id === entryId) ??
++          snapshot.queued.find((e) => e.id === entryId))
+         : undefined,
+     [entryId, snapshot]
+   );
+@@ -120,6 +120,8 @@ export function useOverlayController(
+         scope,
+         hostKey,
+         ownerKey,
++        keepVisibleBehindNavigationModal:
++          props.keepVisibleBehindNavigationModal,
+         level,
+         strategy,
+         priority,
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
 index e70efd9..05bebd7 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts

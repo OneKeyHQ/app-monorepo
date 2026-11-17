@@ -158,6 +158,11 @@ interface IBasicDialogProps {
    * Set by `useInPageDialog`.
    */
   overlayPage?: { hostKey: string; ownerKey: string };
+  /**
+   * Web page dialogs only: keep an already visible dialog behind a navigation
+   * modal, without interaction. Defaults to false; inactive pages still hide.
+   */
+  keepVisibleBehindNavigationModal?: boolean;
   /** Internal: the exit animation finished (`Dialog.show` cleanup). */
   onExited?: () => void;
 }
