@@ -440,7 +440,8 @@ export function useTokenListCellsProducer(
           if (!store || !identity) {
             return false;
           }
-          if (ensureStoreProjection(store).curOwnerKey !== push.ownerKey) {
+          const projection = ensureStoreProjection(store);
+          if (projection.curOwnerKey !== push.ownerKey) {
             return false;
           }
           const cached = getOwnerReplayFrames({
@@ -448,11 +449,17 @@ export function useTokenListCellsProducer(
             ownerKey: push.ownerKey,
           })?.structure;
           const effectiveBaseVersion =
-            lastVersion >= 0 ? lastVersion : (cached?.structureVersion ?? -1);
+            lastVersion >= 0
+              ? lastVersion
+              : (projection.appliedStructureVersion ?? -1);
           return Boolean(
+            effectiveBaseVersion >= 0 &&
             effectiveBaseVersion === push.baseVersion &&
             cached &&
-            (!push.slotId || !cached.slotId || cached.slotId === push.slotId),
+            cached.structureVersion === push.baseVersion &&
+            (!push.slotId ||
+              (projection.appliedSlotId === push.slotId &&
+                cached.slotId === push.slotId)),
           );
         },
         apply: (p) => {
@@ -470,6 +477,8 @@ export function useTokenListCellsProducer(
             deps,
           );
           projection.lastRoundProvisional = !!structure.provisional;
+          projection.appliedSlotId = push.slotId ?? projection.appliedSlotId;
+          projection.appliedStructureVersion = push.structureVersion;
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,
@@ -501,19 +510,33 @@ export function useTokenListCellsProducer(
           if (!store || !identity) {
             return false;
           }
-          if (ensureStoreProjection(store).curOwnerKey !== push.ownerKey) {
+          const projection = ensureStoreProjection(store);
+          if (
+            projection.curOwnerKey !== push.ownerKey ||
+            projection.appliedCurrencyId !== currencyIdRef.current
+          ) {
             return false;
           }
-          const cached = getOwnerReplayFrames({
+          const cachedFrames = getOwnerReplayFrames({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,
-          })?.valuation;
+          });
+          const cached =
+            cachedFrames?.currencyId === currencyIdRef.current
+              ? cachedFrames.valuation
+              : undefined;
           const effectiveBaseVersion =
-            lastVersion >= 0 ? lastVersion : (cached?.valuationVersion ?? -1);
+            lastVersion >= 0
+              ? lastVersion
+              : (projection.appliedValuationVersion ?? -1);
           return Boolean(
+            effectiveBaseVersion >= 0 &&
             effectiveBaseVersion === push.baseVersion &&
             cached &&
-            (!push.slotId || !cached.slotId || cached.slotId === push.slotId),
+            cached.valuationVersion === push.baseVersion &&
+            (!push.slotId ||
+              (projection.appliedSlotId === push.slotId &&
+                cached.slotId === push.slotId)),
           );
         },
         apply: (p) => {
@@ -531,6 +554,9 @@ export function useTokenListCellsProducer(
             (fn) => fn(),
           );
           projection.lastRoundProvisional = !!valuation.provisional;
+          projection.appliedSlotId = push.slotId ?? projection.appliedSlotId;
+          projection.appliedValuationVersion = push.valuationVersion;
+          projection.appliedCurrencyId = currencyIdRef.current;
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,

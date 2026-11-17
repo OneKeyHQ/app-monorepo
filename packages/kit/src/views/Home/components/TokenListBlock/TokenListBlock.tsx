@@ -960,6 +960,8 @@ function TokenListBlock({
           !accountUtils.isQrWallet({ walletId: wallet.id }),
         );
 
+        const dispatchedNonZeroInputs =
+          cellsIngestInputsRef.current.nonZeroInputs;
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           accountId,
           networkId: network.id,
@@ -972,13 +974,11 @@ function TokenListBlock({
             ? {
                 ownerKey: cellsIngestInputsRef.current.ownerKey,
                 storeName: EJotaiContextStoreNames.homeTokenList,
-                keepDefault:
-                  cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+                settledAccountId: account?.id,
+                keepDefault: dispatchedNonZeroInputs.keepDefault,
                 homeDefaultTokenMap:
-                  cellsIngestInputsRef.current.nonZeroInputs
-                    .homeDefaultTokenMap,
-                customTokens:
-                  cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+                  dispatchedNonZeroInputs.homeDefaultTokenMap,
+                customTokens: dispatchedNonZeroInputs.customTokens,
                 omitResponseTokenLists: !needsHardwarePortfolioSyncTokens,
               }
             : undefined,
@@ -1109,6 +1109,28 @@ function TokenListBlock({
               source: 'single',
             })
             .catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
+            });
+        } else if (
+          ENABLE_BG_TOKEN_VIEW_MODEL &&
+          r.homeIngested &&
+          (cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap !==
+            dispatchedNonZeroInputs.homeDefaultTokenMap ||
+            cellsIngestInputsRef.current.nonZeroInputs.customTokens !==
+              dispatchedNonZeroInputs.customTokens)
+        ) {
+          void backgroundApiProxy.serviceTokenViewModel
+            .refreshOwnerNonZeroInputs?.({
+              homeRequest,
+              ownerKey: cellsIngestInputsRef.current.ownerKey,
+              keepDefault:
+                cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+              homeDefaultTokenMap:
+                cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+              customTokens:
+                cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+            })
+            ?.catch((error) => {
               if (!isRequestCanceledError(error)) console.error(error);
             });
         }
@@ -1378,6 +1400,39 @@ function TokenListBlock({
     [homeDefaultTokenMap, cellsCustomTokens],
   );
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
+  useEffect(() => {
+    if (
+      !ENABLE_BG_TOKEN_VIEW_MODEL ||
+      !cellsOwnerKey ||
+      network?.isAllNetworks ||
+      !tokenListState.initialized
+    ) {
+      return;
+    }
+    if (
+      !cellsNonZeroInputs.homeDefaultTokenMap &&
+      (!cellsNonZeroInputs.customTokens ||
+        cellsNonZeroInputs.customTokens.length === 0)
+    ) {
+      return;
+    }
+    void backgroundApiProxy.serviceTokenViewModel
+      .refreshOwnerNonZeroInputs?.({
+        homeRequest: homeRequestRef.current,
+        ownerKey: cellsOwnerKey,
+        keepDefault: cellsNonZeroInputs.keepDefault,
+        homeDefaultTokenMap: cellsNonZeroInputs.homeDefaultTokenMap,
+        customTokens: cellsNonZeroInputs.customTokens,
+      })
+      ?.catch((error) => {
+        if (!isRequestCanceledError(error)) console.error(error);
+      });
+  }, [
+    cellsNonZeroInputs,
+    cellsOwnerKey,
+    network?.isAllNetworks,
+    tokenListState.initialized,
+  ]);
 
   // Per-owner token worth (OK-63873). `accountWorthAtom` is replaced on every
   // switch, so until the new owner's local cache is read the subtitle resolved

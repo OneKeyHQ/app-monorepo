@@ -142,6 +142,8 @@ interface IRawTokenListData {
   riskyMap: Record<ITokenKey, ITokenFiat>;
   /** nested aggregate map `aggKey -> networkId -> ITokenFiat` (for flatten). */
   aggregateTokensMap: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  /** Last ingest params for this owner so late-arriving nonZero inputs can re-ingest in BG. */
+  lastIngestParams?: IIngestRoundParams;
 }
 
 /**
@@ -739,6 +741,7 @@ class ServiceTokenViewModel extends ServiceBase {
       tokenListMap,
       riskyMap,
       aggregateTokensMap,
+      lastIngestParams: params,
     } satisfies IRawTokenListData);
 
     // --- risky frame (design §R0 #2) ---------------------------------------
@@ -757,6 +760,43 @@ class ServiceTokenViewModel extends ServiceBase {
         storeData,
       }));
     }
+  }
+
+  /**
+   * Re-runs `ingestRound` for an already-settled owner when asynchronous
+   * hideZero inputs (`homeDefaultTokenMap` or `customTokens`) resolve or change
+   * after the initial single-network ingest.
+   */
+  @backgroundMethod()
+  async refreshOwnerNonZeroInputs({
+    homeRequest,
+    ownerKey,
+    keepDefault,
+    homeDefaultTokenMap,
+    customTokens,
+  }: {
+    homeRequest?: IHomeTokenRequest;
+    ownerKey: string;
+    keepDefault?: boolean;
+    homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+    customTokens?: ICustomTokenItem[];
+  }): Promise<void> {
+    homeTokenRequestRegistry.assertCurrent(homeRequest, ownerKey);
+    const raw = this.frames.getPullBlob<IRawTokenListData>(
+      ownerKey,
+      RAW_BLOB_KEY,
+    );
+    if (!raw?.lastIngestParams) {
+      return;
+    }
+    await this.ingestRound({
+      ...raw.lastIngestParams,
+      homeRequest: homeRequest ?? raw.lastIngestParams.homeRequest,
+      keepDefault: keepDefault ?? raw.lastIngestParams.keepDefault,
+      homeDefaultTokenMap:
+        homeDefaultTokenMap ?? raw.lastIngestParams.homeDefaultTokenMap,
+      customTokens: customTokens ?? raw.lastIngestParams.customTokens,
+    });
   }
 
   /**

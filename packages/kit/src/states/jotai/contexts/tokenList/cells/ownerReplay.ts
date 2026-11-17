@@ -123,6 +123,8 @@ export function replayOwnerFrames({
   // Re-stamp storeData to THIS store so apply's identity guard passes (the
   // remembered payload may have been stamped for a sibling mount).
   applyStructureSnapshot(store, projection, { ...structure, storeData }, deps);
+  projection.appliedSlotId = frames.structure?.slotId;
+  projection.appliedStructureVersion = frames.structure?.structureVersion;
 
   const valuation = frames.valuation?.valuation;
   if (valuation && valuation.ownerKey === ownerKey) {
@@ -133,6 +135,10 @@ export function replayOwnerFrames({
       deps,
       (fn) => fn(),
     );
+    projection.appliedSlotId =
+      frames.valuation?.slotId ?? projection.appliedSlotId;
+    projection.appliedValuationVersion = frames.valuation?.valuationVersion;
+    projection.appliedCurrencyId = frames.currencyId;
   }
 
   let risky = false;

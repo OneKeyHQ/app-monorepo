@@ -496,6 +496,55 @@ describe('ownerFrameReplayCache — bounded per-owner LRU', () => {
     expect(cached?.valuation?.valuation.changedFiatById.a.fiatValue).toBe('15');
     expect(cached?.valuation?.valuation.changedFiatById.b.fiatValue).toBe('20');
     expect(cached?.valuation?.valuation.changedFiatById.c.fiatValue).toBe('30');
+
+    // Fold v1 -> v2 where `b` is removed from structure: `b` must be pruned from valuation too
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 1,
+        isDelta: true,
+        structureVersion: 2,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 2,
+          orderedIds: ['a', 'c'],
+          metaPatch: {},
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 1,
+        isDelta: true,
+        valuationVersion: 2,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '18' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const afterPrune = getOwnerReplayFrames({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    expect(
+      Object.keys(afterPrune?.valuation?.valuation.changedFiatById ?? {}),
+    ).toEqual(['a', 'c']);
+    expect(afterPrune?.valuation?.valuation.changedFiatById.b).toBeUndefined();
   });
 
   // PR #13695 review: the background pushes no structure frame when a

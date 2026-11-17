@@ -90,6 +90,48 @@ function buildReplayKey(storeName: string, ownerKey: string): string {
   return `${storeName}\u0000${ownerKey}`;
 }
 
+function pruneValuationToStructure(
+  valuation: IValuationFrame,
+  structure: IStructureSnapshot | undefined,
+): IValuationFrame {
+  if (!structure) {
+    return valuation;
+  }
+  const liveKeys = new Set<string>([
+    ...structure.orderedIds,
+    ...structure.smallBalanceIds,
+  ]);
+  const aggMembership = structure.aggMembership ?? {};
+  const prunedFiatById: Record<string, ITokenFiat> = {};
+  for (const [k, fiat] of Object.entries(valuation.changedFiatById)) {
+    if (liveKeys.has(k) && !(k in aggMembership)) {
+      prunedFiatById[k] = fiat;
+    }
+  }
+  const prunedAggFiat: Record<string, Record<string, ITokenFiat>> = {};
+  for (const [aggKey, members] of Object.entries(aggMembership)) {
+    const byNet = valuation.changedAggFiat[aggKey];
+    if (byNet && members.length > 0) {
+      const memberSet = new Set<string>(members);
+      let nextByNet: Record<string, ITokenFiat> | undefined;
+      for (const [netId, fiat] of Object.entries(byNet)) {
+        if (memberSet.has(netId)) {
+          nextByNet ??= {};
+          nextByNet[netId] = fiat;
+        }
+      }
+      if (nextByNet) {
+        prunedAggFiat[aggKey] = nextByNet;
+      }
+    }
+  }
+  return {
+    ...valuation,
+    changedFiatById: prunedFiatById,
+    changedAggFiat: prunedAggFiat,
+  };
+}
+
 /**
  * Record the payload the shell just applied for `(storeName, ownerKey, kind)`.
  * A currency change drops the owner's remembered valuation and risky frames
@@ -136,8 +178,8 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
           !prevStruct.slotId ||
           prevStruct.slotId === structPush.slotId);
       if (!canFold) {
-        if (existing) {
-          replayCache.set(key, existing);
+        if (base.structure || base.valuation || base.risky) {
+          replayCache.set(key, base);
         }
         return;
       }
@@ -174,8 +216,8 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
           !prevVal.slotId ||
           prevVal.slotId === valPush.slotId);
       if (!canFold) {
-        if (existing) {
-          replayCache.set(key, existing);
+        if (base.structure || base.valuation || base.risky) {
+          replayCache.set(key, base);
         }
         return;
       }
@@ -194,19 +236,32 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
           ...byNet,
         };
       }
-      storedPayload = {
-        ownerKey: valPush.ownerKey,
-        ...(valPush.slotId ? { slotId: valPush.slotId } : undefined),
-        valuationVersion: valPush.valuationVersion,
-        valuation: {
+      const prunedValuation = pruneValuationToStructure(
+        {
           ...valPush.valuation,
           changedFiatById: mergedFiatById,
           changedAggFiat: mergedAggFiat,
         },
+        base.structure?.structure,
+      );
+      storedPayload = {
+        ownerKey: valPush.ownerKey,
+        ...(valPush.slotId ? { slotId: valPush.slotId } : undefined),
+        valuationVersion: valPush.valuationVersion,
+        valuation: prunedValuation,
       } as IOwnerReplayPayloadByKind[K];
     }
   }
   const next: IOwnerReplayFrames = { ...base, [kind]: storedPayload };
+  if (kind === 'structure' && next.valuation && next.structure) {
+    next.valuation = {
+      ...next.valuation,
+      valuation: pruneValuationToStructure(
+        next.valuation.valuation,
+        next.structure.structure,
+      ),
+    };
+  }
   replayCache.set(key, next);
   while (replayCache.size > OWNER_REPLAY_CACHE_CAP) {
     const lru = replayCache.keys().next().value;
