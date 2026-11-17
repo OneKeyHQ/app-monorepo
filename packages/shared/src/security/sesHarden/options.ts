@@ -61,5 +61,15 @@ export function getSesLockdownOptions(
   return {
     ...SES_HARDEN_LOOSE_LOCKDOWN_OPTIONS,
     evalTaming,
+    ...(runtime === 'web'
+      ? {
+          regExpTaming: 'safe' as const,
+          // Preserve readable stacks without exposing the raw V8 debug hooks.
+          errorTaming:
+            process.env.NODE_ENV === 'production'
+              ? ('unsafe' as const)
+              : ('unsafe-debug' as const),
+        }
+      : {}),
   };
 }
