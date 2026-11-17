@@ -407,7 +407,8 @@ export function StockPriceLineChart({
       height={height}
       onLayout={(event) => {
         const width = event.nativeEvent.layout.width;
-        if (width !== chartWidth) {
+        // Hidden tabs can report zero width; retain the last sampling width.
+        if (width > 0 && width !== chartWidth) {
           setChartWidth(width);
         }
       }}
