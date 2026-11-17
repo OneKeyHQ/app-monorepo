@@ -309,6 +309,61 @@ it('reports distinct header layouts without reusing the previous account state',
   });
 });
 
+it('publishes verification changes independently of the sync status', () => {
+  const pendingPool = pool({
+    enabled: true,
+    syncStatus: 'synced',
+    poolBalance: {
+      key: 'private',
+      hints: [],
+      frozen: [{ reason: 'needsPassword', amountParsed: '0.025' }],
+    },
+  });
+  mockPool.mockReturnValue(pendingPool);
+  const page = render(view());
+  expect(mockHomePrivacyTokenStatus).toEqual({
+    accountId: 'hd-1--0',
+    networkId: 'xmr--0',
+    status: 'synced',
+    needsVerification: true,
+  });
+  const publishCount = mockSetHomePrivacyTokenStatus.mock.calls.length;
+  page.rerender(view());
+  expect(mockSetHomePrivacyTokenStatus).toHaveBeenCalledTimes(publishCount);
+
+  mockPool.mockReturnValue({
+    ...pendingPool,
+    poolBalance: {
+      key: 'private',
+      hints: [],
+      frozen: [{ reason: 'confirming', amountParsed: '0.025' }],
+    },
+  });
+  page.rerender(view());
+  expect(mockHomePrivacyTokenStatus).toEqual({
+    accountId: 'hd-1--0',
+    networkId: 'xmr--0',
+    status: 'synced',
+  });
+
+  mockPool.mockReturnValue(pendingPool);
+  page.rerender(view());
+  expect(mockHomePrivacyTokenStatus?.needsVerification).toBe(true);
+
+  mockPool.mockReturnValue({
+    ...pendingPool,
+    enabled: false,
+    syncStatus: 'off',
+  });
+  page.rerender(view());
+  expect(mockHomePrivacyTokenStatus?.needsVerification).toBeUndefined();
+
+  mockAccount.account = { id: 'hd-1--1' };
+  mockPool.mockReturnValue(pool({ isReady: false, state: undefined }));
+  page.rerender(view());
+  expect(mockHomePrivacyTokenStatus).toBeUndefined();
+});
+
 it('clears unavailable token status and preserves a newer owner on unmount', () => {
   mockPool.mockReturnValue(pool({ enabled: true, syncStatus: 'syncing' }));
   const page = render(view());

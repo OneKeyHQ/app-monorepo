@@ -53,6 +53,10 @@ jest.mock('@onekeyhq/components', () => {
       color?: string;
     }) => <span data-color={color}>{children}</span>,
     useMedia: () => ({ gtLg: mockGtLg }),
+    Tab: ({ name, children }: { name?: string; children?: ReactNode }) => (
+      <div data-testid={`information-tab-${name ?? ''}`}>{children}</div>
+    ),
+    TabBar: () => <div data-testid="information-tab-bar" />,
     Tabs: {
       Container: (props: CollapsibleProps) => {
         mockContainerProps(props);
@@ -68,9 +72,7 @@ jest.mock('@onekeyhq/components', () => {
           </div>
         );
       },
-      Tab: ({ name, children }: { name?: string; children?: ReactNode }) => (
-        <div data-testid={`information-tab-${name ?? ''}`}>{children}</div>
-      ),
+
       ScrollView: Box,
       FlatList: ({
         data,
@@ -93,7 +95,6 @@ jest.mock('@onekeyhq/components', () => {
             : ListEmptyComponent}
         </div>
       ),
-      TabBar: () => <div data-testid="information-tab-bar" />,
     },
   };
 });

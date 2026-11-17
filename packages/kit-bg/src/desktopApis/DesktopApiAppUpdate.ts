@@ -1577,6 +1577,13 @@ class DesktopApiAppUpdate {
   ): Promise<boolean> {
     if (isStoreVersion) return false;
     if (
+      isWin &&
+      params.installSource === 'startup' &&
+      getWindowsInstallScope() !== 'currentUser'
+    ) {
+      return false;
+    }
+    if (
       params.userInitiated !== true &&
       params.installSource !== 'quit' &&
       params.installSource !== 'startup'
@@ -1716,6 +1723,12 @@ class DesktopApiAppUpdate {
       return true;
     }
     if (isAppImage) {
+      if (
+        params.installSource === 'startup' &&
+        !this.canAutoInstallAppImage()
+      ) {
+        return false;
+      }
       this.quitInstallParams = undefined;
       return this.installAppImage(record, params.buildNumber);
     }

@@ -182,6 +182,11 @@ const useSizeStyles = (size: IButtonProps['size']) =>
   }, [size]);
 
 export const ButtonFrame = styled(ThemeableStack, {
+  // `type="button"` is load-bearing: inside a <form>, a <button> without a type
+  // is a submit button. The first one becomes the form's default button, so a
+  // key press in a text field would activate that button (pasting into the
+  // address field, opening a picker) and submit instead of doing nothing. Only
+  // `Form`'s hidden submit button may opt into `type="submit"`.
   // The accessible label is supplied by ButtonFrame children at render time.
   // eslint-disable-next-line jsx-a11y/control-has-associated-label
   render: <button type="button" />,

@@ -45,7 +45,7 @@ function DesktopBrowser() {
 
   const renderHeaderRight = useCallback(() => {
     return (
-      <XStack alignItems="center">
+      <XStack alignItems="center" flexShrink={0}>
         <HeaderUpdateButton />
         {isHomeType ? <HistoryIconButton /> : <HeaderRightToolBar />}
       </XStack>
@@ -63,10 +63,12 @@ function DesktopBrowser() {
         headerRightContainerStyle={{
           flexBasis: 'auto',
           flexGrow: 0,
+          flexShrink: 0,
         }}
         headerTitleContainerStyle={{
           maxWidth: '100%',
           flex: 1,
+          minWidth: 0,
         }}
       />
       <Page.Body>

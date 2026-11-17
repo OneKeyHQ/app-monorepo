@@ -101,6 +101,12 @@ function usePublishHomePrivacyTokenStatus({
     !pool.state?.privacyDisabled
       ? pool.syncStatus
       : undefined;
+  const needsVerification =
+    (pool.enabled &&
+      pool.poolBalance?.frozen?.some(
+        ({ reason }) => reason === 'needsPassword',
+      )) ||
+    undefined;
   useLayoutEffect(() => {
     setHomePrivacyTokenStatus((previous) => {
       if (tokenSyncStatus === undefined) {
@@ -112,13 +118,25 @@ function usePublishHomePrivacyTokenStatus({
       if (
         previous?.accountId === accountId &&
         previous.networkId === networkId &&
-        previous.status === tokenSyncStatus
+        previous.status === tokenSyncStatus &&
+        previous.needsVerification === needsVerification
       ) {
         return previous;
       }
-      return { accountId, networkId, status: tokenSyncStatus };
+      return {
+        accountId,
+        networkId,
+        status: tokenSyncStatus,
+        ...(needsVerification ? { needsVerification } : {}),
+      };
     });
-  }, [accountId, networkId, setHomePrivacyTokenStatus, tokenSyncStatus]);
+  }, [
+    accountId,
+    needsVerification,
+    networkId,
+    setHomePrivacyTokenStatus,
+    tokenSyncStatus,
+  ]);
   useLayoutEffect(
     () => () => {
       // An old account must not clear the next account's published status.

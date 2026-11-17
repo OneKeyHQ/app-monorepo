@@ -261,6 +261,19 @@ describe('privacy chain lifecycle executor', () => {
       const notifies =
         LOCAL_WALLET_LIFECYCLE[event].notify && event !== 'networkPause';
       expect({ event, refreshed }).toEqual({ event, refreshed: notifies });
+      const accountNotices = emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+      );
+      if (event === 'networkPause') {
+        expect(accountNotices).toHaveLength(1);
+      }
+      for (const [, payload] of accountNotices) {
+        if (event === 'networkPause') {
+          expect(payload).toHaveProperty('change', 'syncState');
+        } else {
+          expect(payload).not.toHaveProperty('change');
+        }
+      }
     }
     emit.mockRestore();
   });

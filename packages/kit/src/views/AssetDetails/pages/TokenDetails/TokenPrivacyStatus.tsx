@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -36,42 +36,88 @@ const PANEL_STATES: Record<ILocalWalletSyncStatus, ITokenPrivacyPanelState> = {
 // The token page's panel for the account's one sync status.
 export function useTokenPrivacyStatus({
   pool: lw,
+  ownerKey,
 }: {
   pool: ILocalWalletPool;
+  ownerKey: string;
 }): ITokenPrivacyPanelProps {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
-  const status: ILocalWalletSyncStatus | undefined = lw.isUnsupportedWallet
+  type IControlRequest = { ownerKey: string; pool: ILocalWalletPool };
+  const requestRef = useRef<IControlRequest>(undefined);
+  const [pendingControl, setPendingControl] = useState<IControlRequest>();
+  const canKeepDisplay =
+    lw.isReady &&
+    lw.enabled &&
+    !lw.isUnsupportedWallet &&
+    lw.syncStatus !== 'error' &&
+    lw.syncStatus !== 'storageUnsupported' &&
+    lw.syncStatus !== 'unavailable' &&
+    lw.syncStatus !== 'off';
+  const currentControl =
+    pendingControl?.ownerKey === ownerKey ? pendingControl : undefined;
+  // Account state and scan progress arrive separately while a control request runs.
+  // Keep the previous panel and its action slot until that request settles.
+  const display = currentControl && canKeepDisplay ? currentControl.pool : lw;
+  useEffect(() => {
+    if (pendingControl && (!currentControl || !canKeepDisplay)) {
+      setPendingControl(undefined);
+    }
+  }, [canKeepDisplay, currentControl, pendingControl]);
+  useEffect(
+    () => () => {
+      requestRef.current = undefined;
+    },
+    [],
+  );
+  const runControl = useCallback(
+    async (operation: () => Promise<void>) => {
+      if (requestRef.current?.ownerKey === ownerKey || lw.actionBusy) return;
+      const request = { ownerKey, pool: lw };
+      requestRef.current = request;
+      setPendingControl(request);
+      try {
+        await operation();
+      } finally {
+        if (requestRef.current === request) {
+          requestRef.current = undefined;
+          setPendingControl(undefined);
+        }
+      }
+    },
+    [lw, ownerKey],
+  );
+  const status: ILocalWalletSyncStatus | undefined = display.isUnsupportedWallet
     ? 'unavailable'
-    : lw.syncStatus;
+    : display.syncStatus;
   const handleSync = useCallback(() => {
-    void getLocalWalletSyncAction(lw)().catch((error: unknown) => {
+    void runControl(getLocalWalletSyncAction(lw)).catch((error: unknown) => {
       console.error('[privacyChain] refresh failed', {
         error: error instanceof Error ? error.message : '',
       });
     });
-  }, [lw]);
+  }, [lw, runControl]);
   const handleAllowMobileData = useCallback(() => {
     void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
       allow: true,
     });
   }, []);
   const handleStop = useCallback(() => {
-    void lw.pauseSync().catch((error: unknown) => {
+    void runControl(lw.pauseSync).catch((error: unknown) => {
       console.error('[privacyChain] pause failed', {
         error: error instanceof Error ? error.message : '',
       });
     });
-  }, [lw]);
+  }, [lw, runControl]);
   const state: ITokenPrivacyPanelState =
-    lw.isReady && status ? PANEL_STATES[status] : 'preparing';
+    display.isReady && status ? PANEL_STATES[status] : 'preparing';
 
   let description: string | undefined;
   if (status === 'unavailable') {
     let id = ETranslations.global_not_available;
-    if (lw.isTempWallet) {
+    if (display.isTempWallet) {
       id = ETranslations.privacy_temp_wallet_unavailable__desc;
-    } else if (lw.isUnsupportedWallet) {
+    } else if (display.isUnsupportedWallet) {
       id = ETranslations.privacy_balance_wallet_not_supported__desc;
     }
     description = intl.formatMessage({ id, defaultMessage: id });
@@ -79,24 +125,26 @@ export function useTokenPrivacyStatus({
   // The title already names the state; the detail adds figures or the reason.
   let detail: string | undefined;
   if (['syncing', 'waitingWifi', 'error'].includes(state)) {
-    detail = lw.syncStatusText ?? undefined;
+    detail = display.syncStatusText ?? undefined;
   }
   let updatedAtLabel: string | undefined;
   if (
     state === 'stopped' &&
-    typeof lw.lastSyncedAt === 'number' &&
-    lw.lastSyncedAt > 0
+    typeof display.lastSyncedAt === 'number' &&
+    display.lastSyncedAt > 0
   ) {
     updatedAtLabel = intl.formatMessage(
       { id: ETranslations.backup_updated_time },
-      { time: formatDate(new Date(lw.lastSyncedAt), { hideTheYear: true }) },
+      {
+        time: formatDate(new Date(display.lastSyncedAt), { hideTheYear: true }),
+      },
     );
   }
-  const progress = lw.syncProgress;
+  const progress = display.syncProgress;
   const canPause =
-    lw.isReady &&
-    lw.enabled &&
-    lw.state?.pendingOperation !== 'enable' &&
+    display.isReady &&
+    display.enabled &&
+    display.state?.pendingOperation !== 'enable' &&
     (status === 'syncing' || status === 'preparing');
 
   return {
@@ -105,12 +153,12 @@ export function useTokenPrivacyStatus({
     detail,
     updatedAtLabel,
     enableUnavailable: status === 'unavailable',
-    busy: canPause ? lw.actionBusy : lw.busy,
+    busy: Boolean(currentControl) || (canPause ? lw.actionBusy : lw.busy),
     onStop: canPause ? handleStop : undefined,
     // Nothing to retry until the WebView is updated.
     onSync:
-      lw.isReady &&
-      lw.enabled &&
+      display.isReady &&
+      display.enabled &&
       status !== 'unavailable' &&
       status !== 'storageUnsupported'
         ? handleSync

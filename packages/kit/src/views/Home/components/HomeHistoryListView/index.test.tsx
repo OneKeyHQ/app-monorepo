@@ -63,9 +63,6 @@ jest.mock(
   '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider',
   () => ({ withBrowserProvider: (component: unknown) => component }),
 );
-jest.mock('../../pages/hooks/useFrozenTopHistoryData', () => ({
-  FrozenTopHistoryScrollObserver: () => null,
-}));
 jest.mock('./NativeHistoryList', () => ({
   NativeHistoryList: () => <div data-testid="native-history" />,
 }));

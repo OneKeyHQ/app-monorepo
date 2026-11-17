@@ -62,7 +62,6 @@ import { shouldRenderMobileOpenOrdersNativeTree } from './mobileOpenOrdersVisibi
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
   isPanelActive?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
 }
 
@@ -202,7 +201,6 @@ function useOpenOrdersColumnsConfig({
 function PerpOpenOrdersList({
   isMobile,
   isPanelActive,
-  useTabsList,
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
@@ -838,14 +836,7 @@ function PerpOpenOrdersList({
         </YStack>
       ) : null}
       <CommonTableListView
-        onPullToRefresh={async () => {
-          await actions.current.refreshAllPerpsData();
-          if (isMobile) {
-            await actions.current.loadTwapData();
-          }
-        }}
         listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-        useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         enablePagination
         pageSize={pageSize}

@@ -315,6 +315,17 @@ class ServiceSetting extends ServiceBase {
     if (isEqual(currentSettings.currencyInfo, currencyInfo)) {
       return;
     }
+    if (currentSettings.currencyInfo.id !== currencyInfo.id) {
+      // Cached history rows carry fiat values in the currency being left;
+      // record it before the switch so they are converted, not relabelled.
+      try {
+        await this.backgroundApi.simpleDb.localHistory.stampUnknownFiatCurrency(
+          { fiatCurrency: currentSettings.currencyInfo.id },
+        );
+      } catch {
+        // best-effort
+      }
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
     // Refresh the rate map before the token-list refresh — otherwise the
     // resulting fetchAccountTokens may see the new currency missing from

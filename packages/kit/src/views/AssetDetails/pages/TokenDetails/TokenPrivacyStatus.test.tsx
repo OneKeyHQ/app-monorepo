@@ -96,12 +96,327 @@ function pool(
   };
 }
 
-function renderStatus(value: ILocalWalletPool) {
-  return renderHook(() => useTokenPrivacyStatus({ pool: value }));
+function renderStatus(
+  value: ILocalWalletPool,
+  ownerKey = 'xmr:account-1:private',
+) {
+  return renderHook(
+    (props: { value: ILocalWalletPool; ownerKey: string }) =>
+      useTokenPrivacyStatus({ pool: props.value, ownerKey: props.ownerKey }),
+    { initialProps: { value, ownerKey } },
+  );
+}
+
+function deferredControl() {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 beforeEach(() => {
   mockSetAllowCellularSync.mockClear();
+});
+
+describe('token privacy control transitions', () => {
+  const ownerKey = 'xmr:account-1:private';
+
+  it.each([ownerKey, 'zec:account-1:private'])(
+    '%s keeps the paused panel through transient resume progress until the request settles',
+    async (testOwnerKey) => {
+      const control = deferredControl();
+      const value = pool('accountPaused', {
+        state: { enabled: false, paused: true },
+        lastSyncedAt: 1_700_000_000_000,
+        enableAccount: jest.fn(() => control.promise),
+      });
+      const { result, rerender } = renderStatus(value, testOwnerKey);
+      const updatedAtLabel = result.current.updatedAtLabel;
+      act(() => result.current.onSync?.());
+
+      const frames = [
+        { syncStatus: 'preparing', actionBusy: true, busy: true },
+        {
+          syncStatus: 'syncing',
+          syncStatusText: '3,777,387 / 3,804,854',
+          syncProgress: syncingProgress,
+          actionBusy: true,
+          busy: true,
+        },
+        { syncStatus: 'preparing', actionBusy: false, busy: false },
+      ] satisfies Partial<ILocalWalletPool>[];
+      for (const frame of frames) {
+        rerender({
+          ownerKey: testOwnerKey,
+          value: {
+            ...value,
+            state: { enabled: true, paused: false },
+            ...frame,
+          },
+        });
+        expect(result.current).toMatchObject({
+          state: 'stopped',
+          detail: undefined,
+          progress: undefined,
+          updatedAtLabel,
+          busy: true,
+        });
+        expect(result.current.onSync).toBeDefined();
+        expect(result.current.onStop).toBeUndefined();
+      }
+
+      await act(async () => {
+        control.resolve();
+        await control.promise;
+      });
+      expect(result.current).toMatchObject({
+        state: 'preparing',
+        detail: undefined,
+        progress: undefined,
+        updatedAtLabel: undefined,
+        busy: false,
+      });
+      expect(result.current.onStop).toBeDefined();
+    },
+  );
+
+  it.each([ownerKey, 'zec:account-1:private'])(
+    '%s keeps the running figures and Pause action while the pause request settles',
+    async (testOwnerKey) => {
+      const control = deferredControl();
+      const value = pool('syncing', {
+        syncStatusText: '150 / 200',
+        syncProgress: syncingProgress,
+        busy: true,
+        pauseSync: jest.fn(() => control.promise),
+      });
+      const { result, rerender } = renderStatus(value, testOwnerKey);
+      expect(result.current.busy).toBe(false);
+      act(() => result.current.onStop?.());
+      expect(value.pauseSync).toHaveBeenCalledTimes(1);
+      rerender({
+        ownerKey: testOwnerKey,
+        value: {
+          ...value,
+          state: { enabled: false, paused: true },
+          syncStatus: 'accountPaused',
+          syncStatusText: null,
+          syncProgress: undefined,
+          lastSyncedAt: 1_700_000_000_000,
+          busy: false,
+        },
+      });
+      expect(result.current).toMatchObject({
+        state: 'syncing',
+        detail: '150 / 200',
+        progress: 50,
+        updatedAtLabel: undefined,
+        busy: true,
+      });
+      expect(result.current.onStop).toBeDefined();
+
+      await act(async () => {
+        control.resolve();
+        await control.promise;
+      });
+      expect(result.current).toMatchObject({
+        state: 'stopped',
+        detail: undefined,
+        progress: undefined,
+        busy: false,
+      });
+      expect(result.current.updatedAtLabel).toContain('date(1700000000000)');
+      expect(result.current.onStop).toBeUndefined();
+      expect(result.current.onSync).toBeDefined();
+    },
+  );
+
+  it.each(['pause', 'resume'] as const)(
+    'deduplicates same-frame %s presses before busy props update',
+    async (action) => {
+      const control = deferredControl();
+      const operation = jest.fn(() => control.promise);
+      const value = pool(
+        action === 'pause' ? 'syncing' : 'accountPaused',
+        action === 'pause'
+          ? { pauseSync: operation }
+          : { enableAccount: operation },
+      );
+      const { result, rerender } = renderStatus(value);
+      const press =
+        action === 'pause' ? result.current.onStop : result.current.onSync;
+      act(() => {
+        press?.();
+        press?.();
+      });
+      expect(operation).toHaveBeenCalledTimes(1);
+      expect(result.current.busy).toBe(true);
+
+      rerender({ value: { ...value }, ownerKey });
+      act(() => {
+        result.current.onSync?.();
+        result.current.onStop?.();
+      });
+      expect(operation).toHaveBeenCalledTimes(1);
+      expect(value.refreshBalanceNow).not.toHaveBeenCalled();
+      await act(async () => {
+        control.resolve();
+        await control.promise;
+      });
+      await act(async () => {
+        const nextPress =
+          action === 'pause' ? result.current.onStop : result.current.onSync;
+        nextPress?.();
+      });
+      expect(operation).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('drops another owner snapshot and ignores its late completion during a new request', async () => {
+    const first = deferredControl();
+    const second = deferredControl();
+    const { result, rerender } = renderStatus(
+      pool('accountPaused', {
+        lastSyncedAt: 1_700_000_000_000,
+        enableAccount: jest.fn(() => first.promise),
+      }),
+    );
+    act(() => result.current.onSync?.());
+
+    const nextOwnerKey = 'xmr:account-2:private';
+    const nextValue = pool('syncing', {
+      syncStatusText: '175 / 200',
+      syncProgress: { ...syncingProgress, backfillProgress: 0.75 },
+      pauseSync: jest.fn(() => second.promise),
+    });
+    rerender({ value: nextValue, ownerKey: nextOwnerKey });
+    expect(result.current).toMatchObject({
+      state: 'syncing',
+      detail: '175 / 200',
+      progress: 75,
+      updatedAtLabel: undefined,
+      busy: false,
+    });
+    act(() => result.current.onStop?.());
+    expect(nextValue.pauseSync).toHaveBeenCalledTimes(1);
+    rerender({
+      ownerKey: nextOwnerKey,
+      value: {
+        ...nextValue,
+        state: { enabled: false, paused: true },
+        syncStatus: 'accountPaused',
+        syncProgress: undefined,
+      },
+    });
+
+    await act(async () => {
+      first.resolve();
+      await first.promise;
+    });
+    expect(result.current).toMatchObject({
+      state: 'syncing',
+      detail: '175 / 200',
+      progress: 75,
+      busy: true,
+    });
+    expect(result.current.onStop).toBeDefined();
+    await act(async () => {
+      second.resolve();
+      await second.promise;
+    });
+    expect(result.current).toMatchObject({ state: 'stopped', busy: false });
+  });
+
+  it.each([
+    ['error', pool('error', { syncStatusText: 'Node unavailable' }), 'error'],
+    ['storage unsupported', pool('storageUnsupported'), 'error'],
+    ['disabled', pool('off', { enabled: false }), 'disabled'],
+    ['unavailable', pool('unavailable'), 'disabled'],
+    [
+      'unsupported wallet',
+      pool('syncing', { isUnsupportedWallet: true }),
+      'disabled',
+    ],
+    ['state invalidated', pool(undefined, { isReady: false }), 'preparing'],
+  ] as const)(
+    'permanently discards the pending snapshot when %s is observed',
+    async (_reason, invalidValue, expectedState) => {
+      const control = deferredControl();
+      const { result, rerender } = renderStatus(
+        pool('accountPaused', {
+          lastSyncedAt: 1_700_000_000_000,
+          enableAccount: jest.fn(() => control.promise),
+        }),
+      );
+      act(() => result.current.onSync?.());
+      rerender({ value: invalidValue, ownerKey });
+      expect(result.current.state).toBe(expectedState);
+      expect(result.current.updatedAtLabel).toBeUndefined();
+      if (invalidValue.syncStatus === 'error') {
+        expect(result.current.detail).toBe('Node unavailable');
+      }
+
+      const recovered = pool('syncing', {
+        syncStatusText: '175 / 200',
+        syncProgress: { ...syncingProgress, backfillProgress: 0.75 },
+      });
+      rerender({ value: recovered, ownerKey });
+      expect(result.current).toMatchObject({
+        state: 'syncing',
+        detail: '175 / 200',
+        progress: 75,
+        updatedAtLabel: undefined,
+      });
+      await act(async () => {
+        control.resolve();
+        await control.promise;
+      });
+      expect(result.current.state).toBe('syncing');
+    },
+  );
+
+  it('releases a rejected control request and allows a retry with the current state', async () => {
+    const control = deferredControl();
+    const operation = jest.fn(() => control.promise);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    try {
+      const { result, rerender } = renderStatus(
+        pool('accountPaused', { enableAccount: operation }),
+      );
+      act(() => result.current.onSync?.());
+      const retry = jest.fn(async () => undefined);
+      rerender({
+        ownerKey,
+        value: pool('error', {
+          syncStatusText: 'Node unavailable',
+          startSync: retry,
+        }),
+      });
+      expect(result.current.state).toBe('error');
+      await act(async () => {
+        control.reject(new OneKeyLocalError('Resume failed'));
+        await control.promise.catch(() => undefined);
+      });
+      expect(result.current).toMatchObject({
+        state: 'error',
+        detail: 'Node unavailable',
+        busy: false,
+      });
+      expect(consoleError).toHaveBeenCalledWith(
+        '[privacyChain] refresh failed',
+        { error: 'Resume failed' },
+      );
+      await act(async () => result.current.onSync?.());
+      expect(retry).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });
 
 describe('token privacy status', () => {

@@ -75,6 +75,12 @@ export function startDesktopUpdateBanner():
   banner.expiresAt ??= Date.now() + 6000;
   return { version: banner.version, expiresAt: banner.expiresAt };
 }
+
+export function consumeDesktopUpdateBanner(version: string) {
+  if (peekDesktopUpdateBanner()?.version === version) {
+    desktopUpdateBanner = undefined;
+  }
+}
 const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
 
 /**
