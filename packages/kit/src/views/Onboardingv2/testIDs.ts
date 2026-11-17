@@ -45,6 +45,7 @@ export const OnboardingTestIDs = {
 
   // iCloud backup list
   iCloudBackupPage: 'onboarding-icloud-backup-page',
+  iCloudBackupItem: (index: number) => `onboarding-icloud-backup-item-${index}`,
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
   iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
