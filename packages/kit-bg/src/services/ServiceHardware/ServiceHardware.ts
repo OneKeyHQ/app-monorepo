@@ -3673,11 +3673,17 @@ class ServiceHardware extends ServiceBase {
   async getPassphraseState({
     connectId,
     forceInputPassphrase,
+    deriveCardano,
   }: {
     connectId: string;
     forceInputPassphrase: boolean;
+    deriveCardano?: boolean;
   }) {
-    return this.getPassphraseStateBase({ connectId, forceInputPassphrase });
+    return this.getPassphraseStateBase({
+      connectId,
+      forceInputPassphrase,
+      ...(deriveCardano ? { deriveCardano: true } : {}),
+    });
   }
 
   @backgroundMethod()
@@ -3685,10 +3691,12 @@ class ServiceHardware extends ServiceBase {
     connectId,
     forceInputPassphrase,
     useEmptyPassphrase,
+    deriveCardano,
   }: {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
+    deriveCardano?: boolean;
   }): Promise<string | undefined> {
     const protocol = await this.getKnownDeviceProtocol(connectId);
     if (!protocol) {
@@ -3705,9 +3713,13 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
-      const walletSessionParams = useEmptyPassphrase
-        ? { mode: 'standard' as const }
-        : { mode: 'select-hidden' as const };
+      // Forward deriveCardano for the initial V2 session (hardware-js-sdk#996).
+      const walletSessionParams = {
+        mode: useEmptyPassphrase
+          ? ('standard' as const)
+          : ('select-hidden' as const),
+        ...(deriveCardano ? { deriveCardano: true } : {}),
+      };
       const walletSession = await this.convertHardwareResponse(() =>
         openWalletSession(connectId, walletSessionParams),
       );
