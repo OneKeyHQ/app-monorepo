@@ -27,7 +27,6 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		15885025AE1EDC8CB76FF2EA /* MarketWidgetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05C4D6557651549826573C8 /* MarketWidgetService.swift */; };
 		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
-		27F95DFDC80A36AFBA2BBA8B /* MarketWidgetIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */; };
 		E1F953FE3451465690B12101 /* MarketLockScreenIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F953FE3451465690B12201 /* MarketLockScreenIntents.swift */; };
 		E1F953FE3451465690B12102 /* MarketLockScreenProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F953FE3451465690B12202 /* MarketLockScreenProvider.swift */; };
 		E1F953FE3451465690B12103 /* MarketLockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F953FE3451465690B12203 /* MarketLockScreenView.swift */; };
@@ -195,7 +194,6 @@
 		B713FFEAAB53780C8C97C64A /* BrandSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "BrandSans-Medium.ttf"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BB4CA7173CF55F2F68DB835D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarketWidgetIntents.swift; sourceTree = "<group>"; };
 		E1F953FE3451465690B12201 /* MarketLockScreenIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketLockScreenIntents.swift; sourceTree = "<group>"; };
 		E1F953FE3451465690B12202 /* MarketLockScreenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketLockScreenProvider.swift; sourceTree = "<group>"; };
 		E1F953FE3451465690B12203 /* MarketLockScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketLockScreenView.swift; sourceTree = "<group>"; };
@@ -334,7 +332,6 @@
 			children = (
 				27C72F9E6D2BF9165383D899 /* OneKeyMarketWidget.swift */,
 				CB7037E2870D8EC9DB49C7FC /* MarketWidgetProvider.swift */,
-				BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */,
 				14F33BC4A64354615C5FBDE0 /* MarketWidgetLocalization.swift */,
 				E1F953FE3451465690B12201 /* MarketLockScreenIntents.swift */,
 				E1F953FE3451465690B12202 /* MarketLockScreenProvider.swift */,
@@ -973,7 +970,6 @@
 				15885025AE1EDC8CB76FF2EA /* MarketWidgetService.swift in Sources */,
 				6B45493A8A076B0FB96C2B59 /* OneKeyMarketWidget.swift in Sources */,
 				34D69A5113286CFBD0625BE6 /* MarketWidgetProvider.swift in Sources */,
-				27F95DFDC80A36AFBA2BBA8B /* MarketWidgetIntents.swift in Sources */,
 				284F4FD572CC77F4388725B0 /* MarketWidgetLocalization.swift in Sources */,
 				E1F953FE3451465690B12101 /* MarketLockScreenIntents.swift in Sources */,
 				E1F953FE3451465690B12102 /* MarketLockScreenProvider.swift in Sources */,
