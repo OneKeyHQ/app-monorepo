@@ -48,11 +48,12 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockIsThirdPartyHwByWalletId(params),
       getIndexedAccountsOfWallet: (params: unknown) =>
         mockGetIndexedAccounts(params),
-      addHDOrHWAccounts: (params: unknown) => mockAddAccounts(params),
+      addHDOrHWAccountsForUserCreation: (params: unknown) =>
+        mockAddAccounts(params),
       isBtcOnlyFirmwareByWalletId: jest.fn(async () => false),
     },
     serviceBatchCreateAccount: {
-      addDefaultNetworkAccounts: (params: unknown) =>
+      addDefaultNetworkAccountsForUserCreation: (params: unknown) =>
         mockAddDefaultNetworkAccounts(params),
     },
     serviceHardwareUI: {
@@ -180,6 +181,15 @@ describe('useAccountSelectorCreateAddress', () => {
         },
       });
     });
+    expect(mockAddAccounts).toHaveBeenCalledTimes(2);
+    expect(mockAddAccounts).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        walletId: 'qr-wallet-test',
+        networkId: 'evm--1',
+        indexedAccountId: 'qr-wallet-test--1',
+      }),
+    );
     expect(Dialog.show).toHaveBeenCalledTimes(1);
     render(<>{jest.mocked(Dialog.show).mock.calls[0][0].renderContent}</>);
     fireEvent.click(
