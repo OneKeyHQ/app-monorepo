@@ -109,13 +109,15 @@ function StatItem({
   label,
   value,
   valueNumberOfLines = 1,
+  flex = 1,
 }: {
   label: string;
   value: string;
   valueNumberOfLines?: number;
+  flex?: number;
 }) {
   return (
-    <YStack flex={1} gap="$0.5" minWidth={0}>
+    <YStack flex={flex} gap="$0.5" minWidth={0}>
       <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
@@ -385,6 +387,7 @@ function AddressRiskCheckResultContent({
                         })}
                         value={topExposureText}
                         valueNumberOfLines={2}
+                        flex={2}
                       />
                     </XStack>
                   ) : null}
