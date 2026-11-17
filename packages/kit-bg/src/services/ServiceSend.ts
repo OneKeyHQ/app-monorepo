@@ -448,6 +448,103 @@ class ServiceSend extends ServiceBase {
     return this.backgroundApi.simpleDb.broadcastRecords;
   }
 
+  // Confirms broadcast acceptance only; it does not imply on-chain finality.
+  @backgroundMethod()
+  async getBroadcastAcceptanceFact({
+    uuid,
+    accountId,
+    networkId,
+    txid,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    txid: string;
+  }): Promise<
+    | {
+        status: 'accepted';
+        uuid: string;
+        accountId: string;
+        networkId: string;
+        txid: string;
+      }
+    | { status: 'unknown' }
+  > {
+    if (
+      typeof uuid !== 'string' ||
+      !uuid.trim() ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      typeof networkId !== 'string' ||
+      !networkId.trim() ||
+      typeof txid !== 'string' ||
+      !txid.trim()
+    )
+      return { status: 'unknown' };
+    try {
+      const record = await this.broadcastRecords.getRecord(uuid);
+      if (
+        !record ||
+        record.uuid !== uuid ||
+        record.accountId !== accountId ||
+        record.networkId !== networkId ||
+        record.isBroadcast !== true ||
+        record.signedTx?.txid !== txid
+      )
+        return { status: 'unknown' };
+      return { status: 'accepted', uuid, accountId, networkId, txid };
+    } catch {
+      return { status: 'unknown' };
+    }
+  }
+
+  @backgroundMethod()
+  async getBroadcastAcceptanceFactByUuid({
+    uuid,
+    accountId,
+    networkId,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+  }): Promise<
+    | {
+        status: 'accepted';
+        uuid: string;
+        accountId: string;
+        networkId: string;
+        txid: string;
+      }
+    | { status: 'unknown' }
+  > {
+    if (
+      typeof uuid !== 'string' ||
+      !uuid.trim() ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      typeof networkId !== 'string' ||
+      !networkId.trim()
+    )
+      return { status: 'unknown' };
+    try {
+      const record = await this.broadcastRecords.getRecord(uuid);
+      const txid = record?.signedTx?.txid;
+      if (
+        !record ||
+        record.uuid !== uuid ||
+        record.accountId !== accountId ||
+        record.networkId !== networkId ||
+        record.isBroadcast !== true ||
+        typeof txid !== 'string' ||
+        !txid.trim()
+      )
+        return { status: 'unknown' };
+      return { status: 'accepted', uuid, accountId, networkId, txid };
+    } catch {
+      return { status: 'unknown' };
+    }
+  }
+
   private async rememberBroadcastAttempt({
     unsignedTx,
     signedTx,

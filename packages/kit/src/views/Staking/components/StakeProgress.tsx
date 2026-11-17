@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -115,6 +115,55 @@ export function StakeProgress({
           </SizableText>
         </>
       ) : null}
+    </XStack>
+  );
+}
+
+export type IStakeTaskProgressStep = {
+  id: string;
+  label: string;
+  status: 'waiting' | 'current' | 'completed' | 'submitted';
+};
+
+export function StakeTaskProgress({
+  steps,
+}: {
+  steps: IStakeTaskProgressStep[];
+}) {
+  const intl = useIntl();
+  const colorFor = (status: IStakeTaskProgressStep['status']) => {
+    if (status === 'completed') return '$textSuccess' as const;
+    if (status === 'waiting') return '$textDisabled' as const;
+    return undefined;
+  };
+  return (
+    <XStack gap="$1" ai="center" flexWrap="wrap">
+      {steps.map((step, index) => (
+        <Fragment key={step.id}>
+          {index > 0 ? (
+            <Icon
+              name="ArrowRightOutline"
+              size="$4"
+              color={
+                steps[index - 1].status === 'completed'
+                  ? '$icon'
+                  : '$iconSubdued'
+              }
+            />
+          ) : null}
+          <XStack ai="center" gap="$1.5">
+            <SizableText size="$bodyMdMedium" color={colorFor(step.status)}>
+              {index + 1}. {step.label}
+              {step.status === 'submitted'
+                ? ` (${intl.formatMessage({ id: ETranslations.feedback_transaction_submitted })})`
+                : null}
+            </SizableText>
+            {step.status === 'completed' ? (
+              <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
+            ) : null}
+          </XStack>
+        </Fragment>
+      ))}
     </XStack>
   );
 }

@@ -43,10 +43,12 @@ export function usePrimeGiftOfferImpression({
   enabled,
   serialNo,
   source,
+  deviceCount,
 }: {
   enabled: boolean;
   serialNo: string | undefined;
   source: IPrimeGiftAnalyticsSource;
+  deviceCount?: number;
 }) {
   const isFocused = useIsFocused();
   const [host, setHost] = useState<IPrimeGiftOfferImpressionHost>(null);
@@ -88,7 +90,9 @@ export function usePrimeGiftOfferImpression({
         return;
       }
       shownThisVisitRef.current.add(serialNo);
-      defaultLogger.prime.subscription.primeGiftOfferShown({ source });
+      defaultLogger.prime.subscription.primeGiftOfferShown(
+        typeof deviceCount === 'number' ? { source, deviceCount } : { source },
+      );
       stopWatching();
     };
 
@@ -168,7 +172,7 @@ export function usePrimeGiftOfferImpression({
       stopWatching();
       unsubVisibility();
     };
-  }, [enabled, host, isFocused, serialNo, source]);
+  }, [deviceCount, enabled, host, isFocused, serialNo, source]);
 
   return setHost;
 }
