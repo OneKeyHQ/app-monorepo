@@ -32,11 +32,13 @@ export const useShowStakeEstimateGasAlert = () => {
       estFiatValue,
       onConfirm,
       onCancel,
+      onClose,
     }: {
       estFiatValue: string;
       daysConsumed?: number | string;
       onConfirm?: IOnDialogConfirm;
       onCancel?: () => void;
+      onClose?: () => void;
     }) => {
       const description = daysConsumed
         ? (intl.formatMessage(
@@ -73,6 +75,7 @@ export const useShowStakeEstimateGasAlert = () => {
         ),
         onConfirm,
         onCancel,
+        onClose,
       });
     },
     [intl, fiatSymbol],

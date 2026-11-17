@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Accordion,
   Alert,
@@ -549,6 +548,7 @@ export function UniversalStake({
   const transactionConfirmationAmountRef = useRef(amountValue);
   transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
+  const submitInFlight = useRef(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [selectedValidator, setSelectedValidator] = useState<
     string | undefined
@@ -851,45 +851,6 @@ export function UniversalStake({
       setEstimateFeeResp(resp);
     },
     350,
-  );
-
-  const checkEstimateGasAlert = useCallback(
-    async (onNext: () => Promise<void> | undefined) => {
-      if (usePermit2Approve) {
-        return onNext();
-      }
-
-      setApproving(true);
-
-      const response = await fetchEstimateFeeResp(amountValue).finally(() => {
-        setApproving(false);
-      });
-      if (!response) {
-        return onNext();
-      }
-      const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
-
-      if (!daySpent || daySpent <= 5) {
-        return onNext();
-      }
-
-      showEstimateGasAlert({
-        daysConsumed: formatStakingDistanceToNowStrict(
-          response.coverFeeSeconds,
-        ),
-        estFiatValue: response.feeFiatValue,
-        onConfirm: async (dialogInstance: IDialogInstance) => {
-          await dialogInstance.close();
-          await onNext();
-        },
-      });
-    },
-    [
-      usePermit2Approve,
-      fetchEstimateFeeResp,
-      amountValue,
-      showEstimateGasAlert,
-    ],
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
@@ -1388,7 +1349,7 @@ export function UniversalStake({
     approveTarget.spenderAddress,
   ]);
 
-  const onSubmit = useCallback(async () => {
+  const submitStake = useCallback(async () => {
     Keyboard.dismiss();
     await assertApproval();
 
@@ -1482,41 +1443,6 @@ export function UniversalStake({
       stakefishPermitSignatureRef.current = undefined;
       stakefishPermitMessageRef.current = undefined;
     };
-    const handleConfirm = async () => {
-      setSubmitting(true);
-      try {
-        if (isWrapStake) {
-          let shouldShowApproveStep = true;
-          try {
-            const allowanceValue = await fetchPostWrapAllowance();
-            shouldShowApproveStep =
-              getShouldShowPostWrapApproveStep(allowanceValue);
-          } catch {
-            shouldShowApproveStep = true;
-          }
-          setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
-          setStakeProgressStep(EStakeProgressStep.approve);
-        }
-
-        const started = await onConfirm?.({
-          amount: amountValue,
-          effectiveApy: transactionConfirmation?.effectiveApy,
-          stakeType,
-          onStepChange: handleStakeProgressChange,
-          ...permitSignatureParams,
-          ...stakefishParams,
-        });
-        if (started === false) {
-          return;
-        }
-        resetAmount();
-        // Auto-refresh quote countdown after swap completes
-        onQuoteReset?.();
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
     // Check high price impact (Pendle only)
     if (isPendleProvider) {
       const payFiatValue =
@@ -1539,41 +1465,64 @@ export function UniversalStake({
       }
     }
 
-    if (estimateFeeResp) {
-      const daySpent =
-        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
-
-      if (daySpent && daySpent > 5) {
+    // A cached high fee already requires consent. Otherwise refresh the estimate
+    // for non-permit deposits before deciding whether to show the warning.
+    const fee =
+      usePermit2Approve || Number(estimateFeeResp?.coverFeeSeconds) > 5 * 86_400
+        ? estimateFeeResp
+        : await fetchEstimateFeeResp(amountValue);
+    const daysConsumed = Number(fee?.coverFeeSeconds) / 86_400;
+    if (fee && daysConsumed > 5) {
+      const accepted = await new Promise<boolean>((resolve) => {
+        let confirmed = false;
         showEstimateGasAlert({
-          daysConsumed: formatStakingDistanceToNowStrict(
-            estimateFeeResp.coverFeeSeconds,
-          ),
-          estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: async (dialogInstance: IDialogInstance) => {
-            await dialogInstance.close();
-            await handleConfirm();
+          daysConsumed: formatStakingDistanceToNowStrict(fee.coverFeeSeconds),
+          estFiatValue: fee.feeFiatValue,
+          onConfirm: () => {
+            confirmed = true;
           },
+          onClose: () => resolve(confirmed),
         });
-        return;
-      }
+      });
+      if (!accepted) return;
     }
 
-    if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
-      await checkEstimateGasAlert(handleConfirm);
+    if (isWrapStake) {
+      let shouldShowApproveStep = true;
+      try {
+        const allowanceValue = await fetchPostWrapAllowance();
+        shouldShowApproveStep =
+          getShouldShowPostWrapApproveStep(allowanceValue);
+      } catch {
+        shouldShowApproveStep = true;
+      }
+      setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
+      setStakeProgressStep(EStakeProgressStep.approve);
+    }
+
+    const started = await onConfirm?.({
+      amount: amountValue,
+      effectiveApy: transactionConfirmation?.effectiveApy,
+      stakeType,
+      onStepChange: handleStakeProgressChange,
+      ...permitSignatureParams,
+      ...stakefishParams,
+    });
+    if (started === false) {
       return;
     }
-
-    await handleConfirm();
+    resetAmount();
+    // Auto-refresh quote countdown after swap completes
+    onQuoteReset?.();
   }, [
     assertApproval,
     usePermit2Approve,
     approveType,
     estimateFeeResp,
-    shouldApprove,
     onConfirm,
     amountValue,
     showEstimateGasAlert,
-    checkEstimateGasAlert,
+    fetchEstimateFeeResp,
     isStakefishProvider,
     isPendleProvider,
     selectedValidator,
@@ -1596,6 +1545,19 @@ export function UniversalStake({
     getShouldShowPostWrapApproveStep,
     handleStakeProgressChange,
   ]);
+
+  const onSubmit = useCallback(async () => {
+    // A second press can arrive before React renders the loading state.
+    if (submitInFlight.current) return;
+    submitInFlight.current = true;
+    setSubmitting(true);
+    try {
+      await submitStake();
+    } finally {
+      submitInFlight.current = false;
+      setSubmitting(false);
+    }
+  }, [submitStake]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
@@ -1906,7 +1868,7 @@ export function UniversalStake({
         }
       };
 
-      void checkEstimateGasAlert(handlePermit2Approve);
+      void handlePermit2Approve();
       return;
     }
 
@@ -1974,7 +1936,6 @@ export function UniversalStake({
     navigationToTxConfirm,
     fetchAllowanceResponse,
     showResetUSDTApproveValueDialog,
-    checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
     providerName,
