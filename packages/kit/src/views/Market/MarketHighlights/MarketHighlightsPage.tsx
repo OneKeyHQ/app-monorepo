@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  HeaderIconButton,
   Icon,
   IconButton,
   ListView,
@@ -22,7 +23,7 @@ import { s } from '@onekeyhq/components/src/utils/scale';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -59,17 +60,20 @@ const ASSET_SLOT_MAX_WIDTH = 240;
 // Keeps the last slot's star off the card edge.
 const ASSET_ROW_TRAILING_PADDING = 10;
 
+function getValidLinks(links: IMarketHighlight['links']) {
+  return links.filter(({ url }) => /^https?:\/\//i.test(url));
+}
+
 function HighlightInfo({
-  links,
+  validLinks,
   wide,
 }: {
-  links: IMarketHighlight['links'];
+  validLinks: IMarketHighlight['links'];
   wide: boolean;
 }) {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.global_details });
   const [isOpen, setIsOpen] = useState(false);
-  const validLinks = links.filter(({ url }) => /^https?:\/\//i.test(url));
 
   return (
     <Popover
@@ -80,7 +84,7 @@ function HighlightInfo({
       showHeader={!wide}
       placement="bottom-end"
       offset={wide ? { mainAxis: 6, crossAxis: 14 } : undefined}
-      floatingPanelProps={{ width: 288, borderRadius: '$2' }}
+      floatingPanelProps={{ width: 200, borderRadius: '$2' }}
       renderTrigger={
         // eslint-disable-next-line props-checker/validator -- Popover supplies the trigger handler.
         <XStack
@@ -93,7 +97,7 @@ function HighlightInfo({
           mx="$-2"
           my="$-1"
           cursor="default"
-          accessibilityState={{ expanded: isOpen }}
+          aria-expanded={isOpen}
         >
           <SizableText size="$bodySmMedium" color="$textSubdued">
             {title}
@@ -106,46 +110,74 @@ function HighlightInfo({
         </XStack>
       }
       renderContent={
+        // Sources only; the shared disclaimer lives in the page header.
         <YStack
           px={wide ? '$3' : '$5'}
-          pb={wide ? '$2.5' : '$5'}
-          pt={wide ? '$2.5' : undefined}
-          gap="$2"
+          pt={wide ? '$1' : undefined}
+          pb={wide ? '$1' : '$5'}
         >
-          {validLinks.length > 0 ? (
+          {validLinks.map(({ title: label, url }, index) => (
             <XStack
-              flexDirection={wide ? 'row' : 'column'}
-              flexWrap={wide ? 'wrap' : 'nowrap'}
-              gap={wide ? '$3' : '$1'}
+              key={`${url}:${index}`}
+              role="link"
+              minHeight={wide ? 36 : 40}
+              gap="$2"
+              cursor="pointer"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() => openUrlExternal(url)}
             >
-              {validLinks.map(({ title: label, url }, index) => (
-                <XStack
-                  key={`${url}:${index}`}
-                  role="link"
-                  minHeight={wide ? undefined : 40}
-                  gap="$1"
-                  cursor="pointer"
-                  alignItems="center"
-                  justifyContent={wide ? 'flex-start' : 'space-between'}
-                  onPress={() => openUrlExternal(url)}
-                >
-                  <SizableText
-                    size={wide ? '$bodySmMedium' : '$bodyMd'}
-                    color={wide ? '$textSubdued' : '$text'}
-                    flexShrink={1}
-                  >
-                    {label}
-                  </SizableText>
-                  <Icon
-                    name="OpenOutline"
-                    size={wide ? '$3.5' : '$4'}
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              ))}
+              <SizableText size="$bodyMd" flexShrink={1} numberOfLines={1}>
+                {label}
+              </SizableText>
+              <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
             </XStack>
-          ) : null}
-          <SizableText size={wide ? '$bodySm' : '$bodyMd'} color="$textSubdued">
+          ))}
+        </YStack>
+      }
+    />
+  );
+}
+
+function HighlightsDisclaimer({ wide }: { wide: boolean }) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.earn_disclaimer });
+  const testID = 'market-highlights-disclaimer';
+  // No `title`: it would add a hover tooltip on top of the popover.
+  const triggerProps = {
+    'aria-label': title,
+    icon: 'InfoCircleOutline' as const,
+  };
+  return (
+    <Popover
+      title={title}
+      showHeader={!wide}
+      placement="bottom-end"
+      // Desktop matches the default Tooltip panel (width, padding, text).
+      floatingPanelProps={{ width: 288, borderRadius: '$2' }}
+      renderTrigger={
+        wide ? (
+          <IconButton
+            testID={testID}
+            {...triggerProps}
+            variant="tertiary"
+            iconProps={{ color: '$iconSubdued' }}
+            mr="$-2"
+          />
+        ) : (
+          <HeaderIconButton testID={testID} {...triggerProps} />
+        )
+      }
+      renderContent={
+        <YStack
+          px={wide ? '$3' : '$5'}
+          pt={wide ? '$2' : undefined}
+          pb={wide ? '$2' : '$5'}
+        >
+          <SizableText
+            size={wide ? '$bodySm' : '$bodyMd'}
+            color={wide ? undefined : '$textSubdued'}
+          >
             {intl.formatMessage({ id: ETranslations.market_news_disclaimer })}
           </SizableText>
         </YStack>
@@ -366,6 +398,9 @@ function HighlightCard({
 }) {
   const publishedAt = new Date(item.publishedAt);
   const time = formatRelativeTimeAbbr(publishedAt);
+  // Details only lists sources, so it is hidden when there are none.
+  const validLinks = getValidLinks(item.links);
+  const hasSources = validLinks.length > 0;
 
   return (
     <YStack
@@ -397,10 +432,14 @@ function HighlightCard({
               <SizableText size="$bodySmMedium" color="$textSubdued">
                 {time.toUpperCase()}
               </SizableText>
-              <Stack width={1} height={10} bg="$borderSubdued" />
+              {hasSources ? (
+                <Stack width={1} height={10} bg="$borderSubdued" />
+              ) : null}
             </>
           )}
-          <HighlightInfo links={item.links} wide={wide} />
+          {hasSources ? (
+            <HighlightInfo validLinks={validLinks} wide={wide} />
+          ) : null}
         </XStack>
       </YStack>
       <HighlightDescription
@@ -477,9 +516,12 @@ function MarketHighlightsContent() {
   const intl = useIntl();
   const { gtMd: wide } = useMedia();
   const title = intl.formatMessage({
-    id: ETranslationsMock.market_highlights__title,
-    defaultMessage: ETranslationsMock.market_highlights__title,
+    id: ETranslations.market_market_highlights,
   });
+  const renderHeaderRight = useCallback(
+    () => <HighlightsDisclaimer wide={false} />,
+    [],
+  );
   const { popStack } = useAppNavigation();
   const { navigateToPerps } = usePerpsNavigation();
   const toDetailPage = useToDetailPage({ switchToMarketTabFirst: true });
@@ -537,7 +579,11 @@ function MarketHighlightsContent() {
 
   return (
     <Page>
-      <Page.Header headerShown={!wide} title={title} />
+      <Page.Header
+        headerShown={!wide}
+        title={title}
+        headerRight={renderHeaderRight}
+      />
       <Page.Body bg="$bgApp" minHeight={0}>
         {wide ? (
           <XStack
@@ -557,7 +603,10 @@ function MarketHighlightsContent() {
               ml="$-2"
               onPress={popStack}
             />
-            <SizableText size="$headingLg">{title}</SizableText>
+            <SizableText size="$headingLg" flex={1}>
+              {title}
+            </SizableText>
+            <HighlightsDisclaimer wide />
           </XStack>
         ) : null}
         {items?.length ? (
