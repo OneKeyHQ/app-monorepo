@@ -64,6 +64,10 @@ import {
   meta,
   subcell,
 } from '../cells/projection';
+import {
+  clearHomeTokenListSnapshotCache,
+  fetchHomeTokenListSnapshot,
+} from '../cells/useHomeTokenListSnapshot';
 
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 import type { IApplyDeps } from '../cells/apply';
@@ -88,6 +92,15 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
 jest.mock('@onekeyhq/shared/src/storage/coldStartFlushTrigger', () => ({
   __esModule: true,
   registerColdStartFlushTrigger: () => () => undefined,
+}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceTokenViewModel: {
+      getRawTokenList: jest.fn(),
+      getAllTokenListMap: jest.fn(),
+    },
+  },
 }));
 
 // In-memory stand-in for the per-owner MMKV namespace so the test observes the
@@ -1320,5 +1333,167 @@ describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
     expect(snapshot?.networkId).toBe('evm--1');
     expect(snapshot?.map.eth?.fiatValue).toBe('2000');
     expect(snapshot?.map.usdc?.fiatValue).toBe('1');
+  });
+
+  it('reconstructs aggregate member per-network balances and falls back when risky frame arrives without structure bump or when slotId is rebuilt', async () => {
+    clearOwnerReplayCache();
+    clearHomeTokenListSnapshotCache();
+
+    // 1. All-Networks owner with aggregate group `aggregate_ETH_` across 2 networks
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['aggregate_ETH_'],
+          smallBalanceIds: [],
+          aggMembership: {
+            aggregate_ETH_: ['evm--1', 'evm--42161'],
+          },
+          ownedAggregateTokenListMap: {
+            aggregate_ETH_: {
+              tokens: [
+                {
+                  ...makeToken({ symbol: 'ETH', networkId: 'evm--1' }),
+                  $key: 'eth_mainnet',
+                },
+                {
+                  ...makeToken({ symbol: 'ETH', networkId: 'evm--42161' }),
+                  $key: 'eth_arb',
+                },
+              ],
+            },
+          },
+          metaPatch: {
+            aggregate_ETH_: makeToken({
+              symbol: 'ETH',
+              isAggregateToken: true,
+            }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'all--0',
+          rawKeys: 'aggregate_ETH__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 0,
+          changedFiatById: {},
+          changedAggFiat: {
+            aggregate_ETH_: {
+              'evm--1': makeFiat({ balance: '1', fiatValue: '2000' }),
+              'evm--42161': makeFiat({ balance: '0.5', fiatValue: '1000' }),
+            },
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const aggSnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 0);
+    // Both per-network member keys and the flattened aggregate total are present
+    expect(aggSnapshot.map.eth_mainnet?.fiatValue).toBe('2000');
+    expect(aggSnapshot.map.eth_arb?.fiatValue).toBe('1000');
+    expect(aggSnapshot.map.aggregate_ETH_?.fiatValue).toBe('3000');
+    expect(aggSnapshot.slotId).toBe('slot-1');
+
+    // 2. A risky frame arrives in a later round without bumping structure.riskyCount:
+    // fast path must return undefined so the caller falls back to the BG pull.
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'risky',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        riskyVersion: 0,
+        riskyTokens: [
+          {
+            ...makeToken({ symbol: 'SCAM' }),
+            $key: 'scam_1',
+          },
+        ],
+        riskyMap: {
+          scam_1: makeFiat({ balance: '100', fiatValue: '0' }),
+        },
+      },
+      currencyId: CURRENCY,
+    });
+    expect(
+      tryBuildHomeSnapshotFromOwnerReplay({
+        storeName: STORE_NAME,
+        ownerKey: OWNER_A,
+        generation: 0,
+      }),
+    ).toBeUndefined();
+
+    // 3. BG slot is evicted by LRU prewarm and recreated as `slot-2` at generation 0
+    // (with no risky tokens and updated balance):
+    // rememberOwnerReplayFrame drops slot-1's risky frame and fetchHomeTokenListSnapshot
+    // invalidates the cached `OWNER_A@0` snapshot from `slot-1`.
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['eth'],
+          smallBalanceIds: [],
+          metaPatch: {
+            eth: makeToken({ symbol: 'ETH' }),
+          },
+          settledAccountId: 'acc-1',
+          settledNetworkId: 'evm--1',
+          rawKeys: 'eth__',
+          riskyCount: 0,
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-2',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          structureGeneration: 0,
+          changedFiatById: {
+            eth: makeFiat({ fiatValue: '4500' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const rebuiltSnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 0);
+    expect(rebuiltSnapshot.slotId).toBe('slot-2');
+    expect(rebuiltSnapshot.tokens.map((t) => t.$key)).toEqual(['eth']);
+    expect(rebuiltSnapshot.map.eth?.fiatValue).toBe('4500');
   });
 });
