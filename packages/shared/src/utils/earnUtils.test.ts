@@ -470,7 +470,21 @@ describe('Earn permit payload verification', () => {
       verifyingContract: token.address,
     },
     primaryType: 'Permit',
-    types: { EIP712Domain: [], Permit: [] },
+    types: {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
+      Permit: [
+        { name: 'owner', type: 'address' },
+        { name: 'spender', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    },
     message: {
       owner,
       spender: MorphoBundlerContract,
@@ -503,6 +517,28 @@ describe('Earn permit payload verification', () => {
       const payload = data();
       payload.message[field] = '0';
       expect(() => check(payload)).toThrow();
+    },
+  );
+  it.each(['EIP712Domain', 'Permit'] as const)(
+    'rejects empty, incomplete, reordered, extended or retyped %s fields with unchanged values',
+    (key) => {
+      const payload = data();
+      const fields = payload.types[key];
+      for (const altered of [
+        [],
+        fields.filter(
+          ({ name }) =>
+            name !== (key === 'Permit' ? 'spender' : 'verifyingContract'),
+        ),
+        [...fields].toReversed(),
+        [...fields, { name: 'extra', type: 'bytes32' }],
+        [{ ...fields[0], type: 'bytes32' }, ...fields.slice(1)],
+      ]) {
+        payload.types[key] = altered;
+        expect(() => check(payload)).toThrow(
+          'Invalid Earn permit authorization',
+        );
+      }
     },
   );
   it('rejects another chain or token and unsupported networks', () => {
@@ -538,6 +574,14 @@ describe('Earn permit payload verification', () => {
         token: { ...token, symbol: 'DAI', decimals: 18 },
         amount: '1',
       });
+    expect(checkDai).toThrow('Invalid Earn permit authorization');
+    payload.types.Permit = [
+      { name: 'holder', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'expiry', type: 'uint256' },
+      { name: 'allowed', type: 'bool' },
+    ];
     expect(checkDai).not.toThrow();
     payload.message.holder = token.address;
     expect(checkDai).toThrow();

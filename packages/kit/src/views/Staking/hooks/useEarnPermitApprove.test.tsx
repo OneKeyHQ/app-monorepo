@@ -62,7 +62,21 @@ beforeEach(() => {
       chainId: 1,
       verifyingContract: token.address,
     },
-    types: { EIP712Domain: [], Permit: [] },
+    types: {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
+      Permit: [
+        { name: 'owner', type: 'address' },
+        { name: 'spender', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    },
     primaryType: 'Permit',
     message: {
       owner,
@@ -97,6 +111,19 @@ it.each(['spender', 'owner', 'value', 'deadline'] as const)(
     expect(messageConfirm).not.toHaveBeenCalled();
   },
 );
+it('never opens signing when the signed schema omits the validated spender', async () => {
+  payload.types.Permit = payload.types.Permit.filter(
+    ({ name }) => name !== 'spender',
+  );
+  const beforeSign = jest.fn();
+  const { result } = renderHook(() => useEarnPermitApprove());
+  await expect(
+    result.current.getPermitSignature({ ...params, beforeSign }),
+  ).rejects.toThrow('Invalid Earn permit authorization');
+  expect(beforeSign).not.toHaveBeenCalled();
+  expect(messageConfirm).not.toHaveBeenCalled();
+});
+
 it('does not sign after the selected account or protocol changes during the fetch', async () => {
   const { result } = renderHook(() => useEarnPermitApprove());
   await expect(

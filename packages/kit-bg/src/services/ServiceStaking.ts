@@ -804,18 +804,14 @@ class ServiceStaking extends ServiceBase {
       if (params.action === 'unstake') {
         target = data.withdrawApprove?.approveTarget;
         tokenAddress = data.withdrawApprove?.tokenAddress;
-        // Pendle sell approvals use its router and a selected input asset.
+        // Pendle spends the PT shown on the pay side, even when the user selects another receive asset.
         if (earnUtils.isPendleProvider({ providerName: params.provider })) {
+          if (!target || !tokenAddress) {
+            tokenAddress = data.sell?.payButton?.data?.token?.info.address;
+          }
           target = earnUtils.resolveEarnApproveSpenderAddress({
             providerName: params.provider,
           });
-          const assets = await this.getEarnAssetsList({
-            ...query,
-            action: 'unstake',
-          });
-          tokenAddress = assets.assets?.find((item) =>
-            sameAddress(item.info.address, params.tokenAddress),
-          )?.info.address;
         }
       } else {
         target = earnUtils.resolveEarnApproveSpenderAddress({

@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 
 import { EEarnProviderEnum } from '../../types/earn';
 import { EApproveType } from '../../types/staking';
@@ -215,7 +216,28 @@ function getEarnPermitSpender(networkId: string): string | undefined {
   }[networkId];
 }
 
-/** Check the actual typed message, including DAI's holder/allowed permit variant. */
+const earnPermitDomainFields = [
+  { name: 'name', type: 'string' },
+  { name: 'version', type: 'string' },
+  { name: 'chainId', type: 'uint256' },
+  { name: 'verifyingContract', type: 'address' },
+];
+const standardPermitFields = [
+  { name: 'owner', type: 'address' },
+  { name: 'spender', type: 'address' },
+  { name: 'value', type: 'uint256' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'deadline', type: 'uint256' },
+];
+const daiPermitFields = [
+  { name: 'holder', type: 'address' },
+  { name: 'spender', type: 'address' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'expiry', type: 'uint256' },
+  { name: 'allowed', type: 'bool' },
+];
+
+/** Verify that the signed fields bind the selected account, token, spender and authorization. */
 function assertEarnPermit({
   data,
   networkId,
@@ -237,6 +259,10 @@ function assertEarnPermit({
   if (
     !spender ||
     data.primaryType !== 'Permit' ||
+    !isEqual(data.types, {
+      EIP712Domain: earnPermitDomainFields,
+      Permit: isDai ? daiPermitFields : standardPermitFields,
+    }) ||
     data.domain.chainId !== Number(networkId.split('--')[1]) ||
     !sameAddress(data.domain.verifyingContract, token.address) ||
     !sameAddress(data.message.spender, spender) ||

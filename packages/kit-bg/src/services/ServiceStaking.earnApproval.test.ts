@@ -227,27 +227,53 @@ describe('Earn approval boundary', () => {
       ).resolves.toBeUndefined();
     },
   );
-  it('keeps Pendle router approval for a supported sell asset', async () => {
-    const { service } = harness('Pendle');
-    jest.spyOn(service, 'getEarnAssetsList').mockResolvedValue({
-      assets: [{ info: { address: receipt } }],
+  it('authorizes only the PT paid to the Pendle router when selling for another token', async () => {
+    const { service, page } = harness('Pendle');
+    page.withdrawApprove = undefined;
+    page.sell = {
+      payButton: { data: { token: { info: { address: receipt } } } },
+      receiveButton: { data: { token: { info: { address: token } } } },
+    } as NonNullable<IEarnManagePageResponse['sell']>;
+    const assets = jest.spyOn(service, 'getEarnAssetsList').mockResolvedValue({
+      assets: [{ info: { address: token } }],
     } as Awaited<ReturnType<ServiceStaking['getEarnAssetsList']>>);
+    const request = {
+      ...approval,
+      provider: 'Pendle',
+      action: 'unstake' as const,
+      tokenAddress: receipt,
+      spenderAddress: PendleRouterContract,
+    };
+    await expect(service.assertEarnApproval(request)).resolves.toBeUndefined();
     await expect(
-      service.assertEarnApproval({
-        ...approval,
-        provider: 'Pendle',
-        action: 'unstake',
-        tokenAddress: receipt,
-        spenderAddress: PendleRouterContract,
-      }),
-    ).resolves.toBeUndefined();
+      service.assertEarnApproval({ ...request, tokenAddress: token }),
+    ).rejects.toThrow();
     await expect(
-      service.assertEarnApproval({
-        ...approval,
-        provider: 'Pendle',
-        action: 'unstake',
-        spenderAddress: PendleRouterContract,
-      }),
+      service.assertEarnApproval({ ...request, spenderAddress: attacker }),
+    ).rejects.toThrow();
+    page.sell.payButton = undefined;
+    await expect(service.assertEarnApproval(request)).rejects.toThrow();
+    expect(assets).not.toHaveBeenCalled();
+  });
+
+  it('honors explicit Pendle withdrawal metadata and still pins the router', async () => {
+    const { service, page } = harness('Pendle', PendleRouterContract);
+    page.sell = {
+      payButton: { data: { token: { info: { address: token } } } },
+    } as NonNullable<IEarnManagePageResponse['sell']>;
+    const request = {
+      ...approval,
+      provider: 'Pendle',
+      action: 'unstake' as const,
+      tokenAddress: receipt,
+      spenderAddress: PendleRouterContract,
+    };
+    await expect(service.assertEarnApproval(request)).resolves.toBeUndefined();
+    await expect(
+      service.assertEarnApproval({ ...request, tokenAddress: token }),
+    ).rejects.toThrow();
+    await expect(
+      service.assertEarnApproval({ ...request, spenderAddress: attacker }),
     ).rejects.toThrow();
   });
   it('retains the supported wrapped token for Native multi-asset deposits', async () => {
