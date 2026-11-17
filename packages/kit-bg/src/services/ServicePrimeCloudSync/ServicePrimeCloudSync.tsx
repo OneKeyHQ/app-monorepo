@@ -582,14 +582,31 @@ class ServicePrimeCloudSync extends ServiceBase {
     this.reconciliationTimer = undefined;
   }
 
-  private scheduleReconciliation(nextRetryAt: number) {
+  private scheduleReconciliation(nextRetryAt: number, spaceId: string) {
     this.clearReconciliationTimer();
+    const generation = this.publicAccountSnapshotImportGeneration;
+    // Page cleanup cancels hardware prompts without changing the selected key.
+    // Hardware key commits invalidate the credential generation above instead.
+    const walletGeneration =
+      this.backgroundApi.serviceKeylessCloudSync.getKeylessWalletSelectionGeneration();
+    const isCurrent = () =>
+      generation === this.publicAccountSnapshotImportGeneration &&
+      walletGeneration ===
+        this.backgroundApi.serviceKeylessCloudSync.getKeylessWalletSelectionGeneration();
     this.reconciliationTimer = setTimeout(
       () => {
         this.reconciliationTimer = undefined;
-        void this.resumeCloudSyncReconciliation({ reason: 'timer' }).catch(
-          (error) => errorUtils.autoPrintErrorIgnore(error),
-        );
+        if (!isCurrent()) return;
+        void this.getSyncCredentialSafe()
+          .then(async (credential) => {
+            if (
+              !isCurrent() ||
+              cloudSyncItemBuilder.getPwdHash(credential) !== spaceId
+            )
+              return;
+            await this.resumeCloudSyncReconciliation({ reason: 'timer' });
+          })
+          .catch((error) => errorUtils.autoPrintErrorIgnore(error));
       },
       Math.max(1000, nextRetryAt - Date.now()),
     );
@@ -689,8 +706,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               ? { ...value.cloudSyncReconciliation, nextRetryAt }
               : value.cloudSyncReconciliation,
         }));
-      if (state.reason !== 'backend-unverified')
-        this.scheduleReconciliation(nextRetryAt);
+      this.scheduleReconciliation(nextRetryAt, state.spaceId);
       return;
     }
     if (state?.status === 'partial' && !state.unfinished) {
@@ -750,7 +766,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (!isCurrent() || cloudSyncItemBuilder.getPwdHash(selected) !== spaceId)
         return;
     }
-    if (reason === 'timer' && state?.reason === 'backend-unverified') return;
     return this.startServerSyncFlowSilently({
       callerName: `Cloud reconciliation ${reason}`,
     });
@@ -2068,12 +2083,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       ) {
         const state = (await primeCloudSyncPersistAtom.get())
           .cloudSyncReconciliation;
-        if (
-          state?.unfinished &&
-          state.reason !== 'backend-unverified' &&
-          state.reason !== 'cancelled'
-        ) {
-          this.scheduleReconciliation(state.nextRetryAt ?? Date.now() + 1000);
+        if (state?.unfinished && state.reason !== 'cancelled') {
+          this.scheduleReconciliation(
+            state.nextRetryAt ?? Date.now() + 1000,
+            state.spaceId,
+          );
         }
       }
     }
@@ -2127,8 +2141,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               ? { ...value.cloudSyncReconciliation, nextRetryAt }
               : value.cloudSyncReconciliation,
         }));
-      if (previous.reason !== 'backend-unverified')
-        this.scheduleReconciliation(nextRetryAt);
+      this.scheduleReconciliation(nextRetryAt, spaceId);
       return false;
     }
     // This run will read the current full summary. A later local mutation gets
@@ -2390,9 +2403,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       // Wait for its cancellation gate before reporting the round complete.
       if (activeApply) await activeApply.catch(() => undefined);
       if (activeUpload) await activeUpload.catch(() => undefined);
-      const shouldReplay =
-        isCurrent() &&
-        ['complete', 'backend-unverified'].includes(result.status);
+      const shouldReplay = isCurrent() && result.status === 'complete';
       if (shouldReplay) {
         await this.syncPendingItemsToScene({
           forceSync:
@@ -2423,8 +2434,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         nextRetryAt =
           Date.now() +
           Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
-      else if (result.status === 'backend-unverified')
-        nextRetryAt = Date.now() + 60_000;
       let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
       if (result.status === 'complete')
         status = hasIssues ? 'partial' : 'complete';
@@ -2433,10 +2442,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       const state: ICloudSyncReconciliationPersistState = {
         ...baseline,
         status,
-        reason:
-          result.status === 'backend-unverified'
-            ? 'backend-unverified'
-            : result.reason,
+        reason: result.reason,
         unfinished: result.unfinished,
         nextRetryAt,
         failures,
@@ -2474,10 +2480,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (
         state.unfinished &&
         state.nextRetryAt &&
-        result.status !== 'backend-unverified' &&
         result.status !== 'cancelled'
       )
-        this.scheduleReconciliation(state.nextRetryAt);
+        this.scheduleReconciliation(state.nextRetryAt, spaceId);
       if (!state.unfinished) await this.updateLastSyncTime();
       return state.status === 'complete';
     } catch (error) {
@@ -2514,7 +2519,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             isCurrent() &&
             latest.cloudSyncReconciliation?.spaceId === spaceId
           )
-            this.scheduleReconciliation(nextRetryAt);
+            this.scheduleReconciliation(nextRetryAt, spaceId);
         }
       }
       throw error;
