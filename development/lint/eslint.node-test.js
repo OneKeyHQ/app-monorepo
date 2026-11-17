@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -15,6 +16,7 @@ const {
   getJsPluginRulePrefix,
   getTempTypeAwareConfigName,
   getTempTypeAwareConfigPath,
+  listChangedFiles,
   parseOxlintConfig,
   parseOxlintCounts,
   resolveCspellScope,
@@ -361,7 +363,87 @@ test('falls back to a full spellchecker scan unless a clean diff is available', 
       base: 'HEAD^1',
       config,
       getChangedFiles: () => ['src/a.ts', 'docs/b.md', 'src/c.tsx'],
+      fileExists: () => true,
     }),
     { mode: 'changed', files: ['src/a.ts', 'src/c.tsx'] },
   );
+});
+
+function createGitRepo() {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cspell-scope-'));
+  const git = (...args) =>
+    execFileSync('git', args, { cwd: repoDir, encoding: 'utf8' });
+  git('init', '-q');
+  git('config', 'user.email', 'test@example.com');
+  git('config', 'user.name', 'test');
+  git('config', 'commit.gpgsign', 'false');
+  const write = (file, content) => {
+    fs.mkdirSync(path.dirname(path.join(repoDir, file)), { recursive: true });
+    fs.writeFileSync(path.join(repoDir, file), content);
+  };
+  write('cspell.json', '{}\n');
+  write('development/spellCheckerSkipWords.txt', 'onekey\n');
+  write('src/a.ts', 'export const a = 1;\n');
+  write('src/b.ts', 'export const b = 1;\n');
+  git('add', '-A');
+  git('commit', '-qm', 'base');
+  return { repoDir, git, write };
+}
+
+function resolveInRepo(repoDir) {
+  return resolveCspellScope({
+    base: 'HEAD^1',
+    config: {
+      jsPlugins: [{ name: '@cspell', specifier: 'oxlint-plugin-cspell' }],
+    },
+    getChangedFiles: (base) => listChangedFiles(base, repoDir),
+    fileExists: (file) => fs.existsSync(path.join(repoDir, file)),
+  });
+}
+
+test('deleting the spellchecker dictionary forces a full scan (real git diff)', () => {
+  const { repoDir, git } = createGitRepo();
+  try {
+    git('rm', '-q', 'development/spellCheckerSkipWords.txt');
+    git('commit', '-qm', 'delete dictionary');
+    assert.deepEqual(resolveInRepo(repoDir), {
+      mode: 'full',
+      reason: 'development/spellCheckerSkipWords.txt changed',
+    });
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test('renaming cspell.json away forces a full scan (real git diff)', () => {
+  const { repoDir, git } = createGitRepo();
+  try {
+    fs.mkdirSync(path.join(repoDir, 'docs'));
+    git('mv', 'cspell.json', 'docs/old-config.json');
+    git('commit', '-qm', 'move config');
+    assert.deepEqual(resolveInRepo(repoDir), {
+      mode: 'full',
+      reason: 'cspell.json changed',
+    });
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test('spellchecks changed files that still exist and skips deleted ones (real git diff)', () => {
+  const { repoDir, git, write } = createGitRepo();
+  try {
+    git('rm', '-q', 'src/b.ts');
+    write('src/a.ts', 'export const a = 2;\n');
+    git('mv', 'src/a.ts', 'src/renamed.ts');
+    write('src/c.tsx', 'export const c = 1;\n');
+    git('add', '-A');
+    git('commit', '-qm', 'change sources');
+    assert.deepEqual(resolveInRepo(repoDir), {
+      mode: 'changed',
+      files: ['src/c.tsx', 'src/renamed.ts'],
+    });
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  }
 });

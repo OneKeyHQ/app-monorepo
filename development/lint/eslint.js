@@ -339,13 +339,19 @@ function getCspellFullScanReason(changedFiles) {
   return trigger ? `${trigger} changed` : null;
 }
 
+// Every path touched since `base`, including deleted files and both sides of
+// a rename, so removing a full-scan trigger (such as the dictionary) is seen.
 function listChangedFiles(base, rootDir = ROOT_DIR) {
   const output = execFileSync(
     'git',
-    ['diff', '--name-only', '--diff-filter=ACMR', '-z', base, 'HEAD', '--'],
+    ['diff', '--name-only', '--no-renames', '-z', base, 'HEAD', '--'],
     { cwd: rootDir, encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 },
   );
   return output.split('\0').filter(Boolean);
+}
+
+function fileExistsInRoot(file, rootDir = ROOT_DIR) {
+  return fs.existsSync(path.join(rootDir, file));
 }
 
 // Decides whether the spellchecker runs on the whole repo or only on the
@@ -354,6 +360,7 @@ function resolveCspellScope({
   base,
   config,
   getChangedFiles = listChangedFiles,
+  fileExists = fileExistsInRoot,
 }) {
   if (!base) {
     return { mode: 'full', reason: `${CSPELL_DIFF_BASE_ENV} is not set` };
@@ -370,11 +377,18 @@ function resolveCspellScope({
       reason: `cannot diff against ${base}: ${error.message.split('\n')[0]}`,
     };
   }
+  // Full-scan triggers are checked against every touched path, deletions
+  // included; only files that still exist are spellchecked incrementally.
   const reason = getCspellFullScanReason(changedFiles);
   if (reason) {
     return { mode: 'full', reason };
   }
-  return { mode: 'changed', files: filterOxlintTargetFiles(changedFiles) };
+  return {
+    mode: 'changed',
+    files: filterOxlintTargetFiles(changedFiles).filter((file) =>
+      fileExists(file),
+    ),
+  };
 }
 
 function terminateChildProcess({
@@ -752,6 +766,7 @@ module.exports = {
   getTempCspellConfigNames,
   getTempTypeAwareConfigName,
   getTempTypeAwareConfigPath,
+  listChangedFiles,
   parseOxlintConfig,
   parseOxlintCounts,
   resolveCspellScope,
