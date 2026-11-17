@@ -26,6 +26,7 @@
     "apps/mobile/jsReady.ts": 10333,
     "apps/mobile/node_modules/.cache/tpl/asyncRequire.js": 59899,
     "apps/mobile/plugins/asyncRequireCore.js": 23838,
+    "apps/mobile/plugins/asyncRequireEager.js": 22971,
     "apps/mobile/plugins/chunkModuleIdToHashMap.js": 9141,
     "apps/mobile/shims/reactNativeMMKVMainGuard.js": 24485,
     "apps/mobile/shims/revenueCatBrowserMappings.js": 16568,
