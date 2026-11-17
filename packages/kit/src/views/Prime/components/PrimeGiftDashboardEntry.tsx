@@ -15,6 +15,10 @@ import type { IntlShape } from 'react-intl';
 
 const NO_CLAIMABLE_DEVICES: IPrimeGiftClaimableDevice[] = [];
 
+// One dashboard card per visit. Eligibility responses arrive one device at a
+// time, and this key must stay put so those arrivals are not new impressions.
+const DASHBOARD_IMPRESSION_KEY = 'primeDashboard';
+
 function dashboardEntryDescription(
   devices: IPrimeGiftClaimableDevice[],
   intl: IntlShape,
@@ -49,7 +53,7 @@ export function PrimeGiftDashboardEntry({
   const deviceCount = claimable.length;
   const impressionRef = usePrimeGiftOfferImpression({
     enabled: deviceCount > 0,
-    serialNo: claimable.map((item) => item.serialNo).join(',') || undefined,
+    serialNo: DASHBOARD_IMPRESSION_KEY,
     source: 'primeDashboard',
     deviceCount: deviceCount > 0 ? deviceCount : undefined,
   });
