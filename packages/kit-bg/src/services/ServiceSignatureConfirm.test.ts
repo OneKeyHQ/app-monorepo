@@ -1142,7 +1142,6 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     const buildPsbtDecodedTx = (): IDecodedTx => ({
       ...buildLocalDecodedTx(),
       isPsbt: true,
-      localAlerts: ['Local sighash notice'],
     });
     const buildServerParsedTx = () =>
       buildParsedTx({
@@ -1195,22 +1194,8 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
           tags: [serverRiskTag],
         }),
       );
-      expect(decodedTx.txDisplay?.alerts).toEqual([
-        'Local sighash notice',
-        'Server risk alert',
-      ]);
+      expect(decodedTx.txDisplay?.alerts).toEqual(['Server risk alert']);
       expect(decodedTx.hasServerSecurityAnalysis).toBe(true);
-    });
-
-    it('shows the local decoder alerts when the server returns no display', async () => {
-      const decodedTx = await decodeWith(
-        { ...buildServerParsedTx(), display: null },
-        { encodedTx: {} as IEncodedTx },
-      );
-
-      expect(decodedTx.isLocalParsed).toBe(true);
-      expect(decodedTx.txDisplay?.alerts).toEqual(['Local sighash notice']);
-      expect(decodedTx.hasServerSecurityAnalysis).toBeUndefined();
     });
 
     it('keeps the server display for a PSBT built by an internal staking flow', async () => {

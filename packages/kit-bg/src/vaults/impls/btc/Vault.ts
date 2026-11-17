@@ -18,7 +18,6 @@ import {
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import {
-  EBtcPsbtSighashFamily,
   buildBtcPsbtAuthorization,
   buildBtcPsbtDisplayTransfers,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/psbtAuthorization';
@@ -132,20 +131,6 @@ import type {
   IUtxoInfo,
   IValidateGeneralInputParams,
 } from '../../types';
-
-// TODO(i18n): hardcoded copy for the PSBT confirm page (OK-67209), to be
-// replaced with ETranslations keys. Shown as security alerts.
-const BTC_PSBT_HARDCODED_NOTICES = {
-  // SIGHASH_SINGLE, with or without ANYONECANPAY
-  sighashSingle:
-    'This signature only guarantees the output paired with your input. Every other output of this transaction can still be changed after you sign.',
-  // SIGHASH_ALL | ANYONECANPAY
-  sighashAnyoneCanPay:
-    'Other parties can still add inputs to this transaction after you sign, so the network fee shown here is not final.',
-  // An output that carries value but pays a script with no address form
-  outputWithoutAddress:
-    'This transaction sends funds to a non-standard script that has no address. Only continue if you trust this site.',
-};
 
 // btc vault
 export default class VaultBtc extends VaultBase {
@@ -533,23 +518,6 @@ export default class VaultBtc extends VaultBase {
     const utxoTo = displayTransfers.sends.map(toUtxoAddressInfo);
     const utxoReceives = displayTransfers.receives.map(toUtxoAddressInfo);
 
-    const localAlerts: string[] = [];
-    if (authorization.family === EBtcPsbtSighashFamily.Single) {
-      localAlerts.push(BTC_PSBT_HARDCODED_NOTICES.sighashSingle);
-    } else {
-      if (authorization.hasAnyoneCanPay) {
-        localAlerts.push(BTC_PSBT_HARDCODED_NOTICES.sighashAnyoneCanPay);
-      }
-      if (
-        displayTransfers.sends.some(
-          (transfer) =>
-            !transfer.address && new BigNumber(transfer.value).gt(0),
-        )
-      ) {
-        localAlerts.push(BTC_PSBT_HARDCODED_NOTICES.outputWithoutAddress);
-      }
-    }
-
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
     const actions: IDecodedTxAction[] = [
@@ -617,7 +585,6 @@ export default class VaultBtc extends VaultBase {
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
       nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
       isPsbt: true,
-      ...(localAlerts.length ? { localAlerts } : {}),
     };
   }
 

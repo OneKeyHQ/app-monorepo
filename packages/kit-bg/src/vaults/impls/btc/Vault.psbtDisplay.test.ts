@@ -274,10 +274,9 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
     ]);
     expect(receives).toEqual([]);
     expect(decodedTx.nativeAmountValue).toBe('1456639');
-    expect(decodedTx.localAlerts ?? []).toEqual([]);
   });
 
-  it('shows and flags a valued output that has no address', async () => {
+  it('shows a valued output that has no address', async () => {
     const { sends, decodedTx } = await decode(
       buildUnsignedTx({
         inputs: [victimInput(100_000n)],
@@ -293,11 +292,10 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
       { to: decoy.address, amount: '0.00001' },
     ]);
     expect(decodedTx.nativeAmountValue).toBe('91000');
-    expect(decodedTx.localAlerts).toHaveLength(1);
   });
 
   it('shows a listing as the input given up and the matching output received', async () => {
-    const { sends, receives, decodedTx } = await decode(
+    const { sends, receives } = await decode(
       buildUnsignedTx({
         inputs: [victimInput(546n, SIGHASH_SINGLE_ANYONECANPAY)],
         outputs: [
@@ -311,7 +309,6 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
     );
     expect(sends).toEqual([{ to: '', amount: '0.00000546' }]);
     expect(receives).toEqual([{ to: victim.address, amount: '0.01' }]);
-    expect(decodedTx.localAlerts).toHaveLength(1);
   });
 
   it('refuses a listing when the signer is not bound to the requested inputs', async () => {
@@ -371,8 +368,8 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
     ).rejects.toThrow('Input 0 is requested for signing more than once');
   });
 
-  it('warns when other parties can still add inputs', async () => {
-    const { sends, decodedTx } = await decode(
+  it('shows the payment when other parties can still add inputs', async () => {
+    const { sends } = await decode(
       buildUnsignedTx({
         inputs: [victimInput(100_000n, SIGHASH_ALL_ANYONECANPAY)],
         outputs: [
@@ -382,7 +379,6 @@ describe('VaultBtc.buildDecodedPsbtTx', () => {
       }),
     );
     expect(sends).toEqual([{ to: decoy.address, amount: '0.0005' }]);
-    expect(decodedTx.localAlerts).toHaveLength(1);
   });
 
   it('refuses to decode the reported PSBT', async () => {

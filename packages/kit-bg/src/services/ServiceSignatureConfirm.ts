@@ -570,12 +570,9 @@ class ServiceSignatureConfirm extends ServiceBase {
           ...mergedComponents,
           ...(mergeUnknownTonEffects ? [] : serverSimulationComponents),
         ],
-        alerts: [
-          ...(decodedTx.localAlerts ?? []),
-          ...(rebaseDisplayExtras?.alerts?.length
-            ? rebaseDisplayExtras.alerts
-            : serverAlerts),
-        ],
+        alerts: rebaseDisplayExtras?.alerts?.length
+          ? rebaseDisplayExtras.alerts
+          : serverAlerts,
       };
       decodedTx.isLocalParsed = true;
       // Scaled-UI forced-local: the server parse ran and its alerts are
