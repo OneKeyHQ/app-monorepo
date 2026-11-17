@@ -31,8 +31,10 @@ under separate owners:
     is turned off.
   - Interval: `multiChart/intervalSync` holds the shared interval. The first
     panel sets it when syncing starts, a pick in any panel changes it, and
-    every chart takes it through `useMultiChartIntervalSync`; a chart that
-    cannot show the interval keeps its own.
+    every other chart takes it through `useMultiChartIntervalSync`; a chart
+    that cannot show the interval keeps its own. The chart that made the pick
+    is not told about it, so whatever came with the pick, such as a calendar
+    jump, goes on undisturbed.
   - Crosshair: `multiChart/crosshairSync` carries one crosshair. A chart
     publishes the time and price under its own crosshair after each draw, and
     withdraws them when the pointer leaves, a drag starts or it unmounts. The
@@ -52,9 +54,12 @@ under separate owners:
     range on its zoom changes so the oldest time lands at the same place at
     the left, within the zoom limits. A time it has not loaded goes to its
     nearest loaded candle, from where its history loads as usual. A following
-    chart never reports back, so charts cannot move each other in circles;
-    panning, zooming, the navigation buttons and a picked date make a chart
-    the leading one.
+    chart never reports back, so charts cannot move each other in circles.
+    Panning, zooming, the navigation buttons and a picked date make a chart
+    the leading one, but only when they move it in time: a drag that changes
+    just its prices leaves the lead where it is. When the leading chart
+    unmounts, as on an interval change, the first panel or else another one
+    carries on, and the panel's next chart lines up with it.
 - `drawings/model` and `drawings/geometry` are shared time/price calculations. The
   browser Canvas renderer and native Skia renderer consume the same geometry.
 - `drawings/useChartDrawings` owns editing and selection. Browser

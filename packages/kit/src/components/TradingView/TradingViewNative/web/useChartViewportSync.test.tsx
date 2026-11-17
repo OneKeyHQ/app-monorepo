@@ -18,6 +18,7 @@ const viewport = (toTime: number) => ({
   fromTime: toTime - 3600,
   span: 0.8,
 });
+const at = (offset: number, zoomScale = 1) => ({ offset, zoomScale });
 
 function renderChart(
   channel: ITradingViewNativeViewportSyncChannel | null,
@@ -40,9 +41,11 @@ function renderChart(
     </TradingViewNativeMultiChartSyncContext.Provider>
   );
   const hook = renderHook(() => useChartViewportSync(redrawRef), { wrapper });
+  const redrawsOnMount = redraw.mock.calls.length;
   redraw.mockClear();
   return {
     redraw,
+    redrawsOnMount,
     get: () => hook.result.current,
     setFitRange: (next: boolean) => {
       scope.current = {
@@ -79,13 +82,32 @@ describe('useChartViewportSync', () => {
     const second = renderChart(channel);
     act(() => {
       first.get().publishViewport(viewport(100));
-      second.get().leadViewport();
+      second.get().leadViewport(at(0), at(40));
       second.get().publishViewport(viewport(200));
     });
 
     expect(second.get().getFollowedViewport()).toBeNull();
     expect(first.get().getFollowedViewport()?.viewport).toEqual(viewport(200));
     expect(first.redraw).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps following when its own pan or zoom did not move it in time', () => {
+    const channel = createTradingViewNativeViewportSyncChannel();
+    const first = renderChart(channel, { isMain: true });
+    const second = renderChart(channel);
+    act(() => {
+      first.get().publishViewport(viewport(100));
+      // A drag that only changed the prices, and a zoom already at its limit.
+      second.get().leadViewport(at(40), at(40));
+      second.get().leadViewport(at(40, 3), at(40, 3));
+      second.get().publishViewport(viewport(200));
+    });
+
+    expect(second.get().getFollowedViewport()?.viewport).toEqual(viewport(100));
+    expect(first.get().getFollowedViewport()).toBeNull();
+    // A zoom alone moves it in time.
+    act(() => second.get().leadViewport(at(40, 1), at(40, 2)));
+    expect(second.get().getFollowedViewport()).toBeNull();
   });
 
   it('matches the span of time only while the date range is synced', () => {
@@ -102,20 +124,32 @@ describe('useChartViewportSync', () => {
     expect(second.get().getFollowedViewport()?.viewport).toEqual(viewport(100));
   });
 
-  it('stops following a chart that is gone', () => {
+  it('lines a remounted chart up with the others after it led', () => {
     const channel = createTradingViewNativeViewportSyncChannel();
     const first = renderChart(channel, { isMain: true });
     const second = renderChart(channel);
-    act(() => first.get().publishViewport(viewport(100)));
-    first.unmount();
+    act(() => {
+      second.get().leadViewport(at(0), at(40));
+      second.get().publishViewport(viewport(200));
+    });
+    first.redraw.mockClear();
+    // The panel changes its interval: its chart unmounts and mounts anew.
+    second.unmount();
 
-    expect(second.get().getFollowedViewport()).toBeNull();
+    // The first panel redraws to report what it shows from now on.
+    expect(first.redraw).toHaveBeenCalledTimes(1);
+    expect(first.get().getFollowedViewport()).toBeNull();
+    const remounted = renderChart(channel);
+    expect(remounted.redrawsOnMount).toBeGreaterThan(0);
+    expect(remounted.get().getFollowedViewport()?.viewport).toEqual(
+      viewport(200),
+    );
   });
 
   it('keeps to itself outside a split view', () => {
     const chart = renderChart(null);
     act(() => {
-      chart.get().leadViewport();
+      chart.get().leadViewport(at(0), at(40));
       chart.get().publishViewport(viewport(100));
     });
     expect(chart.get().getFollowedViewport()).toBeNull();

@@ -2,6 +2,8 @@ import { useCallback, useContext, useEffect, useRef } from 'react';
 
 import { TradingViewNativeMultiChartSyncContext } from './TradingViewNativeMultiChartSyncContext';
 
+import type { ITradingViewNativeIntervalSyncMember } from './intervalSync';
+
 /**
  * Keeps the chart on the interval its split view shares. Returns what to call
  * when the user picks an interval in this chart, so the others follow.
@@ -19,6 +21,7 @@ export function useMultiChartIntervalSync({
   const isMain = scope?.isMain ?? false;
   const latest = useRef({ activeInterval, onSyncedIntervalChange });
   latest.current = { activeInterval, onSyncedIntervalChange };
+  const memberRef = useRef<ITradingViewNativeIntervalSyncMember | null>(null);
   useEffect(() => {
     if (!sync) return undefined;
     const adopt = () => {
@@ -27,10 +30,18 @@ export function useMultiChartIntervalSync({
         latest.current.onSyncedIntervalChange(shared);
       }
     };
+    const member = sync.join(adopt);
+    memberRef.current = member;
     // Syncing starts from the first panel's interval.
-    if (isMain) sync.set(latest.current.activeInterval);
+    if (isMain) member.set(latest.current.activeInterval);
     else adopt();
-    return sync.subscribe(adopt);
+    return () => {
+      memberRef.current = null;
+      member.leave();
+    };
   }, [isMain, sync]);
-  return useCallback((interval: string) => sync?.set(interval), [sync]);
+  return useCallback(
+    (interval: string) => memberRef.current?.set(interval),
+    [],
+  );
 }

@@ -905,7 +905,9 @@ export const TradingViewNativeChart = memo(
         requestId: viewportRequest.requestId,
       };
       // A request that only keeps the view in place is not the user's move.
-      if (!viewportRequest.preserveVisibleAnchor) leadViewport();
+      if (!viewportRequest.preserveVisibleAnchor) {
+        leadViewport(runtimeStateRef.current.viewport, nextViewport);
+      }
       runtimeStateRef.current = nextRuntimeState;
       const dragState = pointerPanDragStateRef.current;
       const timeAxisDragState = timeAxisPointerDragStateRef.current;
@@ -1194,7 +1196,6 @@ export const TradingViewNativeChart = memo(
           }
           dragState.subIndicatorSettingsTarget = null;
           event.preventDefault();
-          leadViewport();
           const translationY = event.clientY - dragState.startClientY;
           if (!dragState.isPricePanActive && Math.abs(translationY) > 4) {
             dragState.priceRange =
@@ -1241,6 +1242,10 @@ export const TradingViewNativeChart = memo(
           // cannot clamp away movement discarded at the edge.
           dragState.startClientX = event.clientX;
           dragState.startOffset = nextRuntimeState.viewport.offset;
+          leadViewport(
+            runtimeStateRef.current.viewport,
+            nextRuntimeState.viewport,
+          );
           runtimeStateRef.current = nextRuntimeState;
           renderChart();
           setViewportState((currentState) =>
@@ -1413,7 +1418,6 @@ export const TradingViewNativeChart = memo(
           return;
         }
         event.preventDefault();
-        leadViewport();
         dragState.isActive = true;
         const chartWidth = measuredChartWidth;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
@@ -1434,6 +1438,10 @@ export const TradingViewNativeChart = memo(
         dragState.startOffset = nextRuntimeState.viewport.offset;
         dragState.startX = currentX;
         dragState.startZoomScale = nextRuntimeState.viewport.zoomScale;
+        leadViewport(
+          runtimeStateRef.current.viewport,
+          nextRuntimeState.viewport,
+        );
         runtimeStateRef.current = nextRuntimeState;
         renderChart();
         setViewportState((currentState) =>
@@ -1526,7 +1534,6 @@ export const TradingViewNativeChart = memo(
           priceScaleModelRef.current,
           priceAxisFontSize,
         );
-        leadViewport();
         const currentRuntimeState = runtimeStateRef.current;
         let nextRuntimeState = currentRuntimeState;
         if (wheelDelta.deltaY !== 0) {
@@ -1565,6 +1572,7 @@ export const TradingViewNativeChart = memo(
             },
           );
         }
+        leadViewport(currentRuntimeState.viewport, nextRuntimeState.viewport);
         runtimeStateRef.current = nextRuntimeState;
         setViewportState((currentState) =>
           currentState.offset === nextRuntimeState.viewport.offset &&
@@ -1658,12 +1666,12 @@ export const TradingViewNativeChart = memo(
         if (!runtimeEvent) {
           return;
         }
-        leadViewport();
         const previousViewport = runtimeStateRef.current.viewport;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
           runtimeStateRef.current,
           runtimeEvent,
         );
+        leadViewport(previousViewport, nextRuntimeState.viewport);
         runtimeStateRef.current = nextRuntimeState;
         if (
           previousViewport.offset === nextRuntimeState.viewport.offset &&

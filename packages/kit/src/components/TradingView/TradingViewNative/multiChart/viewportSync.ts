@@ -3,7 +3,7 @@ import type { ITradingViewNativeSyncedViewport } from '../utils/syncedViewport';
 export interface ITradingViewNativeViewportSyncMember {
   /**
    * What the leading chart shows, for this chart to line up with. Null for the
-   * leading chart itself and until that chart has drawn.
+   * leading chart itself and until a chart has reported.
    */
   getViewport: () => ITradingViewNativeSyncedViewport | null;
   /** Makes this chart the one the others follow, as the user moves it. */
@@ -13,12 +13,15 @@ export interface ITradingViewNativeViewportSyncMember {
   leave: () => void;
 }
 
+interface IViewportSyncChart {
+  /** The first panel: it leads until the user moves a chart. */
+  isMain: boolean;
+  /** Called when this chart has a viewport to line up with, or to report. */
+  onChange: () => void;
+}
+
 export interface ITradingViewNativeViewportSyncChannel {
-  hasLeader: () => boolean;
-  join: (chart: {
-    /** Called when the viewport this chart should line up with has changed. */
-    onChange: () => void;
-  }) => ITradingViewNativeViewportSyncMember;
+  join: (chart: IViewportSyncChart) => ITradingViewNativeViewportSyncMember;
 }
 
 /**
@@ -27,16 +30,13 @@ export interface ITradingViewNativeViewportSyncChannel {
  * other in circles.
  */
 export function createTradingViewNativeViewportSyncChannel(): ITradingViewNativeViewportSyncChannel {
-  interface IChart {
-    onChange: () => void;
-  }
-  const charts = new Set<IChart>();
-  let leader: IChart | null = null;
+  const charts = new Set<IViewportSyncChart>();
+  let leader: IViewportSyncChart | null = null;
   let viewport: ITradingViewNativeSyncedViewport | null = null;
   return {
-    hasLeader: () => leader !== null,
     join: (chart) => {
       charts.add(chart);
+      if (!leader && chart.isMain) leader = chart;
       return {
         getViewport: () => (leader === chart ? null : viewport),
         lead: () => {
@@ -64,9 +64,17 @@ export function createTradingViewNativeViewportSyncChannel(): ITradingViewNative
         leave: () => {
           charts.delete(chart);
           if (leader !== chart) return;
-          // The others stay where they are until one of them is moved.
+          // A chart that followed it shows the same time and carries on, the
+          // first panel if it is there. The viewport last reported stays, so a
+          // chart that mounts meanwhile, such as this panel's next one after
+          // an interval change, lines up with the others instead of leaving
+          // them behind.
           leader = null;
-          viewport = null;
+          for (const other of charts) {
+            if (other.isMain || !leader) leader = other;
+          }
+          if (leader) leader.onChange();
+          else viewport = null;
         },
       };
     },

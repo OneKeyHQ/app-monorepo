@@ -7,100 +7,125 @@ const viewport = (toTime: number) => ({
   span: 0.8,
 });
 
-function setup() {
+// Three panels; the first one is the main panel unless told otherwise.
+function setup({ mainIndex = 0 }: { mainIndex?: number | null } = {}) {
   const channel = createTradingViewNativeViewportSyncChannel();
-  const charts = [0, 1, 2].map(() => {
+  const join = (isMain: boolean) => {
     const onChange = jest.fn();
-    return { onChange, ...channel.join({ onChange }) };
-  });
-  return { channel, charts };
+    return { onChange, ...channel.join({ isMain, onChange }) };
+  };
+  return {
+    join,
+    charts: [0, 1, 2].map((index) => join(index === mainIndex)),
+  };
 }
 
 describe('viewport sync channel', () => {
-  it('has nothing to follow until a chart leads', () => {
+  it('lines the other charts up with the first panel until one is moved', () => {
     const {
-      channel,
-      charts: [a, b],
+      charts: [main, b, c],
     } = setup();
-    a.publish(viewport(100));
+    // A follower reports where it is; that must not move the others.
+    b.publish(viewport(90));
+    expect(c.getViewport()).toBeNull();
 
-    expect(channel.hasLeader()).toBe(false);
-    expect(b.getViewport()).toBeNull();
-    expect(b.onChange).not.toHaveBeenCalled();
-  });
-
-  it('lines the other charts up with the leading one', () => {
-    const {
-      channel,
-      charts: [a, b, c],
-    } = setup();
-    a.lead();
-    a.publish(viewport(100));
-
-    expect(channel.hasLeader()).toBe(true);
-    expect(a.getViewport()).toBeNull();
-    expect(a.onChange).not.toHaveBeenCalled();
+    main.publish(viewport(100));
+    expect(main.getViewport()).toBeNull();
+    expect(main.onChange).not.toHaveBeenCalled();
     for (const chart of [b, c]) {
       expect(chart.getViewport()).toEqual(viewport(100));
       expect(chart.onChange).toHaveBeenCalledTimes(1);
     }
   });
 
-  it('ignores the charts that only follow', () => {
+  it('has nothing to follow while the first panel is not there', () => {
     const {
-      charts: [a, b, c],
-    } = setup();
-    a.lead();
+      charts: [a, b],
+    } = setup({ mainIndex: null });
     a.publish(viewport(100));
-    // A follower reports where it ended up; that must not move the others.
-    b.publish(viewport(90));
 
-    expect(c.getViewport()).toEqual(viewport(100));
-    expect(c.onChange).toHaveBeenCalledTimes(1);
-    expect(a.onChange).not.toHaveBeenCalled();
+    expect(b.getViewport()).toBeNull();
+    expect(b.onChange).not.toHaveBeenCalled();
   });
 
   it('stays quiet while the leading chart has not moved', () => {
     const {
-      charts: [a, b],
+      charts: [main, b],
     } = setup();
-    a.lead();
-    a.publish(viewport(100));
-    a.publish(viewport(100));
+    main.publish(viewport(100));
+    main.publish(viewport(100));
     expect(b.onChange).toHaveBeenCalledTimes(1);
   });
 
   it('follows the chart the user moved last', () => {
     const {
-      charts: [a, b, c],
+      charts: [main, b, c],
     } = setup();
-    a.lead();
-    a.publish(viewport(100));
+    main.publish(viewport(100));
     b.lead();
     // Not the previous chart's viewport: the new leader has yet to report.
-    expect(a.getViewport()).toBeNull();
+    expect(main.getViewport()).toBeNull();
     expect(c.getViewport()).toBeNull();
 
     b.publish(viewport(200));
-    a.publish(viewport(300));
-    expect(a.getViewport()).toEqual(viewport(200));
+    main.publish(viewport(300));
+    expect(main.getViewport()).toEqual(viewport(200));
     expect(b.getViewport()).toBeNull();
     expect(c.getViewport()).toEqual(viewport(200));
   });
 
-  it('leaves the others where they are when the leading chart goes away', () => {
+  it('passes the lead to the first panel when the leading chart goes away', () => {
     const {
-      channel,
-      charts: [a, b],
+      join,
+      charts: [main, b, c],
     } = setup();
-    a.lead();
-    a.publish(viewport(100));
-    a.leave();
+    b.lead();
+    b.publish(viewport(200));
+    main.onChange.mockClear();
+    c.onChange.mockClear();
+    // The panel changes its interval: its chart unmounts and mounts anew.
+    b.leave();
 
-    expect(channel.hasLeader()).toBe(false);
+    // The first panel is asked to report what it shows, and is heard again.
+    expect(main.onChange).toHaveBeenCalledTimes(1);
+    expect(c.onChange).not.toHaveBeenCalled();
+    expect(main.getViewport()).toBeNull();
+    // The panel's next chart lines up with the others straight away.
+    const remounted = join(false);
+    expect(remounted.getViewport()).toEqual(viewport(200));
+    main.publish(viewport(210));
+    expect(remounted.getViewport()).toEqual(viewport(210));
+    expect(c.getViewport()).toEqual(viewport(210));
+  });
+
+  it('passes the lead to another panel when the first one goes away', () => {
+    const {
+      join,
+      charts: [main, b, c],
+    } = setup();
+    main.publish(viewport(100));
+    main.leave();
+
+    expect(b.onChange).toHaveBeenCalledTimes(2);
     expect(b.getViewport()).toBeNull();
-    expect(b.onChange).toHaveBeenCalledTimes(1);
-    a.lead();
-    expect(channel.hasLeader()).toBe(false);
+    b.publish(viewport(110));
+    expect(c.getViewport()).toEqual(viewport(110));
+    // Back again, the first panel follows like any other.
+    expect(join(true).getViewport()).toEqual(viewport(110));
+  });
+
+  it('forgets the viewport once every chart is gone', () => {
+    const {
+      join,
+      charts: [main, b, c],
+    } = setup();
+    main.publish(viewport(100));
+    for (const chart of [main, b, c]) chart.leave();
+    // Stale members are neither heard nor made the leader.
+    b.lead();
+    b.publish(viewport(300));
+
+    const next = join(false);
+    expect(next.getViewport()).toBeNull();
   });
 });

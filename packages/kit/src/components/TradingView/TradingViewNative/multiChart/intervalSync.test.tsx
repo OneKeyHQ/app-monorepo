@@ -34,6 +34,9 @@ function renderPanel(
     },
   };
   const state = { interval: initialInterval };
+  const onSyncedIntervalChange = jest.fn((interval: string) => {
+    if (supports(interval)) state.interval = interval;
+  });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <TradingViewNativeMultiChartSyncContext.Provider value={scope.current}>
       {children}
@@ -43,19 +46,19 @@ function renderPanel(
     () =>
       useMultiChartIntervalSync({
         activeInterval: state.interval,
-        onSyncedIntervalChange: (interval) => {
-          if (supports(interval)) state.interval = interval;
-        },
+        onSyncedIntervalChange,
       }),
     { wrapper },
   );
   return {
     getInterval: () => state.interval,
-    // The user picks an interval in this panel.
+    onSyncedIntervalChange,
+    // The user picks an interval in this panel. As in the chart, the pick is
+    // passed on before the panel has rendered with it.
     pick: (interval: string) =>
       act(() => {
-        state.interval = interval;
         hook.result.current(interval);
+        state.interval = interval;
         hook.rerender();
       }),
     setSync: (next: ITradingViewNativeIntervalSync | null) => {
@@ -88,6 +91,19 @@ describe('interval sync', () => {
     expect(sync.get()).toBe('240');
     expect(first.getInterval()).toBe('240');
     expect(second.getInterval()).toBe('240');
+  });
+
+  it('does not hand a panel back the interval it just picked', () => {
+    const sync = createTradingViewNativeIntervalSync();
+    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const second = renderPanel(sync, { initialInterval: '15' });
+    second.onSyncedIntervalChange.mockClear();
+    // A pick that comes with more to do, such as a calendar jump, must not be
+    // replayed to the panel as if another one had made it.
+    second.pick('240');
+
+    expect(second.onSyncedIntervalChange).not.toHaveBeenCalled();
+    expect(first.onSyncedIntervalChange).toHaveBeenCalledWith('240');
   });
 
   it('leaves a panel on its own interval when it cannot show the shared one', () => {
