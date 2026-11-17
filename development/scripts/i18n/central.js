@@ -80,7 +80,8 @@ function loadLocalSettings({
     const match =
       /^\s*(?:export\s+)?(ONEKEY_I18N_[A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
     if (match && env[match[1]] === undefined) {
-      const quoted = /^(["'])(.*)\1$/.exec(match[2]);
+      // A quoted value ends at its closing quote; a comment may follow.
+      const quoted = /^(["'])(.*?)\1\s*(?:#.*)?$/.exec(match[2]);
       const value = quoted ? quoted[2] : match[2].replace(/\s+#.*$/, '');
       if (value) {
         env[match[1]] = value;

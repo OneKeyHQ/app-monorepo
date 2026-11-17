@@ -285,7 +285,8 @@ class CentralClient {
    * files after the release that was read, so nobody else's edit is
    * overwritten. With a key (apply passes its approval) the branch is named
    * after it, so a rerun reuses the PR an earlier run opened even if GitHub's
-   * answer was lost. Returns null without changes.
+   * answer was lost, or opens it from the branch that run created. An existing
+   * branch is never moved. Returns null without changes.
    */
   async finalize({ title, body, branchHint = PROJECT_SLUG, key }) {
     if (this.changed.size === 0) return null;
@@ -350,18 +351,28 @@ class CentralClient {
       parents: [head],
     });
     const branch = named ?? `i18n/${branchHint}-${commit.sha.slice(0, 7)}`;
+    let proposed = commit.sha;
     try {
       await this.api.request('POST', `${repo}/git/refs`, {
         ref: `refs/heads/${branch}`,
         sha: commit.sha,
       });
     } catch (error) {
-      // An earlier run of the same plan created the branch but no open PR.
       if (!named || error.status !== 422) throw error;
-      await this.api.request('PATCH', `${repo}/git/refs/heads/${branch}`, {
-        sha: commit.sha,
-        force: true,
-      });
+      // The branch exists without an open PR. Use it as is only when it holds
+      // exactly this change (an earlier run that did not open its PR); moving
+      // it would drop whatever was pushed there since.
+      const existing = (await this.api.get(`${repo}/git/ref/heads/${branch}`))
+        .object.sha;
+      const { tree: existingTree } = await this.api.get(
+        `${repo}/git/commits/${existing}`,
+      );
+      if (existingTree.sha !== newTree.sha)
+        throw new Error(
+          `onekey-i18n branch ${branch} already exists without an open PR and holds other content. Inspect it and any PR it had, delete it if it is stale, then rerun apply.`,
+          { cause: error },
+        );
+      proposed = existing;
     }
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,
@@ -370,7 +381,7 @@ class CentralClient {
       body,
     });
     this.changed.clear();
-    return proposalOf(pull, branch, commit.sha, files);
+    return proposalOf(pull, branch, proposed, files);
   }
 }
 

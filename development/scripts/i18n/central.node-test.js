@@ -369,28 +369,44 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
     [],
   );
 
-  // The branch exists without a PR: it moves to the new commit, then the PR opens.
-  const { routes, bodies } = commitRoutes();
-  const partial = fakeApi({
-    ...routes,
-    [lookup]: [],
-    [`POST ${REPO}/git/refs`]: () => {
-      throw Object.assign(new Error('Reference already exists'), {
-        status: 422,
-      });
-    },
-    [`PATCH ${REPO}/git/refs/heads/${branch}`]: (body) => {
-      bodies.moved = body;
-      return {};
-    },
-  });
-  const resumed = new CentralClient({ api: partial, source: sourceFixture() });
-  await edit(resumed);
-  const result = await resumed.finalize(proposal);
-  assert.deepEqual(bodies.moved, { sha: 'c2abcdef0123', force: true });
+  // The branch exists without a PR. It is used as is when it holds exactly
+  // this change; with anything else on it, it is left alone and apply stops.
+  const existingBranch = (treeSha) => {
+    const { routes, bodies } = commitRoutes();
+    const api = fakeApi({
+      ...routes,
+      [lookup]: [],
+      [`POST ${REPO}/git/refs`]: () => {
+        throw Object.assign(new Error('Reference already exists'), {
+          status: 422,
+        });
+      },
+      [`GET ${REPO}/git/ref/heads/${branch}`]: { object: { sha: 'c8' } },
+      [`GET ${REPO}/git/commits/c8`]: { tree: { sha: treeSha } },
+    });
+    return {
+      api,
+      bodies,
+      client: new CentralClient({ api, source: sourceFixture() }),
+    };
+  };
+  const same = existingBranch('t2');
+  await edit(same.client);
+  const result = await same.client.finalize(proposal);
   assert.deepEqual(
-    [result.number, result.branch, bodies.pull.head],
-    [9, branch, branch],
+    [result.number, result.branch, result.commit, same.bodies.pull.head],
+    [9, branch, 'c8', branch],
+  );
+  const changed = existingBranch('t9');
+  await edit(changed.client);
+  await assert.rejects(
+    changed.client.finalize(proposal),
+    /already exists without an open PR and holds other content/,
+  );
+  assert.equal(changed.bodies.pull, undefined);
+  assert.equal(
+    changed.api.calls.some(([method]) => !['GET', 'POST'].includes(method)),
+    false,
   );
 });
 
@@ -734,7 +750,7 @@ test('.env fills only unset ONEKEY_I18N_* settings', (t) => {
     file,
     [
       '# i18n',
-      'ONEKEY_I18N_TOKEN="from-dotenv"',
+      'ONEKEY_I18N_TOKEN="from-dotenv" # read-only',
       'export ONEKEY_I18N_CHANNEL=test # trying a branch',
       'ONEKEY_I18N_BASE=feat/x',
       'ONEKEY_I18N_EMPTY=',
