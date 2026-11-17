@@ -434,29 +434,6 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId: inputs.accountId,
       createAtNetwork,
     });
-    if (
-      persistAggregateMaps &&
-      inputs.networkId &&
-      inputs.accountId &&
-      this.backgroundApi?.serviceToken
-    ) {
-      if ('updateLocalAggregateTokenMap' in this.backgroundApi.serviceToken) {
-        void this.backgroundApi.serviceToken.updateLocalAggregateTokenMap({
-          networkId: inputs.networkId,
-          accountId: inputs.accountId,
-          aggregateTokenMap: snapshot.aggregateTokenMap,
-        });
-      }
-      if (
-        'updateLocalAggregateTokenListMap' in this.backgroundApi.serviceToken
-      ) {
-        void this.backgroundApi.serviceToken.updateLocalAggregateTokenListMap({
-          networkId: inputs.networkId,
-          accountId: inputs.accountId,
-          aggregateTokenListMap: snapshot.aggregateTokenListMap,
-        });
-      }
-    }
     const prevRaw = this.frames.getPullBlob<IRawTokenListData>(
       inputs.ownerKey,
       RAW_BLOB_KEY,
@@ -483,7 +460,34 @@ class ServiceTokenViewModel extends ServiceBase {
       riskyTokens: snapshot.riskyTokens,
       riskyMap: snapshot.riskyTokenListMap,
       rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-    }).then(() => true);
+    }).then(() => {
+      if (
+        persistAggregateMaps &&
+        inputs.networkId &&
+        inputs.accountId &&
+        this.backgroundApi?.serviceToken
+      ) {
+        if ('updateLocalAggregateTokenMap' in this.backgroundApi.serviceToken) {
+          void this.backgroundApi.serviceToken.updateLocalAggregateTokenMap({
+            networkId: inputs.networkId,
+            accountId: inputs.accountId,
+            aggregateTokenMap: snapshot.aggregateTokenMap,
+          });
+        }
+        if (
+          'updateLocalAggregateTokenListMap' in this.backgroundApi.serviceToken
+        ) {
+          void this.backgroundApi.serviceToken.updateLocalAggregateTokenListMap(
+            {
+              networkId: inputs.networkId,
+              accountId: inputs.accountId,
+              aggregateTokenListMap: snapshot.aggregateTokenListMap,
+            },
+          );
+        }
+      }
+      return true;
+    });
   }
 
   /**

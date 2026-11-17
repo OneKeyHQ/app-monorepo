@@ -156,8 +156,11 @@ export async function loadAccountSelectorValuesV2(
       if (
         activeQueryId &&
         response &&
-        'queryExpired' in response &&
-        response.queryExpired
+        (('queryExpired' in response && response.queryExpired) ||
+          response.accountsValue?.length !== batch.length ||
+          response.accountsValue.some(
+            (v, idx) => v && v.accountId !== batch[idx]?.accountId,
+          ))
       ) {
         activeQueryId = undefined;
         response = await buildValues({
