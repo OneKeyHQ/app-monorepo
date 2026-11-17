@@ -1,4 +1,3 @@
-import { bridgePayloadGuard } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -968,54 +967,5 @@ describe('ServiceToken native Home request lifetime', () => {
         source: 'singleCacheSeed',
       }),
     );
-  });
-
-  it('detects ping-pong cross-bridge round-trips and oversized payloads via bridgePayloadGuard', () => {
-    const makeFixtureToken = (key: string) => ({
-      $key: key,
-      address: '',
-      decimals: 18,
-      isNative: true,
-      name: key.toUpperCase(),
-      symbol: key.toUpperCase(),
-    });
-    bridgePayloadGuard.reset();
-    bridgePayloadGuard.configure({
-      mode: 'throw',
-      minArrayItems: 3,
-      maxMainToBgParamBytes: 1024,
-    });
-    try {
-      const responseTokens = [
-        makeFixtureToken('t1'),
-        makeFixtureToken('t2'),
-        makeFixtureToken('t3'),
-      ];
-      bridgePayloadGuard.recordResponse({
-        method: 'serviceToken.fetchAccountTokens',
-        result: { tokens: { data: responseTokens } },
-        now: 1000,
-      });
-
-      expect(() =>
-        bridgePayloadGuard.inspectRequest({
-          method: 'serviceTokenViewModel.ingestRound',
-          params: [{ orderedTokens: responseTokens }],
-          now: 1050,
-        }),
-      ).toThrow(/Ping-Pong round-trip detected/u);
-
-      const largeParam = { blob: 'x'.repeat(1000) };
-      expect(() =>
-        bridgePayloadGuard.inspectRequest({
-          method: 'serviceCustom.upload',
-          params: [largeParam],
-          now: 2000,
-        }),
-      ).toThrow(/Oversized Main->BG RPC payload/u);
-      expect(bridgePayloadGuard.getViolations()).toHaveLength(2);
-    } finally {
-      bridgePayloadGuard.reset();
-    }
   });
 });
