@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { RefObject } from 'react';
 
-import {
-  readChartLocalStorage,
-  writeChartLocalStorage,
-} from '../chartLocalStorage';
-
+import { openDrawingDocument } from './drawingDocument';
 import { hitTestDrawings } from './geometry';
 import {
   DEFAULT_DRAWING_STYLE,
@@ -21,13 +17,13 @@ import {
   isPathTool,
   isTextDrawingTool,
   moveDrawing,
-  parseDrawings,
   screenToDrawingPoint,
 } from './model';
 import { prepareDrawing } from './projectionGeometry';
 import { getDrawingProfileKey, useDrawingHistory } from './useDrawingHistory';
 
 import type { IDataWindowSnapshot } from './dataWindow';
+import type { IDrawingDocument } from './drawingDocument';
 import type { IDrawingHistoryLoader } from './drawingHistory';
 import type {
   IDrawing,
@@ -84,6 +80,23 @@ type IDrawingDrag = {
   companions?: IDrawing[];
 };
 
+// Shows a history and drops the selection of drawings it no longer has.
+function showDrawingHistory(
+  model: {
+    history: IDrawingHistory;
+    selectedId: string | null;
+    selectedIds: string[];
+  },
+  history: IDrawingHistory,
+) {
+  model.history = history;
+  model.selectedIds = model.selectedIds.filter((id) =>
+    history.present.some((drawing) => drawing.id === id),
+  );
+  if (!history.present.some((drawing) => drawing.id === model.selectedId))
+    model.selectedId = model.selectedIds.at(-1) ?? null;
+}
+
 export function useChartDrawings({
   projectionRef,
   redrawRef,
@@ -125,13 +138,7 @@ export function useChartDrawings({
     panel: null as 'objects' | 'data' | null,
     data: null as IDataWindowSnapshot | null,
   });
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const documentRef = useRef<IDrawingDocument | null>(null);
   const update = useCallback(() => {
     refresh();
     redrawRef.current();
@@ -152,18 +159,22 @@ export function useChartDrawings({
   useEffect(() => {
     if (!enabled) return undefined;
     let active = true;
-    state.current.ready = false;
+    const model = state.current;
+    model.ready = false;
+    // Charts showing the same key share one document, so an edit made in
+    // another chart arrives here.
+    const drawingDocument = openDrawingDocument(key, () => {
+      if (!model.ready) return;
+      showDrawingHistory(model, drawingDocument.history);
+      model.saveFailed = drawingDocument.saveFailed;
+      update();
+    });
+    documentRef.current = drawingDocument;
     const load = async () => {
-      let drawings: IDrawing[] = [];
-      try {
-        if (key) {
-          drawings = parseDrawings(await readChartLocalStorage(key));
-        }
-      } catch {
-        // Drawing remains available when preference storage cannot be read.
-      }
+      await drawingDocument.loaded;
       if (!active) return;
-      state.current.history = { past: [], present: drawings, future: [] };
+      state.current.history = drawingDocument.history;
+      state.current.saveFailed = drawingDocument.saveFailed;
       state.current.ready = true;
       state.current.draft = null;
       state.current.drag = null;
@@ -178,6 +189,8 @@ export function useChartDrawings({
     void load();
     return () => {
       active = false;
+      drawingDocument.close();
+      documentRef.current = null;
     };
   }, [enabled, key, update]);
 
@@ -194,32 +207,12 @@ export function useChartDrawings({
         return;
       const next = changeDrawingHistory(model.history, change);
       if (next === model.history) return;
-      model.history = next;
-      model.selectedIds = model.selectedIds.filter((id) =>
-        next.present.some((drawing) => drawing.id === id),
-      );
-      if (!next.present.some((drawing) => drawing.id === model.selectedId))
-        model.selectedId = model.selectedIds.at(-1) ?? null;
-      if (key) {
-        const serialized = JSON.stringify(next.present);
-        void writeChartLocalStorage(key, serialized).then(
-          () => {
-            if (model.saveFailed) {
-              model.saveFailed = false;
-              if (mounted.current) refresh();
-            }
-          },
-          () => {
-            if (!model.saveFailed) {
-              model.saveFailed = true;
-              if (mounted.current) refresh();
-            }
-          },
-        );
-      }
+      showDrawingHistory(model, next);
+      // Saves the drawings and shows them in the other charts of the document.
+      documentRef.current?.commit(next);
       update();
     },
-    [key, update],
+    [update],
   );
 
   const cancel = useCallback(() => {
