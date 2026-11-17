@@ -127,8 +127,12 @@ export default function PrimeGiftPage() {
     reason: 'PrimeGift Logout Button',
   });
   const closePage = useCallback(() => {
+    if (params.source === 'primeDashboard') {
+      navigation.popStack();
+      return;
+    }
     navigation.pop();
-  }, [navigation]);
+  }, [navigation, params.source]);
   const enterWallet = useCallback(async () => {
     if (params.source === 'onboarding') {
       if (params.onboardingRouteKey) {

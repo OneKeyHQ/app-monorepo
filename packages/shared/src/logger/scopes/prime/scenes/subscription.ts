@@ -220,7 +220,10 @@ export type IOneKeyIdAuthStateRepairParams = {
     | 'incompleteLogoutProjection';
 };
 
-export type IPrimeGiftAnalyticsSource = 'onboarding' | 'deviceDetails';
+export type IPrimeGiftAnalyticsSource =
+  | 'onboarding'
+  | 'deviceDetails'
+  | 'primeDashboard';
 
 export type IPrimeGiftStageParams =
   | {
@@ -445,20 +448,30 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToServer()
   public primeGiftOfferShown({
     source,
+    deviceCount,
   }: {
     source: IPrimeGiftAnalyticsSource;
+    deviceCount?: number;
   }) {
-    return { source };
+    return {
+      source,
+      ...(typeof deviceCount === 'number' ? { deviceCount } : {}),
+    };
   }
 
   /** User tapped a visible Prime gift banner. */
   @LogToServer()
   public primeGiftOfferClick({
     source,
+    deviceCount,
   }: {
     source: IPrimeGiftAnalyticsSource;
+    deviceCount?: number;
   }) {
-    return { source };
+    return {
+      source,
+      ...(typeof deviceCount === 'number' ? { deviceCount } : {}),
+    };
   }
 
   /** Campaign banner on the Prime gift claim-success page became visible. */
