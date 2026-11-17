@@ -39,6 +39,129 @@ function deferred<T>() {
 }
 
 describe('Earn deposit task controller', () => {
+  it('keeps preparation failure provenance when the same step fails before confirmation again', async () => {
+    const task = makeTask();
+    const controller = createDepositTaskController({
+      task,
+      adapter: {
+        prepare: async () => {
+          throw new OneKeyLocalError('temporary failure');
+        },
+        confirm: async () => ({ type: 'cancelled' }),
+        waitForFinalStatus: async () => 'unknown',
+        verify: async () => false,
+      },
+      isCurrent: () => true,
+      onChange: () => undefined,
+    });
+    await controller.run();
+    const first = controller.getTask().steps[0];
+    expect(first.status).toEqual({
+      type: 'failed',
+      stage: 'beforeSend',
+      preparationFailed: true,
+    });
+    await controller.retry();
+    const retried = controller.getTask().steps[0];
+    expect(retried.attemptId).not.toBe(first.attemptId);
+    expect(retried.status).toEqual({
+      type: 'failed',
+      stage: 'beforeSend',
+      preparationFailed: true,
+    });
+  });
+
+  it('does not mark a retry preparation failure as safe to discard', async () => {
+    const task = makeTask();
+    const state = createDepositTaskState({
+      ...task,
+      steps: task.steps.map((step, index) =>
+        index === 0
+          ? {
+              ...step,
+              attemptId: 'earlier-attempt',
+              status: { type: 'failed' as const, stage: 'beforeSend' as const },
+            }
+          : step,
+      ),
+    });
+    const controller = createDepositTaskController({
+      task: state.getTask(),
+      taskState: state,
+      adapter: {
+        prepare: async () => {
+          throw new OneKeyLocalError('temporary failure');
+        },
+        confirm: async () => ({ type: 'cancelled' }),
+        waitForFinalStatus: async () => 'unknown',
+        verify: async () => false,
+      },
+      isCurrent: () => true,
+      onChange: () => undefined,
+    });
+    await controller.retry();
+    expect(state.getTask().steps[0].status).toEqual({
+      type: 'failed',
+      stage: 'beforeSend',
+    });
+  });
+
+  it('preserves preparation-only history when approval retry inserts a reset', async () => {
+    const task = createDepositTask({
+      taskId: 'reset-before-approval-retry',
+      identity,
+      steps: [
+        { id: 'reset', kind: 'resetApproval' },
+        { id: 'approve', kind: 'approve' },
+        { id: 'deposit', kind: 'deposit' },
+      ],
+    });
+    const state = createDepositTaskState({
+      ...task,
+      currentStepIndex: 1,
+      steps: [
+        {
+          ...task.steps[0],
+          attemptId: 'reset-attempt',
+          status: { type: 'succeeded', txid: 'reset-tx' },
+        },
+        {
+          ...task.steps[1],
+          attemptId: 'approve-attempt',
+          status: {
+            type: 'failed',
+            stage: 'beforeSend',
+            preparationFailed: true,
+          },
+        },
+        task.steps[2],
+      ],
+    });
+    const controller = createDepositTaskController({
+      task: state.getTask(),
+      taskState: state,
+      adapter: {
+        prepare: async ({ step, isRetry }) => {
+          if (step.kind === 'approve' && isRetry)
+            return { type: 'insertReset', resetStepId: 'reset-again' };
+          if (step.id === 'reset-again') return { type: 'skip' };
+          throw new OneKeyLocalError('temporary failure');
+        },
+        confirm: async () => ({ type: 'cancelled' }),
+        waitForFinalStatus: async () => 'unknown',
+        verify: async () => false,
+      },
+      isCurrent: () => true,
+      onChange: () => undefined,
+    });
+    await controller.retry();
+    expect(state.getTask().steps[2].status).toEqual({
+      type: 'failed',
+      stage: 'beforeSend',
+      preparationFailed: true,
+    });
+  });
+
   it('binds late broadcast facts to the original attempt and detects conflicting hashes', async () => {
     const task = createDepositTask({
       taskId: 'late',

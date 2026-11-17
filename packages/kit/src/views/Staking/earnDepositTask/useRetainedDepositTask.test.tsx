@@ -2,6 +2,9 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { createDepositTaskController } from './controller';
 import { depositTaskRegistry } from './registry';
 import { createDepositTask, createDepositTaskState } from './state';
 import { useRetainedDepositTask } from './useRetainedDepositTask';
@@ -333,6 +336,182 @@ function makeCancelledApprovalState() {
   });
 }
 
+it('releases a detached deposit after approval succeeds and deposit preparation fails', async () => {
+  const base = createDepositTask({
+    taskId: 'deposit-preparation-failed',
+    identity: makeState('prepare-failure-owner').getTask().identity,
+    steps: [
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  const state = createDepositTaskState({
+    ...base,
+    currentStepIndex: 1,
+    steps: [
+      {
+        ...base.steps[0],
+        attemptId: 'approval-attempt',
+        status: { type: 'succeeded', txid: 'approval-tx' },
+      },
+      { ...base.steps[1], status: { type: 'ready' } },
+    ],
+  });
+  const controller = createDepositTaskController({
+    task: state.getTask(),
+    taskState: state,
+    adapter: {
+      prepare: async () => {
+        throw new OneKeyLocalError('temporary quote failure');
+      },
+      confirm: async () => ({ type: 'cancelled' }),
+      waitForFinalStatus: async () => 'unknown',
+      verify: async () => false,
+    },
+    isCurrent: () => true,
+    onChange: () => undefined,
+  });
+  await controller.run();
+  expect(state.getTask().steps[1].status).toEqual({
+    type: 'failed',
+    stage: 'beforeSend',
+    preparationFailed: true,
+  });
+  reserveDetached(owners[0], state);
+  const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+  await waitFor(() => expect(result.current.status).toBe('none'));
+  expect(depositTaskRegistry.find(owners[0])).toBeUndefined();
+  act(() => {
+    expect(
+      depositTaskRegistry.reserve(owners[0], makeState('fresh')),
+    ).toBeDefined();
+  });
+});
+
+it.each([true, false])(
+  'handles approval insertion after a failed deposit with safe history=%s',
+  async (safeHistory) => {
+    const base = createDepositTask({
+      taskId: 'retry-needs-approval',
+      identity: makeState('retry-owner').getTask().identity,
+      steps: [
+        { id: 'approve', kind: 'approve' },
+        { id: 'deposit', kind: 'deposit' },
+      ],
+    });
+    const state = createDepositTaskState({
+      ...base,
+      currentStepIndex: 1,
+      steps: [
+        {
+          ...base.steps[0],
+          attemptId: 'approval-attempt',
+          status: { type: 'succeeded', txid: 'approval-tx' },
+        },
+        {
+          ...base.steps[1],
+          attemptId: 'prior-deposit-attempt',
+          status: {
+            type: 'failed',
+            stage: 'beforeSend',
+            ...(safeHistory ? { preparationFailed: true as const } : {}),
+          },
+        },
+      ],
+    });
+    const controller = createDepositTaskController({
+      task: state.getTask(),
+      taskState: state,
+      adapter: {
+        prepare: async ({ step, isRetry }) => {
+          if (step.kind === 'deposit' && isRetry) {
+            return { type: 'insertApproval', approvalStepId: 'new-approval' };
+          }
+          if (step.id === 'new-approval' && safeHistory) {
+            return { type: 'skip' };
+          }
+          throw new OneKeyLocalError('temporary failure');
+        },
+        confirm: async () => ({ type: 'cancelled' }),
+        waitForFinalStatus: async () => 'unknown',
+        verify: async () => false,
+      },
+      isCurrent: () => true,
+      onChange: () => undefined,
+    });
+    await controller.retry();
+    const current = state.getTask();
+    if (safeHistory) {
+      expect(current.steps.at(-1)?.status).toEqual({
+        type: 'failed',
+        stage: 'beforeSend',
+        preparationFailed: true,
+      });
+    } else {
+      expect(current.steps.at(-1)?.status.type).toBe('waiting');
+      expect(current.steps.at(-1)?.preparationOnly).toBeUndefined();
+    }
+    reserveDetached(owners[0], state);
+    const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+    await waitFor(() =>
+      expect(result.current.status).toBe(safeHistory ? 'none' : 'ready'),
+    );
+    expect(Boolean(depositTaskRegistry.find(owners[0]))).toBe(!safeHistory);
+  },
+);
+
+it('drops preparation-only provenance when the resumed deposit opens confirmation', async () => {
+  const base = createDepositTask({
+    taskId: 'resumed-confirmation',
+    identity: makeState('resume-owner').getTask().identity,
+    steps: [
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  const state = createDepositTaskState({
+    ...base,
+    currentStepIndex: 1,
+    steps: [
+      {
+        ...base.steps[0],
+        attemptId: 'approval-attempt',
+        status: { type: 'succeeded', txid: 'approval-tx' },
+      },
+      {
+        ...base.steps[1],
+        attemptId: 'deposit-attempt',
+        preparationOnly: true,
+        status: { type: 'ready' },
+      },
+    ],
+  });
+  const controller = createDepositTaskController({
+    task: state.getTask(),
+    taskState: state,
+    adapter: {
+      prepare: async () => ({ type: 'confirm', prepared: undefined }),
+      confirm: async () => {
+        throw new OneKeyLocalError('confirmation failed');
+      },
+      waitForFinalStatus: async () => 'unknown',
+      verify: async () => false,
+    },
+    isCurrent: () => true,
+    onChange: () => undefined,
+  });
+  await controller.run();
+  expect(state.getTask().steps[1].preparationOnly).toBeUndefined();
+  expect(state.getTask().steps[1].status).toEqual({
+    type: 'failed',
+    stage: 'beforeSend',
+  });
+  reserveDetached(owners[0], state);
+  const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+  await waitFor(() => expect(result.current.status).toBe('ready'));
+  expect(depositTaskRegistry.find(owners[0])?.state).toBe(state);
+});
+
 it('discards a detached cancelled approval after wrap and permits a fresh task', async () => {
   const state = makeCancelledApprovalState();
   reserveDetached(owners[0], state);
@@ -342,6 +521,98 @@ it('discards a detached cancelled approval after wrap and permits a fresh task',
   const fresh = makeState('fresh-after-cancelled-approval');
   expect(depositTaskRegistry.reserve(owners[0], fresh)).toBeDefined();
   expect(depositTaskRegistry.find(owners[0])?.state).toBe(fresh);
+});
+
+it('discards a detached approval that failed before send after wrap', async () => {
+  const initial = makeCancelledApprovalState().getTask();
+  const state = createDepositTaskState({
+    ...initial,
+    steps: initial.steps.map((step) =>
+      step.kind === 'approve'
+        ? {
+            ...step,
+            status: {
+              type: 'failed' as const,
+              stage: 'beforeSend' as const,
+              preparationFailed: true as const,
+            },
+          }
+        : step,
+    ),
+  });
+  reserveDetached(owners[0], state);
+  const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+  await waitFor(() => expect(result.current.status).toBe('none'));
+  expect(depositTaskRegistry.find(owners[0])).toBeUndefined();
+});
+
+it('keeps a failed before-send task if a late broadcast arrives during account validation', async () => {
+  let resolveCheck: (value: boolean) => void = () => undefined;
+  mockAccountCurrent.mockResolvedValueOnce(true).mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveCheck = resolve;
+    }),
+  );
+  const initial = makeCancelledApprovalState().getTask();
+  const state = createDepositTaskState({
+    ...initial,
+    steps: initial.steps.map((step) =>
+      step.kind === 'approve'
+        ? {
+            ...step,
+            status: {
+              type: 'failed' as const,
+              stage: 'beforeSend' as const,
+              preparationFailed: true as const,
+            },
+          }
+        : step,
+    ),
+  });
+  reserveDetached(owners[0], state);
+  const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+  await waitFor(() => expect(mockAccountCurrent).toHaveBeenCalledTimes(2));
+  act(() => {
+    expect(
+      state.dispatch({
+        type: 'lateBroadcastAccepted',
+        taskId: initial.taskId,
+        stepId: 'approve',
+        attemptId: 'approval-attempt',
+        txid: 'late-approval-tx',
+      }),
+    ).toBe(true);
+  });
+  await act(async () => resolveCheck(true));
+  await waitFor(() => expect(result.current.status).toBe('ready'));
+  expect(depositTaskRegistry.find(owners[0])?.state).toBe(state);
+  expect(state.getTask().steps[1].status).toEqual({
+    type: 'unknown',
+    txid: 'late-approval-tx',
+    chainConfirmed: false,
+  });
+});
+
+it('keeps a detached task for a before-send failure without preparation provenance', async () => {
+  const initial = makeCancelledApprovalState().getTask();
+  const state = createDepositTaskState({
+    ...initial,
+    steps: initial.steps.map((step) =>
+      step.kind === 'approve'
+        ? {
+            ...step,
+            status: { type: 'failed' as const, stage: 'beforeSend' as const },
+          }
+        : step,
+    ),
+  });
+  reserveDetached(owners[0], state);
+  const { result } = renderHook(() => useRetainedDepositTask(owners[0]));
+  await waitFor(() => expect(result.current.status).toBe('ready'));
+  expect(depositTaskRegistry.find(owners[0])?.state).toBe(state);
+  expect(
+    depositTaskRegistry.reserve(owners[0], makeState('blocked')),
+  ).toBeUndefined();
 });
 
 it('keeps a cancelled approval if its broadcast arrives during the final account check', async () => {

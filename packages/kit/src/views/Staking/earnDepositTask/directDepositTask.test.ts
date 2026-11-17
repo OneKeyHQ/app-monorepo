@@ -459,6 +459,7 @@ describe('direct deposit task', () => {
       expect(beforeRetry?.steps[beforeRetry.currentStepIndex].status).toEqual({
         type: 'failed',
         stage: 'beforeSend',
+        preparationFailed: true,
       });
       expect(test.onDepositSuccess).not.toHaveBeenCalled();
       expect(confirmReset).not.toHaveBeenCalled();

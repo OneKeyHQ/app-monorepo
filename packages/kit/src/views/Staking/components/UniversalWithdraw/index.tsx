@@ -702,14 +702,17 @@ export function UniversalWithdraw({
     identity,
     transactionInputTokenAddress,
   ]);
-  const [quoteSettlement, setQuoteSettlement] = useState({
+  const [quoteSettlement, setQuoteSettlement] = useState<{
+    key: string;
+    status: 'pending' | 'succeeded' | 'failed';
+  }>({
     key: transactionConfirmationRequestKey,
-    settled: false,
+    status: 'pending',
   });
   if (quoteSettlement.key !== transactionConfirmationRequestKey) {
     setQuoteSettlement({
       key: transactionConfirmationRequestKey,
-      settled: false,
+      status: 'pending',
     });
   }
   useLayoutEffect(() => {
@@ -722,7 +725,7 @@ export function UniversalWithdraw({
       transactionConfirmationRequestKey &&
     (!isEtherFiShareWithdrawal ||
       (quoteSettlement.key === transactionConfirmationRequestKey &&
-        quoteSettlement.settled));
+        quoteSettlement.status === 'succeeded'));
   // Preserve the last response only to retain the selected path while loading.
   // Stale data is never rendered or submitted for providers that require it.
   const transactionConfirmation = selectCurrentTransactionConfirmation({
@@ -1741,7 +1744,7 @@ export function UniversalWithdraw({
     new BigNumber(amountForRequest).isGreaterThan(0) &&
     (transactionConfirmationLoading ||
       quoteSettlement.key !== transactionConfirmationRequestKey ||
-      !quoteSettlement.settled),
+      quoteSettlement.status === 'pending'),
   );
 
   const checkAmountRequestParams = useMemo(
@@ -1987,6 +1990,7 @@ export function UniversalWithdraw({
       requestScope: string;
       withdrawType?: IEarnWithdrawType;
     }) => {
+      let quoteSucceeded = false;
       try {
         const resp = await fetchTransactionConfirmation(
           amount || '0',
@@ -2004,6 +2008,7 @@ export function UniversalWithdraw({
         }
         setTransactionConfirmation(resp);
         setResolvedRequestKey(requestKey);
+        quoteSucceeded = Boolean(resp);
         if (isEtherFiShareWithdrawal) {
           setResolvedQuoteScope(resp ? requestScope : undefined);
         }
@@ -2022,7 +2027,10 @@ export function UniversalWithdraw({
           })
         ) {
           if (isEtherFiShareWithdrawal) {
-            setQuoteSettlement({ key: requestKey, settled: true });
+            setQuoteSettlement({
+              key: requestKey,
+              status: quoteSucceeded ? 'succeeded' : 'failed',
+            });
           }
           setTransactionConfirmationLoading(false);
         }
@@ -2054,6 +2062,12 @@ export function UniversalWithdraw({
       return undefined;
     }
 
+    if (isEtherFiShareWithdrawal) {
+      setQuoteSettlement({
+        key: transactionConfirmationRequestKey,
+        status: 'pending',
+      });
+    }
     setTransactionConfirmationLoading(true);
     void debouncedFetchTransactionConfirmation({
       amount: amountForRequest,
@@ -2074,6 +2088,7 @@ export function UniversalWithdraw({
     isDisabled,
     debouncedFetchTransactionConfirmation,
     isCancelWithdrawal,
+    isEtherFiShareWithdrawal,
     selectedWithdrawType,
     transactionConfirmationRequestKey,
     quoteScope,

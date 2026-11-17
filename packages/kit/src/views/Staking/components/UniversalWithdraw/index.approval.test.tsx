@@ -791,6 +791,80 @@ describe('UniversalWithdraw share approval continuation', () => {
     ).toBe(true);
   });
 
+  it('does not revive an old quote when switching back and the new request fails', async () => {
+    const oldQuote = {
+      receive: { title: { text: 'Receive' }, description: { text: 'old' } },
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    };
+    mockQuote.mockResolvedValue(oldQuote);
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    expect(preview.getAttribute('data-value')).toBe('old');
+
+    const otherQuote = deferred<unknown>();
+    mockQuote.mockReturnValueOnce(otherQuote.promise);
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    const quoteCount = mockQuote.mock.calls.length;
+    mockQuote.mockRejectedValueOnce(new Error('quote unavailable'));
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await waitFor(
+      () => expect(mockQuote).toHaveBeenCalledTimes(quoteCount + 1),
+      {
+        timeout: 5000,
+      },
+    );
+    await waitFor(() =>
+      expect(preview.getAttribute('data-loading')).toBe('false'),
+    );
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+
+    await act(async () => otherQuote.resolve({}));
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(button.hasAttribute('disabled')).toBe(true);
+
+    mockQuote.mockResolvedValue({
+      ...oldQuote,
+      receive: { title: { text: 'Receive' }, description: { text: 'fresh' } },
+    });
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    expect(preview.getAttribute('data-value')).toBe('fresh');
+  });
+
   it('keeps the fee placeholder for the latest request and supports retry after failure', async () => {
     mockShowTransactionSection.current = true;
     mockEstimateFee.mockResolvedValueOnce({ feeFiatValue: '1' });

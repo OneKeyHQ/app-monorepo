@@ -6,19 +6,28 @@ import type { IDepositTask } from './state';
 export function canDiscardDetachedSetup(task: IDepositTask) {
   const deposit = task.steps.at(-1);
   const setup = task.steps.slice(0, -1);
-  // A cancelled step did not pass the send fence; cancellation after sending
-  // becomes unknown and must keep its reservation for late broadcast recovery.
+  // Only preparation failures with no earlier confirmation are marked safe.
+  // Other before-send failures may still receive a late broadcast.
+  const preparationFailed = (step: IDepositTask['steps'][number]) =>
+    step.status.type === 'failed' &&
+    step.status.stage === 'beforeSend' &&
+    step.status.preparationFailed === true;
+  const neverAttemptedOrPreparedOnly = (step: IDepositTask['steps'][number]) =>
+    !step.attemptId || step.preparationOnly === true;
   return Boolean(
     !task.recording &&
     deposit?.kind === 'deposit' &&
-    (deposit.status.type === 'waiting' ||
-      deposit.status.type === 'ready' ||
-      deposit.status.type === 'cancelled') &&
+    (((deposit.status.type === 'waiting' || deposit.status.type === 'ready') &&
+      neverAttemptedOrPreparedOnly(deposit)) ||
+      deposit.status.type === 'cancelled' ||
+      preparationFailed(deposit)) &&
     setup.some((step) => step.status.type === 'succeeded') &&
-    setup.every((step) =>
-      ['waiting', 'ready', 'succeeded', 'skipped', 'cancelled'].includes(
-        step.status.type,
-      ),
+    setup.every(
+      (step) =>
+        ((step.status.type === 'waiting' || step.status.type === 'ready') &&
+          neverAttemptedOrPreparedOnly(step)) ||
+        ['succeeded', 'skipped', 'cancelled'].includes(step.status.type) ||
+        preparationFailed(step),
     ),
   );
 }

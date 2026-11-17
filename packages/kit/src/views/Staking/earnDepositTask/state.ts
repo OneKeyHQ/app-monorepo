@@ -75,7 +75,7 @@ export type IDepositTaskStepStatus =
   | { type: 'handedOff'; txid: string }
   | { type: 'skipped' }
   | { type: 'cancelled' }
-  | { type: 'failed'; stage: 'beforeSend' }
+  | { type: 'failed'; stage: 'beforeSend'; preparationFailed?: true }
   | { type: 'failed'; stage: 'onChain'; txid: string }
   | {
       type: 'unknown';
@@ -88,6 +88,7 @@ export type IDepositTaskStep = {
   id: string;
   kind: IDepositTaskStepKind;
   attemptId?: string;
+  preparationOnly?: true;
   status: IDepositTaskStepStatus;
 };
 
@@ -154,14 +155,16 @@ export type IDepositTaskAction =
   | { type: 'verified' }
   | { type: 'chainFailed' }
   | { type: 'fail' }
+  | { type: 'preparationFailed' }
   | { type: 'cancel' }
   | { type: 'retryStatus' }
   | { type: 'skip' }
-  | { type: 'insertReset'; resetStepId: string }
+  | { type: 'insertReset'; resetStepId: string; preparationOnly?: true }
   | {
       type: 'insertApproval';
       approvalStepId: string;
       resetStepId?: string;
+      preparationOnly?: true;
     };
 
 export type IDepositTaskEvent = IDepositTaskAction & {
@@ -350,6 +353,10 @@ export function reduceDepositTask(
       if (step.status.type !== 'confirming') return task;
       status = { type: 'failed', stage: 'onChain', txid: step.status.txid };
       break;
+    case 'preparationFailed':
+      if (step.status.type !== 'preparing') return task;
+      status = { type: 'failed', stage: 'beforeSend', preparationFailed: true };
+      break;
     case 'fail':
     case 'cancel':
       switch (step.status.type) {
@@ -395,7 +402,11 @@ export function reduceDepositTask(
         return task;
       }
       const steps = task.steps.slice();
-      steps[task.currentStepIndex] = { ...step, status: { type: 'waiting' } };
+      steps[task.currentStepIndex] = {
+        ...step,
+        ...(event.preparationOnly ? { preparationOnly: true } : {}),
+        status: { type: 'waiting' },
+      };
       steps.splice(task.currentStepIndex, 0, {
         id: event.resetStepId,
         kind: 'resetApproval',
@@ -421,7 +432,11 @@ export function reduceDepositTask(
         return task;
       }
       const steps = task.steps.slice();
-      steps[task.currentStepIndex] = { ...step, status: { type: 'waiting' } };
+      steps[task.currentStepIndex] = {
+        ...step,
+        ...(event.preparationOnly ? { preparationOnly: true } : {}),
+        status: { type: 'waiting' },
+      };
       const approval: IDepositTaskStep = {
         id: approvalStepId,
         kind: 'approve',
@@ -455,7 +470,13 @@ export function reduceDepositTask(
   if (!status) return task;
   const nextIndex = advance ? task.currentStepIndex + 1 : task.currentStepIndex;
   const steps = task.steps.map((item, index) => {
-    if (index === task.currentStepIndex) return { ...item, attemptId, status };
+    if (index === task.currentStepIndex) {
+      if (event.type === 'confirmationOpened' && item.preparationOnly) {
+        const { preparationOnly: _preparationOnly, ...rest } = item;
+        return { ...rest, attemptId, status };
+      }
+      return { ...item, attemptId, status };
+    }
     if (advance && index === nextIndex)
       return { ...item, status: { type: 'ready' as const } };
     return item;

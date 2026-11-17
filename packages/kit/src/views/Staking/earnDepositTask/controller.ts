@@ -278,11 +278,19 @@ export function createDepositTaskController<TPrepared>({
         if (!step || (!retrying && step.status.type !== 'ready')) return;
         const attemptId = generateUUID();
         const isRetry = retrying;
+        const preparationOnly =
+          (!isRetry && !step.attemptId) ||
+          step.preparationOnly === true ||
+          (isRetry &&
+            step.status.type === 'failed' &&
+            step.status.stage === 'beforeSend' &&
+            step.status.preparationFailed === true);
         ownedAttempt = { stepId: step.id, attemptId };
         if (!update(step.id, attemptId, { type: retrying ? 'retry' : 'start' }))
           return;
         if (!checkCurrent()) return;
         retrying = false;
+        let preparationPending = true;
         try {
           const startedTask = state.getTask();
           const activeStep = startedTask.steps[startedTask.currentStepIndex];
@@ -301,6 +309,7 @@ export function createDepositTaskController<TPrepared>({
             signal: abortController.signal,
           };
           const preparation = await adapter.prepare(context);
+          preparationPending = false;
           if (!checkCurrent()) return;
           if (preparation.type === 'cancelled') {
             update(step.id, attemptId, { type: 'cancel' });
@@ -310,7 +319,13 @@ export function createDepositTaskController<TPrepared>({
             preparation.type === 'insertReset' ||
             preparation.type === 'insertApproval'
           ) {
-            if (!isRetry || !update(step.id, attemptId, preparation)) {
+            if (
+              !isRetry ||
+              !update(step.id, attemptId, {
+                ...preparation,
+                ...(preparationOnly ? { preparationOnly: true } : {}),
+              })
+            ) {
               update(step.id, attemptId, { type: 'fail' });
               return;
             }
@@ -383,7 +398,12 @@ export function createDepositTaskController<TPrepared>({
           }
         } catch (error) {
           if (checkCurrent()) {
-            update(step.id, attemptId, { type: 'fail' });
+            update(step.id, attemptId, {
+              type:
+                preparationPending && preparationOnly
+                  ? 'preparationFailed'
+                  : 'fail',
+            });
             if (checkCurrent()) onError?.(error);
           }
           return;
