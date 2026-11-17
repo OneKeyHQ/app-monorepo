@@ -23,7 +23,9 @@ const configurationSync = createMarketWidgetConfigurationSync({
       assetCount: configuration.assets.length,
       privacyMasked: configuration.privacyMasked,
     });
-    await marketWidget.setConfiguration(configuration);
+    await backgroundApiProxy.serviceMarketV2.setMarketWidgetConfiguration(
+      configuration,
+    );
     logMarketWidgetEvent('configuration.sync_succeeded');
   },
   onError: () => logMarketWidgetEvent('configuration.sync_failed'),

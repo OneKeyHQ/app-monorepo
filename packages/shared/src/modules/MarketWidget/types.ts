@@ -81,6 +81,12 @@ export type IMarketWidgetModule = {
   setConfiguration: (
     configuration: IMarketWidgetConfiguration,
   ) => Promise<void>;
+  maskForTravelMode: () => Promise<void>;
+  beginEditing?: () => Promise<string | undefined>;
+  setEditorDraft?: (
+    assets: IMarketWidgetAsset[],
+    editorSession: string,
+  ) => Promise<IMarketWidgetEditorState>;
   getEditorState: (editorSession?: string) => Promise<IMarketWidgetEditorState>;
   refreshEditorState?: (
     editorSession?: string,

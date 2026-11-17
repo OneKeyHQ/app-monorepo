@@ -2,6 +2,8 @@ import { NativeModules, Platform } from 'react-native';
 
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
+import { travelModeManager } from '../../travelMode';
+import { createMarketWidgetConfigurationWriter } from '../../utils/marketWidgetUtils';
 
 import type {
   IMarketWidgetEditorState,
@@ -12,6 +14,9 @@ import type {
 type IOneKeyMarketWidgetNativeModule = {
   stockSupportVersion?: number;
   setConfiguration: (configuration: string) => Promise<void>;
+  maskForTravelMode?: () => Promise<void>;
+  beginWidgetEditing?: () => Promise<string>;
+  setWidgetEditorDraft?: (session: string, assets: string) => Promise<string>;
   syncQuote?: (update: string) => Promise<boolean>;
   getEditorState?: () => Promise<string>;
   refreshEditorState?: () => Promise<string>;
@@ -24,6 +29,35 @@ type IOneKeyMarketWidgetNativeModule = {
   saveWidgetSettings?: (session: string, settings: string) => Promise<string>;
   finishWidgetEditing?: (session: string, saved: boolean) => Promise<void>;
 };
+
+function getConfigurationModule() {
+  if (!platformEnv.isNativeBackgroundThread) {
+    throw new OneKeyLocalError(
+      'Widget configuration is owned by the background runtime',
+    );
+  }
+  return NativeModules.OneKeyMarketWidget as
+    | IOneKeyMarketWidgetNativeModule
+    | undefined;
+}
+
+const configurationWriter = createMarketWidgetConfigurationWriter({
+  write: async (configuration) => {
+    await getConfigurationModule()?.setConfiguration(
+      JSON.stringify(configuration),
+    );
+  },
+  mask: async () => {
+    const nativeModule = getConfigurationModule();
+    if (!nativeModule?.setConfiguration) return;
+    if (!nativeModule.maskForTravelMode)
+      throw new OneKeyLocalError('Widget privacy masking is unavailable');
+    await nativeModule.maskForTravelMode();
+  },
+  isMasked: () =>
+    travelModeManager.isMaskingDataSync() ||
+    !['active', 'inactive'].includes(travelModeManager.getRuntimeStateSync()),
+});
 
 function getNativeModule() {
   // This bridge belongs to the UI runtime. Older binaries may receive the
@@ -57,11 +91,31 @@ const marketWidget: IMarketWidgetModule = {
         typeof getNativeModule()?.saveWidgetSettings === 'function' &&
         typeof getNativeModule()?.finishWidgetEditing === 'function',
   async setConfiguration(configuration) {
-    await getNativeModule()?.setConfiguration(JSON.stringify(configuration));
+    getConfigurationModule();
+    await travelModeManager.ready;
+    await configurationWriter.write(configuration);
+  },
+  async maskForTravelMode() {
+    getConfigurationModule();
+    await configurationWriter.mask();
+  },
+  async beginEditing() {
+    return getNativeModule()?.beginWidgetEditing?.();
+  },
+  async setEditorDraft(assets, editorSession) {
+    const nativeModule = getNativeModule();
+    if (!nativeModule?.setWidgetEditorDraft)
+      throw new OneKeyLocalError('Widget draft editing is unavailable');
+    return JSON.parse(
+      await nativeModule.setWidgetEditorDraft(
+        editorSession,
+        JSON.stringify(assets),
+      ),
+    ) as IMarketWidgetEditorState;
   },
   async getEditorState(editorSession) {
     const nativeModule = getNativeModule();
-    if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroid || editorSession) {
       if (!editorSession || !nativeModule?.getWidgetEditorState) {
         throw new OneKeyLocalError(
           'Market widget editor session is unavailable',
@@ -88,7 +142,7 @@ const marketWidget: IMarketWidgetModule = {
   },
   async refreshEditorState(editorSession) {
     const nativeModule = getNativeModule();
-    if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroid || editorSession) {
       if (!editorSession || !nativeModule?.refreshWidgetEditorState) {
         return marketWidget.getEditorState(editorSession);
       }
@@ -111,7 +165,7 @@ const marketWidget: IMarketWidgetModule = {
   },
   async searchStocks(query, editorSession) {
     const nativeModule = getNativeModule();
-    if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroid || editorSession) {
       if (!editorSession || !nativeModule?.searchWidgetStocks) {
         return marketWidget.getEditorState(editorSession);
       }
@@ -136,13 +190,11 @@ const marketWidget: IMarketWidgetModule = {
     ) as IMarketWidgetProfile;
   },
   async finishEditing(editorSession, saved) {
-    if (platformEnv.isNativeAndroid) {
-      await getNativeModule()?.finishWidgetEditing?.(editorSession, saved);
-    }
+    await getNativeModule()?.finishWidgetEditing?.(editorSession, saved);
   },
   async saveSettings(settings, editorSession) {
     const nativeModule = getNativeModule();
-    if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroid || editorSession) {
       if (!editorSession || !nativeModule?.saveWidgetSettings) {
         throw new OneKeyLocalError(
           'Market widget editor session is unavailable',

@@ -383,7 +383,7 @@ struct MarketWidgetStore {
     return stored.settings
   }
 
-  func saveSettings(json: String) throws -> MarketWidgetProfile {
+  func saveSettings(json: String, draftAssets: [MarketWidgetAsset] = []) throws -> MarketWidgetProfile {
     guard let data = json.data(using: .utf8), data.count <= 8192 else { throw MarketWidgetError.invalidProfile }
     let input = try JSONDecoder().decode(MarketWidgetProfileInput.self, from: data)
     let name = input.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -406,6 +406,7 @@ struct MarketWidgetStore {
           throw MarketWidgetError.invalidProfile
         }
         let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot)
+          + draftAssets
           + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").filter { $0.kind == .stock }
           + (previous?.assets ?? []) + (previous?.asset.map { [$0] } ?? [])
         canonicalAssets = try requested.map { requested in
@@ -435,6 +436,23 @@ struct MarketWidgetStore {
     }
     guard let result else { throw MarketWidgetError.storageUnavailable }
     return result
+  }
+
+  func editorDraft(json: String, previous: [MarketWidgetAsset]) throws -> [MarketWidgetAsset] {
+    guard let data = json.data(using: .utf8), data.count <= 8192 else { throw MarketWidgetError.invalidProfile }
+    let requested = try JSONDecoder().decode([MarketWidgetAsset].self, from: data)
+    guard requested.count <= 3, requested.allSatisfy(\.isValid),
+          let configuration = configuration().configuration, configuration.privacyMasked != true else {
+      throw MarketWidgetError.invalidProfile
+    }
+    let saved = [MarketWidgetKind.single, .list].compactMap { desktopSettings(kind: $0) }
+      .flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
+    let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + previous
+      + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").filter { $0.kind == .stock }
+    return try requested.map { asset in
+      guard let canonical = candidates.first(where: { $0.id == asset.id }) else { throw MarketWidgetError.invalidProfile }
+      return assetWithMetadata(canonical)
+    }
   }
 
   func editorState() throws -> MarketWidgetEditorState {

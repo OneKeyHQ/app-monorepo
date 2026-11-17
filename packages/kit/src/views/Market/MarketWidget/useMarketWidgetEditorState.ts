@@ -5,7 +5,10 @@ import { AppState } from 'react-native';
 
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
-import type { IMarketWidgetEditorState } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import type {
+  IMarketWidgetAsset,
+  IMarketWidgetEditorState,
+} from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 export function useMarketWidgetEditorState(editorSession?: string) {
@@ -23,6 +26,79 @@ export function useMarketWidgetEditorState(editorSession?: string) {
   const lifecycleRef = useRef(0);
   const requestRef = useRef(0);
   const searchRequestRef = useRef(0);
+  const [nativeSession, setNativeSession] = useState(editorSession);
+  const sessionRef = useRef(editorSession);
+  const pendingSessionRef = useRef<Promise<string | undefined> | undefined>(
+    undefined,
+  );
+
+  const releaseSession = useCallback((token: string) => {
+    void marketWidget
+      .finishEditing?.(token, false)
+      .catch((error: unknown) =>
+        logMarketWidgetEvent('editor.cleanup_failed', {}, token, error),
+      );
+  }, []);
+  const getEditorSession = useCallback(async () => {
+    if (sessionRef.current || !marketWidget.beginEditing)
+      return sessionRef.current;
+    if (!pendingSessionRef.current) {
+      const lifecycle = lifecycleRef.current;
+      const pending = marketWidget
+        .beginEditing()
+        .then((token) => {
+          if (
+            !mountedRef.current ||
+            !focusedRef.current ||
+            lifecycle !== lifecycleRef.current
+          ) {
+            if (token) releaseSession(token);
+            return undefined;
+          }
+          sessionRef.current = token;
+          setNativeSession(token);
+          return token;
+        })
+        .catch((error: unknown) => {
+          if (pendingSessionRef.current === pending)
+            pendingSessionRef.current = undefined;
+          throw error;
+        });
+      pendingSessionRef.current = pending;
+    }
+    return pendingSessionRef.current;
+  }, [releaseSession]);
+
+  const retainDraft = useCallback(
+    async (assets: IMarketWidgetAsset[]) => {
+      if (!focusedRef.current || !activeRef.current) return false;
+      const lifecycle = lifecycleRef.current;
+      const session = await getEditorSession();
+      if (
+        !mountedRef.current ||
+        !focusedRef.current ||
+        !activeRef.current ||
+        lifecycle !== lifecycleRef.current
+      )
+        return false;
+      if (!session || !marketWidget.setEditorDraft) return true;
+      requestRef.current += 1;
+      const next = await marketWidget.setEditorDraft(assets, session);
+      if (
+        !mountedRef.current ||
+        !focusedRef.current ||
+        !activeRef.current ||
+        lifecycle !== lifecycleRef.current
+      )
+        return false;
+      const masked =
+        next.privacyMasked || travelModeManager.isMaskingDataSync();
+      setPrivacyMasked(masked);
+      setState(masked ? undefined : next);
+      return !masked;
+    },
+    [getEditorSession],
+  );
 
   const cancelSearch = useCallback(() => {
     searchRequestRef.current += 1;
@@ -56,7 +132,9 @@ export function useMarketWidgetEditorState(editorSession?: string) {
       try {
         await travelModeManager.ready;
         if (!isCurrent() || travelModeManager.isMaskingDataSync()) return;
-        const next = await marketWidget.searchStocks(query, editorSession);
+        const session = await getEditorSession();
+        if (!isCurrent()) return;
+        const next = await marketWidget.searchStocks(query, session);
         if (!isCurrent()) return;
         const masked =
           next.privacyMasked || travelModeManager.isMaskingDataSync();
@@ -69,7 +147,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         if (isCurrent()) setIsSearching(false);
       }
     },
-    [editorSession],
+    [editorSession, getEditorSession],
   );
 
   useEffect(() => {
@@ -94,7 +172,12 @@ export function useMarketWidgetEditorState(editorSession?: string) {
       return;
     }
     try {
-      const next = await marketWidget.getEditorState(editorSession);
+      const session =
+        marketWidget.beginEditing && !editorSession
+          ? await getEditorSession()
+          : editorSession;
+      if (!focusedRef.current || request !== requestRef.current) return;
+      const next = await marketWidget.getEditorState(session);
       logMarketWidgetEvent(
         'editor.read_succeeded',
         { request, durationMs: Date.now() - started },
@@ -109,7 +192,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
       if (!masked && marketWidget.refreshEditorState) {
         // Display the local snapshot first; network metadata must not block navigation.
         void marketWidget
-          .refreshEditorState(editorSession)
+          .refreshEditorState(session)
           .then((updated) => {
             if (!focusedRef.current || request !== requestRef.current) return;
             const isMasked =
@@ -141,7 +224,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         setIsLoading(false);
       }
     }
-  }, [editorSession]);
+  }, [editorSession, getEditorSession]);
 
   useFocusEffect(
     useCallback(() => {
@@ -161,6 +244,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
           cancelSearch();
           activeRef.current = false;
           lifecycleRef.current += 1;
+          if (!sessionRef.current) pendingSessionRef.current = undefined;
           // Do not retain a visible native snapshot while the app is inactive.
           requestRef.current += 1;
           setState(undefined);
@@ -174,14 +258,21 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         requestRef.current += 1;
         cancelSearch();
         subscription.remove();
+        if (!editorSession && sessionRef.current)
+          releaseSession(sessionRef.current);
+        sessionRef.current = editorSession;
+        pendingSessionRef.current = undefined;
+        setNativeSession(editorSession);
         setState(undefined);
         setIsLoading(true);
         setHasError(false);
       };
-    }, [editorSession, refresh, cancelSearch]),
+    }, [editorSession, refresh, cancelSearch, releaseSession]),
   );
 
   return {
+    editorSession: nativeSession,
+    retainDraft,
     state,
     isLoading,
     hasError,

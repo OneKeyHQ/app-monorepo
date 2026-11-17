@@ -250,3 +250,36 @@ export function createMarketWidgetConfigurationSync({
     },
   };
 }
+
+export function createMarketWidgetConfigurationWriter({
+  write,
+  mask,
+  isMasked,
+}: {
+  write: (configuration: IMarketWidgetConfiguration) => Promise<void>;
+  mask: () => Promise<void>;
+  isMasked: () => boolean;
+}) {
+  let tail = Promise.resolve();
+  let transitionMasked = false;
+  function enqueue(operation: () => Promise<void>) {
+    const result = tail.then(operation);
+    tail = result.catch(() => undefined);
+    return result;
+  }
+  return {
+    write: (configuration: IMarketWidgetConfiguration) =>
+      enqueue(() =>
+        write(
+          transitionMasked || isMasked()
+            ? { ...configuration, assets: [], privacyMasked: true }
+            : configuration,
+        ),
+      ),
+    mask: () => {
+      // Only a replacement background runtime may resume exporting identities.
+      transitionMasked = true;
+      return enqueue(mask);
+    },
+  };
+}

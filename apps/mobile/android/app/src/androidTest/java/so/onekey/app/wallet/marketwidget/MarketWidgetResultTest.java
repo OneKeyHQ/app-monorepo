@@ -31,6 +31,80 @@ public final class MarketWidgetResultTest {
     @Test public void listSaveReturnsToTheOriginalTask() throws Exception { returnResult(false, true); }
     @Test public void cancellationReturnsToTheOriginalTask() throws Exception { returnResult(true, false); }
 
+    @Test public void externalHostFixturesRequireTheTestSignature() throws Exception {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        Context context = instrumentation.getTargetContext();
+        android.content.pm.PackageManager manager = context.getPackageManager();
+        String permission = "so.onekey.app.wallet.test.permission.WIDGET_HOST";
+        assertEquals(android.content.pm.PermissionInfo.PROTECTION_SIGNATURE,
+            manager.getPermissionInfo(permission, 0).protectionLevel);
+        assertEquals(android.content.pm.PackageManager.PERMISSION_GRANTED, context.checkSelfPermission(permission));
+        for (Class<?> activity : new Class<?>[] {WidgetResultHostActivity.class, WidgetResultHostActivity.Editor.class}) {
+            android.content.pm.ActivityInfo info = manager.getActivityInfo(new ComponentName(
+                instrumentation.getContext().getPackageName(), activity.getName()), 0);
+            assertTrue(info.exported);
+            assertEquals(permission, info.permission);
+        }
+    }
+
+    @Test public void draftSlotsSurviveSearchEvictionAndAreDiscardedOnFinish() throws Exception {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        Context context = instrumentation.getTargetContext();
+        AppWidgetHost host = new AppWidgetHost(context, 831722);
+        int widgetId = host.allocateAppWidgetId();
+        String token = null;
+        try {
+            instrumentation.getUiAutomation().adoptShellPermissionIdentity("android.permission.BIND_APPWIDGET");
+            assertTrue(AppWidgetManager.getInstance(context).bindAppWidgetIdIfAllowed(widgetId,
+                new ComponentName(context, MarketWatchlistWidgetProvider.class)));
+            instrumentation.getUiAutomation().dropShellPermissionIdentity();
+            MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[],\"locale\":\"en-US\"}");
+            MarketWidgetStore.saveHot(context, MarketWidgetData.defaults().assets, System.currentTimeMillis());
+            token = MarketWidgetEditorSession.create(context, widgetId, false, "hot");
+            MarketWidgetData.Asset qqq = stock("QQQ"), apple = stock("AAPL");
+            MarketWidgetEditorSession.cacheSearchAssets(context, token, java.util.Collections.singletonList(qqq));
+            MarketWidgetEditorSession.retainDraft(context, token, new JSONArray().put(qqq.json()).toString());
+            java.util.List<MarketWidgetData.Asset> later = new java.util.ArrayList<>();
+            for (int index = 0; index < 120; index++) later.add(stock("S" + index));
+            MarketWidgetEditorSession.cacheSearchAssets(context, token, later);
+            MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(context, token);
+            assertEquals(100, session.searchAssets.size());
+            assertFalse(session.searchAssets.stream().anyMatch(asset -> asset.key().equals(qqq.key())));
+            assertTrue(session.trustedAssets().stream().anyMatch(asset -> asset.key().equals(qqq.key())));
+            assertFalse(MarketWidgetStore.assets(context, widgetId, false).stream().anyMatch(asset -> asset.key().equals(qqq.key())));
+            MarketWidgetEditorSession.cacheSearchAssets(context, token, java.util.Collections.singletonList(apple));
+            JSONArray slots = new JSONArray().put(qqq.json()).put(apple.json()).put(MarketWidgetData.defaults().assets.get(0).json());
+            MarketWidgetEditorSession.retainDraft(context, token, slots.toString());
+            session = MarketWidgetEditorSession.requireActive(context, token);
+            MarketWidgetStore.saveSettings(context, widgetId, false, new JSONObject()
+                .put("kind", "list").put("source", "hot").put("assets", slots).toString(), session.trustedAssets());
+            assertEquals("QQQ", MarketWidgetStore.assets(context, widgetId, false).get(0).stockId);
+            assertEquals("AAPL", MarketWidgetStore.assets(context, widgetId, false).get(1).stockId);
+            try {
+                MarketWidgetEditorSession.retainDraft(context, token, new JSONArray().put(stock("FORGED").json()).toString());
+                fail("A draft must reject stock identities supplied only by JS");
+            } catch (IllegalArgumentException expected) { }
+            MarketWidgetEditorSession.markSaved(context, token);
+            MarketWidgetEditorSession.complete(context, token, true);
+            assertTrue(MarketWidgetEditorSession.read(context, token).trustedAssets().isEmpty());
+            MarketWidgetEditorSession.remove(context, token);
+            token = MarketWidgetEditorSession.create(context, widgetId, false, "hot");
+            MarketWidgetEditorSession.retainDraft(context, token, new JSONArray().put(qqq.json()).toString());
+            MarketWidgetEditorSession.complete(context, token, false);
+            assertTrue(MarketWidgetEditorSession.read(context, token).trustedAssets().isEmpty());
+        } finally {
+            instrumentation.getUiAutomation().dropShellPermissionIdentity();
+            MarketWidgetEditorSession.remove(context, token);
+            MarketWidgetStore.deleteWidget(context, widgetId);
+            host.deleteHost();
+        }
+    }
+
+    private static MarketWidgetData.Asset stock(String id) throws Exception {
+        return new MarketWidgetData.Asset(new JSONObject().put("kind", "stock").put("stockId", id)
+            .put("symbol", id).put("name", "Stock " + id));
+    }
+
     private void returnResult(boolean single, boolean saved) throws Exception {
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         Context context = instrumentation.getTargetContext();

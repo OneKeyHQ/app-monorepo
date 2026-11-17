@@ -42,6 +42,7 @@ const publicMarketRoutes = new Set<string>([
   EModalMarketRoutes.MarketWidgetList,
   ETabMarketRoutes.TabMarket,
   ETabMarketRoutes.MarketDetailV2,
+  ETabMarketRoutes.MarketStockDetail,
   ETabMarketRoutes.MarketNativeDetail,
 ]);
 

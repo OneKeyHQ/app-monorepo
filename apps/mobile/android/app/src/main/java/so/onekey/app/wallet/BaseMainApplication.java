@@ -421,6 +421,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
       backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+      backgroundPackages.add(new OneKeyMarketWidgetPackage());
       manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();

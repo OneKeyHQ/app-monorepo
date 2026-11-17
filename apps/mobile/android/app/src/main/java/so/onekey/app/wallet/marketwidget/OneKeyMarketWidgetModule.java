@@ -43,6 +43,24 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void maskForTravelMode(Promise promise) {
+        try {
+            MarketWidgetData.Configuration current = MarketWidgetStore.configuration(getReactApplicationContext());
+            org.json.JSONObject masked = new org.json.JSONObject(
+                (current.valid ? current : MarketWidgetData.defaults()).json())
+                .put("assets", new org.json.JSONArray()).put("privacyMasked", true);
+            MarketWidgetStore.setConfiguration(getReactApplicationContext(), masked.toString());
+            MarketWidgetProvider.renderAll(getReactApplicationContext());
+            MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());
+            MarketWidgetLog.event("privacy.masked");
+            promise.resolve(null);
+        } catch (Exception error) {
+            MarketWidgetLog.failure("privacy.mask_failed", error);
+            promise.reject("MARKET_WIDGET_PRIVACY_FAILED", "Could not mask widgets", error);
+        }
+    }
+
+    @ReactMethod
     public void syncQuote(String json, Promise promise) {
         try {
             boolean changed = MarketWidgetStore.syncQuote(getReactApplicationContext(), json);
@@ -92,13 +110,24 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
             org.json.JSONObject state = MarketWidgetStore.editorState(getReactApplicationContext(), session.widgetId,
                 session.single, session.source);
             if (MarketWidgetStore.canDisplay(getReactApplicationContext())) {
-                state.put("searchAssets", MarketWidgetStore.editorAssets(getReactApplicationContext(), session.searchAssets));
+                state.put("searchAssets", MarketWidgetStore.editorAssets(getReactApplicationContext(), session.trustedAssets()));
             }
             MarketWidgetLog.event("editor.read_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token), "widgetId", session.widgetId);
             promise.resolve(state.toString());
         } catch (Exception error) {
             MarketWidgetLog.failure("editor.read_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
             promise.reject("MARKET_WIDGET_EDITOR_FAILED", "Could not open widget settings", error);
+        }
+    }
+
+    @ReactMethod
+    public void setWidgetEditorDraft(String token, String json, Promise promise) {
+        try {
+            MarketWidgetEditorSession.retainDraft(getReactApplicationContext(), token, json);
+            getWidgetEditorState(token, promise);
+        } catch (Exception error) {
+            MarketWidgetLog.failure("editor.draft_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
+            promise.reject("MARKET_WIDGET_EDITOR_FAILED", "Could not retain draft", error);
         }
     }
 
@@ -184,7 +213,7 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
             synchronized (MarketWidgetEditorSession.class) {
                 MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
                 String saved = MarketWidgetStore.saveSettings(getReactApplicationContext(), session.widgetId,
-                    session.single, raw, session.searchAssets).toString();
+                    session.single, raw, session.trustedAssets()).toString();
                 MarketWidgetEditorSession.markSaved(getReactApplicationContext(), token);
                 MarketWidgetProvider.render(getReactApplicationContext(), session.widgetId);
                 MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());

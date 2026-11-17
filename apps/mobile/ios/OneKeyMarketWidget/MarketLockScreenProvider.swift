@@ -3,12 +3,12 @@ import WidgetKit
 
 enum MarketLockScreenTimeline {
   static func snapshot(assets: [MarketWidgetAsset], isWatchlist: Bool,
-                       store: MarketWidgetStore = MarketWidgetStore()) -> MarketWidgetEntry {
+                       store: MarketWidgetStore = MarketWidgetStore(), at now: Date = Date()) -> MarketWidgetEntry {
     let configuration = store.configuration().configuration
     let permitted = configuration.map { $0.privacyMasked != true } == true
     let selected = permitted ? Array(assets.filter(\.isValid).prefix(isWatchlist ? 3 : 1)) : []
-    return MarketWidgetEntry(date: Date(), configuration: configuration,
-      rows: selected.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0)?.withFreshChart(), failed: false) },
+    return MarketWidgetEntry(date: now, configuration: configuration,
+      rows: selected.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0), failed: false).withFreshLockScreenQuote(at: now) },
       isWatchlist: isWatchlist, selectionUnavailable: selected.isEmpty, source: .hot)
   }
 
@@ -49,7 +49,16 @@ enum MarketLockScreenTimeline {
   }
 
   private static func result(_ entry: MarketWidgetEntry) -> Timeline<MarketWidgetEntry> {
-    Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60)))
+    func expiringQuotes(at date: Date) -> MarketWidgetEntry {
+      MarketWidgetEntry(date: date, configuration: entry.configuration,
+        rows: entry.rows.map { $0.withFreshLockScreenQuote(at: date) },
+        isWatchlist: entry.isWatchlist, selectionUnavailable: entry.selectionUnavailable, source: entry.source)
+    }
+    let expirations = Set(entry.rows.compactMap { $0.quote?.fetchedAt.addingTimeInterval(MarketWidgetRow.lockScreenQuoteLifetime) }
+      .filter { $0 > entry.date }).sorted()
+    // Expiry entries update cached presentation without adding network refreshes.
+    let entries = [expiringQuotes(at: entry.date)] + expirations.map { expiringQuotes(at: $0) }
+    return Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60)))
   }
 
   static func preview(isWatchlist: Bool) -> MarketWidgetEntry {

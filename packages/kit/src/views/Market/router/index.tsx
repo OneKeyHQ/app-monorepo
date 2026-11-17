@@ -22,11 +22,15 @@ const MarketIndicatorSettingsModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileIndicatorSettingsPage'),
 );
-const MarketWidgetList = LazyLoadPage(
-  () => import('../MarketWidget/MarketWidgetList'),
+const MarketWidgetList = LazyLoadPage(() =>
+  import('../MarketWidget/MarketWidgetList').then((module) => ({
+    default: module.MarketWidgetList,
+  })),
 );
-const MarketWidgetEditor = LazyLoadPage(
-  () => import('../MarketWidget/MarketWidgetEditor'),
+const MarketWidgetEditor = LazyLoadPage(() =>
+  import('../MarketWidget/MarketWidgetEditor').then((module) => ({
+    default: module.MarketWidgetEditor,
+  })),
 );
 
 export { EModalMarketRoutes };

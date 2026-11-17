@@ -10,6 +10,7 @@ const marketWidget: IMarketWidgetModule = {
   supportsQuoteSync: () => false,
   syncQuote: async () => false,
   setConfiguration: async () => undefined,
+  maskForTravelMode: async () => undefined,
   getEditorState: async () => {
     throw new OneKeyLocalError('Market widget profile editing is unavailable');
   },

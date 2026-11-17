@@ -50,7 +50,7 @@ import type {
   IModalMarketParamList,
 } from '../router/types';
 
-export default function MarketWidgetEditor() {
+export const MarketWidgetEditor = () => {
   const intl = useIntl();
   const copy = useMarketWidgetCopy();
   const navigation =
@@ -74,6 +74,7 @@ export default function MarketWidgetEditor() {
   const [activeSlot, setActiveSlot] = useState<number>();
   const isPickingAsset = activeSlot !== undefined;
   const [query, setQuery] = useState('');
+  const selectionRequest = useRef(0);
   const { searchStocks, cancelSearch } = editor;
   useEffect(() => {
     const normalized = query.trim();
@@ -210,9 +211,38 @@ export default function MarketWidgetEditor() {
   }, [editor.state, query, source]);
 
   const closePicker = useCallback(() => {
+    selectionRequest.current += 1;
     setActiveSlot(undefined);
     setQuery('');
   }, []);
+  const chooseAsset = useCallback(
+    async (item: IMarketWidgetAsset) => {
+      selectionRequest.current += 1;
+      const request = selectionRequest.current;
+      editor.cancelSearch();
+      const next = slots.map((value, index) =>
+        index === activeSlot ? item : value,
+      );
+      try {
+        const retained = await editor.retainDraft(
+          next.filter((asset): asset is IMarketWidgetAsset => !!asset),
+        );
+        if (!retained || request !== selectionRequest.current) return;
+        setSlots(next);
+        setSaveError(undefined);
+        closePicker();
+      } catch (error) {
+        logMarketWidgetEvent('editor.draft_failed', {}, editorSession, error);
+        if (request === selectionRequest.current)
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_unknown_error_retry_message,
+            }),
+          });
+      }
+    },
+    [activeSlot, closePicker, editor, editorSession, intl, slots],
+  );
   usePreventRemove(isPickingAsset, closePicker);
   const headerLeft = useCallback(
     () => (
@@ -239,7 +269,7 @@ export default function MarketWidgetEditor() {
 
   const { isSaving, save: handleSave } = useMarketWidgetProfileSave({
     editor,
-    editorSession,
+    editorSession: editor.editorSession ?? editorSession,
     validate: async () => slotsValid,
     getInput: () => ({
       kind,
@@ -321,13 +351,7 @@ export default function MarketWidgetEditor() {
                       getMarketWidgetAssetKey(item)
                   }
                   onPress={() => {
-                    setSlots((previous) =>
-                      previous.map((value, index) =>
-                        index === activeSlot ? item : value,
-                      ),
-                    );
-                    setSaveError(undefined);
-                    closePicker();
+                    void chooseAsset(item);
                   }}
                 />
               )}
@@ -428,4 +452,4 @@ export default function MarketWidgetEditor() {
       </Page.Footer>
     </Page>
   );
-}
+};

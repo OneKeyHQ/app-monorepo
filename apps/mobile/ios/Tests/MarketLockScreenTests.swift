@@ -16,6 +16,7 @@ struct MarketLockScreenTests {
     try await checkChartRequests()
     try await checkPrivacyDuringRequest()
     try await checkEmptySelection()
+    try await checkExpiredQuotes()
     print("MarketLockScreenTests: \(checks) checks passed")
   }
 
@@ -169,6 +170,31 @@ struct MarketLockScreenTests {
              "An empty selection remains empty instead of adopting a default or ranked asset")
     }
     expect(LockScreenURLProtocol.requests.isEmpty, "An empty selection does not start market requests")
+  }
+
+  private static func checkExpiredQuotes() async throws {
+    let fixture = try LockScreenFixture()
+    defer { fixture.close() }
+    let asset = MarketWidgetAsset.defaults[0]
+    try fixture.configure([asset])
+    let now = Date()
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: asset, price: "123.45", change24h: "2.5",
+      fetchedAt: now.addingTimeInterval(-7 * 86400)))
+    let snapshot = MarketLockScreenTimeline.snapshot(assets: [asset], isWatchlist: false, store: fixture.store, at: now)
+    expect(snapshot.rows.first?.quote == nil && snapshot.rows.first?.failed == true,
+      "A snapshot cannot present a seven-day-old quote as current")
+    LockScreenURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    for chart in [false, true] {
+      let timeline = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
+        includingChart: chart, store: fixture.store, service: fixture.service)
+      expect(timeline.entries.first?.rows.first?.quote == nil, "Offline price and chart widgets hide expired quotes")
+    }
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: asset, price: "123.45", change24h: "2.5", fetchedAt: now))
+    let timeline = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
+      includingChart: false, store: fixture.store, service: fixture.service)
+    expect(timeline.entries.first?.rows.first?.quote != nil, "A recent cached quote remains usable offline")
+    expect(timeline.entries.last?.rows.first?.quote == nil && timeline.entries.count == 2,
+      "A local expiry entry hides the quote even if the system never runs another network refresh")
   }
 
   private static func assetID(_ request: URLRequest) -> String? {

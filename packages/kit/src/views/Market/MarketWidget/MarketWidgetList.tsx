@@ -12,7 +12,7 @@ import type { IModalMarketParamList } from '../router/types';
 
 const kinds: IMarketWidgetKind[] = ['single', 'list'];
 
-export default function MarketWidgetList() {
+export const MarketWidgetList = () => {
   const copy = useMarketWidgetCopy();
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalMarketParamList>>();
@@ -40,4 +40,4 @@ export default function MarketWidgetList() {
       </Page.Body>
     </Page>
   );
-}
+};

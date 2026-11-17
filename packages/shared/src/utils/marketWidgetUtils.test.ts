@@ -1,6 +1,7 @@
 import {
   buildMarketWidgetAssets,
   createMarketWidgetConfigurationSync,
+  createMarketWidgetConfigurationWriter,
   parseMarketWidgetLinkUrl,
 } from './marketWidgetUtils';
 
@@ -193,6 +194,92 @@ describe('market widget configuration', () => {
     expect(onError).toHaveBeenCalledTimes(1);
     await sync.request(async () => configuration('ja-JP'));
     expect(write).toHaveBeenLastCalledWith(configuration('ja-JP'));
+  });
+});
+
+describe('background-owned market widget configuration writer', () => {
+  it('waits for an existing native write before masking and masks late UI writes', async () => {
+    const pending = deferred<void>();
+    const events: string[] = [];
+    const write = jest.fn(async (value: IMarketWidgetConfiguration) => {
+      events.push(value.privacyMasked ? 'masked-write' : 'write');
+      if (!value.privacyMasked) await pending.promise;
+    });
+    const mask = jest.fn(async () => {
+      events.push('mask');
+    });
+    const writer = createMarketWidgetConfigurationWriter({
+      write,
+      mask,
+      isMasked: () => false,
+    });
+    const first = writer.write(configuration('en-US'));
+    await Promise.resolve();
+    const masking = writer.mask();
+    const late = writer.write({
+      ...configuration('zh-CN'),
+      assets: [
+        { kind: 'asset', assetId: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' },
+      ],
+    });
+    expect(mask).not.toHaveBeenCalled();
+    pending.resolve();
+    await Promise.all([first, masking, late]);
+    expect(events).toEqual(['write', 'mask', 'masked-write']);
+    expect(write).toHaveBeenLastCalledWith({
+      ...configuration('zh-CN'),
+      assets: [],
+      privacyMasked: true,
+    });
+  });
+
+  it('retains the privacy latch after a failed mask and allows retrying the native operation', async () => {
+    const write = jest.fn(async () => undefined);
+    const mask = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('disk'))
+      .mockResolvedValue(undefined);
+    const writer = createMarketWidgetConfigurationWriter({
+      write,
+      mask,
+      isMasked: () => false,
+    });
+    await expect(writer.mask()).rejects.toThrow('disk');
+    await writer.write(configuration('en-US'));
+    expect(write).toHaveBeenLastCalledWith({
+      ...configuration('en-US'),
+      privacyMasked: true,
+    });
+    await writer.mask();
+    expect(mask).toHaveBeenCalledTimes(2);
+  });
+
+  it('checks runtime privacy when each write executes and resumes only in a replacement runtime', async () => {
+    const write = jest.fn(async () => undefined);
+    let masked = false;
+    const createWriter = () =>
+      createMarketWidgetConfigurationWriter({
+        write,
+        mask: async () => undefined,
+        isMasked: () => masked,
+      });
+    const previous = createWriter();
+    const queued = previous.write(configuration('en-US'));
+    masked = true;
+    await queued;
+    expect(write).toHaveBeenLastCalledWith({
+      ...configuration('en-US'),
+      privacyMasked: true,
+    });
+    await previous.mask();
+    masked = false;
+    await previous.write(configuration('en-US'));
+    expect(write).toHaveBeenLastCalledWith({
+      ...configuration('en-US'),
+      privacyMasked: true,
+    });
+    await createWriter().write(configuration('en-US'));
+    expect(write).toHaveBeenLastCalledWith(configuration('en-US'));
   });
 });
 

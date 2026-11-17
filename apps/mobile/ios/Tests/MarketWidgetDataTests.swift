@@ -58,6 +58,44 @@ struct MarketWidgetDataTests {
     }
   }
 
+  private static func testEditorDraftSurvivesCandidateEviction() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    func stock(_ id: String) -> MarketWidgetAsset {
+      MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+        isNative: nil, symbol: id, name: "Stock \(id)", logoURL: nil, stockId: id)
+    }
+    func encode(_ assets: [MarketWidgetAsset]) throws -> String {
+      String(decoding: try JSONEncoder().encode(assets), as: UTF8.self)
+    }
+    let qqq = stock("QQQ"), apple = stock("AAPL"), bitcoin = MarketWidgetAsset.defaults[0]
+    try store.cacheLockScreenCandidates([qqq])
+    let draft = try store.editorDraft(json: encode([qqq]), previous: [])
+    for batch in 0..<4 { try store.cacheLockScreenCandidates((0..<100).map { stock("S\(batch)X\($0)") }) }
+    expect(tryValue { try store.editorState() }?.searchAssets?.contains { $0.id == qqq.id } == false,
+      "The bounded candidate cache can evict an unsaved selected stock")
+    rejects("Closing an editor discards its unsaved trust grant") {
+      _ = try store.editorDraft(json: encode([qqq]), previous: [])
+    }
+    try store.cacheLockScreenCandidates([apple])
+    let slots = try store.editorDraft(json: encode([qqq, apple, bitcoin]), previous: draft)
+    expect(slots.map(\.id) == [qqq, apple, bitcoin].map(\.id), "Selected draft assets survive later searches in slot order")
+    expect(!store.permitsRequests(for: qqq) && !store.permitsRequests(for: apple),
+      "Draft retention does not authorize price or chart requests")
+    rejects("An unknown JS stock cannot enter a trusted draft") {
+      _ = try store.editorDraft(json: encode([stock("FORGED")]), previous: draft)
+    }
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: slots), draftAssets: slots)
+    expect(store.selection(kind: .list).assets.map(\.id) == slots.map(\.id),
+      "Saving accepts native-trusted selections even after candidate cache eviction")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+    rejects("An editor draft cannot bypass privacy masking") {
+      _ = try store.editorDraft(json: encode([qqq]), previous: draft)
+    }
+  }
+
   private static func testDesktopStockSearchNetwork() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -192,6 +230,7 @@ struct MarketWidgetDataTests {
 
   static func main() async throws {
     try testDesktopStockSearchCandidates()
+    try testEditorDraftSurvivesCandidateEviction()
     try await testDesktopStockSearchNetwork()
     try testAppQuoteSync()
     try testStocks()

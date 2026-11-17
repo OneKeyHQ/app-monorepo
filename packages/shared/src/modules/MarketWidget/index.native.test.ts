@@ -13,6 +13,12 @@ jest.mock('../../platformEnv', () => ({
   __esModule: true,
   default: { isNativeIOS: true, isNativeBackgroundThread: false },
 }));
+jest.mock('../../travelMode', () => ({
+  travelModeManager: {
+    isMaskingDataSync: () => false,
+    getRuntimeStateSync: () => 'inactive',
+  },
+}));
 
 describe('market widget editor bridge availability', () => {
   const profile = {
@@ -54,6 +60,63 @@ describe('market widget editor bridge availability', () => {
     expect(marketWidget.supportsStockAssets()).toBe(true);
     platformEnv.isNativeBackgroundThread = true;
     expect(marketWidget.supportsStockAssets()).toBe(false);
+  });
+
+  it('routes iOS draft, search, save and cleanup through one ephemeral native session', async () => {
+    const token = 'ios-session';
+    const getWidgetEditorState = jest.fn(async () =>
+      nativeModule.getEditorState(),
+    );
+    const setWidgetEditorDraft = jest.fn(async () =>
+      nativeModule.getEditorState(),
+    );
+    const searchWidgetStocks = jest.fn(async () =>
+      nativeModule.getEditorState(),
+    );
+    const saveWidgetSettings = jest.fn(async () => JSON.stringify(profile));
+    const finishWidgetEditing = jest.fn(async () => undefined);
+    NativeModules.OneKeyMarketWidget = {
+      ...nativeModule,
+      beginWidgetEditing: async () => token,
+      getWidgetEditorState,
+      setWidgetEditorDraft,
+      searchWidgetStocks,
+      saveWidgetSettings,
+      finishWidgetEditing,
+    };
+    expect(await marketWidget.beginEditing?.()).toBe(token);
+    await marketWidget.getEditorState(token);
+    await marketWidget.setEditorDraft?.([], token);
+    await marketWidget.searchStocks?.('QQQ', token);
+    await marketWidget.saveSettings(profile, token);
+    await marketWidget.finishEditing?.(token, false);
+    expect(getWidgetEditorState).toHaveBeenCalledWith(token);
+    expect(setWidgetEditorDraft).toHaveBeenCalledWith(token, '[]');
+    expect(searchWidgetStocks).toHaveBeenCalledWith(token, 'QQQ');
+    expect(saveWidgetSettings).toHaveBeenCalledWith(
+      token,
+      JSON.stringify(profile),
+    );
+    expect(finishWidgetEditing).toHaveBeenCalledWith(token, false);
+    expect(nativeModule.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('allows configuration writes only from the background runtime', async () => {
+    const configuration = {
+      schemaVersion: 1 as const,
+      assets: [],
+      greenUp: true,
+      locale: 'en-US',
+    };
+    await expect(marketWidget.setConfiguration(configuration)).rejects.toThrow(
+      'background runtime',
+    );
+    expect(nativeModule.setConfiguration).not.toHaveBeenCalled();
+    platformEnv.isNativeBackgroundThread = true;
+    await marketWidget.setConfiguration(configuration);
+    expect(nativeModule.setConfiguration).toHaveBeenCalledWith(
+      JSON.stringify(configuration),
+    );
   });
 
   it('routes Android reads and saves through the same native-validated session', async () => {
@@ -196,5 +259,20 @@ describe('market widget editor bridge availability', () => {
     platformEnv.isNativeIOS = true;
     jest.replaceProperty(Platform, 'Version', '16.4');
     expect(marketWidget.supportsProfileEditing()).toBe(false);
+  });
+
+  it('masks through the background bridge and fails closed when the native mask API is missing', async () => {
+    await expect(marketWidget.maskForTravelMode()).rejects.toThrow(
+      'background runtime',
+    );
+    platformEnv.isNativeBackgroundThread = true;
+    await expect(marketWidget.maskForTravelMode()).rejects.toThrow(
+      'privacy masking is unavailable',
+    );
+    const maskForTravelMode = jest.fn(async () => undefined);
+    NativeModules.OneKeyMarketWidget = { ...nativeModule, maskForTravelMode };
+    await marketWidget.maskForTravelMode();
+    expect(maskForTravelMode).toHaveBeenCalledTimes(1);
+    expect(nativeModule.getEditorState).not.toHaveBeenCalled();
   });
 });

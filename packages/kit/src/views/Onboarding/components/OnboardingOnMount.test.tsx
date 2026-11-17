@@ -229,6 +229,7 @@ describe('OnboardingOnMount native widget startup', () => {
     EModalMarketRoutes.MarketWidgetList,
     ETabMarketRoutes.TabMarket,
     ETabMarketRoutes.MarketDetailV2,
+    ETabMarketRoutes.MarketStockDetail,
     ETabMarketRoutes.MarketNativeDetail,
   ])(
     'preserves %s reached while the startup status is pending',

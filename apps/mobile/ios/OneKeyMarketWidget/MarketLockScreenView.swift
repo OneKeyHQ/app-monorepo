@@ -12,7 +12,7 @@ struct MarketLockScreenView: View {
 
   private var locale: Locale { Locale(identifier: entry.configuration?.locale ?? "en-US") }
   private var isMasked: Bool { entry.configuration == nil || entry.configuration?.privacyMasked == true }
-  private var row: MarketWidgetRow? { isMasked ? nil : entry.rows.first }
+  private var row: MarketWidgetRow? { isMasked ? nil : entry.rows.first?.withFreshLockScreenQuote() }
 
   var body: some View {
     content
@@ -42,7 +42,7 @@ struct MarketLockScreenView: View {
       if isMasked || entry.rows.isEmpty {
         unavailable
       } else {
-        ForEach(Array(entry.rows.prefix(3).enumerated()), id: \.offset) { _, item in
+        ForEach(Array(entry.rows.prefix(3).map { $0.withFreshLockScreenQuote() }.enumerated()), id: \.offset) { _, item in
           HStack(spacing: 4) {
             Text(symbol(item))
               .lineLimit(1).minimumScaleFactor(0.75)

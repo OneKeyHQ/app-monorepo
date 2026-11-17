@@ -2,11 +2,23 @@
 
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 
-import type { IMarketWidgetEditorState } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import type {
+  IMarketWidgetAsset,
+  IMarketWidgetEditorState,
+} from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
 import { useMarketWidgetEditorState } from './useMarketWidgetEditorState';
 
-const mockGetEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
+const mockGetEditorState = jest.fn<
+  Promise<IMarketWidgetEditorState>,
+  [string?]
+>();
+const mockBeginEditing = jest.fn<Promise<string | undefined>, []>();
+const mockFinishEditing = jest.fn<Promise<void>, [string, boolean]>();
+const mockSetEditorDraft = jest.fn<
+  Promise<IMarketWidgetEditorState>,
+  [IMarketWidgetAsset[], string]
+>();
 const mockRefreshEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
 const mockSearchStocks = jest.fn<
   Promise<IMarketWidgetEditorState>,
@@ -15,6 +27,7 @@ const mockSearchStocks = jest.fn<
 const mockRemoveListener = jest.fn();
 let mockMasked = false;
 let mockBackgroundRefreshSupported = false;
+let mockDraftSessionsSupported = false;
 let mockAppStateChanged: ((value: string) => void) | undefined;
 let mockFocusEffect: (() => (() => void) | undefined) | undefined;
 let mockFocusCleanup: (() => void) | undefined;
@@ -44,7 +57,14 @@ jest.mock('react-native', () => ({
 jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
   default: {
-    getEditorState: () => mockGetEditorState(),
+    getEditorState: (session?: string) => mockGetEditorState(session),
+    get beginEditing() {
+      return mockDraftSessionsSupported ? mockBeginEditing : undefined;
+    },
+    setEditorDraft: (assets: IMarketWidgetAsset[], session: string) =>
+      mockSetEditorDraft(assets, session),
+    finishEditing: (session: string, saved: boolean) =>
+      mockFinishEditing(session, saved),
     searchStocks: (query: string, session?: string) =>
       mockSearchStocks(query, session),
     get refreshEditorState() {
@@ -88,13 +108,80 @@ describe('market widget editor native snapshot lifecycle', () => {
     mockGetEditorState.mockReset();
     mockRefreshEditorState.mockReset();
     mockSearchStocks.mockReset();
+    mockBeginEditing.mockReset();
+    mockFinishEditing.mockReset().mockResolvedValue(undefined);
+    mockSetEditorDraft.mockReset();
     mockMasked = false;
     mockBackgroundRefreshSupported = false;
+    mockDraftSessionsSupported = false;
     mockAppStateChanged = undefined;
     mockFocusEffect = undefined;
     mockFocusCleanup = undefined;
   });
   afterEach(cleanup);
+
+  it('keeps selected assets in one native draft across searches and releases it on close', async () => {
+    mockDraftSessionsSupported = true;
+    mockBeginEditing.mockResolvedValue('draft-session');
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    const asset: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'QQQ',
+      symbol: 'QQQ',
+      name: 'Invesco QQQ Trust',
+    };
+    const retained = { ...createState('retained'), searchAssets: [asset] };
+    mockSetEditorDraft.mockResolvedValue(retained);
+    mockSearchStocks.mockResolvedValue(retained);
+    const { result, unmount } = renderHook(useMarketWidgetEditorState);
+    await waitFor(() => expect(result.current.state).toBeDefined());
+    expect(result.current.editorSession).toBe('draft-session');
+    expect(mockGetEditorState).toHaveBeenCalledWith('draft-session');
+    await act(async () => {
+      expect(await result.current.retainDraft([asset])).toBe(true);
+    });
+    expect(mockSetEditorDraft).toHaveBeenCalledWith([asset], 'draft-session');
+    await act(async () => result.current.searchStocks('AAPL'));
+    expect(result.current.state?.searchAssets).toEqual([asset]);
+    expect(mockBeginEditing).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(mockFinishEditing).toHaveBeenCalledWith('draft-session', false);
+  });
+
+  it('releases a native session that finishes opening after the editor closes', async () => {
+    mockDraftSessionsSupported = true;
+    let resolveSession!: (token: string) => void;
+    mockBeginEditing.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolveSession = resolve;
+      }),
+    );
+    const { unmount } = renderHook(useMarketWidgetEditorState);
+    unmount();
+    await act(async () => resolveSession('late-session'));
+    expect(mockFinishEditing).toHaveBeenCalledWith('late-session', false);
+    expect(mockGetEditorState).not.toHaveBeenCalled();
+  });
+
+  it('ignores a draft response after blur and preserves launcher-owned Android sessions', async () => {
+    const pending = createPendingState();
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    mockSetEditorDraft.mockReturnValue(pending.promise);
+    const { result, unmount } = renderHook(() =>
+      useMarketWidgetEditorState('android-session'),
+    );
+    await waitFor(() => expect(result.current.state).toBeDefined());
+    let retained: Promise<boolean> | undefined;
+    act(() => {
+      retained = result.current.retainDraft([]);
+    });
+    await act(async () => undefined);
+    act(() => mockFocusCleanup?.());
+    await act(async () => pending.resolve(createState('late')));
+    await expect(retained).resolves.toBe(false);
+    unmount();
+    expect(mockFinishEditing).not.toHaveBeenCalled();
+  });
 
   it('keeps the focus read when duplicate active events arrive during foreground entry', async () => {
     const pending = createPendingState();

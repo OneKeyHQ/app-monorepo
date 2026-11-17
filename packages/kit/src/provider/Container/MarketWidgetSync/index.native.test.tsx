@@ -60,7 +60,11 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceMarketV2: { getMarketWatchListV2: () => mockReadWatchlist() },
+    serviceMarketV2: {
+      getMarketWatchListV2: () => mockReadWatchlist(),
+      setMarketWidgetConfiguration: (value: unknown) =>
+        mockSetConfiguration(value),
+    },
     serviceToken: {
       getNativeTokenAddress: (value: unknown) =>
         mockGetNativeTokenAddress(value),

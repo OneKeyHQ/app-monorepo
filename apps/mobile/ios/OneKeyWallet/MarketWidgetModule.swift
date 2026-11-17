@@ -4,7 +4,150 @@ import WidgetKit
 
 @objc(OneKeyMarketWidget)
 final class MarketWidgetModule: NSObject {
+  private let editorLock = NSLock()
+  private var editorDrafts: [String: [MarketWidgetAsset]] = [:]
+
+  private func draft(for token: String) throws -> [MarketWidgetAsset] {
+    try editorLock.withLock {
+      guard let draft = editorDrafts[token] else { throw MarketWidgetError.invalidProfile }
+      return draft
+    }
+  }
+
+  private func editorState(for token: String) throws -> MarketWidgetEditorState {
+    var state = try MarketWidgetStore().editorState()
+    if state.privacyMasked { return state }
+    var seen = Set<String>()
+    state.searchAssets = (try draft(for: token) + (state.searchAssets ?? [])).filter { seen.insert($0.id).inserted }
+    return state
+  }
+
+  @objc(beginWidgetEditing:rejecter:)
+  func beginWidgetEditing(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      let token = try editorLock.withLock {
+        guard editorDrafts.count < 8 else { throw MarketWidgetError.profileLimitReached }
+        let token = UUID().uuidString.lowercased()
+        editorDrafts[token] = []
+        return token
+      }
+      MarketWidgetDiagnostics.event("editor.session_created")
+      resolve(token)
+    } catch {
+      MarketWidgetDiagnostics.event("editor.session_failed", error: error)
+      reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to open editor.", error)
+    }
+  }
+
+  @objc(getWidgetEditorState:resolver:rejecter:)
+  func getWidgetEditorState(_ token: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let requested = ProcessInfo.processInfo.systemUptime
+    MarketWidgetDiagnostics.event("editor.read_started")
+    Task {
+      do {
+        let started = ProcessInfo.processInfo.systemUptime
+        let state = try editorState(for: token)
+        let read = ProcessInfo.processInfo.systemUptime
+        let json = String(decoding: try JSONEncoder().encode(state), as: UTF8.self)
+        let finished = ProcessInfo.processInfo.systemUptime
+        MarketWidgetDiagnostics.event("editor.read_succeeded", ["durationMs": Int((finished - requested) * 1000),
+          "queueMs": Int((started - requested) * 1000), "readMs": Int((read - started) * 1000),
+          "encodeMs": Int((finished - read) * 1000)])
+        resolve(json)
+      } catch {
+        MarketWidgetDiagnostics.event("editor.read_failed", error: error)
+        reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to read editor.", error)
+      }
+    }
+  }
+
+  @objc(setWidgetEditorDraft:assets:resolver:rejecter:)
+  func setWidgetEditorDraft(_ token: String, assets json: String, resolver resolve: RCTPromiseResolveBlock,
+                            rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      try editorLock.withLock {
+        guard let previous = editorDrafts[token] else { throw MarketWidgetError.invalidProfile }
+        editorDrafts[token] = try MarketWidgetStore().editorDraft(json: json, previous: previous)
+      }
+      MarketWidgetDiagnostics.event("editor.draft_retained")
+      resolve(String(decoding: try JSONEncoder().encode(editorState(for: token)), as: UTF8.self))
+    } catch {
+      MarketWidgetDiagnostics.event("editor.draft_failed", error: error)
+      reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to retain selection.", error)
+    }
+  }
+
+  @objc(searchWidgetStocks:query:resolver:rejecter:)
+  func searchWidgetStocks(_ token: String, query: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let started = ProcessInfo.processInfo.systemUptime
+    MarketWidgetDiagnostics.event("editor.search_started")
+    Task {
+      do {
+        _ = try draft(for: token)
+        let configuration = MarketWidgetStore().configuration().configuration
+        let assets = try await MarketWidgetService.shared.search(query: query, locale: configuration?.locale ?? "en-US", stocksOnly: true)
+        MarketWidgetDiagnostics.event("editor.search_succeeded", ["resultCount": assets.count,
+          "durationMs": Int((ProcessInfo.processInfo.systemUptime - started) * 1000)])
+        resolve(String(decoding: try JSONEncoder().encode(editorState(for: token)), as: UTF8.self))
+      } catch {
+        MarketWidgetDiagnostics.event("editor.search_failed", error: error)
+        reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search stocks.", error)
+      }
+    }
+  }
+
+  @objc(refreshWidgetEditorState:resolver:rejecter:)
+  func refreshWidgetEditorState(_ token: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                                rejecter reject: @escaping RCTPromiseRejectBlock) {
+    Task {
+      do {
+        _ = try draft(for: token)
+        await MarketWidgetService.shared.refreshEditorMetadata()
+        resolve(String(decoding: try JSONEncoder().encode(editorState(for: token)), as: UTF8.self))
+      } catch { reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to refresh editor.", error) }
+    }
+  }
+
+  @objc(saveWidgetSettings:settings:resolver:rejecter:)
+  func saveWidgetSettings(_ token: String, settings json: String, resolver resolve: RCTPromiseResolveBlock,
+                          rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      let saved = try MarketWidgetStore().saveSettings(json: json, draftAssets: draft(for: token))
+      WidgetCenter.shared.reloadTimelines(ofKind: saved.kind.timelineKind)
+      MarketWidgetDiagnostics.event("editor.settings_saved", ["kind": saved.kind.rawValue, "reloadRequested": true])
+      resolve(String(decoding: try JSONEncoder().encode(saved), as: UTF8.self))
+    } catch {
+      MarketWidgetDiagnostics.event("editor.save_failed", error: error)
+      reject("MARKET_WIDGET_SETTINGS_FAILED", "Unable to save settings.", error)
+    }
+  }
+
+  @objc(finishWidgetEditing:saved:resolver:rejecter:)
+  func finishWidgetEditing(_ token: String, saved: Bool, resolver resolve: RCTPromiseResolveBlock,
+                           rejecter reject: RCTPromiseRejectBlock) {
+    _ = editorLock.withLock { editorDrafts.removeValue(forKey: token) }
+    MarketWidgetDiagnostics.event("editor.session_finished", ["saved": saved])
+    resolve(nil)
+  }
   @objc static func requiresMainQueueSetup() -> Bool { false }
+  @objc(maskForTravelMode:rejecter:)
+  func maskForTravelMode(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      let store = MarketWidgetStore()
+      let current = store.configuration().configuration ?? .initial
+      let configuration = MarketWidgetConfiguration(schemaVersion: 1, assets: [],
+        greenUp: current.greenUp, locale: current.locale, privacyMasked: true)
+      _ = try store.saveConfiguration(json: String(decoding: try JSONEncoder().encode(configuration), as: UTF8.self))
+      WidgetCenter.shared.reloadAllTimelines()
+      MarketWidgetDiagnostics.event("privacy.masked")
+      resolve(nil)
+    } catch {
+      MarketWidgetDiagnostics.event("privacy.mask_failed", error: error)
+      reject("MARKET_WIDGET_PRIVACY_FAILED", "Unable to mask widgets.", error)
+    }
+  }
   @objc func constantsToExport() -> [String: Any] { ["stockSupportVersion": 1] }
 
   @objc(syncQuote:resolver:rejecter:)

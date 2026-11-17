@@ -12,6 +12,12 @@ struct MarketLockScreenViewTests {
 
   static func main() {
     let locale = Locale(identifier: "en-US")
+    let stale = MarketWidgetRow(asset: MarketWidgetAsset.defaults[0], quote: MarketWidgetQuote(
+      asset: MarketWidgetAsset.defaults[0], price: "123.45", change24h: "2.5",
+      fetchedAt: Date().addingTimeInterval(-7 * 86400)), failed: false).withFreshLockScreenQuote()
+    expect(MarketLockScreenFormatting.price(stale.quote?.price, locale: locale) == "—"
+      && MarketLockScreenFormatting.change(stale.quote?.change24h, locale: locale) == "—",
+      "Expired lock-screen quotes render unavailable price and change values")
     for invalid in [nil, "", "NaN", "Infinity", "-1", "1garbage", "1\n", "1,234"] as [String?] {
       expect(MarketLockScreenFormatting.price(invalid, locale: locale) == "—",
              "Invalid or missing prices must remain unavailable, not zero")
