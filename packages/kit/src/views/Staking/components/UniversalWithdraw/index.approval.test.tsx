@@ -27,6 +27,7 @@ const mockTrackAllowance = jest.fn();
 const mockRetryAllowance = jest.fn();
 const mockAllowanceValue = { current: '0' };
 const mockRouteFocus = { current: true };
+const mockShowTransactionSection = { current: false };
 const mockVerify = jest.fn<Promise<boolean>, []>();
 const mockFooterAction = jest.fn<void, [() => void]>();
 type IConfirmParams = Parameters<NonNullable<IProps['onConfirm']>>[0] & {
@@ -39,6 +40,7 @@ const mockQuote = jest.fn<Promise<unknown>, unknown[]>();
 const mockClaimStart = jest.fn<void, [(() => void) | undefined]>();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 let mockEstimateRequest: (() => Promise<unknown>) | undefined;
+let mockEstimateResult: unknown;
 const mockRiskAccepted = jest.fn();
 const mockSignMessage = jest.fn();
 const mockToastError = jest.fn<void, [unknown]>();
@@ -145,6 +147,7 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: Container,
     Image: Container,
     SizableText: Container,
+    Skeleton: Container,
     Stack: Container,
     XStack: Container,
     YStack: Container,
@@ -190,7 +193,9 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     options?: { undefinedResultIfReRun?: boolean },
   ) => {
     if (options?.undefinedResultIfReRun) mockEstimateRequest = method;
-    return { result: undefined };
+    return {
+      result: options?.undefinedResultIfReRun ? mockEstimateResult : undefined,
+    };
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -229,7 +234,9 @@ jest.mock('../../hooks/useEarnSignMessageWithoutVerify', () => ({
   useEarnSignMessageWithoutVerify: () => mockSignMessage,
 }));
 jest.mock('../../hooks/usePendleLayoutState', () => ({
-  usePendleLayoutState: () => ({}),
+  usePendleLayoutState: () => ({
+    showPendleTransactionSection: mockShowTransactionSection.current,
+  }),
 }));
 jest.mock('../../hooks/useQuoteRefresh', () => ({
   useQuoteRefresh: () => ({
@@ -252,9 +259,35 @@ jest.mock('../../pages/ProtocolDetails/useHandleActions', () => ({
   useHandleWithdraw: () => jest.fn(),
 }));
 jest.mock('../CalculationList', () => ({ CalculationListItem: () => null }));
-jest.mock('../EstimateNetworkFee', () => ({ EstimateNetworkFee: () => null }));
+jest.mock('../EstimateNetworkFee', () => ({
+  EstimateNetworkFee: ({
+    loading,
+    estimateFeeResp,
+  }: {
+    loading?: boolean;
+    estimateFeeResp?: { feeFiatValue?: string };
+  }) => (
+    <div
+      data-testid="estimate-fee"
+      data-loading={Boolean(loading)}
+      data-value={estimateFeeResp?.feeFiatValue ?? ''}
+    />
+  ),
+}));
 jest.mock('../ManagePageV2ReceiveInput', () => ({
-  ManagePageV2ReceiveInput: () => null,
+  ManagePageV2ReceiveInput: ({
+    loading,
+    receive,
+  }: {
+    loading?: boolean;
+    receive?: { description?: { text?: string } };
+  }) => (
+    <div
+      data-testid="receive-preview"
+      data-loading={Boolean(loading)}
+      data-value={receive?.description?.text ?? ''}
+    />
+  ),
 }));
 jest.mock('../ProtocolDetails/EarnActionIcon', () => ({
   ActionPopupContent: () => null,
@@ -496,8 +529,10 @@ describe('UniversalWithdraw share approval continuation', () => {
     jest.clearAllMocks();
     mockAllowanceValue.current = '0';
     mockRouteFocus.current = true;
+    mockShowTransactionSection.current = false;
     mockFetchAllowance.mockReset();
     mockEstimateRequest = undefined;
+    mockEstimateResult = undefined;
     mockEstimateFee.mockResolvedValue({});
     mockVerify.mockResolvedValue(true);
     mockRiskAccepted.mockResolvedValue(true);
@@ -518,6 +553,392 @@ describe('UniversalWithdraw share approval continuation', () => {
         },
       },
     });
+  });
+
+  it('keeps approval loading across quote and amount checks after changing the output token', async () => {
+    const screen = render(<UniversalWithdraw {...props} />);
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    const quote = deferred<unknown>();
+    const check = deferred<unknown>();
+    mockQuote.mockReturnValueOnce(quote.promise);
+    mockCheckAmount.mockReturnValueOnce(check.promise);
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(button.getAttribute('data-loading')).toBe('true');
+    await act(async () =>
+      quote.resolve({
+        withdrawPath: {
+          data: {
+            confirmBoxes: [
+              {
+                withdrawType: 'queued',
+                title: { text: 'Queued' },
+                description: { text: '1' },
+              },
+            ],
+          },
+        },
+      }),
+    );
+    await waitFor(
+      () =>
+        expect(mockCheckAmount).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(button.getAttribute('data-loading')).toBe('true');
+    await act(async () => check.resolve({ code: 0, data: { alerts: [] } }));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    expect(button.getAttribute('data-loading')).toBe('false');
+  });
+
+  it('shows only the current receive quote and does not reload it during amount validation', async () => {
+    const makeQuote = (amount: string) => ({
+      receive: { title: { text: 'Receive' }, description: { text: amount } },
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    });
+    mockQuote.mockResolvedValue(makeQuote('old'));
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    await waitFor(
+      () => expect(preview.getAttribute('data-value')).toBe('old'),
+      { timeout: 5000 },
+    );
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole('button', { name: 'global.approve' })
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      { timeout: 5000 },
+    );
+    const quote = deferred<unknown>();
+    const check = deferred<unknown>();
+    mockQuote.mockReturnValueOnce(quote.promise);
+    mockCheckAmount.mockReturnValueOnce(check.promise);
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    expect(preview.getAttribute('data-loading')).toBe('true');
+    expect(preview.getAttribute('data-value')).toBe('');
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    await act(async () => quote.resolve(makeQuote('new')));
+    await waitFor(
+      () =>
+        expect(mockCheckAmount).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    expect(preview.getAttribute('data-loading')).toBe('false');
+    expect(preview.getAttribute('data-value')).toBe('new');
+    await act(async () => check.resolve({ code: 0, data: { alerts: [] } }));
+    expect(preview.getAttribute('data-loading')).toBe('false');
+  });
+
+  it('stops the receive placeholder without showing an old quote when a new quote fails', async () => {
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole('button', { name: 'global.approve' })
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      { timeout: 5000 },
+    );
+    mockQuote.mockRejectedValueOnce(new Error('quote unavailable'));
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    expect(preview.getAttribute('data-loading')).toBe('true');
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    await waitFor(() =>
+      expect(preview.getAttribute('data-loading')).toBe('false'),
+    );
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(
+      screen
+        .getByRole('button', { name: 'global.approve' })
+        .hasAttribute('disabled'),
+    ).toBe(true);
+  });
+
+  it('does not reuse a receive quote for another account with the same address', async () => {
+    mockQuote.mockResolvedValue({
+      receive: { title: { text: 'Receive' }, description: { text: 'old' } },
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    await waitFor(
+      () => expect(preview.getAttribute('data-value')).toBe('old'),
+      { timeout: 5000 },
+    );
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole('button', { name: 'global.approve' })
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      { timeout: 5000 },
+    );
+    const quote = deferred<unknown>();
+    const previousQuoteCount = mockQuote.mock.calls.length;
+    mockQuote.mockReturnValueOnce(quote.promise);
+    screen.rerender(
+      <UniversalWithdraw
+        {...props}
+        accountId="account-b"
+        approveTarget={{ ...approveTarget, accountId: 'account-b' }}
+      />,
+    );
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(preview.getAttribute('data-loading')).toBe('true');
+    await waitFor(
+      () => expect(mockQuote).toHaveBeenCalledTimes(previousQuoteCount + 1),
+      { timeout: 5000 },
+    );
+    await act(async () => quote.resolve(undefined));
+  });
+
+  it('does not reuse a settled quote after switching away and back', async () => {
+    mockQuote.mockResolvedValue({
+      receive: { title: { text: 'Receive' }, description: { text: 'old' } },
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole('button', { name: 'global.approve' })
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      { timeout: 5000 },
+    );
+    expect(preview.getAttribute('data-value')).toBe('old');
+    screen.rerender(<UniversalWithdraw {...props} providerName="lido" />);
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(preview.getAttribute('data-loading')).toBe('true');
+    expect(
+      screen
+        .getByRole('button', { name: 'global.approve' })
+        .hasAttribute('disabled'),
+    ).toBe(true);
+  });
+
+  it('keeps the fee placeholder for the latest request and supports retry after failure', async () => {
+    mockShowTransactionSection.current = true;
+    mockEstimateFee.mockResolvedValueOnce({ feeFiatValue: '1' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    await act(async () => {
+      mockEstimateResult = await mockEstimateRequest?.();
+    });
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '1',
+    );
+
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    expect(
+      screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '',
+    );
+
+    const older = deferred<unknown>();
+    const newer = deferred<unknown>();
+    mockEstimateFee
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    const olderRequest = mockEstimateRequest?.();
+    const newerRequest = mockEstimateRequest?.();
+    await waitFor(() => expect(mockEstimateFee).toHaveBeenCalledTimes(3));
+    await act(async () => {
+      older.resolve(Promise.reject(new Error('old fee failure')));
+      await expect(olderRequest).rejects.toThrow('old fee failure');
+    });
+    expect(
+      screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+    ).toBe('true');
+    await act(async () => {
+      newer.resolve(Promise.reject(new Error('fee failure')));
+      await expect(newerRequest).rejects.toThrow('fee failure');
+    });
+    expect(screen.queryByTestId('estimate-fee')).toBeNull();
+
+    const retry = deferred<unknown>();
+    mockEstimateFee.mockReturnValueOnce(retry.promise);
+    let retryRequest: Promise<unknown> | undefined;
+    act(() => {
+      retryRequest = mockEstimateRequest?.();
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+      ).toBe('true'),
+    );
+    await act(async () => {
+      retry.resolve({ feeFiatValue: '2' });
+      mockEstimateResult = await retryRequest;
+    });
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    expect(
+      screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '2',
+    );
+  });
+
+  it('settles a fee failure that arrives while the committed form is hidden', async () => {
+    mockShowTransactionSection.current = true;
+    mockEstimateFee.mockResolvedValueOnce({ feeFiatValue: '1' });
+    const suspended = new Promise<never>(() => undefined);
+    function Suspend({ hidden }: { hidden: boolean }) {
+      if (hidden) throw suspended;
+      return null;
+    }
+    function App() {
+      const [hidden, setHidden] = useState(false);
+      const [output, setOutput] = useState('0xoutput');
+      const [, forceRender] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => setHidden(true)}>
+            Hide
+          </button>
+          <button type="button" onClick={() => setHidden(false)}>
+            Restore
+          </button>
+          <button type="button" onClick={() => setOutput('0xother')}>
+            Switch output
+          </button>
+          <button
+            type="button"
+            onClick={() => forceRender((value) => value + 1)}
+          >
+            Refresh mock
+          </button>
+          <Suspense fallback={<span>Suspended</span>}>
+            <UniversalWithdraw
+              {...props}
+              transactionOutputTokenAddress={output}
+            />
+            <Suspend hidden={hidden} />
+          </Suspense>
+        </>
+      );
+    }
+    const screen = render(<App />);
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    await act(async () => {
+      mockEstimateResult = await mockEstimateRequest?.();
+    });
+    fireEvent.click(screen.getByText('Refresh mock'));
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '1',
+    );
+    fireEvent.click(screen.getByText('Switch output'));
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    const request = deferred<unknown>();
+    mockEstimateFee.mockReturnValueOnce(request.promise);
+    const feeRequest = mockEstimateRequest?.();
+    await waitFor(() => expect(mockEstimateFee).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByText('Hide'));
+    await waitFor(() => expect(screen.getByText('Suspended')).toBeTruthy());
+    await act(async () => {
+      request.resolve(Promise.reject(new Error('fee unavailable')));
+      await expect(feeRequest).rejects.toThrow('fee unavailable');
+    });
+    fireEvent.click(screen.getByText('Restore'));
+    await waitFor(() => expect(screen.queryByText('Suspended')).toBeNull());
+    expect(screen.queryByTestId('estimate-fee')).toBeNull();
   });
 
   it('uses account A for a queued quote when an account B render suspends', async () => {
@@ -933,7 +1354,9 @@ describe('UniversalWithdraw share approval continuation', () => {
     const button = await screen.findByRole('button', {
       name: 'global.withdraw',
     });
-    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
     fireEvent.click(button);
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
     const resultCurrent = mockConfirm.mock.calls[0][0].isResultCurrent;
@@ -1041,7 +1464,9 @@ describe('UniversalWithdraw share approval continuation', () => {
     const button = await screen.findByRole('button', {
       name: 'global.withdraw',
     });
-    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
     fireEvent.click(button);
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
     const resultCurrent = mockConfirm.mock.calls[0][0].isResultCurrent;

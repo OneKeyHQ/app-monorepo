@@ -1,8 +1,14 @@
 /** @jest-environment jsdom */
 
-import { useShowStakeEstimateGasAlert, waitForStakeEstimateGasAlert } from './';
+import type { ReactNode } from 'react';
 
-import { renderHook } from '@testing-library/react';
+import {
+  EstimateNetworkFee,
+  useShowStakeEstimateGasAlert,
+  waitForStakeEstimateGasAlert,
+} from './';
+
+import { render, renderHook, screen } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -17,7 +23,8 @@ jest.mock('@onekeyhq/components', () => ({
   Icon: () => null,
   NumberSizeableText: () => null,
   SizableText: () => null,
-  XStack: () => null,
+  Skeleton: () => <span data-testid="fee-placeholder" />,
+  XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   YStack: () => null,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -31,7 +38,11 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
     },
   },
 }));
-jest.mock('../CalculationList', () => ({ CalculationListItem: () => null }));
+jest.mock('../CalculationList', () => ({
+  CalculationListItem: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 
 type IAlert = ReturnType<typeof useShowStakeEstimateGasAlert>;
 type IAlertParams = Parameters<IAlert>[0];
@@ -172,4 +183,11 @@ describe('stake network fee warning', () => {
     await confirmation;
     expect(alert.instance.close).toHaveBeenCalledTimes(1);
   });
+});
+
+it('keeps a fee row placeholder visible while its current estimate is loading', () => {
+  const view = render(<EstimateNetworkFee isVisible loading />);
+  expect(screen.getAllByTestId('fee-placeholder')).toHaveLength(2);
+  view.rerender(<EstimateNetworkFee isVisible={false} loading />);
+  expect(screen.queryByTestId('fee-placeholder')).toBeNull();
 });

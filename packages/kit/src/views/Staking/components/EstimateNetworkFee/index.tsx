@@ -9,6 +9,7 @@ import {
   Icon,
   NumberSizeableText,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -304,18 +305,34 @@ export const EstimateNetworkFee = ({
   isVisible,
   labelTextProps,
   valueTextProps,
+  loading,
 }: {
   estimateFeeResp?: IEarnEstimateFeeResp;
   isVisible?: boolean;
   onPress?: () => void;
   labelTextProps?: ISizableTextProps;
   valueTextProps?: ISizableTextProps;
-}) =>
-  estimateFeeResp && isVisible ? (
+  loading?: boolean;
+}) => {
+  if (isVisible && loading) {
+    return (
+      <CalculationListItem>
+        <XStack h="$5" ai="center">
+          <Skeleton h="$3.5" w="$20" />
+        </XStack>
+        <XStack h="$5" ai="center">
+          <Skeleton h="$3.5" w="$16" />
+        </XStack>
+      </CalculationListItem>
+    );
+  }
+  if (!estimateFeeResp || !isVisible) return null;
+  return (
     <EstimateNetworkFeeListItem
       estFiatValue={estimateFeeResp.feeFiatValue}
       onPress={onPress}
       labelTextProps={labelTextProps}
       valueTextProps={valueTextProps}
     />
-  ) : null;
+  );
+};
