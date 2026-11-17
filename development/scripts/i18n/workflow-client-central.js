@@ -132,30 +132,36 @@ class CentralClient {
     };
   }
 
-  async findKey(key) {
-    const { project, keyMeta, locales } = await this.load();
+  /** [ref, meta] of every key named this key or one of its variants. */
+  async keysNamed(key) {
+    const { keyMeta } = await this.load();
     const variants = new Set([
       key,
       localKey(key),
       localKey(key).replaceAll('.', '::'),
     ]);
-    const matches = Object.entries(keyMeta).filter(([ref, meta]) =>
+    return Object.entries(keyMeta).filter(([ref, meta]) =>
       variants.has(meta.name ?? ref),
     );
-    const found = matches.filter(([, meta]) => !meta.archived);
+  }
+
+  /** Archived keys that use this name; a new key cannot take it. */
+  async archivedRefs(key) {
+    return (await this.keysNamed(key))
+      .filter(([, meta]) => meta.archived)
+      .map(([ref]) => ref);
+  }
+
+  async findKey(key) {
+    const { project, locales } = await this.load();
+    const found = (await this.keysNamed(key)).filter(
+      ([, meta]) => !meta.archived,
+    );
     if (found.length > 1)
       throw new Error(
         `Ambiguous key variants for ${key} in onekey-i18n: ${found
           .map(([ref]) => ref)
           .join(', ')}. Resolve the duplicate there first.`,
-      );
-    // Only archived keys use this name: creating it would fail after approval,
-    // so preview stops here instead.
-    if (!found.length && matches.length)
-      throw new Error(
-        `${key} is archived in onekey-i18n (${matches
-          .map(([ref]) => ref)
-          .join(', ')}). Choose another key name.`,
       );
     if (!found.length) return null;
     const [ref, meta] = found[0];

@@ -18,6 +18,7 @@ const {
   writeLocaleFiles,
 } = require('./central');
 const { run: pull } = require('./i18n-pull');
+const { buildCentralDeletePlan } = require('./i18n-unused');
 const {
   CentralClient,
   blobSha,
@@ -200,10 +201,22 @@ test('reads release source data through the interface the workflow expects', asy
     },
   );
   await assert.rejects(client.findKey('dup'), /Ambiguous/);
-  // A name only archived keys use is refused at preview, before approval.
-  await assert.rejects(
-    client.findKey('old.title'),
-    /old\.title is archived in onekey-i18n \(old::title\)/,
+  // Archived keys are not found, but preview can still see that the name is
+  // taken; i18n:unused lists them as missing instead of blocking deletion.
+  assert.equal(await client.findKey('old.title'), null);
+  assert.deepEqual(await client.archivedRefs('old.title'), ['old::title']);
+  assert.deepEqual(await client.archivedRefs('global.cancel'), []);
+  const deletion = await buildCentralDeletePlan({
+    client,
+    unused: [{ key: 'old.title' }, { key: 'global.cancel' }],
+  });
+  assert.deepEqual(
+    [deletion.toDelete, deletion.missing, deletion.ambiguous],
+    [
+      [{ key: 'global.cancel', ref: 'global::cancel' }],
+      [{ key: 'old.title' }],
+      [],
+    ],
   );
   assert.equal(await client.findKey('missing__title'), null);
   const id = encodeURIComponent(translationId('global::cancel', 'en_US'));

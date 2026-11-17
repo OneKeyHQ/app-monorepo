@@ -69,6 +69,15 @@ async function preparePlan({
   const changes = [];
   for (const entry of entries) {
     const remote = await client.findKey(entry.key);
+    // A name only archived onekey-i18n keys use cannot be created; stop here
+    // rather than after approval.
+    const archived = remote
+      ? []
+      : ((await client.archivedRefs?.(entry.key)) ?? []);
+    if (archived.length)
+      throw new Error(
+        `${entry.key} is archived in onekey-i18n (${archived.join(', ')}). Choose another key name.`,
+      );
     if (
       !remote &&
       !/^[a-z][a-z0-9_]*__(title|action|desc|msg)$/.test(entry.key) &&

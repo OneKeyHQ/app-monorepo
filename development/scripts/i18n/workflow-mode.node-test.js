@@ -63,6 +63,22 @@ test('default completion creates new keys and reuses existing translations witho
   );
 });
 
+test('preview refuses a new key whose name only an archived onekey-i18n key uses', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  api.client.archivedRefs = async (key) =>
+    key === 'travel_mode__title' ? ['travel_mode__title'] : [];
+  await assert.rejects(
+    prepare(
+      ctx,
+      api,
+      singleDraft('travel_mode__title', ctx.translations(), ctx.root),
+    ),
+    /travel_mode__title is archived in onekey-i18n \(travel_mode__title\)/,
+  );
+  assert.equal(api.writes.length, 0);
+});
+
 test('verify after apply checks the onekey-i18n PR apply opened, not the release', async (t) => {
   const ctx = fixture(t);
   const api = fakeClient(ctx);
