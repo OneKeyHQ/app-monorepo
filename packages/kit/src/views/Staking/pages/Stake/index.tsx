@@ -84,8 +84,6 @@ function BasicStakePage() {
   });
   const retained = useRetainedDepositTask(retainedOwnerKey);
   const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
-  const recoveryTask =
-    isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
   const retainedTask =
     !isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
   const appNavigation = useAppNavigation();
@@ -648,9 +646,9 @@ function BasicStakePage() {
     0;
 
   let retainedView: ReactElement | undefined;
-  if (retained.status === 'checking') {
+  if (!isEtherFiProvider && retained.status === 'checking') {
     retainedView = <Spinner />;
-  } else if (retained.status === 'unavailable') {
+  } else if (!isEtherFiProvider && retained.status === 'unavailable') {
     retainedView = (
       <Alert
         type="critical"
@@ -689,7 +687,6 @@ function BasicStakePage() {
         {retainedView || (
           <EarnStakeForm
             retainedTask={retainedTask}
-            recoveryBlocked={Boolean(recoveryTask)}
             showStandaloneKeyboardFooter
             key={`stake-input-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
             accountId={accountId}
@@ -704,15 +701,6 @@ function BasicStakePage() {
             isDisabled={!isStakeAssetReady}
             beforeFooter={
               <>
-                {recoveryTask ? (
-                  <RetainedTaskFallback
-                    ownerKey={retainedOwnerKey}
-                    retainedTask={recoveryTask}
-                    assetsLoading={false}
-                    onRetryAssets={() => undefined}
-                    recoveryOnly
-                  />
-                ) : null}
                 {stakeAssetsError ||
                 wrappedStakeAssetsError ||
                 missingWrappedStakeAsset ||

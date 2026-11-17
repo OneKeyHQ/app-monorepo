@@ -165,7 +165,7 @@ export async function runDirectDepositTask({
     return value;
   };
   const adapter: IDepositTaskAdapter<IPrepared> = {
-    prepare: async ({ step, isRetry, signal: taskSignal }) => {
+    prepare: async ({ step, isRetry, signal: taskSignal, onResetRequired }) => {
       const isStepCurrent = () => !taskSignal.aborted && isTaskCurrent();
       if (!isStepCurrent()) return { type: 'cancelled' };
       if (step.kind === 'deposit') {
@@ -198,6 +198,7 @@ export async function runDirectDepositTask({
       if (step.kind === 'resetApproval') {
         if (allowance.isZero() || allowance.gte(amountBN))
           return { type: 'skip' };
+        if (!onResetRequired()) return { type: 'cancelled' };
         if (confirmReset && !(await confirmReset(taskSignal)))
           return { type: 'cancelled' };
         if (!isStepCurrent()) return { type: 'cancelled' };

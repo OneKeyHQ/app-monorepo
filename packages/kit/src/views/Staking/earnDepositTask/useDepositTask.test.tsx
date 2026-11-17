@@ -74,6 +74,325 @@ describe('useDepositTask', () => {
     mockFinalStatus.mockReset().mockResolvedValue(undefined);
   });
 
+  it.each(['sending', 'confirming', 'handedOff'] as const)(
+    'cancels a %s task on unmount and allows a new task for the same owner',
+    (status) => {
+      const ownerKey = `exit-${status}`;
+      const base = makeTask(`old-${status}`);
+      const task = {
+        ...base,
+        steps: [
+          {
+            ...base.steps[0],
+            attemptId: 'old-attempt',
+            status:
+              status === 'sending'
+                ? { type: status }
+                : { type: status, txid: 'old-tx' },
+          },
+        ],
+      };
+      const state = createDepositTaskState(task);
+      const handle = {
+        ...makeHandle(task),
+        taskState: state,
+        subscribeRecovery: jest.fn(() => () => undefined),
+        retryDetachedRecording: jest.fn(async () => undefined),
+      };
+      const first = renderHook(() =>
+        useDepositTask('scope', ownerKey, null, true),
+      );
+      act(() => {
+        expect(first.result.current.onTaskReady(handle)).toBe(true);
+      });
+      const lateChange = first.result.current.onTaskChange;
+      const oldToken = depositTaskRegistry.find(ownerKey)?.token;
+      first.unmount();
+      expect(handle.dispose).toHaveBeenCalledTimes(1);
+      expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+
+      const second = renderHook(() =>
+        useDepositTask('scope', ownerKey, null, true),
+      );
+      const newTask = makeTask(`new-${status}`);
+      const newHandle = {
+        ...makeHandle(newTask),
+        taskState: createDepositTaskState(newTask),
+      };
+      act(() => {
+        expect(second.result.current.onTaskReady(newHandle)).toBe(true);
+        lateChange(task);
+      });
+      expect(second.result.current.task?.taskId).toBe(newTask.taskId);
+      expect(oldToken && depositTaskRegistry.release(ownerKey, oldToken)).toBe(
+        false,
+      );
+      expect(depositTaskRegistry.find(ownerKey)?.state).toBe(
+        newHandle.taskState,
+      );
+      second.unmount();
+    },
+  );
+
+  it('cancels and releases a task when the owner changes and ignores stale callbacks', () => {
+    const oldTask = makeTask('owner-old-task');
+    const oldHandle = {
+      ...makeHandle(oldTask),
+      taskState: createDepositTaskState(oldTask),
+    };
+    const view = renderHook(
+      ({ owner }) => useDepositTask('scope', owner, null, true),
+      { initialProps: { owner: 'owner-old' } },
+    );
+    act(() => {
+      view.result.current.onTaskReady(oldHandle);
+    });
+    const lateChange = view.result.current.onTaskChange;
+    const lateClear = view.result.current.clearTask;
+    view.rerender({ owner: 'owner-new' });
+    expect(oldHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(depositTaskRegistry.find('owner-old')).toBeUndefined();
+
+    const newTask = makeTask('owner-new-task');
+    const newHandle = {
+      ...makeHandle(newTask),
+      taskState: createDepositTaskState(newTask),
+    };
+    act(() => {
+      expect(view.result.current.onTaskReady(newHandle)).toBe(true);
+      lateChange(oldTask);
+      lateClear();
+    });
+    expect(view.result.current.task?.taskId).toBe(newTask.taskId);
+    expect(newHandle.dispose).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('keeps the task while Suspense hides the form, then cancels on unmount', () => {
+    const ownerKey = 'suspended-form-owner';
+    const suspended = new Promise<never>(() => undefined);
+    let taskApi: ReturnType<typeof useDepositTask> | undefined;
+    const Form = ({ hide }: { hide: boolean }) => {
+      taskApi = useDepositTask('scope', ownerKey, null, true);
+      if (hide) throw suspended;
+      return <span>Visible form</span>;
+    };
+    const App = () => {
+      const [hide, setHide] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setHide(true)}>
+            Hide form
+          </button>
+          <button type="button" onClick={() => setHide(false)}>
+            Show form
+          </button>
+          <Suspense fallback={<span>Form loading</span>}>
+            <Form hide={hide} />
+          </Suspense>
+        </>
+      );
+    };
+    const view = render(<App />);
+    const task = makeTask('suspended-form-task');
+    const handle = {
+      ...makeHandle(task),
+      taskState: createDepositTaskState(task),
+    };
+    act(() => {
+      expect(taskApi?.onTaskReady(handle)).toBe(true);
+    });
+    fireEvent.click(view.getByText('Hide form'));
+    expect(view.getByText('Form loading')).toBeTruthy();
+    expect(handle.dispose).not.toHaveBeenCalled();
+    expect(depositTaskRegistry.find(ownerKey)?.state).toBe(handle.taskState);
+    fireEvent.click(view.getByText('Show form'));
+    expect(view.getByText('Visible form')).toBeTruthy();
+    expect(taskApi?.getCurrentHandle()).toBe(handle);
+    expect(handle.dispose).not.toHaveBeenCalled();
+    view.unmount();
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+  });
+
+  it('does not release a reservation adopted by another active handle', () => {
+    const ownerKey = 'adopted-reservation';
+    const task = makeTask('adopted-task');
+    const taskState = createDepositTaskState(task);
+    const makeRecoverableHandle = () => ({
+      ...makeHandle(task),
+      taskState,
+      subscribeRecovery: jest.fn(() => () => undefined),
+      retryDetachedRecording: jest.fn(async () => undefined),
+    });
+    const oldHandle = makeRecoverableHandle();
+    const newHandle = makeRecoverableHandle();
+    const oldView = renderHook(() =>
+      useDepositTask('old-scope', ownerKey, null, true),
+    );
+    const newView = renderHook(() =>
+      useDepositTask('new-scope', ownerKey, null, true),
+    );
+    act(() => {
+      oldView.result.current.onTaskReady(oldHandle);
+      newView.result.current.onTaskReady(newHandle);
+      oldView.result.current.clearTask();
+    });
+    expect(oldHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(newHandle.dispose).not.toHaveBeenCalled();
+    expect(depositTaskRegistry.find(ownerKey)?.recordingHandle).toBe(newHandle);
+    oldView.unmount();
+    expect(depositTaskRegistry.find(ownerKey)?.recordingHandle).toBe(newHandle);
+    newView.unmount();
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+  });
+
+  it('clears an uncertain task and its reservation when the user cancels', () => {
+    const base = makeTask('cancel-unknown');
+    const task = {
+      ...base,
+      steps: [
+        {
+          ...base.steps[0],
+          attemptId: 'attempt',
+          status: { type: 'unknown' as const, chainConfirmed: false },
+        },
+      ],
+    };
+    const handle = {
+      ...makeHandle(task),
+      taskState: createDepositTaskState(task),
+    };
+    const view = renderHook(() =>
+      useDepositTask('scope', 'cancel-owner', null, true),
+    );
+    act(() => {
+      view.result.current.onTaskReady(handle);
+      view.result.current.clearTask();
+    });
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+    expect(view.result.current.task).toBeUndefined();
+    expect(depositTaskRegistry.find('cancel-owner')).toBeUndefined();
+    view.unmount();
+  });
+
+  it('does not clear a replacement task when an old retry completes', () => {
+    const view = renderHook(() =>
+      useDepositTask('scope', 'replacement-owner', null, true),
+    );
+    const oldTask = makeTask('old-retry');
+    const oldHandle = {
+      ...makeHandle(oldTask),
+      taskState: createDepositTaskState(oldTask),
+    };
+    const newTask = makeTask('new-retry');
+    const newHandle = {
+      ...makeHandle(newTask),
+      taskState: createDepositTaskState(newTask),
+    };
+    act(() => {
+      view.result.current.onTaskReady(oldHandle);
+      view.result.current.onTaskReady(newHandle);
+      view.result.current.clearTask(oldHandle);
+    });
+    expect(view.result.current.task?.taskId).toBe(newTask.taskId);
+    expect(newHandle.dispose).not.toHaveBeenCalled();
+    expect(depositTaskRegistry.find('replacement-owner')?.state).toBe(
+      newHandle.taskState,
+    );
+    view.unmount();
+  });
+
+  it('records a late deposit submission after cancellation without changing the new task', async () => {
+    const task = makeTask('cancelled-late-deposit');
+    const state = createDepositTaskState(task);
+    const saveOrder = jest.fn(async () => undefined);
+    const recording = createDepositRecording({
+      isCurrent: () => true,
+      onError: jest.fn(),
+    });
+    let publishLateSubmission: (() => Promise<void>) | undefined;
+    let executionCurrent = true;
+    const first = renderHook(() =>
+      useDepositTask('scope', 'late-recording-owner', null, true),
+    );
+    let run: Promise<boolean> = Promise.resolve(false);
+    await act(async () => {
+      run = runDepositTask({
+        task,
+        taskState: state,
+        recording,
+        adapter: {
+          prepare: async () => ({ type: 'confirm', prepared: undefined }),
+          confirm: async ({
+            taskId,
+            step,
+            attemptId,
+            onBeforeSend,
+            onSubmitted,
+            signal,
+          }) => {
+            onBeforeSend();
+            publishLateSubmission = async () => {
+              if (onSubmitted('late-deposit-tx')) {
+                await recording.start(
+                  'late-deposit-tx',
+                  saveOrder,
+                  () => undefined,
+                  {
+                    taskId,
+                    stepId: step.id,
+                    attemptId,
+                  },
+                );
+              }
+            };
+            return new Promise((resolve) => {
+              signal.addEventListener(
+                'abort',
+                () => resolve({ type: 'cancelled' }),
+                {
+                  once: true,
+                },
+              );
+            });
+          },
+          waitForFinalStatus: async () => 'unknown',
+          verify: async () => false,
+        },
+        signal: new AbortController().signal,
+        isCurrent: () => executionCurrent,
+        onTaskReady: first.result.current.onTaskReady,
+        onTaskChange: first.result.current.onTaskChange,
+        formatMessage: (id) => id,
+      });
+      await Promise.resolve();
+    });
+    expect(publishLateSubmission).toBeDefined();
+    executionCurrent = false;
+    first.unmount();
+    await run;
+    const second = renderHook(() =>
+      useDepositTask('scope', 'late-recording-owner', null, true),
+    );
+    const newTask = makeTask('next-deposit');
+    const newHandle = {
+      ...makeHandle(newTask),
+      taskState: createDepositTaskState(newTask),
+    };
+    act(() => {
+      expect(second.result.current.onTaskReady(newHandle)).toBe(true);
+    });
+    await act(async () => publishLateSubmission?.());
+    expect(saveOrder).toHaveBeenCalledTimes(1);
+    expect(state.getTask().recording?.txid).toBe('late-deposit-tx');
+    expect(second.result.current.task?.taskId).toBe(newTask.taskId);
+    expect(depositTaskRegistry.find('late-recording-owner')?.state).toBe(
+      newHandle.taskState,
+    );
+    second.unmount();
+  });
+
   it.each([
     { setup: 'approve' as const, deposit: 'ready' as const },
     { setup: 'approve' as const, deposit: 'cancelled' as const },

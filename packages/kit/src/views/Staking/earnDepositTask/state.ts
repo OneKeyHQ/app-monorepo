@@ -89,6 +89,9 @@ export type IDepositTaskStep = {
   kind: IDepositTaskStepKind;
   attemptId?: string;
   preparationOnly?: true;
+  resetRequired?: true;
+  resetSendStarted?: true;
+  resetPriorAttempt?: true;
   status: IDepositTaskStepStatus;
 };
 
@@ -156,6 +159,7 @@ export type IDepositTaskAction =
   | { type: 'chainFailed' }
   | { type: 'fail' }
   | { type: 'preparationFailed' }
+  | { type: 'resetRequired' }
   | { type: 'cancel' }
   | { type: 'retryStatus' }
   | { type: 'skip' }
@@ -256,6 +260,13 @@ export function reduceDepositTask(
       if (step.status.type !== 'preparing') return task;
       status = { type: 'awaitingUser' };
       break;
+    case 'resetRequired': {
+      if (step.kind !== 'resetApproval' || step.status.type !== 'preparing')
+        return task;
+      const steps = task.steps.slice();
+      steps[task.currentStepIndex] = { ...step, resetRequired: true };
+      return { ...task, steps };
+    }
     case 'sendStarted':
       if (step.status.type !== 'awaitingUser') return task;
       status = { type: 'sending' };
@@ -471,6 +482,25 @@ export function reduceDepositTask(
   const nextIndex = advance ? task.currentStepIndex + 1 : task.currentStepIndex;
   const steps = task.steps.map((item, index) => {
     if (index === task.currentStepIndex) {
+      if (event.type === 'retry' && item.kind === 'resetApproval') {
+        const { resetRequired: _resetRequired, ...rest } = item;
+        const retainPriorAttempt =
+          !item.resetRequired &&
+          !item.resetSendStarted &&
+          (item.status.type === 'cancelled' ||
+            (item.status.type === 'failed' &&
+              (item.status.stage === 'onChain' ||
+                !item.status.preparationFailed)));
+        return {
+          ...rest,
+          ...(retainPriorAttempt ? { resetPriorAttempt: true as const } : {}),
+          attemptId,
+          status,
+        };
+      }
+      if (event.type === 'sendStarted' && item.kind === 'resetApproval') {
+        return { ...item, resetSendStarted: true as const, attemptId, status };
+      }
       if (event.type === 'confirmationOpened' && item.preparationOnly) {
         const { preparationOnly: _preparationOnly, ...rest } = item;
         return { ...rest, attemptId, status };

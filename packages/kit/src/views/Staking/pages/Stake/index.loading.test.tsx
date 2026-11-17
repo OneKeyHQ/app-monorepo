@@ -313,6 +313,12 @@ it('keeps an active retained task separate from the new standalone form', async 
   expect(reservation).toBeDefined();
   if (!reservation) return;
   try {
+    mockRetainedAccountAddress.mockReturnValue(new Promise(() => undefined));
+    mockStakeApproval.mockReturnValue({
+      approve: { approveType: 'legacy', approveTarget: '0xspender' },
+      error: false,
+      retry: jest.fn(),
+    });
     mockGetEarnAssetsList.mockResolvedValue({
       assets: [item(weth), item(eth)],
     });
@@ -320,7 +326,12 @@ it('keeps an active retained task separate from the new standalone form', async 
     await waitFor(() =>
       expect(screen.getByTestId('stake-token').textContent).toBe('WETH'),
     );
-    expect(screen.getByTestId('recovery-blocked')).toBeTruthy();
+    expect(screen.queryByTestId('recovery-blocked')).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(
+        false,
+      ),
+    );
     expect(screen.queryByTestId('retained-task')).toBeNull();
     expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
     view.unmount();
@@ -765,6 +776,11 @@ it.each(['succeeded', 'pending', 'remoteUnknown'] as const)(
     expect(token).toBeDefined();
     if (!token) return;
     try {
+      mockStakeApproval.mockReturnValue({
+        approve: { approveType: 'legacy', approveTarget: '0xspender' },
+        error: false,
+        retry: jest.fn(),
+      });
       mockGetEarnAssetsList.mockResolvedValue({
         assets: [item(weth), item(eth)],
       });
@@ -779,7 +795,13 @@ it.each(['succeeded', 'pending', 'remoteUnknown'] as const)(
         expect(screen.queryByTestId('retained-task')).toBeNull();
       } else {
         await waitFor(() =>
-          expect(screen.getByTestId('recovery-blocked')).toBeTruthy(),
+          expect(screen.getByTestId('stake-token').textContent).toBe('WETH'),
+        );
+        expect(screen.queryByTestId('recovery-blocked')).toBeNull();
+        await waitFor(() =>
+          expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(
+            false,
+          ),
         );
         expect(screen.queryByTestId('retained-task')).toBeNull();
         expect(screen.getByTestId('stake-token').textContent).toBe('WETH');

@@ -43,7 +43,12 @@ type IConfirm = {
 const mockNavigate = jest.fn<Promise<void>, [IConfirm]>();
 const mockDialog = jest.fn<
   void,
-  [{ onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void> }]
+  [
+    {
+      onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void>;
+      onCancel: () => void;
+    },
+  ]
 >();
 const mockWaitStatus = jest.fn<
   Promise<EOnChainHistoryTxStatus | undefined>,
@@ -496,10 +501,12 @@ const props: ComponentProps<typeof UniversalStake> = {
 };
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((done) => {
+  let reject: (reason?: unknown) => void = () => undefined;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function StakeTaskHarness(harnessProps: ComponentProps<typeof UniversalStake>) {
@@ -2247,33 +2254,87 @@ describe('EtherFi USDT approval reset', () => {
     expect(onSelectAsset).toHaveBeenCalledTimes(1);
   });
 
-  it('lets the user check an approval hash that arrives after cancellation without resending', async () => {
+  it('starts a fresh approval after cancelling before send without refreshing', async () => {
+    const { screen } = await beginDirectApproval(async () => true);
+    const first = mockNavigate.mock.calls[0][0];
+
+    await act(async () => first.onCancel?.());
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+
+    await expect(
+      Promise.resolve().then(() => first.onBeforeSend?.()),
+    ).rejects.toThrow();
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    expect(mockBuildStake).not.toHaveBeenCalled();
+  });
+
+  it('records a late deposit after cancellation without changing a new task', async () => {
+    mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'order-1',
+    });
+    const { screen } = await beginDirectApproval(async () => true);
+    await submitConfirmation(0, 'approval-tx');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    const oldDeposit = mockNavigate.mock.calls[1][0];
+    await act(async () => {
+      await oldDeposit.onBeforeSend?.();
+      oldDeposit.onCancel?.();
+    });
+
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+    expect(screen.getByTestId('task-progress')).toBeTruthy();
+
+    await act(async () => {
+      oldDeposit.onSuccess([
+        { decodedTx: { txid: 'late-deposit-tx', status: 'pending' } },
+      ]);
+    });
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
+    expect(mockAddOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-1', txId: 'late-deposit-tx' }),
+    );
+    expect(screen.getByTestId('task-progress')).toBeTruthy();
+    expect(mockTaskSuccess).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledTimes(3);
+    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
+    await submitConfirmation(2, 'new-approval-tx');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(4));
+    expect(mockAddOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resume an approval when its hash arrives after cancellation', async () => {
     const { screen } = await beginDirectApproval(async () => true);
     const confirmation = mockNavigate.mock.calls[0][0];
     await act(async () => {
       await confirmation.onBeforeSend?.();
       confirmation.onCancel?.();
     });
-    const pending = await screen.findByRole('button', {
-      name: 'global.pending',
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
     });
-    expect(pending.hasAttribute('disabled')).toBe(true);
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
     expect(mockWaitStatus).not.toHaveBeenCalled();
 
     await act(async () => {
       confirmation.onSuccess([{ decodedTx: { txid: 'late-approval-tx' } }]);
     });
-    const retry = await screen.findByRole('button', { name: 'global.retry' });
-    expect(retry.hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByTestId('task-progress')).toBeNull();
     expect(mockWaitStatus).not.toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledTimes(1);
-
-    mockWaitStatus.mockResolvedValue(undefined);
-    fireEvent.click(retry);
-    await waitFor(() => expect(mockWaitStatus).toHaveBeenCalledTimes(1));
-    expect(mockWaitStatus).toHaveBeenCalledWith(
-      expect.objectContaining({ txid: 'late-approval-tx' }),
-    );
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     expect(mockBuildStake).not.toHaveBeenCalled();
   });
@@ -2293,9 +2354,10 @@ describe('EtherFi USDT approval reset', () => {
       await deposit.onBeforeSend?.();
       deposit.onCancel?.();
     });
-    expect(
-      await screen.findByRole('button', { name: 'global.pending' }),
-    ).toBeTruthy();
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
     await act(async () => {
       deposit.onSuccess([
         {
@@ -2310,10 +2372,8 @@ describe('EtherFi USDT approval reset', () => {
     );
     expect(mockTaskSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    await waitFor(() =>
-      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
-        '',
-      ),
+    expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+      '2',
     );
     expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(
       false,
@@ -2504,7 +2564,7 @@ describe('EtherFi USDT approval reset', () => {
     expect(onTaskRecoveryComplete).toHaveBeenCalledTimes(1);
   });
 
-  it('blocks a new deposit while an old broadcast is unknown across spender changes', async () => {
+  it('keeps the form available across spender changes after cancellation and records a late deposit', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2527,11 +2587,11 @@ describe('EtherFi USDT approval reset', () => {
         }}
       />,
     );
-    let pending = await screen.findByRole('button', { name: 'global.pending' });
-    expect(pending.hasAttribute('disabled')).toBe(true);
+    let approve = await screen.findByRole('button', { name: 'global.approve' });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
     screen.rerender(<StakeTaskHarness {...overrides} />);
-    pending = await screen.findByRole('button', { name: 'global.pending' });
-    expect(pending.hasAttribute('disabled')).toBe(true);
+    approve = await screen.findByRole('button', { name: 'global.approve' });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
     expect(mockNavigate).toHaveBeenCalledTimes(2);
     await act(async () =>
       deposit.onSuccess([{ decodedTx: { txid: 'late-deposit-tx' } }]),
@@ -2544,7 +2604,7 @@ describe('EtherFi USDT approval reset', () => {
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps a pending transaction when only the EVM address casing changes', async () => {
+  it('keeps the form available after cancellation when EVM address casing changes', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2574,16 +2634,18 @@ describe('EtherFi USDT approval reset', () => {
         }}
       />,
     );
-    expect(
-      (
-        await screen.findByRole('button', { name: 'global.pending' })
-      ).hasAttribute('disabled'),
-    ).toBe(true);
-    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(true);
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(
+      false,
+    );
+    expect(screen.queryByTestId('task-progress')).toBeNull();
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
-  it('shows an unresolved task after returning to an account with an empty amount', async () => {
+  it('does not restore a cancelled task after returning to an account', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2602,13 +2664,13 @@ describe('EtherFi USDT approval reset', () => {
       target: { value: '' },
     });
     screen.rerender(<StakeTaskHarness {...overrides} />);
-    expect(await screen.findByTestId('task-progress')).toBeTruthy();
-    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(true);
-    expect(
-      (
-        await screen.findByRole('button', { name: 'global.pending' })
-      ).hasAttribute('disabled'),
-    ).toBe(true);
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(
+      false,
+    );
+    expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+      '',
+    );
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
@@ -2697,7 +2759,7 @@ describe('EtherFi USDT approval reset', () => {
     },
   );
 
-  it('clears the current task after retrying a late submitted deposit record without navigating', async () => {
+  it('does not resend or disturb a new task when a late order recording fails', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2717,20 +2779,28 @@ describe('EtherFi USDT approval reset', () => {
       await deposit.onBeforeSend?.();
       deposit.onCancel?.();
     });
+    const approve = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+
     await act(async () =>
       deposit.onSuccess([{ decodedTx: { txid: 'late-deposit-tx' } }]),
     );
-    const retry = await screen.findByRole('button', { name: 'global.retry' });
-    expect(retry.hasAttribute('disabled')).toBe(false);
-    fireEvent.click(retry);
-    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
-        '',
-      ),
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
+    expect(mockAddOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-1', txId: 'late-deposit-tx' }),
     );
+    expect(screen.getByTestId('task-progress')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenCalledTimes(3);
     expect(mockTaskSuccess).not.toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledTimes(2);
+    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
+    await submitConfirmation(2, 'new-approval-tx');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(4));
+    expect(mockAddOrder).toHaveBeenCalledTimes(1);
   });
 
   it('retries deposit validation after a confirmed approval without sending approval again', async () => {
@@ -2856,6 +2926,141 @@ describe('EtherFi USDT approval reset', () => {
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
+  async function beginDirectUSDTWithPendingAllowance() {
+    const screen = render(<StakeTaskHarness {...props} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(mockCheck).toHaveBeenCalled(), {
+      timeout: 5000,
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    const pendingAllowance = deferred<{ allowanceParsed: string }>();
+    mockAllowance.mockReturnValueOnce(pendingAllowance.promise);
+    mockStakeTaskProgress.mockClear();
+    fireEvent.click(button);
+    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
+    await screen.findByTestId('task-progress');
+    return { screen, pendingAllowance };
+  }
+
+  it('does not show a revoke step while checking USDT allowance or after a zero allowance', async () => {
+    const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockStakeTaskProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        steps: [
+          expect.objectContaining({ id: 'approve', status: 'current' }),
+          expect.objectContaining({ id: 'deposit', status: 'waiting' }),
+        ],
+      }),
+    );
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+  });
+
+  it('shows the revoke step only after a nonzero insufficient allowance is confirmed', async () => {
+    const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '1' }));
+    await waitFor(() => expect(mockDialog).toHaveBeenCalledTimes(1));
+    expect(mockStakeTaskProgress).toHaveBeenLastCalledWith(revokeStep);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () =>
+      mockDialog.mock.calls[0][0].onConfirm({ close: async () => undefined }),
+    );
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('0');
+  });
+
+  it('does not show a revoke step or send when the USDT allowance check fails', async () => {
+    const { screen, pendingAllowance } =
+      await beginDirectUSDTWithPendingAllowance();
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    await act(async () =>
+      pendingAllowance.reject(new OneKeyLocalError('Allowance unavailable')),
+    );
+    await screen.findByRole('button', { name: 'global.approve' });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('rechecks a previously needed reset after cancellation without showing it while the new check is pending', async () => {
+    const { screen, pendingAllowance } =
+      await beginDirectUSDTWithPendingAllowance();
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '1' }));
+    await waitFor(() => expect(mockDialog).toHaveBeenCalledTimes(1));
+    await act(async () => mockDialog.mock.calls[0][0].onCancel());
+    const retry = await screen.findByRole('button', { name: 'global.approve' });
+    const nextAllowance = deferred<{ allowanceParsed: string }>();
+    mockAllowance.mockReturnValueOnce(nextAllowance.promise);
+    mockStakeTaskProgress.mockClear();
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(2));
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    await act(async () => nextAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+  });
+
+  it('ignores a delayed USDT allowance after the account changes', async () => {
+    const { screen, pendingAllowance } =
+      await beginDirectUSDTWithPendingAllowance();
+    screen.rerender(
+      <StakeTaskHarness
+        {...props}
+        accountId="other"
+        approveTarget={{ ...props.approveTarget, accountId: 'other' }}
+      />,
+    );
+    mockStakeTaskProgress.mockClear();
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '1' }));
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        steps: expect.arrayContaining([
+          expect.objectContaining({ id: 'resetApproval' }),
+        ]),
+      }),
+    );
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('does not start a new approval while the reset transaction is pending', async () => {
     const pending = deferred<EOnChainHistoryTxStatus | undefined>();
     mockWaitStatus.mockReturnValue(pending.promise);

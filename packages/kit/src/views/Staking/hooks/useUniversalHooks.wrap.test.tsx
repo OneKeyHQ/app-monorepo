@@ -668,6 +668,7 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     ).toEqual({
       type: 'failed',
       stage: 'beforeSend',
+      preparationFailed: true,
     });
     expect(mockWrappedBalance).toHaveBeenCalledWith(
       expect.objectContaining({

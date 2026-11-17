@@ -359,6 +359,27 @@ describe('Earn deposit task controller', () => {
     await controller.run();
     expect(confirm).not.toHaveBeenCalled();
     expect(controller.getTask().steps[0].status.type).toBe('cancelled');
+    expect(controller.wasCancelled()).toBe(false);
+  });
+
+  it('distinguishes an explicit cancellation after send starts from an unknown network result', async () => {
+    const controller = createDepositTaskController({
+      task: makeTask(),
+      adapter: {
+        prepare: async () => ({ type: 'confirm', prepared: undefined }),
+        confirm: async ({ onBeforeSend }) => {
+          onBeforeSend();
+          return { type: 'cancelled' };
+        },
+        waitForFinalStatus: async () => 'unknown',
+        verify: async () => false,
+      },
+      isCurrent: () => true,
+      onChange: () => undefined,
+    });
+    await controller.run();
+    expect(controller.getTask().steps[0].status.type).toBe('unknown');
+    expect(controller.wasCancelled()).toBe(true);
   });
 
   it('does not send when the owner is cancelled during send-start notification', async () => {
@@ -821,6 +842,7 @@ describe('Earn deposit task controller', () => {
       txid: 'tx-1',
       chainConfirmed: false,
     });
+    expect(controller.wasCancelled()).toBe(false);
     await controller.run();
     expect(confirm).toHaveBeenCalledTimes(1);
     await controller.retryStatus();

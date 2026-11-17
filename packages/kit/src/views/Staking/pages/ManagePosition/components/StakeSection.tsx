@@ -169,8 +169,6 @@ const StakeSectionContent = ({
     onTaskRecoveryComplete,
   );
   const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
-  const recoveryTask =
-    isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
   const retainedTask =
     !isEtherFiProvider && retained.status === 'ready' ? retained.value : null;
   const isPendleProvider = useIsPendleProvider(providerName);
@@ -1040,9 +1038,9 @@ const StakeSectionContent = ({
   }
 
   let retainedView: ReactElement | undefined;
-  if (retained.status === 'checking') {
+  if (!isEtherFiProvider && retained.status === 'checking') {
     retainedView = <Spinner />;
-  } else if (retained.status === 'unavailable') {
+  } else if (!isEtherFiProvider && retained.status === 'unavailable') {
     retainedView = (
       <Alert
         type="critical"
@@ -1117,7 +1115,6 @@ const StakeSectionContent = ({
         retainedView || (
           <EarnStakeForm
             retainedTask={retainedTask}
-            recoveryBlocked={Boolean(recoveryTask)}
             onLegacyApprovalCleared={onLegacyApprovalCleared}
             isLegacyApprovalBlocked={isLegacyApprovalBlocked}
             // Include protocol identity (provider/vault) so switching between
@@ -1179,16 +1176,6 @@ const StakeSectionContent = ({
             beforeFooter={
               <>
                 {beforeFooter}
-                {recoveryTask ? (
-                  <RetainedTaskFallback
-                    ownerKey={retainedOwnerKey}
-                    retainedTask={recoveryTask}
-                    assetsLoading={false}
-                    onRetryAssets={() => undefined}
-                    onFinished={onTaskRecoveryComplete}
-                    recoveryOnly
-                  />
-                ) : null}
                 {stakeAssetsError ||
                 wrappedStakeAssetsError ||
                 missingWrappedStakeAsset ||

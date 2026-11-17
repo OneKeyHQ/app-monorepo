@@ -5,7 +5,11 @@ import {
   reduceDepositTask,
 } from './state';
 
-import type { IDepositTask, IDepositTaskAction } from './state';
+import type {
+  IDepositTask,
+  IDepositTaskAction,
+  IDepositTaskStepStatus,
+} from './state';
 
 const identity = {
   accountId: 'account-1',
@@ -183,6 +187,93 @@ function createRetryingDeposit(): IDepositTask {
 }
 
 describe('Earn deposit task state', () => {
+  it.each<{
+    name: string;
+    status: IDepositTaskStepStatus;
+    retainPriorAttempt: boolean;
+    resetRequired?: true;
+    resetSendStarted?: true;
+  }>([
+    {
+      name: 'an old on-chain failure',
+      status: { type: 'failed', stage: 'onChain', txid: 'old-tx' },
+      retainPriorAttempt: true,
+    },
+    {
+      name: 'an old cancellation of unknown origin',
+      status: { type: 'cancelled' },
+      retainPriorAttempt: true,
+    },
+    {
+      name: 'an old before-send failure of unknown origin',
+      status: { type: 'failed', stage: 'beforeSend' },
+      retainPriorAttempt: true,
+    },
+    {
+      name: 'a proven preparation-only failure',
+      status: {
+        type: 'failed',
+        stage: 'beforeSend',
+        preparationFailed: true,
+      },
+      retainPriorAttempt: false,
+    },
+    {
+      name: 'a cancelled new reset before sending',
+      status: { type: 'cancelled' },
+      resetRequired: true,
+      retainPriorAttempt: false,
+    },
+    {
+      name: 'a new reset whose send was started',
+      status: { type: 'failed', stage: 'beforeSend' },
+      resetSendStarted: true,
+      retainPriorAttempt: false,
+    },
+  ])(
+    'tracks $name conservatively while retrying reset',
+    ({ status, retainPriorAttempt, resetRequired, resetSendStarted }) => {
+      const task = createDepositTask({
+        taskId: 'task-1',
+        identity,
+        steps: [
+          { id: 'reset', kind: 'resetApproval' },
+          { id: 'approve', kind: 'approve' },
+          { id: 'deposit', kind: 'deposit' },
+        ],
+      });
+      const previous = {
+        ...task,
+        steps: task.steps.map((step, index) =>
+          index === 0
+            ? {
+                ...step,
+                attemptId: 'old-attempt',
+                status,
+                ...(resetRequired ? { resetRequired } : {}),
+                ...(resetSendStarted ? { resetSendStarted } : {}),
+              }
+            : step,
+        ),
+      };
+      const updated = dispatch(previous, {
+        type: 'retry',
+        stepId: 'reset',
+        attemptId: 'new-attempt',
+      });
+      expect(updated.steps[0]).toMatchObject({
+        id: 'reset',
+        attemptId: 'new-attempt',
+        status: { type: 'preparing' },
+      });
+      expect(updated.steps[0].resetPriorAttempt).toBe(
+        retainPriorAttempt ? true : undefined,
+      );
+      expect(updated.steps[0].resetSendStarted).toBe(resetSendStarted);
+      expect(updated.steps[0].resetRequired).toBeUndefined();
+    },
+  );
+
   it.each([false, true])(
     'inserts a renewed approval before a retried deposit (reset: %s)',
     (needsReset) => {
@@ -343,6 +434,7 @@ describe('Earn deposit task state', () => {
         id: 'reset-original',
         kind: 'resetApproval',
         attemptId: 'attempt-1',
+        resetSendStarted: true,
         status: { type: 'succeeded', txid: 'reset-tx-1' },
       },
       { id: 'reset-new', kind: 'resetApproval', status: { type: 'ready' } },

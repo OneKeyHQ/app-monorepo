@@ -33,7 +33,10 @@ export type IDepositTaskPreparation<TPrepared> =
 
 export type IDepositTaskAdapter<TPrepared = unknown> = {
   prepare: (
-    context: IStepContext & { isRetry: boolean },
+    context: IStepContext & {
+      isRetry: boolean;
+      onResetRequired: () => boolean;
+    },
   ) => Promise<IDepositTaskPreparation<TPrepared>>;
   beforeConfirm?: (context: IStepContext) => Promise<boolean>;
   confirm: (
@@ -80,6 +83,7 @@ export function createDepositTaskController<TPrepared>({
   const owner = Symbol('deposit-task-controller');
   let ownedAttempt: { stepId: string; attemptId: string } | undefined;
   let running = false;
+  let cancelledByUser = false;
   let abortController = new AbortController();
 
   const publishChange = () => {
@@ -257,6 +261,7 @@ export function createDepositTaskController<TPrepared>({
 
   const runPlan = async (retryFirstStep: boolean) => {
     if (running || !isCurrent()) return;
+    cancelledByUser = false;
     const initialSnapshot = state.getTask();
     const initialStep = initialSnapshot.steps[initialSnapshot.currentStepIndex];
     if (retryFirstStep) {
@@ -308,7 +313,12 @@ export function createDepositTaskController<TPrepared>({
             step: activeStep,
             signal: abortController.signal,
           };
-          const preparation = await adapter.prepare(context);
+          const preparation = await adapter.prepare({
+            ...context,
+            onResetRequired: () =>
+              checkCurrent() &&
+              update(step.id, attemptId, { type: 'resetRequired' }),
+          });
           preparationPending = false;
           if (!checkCurrent()) return;
           if (preparation.type === 'cancelled') {
@@ -384,6 +394,7 @@ export function createDepositTaskController<TPrepared>({
                 recordSubmitted(step.id, attemptId, '');
               }
             } else {
+              if (confirmation.type === 'cancelled') cancelledByUser = true;
               update(step.id, attemptId, {
                 type: confirmation.type === 'cancelled' ? 'cancel' : 'fail',
               });
@@ -453,6 +464,7 @@ export function createDepositTaskController<TPrepared>({
 
   return {
     getTask: state.getTask,
+    wasCancelled: () => cancelledByUser,
     run: () => runPlan(false),
     retry: () => runPlan(true),
     cancel,
