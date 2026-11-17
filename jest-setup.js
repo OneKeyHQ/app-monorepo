@@ -13,6 +13,15 @@ afterEach(() => {
 // FIX:     ReferenceError: self is not defined
 globalThis.self = globalThis.self || globalThis;
 
+// Jest's default deep equality walks a Buffer one byte at a time as an
+// object key, so comparing a multi-megabyte file takes 20+ seconds. Buffers
+// are equal exactly when their bytes are equal, which Buffer#equals checks in
+// native code. Any other pair falls through to Jest's default comparison.
+expect.addEqualityTesters([
+  (a, b) =>
+    Buffer.isBuffer(a) && Buffer.isBuffer(b) ? a.equals(b) : undefined,
+]);
+
 class LocalStorageMock {
   constructor() {
     this.store = {};
