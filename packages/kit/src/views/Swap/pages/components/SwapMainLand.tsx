@@ -1394,7 +1394,9 @@ const SwapMainLoad = ({
           quoteActionLock.receivingAddress !== initialReviewIdentity.toAddress
         ) {
           throw new OneKeyLocalError(
-            'Swap review changed; reopen the review to refresh',
+            intl.formatMessage({
+              id: ETranslations.global_unknown_error_retry_message,
+            }),
           );
         }
         const controller = new AbortController();
@@ -1428,8 +1430,15 @@ const SwapMainLoad = ({
               autoSlippage: !customSlippage,
             },
           });
-          if (controller.signal.aborted || !isCurrent()) {
-            throw new OneKeyLocalError('Swap review changed while refreshing');
+          if (controller.signal.aborted) {
+            throw new OneKeyLocalError({ autoToast: false });
+          }
+          if (!isCurrent()) {
+            throw new OneKeyLocalError(
+              intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            );
           }
           const freshSlippage = customSlippage
             ? currentSlippage

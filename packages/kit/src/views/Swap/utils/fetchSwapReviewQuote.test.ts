@@ -194,7 +194,7 @@ describe('fetchSwapReviewQuote', () => {
     });
   });
 
-  it('uses translated retry copy on a stream error', async () => {
+  it('preserves the message on a stream error', async () => {
     const operation = fetchSwapReviewQuote({
       params,
       expectedQuote: quote,
@@ -206,6 +206,167 @@ describe('fetchSwapReviewQuote', () => {
       message: 'network failed',
       error: new Error('network failed'),
     });
+    await expect(operation).rejects.toMatchObject({
+      message: 'network failed',
+    });
+  });
+
+  it('preserves a top-level API error', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, { errorMessage: 'API rejected this request' });
+    await expect(operation).rejects.toMatchObject({
+      message: 'API rejected this request',
+    });
+  });
+
+  it('extracts the translated API message from an HTTP error body', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitEvent(0, {
+      type: 'error',
+      message: JSON.stringify({
+        code: 400,
+        message: 'Raw error',
+        translatedMessage: 'Translated error',
+      }),
+      xhrStatus: 400,
+      xhrState: 4,
+    });
+    await expect(operation).rejects.toMatchObject({
+      message: 'Translated error',
+    });
+  });
+
+  it('uses retry copy for an HTML error response', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitEvent(0, {
+      type: 'error',
+      message: '<html>error</html>',
+      xhrStatus: 500,
+      xhrState: 4,
+    });
+    await expect(operation).rejects.toMatchObject({
+      message: 'localized retry message',
+    });
+  });
+
+  it('reports the selected provider error when the stream ends without a quote', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, {
+      data: [{ ...quote, toAmount: undefined, errorMessage: 'Amount too low' }],
+    });
+    emitEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      message: 'Amount too low',
+    });
+  });
+
+  it('preserves a selected provider error without success-only quote fields', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, {
+      data: [
+        { info: { provider: 'SwapOKX' }, errorMessage: 'Provider unavailable' },
+      ],
+    });
+    emitEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      message: 'Provider unavailable',
+    });
+  });
+
+  it('keeps waiting for a valid selected-provider quote after an error', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, { data: [{ ...quote, errorMessage: 'Amount too low' }] });
+    emitMessage(0, { data: [quote] });
+    await expect(operation).resolves.toEqual(quote);
+  });
+
+  it('does not use an earlier quote when the provider later reports an error', async () => {
+    const operation = fetchSwapReviewQuote({
+      params: { ...params, autoSlippage: true },
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, { data: [quote] });
+    emitMessage(0, {
+      data: [{ ...quote, toAmount: undefined, errorMessage: 'Amount too low' }],
+    });
+    emitEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      message: 'Amount too low',
+    });
+  });
+
+  it('clears a provider error when a new quote generation begins', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, { data: [{ ...quote, errorMessage: 'Old error' }] });
+    emitMessage(0, { totalQuoteCount: 1, eventId: 'new-event' });
+    emitEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      message: 'localized retry message',
+    });
+  });
+
+  it('does not report errors from another provider, pair or quote generation', async () => {
+    const operation = fetchSwapReviewQuote({
+      params,
+      expectedQuote: quote,
+      getErrorMessage: () => 'localized retry message',
+      signal: new AbortController().signal,
+    });
+    emitMessage(0, { totalQuoteCount: 1, eventId: 'new-event' });
+    emitMessage(0, {
+      data: [
+        {
+          ...quote,
+          info: { provider: 'other' },
+          errorMessage: 'Other provider',
+        },
+        {
+          ...quote,
+          eventId: 'new-event',
+          fromTokenInfo: { ...fromToken, contractAddress: '0xother' },
+          errorMessage: 'Other pair',
+        },
+        { ...quote, errorMessage: 'Old generation' },
+      ],
+    });
+    emitEvent(0, { type: 'done' });
     await expect(operation).rejects.toMatchObject({
       message: 'localized retry message',
     });

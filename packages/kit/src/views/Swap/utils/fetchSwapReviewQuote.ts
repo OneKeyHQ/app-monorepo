@@ -23,6 +23,78 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function getStreamErrorMessage(message: unknown): string | undefined {
+  if (typeof message !== 'string' || !message.trim()) return undefined;
+  const trimmed = message.trim();
+  if (trimmed.startsWith('<')) return undefined;
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return message;
+  try {
+    const body: unknown = JSON.parse(trimmed);
+    if (!isRecord(body)) return undefined;
+    for (const value of [body.translatedMessage, body.message]) {
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function matchesReviewErrorQuote(
+  candidate: unknown,
+  expectedQuote: IFetchQuoteResult,
+  params: IFetchSwapQuoteParams,
+  streamEventId?: string,
+): candidate is { errorMessage?: string } {
+  if (!isRecord(candidate) || !isRecord(candidate.info)) return false;
+  if (candidate.info.provider !== expectedQuote.info.provider) return false;
+  if (
+    (candidate.info.providerName !== undefined &&
+      candidate.info.providerName !== expectedQuote.info.providerName) ||
+    (candidate.protocol !== undefined &&
+      candidate.protocol !== expectedQuote.protocol) ||
+    (candidate.kind !== undefined &&
+      candidate.kind !== (params.kind ?? ESwapQuoteKind.SELL)) ||
+    (streamEventId &&
+      candidate.eventId !== undefined &&
+      candidate.eventId !== streamEventId)
+  )
+    return false;
+  for (const [actual, expected] of [
+    [candidate.fromTokenInfo, params.fromToken],
+    [candidate.toTokenInfo, params.toToken],
+  ] as const) {
+    if (
+      actual !== undefined &&
+      (!isRecord(actual) ||
+        typeof actual.networkId !== 'string' ||
+        typeof actual.contractAddress !== 'string' ||
+        !equalTokenNoCaseSensitive({
+          token1: {
+            networkId: actual.networkId,
+            contractAddress: actual.contractAddress,
+          },
+          token2: expected,
+        }))
+    )
+      return false;
+  }
+  const amount =
+    params.kind === ESwapQuoteKind.BUY
+      ? candidate.toAmount
+      : candidate.fromAmount;
+  const requested =
+    params.kind === ESwapQuoteKind.BUY
+      ? params.toTokenAmount
+      : params.fromTokenAmount;
+  if (
+    amount !== undefined &&
+    (typeof amount !== 'string' || !new BigNumber(amount).eq(requested ?? ''))
+  )
+    return false;
+  return true;
+}
+
 function matchesReviewQuote(
   candidate: unknown,
   {
@@ -111,6 +183,7 @@ export function fetchSwapReviewQuote({
   return new Promise((resolve, reject) => {
     let finished = false;
     let matchingQuote: IFetchQuoteResult | undefined;
+    let providerErrorMessage: string | undefined;
     const suggestedSlippages = new Map<string, number>();
     let streamEventId: string | undefined;
     const handles: {
@@ -151,7 +224,11 @@ export function fetchSwapReviewQuote({
             : matchingQuote,
         );
       } else {
-        reject(createRefreshError('The selected provider has no fresh quote'));
+        reject(
+          providerErrorMessage
+            ? new OneKeyLocalError(providerErrorMessage)
+            : createRefreshError('The selected provider has no fresh quote'),
+        );
       }
     };
     handles.abort = () =>
@@ -164,7 +241,14 @@ export function fetchSwapReviewQuote({
     handles.listener = (event: ISwapQuoteEventPayload) => {
       if (event.quoteRequestId !== quoteRequestId) return;
       if (event.type === 'error') {
-        finish(createRefreshError('Failed to refresh the swap quote'));
+        const message = getStreamErrorMessage(
+          'message' in event.event ? event.event.message : undefined,
+        );
+        finish(
+          message
+            ? new OneKeyLocalError(message)
+            : createRefreshError('Failed to refresh the swap quote'),
+        );
         return;
       }
       if (event.type === 'done' || event.type === 'close') {
@@ -180,6 +264,9 @@ export function fetchSwapReviewQuote({
           typeof payload.totalQuoteCount === 'number' &&
           typeof payload.eventId === 'string'
         ) {
+          if (streamEventId !== payload.eventId) {
+            providerErrorMessage = undefined;
+          }
           streamEventId = payload.eventId;
           if (matchingQuote?.eventId !== streamEventId) {
             matchingQuote = undefined;
@@ -215,6 +302,22 @@ export function fetchSwapReviewQuote({
           );
         }
         if (Array.isArray(payload.data)) {
+          const selectedResult = payload.data.find((candidate: unknown) =>
+            matchesReviewErrorQuote(
+              candidate,
+              expectedQuote,
+              params,
+              streamEventId,
+            ),
+          );
+          if (selectedResult) {
+            providerErrorMessage =
+              typeof selectedResult.errorMessage === 'string' &&
+              selectedResult.errorMessage.trim()
+                ? selectedResult.errorMessage
+                : undefined;
+            if (providerErrorMessage) matchingQuote = undefined;
+          }
           const match = payload.data.find(
             (candidate: unknown) =>
               matchesReviewQuote(candidate, { expectedQuote, params }) &&
@@ -241,7 +344,7 @@ export function fetchSwapReviewQuote({
     };
     handles.timeout = setTimeout(() => {
       finish(
-        matchingQuote
+        matchingQuote || providerErrorMessage
           ? undefined
           : createRefreshError('Swap quote refresh timed out'),
       );
