@@ -5781,11 +5781,32 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiGetCustomerJWT() {
+  async apiGetCustomerJWT({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }) {
+    const createSessionChangedError = () =>
+      new OneKeyLocalError({
+        message: 'Support session changed',
+        autoToast: false,
+      });
+    // Pin the request to the account the support session belongs to, so a
+    // login switch while it is in flight can never hand out another user's
+    // Intercom identity token.
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: createSessionChangedError,
+    });
     const client = await this.getPrimeClient();
     const result = await client.get<IApiClientResponse<{ token: string }>>(
       '/prime/v1/general/customer_jwt',
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
     );
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError: createSessionChangedError,
+    });
     return result?.data?.data;
   }
 

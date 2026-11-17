@@ -3505,6 +3505,8 @@
   "or__label": "또는",
   "order_changed_try_again__msg": "주문이 변경되었습니다. 새로고침한 후 다시 시도해 주세요.",
   "order_no_longer_eligible_for_chase__msg": "이 주문은 더 이상 추적할 수 없습니다.",
+  "os_end_of_support_notice__desc": "새로운 기능과 보안 수정을 계속 받으려면 시스템을 업데이트하세요.",
+  "os_end_of_support_notice__title": "OneKey는 곧 {osName} 이상이 필요합니다",
   "out_title_dust_sweep": "더스트 정리",
   "p2pkh_desc": "\"1\"로 시작합니다. P2PKH (m/44'/0'/0')",
   "p2sh_p2wpkh_desc": "\"bc1q\"로 시작합니다. P2SH-P2WPKH (m/84'/0'/0')",

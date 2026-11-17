@@ -879,7 +879,7 @@ function MarketTokenListBase({
   const tabBarHeight = useScrollContentTabBarOffset();
 
   // On web with tabIntegrated, disable FlatList's own scroll so the outer
-  // Tabs.Container handles scrolling (allows header to scroll away naturally).
+  // AppPager handles scrolling (allows header to scroll away naturally).
   // Use IntersectionObserver as a replacement for onEndReached.
   const endSentinelRef = useRef<HTMLDivElement>(null);
 
@@ -1096,7 +1096,7 @@ function MarketTokenListBase({
           // changing it to 'auto' (CSS spec: setting one overflow axis to
           // non-visible forces the other to auto). Without this, drag
           // auto-scroll would bind to this horizontal wrapper instead of
-          // the real vertical scroll container (Tabs.Container).
+          // the real vertical scroll container (AppPager).
           overflowY: 'hidden',
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}

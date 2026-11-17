@@ -247,3 +247,91 @@ describe('earnUtils borrow address normalization', () => {
     });
   });
 });
+
+describe('earnUtils Unitas provider behavior (OK-61790)', () => {
+  it('normalizes Unitas and treats every withdraw as a queued path', () => {
+    expect(earnUtils.getEarnProviderEnumKey('unitas')).toBe('Unitas');
+    expect(earnUtils.isUnitasProvider({ providerName: 'UNITAS' })).toBe(true);
+    expect(earnUtils.isVaultBasedProvider({ providerName: 'Unitas' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'Unitas' }),
+    ).toBe(true);
+    expect(earnUtils.requiresEarnWithdrawPath({ providerName: 'unitas' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Unitas',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Unitas',
+        isLoading: false,
+        withdrawType: 'queued',
+      }),
+    ).toBe(true);
+    expect(earnUtils.getEarnProviderName({ providerName: 'unitas' })).toBe(
+      'Unitas',
+    );
+  });
+
+  it('marks the Unitas deposit as submitted by the protocol after the approve (OK-66931)', () => {
+    expect(earnUtils.isProtocolExecutedStake({ providerName: 'Unitas' })).toBe(
+      true,
+    );
+    expect(earnUtils.isProtocolExecutedStake({ providerName: 'lista' })).toBe(
+      false,
+    );
+    expect(earnUtils.isProtocolExecutedStake({ providerName: '' })).toBe(false);
+  });
+
+  it('marks the Unitas redeem request as submitted by the protocol after the approve (OK-66931)', () => {
+    expect(
+      earnUtils.isProtocolExecutedWithdraw({ providerName: 'unitas' }),
+    ).toBe(true);
+    expect(
+      earnUtils.isProtocolExecutedWithdraw({ providerName: 'bitway' }),
+    ).toBe(false);
+  });
+});
+
+describe('earnUtils normalizeEarnUtmParams', () => {
+  it('reads the link spelling and the route spelling', () => {
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: 'twitter',
+        utm_medium: 'kol',
+        utm_campaign: 'unitas_launch_1103',
+      }),
+    ).toEqual({
+      utmSource: 'twitter',
+      utmMedium: 'kol',
+      utmCampaign: 'unitas_launch_1103',
+    });
+    expect(
+      earnUtils.normalizeEarnUtmParams({ utmCampaign: 'unitas_launch_1103' }),
+    ).toEqual({ utmCampaign: 'unitas_launch_1103' });
+  });
+
+  it('drops values the server would reject instead of failing the order', () => {
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: '',
+        utm_medium: 'with space',
+        utm_campaign: '活动',
+      }),
+    ).toBeUndefined();
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: ' onekey_app ',
+        utm_campaign: 'a'.repeat(101),
+      }),
+    ).toEqual({ utmSource: 'onekey_app' });
+    expect(earnUtils.normalizeEarnUtmParams(undefined)).toBeUndefined();
+    expect(earnUtils.normalizeEarnUtmParams({ vault: '0x1' })).toBeUndefined();
+  });
+});

@@ -125,30 +125,28 @@ jest.mock('@onekeyhq/components', () => {
         }}
       />
     ),
-    Tabs: {
-      TabBar: ({
-        tabNames,
-        onTabPress,
-        focusedTab,
-      }: {
-        tabNames: string[];
-        onTabPress: (name: string) => void;
-        focusedTab: { value: string };
-      }) => (
-        <div>
-          {tabNames.map((name) => (
-            <button
-              key={name}
-              type="button"
-              aria-pressed={focusedTab.value === name}
-              onClick={() => onTabPress(name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      ),
-    },
+    TabBar: ({
+      tabNames,
+      onTabPress,
+      focusedTab,
+    }: {
+      tabNames: string[];
+      onTabPress: (name: string) => void;
+      focusedTab: { value: string };
+    }) => (
+      <div>
+        {tabNames.map((name) => (
+          <button
+            key={name}
+            type="button"
+            aria-pressed={focusedTab.value === name}
+            onClick={() => onTabPress(name)}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    ),
     SectionList: ({
       sections,
       renderItem,

@@ -163,6 +163,10 @@ export interface ITradingViewChartControlsProps {
   fullscreenHeader?: ReactNode;
   rightControl?: ReactNode;
   rightControlLabel?: string;
+  /** Desktop row only: shown before the intervals. */
+  leadingControl?: ReactNode;
+  /** Desktop row only: shown after every other control. */
+  trailingControl?: ReactNode;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
@@ -239,6 +243,8 @@ export const TradingViewChartControls = memo(
     fullscreenHeader,
     rightControl,
     rightControlLabel,
+    leadingControl,
+    trailingControl,
     chartMode,
     isChartSwitchDisabled = false,
     onChartSwitch,
@@ -467,6 +473,7 @@ export const TradingViewChartControls = memo(
       !hasFullscreenControl &&
       !hasHistoryControls &&
       !rightControl &&
+      !(isDesktopLayout && (leadingControl || trailingControl)) &&
       !chartSwitchControl &&
       !desktopFullscreenHeader &&
       !mobileFullscreenHeader
@@ -547,6 +554,10 @@ export const TradingViewChartControls = memo(
             >
               {desktopFullscreenHeader}
 
+              {leadingControl}
+
+              {leadingControl ? <ToolbarSeparator /> : null}
+
               <XStack
                 testID="trading-view-chart-ready-controls"
                 flexGrow={1}
@@ -612,6 +623,7 @@ export const TradingViewChartControls = memo(
 
                 {fullscreenControl}
                 {rightControl}
+                {trailingControl}
                 {desktopToolbar}
               </XStack>
             </XStack>
