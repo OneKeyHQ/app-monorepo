@@ -396,7 +396,7 @@ export function MarketHighlightStrip({
       pressTimerRef.current = setTimeout(() => setPressing(false), 1500);
     },
   };
-  const onItemPress = (pressed: IMarketHighlight) =>
+  const onItemPress = () =>
     navigation.pushModal(EModalRoutes.MarketModal, {
       screen: EModalMarketRoutes.MarketHighlights,
       params: {
@@ -404,7 +404,6 @@ export function MarketHighlightStrip({
         initialHighlights: highlights
           ? { locale, items: highlights }
           : undefined,
-        initialHighlightId: pressed.highlightId,
       },
     });
 

@@ -1,15 +1,13 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketHighlightsPage } from './MarketHighlightsPage';
 
-const mockScrollToIndex = jest.fn(() => Promise.resolve());
-const mockScrollToOffset = jest.fn();
 let mockWide = false;
 const mockItems: IMarketHighlight[] = ['first', 'selected', 'last'].map(
   (id) => ({
@@ -37,7 +35,7 @@ jest.mock('react-intl', () => ({
   }),
 }));
 jest.mock('@onekeyhq/components', () => {
-  const { forwardRef, useImperativeHandle, useEffect } =
+  const { forwardRef, useImperativeHandle, useEffect, useState } =
     jest.requireActual<typeof import('react')>('react');
   const Stack = ({
     children,
@@ -66,16 +64,37 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: () => null,
     SizableText: Stack,
     ListView: forwardRef(function MockList(
-      { ListFooterComponent }: { ListFooterComponent: React.ReactNode },
+      {
+        data,
+        ListFooterComponent,
+      }: { data: IMarketHighlight[]; ListFooterComponent: React.ReactNode },
       ref,
     ) {
+      const [visibleIndex, setVisibleIndex] = useState(0);
       useImperativeHandle(ref, () => ({
-        scrollToIndex: mockScrollToIndex,
-        scrollToOffset: mockScrollToOffset,
+        scrollToIndex: ({ index }: { index: number }) => {
+          setVisibleIndex(index);
+          return Promise.resolve();
+        },
+        scrollToOffset: ({ offset }: { offset: number }) =>
+          setVisibleIndex(Math.floor(offset / 200)),
         getLayout: (index: number) => ({ y: index * 200 }),
         getFirstItemOffset: () => 10,
       }));
-      return <div>{ListFooterComponent}</div>;
+      return (
+        <div>
+          <span data-testid="first-visible-headline">
+            {data[visibleIndex].title}
+          </span>
+          <button
+            type="button"
+            onClick={() => setVisibleIndex(data.length - 1)}
+          >
+            Scroll to last
+          </button>
+          {ListFooterComponent}
+        </div>
+      );
     }),
     useMedia: () => ({ gtMd: mockWide }),
   };
@@ -127,36 +146,37 @@ jest.mock('./useMarketHighlightQuotes', () => ({
 }));
 
 it.each([
-  { wide: false, native: false, offset: 10 },
-  { wide: true, native: false, offset: 48 },
-  { wide: false, native: true, offset: -10 },
-  { wide: true, native: true, offset: -10 },
+  { wide: false, native: false },
+  { wide: true, native: false },
+  { wide: false, native: true },
+  { wide: true, native: true },
 ])(
-  'positions the selected headline with the correct spacing (wide=$wide, native=$native)',
-  async ({ wide, native, offset }) => {
+  'opens at the first headline on every visit (wide=$wide, native=$native)',
+  async ({ wide, native }) => {
     jest.useFakeTimers();
     mockWide = wide;
     platformEnv.isNative = native;
-    mockScrollToIndex.mockClear();
-    mockScrollToOffset.mockClear();
-    const view = render(<MarketHighlightsPage />);
+    let view = render(<MarketHighlightsPage />);
     try {
-      await act(async () => jest.advanceTimersByTimeAsync(50));
-      expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
-      expect(mockScrollToIndex).toHaveBeenCalledWith({
-        index: 1,
-        animated: false,
-        viewOffset: offset,
-      });
-      if (native)
-        expect(mockScrollToOffset).toHaveBeenCalledWith({
-          offset: 200,
-          animated: false,
-        });
-      else expect(mockScrollToOffset).not.toHaveBeenCalled();
+      expect(view.getByTestId('first-visible-headline').textContent).toBe(
+        'first',
+      );
+      await act(async () => jest.advanceTimersByTimeAsync(1000));
+      expect(view.getByTestId('first-visible-headline').textContent).toBe(
+        'first',
+      );
+      fireEvent.click(view.getByRole('button', { name: 'Scroll to last' }));
       view.rerender(<MarketHighlightsPage />);
-      act(() => jest.advanceTimersByTime(1000));
-      expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTimeAsync(1000));
+      expect(view.getByTestId('first-visible-headline').textContent).toBe(
+        'last',
+      );
+      view.unmount();
+      view = render(<MarketHighlightsPage />);
+      await act(async () => jest.advanceTimersByTimeAsync(1000));
+      expect(view.getByTestId('first-visible-headline').textContent).toBe(
+        'first',
+      );
     } finally {
       view.unmount();
       jest.useRealTimers();

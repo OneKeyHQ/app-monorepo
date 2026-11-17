@@ -130,7 +130,9 @@ it('keeps the visible first headline interactive throughout the carousel wrap', 
     expect(mockPushModal).toHaveBeenLastCalledWith(
       expect.anything(),
       expect.objectContaining({
-        params: expect.objectContaining({ initialHighlightId: 'First' }),
+        params: expect.objectContaining({
+          initialHighlights: { locale: 'en-US', items },
+        }),
       }),
     );
 
@@ -180,4 +182,33 @@ it('opens the details with prefetched quotes beyond the five carousel headlines'
       }),
     }),
   );
+});
+
+it('opens the full list from a later headline without selecting its scroll position', () => {
+  jest.useFakeTimers();
+  const items: IMarketHighlight[] = ['First', 'Later'].map((title) => ({
+    highlightId: title,
+    title,
+    description: '',
+    publishedAt: '2026-11-16T00:00:00Z',
+    assets: [],
+    links: [],
+  }));
+  const view = render(
+    <MarketHighlightStrip highlight={items[0]} highlights={items} compact />,
+  );
+  try {
+    act(() => jest.advanceTimersByTime(4600));
+    fireEvent.click(view.getByRole('button', { name: 'Later' }));
+    expect(mockPushModal).toHaveBeenLastCalledWith(expect.anything(), {
+      screen: expect.anything(),
+      params: {
+        initialHighlights: { locale: 'en-US', items },
+        initialQuotes: [],
+      },
+    });
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
 });
