@@ -38,17 +38,11 @@ export type ICloudSyncReconciliationLimits = {
 };
 
 export type ICloudSyncReconciliationResult = {
-  status:
-    | 'complete'
-    | 'waiting'
-    | 'backend-unverified'
-    | 'blocked'
-    | 'cancelled';
+  status: 'complete' | 'waiting' | 'blocked' | 'cancelled';
   reason:
     | 'finished'
     | 'request-budget'
     | 'time-budget'
-    | 'backend-unverified'
     | 'response-budget'
     | 'invalid-response'
     | 'summary-budget'
