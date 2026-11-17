@@ -167,7 +167,10 @@ function mockGetIntl() {
   };
 }
 
-jest.mock('react-intl', () => ({ useIntl: () => mockGetIntl() }));
+jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
+  useIntl: () => mockGetIntl(),
+}));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const { runAfterActionListClose } = jest.requireActual<
@@ -390,6 +393,7 @@ jest.mock(
 );
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 
@@ -807,6 +811,7 @@ describe('Perps recall activity integration', () => {
     jest.clearAllMocks();
     mockLocale = 'en-US';
     mockRecallProgress = progress;
+    appLocale.setLocale(mockLocale, appLocale.intl.messages);
     mockRecallEnded = false;
     getDefaultStore().set(mockPerpsCustomSettingsAtom, {
       showTradeMarks: true,
@@ -821,6 +826,7 @@ describe('Perps recall activity integration', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    appLocale.setLocale('en-US', appLocale.intl.messages);
   });
 
   it('uses the page-owned referral opener after the menu closes', async () => {
@@ -1612,6 +1618,7 @@ describe('Perps recall activity integration', () => {
     );
     expect(screen.getByText('Reward locked')).toBeTruthy();
     mockLocale = 'zh-CN';
+    appLocale.setLocale(mockLocale, appLocale.intl.messages);
     view.rerender(
       <PerpsRecallProgressCard progress={progress} hasEnded={false} />,
     );
@@ -1619,7 +1626,7 @@ describe('Perps recall activity integration', () => {
     expect(screen.getByText('总奖励')).toBeTruthy();
     expect(screen.queryByText('Reward locked')).toBeNull();
     expect(screen.getByTestId('perps-recall-details').textContent).toBe(
-      '活动将于 2030年1月1日 结束。 了解更多',
+      '活动将于 2030/01/01 00:00 UTC 结束。 了解更多',
     );
     view.rerender(<PerpsRecallAction />);
     expect(screen.getByLabelText('回归奖励')).toBeTruthy();
@@ -1634,7 +1641,7 @@ describe('Perps recall activity integration', () => {
     );
   });
 
-  it('shows only the UTC deadline date and updates the wording when it ends', () => {
+  it('shows the UTC deadline date and time and updates the wording when it ends', () => {
     const campaign = {
       ...progress,
       deadline: '2030-01-02T07:59:00+08:00',
@@ -1643,7 +1650,7 @@ describe('Perps recall activity integration', () => {
       <PerpsRecallProgressCard progress={campaign} hasEnded={false} />,
     );
     expect(screen.getByTestId('perps-recall-details').textContent).toBe(
-      'Campaign ends on Jan 1, 2030. Learn more',
+      'Campaign ends on 01/01/2030 23:59 UTC. Learn more',
     );
     expect(screen.getByTestId('perps-recall-help').textContent).toBe(
       'Learn more',
@@ -1651,7 +1658,7 @@ describe('Perps recall activity integration', () => {
 
     view.rerender(<PerpsRecallProgressCard progress={campaign} hasEnded />);
     expect(screen.getByTestId('perps-recall-details').textContent).toBe(
-      'Campaign ended on Jan 1, 2030. Learn more',
+      'Campaign ended on 01/01/2030 23:59 UTC. Learn more',
     );
   });
 
@@ -1708,7 +1715,7 @@ describe('Perps recall activity integration', () => {
       );
       expect(screen.queryByTestId('perps-recall-help')).toBeNull();
       expect(screen.getByTestId('perps-recall-details').textContent).toBe(
-        'Campaign ends on Jan 1, 2030.',
+        'Campaign ends on 01/01/2030 00:00 UTC.',
       );
     },
   );

@@ -1477,6 +1477,13 @@ describe('ServiceReferralCode Perps recall progress', () => {
     },
     {
       status: 200,
+      data: {
+        code: 0,
+        data: { ...progress, blogUrl: 'http://onekey.so/blog/recall' },
+      },
+    },
+    {
+      status: 200,
       data: { code: 0, data: { ...progress, deadline: 'invalid' } },
     },
   ])(

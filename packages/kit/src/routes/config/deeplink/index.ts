@@ -36,8 +36,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IEarnUtmParams } from '@onekeyhq/shared/types/staking';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -168,6 +170,7 @@ type IOneKeyAppLinkTarget =
       symbol: string;
       provider: string;
       vault?: string;
+      utm?: IEarnUtmParams;
     };
 
 const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
@@ -283,6 +286,7 @@ function parseOneKeyAppLinkTarget({
         symbol,
         provider,
         vault: getStringQueryParam(queryParams?.vault),
+        utm: earnUtils.normalizeEarnUtmParams(queryParams),
       };
     }
   }
@@ -386,6 +390,7 @@ async function processOneKeyAppUniversalLink(
       symbol: target.symbol,
       provider: target.provider,
       vault: target.vault,
+      ...target.utm,
     });
     return true;
   }

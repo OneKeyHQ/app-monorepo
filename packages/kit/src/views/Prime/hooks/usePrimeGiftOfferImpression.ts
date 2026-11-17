@@ -10,10 +10,12 @@ export function usePrimeGiftOfferImpression({
   enabled,
   serialNo,
   source,
+  deviceCount,
 }: {
   enabled: boolean;
   serialNo: string | undefined;
   source: IPrimeGiftAnalyticsSource;
+  deviceCount?: number;
 }) {
   const isFocused = useIsFocused();
   const seen = useRef(new Set<string>()).current;
@@ -22,6 +24,8 @@ export function usePrimeGiftOfferImpression({
     impressionKey: enabled && isFocused ? serialNo : undefined,
     seen,
     onShown: () =>
-      defaultLogger.prime.subscription.primeGiftOfferShown({ source }),
+      defaultLogger.prime.subscription.primeGiftOfferShown(
+        typeof deviceCount === 'number' ? { source, deviceCount } : { source },
+      ),
   });
 }

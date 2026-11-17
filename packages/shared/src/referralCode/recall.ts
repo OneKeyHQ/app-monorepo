@@ -74,9 +74,7 @@ export function isPerpsRecallProgress(
     (value.blogUrl === null ||
       (typeof value.blogUrl === 'string' &&
         (value.blogUrl === '' ||
-          ['https:', 'http:'].includes(
-            uriUtils.safeParseURL(value.blogUrl)?.protocol ?? '',
-          )))) &&
+          uriUtils.safeParseURL(value.blogUrl)?.protocol === 'https:'))) &&
     (value.status === 'achieved'
       ? current === null
       : isRecord(current) &&
