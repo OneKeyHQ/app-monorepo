@@ -51,6 +51,9 @@ const useAutoSize = (value?: string, numberOfLines = 2) => {
   };
 };
 
+// Matches the `$px` border width from getSharedInputStyles.
+const GROUP_BORDER_WIDTH = 1;
+
 export type IBaseInputProps = {
   extension?: React.ReactNode;
   numberOfLines?: number;
@@ -79,27 +82,23 @@ function BaseInput(props: IBaseInputProps) {
     numberOfLinesProp,
   );
 
-  // With an extension, the background and border are painted once by the
-  // group. Painting them on each item leaves a seam where the two
-  // semi-transparent fills meet on a sub-pixel boundary (visible on Android
-  // with the translucent disabled colors).
-  const containerStyles = extension
-    ? {
-        bg: sharedStyles.backgroundColor,
-        borderWidth: sharedStyles.borderWidth,
-        borderColor: sharedStyles.borderColor,
-        borderCurve: 'continuous' as const,
-      }
-    : undefined;
-  const itemStyles = extension
-    ? { bg: '$transparent', borderWidth: 0 }
-    : undefined;
+  // On Android, painting the background and border on both items leaves a
+  // light seam where the two translucent fills meet on a sub-pixel boundary
+  // (fractional densities such as 2.625). Let the group paint them once.
+  const paintOnGroup = platformEnv.isNativeAndroid && !!extension;
+  const callerMinHeight = rest.minHeight;
 
   return (
     <Group
       borderRadius={sharedStyles.borderRadius}
       disabled={disabled}
-      {...containerStyles}
+      {...(paintOnGroup
+        ? {
+            bg: sharedStyles.backgroundColor,
+            borderWidth: GROUP_BORDER_WIDTH,
+            borderColor: sharedStyles.borderColor,
+          }
+        : undefined)}
     >
       <Group.Item>
         <TextArea
@@ -107,7 +106,7 @@ function BaseInput(props: IBaseInputProps) {
           ref={textAreaRef as any}
           value={value}
           onLayout={onLayout}
-          {...itemStyles}
+          borderBottomWidth={extension ? 0 : undefined}
           error={error}
           numberOfLines={numberOfLines}
           multiline
@@ -118,11 +117,33 @@ function BaseInput(props: IBaseInputProps) {
           // focusVisibleStyle={undefined}
           minHeight={minHeight}
           {...rest}
+          {...(paintOnGroup
+            ? {
+                bg: '$transparent',
+                borderWidth: 0,
+                // A caller's minHeight used to include this item's top border,
+                // which now belongs to the group; keep the overall height.
+                ...(typeof callerMinHeight === 'number'
+                  ? { minHeight: callerMinHeight - GROUP_BORDER_WIDTH }
+                  : undefined),
+              }
+            : undefined)}
         />
       </Group.Item>
       {extension ? (
         <Group.Item>
-          <Stack px={sharedStyles.px} py={size === 'large' ? '$3.5' : '$1.5'}>
+          <Stack
+            px={sharedStyles.px}
+            py={size === 'large' ? '$3.5' : '$1.5'}
+            {...(paintOnGroup
+              ? undefined
+              : {
+                  borderWidth: sharedStyles.borderWidth,
+                  bg: sharedStyles.backgroundColor,
+                  borderTopWidth: 0,
+                  borderColor: sharedStyles.borderColor,
+                })}
+          >
             {extension}
           </Stack>
         </Group.Item>
