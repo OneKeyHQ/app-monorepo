@@ -165,7 +165,7 @@ export function PerpsRecallBanner({
             </Stack>
             <SizableText
               {...titleProps}
-              size={compact ? '$bodySm' : titleProps.size}
+              size={compact ? '$bodySmMedium' : titleProps.size}
               flex={1}
               minWidth={0}
             >
@@ -207,6 +207,9 @@ export function PerpsRecallBanner({
           right="$2"
           top="$2"
           size="small"
+          iconSize={
+            platformEnv.isDesktop || platformEnv.isWeb ? '$4' : undefined
+          }
           variant="tertiary"
           icon="CrossedSmallOutline"
           onPress={() => {

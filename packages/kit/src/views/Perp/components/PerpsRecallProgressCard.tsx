@@ -17,13 +17,10 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import type { IImpressionHost } from '@onekeyhq/kit/src/hooks/useVisibleImpression';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { openGuideUrl } from './Guide/perpGuideData';
-
-function formatRewardAmount(value: string) {
-  const amount = new BigNumber(value);
-  return amount.toFormat(amount.decimalPlaces() ?? 0);
-}
 
 export function PerpsRecallProgressCard({
   progress,
@@ -39,12 +36,10 @@ export function PerpsRecallProgressCard({
   const intl = useIntl();
   const isDarkTheme = useThemeVariant() === 'dark';
   const surfaceBg = isDarkTheme ? '$bgStrong' : '$bgSubdued';
-  const deadline = intl.formatDate(new Date(progress.deadline), {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  const deadline = `${formatDate(progress.deadline, {
+    hideSeconds: true,
     timeZone: 'UTC',
-  });
+  })} UTC`;
   const achieved = progress.status === 'achieved';
   const paid = progress.payoutStatus === 'paid';
   const skipped = progress.payoutStatus === 'skipped';
@@ -105,7 +100,7 @@ export function PerpsRecallProgressCard({
                 maxWidth="100%"
                 testID="perps-recall-reward"
               >
-                {formatRewardAmount(featuredReward)}
+                {formatLocalizedNumberString(featuredReward)}
               </SizableText>
               <SizableText size="$headingLg" color="$textSubdued">
                 USDC
@@ -177,8 +172,8 @@ export function PerpsRecallProgressCard({
               testID="perps-recall-traded"
             >
               {achieved
-                ? `$${formatRewardAmount(progress.volume)}`
-                : `$${formatRewardAmount(progress.volume)} / $${formatRewardAmount(target)}`}
+                ? `$${formatLocalizedNumberString(progress.volume)}`
+                : `$${formatLocalizedNumberString(progress.volume)} / $${formatLocalizedNumberString(target)}`}
             </SizableText>
           </YStack>
         </XStack>
