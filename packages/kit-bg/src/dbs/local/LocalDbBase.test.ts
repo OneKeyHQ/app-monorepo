@@ -81,6 +81,8 @@ import type {
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
 } from './types';
@@ -145,6 +147,10 @@ class TestLocalDb extends LocalDbBase {
     super();
 
     this.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       serviceDBBackup: {
         backupDatabaseDaily: jest.fn(async () => undefined),
         removeBackupHyperLiquidAgentCredentials:
@@ -315,6 +321,23 @@ class TestLocalDb extends LocalDbBase {
       };
     }
     return { records: [] };
+  }
+
+  override async txGetRecordsByIds<T extends ELocalDBStoreNames>({
+    name,
+    ids,
+  }: ILocalDBTxGetRecordsByIdsParams<T>): Promise<
+    ILocalDBTxGetRecordsByIdsResult<T>
+  > {
+    // readyDb points at this fixture, so inherited agent delegation would
+    // recurse instead of reading the in-memory records.
+    const { records } = await this.getRecordsByIds({ name, ids });
+    return {
+      records,
+      recordPairs: records.map((record) =>
+        record ? [record, null] : undefined,
+      ),
+    };
   }
 
   override async txGetAllRecords<T extends ELocalDBStoreNames>({
