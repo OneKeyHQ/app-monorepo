@@ -889,7 +889,7 @@ class ServiceStaking extends ServiceBase {
           providerName: params.provider,
         });
         if (isEtherFi) {
-          // EtherFi's receipt vault never spends deposits. Assets approved here
+          // The EtherFi receipt vault never spends deposits. Assets approved here
           // must also belong to the selected vault's deposit catalog.
           target =
             params.networkId === getNetworkIdsMap().eth
