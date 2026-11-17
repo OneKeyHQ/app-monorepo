@@ -5,6 +5,8 @@ import { StyleSheet } from 'react-native';
 import { Image, SizableText, XStack } from '@onekeyhq/components';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { SwapTestIDs } from '../testIDs';
+
 interface ISwapPopularTokenGroupProps {
   onSelectToken: (token: ISwapToken) => void;
   tokens: ISwapToken[];
@@ -25,6 +27,10 @@ const SwapPopularTokenGroup = ({
     {tokens.map((token) => (
       <XStack
         key={token.contractAddress}
+        testID={SwapTestIDs.popularToken(
+          token.networkId,
+          token.contractAddress,
+        )}
         role="button"
         userSelect="none"
         alignItems="center"

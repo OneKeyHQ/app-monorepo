@@ -6,6 +6,8 @@ export const SwapTestIDs = {
   // Token selection
   fromTokenSelector: 'swap-from-token-selector',
   toTokenSelector: 'swap-to-token-selector',
+  popularToken: (networkId: string, contractAddress: string) =>
+    `swap-popular-token-${networkId}-${contractAddress || 'native'}`,
   switchTokensButton: 'swap-switch-tokens-button',
 
   // Amount
