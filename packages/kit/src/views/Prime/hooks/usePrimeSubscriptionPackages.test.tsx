@@ -10,10 +10,17 @@ import { usePrimeSubscriptionPackages } from './usePrimeSubscriptionPackages';
 
 import type { IPackage } from './usePrimePaymentTypes';
 
-type ISdkResult = { packages: IPackage[]; failure?: unknown };
+type ISdkResult = {
+  packages: IPackage[];
+  failure?: unknown;
+  simulatedFaultActive?: boolean;
+};
 const mockRequests: Array<() => Promise<ISdkResult>> = [];
+const mockWebRequests: Array<() => Promise<IPackage[]>> = [];
 let mockSdkResult: ISdkResult | undefined;
+let mockWebResult: IPackage[] | undefined;
 const mockGetPackages = jest.fn<Promise<IPackage[]>, []>();
+const mockGetPackagesWebFallback = jest.fn<Promise<IPackage[]>, []>();
 const mockGetStorefront = jest.fn<
   Promise<{ countryCode: string } | null>,
   []
@@ -30,7 +37,12 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   ) => {
     // The card-price loader starts from [], the SDK loader from an object.
     if (Array.isArray(options.initResult)) {
-      return { result: [], isLoading: false, run: jest.fn() };
+      mockWebRequests.push(request as () => Promise<IPackage[]>);
+      return {
+        result: mockWebResult ?? [],
+        isLoading: false,
+        run: jest.fn(),
+      };
     }
     mockRequests.push(request);
     return {
@@ -65,7 +77,9 @@ jest.mock('./primePackagesFetchFault', () => ({
   getPrimeSimulatedPackagesFault: async () => mockSimulatedFault,
 }));
 jest.mock('./usePrimePaymentMethodsWeb', () => ({
-  usePrimePaymentMethodsWeb: () => ({}),
+  usePrimePaymentMethodsWeb: () => ({
+    getPackagesWeb: () => mockGetPackagesWebFallback(),
+  }),
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   __esModule: true,
@@ -99,6 +113,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isNativeAndroid() {
       return mockIsNativeAndroid;
     },
+    get isNativeAndroidGooglePlay() {
+      return false;
+    },
   },
 }));
 
@@ -107,9 +124,13 @@ async function loadPackages() {
     usePrimeSubscriptionPackages({ enabled: true }),
   );
   const request = mockRequests[0];
+  const webRequest = mockWebRequests[0];
   let packages: IPackage[] | undefined;
   let error: unknown;
   await act(async () => {
+    if (webRequest) {
+      mockWebResult = await webRequest();
+    }
     try {
       mockSdkResult = await request();
       packages = mockSdkResult.packages;
@@ -125,12 +146,15 @@ describe('Prime subscription loading fail states', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRequests.length = 0;
+    mockWebRequests.length = 0;
     mockInitializationError = undefined;
     mockIsMas = true;
     mockIsNativeAndroid = false;
     mockSimulatedFault = undefined;
     mockSdkResult = undefined;
+    mockWebResult = undefined;
     mockGetPackages.mockResolvedValue([]);
+    mockGetPackagesWebFallback.mockResolvedValue([]);
     mockGetStorefront.mockResolvedValue({ countryCode: 'CHN' });
   });
   afterEach(cleanup);
@@ -304,6 +328,72 @@ describe('Prime subscription loading fail states', () => {
       expect(mockFetchPackagesFailed).not.toHaveBeenCalled();
     },
   );
+
+  it('keeps a simulated fault visible when an Android APK card list loads', async () => {
+    mockIsMas = false;
+    mockIsNativeAndroid = true;
+    mockGetStorefront.mockResolvedValue({ countryCode: 'US' });
+    const cardPackage = { subscriptionPeriod: 'P1Y' } as IPackage;
+    mockGetPackages.mockResolvedValue([cardPackage]);
+    mockGetPackagesWebFallback.mockResolvedValue([cardPackage]);
+    mockSimulatedFault = {
+      error: { code: '5', message: '[Simulated] product not available' },
+    };
+
+    const { hook } = await loadPackages();
+
+    expect(mockGetPackages).not.toHaveBeenCalled();
+    expect(mockGetPackagesWebFallback).not.toHaveBeenCalled();
+    expect(hook.result.current.packages).toEqual([]);
+    expect(hook.result.current.packagesFailure).toEqual({
+      kind: 'productUnavailable',
+      storefrontCountryCode: 'US',
+    });
+    expect(mockFetchPackagesFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorCode: '5',
+        failureKind: 'productUnavailable',
+        storefrontCountryCode: 'US',
+      }),
+    );
+  });
+
+  it('keeps a simulated empty offering visible when an Android APK card list loads', async () => {
+    mockIsMas = false;
+    mockIsNativeAndroid = true;
+    mockGetStorefront.mockResolvedValue({ countryCode: 'US' });
+    const cardPackage = { subscriptionPeriod: 'P1Y' } as IPackage;
+    mockGetPackages.mockResolvedValue([cardPackage]);
+    mockGetPackagesWebFallback.mockResolvedValue([cardPackage]);
+    mockSimulatedFault = {};
+
+    const { hook } = await loadPackages();
+
+    expect(mockGetPackagesWebFallback).not.toHaveBeenCalled();
+    expect(hook.result.current.packages).toEqual([]);
+    expect(hook.result.current.packagesFailure).toEqual({
+      kind: 'productUnavailable',
+      storefrontCountryCode: 'US',
+    });
+  });
+
+  it('still shows Android APK card prices after a real store load failure', async () => {
+    mockIsMas = false;
+    mockIsNativeAndroid = true;
+    mockGetStorefront.mockResolvedValue({ countryCode: 'US' });
+    const cardPackage = { subscriptionPeriod: 'P1M' } as IPackage;
+    mockGetPackages.mockRejectedValue({
+      code: '5',
+      message: 'missing product',
+    });
+    mockGetPackagesWebFallback.mockResolvedValue([cardPackage]);
+
+    const { hook } = await loadPackages();
+
+    expect(mockGetPackagesWebFallback).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.packages).toEqual([cardPackage]);
+    expect(hook.result.current.packagesFailure).toBeUndefined();
+  });
 
   it('keeps a general configuration failure generic even for a CHN account', async () => {
     mockGetPackages.mockRejectedValue({

@@ -27,11 +27,16 @@ import type { IPackage } from './usePrimePaymentTypes';
 
 const EMPTY_OFFERING_MESSAGE = 'Prime subscription packages unavailable';
 const TRANSIENT_RETRY_DELAY_MS = 1000;
+const EMPTY_PACKAGES: IPackage[] = [];
 
-const EMPTY_SDK_RESULT: {
+type ISdkPackagesResult = {
   packages: IPackage[];
   failure?: IPrimePackagesFetchFailure;
-} = { packages: [] };
+  // DevSettings simulated this load. Card prices must not replace it.
+  simulatedFaultActive?: boolean;
+};
+
+const EMPTY_SDK_RESULT: ISdkPackagesResult = { packages: EMPTY_PACKAGES };
 
 function classifyPackagesError(error: unknown) {
   const errorAnalytics = getPrimePurchaseErrorAnalytics(error);
@@ -69,15 +74,22 @@ export function usePrimeSubscriptionPackages({
         !platformEnv.isNativeAndroid ||
         !isPrimeCryptoPaymentSupported()
       ) {
-        return [];
+        return EMPTY_PACKAGES;
+      }
+
+      // The fault switch is otherwise read only by the SDK loader. On an APK
+      // this fallback runs in parallel and would replace the empty result
+      // with real card prices, so the fail state never appears.
+      if (await getPrimeSimulatedPackagesFault()) {
+        return EMPTY_PACKAGES;
       }
 
       const pkgList = await getPackagesWebFallback?.();
-      return pkgList ?? [];
+      return pkgList ?? EMPTY_PACKAGES;
     },
     [enabled, getPackagesWebFallback, isPurchaseReady],
     {
-      initResult: [],
+      initResult: EMPTY_PACKAGES,
     },
   );
 
@@ -153,8 +165,9 @@ export function usePrimeSubscriptionPackages({
           throw initializationError;
         }
         return {
-          packages: [],
+          packages: EMPTY_PACKAGES,
           failure: { kind: failureKind, storefrontCountryCode },
+          simulatedFaultActive: Boolean(simulatedFault),
         };
       });
     },
@@ -177,8 +190,13 @@ export function usePrimeSubscriptionPackages({
     if (sdkPackages?.length) {
       return sdkPackages;
     }
-    return webPackages || [];
-  }, [sdkPackages, webPackages]);
+    // A real SDK failure can still sell the card prices. A simulated fault
+    // cannot, even if those prices were already loaded.
+    if (sdkResult?.simulatedFaultActive) {
+      return EMPTY_PACKAGES;
+    }
+    return webPackages || EMPTY_PACKAGES;
+  }, [sdkPackages, sdkResult?.simulatedFaultActive, webPackages]);
 
   // Android APKs fall back to card prices; only an empty list blocks purchase.
   const packagesFailure =
