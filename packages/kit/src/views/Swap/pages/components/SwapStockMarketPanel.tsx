@@ -22,6 +22,7 @@ import {
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { MarketTooltipLabel } from '@onekeyhq/kit/src/views/Market/components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import type { IStockTokenTradingStatus } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import type { IStockSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import { StockSimpleChartContent } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
@@ -128,6 +129,26 @@ function useSwapStockPrice(
       })
     : undefined;
   return { price, percent, change, status };
+}
+
+/**
+ * The traded token's own trading status, shown in place of the underlying
+ * market's while the token price is on screen, matching the stock detail page.
+ */
+function useSwapStockTokenTrading(
+  enabled: boolean,
+): IStockTokenTradingStatus | undefined {
+  const { selectedTokenVariant } = useStockDetail();
+  return useMemo(
+    () =>
+      enabled && selectedTokenVariant
+        ? {
+            tradingHours: selectedTokenVariant.tradingHours,
+            isPaused: selectedTokenVariant.isPaused,
+          }
+        : undefined,
+    [enabled, selectedTokenVariant],
+  );
 }
 
 function StockPrice({
@@ -284,12 +305,14 @@ function SwapStockMarketStatus({
   onRetry,
   status,
   showLastUpdate,
+  tokenTrading,
 }: {
   isLoading: boolean;
   isError: boolean;
   onRetry: () => Promise<void>;
   status: ReturnType<typeof useSwapStockPrice>['status'];
   showLastUpdate?: boolean;
+  tokenTrading?: IStockTokenTradingStatus;
 }) {
   const intl = useIntl();
   if (isLoading) {
@@ -313,12 +336,15 @@ function SwapStockMarketStatus({
       stock={status}
       variant="inline"
       showLastUpdate={showLastUpdate}
+      tokenTrading={tokenTrading}
     />
   );
 }
 
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
+  // Mobile trade quotes the token only, so its status is always the token's.
+  const tokenTrading = useSwapStockTokenTrading(true);
   const {
     isStockDetailReady,
     isStockDetailStatusError,
@@ -360,6 +386,7 @@ export function SwapStockMobileHeader() {
           // Mobile trade quotes the token only, so the share price's
           // last-update note does not apply; show the token's countdown.
           showLastUpdate={false}
+          tokenTrading={tokenTrading}
         />
       </Stack>
     </YStack>
@@ -454,6 +481,7 @@ export function SwapStockMarketPanel() {
   const intl = useIntl();
   const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
+  const tokenTrading = useSwapStockTokenTrading(priceMode === 'token');
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,
@@ -730,6 +758,7 @@ export function SwapStockMarketPanel() {
                 onRetry={retryStockDetail}
                 status={status}
                 showLastUpdate={priceMode === 'share'}
+                tokenTrading={tokenTrading}
               />
             </Stack>
           </YStack>

@@ -202,9 +202,14 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
   StockMarketStatusBadge: ({
     stock,
     showLastUpdate = true,
+    tokenTrading,
   }: {
     stock?: IMarketStockInfo;
     showLastUpdate?: boolean;
+    tokenTrading?: {
+      tradingHours?: { days?: string };
+      isPaused?: boolean;
+    };
   }) => (
     <div
       data-testid="stock-status"
@@ -212,6 +217,8 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
       data-is-open={String(stock?.isOpen)}
       data-updated-at={stock?.priceUpdatedAt}
       data-show-last-update={String(showLastUpdate)}
+      data-token-days={tokenTrading?.tradingHours?.days ?? 'none'}
+      data-token-paused={String(tokenTrading?.isPaused)}
     />
   ),
 }));
@@ -756,6 +763,31 @@ describe.each(['mobile', 'desktop', 'web', 'extension'] as const)(
           .getByTestId('stock-status')
           .getAttribute('data-show-last-update'),
       ).toBe(surface === 'mobile' ? 'false' : 'true');
+    });
+
+    it("follows the traded token's status only where the token price shows", () => {
+      mockStockDetailState.isStockDetailReady = true;
+      mockStockDetailState.selectedTokenVariant = {
+        tradingHours: { days: '7 × 24', isMarketOpen: true },
+        isPaused: false,
+      } as NonNullable<
+        ReturnType<typeof useStockDetail>['selectedTokenVariant']
+      >;
+      renderSurface();
+      const tokenDays = () =>
+        screen.getByTestId('stock-status').getAttribute('data-token-days');
+
+      // Mobile trade quotes the token only; desktop opens on the share price.
+      expect(tokenDays()).toBe(surface === 'mobile' ? '7 × 24' : 'none');
+      if (surface !== 'mobile') {
+        fireEvent.click(screen.getByTestId('swap-stock-price-mode-token'));
+        expect(tokenDays()).toBe('7 × 24');
+        expect(
+          screen.getByTestId('stock-status').getAttribute('data-token-paused'),
+        ).toBe('false');
+        fireEvent.click(screen.getByTestId('swap-stock-price-mode-share'));
+        expect(tokenDays()).toBe('none');
+      }
     });
 
     it('shows the settled public status on every surface', () => {
