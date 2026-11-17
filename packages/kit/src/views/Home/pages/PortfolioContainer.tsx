@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Stack,
@@ -6,23 +6,15 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
-import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
-import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
 import { DeFiListBlock } from '../components/DeFiListBlock';
-import { EarnListView } from '../components/EarnListView';
 import { HomeScrollView } from '../components/HomeScrollView';
-import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
-import { PopularTrading } from '../components/PopularTrading';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RecentHistory } from '../components/RecentHistory';
 import { TokenListBlock } from '../components/TokenListBlock';
@@ -60,19 +52,6 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
           24
         : nativeContentWidth) >= 768
     : tableLayout;
-  const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
-  const isTabFocused =
-    stickyHeaderCtx?.activeTabId === EHomeWalletTab.Portfolio;
-  const [isHomeRouteVisible, setIsHomeRouteVisible] = useState(false);
-  const handleHomeRouteFocusChange = useCallback(
-    (isFocus: boolean, isHideByModal: boolean) => {
-      setIsHomeRouteVisible(isFocus && !isHideByModal);
-    },
-    [],
-  );
-
-  useListenTabFocusState(ETabRoutes.Home, handleHomeRouteFocusChange);
-
   // Height of the page scroller the sidebar sticks inside. The scroller is
   // resolved by its overflow style, not by whether it scrolls yet: on a short
   // first frame nothing overflows until the lists load, but it is the same
@@ -125,17 +104,11 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
-  const isEarnListActive = isTabFocused && isHomeRouteVisible;
 
-  const otherBlocks = (
-    <>
-      <DeFiListBlock refreshCacheOnly />
-      {/* Market has its own page; only the native tablet layout keeps it
-          here. */}
-      {tableLayout ? <PopularTrading tableLayout /> : null}
-      <EarnListView isActive={isEarnListActive} />
-    </>
-  );
+  // Nothing shows under the token list on any platform; Market and Earn
+  // have their own pages. The DeFi block only keeps the DeFi tab's cache
+  // fresh.
+  const otherBlocks = <DeFiListBlock refreshCacheOnly />;
   const recentHistorySidebar =
     tableLayout && showRecentHistory ? (
       <YStack
@@ -214,9 +187,7 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
             showRecentHistory={tableLayout ? showRecentHistory : undefined}
             tableLayout={tableLayout || undefined}
           />
-          {/* The wide desktop / web home leaves Market and Earn to their own
-              pages. */}
-          {tableLayout ? <DeFiListBlock refreshCacheOnly /> : otherBlocks}
+          {otherBlocks}
         </YStack>
         {recentHistorySidebar}
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
@@ -233,26 +204,24 @@ function PortfolioContainerWithProvider() {
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextHistoryList>
-        <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-          <ProviderJotaiContextDeFiList>
-            {platformEnv.isNative ? (
+        <ProviderJotaiContextDeFiList>
+          {platformEnv.isNative ? (
+            <PortfolioContainer bottomPadding={tabBarHeight ?? 0} />
+          ) : (
+            <HomeScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: tabBarHeight }}
+              nestedScrollEnabled={platformEnv.isNativeAndroid}
+              refreshControl={
+                !platformEnv.isNativeAndroid ? (
+                  <PullToRefresh onRefresh={onHomePageRefresh} />
+                ) : undefined
+              }
+            >
               <PortfolioContainer bottomPadding={tabBarHeight ?? 0} />
-            ) : (
-              <HomeScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: tabBarHeight }}
-                nestedScrollEnabled={platformEnv.isNativeAndroid}
-                refreshControl={
-                  !platformEnv.isNativeAndroid ? (
-                    <PullToRefresh onRefresh={onHomePageRefresh} />
-                  ) : undefined
-                }
-              >
-                <PortfolioContainer bottomPadding={tabBarHeight ?? 0} />
-              </HomeScrollView>
-            )}
-          </ProviderJotaiContextDeFiList>
-        </EarnProviderMirror>
+            </HomeScrollView>
+          )}
+        </ProviderJotaiContextDeFiList>
       </ProviderJotaiContextHistoryList>
     </HomeTokenListProviderMirrorWrapper>
   );

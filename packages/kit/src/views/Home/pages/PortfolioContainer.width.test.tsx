@@ -31,16 +31,9 @@ jest.mock('@onekeyhq/components', () => {
     useScrollContentTabBarOffset: () => 0,
   };
 });
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  EJotaiContextStoreNames: { earn: 'earn' },
-}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true, isNativeAndroid: false },
-}));
-jest.mock('../../../hooks/useListenTabFocusState', () => ({
-  __esModule: true,
-  default: () => {},
 }));
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: { account: { id: 'account' } } }),
@@ -57,28 +50,15 @@ jest.mock('../../DAppConnection/hooks/useActiveTabDAppInfo', () => ({
   __esModule: true,
   default: () => ({ result: undefined }),
 }));
-jest.mock('../../Earn/EarnProviderMirror', () => ({
-  EarnProviderMirror: ({ children }: { children: ReactNode }) => children,
-}));
 jest.mock('../components/DeFiListBlock', () => ({
   DeFiListBlock: () => null,
-}));
-jest.mock('../components/EarnListView', () => ({
-  EarnListView: () => null,
 }));
 jest.mock('../components/HomeScrollView', () => ({
   HomeScrollView: ({ children }: { children: ReactNode }) => children,
 }));
-jest.mock('../components/HomeStickyHeaderContext', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return { HomeStickyHeaderContext: React.createContext(null) };
-});
 jest.mock('../components/HomeTokenListProvider', () => ({
   HomeTokenListProviderMirrorWrapper: ({ children }: { children: ReactNode }) =>
     children,
-}));
-jest.mock('../components/PopularTrading', () => ({
-  PopularTrading: () => null,
 }));
 jest.mock('../components/PullToRefresh', () => ({
   PullToRefresh: () => null,
