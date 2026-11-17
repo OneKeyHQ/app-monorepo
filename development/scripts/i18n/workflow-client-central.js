@@ -359,20 +359,26 @@ class CentralClient {
       });
     } catch (error) {
       if (!named || error.status !== 422) throw error;
-      // The branch exists without an open PR. Use it as is only when it holds
-      // exactly this change (an earlier run that did not open its PR); moving
-      // it would drop whatever was pushed there since.
-      const existing = (await this.api.get(`${repo}/git/ref/heads/${branch}`))
-        .object.sha;
-      const { tree: existingTree } = await this.api.get(
-        `${repo}/git/commits/${existing}`,
+      // The branch exists without an open PR. Use it as is only when it is one
+      // commit holding exactly these files (an earlier run that did not open
+      // its PR, possibly on an older base); moving it would drop whatever was
+      // pushed there since.
+      const compared = await this.api.get(
+        `${repo}/compare/${this.base}...${branch}`,
       );
-      if (existingTree.sha !== newTree.sha)
+      const onBranch = Object.fromEntries(
+        compared.files.map((item) => [item.filename, item.sha]),
+      );
+      if (
+        compared.ahead_by !== 1 ||
+        compared.files.length !== tree.length ||
+        tree.some((item) => onBranch[item.path] !== item.sha)
+      )
         throw new Error(
           `onekey-i18n branch ${branch} already exists without an open PR and holds other content. Inspect it and any PR it had, delete it if it is stale, then rerun apply.`,
           { cause: error },
         );
-      proposed = existing;
+      proposed = compared.commits.at(-1).sha;
     }
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,

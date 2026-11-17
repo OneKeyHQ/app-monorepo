@@ -369,9 +369,11 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
     [],
   );
 
-  // The branch exists without a PR. It is used as is when it holds exactly
-  // this change; with anything else on it, it is left alone and apply stops.
-  const existingBranch = (treeSha) => {
+  // The branch exists without a PR. It is used as is when it is one commit
+  // holding exactly this change, even if main has moved on since (behind_by);
+  // with anything else on it, it is left alone and apply stops.
+  const zhFile = 'projects/app/locales/zh_CN.json';
+  const existingBranch = (compared) => {
     const { routes, bodies } = commitRoutes();
     const api = fakeApi({
       ...routes,
@@ -381,8 +383,13 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
           status: 422,
         });
       },
-      [`GET ${REPO}/git/ref/heads/${branch}`]: { object: { sha: 'c8' } },
-      [`GET ${REPO}/git/commits/c8`]: { tree: { sha: treeSha } },
+      [`GET ${REPO}/compare/main...${branch}`]: {
+        behind_by: 3,
+        commits: [{ sha: 'c8' }],
+        ahead_by: 1,
+        files: [{ filename: zhFile, sha: 'b1' }],
+        ...compared,
+      },
     });
     return {
       api,
@@ -390,24 +397,35 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
       client: new CentralClient({ api, source: sourceFixture() }),
     };
   };
-  const same = existingBranch('t2');
+  const same = existingBranch({});
   await edit(same.client);
   const result = await same.client.finalize(proposal);
   assert.deepEqual(
     [result.number, result.branch, result.commit, same.bodies.pull.head],
     [9, branch, 'c8', branch],
   );
-  const changed = existingBranch('t9');
-  await edit(changed.client);
-  await assert.rejects(
-    changed.client.finalize(proposal),
-    /already exists without an open PR and holds other content/,
-  );
-  assert.equal(changed.bodies.pull, undefined);
-  assert.equal(
-    changed.api.calls.some(([method]) => !['GET', 'POST'].includes(method)),
-    false,
-  );
+  for (const compared of [
+    { ahead_by: 2, commits: [{ sha: 'c8' }, { sha: 'c9' }] },
+    { files: [{ filename: zhFile, sha: 'b7' }] },
+    {
+      files: [
+        { filename: zhFile, sha: 'b1' },
+        { filename: 'projects/app/keys.json', sha: 'b8' },
+      ],
+    },
+  ]) {
+    const other = existingBranch(compared);
+    await edit(other.client);
+    await assert.rejects(
+      other.client.finalize(proposal),
+      /already exists without an open PR and holds other content/,
+    );
+    assert.equal(other.bodies.pull, undefined);
+    assert.equal(
+      other.api.calls.some(([method]) => !['GET', 'POST'].includes(method)),
+      false,
+    );
+  }
 });
 
 test('a client bound to a commit reads that commit instead of the release', async () => {
