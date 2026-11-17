@@ -7,12 +7,12 @@ fonts and does not sign, submit or publish it.
 
 ## Create a release
 
-Start from a clean committed checkout. Install dependencies, then run from the
-repository root:
+Start from a clean committed checkout and run from the repository root. The
+entry point installs dependencies using the bundled Yarn and an isolated build
+environment:
 
 ```sh
-GITHUB_SHA=$(git rev-parse HEAD) ONEKEY_FONTS_FORCE_FALLBACK=1 ONEKEY_REQUIRE_PRIVATE_FONTS=0 yarn install --immutable
-yarn app:ext:build:firefox
+node apps/ext/scripts/build-firefox.js --install
 ```
 
 `BUILD_TIME` can override the Unix timestamp in milliseconds. `BUILD_NUMBER` and
@@ -31,9 +31,11 @@ Output in `apps/ext/build/_dist/firefox/`:
 
 ## Reproduce a submitted version
 
-Verify the supplied source archive's checksum before extraction, or check out the
-recorded commit. Use the Node version recorded in the manifest. From the source
-root, run this with Node directly so it also works before dependency installation:
+Verify the supplied source archive's SHA-256 against the independently supplied
+checksum before extraction, or check out the recorded commit. A source package can
+be produced from the clean release commit with `git archive --format=zip HEAD`.
+Provide its SHA-256 beside the archive; it cannot authenticate itself.
+Use the Node version recorded in the manifest. From the source root, run this with Node directly so it also works before dependency installation:
 
 ```sh
 node apps/ext/scripts/build-firefox.js --manifest /absolute/path/firefox-build.json --install
@@ -56,3 +58,11 @@ values because a missing value differs from an empty string in emitted JavaScrip
 Reproducible output does not establish browser functionality or AMO acceptance.
 Validate the release in Firefox and run AMO validation separately, including wallet
 creation/import, DApp signing and the supported hardware connection methods.
+
+## Validation scope
+
+The release/replay path has been verified on macOS ARM64 with Node 24.13.0 and
+Yarn 4.18.1, including separate checkout paths and a source archive without Git
+metadata or preinstalled dependencies. Linux reviewer-environment and Windows
+validation remain separate release checks. Cache contents are not part of the
+release metadata; package integrity is pinned by the immutable Yarn lockfile.
