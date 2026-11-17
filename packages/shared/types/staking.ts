@@ -111,6 +111,8 @@ export type IEarnStakeType = 'wrap' | 'normal';
 
 export type IEarnWithdrawType = 'instant' | 'queued' | 'cancel';
 
+export type IEarnAmountUnit = 'shares';
+
 export type IEarnClaimType = 'normal' | 'airdrop';
 
 export type IEarnWithdrawApproveInfo = {
@@ -119,6 +121,7 @@ export type IEarnWithdrawApproveInfo = {
   tokenAddress?: string;
   allowance?: string;
   receiptTokenRate?: string;
+  amountUnit?: IEarnAmountUnit;
   inputToken?: { symbol: string; logoURI?: string; price: string };
 };
 
@@ -254,7 +257,7 @@ export type IWithdrawBaseParams = IEarnUtmParams & {
   slippage?: number;
   effectiveApy?: string | number;
 
-  identity?: string; // sol pubkey
+  identity?: string;
   signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
@@ -957,6 +960,13 @@ export interface IEarnDepositActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnManageActionIcon {
+  type: 'manage';
+  disabled: boolean;
+  text: IEarnText;
+  data?: { vault?: string };
+}
+
 export interface IEarnHistoryActionIcon {
   type: 'history';
   disabled: boolean;
@@ -1552,6 +1562,7 @@ export interface IEarnManagePageResponse {
 
 export type IEarnDetailActions =
   | IEarnDepositActionIcon
+  | IEarnManageActionIcon
   | IEarnWithdrawActionIcon
   | IEarnHistoryActionIcon
   | IEarnWithdrawOrderActionIcon
@@ -2036,6 +2047,8 @@ export type IClaimableListItemExtra = {
 export type IClaimableListItem = {
   id: string;
   amount: string;
+  /** Request submission time, in Unix seconds. */
+  timestamp?: number;
   fiatValue?: string;
   isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
@@ -2587,6 +2600,7 @@ export type IApproveConfirmFnParams = {
   // Stakefish ETH validator
   validatorPubkey?: string;
   stakeType?: IEarnStakeType;
+  onWrapStateChange?: (state: 'submitted' | 'failed' | 'unknown') => void;
   onStepChange?: (
     step: number,
     options?: { shouldShowPostWrapApproveStep?: boolean },

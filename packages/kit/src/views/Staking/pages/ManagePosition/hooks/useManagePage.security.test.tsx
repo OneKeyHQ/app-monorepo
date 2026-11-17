@@ -1,5 +1,9 @@
 /* eslint-disable import/first */
 
+jest.mock('react-intl', () => ({ useIntl: () => ({ locale: 'en' }) }));
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  useCurrency: () => ({ id: 'usd' }),
+}));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(),
 }));

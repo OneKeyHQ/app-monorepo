@@ -446,7 +446,7 @@ const ProtocolDetailsPage = () => {
               error={isErrorState({ result, isLoading })}
               onRefresh={run}
             >
-              <ProtocolDetails details={result}>
+              <ProtocolDetails details={result} symbol={symbol}>
                 {earnAccount?.accountAddress ? (
                   <>
                     <StakedValueSection

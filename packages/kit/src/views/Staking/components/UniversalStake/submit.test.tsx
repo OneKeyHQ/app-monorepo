@@ -34,7 +34,12 @@ const mockSign = jest.fn<
 >();
 const mockFeeAlert = jest.fn<
   void,
-  [{ onConfirm: () => void; onClose: () => void }]
+  [
+    {
+      onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void>;
+      onClose: () => void;
+    },
+  ]
 >();
 let mockPress: () => Promise<void>;
 let mockAllowance = '10';
@@ -167,6 +172,9 @@ jest.mock('../StakingAmountInput', () => ({
   useOnBlurAmountValue: () => undefined,
 }));
 jest.mock('../EstimateNetworkFee', () => ({
+  ...jest.requireActual<typeof import('../EstimateNetworkFee')>(
+    '../EstimateNetworkFee',
+  ),
   EstimateNetworkFee: () => null,
   useShowStakeEstimateGasAlert: () => mockFeeAlert,
 }));
@@ -341,7 +349,7 @@ it('holds a signed deposit through its fee warning and allows retry after dismis
   });
   await act(async () => {
     const warning = mockFeeAlert.mock.lastCall![0];
-    warning.onConfirm();
+    await warning.onConfirm({ close: async () => {} });
     warning.onClose();
     await second;
   });

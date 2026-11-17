@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -57,14 +58,35 @@ export function useEarnPermitApprove() {
           amount: new BigNumber(amountValue).toFixed(),
         });
 
+      const expectedSpender = earnUtils.resolveEarnPermitSpenderAddress({
+        providerName,
+        networkId,
+      });
+      const spender = permit2Data.message?.spender;
+      if (
+        !expectedSpender ||
+        typeof spender !== 'string' ||
+        spender.toLowerCase() !== expectedSpender.toLowerCase()
+      ) {
+        const error = new Error(
+          `Invalid spender address. Expected: ${expectedSpender ?? 'unsupported provider/network'}, Got: ${spender}`,
+        );
+        defaultLogger.staking.page.permitSignError({
+          error: error.message,
+        });
+        throw error;
+      }
+
       earnUtils.assertEarnPermit({
         data: permit2Data,
+        providerName,
         networkId,
         accountAddress: account.address,
         token,
         amount: amountValue,
       });
       await beforeSign?.();
+
       const unsignedMessage = stringUtils.stableStringify(permit2Data);
 
       const signHash = await navigationToMessageConfirmAsync({

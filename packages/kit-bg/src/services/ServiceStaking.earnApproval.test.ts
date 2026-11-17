@@ -1,4 +1,8 @@
-import { PendleRouterContract } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EtherFiLiquidReferContract,
+  EthereumWETH,
+  PendleRouterContract,
+} from '@onekeyhq/shared/src/consts/addresses';
 import {
   EApproveType,
   EStakeProtocolGroupEnum,
@@ -347,6 +351,73 @@ describe('Earn approval boundary', () => {
       service.assertEarnApproval({ ...request, spenderAddress: attacker }),
     ).rejects.toThrow();
   });
+  it('binds EtherFi approvals to the selected asset and LiquidRefer, including wrapped ETH', async () => {
+    const { service, page, getProtocolList } = harness(
+      'EtherFi',
+      EtherFiLiquidReferContract,
+    );
+    const networkId = 'evm--1';
+    getProtocolList.mockResolvedValue([
+      {
+        network: { networkId },
+        provider: {
+          name: 'EtherFi',
+          vault,
+          group: EStakeProtocolGroupEnum.Available,
+        },
+      } as IStakeProtocolListItem,
+    ]);
+    const request = {
+      ...approval,
+      networkId,
+      provider: 'EtherFi',
+      symbol: 'USDC',
+      spenderAddress: EtherFiLiquidReferContract,
+    };
+    await expect(service.assertEarnApproval(request)).resolves.toBeUndefined();
+    await expect(
+      service.assertEarnApproval({ ...request, tokenAddress: attacker }),
+    ).rejects.toThrow();
+    await expect(
+      service.assertEarnApproval({ ...request, spenderAddress: vault }),
+    ).rejects.toThrow();
+    page.deposit!.data!.token!.info.isNative = true;
+    await expect(
+      service.assertEarnApproval({
+        ...request,
+        symbol: 'ETH',
+        tokenAddress: EthereumWETH,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('checks the registered EtherFi receipt when withdrawal approval comes from details', async () => {
+    const { service, page } = harness('EtherFi');
+    page.withdrawApprove = undefined;
+    page.withdraw = {
+      data: { token: { info: { address: vault } } },
+    } as IEarnManagePageResponse['withdraw'];
+    const getDetail = jest
+      .spyOn(service, 'getProtocolDetailsV2')
+      .mockResolvedValue({
+        withdrawApprove: { tokenAddress: vault, approveTarget: receipt },
+      } as Awaited<ReturnType<ServiceStaking['getProtocolDetailsV2']>>);
+    const request = {
+      ...approval,
+      provider: 'EtherFi',
+      action: 'unstake' as const,
+      tokenAddress: vault,
+      spenderAddress: receipt,
+    };
+    await expect(service.assertEarnApproval(request)).resolves.toBeUndefined();
+    getDetail.mockResolvedValue({
+      withdrawApprove: { tokenAddress: attacker, approveTarget: receipt },
+    } as Awaited<ReturnType<ServiceStaking['getProtocolDetailsV2']>>);
+    await expect(
+      service.assertEarnApproval({ ...request, tokenAddress: attacker }),
+    ).rejects.toThrow();
+  });
+
   it('retains the supported wrapped token for Native multi-asset deposits', async () => {
     const { service } = harness('Native');
     jest.spyOn(service, 'getEarnAssetsList').mockResolvedValue({

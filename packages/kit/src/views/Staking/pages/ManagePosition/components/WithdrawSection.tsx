@@ -42,7 +42,6 @@ import {
   EEarnLabels,
   type IBorrowAsset,
   type IBorrowAssetsList,
-  type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
   type IEarnUtmParams,
@@ -51,15 +50,12 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
+import { EarnWithdrawForm } from '../../../components/EarnProtocolForms/Withdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { useEarnWithdrawAssets } from '../../../hooks/useEarnWithdrawAssets';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
-import {
-  buildBorrowTag,
-  normalizeStakeTokenAddress,
-  resolveStakeTokenAddress,
-} from '../../../utils/utils';
+import { buildBorrowTag, resolveStakeTokenAddress } from '../../../utils/utils';
 import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
 
 import {
@@ -86,6 +82,8 @@ export const WithdrawSection = ({
   protocolInfo,
   isDisabled,
   onSuccess,
+  onLegacyApprovalCleared,
+  isLegacyApprovalBlocked,
   beforeFooter,
   footerActionOverride,
   showApyDetail,
@@ -113,6 +111,8 @@ export const WithdrawSection = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
   onSuccess?: () => void;
+  onLegacyApprovalCleared?: () => void;
+  isLegacyApprovalBlocked?: boolean;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
@@ -146,6 +146,11 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
+  const amountUnit = earnUtils.isEtherFiProvider({ providerName })
+    ? 'shares'
+    : undefined;
+  const supportsReceiveAssetSelection =
+    isPendleProvider || amountUnit === 'shares';
   const hasWithdrawApprove = Boolean(
     protocolInfo?.withdrawApprove?.approveTarget &&
     protocolInfo.withdrawApprove.tokenAddress,
@@ -373,15 +378,17 @@ export const WithdrawSection = ({
       ...token,
       address: withdrawApprove.tokenAddress,
       isNative: false,
-      ...(withdrawApprove.inputToken && {
-        symbol: withdrawApprove.inputToken.symbol,
-        displaySymbol: undefined,
-        name: withdrawApprove.inputToken.symbol,
-        logoURI: withdrawApprove.inputToken.logoURI ?? '',
-        decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
-      }),
+      ...(amountUnit !== 'shares' &&
+        withdrawApprove.inputToken && {
+          symbol: withdrawApprove.inputToken.symbol,
+          displaySymbol: undefined,
+          name: withdrawApprove.inputToken.symbol,
+          logoURI: withdrawApprove.inputToken.logoURI ?? '',
+          decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
+        }),
     };
   }, [
+    amountUnit,
     protocolInfo?.protocolInputDecimals,
     protocolInfo?.withdrawApprove,
     token,
@@ -468,6 +475,9 @@ export const WithdrawSection = ({
     useBorrowApi,
   ]);
 
+  const hasApprovalToken = Boolean(approvalToken);
+  const approvalTokenAddress = approvalToken?.address;
+  const approvalTokenIsNative = approvalToken?.isNative;
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
       if (
@@ -475,8 +485,8 @@ export const WithdrawSection = ({
         !approveSpenderAddress ||
         !accountId ||
         !networkId ||
-        !approvalToken ||
-        approvalToken?.isNative
+        !hasApprovalToken ||
+        approvalTokenIsNative
       ) {
         return undefined;
       }
@@ -492,11 +502,12 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            providerName,
             networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
-          tokenAddress: approvalToken?.address || '',
+          tokenAddress: approvalTokenAddress || '',
         });
       return { allowanceParsed };
     },
@@ -505,7 +516,10 @@ export const WithdrawSection = ({
       approveSpenderAddress,
       accountId,
       networkId,
-      approvalToken,
+      providerName,
+      hasApprovalToken,
+      approvalTokenAddress,
+      approvalTokenIsNative,
       footerActionOverride?.loading,
     ],
     { watchLoading: true, undefinedResultIfReRun: true },
@@ -528,9 +542,6 @@ export const WithdrawSection = ({
     effectiveApproveType,
     networkId,
   ]);
-  const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
-    IEarnTokenItem | undefined
-  >(undefined);
 
   // Fetch selectable assets for Withdraw/Repay popover
   const { result: assetsList, isLoading: assetsListLoading } =
@@ -609,83 +620,22 @@ export const WithdrawSection = ({
     });
   }, [assetsListLoading, borrowAssetSelectionScopeKey, selectableBorrowAssets]);
 
-  const { result: unstakeAssetsList } = usePromiseResult<
-    IEarnAssetsList | undefined
-  >(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !isPendleProvider ||
-        useBorrowApi ||
-        !accountId ||
-        !protocolInfo?.symbol
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-        accountId,
-        networkId,
-        provider: providerName,
-        symbol: protocolInfo.symbol,
-        vault: protocolInfo.vault || undefined,
-        action: 'unstake',
-      });
-    },
-    [
-      hasRequiredData,
-      isPendleProvider,
-      useBorrowApi,
-      accountId,
-      networkId,
-      providerName,
-      protocolInfo?.symbol,
-      protocolInfo?.vault,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const selectableReceiveAssets = useMemo(() => {
-    return unstakeAssetsList?.assets ?? [];
-  }, [unstakeAssetsList?.assets]);
-
-  useEffect(() => {
-    if (!isPendleProvider || useBorrowApi) {
-      setSelectedReceiveAsset(undefined);
-      return;
-    }
-
-    if (!selectableReceiveAssets.length) {
-      setSelectedReceiveAsset(undefined);
-      return;
-    }
-
-    setSelectedReceiveAsset((prev) => {
-      if (prev?.info) {
-        const prevAddress = normalizeStakeTokenAddress({
-          address: prev.info.address,
-          isNative: prev.info.isNative,
-        });
-        const prevSymbol = prev.info.symbol?.toLowerCase() ?? '';
-        const matchedPrev = selectableReceiveAssets.find((asset) => {
-          const assetAddress = normalizeStakeTokenAddress({
-            address: asset.info.address,
-            isNative: asset.info.isNative,
-          });
-          return (
-            assetAddress === prevAddress &&
-            asset.info.symbol.toLowerCase() === prevSymbol
-          );
-        });
-        if (matchedPrev) {
-          return matchedPrev;
-        }
-      }
-
-      return selectableReceiveAssets[0];
-    });
-  }, [isPendleProvider, selectableReceiveAssets, useBorrowApi]);
+  const {
+    assets: selectableReceiveAssets,
+    selectedAsset: selectedReceiveAsset,
+    selectAsset: setSelectedReceiveAsset,
+    status: withdrawAssetsStatus,
+    retry: retryWithdrawAssets,
+  } = useEarnWithdrawAssets({
+    enabled: Boolean(
+      hasRequiredData && supportsReceiveAssetSelection && !useBorrowApi,
+    ),
+    accountId,
+    networkId,
+    provider: providerName,
+    symbol: protocolInfo?.symbol ?? '',
+    vault: protocolInfo?.vault || undefined,
+  });
 
   const handleOpenReceiveTokenSelector = useCallback(() => {
     if (!accountId || !protocolInfo?.symbol) return;
@@ -714,11 +664,16 @@ export const WithdrawSection = ({
     protocolInfo?.symbol,
     protocolInfo?.vault,
     selectedReceiveAsset?.info,
+    setSelectedReceiveAsset,
     navigation,
   ]);
 
   const receiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!isPendleProvider || useBorrowApi || !selectableReceiveAssets.length) {
+    if (
+      !supportsReceiveAssetSelection ||
+      useBorrowApi ||
+      !selectableReceiveAssets.length
+    ) {
       return undefined;
     }
 
@@ -730,7 +685,7 @@ export const WithdrawSection = ({
           : undefined,
     };
   }, [
-    isPendleProvider,
+    supportsReceiveAssetSelection,
     useBorrowApi,
     selectableReceiveAssets.length,
     handleOpenReceiveTokenSelector,
@@ -739,7 +694,7 @@ export const WithdrawSection = ({
   const effectiveReceiveInputConfig = useMemo<
     IManagePageV2ReceiveInputConfig | undefined
   >(() => {
-    if (!isPendleProvider || useBorrowApi) {
+    if (!supportsReceiveAssetSelection || useBorrowApi) {
       return receiveInputConfig;
     }
 
@@ -749,6 +704,8 @@ export const WithdrawSection = ({
       isNative: selectedToken?.isNative,
     });
     const hasSelectedToken = !!selectedToken;
+    const fallbackTokenAddress =
+      amountUnit === 'shares' ? '' : (receiveInputConfig?.tokenAddress ?? '');
 
     return {
       ...receiveInputConfig,
@@ -758,14 +715,15 @@ export const WithdrawSection = ({
       tokenSymbol: selectedToken?.symbol ?? receiveInputConfig?.tokenSymbol,
       tokenAddress: hasSelectedToken
         ? selectedTokenAddress
-        : (receiveInputConfig?.tokenAddress ?? ''),
+        : fallbackTokenAddress,
       balance:
         selectedReceiveAsset?.balanceParsed ?? receiveInputConfig?.balance,
       price: selectedReceiveAsset?.price ?? receiveInputConfig?.price,
       tokenSelectorTriggerProps: receiveTokenSelectorTriggerProps,
     };
   }, [
-    isPendleProvider,
+    supportsReceiveAssetSelection,
+    amountUnit,
     useBorrowApi,
     receiveInputConfig,
     selectedReceiveAsset?.balanceParsed,
@@ -1032,6 +990,9 @@ export const WithdrawSection = ({
       onStepChange,
       onEthenaCooldownUnstakeReady,
       withdrawType,
+      isActionCurrent,
+      isSendCurrent,
+      isResultCurrent,
     }: {
       amount: string;
       withdrawAll: boolean;
@@ -1041,6 +1002,9 @@ export const WithdrawSection = ({
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
       withdrawType?: IEarnWithdrawType;
+      isActionCurrent?: () => boolean;
+      isSendCurrent?: () => boolean;
+      isResultCurrent?: () => boolean;
     }) => {
       // Nothing was started, so the form keeps what the user typed.
       if (!hasRequiredData) return false;
@@ -1053,6 +1017,7 @@ export const WithdrawSection = ({
 
       return handleWithdraw({
         amount,
+        taskAccountAddress: protocolInfo?.earnAccount?.accountAddress,
         // identity,
         protocolVault: earnUtils.shouldSendEarnProtocolVault({
           providerName,
@@ -1074,6 +1039,9 @@ export const WithdrawSection = ({
         onStepChange,
         onEthenaCooldownUnstakeReady,
         signal: abortController.signal,
+        isActionCurrent,
+        isSendCurrent,
+        isResultCurrent,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Sell : EEarnLabels.Withdraw,
           protocol: earnUtils.getEarnProviderName({
@@ -1096,6 +1064,7 @@ export const WithdrawSection = ({
     [
       hasRequiredData,
       handleWithdraw,
+      protocolInfo?.earnAccount?.accountAddress,
       utm,
       // identity,
       providerName,
@@ -1389,7 +1358,9 @@ export const WithdrawSection = ({
       );
     }
     return (
-      <UniversalWithdraw
+      <EarnWithdrawForm
+        onLegacyApprovalCleared={onLegacyApprovalCleared}
+        isLegacyApprovalBlocked={isLegacyApprovalBlocked}
         accountAddress=""
         price="0"
         balance="0"
@@ -1503,7 +1474,9 @@ export const WithdrawSection = ({
       {isBorrowWithdraw ? (
         borrowWithdrawContent
       ) : (
-        <UniversalWithdraw
+        <EarnWithdrawForm
+          onLegacyApprovalCleared={onLegacyApprovalCleared}
+          isLegacyApprovalBlocked={isLegacyApprovalBlocked}
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
@@ -1512,6 +1485,10 @@ export const WithdrawSection = ({
           networkId={networkId}
           tokenSymbol={effectiveTokenSymbol}
           requestSymbol={withdrawRequestSymbol}
+          amountUnit={amountUnit}
+          withdrawAssetsReady={!!selectedReceiveAsset}
+          withdrawAssetsStatus={withdrawAssetsStatus}
+          onRetryWithdrawAssets={() => void retryWithdrawAssets()}
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
