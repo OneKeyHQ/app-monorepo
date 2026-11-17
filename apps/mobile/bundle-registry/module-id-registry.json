@@ -23621,6 +23621,7 @@
     "packages/kit/src/states/jotai/contexts/accountSelector/activeReloadFailureLog.ts": 10682,
     "packages/kit/src/states/jotai/contexts/accountSelector/atoms.ts": 6859,
     "packages/kit/src/states/jotai/contexts/accountSelector/hardwareWalletActions.ts": 15193,
+    "packages/kit/src/states/jotai/contexts/accountSelector/hardwareWalletSessionUtils.ts": 6029,
     "packages/kit/src/states/jotai/contexts/accountSelector/index.ts": 20968,
     "packages/kit/src/states/jotai/contexts/accountSelector/outcomes.ts": 18114,
     "packages/kit/src/states/jotai/contexts/accountSelector/perfDebug.ts": 7031,
