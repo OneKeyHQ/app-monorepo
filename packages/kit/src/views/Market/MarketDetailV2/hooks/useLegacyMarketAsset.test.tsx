@@ -118,6 +118,29 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => jest.useRealTimers());
+
+it('resolves a legacy native coin through its verified variant when the list uses another symbol', async () => {
+  jest.useFakeTimers();
+  mockSearch.mockResolvedValue([]);
+  mockList.mockResolvedValue({
+    list: [{ assetId: 'bitcoin', symbol: 'XBT' }],
+    total: 1,
+  });
+  const { result } = renderHook(() =>
+    useLegacyMarketAsset({ ...legacyEth, networkId: 'btc--0' }),
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(2000);
+  });
+  expect(result.current.assetParams).toMatchObject({
+    network: 'btc--0',
+    marketTokenId: 'bitcoin',
+    isNative: true,
+  });
+  expect(mockDetail).toHaveBeenCalledTimes(1);
+});
+
 it.each(coins)(
   'resolves an old $symbol favorite using the verified asset variant',
   async (coin) => {

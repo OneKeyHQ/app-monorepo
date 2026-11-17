@@ -200,9 +200,11 @@ export async function resolveSwapMarketAsset(
         typeof item.symbol === 'string' &&
         item.symbol.trim().toUpperCase() === token.symbol.trim().toUpperCase());
     const preferred = items.filter(isPriority);
-    const remaining = options?.searchAndSymbolOnly
-      ? []
-      : items.filter((item) => !isPriority(item));
+    // Native list symbols can differ from the chain symbol; verify their variants.
+    const remaining =
+      options?.searchAndSymbolOnly && !token.isNative
+        ? []
+        : items.filter((item) => !isPriority(item));
     return Promise.any([
       scanItems(preferred, 'preferred'),
       remaining.length
