@@ -43,8 +43,8 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     installLocationFailed: jest.fn().mockResolvedValue(undefined),
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
-    fetchAppUpdateInfoByManual: jest.fn((): Promise<any> =>
-      svc.fetchAppUpdateInfo(true),
+    fetchAppUpdateInfoByManual: jest.fn(
+      (): Promise<any> => svc.fetchAppUpdateInfo(true),
     ),
     refreshUpdateStatus: jest.fn(),
     refreshCurrentFeaturedChangelog: jest.fn().mockResolvedValue(undefined),
