@@ -25,6 +25,7 @@ import {
   useMarketSimpleChartRangePriceChange,
 } from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../../hooks/StockDetailContext';
+import { useSelectedStockTokenTrading } from '../../hooks/useSelectedStockTokenTrading';
 import { useStockPriceSource } from '../../hooks/useStockPriceSource';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
@@ -34,8 +35,6 @@ import {
 import { buildStockInfoFromPublicDetail } from '../../utils/stockPublicDataUtils';
 
 import { resolveDisplayedPriceChange } from './stockMobilePriceChange';
-
-import type { IStockTokenTradingStatus } from '../../../components/PerpsBadges';
 
 function PriceModeButton({
   selected,
@@ -182,16 +181,7 @@ export function StockMobilePriceHeader() {
         selectedTokenVariant?.tradingHours?.isPaused,
     });
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
-  const tokenTrading = useMemo<IStockTokenTradingStatus | undefined>(
-    () =>
-      !isSharePrice && selectedTokenVariant
-        ? {
-            tradingHours: selectedTokenVariant.tradingHours,
-            isPaused: selectedTokenVariant.isPaused,
-          }
-        : undefined,
-    [isSharePrice, selectedTokenVariant],
-  );
+  const tokenTrading = useSelectedStockTokenTrading(!isSharePrice);
   const changeValueText = priceChangeValue?.toFixed();
   const tokenName = stockDetail?.name ?? tokenDetail?.name ?? '';
   const tokenSymbol =

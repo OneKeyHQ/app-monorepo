@@ -39,6 +39,7 @@ import {
   getMarketSimpleChartRangePriceChange,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { useSelectedStockTokenTrading } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useSelectedStockTokenTrading';
 import { MarketDesktopChartContainer } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer';
 import {
   MARKET_CHART_TOOLBAR_HEIGHT,
@@ -129,26 +130,6 @@ function useSwapStockPrice(
       })
     : undefined;
   return { price, percent, change, status };
-}
-
-/**
- * The traded token's own trading status, shown in place of the underlying
- * market's while the token price is on screen, matching the stock detail page.
- */
-function useSwapStockTokenTrading(
-  enabled: boolean,
-): IStockTokenTradingStatus | undefined {
-  const { selectedTokenVariant } = useStockDetail();
-  return useMemo(
-    () =>
-      enabled && selectedTokenVariant
-        ? {
-            tradingHours: selectedTokenVariant.tradingHours,
-            isPaused: selectedTokenVariant.isPaused,
-          }
-        : undefined,
-    [enabled, selectedTokenVariant],
-  );
 }
 
 function StockPrice({
@@ -344,7 +325,7 @@ function SwapStockMarketStatus({
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
   // Mobile trade quotes the token only, so its status is always the token's.
-  const tokenTrading = useSwapStockTokenTrading(true);
+  const tokenTrading = useSelectedStockTokenTrading(true);
   const {
     isStockDetailReady,
     isStockDetailStatusError,
@@ -481,7 +462,7 @@ export function SwapStockMarketPanel() {
   const intl = useIntl();
   const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
-  const tokenTrading = useSwapStockTokenTrading(priceMode === 'token');
+  const tokenTrading = useSelectedStockTokenTrading(priceMode === 'token');
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,

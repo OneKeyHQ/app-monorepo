@@ -208,7 +208,8 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
     showLastUpdate?: boolean;
     tokenTrading?: {
       tradingHours?: { days?: string };
-      isPaused?: boolean;
+      isTradable: boolean;
+      isStale: boolean;
     };
   }) => (
     <div
@@ -218,7 +219,8 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
       data-updated-at={stock?.priceUpdatedAt}
       data-show-last-update={String(showLastUpdate)}
       data-token-days={tokenTrading?.tradingHours?.days ?? 'none'}
-      data-token-paused={String(tokenTrading?.isPaused)}
+      data-token-tradable={String(tokenTrading?.isTradable)}
+      data-token-stale={String(tokenTrading?.isStale)}
     />
   ),
 }));
@@ -770,6 +772,8 @@ describe.each(['mobile', 'desktop', 'web', 'extension'] as const)(
       mockStockDetailState.selectedTokenVariant = {
         tradingHours: { days: '7 × 24', isMarketOpen: true },
         isPaused: false,
+        tradingEnabled: true,
+        status: 'active',
       } as NonNullable<
         ReturnType<typeof useStockDetail>['selectedTokenVariant']
       >;
@@ -783,7 +787,12 @@ describe.each(['mobile', 'desktop', 'web', 'extension'] as const)(
         fireEvent.click(screen.getByTestId('swap-stock-price-mode-token'));
         expect(tokenDays()).toBe('7 × 24');
         expect(
-          screen.getByTestId('stock-status').getAttribute('data-token-paused'),
+          screen
+            .getByTestId('stock-status')
+            .getAttribute('data-token-tradable'),
+        ).toBe('true');
+        expect(
+          screen.getByTestId('stock-status').getAttribute('data-token-stale'),
         ).toBe('false');
         fireEvent.click(screen.getByTestId('swap-stock-price-mode-share'));
         expect(tokenDays()).toBe('none');

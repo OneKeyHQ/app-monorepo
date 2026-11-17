@@ -44,11 +44,13 @@ jest.mock('@onekeyhq/kit/src/hooks/useInterval', () => ({
   useInterval: () => undefined,
 }));
 
+const mockFormatDuration = jest.fn((_duration: unknown) => 'opens in 6h');
+
 jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
   __esModule: true,
   default: () => ({
     formatDate: () => '',
-    formatDuration: () => 'opens in 6h',
+    formatDuration: (duration: unknown) => mockFormatDuration(duration),
   }),
 }));
 
@@ -241,6 +243,8 @@ describe('StockMarketStatusBadge token price mode', () => {
         showLastUpdate
         tokenTrading={{
           tradingHours: { days: '7 × 24', isMarketOpen: true },
+          isTradable: true,
+          isStale: false,
         }}
       />,
     );
@@ -273,6 +277,8 @@ describe('StockMarketStatusBadge token price mode', () => {
         showLastUpdate
         tokenTrading={{
           tradingHours: { days: '5 × 24', isMarketOpen: false },
+          isTradable: true,
+          isStale: false,
         }}
       />,
     );
@@ -291,13 +297,105 @@ describe('StockMarketStatusBadge token price mode', () => {
         stock={stock}
         variant="inline"
         tokenTrading={{
-          tradingHours: { days: '7 × 24', isMarketOpen: true },
-          isPaused: true,
+          tradingHours: { days: '7 × 24', isMarketOpen: true, isPaused: true },
+          isTradable: false,
+          isStale: false,
         }}
       />,
     );
     expect(
       screen.getByText(ETranslations.trading_hours_trading_halts),
     ).toBeTruthy();
+  });
+
+  it('reports a disabled 7×24 token as halted instead of trading', () => {
+    render(
+      <StockMarketStatusBadge
+        stock={stock}
+        variant="inline"
+        tokenTrading={{
+          tradingHours: { days: '7 × 24', isMarketOpen: true },
+          isTradable: false,
+          isStale: false,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(ETranslations.trading_hours_trading_halts),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(ETranslations.market_token_trading__title),
+    ).toBeNull();
+  });
+
+  it('ignores a cached open flag after the token list fails to refresh', () => {
+    jest.useFakeTimers();
+    // Saturday noon New York: the US market is closed for the weekend.
+    jest.setSystemTime(new Date('2026-01-17T17:00:00Z'));
+    render(
+      <StockMarketStatusBadge
+        stock={stock}
+        variant="inline"
+        tokenTrading={{
+          tradingHours: { days: '5 × 24', isMarketOpen: true },
+          isTradable: true,
+          isStale: true,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(ETranslations.trading_hours_market_closed),
+    ).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it("counts down with the token's own next open, not the listing's", () => {
+    mockFormatDuration.mockClear();
+    render(
+      <StockMarketStatusBadge
+        stock={{
+          ...stock,
+          nextOpenMinutes: undefined,
+          // The listing reopens much later than the token.
+          nextOpenTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        }}
+        variant="inline"
+        tokenTrading={{
+          tradingHours: {
+            days: '5 × 24',
+            isMarketOpen: false,
+            nextOpenMinutes: 60,
+          },
+          isTradable: true,
+          isStale: false,
+        }}
+      />,
+    );
+    expect(mockFormatDuration).toHaveBeenLastCalledWith({
+      hours: 1,
+      minutes: 0,
+    });
+  });
+
+  it('keeps a closed token out of the listing trading-hours panel', async () => {
+    mockResolveVariant.mockReturnValue(EUSMarketStatusVariant.Open);
+    render(
+      <StockMarketStatusBadge
+        stock={{ ...stock, isOpen: true }}
+        variant="inline"
+        tokenTrading={{
+          tradingHours: { days: '5 × 24', isMarketOpen: false },
+          isTradable: true,
+          isStale: false,
+        }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByText(ETranslations.trading_hours_market_closed),
+    );
+    await act(async () => {
+      await import('@onekeyhq/kit/src/components/TradingHoursPanel');
+    });
+    expect(mockShowTradingHoursDialog).not.toHaveBeenCalled();
   });
 });

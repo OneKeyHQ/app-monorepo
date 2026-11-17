@@ -631,7 +631,8 @@ export type IStockTokenTradingHours = {
  * Status of the selected token itself, used when the detail page shows the
  * token price. A single selected token follows a single rule, so unlike the
  * market chip this states whether that token trades now:
- *   - paused → Halted;
+ *   - paused or otherwise not tradable (disabled, inactive) → Halted;
+ *   - an explicit `isMarketOpen: false` → Closed, whatever the schedule says;
  *   - 7×24 → TokenTradable;
  *   - otherwise (Ondo 24/5) the token's own `isMarketOpen` decides, since it
  *     describes this token rather than the listing;
@@ -645,27 +646,31 @@ export type IStockTokenTradingHours = {
 export function resolveStockTokenStatusVariant({
   tradingHours,
   isPaused,
+  isTradingDisabled,
   status,
   now = new Date(),
 }: {
   tradingHours?: IStockTokenTradingHours;
   isPaused?: boolean;
+  /** The token is disabled or inactive, so it cannot trade on any schedule. */
+  isTradingDisabled?: boolean;
   status?: IFetchUSMarketStatusResult;
   now?: Date;
 }): EUSMarketStatusVariant | undefined {
   if (!tradingHours) {
     return undefined;
   }
-  if (isPaused || tradingHours.isPaused) {
+  if (isPaused || isTradingDisabled || tradingHours.isPaused) {
     return EUSMarketStatusVariant.Halted;
+  }
+  if (tradingHours.isMarketOpen === false) {
+    return EUSMarketStatusVariant.Closed;
   }
   if (isAlwaysOpenTradingDays(tradingHours.days)) {
     return EUSMarketStatusVariant.TokenTradable;
   }
-  if (typeof tradingHours.isMarketOpen === 'boolean') {
-    return tradingHours.isMarketOpen
-      ? EUSMarketStatusVariant.TokenTradable
-      : EUSMarketStatusVariant.Closed;
+  if (tradingHours.isMarketOpen === true) {
+    return EUSMarketStatusVariant.TokenTradable;
   }
   const marketVariant = resolveUSMarketStatusVariant({
     // A 24/5 token is closed whenever the US market is, so it reads like a

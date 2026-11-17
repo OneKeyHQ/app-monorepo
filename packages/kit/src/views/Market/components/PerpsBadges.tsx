@@ -475,12 +475,18 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
  */
 export type IStockTokenTradingStatus = {
   tradingHours?: IMarketStockTokenVariant['tradingHours'];
-  isPaused?: boolean;
+  /** False when the token is paused, disabled or inactive. */
+  isTradable: boolean;
+  /**
+   * The token list failed to refresh and still holds the last response, so
+   * the token's open flag and next open describe the past.
+   */
+  isStale: boolean;
 };
 
 type IResolvedStockTokenStatus = {
   variant: EUSMarketStatusVariant | undefined;
-  /** Explains the tradable state; other states open the trading-hours panel. */
+  /** Explains the tradable state; the other token states stay inline. */
   description?: string;
   nextOpenTime?: string;
   nextOpenMinutes?: number;
@@ -491,28 +497,46 @@ function useStockTokenStatus(
   stock: IMarketStockInfo | undefined,
 ): IResolvedStockTokenStatus | undefined {
   const intl = useIntl();
-  const tradingHours = tokenTrading?.tradingHours;
+  const rawTradingHours = tokenTrading?.tradingHours;
+  const isStale = Boolean(tokenTrading?.isStale);
+  // A failed refresh keeps the cached token, but not its live fields: the
+  // schedule still holds, while the open flag and next open fall back to the
+  // US session like a token that never sent them.
+  const tradingHours = useMemo(
+    () =>
+      rawTradingHours && isStale
+        ? { days: rawTradingHours.days, isPaused: rawTradingHours.isPaused }
+        : rawTradingHours,
+    [isStale, rawTradingHours],
+  );
+  const isTradingDisabled = tokenTrading ? !tokenTrading.isTradable : false;
   // Only a 24/5 token that reports no open flag of its own falls back to the
   // US session.
   const marketStatus = useUSMarketStatus({
     enabled:
       Boolean(tradingHours) &&
+      !isTradingDisabled &&
       !isAlwaysOpenTradingDays(tradingHours?.days) &&
       typeof tradingHours?.isMarketOpen !== 'boolean',
   });
-  const isPaused = tokenTrading?.isPaused;
   const variant = useMemo(
     () =>
       resolveStockTokenStatusVariant({
         tradingHours,
-        isPaused,
+        isTradingDisabled,
         status: marketStatus,
       }),
-    [isPaused, marketStatus, tradingHours],
+    [isTradingDisabled, marketStatus, tradingHours],
   );
   if (!tokenTrading || !tradingHours || !variant) {
     return undefined;
   }
+  // Take the next open as one set: the countdown prefers a timestamp, so
+  // mixing the token's minutes with the listing's timestamp would show the
+  // listing's reopening instead of the token's.
+  const hasTokenNextOpen =
+    Boolean(tradingHours.nextOpenTime) ||
+    typeof tradingHours.nextOpenMinutes === 'number';
   return {
     variant,
     description:
@@ -523,8 +547,12 @@ function useStockTokenStatus(
         : undefined,
     // A 24/5 token reopens with the US overnight session, which is what the
     // listing's next open reports when the token sends none of its own.
-    nextOpenTime: tradingHours.nextOpenTime ?? stock?.nextOpenTime,
-    nextOpenMinutes: tradingHours.nextOpenMinutes ?? stock?.nextOpenMinutes,
+    nextOpenTime: hasTokenNextOpen
+      ? tradingHours.nextOpenTime
+      : stock?.nextOpenTime,
+    nextOpenMinutes: hasTokenNextOpen
+      ? tradingHours.nextOpenMinutes
+      : stock?.nextOpenMinutes,
   };
 }
 
@@ -899,6 +927,18 @@ const StockMarketStatusBadge = memo(
         </Stack>
       ) : (
         tradableTrigger
+      );
+    }
+    if (tokenStatus) {
+      // A closed or halted token says nothing about the listing's sessions,
+      // which can be open meanwhile, so it does not open the listing's
+      // trading-hours panel; the inline countdown carries the reopening.
+      return variant === 'inline' ? (
+        <Stack onLayout={handleLayout}>
+          <Stack alignSelf="flex-start">{trigger}</Stack>
+        </Stack>
+      ) : (
+        trigger
       );
     }
     if (stock.isUSListing === false) {

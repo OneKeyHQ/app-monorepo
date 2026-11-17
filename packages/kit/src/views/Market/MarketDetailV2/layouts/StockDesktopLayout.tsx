@@ -71,6 +71,7 @@ import {
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
 import { useMarketDetailTabMinHeight } from '../hooks/useMarketDetailTabMinHeight';
+import { useSelectedStockTokenTrading } from '../hooks/useSelectedStockTokenTrading';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -106,8 +107,6 @@ import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
 } from './stockDesktopLayoutConstants';
-
-import type { IStockTokenTradingStatus } from '../../components/PerpsBadges';
 
 type IStockDetailTab = 'overview' | 'position';
 
@@ -366,16 +365,7 @@ function StockPriceHeader({
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
   // The token price follows the token selected in the trade panel, so its
   // status does too: switching to a 24/5 token outside its hours reads closed.
-  const tokenTrading = useMemo<IStockTokenTradingStatus | undefined>(
-    () =>
-      !isSharePrice && selectedTokenVariant
-        ? {
-            tradingHours: selectedTokenVariant.tradingHours,
-            isPaused: selectedTokenVariant.isPaused,
-          }
-        : undefined,
-    [isSharePrice, selectedTokenVariant],
-  );
+  const tokenTrading = useSelectedStockTokenTrading(!isSharePrice);
 
   const changeValueText = priceChangeValue?.toFixed();
 

@@ -711,6 +711,24 @@ describe('resolveStockTokenStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.TokenTradable);
   });
 
+  it('lets an explicit closed flag override an always-open schedule', () => {
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '7 × 24', isMarketOpen: false },
+        status: status('REGULAR'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+  });
+
+  it('reads a disabled or inactive token as halted on any schedule', () => {
+    expect(
+      resolveStockTokenStatusVariant({
+        tradingHours: { days: '7 × 24', isMarketOpen: true },
+        isTradingDisabled: true,
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+  });
+
   it('reads a paused token as halted', () => {
     expect(
       resolveStockTokenStatusVariant({
