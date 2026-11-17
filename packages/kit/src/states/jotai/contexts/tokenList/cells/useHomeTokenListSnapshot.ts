@@ -213,7 +213,11 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
   );
 
   return useMemo(
-    () => (result?.cacheKey === expectedCacheKey ? result : EMPTY_SNAPSHOT),
-    [expectedCacheKey, result],
+    () =>
+      result?.cacheKey === expectedCacheKey &&
+      (!replaySlotId || !result?.slotId || result.slotId === replaySlotId)
+        ? result
+        : EMPTY_SNAPSHOT,
+    [expectedCacheKey, replaySlotId, result],
   );
 }

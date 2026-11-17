@@ -1415,7 +1415,36 @@ describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
     expect(aggSnapshot.slotId).toBe('slot-1');
 
     // 2. A risky frame arrives in a later round without bumping structure.riskyCount:
-    // fast path must return undefined so the caller falls back to the BG pull.
+    // fast path must return undefined AND fetchHomeTokenListSnapshot must invalidate
+    // the cached `OWNER_A@0` promise and fall back to the BG pull.
+    const bgProxy = jest.requireMock(
+      '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+    ) as {
+      default: {
+        serviceTokenViewModel: {
+          getRawTokenList: jest.Mock;
+          getAllTokenListMap: jest.Mock;
+        };
+      };
+    };
+    bgProxy.default.serviceTokenViewModel.getRawTokenList.mockResolvedValueOnce(
+      {
+        ownerKey: OWNER_A,
+        tokens: [
+          { ...makeToken({ symbol: 'ETH' }), $key: 'aggregate_ETH_' },
+          { ...makeToken({ symbol: 'SCAM' }), $key: 'scam_1' },
+        ],
+        keys: 'aggregate_ETH___scam_1',
+        accountId: 'acc-1',
+        networkId: 'all--0',
+      },
+    );
+    bgProxy.default.serviceTokenViewModel.getAllTokenListMap.mockResolvedValueOnce(
+      {
+        aggregate_ETH_: makeFiat({ balance: '1.5', fiatValue: '3000' }),
+        scam_1: makeFiat({ balance: '100', fiatValue: '0' }),
+      },
+    );
     rememberOwnerReplayFrame({
       storeName: STORE_NAME,
       ownerKey: OWNER_A,
@@ -1443,6 +1472,11 @@ describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
         generation: 0,
       }),
     ).toBeUndefined();
+    const afterRiskySnapshot = await fetchHomeTokenListSnapshot(OWNER_A, 0);
+    expect(afterRiskySnapshot.tokens.map((t) => t.$key)).toEqual([
+      'aggregate_ETH_',
+      'scam_1',
+    ]);
 
     // 3. BG slot is evicted by LRU prewarm and recreated as `slot-2` at generation 0
     // (with no risky tokens and updated balance):
