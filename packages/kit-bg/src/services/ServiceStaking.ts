@@ -425,13 +425,16 @@ class ServiceStaking extends ServiceBase {
     const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
-    const registeredProtocol = await this._getValidatedEarnProtocol({
-      networkId,
-      accountId,
-      provider,
-      symbol,
-      vault: protocolVault,
-    });
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      {
+        networkId,
+        accountId,
+        provider,
+        symbol,
+        vault: protocolVault,
+      },
+      'deposit',
+    );
 
     // Determine publicKey: Stakefish validator pubkey takes priority
     let publicKey: string | undefined;
@@ -726,14 +729,18 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
-  private async _getValidatedEarnProtocol(params: {
-    networkId: string;
-    provider: string;
-    symbol: string;
-    vault?: string;
-    accountId?: string;
-    indexedAccountId?: string;
-  }) {
+  /** Match registered vaults for position access and enforce deposit eligibility before spending. */
+  private async _getValidatedEarnProtocol(
+    params: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    intent: 'position' | 'deposit',
+  ) {
     if (
       !earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
     )
@@ -745,6 +752,7 @@ class ServiceStaking extends ServiceBase {
       networkId: params.networkId,
       filterNetworkId: params.networkId,
       includeWithdrawOnly: true,
+      skipStakingConfigFilter: intent === 'position',
     });
     const protocol = earnUtils.findEarnProtocol({
       protocols,
@@ -752,7 +760,13 @@ class ServiceStaking extends ServiceBase {
       providerName: params.provider,
       protocolVault: params.vault,
     });
-    if (!protocol) throw new OneKeyLocalError('Earn protocol is unavailable');
+    if (
+      !protocol ||
+      (intent === 'deposit' &&
+        protocol.provider.group === EStakeProtocolGroupEnum.WithdrawOnly)
+    ) {
+      throw new OneKeyLocalError('Earn protocol is unavailable');
+    }
     return protocol;
   }
 
@@ -768,7 +782,10 @@ class ServiceStaking extends ServiceBase {
     tokenAddress: string;
     spenderAddress: string;
   }) {
-    const protocol = await this._getValidatedEarnProtocol(params);
+    const protocol = await this._getValidatedEarnProtocol(
+      params,
+      params.action === 'stake' ? 'deposit' : 'position',
+    );
     const vault = protocol?.provider.vault ?? params.vault;
     const query = {
       networkId: params.networkId,
@@ -869,7 +886,10 @@ class ServiceStaking extends ServiceBase {
       kycAccountAddress?: string;
     } = { networkId, ...rest };
 
-    const registeredProtocol = await this._getValidatedEarnProtocol(params);
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      params,
+      'position',
+    );
     if (registeredProtocol)
       requestParams.vault = registeredProtocol.provider.vault;
 
@@ -943,7 +963,10 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
     accountId: string;
   }) {
-    const registeredProtocol = await this._getValidatedEarnProtocol(params);
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      params,
+      'position',
+    );
     const protocolVault = registeredProtocol?.provider.vault ?? params.vault;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {

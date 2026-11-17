@@ -5,7 +5,14 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceStaking: {
+      getEarnAccount: jest.fn(),
+      getManagePage: jest.fn(),
+      getProtocolList: jest.fn(),
+      getStakingConfigs: jest.fn(),
+    },
+  },
 }));
 jest.mock('../../../utils/utils', () => ({
   buildLocalTxStatusSyncId: () => 'test-tag',
@@ -13,6 +20,7 @@ jest.mock('../../../utils/utils', () => ({
 
 import { renderHook } from '@testing-library/react-native';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 
@@ -37,6 +45,7 @@ function response(selection = params) {
   return {
     result: {
       requestKey: buildManagePageRequestKey(selection),
+      depositsEnabled: true,
       protocolList: [
         {
           network: { networkId: 'evm--56' },
@@ -88,6 +97,39 @@ it('drops the previous approval synchronously when switching account or vault', 
   expect(result.current.tokenInfo).toBeUndefined();
   rerender({ ...params, vault: attacker });
   expect(result.current.protocolInfo).toBeUndefined();
+});
+it('loads a disabled position from the registered catalog and disables only deposits', async () => {
+  const staking = jest.mocked(backgroundApiProxy.serviceStaking);
+  staking.getEarnAccount.mockResolvedValue({
+    accountAddress: vault,
+  } as NonNullable<Awaited<ReturnType<typeof staking.getEarnAccount>>>);
+  staking.getManagePage.mockResolvedValue({
+    deposit: { disabled: false },
+    withdraw: { disabled: false },
+  } as Awaited<ReturnType<typeof staking.getManagePage>>);
+  staking.getProtocolList.mockImplementation(
+    async ({ includeWithdrawOnly, skipStakingConfigFilter }) =>
+      includeWithdrawOnly && skipStakingConfigFilter
+        ? ([
+            {
+              network: { networkId: params.networkId },
+              provider: { name: params.provider, vault },
+            },
+          ] as Awaited<ReturnType<typeof staking.getProtocolList>>)
+        : [],
+  );
+  staking.getStakingConfigs.mockResolvedValue({ enabled: false } as NonNullable<
+    Awaited<ReturnType<typeof staking.getStakingConfigs>>
+  >);
+  const hook = jest.mocked(usePromiseResult);
+  hook.mockReturnValue(response());
+  const { result, rerender } = renderHook(() => useManagePage(params));
+  const fetched = await hook.mock.lastCall![0]();
+  hook.mockReturnValue({ ...response(), result: fetched });
+  rerender({});
+  expect(result.current.protocolInfo?.vault).toBe(vault);
+  expect(result.current.depositDisabled).toBe(true);
+  expect(result.current.withdrawDisabled).toBe(false);
 });
 it('keeps the registered vault when the URL uses checksum casing', () => {
   const selection = { ...params, vault: vault.toUpperCase() };

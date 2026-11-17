@@ -1,5 +1,8 @@
 import { PendleRouterContract } from '@onekeyhq/shared/src/consts/addresses';
-import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  EStakeProtocolGroupEnum,
+} from '@onekeyhq/shared/types/staking';
 import type {
   IEarnManagePageResponse,
   IStakeProtocolListItem,
@@ -51,7 +54,7 @@ function harness(provider = 'Unitas', target = vault) {
     provider: {
       name: provider,
       vault,
-      group: EStakeProtocolGroupEnum.WithdrawOnly,
+      group: EStakeProtocolGroupEnum.Available,
     },
   } as IStakeProtocolListItem;
   const getProtocolList = jest
@@ -102,6 +105,74 @@ describe('Earn approval boundary', () => {
       expect.objectContaining({ params: expect.objectContaining({ vault }) }),
     );
   });
+  it.each([
+    { enabled: false, group: EStakeProtocolGroupEnum.Available },
+    { enabled: true, group: EStakeProtocolGroupEnum.WithdrawOnly },
+  ])(
+    'allows exits but blocks deposits for a registered vault with enabled=$enabled and group=$group',
+    async ({ enabled, group }) => {
+      const { service, getProtocolList, protocol } = harness();
+      getProtocolList.mockRestore();
+      jest
+        .spyOn(service, '_getProtocolList')
+        .mockResolvedValue([
+          { ...protocol, provider: { ...protocol.provider, group } },
+        ]);
+      jest
+        .spyOn(service, 'getStakingConfigs')
+        .mockResolvedValue({ enabled } as NonNullable<
+          Awaited<ReturnType<ServiceStaking['getStakingConfigs']>>
+        >);
+      jest.spyOn(vaultFactory, 'getVault').mockResolvedValue({
+        getAccount: async () => ({ address: account }),
+      } as unknown as Awaited<ReturnType<typeof vaultFactory.getVault>>);
+      jest.spyOn(service, 'getClaimableList').mockResolvedValue({
+        token: {
+          name: 'USDu',
+          symbol: 'USDu',
+          address: receipt,
+          decimals: 18,
+          isNative: false,
+        },
+        items: [],
+        claimApprove: {
+          approveType: EApproveType.Legacy,
+          approveTarget: vault,
+          tokenAddress: receipt,
+          symbol: 'USDu',
+          decimals: 18,
+        },
+      });
+
+      await expect(service.getProtocolDetails(query)).resolves.toBeDefined();
+      await expect(
+        service.getManagePage({ ...query, accountAddress: account }),
+      ).resolves.toBeDefined();
+      for (const action of ['unstake', 'claim'] as const) {
+        const request = { ...approval, action, tokenAddress: receipt };
+        await expect(
+          service.assertEarnApproval(request),
+        ).resolves.toBeUndefined();
+        await expect(
+          service.assertEarnApproval({ ...request, vault: attacker }),
+        ).rejects.toThrow('Earn protocol is unavailable');
+        await expect(
+          service.assertEarnApproval({ ...request, spenderAddress: attacker }),
+        ).rejects.toThrow();
+      }
+      await expect(service.assertEarnApproval(approval)).rejects.toThrow(
+        'Earn protocol is unavailable',
+      );
+      await expect(
+        service.buildStakeTransaction({
+          ...query,
+          protocolVault: vault,
+          amount: '1',
+        }),
+      ).rejects.toThrow('Earn protocol is unavailable');
+    },
+  );
+
   it('does not accept an ambiguous omitted vault or an unavailable catalog', async () => {
     const { service, getProtocolList, protocol } = harness();
     getProtocolList
