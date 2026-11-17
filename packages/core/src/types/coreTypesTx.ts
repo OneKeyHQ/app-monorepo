@@ -109,6 +109,9 @@ export type IUnsignedTxPro = IUnsignedTx & {
   solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
   // Additional SOL funded by this wallet for ATA creation, outside network fees.
   solanaRent?: string;
+  // On-chain rent of the token accounts a transfer creates, shown as the
+  // account rent. Unset when the lookup failed; '0' when none is funded.
+  solanaCreateTokenAccountRent?: string;
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   feesInfo?: IFeesInfoUnit | undefined;
