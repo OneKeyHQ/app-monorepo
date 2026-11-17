@@ -219,7 +219,9 @@ function FundingTooltipRow({
 }
 
 function FundingChartPanel({
+  testID,
   data,
+  isLoading,
   label,
   tooltipLabel,
   description,
@@ -235,7 +237,9 @@ function FundingChartPanel({
   legendPositiveLabel,
   legendNegativeLabel,
 }: {
+  testID: string;
   data: IMarketTokenChart;
+  isLoading: boolean;
   label: string;
   tooltipLabel: string;
   description: string;
@@ -254,6 +258,7 @@ function FundingChartPanel({
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const isMobile = variant === 'mobile';
+  const hasData = data.length > 1;
   const [chartWidth, setChartWidth] = useState(0);
   const [hoveredData, setHoveredData] = useState<
     IFundingChartHoverData | undefined
@@ -341,6 +346,7 @@ function FundingChartPanel({
 
   return (
     <YStack
+      testID={testID}
       flexGrow={isMobile ? 0 : 1}
       flexShrink={isMobile ? 0 : 1}
       flexBasis={isMobile ? undefined : 480}
@@ -389,30 +395,46 @@ function FundingChartPanel({
           setChartWidth(nextWidth);
         }}
       >
-        <LightweightChart
-          data={data}
-          height={PERP_DATA_CHART_HEIGHT}
-          lineColor={palette.positive}
-          lineWidth={isMobile ? lineWidth : Math.max(lineWidth, 2)}
-          showPriceScale
-          priceScalePosition="left"
-          showHorzGridLines
-          priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
-          priceScaleMinimumWidth={priceScaleMinimumWidth}
-          priceFormatter={formatFundingPercent}
-          priceFormatterPrecision={4}
-          fontSize={isMobile ? MOBILE_CHART_FONT_SIZE : DESKTOP_CHART_FONT_SIZE}
-          seriesType="baseline"
-          baselineOptions={baselineOptions}
-          showLastValue={showLastValue}
-          showTimeScale
-          timeZone={timeZone}
-          locale={intl.locale}
-          hideCrosshairPriceLabel
-          preserveChartInstanceOnDataChange
-          onHover={handleChartHover}
-        />
-        {hoveredData && tooltipPosition ? (
+        {hasData ? (
+          <LightweightChart
+            data={data}
+            height={PERP_DATA_CHART_HEIGHT}
+            lineColor={palette.positive}
+            lineWidth={isMobile ? lineWidth : Math.max(lineWidth, 2)}
+            showPriceScale
+            priceScalePosition="left"
+            showHorzGridLines
+            priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
+            priceScaleMinimumWidth={priceScaleMinimumWidth}
+            priceFormatter={formatFundingPercent}
+            priceFormatterPrecision={4}
+            fontSize={
+              isMobile ? MOBILE_CHART_FONT_SIZE : DESKTOP_CHART_FONT_SIZE
+            }
+            seriesType="baseline"
+            baselineOptions={baselineOptions}
+            showLastValue={showLastValue}
+            showTimeScale
+            timeZone={timeZone}
+            locale={intl.locale}
+            hideCrosshairPriceLabel
+            preserveChartInstanceOnDataChange
+            onHover={handleChartHover}
+          />
+        ) : (
+          <YStack flex={1} alignItems="center" justifyContent="center">
+            {isLoading ? (
+              <Spinner />
+            ) : (
+              <SizableText textAlign="center" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_rate_history_empty__desc,
+                })}
+              </SizableText>
+            )}
+          </YStack>
+        )}
+        {hasData && hoveredData && tooltipPosition ? (
           <YStack
             position="absolute"
             zIndex={100}
@@ -534,10 +556,7 @@ export function PerpFundingChart({
       }),
     [chartPalette],
   );
-  const isInitialLoading =
-    fundingHistory.isLoading !== false && fundingRateData.length === 0;
-  const isEmpty =
-    fundingHistory.isLoading === false && fundingRateData.length < 2;
+  const isFundingLoading = fundingHistory.isLoading !== false;
   const content = (
     <YStack
       width="100%"
@@ -547,74 +566,68 @@ export function PerpFundingChart({
       pb="$4"
     >
       <YStack alignItems="stretch" justifyContent="flex-start">
-        {isInitialLoading ? <Spinner size="large" /> : null}
-        {isEmpty ? (
-          <SizableText textAlign="center" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_funding_rate_history_empty__desc,
+        <XStack
+          width="100%"
+          gap={isMobile ? '$8' : '$5'}
+          alignItems="stretch"
+          flexDirection={isMobile ? 'column' : 'row'}
+          flexWrap={isMobile ? 'nowrap' : 'wrap'}
+        >
+          <FundingChartPanel
+            testID="perp-funding-rate-chart"
+            data={fundingRateData}
+            isLoading={isFundingLoading}
+            label={intl.formatMessage({
+              id: ETranslations.perp_funding_rate_history__title,
             })}
-          </SizableText>
-        ) : null}
-        {fundingRateData.length > 1 ? (
-          <XStack
-            width="100%"
-            gap={isMobile ? '$8' : '$5'}
-            alignItems="stretch"
-            flexDirection={isMobile ? 'column' : 'row'}
-            flexWrap={isMobile ? 'nowrap' : 'wrap'}
-          >
-            <FundingChartPanel
-              data={fundingRateData}
-              label={intl.formatMessage({
-                id: ETranslations.perp_funding_rate_history__title,
-              })}
-              tooltipLabel={intl.formatMessage({
-                id: ETranslations.perp_funding_rate_short__title,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.perp_funding_rate_chart__desc,
-              })}
-              interval={fundingInterval}
-              onIntervalChange={setFundingInterval}
-              palette={chartPalette}
-              baselineOptions={baselineOptions}
-              showLastValue={false}
-              timeZone={timeZone}
-              variant={variant}
-              legendPositiveLabel={intl.formatMessage({
-                id: ETranslations.perp_positive_funding_rate__label,
-              })}
-              legendNegativeLabel={intl.formatMessage({
-                id: ETranslations.perp_negative_funding_rate__label,
-              })}
-            />
-            <FundingChartPanel
-              data={cumulativeFundingRateData}
-              label={intl.formatMessage({
-                id: ETranslations.perp_cumulative_funding_rate__title,
-              })}
-              tooltipLabel={intl.formatMessage({
-                id: ETranslations.perp_cumulative_funding_rate_short__title,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.perp_cumulative_funding_rate_chart__desc,
-              })}
-              interval={cumulativeInterval}
-              onIntervalChange={setCumulativeInterval}
-              palette={chartPalette}
-              baselineOptions={baselineOptions}
-              periodFundingRateData={cumulativePeriodFundingRateData}
-              timeZone={timeZone}
-              variant={variant}
-              legendPositiveLabel={intl.formatMessage({
-                id: ETranslations.perp_positive_funding_rate__label,
-              })}
-              legendNegativeLabel={intl.formatMessage({
-                id: ETranslations.perp_negative_funding_rate__label,
-              })}
-            />
-          </XStack>
-        ) : null}
+            tooltipLabel={intl.formatMessage({
+              id: ETranslations.perp_funding_rate_short__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.perp_funding_rate_chart__desc,
+            })}
+            interval={fundingInterval}
+            onIntervalChange={setFundingInterval}
+            palette={chartPalette}
+            baselineOptions={baselineOptions}
+            showLastValue={false}
+            timeZone={timeZone}
+            variant={variant}
+            legendPositiveLabel={intl.formatMessage({
+              id: ETranslations.perp_positive_funding_rate__label,
+            })}
+            legendNegativeLabel={intl.formatMessage({
+              id: ETranslations.perp_negative_funding_rate__label,
+            })}
+          />
+          <FundingChartPanel
+            testID="perp-cumulative-funding-rate-chart"
+            data={cumulativeFundingRateData}
+            isLoading={isFundingLoading}
+            label={intl.formatMessage({
+              id: ETranslations.perp_cumulative_funding_rate__title,
+            })}
+            tooltipLabel={intl.formatMessage({
+              id: ETranslations.perp_cumulative_funding_rate_short__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.perp_cumulative_funding_rate_chart__desc,
+            })}
+            interval={cumulativeInterval}
+            onIntervalChange={setCumulativeInterval}
+            palette={chartPalette}
+            baselineOptions={baselineOptions}
+            periodFundingRateData={cumulativePeriodFundingRateData}
+            timeZone={timeZone}
+            variant={variant}
+            legendPositiveLabel={intl.formatMessage({
+              id: ETranslations.perp_positive_funding_rate__label,
+            })}
+            legendNegativeLabel={intl.formatMessage({
+              id: ETranslations.perp_negative_funding_rate__label,
+            })}
+          />
+        </XStack>
         <PerpOiChart coin={coin} isActive={isActive} isMobile={isMobile} />
       </YStack>
     </YStack>

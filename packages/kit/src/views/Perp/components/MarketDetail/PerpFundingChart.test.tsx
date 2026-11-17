@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -121,7 +121,7 @@ jest.mock('../../hooks/usePerpMarketDetail', () => ({
 }));
 
 jest.mock('./PerpOiChart', () => ({
-  PerpOiChart: () => null,
+  PerpOiChart: () => <div data-testid="perp-open-interest-chart" />,
 }));
 
 const FUNDING_HISTORY = [
@@ -155,20 +155,44 @@ describe('PerpFundingChart', () => {
     });
   });
 
-  it('shows loading instead of the empty state before the first request starts', () => {
+  it('renders all three cards before funding history arrives', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: [],
       isLoading: undefined,
       setStopPolling: mockSetStopPolling,
     });
 
-    render(<PerpFundingChart coin="BTC" variant="mobile" />);
+    const { rerender } = render(
+      <PerpFundingChart coin="BTC" variant="mobile" />,
+    );
 
-    expect(screen.getByTestId('funding-chart-loading')).toBeTruthy();
+    const funding = screen.getByTestId('perp-funding-rate-chart');
+    const cumulative = screen.getByTestId('perp-cumulative-funding-rate-chart');
+    expect(screen.getByTestId('perp-open-interest-chart')).toBeTruthy();
+    expect(within(funding).getByTestId('funding-chart-loading')).toBeTruthy();
+    expect(
+      within(cumulative).getByTestId('funding-chart-loading'),
+    ).toBeTruthy();
     expect(screen.queryByText(FUNDING_HISTORY_EMPTY_DESCRIPTION)).toBeNull();
+    expect(mockLightweightChart).not.toHaveBeenCalled();
+
+    mockUsePerpFundingHistory.mockReturnValue({
+      result: FUNDING_HISTORY,
+      isLoading: false,
+      setStopPolling: mockSetStopPolling,
+    });
+    rerender(<PerpFundingChart coin="BTC" variant="mobile" />);
+
+    expect(screen.getByTestId('perp-funding-rate-chart')).toBe(funding);
+    expect(screen.getByTestId('perp-cumulative-funding-rate-chart')).toBe(
+      cumulative,
+    );
+    expect(within(funding).getByTestId('funding-chart')).toBeTruthy();
+    expect(within(cumulative).getByTestId('funding-chart')).toBeTruthy();
+    expect(screen.queryByTestId('funding-chart-loading')).toBeNull();
   });
 
-  it('uses a funding-specific empty message after an empty response', () => {
+  it('shows a funding-specific empty state in each card after an empty response', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: [],
       isLoading: false,
@@ -177,7 +201,9 @@ describe('PerpFundingChart', () => {
 
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
 
-    expect(screen.getByText(FUNDING_HISTORY_EMPTY_DESCRIPTION)).toBeTruthy();
+    expect(screen.getAllByText(FUNDING_HISTORY_EMPTY_DESCRIPTION)).toHaveLength(
+      2,
+    );
     expect(
       screen.queryByText(ETranslations.perp_market_info_data_unavailable__desc),
     ).toBeNull();
@@ -290,6 +316,16 @@ describe('PerpFundingChart', () => {
 
     fireEvent.click(screen.getAllByText('D')[0]);
     expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
+    expect(
+      within(screen.getByTestId('perp-funding-rate-chart')).getByText(
+        FUNDING_HISTORY_EMPTY_DESCRIPTION,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId('perp-cumulative-funding-rate-chart'),
+      ).getByTestId('funding-chart'),
+    ).toBeTruthy();
     expect(
       new Set(mockUsePerpFundingHistory.mock.calls.map(([, range]) => range)),
     ).toEqual(new Set(['90d']));
