@@ -5,6 +5,7 @@ import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import platformEnv from '../../platformEnv';
+import { DEFAULT_IP_TABLE_CONFIG } from '../constants/ipTableDefaults';
 import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
@@ -158,12 +159,24 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     jest.clearAllMocks();
   });
 
-  test.each(['ios', 'android'])(
-    '%s main stops using a cached normal selection after bg revokes it',
-    async (platform) => {
+  test.each(
+    ['ios', 'android'].flatMap((platform) =>
+      ['config', 'selection', 'reset', 'disabled'].map((change) => ({
+        platform,
+        change,
+      })),
+    ),
+  )(
+    '$platform main drops its cached route after bg changes $change',
+    async ({ platform, change }) => {
       const initial = await mockedRequestHelper.getIpTableConfig();
       if (!initial?.runtime)
         throw new OneKeyLocalError('expected runtime fixture');
+      const nextIp = '198.51.100.42';
+      initial.config.domains['example.com'].endpoints.push({
+        ...initial.config.domains['example.com'].endpoints[0],
+        ip: nextIp,
+      });
       resetAdapterFailoverStatesForTesting();
       jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
       jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
@@ -194,8 +207,7 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         expect.objectContaining({ ip: '93.184.216.34' }),
         expect.anything(),
       );
-      const nextIp = '198.51.100.42';
-      const updated: IIpTableConfigWithRuntime = {
+      let updated: IIpTableConfigWithRuntime = {
         ...initial,
         config: {
           ...initial.config,
@@ -212,6 +224,19 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         },
         runtime: { ...initial.runtime, selections: { 'example.com': nextIp } },
       };
+      if (change === 'selection') updated.config = initial.config;
+      if (change === 'disabled')
+        updated.runtime = { ...initial.runtime, enabled: false };
+      if (change === 'reset')
+        updated = {
+          config: DEFAULT_IP_TABLE_CONFIG,
+          runtime: {
+            enabled: true,
+            lastUpdated: 0,
+            lastRegionCheck: 0,
+            selections: {},
+          },
+        };
       getConfig.mockResolvedValue(updated);
       appEventBus.dispatchInboundFromBackground({
         type: EAppEventBusNames.IpTableConfigChanged,
@@ -221,10 +246,15 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       // No failing requests, clock advance or main-side cache reset in between.
       await adapter(buildConfig(`https://${hostname}/v1`));
       expect(getConfig).toHaveBeenCalledTimes(2);
-      expect(mockedSniRequest).toHaveBeenLastCalledWith(
-        expect.objectContaining({ ip: nextIp }),
-        expect.anything(),
-      );
+      if (change === 'config' || change === 'selection') {
+        expect(mockedSniRequest).toHaveBeenLastCalledWith(
+          expect.objectContaining({ ip: nextIp }),
+          expect.anything(),
+        );
+      } else {
+        expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+        expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      }
     },
   );
 

@@ -13,10 +13,6 @@ import {
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   createApiAvailabilityTiming,
@@ -319,7 +315,6 @@ class ServiceIpTable extends ServiceBase {
   @backgroundMethod()
   async saveConfig(config: IIpTableRemoteConfig) {
     await this.backgroundApi.simpleDb.ipTable.saveConfig(config);
-    appEventBus.emit(EAppEventBusNames.IpTableConfigChanged, undefined);
   }
 
   @backgroundMethod()
@@ -581,7 +576,6 @@ class ServiceIpTable extends ServiceBase {
       await this.backgroundApi.simpleDb.ipTable.saveConfig(remoteConfig, {
         payloadHash: computeIpTableConfigHash(remoteConfig),
       });
-      appEventBus.emit(EAppEventBusNames.IpTableConfigChanged, undefined);
 
       defaultLogger.ipTable.request.info({
         info: '[IpTable] CDN config updated successfully',
@@ -714,9 +708,6 @@ class ServiceIpTable extends ServiceBase {
       domain,
       ip,
     );
-    if (applied) {
-      getSelectedIpForHost.clear();
-    }
     return applied;
   }
 

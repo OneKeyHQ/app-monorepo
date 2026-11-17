@@ -1,4 +1,8 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { DEFAULT_IP_TABLE_CONFIG } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
 import type {
   IIpTableConfigWithRuntime,
@@ -38,6 +42,19 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
   entityName = 'ipTable';
 
   override enableCache = false;
+
+  @backgroundMethod()
+  override async setRawData(
+    dataOrBuilder: Parameters<
+      SimpleDbEntityBase<ISimpleDbIpTableData>['setRawData']
+    >[0],
+  ): Promise<ISimpleDbIpTableData | undefined> {
+    // All routing writes, including direct SimpleDB calls, invalidate every
+    // runtime only after storage accepts the write.
+    return this.setRawDataWithCommitGuard(dataOrBuilder, undefined, () => {
+      appEventBus.emit(EAppEventBusNames.IpTableConfigChanged, undefined);
+    });
+  }
 
   @backgroundMethod()
   async getStorageData(): Promise<ISimpleDbIpTableData | null | undefined> {

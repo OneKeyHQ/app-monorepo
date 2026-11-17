@@ -1,3 +1,8 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IIpTableRemoteConfig } from '@onekeyhq/shared/src/request/types/ipTable';
 import { computeIpTableConfigHash } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
@@ -41,6 +46,113 @@ function setupEntity(initial: ISimpleDbIpTableData) {
   });
   return { entity, getStore: () => store };
 }
+
+function setupPersistedEntity(
+  initial: ISimpleDbIpTableData,
+  setItem: SimpleDbEntityIpTable['appStorage']['setItem'],
+) {
+  const entity = new SimpleDbEntityIpTable();
+  entity.appStorage = {
+    ...entity.appStorage,
+    getItem: jest.fn(async () =>
+      JSON.stringify({ data: initial, updatedAt: 1 }),
+    ),
+    setItem,
+  };
+  return entity;
+}
+
+describe('SimpleDbEntityIpTable routing invalidation', () => {
+  const config = buildConfig('1.1.1.1');
+  const mutations: Array<
+    [string, (entity: SimpleDbEntityIpTable) => Promise<unknown>]
+  > = [
+    ['config', (entity) => entity.saveConfig(config)],
+    ['selection', (entity) => entity.updateSelection(DOMAIN, '1.1.1.1')],
+    ['last-best', (entity) => entity.updateLastBestIp(DOMAIN, '1.1.1.1')],
+    [
+      'speed-test result',
+      (entity) =>
+        entity.commitSpeedTestResult({
+          domain: DOMAIN,
+          expectedConfigHash: computeIpTableConfigHash(config),
+          measuredEndpointIps: ['1.1.1.1'],
+          lastBestIp: '1.1.1.1',
+          selection: '1.1.1.1',
+        }),
+    ],
+    ['enable switch', (entity) => entity.setEnabled(false)],
+    ['reset', (entity) => entity.clearAll()],
+    ['restore', (entity) => entity.saveStorageData({ config })],
+    ['raw state', (entity) => entity.setRawData({ config })],
+  ];
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each(mutations)(
+    'broadcasts %s only after storage accepts the write',
+    async (_label, mutate) => {
+      let finishWrite!: () => void;
+      let signalStarted!: () => void;
+      const writeFinished = new Promise<void>((resolve) => {
+        finishWrite = resolve;
+      });
+      const writeStarted = new Promise<void>((resolve) => {
+        signalStarted = resolve;
+      });
+      const setItem = jest.fn(async () => {
+        signalStarted();
+        await writeFinished;
+      });
+      const entity = setupPersistedEntity({ config }, setItem);
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const pending = mutate(entity);
+      await writeStarted;
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.IpTableConfigChanged,
+        undefined,
+      );
+      finishWrite();
+      await pending;
+      expect(emit).toHaveBeenCalledTimes(1);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.IpTableConfigChanged,
+        undefined,
+      );
+    },
+  );
+
+  it('does not broadcast a rejected endpoint or stale speed-test result', async () => {
+    const setItem = jest.fn(async () => undefined);
+    const entity = setupPersistedEntity({ config }, setItem);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    await expect(entity.updateSelection(DOMAIN, '2.2.2.2')).resolves.toBe(
+      false,
+    );
+    await expect(
+      entity.commitSpeedTestResult({
+        domain: DOMAIN,
+        expectedConfigHash: computeIpTableConfigHash(buildConfig('2.2.2.2')),
+        measuredEndpointIps: ['1.1.1.1'],
+        selection: '1.1.1.1',
+      }),
+    ).resolves.toBe('stale_config');
+    expect(setItem).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('does not broadcast a failed storage write', async () => {
+    const setItem = jest.fn(async () => {
+      throw new OneKeyLocalError('storage failed');
+    });
+    const entity = setupPersistedEntity({ config }, setItem);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    await expect(entity.setEnabled(false)).rejects.toThrow('storage failed');
+    expect(emit).not.toHaveBeenCalled();
+  });
+});
 
 describe('SimpleDbEntityIpTable speed-test commit', () => {
   it('replaces the remote table and removes both revoked runtime references', async () => {

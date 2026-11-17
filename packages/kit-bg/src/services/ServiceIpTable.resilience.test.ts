@@ -1,9 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { recordAvailabilityOutcome } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
@@ -138,47 +134,8 @@ describe('ServiceIpTable resilience', () => {
     jest.restoreAllMocks();
   });
 
-  it('broadcasts invalidation only after the replacement table is stored', async () => {
+  it('persists a verified CDN table with its payload hash', async () => {
     const { service, ipTableDb } = createService();
-    const emit = jest.spyOn(appEventBus, 'emit');
-    const config = buildConfig('2.2.2.2');
-    let finishWrite: (() => void) | undefined;
-    ipTableDb.saveConfig.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishWrite = resolve;
-        }),
-    );
-    const saving = service.saveConfig(config);
-    expect(emit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.IpTableConfigChanged,
-      undefined,
-    );
-    finishWrite?.();
-    await saving;
-    expect(ipTableDb.saveConfig).toHaveBeenCalledWith(config);
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.IpTableConfigChanged,
-      undefined,
-    );
-  });
-
-  it('does not broadcast invalidation when saving the table fails', async () => {
-    const { service, ipTableDb } = createService();
-    const emit = jest.spyOn(appEventBus, 'emit');
-    ipTableDb.saveConfig.mockRejectedValueOnce(new Error('storage failed'));
-    await expect(service.saveConfig(buildConfig('2.2.2.2'))).rejects.toThrow(
-      'storage failed',
-    );
-    expect(emit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.IpTableConfigChanged,
-      undefined,
-    );
-  });
-
-  it('broadcasts invalidation after applying a verified CDN table', async () => {
-    const { service, ipTableDb } = createService();
-    const emit = jest.spyOn(appEventBus, 'emit');
     const logError = jest.spyOn(defaultLogger.ipTable.request, 'error');
     const config = buildConfig('2.2.2.2', 2);
     const internal = service as unknown as {
@@ -196,10 +153,6 @@ describe('ServiceIpTable resilience', () => {
     expect(ipTableDb.saveConfig).toHaveBeenCalledWith(
       config,
       expect.objectContaining({ payloadHash: expect.any(String) }),
-    );
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.IpTableConfigChanged,
-      undefined,
     );
   });
 
