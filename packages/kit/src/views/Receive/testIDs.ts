@@ -41,6 +41,7 @@ export const ReceiveTestIDs = {
   // ReceiveSelector page
   ReceiveSelectorPage: 'receive-selector-page',
   BuyCryptoOption: 'receive-buy-crypto-option',
+  TradeOption: 'receive-trade-option',
   ReceiveFromWalletOption: 'receive-from-wallet-option',
   ExchangeList: 'receive-exchange-list',
   ExchangeItem: 'receive-exchange-item',

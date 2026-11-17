@@ -600,6 +600,7 @@ function ReceiveSelectorContent() {
           />
           {showSwapEntry && token?.networkId ? (
             <ReceiveOptions
+              testID={ReceiveTestIDs.TradeOption}
               icon="SwitchHorOutline"
               title={intl.formatMessage({ id: ETranslations.global_trade })}
               subtitle={intl.formatMessage(
