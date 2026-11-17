@@ -14,11 +14,12 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 - For a specified PR, read its current base/head and diff with `gh pr view`
   and `gh pr diff`; do not assume the active branch is the PR head.
 - For a local review, honor the requested worktree, staged, or branch scope
-  and report the exact comparison. `git diff origin/x...HEAD` is for branch
-  changes; it does not include uncommitted work.
-- Local Git examples below assume that checkout matches the review target.
-  Otherwise use the PR diff and file contents at its exact head, or an isolated
-  worktree. Trace surrounding code from the same revision.
+  and report the exact comparison. Branch comparisons do not include
+  uncommitted work.
+- Initialize `review_diff` and `review_file` using the selected scope in
+  [quick-commands.md](references/quick-commands.md#select-the-review-scope).
+  All checks and linked guides must use those same inputs. Read surrounding
+  code from the reviewed commit, index, or worktree as appropriate.
 - Source review is read-only unless edits are requested. Publishing comments
   is a separate action: follow the existing standing workflow authorization
   only within its agreed target and limits. An explicit request for local-only
@@ -174,10 +175,12 @@ apps/*               <- imports all
 ```
 
 ```bash
-# Quick hierarchy violation check on changed files
-git diff origin/x...HEAD --name-only | grep -E '\.tsx?$' | \
-  while IFS= read -r f; do [ -f "$f" ] && grep -l "from.*@onekeyhq" "$f" 2>/dev/null; done | \
-  while IFS= read -r f; do echo "=== $f ==="; grep "from.*@onekeyhq" "$f"; done
+# Inspect imports from the selected scope and source version
+review_diff --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' |
+  while IFS= read -r f; do
+    printf '%s\n' "$f"
+    review_file "$f" | rg -n 'from.*@onekeyhq'
+  done
 ```
 
 ## Existing Implementation Reuse (ALWAYS verify)
