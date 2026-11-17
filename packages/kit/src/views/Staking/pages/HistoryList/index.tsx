@@ -156,6 +156,7 @@ const HistoryItem = ({
     <ListItem
       avatarProps={{
         src: logoURI,
+        bg: 'transparent',
         fallbackProps: {
           w: '$10',
           h: '$10',
