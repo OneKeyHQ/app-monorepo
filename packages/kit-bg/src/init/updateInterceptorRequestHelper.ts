@@ -10,7 +10,8 @@ import {
 /**
  * Request interceptor setup — safe to import from any runtime.
  * Does NOT reference simpleDb. On native main thread (split-thread mode),
- * getIpTableConfig returns null. On all other platforms (desktop, web, ext)
+ * getIpTableConfig reads through the background proxy when ready.
+ * On all other platforms (desktop, web, ext)
  * and on background thread, the full version with simpleDb is installed
  * separately via updateInterceptorRequestHelperWithIpTable (separate file).
  */
