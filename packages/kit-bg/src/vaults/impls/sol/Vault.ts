@@ -140,7 +140,7 @@ import {
   parseMplCoreAssetAccount,
   parseMplCoreCollectionAccount,
 } from './sdkSol/mplCore';
-import { getSolanaSwapRent } from './solanaRentUtils';
+import { getSolanaSwapRent, getSolanaTransferRent } from './solanaRentUtils';
 import {
   inspectSolTxDiagnostic,
   withSolTxDiagnosticBlockhash,
@@ -1731,17 +1731,24 @@ export default class Vault extends VaultBase {
       hasCreateTokenAccountInstruction &&
       actions[0].assetTransfer
     ) {
-      const network = await this.getNetwork();
-      extraInfo = {
-        createTokenAccountFee: {
-          amount: CREATE_TOKEN_ACCOUNT_RENT,
-          amountValue: chainValueUtils.convertAmountToChainValue({
-            value: CREATE_TOKEN_ACCOUNT_RENT,
-            network: await this.getNetwork(),
-          }),
-          symbol: network.symbol,
-        },
-      };
+      // Read from the chain when the tx was built: the rent depends on the
+      // current rate and on the token account size (Token-2022 accounts are
+      // larger). The constant only covers a failed lookup.
+      const rent =
+        unsignedTx.solanaCreateTokenAccountRent ?? CREATE_TOKEN_ACCOUNT_RENT;
+      if (new BigNumber(rent).gt(0)) {
+        const network = await this.getNetwork();
+        extraInfo = {
+          createTokenAccountFee: {
+            amount: rent,
+            amountValue: chainValueUtils.convertAmountToChainValue({
+              value: rent,
+              network,
+            }),
+            symbol: network.symbol,
+          },
+        };
+      }
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -2360,10 +2367,17 @@ export default class Vault extends VaultBase {
     });
     const ataDetails =
       await this._extractATADetailsFromInstructions(instructions);
-    const solanaRent =
-      swapInfo && swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND
-        ? await getSolanaSwapRent({ instructions, accountAddress, client })
-        : undefined;
+    const isSwap =
+      !!swapInfo && swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND;
+    const solanaRent = isSwap
+      ? await getSolanaSwapRent({ instructions, accountAddress, client })
+      : undefined;
+    // Transfers and Private Send display this as the account rent. It is
+    // captured here, before broadcast, because the token account exists once
+    // the tx lands and a later lookup would report no rent.
+    const solanaCreateTokenAccountRent = isSwap
+      ? undefined
+      : await getSolanaTransferRent({ instructions, accountAddress, client });
 
     return {
       payload: {
@@ -2372,6 +2386,7 @@ export default class Vault extends VaultBase {
       },
       encodedTx: newEncodedTx,
       solanaRent,
+      solanaCreateTokenAccountRent,
     };
   }
 

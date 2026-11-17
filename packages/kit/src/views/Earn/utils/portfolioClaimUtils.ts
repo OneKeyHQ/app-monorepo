@@ -101,10 +101,27 @@ export function resolveUniquePortfolioClaimSourceIdentity({
   return identities.size === 1 ? Array.from(identities.values())[0] : null;
 }
 
+export function resolvePortfolioActionSymbol({
+  providerName,
+  assetSymbol,
+  protocolSymbol,
+}: {
+  providerName: string;
+  assetSymbol: string;
+  protocolSymbol?: string;
+}) {
+  if (earnUtils.isEtherFiProvider({ providerName })) {
+    return protocolSymbol?.trim() ? protocolSymbol : undefined;
+  }
+  return assetSymbol;
+}
+
+/** Resolve protocol and airdrop source identities; missing or conflicting identities fail closed. */
 export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop,
   providerName,
   assetSymbol,
+  protocolSymbol,
   assetVault,
   claimSymbol,
   claimSymbolStatus,
@@ -113,16 +130,19 @@ export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop: boolean;
   providerName: string;
   assetSymbol: string;
+  protocolSymbol?: string;
   assetVault?: string;
   claimSymbol?: string;
   claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
   sourceIdentity?: IPortfolioClaimProtocolIdentity | null;
 }): IPortfolioClaimProtocolIdentity | null {
   if (!isAirdrop) {
-    return {
-      symbol: assetSymbol,
-      vault: assetVault,
-    };
+    const symbol = resolvePortfolioActionSymbol({
+      providerName,
+      assetSymbol,
+      protocolSymbol,
+    });
+    return symbol === undefined ? null : { symbol, vault: assetVault };
   }
 
   if (earnUtils.isPendleProvider({ providerName })) {
