@@ -34,6 +34,14 @@ const fail = (message) => {
   throw new Error(message);
 };
 const digest = (data) => crypto.createHash('sha256').update(data).digest('hex');
+// url(#id) paint servers, clip paths and masks inside an external <use>
+// resolve against a separate resource document, which is not reliable on
+// first paint (the Prime logo's gradient half was observed blank on desktop).
+// Small non-illustration symbols with internal references ship inline and are
+// injected into the page. Illustrations keep the external URL so the JS bundle
+// stays small, so they remain exposed to the same first-paint gap.
+const INLINE_SYMBOL_MAX_BYTES = 4096;
+const INLINE_SYMBOL_EXCLUDED_DIRECTORY = 'illus';
 
 export function loadTools(appRoot) {
   const appRequire = createRequire(
@@ -292,6 +300,7 @@ export function compileSource(source, name, tools) {
     currentColor,
     digest: digest(raw),
     missingReferences,
+    hasInternalReferences: refs.length > 0,
   };
 }
 
@@ -331,6 +340,7 @@ export async function generateOutputs(
   const outputs = new Map();
   const manifest = {};
   const urls = [];
+  const inlineSymbols = [];
   const diagnostics = [];
   for (const entry of entries) {
     const result = compileSource(
@@ -355,10 +365,19 @@ export async function generateOutputs(
         missingReferences: result.missingReferences,
       });
     if (web) {
+      const webAsset = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${result.symbol}</svg>\n`;
       outputs.set(
         path.join(outputRoot, 'web/assets', `${entry.name}.svg`),
-        `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${result.symbol}</svg>\n`,
+        webAsset,
       );
+      if (
+        result.hasInternalReferences &&
+        !entry.source.startsWith(`${INLINE_SYMBOL_EXCLUDED_DIRECTORY}/`) &&
+        Buffer.byteLength(webAsset) <= INLINE_SYMBOL_MAX_BYTES
+      )
+        inlineSymbols.push(
+          `  ${entry.name}: ${JSON.stringify(webAsset.trimEnd())},`,
+        );
       urls.push(
         `  ${entry.name}: () => new URL('./assets/${entry.name}.svg', import.meta.url).href,`,
       );
@@ -378,10 +397,25 @@ const urls: Record<string, () => string> = {
 ${urls.join('\n')}
 };
 
+// Symbols with internal url(#id) references resolve in-document only.
+const inlineSymbols: Record<string, string> = {
+${inlineSymbols.join('\n')}
+};
+
 const SPRITE_ROOT_ID = 'onekey-icon-sprite-root';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const pendingSymbols = new Map<string, Promise<void>>();
 const symbolMarkupCache = new Map<string, string>();
+
+function symbolIdFor(name: string): string {
+  return \`onekey-\${name}\`;
+}
+
+function ownValue<T>(record: Record<string, T>, key: string): T | undefined {
+  return Object.prototype.hasOwnProperty.call(record, key)
+    ? record[key]
+    : undefined;
+}
 
 function isCrossOriginResource(assetUrl: string): boolean {
   if (
@@ -429,13 +463,17 @@ function ensureSpriteRoot(doc: Document): SVGSVGElement | undefined {
   return svg;
 }
 
-function injectSymbolMarkup(symbolId: string, markup: string): void {
-  if (typeof document === 'undefined' || document.getElementById(symbolId)) {
-    return;
+// Returns whether the symbol is available in the document afterwards.
+function injectSymbolMarkup(symbolId: string, markup: string): boolean {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+  if (document.getElementById(symbolId)) {
+    return true;
   }
   const spriteRoot = ensureSpriteRoot(document);
   if (!spriteRoot) {
-    return;
+    return false;
   }
   let parsedSymbol: Element | null = null;
   if (typeof DOMParser !== 'undefined') {
@@ -456,7 +494,7 @@ function injectSymbolMarkup(symbolId: string, markup: string): void {
     }
   }
   if (!parsedSymbol) {
-    return;
+    return false;
   }
   spriteRoot.appendChild(parsedSymbol);
   for (const useNode of Array.from(
@@ -464,10 +502,11 @@ function injectSymbolMarkup(symbolId: string, markup: string): void {
   )) {
     useNode.setAttribute('href', \`#\${symbolId}\`);
   }
+  return true;
 }
 
 function ensureCrossOriginSymbol(name: string, assetUrl: string): string {
-  const symbolId = \`onekey-\${name}\`;
+  const symbolId = symbolIdFor(name);
   const fragment = \`#\${symbolId}\`;
   if (typeof document === 'undefined') {
     return fragment;
@@ -503,17 +542,20 @@ function ensureCrossOriginSymbol(name: string, assetUrl: string): string {
 }
 
 export function iconResourceHref(name: string): string | undefined {
-  const load = Object.prototype.hasOwnProperty.call(urls, name)
-    ? urls[name]
-    : undefined;
+  const load = ownValue(urls, name);
   if (!load) {
     return undefined;
+  }
+  const symbolId = symbolIdFor(name);
+  const inlineMarkup = ownValue(inlineSymbols, name);
+  if (inlineMarkup && injectSymbolMarkup(symbolId, inlineMarkup)) {
+    return \`#\${symbolId}\`;
   }
   const assetUrl = load();
   if (isCrossOriginResource(assetUrl)) {
     return ensureCrossOriginSymbol(name, assetUrl);
   }
-  return \`\${assetUrl}#onekey-\${name}\`;
+  return \`\${assetUrl}#\${symbolId}\`;
 }
 `,
       ),
