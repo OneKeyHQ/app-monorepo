@@ -1,0 +1,25 @@
+import { OneKeyLocalError } from '../../errors';
+
+import type { IMarketWidgetModule } from './types';
+
+const marketWidget: IMarketWidgetModule = {
+  isSupported: () => false,
+  supportsStockAssets: () => false,
+  supportsProfileEditing: () => false,
+  supportsSettingsEditing: () => false,
+  supportsQuoteSync: () => false,
+  syncQuote: async () => false,
+  setConfiguration: async () => undefined,
+  maskForTravelMode: async () => undefined,
+  getEditorState: async () => {
+    throw new OneKeyLocalError('Market widget profile editing is unavailable');
+  },
+  saveProfile: async () => {
+    throw new OneKeyLocalError('Market widget profile editing is unavailable');
+  },
+  saveSettings: async () => {
+    throw new OneKeyLocalError('Market widget settings are unavailable');
+  },
+};
+
+export default marketWidget;
