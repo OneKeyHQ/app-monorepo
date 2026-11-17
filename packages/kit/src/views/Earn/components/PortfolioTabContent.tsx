@@ -54,6 +54,7 @@ import { EarnTestIDs } from '../testIDs';
 import {
   type IPortfolioClaimProtocolIdentity,
   type IPortfolioClaimSourceCandidate,
+  resolvePortfolioActionSymbol,
   resolvePortfolioClaimProtocolIdentity,
   resolveUniquePortfolioClaimSourceIdentity,
 } from '../utils/portfolioClaimUtils';
@@ -149,6 +150,7 @@ export const PortfolioPendingTxsProvider = ({
 export const usePortfolioPendingTxs = () =>
   useContext(PortfolioPendingTxsContext);
 
+/** Keep receipt tokens as display assets; actions use protocol or airdrop source identities. */
 const WrappedActionButtonCmp = ({
   asset,
   reward,
@@ -185,6 +187,7 @@ const WrappedActionButtonCmp = ({
     isAirdrop,
     providerName,
     assetSymbol: asset.token.info.symbol,
+    protocolSymbol: isAirdrop ? undefined : asset.metadata.protocol.symbol,
     assetVault: asset.metadata.protocol.vault,
     claimSymbol: isAirdrop ? asset.metadata.protocol.claimSymbol : undefined,
     claimSymbolStatus: isAirdrop
@@ -963,22 +966,32 @@ const PortfolioItemComponent = ({
 
   const isAssetNavigationDisabled = useCallback(
     (asset: IEarnPortfolioInvestment['assets'][number]) =>
-      earnUtils.isPendleProvider({
+      resolvePortfolioActionSymbol({
+        providerName: asset.metadata.protocol.providerDetail.code,
+        assetSymbol: asset.token.info.symbol,
+        protocolSymbol: asset.metadata.protocol.symbol,
+      }) === undefined ||
+      (earnUtils.isPendleProvider({
         providerName: asset.metadata.protocol.providerDetail.code,
       }) &&
-      asset.metadata.protocol.symbol === 'USDe' &&
-      (!asset.buttons || asset.buttons.length === 0),
+        asset.metadata.protocol.symbol === 'USDe' &&
+        (!asset.buttons || asset.buttons.length === 0)),
     [],
   );
 
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
-      if (isAssetNavigationDisabled(asset)) {
+      const symbol = resolvePortfolioActionSymbol({
+        providerName: asset.metadata.protocol.providerDetail.code,
+        assetSymbol: asset.token.info.symbol,
+        protocolSymbol: asset.metadata.protocol.symbol,
+      });
+      if (symbol === undefined || isAssetNavigationDisabled(asset)) {
         return;
       }
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
-        symbol: asset.token.info.symbol,
+        symbol,
         provider: asset.metadata.protocol.providerDetail.code,
         vault: asset.metadata.protocol.vault,
       });
@@ -991,10 +1004,14 @@ const PortfolioItemComponent = ({
       asset: IEarnPortfolioInvestment['assets'][number],
       defaultTab?: 'deposit' | 'withdraw',
     ) => {
-      if (isAssetNavigationDisabled(asset)) {
+      const symbol = resolvePortfolioActionSymbol({
+        providerName: asset.metadata.protocol.providerDetail.code,
+        assetSymbol: asset.token.info.symbol,
+        protocolSymbol: asset.metadata.protocol.symbol,
+      });
+      if (symbol === undefined || isAssetNavigationDisabled(asset)) {
         return;
       }
-      const symbol = asset.token.info.symbol;
 
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
@@ -1225,12 +1242,26 @@ const PortfolioItemComponent = ({
         ) : null}
         <ProtocolAirdrop
           airdropAssets={portfolioItem.airdropAssets}
-          claimSourceCandidates={portfolioItem.assets.map((asset) => ({
-            networkId: asset.metadata.network.networkId,
-            providerName: asset.metadata.protocol.providerDetail.code,
-            symbol: asset.token.info.symbol,
-            vault: asset.metadata.protocol.vault,
-          }))}
+          claimSourceCandidates={portfolioItem.assets.flatMap<IPortfolioClaimSourceCandidate>(
+            (asset) => {
+              const symbol = resolvePortfolioActionSymbol({
+                providerName: asset.metadata.protocol.providerDetail.code,
+                assetSymbol: asset.token.info.symbol,
+                protocolSymbol: asset.metadata.protocol.symbol,
+              });
+              if (symbol === undefined) {
+                return [];
+              }
+              return [
+                {
+                  networkId: asset.metadata.network.networkId,
+                  providerName: asset.metadata.protocol.providerDetail.code,
+                  symbol,
+                  vault: asset.metadata.protocol.vault,
+                },
+              ];
+            },
+          )}
           isPendle={isPendle}
         />
       </YStack>

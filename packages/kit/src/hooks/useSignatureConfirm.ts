@@ -30,7 +30,10 @@ import type {
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import type {
+  IBroadcastAcceptedFact,
+  ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -51,7 +54,13 @@ type IBuildUnsignedTxParams = {
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+  onLateBroadcastAccepted?: (
+    fact: IBroadcastAcceptedFact,
+  ) => void | Promise<void>;
   onFail?: (error: Error) => void;
+  // Confirmation-only observer; setup errors retain onFail's existing semantics.
+  onConfirmationFail?: (error: Error) => void;
+  onSafePreSendFail?: (error: Error) => void;
   onCancel?: () => void;
   onBeforeSend?: () => void | Promise<void>;
   isNavigationCurrent?: () => boolean;
@@ -133,7 +142,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
       const {
         sameModal,
         onSuccess,
+        onLateBroadcastAccepted,
         onFail,
+        onConfirmationFail,
+        onSafePreSendFail,
         onCancel,
         onBeforeSend,
         isNavigationCurrent,
@@ -263,7 +275,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             networkId,
             unsignedTxs,
             onSuccess,
-            onFail,
+            onLateBroadcastAccepted,
+            onFail: onConfirmationFail ?? onFail,
+            onSafePreSendFail,
             onCancel,
             onBeforeSend,
             broadcastDeadline,
@@ -282,7 +296,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               networkId,
               unsignedTxs,
               onSuccess,
-              onFail,
+              onLateBroadcastAccepted,
+              onFail: onConfirmationFail ?? onFail,
+              onSafePreSendFail,
               onCancel,
               onBeforeSend,
               broadcastDeadline,
@@ -308,7 +324,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
 
   const lightningSignatureConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { onSuccess, onFail, onCancel } = params;
+      const { onSuccess, onFail, onConfirmationFail, onCancel } = params;
 
       const { transfersInfo } = params;
       if (!transfersInfo?.length || transfersInfo?.length > 1) {
@@ -343,7 +359,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
                 transfersInfo,
                 lnurlDetails,
                 onSuccess,
-                onFail,
+                onFail: onConfirmationFail ?? onFail,
                 onCancel,
                 isSendFlow: true,
               });
@@ -354,7 +370,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
                 accountId,
                 lnurlDetails,
                 onSuccess,
-                onFail,
+                onFail: onConfirmationFail ?? onFail,
                 onCancel,
                 isSendFlow: true,
               });
