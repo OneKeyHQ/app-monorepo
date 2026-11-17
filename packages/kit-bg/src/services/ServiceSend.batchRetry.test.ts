@@ -109,6 +109,223 @@ import ServiceSend from './ServiceSend';
 const accountId = 'hd-1--0';
 const networkId = 'sol--101';
 
+describe('ServiceSend confirmed broadcast fact', () => {
+  const request = { uuid: 'u1', accountId, networkId, txid: 'sig-u1' };
+
+  function storedRecord(): IBroadcastRecord {
+    return {
+      uuid: 'u1',
+      accountId,
+      networkId,
+      signedTx: {
+        txid: 'sig-u1',
+        rawTx: 'sensitive-signed-payload',
+        encodedTx: null,
+      },
+      attemptedAt: 1,
+      isBroadcast: true,
+      isSettled: true,
+    };
+  }
+
+  it('returns only the matching broadcast fact without a signed payload', async () => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.records.set('u1', storedRecord());
+    await expect(service.getBroadcastAcceptanceFact(request)).resolves.toEqual({
+      status: 'accepted',
+      ...request,
+    });
+    expect(broadcastRecords.getRecord).toHaveBeenCalledWith('u1');
+    expect(broadcastRecords.updateRecord).not.toHaveBeenCalled();
+    expect(broadcastRecords.deleteRecord).not.toHaveBeenCalled();
+  });
+
+  it('recovers an accepted transaction id by its scoped uuid without exposing its signed payload', async () => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.records.set('u1', storedRecord());
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({ status: 'accepted', ...request });
+    expect(broadcastRecords.updateRecord).not.toHaveBeenCalled();
+    expect(broadcastRecords.deleteRecord).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['account', { accountId: 'other' }],
+    ['network', { networkId: 'evm--1' }],
+    ['uuid', { uuid: 'missing' }],
+    ['empty uuid', { uuid: '' }],
+  ])(
+    'does not recover a broadcast for a mismatched %s',
+    async (_name, overrides) => {
+      const { service, broadcastRecords } = makeService();
+      broadcastRecords.records.set('u1', storedRecord());
+      await expect(
+        service.getBroadcastAcceptanceFactByUuid({
+          uuid: 'u1',
+          accountId,
+          networkId,
+          ...overrides,
+        }),
+      ).resolves.toEqual({ status: 'unknown' });
+    },
+  );
+
+  it.each([
+    ['not accepted', { isBroadcast: false }],
+    [
+      'missing txid',
+      { signedTx: { txid: '', rawTx: 'signed', encodedTx: null } },
+    ],
+    ['wrong record uuid', { uuid: 'other' }],
+  ])('does not recover an invalid record: %s', async (_name, overrides) => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.records.set('u1', { ...storedRecord(), ...overrides });
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+  });
+
+  it('returns an unknown scoped broadcast when storage cannot be read', async () => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.getRecord.mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid({
+        uuid: 'u1',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+  });
+
+  it.each([
+    ['different account', { accountId: 'other' }],
+    ['different network', { networkId: 'evm--1' }],
+    ['different uuid', { uuid: 'missing' }],
+    ['different transaction', { txid: 'different' }],
+    ['empty transaction', { txid: '' }],
+  ])('returns unknown for %s', async (_name, overrides) => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.records.set('u1', storedRecord());
+    await expect(
+      service.getBroadcastAcceptanceFact({ ...request, ...overrides }),
+    ).resolves.toEqual({ status: 'unknown' });
+  });
+
+  it.each([
+    ['unconfirmed attempt', { isBroadcast: false }],
+    [
+      'record has no transaction id',
+      { signedTx: { txid: '', rawTx: 'signed', encodedTx: null } },
+    ],
+    ['record uuid mismatch', { uuid: 'other' }],
+  ])('returns unknown for %s', async (_name, overrides) => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.records.set('u1', { ...storedRecord(), ...overrides });
+    await expect(service.getBroadcastAcceptanceFact(request)).resolves.toEqual({
+      status: 'unknown',
+    });
+  });
+
+  it('returns unknown when reading the record fails', async () => {
+    const { service, broadcastRecords } = makeService();
+    broadcastRecords.getRecord.mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    );
+    await expect(service.getBroadcastAcceptanceFact(request)).resolves.toEqual({
+      status: 'unknown',
+    });
+  });
+
+  it('reads an actual broadcast acceptance but not an actual sign-only result', async () => {
+    const { service } = makeService();
+    await batchSend(service, [buildUnsignedTx('broadcast')]);
+    await batchSend(service, [buildUnsignedTx('signed')], { signOnly: true });
+    await expect(
+      service.getBroadcastAcceptanceFact({
+        accountId,
+        networkId,
+        uuid: 'broadcast',
+        txid: signatureOf('broadcast'),
+      }),
+    ).resolves.toEqual({
+      status: 'accepted',
+      accountId,
+      networkId,
+      uuid: 'broadcast',
+      txid: signatureOf('broadcast'),
+    });
+    await expect(
+      service.getBroadcastAcceptanceFact({
+        accountId,
+        networkId,
+        uuid: 'signed',
+        txid: signatureOf('signed'),
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+  });
+
+  it('returns unknown when a local-wallet broadcast intentionally has no record', async () => {
+    const { service, backgroundApi } = makeService();
+    backgroundApi.serviceNetwork.getVaultSettings.mockResolvedValue({
+      maxRetryBroadcastTxCount: 0,
+      minRetryBroadcastTxInterval: 0,
+      nonceRequired: false,
+      localWallet: {},
+    });
+    await batchSend(service, [buildUnsignedTx('local')]);
+    await expect(
+      service.getBroadcastAcceptanceFact({
+        accountId,
+        networkId,
+        uuid: 'local',
+        txid: signatureOf('local'),
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+  });
+
+  it('reports only independently confirmed transactions from a partially broadcast batch', async () => {
+    const { service, vault } = makeService();
+    vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
+      txid: signedTx.txid,
+    }));
+    failBroadcastOnce(vault, 'network down');
+    await expect(
+      batchSend(service, [buildUnsignedTx('first'), buildUnsignedTx('second')]),
+    ).rejects.toThrow('network down');
+    await expect(
+      service.getBroadcastAcceptanceFact({
+        accountId,
+        networkId,
+        uuid: 'first',
+        txid: signatureOf('first'),
+      }),
+    ).resolves.toEqual({
+      status: 'accepted',
+      accountId,
+      networkId,
+      uuid: 'first',
+      txid: signatureOf('first'),
+    });
+    await expect(
+      service.getBroadcastAcceptanceFact({
+        accountId,
+        networkId,
+        uuid: 'second',
+        txid: signatureOf('second'),
+      }),
+    ).resolves.toEqual({ status: 'unknown' });
+  });
+});
+
 function buildUnsignedTx(uuid: string): IUnsignedTxPro {
   return {
     uuid,
@@ -1389,6 +1606,19 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(announcedBroadcasts()).toEqual([
       { uuid: 'u0', txid: signatureOf('u0'), networkId, accountId },
     ]);
+    await expect(
+      service.getBroadcastAcceptanceFactByUuid({
+        uuid: 'u0',
+        accountId,
+        networkId,
+      }),
+    ).resolves.toEqual({
+      status: 'accepted',
+      uuid: 'u0',
+      txid: signatureOf('u0'),
+      networkId,
+      accountId,
+    });
   });
 
   it('announces nothing for a sign-only batch', async () => {

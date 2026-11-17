@@ -489,6 +489,7 @@ export function useBorrowApproval({
     loading: loadingAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName: providerName ?? borrowDelegationApproveTarget?.provider ?? '',
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
     tokenAddress: approveTarget?.token?.address ?? '',

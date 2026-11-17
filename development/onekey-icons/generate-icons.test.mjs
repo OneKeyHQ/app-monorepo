@@ -523,6 +523,42 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
   );
   assert.equal(sameOriginFetchCalls.length, 0);
 
+  // Small symbols with internal url(#id) references are injected synchronously
+  // so gradients never resolve through an external resource document.
+  assert.equal(
+    sameOriginProvider.iconResourceHref('OnekeyPrimeLightColored'),
+    '#onekey-OnekeyPrimeLightColored',
+  );
+  assert.equal(
+    sameOriginProvider.iconResourceHref('OnekeyPrimeLightColored'),
+    '#onekey-OnekeyPrimeLightColored',
+  );
+  const sameOriginDocument = sameOriginDom.window.document;
+  const inlineSymbol = sameOriginDocument.getElementById(
+    'onekey-OnekeyPrimeLightColored',
+  );
+  assert.ok(inlineSymbol, 'Expected inline symbol to be injected');
+  assert.equal(inlineSymbol.namespaceURI, 'http://www.w3.org/2000/svg');
+  assert.equal(
+    inlineSymbol.parentElement?.getAttribute('id'),
+    'onekey-icon-sprite-root',
+  );
+  assert.ok(
+    inlineSymbol.querySelector('linearGradient'),
+    'Expected the gradient to live in the page document',
+  );
+  assert.equal(
+    sameOriginDocument.querySelectorAll('#onekey-OnekeyPrimeLightColored')
+      .length,
+    1,
+  );
+  // Large illustrations keep the external URL to bound bundle size.
+  assert.equal(
+    sameOriginProvider.iconResourceHref('EmptyNftIllus'),
+    'https://app.onekey.so/static/js/assets/EmptyNftIllus.svg#onekey-EmptyNftIllus',
+  );
+  assert.equal(sameOriginFetchCalls.length, 0);
+
   // 2. Cross-origin CDN deployment (PUBLIC_URL on app-assets.onekey.so, page on app.onekey.so)
   // fetches symbol once, injects into #onekey-icon-sprite-root, and returns in-document #onekey-<Name>
   const crossOriginDom = new JSDOM(
