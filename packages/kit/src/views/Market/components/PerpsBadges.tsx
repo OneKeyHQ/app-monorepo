@@ -799,7 +799,9 @@ const StockIsOpenBadge = memo(
     return (
       <LazyTooltip
         hovering
-        placement="bottom"
+        // The inline row starts the header's left edge; align its tooltip
+        // there too, like the trading-hours panel the share chip opens.
+        placement={displayVariant === 'inline' ? 'bottom-start' : 'bottom'}
         renderContent={tooltipDescription}
         renderTrigger={<Stack cursor="pointer">{badge}</Stack>}
       />
