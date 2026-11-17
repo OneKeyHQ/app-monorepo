@@ -593,6 +593,10 @@ export function UniversalStake({
     () => earnUtils.isPendleProvider({ providerName }),
     [providerName],
   );
+  const isProtocolExecutedStake = useMemo(
+    () => earnUtils.isProtocolExecutedStake({ providerName }),
+    [providerName],
+  );
   const actionSymbol = useMemo(
     () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
     [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
@@ -1065,7 +1069,6 @@ export function UniversalStake({
       if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
         return;
       }
-      setCheckAmountLoading(true);
       try {
         const response = await backgroundApiProxy.serviceStaking.checkAmount({
           accountId,
@@ -1128,6 +1131,7 @@ export function UniversalStake({
       return cleanup;
     }
 
+    setCheckAmountLoading(true);
     void checkAmount({ amount, identity: stakefishIdentity, requestId });
     return cleanup;
   }, [checkAmount, stakefishIdentity, amountValue]);
@@ -2040,11 +2044,15 @@ export function UniversalStake({
       });
     }
     if (shouldApprove) {
+      // One tap covers both steps when the deposit follows the approve on its
+      // own: a Permit2 signature, or a protocol that submits the deposit itself
+      // (OK-66931).
       return intl.formatMessage(
         {
-          id: usePermit2Approve
-            ? ETranslations.earn_approve_deposit
-            : ETranslations.global_approve,
+          id:
+            usePermit2Approve || isProtocolExecutedStake
+              ? ETranslations.earn_approve_deposit
+              : ETranslations.global_approve,
         },
         { amount: amountValue, symbol: tokenInfo?.token.symbol || '' },
       );
@@ -2062,6 +2070,7 @@ export function UniversalStake({
     isWrapStake,
     wrapStakeLabel,
     usePermit2Approve,
+    isProtocolExecutedStake,
     amountValue,
     tokenInfo?.token.symbol,
     isPendleProvider,
