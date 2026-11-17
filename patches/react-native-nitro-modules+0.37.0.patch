@@ -588,3 +588,43 @@ index 1867ec9072..c29dfb2f2b 100644
  };
  
  } // namespace margelo::nitro
+diff --git a/node_modules/react-native-nitro-modules/cpp/core/Promise.hpp b/node_modules/react-native-nitro-modules/cpp/core/Promise.hpp
+index 07eac11..1cee3c4 100644
+--- a/node_modules/react-native-nitro-modules/cpp/core/Promise.hpp
++++ b/node_modules/react-native-nitro-modules/cpp/core/Promise.hpp
+@@ -38,3 +38,14 @@ public:
+       auto message = std::string("Timeouted: Promise<") + TypeInfo::getFriendlyTypename<TResult>() + "> was destroyed!";
+-      reject(std::make_exception_ptr(std::runtime_error(message)));
++      // OneKey patch: Backport Nitro #1824 to fix launch crashes on iOS below 18.
++      // Upstream: https://github.com/margelo/nitro/pull/1824
++      // TODO: Remove this backport when upgrading Nitro to a version that includes #1824.
++      // Swift/C++ interop can make std::make_exception_ptr reference
++      // exception_ptr::__from_native_exception_pointer, missing on iOS below 18.
++      // Use a local throw/catch to preserve exception handling without that import.
++      // reject(std::make_exception_ptr(std::runtime_error(message)));
++      try {
++        throw std::runtime_error(message);
++      } catch (...) {
++        reject(std::current_exception());
++      }
+     }
+diff --git a/node_modules/react-native-nitro-modules/ios/utils/RuntimeError.hpp b/node_modules/react-native-nitro-modules/ios/utils/RuntimeError.hpp
+index 1b72115..4e9b843 100644
+--- a/node_modules/react-native-nitro-modules/ios/utils/RuntimeError.hpp
++++ b/node_modules/react-native-nitro-modules/ios/utils/RuntimeError.hpp
+@@ -16,3 +16,14 @@ namespace margelo::nitro {
+ static inline std::exception_ptr makeException(const std::string& message) {
+-  return std::make_exception_ptr(std::runtime_error(message));
++  // OneKey patch: Backport Nitro #1824 to fix launch crashes on iOS below 18.
++  // Upstream: https://github.com/margelo/nitro/pull/1824
++  // TODO: Remove this backport when upgrading Nitro to a version that includes #1824.
++  // Swift/C++ interop can make std::make_exception_ptr reference
++  // exception_ptr::__from_native_exception_pointer, missing on iOS below 18.
++  // Use a local throw/catch to preserve exception handling without that import.
++  // return std::make_exception_ptr(std::runtime_error(message));
++  try {
++    throw std::runtime_error(message);
++  } catch (...) {
++    return std::current_exception();
++  }
+ }
