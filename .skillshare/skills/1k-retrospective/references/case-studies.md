@@ -1702,3 +1702,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The gas-price hardware sign message has no access-list field, so the device signs a legacy payload. Since the Trezor integration the builder assembled an EIP-2930 transaction locally whenever `accessList` was truthy, attaching the legacy signature to different bytes that recover to another sender. The existing test asserted the type 1 assembly itself and never compared it with what the device signs.
 **Fix**: Drop `accessList` and `txType` on the gas-price hardware path so the locally assembled transaction is the legacy one the device signed. Tests compare the serialized bytes with the list-less legacy transaction for non-empty and empty lists.
 **Catchable by**: NEW — not covered (when a signer has its own message format, assert that the bytes assembled locally are the bytes it signs, including empty-array and optional-field inputs)
+
+## Case: Address risk top exposure value truncated (OK-67492)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React page); verified on the iOS simulator.
+**Symptom**: On the address risk check result, the Top exposure value was cut off, e.g. `Phishing address 41.2…` in English.
+**Root Cause**: The three stats split the row equally although Top exposure holds a category plus a percentage while the other two hold single numbers. The first fix widened that column to 1:1:2, which then squeezed the count labels below the German and Spanish label widths on 375-point screens (found in review).
+**Fix**: On narrow screens show the two counts side by side and give Top exposure its own full-width row; keep the single 1:1:2 row on wider screens.
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest) — include the longest translated labels, not only English and Chinese.
