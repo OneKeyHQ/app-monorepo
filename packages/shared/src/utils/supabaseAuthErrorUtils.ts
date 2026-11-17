@@ -1,6 +1,30 @@
 export const SUPABASE_STORAGE_TRANSIENT_ERROR_NAME =
   'SupabaseStorageTransientError';
 
+const SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
+  'invalid_grant',
+  'refresh_token_not_found',
+  'refresh_token_already_used',
+]);
+
+export function isDefinitiveSupabaseRefreshTokenRejectionError(
+  error: unknown,
+): boolean {
+  const authError = error as
+    | {
+        code?: unknown;
+        error?: unknown;
+        error_code?: unknown;
+      }
+    | undefined
+    | null;
+  return [authError?.code, authError?.error, authError?.error_code].some(
+    (code) =>
+      typeof code === 'string' &&
+      SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
+  );
+}
+
 /**
  * Thrown by the Supabase session storage layer when persisted session
  * material EXISTS but cannot be read right now for a transient reason (e.g.
@@ -12,10 +36,36 @@ export const SUPABASE_STORAGE_TRANSIENT_ERROR_NAME =
  * for auth-js errors here.
  */
 export class SupabaseStorageTransientError extends Error {
-  constructor(message: string) {
+  constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     this.name = SUPABASE_STORAGE_TRANSIENT_ERROR_NAME;
+    // Keeps the underlying error (e.g. a Desktop API IPC failure) reachable
+    // for structured diagnostics; the message stays the public surface.
+    if (options?.cause !== undefined) {
+      (this as { cause?: unknown }).cause = options.cause;
+    }
   }
+}
+
+// True for any error produced by the Supabase auth client. Every auth-js
+// error class is named `Auth*` (AuthApiError, AuthRetryableFetchError, ...).
+export function isSupabaseAuthError(error: unknown): boolean {
+  const name = (error as { name?: unknown } | undefined | null)?.name;
+  return typeof name === 'string' && name.startsWith('Auth');
+}
+
+// True when the fetch itself failed, so no usable answer came back from the
+// auth server. auth-js reports that as AuthRetryableFetchError with status 0
+// (a rejected fetch, or a 2xx body that is not JSON); gateway responses
+// (502/503/504) share the name but keep their HTTP status. Only for clients
+// without sessionPreservingSupabaseFetch, which reports rate limits and 5xx
+// the same way.
+export function isSupabaseAuthTransportError(error: unknown): boolean {
+  const authError = error as
+    | { name?: unknown; status?: unknown }
+    | undefined
+    | null;
+  return authError?.name === 'AuthRetryableFetchError' && !authError.status;
 }
 
 // Structural typing on purpose: `@onekeyhq/shared` must not depend on

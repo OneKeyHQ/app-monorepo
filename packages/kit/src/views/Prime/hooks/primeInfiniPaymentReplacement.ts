@@ -2,12 +2,15 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   isPrimeInfiniPaymentCacheIdentityForKey,
-  isPrimeInfiniPaymentExplicitlySuccessfulSnapshot,
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniNetworkAddress,
   isSamePrimeInfiniPaymentTransferSnapshot,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentValidationFailure,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import type {
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentAsset,
@@ -16,13 +19,18 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
-  getPrimeInfiniPaymentOutcome,
   hasPrimeInfiniPaymentProgress,
+  isPrimeInfiniPaymentClosedUnpaid,
   isPrimeInfiniPaymentForAsset,
   isPrimeInfiniPaymentReplaceable,
 } from './primeInfiniPaymentUtils';
 
 import type { IPrimeInfiniPaymentPhase } from './primeInfiniPaymentUtils';
+
+export type IPrimeInfiniPaymentSessionRevision = {
+  updatedAt: number;
+  sendStarted: boolean;
+};
 
 export type IPrimeInfiniPaymentReplacementResult =
   | {
@@ -59,10 +67,6 @@ export type IPrimeInfiniPaymentAccountRebindResult =
 export type IPrimeInfiniPaymentForcedReplacementResult =
   | {
       type: 'replace';
-      payment: IPrimeInfiniPayment;
-    }
-  | {
-      type: 'track';
       payment: IPrimeInfiniPayment;
     }
   | {
@@ -255,7 +259,7 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   fetchLatestPayment,
   fetchPurchaseStatusSnapshot,
   archivePaymentSession,
-  persistTrackedPayment,
+  onLatestPaymentUnavailable,
   shouldContinue,
 }: {
   currentSession: IPrimeInfiniPendingPaymentSession;
@@ -264,13 +268,21 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   archivePaymentSession: (
     payment: IPrimeInfiniPayment,
   ) => Promise<IPrimeInfiniPendingPaymentSession | undefined>;
-  persistTrackedPayment: (
-    payment: IPrimeInfiniPayment,
-  ) => Promise<IPrimeInfiniPendingPaymentSession>;
+  onLatestPaymentUnavailable?: (error: unknown) => void;
   shouldContinue: () => boolean;
 }): Promise<IPrimeInfiniPaymentForcedReplacementResult> {
+  // The invoice endpoint can stay broken for a specific paymentId, which used
+  // to abort this whole path and leave the user with no way out at all. Degrade
+  // instead: subscription activation comes from a separate endpoint, and the
+  // stored invoice still preserves the order the user agreed to replace.
   const [latestPayment, purchaseStatusSnapshot] = await Promise.all([
-    fetchLatestPayment(currentSession.payment.paymentId),
+    fetchLatestPayment(currentSession.payment.paymentId).then(
+      (payment) => payment,
+      (error) => {
+        onLatestPaymentUnavailable?.(error);
+        return undefined;
+      },
+    ),
     fetchPurchaseStatusSnapshot(),
   ]);
   if (
@@ -289,15 +301,16 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
     return { type: 'completed' };
   }
   if (
-    !isSamePrimeInfiniPaymentTransferSnapshot({
+    latestPayment &&
+    (!isSamePrimeInfiniPaymentTransferSnapshot({
       first: currentSession.payment,
       second: latestPayment,
       networkId: currentSession.asset.networkId,
     }) ||
-    !isPrimeInfiniPaymentForAsset({
-      payment: latestPayment,
-      asset: currentSession.asset,
-    })
+      !isPrimeInfiniPaymentForAsset({
+        payment: latestPayment,
+        asset: currentSession.asset,
+      }))
   ) {
     throw new OneKeyLocalError(
       'Infini payment changed before forced replacement',
@@ -306,25 +319,16 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   if (!shouldContinue()) {
     return { type: 'cancelled' };
   }
-  const paymentWithDurableProgress = mergePrimeInfiniPaymentProgressSnapshot({
-    previous: currentSession.payment,
-    latest: latestPayment,
-  });
-  if (
-    getPrimeInfiniPaymentOutcome({
-      payment: paymentWithDurableProgress,
-    }) === 'confirmed' ||
-    isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(paymentWithDurableProgress)
-  ) {
-    const persistedSession = await persistTrackedPayment(
-      paymentWithDurableProgress,
-    );
-    return {
-      type: 'track',
-      payment: persistedSession.payment,
-    };
-  }
-
+  // Without a fresh invoice this is the last known local state, which is also
+  // what the confirmation screen showed the user.
+  const paymentWithDurableProgress = latestPayment
+    ? mergePrimeInfiniPaymentProgressSnapshot({
+        previous: currentSession.payment,
+        latest: latestPayment,
+      })
+    : currentSession.payment;
+  // This path follows the user's explicit duplicate-payment warning. Invoice
+  // progress alone must not trap a user whose subscription never activated.
   const archivedSession = await archivePaymentSession(
     paymentWithDurableProgress,
   );
@@ -343,15 +347,27 @@ export async function resolvePrimeInfiniPaymentReplacement({
   sendStarted,
   fetchLatestPayment,
   discardPaymentSession,
+  captureSessionRevision,
+  discardTerminalPaymentSession,
   fetchPersistedPaymentSession,
   persistTrackedPayment,
   shouldContinue,
+  allowTerminalRelease = true,
+  allowChangedUnsentQuote = false,
+  confirmLatestPayment,
 }: {
   currentPayment: IPrimeInfiniPayment;
   selectedAsset: IPrimeInfiniPaymentAsset;
   sendStarted: boolean;
   fetchLatestPayment: (paymentId: string) => Promise<IPrimeInfiniPayment>;
   discardPaymentSession: (paymentId: string) => Promise<boolean>;
+  captureSessionRevision: () => Promise<
+    IPrimeInfiniPaymentSessionRevision | undefined
+  >;
+  discardTerminalPaymentSession: (
+    latestPayment: IPrimeInfiniPayment,
+    sessionRevision: IPrimeInfiniPaymentSessionRevision | undefined,
+  ) => Promise<boolean>;
   fetchPersistedPaymentSession: () => Promise<
     IPrimeInfiniPendingPaymentSession | undefined
   >;
@@ -359,22 +375,30 @@ export async function resolvePrimeInfiniPaymentReplacement({
     payment: IPrimeInfiniPayment,
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
   shouldContinue: () => boolean;
+  allowTerminalRelease?: boolean;
+  allowChangedUnsentQuote?: boolean;
+  confirmLatestPayment?: (payment: IPrimeInfiniPayment) => Promise<boolean>;
 }): Promise<IPrimeInfiniPaymentReplacementResult> {
+  // Pin the stored session before the remote round trip. Reading it after
+  // fetchLatestPayment() would adopt a claim made by another window during that
+  // request as the expected revision, so the terminal delete below would happily
+  // remove a session whose broadcast is already on its way.
+  const sessionRevision = await captureSessionRevision();
   const latestPayment = await fetchLatestPayment(currentPayment.paymentId);
+  const validationFailure = getPrimeInfiniPaymentValidationFailure({
+    payment: latestPayment,
+    previousPayment: currentPayment,
+    asset: selectedAsset,
+    validateQuote: false,
+  });
+  if (latestPayment.paymentId !== currentPayment.paymentId) {
+    throw createPrimeInfiniPaymentValidationError('invalidResponse');
+  }
   if (
-    !isSamePrimeInfiniPaymentTransferSnapshot({
-      first: currentPayment,
-      second: latestPayment,
-      networkId: selectedAsset.networkId,
-    }) ||
-    !isPrimeInfiniPaymentForAsset({
-      payment: latestPayment,
-      asset: selectedAsset,
-    })
+    validationFailure &&
+    (!allowChangedUnsentQuote || validationFailure === 'invalidResponse')
   ) {
-    throw new OneKeyLocalError(
-      'Infini payment changed before payment replacement',
-    );
+    throw createPrimeInfiniPaymentValidationError(validationFailure);
   }
   if (!shouldContinue()) {
     return { type: 'cancelled' };
@@ -386,16 +410,46 @@ export async function resolvePrimeInfiniPaymentReplacement({
   if (
     !isPrimeInfiniPaymentReplaceable({
       payment: paymentWithDurableProgress,
-      sendStarted: sendStarted || hasPrimeInfiniPaymentProgress(currentPayment),
+      sendStarted:
+        sendStarted ||
+        sessionRevision?.sendStarted === true ||
+        hasPrimeInfiniPaymentProgress(currentPayment),
     })
   ) {
+    // A claimed invoice the server closed with nothing collected is dead, but
+    // the ordinary discard refuses it because sendStarted stays latched.
+    // Release it through the terminal path so changing the selection actually
+    // works here instead of sending the user straight back to polling. Only a
+    // successful atomic delete may report a replacement.
+    if (
+      !validationFailure &&
+      allowTerminalRelease &&
+      isPrimeInfiniPaymentClosedUnpaid(paymentWithDurableProgress)
+    ) {
+      if (await discardTerminalPaymentSession(latestPayment, sessionRevision)) {
+        return {
+          type: 'replace',
+          payment: paymentWithDurableProgress,
+        };
+      }
+      if (!shouldContinue()) {
+        return { type: 'cancelled' };
+      }
+    }
     const persistedSession = await persistTrackedPayment(
-      paymentWithDurableProgress,
+      validationFailure ? currentPayment : paymentWithDurableProgress,
     );
     return {
       type: 'track',
       payment: persistedSession.payment,
     };
+  }
+
+  if (
+    confirmLatestPayment &&
+    (!(await confirmLatestPayment(latestPayment)) || !shouldContinue())
+  ) {
+    return { type: 'cancelled' };
   }
 
   const didDiscard = await discardPaymentSession(

@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -15,13 +14,17 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import { glassBarItem } from '@onekeyhq/components/src/primitives/Button/GlassHeaderContext';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EScanQrCodeModalPages,
@@ -36,10 +39,22 @@ import { ScanQrCode } from '../components';
 import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
+import type { IScanCameraRef } from '../components/ScanCamera';
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 appGlobals.$$scanNavigation = undefined;
-function DebugInput({ onText }: { onText: (text: string) => void }) {
+
+// Width kept for the hints beside the camera in the landscape layout.
+const LANDSCAPE_HINTS_MIN_WIDTH = 260;
+
+function DebugInput({
+  onText,
+  onClose,
+}: {
+  onText: (text: string) => void;
+  onClose?: () => void;
+}) {
   const navigation = useAppNavigation();
   const { bottom } = useSafeAreaInsets();
   appGlobals.$$scanNavigation = navigation;
@@ -56,7 +71,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
       <YStack pb={bottom}>
         <XStack>
           <IconButton
-            onPress={() => navigation.popStack()}
+            onPress={onClose ?? (() => navigation.popStack())}
             icon="CrossedLargeOutline"
             variant="destructive"
             testID={ScanQrCodeTestIDs.debugCloseBtn}
@@ -87,7 +102,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
   return (
     <YStack pb={bottom}>
       <MultipleClickStack
-        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
+        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 3}
         showDevBgColor
         w="$8"
         h="$8"
@@ -199,6 +214,12 @@ function ScanQrCodeModalFooter({
 
 export default function ScanQrCodeModal() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const scannerRef = useRef<IScanCameraRef>(null);
+  const closeScanner = useCallback(() => {
+    scannerRef.current?.dispose();
+    navigation.popStack();
+  }, [navigation]);
   const route =
     useRoute<
       RouteProp<
@@ -216,7 +237,7 @@ export default function ScanQrCodeModal() {
     async (value: string) => {
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
-          appStorage.syncStorage.set(
+          await appStorage.syncStorage.set(
             EAppSyncStorageKeys.last_scan_qr_code_text,
             value,
           );
@@ -231,18 +252,17 @@ export default function ScanQrCodeModal() {
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const result = await launchImageLibraryAsync({
-      base64: !platformEnv.isNative,
-      allowsMultipleSelection: false,
-    });
+    const result = await PhotoLibrary.pickImage();
 
     if (!result.canceled) {
-      const uri = result?.assets?.[0]?.uri;
+      const uri = result.uri;
       let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
       } catch {
         data = null;
+      } finally {
+        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
@@ -254,10 +274,6 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
-      defaultLogger.scanQrCode.readQrCode.readFromLibrary(
-        JSON.stringify(result),
-        data,
-      );
     }
   }, [callback, intl]);
 
@@ -273,6 +289,29 @@ export default function ScanQrCodeModal() {
     [callback],
   );
 
+  // A phone sheet wider than it is tall (iPhone Duo inner display in
+  // landscape) can't fit a full-width square camera above the hints, so
+  // put the hints beside it and fit the camera to the remaining space.
+  const media = useMedia();
+  const [bodySize, setBodySize] = useState<{ width: number; height: number }>();
+  const onBodyLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setBodySize((prev) =>
+      prev?.width === width && prev?.height === height
+        ? prev
+        : { width, height },
+    );
+  }, []);
+  const landscapeCameraSize = bodySize
+    ? Math.min(bodySize.height, bodySize.width - LANDSCAPE_HINTS_MIN_WIDTH)
+    : 0;
+  const isLandscapeLayout = Boolean(
+    platformEnv.isNative &&
+    media.md &&
+    bodySize &&
+    bodySize.width > bodySize.height,
+  );
+
   const headerRightCall = useCallback(
     () =>
       qrWalletScene ? null : (
@@ -286,15 +325,32 @@ export default function ScanQrCodeModal() {
     [intl, pickImage, qrWalletScene],
   );
 
+  const headerLeftCall = useCallback(
+    () => <NavCloseButton onPress={closeScanner} />,
+    [closeScanner],
+  );
+  const glassHeaderLeftItems = useCallback(
+    () => [glassBarItem(<NavCloseButton onPress={closeScanner} />)],
+    [closeScanner],
+  );
+
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+        headerLeft={platformEnv.isNative ? headerLeftCall : undefined}
+        unstable_headerLeftItems={
+          platformEnv.isNativeIOS26Plus ? glassHeaderLeftItems : undefined
+        }
         headerRight={headerRightCall}
       />
-      <Page.Body $gtMd={{ jc: 'center' }}>
+      <Page.Body
+        $gtMd={{ jc: 'center' }}
+        flexDirection={isLandscapeLayout ? 'row' : 'column'}
+        onLayout={onBodyLayout}
+      >
         <Stack
-          w="100%"
+          w={isLandscapeLayout ? landscapeCameraSize : '100%'}
           mx="auto"
           $gtMd={{
             maxWidth: '$80',
@@ -319,6 +375,7 @@ export default function ScanQrCodeModal() {
                 }}
               >
                 <ScanQrCode
+                  ref={scannerRef}
                   handleBarCodeScanned={onCameraScanned}
                   qrWalletScene={qrWalletScene}
                 />
@@ -326,13 +383,18 @@ export default function ScanQrCodeModal() {
             </YStack>
           </Stack>
         </Stack>
-        <ScanQrCodeModalFooter
-          qrWalletScene={qrWalletScene}
-          showProTutorial={showProTutorial}
-        />
+        <Stack flex={1}>
+          <ScanQrCodeModalFooter
+            qrWalletScene={qrWalletScene}
+            showProTutorial={showProTutorial}
+          />
+        </Stack>
       </Page.Body>
-      <Page.Footer>
-        <DebugInput onText={(value) => callback(value)} />
+      <Page.Footer safeAreaBottomMode="content">
+        <DebugInput
+          onText={(value) => callback(value)}
+          onClose={platformEnv.isNative ? closeScanner : undefined}
+        />
       </Page.Footer>
     </Page>
   );

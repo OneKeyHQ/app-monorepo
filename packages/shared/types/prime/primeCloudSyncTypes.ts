@@ -105,7 +105,7 @@ export type ICloudSyncCheckServerStatusResult = {
 };
 
 export type ICloudSyncDownloadPostData = {
-  start?: number;
+  skip?: number;
   limit?: number;
   includeDeleted?: boolean;
 };

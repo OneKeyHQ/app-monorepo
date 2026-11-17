@@ -17,7 +17,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import type {
@@ -25,15 +24,13 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapQuoteLimitMessage } from '../utils/swapErrorUtils';
+
 import { SwapProviderIcon } from './SwapProviderIcon';
 import SwapRoutePaths from './SwapRoutePaths';
 
 import type { IRouteRows } from './SwapRoutePaths';
 import type { IListItemProps } from '../../../components/ListItem';
-
-const formatter: INumberFormatProps = {
-  formatter: 'balance',
-};
 
 export type ISwapProviderListItemProps = {
   providerResult: IFetchQuoteResult;
@@ -126,39 +123,14 @@ const SwapProviderListItem = ({
     return null;
   }, [estTime, estimatedTime, intl]);
 
-  const protocolFeeComponent = useMemo(
-    () => (
-      <XStack gap="$1" alignItems="center">
-        <Tooltip
-          renderTrigger={
-            <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
-          }
-          renderContent={
-            <SizableText size="$bodySm" color="$text">
-              {intl.formatMessage({
-                id: ETranslations.provider_protocol_fee,
-              })}
-            </SizableText>
-          }
-          placement="bottom-start"
-        />
-
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: currencySymbol,
-          }}
-        >
-          {providerResult.fee?.protocolFees ?? 0}
-        </NumberSizeableText>
-      </XStack>
-    ),
-    [currencySymbol, intl, providerResult.fee?.protocolFees],
-  );
-
   const leftMainLabel = useMemo(() => {
+    const limitMessage = getSwapQuoteLimitMessage({
+      intl,
+      limit: providerResult.limit,
+      fromTokenAmount,
+      fromTokenSymbol: fromToken?.symbol,
+    });
+    if (limitMessage) return limitMessage;
     if (disabled) {
       return (
         providerResult?.errorMessage ||
@@ -166,33 +138,6 @@ const SwapProviderListItem = ({
           id: ETranslations.provider_route_unable_fetch_price,
         })
       );
-    }
-    if (providerResult.limit) {
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
-      if (providerResult.limit.min) {
-        const minBN = new BigNumber(providerResult.limit.min);
-        if (fromTokenAmountBN.lt(minBN)) {
-          return intl.formatMessage(
-            { id: ETranslations.provider_min_amount_required },
-            {
-              amount: numberFormat(providerResult.limit.min, formatter),
-              token: fromToken?.symbol ?? 'unknown',
-            },
-          );
-        }
-      }
-      if (providerResult.limit.max) {
-        const maxBN = new BigNumber(providerResult.limit.max);
-        if (fromTokenAmountBN.gt(maxBN)) {
-          return intl.formatMessage(
-            { id: ETranslations.provider_max_amount_required },
-            {
-              amount: numberFormat(providerResult.limit.max, formatter),
-              token: fromToken?.symbol ?? 'unknown',
-            },
-          );
-        }
-      }
     }
     if (providerResult.toAmount) {
       const toAmountBN = new BigNumber(providerResult.toAmount);
@@ -394,7 +339,6 @@ const SwapProviderListItem = ({
           <XStack gap="$3.5" alignItems="center">
             {networkFeeComponent}
             {estimatedTimeComponent}
-            {protocolFeeComponent}
             <XStack
               role="button"
               borderRadius="$2"

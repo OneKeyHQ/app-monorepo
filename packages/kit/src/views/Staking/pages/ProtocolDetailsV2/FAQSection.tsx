@@ -92,6 +92,16 @@ export function FAQSection({
   );
   return faqs?.items?.length ? (
     <YStack pb="$8">
+      {/* OK-59335: the server ships a section title alongside the items, it
+          just was not rendered — the detail page showed a bare accordion */}
+      {faqs.title?.text ? (
+        <EarnText
+          text={faqs.title}
+          size={media.gtMd ? '$headingXl' : '$headingLg'}
+          color="$text"
+          pb="$2"
+        />
+      ) : null}
       <Accordion type="multiple">
         {faqs.items.map((item, index) => (
           <YStack key={String(index)}>
@@ -120,7 +130,7 @@ export function FAQSection({
                       {item.title.text}
                     </SizableText>
                     <Stack
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                     >
@@ -133,14 +143,14 @@ export function FAQSection({
                   </>
                 )}
               </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
+              <Accordion.HeightAnimator transition="quick">
                 <Accordion.Content
                   unstyled
                   p={0}
                   pt="$1"
                   pb="$5"
                   pr="$8"
-                  animation="100ms"
+                  transition="100ms"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}

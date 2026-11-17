@@ -23,6 +23,7 @@ import { useAccountSelectorSceneInfo } from '../../../states/jotai/contexts/acco
 import { AccountAvatar } from '../../AccountAvatar';
 import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 import type { ISpotlightViewProps } from '../../Spotlight';
 
@@ -37,6 +38,7 @@ export function AccountSelectorTriggerBase({
   linkNetworkId,
   linkNetwork,
   containerProps,
+  alignChevronToEnd,
   ...others
 }: {
   num: number;
@@ -48,6 +50,9 @@ export function AccountSelectorTriggerBase({
   showConnectWalletModalInDappMode?: boolean;
   disabled?: boolean;
   containerProps?: IXStackProps;
+  // Full-width form-field triggers pin the chevron to the row end; adaptive
+  // header triggers keep it right after the label (native default).
+  alignChevronToEnd?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -90,7 +95,7 @@ export function AccountSelectorTriggerBase({
     if (isWebDappModeWithNoWallet) {
       return (
         <Button
-          testID="AccountSelectorTriggerBase"
+          testID={AccountSelectorTestIDs.trigger}
           size="small"
           variant="primary"
           h="$8"
@@ -112,7 +117,7 @@ export function AccountSelectorTriggerBase({
 
     return (
       <XStack
-        testID="AccountSelectorTriggerBase"
+        testID={AccountSelectorTestIDs.trigger}
         role={isTriggerDisabled ? undefined : 'button'}
         alignItems="center"
         width="$full"
@@ -150,7 +155,7 @@ export function AccountSelectorTriggerBase({
           flexDirection={horizontalLayout ? 'row' : 'column'}
           pl={showWalletAvatar ? '$2.5' : '$2'}
           flexShrink={1}
-          flex={platformEnv.isNative ? undefined : 1}
+          flex={alignChevronToEnd || !platformEnv.isNative ? 1 : undefined}
         >
           {horizontalLayout ? (
             <SizableText
@@ -165,6 +170,7 @@ export function AccountSelectorTriggerBase({
               numberOfLines={1}
               flexShrink={1}
               maxWidth="$40"
+              testID={AccountSelectorTestIDs.triggerAccountName}
             >
               {showWalletName
                 ? `${walletName} / ${displayLabel}`
@@ -184,7 +190,7 @@ export function AccountSelectorTriggerBase({
                 size="$bodyMd"
                 numberOfLines={horizontalLayout ? undefined : 1}
                 flexShrink={1}
-                testID="account-name"
+                testID={AccountSelectorTestIDs.triggerAccountName}
               >
                 {displayLabel}
               </SizableText>
@@ -198,6 +204,7 @@ export function AccountSelectorTriggerBase({
     );
   }, [
     account,
+    alignChevronToEnd,
     containerProps,
     dbAccount,
     displayLabel,

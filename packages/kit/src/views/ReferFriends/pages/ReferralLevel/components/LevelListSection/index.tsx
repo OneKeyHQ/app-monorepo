@@ -1,32 +1,23 @@
 import { useMemo } from 'react';
 
 import { Accordion } from '@onekeyhq/components';
+import { useInviteListCardStyle } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { LevelAccordionItem } from './LevelAccordionItem';
 
 export function LevelListSection({
+  currentLevel,
   levels,
 }: {
+  currentLevel: number;
   levels: IInviteLevelDetail['levels'];
 }) {
-  const defaultValue = useMemo(() => {
-    const currentLevel = levels.find((level) => level.isCurrent);
-    return currentLevel ? `level-${currentLevel.level}` : undefined;
-  }, [levels]);
+  const cardStyle = useInviteListCardStyle();
   const displayLevels = useMemo(() => levels.toReversed(), [levels]);
 
   return (
-    <Accordion
-      type="single"
-      collapsible
-      defaultValue={defaultValue}
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
-      borderCurve="continuous"
-      overflow="hidden"
-    >
+    <Accordion type="single" collapsible overflow="hidden" {...cardStyle}>
       {displayLevels.map((level, index) => {
         const ascendingIndex = levels.length - 1 - index;
         const isHighestLevel = ascendingIndex === levels.length - 1;
@@ -34,20 +25,22 @@ export function LevelListSection({
         const retentionConditions = isLowestLevel
           ? undefined
           : levels[ascendingIndex - 1].upgradeConditions;
-        const nextLevelLabel = isHighestLevel
+        const nextLevel = isHighestLevel
           ? undefined
-          : levels[ascendingIndex + 1]?.label;
+          : levels[ascendingIndex + 1];
+        const isCurrent = level.level === currentLevel;
 
         return (
           <LevelAccordionItem
             key={level.level}
             level={level}
-            isCurrent={level.isCurrent}
+            isCurrent={isCurrent}
             isLast={index === displayLevels.length - 1}
             isHighestLevel={isHighestLevel}
             isLowestLevel={isLowestLevel}
             retentionConditions={retentionConditions}
-            nextLevelLabel={nextLevelLabel}
+            nextLevelLabel={nextLevel?.label}
+            nextLevelGlyph={nextLevel}
           />
         );
       })}

@@ -15,7 +15,10 @@ import { usePrimePurchaseCallback } from '../components/PrimePurchaseDialog/Prim
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 
-import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from './usePrimePaymentTypes';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../components/PrimePurchaseDialog/PrimePurchaseDialog'),
@@ -25,12 +28,14 @@ const PrimePurchaseDialog = LazyLoadPage(
 
 export function usePrimeRequirements({
   onPurchase,
+  networkId,
 }: {
   onPurchase?: () => void | Promise<void>;
+  networkId?: string;
 } = {}) {
   const { user, loginOneKeyId } = useOneKeyAuth();
 
-  const { purchase } = usePrimePurchaseCallback({ onPurchase });
+  const { purchase } = usePrimePurchaseCallback({ onPurchase, networkId });
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -75,10 +80,12 @@ export function usePrimeRequirements({
       skipDialogConfirm,
       selectedSubscriptionPeriod,
       featureName,
+      freeTrial,
     }: {
       skipDialogConfirm?: boolean;
       selectedSubscriptionPeriod?: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
+      freeTrial?: IPackageFreeTrial;
     } = {}) => {
       await ensureOneKeyIDLoggedIn({
         skipDialogConfirm,
@@ -92,7 +99,9 @@ export function usePrimeRequirements({
           });
           if (isSandboxKey && !user.isEnableSandboxPay) {
             Toast.error({
-              title: 'Your account is not eligible for sandbox payment',
+              title: intl.formatMessage({
+                id: ETranslations.prime_sandbox_payment_unavailable__msg,
+              }),
             });
             return;
           }
@@ -100,6 +109,7 @@ export function usePrimeRequirements({
             await purchase({
               selectedSubscriptionPeriod,
               featureName,
+              freeTrial,
             });
           } else {
             const _purchaseDialog = Dialog.show({
@@ -109,6 +119,7 @@ export function usePrimeRequirements({
                     return _purchaseDialog.close();
                   }}
                   featureName={featureName}
+                  networkId={networkId}
                 />
               ),
             });
@@ -136,7 +147,13 @@ export function usePrimeRequirements({
         throw new OneKeyLocalError('Prime subscription is not active');
       }
     },
-    [ensureOneKeyIDLoggedIn, intl, purchase, user.isEnableSandboxPay],
+    [
+      ensureOneKeyIDLoggedIn,
+      intl,
+      networkId,
+      purchase,
+      user.isEnableSandboxPay,
+    ],
   );
 
   return {

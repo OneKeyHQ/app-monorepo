@@ -28,6 +28,20 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
     });
   });
 
+  it('routes software accounts through the dialog when password verification is required', () => {
+    expect(
+      getPerpsOrderPanelEnableTradingModeByAccount({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+        indexedAccountId: 'hd-1--0',
+        requiresPasswordSetupOrVerify: true,
+      }),
+    ).toEqual({
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
+    });
+  });
+
   it('routes cached hardware accounts through the order-panel enable dialog', () => {
     expect(
       getPerpsOrderPanelEnableTradingModeByAccount({
@@ -185,6 +199,76 @@ describe('shouldReservePerpsMobileEnableTradingLayout', () => {
 });
 
 describe('getPerpsOrderPanelEnableTradingSteps', () => {
+  it('adds password setup before the existing wallet confirmation steps', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps(
+      {
+        accountAddress: '0xabc',
+        accountNotSupport: false,
+        canCreateAddress: false,
+        canTrade: false,
+        details: {
+          activatedOk: true,
+          agentOk: false,
+          builderFeeOk: true,
+          referralCodeOk: true,
+          internalRebateBoundOk: true,
+          abstractionOk: true,
+        },
+      },
+      {
+        passwordStatus: {
+          isPasswordSet: false,
+          requiresPasswordSetupOrVerify: true,
+        },
+      },
+    );
+
+    expect(steps).toEqual([
+      {
+        key: 'password',
+        labelId: ETranslations.set_unlock_passcode__title,
+        requiresSignature: false,
+      },
+      {
+        key: 'agent',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(1);
+  });
+
+  it('uses password verification copy when an app password already exists', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps(
+      {
+        accountAddress: '0xabc',
+        accountNotSupport: false,
+        canCreateAddress: false,
+        canTrade: false,
+        details: {
+          activatedOk: true,
+          agentOk: false,
+          builderFeeOk: true,
+          referralCodeOk: true,
+          internalRebateBoundOk: true,
+          abstractionOk: true,
+        },
+      },
+      {
+        passwordStatus: {
+          isPasswordSet: true,
+          requiresPasswordSetupOrVerify: true,
+        },
+      },
+    );
+
+    expect(steps[0]).toEqual({
+      key: 'password',
+      labelId: ETranslations.confirm_unlock_passcode__title,
+      requiresSignature: false,
+    });
+  });
+
   it('counts hardware wallet signature steps from unmet status details', () => {
     const steps = getPerpsOrderPanelEnableTradingSteps({
       accountAddress: '0xabc',

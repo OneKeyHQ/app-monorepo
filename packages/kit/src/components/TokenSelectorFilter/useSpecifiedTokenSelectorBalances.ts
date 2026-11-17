@@ -34,6 +34,7 @@ export type ITokenSelectorBalanceState = {
 export type ISpecifiedTokenSelectorBalanceSnapshot = {
   balanceStateByKey: Record<string, ITokenSelectorBalanceState>;
   isComplete: boolean;
+  issues: unknown[];
 };
 
 const ZERO_TOKEN_FIAT: ITokenFiat = {
@@ -122,6 +123,7 @@ function mergeWithCachedSnapshot({
       ]),
     ),
     isComplete: false,
+    issues: snapshot.issues,
   };
 }
 
@@ -161,13 +163,22 @@ export function useSpecifiedTokenSelectorBalances({
 
       const tokenInfoEntriesPromise = Promise.all(
         targets.map(async (target) => {
-          const tokenInfo = await backgroundApiProxy.serviceToken
-            .fetchTokenInfoOnly({
-              networkId: target.networkId,
-              tokenAddress: target.contractAddress,
-            })
-            .catch(() => undefined);
-          return [target.key, tokenInfo] as const;
+          try {
+            const tokenInfo =
+              await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+                networkId: target.networkId,
+                tokenAddress: target.contractAddress,
+              });
+            return {
+              entry: [target.key, tokenInfo] as const,
+              issue: undefined,
+            };
+          } catch (error) {
+            return {
+              entry: [target.key, undefined] as const,
+              issue: error,
+            };
+          }
         }),
       );
       const emptyResponse: IFetchSpecifiedTokenSelectorTokensResult = {
@@ -175,18 +186,23 @@ export function useSpecifiedTokenSelectorBalances({
         expectedResponseCount: new Set(
           targets.map((target) => target.networkId),
         ).size,
+        issues: [],
       };
-      const { responsesByNetworkId, expectedResponseCount } =
+      const { responsesByNetworkId, expectedResponseCount, issues } =
         accountId && networkId
           ? await fetchSpecifiedTokenSelectorTokens({
               accountId,
               networkId,
               indexedAccountId,
               targets,
-            }).catch(() => emptyResponse)
+            }).catch((error) => ({
+              ...emptyResponse,
+              issues: [error],
+            }))
           : emptyResponse;
+      const tokenInfoResults = await tokenInfoEntriesPromise;
       const tokenInfoByKey = Object.fromEntries(
-        await tokenInfoEntriesPromise,
+        tokenInfoResults.map(({ entry }) => entry),
       ) as Record<string, IFetchTokenDetailItem | undefined>;
       const snapshot: ISpecifiedTokenSelectorBalanceSnapshot = {
         balanceStateByKey: Object.fromEntries(
@@ -214,6 +230,10 @@ export function useSpecifiedTokenSelectorBalances({
         ),
         isComplete:
           Object.keys(responsesByNetworkId).length === expectedResponseCount,
+        issues: [
+          ...issues,
+          ...tokenInfoResults.flatMap(({ issue }) => (issue ? [issue] : [])),
+        ],
       };
       return mergeWithCachedSnapshot({
         snapshot,
@@ -228,7 +248,10 @@ export function useSpecifiedTokenSelectorBalances({
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       swrKey,
-      swrShouldPersist: (snapshot) => snapshot?.isComplete === true,
+      // Raw request issues are returned only to the active UI so it can report
+      // the real failure. Never persist an error object in the SWR snapshot.
+      swrShouldPersist: (snapshot) =>
+        snapshot?.isComplete === true && snapshot.issues.length === 0,
     },
   );
 
@@ -263,6 +286,7 @@ export function useSpecifiedTokenSelectorBalances({
   return {
     balanceStateByKey: result?.balanceStateByKey,
     isComplete: result?.isComplete,
+    issues: result?.issues,
     isLoading: Boolean(isLoading && !result),
     isRefreshing: Boolean(isLoading && result),
     refresh,

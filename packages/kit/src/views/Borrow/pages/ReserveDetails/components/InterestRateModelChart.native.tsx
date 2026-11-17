@@ -19,6 +19,7 @@ import {
   convertUtilizationToTime,
   normalizeApyToPercent,
   normalizeUtilization,
+  parseUtilizationRatio,
   useInterestRateModelLabels,
 } from './InterestRateModelChartShared';
 
@@ -257,6 +258,7 @@ export function InterestRateModelChart({
   const [hoverData, setHoverData] = useState<IHoverData | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const theme = useTheme();
+  const normalizedUtilizationRatio = parseUtilizationRatio(utilizationRatio);
 
   const {
     utilizationRatioLabel,
@@ -288,14 +290,10 @@ export function InterestRateModelChart({
       value: normalizeApyToPercent(parseFloat(apy)),
     }));
 
-    const parsedUtilRatio = utilizationRatio
-      ? normalizeUtilization(parseFloat(utilizationRatio))
-      : null;
-
     return {
       supplyData,
       borrowData,
-      utilizationRatio: parsedUtilRatio,
+      utilizationRatio: normalizedUtilizationRatio,
       theme: {
         bgColor: 'transparent',
         textColor: theme.text?.val || '#000000',
@@ -313,7 +311,7 @@ export function InterestRateModelChart({
   }, [
     borrowCurve,
     supplyCurve,
-    utilizationRatio,
+    normalizedUtilizationRatio,
     theme.text?.val,
     theme.textSubdued?.val,
     theme.borderSubdued?.val,
@@ -364,11 +362,10 @@ export function InterestRateModelChart({
     }
   }, [chartConfig, webViewReady]);
 
-  const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
-        2,
-      )}%`
-    : '0.00%';
+  const utilizationPercentage =
+    normalizedUtilizationRatio !== null
+      ? `${(normalizedUtilizationRatio * 100).toFixed(2)}%`
+      : '0.00%';
 
   if (isLoading) {
     return (

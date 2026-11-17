@@ -1,9 +1,11 @@
 /* eslint-disable new-cap, global-require, @typescript-eslint/no-var-requires */
 import { buildCallRemoteApiMethod } from '@onekeyhq/kit-bg/src/apis/RemoteApiProxyBase';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
+import { isDesktopApiMethodAllowed } from '../desktopApiMethodPolicy';
 
 import type {
   IDesktopApi,
@@ -16,6 +18,7 @@ import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiCloudKit from '../DesktopApiCloudKit';
 import type DesktopApiDev from '../DesktopApiDev';
+import type DesktopApiFirmwareArtifact from '../DesktopApiFirmwareArtifact';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiKeychain from '../DesktopApiKeychain';
 import type DesktopApiNotification from '../DesktopApiNotification';
@@ -115,6 +118,14 @@ class DesktopApi implements IDesktopApi {
     );
   }
 
+  get firmwareArtifact(): DesktopApiFirmwareArtifact {
+    return this.getOrCreateModule('firmwareArtifact', () =>
+      this.createModule(
+        require('../DesktopApiFirmwareArtifact') as typeof import('../DesktopApiFirmwareArtifact'),
+      ),
+    );
+  }
+
   get bluetooth(): DesktopApiBluetooth {
     return this.getOrCreateModule('bluetooth', () =>
       this.createModule(
@@ -182,6 +193,10 @@ class DesktopApi implements IDesktopApi {
 
 const desktopApi = new DesktopApi();
 
+export function getDesktopApiAppUpdate(): DesktopApiAppUpdate {
+  return desktopApi.appUpdate;
+}
+
 const createDesktopApiModule = memoizee(
   async (name: IDesktopApiKeys) => {
     return desktopApi[name];
@@ -191,11 +206,18 @@ const createDesktopApiModule = memoizee(
   },
 );
 
-const callDesktopApiMethod =
+const dispatchDesktopApiMethod =
   buildCallRemoteApiMethod<IDesktopApiMessagePayload>(
     createDesktopApiModule,
     'desktopApi',
   );
+
+function callDesktopApiMethod(message: IDesktopApiMessagePayload) {
+  if (!isDesktopApiMethodAllowed(message?.module, message?.method)) {
+    throw new OneKeyLocalError('Desktop API method is not public');
+  }
+  return dispatchDesktopApiMethod(message);
+}
 
 function desktopApiSetup() {
   const bridge = new JsBridgeDesktopApiOfMain({

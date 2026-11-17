@@ -9,5 +9,6 @@ export type ILiteCardParamList = {
   [ELiteCardRoutes.LiteCardHome]: undefined;
   [ELiteCardRoutes.LiteCardSelectWallet]: {
     onPick?: (item: IDBWallet) => void;
+    onCancel?: () => void;
   };
 };

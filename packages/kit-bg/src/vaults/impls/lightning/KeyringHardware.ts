@@ -18,6 +18,7 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -25,6 +26,8 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEncodedTxLightning,
@@ -38,6 +41,7 @@ import type LightningVault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
+  IDeviceSharedCallParams,
   IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
@@ -49,6 +53,23 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.lightning.hd;
 
   override hwSdkNetwork: IHwSdkNetwork = 'btc';
+
+  private assertPro2LightningSupported(
+    deviceParams: IDeviceSharedCallParams | undefined,
+  ) {
+    const dbDevice = deviceParams?.dbDevice;
+    if (!dbDevice || !isProtocolV2ProductType(dbDevice.deviceType)) {
+      return;
+    }
+
+    throw new deviceErrors.UnknownMethod({
+      payload: {
+        error: 'Device not support this method',
+        connectId: dbDevice.connectId,
+        deviceId: dbDevice.deviceId,
+      },
+    });
+  }
 
   override async buildHwAllNetworkPrepareAccountsParams(
     params: IBuildHwAllNetworkPrepareAccountsParams,
@@ -86,6 +107,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     const { addressEncoding } = params.deriveInfo;
     const networkInfo = await this.getCoreApiNetworkInfo();
     const isTestnet = networkInfo.networkImpl === IMPL_LIGHTNING_TESTNET;
@@ -249,6 +272,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     const { unsignedTx } = params;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
@@ -317,6 +342,12 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    for (const message of params.messages) {
+      if ('message' in message)
+        assertNoHardwareCloudSyncSigningRequest(message.message);
+    }
+    this.assertPro2LightningSupported(params.deviceParams);
+
     if (process.env.NODE_ENV !== 'production') {
       console.log('LightningNetwork signMessage: ', params);
     }
@@ -330,6 +361,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
     const result = await Promise.all(
       params.messages.map(async ({ message }) => {
+        const messageHex = Buffer.from(message).toString('hex');
+        assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
         const response = await sdk.btcSignMessage(connectId, deviceId, {
           ...params.deviceParams?.deviceCommonParams,
           path: `${accountUtils.buildLnToBtcPath({
@@ -337,7 +370,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             isTestnet: network.isTestnet,
           })}/0/0`,
           coin: coinName,
-          messageHex: Buffer.from(message).toString('hex'),
+          messageHex,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);
@@ -349,6 +382,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async lnurlAuth(params: ILnurlAuthParams) {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
       throw new OneKeyLocalError('lnurl-auth: invalid tag');

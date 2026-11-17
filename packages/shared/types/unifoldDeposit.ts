@@ -1,0 +1,133 @@
+// cspell: words unifold Unifold hypercore Hypercore
+// Types for the Unifold deposit API proxied by the OneKey wallet service.
+// Contract: docs/unifold-deposit-app-integration.md (v1.1).
+// All amount fields are strings end-to-end; never convert to Number for math.
+
+export type IUnifoldExecutionStatus =
+  | 'waiting'
+  | 'pending'
+  | 'delayed'
+  | 'succeeded'
+  | 'failed'
+  | 'refunded';
+
+export const UNIFOLD_TERMINAL_STATUSES: IUnifoldExecutionStatus[] = [
+  'succeeded',
+  'failed',
+  'refunded',
+];
+
+// Nullability is pinned by contract v1.1 §2.3 (G7): every field other than
+// executionId/status/terminal/destinationTransactionHashes may be null.
+export interface IUnifoldDepositExecution {
+  executionId: string;
+  status: IUnifoldExecutionStatus;
+  terminal: boolean;
+  destinationTransactionHashes: string[];
+  vendorStatus: string | null;
+  recipientAddress: string | null;
+  depositWalletId: string | null;
+  depositAddress: string | null;
+  transactionHash: string | null;
+  sourceChainType: string | null;
+  sourceChainId: string | null;
+  sourceAmountBaseUnit: string | null;
+  sourceAmountUsd: string | null;
+  sourceCurrency: string | null;
+  sourceTokenDecimals: number | null;
+  destinationAmountBaseUnit: string | null;
+  destinationAmountUsd: string | null;
+  destinationCurrency: string | null;
+  // v1.2: Amount Received = destinationAmountBaseUnit ÷ 10^decimals
+  // (HyperCore USDC (Perp) = 8, Sepolia USDC = 6). Nullable like every other
+  // passthrough field; render '—' when absent.
+  destinationTokenDecimals: number | null;
+  destinationTokenIconUrl: string | null;
+  explorerUrl: string | null;
+  destinationExplorerUrl: string | null;
+  failureReason: string | null;
+  createdAt: string | null;
+}
+
+export interface IUnifoldDepositDestination {
+  destinationChainType: string;
+  destinationChainId: string;
+  destinationTokenAddress: string;
+}
+
+export interface IUnifoldDepositAddressParams extends IUnifoldDepositDestination {
+  recipientAddress: string;
+  sourceChainType?: string;
+}
+
+export interface IUnifoldDepositWallet {
+  chainType: string;
+  address: string;
+  isPrimary: boolean;
+}
+
+export interface IUnifoldDepositAddressResult {
+  sessionId: string;
+  depositAddress: string;
+  depositWalletId: string;
+  sourceChainType: string;
+  wallets: IUnifoldDepositWallet[];
+  echo: IUnifoldDepositDestination & { recipientAddress: string };
+}
+
+// Vendor catalog passthrough keeps the upstream snake_case field names.
+export interface IUnifoldSupportedAssetChain {
+  chain_id: string;
+  chain_name: string;
+  chain_type: string;
+  icon_url: string;
+  token_address: string;
+  decimals: number;
+  estimated_price_impact_percent: number;
+  max_slippage_percent: number;
+  estimated_processing_time: number;
+  minimum_deposit_amount_usd: number;
+}
+
+export interface IUnifoldSupportedAsset {
+  symbol: string;
+  name: string;
+  icon_url: string;
+  is_newly_added: boolean;
+  is_stablecoin: boolean;
+  chains: IUnifoldSupportedAssetChain[];
+}
+
+export interface IUnifoldActivationStatus {
+  userExists: boolean;
+  activationFee: string;
+  isSanctioned: boolean;
+  sponsored: boolean;
+}
+
+// Wallet-service error codes for this feature (contract v1.1 §2.6).
+export const UNIFOLD_ERROR_CODE_FEATURE_DISABLED = 14_101;
+export const UNIFOLD_ERROR_CODE_GEO_BLOCKED = 14_102;
+
+// Client-side code, never sent by the server: the background service rejected
+// a deposit-address request whose recipient is not the active perps account.
+// Carried as a `code` so the UI can fail closed on it instead of treating an
+// un-coded throw as a transient network error and retrying it forever. Kept
+// far outside the wallet-service range so it can never collide with one.
+export const UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH = 914_101;
+
+// Client-side code, never sent by the server: the background compliance gate
+// rejected a HyperCore deposit-address request for a sanctioned recipient.
+// The UI maps this to its sticky sanctioned veto instead of retrying.
+export const UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED = 914_102;
+
+// Client-side code, never sent by the server: the background compliance gate
+// could not obtain a sanction verdict. The request fails closed and the UI
+// renders its unavailable state instead of retrying an untyped network error.
+export const UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE = 914_103;
+
+// Client-side code, never sent by the server: the wallet-service returned a
+// deposit-address payload that cannot be safely rendered or whose echo does
+// not match the request. This is deterministic and must not enter the UI's
+// transient network retry loop.
+export const UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE = 914_104;

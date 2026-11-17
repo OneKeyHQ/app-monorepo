@@ -38,7 +38,7 @@ import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
 
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 export function SearchInput({ tabId }: { tabId?: string }) {
   const searchPopoverShortcutsFeatureFlag =
@@ -48,7 +48,7 @@ export function SearchInput({ tabId }: { tabId?: string }) {
   const [searchValue, setSearchValue] = useState('');
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -90,6 +90,8 @@ export function SearchInput({ tabId }: { tabId?: string }) {
   const {
     handleInputBlur,
     handleKeyDown,
+    handleCompositionStart,
+    handleCompositionEnd,
     handleSearchBarPress,
     isPopoverOpen,
     isPopoverVisible,
@@ -198,8 +200,12 @@ export function SearchInput({ tabId }: { tabId?: string }) {
                 p: 0,
                 bg: 'transparent',
               }}
-              // @ts-expect-error
+              // RN-web maps onKeyPress to keydown; do not also bind onKeyDown.
               onKeyPress={handleKeyDown}
+              // Ignored IME confirm Enter does not preventDefault; skip RN-web auto-blur.
+              blurOnSubmit={false}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               testID="search-input"
               placeholder={intl.formatMessage({
                 id: ETranslations.browser_search_dapp_or_enter_url,

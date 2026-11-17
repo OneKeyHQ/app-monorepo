@@ -7,7 +7,6 @@ import { showKeylessWalletAccountMismatchError } from '@onekeyhq/kit/src/compone
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
@@ -15,6 +14,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
+
+import {
+  logOneKeyIdLoginFailureReason,
+  throwLocalizedOneKeyIdLoginError,
+} from './oneKeyIdLoginToastUtils';
 
 export function isOneKeyIdLocalKeylessOAuthMode(
   status?: EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -117,6 +121,11 @@ export function useOneKeyIdLocalKeylessOAuth({
       const accessToken = result?.session?.accessToken || '';
       const refreshToken = result?.session?.refreshToken || '';
       if (!accessToken) {
+        logOneKeyIdLoginFailureReason(
+          `OneKey ID OAuth login failed: access token not found for ${provider}.`,
+          undefined,
+          { trigger: 'interactive' },
+        );
         throw new OneKeyLocalError(missingTokenMessage);
       }
       return {
@@ -152,39 +161,28 @@ export function useOneKeyIdLocalKeylessOAuth({
         provider === effectiveLocalKeylessProvider;
 
       if (shouldTryLocalKeylessSession) {
-        let localSessionResult:
-          | Awaited<
-              ReturnType<
-                typeof backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless
-              >
-            >
-          | undefined;
-        try {
-          localSessionResult =
-            await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless();
-        } catch (error) {
-          // Dead/expired legacy blob -> fall back to a fresh OAuth
-          // round-trip below. But a user-initiated cancel (the legacy-blob
-          // migration's passcode prompt was dismissed) must settle the flow
-          // instead — a "Cancel" click must never escalate into opening the
-          // system browser. Both hosts skip toasts for cancel-style errors
-          // (errorToastUtils.isUserCancelStyleError), so rethrowing is
-          // silent there.
-          if (errorToastUtils.isUserCancelStyleError(error)) {
-            throw error;
-          }
-          accessToken = '';
+        const localSessionResult =
+          await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless();
+        if (
+          localSessionResult.provider !== provider ||
+          (effectiveLocalKeylessWalletId &&
+            localSessionResult.walletId !== effectiveLocalKeylessWalletId)
+        ) {
+          throwLocalizedOneKeyIdLoginError({
+            intl,
+            reason:
+              'OneKey ID login stopped: the local Keyless wallet changed before continuation.',
+          });
         }
-        if (localSessionResult) {
-          if (
-            localSessionResult.provider !== provider ||
-            (effectiveLocalKeylessWalletId &&
-              localSessionResult.walletId !== effectiveLocalKeylessWalletId)
-          ) {
-            throw new OneKeyLocalError(
-              'Local Keyless wallet changed before OneKey ID login could continue.',
-            );
-          }
+        if (localSessionResult.status === 'retryable') {
+          logOneKeyIdLoginFailureReason(
+            'OneKey ID login could not reuse the local Keyless OAuth session: credential migration is retryable.',
+            undefined,
+            { trigger: 'interactive' },
+          );
+          throw new OneKeyLocalError(missingTokenMessage);
+        }
+        if (localSessionResult.status === 'ready') {
           accessToken = localSessionResult.accessToken;
         }
       }
@@ -231,6 +229,7 @@ export function useOneKeyIdLocalKeylessOAuth({
     [
       assertTokenMatchesLocalKeylessWallet,
       getInteractiveOAuthTokens,
+      intl,
       isLocalKeylessOAuthMode,
       localKeylessProvider,
       localKeylessWalletId,
@@ -251,17 +250,17 @@ export function useOneKeyIdLocalKeylessOAuth({
         missingTokenMessage,
       });
       if (!refreshToken) {
-        // TODO: i18n
-        throw new OneKeyLocalError(
-          'OAuth login failed: refresh token not found',
-        );
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          reason: 'OneKey ID OAuth login failed: refresh token not found.',
+        });
       }
       return {
         accessToken,
         refreshToken,
       };
     },
-    [getInteractiveOAuthTokens],
+    [getInteractiveOAuthTokens, intl],
   );
 
   const rollbackProvisionalOAuthSession = useCallback(

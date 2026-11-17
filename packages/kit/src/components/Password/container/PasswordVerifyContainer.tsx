@@ -15,6 +15,7 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -23,8 +24,10 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestedNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   BIOLOGY_AUTH_ATTEMPTS_FACE,
   BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
   BIOLOGY_AUTH_CANCEL_ERROR,
@@ -40,6 +43,8 @@ import { useResetApp } from '../../../views/Setting/hooks';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
+
+import { formatLocalDbOpenErrorMessage } from './localDbOpenErrorMessage';
 
 import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
@@ -58,26 +63,36 @@ const DB_OPEN_ERROR_FALLBACK_MESSAGE = 'DB open unknown error';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void | Promise<void>;
+  enforcePasswordErrorProtection?: boolean;
+  manualPasswordOnly?: boolean;
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
   pageMode?: boolean;
   skipPostVerifyBackgroundTasks?: boolean;
+  kdfParams?: IPbkdf2KdfParams;
 }
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
+  enforcePasswordErrorProtection,
+  manualPasswordOnly,
   name,
   pageMode,
   skipPostVerifyBackgroundTasks,
+  kdfParams,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
-  const [{ authType, isEnable, isSupport: biologyAuthIsSupport }] =
+  const [{ authType, isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions({
     skipPostVerifyBackgroundTasks,
   });
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
+  // Derived here rather than inside passwordBiologyAuthInfoAtom: keeping it in
+  // that async atom made the atom depend on settingsPersistAtom, so every
+  // unrelated settings write re-suspended everything reading it.
+  const isEnable = biologyAuthIsSupport && isBiologyAuthSwitchOn;
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(true);
   const [passwordMode] = usePasswordModeAtom();
@@ -99,6 +114,15 @@ const PasswordVerifyContainer = ({
   // input immediately (see the effect below), without waiting for a verify
   // attempt.
   const [{ errorMessage: localDbOpenErrorMessage }] = useLocalDbOpenErrorAtom();
+  const localDbDowngradeGuidanceMessage = intl.formatMessage({
+    id: ETranslations.database_read_error_update_app__msg,
+  });
+  const localDbOpenErrorDisplayMessage = localDbOpenErrorMessage
+    ? formatLocalDbOpenErrorMessage(
+        localDbOpenErrorMessage,
+        localDbDowngradeGuidanceMessage,
+      )
+    : undefined;
   const resetPasswordStatus = useCallback(() => {
     void backgroundApiProxy.servicePassword.resetPasswordStatus();
   }, []);
@@ -163,13 +187,16 @@ const PasswordVerifyContainer = ({
     setUnlockPeriodPasswordArray,
     alertText,
     setPasswordPersist,
+    isPasswordErrorProtectionEnabled,
     isProtectionTime,
-    enablePasswordErrorProtection,
-  } = usePasswordProtection(isLock);
+  } = usePasswordProtection(isLock, enforcePasswordErrorProtection);
 
   const isBiologyAuthEnable = useMemo(
     // both webAuth or biologyAuth are enabled
     () => {
+      if (manualPasswordOnly) {
+        return false;
+      }
       if (isExtLockAndNoCachePassword) {
         return (
           isBiologyAuthSwitchOn &&
@@ -186,6 +213,7 @@ const PasswordVerifyContainer = ({
     },
     [
       isExtLockAndNoCachePassword,
+      manualPasswordOnly,
       isBiologyAuthSwitchOn,
       verifyPeriodBiologyEnable,
       isEnable,
@@ -228,7 +256,7 @@ const PasswordVerifyContainer = ({
   ]);
 
   const resetPasswordErrorAttempts = useCallback(() => {
-    if (isLock && enablePasswordErrorProtection) {
+    if (isPasswordErrorProtectionEnabled) {
       setPasswordPersist((v) => ({
         ...v,
         passwordErrorAttempts: 0,
@@ -240,8 +268,7 @@ const PasswordVerifyContainer = ({
     setPasswordErrorProtectionTimeMinutesSurplus(0);
   }, [
     setPasswordPersist,
-    isLock,
-    enablePasswordErrorProtection,
+    isPasswordErrorProtectionEnabled,
     setVerifyPeriodBiologyEnable,
     setVerifyPeriodBiologyAuthAttempts,
     setPasswordErrorProtectionTimeMinutesSurplus,
@@ -294,6 +321,7 @@ const PasswordVerifyContainer = ({
 
   const onBiologyAuthenticate = useCallback(
     async (isExtLockNoCachePassword: boolean) => {
+      if (getRequestedNativeStorageRecovery()) return;
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
         (!pageMode &&
@@ -312,6 +340,7 @@ const PasswordVerifyContainer = ({
         ...v,
         passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
       }));
+      const isWebAuth = !isEnable && isBiologyAuthEnable;
       try {
         if (isExtLockNoCachePassword) {
           // Try to retrieve password from secure storage (WebAuthn PRF)
@@ -322,7 +351,9 @@ const PasswordVerifyContainer = ({
                 await backgroundApiProxy.servicePassword.verifyPassword({
                   password: securePassword,
                   passwordMode,
+                  enforcePasswordErrorProtection,
                   skipPostVerifyBackgroundTasks,
+                  ...kdfParams,
                 });
               await callOnVerifyRes(verifiedPassword);
               setVerifiedStatus();
@@ -347,7 +378,7 @@ const PasswordVerifyContainer = ({
           }
         } else {
           let biologyAuthRes;
-          if (!isEnable && isBiologyAuthEnable) {
+          if (isWebAuth) {
             // webAuth verify
             biologyAuthRes = await verifiedPasswordWebAuth();
           } else {
@@ -356,7 +387,9 @@ const PasswordVerifyContainer = ({
                 password: '',
                 isBiologyAuth: true,
                 passwordMode,
+                enforcePasswordErrorProtection,
                 skipPostVerifyBackgroundTasks,
+                ...kdfParams,
               });
           }
           if (biologyAuthRes) {
@@ -398,23 +431,49 @@ const PasswordVerifyContainer = ({
             className: EOneKeyErrorClassNames.IncorrectPassword,
           });
         const isCancel = error?.name === BIOLOGY_AUTH_CANCEL_ERROR;
+        // WebAuthn reports a lost or removed passkey the same way as a
+        // dismissed prompt, so its dismissals still count toward falling back
+        // to the passcode.
+        const isCountedCancel =
+          isCancel && (isExtLockNoCachePassword || isWebAuth);
         const isNativeBiometricError = error?.cause === biologyAuthNativeError;
+        const isAborted =
+          platformEnv.isDesktopWin &&
+          isNativeBiometricError &&
+          error?.name === BIOLOGY_AUTH_ABORTED_ERROR;
         // `undefined` means "no user-facing error": keep the lock screen in a
         // neutral state and let the flow retry, instead of showing a wrong-
         // password message for a transient failure. (OK-56875)
         let message: string | undefined = error?.message || undefined;
-        if (isCancel) {
-          message = intl.formatMessage(
-            { id: ETranslations.auth_biometric_cancel },
-            { biometric: title },
-          );
+        // Trying again is all these need, so they render as a neutral hint
+        // rather than a field error.
+        let isRetry = false;
+        if (isAborted) {
+          message = undefined;
+        } else if (isCancel) {
+          // Dismissing the system prompt is the user's choice: say nothing.
+          // RETRY (not DEFAULT) keeps the prompt from reopening by itself. Only
+          // a counted dismissal that reaches the limit explains why the
+          // biometric action goes away.
+          message =
+            isCountedCancel &&
+            verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+              ? intl.formatMessage(
+                  { id: ETranslations.auth_biometric_failed },
+                  { biometric: title },
+                )
+              : undefined;
+          isRetry = true;
         } else if (isSecureStorageUnavailable) {
           // A secure-storage / keychain outage is not a wrong password.
           message = SECURE_KEY_UNAVAILABLE_MESSAGE;
         } else if (isDbOpenError) {
           // Preserve the original DB open error message instead of masking it;
           // fall back to a fixed English string only when it carries none.
-          message = error?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE;
+          message = formatLocalDbOpenErrorMessage(
+            error?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE,
+            localDbDowngradeGuidanceMessage,
+          );
         } else if (isCallbackError && message) {
           // Use the callback error message as-is
         } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
@@ -422,26 +481,30 @@ const PasswordVerifyContainer = ({
             { id: ETranslations.auth_biometric_failed },
             { biometric: title },
           );
+          isRetry = true;
         } else if (isGenuineWrongPassword) {
           message = intl.formatMessage({
             id: ETranslations.prime_incorrect_password,
           });
+          isRetry = true;
         } else if (isNativeBiometricError) {
           // Native biometric failure (e.g. face not recognized): keep its own
           // message.
+          isRetry = true;
         } else {
           // Transient / unexpected failure (e.g. encryptor not ready, slow KDF):
           // do not surface a wrong-password error. (OK-56875)
           message = undefined;
         }
         // Skip biology auth protection for callback errors, secure-storage
-        // outages, DB open failures, and transient failures (message
-        // undefined): none of these is a real biometric/password attempt.
+        // outages, DB open failures, transient failures and uncounted
+        // dismissals (message undefined): none of these is a real
+        // biometric/password attempt.
         if (
           !isCallbackError &&
           !isSecureStorageUnavailable &&
           !isDbOpenError &&
-          message !== undefined
+          (message !== undefined || isCountedCancel)
         ) {
           if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
             setVerifyPeriodBiologyEnable(false);
@@ -449,12 +512,16 @@ const PasswordVerifyContainer = ({
             setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
           }
         }
+        let nextStatus: { value: EPasswordVerifyStatus; message?: string } =
+          message === undefined
+            ? { value: EPasswordVerifyStatus.DEFAULT }
+            : { value: EPasswordVerifyStatus.ERROR, message };
+        if (isRetry) {
+          nextStatus = { value: EPasswordVerifyStatus.RETRY, message };
+        }
         setPasswordAtom((v) => ({
           ...v,
-          passwordVerifyStatus:
-            message === undefined
-              ? { value: EPasswordVerifyStatus.DEFAULT }
-              : { value: EPasswordVerifyStatus.ERROR, message },
+          passwordVerifyStatus: nextStatus,
         }));
       } finally {
         biologyAuthInProgressRef.current = false;
@@ -463,9 +530,12 @@ const PasswordVerifyContainer = ({
     [
       biologyAuthAttempts,
       checkWebAuth,
+      enforcePasswordErrorProtection,
       intl,
       isBiologyAuthEnable,
       isEnable,
+      kdfParams,
+      localDbDowngradeGuidanceMessage,
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
@@ -485,6 +555,7 @@ const PasswordVerifyContainer = ({
 
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
+      if (getRequestedNativeStorageRecovery()) return;
       if (
         isProtectionTime ||
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
@@ -500,15 +571,13 @@ const PasswordVerifyContainer = ({
       const finalPassword =
         passwordMode === EPasswordMode.PASSWORD ? data.password : data.passCode;
       try {
-        const encodePassword =
-          await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: finalPassword,
-          });
         const verifiedPassword =
-          await backgroundApiProxy.servicePassword.verifyPassword({
-            password: encodePassword,
+          await backgroundApiProxy.servicePassword.verifyPasswordFromInput({
+            password: finalPassword,
             passwordMode,
+            enforcePasswordErrorProtection,
             skipPostVerifyBackgroundTasks,
+            ...kdfParams,
           });
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
@@ -574,6 +643,7 @@ const PasswordVerifyContainer = ({
           className: EOneKeyErrorClassNames.LocalDbOpenError,
         });
         let message: string;
+        let isRetry = false;
         if (isCallbackError) {
           message =
             errorWithFlag?.message ||
@@ -585,14 +655,25 @@ const PasswordVerifyContainer = ({
         } else if (isDbOpenError) {
           // Preserve the original DB open error message instead of masking it;
           // fall back to a fixed English string only when it carries none.
-          message = errorWithFlag?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE;
+          message = formatLocalDbOpenErrorMessage(
+            errorWithFlag?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE,
+            localDbDowngradeGuidanceMessage,
+          );
         } else {
+          // Also covers failures that are not a wrong passcode. Do not give
+          // them their own message: travel mode masks its cooldown rejections
+          // as unknown errors, and different copy would reveal it.
           message = intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id: ETranslations.auth_passcode_retry__msg,
           });
+          isRetry = true;
         }
         let skipProtection = false;
-        if (isGenuineWrongPassword && isLock && enablePasswordErrorProtection) {
+        if (
+          isGenuineWrongPassword &&
+          isPasswordErrorProtectionEnabled &&
+          !enforcePasswordErrorProtection
+        ) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
             setPasswordPersist((v) => ({
@@ -605,48 +686,80 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
-            defaultLogger.setting.page.resetApp({
-              reason: 'WrongPasscodeMaxAttempts',
-            });
-            await resetApp();
+            // Reaching the limit stays a critical error, also when the reset
+            // fails and the lock screen remains.
+            isRetry = false;
+            if (isLock) {
+              // A retry hint would be wrong past the reset threshold.
+              message = intl.formatMessage({
+                id: ETranslations.settings_reset_app_description,
+              });
+              defaultLogger.setting.page.resetApp({
+                reason: 'WrongPasscodeMaxAttempts',
+              });
+              await resetApp();
+            } else if (!skipProtection) {
+              const timeMinutes =
+                PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
+                  String(PASSCODE_PROTECTION_ATTEMPTS - 1)
+                ];
+              setPasswordPersist((v) => ({
+                ...v,
+                passwordErrorAttempts: nextAttempts,
+                passwordErrorProtectionTime:
+                  Date.now() + timeMinutes * 60 * 1000,
+              }));
+              setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            }
           } else if (
-            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
-            !skipProtection
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
           ) {
-            const timeMinutes =
-              PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
-                nextAttempts.toString()
-              ];
+            // The reset warning stays a critical error, also for a repeated
+            // password that costs no attempt, so a neutral retry hint never
+            // replaces it this close to the reset.
             message = intl.formatMessage(
               {
-                id: ETranslations.auth_passcode_failed_alert,
+                id: ETranslations.auth_passcode_reset_warning__msg,
               },
               {
                 count: PASSCODE_PROTECTION_ATTEMPTS - nextAttempts,
               },
             );
-            setPasswordPersist((v) => ({
-              ...v,
-              passwordErrorAttempts: nextAttempts,
-              passwordErrorProtectionTime: Date.now() + timeMinutes * 60 * 1000, // 2s for animation
-            }));
-            setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            isRetry = false;
+            if (!skipProtection) {
+              const timeMinutes =
+                PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
+                  nextAttempts.toString()
+                ];
+              setPasswordPersist((v) => ({
+                ...v,
+                passwordErrorAttempts: nextAttempts,
+                passwordErrorProtectionTime:
+                  Date.now() + timeMinutes * 60 * 1000, // 2s for animation
+              }));
+              setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            }
           }
         }
         setPasswordAtom((v) => ({
           ...v,
           passwordVerifyStatus: {
-            value: EPasswordVerifyStatus.ERROR,
+            value: isRetry
+              ? EPasswordVerifyStatus.RETRY
+              : EPasswordVerifyStatus.ERROR,
             message,
           },
         }));
       }
     },
     [
-      enablePasswordErrorProtection,
       intl,
+      enforcePasswordErrorProtection,
+      isPasswordErrorProtectionEnabled,
       isLock,
       isProtectionTime,
+      kdfParams,
+      localDbDowngradeGuidanceMessage,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
@@ -670,14 +783,17 @@ const PasswordVerifyContainer = ({
     void (async () => {
       try {
         await timerUtils.wait(600);
+        if (getRequestedNativeStorageRecovery()) return;
         // Warm up the password encryptor early so the first verification on
         // low-end devices does not race against an unready encryptor. (OK-56875)
         await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
-      } catch (e) {
+      } catch {
         // Do not rethrow: this previously produced an unhandled promise
         // rejection, and the raw error must never surface on the lock screen.
         // The verify flow awaits readiness again before use. (OK-56874)
-        console.error('failed to waitPasswordEncryptorReady with error', e);
+        // Avoid console.error: React Native treats it as a development error
+        // overlay while the WebEmbed view is warming up.
+        defaultLogger.app.webembed.webembedApiNotReady();
       }
     })();
   }, []);
@@ -687,20 +803,21 @@ const PasswordVerifyContainer = ({
   // the background DB layer when `_openDb()` throws), instead of only after the
   // user submits a password / triggers biometric.
   useEffect(() => {
-    if (localDbOpenErrorMessage) {
+    if (localDbOpenErrorDisplayMessage) {
       setPasswordAtom((v) => ({
         ...v,
         passwordVerifyStatus: {
           value: EPasswordVerifyStatus.ERROR,
-          message: localDbOpenErrorMessage,
+          message: localDbOpenErrorDisplayMessage,
         },
       }));
     }
-  }, [localDbOpenErrorMessage, setPasswordAtom]);
+  }, [localDbOpenErrorDisplayMessage, setPasswordAtom]);
 
   return (
     <Stack>
       <PasswordVerify
+        inAppStateLock={isLock}
         pageMode={pageMode}
         passwordMode={passwordMode}
         alertText={alertText}
@@ -711,10 +828,10 @@ const PasswordVerifyContainer = ({
             // Keep showing a local DB open failure while the user types: it is a
             // terminal error (unlock cannot succeed), so it must not be cleared
             // like a normal wrong-password message. (OK-56874)
-            passwordVerifyStatus: localDbOpenErrorMessage
+            passwordVerifyStatus: localDbOpenErrorDisplayMessage
               ? {
                   value: EPasswordVerifyStatus.ERROR,
-                  message: localDbOpenErrorMessage,
+                  message: localDbOpenErrorDisplayMessage,
                 }
               : { value: EPasswordVerifyStatus.DEFAULT },
           }));

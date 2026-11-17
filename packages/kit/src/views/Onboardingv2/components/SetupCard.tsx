@@ -197,8 +197,7 @@ function SetupCardDeviceShine() {
 // 40×40 framed device thumbnail shown in the footer (Figma "Device Container").
 // A light device frame (top corners rounded, bottom square) holds a dark screen
 // inset to the top — leaving a small chin — with a glint sweeping across the
-// screen. Mock placeholder until the real device image is wired (Pro 2 can't
-// connect yet).
+// screen. Placeholder until the real device image is wired.
 function SetupCardDeviceFrame() {
   return (
     <YStack

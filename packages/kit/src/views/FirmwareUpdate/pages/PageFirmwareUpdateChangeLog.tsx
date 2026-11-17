@@ -1,15 +1,19 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { HeaderButtonGroup, Page, SizableText } from '@onekeyhq/components';
+import { useIsFocused } from '@react-navigation/core';
+
+import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import {
   EModalFirmwareUpdateRoutes,
-  IModalFirmwareUpdateParamList,
+  type IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
   EHardwareCallContext,
@@ -17,6 +21,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { FirmwareChangeLogView } from '../components/FirmwareChangeLogView';
@@ -32,6 +37,7 @@ import {
   FirmwareUpdatePageLayout,
 } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
 function PageFirmwareUpdateChangeLog() {
   const route = useAppRoute<
@@ -41,8 +47,13 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
+  const usbSuggestionAcknowledged = route?.params?.usbSuggestionAcknowledged;
+  const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
@@ -61,12 +72,22 @@ function PageFirmwareUpdateChangeLog() {
 
   const { result, run, isLoading } = usePromiseResult(
     async () => {
+      // A re-check (Retry on a workflow error) supersedes the release the
+      // user confirmed earlier; the fresh result must drive the next start.
+      confirmUpdateResult.current = undefined;
       try {
-        const compatibleConnectId =
-          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
-            connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-          });
+        const resolvedTransport = platformEnv.isDesktop
+          ? await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+              { connectId: connectId ?? '' },
+            )
+          : await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
+              connectId,
+              hardwareCallContext: connectId
+                ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+                : EHardwareCallContext.UPDATE_FIRMWARE,
+            });
+        const compatibleConnectId = resolvedTransport.connectId;
+        setActiveConnectId(compatibleConnectId);
 
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
@@ -74,6 +95,7 @@ function PageFirmwareUpdateChangeLog() {
               connectId: compatibleConnectId,
               firmwareType,
               baseReleaseInfoCache: baseReleaseInfo,
+              resolvedTransportType: resolvedTransport.transportType,
             },
           );
         if (r?.hasUpgrade) {
@@ -89,7 +111,9 @@ function PageFirmwareUpdateChangeLog() {
         setStepInfo({
           step: EFirmwareUpdateSteps.checkReleaseError,
           payload: {
-            error: toPlainErrorObject(error as any),
+            error: toUserFacingFirmwareUpdateError(
+              toPlainErrorObject(error as any),
+            ),
           },
         });
       }
@@ -103,24 +127,54 @@ function PageFirmwareUpdateChangeLog() {
   const shouldShowChangeLog =
     stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
     stepInfo.step === EFirmwareUpdateSteps.showCheckList;
+  const isWorkflowError =
+    stepInfo.step === EFirmwareUpdateSteps.error ||
+    stepInfo.step === EFirmwareUpdateSteps.checkReleaseError;
+  // While the install page is on top it renders workflow errors in place, so
+  // this page stays on the changelog and its exit guard does not fire when
+  // the install page closes the modal. Once this page is focused again (Back
+  // from the error, or Mini's legacy page popping) the error is shown here
+  // with Retry re-checking the release, as before the unified page.
+  const installPageOwnsErrors =
+    Boolean(confirmUpdateResult.current) && !isFocused;
+
+  useFirmwareUpdateWorkflowLifetime({
+    onReallyLeave: () =>
+      backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow(),
+  });
+
+  const retryUpdate = useCallback(async () => {
+    const releaseResult = confirmUpdateResult.current ?? result;
+    if (!retryInfo || !releaseResult) {
+      return;
+    }
+    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    setStepInfo({
+      step: EFirmwareUpdateSteps.updateStart,
+      payload: {
+        startAtTime: Date.now(),
+      },
+    });
+    navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
+      result: releaseResult,
+    });
+    await backgroundApiProxy.serviceFirmwareUpdate.retryUpdateTask({
+      id: retryInfo.id,
+      connectId: releaseResult.updatingConnectId,
+      releaseResult,
+    });
+  }, [navigation, result, retryInfo, setStepInfo]);
 
   const content = useMemo(() => {
-    // keep change log modal content when install modal back
-    if (confirmUpdateResult.current) {
-      return <FirmwareChangeLogView result={confirmUpdateResult.current} />;
-    }
-    if (isLoading) {
+    if (isLoading !== false) {
       return (
         <>
           <FirmwareUpdateExitPrevent />
-          <FirmwareCheckingLoading connectId={connectId} />
+          <FirmwareCheckingLoading connectId={activeConnectId} />
         </>
       );
     }
-    if (
-      stepInfo.step === EFirmwareUpdateSteps.error ||
-      stepInfo.step === EFirmwareUpdateSteps.checkReleaseError
-    ) {
+    if (isWorkflowError && !installPageOwnsErrors) {
       return (
         <>
           <FirmwareUpdateWarningMessage />
@@ -133,6 +187,17 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
+    // Keep the changelog behind the install page, and after a cancelled
+    // attempt popped back here, with Retry resuming the task.
+    if (confirmUpdateResult.current) {
+      return (
+        <FirmwareChangeLogView
+          result={confirmUpdateResult.current}
+          onRetryClick={retryInfo ? retryUpdate : undefined}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
+        />
+      );
+    }
     if (shouldShowChangeLog) {
       return (
         <FirmwareChangeLogView
@@ -140,52 +205,35 @@ function PageFirmwareUpdateChangeLog() {
           onConfirmClick={() => {
             confirmUpdateResult.current = result;
           }}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
     return <FirmwareLatestVersionInstalled />;
   }, [
-    connectId,
+    activeConnectId,
+    installPageOwnsErrors,
     isLoading,
+    isWorkflowError,
     result,
+    retryInfo,
+    retryUpdate,
     run,
     shouldShowChangeLog,
     stepInfo.payload,
-    stepInfo.step,
+    usbSuggestionAcknowledged,
   ]);
 
   return (
-    <Page
-      scrollEnabled
-      onUnmounted={async () => {
-        console.log('PageFirmwareUpdateChangeLog unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-      }}
-    >
+    <Page scrollEnabled>
       <FirmwareUpdatePageLayout
         headerTitle={
           shouldShowChangeLog ? (
             <FirmwareUpdatePageHeaderTitle result={result} />
           ) : undefined
         }
-        headerRight={
-          platformEnv.isNativeIOS && shouldShowChangeLog
-            ? () => (
-                <HeaderButtonGroup>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                  >
-                    {result?.deviceBleName}
-                  </SizableText>
-                </HeaderButtonGroup>
-              )
-            : undefined
-        }
         containerStyle={{
-          p:
-            stepInfo.step === EFirmwareUpdateSteps.checkReleaseError ? '$5' : 0,
+          p: isWorkflowError && !installPageOwnsErrors ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />

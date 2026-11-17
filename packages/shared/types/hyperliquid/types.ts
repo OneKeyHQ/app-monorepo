@@ -1,4 +1,5 @@
-import type { IFill, IHex, ITIF, IWithdraw3Request } from './sdk';
+import type { IUsdcWithdrawDestinationId } from './perp.constants';
+import type { IFill, IHex, ITIF } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -24,10 +25,10 @@ export enum ESubscriptionType {
   USER_TWAP_HISTORY = 'userTwapHistory',
   USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
+  TRADES = 'trades',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
   ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',
-  // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
 }
@@ -156,8 +157,12 @@ export type IOrderAmendKind =
   | { kind: 'limit'; tif: ITIF }
   | { kind: 'trigger'; isMarket: boolean; tpsl: 'tp' | 'sl' };
 
-export interface IWithdrawParams extends IWithdraw3Request {
+export interface IWithdrawParams {
   userAccountId: string;
+  amount: string;
+  destinationId: IUsdcWithdrawDestinationId;
+  expectedRoute?: 'bridge' | 'cctp';
+  expectedCctpFee?: string;
 }
 
 export interface ILeverageUpdateRequest {
@@ -285,6 +290,11 @@ export interface IPlaceTwapOrderParams {
   reduceOnly: boolean;
   minutes: number;
   randomize: boolean;
+  triggerPrice?: string;
+  triggerAbove?: boolean;
+  stopPrice?: string;
+  referencePrice: string;
+  markPrice: string;
   szDecimals?: number;
 }
 
@@ -376,6 +386,8 @@ export interface IPerpServerBannerConfig {
 }
 
 export interface IPerpCommonConfig {
+  // Only legacy overrides Hyperliquid's withdrawal routing.
+  withdrawChannel?: 'cctp' | 'legacy';
   disablePerp?: boolean;
   usePerpWeb?: boolean;
   disablePerpActionPerp?: boolean;
@@ -383,6 +395,9 @@ export interface IPerpCommonConfig {
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
   activityCards?: IPerpActivityCard[];
+  // Unifold deposit entry. Fail-closed: the entry shows only when the server
+  // explicitly sends true (server side gates deposit-address with code 14101).
+  unifoldDepositEnabled?: boolean;
 }
 
 export enum EPerpUserType {
@@ -447,6 +462,12 @@ export enum EHyperLiquidAbstractionMode {
   PORTFOLIO_MARGIN = 'portfolioMargin',
   DEX_ABSTRACTION = 'dexAbstraction',
   DEFAULT = 'default',
+}
+
+// Cross margin state of one perp dex, as reported by its clearinghouse.
+export interface IPerpsDexCrossMargin {
+  accountValue: string;
+  maintenanceMarginUsed: string;
 }
 
 // ── Shared Types ──

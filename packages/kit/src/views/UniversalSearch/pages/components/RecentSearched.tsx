@@ -43,6 +43,7 @@ function SearchTextItem({
     switch (searchType) {
       case EUniversalSearchType.MarketToken:
       case EUniversalSearchType.V2MarketToken:
+      case EUniversalSearchType.MarketStock:
         result = formatTokenSymbolForDisplay(itemText);
         break;
       case EUniversalSearchType.Address:

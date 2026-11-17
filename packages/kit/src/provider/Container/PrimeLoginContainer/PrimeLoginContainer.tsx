@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Stack, rootNavigationRef } from '@onekeyhq/components';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
@@ -16,6 +17,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -44,6 +46,9 @@ function showTimeErrorDialogOnce(intl: ReturnType<typeof useIntl>) {
 
   hasShownTimeErrorDialogInAppLifecycle = true;
   Dialog.confirm({
+    onOpen: () => {
+      defaultLogger.app.systemTime.dialogShown({ observedAt: Date.now() });
+    },
     title: intl.formatMessage({
       id: ETranslations.prime_time_error_title,
     }),
@@ -87,7 +92,7 @@ export function PrimeLoginContainer() {
     void (async () => {
       if (promptPrimeLoginEmailDialog) {
         await emailDialogRef.current?.close();
-        emailDialogRef.current = Dialog.show({
+        emailDialogRef.current = showOneKeyIdLoginDialog({
           renderContent: (
             <Stack />
             // <PrimeLoginEmailDialog promiseId={promptPrimeLoginEmailDialog} />
@@ -145,7 +150,7 @@ export function PrimeLoginContainer() {
             description = '';
           }
 
-          passwordDialogRef.current = Dialog.show({
+          passwordDialogRef.current = showOneKeyIdLoginDialog({
             disableDrag: true,
             dismissOnOverlayPress: !data?.isRegister,
             title,
@@ -168,7 +173,7 @@ export function PrimeLoginContainer() {
 
         if (data?.isRegister && !data?.isChangeMasterPassword) {
           let shouldRejectOnClose = true;
-          passwordHintDialogRef.current = Dialog.show({
+          passwordHintDialogRef.current = showOneKeyIdLoginDialog({
             disableDrag: true,
             dismissOnOverlayPress: false,
             icon: 'ShieldKeyholeOutline',
@@ -213,7 +218,7 @@ export function PrimeLoginContainer() {
       if (promptForgetMasterPasswordDialogPromiseId) {
         await forgetMasterPasswordDialogRef.current?.close();
 
-        forgetMasterPasswordDialogRef.current = Dialog.show({
+        forgetMasterPasswordDialogRef.current = showOneKeyIdLoginDialog({
           icon: 'ErrorOutline',
           tone: 'destructive',
           title: intl.formatMessage({
@@ -244,7 +249,7 @@ export function PrimeLoginContainer() {
     void (async () => {
       if (promptPrimeLoginEmailCodeDialogPromiseId) {
         await emailCodeDialogRef.current?.close();
-        emailCodeDialogRef.current = Dialog.show({
+        emailCodeDialogRef.current = showOneKeyIdLoginDialog({
           renderContent: (
             <Stack />
             // <PrimeLoginEmailCodeDialog
@@ -319,8 +324,22 @@ export function PrimeLoginContainer() {
         showTimeErrorDialogOnce(intl);
       }
     };
+    let isActive = true;
     appEventBus.on(EAppEventBusNames.LocalSystemTimeInvalid, fn);
+    if (isCloudSyncEnabled && passwordAtom.unLock) {
+      void backgroundApiProxy.servicePrimeCloudSync
+        .getLocalSystemTimeStatus()
+        .then(({ isTimeErrorConfirmed }) => {
+          if (isActive && isTimeErrorConfirmed) {
+            fn();
+          }
+        })
+        .catch((error) => {
+          errorUtils.autoPrintErrorIgnore(error);
+        });
+    }
     return () => {
+      isActive = false;
       appEventBus.off(EAppEventBusNames.LocalSystemTimeInvalid, fn);
     };
   }, [isCloudSyncEnabled, intl, passwordAtom.unLock]);

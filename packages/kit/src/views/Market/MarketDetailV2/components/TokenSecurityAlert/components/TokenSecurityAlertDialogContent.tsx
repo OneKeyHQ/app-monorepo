@@ -1,12 +1,15 @@
+import { useIntl } from 'react-intl';
+
 import {
+  Dialog,
   Divider,
   Icon,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenSecurityData } from '@onekeyhq/shared/types/marketV2';
 
 import { formatSecurityData } from '../utils';
@@ -26,10 +29,11 @@ function TokenSecurityAlertDialogContent({
   riskCount,
   cautionCount,
 }: ITokenSecurityAlertDialogContentProps) {
+  const intl = useIntl();
   const formattedData = formatSecurityData(securityData);
 
   return (
-    <ScrollView maxHeight="$96">
+    <Dialog.ScrollView maxHeight="$96">
       <Stack gap="$4">
         {/* Overview section with warning count */}
         <TokenSecurityAlertDialogContentOverview
@@ -55,7 +59,9 @@ function TokenSecurityAlertDialogContent({
             <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
 
             <SizableText color="$textSuccess">
-              No security issues detected
+              {intl.formatMessage({
+                id: ETranslations.market_security_no_issues,
+              })}
             </SizableText>
           </XStack>
         ) : null}
@@ -65,7 +71,7 @@ function TokenSecurityAlertDialogContent({
         {/* Disclaimer */}
         <TokenSecurityDisclaimer />
       </Stack>
-    </ScrollView>
+    </Dialog.ScrollView>
   );
 }
 

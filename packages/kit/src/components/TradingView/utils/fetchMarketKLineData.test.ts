@@ -38,7 +38,7 @@ describe('fetchMarketKLineData', () => {
     jest.clearAllMocks();
   });
 
-  it('converts close-only Market data into numeric OHLC candles', async () => {
+  it('marks close-only Market data as a single-value series', async () => {
     mockFetchMarketTokenKline.mockResolvedValueOnce(
       asRuntimeKLineResponse([
         { c: '77.41', t: 1_784_056_920 },
@@ -46,6 +46,7 @@ describe('fetchMarketKLineData', () => {
       ]),
     );
     const fallback = jest.fn();
+    const onPointType = jest.fn();
 
     const result = await fetchMarketKLineData({
       tokenAddress: '',
@@ -54,6 +55,7 @@ describe('fetchMarketKLineData', () => {
       timeFrom: 1_784_053_323,
       timeTo: 1_784_773_323,
       kLineDataFallback: fallback,
+      onPointType,
     });
 
     expect(result).toEqual({
@@ -78,6 +80,7 @@ describe('fetchMarketKLineData', () => {
       total: 2,
     });
     expect(fallback).not.toHaveBeenCalled();
+    expect(onPointType).toHaveBeenCalledWith('single');
   });
 
   it('normalizes numeric strings in complete Market candles', async () => {
@@ -93,6 +96,7 @@ describe('fetchMarketKLineData', () => {
         },
       ]),
     );
+    const onPointType = jest.fn();
 
     await expect(
       fetchMarketKLineData({
@@ -101,11 +105,13 @@ describe('fetchMarketKLineData', () => {
         interval: '1H',
         timeFrom: 0,
         timeTo: 200,
+        onPointType,
       }),
     ).resolves.toEqual({
       points: [{ o: 1, h: 2, l: 0.5, c: 1.5, v: 3, t: 100 }],
       total: 1,
     });
+    expect(onPointType).toHaveBeenCalledWith('ohlc');
   });
 
   it('uses fallback data when Market points cannot be normalized', async () => {

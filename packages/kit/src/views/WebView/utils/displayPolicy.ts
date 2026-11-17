@@ -4,7 +4,7 @@
  * Route params drive what the user sees: the header, the title, and the
  * address bar. For in-app callers those params come from trusted code, but
  * for `deeplink` and `notification` entries the params originate from an
- * external string (`onekey-wallet://webview?...` or a push payload) that an
+ * external string (an App Clip handoff or a push payload) that an
  * attacker can craft. Without sanitization, an external entry can:
  *   - Set `hideHeader=1` to suppress the close button and the title row.
  *   - Pass `title=OneKey Wallet` so the header reads as a trusted brand
@@ -17,6 +17,7 @@
  * params; in-app entries keep them as-is.
  */
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWebViewPageParams } from '@onekeyhq/shared/src/routes';
 
 export interface IWebViewOverlayDisplay {
@@ -63,4 +64,21 @@ export function resolveOverlayDisplay(
     showAddressBar: params.showAddressBar === true,
     fallbackTitle: params.title,
   };
+}
+
+export function shouldHideWebViewHeaderRight({
+  url,
+  isWebEmbed,
+  hideHeaderRight,
+}: {
+  url: string;
+  isWebEmbed?: boolean;
+  hideHeaderRight?: boolean;
+}): boolean {
+  return Boolean(
+    hideHeaderRight ||
+    ((platformEnv.isNative || platformEnv.isDesktop) &&
+      // Embedded pages can use an HTTP dev server instead of bundled files.
+      (isWebEmbed || !/^https?:/i.test(url.trim()))),
+  );
 }

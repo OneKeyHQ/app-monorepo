@@ -1,6 +1,7 @@
 import type { IAggregateToken, IHomeDefaultToken } from './token';
 
 export type IClearCacheOnAppState = {
+  oneKeyId: boolean;
   tokenAndNFT: boolean;
   transactionHistory: boolean;
   swapHistory: boolean;
@@ -13,6 +14,7 @@ export type IClearCacheOnAppState = {
   serverNetworks: boolean;
   connectSites: boolean;
   signatureRecord: boolean;
+  perpsData?: boolean;
 };
 
 export enum EReasonForNeedPassword {
@@ -43,4 +45,31 @@ export type IFetchWalletConfigResp = {
       }
     >;
   };
+};
+
+export type ITermsConsentSource =
+  | 'onboarding'
+  | 'wallet_ready'
+  | 'dialog'
+  | 'web_connect';
+
+// One prompting round per required terms version on this install.
+export type ITermsConsentRound = {
+  version: string;
+  firstPromptAt: number;
+  notNowAt?: number;
+  // When the dialog actually appeared. A check stores the round before the UI
+  // shows it, and its result can still be dropped by a lock or a backup detour.
+  shownAt?: number;
+};
+
+export type ITermsConsentState = {
+  acceptedVersion?: string;
+  round?: ITermsConsentRound;
+};
+
+export type ITermsConsentPrompt = {
+  version: string;
+  deadlineAt: number;
+  deadlinePassed: boolean;
 };

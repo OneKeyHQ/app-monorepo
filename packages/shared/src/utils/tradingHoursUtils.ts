@@ -1,3 +1,5 @@
+import { normalizeStockIssuer } from './stockTokenVariant';
+
 import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
 
 /**
@@ -5,18 +7,28 @@ import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
  * time (the single source of truth per OK-58043). All local rendering must be
  * derived from these constants — never hardcode a user-local time.
  *
- *   Pre-market  04:00 – 09:29 ET
- *   Regular     09:30 – 15:59 ET
- *   Post-market 16:00 – 19:59 ET
- *   Overnight   20:00 – 03:59 ET (next day)
+ * Ranges follow the venue's published windows (OK-58509, aligned with OKX):
  *
- * A "cycle" is one full 24h loop anchored at 04:00 ET. On DST transition days
- * a cycle is 23h/25h long; ratios are computed from real instants so segment
- * widths stay proportional.
+ *   Pre-market  04:01 – 09:29 ET
+ *   Regular     09:31 – 15:59 ET
+ *   Post-market 16:01 – 19:59 ET
+ *   Overnight   20:05 – 03:55 ET (next day)
+ *
+ * Sessions are NOT contiguous: the minutes between them (e.g. 09:30, the
+ * opening cross) belong to no session — the underlying venues pause trading
+ * while switching session state. Those windows are short (1–5 min) and token
+ * trading stays available, so the chip shows a dedicated "Awaiting open"
+ * state while the trading-hours panel highlights the upcoming session row
+ * (OK-58986) — never a halt/closed flash.
+ *
+ * A "cycle" is one full loop from the pre-market open to the overnight close
+ * the next ET day. On DST transition days a cycle is ±1h long; ratios are
+ * computed from real instants so segment widths stay proportional.
  */
 
 const NY_TIME_ZONE = 'America/New_York';
 const MINUTE_MS = 60 * 1000;
+const MINUTES_PER_DAY = 24 * 60;
 
 export enum EUSMarketSessionKey {
   PreMarket = 'preMarket',
@@ -25,17 +37,38 @@ export enum EUSMarketSessionKey {
   Overnight = 'overnight',
 }
 
-/** Session boundaries as minutes since ET midnight, in cycle order. */
-const SESSION_STARTS_ET_MINUTES: Array<{
+/**
+ * Session boundaries as minutes since ET midnight, in cycle order. Ends are
+ * exclusive (a `09:30` end renders as `09:29`); a value ≥ 24h means the
+ * session closes on the next ET calendar day.
+ */
+const SESSIONS_ET_MINUTES: Array<{
   key: EUSMarketSessionKey;
   startMinutes: number;
+  endMinutes: number;
 }> = [
-  { key: EUSMarketSessionKey.PreMarket, startMinutes: 4 * 60 },
-  { key: EUSMarketSessionKey.Regular, startMinutes: 9 * 60 + 30 },
-  { key: EUSMarketSessionKey.PostMarket, startMinutes: 16 * 60 },
-  { key: EUSMarketSessionKey.Overnight, startMinutes: 20 * 60 },
+  {
+    key: EUSMarketSessionKey.PreMarket,
+    startMinutes: 4 * 60 + 1,
+    endMinutes: 9 * 60 + 30,
+  },
+  {
+    key: EUSMarketSessionKey.Regular,
+    startMinutes: 9 * 60 + 31,
+    endMinutes: 16 * 60,
+  },
+  {
+    key: EUSMarketSessionKey.PostMarket,
+    startMinutes: 16 * 60 + 1,
+    endMinutes: 20 * 60,
+  },
+  {
+    key: EUSMarketSessionKey.Overnight,
+    startMinutes: 20 * 60 + 5,
+    endMinutes: MINUTES_PER_DAY + 3 * 60 + 56,
+  },
 ];
-const CYCLE_START_ET_MINUTES = SESSION_STARTS_ET_MINUTES[0].startMinutes;
+const CYCLE_START_ET_MINUTES = SESSIONS_ET_MINUTES[0].startMinutes;
 
 interface INyWallClock {
   year: number;
@@ -201,14 +234,27 @@ export interface IUSMarketSessionSegment {
 }
 
 export interface IUSMarketTradingHours {
-  /** Segments in cycle order: pre → regular → post → overnight */
+  /** Segments in cycle order: pre → regular → post → overnight (with gaps) */
   segments: IUSMarketSessionSegment[];
   cycleStartInstant: number;
   cycleEndInstant: number;
   /** Position of `now` within the cycle, 0..1 */
   nowRatio: number;
-  /** Session containing `now` by pure clock math (ignores holidays/halts) */
+  /**
+   * Session containing `now` by pure clock math (ignores holidays/halts).
+   * A `now` inside an inter-session gap resolves to the upcoming session
+   * (past the overnight close that is the NEXT cycle's first session) —
+   * check `isNowInSessionGap` to tell the two cases apart.
+   */
   currentSessionKey: EUSMarketSessionKey;
+  /**
+   * True when `now` falls between two sessions (e.g. after the 03:55
+   * overnight close and before the 04:01 pre-market open): the underlying
+   * venues pause trading while switching session state. Phantom clock gaps
+   * inside the weekend closure do NOT count. `currentSessionKey` resolves to
+   * the upcoming session for these short windows.
+   */
+  isNowInSessionGap: boolean;
   /** Current-or-upcoming weekend closure: Friday 20:00 ET */
   weekendStartInstant: number;
   /** Weekend closure end: Sunday 20:00 ET */
@@ -226,7 +272,8 @@ export function getUSMarketTradingHours(
   const nowMs = now.getTime();
   const nowNy = getNyWallClock(nowMs);
 
-  // The cycle day is the ET calendar date whose 04:00 anchor precedes `now`.
+  // The cycle day is the ET calendar date whose pre-market anchor (04:01)
+  // precedes `now`.
   let cycleDate = {
     year: nowNy.year,
     month: nowNy.month,
@@ -237,25 +284,31 @@ export function getUSMarketTradingHours(
   }
   const nextDate = shiftNyDate(cycleDate, 1);
 
-  const boundaries: number[] = [
-    ...SESSION_STARTS_ET_MINUTES.map(({ startMinutes }) =>
-      nyWallClockToInstant({ ...cycleDate, minutesOfDay: startMinutes }),
-    ),
-    nyWallClockToInstant({
-      ...nextDate,
-      minutesOfDay: CYCLE_START_ET_MINUTES,
+  const minutesToInstant = (minutes: number) =>
+    minutes >= MINUTES_PER_DAY
+      ? nyWallClockToInstant({
+          ...nextDate,
+          minutesOfDay: minutes - MINUTES_PER_DAY,
+        })
+      : nyWallClockToInstant({ ...cycleDate, minutesOfDay: minutes });
+
+  const instants = SESSIONS_ET_MINUTES.map(
+    ({ key, startMinutes, endMinutes }) => ({
+      key,
+      startInstant: minutesToInstant(startMinutes),
+      endInstant: minutesToInstant(endMinutes),
     }),
-  ];
-  const cycleStartInstant = boundaries[0];
-  const cycleEndInstant = boundaries[boundaries.length - 1];
+  );
+  const cycleStartInstant = instants[0].startInstant;
+  const cycleEndInstant = instants[instants.length - 1].endInstant;
   const cycleDuration = cycleEndInstant - cycleStartInstant;
 
-  const segments: IUSMarketSessionSegment[] = SESSION_STARTS_ET_MINUTES.map(
-    ({ key }, i) => ({
+  const segments: IUSMarketSessionSegment[] = instants.map(
+    ({ key, startInstant, endInstant }) => ({
       key,
-      startInstant: boundaries[i],
-      endInstant: boundaries[i + 1],
-      ratio: (boundaries[i + 1] - boundaries[i]) / cycleDuration,
+      startInstant,
+      endInstant,
+      ratio: (endInstant - startInstant) / cycleDuration,
     }),
   );
 
@@ -263,10 +316,11 @@ export function getUSMarketTradingHours(
     Math.max(nowMs, cycleStartInstant),
     cycleEndInstant - 1,
   );
+  // Sessions are not contiguous — a `now` inside an inter-session gap
+  // resolves to the upcoming session.
   const currentSegment =
-    segments.find(
-      (s) => clampedNow >= s.startInstant && clampedNow < s.endInstant,
-    ) ?? segments[segments.length - 1];
+    segments.find((s) => clampedNow < s.endInstant) ??
+    segments[segments.length - 1];
 
   // Weekend closure runs Friday 20:00 ET → Sunday 20:00 ET. Pick the ongoing
   // weekend when the cycle day sits inside one, otherwise the upcoming one.
@@ -290,12 +344,28 @@ export function getUSMarketTradingHours(
     minutesOfDay: 20 * 60,
   });
 
+  // In a gap, `now` sits before the upcoming session's start (mid-cycle gaps)
+  // or past the overnight close (the cycle-edge gap). The weekend closure is
+  // NOT a gap: the clock still produces phantom session boundaries on
+  // Sat/Sun, but no session switch is happening, so treating those minutes
+  // as "about to open" (or as a reason to suppress a halt) would be wrong.
+  const isNowInSessionGap =
+    (nowMs < currentSegment.startInstant ||
+      nowMs >= currentSegment.endInstant) &&
+    !(nowMs >= weekendStartInstant && nowMs < weekendEndInstant);
+  // Past the overnight close the upcoming session belongs to the NEXT cycle —
+  // remap the key so a gap `now` always resolves to the upcoming session, as
+  // the field's contract promises.
+  const currentSessionKey =
+    nowMs >= cycleEndInstant ? segments[0].key : currentSegment.key;
+
   return {
     segments,
     cycleStartInstant,
     cycleEndInstant,
     nowRatio: (clampedNow - cycleStartInstant) / cycleDuration,
-    currentSessionKey: currentSegment.key,
+    currentSessionKey,
+    isNowInSessionGap,
     weekendStartInstant,
     weekendEndInstant,
   };
@@ -355,8 +425,13 @@ export function usMarketSessionKeyFromBackendSession(
 }
 
 /**
- * Display status of a tokenized stock: the four US sessions, closed/halted,
- * and "closed but tradable" for 7×24 Ondo instruments during market closure.
+ * Display status of a tokenized stock: the four US sessions plus
+ * closed/halted, and "24/7" for tokens that keep trading through a
+ * market-wide closure. The badge describes the UNDERLYING market state —
+ * trading availability is decided by the quote path (providers may still
+ * fill orders while the market is closed or halted, OK-58986); Open247 is
+ * the one exception, surfacing that a 7×24 instrument stays tradable on
+ * weekends/holidays instead of a discouraging "Closed".
  */
 export enum EUSMarketStatusVariant {
   PreMarket = 'preMarket',
@@ -364,62 +439,121 @@ export enum EUSMarketStatusVariant {
   PostMarket = 'postMarket',
   Overnight = 'overnight',
   Closed = 'closed',
-  ClosedTradable = 'closedTradable',
+  Open247 = 'open247',
+  /** Inter-session gap: the venue is switching session state (1–5 min). */
+  AwaitingOpen = 'awaitingOpen',
   Halted = 'halted',
 }
 
 /**
- * Sources treated as Ondo-issued. Some Ondo stocks report a legacy
- * 'coingecko' source — keep this the single source of truth (kit's
- * `isOndoStockSource` delegates here).
+ * A paused signal is a genuine per-stock halt EXCEPT for one pattern: an
+ * explicitly tradable instrument (`isOpen === true`) flagged paused during a
+ * trading-day session switch — venues routinely raise that transient flag,
+ * so the gap handling wins over the halt display there (OK-58986); a real
+ * halt spanning the gap surfaces once the gap ends. Instruments without
+ * `isOpen === true` keep reading Halted straight through gaps — falling
+ * through would flicker them to Closed/no-chip for the gap minutes. A live
+ * market-wide closure (weekend is clock-detectable, holidays only via
+ * `status`) also disables the exception: clock gaps then are phantom — no
+ * session switch is happening. Takes a getter so callers with a lazily
+ * computed cycle only pay for it when actually paused.
  */
-const ONDO_US_MARKET_STOCK_SOURCES = new Set(['ondo', 'coingecko']);
+function isEffectiveUSMarketHalt({
+  isPaused,
+  isOpen,
+  status,
+  getTradingHours,
+}: {
+  isPaused: boolean | undefined;
+  isOpen: boolean | undefined;
+  status: IFetchUSMarketStatusResult | undefined;
+  getTradingHours: () => IUSMarketTradingHours;
+}): boolean {
+  if (isPaused !== true) {
+    return false;
+  }
+  const marketWideClosed =
+    !!status &&
+    !status.unavailable &&
+    (!status.open || status.session === 'CLOSED');
+  return !(
+    isOpen === true &&
+    !marketWideClosed &&
+    getTradingHours().isNowInSessionGap
+  );
+}
 
 /**
- * Only Ondo-issued stock tokens follow the US-session trading model this
- * feature describes (OK-58043). xStocks and other providers run 7×24 with no
- * open/closed distinction, so they keep the legacy open/closed badge and get
- * no trading-hours entry.
+ * Identifies Ondo sources for issuer-specific token behavior. Some Ondo
+ * stocks report a legacy 'coingecko' source; the alias list lives in
+ * `normalizeStockIssuer` (kit's `isOndoStockSource` delegates here).
  */
 export function isOndoUSMarketStock(
   source: string | undefined | null,
 ): boolean {
-  const normalized = source?.trim().toLowerCase();
-  return !!normalized && ONDO_US_MARKET_STOCK_SOURCES.has(normalized);
+  return normalizeStockIssuer(source ?? undefined) === 'ondo';
 }
 
 /**
- * Single source of truth for a stock token's displayed market status.
- * Returns undefined for non-Ondo issuers (callers fall back to the legacy
- * two-state badge) and for tokens without stock signals.
+ * Single source of truth for a stock's displayed US market status, independent
+ * of the token issuer. Returns undefined when stock signals are unavailable
+ * and for a non-US listing (`isUSListing === false`), which follows no US
+ * session even though the stock feed reports one for it.
  *
  * Signal priority:
- *   1. per-stock halt (`isPaused`) — overlays everything;
+ *   1. per-stock halt (`isPaused`) → Halted, regardless of `isOpen` — the
+ *      badge reports the underlying stock's state; whether the token can
+ *      still trade is the quote path's concern (OK-58986). One exception,
+ *      see `isEffectiveUSMarketHalt`: an explicitly tradable instrument
+ *      paused inside a trading-day session gap is treated as the gap itself;
  *   2. per-stock `isOpen === false` — the instrument's own window is closed;
- *   3. market-wide session refines HOW it is open. A tradable instrument
- *      (`isOpen === true`) while the US market is closed is the special
- *      7×24-Ondo case → ClosedTradable ("Closed · Tradable").
+ *   3. market-wide closure (backend CLOSED / weekend) with `isOpen === true`
+ *      → Open247: only 7×24 instruments stay open through a closure, and a
+ *      plain "Closed" would hide that they remain tradable. A US listing
+ *      (`isUSListing === true`) is never 7×24 and reads Closed there; its
+ *      `isOpen` only disagrees through a retained stale detail;
+ *   4. inter-session gap (clock math) → AwaitingOpen: the venue is switching
+ *      session state; a halt/closed flash there reads as an error, and the
+ *      panel highlights the upcoming session row alongside;
+ *   5. market-wide session refines HOW it is open.
  *
  * When the market-status API is unavailable, falls back to pure clock math:
  * weekends are detectable locally, holidays are not.
  */
 export function resolveUSMarketStatusVariant({
-  source,
+  isUSListing,
   isOpen,
   isPaused,
   status,
   now = new Date(),
 }: {
-  source?: string;
+  /** true: a US listing; false: a non-US listing; undefined: unknown. */
+  isUSListing?: boolean;
   isOpen?: boolean;
   isPaused?: boolean;
   status?: IFetchUSMarketStatusResult;
   now?: Date;
 }): EUSMarketStatusVariant | undefined {
-  if (!isOndoUSMarketStock(source)) {
+  if (isUSListing === false) {
     return undefined;
   }
-  if (isPaused === true) {
+  // The cycle computation is Intl-heavy — compute it lazily, at most once,
+  // and only on the paths that need a session/gap decision.
+  let cachedTradingHours: IUSMarketTradingHours | undefined;
+  const resolveTradingHours = () => {
+    if (!cachedTradingHours) {
+      cachedTradingHours = getUSMarketTradingHours(now);
+    }
+    return cachedTradingHours;
+  };
+  if (
+    isEffectiveUSMarketHalt({
+      isPaused,
+      isOpen,
+      status,
+      getTradingHours: resolveTradingHours,
+    })
+  ) {
     return EUSMarketStatusVariant.Halted;
   }
   if (isOpen === undefined) {
@@ -441,24 +575,39 @@ export function resolveUSMarketStatusVariant({
         return EUSMarketStatusVariant.Open;
     }
   };
+  // Through a market-wide closure only a 7×24 token stays open; the listing
+  // itself is closed whatever a stale `isOpen` still says.
+  const closureVariant = isUSListing
+    ? EUSMarketStatusVariant.Closed
+    : EUSMarketStatusVariant.Open247;
   if (status && !status.unavailable) {
     if (!status.open || status.session === 'CLOSED') {
-      return EUSMarketStatusVariant.ClosedTradable;
+      // isOpen === true is guaranteed here (checked above).
+      return closureVariant;
+    }
+    const tradingHours = resolveTradingHours();
+    // Inter-session gap: the dedicated chip wins over the backend session,
+    // which may still report the one that just ended.
+    if (tradingHours.isNowInSessionGap) {
+      return EUSMarketStatusVariant.AwaitingOpen;
     }
     const sessionKey = usMarketSessionKeyFromBackendSession(status.session);
     // Unknown session value (future contract addition): fall back to the
     // clock session, matching resolveUSTradingHoursActiveRow.
-    return sessionKeyToVariant(
-      sessionKey ?? getUSMarketTradingHours(now).currentSessionKey,
-    );
+    return sessionKeyToVariant(sessionKey ?? tradingHours.currentSessionKey);
   }
-  const tradingHours = getUSMarketTradingHours(now);
+  const tradingHours = resolveTradingHours();
   const nowMs = now.getTime();
   if (
     nowMs >= tradingHours.weekendStartInstant &&
     nowMs < tradingHours.weekendEndInstant
   ) {
-    return EUSMarketStatusVariant.ClosedTradable;
+    // Same closure rule as the status branch.
+    return closureVariant;
+  }
+  // Same gap rule as the status branch, on the pure clock fallback.
+  if (tradingHours.isNowInSessionGap) {
+    return EUSMarketStatusVariant.AwaitingOpen;
   }
   return sessionKeyToVariant(tradingHours.currentSessionKey);
 }
@@ -467,10 +616,13 @@ export function resolveUSMarketStatusVariant({
 export type IUSTradingHoursRow = EUSMarketSessionKey | 'closed' | 'halts';
 
 /**
- * Which panel row is highlighted. Unlike `resolveUSMarketStatusVariant`
- * (which describes the INSTRUMENT — a 7×24 token stays "Open" on weekends),
- * the panel describes the UNDERLYING US market, so a closed session wins even
- * when the token itself is still tradable.
+ * Which panel row is highlighted. An inter-session gap highlights the
+ * upcoming session row (the gaps are short and token trading stays
+ * available, OK-58986) while an effective halt highlights the halts row.
+ * Unlike `resolveUSMarketStatusVariant` (which lets a per-stock
+ * `isOpen === false` win before the market-wide status), the panel describes
+ * the UNDERLYING market first: with a live status, the session/closed rows
+ * follow it and the per-stock closed note rides on the active session row.
  *
  * The clock fallback (status missing — including the first render before the
  * fetch resolves) must be weekend-aware, otherwise a 7×24 token briefly
@@ -490,12 +642,25 @@ export function resolveUSTradingHoursActiveRow({
   tradingHours: IUSMarketTradingHours;
   now?: Date;
 }): IUSTradingHoursRow {
-  if (isPaused === true) {
+  if (
+    isEffectiveUSMarketHalt({
+      isPaused,
+      isOpen,
+      status,
+      getTradingHours: () => tradingHours,
+    })
+  ) {
     return 'halts';
   }
   if (status && !status.unavailable) {
     if (!status.open || status.session === 'CLOSED') {
       return 'closed';
+    }
+    // Inter-session gap: highlight the upcoming session instead of the
+    // backend session, which may still report the one that just ended
+    // (OK-58986).
+    if (tradingHours.isNowInSessionGap) {
+      return tradingHours.currentSessionKey;
     }
     return (
       usMarketSessionKeyFromBackendSession(status.session) ??
@@ -512,5 +677,74 @@ export function resolveUSTradingHoursActiveRow({
   ) {
     return 'closed';
   }
+  // A gap `now` already resolves to the upcoming session here.
   return tradingHours.currentSessionKey;
+}
+
+export interface IUSMarketNextOpenCountdown {
+  days: number;
+  hours: number;
+  minutes: number;
+  totalMinutes: number;
+}
+
+/**
+ * Time left until the market reopens, for the "closed" status label.
+ *
+ * `nextOpenTime` wins over `nextOpenMinutes`: the minute count is a snapshot
+ * taken when the response was built, so it drifts as the payload ages between
+ * polls, while the timestamp stays correct however stale the response is. The
+ * minute count is only the fallback for a payload that omits the timestamp,
+ * and it is anchored to `nextOpenMinutesObservedAt` so it still ticks down
+ * between polls instead of repeating the snapshot forever.
+ *
+ * Rounds up, so the final partial minute reads "1m" rather than counting down
+ * to a "0m" that would claim the market is already open. Returns undefined
+ * once the moment has passed (or with nothing usable to measure) so callers
+ * render no countdown instead of a negative one.
+ */
+export function getUSMarketNextOpenCountdown({
+  nextOpenTime,
+  nextOpenMinutes,
+  nextOpenMinutesObservedAt,
+  now = Date.now(),
+}: {
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
+  /** When the `nextOpenMinutes` snapshot was taken. */
+  nextOpenMinutesObservedAt?: number;
+  now?: number;
+}): IUSMarketNextOpenCountdown | undefined {
+  let totalMinutes: number | undefined;
+
+  if (nextOpenTime) {
+    const openAt = new Date(nextOpenTime).getTime();
+    if (Number.isFinite(openAt)) {
+      totalMinutes = Math.ceil((openAt - now) / MINUTE_MS);
+    }
+  }
+
+  if (
+    totalMinutes === undefined &&
+    typeof nextOpenMinutes === 'number' &&
+    Number.isFinite(nextOpenMinutes)
+  ) {
+    const elapsedMinutes =
+      typeof nextOpenMinutesObservedAt === 'number' &&
+      Number.isFinite(nextOpenMinutesObservedAt)
+        ? Math.max(0, now - nextOpenMinutesObservedAt) / MINUTE_MS
+        : 0;
+    totalMinutes = Math.ceil(nextOpenMinutes - elapsedMinutes);
+  }
+
+  if (totalMinutes === undefined || totalMinutes <= 0) {
+    return undefined;
+  }
+
+  return {
+    days: Math.floor(totalMinutes / MINUTES_PER_DAY),
+    hours: Math.floor((totalMinutes % MINUTES_PER_DAY) / 60),
+    minutes: totalMinutes % 60,
+    totalMinutes,
+  };
 }

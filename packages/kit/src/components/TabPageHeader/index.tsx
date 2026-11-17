@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
@@ -95,17 +95,30 @@ function BaseDesktopTabPageHeader({
   );
 
   const theme = useTheme();
+  // Reference-stable: PageHeader diffs options shallowly before setOptions, so
+  // a fresh style object every render would re-trigger navigation updates.
+  const desktopHeaderStyle = useMemo(
+    () => ({ backgroundColor: theme.bgSubdued.val }),
+    [theme.bgSubdued.val],
+  );
 
   const renderUniversalSearchInput = useCallback(
-    () => <UniversalSearchInput />,
-    [],
+    () => <UniversalSearchInput tabRoute={tabRoute} />,
+    [tabRoute],
   );
 
   const renderDesktopModeRightButtons = useCallback(() => {
-    if (tabRoute === ETabRoutes.Perp && customHeaderRightItems) {
+    if (
+      (tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.Swap) &&
+      customHeaderRightItems
+    ) {
       return (
         <>
-          {customHeaderRightItems}
+          {platformEnv.isDesktop && tabRoute === ETabRoutes.Swap ? (
+            <XStack alignItems="center">{customHeaderRightItems}</XStack>
+          ) : (
+            customHeaderRightItems
+          )}
           <XStack pl="$5" alignItems="center">
             <HeaderUpdateButton />
             <HeaderNotificationIconButton testID="header-right-notification" />
@@ -119,8 +132,11 @@ function BaseDesktopTabPageHeader({
           <WalletConnectionForWeb tabRoute={tabRoute} />
         ) : null}
         {tabRoute === ETabRoutes.Earn ? (
-          <XStack px="$5">
-            <GiftAction copyAsUrl />
+          <XStack
+            px="$5"
+            alignItems={platformEnv.isDesktop ? 'center' : undefined}
+          >
+            <GiftAction />
           </XStack>
         ) : null}
         {tabRoute === ETabRoutes.Discovery ? (
@@ -148,7 +164,8 @@ function BaseDesktopTabPageHeader({
       <Page.Header
         headerShown
         headerTitleAlign="center"
-        headerStyle={{ backgroundColor: theme.bgSubdued.val }}
+        headerContainerBackgroundColor={theme.bgSubdued.val}
+        headerStyle={desktopHeaderStyle}
         headerTitle={renderUniversalSearchInput}
         headerRight={renderDesktopModeRightButtons}
         headerLeft={
@@ -172,6 +189,7 @@ export function TabPageHeader({
   customToolbarItems,
   hideSearch = false,
   hideHeaderLeft = false,
+  disableHomeHeaderGlass = false,
   headerPx,
   pageScrollPosition,
 }: ITabPageHeaderProp) {
@@ -204,6 +222,7 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
+        disableHomeHeaderGlass={disableHomeHeaderGlass}
         pageScrollPosition={pageScrollPosition}
       />
     );

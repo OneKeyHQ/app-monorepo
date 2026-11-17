@@ -5,14 +5,22 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-import type { IPrimeInfiniPayment } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeInfiniPayment,
+  IPrimeInfiniPaymentCacheKey,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeInfiniPaymentPolling } from './usePrimeInfiniPaymentPolling';
 
 let visibilityHandler: ((visible: boolean) => void) | undefined;
 let routeFocused = true;
+const mockPrimeCryptoPaymentError = jest.fn();
+const mockPrimeCryptoPaymentFlow = jest.fn();
 
 const globalMockBag = globalThis as typeof globalThis & {
+  __primeInfiniPollingDb?: {
+    latchInfiniPendingPaymentSessionProgress: jest.Mock;
+  };
   __primeInfiniPollingService?: {
     apiGetInfiniPayment: jest.Mock;
     apiGetInfiniPurchaseStatusSnapshot: jest.Mock;
@@ -24,10 +32,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
     apiGetInfiniPayment: jest.fn(),
     apiGetInfiniPurchaseStatusSnapshot: jest.fn(),
   };
-  (globalThis as any).__primeInfiniPollingService = mockServicePrime;
+  const mockPrimeDb = { latchInfiniPendingPaymentSessionProgress: jest.fn() };
+  (globalThis as typeof globalMockBag).__primeInfiniPollingService =
+    mockServicePrime;
+  (globalThis as typeof globalMockBag).__primeInfiniPollingDb = mockPrimeDb;
   return {
     __esModule: true,
-    default: { servicePrime: mockServicePrime },
+    default: {
+      servicePrime: mockServicePrime,
+      simpleDb: { prime: mockPrimeDb },
+    },
   };
 });
 
@@ -47,13 +61,19 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
       subscription: {
-        primeCryptoPaymentFlow: jest.fn(),
+        primeCryptoPaymentError: (...args: unknown[]) => {
+          mockPrimeCryptoPaymentError(...args);
+        },
+        primeCryptoPaymentFlow: (...args: unknown[]) => {
+          mockPrimeCryptoPaymentFlow(...args);
+        },
       },
     },
   },
 }));
 
 const servicePrime = globalMockBag.__primeInfiniPollingService!;
+const primeDb = globalMockBag.__primeInfiniPollingDb!;
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -103,16 +123,144 @@ const asset = {
   contractAddress: '0xa0b8',
 };
 
+function buildPaymentCacheKey(
+  payment: IPrimeInfiniPayment,
+): IPrimeInfiniPaymentCacheKey {
+  return {
+    bindingId: `binding-${payment.paymentId}`,
+    paymentId: payment.paymentId,
+    networkId: asset.networkId,
+    contractAddress: asset.contractAddress,
+    onekeyUserId: baseline.onekeyUserId,
+    plan: 'monthly',
+    payerAccountId: 'account-1',
+    payerAddress: '0xpayer',
+  };
+}
+
 describe('usePrimeInfiniPaymentPolling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     visibilityHandler = undefined;
     routeFocused = true;
+    primeDb.latchInfiniPendingPaymentSessionProgress.mockImplementation(
+      async ({ latestPayment }: { latestPayment: IPrimeInfiniPayment }) => ({
+        payment: latestPayment,
+      }),
+    );
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
       primeSubscription: undefined,
       infiniSubscription: undefined,
     });
+  });
+
+  it('persists observed progress with the binding before exposing it and skips unchanged polls', async () => {
+    const payment = buildPayment('payment-a');
+    const latestPayment = { ...payment, amountConfirmed: '1' };
+    const persisted = createDeferred<{ payment: IPrimeInfiniPayment }>();
+    primeDb.latchInfiniPendingPaymentSessionProgress.mockReturnValueOnce(
+      persisted.promise,
+    );
+    servicePrime.apiGetInfiniPayment.mockResolvedValue(latestPayment);
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        paymentCacheKey: buildPaymentCacheKey(payment),
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        pollIntervalMs: 60_000,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        primeDb.latchInfiniPendingPaymentSessionProgress,
+      ).toHaveBeenCalledWith({
+        onekeyUserId: baseline.onekeyUserId,
+        paymentCacheKey: buildPaymentCacheKey(payment),
+        latestPayment,
+      }),
+    );
+    expect(result.current.latestPayment?.amountConfirmed).toBe('0');
+    await act(async () => {
+      persisted.resolve({ payment: latestPayment });
+    });
+    await waitFor(() =>
+      expect(result.current.latestPayment?.amountConfirmed).toBe('1'),
+    );
+    act(() => result.current.refresh());
+    await waitFor(() =>
+      expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(2),
+    );
+    expect(
+      primeDb.latchInfiniPendingPaymentSessionProgress,
+    ).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('retries a failed progress write without discarding the known payment', async () => {
+    const payment = buildPayment('payment-a');
+    const latestPayment = { ...payment, amountConfirming: '1' };
+    const error = new Error('storage unavailable');
+    primeDb.latchInfiniPendingPaymentSessionProgress.mockRejectedValueOnce(
+      error,
+    );
+    servicePrime.apiGetInfiniPayment.mockResolvedValue(latestPayment);
+    const onIssue = jest.fn();
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        paymentCacheKey: buildPaymentCacheKey(payment),
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        onIssue,
+        pollIntervalMs: 60_000,
+      }),
+    );
+    await waitFor(() => expect(onIssue).toHaveBeenCalledWith(error));
+    expect(result.current.latestPayment?.amountConfirming).toBeUndefined();
+    act(() => result.current.refresh());
+    await waitFor(() =>
+      expect(result.current.latestPayment?.amountConfirming).toBe('1'),
+    );
+    expect(
+      primeDb.latchInfiniPendingPaymentSessionProgress,
+    ).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+
+  it('does not adopt progress when the binding has already been retired', async () => {
+    const payment = buildPayment('payment-a');
+    primeDb.latchInfiniPendingPaymentSessionProgress.mockResolvedValueOnce(
+      undefined,
+    );
+    servicePrime.apiGetInfiniPayment.mockResolvedValue({
+      ...payment,
+      amountConfirmed: '1',
+    });
+    const onIssue = jest.fn();
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        paymentCacheKey: buildPaymentCacheKey(payment),
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        onIssue,
+        pollIntervalMs: 60_000,
+      }),
+    );
+    await waitFor(() => expect(onIssue).toHaveBeenCalled());
+    expect(result.current.latestPayment?.amountConfirmed).toBe('0');
+    unmount();
   });
 
   it('coalesces concurrent refresh signals into one follow-up request', async () => {
@@ -124,6 +272,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -168,6 +317,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline: renewalBaseline,
@@ -201,6 +351,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
     const { result, rerender, unmount } = renderHook(
       ({ payment }: { payment: IPrimeInfiniPayment }) =>
         usePrimeInfiniPaymentPolling({
+          paymentCacheKey: buildPaymentCacheKey(payment),
           payment,
           asset,
           baseline,
@@ -254,6 +405,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -291,6 +443,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -329,6 +482,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -366,6 +520,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -393,12 +548,17 @@ describe('usePrimeInfiniPaymentPolling', () => {
     servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'infini' }],
+      },
       infiniSubscription: undefined,
     });
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -420,18 +580,26 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
-  it('does not attribute a Prime activation to a pending payment', async () => {
-    const payment = buildPayment('payment-a');
+  it('does not attribute a redemption activation to a pending crypto payment', async () => {
+    const payment = {
+      ...buildPayment('payment-a'),
+      amountConfirmed: '29.99',
+    };
     const onSuccess = jest.fn();
     servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'redemption' }],
+      },
       infiniSubscription: undefined,
     });
 
     const { unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -459,6 +627,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -487,6 +656,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -523,6 +693,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -560,6 +731,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
       const { result, unmount } = renderHook(() =>
         usePrimeInfiniPaymentPolling({
+          paymentCacheKey: buildPaymentCacheKey(payment),
           payment,
           asset,
           baseline,
@@ -590,6 +762,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -621,6 +794,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
       const { result, unmount } = renderHook(() =>
         usePrimeInfiniPaymentPolling({
+          paymentCacheKey: buildPaymentCacheKey(payment),
           payment,
           asset,
           baseline,
@@ -651,6 +825,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
     const { unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -668,6 +843,94 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
+  it('keeps tracking and reports a structured failure when the refreshed transfer changes', async () => {
+    const payment = buildPayment('payment-a');
+    const onIssue = jest.fn();
+    const onTerminal = jest.fn();
+    servicePrime.apiGetInfiniPayment.mockResolvedValue({
+      ...payment,
+      amountDue: '19.99',
+    });
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
+        flowId: 'polling-flow',
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal,
+        onIssue,
+        pollIntervalMs: 60_000,
+      }),
+    );
+    await waitFor(() =>
+      expect(onIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            paymentValidationFailure: 'transferSnapshotChanged',
+          }),
+        }),
+      ),
+    );
+    expect(result.current.latestPayment).toEqual(payment);
+    expect(onTerminal).not.toHaveBeenCalled();
+    expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowContext: expect.objectContaining({
+          flowId: 'polling-flow',
+          paymentSource: 'polling',
+          sessionMode: 'tracking',
+        }),
+      }),
+    );
+    unmount();
+  });
+
+  it('reports both request errors from the same polling cycle', async () => {
+    const payment = buildPayment('payment-a');
+    const paymentError = new Error('payment endpoint failed');
+    const purchaseStatusError = new Error('purchase status endpoint failed');
+    const onIssue = jest.fn();
+    servicePrime.apiGetInfiniPayment.mockRejectedValue(paymentError);
+    servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockRejectedValue(
+      purchaseStatusError,
+    );
+
+    const { unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        onIssue,
+        pollIntervalMs: 60_000,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(onIssue).toHaveBeenCalledWith(paymentError);
+    });
+    expect(mockPrimeCryptoPaymentError).toHaveBeenCalledTimes(2);
+    expect(mockPrimeCryptoPaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'paymentUnavailableOrSnapshotMismatch',
+        errorName: 'Error',
+      }),
+    );
+    expect(mockPrimeCryptoPaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'purchaseStatusUnavailable',
+        errorName: 'Error',
+      }),
+    );
+    unmount();
+  });
+
   it('does not complete from a stale confirmed payment when its fresh query fails', async () => {
     const payment = {
       ...buildPayment('payment-a'),
@@ -679,12 +942,17 @@ describe('usePrimeInfiniPaymentPolling', () => {
     );
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'infini' }],
+      },
       infiniSubscription: undefined,
     });
 
     const { unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -714,12 +982,17 @@ describe('usePrimeInfiniPaymentPolling', () => {
     servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'infini' }],
+      },
       infiniSubscription: undefined,
     });
 
     const { result, unmount } = renderHook(() =>
       usePrimeInfiniPaymentPolling({
+        paymentCacheKey: buildPaymentCacheKey(payment),
         payment,
         asset,
         baseline,
@@ -757,6 +1030,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
       const { result, unmount } = renderHook(() =>
         usePrimeInfiniPaymentPolling({
+          paymentCacheKey: buildPaymentCacheKey(payment),
           payment,
           asset,
           baseline,
@@ -819,6 +1093,7 @@ describe('usePrimeInfiniPaymentPolling', () => {
 
       const { result, unmount } = renderHook(() =>
         usePrimeInfiniPaymentPolling({
+          paymentCacheKey: buildPaymentCacheKey(payment),
           payment,
           asset,
           baseline,

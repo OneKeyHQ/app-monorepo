@@ -18,6 +18,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   getPerpsAccountDisplaySnapshotEntry,
@@ -109,10 +110,13 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal('header');
   const lastAccountValueRef = useRef<
     | {
         accountKey: string;
         value: string;
+        isPartial?: boolean;
       }
     | undefined
   >(undefined);
@@ -174,6 +178,10 @@ function DepositButton() {
   const accountValue = isUsingSnapshotValue
     ? snapshotEntry?.accountValue
     : liveAccountValue;
+  const isAccountValuePartial = isUsingSnapshotValue
+    ? snapshotEntry?.isAccountValuePartial
+    : isActivePerpsAccountForSelectedWallet &&
+      computedValue?.isAccountValuePartial;
   const accountDisplayKey =
     snapshotEntry?.account.accountAddress?.toLowerCase() ??
     (isActivePerpsAccountForSelectedWallet ? activeAccountAddress : undefined);
@@ -185,6 +193,9 @@ function DepositButton() {
   const isUsingStableAccountValue =
     accountValue === undefined && stableAccountValue !== undefined;
   const displayAccountValue = accountValue ?? stableAccountValue;
+  const isDisplayAccountValuePartial = isUsingStableAccountValue
+    ? lastAccountValueRef.current?.isPartial
+    : isAccountValuePartial;
   const hasActiveAccount = Boolean(
     activeAccount?.accountAddress || snapshotEntry?.account.accountAddress,
   );
@@ -194,9 +205,10 @@ function DepositButton() {
       lastAccountValueRef.current = {
         accountKey: accountDisplayKey,
         value: accountValue,
+        isPartial: isAccountValuePartial,
       };
     }
-  }, [accountDisplayKey, accountValue]);
+  }, [accountDisplayKey, accountValue, isAccountValuePartial]);
 
   // Treat unknown as "still loading" rather than "empty" so the green
   // Deposit badge only appears once we definitively know the account is
@@ -208,13 +220,23 @@ function DepositButton() {
   const shouldDisplayAccountValueDuringLoading =
     displayAccountValue !== undefined;
   const isEmptyAccount =
-    !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
+    !isUnknownAccountValue &&
+    !isDisplayAccountValuePartial &&
+    new BigNumber(displayAccountValue ?? '0').lte(0);
+  const isDepositVariant = isEmptyAccount && !isDepositDisabled;
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
   if (isUnknownAccountValue) {
     badgeVariant = 'unknown';
-  } else if (isEmptyAccount) {
+  } else if (isDepositVariant) {
     badgeVariant = 'deposit';
   }
+  const handlePress = useCallback(() => {
+    if (isDepositVariant) {
+      void showDepositWithdrawModal('deposit');
+      return;
+    }
+    void showPortfolio();
+  }, [isDepositVariant, showDepositWithdrawModal, showPortfolio]);
 
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
@@ -275,14 +297,14 @@ function DepositButton() {
   // neutral material. Off iOS 26 (every other platform) this stays the original
   // solid Badge.
   const glassActive = isLiquidGlassAvailable();
-  const nonGlassBg = isEmptyAccount ? '$bgAccent' : '$bgStrong';
+  const nonGlassBg = isDepositVariant ? '$bgAccent' : '$bgStrong';
   const badge = (
     <Badge
       borderRadius="$full"
       size="medium"
-      variant={isEmptyAccount ? 'primary' : 'secondary'}
+      variant={isDepositVariant ? 'primary' : 'secondary'}
       testID={PerpTestIDs.PortfolioButton}
-      onPress={showPortfolio}
+      onPress={handlePress}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"
@@ -296,10 +318,14 @@ function DepositButton() {
       borderWidth={platformEnv.isNative ? 0 : 1}
       borderColor="$transparent"
       hoverStyle={
-        platformEnv.isNative ? undefined : { borderColor: '$borderHover' }
+        platformEnv.isNative
+          ? undefined
+          : { bg: isDepositVariant ? '$bgAccentHover' : '$bgStrongHover' }
       }
       pressStyle={
-        platformEnv.isNative ? undefined : { borderColor: '$borderActive' }
+        platformEnv.isNative
+          ? undefined
+          : { bg: isDepositVariant ? '$bgAccentActive' : '$bgStrongActive' }
       }
       onLayout={handleLayout}
       {...(glassActive && { hoverStyle: undefined, pressStyle: undefined })}
@@ -315,7 +341,7 @@ function DepositButton() {
             </>
           );
         }
-        if (isEmptyAccount) {
+        if (isDepositVariant) {
           return (
             <>
               <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
@@ -330,6 +356,7 @@ function DepositButton() {
             <Icon name="ChartLine2Outline" size="$4" />
             <PerpsAccountNumberValue
               value={displayAccountValue ?? ''}
+              isPartial={isDisplayAccountValuePartial}
               skeletonWidth={60}
               textSize="$bodySmMedium"
               allowValueDuringAccountLoading={
@@ -347,7 +374,7 @@ function DepositButton() {
       isInteractive
       glassEffectStyle="regular"
       // Deposit CTA → green-tinted glass; balance/unknown → neutral glass.
-      {...(isEmptyAccount && { tintColor: theme.bgAccent?.val })}
+      {...(isDepositVariant && { tintColor: theme.bgAccent?.val })}
       style={depositGlassStyle}
     >
       {badge}

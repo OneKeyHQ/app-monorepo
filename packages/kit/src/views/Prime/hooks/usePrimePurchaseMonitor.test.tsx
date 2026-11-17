@@ -204,6 +204,7 @@ describe('usePrimePurchaseMonitor', () => {
       await flushMonitorMicrotasks();
       expect(adapter).toHaveBeenCalledTimes(1);
       expect(result.current.hasError).toBe(true);
+      expect(result.current.getLastIssue()).toEqual({ reason: 'failure-1' });
 
       await advanceMonitorTimers(100);
       expect(adapter).toHaveBeenCalledTimes(2);
@@ -216,6 +217,7 @@ describe('usePrimePurchaseMonitor', () => {
       await advanceMonitorTimers(600);
       expect(adapter).toHaveBeenCalledTimes(6);
       expect(result.current.hasError).toBe(false);
+      expect(result.current.getLastIssue()).toBeUndefined();
 
       await advanceMonitorTimers(100);
       expect(adapter).toHaveBeenCalledTimes(7);

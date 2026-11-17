@@ -21,8 +21,10 @@ import {
   normalizeToEarnSymbol,
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IMarketDetailPlatformNetwork,
+  IMarketPreferredToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
@@ -36,26 +38,17 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnNavigation } from '../../Earn/earnUtils';
+import { tryOpenHeadlessBuy } from '../../FiatCrypto/utils/openFiatCryptoOrHeadless';
+import { getLegacyMarketPrimaryNetwork } from '../utils/legacyMarketNetwork';
 
-export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, platforms = {} } = token || {};
-  const network = useMemo(() => {
-    if (detailPlatforms) {
-      const values = Object.values(detailPlatforms);
-      const nativePlatform = values.find((i) => i.isNative);
-      if (nativePlatform) {
-        return nativePlatform;
-      }
-
-      const tokenAddress = Object.values(platforms)[0];
-      const tokenAddressPlatform = values.find(
-        (i) => i.tokenAddress === tokenAddress,
-      );
-      return tokenAddressPlatform ?? values[0];
-    }
-  }, [detailPlatforms, platforms]);
-  return network;
-};
+export const useMarketTradeNetwork = (
+  token: IMarketTokenDetail | null,
+  preferredToken?: IMarketPreferredToken,
+) =>
+  useMemo(
+    () => getLegacyMarketPrimaryNetwork(token, preferredToken),
+    [token, preferredToken],
+  );
 
 export const useMarketTradeNetworkId = (
   network: IMarketDetailPlatformNetwork | null | undefined,
@@ -66,10 +59,13 @@ export const useMarketTradeNetworkId = (
     return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
   }, [network, symbol]);
 
-export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
+export const useMarketTradeActions = (
+  token: IMarketTokenDetail | null,
+  preferredToken?: IMarketPreferredToken,
+) => {
   const { symbol = '', name, image } = token || {};
   const intl = useIntl();
-  const network = useMarketTradeNetwork(token);
+  const network = useMarketTradeNetwork(token, preferredToken);
   const networkId = useMarketTradeNetworkId(network, symbol);
 
   const navigation =
@@ -148,6 +144,18 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
       if (!isSupported) {
         remindUnsupportedToken(type);
+        return;
+      }
+
+      if (
+        type === 'buy' &&
+        (await tryOpenHeadlessBuy({
+          networkId,
+          tokenAddress: realContractAddress,
+          accountId: networkAccount?.id,
+          entryFrom: EHeadlessBuyEntry.Market,
+        }))
+      ) {
         return;
       }
 

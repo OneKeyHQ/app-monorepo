@@ -1,10 +1,38 @@
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
+
 import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountIdentifiers,
   getBulkExportHistoryAccountNetworkCompatibility,
   getBulkExportHistoryAccountTypeForTracking,
+  getBulkExportHistoryNetworkAccountSafe,
   resolveBulkExportHistoryAccountIdentity,
 } from './bulkExportHistoryAccountUtils';
+
+const mockGetGlobalDeriveTypeOfNetwork: jest.Mock<
+  Promise<unknown>,
+  unknown[]
+> = jest.fn();
+const mockGetAccountsByIndexedAccounts: jest.Mock<
+  Promise<unknown>,
+  unknown[]
+> = jest.fn();
+
+// The factory must reference the mocks lazily: it runs while the module under
+// test is being imported, before the const initializers above execute.
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: (...args: unknown[]) =>
+        mockGetGlobalDeriveTypeOfNetwork(...args),
+    },
+    serviceAccount: {
+      getAccountsByIndexedAccounts: (...args: unknown[]) =>
+        mockGetAccountsByIndexedAccounts(...args),
+    },
+  },
+}));
 
 describe('bulkExportHistoryAccountUtils', () => {
   it('supports indexed accounts', () => {
@@ -123,5 +151,74 @@ describe('bulkExportHistoryAccountUtils', () => {
     ],
   ])('maps account identity %o to tracking type %s', (identity, expected) => {
     expect(getBulkExportHistoryAccountTypeForTracking(identity)).toBe(expected);
+  });
+
+  describe('getBulkExportHistoryNetworkAccountSafe', () => {
+    beforeEach(() => {
+      mockGetGlobalDeriveTypeOfNetwork.mockReset();
+      mockGetAccountsByIndexedAccounts.mockReset();
+      mockGetGlobalDeriveTypeOfNetwork.mockResolvedValue('default');
+    });
+
+    it('returns the derived network account when the lookup succeeds', async () => {
+      const account = { id: "hd-1--m/44'/145'/0'", address: 'bch-address' };
+      mockGetAccountsByIndexedAccounts.mockResolvedValue({
+        accounts: [account],
+      });
+
+      await expect(
+        getBulkExportHistoryNetworkAccountSafe({
+          networkId: 'bch--0',
+          indexedAccountId: 'hd-1--0',
+        }),
+      ).resolves.toBe(account);
+      expect(mockGetAccountsByIndexedAccounts).toHaveBeenCalledWith({
+        indexedAccountIds: ['hd-1--0'],
+        networkId: 'bch--0',
+        deriveType: 'default',
+      });
+    });
+
+    it('returns undefined when the account was never derived on the network', async () => {
+      mockGetAccountsByIndexedAccounts.mockRejectedValue(
+        new LocalDBRecordNotFoundError(
+          "record not found: Account hd-1--m/44'/145'/0'",
+        ),
+      );
+
+      await expect(
+        getBulkExportHistoryNetworkAccountSafe({
+          networkId: 'bch--0',
+          indexedAccountId: 'hd-1--0',
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('propagates account lookup failures other than record not found', async () => {
+      mockGetAccountsByIndexedAccounts.mockRejectedValue(
+        new Error('bridge call failed'),
+      );
+
+      await expect(
+        getBulkExportHistoryNetworkAccountSafe({
+          networkId: 'bch--0',
+          indexedAccountId: 'hd-1--0',
+        }),
+      ).rejects.toThrow('bridge call failed');
+    });
+
+    it('propagates derive type lookup failures', async () => {
+      mockGetGlobalDeriveTypeOfNetwork.mockRejectedValue(
+        new Error('derive type lookup failed'),
+      );
+
+      await expect(
+        getBulkExportHistoryNetworkAccountSafe({
+          networkId: 'bch--0',
+          indexedAccountId: 'hd-1--0',
+        }),
+      ).rejects.toThrow('derive type lookup failed');
+      expect(mockGetAccountsByIndexedAccounts).not.toHaveBeenCalled();
+    });
   });
 });

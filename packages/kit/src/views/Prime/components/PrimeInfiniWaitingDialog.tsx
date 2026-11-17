@@ -6,8 +6,9 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
+  Illustration,
+  LottieView,
   SizableText,
-  Spinner,
   Toast,
   YStack,
   useDialogInstance,
@@ -17,7 +18,6 @@ import type {
   IDialogShowProps,
 } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -32,6 +32,7 @@ import type {
 import { isPrimeInfiniPurchaseCompleted } from '../hooks/primeInfiniPaymentUtils';
 import { usePrimeInfiniPaymentPolling } from '../hooks/usePrimeInfiniPaymentPolling';
 import { usePrimePurchaseMonitor } from '../hooks/usePrimePurchaseMonitor';
+import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
 import {
   logPrimeInfiniPaymentFlow,
   logPrimeInfiniPaymentMonitorEvent,
@@ -66,17 +67,21 @@ type IPrimeInfiniCompletionPaymentContext = {
 
 export type IPrimeInfiniWaitingContext =
   | {
+      flowId?: string;
       checkoutType: 'externalWallet';
       plan: IPrimeInfiniSubscriptionPlan;
       onekeyUserId: string;
       featureName?: EPrimeFeatures;
       checkoutUrl: string;
+      validateCheckout: () => Promise<boolean>;
       // Pass the current expiry when the dialog waits for a renewal payment of
       // a still-active subscription; success is then detected by expiry extension.
       renewalBaselineExpiresAt?: number;
       // The Infini period end is an additional renewal success signal when the
       // merged Prime expiry does not move for dual-channel subscribers.
       renewalBaselineInfiniPeriodEnd?: number;
+      // null means no Infini subscription existed when checkout opened.
+      baselineInfiniSubscriptionId?: string | null;
     }
   | {
       checkoutType: 'internalWallet';
@@ -101,20 +106,25 @@ const INFINI_PLAN_USD_AMOUNT: Record<IPrimeInfiniSubscriptionPlan, number> = {
 };
 
 function usePrimeInfiniPurchaseCompletion({
+  flowId,
   plan,
   onekeyUserId,
   featureName,
   checkoutType,
   subscriptionPeriod,
   beforeComplete,
+  validatePurchaseContext,
 }: {
+  flowId?: string;
   plan: IPrimeInfiniSubscriptionPlan;
   onekeyUserId: string;
   featureName?: EPrimeFeatures;
   checkoutType: IPrimeInfiniWaitingContext['checkoutType'];
   subscriptionPeriod?: IInternalPaymentWaitingSession['selectedSubscriptionPeriod'];
   beforeComplete?: () => Promise<void>;
+  validatePurchaseContext?: () => Promise<boolean>;
 }) {
+  const flowIdRef = useRef(flowId);
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
   const isSuccessHandledRef = useRef(false);
@@ -131,6 +141,7 @@ function usePrimeInfiniPurchaseCompletion({
       if (!purchaseUserMismatchLoggedRef.current) {
         purchaseUserMismatchLoggedRef.current = true;
         logPrimeInfiniPaymentFlow({
+          flowId: flowIdRef.current,
           stage,
           status: 'blocked',
           subscriptionPeriod,
@@ -154,6 +165,9 @@ function usePrimeInfiniPurchaseCompletion({
       stage: 'paymentPolling' | 'purchaseCompletion';
       paymentContext?: IPrimeInfiniCompletionPaymentContext;
     }) => {
+      if (validatePurchaseContext) {
+        return validatePurchaseContext();
+      }
       const currentUser =
         await backgroundApiProxy.servicePrime.getLocalUserInfo();
       if (currentUser.isLoggedIn && currentUser.onekeyUserId === onekeyUserId) {
@@ -162,7 +176,7 @@ function usePrimeInfiniPurchaseCompletion({
       await blockPurchaseUserMismatch({ stage, paymentContext });
       return false;
     },
-    [blockPurchaseUserMismatch, onekeyUserId],
+    [blockPurchaseUserMismatch, onekeyUserId, validatePurchaseContext],
   );
 
   const completePurchase = useCallback(
@@ -178,6 +192,7 @@ function usePrimeInfiniPurchaseCompletion({
       }
       isSuccessHandledRef.current = true;
       logPrimeInfiniPaymentFlow({
+        flowId: flowIdRef.current,
         stage: 'purchaseCompletion',
         status: 'started',
         subscriptionPeriod,
@@ -202,7 +217,24 @@ function usePrimeInfiniPurchaseCompletion({
             await timerUtils.wait(350);
             await finishPrimeSubscriptionPurchaseSuccess(successPayload);
           })().catch((error) => {
-            errorToastUtils.showToastOfError(error);
+            logPrimeInfiniPaymentFlow({
+              flowId: flowIdRef.current,
+              stage: 'purchaseCompletion',
+              status: 'failed',
+              subscriptionPeriod,
+              plan,
+              featureName,
+              checkoutType,
+              ...paymentContext,
+              reason: 'purchaseSuccessTailFailed',
+              error,
+            });
+            showPrimeInfiniPaymentErrorToast({
+              error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
           });
         };
         if (
@@ -233,6 +265,7 @@ function usePrimeInfiniPurchaseCompletion({
         await dialogInstance.close();
         finishSuccess();
         logPrimeInfiniPaymentFlow({
+          flowId: flowIdRef.current,
           stage: 'purchaseCompletion',
           status: 'succeeded',
           subscriptionPeriod,
@@ -244,6 +277,7 @@ function usePrimeInfiniPurchaseCompletion({
       } catch (error) {
         isSuccessHandledRef.current = false;
         logPrimeInfiniPaymentFlow({
+          flowId: flowIdRef.current,
           stage: 'purchaseCompletion',
           status: 'failed',
           subscriptionPeriod,
@@ -278,17 +312,36 @@ function usePrimeInfiniPurchaseCompletion({
 
 function PrimeInfiniWaitingStatus({
   isTerminal,
+  title,
   message,
 }: {
   isTerminal: boolean;
-  message: string;
+  title: string;
+  message?: string;
 }) {
   return (
-    <YStack gap="$4" alignItems="center">
-      {isTerminal ? null : <Spinner size="large" />}
-      <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
-        {message}
-      </SizableText>
+    <YStack gap="$5" alignItems="center" pt="$4">
+      {isTerminal ? (
+        <Illustration size={110} name="XMark" />
+      ) : (
+        // Same waiting animation the Swap pending flow uses.
+        <LottieView
+          source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
+          width={110}
+          height={110}
+          autoPlay
+        />
+      )}
+      <YStack gap="$2" alignItems="center">
+        <SizableText size="$headingLg" textAlign="center">
+          {title}
+        </SizableText>
+        {message ? (
+          <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
+            {message}
+          </SizableText>
+        ) : null}
+      </YStack>
     </YStack>
   );
 }
@@ -301,6 +354,8 @@ function PrimeInfiniExternalWaitingMonitor({
     { checkoutType: 'externalWallet' }
   >;
 }) {
+  const flowIdRef = useRef(context.flowId);
+  const intl = useIntl();
   const {
     plan,
     onekeyUserId,
@@ -308,16 +363,19 @@ function PrimeInfiniExternalWaitingMonitor({
     checkoutUrl,
     renewalBaselineExpiresAt,
     renewalBaselineInfiniPeriodEnd,
+    baselineInfiniSubscriptionId,
   } = context;
   const {
     blockPurchaseUserMismatch,
     completePurchase,
     ensurePurchaseUserIsCurrent,
   } = usePrimeInfiniPurchaseCompletion({
+    flowId: context.flowId,
     plan,
     onekeyUserId,
     featureName,
     checkoutType: 'externalWallet',
+    validatePurchaseContext: context.validateCheckout,
   });
 
   const handleSuccess = useCallback(
@@ -366,6 +424,7 @@ function PrimeInfiniExternalWaitingMonitor({
           wasPrimeActive: renewalBaselineExpiresAt !== undefined,
           primeExpiresAt: renewalBaselineExpiresAt,
           infiniPeriodEnd: renewalBaselineInfiniPeriodEnd,
+          infiniSubscriptionId: baselineInfiniSubscriptionId,
         },
         primeSubscription: purchaseStatus.primeSubscription,
         infiniSubscription: purchaseStatus.infiniSubscription,
@@ -389,6 +448,7 @@ function PrimeInfiniExternalWaitingMonitor({
     onekeyUserId,
     renewalBaselineExpiresAt,
     renewalBaselineInfiniPeriodEnd,
+    baselineInfiniSubscriptionId,
   ]);
 
   const handleMonitorEvent = useCallback(
@@ -396,15 +456,25 @@ function PrimeInfiniExternalWaitingMonitor({
       logPrimeInfiniPaymentMonitorEvent({
         event,
         context: {
-          stage: 'paymentPolling',
+          flowId: flowIdRef.current,
+          paymentSource: 'externalCheckout',
+          stage: 'polling',
           plan,
           featureName,
           checkoutType: 'externalWallet',
         },
         getFailureReason: getExternalPollingFailureReason,
       });
+      if (event.type === 'failed' && event.issue.error) {
+        showPrimeInfiniPaymentErrorToast({
+          error: event.issue.error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+        });
+      }
     },
-    [featureName, plan],
+    [featureName, intl, plan],
   );
 
   const monitor = usePrimePurchaseMonitor<
@@ -417,6 +487,9 @@ function PrimeInfiniExternalWaitingMonitor({
       checkoutUrl,
       renewalBaselineExpiresAt ?? '',
       renewalBaselineInfiniPeriodEnd ?? '',
+      baselineInfiniSubscriptionId === undefined
+        ? 'legacy'
+        : (baselineInfiniSubscriptionId ?? 'none'),
     ].join(':'),
     enabled: true,
     adapter,
@@ -442,6 +515,7 @@ function PrimeInfiniExternalWaitingMonitor({
       }
     })().catch((error) => {
       logPrimeInfiniPaymentFlow({
+        flowId: flowIdRef.current,
         stage: 'paymentPolling',
         status: 'failed',
         plan,
@@ -457,12 +531,19 @@ function PrimeInfiniExternalWaitingMonitor({
     <YStack gap="$4" alignItems="center">
       <PrimeInfiniWaitingStatus
         isTerminal={monitor.isTimedOut}
+        title={intl.formatMessage({
+          id: monitor.isTimedOut
+            ? ETranslations.prime_payment_not_confirmed__title
+            : ETranslations.prime_waiting_for_payment__title,
+        })}
         message={
           monitor.isTimedOut
-            ? // TODO: i18n pending translation key
-              'We haven’t detected your payment yet. Confirmation may still be processing, so please check back later.'
-            : // TODO: i18n pending translation key
-              'Complete the payment in your browser. On-chain confirmation may take a few minutes, and your subscription will be activated automatically once confirmed.'
+            ? intl.formatMessage({
+                id: ETranslations.prime_payment_not_detected__desc,
+              })
+            : intl.formatMessage({
+                id: ETranslations.prime_complete_payment_in_browser__desc,
+              })
         }
       />
       <Button
@@ -472,6 +553,7 @@ function PrimeInfiniExternalWaitingMonitor({
         testID="prime-infini-open-checkout"
         onPress={() => {
           logPrimeInfiniPaymentFlow({
+            flowId: flowIdRef.current,
             stage: 'externalCheckout',
             status: 'refreshed',
             plan,
@@ -489,27 +571,58 @@ function PrimeInfiniExternalWaitingMonitor({
                 useSystemBrowser: true,
               });
             }
-          })();
+          })().catch((error) => {
+            logPrimeInfiniPaymentFlow({
+              flowId: flowIdRef.current,
+              stage: 'externalCheckout',
+              status: 'failed',
+              plan,
+              featureName,
+              checkoutType: 'externalWallet',
+              reason: 'checkoutReopenFailed',
+              error,
+            });
+            showPrimeInfiniPaymentErrorToast({
+              error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+          });
         }}
       >
-        {/* TODO: i18n pending translation key */}
-        Open checkout page
+        {intl.formatMessage({
+          id: ETranslations.prime_open_checkout__action,
+        })}
       </Button>
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
-        // TODO: i18n pending translation key
-        onConfirmText="I’ve completed payment"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.prime_payment_completed__action,
+        })}
         onConfirm={async ({ preventClose }) => {
           preventClose();
           const refreshResult = await monitor.refresh();
-          if (refreshResult === 'pending' || refreshResult === 'failed') {
+          const issue = monitor.getLastIssue();
+          if (refreshResult === 'failed' && issue?.error) {
+            showPrimeInfiniPaymentErrorToast({
+              error: issue.error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+          } else if (
+            refreshResult === 'pending' ||
+            refreshResult === 'failed'
+          ) {
             Toast.message({
-              // TODO: i18n pending translation key
-              title: 'Payment not confirmed yet',
-              // TODO: i18n pending translation key
-              message:
-                'On-chain confirmation may take a few minutes. Please try again later.',
+              title: intl.formatMessage({
+                id: ETranslations.prime_payment_not_confirmed__title,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.prime_payment_not_detected__desc,
+              }),
             });
           }
         }}
@@ -523,17 +636,17 @@ function PrimeInfiniInternalWaitingMonitor({
 }: {
   session: IInternalPaymentWaitingSession;
 }) {
+  const intl = useIntl();
   const { baseline, asset, plan, featureName, selectedSubscriptionPeriod } =
     session;
-  const clearPendingSession = useCallback(
-    () =>
-      backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession({
-        onekeyUserId: baseline.onekeyUserId,
-        expectedPaymentCacheIdentity: session.paymentCacheKey,
-      }),
-    [baseline.onekeyUserId, session.paymentCacheKey],
-  );
+  const clearPendingSession = useCallback(async () => {
+    await backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession({
+      onekeyUserId: baseline.onekeyUserId,
+      expectedPaymentCacheIdentity: session.paymentCacheKey,
+    });
+  }, [baseline.onekeyUserId, session.paymentCacheKey]);
   const { completePurchase } = usePrimeInfiniPurchaseCompletion({
+    flowId: session.flowId,
     plan,
     onekeyUserId: baseline.onekeyUserId,
     featureName,
@@ -560,27 +673,53 @@ function PrimeInfiniInternalWaitingMonitor({
   );
 
   const polling = usePrimeInfiniPaymentPolling({
+    flowId: session.flowId,
     payment: session.payment,
+    paymentCacheKey: session.paymentCacheKey,
     asset,
     baseline,
     enabled: true,
     onSuccess: handleSuccess,
     onTerminal: () => undefined,
+    onIssue: (error) => {
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
+    },
   });
   const isTerminal =
     polling.outcome === 'expired' || polling.outcome === 'failed';
-  let statusMessage =
-    'On-chain confirmation may take a few minutes. Your subscription will be activated automatically once confirmed.';
+  let statusTitle = intl.formatMessage({
+    id: ETranslations.prime_payment_confirming__title,
+  });
+  let statusMessage = intl.formatMessage({
+    id: ETranslations.prime_payment_confirming__desc,
+  });
   if (polling.outcome === 'expired') {
-    // TODO: i18n pending translation key
-    statusMessage = 'This payment has expired.';
+    statusTitle = intl.formatMessage({
+      id: ETranslations.send_the_invoice_has_expired,
+    });
+    statusMessage = intl.formatMessage({
+      id: ETranslations.prime_close_and_try_again__desc,
+    });
   } else if (polling.outcome === 'failed') {
-    // TODO: i18n pending translation key
-    statusMessage = 'This payment could not be confirmed.';
+    statusTitle = intl.formatMessage({
+      id: ETranslations.prime_payment_confirmation_failed__title,
+    });
+    statusMessage = intl.formatMessage({
+      id: ETranslations.prime_close_and_try_again__desc,
+    });
   }
 
   return (
-    <PrimeInfiniWaitingStatus isTerminal={isTerminal} message={statusMessage} />
+    <PrimeInfiniWaitingStatus
+      isTerminal={isTerminal}
+      title={statusTitle}
+      message={statusMessage}
+    />
   );
 }
 
@@ -609,9 +748,8 @@ export function showPrimeInfiniWaitingDialog({
 }) {
   void activeWaitingDialog?.close();
   const dialog: IDialogInstance = Dialog.show({
-    icon: 'ClockTimeHistoryOutline',
-    // TODO: i18n pending translation key
-    title: 'Waiting for payment',
+    // The title/illustration live inside the content so the whole dialog reads
+    // as one centered status card; only the corner close button stays.
     testID: 'prime-infini-waiting-dialog',
     dismissOnOverlayPress: false,
     showFooter: context.checkoutType === 'externalWallet',

@@ -15,6 +15,7 @@ export function AccountSelectorTriggerBulkExportHistory({
       showWalletName
       showWalletAvatar
       horizontalLayout
+      alignChevronToEnd
       containerProps={{
         borderRadius: '$3',
         borderWidth: 1,

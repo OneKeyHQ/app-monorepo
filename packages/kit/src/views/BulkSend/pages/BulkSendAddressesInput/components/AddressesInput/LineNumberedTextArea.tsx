@@ -4,10 +4,11 @@ import { useIntl } from 'react-intl';
 import {
   Keyboard,
   type LayoutChangeEvent,
-  type ScrollView as RNScrollView,
   TextInput as RNTextInput,
-  type View as RNView,
+  type ScrollViewInstance,
   StyleSheet,
+  type TextInputInstance,
+  type ViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,6 +25,7 @@ import {
   useSelectionColor,
   useTheme,
 } from '@onekeyhq/components';
+import { TABULAR_NUMS } from '@onekeyhq/components/src/utils/tabularNums';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { AddressBadge } from '@onekeyhq/kit/src/components/AddressBadge';
 import { SelectorPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugins/selector';
@@ -121,8 +123,8 @@ function LineNumberedTextArea({
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
   const safeAreaInsets = useSafeAreaInsets();
-  const inputRef = useRef<RNTextInput>(null);
-  const scrollViewRef = useRef<RNScrollView>(null);
+  const inputRef = useRef<TextInputInstance>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
   const { getClipboard } = useClipboard();
   const theme = useTheme();
@@ -218,7 +220,7 @@ function LineNumberedTextArea({
 
   // #1 iOS: scroll outer page ScrollView to keep this component visible above keyboard
   const { scrollViewRef: pageScrollViewRef, pageOffsetRef } = useScrollView();
-  const containerRef = useRef<RNView>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const isFocusedRef = useRef(false);
   const lastKeyboardScreenYRef = useRef<number | null>(null);
 
@@ -408,6 +410,13 @@ function LineNumberedTextArea({
               fontSize: FONT_SIZE,
               lineHeight: LINE_HEIGHT,
               fontFamily: webFontFamily,
+              // react-native-web's TextInput base style sets the `font`
+              // shorthand, which resets `font-variant-numeric` and drops the
+              // app-wide `body { tabular-nums }` rule the display layer
+              // inherits. Re-apply it so the invisible textarea lays out
+              // digits at the same width as the visible text; otherwise the
+              // caret/selection drift on digit-heavy lines such as addresses.
+              fontVariantNumeric: TABULAR_NUMS.join(' '),
               textAlignVertical: 'top',
               color: 'transparent',
               caretColor: textColor,

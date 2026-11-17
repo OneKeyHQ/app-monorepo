@@ -18,6 +18,7 @@ import {
   loadPerpsDepositSelectTokenModal,
 } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import { loadPerpsMobileMarketPage } from '../utils/preloadPerpsMobileMarketPage';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -27,13 +28,15 @@ const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
 );
 
+const PerpTradeHistoryDetails = LazyLoadPage(
+  () => import('../components/OrderInfoPanel/PerpTradeHistoryDetails'),
+);
+
 const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
-const MobilePerpMarketPage = LazyLoadPage(
-  () => import('../pages/MobilePerpMarket'),
-);
+const MobilePerpMarketPage = LazyLoadPage(loadPerpsMobileMarketPage);
 
 const MobileTokenSelectorLazyPage = LazyLoadPage(
   loadPerpsMobileTokenSelectorPage,
@@ -67,6 +70,16 @@ function MobileDepositSelectTokenModal() {
 
 const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),
+);
+
+const MobileUnifoldDepositTransferModal = LazyLoadPage(
+  () =>
+    import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTransferModal'),
+);
+
+const MobileUnifoldDepositTrackerModal = LazyLoadPage(
+  () =>
+    import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTrackerModal'),
 );
 
 const MobilePortfolioPage = LazyLoadPage(
@@ -104,6 +117,14 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: MobileDepositSelectTokenModal,
   },
   {
+    name: EModalPerpRoutes.MobileUnifoldDepositTransfer,
+    component: MobileUnifoldDepositTransferModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTracker,
+    component: MobileUnifoldDepositTrackerModal,
+  },
+  {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
     component: PerpsInviteeRewardModal,
   },
@@ -126,6 +147,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
     component: PerpTradersHistoryList,
   },
   {
+    name: EModalPerpRoutes.PerpTradeHistoryDetails,
+    component: PerpTradeHistoryDetails,
+  },
+  {
     name: EModalPerpRoutes.MobilePerpMarket,
     component: MobilePerpMarketPage,
   },
@@ -145,6 +170,14 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileDepositSelectToken,
     component: MobileDepositSelectTokenModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTransfer,
+    component: MobileUnifoldDepositTransferModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldDepositTracker,
+    component: MobileUnifoldDepositTrackerModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,

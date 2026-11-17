@@ -2,14 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  ScrollView,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, Dialog, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -49,7 +42,7 @@ function ClaimItem({
     claimingItemId === item.id ||
     claimingAllIds.includes(item.id) ||
     pendingClaimIds.includes(item.id);
-  const disabled = item.button.disabled || isLoading;
+  const claimButton = item.button;
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
@@ -64,16 +57,18 @@ function ClaimItem({
           />
         ) : null}
       </YStack>
-      <Button
-        testID={BorrowTestIDs.claimItemBtn}
-        size="small"
-        variant="primary"
-        disabled={disabled}
-        loading={isLoading}
-        onPress={handlePress}
-      >
-        {item.button?.text?.text}
-      </Button>
+      {claimButton ? (
+        <Button
+          testID={BorrowTestIDs.claimItemBtn}
+          size="small"
+          variant="primary"
+          disabled={claimButton.disabled || isLoading}
+          loading={isLoading}
+          onPress={handlePress}
+        >
+          {claimButton.text.text}
+        </Button>
+      ) : null}
     </XStack>
   );
 }
@@ -122,11 +117,14 @@ type IUnclaimableItemProps = {
 };
 
 function UnclaimableItem({ item }: IUnclaimableItemProps) {
-  const handlePress = useCallback(() => {
-    if (item.button?.data?.link) {
-      openUrlExternal(item.button.data.link);
-    }
-  }, [item]);
+  const dialogInstance = useDialogInstance();
+  const handlePress = useCallback(async () => {
+    const link = item.button?.data?.link;
+    if (!link) return;
+
+    await dialogInstance.close();
+    void openUrlExternal(link);
+  }, [dialogInstance, item.button?.data?.link]);
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
@@ -183,8 +181,10 @@ function UnclaimableGroup({ group }: IUnclaimableGroupProps) {
 type IBorrowClaimRewardsDialogContentProps = {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds: string[];
-  onClaimItem: (item: IEarnRewardClaimItem) => Promise<void>;
-  onClaimAll: () => Promise<void>;
+  // Resolve false when the claim never started (the one-time risk disclaimer
+  // was declined), so this dialog stays open instead of vanishing on cancel.
+  onClaimItem: (item: IEarnRewardClaimItem) => Promise<boolean | void>;
+  onClaimAll: () => Promise<boolean | void>;
 };
 
 function BorrowClaimRewardsDialogContent({
@@ -209,13 +209,16 @@ function BorrowClaimRewardsDialogContent({
     () => rewardsDetails.data.rewardsDetail.unclaimable ?? [],
     [rewardsDetails.data.rewardsDetail.unclaimable],
   );
+  const claimAllButton = rewardsDetails.data.rewardsDetail.button;
 
   const handleClaimItem = useCallback(
     async (item: IEarnRewardClaimItem) => {
       setClaimingItemId(item.id);
       try {
-        await onClaimItem(item);
-        void dialogInstance.close();
+        const started = await onClaimItem(item);
+        if (started !== false) {
+          void dialogInstance.close();
+        }
       } finally {
         setClaimingItemId(null);
       }
@@ -255,16 +258,19 @@ function BorrowClaimRewardsDialogContent({
     setClaimingAllIds(actionableIds);
     setLoading(true);
     try {
-      await onClaimAll();
+      const started = await onClaimAll();
+      if (started !== false) {
+        void dialogInstance.close();
+      }
     } finally {
       setLoading(false);
       setClaimingAllIds([]);
     }
-  }, [actionableIds, canClaimAll, onClaimAll]);
+  }, [actionableIds, canClaimAll, dialogInstance, onClaimAll]);
 
   return (
     <YStack gap="$4">
-      <ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
+      <Dialog.ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
         <YStack gap="$2">
           {claimableGroups.map((group, index) => (
             <ClaimGroup
@@ -280,20 +286,28 @@ function BorrowClaimRewardsDialogContent({
             <UnclaimableGroup key={`unclaimable-${index}`} group={group} />
           ))}
         </YStack>
-      </ScrollView>
+      </Dialog.ScrollView>
 
       {hasClaimableItems ? (
         <Dialog.Footer
           showCancelButton
-          showConfirmButton={false}
+          showConfirmButton={Boolean(claimAllButton)}
           confirmButtonProps={{
-            disabled: loading || rewardsDetails.disabled || !canClaimAll,
+            testID: BorrowTestIDs.claimAllBtn,
+            disabled:
+              loading ||
+              rewardsDetails.disabled ||
+              claimAllButton?.disabled ||
+              !canClaimAll,
             loading,
           }}
           onConfirm={handleClaimAll}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.defi_claim_all,
-          })}
+          onConfirmText={
+            claimAllButton?.text.text ??
+            intl.formatMessage({
+              id: ETranslations.defi_claim_all,
+            })
+          }
         />
       ) : null}
     </YStack>
@@ -309,8 +323,10 @@ export function showBorrowClaimRewardsDialog({
 }: {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds?: string[];
-  onClaimItem: (item: IEarnRewardClaimItem) => Promise<void>;
-  onClaimAll: () => Promise<void>;
+  // See the content props: false keeps this dialog open, for a claim that never
+  // started because the risk disclaimer was declined.
+  onClaimItem: (item: IEarnRewardClaimItem) => Promise<boolean | void>;
+  onClaimAll: () => Promise<boolean | void>;
   onClose?: () => void;
 }) {
   return Dialog.show({

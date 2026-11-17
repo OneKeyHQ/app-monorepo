@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+import type { ISegmentManifest } from '../types';
+
 type ILoadBundleAsyncGlobal = typeof globalThis & {
   __METRO_GLOBAL_PREFIX__?: string;
   __loadBundleAsync?: (
@@ -6,13 +8,38 @@ type ILoadBundleAsyncGlobal = typeof globalThis & {
       | string
       | Partial<Record<'main' | 'background' | 'shared', string | null>>,
   ) => Promise<void>;
+  __ONEKEY_RUNTIME_POLYFILLS_READY__?: number;
+  __ONEKEY_RUNTIME_KIND__?: 'main' | 'background';
+  __SEGMENT_MANIFEST__?: ISegmentManifest;
 };
 
+const RUNTIME_POLYFILLS_VERSION = 1;
+
 const mockNativeLoggerWrite = jest.fn();
+let mockVisible = true;
+const mockVisibilityListeners = new Set<(visible: boolean) => void>();
+
+function changeVisibility(visible: boolean) {
+  mockVisible = visible;
+  mockVisibilityListeners.forEach((listener) => listener(visible));
+}
 
 beforeEach(() => {
   jest.resetModules();
   mockNativeLoggerWrite.mockReset();
+  mockVisible = true;
+  mockVisibilityListeners.clear();
+  // The independent startup health probe owns a separate two-second timer.
+  jest.mock('../healthCheck', () => ({
+    scheduleSplitBundleHealthCheck: jest.fn(),
+  }));
+  jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+    getCurrentVisibilityState: () => mockVisible,
+    onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+      mockVisibilityListeners.add(listener);
+      return () => mockVisibilityListeners.delete(listener);
+    },
+  }));
   jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     defaultLogger: { app: { bootstrap: { initDeferredStep: jest.fn() } } },
   }));
@@ -24,6 +51,8 @@ beforeEach(() => {
     }),
   );
   (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+  (globalThis as ILoadBundleAsyncGlobal).__ONEKEY_RUNTIME_POLYFILLS_READY__ =
+    RUNTIME_POLYFILLS_VERSION;
   (globalThis as any).__SEGMENT_MANIFEST__ = {
     segments: {
       'seg:test.a': {
@@ -56,13 +85,19 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
+  delete (globalThis as ILoadBundleAsyncGlobal)
+    .__ONEKEY_RUNTIME_POLYFILLS_READY__;
   delete (globalThis as any).__SEGMENT_MANIFEST__;
   delete (globalThis as any).__loadBundleAsync;
   delete (globalThis as any).__METRO_GLOBAL_PREFIX__;
   delete (globalThis as any).test__loadBundleAsync;
 });
 
-function getLoader() {
+function getLoader(runtimeKind?: 'main' | 'background') {
+  if (runtimeKind) {
+    (globalThis as ILoadBundleAsyncGlobal).__ONEKEY_RUNTIME_KIND__ =
+      runtimeKind;
+  }
   return require('../installProdBundleLoader');
 }
 
@@ -79,6 +114,16 @@ function createMockNativeLoader() {
 }
 
 describe('installProdBundleLoader', () => {
+  it('rejects installation before runtime polyfills are ready', () => {
+    delete (globalThis as ILoadBundleAsyncGlobal)
+      .__ONEKEY_RUNTIME_POLYFILLS_READY__;
+    const { installProdBundleLoader } = getLoader();
+
+    expect(() => installProdBundleLoader(createMockNativeLoader())).toThrow(
+      /runtime polyfill bootstrap/i,
+    );
+  });
+
   it('loads a segment and marks it as ready', async () => {
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
       getLoader();
@@ -369,7 +414,7 @@ describe('installProdBundleLoader', () => {
     });
     mock.loadSegment.mockRejectedValueOnce(retryableErr);
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
-      getLoader();
+      getLoader('background');
     installProdBundleLoader(mock);
 
     // First attempt rejects (runtime not ready yet)...
@@ -387,7 +432,7 @@ describe('installProdBundleLoader', () => {
       Object.assign(new Error('timed out'), { code: 'SPLIT_BUNDLE_TIMEOUT' }),
     );
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
-      getLoader();
+      getLoader('background');
     installProdBundleLoader(mock);
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
     mock.loadSegment.mockResolvedValueOnce(undefined);
@@ -402,9 +447,9 @@ describe('installProdBundleLoader', () => {
         code: 'SPLIT_BUNDLE_NO_RUNTIME',
       }),
     );
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
     installProdBundleLoader(mock);
-    // MAX_RETRYABLE_ATTEMPTS = 3: attempts 1 and 2 re-hit native; attempt 3
+    // Background has three attempts: attempts 1 and 2 re-hit native; attempt 3
     // exhausts the budget and caches as failed, so a 4th call rejects WITHOUT
     // calling native again.
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
@@ -423,7 +468,7 @@ describe('installProdBundleLoader', () => {
         code: 'SPLIT_BUNDLE_EVAL_ERROR',
       }),
     );
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
     installProdBundleLoader(mock);
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
     // Fatal code → cached immediately; second call must NOT hit native.
@@ -431,24 +476,228 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
-  // Fix 1 (NO-SHIP blocker): a missing bg segment file is real packaging/OTA
-  // corruption. iOS BackgroundThread now maps EBgMgrSegmentEvalErrorFileNotFound
-  // → SPLIT_BUNDLE_NOT_FOUND (fatal), instead of letting raw code 2 fall through
-  // the boundary's default to retryable NO_RUNTIME. JS MUST classify it FATAL —
-  // cached immediately, never auto re-attempted (retrying just re-misses).
-  it('treats SPLIT_BUNDLE_NOT_FOUND as FATAL (iOS bg file-not-found)', async () => {
+  // SPLIT_BUNDLE_NOT_FOUND sits in RETRYABLE_NATIVE_REJECT_CODES alongside the
+  // other transient codes, sharing the MAX_RETRYABLE_ATTEMPTS circuit breaker,
+  // rather than being cached on sight. The Android builtin-segment extractor
+  // can report NOT_FOUND for a file that IS on disk: main and background
+  // runtimes extract the same segment concurrently, and on native builds that
+  // share one "<name>.tmp" per segment the thread that loses the rename
+  // returns "not found". Caching that immediately poisons the route for the
+  // whole process, so a re-attempt — which lands on the file the winner
+  // already published — is the fix for the binaries already in the field.
+  it('re-attempts SPLIT_BUNDLE_NOT_FOUND (Android extract race self-heals)', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValueOnce(
       Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
         code: 'SPLIT_BUNDLE_NOT_FOUND',
       }),
     );
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader('background');
     installProdBundleLoader(mock);
-    await expect(loadSegment('seg:test.a')).rejects.toThrow();
-    // Fatal → cached; second call must NOT hit native again.
-    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+
+    // First attempt rejects, flagged retryable and NOT cached...
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    // ...so the next call hits native again — the racing writer has published
+    // the file by now.
+    mock.loadSegment.mockResolvedValueOnce(undefined);
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+  });
+
+  // A caller that joins an IN-FLIGHT load used to receive the RAW native
+  // rejection, which carries `code` but no `retryable` flag — so the lazy
+  // boundary classified it from its own code set while the owner read the
+  // loader's verdict, and the two sets could drift apart again. inflightSegments
+  // now publishes the classified outcome, so both callers observe the same
+  // object. Note the joiner does NOT get its own native call.
+  it('gives a deduped concurrent caller the same classified error as the owner', async () => {
+    const mock = createMockNativeLoader();
+    let rejectNative: (e: unknown) => void = () => {};
+    mock.loadSegment.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectNative = reject;
+        }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
+    installProdBundleLoader(mock);
+
+    // loadSegmentInternal registers the inflight entry synchronously, before
+    // it awaits anything, so the second call joins the first with no tick in
+    // between.
+    const owner = loadSegment('seg:test.a');
+    const joiner = loadSegment('seg:test.a');
+
+    rejectNative(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({
+      name: 'SegmentLoadError',
+      code: 'SPLIT_BUNDLE_NOT_FOUND',
+      retryable: true,
+    });
+    expect(joinerErr).toBe(ownerErr);
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // The joiner test above pins the retryable outcome. This one pins the other
+  // half, which is the more fragile: the budget-exhausted flag is delivered by
+  // MUTATING the shared error in place (`segError.retryable = false`), not by
+  // constructing a fresh one per caller. A later refactor that clones or wraps
+  // the error before caching it, or that moves that assignment after the throw,
+  // would leave a joiner seeing `retryable: true` while the owner sees `false`
+  // — silently reinstating the owner/joiner disagreement this design removes,
+  // and making the boundary burn a retry round against a permanently dead route.
+  it('gives a joiner the same budget-exhausted error object as the owner', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
+    installProdBundleLoader(mock);
+
+    // Spend attempts 1 and 2 so the next one exhausts the budget.
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+
+    const owner = loadSegment('seg:test.a');
+    const joiner = loadSegment('seg:test.a');
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({ retryable: false });
+    expect(joinerErr).toBe(ownerErr);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+
+    // Cached now — a later call is served from failedSegments.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  // Dependency propagation is the one rejecting path where the published error
+  // belongs to a DIFFERENT segment than the one either caller asked for, so it
+  // is worth pinning that a joiner gets that error verbatim rather than one
+  // re-keyed to its own request.
+  it('gives a joiner the dep failure verbatim, still keyed to the dep', async () => {
+    const mock = createMockNativeLoader();
+    // The first native call is the dep (seg:test.a); fail it retryably.
+    mock.loadSegment.mockImplementationOnce(() =>
+      Promise.reject(
+        Object.assign(new Error('runtime not ready'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      ),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
+    installProdBundleLoader(mock);
+
+    const owner = loadSegment('seg:test.b');
+    const joiner = loadSegment('seg:test.b');
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({
+      segmentKey: 'seg:test.a',
+      retryable: true,
+    });
+    expect(joinerErr).toBe(ownerErr);
+    // The parent never reached its own native call — the dep failed first.
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // A genuinely missing segment (real packaging/OTA corruption, e.g. iOS
+  // BackgroundThread mapping EBgMgrSegmentEvalErrorFileNotFound) still reaches
+  // a permanent verdict, just via the same circuit breaker as the other
+  // transient codes, with `retryable` cleared so the lazy boundary stops
+  // instead of looping.
+  it('caches SPLIT_BUNDLE_NOT_FOUND once the retry budget is exhausted', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
+    installProdBundleLoader(mock);
+
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: false,
+    });
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+    // Cached now — a fourth call must NOT hit native.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  // The contract is deliberately uniform, not NOT_FOUND-specific:
+  // retryableAttempts is ONE circuit breaker per segment, shared by every
+  // transient code, giving a segment MAX_RETRYABLE_ATTEMPTS tries per process
+  // no matter which codes produced them. Two prior failures therefore DO
+  // exhaust it, and a NOT_FOUND arriving third is cached on sight — that is
+  // the intended bound, not a bug.
+  //
+  // What this test pins is narrower: the counter and the cap are no longer
+  // read from different sources. An earlier revision derived the cap from the
+  // CURRENT failure's code while the counter stayed shared, so a single prior
+  // NO_RUNTIME put the first NOT_FOUND already past a tighter cap and cached it
+  // with zero re-attempts — reinstating the exact bug this fix exists to
+  // remove. Both codes are emitted from the same cold-start window by the same
+  // native methods, so that sequence is reachable in production.
+  it('does not let one earlier NO_RUNTIME cache a later NOT_FOUND on sight', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Runtime not available'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+          code: 'SPLIT_BUNDLE_NOT_FOUND',
+        }),
+      );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader('background');
+    installProdBundleLoader(mock);
+
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    // Third call still reaches native — the racing writer has published by now.
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
   });
 
   // Fix 2: a STRUCTURAL ivar-missing failure (an RN version bump renamed the
@@ -465,7 +714,7 @@ describe('installProdBundleLoader', () => {
         code: 'SPLIT_BUNDLE_NATIVE_UNAVAILABLE',
       }),
     );
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
     installProdBundleLoader(mock);
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
@@ -487,7 +736,7 @@ describe('installProdBundleLoader', () => {
       ),
     );
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
-      getLoader();
+      getLoader('background');
     installProdBundleLoader(mock);
 
     // Parent load fails because its dep failed (retryably).
@@ -518,7 +767,7 @@ describe('installProdBundleLoader', () => {
       }
       return Promise.resolve(undefined);
     });
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment } = getLoader('background');
     installProdBundleLoader(mock);
 
     await expect(loadSegment('seg:test.b')).rejects.toThrow();
@@ -673,16 +922,24 @@ describe('installProdBundleLoader', () => {
         },
       },
     };
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment, getSegmentState } =
+      getLoader();
 
     installProdBundleLoader(createMockNativeLoader());
 
     await expect(loadSegment('seg:test.a')).rejects.toThrow(
       'Circular dependency detected',
     );
+    expect(getSegmentState('seg:test.a')).toBe('failed');
+    expect(getSegmentState('seg:test.b')).toBe('failed');
   });
 
-  describe('retryable budget exhaustion + dependency propagation', () => {
+  describe('background retry budget exhaustion + dependency propagation', () => {
+    beforeEach(() => {
+      (globalThis as ILoadBundleAsyncGlobal).__ONEKEY_RUNTIME_KIND__ =
+        'background';
+    });
+
     it('clears `retryable` when a segment is permanently cached (budget exhausted)', async () => {
       const mock = createMockNativeLoader();
       const timeout = Object.assign(new Error('eval timed out'), {
@@ -725,7 +982,8 @@ describe('installProdBundleLoader', () => {
             ? Promise.reject(timeout)
             : Promise.resolve(undefined),
       );
-      const { installProdBundleLoader, loadSegment } = getLoader();
+      const { installProdBundleLoader, loadSegment, getSegmentState } =
+        getLoader();
       installProdBundleLoader(mock);
 
       // Load the parent 3x; each fails because the dep fails. By the 3rd the dep
@@ -749,6 +1007,409 @@ describe('installProdBundleLoader', () => {
       // The dep's own native load was attempted exactly MAX_RETRYABLE_ATTEMPTS
       // times, then cached (no further native dispatch).
       expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+      expect(getSegmentState('seg:test.a')).toBe('failed');
+      expect(getSegmentState('seg:test.b')).toBe('failed');
+    });
+  });
+
+  describe('main runtime automatic recovery', () => {
+    const timeout = () =>
+      Object.assign(new Error('Segment eval timed out'), {
+        code: 'SPLIT_BUNDLE_TIMEOUT',
+      });
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it.each([
+      'SPLIT_BUNDLE_TIMEOUT',
+      'SPLIT_BUNDLE_NO_RUNTIME',
+      'SPLIT_BUNDLE_NOT_FOUND',
+    ])('recovers %s before the original import rejects', async (code) => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(
+        Object.assign(new Error('Transient native failure'), { code }),
+      );
+      const {
+        installProdBundleLoader,
+        loadSegment,
+        isSegmentLoaded,
+        getSegmentLoadStats,
+      } = getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.a');
+
+      await jest.advanceTimersByTimeAsync(149);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+      expect(isSegmentLoaded('seg:test.a')).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toBeUndefined();
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+      expect(isSegmentLoaded('seg:test.a')).toBe(true);
+      expect(getSegmentLoadStats()).toMatchObject({
+        totalLoaded: 1,
+        failures: 1,
+      });
+      expect(mockVisibilityListeners.size).toBe(0);
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('recovers five independent startup segments without caller retries', async () => {
+      const keys = [
+        'prime',
+        'hardware',
+        'thirdParty',
+        'activityHub',
+        'icon',
+      ].map((name) => `seg:${name}`);
+      (globalThis as ILoadBundleAsyncGlobal).__SEGMENT_MANIFEST__ = {
+        segments: Object.fromEntries(
+          keys.map((key, id) => [
+            key,
+            {
+              id,
+              key,
+              runtime: 'main',
+              relativePath: `segments/${id}.seg.hbc`,
+              sha256: 'hash',
+              dependsOn: [],
+            },
+          ]),
+        ),
+      };
+      const attempted = new Set<string>();
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockImplementation(
+        ({ segmentKey }: { segmentKey: string }) => {
+          if (!attempted.has(segmentKey)) {
+            attempted.add(segmentKey);
+            return Promise.reject(timeout());
+          }
+          return Promise.resolve(undefined);
+        },
+      );
+      const { installProdBundleLoader, loadSegment, getSegmentLoadStats } =
+        getLoader();
+      installProdBundleLoader(mock);
+      const pending = Promise.all(keys.map((key) => loadSegment(key)));
+
+      await jest.advanceTimersByTimeAsync(150);
+      await expect(pending).resolves.toHaveLength(5);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(10);
+      expect(getSegmentLoadStats()).toMatchObject({
+        totalLoaded: 5,
+        failures: 5,
+      });
+    });
+
+    it('keeps concurrent callers joined throughout the backoff', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(timeout());
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      const owner = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(50);
+      const joiner = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(100);
+
+      await expect(Promise.all([owner, joiner])).resolves.toEqual([
+        undefined,
+        undefined,
+      ]);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+    });
+
+    it('waits for foreground before starting the retry backoff', async () => {
+      changeVisibility(false);
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(timeout());
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+
+      changeVisibility(true);
+      await jest.advanceTimersByTimeAsync(149);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      await pending;
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+    });
+
+    it('restarts the backoff if backgrounded while waiting', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(timeout());
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(100);
+      changeVisibility(false);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+
+      changeVisibility(true);
+      await jest.advanceTimersByTimeAsync(150);
+      await pending;
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+    });
+
+    it('rechecks live visibility when the retry timer fires', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(timeout());
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(100);
+      mockVisible = false;
+      await jest.advanceTimersByTimeAsync(50);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+
+      changeVisibility(true);
+      await jest.advanceTimersByTimeAsync(150);
+      await pending;
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+    });
+
+    it('caps automatic retries at three and shares the four-call budget with joiners', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValue(timeout());
+      const { installProdBundleLoader, loadSegment, getSegmentLoadStats } =
+        getLoader();
+      installProdBundleLoader(mock);
+      const first = loadSegment('seg:test.a').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(150);
+      const joiner = loadSegment('seg:test.a').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(300);
+      const firstError: unknown = await first;
+      expect(firstError).toMatchObject({ retryable: false });
+      expect(await joiner).toBe(firstError);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+      expect(getSegmentLoadStats()).toMatchObject({ failures: 4 });
+      expect(mockVisibilityListeners.size).toBe(0);
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('allows a later import to recover after the previous load exhausted its retries', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValue(timeout());
+      const {
+        installProdBundleLoader,
+        loadSegment,
+        getSegmentState,
+        isSegmentLoaded,
+      } = getLoader();
+      installProdBundleLoader(mock);
+      const first = loadSegment('seg:test.a').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(450);
+      expect(await first).toMatchObject({ retryable: false });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+      expect(getSegmentState('seg:test.a')).toBe('idle');
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        mock.loadSegment.mockRejectedValueOnce(timeout());
+      }
+      mock.loadSegment.mockResolvedValueOnce(undefined);
+      const laterImport = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(450);
+      await expect(laterImport).resolves.toBeUndefined();
+      expect(mock.loadSegment).toHaveBeenCalledTimes(8);
+      expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    });
+
+    it('allows a later parent import to recover after its dependency exhausts retries', async () => {
+      const mock = createMockNativeLoader();
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        mock.loadSegment.mockRejectedValueOnce(timeout());
+      }
+      const {
+        installProdBundleLoader,
+        loadSegment,
+        isSegmentLoaded,
+        getSegmentState,
+      } = getLoader();
+      installProdBundleLoader(mock);
+      const first = loadSegment('seg:test.b').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(450);
+      expect(await first).toMatchObject({
+        segmentKey: 'seg:test.a',
+        retryable: false,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+      expect(getSegmentState('seg:test.a')).toBe('idle');
+      expect(getSegmentState('seg:test.b')).toBe('idle');
+
+      await expect(loadSegment('seg:test.b')).resolves.toBeUndefined();
+      expect(mock.loadSegment).toHaveBeenCalledTimes(6);
+      expect(isSegmentLoaded('seg:test.a')).toBe(true);
+      expect(isSegmentLoaded('seg:test.b')).toBe(true);
+      expect(getSegmentState('seg:test.a')).toBe('ready');
+      expect(getSegmentState('seg:test.b')).toBe('ready');
+    });
+
+    it('keeps the parent idle if another caller has already started dependency recovery', async () => {
+      const mock = createMockNativeLoader();
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        mock.loadSegment.mockRejectedValueOnce(timeout());
+      }
+      let finishRecovery: (() => void) | undefined;
+      mock.loadSegment.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishRecovery = () => resolve();
+          }),
+      );
+      const { installProdBundleLoader, loadSegment, getSegmentState } =
+        getLoader();
+      installProdBundleLoader(mock);
+      let recovery: Promise<void> | undefined;
+      mockNativeLoggerWrite.mockImplementation(
+        (_level: unknown, message: string) => {
+          if (message.includes('; later imports may retry')) {
+            // Start another request before the original dependency rejection
+            // reaches its parent, keeping the new native load in flight.
+            void Promise.resolve().then(() => {
+              recovery = loadSegment('seg:test.a');
+            });
+          }
+        },
+      );
+      const first = loadSegment('seg:test.b').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(450);
+      expect(await first).toMatchObject({
+        segmentKey: 'seg:test.a',
+        retryable: false,
+      });
+      expect(getSegmentState('seg:test.a')).toBe('registering');
+      expect(getSegmentState('seg:test.b')).toBe('idle');
+      finishRecovery?.();
+      await recovery;
+    });
+
+    it('recovers on the third retry even when transient error codes change', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Runtime not ready'), {
+            code: 'SPLIT_BUNDLE_NO_RUNTIME',
+          }),
+        )
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Segment not found'), {
+            code: 'SPLIT_BUNDLE_NOT_FOUND',
+          }),
+        )
+        .mockRejectedValueOnce(timeout());
+      const { installProdBundleLoader, loadSegment, getSegmentLoadStats } =
+        getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(449);
+      expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toBeUndefined();
+      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+      expect(getSegmentLoadStats()).toMatchObject({
+        totalLoaded: 1,
+        failures: 3,
+      });
+    });
+
+    it('gives a dependency and its parent independent retry budgets', async () => {
+      const mock = createMockNativeLoader();
+      const attempts = new Map<string, number>();
+      mock.loadSegment.mockImplementation(
+        ({ segmentKey }: { segmentKey: string }) => {
+          const count = (attempts.get(segmentKey) ?? 0) + 1;
+          attempts.set(segmentKey, count);
+          return count < 4
+            ? Promise.reject(timeout())
+            : Promise.resolve(undefined);
+        },
+      );
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.b');
+      await jest.advanceTimersByTimeAsync(900);
+      await expect(pending).resolves.toBeUndefined();
+
+      expect(
+        mock.loadSegment.mock.calls.map(([request]) => request.segmentKey),
+      ).toEqual([
+        'seg:test.a',
+        'seg:test.a',
+        'seg:test.a',
+        'seg:test.a',
+        'seg:test.b',
+        'seg:test.b',
+        'seg:test.b',
+        'seg:test.b',
+      ]);
+    });
+
+    it('stops immediately if a retry returns a fatal error', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(timeout()).mockRejectedValueOnce(
+        Object.assign(new Error('Invalid segment'), {
+          code: 'SPLIT_BUNDLE_EVAL_ERROR',
+        }),
+      );
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      const pending = loadSegment('seg:test.a').catch(
+        (error: unknown) => error,
+      );
+      await jest.advanceTimersByTimeAsync(150);
+      expect(await pending).toMatchObject({
+        code: 'SPLIT_BUNDLE_EVAL_ERROR',
+        retryable: false,
+      });
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        retryable: false,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+      expect(mockVisibilityListeners.size).toBe(0);
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it.each([
+      'SPLIT_BUNDLE_SHA256_MISMATCH',
+      'SPLIT_BUNDLE_IO_ERROR',
+      'SPLIT_BUNDLE_EVAL_ERROR',
+      'SPLIT_BUNDLE_NATIVE_UNAVAILABLE',
+    ])('never retries fatal %s failures', async (code) => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValue(
+        Object.assign(new Error('Fatal native failure'), { code }),
+      );
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        code,
+        retryable: false,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves the background runtime caller-driven retry behavior', async () => {
+      (globalThis as ILoadBundleAsyncGlobal).__ONEKEY_RUNTIME_KIND__ =
+        'background';
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValueOnce(timeout());
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        retryable: true,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+      await loadSegment('seg:test.a');
+      expect(mock.loadSegment).toHaveBeenCalledTimes(2);
     });
   });
 });

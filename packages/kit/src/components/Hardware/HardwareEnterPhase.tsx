@@ -16,6 +16,7 @@ import {
   Stack,
   Switch,
   XStack,
+  passwordManagerIgnoreProps,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -24,8 +25,13 @@ import {
 } from '@onekeyhq/components/src/hooks/useForm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isPassphraseValid,
+  normalizeProtocolV2Passphrase,
+} from '@onekeyhq/shared/src/utils/passphraseUtils';
 
-import { isPassphraseValid } from '../../utils/passphraseUtils';
+import { resolvePassphraseEntryUi } from './HardwareEnterPhase.utils';
 
 interface IEnterPhaseFormValues {
   passphrase: string;
@@ -36,6 +42,10 @@ interface IEnterPhaseFormValues {
 export type IEnterPhaseProps = {
   isVerifyMode?: boolean;
   allowUseAttachPin?: boolean;
+  deviceOnly?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
+  allowProtocolV2Utf8?: boolean;
   onConfirm: (p: {
     passphrase: string;
     save: boolean;
@@ -52,14 +62,20 @@ export type IEnterPhaseProps = {
 export function EnterPhase({
   isVerifyMode,
   allowUseAttachPin,
+  deviceOnly,
+  asciiCreationFeedback,
+  allowProtocolV2Utf8,
   onConfirm,
   switchOnDevice,
   switchOnDeviceAttachPin,
 }: IEnterPhaseProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const showAsciiCreationFeedback =
+    !isVerifyMode && asciiCreationFeedback && !allowProtocolV2Utf8;
   const formOption = useMemo(
     () => ({
+      mode: showAsciiCreationFeedback ? ('onChange' as const) : undefined,
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
@@ -70,7 +86,9 @@ export function EnterPhase({
       },
       onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
-        const passphrase = values.passphrase || '';
+        const passphrase = allowProtocolV2Utf8
+          ? normalizeProtocolV2Passphrase(values.passphrase || '')
+          : values.passphrase || '';
         onConfirm({
           passphrase,
           save: true,
@@ -78,7 +96,12 @@ export function EnterPhase({
         });
       },
     }),
-    [onConfirm, settings.hiddenWalletImmediately],
+    [
+      allowProtocolV2Utf8,
+      onConfirm,
+      settings.hiddenWalletImmediately,
+      showAsciiCreationFeedback,
+    ],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
@@ -97,9 +120,12 @@ export function EnterPhase({
 
   // Watch passphrase input to control button state
   const passphraseValue = form.watch('passphrase');
-  const isButtonDisabled = isVerifyMode
-    ? false
-    : !passphraseValue || passphraseValue === '';
+  const { showHostInput, primaryAction, primaryDisabled } =
+    resolvePassphraseEntryUi({
+      deviceOnly: deviceOnly === true,
+      isVerifyMode: isVerifyMode === true,
+      passphrase: passphraseValue,
+    });
 
   return (
     <Stack>
@@ -112,112 +138,151 @@ export function EnterPhase({
         />
       </Stack>
       <Form form={form}>
-        <Form.Field
-          name="passphrase"
-          label={intl.formatMessage({ id: ETranslations.global_passphrase })}
-          description={
-            <XStack gap="$1" pt="$2">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.passphrase_character_limit,
-                })}
-              </SizableText>
-              <Popover
-                placement="bottom"
-                floatingPanelProps={{
-                  width: '$80',
-                }}
-                title={intl.formatMessage({
-                  id: ETranslations.passphrase_allowed_characters_title,
-                })}
-                renderTrigger={
-                  <IconButton
-                    testID="hardware-ui-passphrase-info-btn"
-                    variant="tertiary"
-                    size="small"
-                    icon="InfoCircleOutline"
-                  />
-                }
-                renderContent={() => (
-                  <Stack
-                    p="$5"
-                    $md={{
-                      pt: '$0',
-                    }}
-                  >
-                    <Anchor
-                      href="https://www.ascii-code.com/"
-                      size="$bodyMd"
-                      color="$textInfo"
-                    >
+        {showHostInput ? (
+          <Form.Field
+            name="passphrase"
+            label={intl.formatMessage({ id: ETranslations.global_passphrase })}
+            description={
+              allowProtocolV2Utf8 ? undefined : (
+                <XStack gap="$1" pt="$2">
+                  {showAsciiCreationFeedback ? (
+                    <Stack>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.passphrase_allowed_characters_desc,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.passphrase_character_limit,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  ) : (
+                    <SizableText size="$bodyMd" color="$textSubdued">
                       {intl.formatMessage({
-                        id: ETranslations.passphrase_allowed_characters_desc,
+                        id: ETranslations.passphrase_character_limit,
                       })}
-                    </Anchor>
-                  </Stack>
-                )}
-              />
-            </XStack>
-          }
-          labelAddon={
-            <Button
-              testID="hardware-ui-passphrase-switch-on-device-btn"
-              variant="tertiary"
-              size="small"
-              icon="OnekeyDeviceCustom"
-              onPress={handleSwitchOnDevice}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_enter_on_device,
-              })}
-            </Button>
-          }
-          rules={{
-            maxLength: {
-              value: 50,
-              message: intl.formatMessage(
-                {
-                  id: ETranslations.hardware_passphrase_enter_too_long,
-                },
-                {
-                  0: 50,
-                },
-              ),
-            },
-            validate: (text) => {
-              const valid = isPassphraseValid(text);
-              if (valid) {
-                return undefined;
-              }
-              return intl.formatMessage({
-                id: ETranslations.hardware_unsupported_passphrase_characters,
-              });
-            },
-            onChange: () => {
-              form.clearErrors();
-            },
-          }}
-        >
-          <Input
-            testID="hardware-ui-passphrase-input"
-            secureTextEntry={secureEntry1}
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_enter_passphrase,
-            })}
-            addOns={[
-              {
-                iconName: secureEntry1 ? 'EyeOutline' : 'EyeOffOutline',
-                testID: 'hardware-ui-passphrase-eye-btn',
-                onPress: () => {
-                  setSecureEntry1(!secureEntry1);
-                },
+                    </SizableText>
+                  )}
+                  <Popover
+                    placement="bottom"
+                    floatingPanelProps={{
+                      width: '$80',
+                    }}
+                    title={intl.formatMessage({
+                      id: ETranslations.passphrase_allowed_characters_title,
+                    })}
+                    renderTrigger={
+                      <IconButton
+                        testID="hardware-ui-passphrase-info-btn"
+                        variant="tertiary"
+                        size="small"
+                        icon="InfoCircleOutline"
+                      />
+                    }
+                    renderContent={() => (
+                      <Stack
+                        p="$5"
+                        $md={{
+                          pt: '$0',
+                        }}
+                      >
+                        <Anchor
+                          href="https://www.ascii-code.com/"
+                          size="$bodyMd"
+                          color="$textInfo"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.passphrase_allowed_characters_desc,
+                          })}
+                        </Anchor>
+                      </Stack>
+                    )}
+                  />
+                </XStack>
+              )
+            }
+            labelAddon={
+              <Button
+                testID="hardware-ui-passphrase-switch-on-device-btn"
+                variant="tertiary"
+                size="small"
+                icon="OnekeyDeviceCustom"
+                onPress={handleSwitchOnDevice}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_enter_on_device,
+                })}
+              </Button>
+            }
+            rules={{
+              maxLength: {
+                value: 50,
+                message: intl.formatMessage(
+                  {
+                    id: ETranslations.hardware_passphrase_enter_too_long,
+                  },
+                  {
+                    0: 50,
+                  },
+                ),
               },
-            ]}
-            {...(media.md && {
-              size: 'large',
-            })}
-          />
-        </Form.Field>
+              validate: (text) => {
+                const valid = isPassphraseValid(text, {
+                  allowProtocolV2Utf8,
+                });
+                if (valid) {
+                  return undefined;
+                }
+                if (allowProtocolV2Utf8) {
+                  return intl.formatMessage(
+                    {
+                      id: ETranslations.hardware_passphrase_enter_too_long,
+                    },
+                    { 0: 50 },
+                  );
+                }
+                return intl.formatMessage({
+                  id: ETranslations.hardware_unsupported_passphrase_characters,
+                });
+              },
+              onChange: () => {
+                if (!showAsciiCreationFeedback) {
+                  form.clearErrors();
+                }
+              },
+            }}
+          >
+            <Input
+              testID="hardware-ui-passphrase-input"
+              secureTextEntry={secureEntry1}
+              keyboardType={
+                showAsciiCreationFeedback && platformEnv.isNativeIOS
+                  ? 'ascii-capable'
+                  : undefined
+              }
+              autoCapitalize={showAsciiCreationFeedback ? 'none' : undefined}
+              autoCorrect={showAsciiCreationFeedback ? false : undefined}
+              {...passwordManagerIgnoreProps}
+              placeholder={intl.formatMessage({
+                id: ETranslations.global_enter_passphrase,
+              })}
+              addOns={[
+                {
+                  iconName: secureEntry1 ? 'EyeOutline' : 'EyeOffOutline',
+                  testID: 'hardware-ui-passphrase-eye-btn',
+                  onPress: () => {
+                    setSecureEntry1(!secureEntry1);
+                  },
+                },
+              ]}
+              {...(media.md && {
+                size: 'large',
+              })}
+            />
+          </Form.Field>
+        ) : null}
         {!isVerifyMode ? (
           <Form.Field
             horizontal
@@ -257,10 +322,17 @@ export function EnterPhase({
           } as any
         }
         variant="primary"
-        disabled={isButtonDisabled}
-        onPress={form.submit}
+        disabled={primaryDisabled}
+        onPress={
+          primaryAction === 'device' ? handleSwitchOnDevice : form.submit
+        }
       >
-        {intl.formatMessage({ id: ETranslations.global_confirm })}
+        {intl.formatMessage({
+          id:
+            primaryAction === 'device'
+              ? ETranslations.global_enter_on_device
+              : ETranslations.global_confirm,
+        })}
       </Button>
       {allowUseAttachPin ? (
         <Button

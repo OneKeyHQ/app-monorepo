@@ -234,4 +234,41 @@ describe('desktop webview injected message delivery', () => {
     sendSymbolChange(captured, 'MARKER_late');
     expect(deliveredSymbols(node)).toContain('late');
   });
+
+  it('keeps delivering messages after an in-page navigation without another dom-ready', async () => {
+    const { container, captured } = mount(
+      jest.fn().mockResolvedValue('file:///preload.js'),
+    );
+    const node = await getWebviewNode(container);
+
+    dispatch(node, 'dom-ready');
+    dispatch(node, 'did-start-navigation', {
+      isMainFrame: true,
+      isInPlace: true,
+      url: SRC,
+    });
+
+    sendSymbolChange(captured, 'MARKER_inpage');
+    expect(deliveredSymbols(node)).toContain('inpage');
+  });
+
+  it('queues messages during a new document navigation until dom-ready', async () => {
+    const { container, captured } = mount(
+      jest.fn().mockResolvedValue('file:///preload.js'),
+    );
+    const node = await getWebviewNode(container);
+
+    dispatch(node, 'dom-ready');
+    dispatch(node, 'did-start-navigation', {
+      isMainFrame: true,
+      isInPlace: false,
+      url: SRC,
+    });
+
+    sendSymbolChange(captured, 'MARKER_navigation');
+    expect(deliveredSymbols(node)).not.toContain('navigation');
+
+    dispatch(node, 'dom-ready');
+    expect(deliveredSymbols(node)).toContain('navigation');
+  });
 });

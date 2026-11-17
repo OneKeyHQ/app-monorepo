@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -33,6 +34,7 @@ export function WalletBackupActions({
   hideCloud?: boolean;
 }) {
   const intl = useIntl();
+  const liteBackupInFlight = useRef(false);
 
   const {
     handleBackUpByPhrase,
@@ -74,16 +76,23 @@ export function WalletBackupActions({
           onClose,
         },
         !hideLiteCard &&
-          platformEnv.isNative && {
+          platformEnv.isNative &&
+          !platformEnv.isNativeIOSMacCatalyst && {
             label: intl.formatMessage({
               id: ETranslations.global_onekey_lite,
             }),
             icon: 'OnekeyLiteOutline' as IKeyOfIcons,
             onPress: () => {
-              void handleBackUpByLiteCard();
-              onSelected?.();
+              if (liteBackupInFlight.current) return;
+              liteBackupInFlight.current = true;
+              // Keep the operation owner mounted after the child menu closes.
+              const complete = () => {
+                liteBackupInFlight.current = false;
+                onSelected?.();
+                onClose?.();
+              };
+              void handleBackUpByLiteCard().then(complete, complete);
             },
-            onClose,
           },
         !hideKeyTag && {
           label: intl.formatMessage({

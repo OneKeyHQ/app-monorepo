@@ -4,7 +4,7 @@ import { Base64 } from 'js-base64';
 import { isString } from 'lodash';
 import isEmail from 'validator/lib/isEmail';
 
-import { OneKeyLocalError } from '../errors';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import { generateUUID } from './miscUtils';
 
@@ -69,6 +69,12 @@ export function isPrintableASCII(buffer: Buffer): boolean {
   return (
     buffer && buffer.every((element) => element >= 0x20 && element <= 0x7e)
   );
+}
+
+export const PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH = 14;
+
+export function isPrintableASCIIString(value: string): boolean {
+  return Boolean(value) && isPrintableASCII(Buffer.from(value, 'utf8'));
 }
 
 export function isUTF8(buf: Buffer): boolean {
@@ -326,6 +332,7 @@ export default {
   equalsIgnoreCase,
   capitalizeWords,
   isPrintableASCII,
+  isPrintableASCIIString,
   isUTF8,
   decodeJWT,
   stripLineBreaks,

@@ -28,12 +28,14 @@ export const useCopyAccountAddress = () => {
       token,
       deriveInfo,
       onDeriveTypeChange,
+      localWalletAddressForm,
     }: {
       accountId: string;
       networkId: string;
       token?: IToken;
       deriveInfo?: IAccountDeriveInfo;
       onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
+      localWalletAddressForm?: 'public' | 'private';
     }) => {
       if (
         accountUtils.isHwAccount({ accountId }) ||
@@ -48,6 +50,8 @@ export const useCopyAccountAddress = () => {
             walletId,
             token,
             onDeriveTypeChange,
+            source: 'copyAddress',
+            ...(localWalletAddressForm ? { localWalletAddressForm } : {}),
           },
         });
       } else {

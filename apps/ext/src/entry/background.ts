@@ -1,7 +1,4 @@
 /* eslint-disable import-js/order */
-// fix missing setimmediate
-import 'setimmediate';
-
 import '@onekeyhq/shared/src/polyfills';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
@@ -19,6 +16,10 @@ function initBackgroundBridgeEarly() {
   const bridge = bridgeSetup.background.createHostBridge({
     receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
   });
+  const { guardOffscreenPort } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../background/offscreenPortGuard') as typeof import('../background/offscreenPortGuard');
+  guardOffscreenPort(bridge);
   backgroundApiProxy.connectBridge(bridge as unknown as JsBridgeBase);
   // backgroundApiProxy.serviceNotification.init().catch((e) => {
   //   debugLogger.notification.error(
@@ -38,6 +39,13 @@ function installOffscreenApiProxyEarly() {
 
   appGlobals.$offscreenApiProxy = offscreenApiProxy;
   return offscreenApiProxy;
+}
+
+function installPrivacyChainNodeRequestLate() {
+  // Lets the offscreen document reach nodes that send no CORS headers.
+  void import('../background/fetchStream').then((m) =>
+    m.installFetchStreamListener(),
+  );
 }
 
 function installDevReloadListenerLate() {
@@ -158,6 +166,7 @@ console.log(
 );
 setupServiceWorkerRuntimeLate();
 installDevReloadListenerLate();
+installPrivacyChainNodeRequestLate();
 setupManifestV2RedirectLate();
 
 if (process.env.NODE_ENV !== 'production') {

@@ -53,6 +53,10 @@ export type ISwapSelectedTokensColdStartContext = {
   networkId: string;
   swapType?: ESwapTabSwitchType;
   updatedAt: number;
+  defaultTokenSeed?: {
+    fromToken?: { networkId: string; contractAddress: string };
+    toToken?: { networkId: string; contractAddress: string };
+  };
 };
 
 // All-network selected accounts use the `onekeyall--*` sentinel network id. This
@@ -167,74 +171,48 @@ export function isSwapSelectedTokensColdStartContextMatched({
   );
 }
 
-function isSwapSelectedTokensColdStartContextMatchedWithHomeAndSwapAccounts({
+function isSwapSelectedTokensColdStartOwnerMatched(
+  cachedAccountKey: string,
+  currentAccountKey: string,
+) {
+  const [cachedWalletId = '', cachedAccountId = ''] =
+    cachedAccountKey.split('|');
+  const [currentWalletId = '', currentAccountId = ''] =
+    currentAccountKey.split('|');
+  return Boolean(
+    (cachedWalletId || cachedAccountId) &&
+    cachedWalletId === currentWalletId &&
+    cachedAccountId === currentAccountId,
+  );
+}
+
+function isSwapSelectedTokensColdStartContextOwnedByHomeOrSwapAccount({
   cachedContext,
-  currentSwapType,
   homeActiveAccount,
   swapActiveAccount,
 }: {
   cachedContext: ISwapSelectedTokensColdStartContext;
-  currentSwapType?: ESwapTabSwitchType;
   homeActiveAccount?: IColdStartAccountLike;
   swapActiveAccount?: IColdStartAccountLike;
 }) {
-  const homeContext = buildSwapSelectedTokensColdStartContext({
-    activeAccount: homeActiveAccount,
-    networkId: homeActiveAccount?.network?.id,
-    swapType: currentSwapType,
-  });
-  if (
-    isSwapSelectedTokensColdStartContextMatched({
-      cachedContext,
-      currentContext: homeContext,
-    })
-  ) {
-    return true;
+  const homeAccountKey =
+    buildSwapSelectedTokensColdStartAccountKey(homeActiveAccount);
+  if (homeAccountKey) {
+    return isSwapSelectedTokensColdStartOwnerMatched(
+      cachedContext.accountKey,
+      homeAccountKey,
+    );
   }
 
-  const swapContext = buildSwapSelectedTokensColdStartContext({
-    activeAccount: swapActiveAccount,
-    networkId: swapActiveAccount?.network?.id,
-    swapType: currentSwapType,
-  });
-  if (
-    !homeContext &&
-    isSwapSelectedTokensColdStartContextMatched({
-      cachedContext,
-      currentContext: swapContext,
-    })
-  ) {
-    return true;
-  }
-
-  const isSameOwnerAllNetworksHome =
-    isSwapColdStartAllNetworkContextNetworkId(homeContext?.networkId) &&
-    homeContext?.accountKey &&
-    homeContext.accountKey === swapContext?.accountKey;
-
+  const swapAccountKey =
+    buildSwapSelectedTokensColdStartAccountKey(swapActiveAccount);
   return Boolean(
-    isSameOwnerAllNetworksHome &&
-    isSwapSelectedTokensColdStartContextMatched({
-      cachedContext,
-      currentContext: swapContext,
-    }),
+    swapAccountKey &&
+    isSwapSelectedTokensColdStartOwnerMatched(
+      cachedContext.accountKey,
+      swapAccountKey,
+    ),
   );
-}
-
-function getStockColdStartCurrentSwapType({
-  cachedContext,
-  snapshotSwapType,
-}: {
-  cachedContext: ISwapSelectedTokensColdStartContext;
-  snapshotSwapType?: ESwapTabSwitchType;
-}) {
-  if (
-    cachedContext.swapType === ESwapTabSwitchType.STOCK ||
-    snapshotSwapType === ESwapTabSwitchType.STOCK
-  ) {
-    return snapshotSwapType ?? cachedContext.swapType;
-  }
-  return undefined;
 }
 
 function getActiveAccountFromSnapshot(
@@ -379,11 +357,9 @@ function isSwapSelectedTokenSnapshotMatchedContext({
 }
 
 function inferSwapTypeFromSelectedTokenSnapshot({
-  cachedContext,
   fromToken,
   toToken,
 }: {
-  cachedContext: ISwapSelectedTokensColdStartContext;
   fromToken?: IColdStartSwapTokenLike | null;
   toToken?: IColdStartSwapTokenLike | null;
 }) {
@@ -395,7 +371,7 @@ function inferSwapTypeFromSelectedTokenSnapshot({
     return ESwapTabSwitchType.BRIDGE;
   }
 
-  return cachedContext.swapType;
+  return ESwapTabSwitchType.SWAP;
 }
 
 function normalizeSwapTypeSnapshot({
@@ -416,7 +392,6 @@ function normalizeSwapTypeSnapshot({
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
   );
   const inferredSwapType = inferSwapTypeFromSelectedTokenSnapshot({
-    cachedContext,
     fromToken,
     toToken,
   });
@@ -537,17 +512,14 @@ export function normalizeSwapColdStartCacheSnapshot(
     }
   }
 
+  if (cachedContext.swapType === ESwapTabSwitchType.STOCK) {
+    deleteSwapExecutionColdStartSnapshot(snapshot);
+    return snapshot;
+  }
+
   if (
-    !isSwapSelectedTokensColdStartContextMatchedWithHomeAndSwapAccounts({
+    !isSwapSelectedTokensColdStartContextOwnedByHomeOrSwapAccount({
       cachedContext,
-      currentSwapType: getStockColdStartCurrentSwapType({
-        cachedContext,
-        snapshotSwapType:
-          getSwapSnapshotValue<ESwapTabSwitchType>(
-            snapshot,
-            CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
-          ) ?? undefined,
-      }),
       homeActiveAccount: getActiveAccountFromSnapshot(
         snapshot,
         ACCOUNT_SELECTOR_HOME_SCOPE_KEY,

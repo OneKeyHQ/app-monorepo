@@ -9,11 +9,11 @@ import {
   getPerpsMarketDataLocalReceivedAt,
   withPerpsL2BookLocalReceivedAt,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
-import { PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import {
-  getPerpsL2BookSnapshotCacheKeys,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+  PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+  PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -67,37 +67,16 @@ export function getFreshL2BookSnapshotFromSwr({
   coin: string;
   options?: IL2BookOptions;
 }) {
-  const keys = getPerpsL2BookSnapshotCacheKeys({
+  const entry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
     coin,
     nSigFigs: options?.nSigFigs,
     mantissa: options?.mantissa,
+    maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+    reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
   });
-
-  const findSnapshot = () => {
-    for (const key of keys) {
-      const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
-      if (
-        entry &&
-        isL2BookForTarget(entry.data, coin, options) &&
-        Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
-      ) {
-        return withPerpsL2BookLocalReceivedAt(
-          entry.data,
-          entry.updatedAt,
-          true,
-        );
-      }
-    }
-    return undefined;
-  };
-
-  const cachedSnapshot = findSnapshot();
-  if (cachedSnapshot) {
-    return cachedSnapshot;
-  }
-
-  swrCacheUtils.reloadFromStorage();
-  return findSnapshot();
+  return entry
+    ? withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt, true)
+    : undefined;
 }
 
 export function normalizeL2BookData({

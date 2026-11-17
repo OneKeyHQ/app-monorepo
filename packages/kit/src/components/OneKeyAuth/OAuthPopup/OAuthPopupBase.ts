@@ -1,8 +1,11 @@
 import {
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
   OAUTH_FLOW_TIMEOUT_MS,
   ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -74,13 +77,27 @@ export abstract class OAuthPopupBase {
           expectedOneKeyState = redirectToUrl.searchParams.get(
             ONEKEY_OAUTH_STATE_KEY,
           );
-        } catch {
+        } catch (error) {
+          defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+            reason: `OAuth redirect state parsing failed: ${getSanitizedErrorLogText(
+              error,
+            )}`,
+            trigger: 'interactive',
+            error,
+          });
           expectedOneKeyState = null;
         }
       }
 
       return { expectedState, expectedOneKeyState };
-    } catch {
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `OAuth authorization state parsing failed: ${getSanitizedErrorLogText(
+          error,
+        )}`,
+        trigger: 'interactive',
+        error,
+      });
       return { expectedState: null, expectedOneKeyState: null };
     }
   }
@@ -131,7 +148,7 @@ export abstract class OAuthPopupBase {
   ): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new OneKeyLocalError('OAuth sign-in timed out'));
+        reject(new OneKeyLocalError(OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE));
       }, ms);
     });
   }
@@ -158,7 +175,7 @@ export abstract class OAuthPopupBase {
     const { data, error } = await client.auth.exchangeCodeForSession(code);
 
     if (error) {
-      throw new OneKeyLocalError(error.message);
+      throw error;
     }
 
     if (!data.session) {
@@ -174,16 +191,23 @@ export abstract class OAuthPopupBase {
   }
 
   /**
-   * Wrap error with OneKeyLocalError if not already.
+   * Log an OAuth failure and normalize non-Error throwables. SDK errors are
+   * returned as is: signInWithSocialLogin classifies them by name / code
+   * before replacing them with localized copy.
    */
   protected static wrapError(error: unknown, fallbackMessage: string): Error {
     // if (error instanceof OneKeyLocalError) {
     if (error instanceof OneKeyLocalError || error instanceof OneKeyError) {
       return error;
     }
-    return new OneKeyLocalError(
-      error instanceof Error ? error.message : fallbackMessage,
-    );
+    defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+      reason: `${fallbackMessage}: ${getSanitizedErrorLogText(error)}`,
+      trigger: 'interactive',
+      error,
+    });
+    return error instanceof Error
+      ? error
+      : new OneKeyLocalError(fallbackMessage);
   }
 
   /**

@@ -4,6 +4,11 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { SizableText, XStack, YStack, useTheme } from '@onekeyhq/components';
 
+const DEFAULT_LABEL_FONT_SIZE = 14;
+const MIN_LABEL_FONT_SIZE = 8;
+const LABEL_GLYPH_WIDTH_RATIO = 0.6;
+const LABEL_HORIZONTAL_PADDING = 4;
+
 interface ICircleProgressProps {
   percentage: number;
   size?: number;
@@ -44,9 +49,23 @@ export function CircleProgress({
   }, [size, strokeWidth, percentage]);
 
   const center = size / 2;
-  const percentageText = useMemo(() => {
-    return Number.isFinite(percentage) ? percentage.toFixed(2) : '0.00';
+  const percentageLabel = useMemo(() => {
+    const percentageText = Number.isFinite(percentage)
+      ? percentage.toFixed(2)
+      : '0.00';
+    return `${percentageText}%`;
   }, [percentage]);
+  const labelMaxWidth = Math.max(
+    size - strokeWidth * 2 - LABEL_HORIZONTAL_PADDING * 2,
+    0,
+  );
+  const labelFontSize = Math.max(
+    MIN_LABEL_FONT_SIZE,
+    Math.min(
+      DEFAULT_LABEL_FONT_SIZE,
+      labelMaxWidth / (percentageLabel.length * LABEL_GLYPH_WIDTH_RATIO),
+    ),
+  );
 
   return (
     <XStack position="relative" width={size} height={size}>
@@ -87,8 +106,18 @@ export function CircleProgress({
         justifyContent="center"
       >
         {children ?? (
-          <SizableText size="$bodyMdMedium" color="$text">
-            {percentageText}%
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            width={labelMaxWidth}
+            fontSize={labelFontSize}
+            lineHeight={labelFontSize}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
+            textAlign="center"
+          >
+            {percentageLabel}
           </SizableText>
         )}
       </YStack>

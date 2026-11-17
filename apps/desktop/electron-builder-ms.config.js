@@ -15,6 +15,7 @@ module.exports = {
 
   'nsis': {
     'oneClick': false,
+    'include': 'installer.nsh',
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'installerIcon': 'app/build/static/images/icons/installerIcon.ico',
     'uninstallerIcon': 'app/build/static/images/icons/installerIcon.ico',
@@ -27,8 +28,20 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
+      // Same layout as the regular win build — without it isBlePairAvailable()
+      // finds no helper and Trezor BLE pairing silently degrades in Store builds.
+      {
+        'from': 'app/build/static/bin/ble-pair/win-${arch}',
+        'to': 'bin/ble-pair',
+      },
     ],
-    'extraFiles': DLLs,
+    'extraFiles': [
+      ...DLLs,
+      {
+        'from': 'resources/windows/notificationIcon.png',
+        'to': 'resources/windows/notificationIcon.png',
+      },
+    ],
     'icon': 'app/build/static/images/icons/installerIcon.ico',
     'artifactName': 'OneKey-Wallet-${version}-win-store-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,

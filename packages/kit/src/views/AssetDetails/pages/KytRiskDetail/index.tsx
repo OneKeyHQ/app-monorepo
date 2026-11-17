@@ -14,12 +14,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ColorTokens } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { formatKytRiskFactorCategory } from '@onekeyhq/kit/src/utils/kytRiskFactorUtils';
+import { KYT_LEVEL_TEXT_COLOR } from '@onekeyhq/kit/src/utils/kytRiskLevelColorUtils';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
@@ -36,16 +36,6 @@ import type { RouteProp } from '@react-navigation/core';
 const DEFAULT_LEVEL_CONTENT = {
   title: ETranslations.kyt_risk_check_failed__title,
   description: ETranslations.kyt_risk_check_failed__desc,
-};
-
-const LEVEL_TEXT_COLOR: Record<EKytRiskLevel, ColorTokens> = {
-  [EKytRiskLevel.None]: '$textSuccess',
-  [EKytRiskLevel.Checking]: '$textSubdued',
-  [EKytRiskLevel.Failed]: '$textSubdued',
-  [EKytRiskLevel.Low]: '$textSuccess',
-  [EKytRiskLevel.Moderate]: '$textCaution',
-  [EKytRiskLevel.High]: '$textCaution',
-  [EKytRiskLevel.Severe]: '$textCritical',
 };
 
 const LEVEL_CONTENT: Partial<
@@ -213,6 +203,10 @@ function KytRiskDetail() {
       uriUtils.parseUrl(riskDetail.reportUrl ?? '')?.urlSchema === 'https',
     [riskDetail.reportUrl],
   );
+  const hasCompletedRiskResult =
+    riskDetail.level !== EKytRiskLevel.Checking &&
+    riskDetail.level !== EKytRiskLevel.Failed &&
+    Boolean(LEVEL_CONTENT[riskDetail.level]);
 
   const handleViewReport = useCallback(() => {
     if (!canViewReport || !riskDetail.reportUrl) {
@@ -263,7 +257,7 @@ function KytRiskDetail() {
             <YStack gap="$0.5">
               <SizableText
                 size="$heading2xl"
-                color={LEVEL_TEXT_COLOR[riskDetail.level] ?? '$text'}
+                color={KYT_LEVEL_TEXT_COLOR[riskDetail.level]}
                 numberOfLines={2}
               >
                 {intl.formatMessage({ id: content.title })}
@@ -407,7 +401,7 @@ function KytRiskDetail() {
           ) : null}
         </ScrollView>
       </Page.Body>
-      {canViewReport ? (
+      {canViewReport || hasCompletedRiskResult ? (
         <Page.Footer>
           <YStack
             px="$5"
@@ -418,22 +412,30 @@ function KytRiskDetail() {
             borderTopWidth={1}
             borderTopColor="$borderSubdued"
           >
-            <Button
-              testID="kyt-view-report"
-              variant="secondary"
-              size="large"
-              iconAfter="ArrowTopRightOutline"
-              onPress={handleViewReport}
-            >
-              {intl.formatMessage({
-                id: ETranslations.kyt_view_report__action,
-              })}
-            </Button>
-            <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-              {intl.formatMessage({
-                id: ETranslations.kyt_result_disclaimer__desc,
-              })}
-            </SizableText>
+            {canViewReport ? (
+              <Button
+                testID="kyt-view-report"
+                variant="secondary"
+                size="large"
+                iconAfter="ArrowTopRightOutline"
+                onPress={handleViewReport}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.kyt_view_report__action,
+                })}
+              </Button>
+            ) : null}
+            {hasCompletedRiskResult ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.kyt_result_disclaimer__desc,
+                })}
+              </SizableText>
+            ) : null}
           </YStack>
         </Page.Footer>
       ) : null}

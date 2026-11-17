@@ -1,81 +1,61 @@
-import { memo, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { type DPMonth, useDatePickerContext } from '@rehookify/datepicker';
+import { useDatePickerContext } from '@rehookify/datepicker';
 
-import { SizableText, Stack } from '../../primitives';
+import { PeriodGrid } from './PeriodGrid';
+import { callOnClick, useLatestRef } from './utils';
 
-import { callOnClick } from './utils';
-
-const activeHoverStyle = { bg: '$bgPrimary' } as const;
-const inactiveHoverStyle = { bg: '$bgHover' } as const;
-
-const MonthCell = memo(
-  ({
-    month: m,
-    onPress,
-  }: {
-    month: DPMonth;
-    onPress: (m: DPMonth) => void;
-  }) => {
-    const handlePress = useCallback(() => {
-      onPress(m);
-    }, [onPress, m]);
-
-    return (
-      <Stack
-        flexBasis="31%"
-        flexGrow={1}
-        height="$11"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2"
-        bg={m.active ? '$bgPrimary' : 'transparent'}
-        hoverStyle={m.active ? activeHoverStyle : inactiveHoverStyle}
-        onPress={handlePress}
-      >
-        <SizableText
-          size="$bodyMd"
-          color={m.active ? '$textInverse' : '$text'}
-          userSelect="none"
-        >
-          {m.month}
-        </SizableText>
-      </Stack>
-    );
-  },
-);
-
-MonthCell.displayName = 'MonthCell';
+import type { IPeriodGridItem } from './PeriodGrid';
 
 export function MonthGrid({
   onSelect,
   onMonthSelect,
+  highlight = 'active',
 }: {
   onSelect?: () => void;
   onMonthSelect?: (date: Date) => void;
+  /**
+   * `active`: the month the calendar is showing (drill-down navigation).
+   * `selected`: the month holding the picked value (standalone month picker).
+   */
+  highlight?: 'active' | 'selected';
 }) {
   const { data, propGetters } = useDatePickerContext();
   const { months } = data;
-  const { monthButton } = propGetters;
+  const latest = useLatestRef({ months, monthButton: propGetters.monthButton });
 
-  const handleMonthPress = useCallback(
-    (m: (typeof months)[number]) => {
-      callOnClick(monthButton(m));
+  const handlePress = useCallback(
+    (value: number) => {
+      const { months: list, monthButton } = latest.current;
+      const m = list.find((item) => item.$date.getTime() === value);
+      // Rehookify drops onClick from disabled getters; honor that for the
+      // picker callback as well so out-of-bounds months can't be picked.
+      const getter = m ? monthButton(m) : undefined;
+      if (!m || !getter?.onClick) return;
+      callOnClick(getter);
       onMonthSelect?.(m.$date);
       onSelect?.();
     },
-    [monthButton, onMonthSelect, onSelect],
+    [latest, onMonthSelect, onSelect],
+  );
+
+  const items = useMemo<IPeriodGridItem[]>(
+    () =>
+      months.map((m) => ({
+        value: m.$date.getTime(),
+        label: m.month,
+        selected: highlight === 'selected' ? m.selected : m.active,
+        isNow: m.now,
+        disabled: m.disabled,
+      })),
+    [months, highlight],
   );
 
   return (
-    <Stack flexWrap="wrap" flexDirection="row" gap="$2" padding="$2">
-      {months.map((m) => (
-        <MonthCell
-          key={m.$date.toString()}
-          month={m}
-          onPress={handleMonthPress}
-        />
-      ))}
-    </Stack>
+    <PeriodGrid
+      items={items}
+      slidePosition={months[0]?.$date.getFullYear() ?? 0}
+      onPress={handlePress}
+    />
   );
 }

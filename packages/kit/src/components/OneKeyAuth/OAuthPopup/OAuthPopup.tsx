@@ -1,5 +1,6 @@
 import {
   OAUTH_CALLBACK_WEB_PATH,
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
   OAUTH_FLOW_TIMEOUT_MS,
   OAUTH_POLL_INTERVAL_MS,
   OAUTH_POPUP_HEIGHT,
@@ -235,7 +236,10 @@ export class OAuthPopup extends OAuthPopupBase {
 
       // Cleanup after timeout
       timeoutId = setTimeout(() => {
-        rejectOnce(new OneKeyLocalError('OAuth sign-in timed out'), popup);
+        rejectOnce(
+          new OneKeyLocalError(OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE),
+          popup,
+        );
       }, OAUTH_FLOW_TIMEOUT_MS);
     });
   }

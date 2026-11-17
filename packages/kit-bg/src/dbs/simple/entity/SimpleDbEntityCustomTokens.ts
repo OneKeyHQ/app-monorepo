@@ -1,6 +1,7 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { NATIVE_TOKEN_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/tokenConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -13,6 +14,7 @@ import {
 
 // ICustomTokenItem
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import { CUSTOM_TOKEN_ACCOUNT_KEY_SPLITTER } from '../base/simpleDbFacadeCompatibility';
 
 interface ICustomTokenDBStructV1Legacy {
   hiddenTokens: Record<string, IAccountToken>;
@@ -36,7 +38,6 @@ export interface ICustomTokenDBStruct {
   };
 }
 
-const AccountKeySplitter = '__account:';
 const TokenKeySplitter = '__token:';
 
 export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenDBStruct> {
@@ -210,11 +211,6 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     }
   }
 
-  getXpubOrAddressFromAccountKey(accountKey: string): string | null {
-    const [, accountXpubOrAddress] = accountKey.split(AccountKeySplitter);
-    return accountXpubOrAddress;
-  }
-
   async buildAccountKey(params: {
     networkId: string | undefined;
     accountXpubOrAddress: string | undefined;
@@ -232,7 +228,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
       if (!info.accountXpubOrAddress) {
         return null;
       }
-      return `${info.networkId}${AccountKeySplitter}${info.accountXpubOrAddress}`;
+      return `${info.networkId}${CUSTOM_TOKEN_ACCOUNT_KEY_SPLITTER}${info.accountXpubOrAddress}`;
     };
 
     if (!networkId || !accountXpubOrAddressInToken) {
@@ -248,7 +244,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     });
   }
 
-  buildTokenKey(token: ICloudSyncCustomToken): string | null {
+  private buildTokenKey(token: ICloudSyncCustomToken): string | null {
     if (!token.networkId) {
       return null;
     }
@@ -387,6 +383,37 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
       .filter(Boolean);
   }
 
+  private async getAccountXpubOrAddressIfAvailable({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<string | null | undefined> {
+    const serviceAccount = appGlobals.$backgroundApiProxy.serviceAccount;
+    try {
+      return await serviceAccount.getAccountXpubOrAddress({
+        networkId,
+        accountId,
+      });
+    } catch (error) {
+      const dbAccount = await serviceAccount.getDBAccountSafe({ accountId });
+      const indexedAccount = dbAccount?.indexedAccountId
+        ? await serviceAccount.getIndexedAccountSafe({
+            id: dbAccount.indexedAccountId,
+          })
+        : undefined;
+      if (!dbAccount || (dbAccount.indexedAccountId && !indexedAccount)) {
+        defaultLogger.accountSelector.perf.trace('consumerReadSkipped', {
+          consumer: 'customTokens',
+          reason: dbAccount ? 'indexed-account-removed' : 'account-removed',
+        });
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
   @backgroundMethod()
   async getHiddenTokens({
     accountXpubOrAddress,
@@ -402,12 +429,10 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     if (!accountXpubOrAddress) {
       // eslint-disable-next-line no-param-reassign
       accountXpubOrAddress =
-        await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
-          {
-            networkId,
-            accountId,
-          },
-        );
+        (await this.getAccountXpubOrAddressIfAvailable({
+          networkId,
+          accountId,
+        })) ?? null;
     }
     const tokens = await this.getTokensByStatus({
       customTokensRawData,
@@ -436,12 +461,10 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     if (!accountXpubOrAddress) {
       // eslint-disable-next-line no-param-reassign
       accountXpubOrAddress =
-        await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
-          {
-            networkId,
-            accountId,
-          },
-        );
+        (await this.getAccountXpubOrAddressIfAvailable({
+          networkId,
+          accountId,
+        })) ?? null;
     }
     const tokens = await this.getTokensByStatus({
       customTokensRawData,

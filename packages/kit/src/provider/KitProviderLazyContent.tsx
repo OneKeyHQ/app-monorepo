@@ -5,6 +5,7 @@ import LastActivityTracker from '../components/LastActivityTracker';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SyncHomeAccountToDappAccountProvider } from '../views/Discovery/components/SyncDappAccountToHomeProvider';
 
+import { NativeBgStartupStateReconciler } from './Container/NativeBgStartupStateReconciler';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { HardwareServiceProvider } from './HardwareServiceProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
@@ -49,6 +50,7 @@ function KitProviderLazyContentBeforeLocaleCmp() {
 function KitProviderLazyContentAfterLocaleCmp() {
   return (
     <>
+      <NativeBgStartupStateReconciler />
       <StateActiveContainer />
       <DelayedMount delayMs={1200}>
         <SyncHomeAccountToDappAccountProvider />

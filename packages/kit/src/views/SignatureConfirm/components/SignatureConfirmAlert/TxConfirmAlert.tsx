@@ -19,6 +19,7 @@ import {
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
+import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -31,16 +32,18 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 interface IProps {
   accountId: string;
   networkId: string;
   transferPayload?: ITransferPayload;
+  gasAccountScenario?: IGasAccountScenario;
 }
 
 function TxConfirmAlert(props: IProps) {
-  const { networkId, accountId, transferPayload } = props;
+  const { networkId, accountId, transferPayload, gasAccountScenario } = props;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -57,6 +60,10 @@ function TxConfirmAlert(props: IProps) {
   const [customRpcStatus] = useCustomRpcStatusAtom();
   const { updateCustomRpcStatus, clearCustomRpcStatus } =
     useSignatureConfirmActions().current;
+  const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
+    networkId,
+    gasAccountScenario,
+  });
 
   // Single source of truth for the token-fee alert gate so logging and
   // rendering can't drift (pay-with-token disabled → native alert).
@@ -71,6 +78,7 @@ function TxConfirmAlert(props: IProps) {
     if (isInsufficient && !insufficientFeeLoggedRef.current) {
       insufficientFeeLoggedRef.current = true;
       defaultLogger.transaction.send.insufficientFeeOnConfirm({
+        ...gasAccountAnalyticsContext,
         network: networkId,
         tokenSymbol: isTokenFeeAlert
           ? (payWithTokenInfo.symbol ?? network?.symbol)
@@ -87,6 +95,7 @@ function TxConfirmAlert(props: IProps) {
     sendTxStatus.isInsufficientTokenBalance,
     sendTxStatus.fillUpNativeBalance,
     sendTxStatus.fillUpTokenBalance,
+    gasAccountAnalyticsContext,
     networkId,
     network?.symbol,
     payWithTokenInfo.symbol,
@@ -330,6 +339,23 @@ function TxConfirmAlert(props: IProps) {
   }, [intl, customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
+    // Solana mainnet runs 200 ms slots since 2026-10-09, so a blockhash stays
+    // valid for only ~30 s; a hardware or QR signing round trip that takes
+    // longer is rejected at broadcast ("Blockhash not found").
+    if (
+      networkUtils.isSolanaNetworkByNetworkId(networkId) &&
+      accountUtils.isHwOrQrAccount({ accountId })
+    ) {
+      return (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_sol_hw_sign_time_limit__desc,
+          })}
+        />
+      );
+    }
+
     if (
       networkId === getNetworkIdsMap().kaspa &&
       accountUtils.isHwAccount({ accountId }) &&

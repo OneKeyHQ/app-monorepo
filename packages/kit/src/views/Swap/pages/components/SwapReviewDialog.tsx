@@ -8,6 +8,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapReviewActions } from '../../hooks/useSwapReviewActions';
+import { isSwapReviewConfirmBlocked } from '../../utils/swapReviewRebuildStateMachine';
 import {
   ESwapReviewApproveTransactionSource,
   type ISwapReviewAdapter,
@@ -18,8 +19,12 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import PreSwapDialogContent from './PreSwapDialogContent';
 import { SwapReviewInitializer } from './SwapReviewInitializer';
 
+import type { ISwapReviewAnalytics } from '../../utils/swapReviewAnalytics';
+
 type ISwapReviewDialogProps = {
+  reviewAnalytics?: ISwapReviewAnalytics;
   onDone: () => void;
+  onConfirmStart?: () => void;
   adapter: ISwapReviewAdapter;
   reviewState: ISwapReviewState;
   storeName: EJotaiContextStoreNames;
@@ -27,6 +32,7 @@ type ISwapReviewDialogProps = {
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   disableGlobalApproveSync?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
     config: {
@@ -38,35 +44,63 @@ type ISwapReviewDialogProps = {
 };
 
 function SwapReviewDialogContent({
+  reviewAnalytics,
+  initialReviewState,
   adapter,
   approveTransactionSource,
   disableGlobalApproveSync,
+  disableSaveSlippageForFutureOrders,
   defaultCustomPriorityFee,
   defaultNetworkFeeLevel,
   showCustomNetworkFeeOption,
   onDone,
+  onConfirmStart,
 }: {
+  reviewAnalytics?: ISwapReviewAnalytics;
+  initialReviewState: ISwapReviewState;
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
   disableGlobalApproveSync?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   onDone: () => void;
+  onConfirmStart?: () => void;
 }) {
-  const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
-    useSwapReviewActions({
-      adapter,
-      approveTransactionSource,
-    });
+  const {
+    onConfirm,
+    preSwapBeforeStepActions,
+    preSwapStepsStart,
+    rebuildReviewWithSlippage,
+    reviewRebuildState,
+    resetUncommittedReviewRebuildError,
+  } = useSwapReviewActions({
+    reviewAnalytics,
+    adapter,
+    approveTransactionSource,
+  });
 
   return (
     <PreSwapDialogContent
+      reviewAnalytics={reviewAnalytics}
+      analyticsInitialState={initialReviewState}
+      analyticsCreateFrom="marketDex"
       disableGlobalApproveSync={disableGlobalApproveSync}
-      onConfirm={onConfirm}
+      disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
+      onConfirm={() => {
+        if (isSwapReviewConfirmBlocked(reviewRebuildState.phase)) {
+          return;
+        }
+        onConfirm(onConfirmStart);
+      }}
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
+      rebuildReviewWithSlippage={rebuildReviewWithSlippage}
+      reviewRebuildState={reviewRebuildState}
+      resetUncommittedReviewRebuildError={resetUncommittedReviewRebuildError}
+      saveSlippageForFutureOrders={adapter.saveSlippageForFutureOrders}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
       showCustomNetworkFeeOption={showCustomNetworkFeeOption}
@@ -75,7 +109,9 @@ function SwapReviewDialogContent({
 }
 
 export function SwapReviewDialog({
+  reviewAnalytics,
   onDone,
+  onConfirmStart,
   adapter,
   reviewState,
   storeName,
@@ -83,6 +119,7 @@ export function SwapReviewDialog({
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
   disableGlobalApproveSync,
+  disableSaveSlippageForFutureOrders,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
     config: {
@@ -112,13 +149,19 @@ export function SwapReviewDialog({
           reviewState={reviewState}
         >
           <SwapReviewDialogContent
+            reviewAnalytics={reviewAnalytics}
+            initialReviewState={reviewState}
             adapter={adapter}
             approveTransactionSource={approveTransactionSource}
             disableGlobalApproveSync={disableGlobalApproveSync}
+            disableSaveSlippageForFutureOrders={
+              disableSaveSlippageForFutureOrders
+            }
             defaultNetworkFeeLevel={defaultNetworkFeeLevel}
             defaultCustomPriorityFee={defaultCustomPriorityFee}
             showCustomNetworkFeeOption={showCustomNetworkFeeOption}
             onDone={onDone}
+            onConfirmStart={onConfirmStart}
           />
         </SwapReviewInitializer>
       </SwapProviderMirror>

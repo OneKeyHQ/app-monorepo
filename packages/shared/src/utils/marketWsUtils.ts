@@ -22,17 +22,17 @@ export function normalizeMarketWsKLineInterval(
     case '60':
     case '1h':
     case '1H':
-      return '1h';
+      return '1H';
     case '240':
     case '4h':
     case '4H':
-      return '4h';
+      return '4H';
     case '1d':
     case '1D':
-      return '1d';
+      return '1D';
     case '1w':
     case '1W':
-      return '1w';
+      return '1W';
     default:
       return interval ?? '1m';
   }

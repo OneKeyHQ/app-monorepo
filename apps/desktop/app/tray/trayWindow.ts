@@ -1,8 +1,10 @@
 import path from 'path';
 
-import { BrowserWindow, type Tray, screen } from 'electron';
-import isDev from 'electron-is-dev';
+import { BrowserWindow, type Tray, app, screen } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;

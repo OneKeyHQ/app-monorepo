@@ -66,6 +66,7 @@ import { EErc20MethodSelectors } from '../evm/decoder/abi';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
@@ -75,6 +76,7 @@ import { KeyringQr } from './KeytringQr';
 
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
+  ESignedTxBroadcastStatus,
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
@@ -105,6 +107,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -1166,6 +1169,25 @@ export default class Vault extends VaultBase {
     };
   }
 
+  // A TRON tx has no nonce, so a tx rebuilt for a retry (the energy rental
+  // step builds a new one) is a second transfer unless the first is known
+  // to be on chain. Only the positive verdict is taken here: a payload that
+  // is not found keeps the earlier retry behavior, because a stored payload
+  // expires after TRON_TX_EXPIRATION_TIME and could not be sent again.
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return this.checkSignedTxBroadcastStatusByTxDetails({
+      signedTx,
+      isAcceptedByNode,
+    });
+  }
+
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -1438,7 +1460,7 @@ export default class Vault extends VaultBase {
           }
           return signedTx;
         },
-        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
+        { deviceParams, debugMethodName: 'tron.signRentalTx' },
       );
     return tx;
   }

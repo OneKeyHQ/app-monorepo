@@ -45,11 +45,11 @@ export function ControlPanel({
           flex={1}
           size={buttonSize}
           variant="secondary"
-          icon="DotHorOutline"
+          icon="ShareOutline"
           disabled={isLoading}
           onPress={onShareImage}
         >
-          {intl.formatMessage({ id: ETranslations.global_more })}
+          {intl.formatMessage({ id: ETranslations.explore_share })}
         </Button>
       ) : null}
     </XStack>

@@ -1,17 +1,17 @@
-import { type ReactNode, memo, useCallback } from 'react';
+import { type ReactNode, memo, useCallback, useMemo } from 'react';
 
-import { Dialog } from '@onekeyhq/components';
-import {
-  IndicatorListDialogContent,
-  TradingViewChartControls,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import { Dialog, IconButton } from '@onekeyhq/components';
+import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
   ChartSettingsDialogContent,
   showTradingViewChartSettingsDialog,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
+import { TradingViewMobileChartSettingsDialogContent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent';
 
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
+import { useShowNativeIndicatorsDialog } from '../indicatorControls/hooks/useShowNativeIndicatorsDialog';
 
 import { useNativeChartControls } from './hooks/useNativeChartControls';
 
@@ -41,9 +41,11 @@ export type { ITradingViewNativeIndicatorState } from '../indicatorControls/hook
 export type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 export type { ICalendarPanelSubmitPayload } from '../calendarControls/CalendarPanelPopover';
 export { useNativeIndicatorActiveValues } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
+export { useShowNativeIndicatorsDialog } from '../indicatorControls/hooks/useShowNativeIndicatorsDialog';
 export {
   getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountFromOptions,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
 } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 export {
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
@@ -56,16 +58,18 @@ interface ITradingViewV2ChartControlsContainerProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   isControlsReady?: boolean;
   chartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   indicatorControlMode?: ITradingViewNativeIndicatorControlMode;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   priceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   layoutMode?: ITradingViewNativeControlsLayoutMode;
+  mobileToolbarExtra?: ReactNode;
   chartTimezone: string;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
+  onChartSwitch?: () => void;
   onIntervalChange: (interval: string) => void;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
   onChartTypeChange: (chartType: number) => void;
@@ -86,16 +90,18 @@ export const TradingViewV2ChartControlsContainer = memo(
     intervalConfig,
     nativeChartControlsConfig,
     nativeIndicatorState,
-    maxSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     isControlsReady = true,
     chartTypeControlMode = 'toggle',
     indicatorControlMode = 'dialog',
     intervalControlMode = 'dialog',
     priceMarketCapControlMode = 'settings',
     layoutMode = 'mobile',
+    mobileToolbarExtra,
     chartTimezone,
     isFullscreen = false,
     fullscreenHeader,
+    onChartSwitch,
     onIntervalChange,
     onIndicatorSelect,
     onChartTypeChange,
@@ -128,7 +134,6 @@ export const TradingViewV2ChartControlsContainer = memo(
       priceMarketCap,
       priceMarketCapSettings,
       priceScale,
-      resetLayout,
       settingsEnabled,
       showChartTypeSelect,
       showChartTypeToggle,
@@ -142,6 +147,26 @@ export const TradingViewV2ChartControlsContainer = memo(
       indicatorControlMode,
       priceMarketCapControlMode,
     });
+    // Match the native chart's mobile toolbar: chart style moves into
+    // settings and indicators open from the bottom quick bar.
+    const shouldHideMobileChartTools =
+      layoutMode === 'mobile' && enableNativeChartSettings;
+    const mobileChartStyle = useMemo(
+      () =>
+        shouldHideMobileChartTools && chartTypes.length > 1
+          ? {
+              chartTypes,
+              activeChartType,
+              onChartTypeChange,
+            }
+          : undefined,
+      [
+        activeChartType,
+        chartTypes,
+        onChartTypeChange,
+        shouldHideMobileChartTools,
+      ],
+    );
 
     const handleNativeIndicatorSelect = useCallback(
       (indicatorName: string, desiredActive: boolean) => {
@@ -158,7 +183,7 @@ export const TradingViewV2ChartControlsContainer = memo(
           !canToggleTradingViewNativeIndicatorOn({
             indicatorValue: indicator.value,
             activeIndicatorValues: currentActiveIndicatorValues,
-            maxSubIndicatorCount,
+            maxSelectableSubIndicatorCount,
           })
         ) {
           return;
@@ -172,35 +197,18 @@ export const TradingViewV2ChartControlsContainer = memo(
       [
         getActiveIndicatorValues,
         handleNativeIndicatorSelect,
-        maxSubIndicatorCount,
+        maxSelectableSubIndicatorCount,
       ],
     );
 
-    const showIndicatorsDialog = useCallback(() => {
-      onControlInteraction?.();
-      Dialog.show({
-        title: indicatorsTitle,
-        showFooter: false,
-        testID: 'trading-view-native-indicators-dialog',
-        renderContent: (
-          <IndicatorListDialogContent
-            indicators={indicators}
-            resetLayout={resetLayout}
-            maxSubIndicatorCount={maxSubIndicatorCount}
-            onSelect={handleNativeIndicatorSelect}
-            onResetLayout={onResetLayout}
-          />
-        ),
-      });
-    }, [
-      handleNativeIndicatorSelect,
-      indicators,
-      indicatorsTitle,
-      maxSubIndicatorCount,
-      onControlInteraction,
+    const showIndicatorsDialog = useShowNativeIndicatorsDialog({
+      nativeChartControlsConfig,
+      nativeIndicatorState,
+      maxSelectableSubIndicatorCount,
+      onIndicatorSelect,
       onResetLayout,
-      resetLayout,
-    ]);
+      onControlInteraction,
+    });
 
     const showChartSettingsDialog = useCallback(() => {
       if (!settingsEnabled) {
@@ -244,6 +252,41 @@ export const TradingViewV2ChartControlsContainer = memo(
       showTradingViewChartSettingsDialog();
     }, [enableNativeChartSettings, onControlInteraction]);
 
+    const showMobileChartSettingsDialog = useCallback(() => {
+      if (!enableNativeChartSettings) {
+        return;
+      }
+
+      onControlInteraction?.();
+      Dialog.show({
+        title: chartSettingsTitle,
+        showFooter: false,
+        testID: 'trading-view-native-chart-settings-quick-dialog',
+        renderContent: (
+          <TradingViewMobileChartSettingsDialogContent
+            chartMode="tradingView"
+            tradingViewChartStyle={
+              isControlsReady ? mobileChartStyle : undefined
+            }
+            onChartSwitch={onChartSwitch}
+            onOpenSettings={
+              isControlsReady
+                ? (onOpenChartSettings ?? showTradingViewChartSettingsDialog)
+                : undefined
+            }
+          />
+        ),
+      });
+    }, [
+      chartSettingsTitle,
+      enableNativeChartSettings,
+      isControlsReady,
+      mobileChartStyle,
+      onChartSwitch,
+      onControlInteraction,
+      onOpenChartSettings,
+    ]);
+
     const handleChartTypeToggle = useCallback(() => {
       if (nextChartType) {
         onControlInteraction?.();
@@ -267,24 +310,38 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [onControlInteraction, onRedo]);
 
     const handleSettingsPress = useCallback(() => {
-      if (enableNativeChartSettings) {
-        showNewChartSettingsDialog();
+      if (
+        enableNativeChartSettings &&
+        layoutMode === 'mobile' &&
+        (onChartSwitch || mobileChartStyle)
+      ) {
+        showMobileChartSettingsDialog();
         return;
       }
 
       if (onOpenChartSettings) {
+        onControlInteraction?.();
         onOpenChartSettings();
+        return;
+      }
+
+      if (enableNativeChartSettings) {
+        showNewChartSettingsDialog();
         return;
       }
 
       showChartSettingsDialog();
     }, [
       enableNativeChartSettings,
+      layoutMode,
+      mobileChartStyle,
+      onChartSwitch,
+      onControlInteraction,
       onOpenChartSettings,
       showChartSettingsDialog,
+      showMobileChartSettingsDialog,
       showNewChartSettingsDialog,
     ]);
-
     return (
       <TradingViewChartControls
         intervalConfig={intervalConfig}
@@ -295,24 +352,47 @@ export const TradingViewV2ChartControlsContainer = memo(
         chartTypeToggleIcon={chartTypeToggleIcon}
         chartTypes={chartTypes}
         hasVisibleControls={hasVisibleControls || enableNativeChartSettings}
-        hasVisibleIndicators={hasVisibleIndicators}
+        hasVisibleIndicators={
+          hasVisibleIndicators && !shouldHideMobileChartTools
+        }
         hasVisibleIntervalSelector={hasVisibleIntervalSelector}
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
         nextChartTypeLabel={nextChartTypeLabel}
         priceMarketCap={priceMarketCap}
         settingsEnabled={settingsEnabled || enableNativeChartSettings}
-        showChartTypeSelect={showChartTypeSelect}
-        showChartTypeToggle={showChartTypeToggle}
+        showChartTypeSelect={showChartTypeSelect && !shouldHideMobileChartTools}
+        showChartTypeToggle={showChartTypeToggle && !shouldHideMobileChartTools}
         showIndicatorPopover={showIndicatorPopover}
         showPriceMarketCapSelect={showPriceMarketCapSelect}
-        maxSubIndicatorCount={maxSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}
+        rightControl={
+          layoutMode === 'mobile'
+            ? (mobileToolbarExtra ??
+              (!isControlsReady &&
+              enableNativeChartSettings &&
+              onChartSwitch ? (
+                <IconButton
+                  testID="trading-view-loading-chart-settings-trigger"
+                  size="small"
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                  iconSize="$5"
+                  title={chartSettingsTitle}
+                  onPress={showMobileChartSettingsDialog}
+                  {...HEADER_ICON_BUTTON_STYLE_PROPS}
+                />
+              ) : undefined))
+            : undefined
+        }
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
+        chartMode={layoutMode === 'desktop' ? 'tradingView' : undefined}
+        onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
         onShowIndicatorsDialog={showIndicatorsDialog}

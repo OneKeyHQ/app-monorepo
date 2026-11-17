@@ -47,7 +47,7 @@ jest.mock('react-native/Libraries/Image/AssetUtils', () => ({
     ),
 }));
 
-jest.mock('@react-native/assets-registry/path-support', () => ({
+jest.mock('@react-native/asset-utils', () => ({
   getAndroidResourceFolderName: (_asset: any, scale: number) =>
     `drawable-${scale}x`,
   getAndroidResourceIdentifier: (asset: any) => asset.name,

@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import {
   SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
   SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
@@ -10,7 +8,9 @@ import {
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-export const SWAP_PRO_POSITIONS_CACHE_TTL_MS = 30_000;
+import { compareTradePositionFiatValues } from './tradePositionUtils';
+
+export const SWAP_PRO_POSITIONS_RUNTIME_TTL_MS = 30_000;
 export {
   SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
   SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
@@ -31,6 +31,48 @@ export type ISwapProPositionsCache = {
   version: typeof SWAP_PRO_POSITIONS_CACHE_VERSION;
   byOwner: Record<string, ISwapProPositionsCacheEntry>;
 };
+
+export type ISwapProPositionsRuntimeEntry = {
+  status: 'loading' | 'refreshing' | 'success' | 'error';
+  tokens: ISwapToken[];
+  resolvedNetworkIds?: string[];
+  accountScope?: string;
+  networkAccounts?: Record<string, { accountId: string; apiAddress: string }>;
+  // Leaving a non-default override changes the effective account set.
+  overriddenNetworkId?: string;
+  updatedAt: number;
+};
+
+export function isSwapProPositionsAccountMatch({
+  entry,
+  accountScope,
+  networkAccount,
+  accountPending,
+}: {
+  entry?: ISwapProPositionsRuntimeEntry;
+  accountScope?: string;
+  networkAccount?: { networkId: string; accountId: string; apiAddress: string };
+  accountPending?: boolean;
+}) {
+  if (!entry || entry.accountScope !== accountScope) return false;
+  if (accountPending) return true;
+  if (
+    entry.overriddenNetworkId &&
+    entry.overriddenNetworkId !== networkAccount?.networkId
+  )
+    return false;
+  if (!networkAccount) return true;
+  const previousAccount = entry.networkAccounts?.[networkAccount.networkId];
+  return (
+    previousAccount?.accountId === networkAccount.accountId &&
+    previousAccount.apiAddress === networkAccount.apiAddress
+  );
+}
+
+export type ISwapProPositionsRuntimeData = Record<
+  string,
+  ISwapProPositionsRuntimeEntry
+>;
 
 export const EMPTY_SWAP_PRO_POSITIONS_CACHE: ISwapProPositionsCache = {
   version: SWAP_PRO_POSITIONS_CACHE_VERSION,
@@ -71,11 +113,6 @@ function buildSwapProPositionsCacheToken(token: ISwapToken): ISwapToken {
   };
 }
 
-function getSwapProPositionFiatValue(token: ISwapToken) {
-  const fiatValue = new BigNumber(token.fiatValue ?? '0');
-  return fiatValue.isFinite() ? fiatValue : new BigNumber(0);
-}
-
 export function upsertSwapProPositionsCacheEntry({
   cache,
   entry,
@@ -85,9 +122,7 @@ export function upsertSwapProPositionsCacheEntry({
 }): ISwapProPositionsCache {
   const tokens = entry.tokens
     .toSorted((left, right) =>
-      getSwapProPositionFiatValue(right).comparedTo(
-        getSwapProPositionFiatValue(left),
-      ),
+      compareTradePositionFiatValues(left.fiatValue, right.fiatValue),
     )
     .map(buildSwapProPositionsCacheToken);
   const previousByOwner = getValidSwapProPositionsCache(cache).byOwner;
@@ -106,24 +141,25 @@ export function upsertSwapProPositionsCacheEntry({
   });
 }
 
-export function shouldReuseSwapProPositionsCache({
-  cacheEntry,
-  forceRefresh,
-  now = Date.now(),
+export function upsertSwapProPositionsRuntimeEntry({
+  entries,
+  entry,
   ownerKey,
 }: {
-  cacheEntry?: {
-    ownerKey: string;
-    updatedAt: number;
-  };
-  forceRefresh?: boolean;
-  now?: number;
+  entries: ISwapProPositionsRuntimeData;
+  entry: ISwapProPositionsRuntimeEntry;
   ownerKey: string;
-}) {
-  return Boolean(
-    !forceRefresh &&
-    ownerKey &&
-    cacheEntry?.ownerKey === ownerKey &&
-    now - cacheEntry.updatedAt < SWAP_PRO_POSITIONS_CACHE_TTL_MS,
+}): ISwapProPositionsRuntimeData {
+  const nextEntries = {
+    ...entries,
+    [ownerKey]: entry,
+  };
+  const sortedOwnerKeys = Object.keys(nextEntries).toSorted(
+    (left, right) => nextEntries[right].updatedAt - nextEntries[left].updatedAt,
+  );
+  return Object.fromEntries(
+    sortedOwnerKeys
+      .slice(0, SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS)
+      .map((key) => [key, nextEntries[key]]),
   );
 }

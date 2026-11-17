@@ -15,8 +15,8 @@ import type { TextStyle } from 'react-native';
  *
  * Every digit shares one advance width, so number columns stay aligned and a
  * value doesn't reflow as it ticks. Unlike a monospace family (`$monoRegular`),
- * only digits are equalized — letters keep Roobert's natural proportional
- * widths. Roobert ships the `tnum` OpenType feature, so this works on iOS,
+ * only digits are equalized — letters keep the brand font's natural proportional
+ * widths. The brand sans font ships the `tnum` OpenType feature, so this works on iOS,
  * Android and web.
  *
  * Monospace is still the right choice for addresses / hashes / mnemonics /
@@ -34,8 +34,18 @@ export const PROPORTIONAL_NUMS: ['proportional-nums'] = ['proportional-nums'];
 
 type IFontVariantStyle = CSSProperties | TextStyle;
 
+// RN's strict `fontVariant` also accepts a space-separated string.
+type IFontVariantArray = Extract<
+  NonNullable<TextStyle['fontVariant']>,
+  ReadonlyArray<unknown>
+>;
+
+// `Array.isArray` does not narrow readonly arrays.
+const isFontVariantArray = (value: unknown): value is IFontVariantArray =>
+  Array.isArray(value);
+
 function buildFontVariantStyle(
-  fontVariant: NonNullable<TextStyle['fontVariant']>,
+  fontVariant: IFontVariantArray,
 ): IFontVariantStyle {
   if (platformEnv.isNative) {
     return Object.freeze({ fontVariant });
@@ -60,7 +70,7 @@ const TABULAR_NUMS_STYLE: IFontVariantStyle | undefined = platformEnv.isNative
   : undefined;
 
 const fontVariantStyleCache = new WeakMap<
-  NonNullable<TextStyle['fontVariant']>,
+  IFontVariantArray,
   IFontVariantStyle
 >();
 
@@ -80,7 +90,7 @@ export function getFontVariantStyle(
   if (fontVariant === TABULAR_NUMS) {
     return TABULAR_NUMS_STYLE;
   }
-  if (!Array.isArray(fontVariant) || fontVariant.length === 0) {
+  if (!isFontVariantArray(fontVariant) || fontVariant.length === 0) {
     return undefined;
   }
   let cached = fontVariantStyleCache.get(fontVariant);

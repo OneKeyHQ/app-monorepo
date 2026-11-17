@@ -54,7 +54,7 @@ runs:
   steps:
     - name: Download workflow parameters
       if: ${{ github.event.workflow_run }}
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@268677152d06ba59fcec7a7f0b5d961b6ccd7e1e # v2.28.0
       continue-on-error: true
       with:
         workflow: daily-build-dev
@@ -133,7 +133,7 @@ runs:
 
     - name: Dotenv Action
       id: dotenv
-      uses: OneKeyHQ/actions/dotenv-action@main
+      uses: OneKeyHQ/actions/dotenv-action@a0f21d9b4be112edb5c758064a55f13e514c47df # main
       with:
         path: .env.version
 

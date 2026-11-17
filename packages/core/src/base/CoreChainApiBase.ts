@@ -4,6 +4,7 @@ import type {
   IGetDefaultPrivateKeyParams,
   IGetDefaultPrivateKeyResult,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -69,16 +70,20 @@ export abstract class CoreChainApiBase {
     curve,
     privateKey,
     password,
+    kdfParams,
   }: {
     curve: ICurveName;
     privateKey: string; // encryptedPrivateKey by password
     password: string;
+    kdfParams?: IPbkdf2KdfParams;
   }): Promise<ISigner> {
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');
     }
     const privateKeyBuffer = bufferUtils.toBuffer(privateKey);
-    return Promise.resolve(new ChainSigner(privateKeyBuffer, password, curve));
+    return Promise.resolve(
+      new ChainSigner(privateKeyBuffer, password, curve, kdfParams),
+    );
   }
 
   protected async baseGetSingleSigner({
@@ -107,6 +112,10 @@ export abstract class CoreChainApiBase {
       curve,
       privateKey,
       password: payload.password,
+      kdfParams: {
+        kdfBackend: payload.kdfBackend,
+        enablePbkdf2Cache: payload.enablePbkdf2Cache,
+      },
     });
   }
 

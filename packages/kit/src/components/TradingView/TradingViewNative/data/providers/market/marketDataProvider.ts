@@ -1,5 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { fetchMarketKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
+import {
+  type IMarketKLinePointType,
+  fetchMarketKLineData,
+} from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -25,6 +28,8 @@ import type {
 } from '../types';
 
 const MARKET_WS_CURRENCY = 'usd';
+const MARKET_WS_INTERVAL = '15m';
+const MARKET_WS_INTERVAL_SECONDS = 15 * 60;
 const MARKET_CONTRACT_HISTORY_PAGE_SIZE = 299;
 const MARKET_NATIVE_HISTORY_PAGE_SIZE = 200;
 const MARKET_HISTORY_REQUEST_CANDLE_COUNT = 2000;
@@ -74,6 +79,7 @@ export function createTradingViewNativeMarketDataProvider({
   let primaryHistoryUnavailable =
     !canUseMarketHistory ||
     unavailableMarketHistoryTokenKeys.has(marketTokenKey);
+  let selectedHistorySource: 'fallback' | 'primary' | undefined;
   const marketHistoryPageSize =
     source.isNative || !source.tokenAddress.trim()
       ? MARKET_NATIVE_HISTORY_PAGE_SIZE
@@ -86,8 +92,12 @@ export function createTradingViewNativeMarketDataProvider({
   };
 
   return {
+    getCandleTimeMode: () =>
+      selectedHistorySource === 'fallback'
+        ? (fallbackHistoryProvider.getCandleTimeMode?.() ?? 'calendar')
+        : 'calendar',
     getHistoryRequestCandleCount: (interval) =>
-      primaryHistoryUnavailable
+      selectedHistorySource === 'fallback' || primaryHistoryUnavailable
         ? fallbackHistoryProvider.getHistoryRequestCandleCount(interval)
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
     hasMoreHistory: (page) =>
@@ -97,9 +107,14 @@ export function createTradingViewNativeMarketDataProvider({
           page.receivedPointCount >= marketHistoryPageSize,
     isReady: canUseMarketHistory || Boolean(normalizedFallbackCoinGeckoId),
     key: getTradingViewNativeSourceKey(source),
+    realtimeInterval: '15',
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
       const { interval, signal, timeFrom, timeTo } = request;
+      const selectHistorySource = (historySource: 'fallback' | 'primary') => {
+        selectedHistorySource ??= historySource;
+      };
+      let pointType: IMarketKLinePointType | undefined;
       let usedFallback = false;
       const data = await fetchMarketKLineData({
         tokenAddress: source.tokenAddress,
@@ -108,37 +123,75 @@ export function createTradingViewNativeMarketDataProvider({
         timeFrom,
         timeTo,
         autoHandleError: false,
-        kLineDataFallback: async (fallbackRequest: {
-          timeFrom: number;
-          timeTo: number;
-        }) => {
-          const fallbackTimeFrom = Math.max(
-            fallbackRequest.timeTo -
-              interval.seconds *
-                fallbackHistoryProvider.getHistoryRequestCandleCount(interval),
-            0,
-          );
-          return fallbackHistoryProvider.fetchHistory({
-            interval,
-            signal,
-            timeFrom: Math.min(fallbackRequest.timeFrom, fallbackTimeFrom),
-            timeTo: fallbackRequest.timeTo,
-          });
-        },
+        kLineDataFallback:
+          selectedHistorySource === 'primary'
+            ? undefined
+            : async (fallbackRequest: { timeFrom: number; timeTo: number }) => {
+                const fallbackTimeFrom = Math.max(
+                  fallbackRequest.timeTo -
+                    interval.seconds *
+                      fallbackHistoryProvider.getHistoryRequestCandleCount(
+                        interval,
+                      ),
+                  0,
+                );
+                return fallbackHistoryProvider.fetchHistory({
+                  interval,
+                  signal,
+                  timeFrom: Math.min(
+                    fallbackRequest.timeFrom,
+                    fallbackTimeFrom,
+                  ),
+                  timeTo: fallbackRequest.timeTo,
+                });
+              },
         onFallbackKLineData: () => {
           usedFallback = true;
+          selectHistorySource('fallback');
         },
         onPrimaryKLineDataUnavailable: () => {
+          if (selectedHistorySource === 'primary') {
+            return;
+          }
           primaryHistoryUnavailable = true;
           cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
         },
-        primaryKLineDataUnavailable: primaryHistoryUnavailable,
+        onPointType: (nextPointType) => {
+          pointType = nextPointType;
+        },
+        primaryKLineDataUnavailable:
+          selectedHistorySource === 'fallback' || primaryHistoryUnavailable,
       });
-      return data && usedFallback
-        ? { ...data, historySource: 'fallback' as const }
-        : data;
+      if (!data) {
+        return null;
+      }
+      const responseHistorySource = usedFallback ? 'fallback' : 'primary';
+      if (data.points.length) {
+        selectHistorySource(responseHistorySource);
+      }
+      if (
+        selectedHistorySource &&
+        selectedHistorySource !== responseHistorySource
+      ) {
+        return {
+          ...data,
+          historySource:
+            selectedHistorySource === 'fallback' ? 'fallback' : undefined,
+          points: [],
+          total: 0,
+          ...(pointType ? { pointType } : {}),
+        };
+      }
+      return {
+        ...data,
+        ...(selectedHistorySource === 'fallback'
+          ? { historySource: 'fallback' as const }
+          : {}),
+        ...(pointType ? { pointType } : {}),
+      };
     },
     subscribeRealtime: async ({
+      getActiveInterval,
       interval,
       onPoint,
       signal,
@@ -149,7 +202,7 @@ export function createTradingViewNativeMarketDataProvider({
 
       const subscription = {
         ...subscriptionBase,
-        chartType: interval.marketWsValue,
+        chartType: MARKET_WS_INTERVAL,
       };
       let isClosed = false;
       let isAborted = false;
@@ -172,7 +225,7 @@ export function createTradingViewNativeMarketDataProvider({
           (!payload.networkId && payload.isSubscriptionAmbiguous) ||
           !isMarketWsOhlcvData(payload.data) ||
           normalizeMarketWsKLineInterval(payload.data.type) !==
-            interval.marketWsValue ||
+            MARKET_WS_INTERVAL ||
           (!source.tokenAddress &&
             normalizeMarketWsSymbol(payload.data.symbol) !==
               normalizeMarketWsSymbol(source.symbol))
@@ -180,20 +233,34 @@ export function createTradingViewNativeMarketDataProvider({
           return;
         }
 
-        onPoint({
-          o: payload.data.o,
-          h: payload.data.h,
-          l: payload.data.l,
-          c: payload.data.c,
-          v: payload.data.v,
-          t: payload.data.unixTime,
-        });
+        const activeInterval = getActiveInterval?.() ?? interval;
+        if (activeInterval.marketWsValue === MARKET_WS_INTERVAL) {
+          onPoint({
+            o: payload.data.o,
+            h: payload.data.h,
+            l: payload.data.l,
+            c: payload.data.c,
+            v: payload.data.v,
+            t: payload.data.unixTime,
+          });
+        } else {
+          // A 15m candle cannot supply another interval's OHLCV. Only its
+          // live close is a price tick; ignore corrections to closed candles.
+          const timestamp = Math.floor(Date.now() / 1000);
+          if (
+            timestamp < payload.data.unixTime ||
+            timestamp >= payload.data.unixTime + MARKET_WS_INTERVAL_SECONDS
+          ) {
+            return;
+          }
+          onPoint({ price: payload.data.c, t: timestamp });
+        }
         void backgroundApiProxy.serviceMarketWS
           .clearDataCount({
             address: source.tokenAddress,
             type: 'ohlcv',
             networkId: source.networkId,
-            chartType: interval.marketWsValue,
+            chartType: MARKET_WS_INTERVAL,
             currency: MARKET_WS_CURRENCY,
           })
           .catch((error: unknown) => {

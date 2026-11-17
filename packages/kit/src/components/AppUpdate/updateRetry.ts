@@ -1,14 +1,14 @@
 // cspell:ignore OCDS
 import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
 import {
-  extractUpdateErrorCode,
-  isPermanentThisUrlDownloadError,
-  isUnrecoverableDownloadError,
-} from './updateErrorTaxonomy';
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+  isRetryableUpdateError,
+  shouldRefreshUpdateUrl,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const DOWNLOAD_RETRY_MAX_ATTEMPTS = 5;
 const DOWNLOAD_RETRY_BASE_DELAY_MS = 1500;
@@ -98,11 +98,10 @@ async function waitBeforeRetry(
 
 /**
  * OCDS v1.1 §5.11 — definitive terminal "gave up" outcome. Thrown when the
- * persisted cross-restart attempt budget or the overall wall-clock deadline is
- * exhausted, OR when a single-stream fallback failure is treated as the
- * download's terminal failure. Distinct from the underlying transport error so
- * the caller can surface "we have stopped retrying" rather than a transient
- * network blip.
+ * configured attempt budget or deadline is exhausted, OR when a single-stream
+ * fallback failure is treated as the download's terminal failure. Distinct from
+ * the underlying transport error so the caller can surface "we have stopped
+ * retrying" rather than a transient network blip.
  */
 export type IDownloadGaveUpReason =
   | 'maxAttempts'
@@ -110,7 +109,7 @@ export type IDownloadGaveUpReason =
   | 'fallbackFailed'
   | 'urlDead';
 
-export class DownloadGaveUpError extends OneKeyLocalError {
+export class DownloadGaveUpError extends Error {
   // Why we gave up — surfaced for analytics / UI copy. (`name` stays the
   // OneKeyLocalError className; callers discriminate via `instanceof
   // DownloadGaveUpError` + this field.)
@@ -119,33 +118,28 @@ export class DownloadGaveUpError extends OneKeyLocalError {
   // The last underlying transport error, when there was one.
   readonly downloadCause?: unknown;
 
-  constructor(params: {
-    reason: IDownloadGaveUpReason;
-    message?: string;
-    cause?: unknown;
-  }) {
-    super(params.message ?? `DownloadGaveUp: ${params.reason}`);
+  constructor(params: { reason: IDownloadGaveUpReason; cause?: unknown }) {
+    super(createUpdateError(getUpdateError(params.cause, 'download')).message);
     this.reason = params.reason;
     this.downloadCause = params.cause;
   }
 }
 
 /**
- * Per-target persisted-budget hooks (OCDS §5.11). Owned by ServiceAppUpdate
+ * Per-target attempt-budget hooks (OCDS §5.11). Owned by ServiceAppUpdate
  * (kit-bg) and injected here so this module stays pure / unit-testable. When a
- * caller does not supply them, the loop runs with the legacy in-memory bound
- * only (no cross-restart persistence) — used by existing tests.
+ * caller does not supply them, the loop uses only its per-invocation retry cap.
  */
 export interface IDownloadRetryBudgetResult {
   givenUp: boolean;
   reason?: 'maxAttempts' | 'deadline';
 }
 export interface IDownloadRetryOptions {
-  // Read the persisted budget WITHOUT mutating it (checked on entry).
+  // Read the current budget without mutating it (checked on entry).
   getBudget?: () => Promise<IDownloadRetryBudgetResult>;
-  // Increment + persist the attempt counter; returns the post-increment state.
+  // Increment the attempt counter; returns the post-increment state.
   recordAttempt?: () => Promise<IDownloadRetryBudgetResult>;
-  // Clear the persisted budget (on success).
+  // Clear the attempt budget on success.
   resetBudget?: () => Promise<void>;
   // OCDS §4 — obtain a fresh signed URL after a 401/403 (permanent-this-URL).
   // Returns true if a fresh URL is now available to retry against, false if
@@ -157,28 +151,8 @@ export interface IDownloadRetryOptions {
   // ends the run, "fallback failure is the terminal failure of the whole
   // download": the loop surfaces DownloadGaveUpError('fallbackFailed') instead
   // of the raw transport error, so the fallback is never a silent black hole.
-  // Defaults (when absent) to isSingleStreamFallbackFailure below.
+  // Without an explicit signal, the failure is not identified as fallback.
   isFallbackFailure?: (error: unknown) => boolean;
-}
-
-/**
- * OCDS §5.11 default detector for "the single-stream fallback itself failed".
- * The native range downloader emits a `fallback` signal and then runs the
- * sequential single-stream path; when THAT path also fails it surfaces the
- * error with a recognizable marker. Recognizing it here lets runDownloadWithRetry
- * tag the run's terminal outcome as 'fallbackFailed' rather than leaking a bare
- * transport error, making §5.11's "fallback is not a black hole" observable to
- * the caller (analytics / UI copy).
- */
-export function isSingleStreamFallbackFailure(error: unknown): boolean {
-  const msg = (error as { message?: string } | null)?.message ?? '';
-  const code = (error as { code?: string } | null)?.code ?? '';
-  return (
-    /\bfallback\b/i.test(msg) ||
-    /single[-\s]?stream/i.test(msg) ||
-    code === 'FALLBACK_FAILED' ||
-    code === 'SINGLE_STREAM_FAILED'
-  );
 }
 
 /**
@@ -197,68 +171,64 @@ export function isSingleStreamFallbackFailure(error: unknown): boolean {
  * 401/403/404/410/501/505, config errors) so we don't waste backoff windows on
  * deterministic dead states.
  *
- * OCDS v1.1 §5.11 termination contract (active only when `options` carries the
- * persisted-budget hooks — kit-bg's ServiceAppUpdate provides them):
- *   - On entry, if the persisted cross-restart budget is already exhausted the
- *     download is terminal immediately (no in-memory retry budget re-spend).
- *   - Each attempt increments the persisted counter; when the counter or the
- *     wall-clock deadline trips, the loop ends with a DownloadGaveUpError.
+ * OCDS v1.1 §5.11 termination contract (active only when `options` carries
+ * attempt-budget hooks — kit-bg's ServiceAppUpdate provides them):
+ *   - On entry, if the service-instance budget is already exhausted, the
+ *     download is terminal immediately.
+ *   - Each attempt increments the budget; when the counter or a caller-supplied
+ *     deadline trips, the loop ends with a DownloadGaveUpError.
  *   - A 401/403 (permanent-this-URL) triggers a single bounded URL refresh and
  *     one more attempt against the freshly-signed URL before going terminal.
- *   - On success the persisted budget is reset.
+ *   - On success the attempt budget is reset.
  */
 export async function runDownloadWithRetry<T>(
   operation: () => Promise<T>,
   context: string,
   options?: IDownloadRetryOptions,
 ): Promise<T> {
-  // §5.11 entry guard: a target that already exhausted its budget on a prior
-  // launch is terminal before we spend a single in-memory attempt.
+  // §5.11 entry guard: a target that already exhausted the current service
+  // instance's budget is terminal before we run another download attempt.
   if (options?.getBudget) {
     const entry = await options.getBudget();
     if (entry.givenUp) {
       defaultLogger.app.appUpdate.log(
-        `${context}: persisted budget already exhausted on entry reason=${
+        `${context}: attempt budget already exhausted on entry reason=${
           entry.reason ?? ''
         } — terminal`,
       );
       throw new DownloadGaveUpError({
         reason: entry.reason ?? 'maxAttempts',
-        message: `${context}: download gave up (persisted ${
-          entry.reason ?? 'maxAttempts'
-        })`,
       });
     }
   }
 
   // Tracks whether we've already spent the one-shot 401/403 URL refresh.
   let urlRefreshed = false;
+  let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= DOWNLOAD_RETRY_MAX_ATTEMPTS; attempt += 1) {
-    // §5.11 — record this attempt in durable storage BEFORE running it so a
-    // crash mid-attempt still counts toward the budget on the next launch.
+    // §5.11 — record before running so every native operation counts against
+    // the current service instance's attempt budget.
     if (options?.recordAttempt) {
       // eslint-disable-next-line no-await-in-loop
       const budget = await options.recordAttempt();
       if (budget.givenUp) {
         defaultLogger.app.appUpdate.log(
-          `${context}: persisted budget exhausted reason=${
+          `${context}: attempt budget exhausted reason=${
             budget.reason ?? ''
           } — terminal`,
         );
         throw new DownloadGaveUpError({
           reason: budget.reason ?? 'maxAttempts',
-          message: `${context}: download gave up (persisted ${
-            budget.reason ?? 'maxAttempts'
-          })`,
+          cause: lastError,
         });
       }
     }
     try {
       // eslint-disable-next-line no-await-in-loop
       const result = await operation();
-      // §5.11 — success clears the persisted budget so the next target starts
-      // fresh and a stale give-up never lingers.
+      // §5.11 — success clears the attempt budget so the next target starts
+      // fresh and a stale give-up does not linger in this service instance.
       if (options?.resetBudget) {
         // eslint-disable-next-line no-await-in-loop
         await options.resetBudget().catch(() => undefined);
@@ -268,8 +238,13 @@ export async function runDownloadWithRetry<T>(
       // §4 — a 401/403 (permanent-this-URL) is not a blind retry: refresh the
       // signed URL ONCE and try again against the fresh one. If the refresh
       // yields no fresh URL, the URL is dead → terminal.
+      const updateError = getUpdateError(e, 'download');
+      lastError = createUpdateError(updateError);
+      if (updateError.code === EUpdateErrorCode.cancelled) {
+        throw createUpdateError(updateError);
+      }
       if (
-        isPermanentThisUrlDownloadError(e) &&
+        shouldRefreshUpdateUrl(updateError) &&
         options?.refreshUrl &&
         !urlRefreshed &&
         attempt < DOWNLOAD_RETRY_MAX_ATTEMPTS
@@ -283,7 +258,6 @@ export async function runDownloadWithRetry<T>(
         if (!ok) {
           throw new DownloadGaveUpError({
             reason: 'urlDead',
-            message: `${context}: signed URL could not be refreshed`,
             cause: e,
           });
         }
@@ -293,7 +267,7 @@ export async function runDownloadWithRetry<T>(
         continue;
       }
       if (
-        isUnrecoverableDownloadError(e) ||
+        !isRetryableUpdateError(updateError) ||
         attempt === DOWNLOAD_RETRY_MAX_ATTEMPTS
       ) {
         // §5.11 — if the error that ends the run came from the single-stream
@@ -301,22 +275,18 @@ export async function runDownloadWithRetry<T>(
         // failure of the whole download. Surface it as a definitive give-up
         // ('fallbackFailed') rather than leaking the bare transport error, so
         // the fallback is never a silent black hole.
-        const detectFallback = options?.isFallbackFailure
-          ? options.isFallbackFailure
-          : isSingleStreamFallbackFailure;
-        if (detectFallback(e)) {
+        if (options?.isFallbackFailure?.(e)) {
           defaultLogger.app.appUpdate.log(
             `${context}: single-stream fallback failed — terminal (fallbackFailed) code=${
-              extractUpdateErrorCode(e) ?? '<none>'
+              updateError.code
             }`,
           );
           throw new DownloadGaveUpError({
             reason: 'fallbackFailed',
-            message: `${context}: single-stream fallback failed`,
             cause: e,
           });
         }
-        throw e;
+        throw createUpdateError(updateError);
       }
       const isOffline =
         globalNetInfo.currentState().isInternetReachable === false;
@@ -326,7 +296,7 @@ export async function runDownloadWithRetry<T>(
           isOffline
             ? `offline-wait≤${DOWNLOAD_RETRY_OFFLINE_WAIT_MS}ms`
             : `in ${baseDelayMs}ms`
-        } — code=${extractUpdateErrorCode(e) ?? '<none>'}`,
+        } — code=${updateError.code}`,
       );
       // eslint-disable-next-line no-await-in-loop
       await waitBeforeRetry(attempt, context);
@@ -334,5 +304,5 @@ export async function runDownloadWithRetry<T>(
   }
   // Unreachable: the loop either returns on success or throws on the
   // attempt === MAX iteration. Keep the throw to satisfy TS control flow.
-  throw new OneKeyLocalError('runDownloadWithRetry: unreachable');
+  throw createUpdateError({ code: EUpdateErrorCode.unknown, step: 'download' });
 }

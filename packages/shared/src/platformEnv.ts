@@ -136,6 +136,7 @@ export type IPlatformEnv = {
 
   /** ios, both tablet & iPhone */
   isNativeIOS?: boolean;
+  isNativeIOSMacCatalyst?: boolean;
   isNativeIOSStore?: boolean;
   /** ios, phone only */
   isNativeIOSPhone?: boolean;
@@ -229,6 +230,8 @@ const isDesktopWithCustomTitleBar =
   isDesktopMac || isDesktopWin || isDesktopLinux;
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
+const isNativeIOSMacCatalyst =
+  isNativeIOS && Platform.OS === 'ios' && Boolean(Platform.isMacCatalyst);
 const isNativeIOSStore = isNativeIOS && isProduction;
 const isNativeIOSPhone =
   isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTV;
@@ -527,7 +530,8 @@ export const isExtensionDevelopmentBuild: boolean =
 
 export const isManifestV3: boolean =
   // TODO firefox check v3
-  isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
+  isExtension &&
+  globalThis.chrome?.runtime?.getManifest?.()?.manifest_version === 3;
 
 export const supportAutoUpdate: boolean =
   isDesktop && !(isMas || isDesktopLinuxSnap || isDesktopWinMsStore);
@@ -602,6 +606,7 @@ const platformEnv: IPlatformEnv = {
   isExtChrome,
 
   isNativeIOS,
+  isNativeIOSMacCatalyst,
   isNativeIOSStore,
   isNativeIOSPhone,
   isNativeIOSPad,

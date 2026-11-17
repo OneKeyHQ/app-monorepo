@@ -1,0 +1,440 @@
+/** @jest-environment jsdom */
+import type { PropsWithChildren } from 'react';
+
+import { act, render, screen } from '@testing-library/react';
+
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketStockPublicDetail,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
+
+import { StockSimpleChart, StockSimpleChartContent } from './StockSimpleChart';
+import {
+  type IStockSimpleChartRange,
+  buildStockSimpleChartAssetKey,
+  buildStockSimpleChartScopeKey,
+} from './stockSimpleChartData';
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('@onekeyhq/components', () => {
+  const Frame = ({
+    children,
+    testID,
+  }: PropsWithChildren<{ testID?: string }>) => (
+    <div data-testid={testID}>{children}</div>
+  );
+  return {
+    Stack: Frame,
+    YStack: Frame,
+    SizableText: Frame,
+    Button: Frame,
+    Icon: () => null,
+    Skeleton: () => null,
+  };
+});
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  useCurrency: () => ({ id: 'usd' }),
+}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceMarketV2: {
+      fetchMarketTokenKline: async () => ({
+        points: [{ t: Math.floor(Date.now() / 1000), c: 110 }],
+      }),
+    },
+  },
+}));
+const mockMarketActions = { current: { applyChartPriceUpdate: jest.fn() } };
+let mockRunLivePrice: (() => Promise<void>) | undefined;
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useTokenDetailActions: () => mockMarketActions,
+  useMarketV2ContextData: () => ({ store: undefined }),
+}));
+const mockTokenDetail = jest.fn<
+  { isNative?: boolean; networkId: string; tokenAddress: string },
+  []
+>();
+jest.mock('../../hooks/useTokenDetail', () => ({
+  useTokenDetail: () => mockTokenDetail(),
+}));
+jest.mock('../../hooks/StockDetailContext', () => ({
+  useStockDetail: () => ({}),
+}));
+const mockPromiseResult = jest.fn<
+  { result: ReturnType<typeof result>; isLoading: boolean; run: () => void },
+  []
+>();
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: (factory: () => Promise<void>, deps: unknown[]) => {
+    if (deps[0] === mockMarketActions) {
+      mockRunLivePrice = factory;
+      return {};
+    }
+    return mockPromiseResult();
+  },
+}));
+const mockChart = jest.fn<
+  void,
+  [{ data: IMarketTokenChart; pulseLastPoint: boolean; trend: 'up' | 'down' }]
+>();
+jest.mock('@onekeyhq/kit/src/components/StockPriceLineChart', () => ({
+  StockPriceLineChart: (props: Parameters<typeof mockChart>[0]) => {
+    mockChart(props);
+    return <div data-testid="rendered-chart" />;
+  },
+}));
+
+const base = {
+  networkId: 'evm--1',
+  tokenAddress: '0xabc',
+  priceMode: 'token' as const,
+  range: '1D' as const,
+};
+const points: IMarketTokenChart = [
+  [1_800_000_000, 10],
+  [1_800_000_300, 12],
+];
+function result(range: IStockSimpleChartRange, data = points) {
+  return {
+    data,
+    range,
+    scopeKey: buildStockSimpleChartScopeKey({ ...base, range }),
+    assetKey: buildStockSimpleChartAssetKey(base),
+    status: 'success',
+  };
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockTokenDetail.mockReturnValue({
+    isNative: false,
+    networkId: base.networkId,
+    tokenAddress: base.tokenAddress,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: false,
+    run: jest.fn(),
+  });
+});
+
+it.each(['1D', '1W', '1M'] as const)(
+  'keeps the overnight Share %s line on the last candle while reporting the title quote',
+  (range) => {
+    const now = Date.parse('2026-11-12T03:00:00Z');
+    const lastCandle = Date.parse('2026-11-12T00:59:00Z') / 1000;
+    const history: IMarketTokenChart = [
+      [Date.parse('2026-11-11T14:30:00Z') / 1000, 170],
+      [lastCandle, 158.8],
+    ];
+    const onRangeChange = jest.fn();
+    const onPriceUpdate = jest.fn();
+    const props = {
+      ...base,
+      isNative: false,
+      networkId: '',
+      tokenAddress: '',
+      priceMode: 'share' as const,
+      stockId: 'NVDA',
+      range,
+      stockDetail: {
+        price: '173.73',
+        previousClose: '168.89',
+        priceUpdatedAt: '2026-11-11T21:00:00Z',
+        marketStatus: { isOpen: true },
+      } as IMarketStockPublicDetail,
+      onRangeChange,
+      onPriceUpdate,
+    };
+    mockPromiseResult.mockReturnValue({
+      result: {
+        data: history,
+        range,
+        scopeKey: buildStockSimpleChartScopeKey(props),
+        assetKey: buildStockSimpleChartAssetKey(props),
+        status: 'success',
+      },
+      isLoading: false,
+      run: jest.fn(),
+    });
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      const { rerender } = render(<StockSimpleChartContent {...props} />);
+      expect(mockChart.mock.calls.at(-1)?.[0]).toMatchObject({
+        data: history,
+        pulseLastPoint: false,
+        trend: 'up',
+      });
+      expect(onRangeChange).toHaveBeenLastCalledWith({
+        priceMode: 'share',
+        range,
+        baseline: range === '1D' ? 168.89 : 170,
+        latest: 173.73,
+      });
+      expect(onPriceUpdate).toHaveBeenLastCalledWith(158.8);
+
+      rerender(
+        <StockSimpleChartContent
+          {...props}
+          stockDetail={{
+            ...props.stockDetail,
+            priceUpdatedAt: '2026-11-12T00:59:00Z',
+          }}
+        />,
+      );
+      expect(mockChart.mock.calls.at(-1)?.[0]).toMatchObject({
+        data: [...history, [now / 1000, 173.73]],
+        pulseLastPoint: true,
+        trend: 'up',
+      });
+      expect(onPriceUpdate).toHaveBeenLastCalledWith(173.73);
+    } finally {
+      clock.mockRestore();
+    }
+  },
+);
+
+it('renders the Swap asset independently of the Market detail identity', () => {
+  mockTokenDetail.mockReturnValue({
+    networkId: 'evm--56',
+    tokenAddress: '0xdef',
+  });
+  render(<StockSimpleChartContent {...base} isNative={false} />);
+  expect(mockTokenDetail).not.toHaveBeenCalled();
+  expect(screen.getByTestId('rendered-chart')).toBeTruthy();
+  expect(mockChart.mock.calls.at(-1)?.[0].data).toEqual(points);
+});
+
+it('hides the previous Swap range until the requested range completes', () => {
+  const { rerender } = render(
+    <StockSimpleChartContent {...base} isNative={false} />,
+  );
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...base} isNative={false} range="1W" />);
+  expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+  expect(screen.queryByTestId('rendered-chart')).toBeNull();
+  mockPromiseResult.mockReturnValue({
+    result: result('1W'),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...base} isNative={false} range="1W" />);
+  expect(screen.getByTestId('rendered-chart')).toBeTruthy();
+});
+
+it('reports the retained range until the next range succeeds, fails, or is empty', () => {
+  const onRangeChange = jest.fn();
+  const props = {
+    ...base,
+    isNative: false,
+    retainPreviousRange: true,
+    onRangeChange,
+  };
+  const { rerender } = render(<StockSimpleChartContent {...props} />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1D',
+    baseline: 10,
+    latest: 12,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(screen.getByTestId('rendered-chart')).toBeTruthy();
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1D',
+    baseline: 10,
+    latest: 12,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1W', [
+      [1_800_000_000, 20],
+      [1_800_000_300, 15],
+    ]),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1W',
+    baseline: 20,
+    latest: 15,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: { ...result('1D', []), status: 'error' },
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1D" />);
+  expect(screen.getByTestId('stock-simple-chart-error')).toBeTruthy();
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+  mockPromiseResult.mockReturnValue({
+    result: result('1D', []),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1D" />);
+  expect(screen.getByTestId('stock-simple-chart-empty')).toBeTruthy();
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+});
+
+it('keeps the drawn series through consecutive range changes and replaces it on completion', () => {
+  const { rerender } = render(
+    <StockSimpleChart range="1D" priceMode="token" />,
+  );
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  for (const range of ['1W', '1M', '1Y'] as const) {
+    rerender(<StockSimpleChart range={range} priceMode="token" />);
+    expect(screen.queryByTestId('stock-simple-chart-loading')).toBeNull();
+    expect(screen.getByTestId('rendered-chart')).toBeTruthy();
+    expect(mockChart.mock.calls.at(-1)?.[0].data).toEqual(points);
+  }
+  const updated: IMarketTokenChart = [
+    [1_800_000_000, 20],
+    [1_800_000_300, 22],
+  ];
+  mockPromiseResult.mockReturnValue({
+    result: result('1W', updated),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChart range="1W" priceMode="token" />);
+  expect(mockChart.mock.calls.at(-1)?.[0].data).toEqual(updated);
+});
+
+it.each(['token', 'network', 'price source', 'upstream id'])(
+  'hides the previous series when changing %s',
+  (change) => {
+    const { rerender } = render(
+      <StockSimpleChart range="1D" priceMode="token" />,
+    );
+    if (change === 'token')
+      mockTokenDetail.mockReturnValue({
+        networkId: base.networkId,
+        tokenAddress: '0xdef',
+      });
+    if (change === 'network')
+      mockTokenDetail.mockReturnValue({
+        networkId: 'evm--56',
+        tokenAddress: base.tokenAddress,
+      });
+    rerender(
+      <StockSimpleChart
+        range="1W"
+        priceMode={change === 'price source' ? 'share' : 'token'}
+        marketAssetId={change === 'upstream id' ? 'bitcoin' : undefined}
+      />,
+    );
+    expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+    expect(screen.queryByTestId('rendered-chart')).toBeNull();
+  },
+);
+
+it('keeps the initial loading state and shows a failed range request instead of stale data', () => {
+  mockPromiseResult.mockReturnValue({
+    result: { ...result('1D', []), status: 'pending' },
+    isLoading: true,
+    run: jest.fn(),
+  });
+  const { rerender } = render(
+    <StockSimpleChart range="1D" priceMode="token" />,
+  );
+  expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+  mockPromiseResult.mockReturnValue({
+    result: { ...result('1W', []), status: 'error' },
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChart range="1W" priceMode="token" />);
+  expect(screen.getByTestId('stock-simple-chart-error')).toBeTruthy();
+  expect(screen.queryByTestId('rendered-chart')).toBeNull();
+});
+
+it('uses the real live-price polling hook to replace the stale Swap snapshot endpoint', async () => {
+  render(
+    <StockSimpleChartContent
+      {...base}
+      isNative={false}
+      tokenDetail={
+        {
+          price: '100',
+        } as IMarketTokenDetail
+      }
+    />,
+  );
+  expect(mockChart.mock.calls.at(-1)?.[0].data.at(-1)?.[1]).toBe(100);
+  await act(async () => mockRunLivePrice?.());
+  expect(mockChart.mock.calls.at(-1)?.[0].data.at(-1)?.[1]).toBe(110);
+  expect(
+    mockMarketActions.current.applyChartPriceUpdate,
+  ).not.toHaveBeenCalled();
+});
+
+it('publishes the actual displayed last point and clears it when the chart fails', async () => {
+  const onPriceUpdate = jest.fn();
+  const props = {
+    ...base,
+    isNative: false,
+    tokenDetail: { price: '100' } as IMarketTokenDetail,
+    onPriceUpdate,
+  };
+  const { rerender } = render(<StockSimpleChartContent {...props} />);
+  expect(onPriceUpdate).toHaveBeenLastCalledWith(100);
+  await act(async () => mockRunLivePrice?.());
+  expect(onPriceUpdate).toHaveBeenLastCalledWith(110);
+  rerender(<StockSimpleChartContent {...props} requestError />);
+  expect(onPriceUpdate).toHaveBeenLastCalledWith(undefined);
+});
+
+it('reports the drawn range and clears it while the next range loads or fails', () => {
+  const onRangeChange = jest.fn();
+  const props = { ...base, isNative: false, onRangeChange };
+  const { rerender } = render(<StockSimpleChartContent {...props} />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1D',
+    baseline: 10,
+    latest: 12,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+  mockPromiseResult.mockReturnValue({
+    result: result('1W', [
+      [1_800_000_000, 20],
+      [1_800_000_300, 15],
+    ]),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1W',
+    baseline: 20,
+    latest: 15,
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" requestError />);
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+});

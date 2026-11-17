@@ -1,6 +1,5 @@
 import type { IWalletKit } from '@reown/walletkit';
 import type { IKeyValueStorage } from '@walletconnect/keyvaluestorage';
-import type { pino } from '@walletconnect/logger';
 import type SignClient from '@walletconnect/sign-client';
 import type {
   ProposalTypes,
@@ -84,7 +83,14 @@ export type IWalletConnectEventSessionUpdateParams =
 export type IWalletConnectEventSessionEventParams =
   IWalletConnectSignClientEventsParams['session_event'];
 
-export type IWalletConnectLoggerLevel = pino.Level;
+// Mirrors pino's Level union; @walletconnect/logger v3 no longer re-exports it
+export type IWalletConnectLoggerLevel =
+  | 'fatal'
+  | 'error'
+  | 'warn'
+  | 'info'
+  | 'debug'
+  | 'trace';
 export type IWalletConnectKeyValueStorage = IKeyValueStorage;
 export type IWalletConnectSignClient = SignClient;
 export type IWalletConnectWeb3Wallet = IWalletKit;

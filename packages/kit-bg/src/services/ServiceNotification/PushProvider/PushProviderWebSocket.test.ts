@@ -13,7 +13,13 @@ const mockSocket = {
   emit: jest.fn(),
   timeout: jest.fn(),
 };
-const mockIo = jest.fn(() => mockSocket);
+type IMockIoOptions = {
+  query?: Record<string, string>;
+  extraHeaders?: Record<string, string>;
+};
+const mockIo = jest.fn(
+  (_endpoint: string, _options?: IMockIoOptions) => mockSocket,
+);
 const mockGetEndpointInfo = jest.fn<
   Promise<{ endpoint: string; name: EServiceEndpointEnum }>,
   [{ name: EServiceEndpointEnum }]
@@ -21,10 +27,11 @@ const mockGetEndpointInfo = jest.fn<
 const mockAppEventEmit = jest.fn();
 const mockConsoleLog = jest.fn();
 const mockOneKeyIdLogoutLog = jest.fn();
+const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockNotificationStatusSet = jest.fn();
 
 jest.mock('socket.io-client', () => ({
-  io: () => mockIo(),
+  io: (...args: Parameters<typeof mockIo>) => mockIo(...args),
 }));
 
 jest.mock('../../../endpoints', () => ({
@@ -65,6 +72,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         onekeyIdLogout: (...args: unknown[]) => {
           mockOneKeyIdLogoutLog(...args);
         },
+        onekeyIdRemoteLogoutFlow: (...args: unknown[]) => {
+          mockOneKeyIdRemoteLogoutFlowLog(...args);
+        },
       },
     },
   },
@@ -72,6 +82,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
 import type { IIdentityExitPlanId } from '@onekeyhq/shared/types/prime/identityExitTypes';
@@ -183,22 +194,30 @@ async function getPrimeDeviceLogoutHandler(): Promise<
   );
 }
 
+// initWebSocket() awaits getEndpointInfo() before it calls io(), so one
+// microtask tick is enough - the same assumption getSocketHandler() makes.
+async function createProviderAndWaitForSocket() {
+  createFixture();
+  await Promise.resolve();
+}
+
 const logoutPayload: IPrimeDeviceLogoutInfo = {
   msgId: 'logout-message-1',
   id: 'device-1',
   emails: ['user@example.com'],
 };
 
-describe('PushProviderWebSocket prime device logout', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSocketHandlers.clear();
-    mockGetEndpointInfo.mockResolvedValue({
-      endpoint: 'wss://notification.example.com',
-      name: EServiceEndpointEnum.NotificationWebSocket,
-    });
+// Both suites build the same provider fixture against the same endpoint.
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockSocketHandlers.clear();
+  mockGetEndpointInfo.mockResolvedValue({
+    endpoint: 'wss://notification.example.com',
+    name: EServiceEndpointEnum.NotificationWebSocket,
   });
+});
 
+describe('PushProviderWebSocket prime device logout', () => {
   test('does not ACK when durable remote logout staging rejects', async () => {
     const fixture = createFixture();
     fixture.stageRemoteOneKeyIdLogoutNotification.mockRejectedValue(
@@ -214,6 +233,19 @@ describe('PushProviderWebSocket prime device logout', () => {
     expect(fixture.ackNotificationMessage).not.toHaveBeenCalled();
     expect(fixture.executeIdentityExit).not.toHaveBeenCalled();
     expect(mockAppEventEmit).not.toHaveBeenCalled();
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetMessage',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetStaging',
+      status: 'failed',
+      flowId: logoutPayload.msgId,
+      operationId: undefined,
+      reason:
+        'WebSocket: remote OneKey ID logout durable staging failed: Remote logout journal could not be persisted',
+    });
   });
 
   test('ACKs only after durable staging and retains retry when execution rejects', async () => {
@@ -254,6 +286,27 @@ describe('PushProviderWebSocket prime device logout', () => {
       expect.objectContaining({ delivery: 'presentationHandled' }),
     );
     expect(mockAppEventEmit).not.toHaveBeenCalled();
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetStaging',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      reason: 'acknowledged=false presentationHandled=false',
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetAcknowledgement',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetReconciliation',
+      status: 'failed',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      reason:
+        'WebSocket: remote OneKey ID logout reconciliation failed: Remote identity reconciliation failed',
+    });
   });
 
   test('continues local reconciliation when the server ACK fails', async () => {
@@ -366,6 +419,24 @@ describe('PushProviderWebSocket prime device logout', () => {
     expect(JSON.stringify(mockConsoleLog.mock.calls)).not.toContain(
       logoutPayload.emails[0],
     );
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetReconciliation',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      oneKeyIdLoggedOut: true,
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetPresentation',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      reason: 'PrimeDeviceLogout event emitted',
+      oneKeyIdLoggedOut: true,
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdRemoteLogoutFlowLog.mock.calls),
+    ).not.toContain(logoutPayload.emails[0]);
   });
 
   test('retries a durable remote logout when the socket connects again', async () => {
@@ -405,5 +476,42 @@ describe('PushProviderWebSocket prime device logout', () => {
         messageId: 'pending-message',
       },
     );
+  });
+});
+
+describe('PushProviderWebSocket sticky key', () => {
+  test('sends the sticky key as an underscored query parameter', async () => {
+    await createProviderAndWaitForSocket();
+
+    expect(mockIo).toHaveBeenCalledTimes(1);
+    const [endpoint, options] = mockIo.mock.calls[0] ?? [];
+    expect(endpoint).toBe('wss://notification.example.com');
+    expect(options).toMatchObject({
+      query: {
+        x_onekey_client_sticky_key: `${
+          platformEnv.appPlatform ?? 'unknown'
+        }:prod:instance-1`,
+      },
+    });
+    // Reverting to extraHeaders would silently drop the key for WebSocket.
+    expect(options).not.toHaveProperty('extraHeaders');
+  });
+
+  test('labels the test environment in the sticky key', async () => {
+    mockGetEndpointInfo.mockResolvedValue({
+      endpoint: 'wss://notification.onekeytest.com',
+      name: EServiceEndpointEnum.NotificationWebSocket,
+    });
+
+    await createProviderAndWaitForSocket();
+
+    const [, options] = mockIo.mock.calls[0] ?? [];
+    expect(options).toMatchObject({
+      query: {
+        x_onekey_client_sticky_key: `${
+          platformEnv.appPlatform ?? 'unknown'
+        }:test:instance-1`,
+      },
+    });
   });
 });

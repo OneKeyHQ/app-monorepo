@@ -9,6 +9,7 @@ import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection/showDevOnlyPasswordDialog';
 import { SettingTestIDs } from '../testIDs';
 
+import { advanceDevModeClickSequence } from './devModeClickTracker';
 import {
   cacheDevOnlyPassword,
   clearCachedDevOnlyPassword,
@@ -17,7 +18,7 @@ import {
 
 // for open dev mode
 let clickCount = 0;
-let startTime: Date | undefined;
+let startTime: number | undefined;
 let isPasswordVerifying = false;
 
 const resetClickCount = () => {
@@ -27,7 +28,7 @@ const resetClickCount = () => {
 };
 
 const showPromoteDialog = async () =>
-  new Promise((resolve, reject) => {
+  new Promise<void>((resolve, reject) => {
     Dialog.show({
       title: 'Danger Zone',
       tone: 'warning',
@@ -38,9 +39,15 @@ const showPromoteDialog = async () =>
       confirmButtonProps: {
         testID: SettingTestIDs.confirmButton,
       },
-      onConfirm: resolve,
-      onCancel: (close) => {
-        void close();
+      onConfirm: async ({ close }) => {
+        // Wait for the native sheet and its portal to finish closing before
+        // the next dialog is mounted. Otherwise the exiting backdrop can
+        // remain above the next dialog and intercept taps on iOS.
+        await close({ flag: 'confirm' });
+        resolve();
+      },
+      onCancel: async (close) => {
+        await close();
         reject(new Error('User canceled'));
       },
     });
@@ -86,20 +93,23 @@ export const showDevModePasswordDialog = async () => {
           </Dialog.FormField>
         </Dialog.Form>
       ),
-      onConfirm: async ({ getForm }) => {
+      onConfirm: async ({ getForm, close }) => {
         const form = getForm();
         if (form) {
           const password = form.getValues('password');
           if (isCorrectDevOnlyPassword(password)) {
             cacheDevOnlyPassword(password);
+            await close({ flag: 'confirm' });
             resolve(true);
           } else {
             clearCachedDevOnlyPassword(password);
+            await close();
             reject(new OneKeyLocalError('Invalid dev password'));
           }
         }
       },
-      onCancel: () => {
+      onCancel: async (close) => {
+        await close();
         reject(new OneKeyLocalError('User canceled'));
       },
     });
@@ -107,23 +117,22 @@ export const showDevModePasswordDialog = async () => {
 };
 
 export const handleOpenDevMode = async (callback: () => void) => {
-  const nowTime = new Date();
-  if (clickCount === 0) {
-    callback();
-  }
   if (isPasswordVerifying) {
     return;
   }
-  if (
-    startTime === undefined ||
-    Math.round(nowTime.getTime() - startTime.getTime()) > 5000
-  ) {
-    startTime = nowTime;
-    clickCount = 0;
-  } else {
-    clickCount += 1;
+  const clickResult = advanceDevModeClickSequence({
+    state: {
+      clickCount,
+      startTime,
+    },
+    now: Date.now(),
+  });
+  clickCount = clickResult.state.clickCount;
+  startTime = clickResult.state.startTime;
+  if (clickResult.shouldCopyVersion) {
+    callback();
   }
-  if (clickCount >= 9) {
+  if (clickResult.shouldOpenDevMode) {
     isPasswordVerifying = true;
     try {
       await showDevModePasswordDialog();

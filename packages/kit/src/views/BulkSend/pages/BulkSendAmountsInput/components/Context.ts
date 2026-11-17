@@ -82,6 +82,18 @@ export type IBulkSendAmountsInputContext = {
   currentModeData: IMobileModeData;
   // Minimum transfer amount per address (from vault settings)
   minTransferAmount: string;
+  // Scaled-UI (rebase) token multiplier from the current token snapshot;
+  // undefined for ordinary tokens and native coins. User input and balances
+  // shown on this page are display-basis (raw × multiplier); submit converts
+  // back to raw. See tokenRebaseUtils (OK-58046).
+  rebaseMultiplier: string | undefined;
+  // Display-basis balance (balanceParsed × rebaseMultiplier); equals the raw
+  // balance for ordinary tokens. undefined until token details resolve.
+  displayBalance: string | undefined;
+  // ManyToOne/ManyToMany with a scaled-UI token: the per-sender balance
+  // pipeline strips the multiplier, so amounts cannot be converted reliably.
+  // Submit fails closed when this is true.
+  isScaledUiUnsupported: boolean;
   // Interval settings (ManyToOne/ManyToMany only)
   intervalSettings: IIntervalSettings;
   setIntervalSettings: (settings: IIntervalSettings) => void;
@@ -163,6 +175,9 @@ export const BulkSendAmountsInputContext =
     updateCurrentModeData: () => {},
     currentModeData: { ...defaultModeData },
     minTransferAmount: '0',
+    rebaseMultiplier: undefined,
+    displayBalance: undefined,
+    isScaledUiUnsupported: false,
     intervalSettings: {
       mode: EIntervalMode.None,
       minSeconds: '',

@@ -1,18 +1,7 @@
-export function shouldApplyMinimumOrderGuard({
-  isSpot,
-  orderMode,
-  orderType,
-  hasBboPriceMode,
-}: {
-  isSpot: boolean;
-  orderMode?: 'standard' | 'trigger' | 'scale' | 'twap';
-  orderType?: 'market' | 'limit';
-  hasBboPriceMode?: boolean;
-}) {
-  return !(
-    isSpot &&
-    orderMode === 'standard' &&
-    orderType === 'limit' &&
-    !hasBboPriceMode
+import type BigNumber from 'bignumber.js';
+
+export function isBelowMinimumOrderValue(orderValue?: BigNumber): boolean {
+  return Boolean(
+    orderValue?.isFinite() && orderValue.gt(0) && orderValue.lt(10),
   );
 }

@@ -25,6 +25,11 @@ export type IToken = {
   uniqueKey?: string;
   sendAddress?: string;
   coingeckoId?: string;
+  // Scaled-UI / rebase tokens (e.g. xStocks on Solana Token-2022 Scaled UI
+  // Amount, TON TEP-0526). Raw on-chain balances never change; wallets must
+  // display `balanceParsed × balanceMultiplier` and build transactions with
+  // the raw amount. Absent/invalid means no scaling. See tokenRebaseUtils.
+  balanceMultiplier?: string;
 
   // for all networks
   order?: number;
@@ -42,11 +47,25 @@ export type IToken = {
   defiMarked?: boolean;
   dappName?: string | null;
   dappType?: ITokenDappType;
+
+  // Shared-balance group (e.g. Arc evm--5042: native USDC and the ERC-20
+  // interface 0x3600… read the SAME balance). The server marks the member
+  // that must be skipped by totals with BOTH fields together; the primary and
+  // every other token lack both. `sharedBalanceWith` is the primary's
+  // `address` and may be '' (native), so presence checks must use
+  // `!== undefined`. See sharedBalanceUtils.
+  sharedBalanceExcluded?: boolean;
+  sharedBalanceWith?: string;
 };
 
 export type ITokenFiat = {
   balance: string;
   balanceParsed: string;
+  // See IToken.balanceMultiplier — mirrored here so display leaves that only
+  // subscribe to the fiat map can compute the display balance. `balance` /
+  // `balanceParsed` above stay RAW; `fiatValue` is already multiplied
+  // server-side.
+  balanceMultiplier?: string;
   frozenBalance?: string;
   frozenBalanceParsed?: string;
   totalBalance?: string;
@@ -60,6 +79,11 @@ export type ITokenFiat = {
   // Internal cache writes normalize to 'usd' so a currency switch can re-render
   // existing data via client-side conversion instead of clearing the cache.
   currency?: string;
+  // RESOLVED shared-balance decision (see IToken.sharedBalanceExcluded):
+  // true only when a valid primary is present in the summed set, so fiat-map
+  // consumers that never see the token object can still skip this entry in
+  // totals. Row display keeps using `fiatValue` unchanged.
+  sharedBalanceExcludedFromTotal?: boolean;
 };
 
 export enum ECustomTokenStatus {
@@ -78,6 +102,15 @@ export type ICloudSyncCustomToken = ICloudSyncCustomTokenInfo & {
 };
 export type ICustomTokenItem = IAccountToken;
 
+export type IHomeTokenRequestInvalidation = {
+  mainRuntimeId: string;
+  generation: number;
+};
+
+export type IHomeTokenRequest = IHomeTokenRequestInvalidation & {
+  ownerKey: string;
+};
+
 export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
@@ -91,6 +124,7 @@ export type IFetchAccountTokensParams = {
   unblockedTokens?: string[];
   blockedTokens?: string[];
   flag?: string;
+  homeRequest?: IHomeTokenRequest;
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
 
@@ -115,6 +149,8 @@ export type ITokenData = {
 };
 
 export type IFetchAccountTokensResp = {
+  homeTokenRoundRef?: string;
+  mergeDeriveAssets?: boolean;
   allTokens?: ITokenData;
   tokens: ITokenData;
   riskTokens: ITokenData;
@@ -130,6 +166,24 @@ export type IFetchAccountTokensResp = {
   >;
   aggregateTokenMap?: Record<string, ITokenFiat>;
 };
+
+export type IAccountTokensCacheScope = {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+};
+
+/** Display seed only: neither query coverage nor spendable balances are guaranteed. */
+export type ICachedAccountTokens = IAccountTokensCacheScope &
+  Pick<
+    IFetchAccountTokensResp,
+    'tokens' | 'smallBalanceTokens' | 'riskTokens'
+  > & {
+    capturedAt?: number;
+    source: 'home-token-list' | 'dust-sweep' | 'persisted';
+    coverage: 'partial';
+  };
 
 export type IFetchTokenDetailParams = {
   accountId: string;

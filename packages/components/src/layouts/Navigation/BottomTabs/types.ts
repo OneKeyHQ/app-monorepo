@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type TabView from '@onekeyfe/react-native-tab-view';
-import type { AppleIcon, TabRole } from '@onekeyfe/react-native-tab-view';
+import type BottomTabs from '@onekeyfe/react-native-bottom-tabs';
+import type { AppleIcon, TabRole } from '@onekeyfe/react-native-bottom-tabs';
 import type {
   Descriptor,
   NavigationHelpers,
@@ -12,15 +12,22 @@ import type {
 } from '@react-navigation/native';
 import type { ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
 
+export type NativeBottomTabIconSource =
+  | ImageSourcePropType
+  | AppleIcon
+  | { iconName: string }
+  | string;
+
 export type NativeBottomTabNavigationEventMap = {
   /**
    * Event which fires on tapping on the tab in the tab bar.
    */
   tabPress: { data: undefined; canPreventDefault: true };
   /**
-   * Event which fires on long press on tab bar.
+   * Event which fires when the focused tab is pressed twice within the
+   * platform double-tap timeout, after both presses went through `tabPress`.
    */
-  tabLongPress: { data: undefined };
+  tabDoublePress: { data: undefined };
 };
 
 export type NativeBottomTabNavigationHelpers = NavigationHelpers<
@@ -64,9 +71,11 @@ export type NativeBottomTabNavigationOptions = {
   tabBarLabel?: string;
 
   /**
-   * Function that given { focused: boolean } returns ImageSource or AppleIcon to display in the navigation bar.
+   * Function that given { focused: boolean } returns ImageSource, AppleIcon, or packaged icon name to display in the navigation bar.
    */
-  tabBarIcon?: (props: { focused: boolean }) => ImageSourcePropType | AppleIcon;
+  tabBarIcon?: (props: {
+    focused: boolean;
+  }) => NativeBottomTabIconSource | undefined;
 
   /**
    * Whether the tab bar item is visible. Defaults to true.
@@ -145,7 +154,7 @@ export type BottomTabBarProps = {
 
 export type NativeBottomTabNavigationConfig = Partial<
   Omit<
-    React.ComponentProps<typeof TabView>,
+    React.ComponentProps<typeof BottomTabs>,
     | 'navigationState'
     | 'onIndexChange'
     | 'renderScene'
@@ -155,7 +164,7 @@ export type NativeBottomTabNavigationConfig = Partial<
     | 'getBadge'
     | 'getBadgeBackgroundColor'
     | 'getBadgeTextColor'
-    | 'onTabLongPress'
+    | 'onTabDoublePress'
     | 'getActiveTintColor'
     | 'getHidden'
     | 'getTestID'
@@ -164,6 +173,7 @@ export type NativeBottomTabNavigationConfig = Partial<
     | 'getFreezeOnBlur'
     | 'getSceneStyle'
     | 'getPreventsDefault'
+    | 'sideAccessoryIcon'
   >
 > & {
   /**
@@ -171,4 +181,5 @@ export type NativeBottomTabNavigationConfig = Partial<
    */
   tabBarHidden?: boolean;
   tabBar?: (props: BottomTabBarProps) => React.ReactNode;
+  sideAccessoryIcon?: ImageSourcePropType | { iconName: string } | string;
 };

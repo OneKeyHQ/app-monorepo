@@ -1,49 +1,92 @@
 /* cspell:ignore Infini */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, Toast, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type {
+  IPrimeCardCheckoutFlow,
+  IPrimePaymentMethod,
+} from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import {
+  isPrimeAppleStorePayment,
+  isPrimeStoreOnlyPayment,
+  isPrimeStorePayment,
+} from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
+import type {
+  EPrimeFeatures,
+  EPrimePages,
+  IPrimeParamList,
+} from '@onekeyhq/shared/src/routes/prime';
 
-import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { getPrimeCardCheckoutMode } from '../../hooks/primeCardCheckoutMode';
+import {
+  getPrimeInfiniPaymentEntryGuard,
+  getPrimeInfiniPendingPaymentContext,
+} from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { getPrimeInfiniPaymentAssets } from '../../hooks/primeInfiniPaymentUtils';
+import { createPrimeInfiniRemotePendingPaymentResolver } from '../../hooks/primeInfiniRemotePendingPayment';
+import { retirePrimeWebCheckout } from '../../hooks/retirePrimeWebCheckout';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { usePrimeWebCheckoutPurchase } from '../../hooks/usePrimeWebCheckoutPurchase';
+import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
 import { ensurePrimePurchaseEligible } from '../../primePurchaseEligibility';
 import {
   finishPrimeSubscriptionPurchaseSuccess,
   preparePrimeSubscriptionPurchaseSuccess,
 } from '../../primeSubscriptionPurchaseSuccess';
+import { getPrimeEmbeddedCheckoutFallbackTrigger } from '../../purchasesSdk/primeEmbeddedCheckoutFallback';
+import {
+  beginStripePaymentElementAttempt,
+  getStripePaymentElementState,
+} from '../../purchasesSdk/stripePaymentElementHealth';
+import { showPrimeInfiniWaitingDialog } from '../PrimeInfiniWaitingDialog';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
+import { showPrimeInfiniUnfinishedPaymentDialog } from './showPrimeInfiniUnfinishedPaymentDialog';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
-import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from '../../hooks/usePrimePaymentTypes';
 import type { IPrimeSubscriptionPurchaseSuccessPayload } from '../../primeSubscriptionPurchaseSuccess';
 
 type IPrimePaymentMethodKey = 'native' | 'webview' | 'webStripe' | 'crypto';
 
 type IPrimePaymentMethodOption = {
   key: IPrimePaymentMethodKey;
-  label: string;
+  label: ETranslations;
   icon?: IActionListItemProps['icon'];
   testID?: string;
 };
 
 const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
   key: 'crypto',
-  label: 'Crypto',
+  label: ETranslations.prime_crypto_payment__label,
   icon: 'CryptoCoinOutline',
   testID: 'prime-pay-with-crypto',
 };
@@ -51,7 +94,7 @@ const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
 const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webStripe',
-    label: 'Credit card',
+    label: ETranslations.prime_credit_card__label,
     icon: 'CreditCardOutline',
     testID: 'prime-pay-with-card',
   },
@@ -61,7 +104,7 @@ const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webview',
-    label: 'Purchase by Webview',
+    label: ETranslations.prime_credit_card__label,
     icon: 'CreditCardOutline',
   },
   CRYPTO_PAYMENT_METHOD,
@@ -70,49 +113,152 @@ const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'native',
-    label: 'Purchase by GooglePlay',
+    label: ETranslations.prime_google_play__label,
     icon: 'GooglePlayBrand',
   },
   ...ANDROID_PAYMENT_METHODS,
 ];
 
+function getFreeTrialPaymentMethod(
+  freeTrial: IPackageFreeTrial | undefined,
+): IPrimePaymentMethodKey | undefined {
+  if (freeTrial?.source === 'native') {
+    return 'native';
+  }
+  if (freeTrial?.source === 'web') {
+    return platformEnv.isNativeAndroid ? 'webview' : 'webStripe';
+  }
+  return undefined;
+}
+
 function PrimePaymentMethodItems({
   methods,
+  freeTrial,
   onSelect,
 }: {
   methods: IPrimePaymentMethodOption[];
-  onSelect: (method: IPrimePaymentMethodKey) => Promise<boolean>;
+  freeTrial?: IPackageFreeTrial;
+  onSelect: (
+    method: IPrimePaymentMethodKey,
+    forceHostedCardCheckout?: boolean,
+  ) => Promise<boolean>;
 }) {
+  const intl = useIntl();
+  const [forceHostedCardCheckout, setForceHostedCardCheckout] = useState(false);
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
+  const pendingMethodRef = useRef<IPrimePaymentMethodKey | undefined>(
+    undefined,
+  );
+  const supportsHostedCardCheckout = methods.some(
+    (method) => method.key === 'webStripe',
+  );
+  // Android can show native and Web checkout together. A trial belongs only
+  // to the offering source that reported it, so never copy it to both rows.
+  const freeTrialMethod = getFreeTrialPaymentMethod(freeTrial);
+  const hasFreeTrialMethod = methods.some(
+    (method) => method.key === freeTrialMethod,
+  );
+  let trialIncludedSubtitle: string | undefined;
+  if (freeTrial?.periodUnit === 'day') {
+    trialIncludedSubtitle = intl.formatMessage(
+      { id: ETranslations.prime_free_trial_included_days__desc },
+      { count: freeTrial.periodNumber },
+    );
+  } else if (freeTrial) {
+    trialIncludedSubtitle = intl.formatMessage({
+      id: ETranslations.prime_free_trial_included__desc,
+    });
+  }
+  const getMethodSubtitle = (method: IPrimePaymentMethodOption) => {
+    if (!freeTrial || !hasFreeTrialMethod) {
+      return undefined;
+    }
+    if (method.key === 'crypto') {
+      return intl.formatMessage({
+        id: ETranslations.prime_no_free_trial__desc,
+      });
+    }
+    return method.key === freeTrialMethod ? trialIncludedSubtitle : undefined;
+  };
   const handleSelect = useCallback(
     async (method: IPrimePaymentMethodKey) => {
-      if (pendingMethod) {
+      if (pendingMethodRef.current) {
         return;
       }
+      pendingMethodRef.current = method;
       setPendingMethod(method);
+      const clearPendingMethod = () => {
+        pendingMethodRef.current = undefined;
+        setPendingMethod(undefined);
+      };
       try {
-        const didStart = await onSelect(method);
+        const didStart = await onSelect(method, forceHostedCardCheckout);
         if (!didStart) {
-          setPendingMethod(undefined);
+          clearPendingMethod();
         }
       } catch (error) {
         // Keep the current picker retryable if validation or closing the picker
         // fails before the selected payment flow starts.
-        setPendingMethod(undefined);
+        clearPendingMethod();
         throw error;
       }
     },
-    [onSelect, pendingMethod],
+    [forceHostedCardCheckout, onSelect],
   );
   return (
     <>
+      {supportsHostedCardCheckout ? (
+        <Dialog.Header>
+          <MultipleClickStack
+            key={String(forceHostedCardCheckout)}
+            testID="prime-payment-method-title"
+            onPress={() => {
+              if (!pendingMethodRef.current) {
+                setForceHostedCardCheckout((previous) => !previous);
+              }
+            }}
+          >
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_method__title,
+              })}
+            </Dialog.Title>
+          </MultipleClickStack>
+        </Dialog.Header>
+      ) : null}
       {methods.map((method) => (
         <ListItem
           key={method.key}
           drillIn
           icon={method.icon}
           testID={method.testID ?? `prime-payment-method-${method.key}`}
-          title={method.label}
+          title={intl.formatMessage({ id: method.label })}
+          renderItemText={
+            method.key === 'webStripe' && forceHostedCardCheckout
+              ? (textProps: IListItemTextProps) => (
+                  <ListItem.Text
+                    {...textProps}
+                    primary={
+                      <XStack alignItems="center" gap="$1">
+                        <SizableText
+                          size="$bodyLgMedium"
+                          {...textProps.primaryTextProps}
+                        >
+                          {intl.formatMessage({ id: method.label })}
+                        </SizableText>
+                        <Icon
+                          name="ArrowTopRightOutline"
+                          size="$4"
+                          color="$iconSubdued"
+                          testID="prime-card-hosted-checkout-icon"
+                        />
+                      </XStack>
+                    }
+                  />
+                )
+              : undefined
+          }
+          subtitle={getMethodSubtitle(method)}
           disabled={Boolean(pendingMethod)}
           isLoading={pendingMethod === method.key}
           onPress={async () => {
@@ -126,16 +272,20 @@ function PrimePaymentMethodItems({
 
 export function usePrimePurchaseCallback({
   onPurchase,
+  networkId,
 }: {
   onPurchase?: () => void | Promise<void>;
+  networkId?: string;
 } = {}) {
   const { purchasePackageNative, purchasePackageWeb } = usePrimePayment();
   const { supabaseUser, user } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
+  const { purchaseByHostedLink, fallbackToHostedLink } =
+    usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
-    usePrimeInfiniPurchase();
+    usePrimeInfiniPurchase({ networkId });
 
   const purchaseByNativeUnchecked = useCallback(
     async ({
@@ -148,11 +298,10 @@ export function usePrimePurchaseCallback({
       // purchasePackageNative owns the post-purchase refresh for both
       // outcomes (claim -> refresh -> emit on success, one defensive refresh
       // on failure); refreshing here again would duplicate it.
-      const result = await purchasePackageNative?.({
+      await purchasePackageNative?.({
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
       });
-      console.log('purchasePackageNative result >>>>>>', result);
     },
     [purchasePackageNative],
   );
@@ -172,13 +321,37 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
-        const purchaseResult = await purchasePackageWeb?.({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          email: supabaseUser?.email || '',
-          locale: intl.locale,
-          currency,
-          featureName,
-        });
+        // A click is always a new payment; an earlier hosted checkout neither
+        // gates nor resumes it. See retirePrimeWebCheckout.
+        await retirePrimeWebCheckout(purchaseUserId);
+        beginStripePaymentElementAttempt();
+        let purchaseResult:
+          | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
+          | undefined;
+        try {
+          purchaseResult = await purchasePackageWeb?.({
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            email: supabaseUser?.email || '',
+            locale: intl.locale,
+            currency,
+            featureName,
+          });
+        } catch (error) {
+          const fallbackTrigger = getPrimeEmbeddedCheckoutFallbackTrigger({
+            error,
+            paymentElementState: getStripePaymentElementState(),
+          });
+          if (!fallbackTrigger) {
+            throw error;
+          }
+          void fallbackToHostedLink({
+            trigger: fallbackTrigger,
+            selectedSubscriptionPeriod,
+            currency,
+            featureName,
+          });
+          return;
+        }
         if (
           purchaseUserId &&
           purchaseResult?.customerInfo.entitlements.active.Prime?.isActive
@@ -197,7 +370,13 @@ export function usePrimePurchaseCallback({
         await finishPrimeSubscriptionPurchaseSuccess(successfulPurchase);
       }
     },
-    [intl.locale, purchasePackageWeb, supabaseUser?.email, user?.onekeyUserId],
+    [
+      fallbackToHostedLink,
+      intl.locale,
+      purchasePackageWeb,
+      supabaseUser?.email,
+      user?.onekeyUserId,
+    ],
   );
 
   const purchaseByNative = useCallback(
@@ -208,13 +387,14 @@ export function usePrimePurchaseCallback({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId: user?.onekeyUserId,
+          intl,
         }))
       ) {
         return;
       }
       await purchaseByNativeUnchecked(params);
     },
-    [purchaseByNativeUnchecked, user?.onekeyUserId],
+    [intl, purchaseByNativeUnchecked, user?.onekeyUserId],
   );
 
   const purchaseByWebview = useCallback(
@@ -226,13 +406,14 @@ export function usePrimePurchaseCallback({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId: user?.onekeyUserId,
+          intl,
         }))
       ) {
         return;
       }
       await purchaseByWebviewUnchecked(params);
     },
-    [purchaseByWebviewUnchecked, user?.onekeyUserId],
+    [intl, purchaseByWebviewUnchecked, user?.onekeyUserId],
   );
 
   // TODO move to jotai context method
@@ -241,10 +422,12 @@ export function usePrimePurchaseCallback({
       selectedSubscriptionPeriod,
       currency,
       featureName,
+      freeTrial,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       currency?: string;
       featureName?: EPrimeFeatures;
+      freeTrial?: IPackageFreeTrial;
     }) => {
       // primeSubscribeIntent must fire exactly once per actual payment
       // attempt with its channel (see the scene doc: it pairs with
@@ -252,78 +435,261 @@ export function usePrimePurchaseCallback({
       // logged in each concrete channel branch instead of when the payment
       // method picker is shown. The crypto path logs it inside
       // usePrimeInfiniPurchase with paymentMethod: 'crypto'.
-      const logSubscribeIntent = (paymentMethod: IPrimePaymentMethod) => {
+      const logSubscribeIntent = (
+        paymentMethod: IPrimePaymentMethod,
+        cardCheckoutFlow?: IPrimeCardCheckoutFlow,
+      ) => {
         defaultLogger.prime.subscription.primeSubscribeIntent({
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
           currency,
           paymentMethod,
+          cardCheckoutFlow,
         });
+      };
+      const startCryptoPayment = async ({
+        subscriptionPeriod,
+        createNewPayment = true,
+        remotePaymentResumeIntent,
+      }: {
+        subscriptionPeriod: ISubscriptionPeriod;
+        createNewPayment?: boolean;
+        remotePaymentResumeIntent?: IPrimeParamList[EPrimePages.PrimeInfiniPayment]['remotePaymentResumeIntent'];
+      }) => {
+        try {
+          await purchaseByCryptoUnchecked({
+            selectedSubscriptionPeriod: subscriptionPeriod,
+            featureName,
+            createNewPayment,
+            ...(remotePaymentResumeIntent ? { remotePaymentResumeIntent } : {}),
+          });
+        } catch (error) {
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          throw error;
+        }
+      };
+      const resolveRemotePendingPayment =
+        createPrimeInfiniRemotePendingPaymentResolver();
+      let confirmedLocalNewPayment = false;
+      const continueRemotePendingPayment = async (
+        expectedOneKeyUserId: string | undefined,
+        beforeContinue: () => void | Promise<void>,
+      ): Promise<'continuePurchase' | 'resumed' | 'cancelled'> => {
+        if (confirmedLocalNewPayment) return 'continuePurchase';
+        if (
+          !expectedOneKeyUserId ||
+          expectedOneKeyUserId !== user?.onekeyUserId
+        ) {
+          throw new OneKeyLocalError('Infini purchase user changed');
+        }
+        try {
+          const authContext =
+            await backgroundApiProxy.servicePrime.getInfiniCheckoutAuthContext();
+          if (authContext.onekeyUserId !== expectedOneKeyUserId) {
+            throw new OneKeyLocalError('Infini purchase user changed');
+          }
+          const validateAuth = () =>
+            backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent({
+              context: authContext,
+            });
+          const lookup =
+            await backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+              expectedOneKeyUserId,
+              authContext,
+            });
+          const options = lookup.pendingPayment
+            ? await backgroundApiProxy.servicePrime
+                .apiGetInfiniPaymentOptions()
+                .catch(() => [])
+            : [];
+          const decision = await resolveRemotePendingPayment({
+            lookup,
+            assets: getPrimeInfiniPaymentAssets(options),
+            choose: (canResume, lookupUnavailable) =>
+              showPrimeInfiniUnfinishedPaymentDialog({
+                intl,
+                canResume: canResume && !isPrimeStoreOnlyPayment(),
+                lookupUnavailable,
+              }),
+            validateAuth,
+            shouldContinue: () => true,
+          });
+          if (decision.type === 'cancelled') return 'cancelled';
+          if (decision.type === 'new') return 'continuePurchase';
+          if (isPrimeStoreOnlyPayment()) return 'cancelled';
+          await beforeContinue();
+          if (!(await validateAuth())) return 'cancelled';
+          await startCryptoPayment({
+            subscriptionPeriod:
+              decision.recovery.plan === 'monthly' ? 'P1M' : 'P1Y',
+            createNewPayment: false,
+            remotePaymentResumeIntent: {
+              paymentId: decision.recovery.payment.paymentId,
+              authContext,
+            },
+          });
+          return 'resumed';
+        } catch (error) {
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          throw error;
+        }
       };
       const continuePendingCryptoPayment = async ({
         beforeContinue,
       }: {
         beforeContinue: () => void | Promise<void>;
-      }) => {
-        // The guard hits the network, so a failure means the active-payment
-        // state is unknown. Block the attempt instead of falling through to a
-        // second channel: a duplicate charge is worse than a retryable error.
+      }): Promise<'continuePurchase' | 'resumed' | 'cancelled'> => {
         let entryGuard: Awaited<
           ReturnType<typeof getPrimeInfiniPaymentEntryGuard>
         >;
+        let pendingContext:
+          | Awaited<ReturnType<typeof getPrimeInfiniPendingPaymentContext>>
+          | undefined;
         try {
           entryGuard = await getPrimeInfiniPaymentEntryGuard();
-        } catch {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
+        } catch (error) {
+          logPrimeInfiniPaymentFlow({
+            stage: 'paymentContext',
+            status: 'failed',
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            featureName,
+            plan: selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly',
+            reason: 'paymentEntryGuardFailed',
+            error,
           });
-          throw new OneKeyLocalError({
-            message: 'Unable to verify the Infini payment session',
-            autoToast: false,
-          });
+          // A failed invoice refresh must still leave the user a way to
+          // replace the stored order after accepting the duplicate risk.
+          pendingContext = await getPrimeInfiniPendingPaymentContext();
+          if (
+            !pendingContext.pendingPaymentSession ||
+            !pendingContext.onekeyUserId
+          ) {
+            showPrimeInfiniPaymentErrorToast({
+              error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+            throw error;
+          }
+          entryGuard = {
+            isLoggedIn: pendingContext.isLoggedIn,
+            onekeyUserId: pendingContext.onekeyUserId,
+            hasPendingPayment: true,
+            pendingSubscriptionPeriod:
+              pendingContext.pendingPaymentSession.selectedSubscriptionPeriod,
+          };
         }
         if (!entryGuard.hasPendingPayment) {
-          return false;
+          return 'continuePurchase';
+        }
+        pendingContext ??= await getPrimeInfiniPendingPaymentContext();
+        const { pendingPaymentSession, onekeyUserId } = pendingContext;
+        if (!pendingPaymentSession) {
+          return 'continuePurchase';
+        }
+        if (!onekeyUserId || onekeyUserId !== entryGuard.onekeyUserId) {
+          throw new OneKeyLocalError('Infini purchase user changed');
+        }
+        const canResumeCryptoPayment = !isPrimeAppleStorePayment();
+        const choice = await showPrimeInfiniUnfinishedPaymentDialog({
+          intl,
+          canResume: canResumeCryptoPayment,
+        });
+        if (choice === 'cancel') {
+          return 'cancelled';
+        }
+        const currentUser =
+          await backgroundApiProxy.servicePrime.getLocalUserInfo();
+        if (
+          !currentUser.isLoggedIn ||
+          currentUser.onekeyUserId !== onekeyUserId
+        ) {
+          throw new OneKeyLocalError('Infini purchase user changed');
+        }
+        if (choice === 'replace') {
+          const archivedSession =
+            await backgroundApiProxy.simpleDb.prime.supersedeInfiniPendingPaymentSession(
+              {
+                onekeyUserId,
+                expectedPaymentCacheIdentity:
+                  pendingPaymentSession.paymentCacheKey,
+                latestPayment: pendingPaymentSession.payment,
+              },
+            );
+          if (!archivedSession) {
+            throw new OneKeyLocalError('Infini payment session changed');
+          }
+          confirmedLocalNewPayment = true;
+          return 'continuePurchase';
         }
         await beforeContinue();
-        await purchaseByCryptoUnchecked({
-          // Resume the in-flight invoice on its own period. Passing the period
-          // the user just picked would restore a monthly invoice under a
-          // yearly request, which the restore path tracks without complaint
-          // once the payment is no longer replaceable.
-          selectedSubscriptionPeriod:
-            entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
-          featureName,
+        // Another window can replace or clear the invoice while the prompt
+        // or the closing callback is pending. Resume the current session.
+        const latestContext = await getPrimeInfiniPendingPaymentContext();
+        if (
+          !latestContext.isLoggedIn ||
+          latestContext.onekeyUserId !== onekeyUserId
+        ) {
+          throw new OneKeyLocalError('Infini purchase user changed');
+        }
+        if (!latestContext.pendingPaymentSession) {
+          return 'cancelled';
+        }
+        if (platformEnv.isNativeAndroidGooglePlay) {
+          // Restore only the existing invoice monitor. The full crypto page
+          // also exposes new-payment actions that store builds must not offer.
+          showPrimeInfiniWaitingDialog({
+            context: {
+              checkoutType: 'internalWallet',
+              session: {
+                ...latestContext.pendingPaymentSession,
+                featureName,
+              },
+            },
+          });
+          return 'resumed';
+        }
+        await startCryptoPayment({
+          subscriptionPeriod:
+            latestContext.pendingPaymentSession.selectedSubscriptionPeriod,
+          createNewPayment: false,
         });
-        return true;
+        return 'resumed';
       };
 
-      // This gate is deliberately channel-wide and runs before the IAP and
-      // Google Play branches, not only on the crypto path.
-      // entryGuard.hasPendingPayment answers "is the user's money already
-      // committed to an Infini invoice" (a broadcast was claimed, or the chain
-      // and server report progress on it) — it does not answer "does the user
-      // want to pay with crypto". Starting IAP, Stripe or the WebView checkout
-      // while such an invoice is in flight charges for one subscription twice,
-      // and the crypto leg cannot be cancelled once broadcast, so the in-flight
-      // payment has to be resumed first. Narrowing this to the crypto channel
-      // reintroduces exactly the double charge it exists to prevent.
-      if (
-        await continuePendingCryptoPayment({
-          beforeContinue: async () => {
-            await onPurchase?.();
-          },
-        })
-      ) {
+      // Offer recovery or an explicit new purchase before choosing a channel.
+      // Store builds can continue to IAP without opening an unsupported page.
+      const pendingPaymentResult = await continuePendingCryptoPayment({
+        beforeContinue: async () => {
+          await onPurchase?.();
+        },
+      });
+      if (pendingPaymentResult !== 'continuePurchase') {
         return;
       }
 
-      if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+      if (isPrimeStoreOnlyPayment()) {
+        if (
+          (await continueRemotePendingPayment(user?.onekeyUserId, async () => {
+            await onPurchase?.();
+          })) !== 'continuePurchase'
+        )
+          return;
         if (
           !(await ensurePrimePurchaseEligible({
             expectedOneKeyUserId: user?.onekeyUserId,
+            intl,
           }))
         ) {
           return;
@@ -349,26 +715,38 @@ export function usePrimePurchaseCallback({
       }
 
       const paymentMethodDialog = Dialog.show({
-        // TODO: i18n pending translation key
-        title: 'Payment method',
+        title: intl.formatMessage({
+          id: ETranslations.prime_payment_method__title,
+        }),
         showFooter: false,
         renderContent: (
           <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
             <PrimePaymentMethodItems
               methods={paymentMethods}
-              onSelect={async (method) => {
+              freeTrial={freeTrial}
+              onSelect={async (method, forceHostedCardCheckout) => {
+                const pendingResult = await continuePendingCryptoPayment({
+                  beforeContinue: async () => {
+                    await paymentMethodDialog.close();
+                  },
+                });
+                if (pendingResult !== 'continuePurchase') {
+                  return pendingResult === 'resumed';
+                }
                 if (
-                  await continuePendingCryptoPayment({
-                    beforeContinue: async () => {
+                  method !== 'crypto' &&
+                  (await continueRemotePendingPayment(
+                    user?.onekeyUserId,
+                    async () => {
                       await paymentMethodDialog.close();
                     },
-                  })
-                ) {
-                  return true;
-                }
+                  )) !== 'continuePurchase'
+                )
+                  return false;
                 if (
                   !(await ensurePrimePurchaseEligible({
                     expectedOneKeyUserId: user?.onekeyUserId,
+                    intl,
                   }))
                 ) {
                   return false;
@@ -382,19 +760,32 @@ export function usePrimePurchaseCallback({
                     featureName,
                   });
                 } else if (method === 'webview') {
-                  logSubscribeIntent('stripe');
+                  logSubscribeIntent('stripe', 'embedded');
                   void purchaseByWebviewUnchecked({
                     selectedSubscriptionPeriod,
                     currency,
                     featureName,
-                  });
+                  }).catch(errorToastUtils.toastIfError);
                 } else if (method === 'webStripe') {
-                  logSubscribeIntent('stripe');
-                  void purchaseByWebStripeUnchecked({
-                    selectedSubscriptionPeriod,
-                    currency,
-                    featureName,
-                  });
+                  if (
+                    forceHostedCardCheckout ||
+                    (await getPrimeCardCheckoutMode()) === 'hostedLink'
+                  ) {
+                    // Logs its own intent; the extension popup only hands
+                    // the plan off to the expand tab.
+                    void purchaseByHostedLink({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    });
+                  } else {
+                    logSubscribeIntent('stripe', 'embedded');
+                    void purchaseByWebStripeUnchecked({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    }).catch(errorToastUtils.toastIfError);
+                  }
                 } else {
                   logPrimeInfiniPaymentFlow({
                     stage: 'paymentMethod',
@@ -407,9 +798,8 @@ export function usePrimePurchaseCallback({
                         : 'monthly',
                     checkoutType: 'internalWallet',
                   });
-                  void purchaseByCryptoUnchecked({
-                    selectedSubscriptionPeriod,
-                    featureName,
+                  await startCryptoPayment({
+                    subscriptionPeriod: selectedSubscriptionPeriod,
                   });
                 }
                 return true;
@@ -423,6 +813,7 @@ export function usePrimePurchaseCallback({
       intl,
       onPurchase,
       purchaseByCryptoUnchecked,
+      purchaseByHostedLink,
       purchaseByNativeUnchecked,
       purchaseByWebStripeUnchecked,
       purchaseByWebviewUnchecked,
@@ -440,11 +831,17 @@ export function usePrimePurchaseCallback({
 export const PrimePurchaseDialog = (props: {
   onPurchase: () => void | Promise<void>;
   featureName?: EPrimeFeatures;
+  networkId?: string;
   // Preselected plan, e.g. the renew flow defaults to the plan of the
   // current Infini subscription (integration plan §7.2)
   defaultSelectedSubscriptionPeriod?: ISubscriptionPeriod;
 }) => {
-  const { onPurchase, featureName, defaultSelectedSubscriptionPeriod } = props;
+  const {
+    onPurchase,
+    featureName,
+    networkId,
+    defaultSelectedSubscriptionPeriod,
+  } = props;
   const intl = useIntl();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>(defaultSelectedSubscriptionPeriod ?? 'P1Y');
@@ -453,13 +850,17 @@ export const PrimePurchaseDialog = (props: {
 
   const { result: packages } = usePromiseResult(
     async () =>
-      platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.(),
+      isPrimeStorePayment() ? getPackagesNative?.() : getPackagesWeb?.(),
     [getPackagesNative, getPackagesWeb],
   );
 
   const { purchase } = usePrimePurchaseCallback({
     onPurchase,
+    networkId,
   });
+  const selectedPackage = packages?.find(
+    (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+  );
   return (
     <Stack mt="$8">
       {packages ? (
@@ -481,15 +882,16 @@ export const PrimePurchaseDialog = (props: {
           id: ETranslations.prime_subscribe,
         })}
         confirmButtonProps={{
-          disabled: !packages,
+          disabled: !selectedPackage,
         }}
         onConfirm={() => {
-          const currency = packages?.find(
-            (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
-          )?.currencyCode;
+          if (!selectedPackage) {
+            return undefined;
+          }
           return purchase({
             selectedSubscriptionPeriod,
-            currency,
+            currency: selectedPackage?.currencyCode,
+            freeTrial: selectedPackage?.freeTrial,
             featureName,
           });
         }}

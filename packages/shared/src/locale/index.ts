@@ -9,6 +9,8 @@ import { LOCALES_OPTION } from './localeOptions';
 
 import type { ILocaleSymbol } from './type';
 
+export { isKnownTranslationKey } from './translationKeys';
+
 export const LOCALES = LOCALE_LOADERS as unknown as Record<
   ILocaleSymbol,
   () => Promise<Record<string, string>>

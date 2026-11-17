@@ -489,7 +489,7 @@ function ApprovalDetails() {
                 minWidth={0}
               >
                 {intl.formatMessage({
-                  id: ETranslations.wallet_approval_approved_token,
+                  id: ETranslations.tokens__title,
                 })}
               </SizableText>
               <Button

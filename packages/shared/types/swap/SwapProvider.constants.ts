@@ -21,7 +21,7 @@ export const swapServiceFeeDefault = 0.3;
 
 export const swapSlippageCustomDefaultList = [0.1, 0.5, 1];
 
-export const swapSlippageAutoValue = 0.5;
+export const swapSlippageAutoValue = 1;
 
 export const swapSlippageMaxValue = 50;
 
@@ -34,6 +34,8 @@ export const swapSlippage = 50;
 export const swapSlippageDecimal = 2;
 
 export const swapTokenCatchMapMaxCount = 30;
+
+export const swapStockTokenListMaxCount = 200;
 
 export const swapApproveResetValue = '0';
 
@@ -75,6 +77,12 @@ export const swapRateDifferenceMin = 0.05;
 export const maxRecentTokenPairs = 10;
 
 export const swapProviderRecommendApprovedWeights = 1.1;
+
+export const ARC_NETWORK_ID = 'evm--5042';
+export const ARC_ERC20_USDC_CONTRACT_ADDRESS =
+  '0x3600000000000000000000000000000000000000';
+export const ARC_EURC_CONTRACT_ADDRESS =
+  '0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1';
 
 export const limitOrderEstimationFeePercent = 1.05;
 
@@ -198,10 +206,8 @@ export const swapProTimeRangeItems: {
 export const SWAP_QUOTE_INPUT_DEBOUNCE_MS = 500;
 export const SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS = 300;
 
-export const swapProPositionsListMinValue = 1;
-export const swapProPositionsListMaxCount = 20;
-// Stock positions use a lower floor so small (but non-dust) stock holdings show.
-export const swapProStockPositionsListMinValue = 0.1;
+export const swapProPositionsListMinValue = 0.01;
+export const swapProPositionsListMaxCount = 6;
 
 export const swapDefaultSetTokens: Record<
   string,
@@ -212,6 +218,26 @@ export const swapDefaultSetTokens: Record<
     limitToToken?: ISwapToken;
   }
 > = {
+  [ARC_NETWORK_ID]: {
+    fromToken: {
+      'networkId': ARC_NETWORK_ID,
+      'contractAddress': ARC_ERC20_USDC_CONTRACT_ADDRESS,
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI': `https://uni.onekey-asset.com/server-service-onchain/${ARC_NETWORK_ID}/tokens/${ARC_ERC20_USDC_CONTRACT_ADDRESS}.png`,
+      'isNative': false,
+    },
+    toToken: {
+      'networkId': ARC_NETWORK_ID,
+      'contractAddress': ARC_EURC_CONTRACT_ADDRESS,
+      'name': 'EURC',
+      'symbol': 'EURC',
+      'decimals': 6,
+      'logoURI': `https://uni.onekey-asset.com/server-service-onchain/${ARC_NETWORK_ID}/tokens/${ARC_EURC_CONTRACT_ADDRESS}.png`,
+      'isNative': false,
+    },
+  },
   'onekeyall--0': {
     fromToken: {
       'networkId': 'evm--1',
@@ -443,7 +469,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/dashboard/logo/upload_1782996521358.0.27118193195795703.0.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address--1785395959075.png',
       'isNative': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/robinhood.png',
@@ -878,6 +904,32 @@ export const swapDefaultSetTokens: Record<
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--59144/tokens/0x176211869ca2b568f2a7d4ee941e073a821ee1ff.png',
       'isNative': false,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
+    },
+  },
+  'evm--747474': {
+    fromToken: {
+      'networkId': 'evm--747474',
+      'contractAddress': '',
+      'name': 'Katana',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+      'isNative': true,
+      'networkLogoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+    },
+    toToken: {
+      'networkId': 'evm--747474',
+      'contractAddress': '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d',
+      'name': 'Katana Network Token',
+      'symbol': 'KAT',
+      'decimals': 18,
+      'logoURI':
+        'https://coin-images.coingecko.com/coins/images/70225/large/katana-social-icon.png?1761121098',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
     },
   },
   'evm--196': {

@@ -53,6 +53,7 @@ describe('buildSlimSnapshot', () => {
           price: 50,
           price24h: 2,
           currency: 'usd',
+          balanceMultiplier: '1.0026642075893797',
           // unrelated heavy fields must be dropped from compactFiat
           totalBalance: '999',
         }),
@@ -83,6 +84,7 @@ describe('buildSlimSnapshot', () => {
       price: 50,
       price24h: 2,
       currency: 'usd',
+      balanceMultiplier: '1.0026642075893797',
     });
     expect(
       (slim.compactFiat.a as unknown as Record<string, unknown>).totalBalance,

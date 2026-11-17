@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback } from 'react';
 
 import { Popover } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 
 import type { IWebAccountPanelView } from './WebAccountPanelPopoverContent';
@@ -30,12 +31,25 @@ const LazyWebAccountPanelPopoverContent = lazy(
   () => import('./WebAccountPanelPopoverContent'),
 );
 
-export function WebAccountPanelPopover({
+const LazyPerpsReferralEntry = lazy(async () => {
+  const { PerpsReferralEntry } =
+    await import('@onekeyhq/kit/src/views/Perp/components/PerpsActivityCenterAction');
+  return { default: PerpsReferralEntry };
+});
+
+type IWebAccountPanelPopoverBaseProps = Omit<
+  IWebAccountPanelPopoverProps,
+  'showPerpsActivityCenter'
+> & {
+  onOpenPerpsReferral?: IActivityHubOpenReferral;
+};
+
+function WebAccountPanelPopoverBase({
   renderTrigger,
   initialView = 'main',
   connected = true,
-  showPerpsActivityCenter = false,
-}: IWebAccountPanelPopoverProps) {
+  onOpenPerpsReferral,
+}: IWebAccountPanelPopoverBaseProps) {
   const { config } = useAccountSelectorContextData();
   // Popover renders `renderContent` as a component (<RenderContent/> in
   // RawPopover), so React keys the whole panel subtree by this function's
@@ -51,13 +65,13 @@ export function WebAccountPanelPopover({
             <LazyWebAccountPanelPopoverContent
               initialView={initialView}
               connected={connected}
-              showPerpsActivityCenter={showPerpsActivityCenter}
               closePopover={closePopover}
+              onOpenPerpsReferral={onOpenPerpsReferral}
             />
           </Suspense>
         </AccountSelectorProviderMirror>
       ) : null,
-    [config, initialView, connected, showPerpsActivityCenter],
+    [config, initialView, connected, onOpenPerpsReferral],
   );
   return (
     <Popover
@@ -69,5 +83,25 @@ export function WebAccountPanelPopover({
       renderTrigger={renderTrigger}
       renderContent={renderContent}
     />
+  );
+}
+
+export function WebAccountPanelPopover({
+  showPerpsActivityCenter = false,
+  ...props
+}: IWebAccountPanelPopoverProps) {
+  return showPerpsActivityCenter ? (
+    <Suspense fallback={props.renderTrigger}>
+      <LazyPerpsReferralEntry>
+        {(openReferralPage) => (
+          <WebAccountPanelPopoverBase
+            {...props}
+            onOpenPerpsReferral={openReferralPage}
+          />
+        )}
+      </LazyPerpsReferralEntry>
+    </Suspense>
+  ) : (
+    <WebAccountPanelPopoverBase {...props} />
   );
 }

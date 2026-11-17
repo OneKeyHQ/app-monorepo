@@ -1,10 +1,8 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type {
-  IMarketTokenKLineDataPoint,
-  IMarketTokenKLineResponse,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import type { ITradingViewNativeKLineInterval } from '../../tradingViewNativeIntervals';
+import type { ITradingViewNativeHistoryResponse } from '../types';
 
 const ONE_DAY_SECONDS = 24 * 60 * 60;
 const COINGECKO_MAX_HISTORY_DAY_COUNT = 100 * 365;
@@ -85,7 +83,7 @@ export function convertCoinGeckoChartToKLineResponse({
   intervalSeconds?: number;
   timeFrom: number;
   timeTo: number;
-}): IMarketTokenKLineResponse | null {
+}): ITradingViewNativeHistoryResponse | null {
   const normalizedChartData = normalizeCoinGeckoChartData({
     chartData,
     timeFrom,
@@ -113,7 +111,7 @@ export function convertCoinGeckoChartToKLineResponse({
         };
       },
     );
-    return { points, total: points.length };
+    return { pointType: 'single', points, total: points.length };
   }
 
   const pointsByTimestamp = new Map<number, IMarketTokenKLineDataPoint>();
@@ -142,6 +140,7 @@ export function convertCoinGeckoChartToKLineResponse({
   const points = Array.from(pointsByTimestamp.values());
 
   return {
+    pointType: 'single',
     points,
     total: points.length,
   };

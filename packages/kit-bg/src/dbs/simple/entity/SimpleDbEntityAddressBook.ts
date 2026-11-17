@@ -15,7 +15,7 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
 
   // Primary methods (hash-free)
 
-  updateItems(items: IAddressItem[]) {
+  async updateItems(items: IAddressItem[]) {
     return this.setRawData(() => ({
       items,
       hash: '',
@@ -30,7 +30,13 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
 
   // Legacy methods (kept for migration compatibility)
 
-  updateItemsAndHash({ items, hash }: { items: IAddressItem[]; hash: string }) {
+  async updateItemsAndHash({
+    items,
+    hash,
+  }: {
+    items: IAddressItem[];
+    hash: string;
+  }) {
     return this.setRawData((rawData) => ({
       items,
       hash,
@@ -43,7 +49,7 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
     return { items: rawData?.items ?? [], hash: rawData?.hash ?? '' };
   }
 
-  clearBackupHash() {
+  async clearBackupHash() {
     return this.setRawData((rawData) => ({
       items: rawData?.items ?? [],
       hash: rawData?.hash ?? '',

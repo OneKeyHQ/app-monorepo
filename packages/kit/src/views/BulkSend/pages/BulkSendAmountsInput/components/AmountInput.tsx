@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useUpdateEffect,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -53,6 +54,7 @@ export function SpecifiedAmountInput() {
     minTransferAmount,
     bulkSendMode,
     isMaxMode,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const isInPreviewMode = previewState.specifiedPreviewed;
@@ -64,7 +66,8 @@ export function SpecifiedAmountInput() {
 
   const isLoading =
     !tokenDetailsState.initialized && tokenDetailsState.isRefreshing;
-  const balance = tokenDetails?.balanceParsed ?? '0';
+  // Display basis for scaled-UI tokens; equals raw for ordinary tokens.
+  const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
   const tokenSymbol = tokenInfo.symbol;
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -208,12 +211,14 @@ export function RangeAmountInput() {
     setPreviewState,
     minTransferAmount: ctxMinTransferAmount,
     bulkSendMode,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const balance = tokenDetails?.balanceParsed ?? '0';
+  // Display basis for scaled-UI tokens; equals raw for ordinary tokens.
+  const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
 
   // Local display values for immediate UI feedback
   const [localMin, setLocalMin] = useState(amountInputValues.rangeMin);
@@ -238,6 +243,7 @@ export function RangeAmountInput() {
         rangeMin: min,
         rangeMax: max,
         balance: isOneToMany ? balance : undefined,
+        transferCount: isOneToMany ? transfersInfo.length : undefined,
         minTransferAmount: ctxMinTransferAmount,
         tokenSymbol: tokenInfo.symbol,
         tokenDecimals: tokenInfo.decimals,
@@ -248,6 +254,7 @@ export function RangeAmountInput() {
     [
       isOneToMany,
       balance,
+      transfersInfo.length,
       ctxMinTransferAmount,
       tokenInfo.symbol,
       tokenInfo.decimals,
@@ -257,16 +264,17 @@ export function RangeAmountInput() {
 
   const generatePreviewAmounts = useCallback(
     (min: string, max: string): string[] => {
-      if (!tokenInfo || !min || !max || transfersInfo.length === 0) return [];
+      if (!tokenInfo || !max || transfersInfo.length === 0) return [];
       return generateRandomAmountsFromRange({
         transfersInfo,
         rangeMin: min,
         rangeMax: max,
         decimals: tokenInfo.decimals,
         balance: isOneToMany ? [balance] : undefined,
+        minTransferAmount: ctxMinTransferAmount,
       });
     },
-    [transfersInfo, tokenInfo, balance, isOneToMany],
+    [transfersInfo, tokenInfo, balance, isOneToMany, ctxMinTransferAmount],
   );
 
   // Use refs to avoid stale closures in useEffect
@@ -281,7 +289,7 @@ export function RangeAmountInput() {
   // or when transfersInfo length changes (e.g., user adds/removes addresses)
   useEffect(() => {
     const { rangeMin, rangeMax } = amountInputValuesRef.current;
-    if (!rangeMin || !rangeMax || transfersInfo.length === 0) return;
+    if (!rangeMax || transfersInfo.length === 0) return;
 
     const errors = validateRangeRef.current(rangeMin, rangeMax);
     if (errors.rangeError) {
@@ -307,6 +315,39 @@ export function RangeAmountInput() {
   const amountInputErrorsRef = useRef(amountInputErrors);
   amountInputErrorsRef.current = amountInputErrors;
 
+  // Validates the range and regenerates the preview amounts from it. Clears
+  // the previewed flag, so transfers filled from an older preview are redone.
+  const refreshRangePreview = (rangeMin: string, rangeMax: string) => {
+    const errors = validateRangeRef.current(rangeMin, rangeMax);
+    setAmountInputErrors({
+      ...amountInputErrorsRef.current,
+      rangeError: errors.rangeError,
+    });
+
+    const hasValidRange = !errors.rangeError && rangeMax;
+    const previewAmounts = hasValidRange
+      ? generatePreviewAmountsRef.current(rangeMin, rangeMax)
+      : [];
+
+    setPreviewState((prev) => ({
+      ...prev,
+      rangePreviewed: false,
+      rangePreviewAmounts: previewAmounts,
+    }));
+  };
+  const refreshRangePreviewRef = useRef(refreshRangePreview);
+  refreshRangePreviewRef.current = refreshRangePreview;
+
+  // The chain minimum arrives with the vault settings, after the page mounts.
+  // A range entered before that was validated and generated against the
+  // smallest token unit, so redo both once the real minimum is known.
+  useUpdateEffect(() => {
+    const { rangeMin, rangeMax } = amountInputValuesRef.current;
+    if (!rangeMax) return;
+
+    refreshRangePreviewRef.current(rangeMin, rangeMax);
+  }, [ctxMinTransferAmount]);
+
   // Debounced handler for validation and preview generation
   const debouncedUpdatePreview = useDebouncedCallback(
     (newValues: { rangeMin: string; rangeMax: string }) => {
@@ -316,29 +357,7 @@ export function RangeAmountInput() {
         rangeMax: newValues.rangeMax,
       });
 
-      const errors = validateRangeRef.current(
-        newValues.rangeMin,
-        newValues.rangeMax,
-      );
-      setAmountInputErrors({
-        ...amountInputErrorsRef.current,
-        rangeError: errors.rangeError,
-      });
-
-      const hasValidRange =
-        !errors.rangeError && newValues.rangeMin && newValues.rangeMax;
-      const previewAmounts = hasValidRange
-        ? generatePreviewAmountsRef.current(
-            newValues.rangeMin,
-            newValues.rangeMax,
-          )
-        : [];
-
-      setPreviewState((prev) => ({
-        ...prev,
-        rangePreviewed: false,
-        rangePreviewAmounts: previewAmounts,
-      }));
+      refreshRangePreview(newValues.rangeMin, newValues.rangeMax);
     },
     300,
   );
@@ -534,6 +553,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     bulkSendMode,
     isMaxMode,
     setIsMaxMode,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -574,7 +594,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   }, [intl, hasCustomAmounts]);
 
   const validateSpecifiedAmount = useCallback((): IAmountInputError => {
-    const balance = tokenDetails?.balanceParsed ?? '0';
+    const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
     const minTransferAmountBN = new BigNumber(minTransferAmount);
     const valueBN = new BigNumber(amountInputValues.specifiedAmount || '0');
     if (
@@ -618,6 +638,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     intl,
     tokenInfo,
     tokenDetails?.balanceParsed,
+    displayBalance,
     amountInputValues.specifiedAmount,
     transfersInfo.length,
     minTransferAmount,
@@ -626,11 +647,12 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   ]);
 
   const validateRangeAmount = useCallback((): IAmountInputError => {
-    const balance = tokenDetails?.balanceParsed ?? '0';
+    const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
     const error = validateRangeInput({
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
       balance: isOneToMany ? balance : undefined,
+      transferCount: isOneToMany ? transfersInfo.length : undefined,
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
@@ -639,8 +661,10 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     return error ? { rangeError: error } : {};
   }, [
     tokenDetails?.balanceParsed,
+    displayBalance,
     amountInputValues.rangeMin,
     amountInputValues.rangeMax,
+    transfersInfo.length,
     minTransferAmount,
     tokenInfo.symbol,
     tokenInfo.decimals,

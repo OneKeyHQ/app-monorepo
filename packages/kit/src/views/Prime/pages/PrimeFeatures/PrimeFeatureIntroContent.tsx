@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import type { IVideoRef } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -26,9 +27,11 @@ import {
   Video,
   XStack,
   YStack,
+  getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
-import type { IVideoRef } from '@onekeyhq/components';
+import { isImageSourceArray } from '@onekeyhq/components/src/primitives/Image/utils';
+import { fs } from '@onekeyhq/components/src/utils/scale';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -63,7 +66,7 @@ import type {
   IPrimeFeatureIntroPosterSource,
 } from './primeFeatureIntroUtils';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
-import type { ImageSourcePropType } from 'react-native';
+import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
 type IPrimeFeatureIntroContentProps = {
   selectedFeature?: EPrimeFeatures;
@@ -75,7 +78,11 @@ type IPrimeFeatureIntroContentProps = {
 
 const styles = StyleSheet.create({
   featureMediaFill: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     width: '100%',
     height: '100%',
     transform: [{ scale: 1.01 }],
@@ -83,6 +90,7 @@ const styles = StyleSheet.create({
 });
 
 const MEDIA_HEIGHT = 400;
+const MEDIA_ASPECT_RATIO = 16 / 10;
 const DETAIL_ROW_MAX_WIDTH = 320;
 const ICON_MEDIA_HERO_BOX_SIZE = 56;
 const ICON_MEDIA_HERO_ICON_SIZE = '$8';
@@ -140,7 +148,7 @@ function getVideoPoster(
   }
   if (
     !platformEnv.isNative &&
-    !Array.isArray(posterSource) &&
+    !isImageSourceArray(posterSource) &&
     typeof posterSource !== 'number' &&
     typeof posterSource.uri === 'string'
   ) {
@@ -491,6 +499,7 @@ export function PrimeFeatureIntroContent({
   }, [mode, onClose]);
   const { ensurePrimeSubscriptionActive } = usePrimeRequirements({
     onPurchase: handlePurchaseStart,
+    networkId: networkId ?? network?.id,
   });
 
   const features = PRIME_FEATURE_INTROS;
@@ -505,7 +514,11 @@ export function PrimeFeatureIntroContent({
   const featureActionSubmittingRef = useRef(false);
   const usePageFooter = mode === 'page';
   const useDialogFooter = mode === 'dialog';
-  const shouldShowExtensionPagination = platformEnv.isExtensionUiPopup && !gtMd;
+  // The side panel shares the popup's narrow layout, where arrows are the only
+  // mouse-friendly way to page.
+  const shouldShowExtensionPagination =
+    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
+    !gtMd;
   const shouldDelayVideoLoad = useDialogFooter && !gtMd;
   const [canLoadVideo, setCanLoadVideo] = useState(!shouldDelayVideoLoad);
 
@@ -528,6 +541,16 @@ export function PrimeFeatureIntroContent({
   }, [shouldDelayVideoLoad]);
 
   const activeFeature = features[activeIndex] ?? features[0];
+  const [extensionMediaWidth, setExtensionMediaWidth] = useState(0);
+  const handleExtensionMediaLayout = useCallback((event: LayoutChangeEvent) => {
+    setExtensionMediaWidth(event.nativeEvent.layout.width);
+  }, []);
+  const mediaHeight =
+    platformEnv.isExtension &&
+    activeFeature?.media.type === 'video' &&
+    extensionMediaWidth > 0
+      ? Math.min(MEDIA_HEIGHT, extensionMediaWidth / MEDIA_ASPECT_RATIO)
+      : MEDIA_HEIGHT;
   const activeFeatureId = activeFeature?.id;
   const subscriptionPeriod = selectedSubscriptionPeriod ?? 'P1Y';
   const [isFooterActionLoading, setIsFooterActionLoading] = useState(false);
@@ -728,12 +751,14 @@ export function PrimeFeatureIntroContent({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod: subscriptionPeriod,
       featureName: activeFeature.id,
+      freeTrial: selectedPackage?.freeTrial,
     });
   }, [
     activeFeature,
     ensurePrimeSubscriptionActive,
     isLoggedIn,
     isPackagesLoading,
+    selectedPackage?.freeTrial,
     subscriptionPeriod,
   ]);
 
@@ -796,7 +821,7 @@ export function PrimeFeatureIntroContent({
   const renderMedia = useCallback(
     ({ item }: { item: IPrimeFeatureIntro }) => (
       <Stack
-        h={MEDIA_HEIGHT}
+        h={mediaHeight}
         w="100%"
         position="relative"
         alignItems="center"
@@ -812,7 +837,7 @@ export function PrimeFeatureIntroContent({
         />
       </Stack>
     ),
-    [activeFeature?.id, canLoadVideo],
+    [activeFeature?.id, canLoadVideo, mediaHeight],
   );
 
   const showOverlayPaginationButton =
@@ -896,7 +921,10 @@ export function PrimeFeatureIntroContent({
   // only needs its design padding — adding safeAreaBottom here too would
   // double-stack the inset on notched iOS.
   const dialogFooterBottomPadding = DIALOG_FOOTER_BOTTOM_PADDING;
-  const shouldShowFooterAction = ctaKind !== 'none';
+  const shouldShowFooterAction =
+    shouldUseSubscribeCta ||
+    shouldUseFeatureActionCta ||
+    shouldUseComingSoonCta;
   const isFooterActionDisabled =
     shouldUseComingSoonCta ||
     (shouldUseSubscribeCta && (isPackagesLoading || isFooterActionLoading));
@@ -983,8 +1011,24 @@ export function PrimeFeatureIntroContent({
             </Badge.Text>
           </Badge>
         ) : null}
+        {activeFeature.isAppOnly ? (
+          <Badge badgeSize="sm" flexShrink={0}>
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.prime_app_only__title,
+              })}
+            </Badge.Text>
+          </Badge>
+        ) : null}
       </XStack>
-      <SizableText textAlign="center" size="$bodyLg" color="$textSubdued">
+      <SizableText
+        textAlign="center"
+        size="$bodyLg"
+        color="$textSubdued"
+        height={fs(24) * 2}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
         {intl.formatMessage(
           {
             id: activeFeature.description,
@@ -1031,7 +1075,38 @@ export function PrimeFeatureIntroContent({
     </YStack>
   );
 
-  const shouldRenderPageFooter = usePageFooter && shouldShowFooterAction;
+  const shouldRenderPageFooter =
+    usePageFooter && (platformEnv.isExtension || shouldShowFooterAction);
+  let extensionFooterMinHeight: number | undefined;
+  if (platformEnv.isExtension) {
+    // Button's transparent borders sit outside its text and vertical padding.
+    extensionFooterMinHeight =
+      getTokenValue(gtMd ? '$9' : '$12', 'size') +
+      2 * getTokenValue('$px', 'size');
+  }
+  let footerStatusText: string | undefined;
+  if (ctaKind === 'availableInApp') {
+    footerStatusText = intl.formatMessage({
+      id: ETranslations.prime_available_in_app__title,
+    });
+  } else if (ctaKind === 'alwaysOn') {
+    footerStatusText = intl.formatMessage({
+      id: ETranslations.prime_always_on__title,
+    });
+  }
+  const footerStatus = footerStatusText ? (
+    <Stack
+      testID="prime-feature-intro-status"
+      width="100%"
+      height={extensionFooterMinHeight}
+      alignItems="center"
+      justifyContent="center"
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+        {footerStatusText}
+      </SizableText>
+    </Stack>
+  ) : undefined;
 
   // Desktop renders this as the dialog footer's extraContent; mobile renders it
   // inline above the footer with swipe-to-change-feature handlers attached.
@@ -1084,7 +1159,10 @@ export function PrimeFeatureIntroContent({
           />
         ) : null}
         <Stack
-          h={MEDIA_HEIGHT}
+          h={mediaHeight}
+          onLayout={
+            platformEnv.isExtension ? handleExtensionMediaLayout : undefined
+          }
           flexShrink={0}
           position="relative"
           overflow="hidden"
@@ -1092,10 +1170,20 @@ export function PrimeFeatureIntroContent({
         >
           <Stack position="absolute" top={0} bottom={0} left={-1} right={-1}>
             <Swiper
-              height={MEDIA_HEIGHT}
+              // Swiper caches item geometry; keep it in sync with extension resizing.
+              key={
+                platformEnv.isExtension
+                  ? `${extensionMediaWidth}-${mediaHeight}`
+                  : undefined
+              }
+              height={mediaHeight}
+              // Avoid scroll anchoring to virtual spacers when the panel resizes.
+              {...(platformEnv.isExtension
+                ? { windowSize: features.length * 2 + 1 }
+                : undefined)}
               index={activeIndex}
               data={features}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item: IPrimeFeatureIntro) => item.id}
               onChangeIndex={({ index }) => setActiveIndex(index)}
               renderItem={renderMedia}
               renderPagination={renderPagination}
@@ -1128,7 +1216,10 @@ export function PrimeFeatureIntroContent({
             }}
             buttonContainerProps={{
               justifyContent: 'flex-end',
+              minHeight: extensionFooterMinHeight,
+              width: footerStatusText ? '100%' : undefined,
             }}
+            confirmButton={footerStatus}
             confirmButtonProps={
               shouldShowFooterAction
                 ? {

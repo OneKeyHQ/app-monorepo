@@ -1,25 +1,121 @@
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
+  type ITradingMode,
   getPerpsAccountDisplaySnapshotEntry,
   getPerpsSpotDustingNextState,
   perpsAbstractionModeAtom,
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountEnableTradingModeAtom,
+  perpsActiveAccountMmrAtom,
   perpsActiveAccountStatusAtom,
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
   perpsComputedAccountValueAtom,
+  perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
+  perpsTradingViewIndicatorSettingsPersistAtom,
+  tradingModeAtom,
 } from './perps';
 
+import type { IAtomNameKeys } from '../atomNames';
+import type { IJotaiAtomPro } from '../types';
+
 const now = 1_000_000;
+
+describe('perpsTradingViewIndicatorSettingsPersistAtom', () => {
+  const atom = perpsTradingViewIndicatorSettingsPersistAtom.atom();
+  const initialSettings = jotaiDefaultStore.get(atom);
+
+  afterEach(() => {
+    jotaiDefaultStore.set(atom, initialSettings);
+  });
+
+  it('enables only volume when there are no saved indicator settings', () => {
+    const settings = jotaiDefaultStore.get(atom);
+
+    expect(
+      [...settings.mainIndicators, ...settings.subIndicators]
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL']);
+  });
+
+  it('preserves a saved empty indicator selection', () => {
+    jotaiDefaultStore.set(atom, createTradingViewNativeIndicatorSettings());
+
+    expect(jotaiDefaultStore.get(atom).subIndicators).toEqual([]);
+  });
+
+  it('keeps volume disabled after the user turns it off', () => {
+    jotaiDefaultStore.set(atom, {
+      ...createTradingViewNativeIndicatorSettings(),
+      subIndicators: [
+        {
+          active: false,
+          id: 'VOL',
+          lines: {},
+          parameters: {},
+          transparency: 50,
+        },
+      ],
+    });
+
+    expect(jotaiDefaultStore.get(atom).subIndicators).toEqual([
+      expect.objectContaining({ active: false, id: 'VOL' }),
+    ]);
+  });
+});
+
+describe('tradingModeAtom', () => {
+  it('persists the selected trading mode across app restarts', () => {
+    expect(
+      (tradingModeAtom.atom() as unknown as IJotaiAtomPro<ITradingMode>)
+        .persist,
+    ).toBe(true);
+  });
+
+  // The persisted write path runs `merge({}, initialValue, nextValue)` unless a
+  // config opts out. lodash spreads a string into a character-indexed object, so
+  // without this the stored mode reads back as {0:'s',1:'p',...} and every
+  // `=== 'spot'` check silently fails.
+  it('opts out of initial-value merging because the value is a bare string', () => {
+    expect(atomsConfig[EAtomNames.tradingModeAtom]?.mergeInitialValue).toBe(
+      false,
+    );
+  });
+});
+
+describe('perpsCustomSettingsAtom', () => {
+  it('persists Arbitrum as the initial USDC withdrawal destination', () => {
+    const atom = perpsCustomSettingsAtom.atom() as unknown as IJotaiAtomPro<{
+      lastUsdcWithdrawDestinationId: string;
+    }>;
+
+    expect(atom.persist).toBe(true);
+    expect(atom.initialValue.lastUsdcWithdrawDestinationId).toBe('arbitrum');
+  });
+});
+
+// Any persisted atom holding a primitive hits the same lodash-merge trap, so the
+// opt-out is asserted for the whole class rather than one atom at a time.
+describe('persisted primitive atoms', () => {
+  it('never merge the initial value into the stored value', () => {
+    const primitiveAtoms: IAtomNameKeys[] = [EAtomNames.tradingModeAtom];
+    for (const name of primitiveAtoms) {
+      expect(atomsConfig[name]?.mergeInitialValue).toBe(false);
+    }
+  });
+});
 
 function buildEntry({
   accountAddress,
@@ -352,6 +448,13 @@ describe('perpsActiveAccountStatusAtom', () => {
 });
 
 describe('perpsActiveAccountEnableTradingModeAtom', () => {
+  beforeEach(() => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: false,
+    });
+  });
+
   afterEach(() => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: null,
@@ -383,6 +486,29 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       canAutoEnableInOrderPanel: true,
       requiresEnableTradingDialogInOrderPanel: false,
       requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('routes software accounts through the dialog when agent password verification is required', () => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: true,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
     });
   });
 
@@ -605,6 +731,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       totalMarginUsed: undefined,
       crossAccountValue: '900',
       crossMaintenanceMarginUsed: undefined,
+      isolatedMarginUsed: undefined,
       totalNtlPos: undefined,
       totalRawUsd: undefined,
       // Per-dex perp withdrawable (not meaningful in unified/PM); set != USDC
@@ -712,5 +839,109 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
         isLoading: false,
       },
     );
+  });
+});
+
+describe('perpsActiveAccountMmrAtom', () => {
+  const ADDR = '0xabc';
+
+  function seedAtoms(params: {
+    mode?: EHyperLiquidAbstractionMode;
+    spotAddress?: `0x${string}`;
+  }) {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(
+      perpsAbstractionModeAtom.atom(),
+      params.mode
+        ? { accountAddress: ADDR, mode: params.mode, source: 'live' }
+        : undefined,
+    );
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      accountAddress: ADDR,
+      accountValue: '10.768008',
+      totalMarginUsed: '10.46045',
+      crossAccountValue: '10.768008',
+      crossMaintenanceMarginUsed: '5.230225',
+      isolatedMarginUsed: '0',
+      totalNtlPos: undefined,
+      totalRawUsd: undefined,
+      withdrawable: undefined,
+      totalUnrealizedPnl: undefined,
+    });
+    jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), {
+      accountAddress: params.spotAddress ?? ADDR,
+      spotTotalUsd: '550',
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '513.85341389',
+          hold: '10.46045',
+          entryNtl: '0',
+        },
+      ],
+    });
+  }
+
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: null,
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), undefined);
+  });
+
+  it('rates a unified account against its spot USDC, not the perp-side hold', () => {
+    seedAtoms({ mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom()),
+    ).toMatchObject({ status: 'ready', mmrPercent: '1.02' });
+  });
+
+  it('stays loading while the account mode is unknown', () => {
+    seedAtoms({});
+
+    expect(jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom())).toEqual({
+      status: 'loading',
+      mmr: null,
+      mmrPercent: null,
+    });
+  });
+
+  it("does not rate against another account's spot balance", () => {
+    seedAtoms({
+      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      spotAddress: '0xother',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom()),
+    ).toMatchObject({ status: 'loading' });
+  });
+
+  it('is unavailable under portfolio margin', () => {
+    seedAtoms({ mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom()),
+    ).toMatchObject({ status: 'unavailable', mmrPercent: null });
+  });
+
+  it('shows nothing without an active account', () => {
+    expect(jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom())).toEqual({
+      status: 'ready',
+      mmr: null,
+      mmrPercent: null,
+    });
   });
 });

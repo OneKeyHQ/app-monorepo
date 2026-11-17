@@ -1,12 +1,34 @@
-import { cloneDeep } from 'lodash';
+import { LogToConsoleDevOnly } from '../../../base/decorators';
 
-import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { AccountSelectorDevOnlyScene } from './devOnlyScene';
 
-import { BaseScene } from '../../../base/baseScene';
-import { LogToConsole } from '../../../base/decorators';
+type ISelectedAccountLike = {
+  deriveType?: string;
+  focusedWallet?: unknown;
+  indexedAccountId?: string;
+  networkId?: string;
+  othersWalletAccountId?: string;
+  walletId?: string;
+};
 
-export class AccountSelectorAutoSelectScene extends BaseScene {
-  @LogToConsole()
+function buildSelectionSummary(selectedAccount: ISelectedAccountLike) {
+  let accountKind = 'none';
+  if (selectedAccount.indexedAccountId) {
+    accountKind = 'indexed';
+  } else if (selectedAccount.othersWalletAccountId) {
+    accountKind = 'others';
+  }
+  return {
+    accountKind,
+    deriveType: selectedAccount.deriveType,
+    hasFocusedWallet: Boolean(selectedAccount.focusedWallet),
+    hasNetwork: Boolean(selectedAccount.networkId),
+    hasWallet: Boolean(selectedAccount.walletId),
+  };
+}
+
+export class AccountSelectorAutoSelectScene extends AccountSelectorDevOnlyScene {
+  @LogToConsoleDevOnly()
   public startAutoSelect({
     focusedWallet,
     networkId,
@@ -18,28 +40,32 @@ export class AccountSelectorAutoSelectScene extends BaseScene {
     walletId: string | undefined;
     isAccountExist: boolean;
   }) {
-    return cloneDeep({ focusedWallet, networkId, walletId, isAccountExist });
+    return {
+      hasFocusedWallet: Boolean(focusedWallet),
+      hasNetwork: Boolean(networkId),
+      hasWallet: Boolean(walletId),
+      isAccountExist,
+    };
   }
 
-  @LogToConsole()
+  @LogToConsoleDevOnly()
   public currentSelectedAccount({
     selectedAccount,
   }: {
-    selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccount: ISelectedAccountLike;
   }) {
-    return cloneDeep({ selectedAccount });
+    return buildSelectionSummary(selectedAccount);
   }
 
-  @LogToConsole()
+  @LogToConsoleDevOnly()
   public resetSelectedWalletToUndefined({
     selectedAccount,
   }: {
-    selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccount: ISelectedAccountLike;
   }) {
-    return cloneDeep([
-      'currentWallet does not exist or no indexed account',
-      { walletId: selectedAccount.walletId },
-      selectedAccount,
-    ]);
+    return {
+      reason: 'wallet-unavailable-or-empty',
+      selection: buildSelectionSummary(selectedAccount),
+    };
   }
 }

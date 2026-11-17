@@ -6,6 +6,7 @@ import {
   BinanceSmartChainLISTA,
   BinanceSmartChainU,
   BinanceSmartChainUSDT,
+  BinanceSmartChainXAUt,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
@@ -348,6 +349,30 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      // Unitas (OK-61790): USDT -> USDu vault, XAUt -> gold vault. Mint and
+      // redeem are executed by Unitas (server-side order), the user only signs
+      // approve / cooldown / claim.
+      [EEarnProviderEnum.Unitas]: {
+        supportedSymbols: ['USDT', 'XAUt'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          XAUt: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainXAUt,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
+      },
     },
   },
   [getNetworkIdsMap().hyperevm]: {
@@ -439,7 +464,11 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
 
-  supportedThirdPartyVendors: [EHardwareVendor.ledger, EHardwareVendor.trezor],
+  supportedThirdPartyVendors: [
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+    EHardwareVendor.keystone,
+  ],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -481,7 +510,6 @@ const settings: IVaultSettings = {
     [networkIdMap.flare]: 1.1,
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
-    [networkIdMap.blast]: 1.2,
     [networkIdMap.hsk]: 1.2,
   },
 
@@ -502,13 +530,15 @@ const settings: IVaultSettings = {
     [networkIdMap.base]: true,
     [networkIdMap.optimism]: true,
     [networkIdMap.polygon]: true,
-    [networkIdMap.blast]: true,
     [networkIdMap.bob]: true,
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
   },
 
   enabledInternalSignAndVerify: true,
+
+  // ~200 token transfers stay well below the EIP-7825 per-tx gas cap (2^24)
+  bulkSendMaxTransfersPerTx: 200,
 };
 
 export default Object.freeze(settings);

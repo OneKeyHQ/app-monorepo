@@ -5,12 +5,15 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { getUniversalSearchSource } from '../views/UniversalSearch/universalSearchSource';
+
 import useAppNavigation from './useAppNavigation';
 import { useShortcutsRouteStatus } from './useListenTabFocusState';
 
 export const useGlobalShortcuts = () => {
   const navigation = useAppNavigation();
-  const { isAtBrowserTab, shouldReloadAppByCmdR } = useShortcutsRouteStatus();
+  const { currentTabRoute, isAtBrowserTab, shouldReloadAppByCmdR } =
+    useShortcutsRouteStatus();
 
   const handleShortcuts = useCallback(
     (data: EShortcutEvents) => {
@@ -18,6 +21,9 @@ export const useGlobalShortcuts = () => {
         case EShortcutEvents.UniversalSearch:
           navigation.pushModal(EModalRoutes.UniversalSearchModal, {
             screen: EUniversalSearchPages.UniversalSearch,
+            params: {
+              source: getUniversalSearchSource(currentTabRoute.current),
+            },
           });
           break;
         case EShortcutEvents.Refresh:
@@ -34,7 +40,7 @@ export const useGlobalShortcuts = () => {
           break;
       }
     },
-    [isAtBrowserTab, navigation, shouldReloadAppByCmdR],
+    [currentTabRoute, isAtBrowserTab, navigation, shouldReloadAppByCmdR],
   );
 
   useShortcuts(undefined, handleShortcuts);

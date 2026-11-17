@@ -10,11 +10,11 @@ import {
   IconButton,
   SearchBar,
   SizableText,
-  Tabs,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
@@ -23,19 +23,19 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
   useEarnAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
-import { EarnNavigation, parseFormattedLiquidityValue } from '../earnUtils';
+import { parseFormattedLiquidityValue } from '../earnUtils';
+import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
@@ -44,6 +44,15 @@ import { EarnMobileSortControl } from './EarnMobileSortControl';
 import { NetworkFilterControl } from './NetworkFilterControl';
 
 import type { IEarnSortDirection } from './EarnMobileSortControl';
+
+// Earn's outer and inner tab bars share a scroll context on non-native
+// surfaces. Keep the inner category bar in normal flow so it cannot compete
+// with the outer sticky tab bar.
+const ASSET_TAB_BAR_CONTAINER_STYLE = {
+  px: '$0',
+  position: 'relative' as const,
+  zIndex: 0,
+} as const;
 
 export function AvailableAssetsTabViewList({
   isActive = true,
@@ -62,10 +71,7 @@ export function AvailableAssetsTabViewList({
     useState<IEarnSortDirection>('desc');
   const media = useMedia();
   const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const accountId = activeAccount.account?.id;
-  const accountReady = activeAccount.ready;
-  const activeNetworkId = activeAccount.network?.id;
+  const navigateToAsset = useNavigateToEarnAsset();
   const shouldApplyNetworkFilter = media.gtMd && selectedNetworkIds.length > 0;
 
   const tabData = useMemo(
@@ -147,7 +153,7 @@ export function AvailableAssetsTabViewList({
     const query = searchText.toLowerCase();
     return source.filter(
       (a) =>
-        a.symbol.toLowerCase().includes(query) ||
+        earnUtils.matchesSymbolKeyword(a, query) ||
         a.name.toLowerCase().includes(query),
     );
   }, [
@@ -276,7 +282,9 @@ export function AvailableAssetsTabViewList({
               tokenImageUri={asset.logoURI}
               borderRadius="$full"
             />
-            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+              {earnUtils.getDisplaySymbol(asset)}
+            </SizableText>
             <XStack gap="$1">
               {asset.badges?.map((badge) => (
                 <Badge
@@ -348,89 +356,12 @@ export function AvailableAssetsTabViewList({
     return baseColumns;
   }, [intl, isFixedRateTab]);
 
-  // Navigate to asset detail or protocol list, reused by both table and search dialog
-  const navigateToAsset = useCallback(
-    async (
-      asset: IEarnAvailableAsset,
-      categoryType?: EAvailableAssetsTypeEnum,
-    ) => {
-      defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
-
-      const defaultCategory =
-        categoryType === EAvailableAssetsTypeEnum.SimpleEarn ||
-        categoryType === EAvailableAssetsTypeEnum.FixedRate
-          ? (categoryType as 'simpleEarn' | 'fixedRate')
-          : undefined;
-      const navigateToProtocolList = () => {
-        EarnNavigation.pushToEarnProtocols(navigation, {
-          symbol: asset.symbol,
-          filterNetworkId: undefined,
-          logoURI: asset.logoURI
-            ? encodeURIComponent(asset.logoURI)
-            : undefined,
-          defaultCategory,
-        });
-      };
-
-      // When current tab has only 1 protocol, check total across ALL categories.
-      // A token like USDe may have 1 FixedRate protocol but multiple SimpleEarn
-      // protocols — the user should still see the list page in that case.
-      if (asset.protocols.length === 1) {
-        const accountNetworkId =
-          activeNetworkId ?? asset.protocols[0]?.networkId;
-        const canQueryWithAccount =
-          accountReady && Boolean(accountId) && Boolean(accountNetworkId);
-        if (!canQueryWithAccount) {
-          navigateToProtocolList();
-          return;
-        }
-
-        let totalProtocols = 1;
-        try {
-          const allProtocols =
-            await backgroundApiProxy.serviceStaking.getProtocolList({
-              symbol: asset.symbol,
-              accountId,
-              networkId: accountNetworkId,
-              includeWithdrawOnly: true,
-            });
-          totalProtocols = allProtocols?.length ?? 1;
-        } catch {
-          // Fallback: use current tab's count
-        }
-
-        if (totalProtocols <= 1) {
-          const protocol = asset.protocols[0];
-          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-            networkId: protocol.networkId,
-            symbol: asset.symbol,
-            provider: protocol.provider,
-            vault: protocol.vault,
-          });
-          return;
-        }
-      }
-
-      // Multiple protocols across categories → go to protocol list page
-      navigateToProtocolList();
-    },
-    [navigation, accountId, accountReady, activeNetworkId],
-  );
-
   // Handle row press in the main table
   const handleRowPress = useCallback(
     (asset: IEarnAvailableAsset) => {
       return navigateToAsset(asset, selectedTabType);
     },
     [navigateToAsset, selectedTabType],
-  );
-
-  const totalLiquidityLabel = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.dexmarket_details_liquidity_change_total,
-      }),
-    [intl],
   );
 
   // Mobile custom renderer
@@ -454,7 +385,13 @@ export function AvailableAssetsTabViewList({
             flex={1}
             primary={
               <XStack gap="$2" ai="center">
-                <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+                <SizableText
+                  size="$bodyLgMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {earnUtils.getDisplaySymbol(asset)}
+                </SizableText>
                 <XStack gap="$1">
                   {asset.badges?.map((badge) => (
                     <Badge
@@ -476,18 +413,21 @@ export function AvailableAssetsTabViewList({
                   color="$textSubdued"
                   numberOfLines={1}
                 >
-                  {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
+                  {asset.liquidity}
                 </SizableText>
               ) : undefined
             }
           />
-          <XStack flex={1} ai="center" jc="flex-end">
+          {/* No flex here (OK-59904): ListItem.Text above already claims
+              flex={1}, so a second flex={1} splits the row in half and wraps
+              long APR ranges such as "14.33% - 17.38% APR". */}
+          <XStack ai="center" jc="flex-end">
             <AprText asset={asset} />
           </XStack>
         </ListItem>
       );
     },
-    [handleRowPress, isFixedRateTab, totalLiquidityLabel],
+    [handleRowPress, isFixedRateTab],
   );
 
   // Memoize keyExtractor for TableList
@@ -659,8 +599,8 @@ export function AvailableAssetsTabViewList({
         )}
       </XStack>
       <XStack ai="center" jc="space-between" px="$pagePadding">
-        <Tabs.TabBar
-          containerStyle={{ px: '$0' }}
+        <TabBar
+          containerStyle={ASSET_TAB_BAR_CONTAINER_STYLE}
           divider={false}
           onTabPress={handleTabChange}
           tabNames={TabNames}

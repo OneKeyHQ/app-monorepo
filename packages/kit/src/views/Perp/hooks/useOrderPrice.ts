@@ -59,6 +59,7 @@ export function calculateOrderPrice(
   scaleUpperPrice?: string,
   szDecimals?: number,
   now = Date.now(),
+  assetType: 'perp' | 'spot' = 'perp',
 ): IUseOrderPriceReturn {
   // Trigger mode: use trigger effective price
   if (orderMode === 'trigger' && triggerOrderType) {
@@ -138,6 +139,7 @@ export function calculateOrderPrice(
       type: bboPriceMode.type,
       offsetTicks: bboPriceMode.offsetTicks,
       szDecimals,
+      assetType,
     });
 
     if (!priceBN) {
@@ -177,11 +179,11 @@ export function calculateOrderPrice(
 function useOrderPriceWithMidPrice(
   midPriceBN: BigNumber,
   side?: 'long' | 'short',
-  isPerp = true,
   szDecimals?: number,
+  assetType: 'perp' | 'spot' = 'perp',
 ): IUseOrderPriceReturn {
   const formData = useTradingFormOrderPriceParams();
-  const bboPriceMode = isPerp ? formData.bboPriceMode : undefined;
+  const bboPriceMode = formData.bboPriceMode;
   const shouldTrackBboFreshness =
     formData.type === 'limit' && Boolean(bboPriceMode) && Boolean(side);
   const bbo = useBboForOrderPrice(shouldTrackBboFreshness);
@@ -222,6 +224,8 @@ function useOrderPriceWithMidPrice(
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
     szDecimals,
+    undefined,
+    assetType,
   );
 }
 
@@ -234,9 +238,9 @@ export function useOrderPrice(
   return useOrderPriceWithMidPrice(
     midPriceBN,
     side,
-    activeTradeInstrument.mode === 'perp',
     activeTradeInstrument.mode === 'perp'
       ? activeTradeInstrument.universe?.szDecimals
-      : undefined,
+      : activeTradeInstrument.universe?.baseSzDecimals,
+    activeTradeInstrument.mode,
   );
 }

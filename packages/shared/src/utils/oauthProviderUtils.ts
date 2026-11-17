@@ -95,6 +95,15 @@ export function getOneKeyIdOAuthProviderFromSocialLoginProvider(
   return EOneKeyIdOAuthProvider.Apple;
 }
 
+export function getSocialLoginProviderFromOneKeyIdOAuthProvider(
+  provider: EOneKeyIdOAuthProvider,
+): EOAuthSocialLoginProvider {
+  if (provider === EOneKeyIdOAuthProvider.Google) {
+    return EOAuthSocialLoginProvider.Google;
+  }
+  return EOAuthSocialLoginProvider.Apple;
+}
+
 export function isOneKeyIdOAuthProviderBound({
   account,
   provider,

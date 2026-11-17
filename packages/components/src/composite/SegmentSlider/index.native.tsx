@@ -81,6 +81,8 @@ export interface ISegmentSliderProps {
   max?: number;
   disabled?: boolean;
   showBubble?: boolean;
+  /** Web-only alignment option. Native segment geometry remains evenly spaced. */
+  alignSegmentMarksToIntegerValues?: boolean;
   /**
    * When true, the slider fills from center (0) instead of left edge.
    * Negative values fill left from center, positive values fill right from center.

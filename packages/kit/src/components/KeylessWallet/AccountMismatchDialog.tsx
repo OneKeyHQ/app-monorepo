@@ -122,8 +122,14 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
       title: intl.formatMessage({
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
-      // TODO: i18n
-      description: `You are signed in to OneKey ID as ${displayEmail}, but this Keyless wallet is linked to a different account. Continuing will log you out of OneKey ID (you can log in again later); the Keyless wallet stays untouched.`,
+      description: intl.formatMessage(
+        {
+          id: ETranslations.keyless_onekey_id_session_conflict__desc,
+        },
+        {
+          email: displayEmail,
+        },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
@@ -138,12 +144,16 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
   });
 }
 
-export async function showOneKeyIdOAuthReauthAccountMismatchDialog(params: {
+export async function showOneKeyIdOAuthAccountMismatchDialog(params: {
   intl: IntlShape;
-  provider: EOAuthSocialLoginProvider;
+  mismatchedProvider: EOAuthSocialLoginProvider;
+  continueProvider: EOAuthSocialLoginProvider;
 }): Promise<boolean> {
-  const { intl, provider } = params;
-  const providerName = getOAuthSocialLoginProviderName(provider);
+  const { intl, mismatchedProvider, continueProvider } = params;
+  const mismatchedProviderName =
+    getOAuthSocialLoginProviderName(mismatchedProvider);
+  const continueProviderName =
+    getOAuthSocialLoginProviderName(continueProvider);
   return new Promise<boolean>((resolve) => {
     let isSettled = false;
     const settle = (value: boolean) => {
@@ -157,18 +167,68 @@ export async function showOneKeyIdOAuthReauthAccountMismatchDialog(params: {
       title: intl.formatMessage({
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
-      // TODO: i18n
-      description: `This ${providerName} account isn't the one linked to your current OneKey ID. Please choose the linked account and try again.`,
+      description: intl.formatMessage(
+        {
+          id: ETranslations.onekey_id_oauth_reauth_account_mismatch__desc,
+        },
+        { provider: mismatchedProviderName },
+      ),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage(
+        { id: ETranslations.continue_with_social_platform },
+        { platform: continueProviderName },
+      ),
+      onConfirm: () => settle(true),
+      onClose: () => settle(false),
+    });
+  });
+}
+
+export type IKeylessOAuthRefreshRecoveryAction =
+  | 'dismiss'
+  | 'reauthenticate'
+  | 'retry';
+
+export async function showKeylessOAuthRefreshRecoveryDialog(params: {
+  intl: IntlShape;
+  provider?: EOAuthSocialLoginProvider;
+}): Promise<IKeylessOAuthRefreshRecoveryAction> {
+  const { intl, provider } = params;
+  const providerName =
+    getOAuthSocialLoginProviderName(provider) ||
+    intl.formatMessage({ id: ETranslations.google_or_apple__label });
+  return new Promise<IKeylessOAuthRefreshRecoveryAction>((resolve) => {
+    let isSettled = false;
+    const settle = (action: IKeylessOAuthRefreshRecoveryAction) => {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(action);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.global_connection_failed,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.keyless_verify_identity_desc,
+        },
+        { provider: providerName },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_retry,
       }),
-      onCancelText: intl.formatMessage({
-        id: ETranslations.global_cancel,
-      }),
-      onConfirm: () => settle(true),
-      onCancel: () => settle(false),
-      onClose: () => settle(false),
+      onCancelText: intl.formatMessage(
+        {
+          id: ETranslations.continue_with_social_platform,
+        },
+        { platform: providerName },
+      ),
+      onConfirm: () => settle('retry'),
+      onCancel: () => settle('reauthenticate'),
+      onClose: () => settle('dismiss'),
     });
   });
 }

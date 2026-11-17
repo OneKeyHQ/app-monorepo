@@ -59,13 +59,20 @@ export function buildPortfolioClaimSymbolMap(assets: IEarnAvailableAssetV2[]) {
 export function resolveUniquePortfolioClaimSourceIdentity({
   networkId,
   providerName,
+  vault,
   candidates,
 }: {
   networkId: string;
   providerName: string;
+  /** the vault the reward names, when it does: narrows a provider with several (Morpho) to the one */
+  vault?: string;
   candidates: IPortfolioClaimSourceCandidate[];
 }): IPortfolioClaimProtocolIdentity | null {
   const identities = new Map<string, IPortfolioClaimProtocolIdentity>();
+  const isEvm = networkUtils.isEvmNetwork({ networkId });
+  const normalizeVault = (value?: string) =>
+    isEvm ? value?.toLowerCase() : value;
+  const wantedVault = vault ? normalizeVault(vault) : undefined;
 
   candidates.forEach((candidate) => {
     if (
@@ -76,11 +83,10 @@ export function resolveUniquePortfolioClaimSourceIdentity({
       return;
     }
 
-    const normalizedVault = networkUtils.isEvmNetwork({
-      networkId: candidate.networkId,
-    })
-      ? candidate.vault?.toLowerCase()
-      : candidate.vault;
+    const normalizedVault = normalizeVault(candidate.vault);
+    if (wantedVault && normalizedVault !== wantedVault) {
+      return;
+    }
     const identityKey = `${candidate.symbol}_${getPortfolioProtocolIdentityKey({
       networkId: candidate.networkId,
       provider: candidate.providerName,

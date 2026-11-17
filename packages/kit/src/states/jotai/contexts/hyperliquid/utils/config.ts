@@ -8,6 +8,9 @@ import type { IToastConfig } from './types';
 
 const t = (id: ETranslations) => () => appLocale.intl.formatMessage({ id });
 
+export const getPerpsActiveAccountChangedMessage = t(
+  ETranslations.active_trading_account_changed__msg,
+);
 export const getPerpsOrderChangedMessage = t(
   ETranslations.order_changed_try_again__msg,
 );
@@ -16,6 +19,9 @@ export const getPerpsOrderNoLongerEligibleForChaseMessage = t(
 );
 export const getPerpsTokenInfoNotFoundMessage = t(
   ETranslations.perp_token_info_not_found__msg,
+);
+export const getPerpsTradingNotEnabledMessage = t(
+  ETranslations.perp_error_enable,
 );
 
 export const ERROR_PATTERNS: Record<EErrorType, string[]> = {

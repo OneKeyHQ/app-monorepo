@@ -29,6 +29,19 @@ const BorrowManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
 );
 
+const BorrowEModeSwitch = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch'),
+);
+
+const BorrowEModeCategorySelectModal = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Borrow/pages/modal/BorrowEModeCategorySelectModal'),
+);
+
+const BorrowEModeNeedAction = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeNeedAction'),
+);
+
 const BorrowTokenSelectModal = LazyLoad(
   () =>
     import('@onekeyhq/kit/src/views/Borrow/pages/modal/BorrowTokenSelectModal'),
@@ -113,6 +126,20 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.BorrowManagePosition,
     component: BorrowManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowEModeSwitch,
+    component: BorrowEModeSwitch,
+  },
+  {
+    name: EModalStakingRoutes.BorrowEModeCategorySelect,
+    component: BorrowEModeCategorySelectModal,
+    // Backdrop clicks return to the switch page and preserve its selection.
+    shouldPopOnClickBackdrop: true,
+  },
+  {
+    name: EModalStakingRoutes.BorrowEModeNeedAction,
+    component: BorrowEModeNeedAction,
   },
   {
     name: EModalStakingRoutes.BorrowTokenSelect,

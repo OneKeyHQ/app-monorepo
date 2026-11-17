@@ -94,6 +94,8 @@ export function DappInfoPopoverContent({
     <YStack
       gap="$5"
       p="$5"
+      // The native sheet's header already pads 20pt below the title.
+      $platform-native={{ pt: '$0' }}
       onPress={(e) => {
         e.stopPropagation();
       }}

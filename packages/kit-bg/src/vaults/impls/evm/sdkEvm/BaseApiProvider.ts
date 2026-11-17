@@ -52,6 +52,7 @@ import type {
 import type {
   IAccountToken,
   IFetchTokenDetailItem,
+  IToken,
   ITokenData,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
@@ -90,27 +91,53 @@ class BaseApiProvider {
     throw new NotImplemented();
   }
 
+  // The native token row is written once when a custom network is added, yet
+  // localTokens is clearable cache ("Clear cache", metadata cap). Without the
+  // row every RPC token/fee/history call fails, so rebuild it from the network.
+  private async restoreNativeTokenFromNetwork(): Promise<IToken | undefined> {
+    const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+      networkId: this.networkId,
+    });
+    if (!network?.symbol || !network.decimals) {
+      return undefined;
+    }
+    const nativeToken: IToken = {
+      decimals: network.decimals,
+      name: network.symbol,
+      symbol: network.symbol,
+      address: this.nativeTokenAddress,
+      logoURI: '',
+      isNative: true,
+    };
+    await this.backgroundApi.simpleDb.localTokens.updateTokens({
+      networkId: this.networkId,
+      tokens: [nativeToken],
+    });
+    return nativeToken;
+  }
+
   public async getNativeToken(): Promise<IServerAccountTokenItem> {
     const [token] = await this.getChainTokensFromDB({
       networkId: this.networkId,
       contractList: [this.nativeTokenAddress],
     });
-    if (!token) {
+    const info = token?.info ?? (await this.restoreNativeTokenFromNetwork());
+    if (!info) {
       throw new OneKeyLocalError('getNativeToken failed');
     }
-    if (!token?.info?.decimals) {
+    if (!info.decimals) {
       throw new OneKeyLocalError('getNativeToken decimals failed');
     }
     return {
       info: {
-        name: token?.info?.name,
-        symbol: token?.info?.symbol,
+        name: info.name,
+        symbol: info.symbol,
         address: this.nativeTokenAddress,
         sendAddress: undefined,
         logoURI: '',
         totalSupply: undefined,
         isNative: true,
-        decimals: token?.info?.decimals,
+        decimals: info.decimals,
         riskLevel: 1,
         uniqueKey: this.nativeTokenAddress,
         networkId: this.networkId,

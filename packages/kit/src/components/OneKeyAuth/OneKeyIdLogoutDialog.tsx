@@ -13,7 +13,10 @@ import type {
 
 import { getOneKeyIdLogoutDialogContent } from './oneKeyIdLogoutDialogContent';
 
-type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
+export type IReadyIdentityExitPlan = Extract<
+  IIdentityExitPlan,
+  { status: 'ready' }
+>;
 
 export type IOneKeyIdLogoutDialogResult =
   | {
@@ -35,12 +38,33 @@ type IOneKeyIdLogoutDialogOptions = {
   beforeExecute?: () => void | Promise<void>;
 };
 
+export async function executeIdentityExitPlan(
+  plan: IReadyIdentityExitPlan,
+): Promise<IIdentityExitReceipt> {
+  return backgroundApiProxy.serviceIdentityExit.executeIdentityExit({
+    planId: plan.planId,
+    acknowledgement:
+      plan.confirmation.type === 'keylessRemovalAcknowledgement'
+        ? 'keylessWalletRemoval'
+        : 'oneKeyIdLogout',
+  });
+}
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
-  // TODO: i18n
   return String(error || 'Identity exit failed.');
+}
+
+function logIdentityExitError(error: unknown) {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  // Keep the original Error object so the browser console preserves its stack.
+  // eslint-disable-next-line no-console
+  console.error('[IdentityExit] execution failed', error);
 }
 
 function OneKeyIdLogoutDialogContent({
@@ -113,13 +137,7 @@ function OneKeyIdLogoutDialogContent({
           setIsExecuting(true);
           try {
             await beforeExecute?.();
-            const receipt =
-              await backgroundApiProxy.serviceIdentityExit.executeIdentityExit({
-                planId: plan.planId,
-                acknowledgement: requiresAcknowledgement
-                  ? 'keylessWalletRemoval'
-                  : undefined,
-              });
+            const receipt = await executeIdentityExitPlan(plan);
             if (receipt.status === 'completed') {
               await onResult({ status: 'completed', receipt }, close);
               return;
@@ -133,6 +151,7 @@ function OneKeyIdLogoutDialogContent({
               close,
             );
           } catch (error) {
+            logIdentityExitError(error);
             await onResult(
               { status: 'blocked', message: getErrorMessage(error) },
               close,

@@ -9,6 +9,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useIsModalPage } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
 import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
@@ -94,6 +95,7 @@ function HeaderView({
     // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
+    headerContainerBackgroundColor,
     modalContentMaxWidth,
   } = options || EMPTY_OPTIONS;
   const theme = useTheme();
@@ -159,9 +161,13 @@ function HeaderView({
   }, [isGtMd, isModelScreen, modalContentMaxWidth]);
 
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
+  const isModalPage = useIsModalPage();
   const headerBackgroundColor = useMemo(() => {
     if (headerTransparent) {
       return 'transparent';
+    }
+    if (!platformEnv.isNativeIOS && headerContainerBackgroundColor) {
+      return headerContainerBackgroundColor;
     }
     // The WebView overlay's header sits flush against the sidebar at the top
     // of the window — share `$bgSidebar` so the band reads as a single
@@ -173,7 +179,12 @@ function HeaderView({
       return '$bgApp';
     }
     return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
-  }, [headerTransparent, isDesktopModeUI, isWebViewScreen]);
+  }, [
+    headerContainerBackgroundColor,
+    headerTransparent,
+    isDesktopModeUI,
+    isWebViewScreen,
+  ]);
 
   const routeName = route.name;
   const title = useMemo(
@@ -193,8 +204,11 @@ function HeaderView({
   );
 
   const innerGtMd = useMemo(
-    () => (platformEnv.isNativeAndroid ? undefined : GT_MD_FLEX_1),
-    [],
+    () =>
+      !platformEnv.isNativeAndroid && (platformEnv.isNative || !isModelScreen)
+        ? GT_MD_FLEX_1
+        : undefined,
+    [isModelScreen],
   );
 
   const headerRightContainerStyleMemo = useMemo(
@@ -280,7 +294,8 @@ function HeaderView({
           pr={
             (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
             !isOnboardingScreen &&
-            !isModelScreen
+            !isModelScreen &&
+            !isModalPage
               ? WINDOWS_OVERLAY_BUTTONS_WIDTH
               : undefined
           }

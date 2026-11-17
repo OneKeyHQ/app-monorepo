@@ -142,6 +142,14 @@ const jsRules = {
 };
 const restrictedImportsPatterns = [
   {
+    group: [
+      '@react-native-async-storage/async-storage',
+      '@react-native-async-storage/async-storage/**',
+    ],
+    message:
+      'Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned.',
+  },
+  {
     allowTypeImports: true,
     group: ['@onekeyfe/hd-core'],
     message: 'using `const {} = await CoreSDKLoader()` instead',
@@ -353,9 +361,7 @@ module.exports = {
     '.claude/worktrees/**',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/primitives/Icon/Icons.tsx',
-    'packages/components/src/primitives/Icon/react/*',
     'packages/shared/src/modules3rdParty/stripe-v3/*',
-    'packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js',
     'packages/shared/src/locale/enum/translations.ts',
     'packages/shared/src/locale/localeJsonMap.ts',
     'packages/shared/src/locale/json/*',

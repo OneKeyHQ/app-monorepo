@@ -2,9 +2,9 @@
 
 This bug bounty program covers code within the OneKey repositories that directly impacts the security of OneKey products and users.
 
-All vulnerability reports must be submitted through one of the following channels:
-1. **Private disclosure**: Send an email to [security@onekey.so](mailto:[security@onekey.so]) — recommended for high-severity vulnerabilities. Private submissions remain fully eligible for bounties.
-2. **BugRap Platform**: Submit through our official page on [BugRap](https://bugrap.io/bounties/OneKey).
+All vulnerability reports must be submitted through our official page on [BugRap](https://bugrap.io/bounties/OneKey). Reports sent by email will not be reviewed or rewarded.
+
+For other matters — such as security leads or intelligence (e.g., ongoing attacks, phishing campaigns) — contact [security@onekey.so](mailto:security@onekey.so). Leads are not covered by the bounty tables below; OneKey may reward valuable intelligence at its discretion.
 
 ## Scope
 
@@ -260,7 +260,7 @@ OneKey reserves the right to take the following actions against researchers who 
 - **Cooldown**: Researchers who receive two or more warnings within a 90-day period will be placed on a **30-day cooldown**, during which no new submissions will be accepted or reviewed.
 - **Suspension**: Researchers who continue to submit low-quality or AI-generated reports after a cooldown period may be **permanently suspended** from the program.
 
-Reports with hallucinated vulnerabilities, vague technical content, or other forms of low-effort noise are treated as spam. Submitting such reports in volume is considered abuse of the program.
+Reports with hallucinated vulnerabilities, vague technical content, or other forms of low-effort noise are treated as spam. Submitting such reports in volume is considered abuse of the program. Sending vulnerability reports by email instead of BugRap is also treated as spam.
 
 OneKey tracks submission quality history per researcher. A consistent track record of high-quality submissions will be considered favorably when evaluating borderline reports. Conversely, a history of low-quality submissions may result in stricter scrutiny of future reports.
 
@@ -269,7 +269,7 @@ OneKey tracks submission quality history per researcher. A consistent track reco
 OneKey will not pursue legal action against researchers who:
 - Act in good faith and comply with this program's rules
 - Avoid privacy violations, data destruction, and service disruption
-- Report vulnerabilities through the designated channels
+- Report vulnerabilities through the designated channel (BugRap)
 - Do not publicly disclose vulnerabilities prior to OneKey's confirmation of remediation
 
 This safe harbor does not extend to activities that violate applicable law or that cause harm to OneKey, its users, or third parties.
@@ -286,3 +286,52 @@ To experiment with OneKey without using your own ETH, switch your default networ
 - By submitting a report, the researcher grants OneKey an unrestricted, perpetual license to use the report and any associated materials for the purpose of improving OneKey's security.
 - OneKey may publicly acknowledge researchers (with their consent) but is not obligated to provide public credit.
 - All disputes arising from this program will be governed by the laws of the jurisdiction in which OneKey is incorporated.
+
+## Verifying OneKey App Downloads
+
+Every desktop and Android release on [GitHub Releases](https://github.com/OneKeyHQ/app-monorepo/releases) ships with a `*.SHA256SUMS.asc` file signed by the OneKey release signing key:
+
+```
+onekeyhq developer <dev@onekey.so>
+Fingerprint: EB68 AE54 4F1F DD8C D264  624F B369 A67A 90BF 387B
+```
+
+The same fingerprint is published in several independent places. Before trusting the key, check that they all match:
+
+- This file, and the public key file [`docs/onekey-release-signing-key.asc`](docs/onekey-release-signing-key.asc) in this repository
+- The public key built into the desktop app's updater: [`apps/desktop/app/constant/gpg.js`](apps/desktop/app/constant/gpg.js)
+- [keys.openpgp.org](https://keys.openpgp.org/vks/v1/by-fingerprint/EB68AE544F1FDD8CD264624FB369A67A90BF387B)
+- The OneKey Help Center: [Verify OneKey App Packages with GPG Signatures](https://help.onekey.so/en/articles/11461184-verify-onekey-app-packages-with-gpg-signatures)
+
+Download the installer and its matching `*.SHA256SUMS.asc` file into the same directory. Run the following steps one at a time, replacing the example filename with the file you downloaded.
+
+```bash
+# 1. Import the key (from this repository, or from keys.openpgp.org)
+gpg --import docs/onekey-release-signing-key.asc
+# gpg --keyserver hkps://keys.openpgp.org --recv-keys EB68AE544F1FDD8CD264624FB369A67A90BF387B
+
+# 2. Confirm the imported key's fingerprint matches the one above
+gpg --fingerprint EB68AE544F1FDD8CD264624FB369A67A90BF387B
+
+# 3. Verify the signature and extract only the signed checksum text
+gpg --output signed-checksums.txt --decrypt "OneKey-Wallet-<version>-<platform>.SHA256SUMS.asc"
+```
+
+Step 3 must succeed and report `Good signature from "onekeyhq developer <dev@onekey.so>"` with the primary key fingerprint above. The name or email alone is not proof of the signer's identity. If the command fails or the fingerprint differs, discard `signed-checksums.txt` and do not continue. When repeating the verification, remove any previous `signed-checksums.txt` first; never reuse output from an earlier or failed attempt.
+
+Only after confirming step 3, check the installer against the extracted signed text:
+
+```bash
+# 4. macOS / Linux: the intended installer must be listed and report OK
+shasum -a 256 --check signed-checksums.txt
+```
+
+On Windows, calculate the installer's hash:
+
+```cmd
+certutil -hashfile "OneKey-Wallet-<version>-<platform>.exe" SHA256
+```
+
+Compare it with the checksum for that exact installer filename in `signed-checksums.txt`.
+
+Never check the installer against the original `.asc` file directly: text before or after its signed message is not authenticated by GPG, but checksum tools or manual comparison can still accept it. If any step fails, the installer is not listed in the signed text, or a checksum or fingerprint differs, do not install the package, and contact <security@onekey.so>.

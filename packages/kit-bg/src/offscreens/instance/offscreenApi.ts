@@ -11,9 +11,40 @@ import type {
   IBackgroundApiInternalCallMessage,
   IOffscreenApiMessagePayload,
 } from '../../apis/IBackgroundApi';
-import type { LowLevelCoreApi } from '@onekeyfe/hd-core';
+import type { CoreMessage, LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 let HardwareLowLevelSDK: LowLevelCoreApi;
+
+const forwardHardwareEventToBackground = (eventParams: CoreMessage) => {
+  const backgroundServiceName = 'serviceHardware';
+  const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}passHardwareEventsFromOffscreenToBackground`;
+  const message: IBackgroundApiInternalCallMessage = {
+    service: backgroundServiceName,
+    method: backgroundMethodName,
+    params: [eventParams],
+  };
+  // chrome.runtime.sendMessage(message);
+  // TODO backgroundApiProxyInOffscreen
+  const bridge = appGlobals.extJsBridgeOffscreenToBg;
+  if (!bridge) {
+    console.error('[hardwareSDKLowLevel] background bridge is unavailable');
+    return;
+  }
+  void Promise.resolve(bridge.request({ data: message })).catch(
+    (error: unknown) => {
+      console.error(
+        '[hardwareSDKLowLevel] failed to forward event to background',
+        error,
+      );
+    },
+  );
+};
+
+const registerHardwareGlobalEventListener = () => {
+  HardwareLowLevelSDK.addHardwareGlobalEventListener(
+    forwardHardwareEventToBackground,
+  );
+};
 
 const createOffscreenApiModule = memoizee(
   async (name: keyof IOffscreenApi) => {
@@ -23,24 +54,17 @@ const createOffscreenApiModule = memoizee(
           HardwareLowLevelSDK = await (
             await import('@onekeyhq/shared/src/hardware/sdk-loader')
           ).importHardwareSDKLowLevel();
-          HardwareLowLevelSDK.addHardwareGlobalEventListener((eventParams) => {
-            const backgroundServiceName = 'serviceHardware';
-            const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}passHardwareEventsFromOffscreenToBackground`;
-            const message: IBackgroundApiInternalCallMessage = {
-              service: backgroundServiceName,
-              method: backgroundMethodName,
-              params: [eventParams],
-            };
-            // chrome.runtime.sendMessage(message);
-            // TODO backgroundApiProxyInOffscreen
-            void appGlobals.extJsBridgeOffscreenToBg.request({ data: message });
-          });
+          registerHardwareGlobalEventListener();
         }
         return HardwareLowLevelSDK;
       case 'adaSdk':
         return new (await import('../OffscreenApiAdaSdk')).default();
       case 'kaspaSdk':
         return new (await import('../OffscreenApiKaspaSdk')).default();
+      case 'zcashSdk':
+        return new (await import('../OffscreenApiZcashSdk')).default();
+      case 'xmrRuntime':
+        return new (await import('../OffscreenApiXmrRuntime')).default();
       case 'thirdPartyHardware':
         return new (
           await import('../OffscreenApiThirdPartyHardware')
@@ -56,11 +80,24 @@ const createOffscreenApiModule = memoizee(
   },
 );
 
-const callOffscreenApiMethod =
+const callOffscreenApiMethodBase =
   buildCallRemoteApiMethod<IOffscreenApiMessagePayload>(
     createOffscreenApiModule,
     'offscreenApi',
   );
+
+const callOffscreenApiMethod = async (message: IOffscreenApiMessagePayload) => {
+  const result: unknown = await callOffscreenApiMethodBase(message);
+  const params = Array.isArray(message.params) ? message.params : [];
+  const didClearAllHardwareListeners =
+    message.module === 'hardwareSDKLowLevel' &&
+    (message.method === 'dispose' ||
+      (message.method === 'removeAllListeners' && params.length === 0));
+  if (didClearAllHardwareListeners) {
+    registerHardwareGlobalEventListener();
+  }
+  return result;
+};
 
 export default {
   callOffscreenApiMethod,

@@ -2,11 +2,19 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as HwkHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { isArray, isNil } from 'lodash';
 
+import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
 import {
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+} from '../errors/thirdPartyHardwareErrors';
+import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
@@ -34,16 +42,27 @@ export type IConvertDeviceErrorOptions = {
 // OneKey HD-SDK's enum. When convertDeviceError's switch can't match a
 // code, we check this set to decide whether to delegate to the
 // third-party mapper before falling back to UnknownHardwareError.
-const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>(
-  Object.values(HwkHardwareErrorCode).filter(
+const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>([
+  ...Object.values(HwkHardwareErrorCode).filter(
     (v): v is number => typeof v === 'number',
   ),
-);
+  // Codes the installed SDK build predates. Without this the routing gate reads
+  // them as unknown and they never reach the third-party mapper.
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+]);
+
+const REMOTE_CONFIG_REFRESH_ERROR_MESSAGE =
+  'Unable to refresh the latest remote config';
 
 function isHwkErrorCode(code: unknown): code is number {
   const n = typeof code === 'string' ? Number(code) : code;
   return typeof n === 'number' && Number.isFinite(n) && HWK_ERROR_CODES.has(n);
 }
+
+const UNKNOWN_MESSAGE_ERRORS = ['Unknown message', 'Handler not found'];
 
 export function captureSpecialError(
   code: string | number | undefined,
@@ -90,6 +109,12 @@ export function convertDeviceError(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const info = params;
 
+  if (code === HardwareErrorCode.BleUnavailableWhileUsbConnected) {
+    return new HardwareErrors.BluetoothUnavailableWhileUsbConnectedError({
+      payload,
+    });
+  }
+
   const specialError = captureSpecialError(code, message);
   /**
    * Catch some special errors
@@ -123,6 +148,13 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DeviceInitializeFailed:
       return new HardwareErrors.DeviceInitializeFailed({ payload });
+    case HardwareErrorCode.TransportProtocolProbeFailed:
+    case HardwareErrorCode.TransportProtocolMismatch:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_communication_error,
+      });
     case HardwareErrorCode.DeviceDetectInBootloaderMode:
       return new HardwareErrors.DeviceDetectInBootloaderMode({ payload });
     case HardwareErrorCode.DeviceInterruptedFromOutside:
@@ -136,6 +168,9 @@ export function convertDeviceError(
     case HardwareErrorCode.IframeTimeout:
       return new HardwareErrors.InitIframeTimeout({ payload });
     case HardwareErrorCode.FirmwareUpdateDownloadFailed:
+      if (message.includes(REMOTE_CONFIG_REFRESH_ERROR_MESSAGE)) {
+        return new HardwareErrors.NetworkError({ payload });
+      }
       return new HardwareErrors.FirmwareDownloadFailed({ payload });
     case HardwareErrorCode.FirmwareUpdateManuallyEnterBoot:
       return new HardwareErrors.FirmwareUpdateManuallyEnterBoot({ payload });
@@ -153,20 +188,43 @@ export function convertDeviceError(
       return new HardwareErrors.NewFirmwareForceUpdate({ payload });
     case HardwareErrorCode.DeviceNotSupportMethod:
       return new HardwareErrors.UnknownMethod({ payload });
+    case HardwareErrorCode.ForbiddenKeyPath:
+      return new HardwareErrors.ForbiddenKeyPathError({ payload });
+    // The raw firmware text stays in the payload for logs and reports.
+    case HardwareErrorCode.DeviceNotSupportPath:
+      return new HardwareErrors.UnsupportedAddressTypeError({ payload });
     case HardwareErrorCode.NetworkError:
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
       return new HardwareErrors.NeedBluetoothTurnedOn({ payload });
+    case HardwareErrorCode.BlePoweredOff:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_bluetooth_need_turned_on_error,
+      });
+    case HardwareErrorCode.BleUnsupported:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_third_party_transport_not_available,
+      });
     case HardwareErrorCode.BleLocationError:
       return new HardwareErrors.NeedBluetoothPermissions({ payload });
     case HardwareErrorCode.BleLocationServicesDisabled:
       return new HardwareErrors.BleLocationServiceError({ payload });
     case HardwareErrorCode.BleDeviceNotBonded:
-      return new HardwareErrors.DeviceNotBonded({ payload });
+      return new HardwareErrors.DeviceNotBonded({
+        payload,
+        key: platformEnv.isDesktop
+          ? ETranslations.feedback_bluetooth_pairing_failed
+          : undefined,
+      });
     case HardwareErrorCode.BleDeviceBondedCanceled:
-      return new HardwareErrors.DeviceNotBonded({ payload });
-    case HardwareErrorCode.BleDeviceBondError:
-      return new HardwareErrors.DeviceBondError({ payload });
+      if (platformEnv.isDesktop) {
+        return new HardwareErrors.UserCancel({ payload, autoToast: false });
+      }
+      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new HardwareErrors.BleWriteCharacteristicError({ payload });
     case HardwareErrorCode.BleScanError:
@@ -181,11 +239,9 @@ export function convertDeviceError(
       if (message.indexOf('EIP712 blind sign is disabled') !== -1) {
         return new HardwareErrors.OpenBlindSign({ payload });
       }
-      if (message.indexOf('Unknown message') !== -1) {
+      // Pro 2 answers a message type it lacks with "Handler not found" instead of "Unknown message".
+      if (UNKNOWN_MESSAGE_ERRORS.some((text) => message.indexOf(text) !== -1)) {
         return new HardwareErrors.UnknownMethod({ payload });
-      }
-      if (message.indexOf('Forbidden key path') !== -1) {
-        return new HardwareErrors.ForbiddenKeyPathError({ payload });
       }
       if (
         message.toLowerCase().includes('string overflow') ||
@@ -206,9 +262,14 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceOpenedPassphrase({ payload });
     case HardwareErrorCode.DeviceNotOpenedPassphrase: {
       const deviceNotOpenedPassphraseError =
-        new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+        new HardwareErrors.DeviceNotOpenedPassphrase({
+          payload,
+          silentMode: options?.silentMode,
+        });
       return deviceNotOpenedPassphraseError;
     }
+    case HardwareErrorCode.DeviceLocked:
+      return new HardwareErrors.DeviceLockedError({ payload });
     case HardwareErrorCode.PinCancelled:
       return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.UnexpectPassphrase:
@@ -226,6 +287,7 @@ export function convertDeviceError(
         void globalThis.desktopApiProxy?.system?.reloadBridgeProcess?.();
       }
       return new HardwareErrors.BridgeTimeoutError({ payload });
+    case HardwareErrorCode.BleConnectedError:
     case HardwareErrorCode.PollingTimeout:
       return new HardwareErrors.ConnectTimeoutError({ payload });
     case HardwareErrorCode.PollingStop:
@@ -234,6 +296,8 @@ export function convertDeviceError(
       return new HardwareErrors.OpenBlindSign({ payload });
     case HardwareErrorCode.FileAlreadyExists:
       return new HardwareErrors.FileAlreadyExistError({ payload });
+    case HardwareErrors.PRO2_NFT_STORAGE_LIMIT_REACHED_ERROR_CODE:
+      return new HardwareErrors.NftStorageLimitReachedError({ payload });
     case HardwareErrorCode.CheckDownloadFileError:
       return new HardwareErrors.IncompleteFileError({ payload });
     case HardwareErrorCode.NotInSigningMode:
@@ -242,6 +306,18 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceDataOverload({ payload });
     case HardwareErrorCode.BridgeDeviceDisconnected:
       return new HardwareErrors.DeviceDisconnectedError({ payload });
+    case ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.global_connection_failed_usb_help_text,
+      });
+    case HardwareErrorCode.BridgeNeedsPermission:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.device_grant_usb_access,
+      });
     case HardwareErrorCode.BTCPsbtTooManyUtxos:
       return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
     case HardwareErrorCode.ResponseUnexpectTypeError:
@@ -277,6 +353,8 @@ export function convertDeviceError(
             code: Number(code),
             error: payload.error ?? message ?? '',
             params: payload.params,
+            appName: payload.appName,
+            recovery: payload.recovery,
           },
           {
             silentMode: options?.silentMode,
@@ -304,6 +382,24 @@ export async function convertDeviceResponse<T>(
   } catch (e) {
     const error: Error | undefined = e as Error;
     console.error(error);
+    // A thrown SDK HardwareError (the transport's TypedError, e.g. the
+    // Bluetooth-off check in hd-transport-react-native) still carries its
+    // code on `errorCode`. Route it through the same table as a failed
+    // response, so it keeps its class, code and i18n key instead of
+    // arriving as a generic error wearing the SDK's English sentence
+    // (OK-62113).
+    const sdkErrorCode = (error as { errorCode?: unknown } | undefined)
+      ?.errorCode;
+    if (typeof sdkErrorCode === 'number') {
+      throw convertDeviceError(
+        {
+          code: sdkErrorCode,
+          error: error?.message,
+          params: (error as { params?: unknown } | undefined)?.params,
+        },
+        options,
+      );
+    }
     const hardwareCommonError = new HardwareErrors.OneKeyHardwareError(error);
     throw hardwareCommonError;
   }
@@ -313,17 +409,33 @@ export async function convertDeviceResponse<T>(
   return response.payload;
 }
 
+export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    oneKeyError instanceof HardwareErrors.OneKeyHardwareError ||
+    oneKeyError?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
+    oneKeyError?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
+    oneKeyError?.$isHardwareError === true,
+  );
+}
+
+export function isDesktopBlePairingCanceledError(
+  error: unknown,
+): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    platformEnv.isDesktop &&
+    isOneKeyHardwareError(error) &&
+    oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
+  );
+}
+
 export function isHardwareError({
   error,
 }: {
   error: IOneKeyError | undefined;
 }) {
-  const isOneKeyHardwareError =
-    error instanceof HardwareErrors.OneKeyHardwareError ||
-    error?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
-    error?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
-    error?.$isHardwareError === true;
-  return error && isOneKeyHardwareError;
+  return error && isOneKeyHardwareError(error);
 }
 
 export function isHardwareErrorByCode({
@@ -334,7 +446,7 @@ export function isHardwareErrorByCode({
   code: number | Array<number | string> | undefined;
 }) {
   // HardwareErrorCode
-  const isOneKeyHardwareError = isHardwareError({ error });
+  const isHardwareErrorDetected = isHardwareError({ error });
 
   const isCodeMatch = (errorCode: number | undefined | string) =>
     errorCode === code ||
@@ -342,7 +454,7 @@ export function isHardwareErrorByCode({
 
   return (
     error &&
-    isOneKeyHardwareError &&
+    isHardwareErrorDetected &&
     (isCodeMatch(error?.code) || isCodeMatch(error?.payload?.code))
   );
 }

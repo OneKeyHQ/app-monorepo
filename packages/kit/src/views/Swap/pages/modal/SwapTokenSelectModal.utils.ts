@@ -86,19 +86,16 @@ export function isSwapStockTokenSearchMatch({
 export function isSwapStockMetadataPending({
   isSwapStockSelectTarget,
   resolvedStockMetadataTokenKey,
-  stockMetadataLoading,
   stockMetadataTokenKey,
 }: {
   isSwapStockSelectTarget: boolean;
   resolvedStockMetadataTokenKey?: string;
-  stockMetadataLoading?: boolean;
   stockMetadataTokenKey?: string;
 }) {
   return Boolean(
     isSwapStockSelectTarget &&
     stockMetadataTokenKey &&
-    (stockMetadataLoading ||
-      resolvedStockMetadataTokenKey !== stockMetadataTokenKey),
+    resolvedStockMetadataTokenKey !== stockMetadataTokenKey,
   );
 }
 
@@ -247,5 +244,38 @@ export function buildSwapTokenSelectorNetworkView({
     networks: swapNetworksIncludeAllNetwork.filter(
       (network) => network.networkId !== sameChainNetwork.networkId,
     ),
+  };
+}
+
+// A pasted address searches every network; keep the selected network's
+// matches first and report where the other-network section starts (-1 when
+// there is none). Without a selected network the list is returned unchanged.
+export function groupSwapSearchTokensBySelectedNetwork<T>({
+  tokens,
+  selectedNetworkId,
+  getNetworkId,
+}: {
+  tokens: T[];
+  selectedNetworkId?: string;
+  getNetworkId: (token: T) => string | undefined;
+}): { tokens: T[]; otherNetworkStartIndex: number } {
+  if (!selectedNetworkId || tokens.length === 0) {
+    return { tokens, otherNetworkStartIndex: -1 };
+  }
+  const selectedNetworkTokens: T[] = [];
+  const otherNetworkTokens: T[] = [];
+  tokens.forEach((token) => {
+    if (getNetworkId(token) === selectedNetworkId) {
+      selectedNetworkTokens.push(token);
+    } else {
+      otherNetworkTokens.push(token);
+    }
+  });
+  if (otherNetworkTokens.length === 0) {
+    return { tokens, otherNetworkStartIndex: -1 };
+  }
+  return {
+    tokens: [...selectedNetworkTokens, ...otherNetworkTokens],
+    otherNetworkStartIndex: selectedNetworkTokens.length,
   };
 }

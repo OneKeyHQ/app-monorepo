@@ -1,12 +1,30 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  EWebEmbedPrivateRequestMethod,
+  WEB_EMBED_ANDROID_LOCAL_ORIGIN,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { hasWebEmbedChannelMark } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
+
+import { EAtomNames } from '../states/jotai/atomNames';
 
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+
+// These values are authoritative in bg and must never accept the generic
+// UI-to-bg Jotai synchronization write path.
+const BACKGROUND_OWNED_ATOM_NAMES = new Set<EAtomNames>([
+  EAtomNames.inscriptionProtectionControlPersistAtom,
+  EAtomNames.perpsUnifoldActiveRecipientAtom,
+]);
+
+export function isBackgroundApiAtomWritable(atomName: EAtomNames) {
+  return !BACKGROUND_OWNED_ATOM_NAMES.has(atomName);
+}
 
 export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
   // iOS/Android origin in PRD for web-embed (local storage file).
@@ -16,11 +34,15 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
   'null',
   'file://',
 
+  // Android loads the same local page over a virtual https origin instead.
+  ...(platformEnv.isNativeAndroid ? [WEB_EMBED_ANDROID_LOCAL_ORIGIN] : []),
+
   ...(platformEnv.isDev
     ? [
         // iOS simulator DEV localhost for web-embed (localhost)
         'http://localhost:3008',
         'http://localhost:8081',
+        'http://127.0.0.1:8081',
 
         // real iOS Device web-embed origin allowed in DEV (LAN ip)
         'http://192.168.6.37:3008',
@@ -60,6 +82,10 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_closeCurrentBrowserTab',
   'wallet_addBrowserUrlToRiskWhiteList',
   'wallet_requestClipboardPermission',
+  // Answered by the web-embed modal's WebView host; the background has no
+  // handler for them. The Prime purchase page sends them unmarked from the
+  // opaque origin on iOS.
+  ...Object.values(EWebEmbedPrivateRequestMethod),
 ];
 
 export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
@@ -71,6 +97,14 @@ export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
   'wallet_keylessDisconnectSite',
 ];
 
+// First-party web landings only (app.onekey.so / app.onekeytest.com / 1key.so).
+// Do not add these to PROVIDER_API_PRIVATE_WHITE_LIST_METHOD — those methods
+// are callable from any origin.
+const PROVIDER_API_PRIVATE_FIRST_PARTY_WEB_METHOD = new Set([
+  'wallet_openPrimeSubscription',
+  'wallet_primeWebCheckoutReturn',
+]);
+
 // white list method which can be called from any origin
 //      so these method should NOT return sensitive data
 export function isProviderApiPrivateAllowedMethod(method?: string) {
@@ -79,6 +113,10 @@ export function isProviderApiPrivateAllowedMethod(method?: string) {
 
 export function isProviderApiPrivateKeylessMethod(method?: string) {
   return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
+}
+
+function isProviderApiPrivateFirstPartyWebMethod(method?: string) {
+  return !!method && PROVIDER_API_PRIVATE_FIRST_PARTY_WEB_METHOD.has(method);
 }
 
 // Dev servers run on arbitrary ports (e.g. http://localhost:3000), but the
@@ -99,18 +137,116 @@ export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
   return isDevLocalhostOrigin(origin);
 }
 
-export function isProviderApiPrivateAllowedOrigin(origin?: string) {
+// The web-embed page's local-file origin is opaque: any sandboxed, srcdoc or
+// data: frame of any page reports the same value, so it only counts as a
+// privileged origin on a request the web-embed WebView host has marked.
+// Only native hosts the web-embed page and clears page-sent marks; other
+// hosts (e.g. extension content-script ports) pass page fields through.
+const OPAQUE_WEB_EMBED_ORIGINS = new Set(['null', 'file://']);
+
+export function isProviderApiPrivateAllowedOrigin(
+  origin?: string,
+  payload?: IJsBridgeMessagePayload,
+) {
+  if (origin && OPAQUE_WEB_EMBED_ORIGINS.has(origin)) {
+    return Boolean(platformEnv.isNative) && hasWebEmbedChannelMark(payload);
+  }
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
       isDevLocalhostOrigin(origin) ||
-      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
+      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin) ||
+      isWebEmbedApiAllowedOrigin(origin))
   );
 }
 
+export function isProviderApiPrivateOriginDenied({
+  method,
+  origin,
+  payload,
+}: {
+  method?: string;
+  origin?: string;
+  // The request itself, which carries the host's web-embed channel mark.
+  payload?: IJsBridgeMessagePayload;
+}) {
+  if (
+    isProviderApiPrivateKeylessMethod(method) ||
+    isProviderApiPrivateFirstPartyWebMethod(method)
+  ) {
+    return !isProviderApiPrivateAllowedKeylessOrigin(origin);
+  }
+  return (
+    !isProviderApiPrivateAllowedOrigin(origin, payload) &&
+    !isProviderApiPrivateAllowedMethod(method)
+  );
+}
+
+// Dev only: the Metro host loopback or Android emulator alias, on any session port.
+const DEV_SESSION_WEB_EMBED_HOSTS = new Set([
+  '127.0.0.1',
+  'localhost',
+  '10.0.2.2',
+]);
+
+function isDevSessionWebEmbedOrigin(origin: string): boolean {
+  if (!platformEnv.isDev) return false;
+  try {
+    const parsed = new URL(origin);
+    return (
+      parsed.protocol === 'http:' &&
+      DEV_SESSION_WEB_EMBED_HOSTS.has(parsed.hostname) &&
+      parsed.origin === origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isWebEmbedApiAllowedOrigin(origin?: string) {
-  return !!origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
+  return (
+    !!origin &&
+    (WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin) ||
+      isDevSessionWebEmbedOrigin(origin))
+  );
+}
+
+export function isWebEmbedChannelRequest(payload?: IJsBridgeMessagePayload) {
+  return (
+    hasWebEmbedChannelMark(payload) &&
+    isWebEmbedApiAllowedOrigin(payload?.origin)
+  );
+}
+
+// WalletConnectRequestProxy attaches the session context and calls
+// handleProviderMethods directly. The page bridge only overwrites `origin`
+// and `internal`, so these fields on a page request come from the page.
+const WALLET_CONNECT_REQUEST_DATA_KEYS = new Set([
+  'walletConnectTopic',
+  'walletConnectDisplayOrigin',
+  'walletConnectVerifyContext',
+  'wcChainName',
+]);
+
+export function stripWalletConnectContextFromPageRequest(
+  payload: IJsBridgeMessagePayload,
+): IJsBridgeMessagePayload {
+  const { isWalletConnectRequest: _isWalletConnectRequest, ...rest } = payload;
+  const { data } = payload;
+  const dataEntries =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? Object.entries(data)
+      : [];
+  if (!dataEntries.some(([key]) => WALLET_CONNECT_REQUEST_DATA_KEYS.has(key))) {
+    return 'isWalletConnectRequest' in payload ? rest : payload;
+  }
+  return {
+    ...rest,
+    data: Object.fromEntries(
+      dataEntries.filter(([key]) => !WALLET_CONNECT_REQUEST_DATA_KEYS.has(key)),
+    ),
+  };
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {

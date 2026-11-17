@@ -1,0 +1,190 @@
+import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
+
+import { EAtomNames } from '../states/jotai/atomNames';
+
+import {
+  isBackgroundApiAtomWritable,
+  isProviderApiPrivateOriginDenied,
+  isWebEmbedChannelRequest,
+} from './backgroundApiPermissions';
+
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+describe('backgroundApiPermissions', () => {
+  it('blocks UI writes to the background-owned Unifold recipient', () => {
+    expect(
+      isBackgroundApiAtomWritable(EAtomNames.perpsUnifoldActiveRecipientAtom),
+    ).toBe(false);
+  });
+
+  it('blocks UI writes to the inscription protection control', () => {
+    expect(
+      isBackgroundApiAtomWritable(
+        EAtomNames.inscriptionProtectionControlPersistAtom,
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps regular cross-runtime atoms writable', () => {
+    expect(isBackgroundApiAtomWritable(EAtomNames.settingsPersistAtom)).toBe(
+      true,
+    );
+  });
+});
+
+describe('isProviderApiPrivateOriginDenied', () => {
+  it.each([
+    ['wallet_openPrimeSubscription', 'https://app.onekey.so', false],
+    ['wallet_openPrimeSubscription', 'https://app.onekeytest.com', false],
+    ['wallet_openPrimeSubscription', 'https://1key.so', false],
+    ['wallet_openPrimeSubscription', 'https://evil.example', true],
+    ['wallet_openPrimeSubscription', 'https://docs.onekey.so', true],
+    ['wallet_primeWebCheckoutReturn', 'https://app.onekey.so', false],
+    ['wallet_primeWebCheckoutReturn', 'https://app.onekeytest.com', false],
+    ['wallet_primeWebCheckoutReturn', 'https://pay.rev.cat', true],
+    ['wallet_primeWebCheckoutReturn', 'https://docs.onekey.so', true],
+    ['wallet_keylessGetStatus', 'https://app.onekey.so', false],
+    ['wallet_keylessGetStatus', 'https://evil.example', true],
+    ['wallet_getConnectWalletInfo', 'https://evil.example', false],
+  ])('method=%s origin=%s denied=%s', (method, origin, denied) => {
+    expect(isProviderApiPrivateOriginDenied({ method, origin })).toBe(denied);
+  });
+});
+
+describe('$private access from the opaque web-embed origins', () => {
+  const env = platformEnv as { isNative?: boolean };
+  const originalIsNative = env.isNative;
+
+  beforeEach(() => {
+    env.isNative = true;
+  });
+
+  afterEach(() => {
+    env.isNative = originalIsNative;
+  });
+
+  const isDenied = (origin: string, method: string, isMarked: boolean) =>
+    isProviderApiPrivateOriginDenied({
+      method,
+      origin,
+      payload: markWebEmbedChannelPayload(
+        {
+          origin,
+          scope: '$private',
+          data: { method },
+        } as unknown as IJsBridgeMessagePayload,
+        isMarked,
+      ),
+    });
+
+  it.each(['null', 'file://'])(
+    'ignores a mark the page sends itself off native, e.g. through an extension port, at %s',
+    (origin) => {
+      env.isNative = false;
+      expect(isDenied(origin, 'getSensitiveEncodeKey', true)).toBe(true);
+      expect(isDenied(origin, 'wallet_showToast', true)).toBe(true);
+    },
+  );
+
+  it.each(['null', 'file://'])(
+    'treats an unmarked %s frame as an ordinary page',
+    (origin) => {
+      expect(isDenied(origin, 'getLastFocusUrl', false)).toBe(true);
+      expect(isDenied(origin, 'wallet_showToast', false)).toBe(true);
+      expect(isDenied(origin, 'getSensitiveEncodeKey', false)).toBe(true);
+      expect(isDenied(origin, 'wallet_getConnectWalletInfo', false)).toBe(
+        false,
+      );
+      expect(
+        isDenied(origin, 'wallet_addBrowserUrlToRiskWhiteList', false),
+      ).toBe(false);
+    },
+  );
+
+  it.each(['null', 'file://'])(
+    'keeps the marked web-embed page at %s privileged',
+    (origin) => {
+      expect(isDenied(origin, 'webEmbedApiReady', true)).toBe(false);
+      expect(isDenied(origin, 'getSensitiveEncodeKey', true)).toBe(false);
+    },
+  );
+
+  it('lets the Prime purchase page send its host-handled requests', () => {
+    for (const method of Object.values(EWebEmbedPrivateRequestMethod)) {
+      expect(isDenied('null', method, false)).toBe(false);
+    }
+  });
+});
+
+describe('isWebEmbedApiAllowedOrigin', () => {
+  it.each([true, false])(
+    'allows the Android Metro origin only in development (isDev=%s)',
+    async (isDev) => {
+      jest.resetModules();
+      jest.doMock('@onekeyhq/shared/src/platformEnv', () => ({
+        __esModule: true,
+        default: { isDev },
+      }));
+      try {
+        const { isWebEmbedApiAllowedOrigin } =
+          await import('./backgroundApiPermissions');
+        expect(isWebEmbedApiAllowedOrigin('http://127.0.0.1:8081')).toBe(isDev);
+        expect(
+          isWebEmbedApiAllowedOrigin('http://127.0.0.1:8081.evil.example'),
+        ).toBe(false);
+        expect(isWebEmbedApiAllowedOrigin('https://evil.example')).toBe(false);
+      } finally {
+        jest.dontMock('@onekeyhq/shared/src/platformEnv');
+        jest.resetModules();
+      }
+    },
+  );
+});
+
+describe('web-embed channel mark', () => {
+  const page = (origin: string, extra: Record<string, unknown> = {}) =>
+    ({
+      origin,
+      scope: '$private',
+      data: { method: 'fetchStream' },
+      ...extra,
+    }) as unknown as IJsBridgeMessagePayload;
+
+  it('accepts only the host-marked web-embed page at its own origin', () => {
+    expect(
+      isWebEmbedChannelRequest(markWebEmbedChannelPayload(page('null'), true)),
+    ).toBe(true);
+  });
+
+  it('rejects a dApp data: iframe that reports the opaque origin "null"', () => {
+    expect(isWebEmbedChannelRequest(page('null'))).toBe(false);
+    expect(
+      isWebEmbedChannelRequest(markWebEmbedChannelPayload(page('null'), false)),
+    ).toBe(false);
+  });
+
+  it('drops a mark the page forged itself', () => {
+    const forged = page('null', { $onekeyWebEmbedChannel: true });
+    const forwarded = markWebEmbedChannelPayload(forged, false);
+    expect(isWebEmbedChannelRequest(forwarded)).toBe(false);
+    expect(forwarded).not.toHaveProperty('$onekeyWebEmbedChannel');
+    expect(forwarded.data).toBe(forged.data);
+  });
+
+  it('keeps a third-party frame inside the web-embed WebView out', () => {
+    expect(
+      isWebEmbedChannelRequest(
+        markWebEmbedChannelPayload(page('https://js.stripe.com'), true),
+      ),
+    ).toBe(false);
+  });
+
+  it('forwards unmarked payloads (Prime modal, dApps) as the same object', () => {
+    const prime = page('null', {
+      data: { method: 'webembedPrivateRequest_closeWebViewModal' },
+    });
+    expect(markWebEmbedChannelPayload(prime, false)).toBe(prime);
+  });
+});

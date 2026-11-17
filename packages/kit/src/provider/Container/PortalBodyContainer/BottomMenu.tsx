@@ -1,6 +1,6 @@
 import { YStack, useIsWebHorizontalLayout } from '@onekeyhq/components';
 
-import { MoreActionButton } from '../../../components/MoreActionButton';
+import { LazyMoreActionButton } from '../../../components/MoreActionButton/LazyMoreActionButton';
 
 export function BottomMenu() {
   const isShowBottomMenu = useIsWebHorizontalLayout();
@@ -14,7 +14,7 @@ export function BottomMenu() {
       alignItems="center"
       testID="bottom-menu-container"
     >
-      <MoreActionButton />
+      <LazyMoreActionButton />
     </YStack>
   ) : null;
 }

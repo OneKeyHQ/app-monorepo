@@ -5,39 +5,51 @@ import { SizableText, Stack } from '../../../primitives';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IIconButtonProps } from '../../../actions';
+import type { IStackProps } from '../../../primitives';
 
 export interface IHeaderNotificationButtonProps {
+  icon?: IIconButtonProps['icon'];
   size?: IIconButtonProps['size'];
   iconSize?: IIconButtonProps['iconSize'];
   title?: string;
+  accessibilityLabel?: IIconButtonProps['accessibilityLabel'];
   showBadge?: boolean;
   badgeCount?: number;
+  badgeBg?: IStackProps['bg'];
   onPress?: () => void;
+  disabled?: boolean;
   testID?: string;
 }
 
 function HeaderNotificationButton({
+  icon = 'BellOutline',
   size,
   iconSize,
   title,
+  accessibilityLabel,
   showBadge = false,
   badgeCount,
+  badgeBg = '$bgCriticalStrong',
   onPress,
+  disabled = false,
   testID = 'headerNotificationButton',
 }: IHeaderNotificationButtonProps) {
   return (
     <Stack
       testID={testID}
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
       position="relative"
       className="app-region-no-drag"
     >
       <HeaderIconButton
         size={size}
-        icon="BellOutline"
+        icon={icon}
         iconSize={iconSize}
         title={title}
+        accessibilityLabel={accessibilityLabel}
         onPress={platformEnv.isNative ? onPress : undefined}
+        disabled={disabled}
       />
       {showBadge ? (
         <Stack
@@ -47,6 +59,7 @@ function HeaderNotificationButton({
           alignItems="flex-end"
           w="$10"
           pointerEvents="none"
+          opacity={disabled ? 0.5 : 1}
         >
           <Stack
             bg="$bgApp"
@@ -57,7 +70,7 @@ function HeaderNotificationButton({
             <Stack
               px="$1"
               borderRadius="$full"
-              bg="$bgCriticalStrong"
+              bg={badgeBg}
               minWidth="$4"
               height="$4"
               alignItems="center"

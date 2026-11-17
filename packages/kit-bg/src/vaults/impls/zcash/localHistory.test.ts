@@ -1,0 +1,321 @@
+import type { IZcashHistoryItem } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
+
+import {
+  buildZcashLocalHistoryTx,
+  findZcashLocalHistoryItem,
+  resolveInternalMoveEndpoints,
+  resolvePrivacyChainHistorySide,
+} from './localHistory';
+
+function historyItem(txid: string): IZcashHistoryItem {
+  return {
+    txid,
+    minedHeight: 1,
+    timestamp: 1,
+    valueZat: '1',
+    fee: null,
+    pending: false,
+    expired: false,
+    txType: 'received',
+    recipient: null,
+    poolIds: [4],
+    perPoolBalanceDeltaZat: { '4': '1' },
+  };
+}
+
+describe('resolvePrivacyChainHistorySide', () => {
+  it.each([
+    [[0], 'public'],
+    [[4], 'private'],
+    [[4, 99], 'private'],
+    [[0, 4, 99], 'mixed'],
+    [[], undefined],
+  ] as const)('maps pool IDs %j to %s', (poolIds, expected) => {
+    expect(resolvePrivacyChainHistorySide({ poolIds: [...poolIds] })).toBe(
+      expected,
+    );
+  });
+});
+
+describe('findZcashLocalHistoryItem', () => {
+  it('finds the local private row when the backend supplied another hash casing', async () => {
+    const item = historyItem('ab'.repeat(32));
+    const fetchPage = jest.fn().mockResolvedValue([item]);
+    await expect(
+      findZcashLocalHistoryItem({ txid: item.txid.toUpperCase(), fetchPage }),
+    ).resolves.toBe(item);
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
+  it('finds shielded detail beyond the first local history page', async () => {
+    const fetchPage = jest
+      .fn()
+      .mockResolvedValueOnce([historyItem('a'), historyItem('b')])
+      .mockResolvedValueOnce([historyItem('wanted')]);
+
+    await expect(
+      findZcashLocalHistoryItem({
+        txid: 'wanted',
+        pageSize: 2,
+        fetchPage,
+      }),
+    ).resolves.toEqual(historyItem('wanted'));
+    expect(fetchPage).toHaveBeenNthCalledWith(2, { limit: 2, offset: 2 });
+  });
+
+  it('stops at the first short page when the tx is unknown locally', async () => {
+    const fetchPage = jest.fn().mockResolvedValue([historyItem('a')]);
+
+    await expect(
+      findZcashLocalHistoryItem({
+        txid: 'missing',
+        pageSize: 2,
+        fetchPage,
+      }),
+    ).resolves.toBeNull();
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('buildZcashLocalHistoryTx', () => {
+  it('shows the net spend when the fee is unknown and preserves pool deltas', async () => {
+    const item = {
+      ...historyItem('sent'),
+      valueZat: '-61',
+      txType: 'sent' as const,
+      poolIds: [0, 4, 99],
+      perPoolBalanceDeltaZat: { '0': '-100', '4': '39', '99': '0' },
+    };
+    const tx = await buildZcashLocalHistoryTx({
+      item,
+      chainTip: 10,
+      ownAddress: 'own',
+      nativeToken: {
+        address: '',
+        logoURI: '',
+        name: 'Zcash',
+        symbol: 'ZEC',
+      },
+      networkId: 'zcash',
+      accountId: 'account',
+      accountAddress: 'own',
+      buildTransferAction: async ({ from, to, transfers }) => ({
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: { from, to, sends: transfers, receives: [] },
+      }),
+    });
+
+    expect(tx.decodedTx.block).toBe(1);
+    expect(tx.decodedTx.confirmations).toBe(10);
+    expect(tx.decodedTx.nativeAmount).toBe('0.00000061');
+    expect(tx.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0.00000061',
+    );
+    expect(tx.privacyChainHistoryPoolDeltas).toEqual({
+      '0': '-0.000001',
+      '4': '0.00000039',
+      '99': '0',
+    });
+  });
+});
+
+describe('resolveInternalMoveEndpoints', () => {
+  const ownAddress = 't1own';
+
+  it('shows a withdraw as money arriving at the transparent address', () => {
+    expect(
+      resolveInternalMoveEndpoints({
+        ownAddress,
+        item: { perPoolBalanceDeltaZat: { '4': '-2821200', '0': '2811200' } },
+      }),
+    ).toEqual({
+      from: { address: '', shielded: { poolId: 4, isOwn: true } },
+      to: { address: ownAddress },
+    });
+  });
+
+  it('shows a shield as money leaving the transparent address', () => {
+    expect(
+      resolveInternalMoveEndpoints({
+        ownAddress,
+        item: { perPoolBalanceDeltaZat: { '0': '-500000', '4': '490000' } },
+      }),
+    ).toEqual({
+      from: { address: ownAddress },
+      to: { address: '', shielded: { poolId: 4, isOwn: true } },
+    });
+  });
+
+  it('labels a pool-to-pool move by both pools', () => {
+    expect(
+      resolveInternalMoveEndpoints({
+        ownAddress,
+        item: { perPoolBalanceDeltaZat: { '3': '-110000', '4': '100000' } },
+      }),
+    ).toEqual({
+      from: { address: '', shielded: { poolId: 3, isOwn: true } },
+      to: { address: '', shielded: { poolId: 4, isOwn: true } },
+    });
+  });
+});
+
+describe('buildZcashLocalHistoryTx counterparties', () => {
+  const build = (item: IZcashHistoryItem) =>
+    buildZcashLocalHistoryTx({
+      item,
+      chainTip: 10,
+      ownAddress: 't1own',
+      nativeToken: { address: '', logoURI: '', name: 'Zcash', symbol: 'ZEC' },
+      networkId: 'zec--0',
+      accountId: 'a',
+      accountAddress: 't1own',
+      buildTransferAction: async ({ from, to, transfers }) => ({
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from,
+          to,
+          sends: transfers.filter((x) => x.from === 't1own'),
+          receives: transfers.filter((x) => x.from !== 't1own'),
+        },
+      }),
+    });
+
+  it('does not present a same-pool self-transfer as an external incoming payment', async () => {
+    const tx = await build({
+      ...historyItem('self'),
+      txType: 'shielded',
+      fee: '10000',
+      valueZat: '100000000',
+      perPoolBalanceDeltaZat: { '4': '-10000' },
+    });
+    expect(tx.decodedTx.nativeAmount).toBe('1');
+    expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
+    expect(tx.decodedTx.actions[0].assetTransfer).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: { poolId: 4, isOwn: true },
+      sends: [
+        {
+          from: '',
+          to: '',
+          shieldedFrom: { poolId: 4, isOwn: true },
+          shieldedTo: { poolId: 4, isOwn: true },
+          amount: '1',
+          isOwn: true,
+        },
+      ],
+      receives: [],
+    });
+  });
+
+  it('shows a self-transfer without a recovered payment output as zero plus its fee', async () => {
+    const tx = await build({
+      ...historyItem('self-without-payment-output'),
+      txType: 'shielded',
+      fee: '10000',
+      valueZat: '0',
+      perPoolBalanceDeltaZat: { '4': '-10000' },
+    });
+    expect(tx.decodedTx.nativeAmount).toBe('0');
+    expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
+  });
+
+  it('marks a hidden shielded sender by the pool it paid into', async () => {
+    const tx = await build({ ...historyItem('r'), txType: 'received' });
+    const transfer = tx.decodedTx.actions[0].assetTransfer;
+    expect(transfer).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4 },
+      shieldedTo: { poolId: 4, isOwn: true },
+    });
+    expect(transfer?.shieldedFrom?.isOwn).toBeUndefined();
+    expect(transfer?.receives[0]).toEqual(
+      expect.objectContaining({
+        from: '',
+        to: '',
+        shieldedFrom: { poolId: 4 },
+        shieldedTo: { poolId: 4, isOwn: true },
+        isOwn: true,
+      }),
+    );
+    expect(transfer?.sends).toEqual([]);
+  });
+
+  it('shows the fee the sender paid on a received row', async () => {
+    const tx = await build({ ...historyItem('r-fee'), fee: '10000' });
+    expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
+  });
+
+  it('leaves a received row without a fee when the runtime cannot know it', async () => {
+    const tx = await build({ ...historyItem('r-no-fee'), fee: null });
+    expect(tx.decodedTx.totalFeeInNative).toBeUndefined();
+  });
+
+  it('marks a shielded recipient lost to a rescan', async () => {
+    const tx = await build({
+      ...historyItem('s'),
+      txType: 'sent',
+      fee: '10000',
+      valueZat: '-5000000',
+      recipient: null,
+      perPoolBalanceDeltaZat: { '4': '-5010000' },
+    });
+    const transfer = tx.decodedTx.actions[0].assetTransfer;
+    expect(transfer?.sends[0]).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: {},
+      isOwn: true,
+    });
+    expect(transfer).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: {},
+    });
+  });
+
+  it('keeps the recorded recipient of a send this device made', async () => {
+    const tx = await build({
+      ...historyItem('s2'),
+      txType: 'sent',
+      fee: '10000',
+      valueZat: '-5000000',
+      recipient: 'u1recipient',
+      perPoolBalanceDeltaZat: { '4': '-5010000' },
+    });
+    expect(tx.decodedTx.actions[0].assetTransfer?.sends[0].to).toBe(
+      'u1recipient',
+    );
+    expect(
+      tx.decodedTx.actions[0].assetTransfer?.sends[0].shieldedTo,
+    ).toBeUndefined();
+  });
+
+  it('keeps the transparent side of a shield as a real address', async () => {
+    const tx = await build({
+      ...historyItem('shield'),
+      txType: 'shielded',
+      fee: '10000',
+      valueZat: '490000',
+      perPoolBalanceDeltaZat: { '0': '-500000', '4': '490000' },
+    });
+    const transfer = tx.decodedTx.actions[0].assetTransfer;
+    expect(transfer).toMatchObject({
+      from: 't1own',
+      to: '',
+      shieldedTo: { poolId: 4, isOwn: true },
+    });
+    expect(transfer?.shieldedFrom).toBeUndefined();
+    expect(transfer?.sends[0]).toMatchObject({
+      from: 't1own',
+      to: '',
+      shieldedTo: { poolId: 4, isOwn: true },
+      isOwn: true,
+    });
+    expect(transfer?.sends[0].shieldedFrom).toBeUndefined();
+  });
+});

@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,23 +29,29 @@ import { PRIME_FEATURE_INTROS } from '../PrimeFeatures/primeFeatureIntroUtils';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { IPrimeFeatureIntro } from '../PrimeFeatures/primeFeatureIntroUtils';
 
+type IPrimeBenefitsItemLayoutProps = Pick<IListItemProps, 'mx' | 'px'>;
+
 function PrimeBenefitsBaseItem({
   icon,
   title,
   subtitle,
   onPress,
   isComingSoon,
+  isAppOnly,
+  itemProps,
 }: {
   icon: IKeyOfIcons;
   title: string;
   subtitle: string;
-  onPress: () => void;
+  onPress?: () => void;
   isComingSoon?: boolean;
+  isAppOnly?: boolean;
+  itemProps?: IPrimeBenefitsItemLayoutProps;
 }) {
   const intl = useIntl();
 
   return (
-    <ListItem drillIn onPress={onPress}>
+    <ListItem drillIn={Boolean(onPress)} onPress={onPress} {...itemProps}>
       <YStack borderRadius="$3" borderCurve="continuous" bg="$brand4" p="$2">
         <Icon name={icon} size="$6" color="$brand9" />
       </YStack>
@@ -52,7 +59,7 @@ function PrimeBenefitsBaseItem({
         userSelect="none"
         flex={1}
         primary={
-          <XStack alignItems="center">
+          <XStack alignItems="center" flexWrap={isAppOnly ? 'wrap' : undefined}>
             <SizableText
               textAlign="left"
               size="$bodyLgMedium"
@@ -70,6 +77,15 @@ function PrimeBenefitsBaseItem({
                 </Badge.Text>
               </Badge>
             ) : null}
+            {isAppOnly ? (
+              <Badge ml="$2" badgeSize="sm" flexShrink={0}>
+                <Badge.Text>
+                  {intl.formatMessage({
+                    id: ETranslations.prime_app_only__title,
+                  })}
+                </Badge.Text>
+              </Badge>
+            ) : null}
           </XStack>
         }
         secondary={subtitle}
@@ -78,12 +94,14 @@ function PrimeBenefitsBaseItem({
   );
 }
 
-function PrimeBenefitsItem({
+export function PrimeBenefitsItem({
   feature,
   onPress,
+  itemProps,
 }: {
   feature: IPrimeFeatureIntro;
-  onPress: () => void;
+  onPress?: () => void;
+  itemProps?: IPrimeBenefitsItemLayoutProps;
 }) {
   const intl = useIntl();
 
@@ -100,7 +118,9 @@ function PrimeBenefitsItem({
         feature.descriptionValues,
       )}
       isComingSoon={feature.isComingSoon}
+      isAppOnly={feature.isAppOnly}
       onPress={onPress}
+      itemProps={itemProps}
     />
   );
 }

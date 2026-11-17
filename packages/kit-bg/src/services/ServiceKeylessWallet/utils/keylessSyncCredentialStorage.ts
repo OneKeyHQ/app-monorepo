@@ -11,6 +11,7 @@ import {
   EAppCryptoSharedEncryptScene,
   encryptStringAsyncWithFormat,
 } from '../../../utils/secretEncryptFormat';
+import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 
 import keylessStorageUtils from './keylessStorageUtils';
 
@@ -19,10 +20,17 @@ const STORAGE_KEY = 'keyless_sync_credentials';
 type ICredentialMap = Record<string, IKeylessCloudSyncCredential>;
 
 async function readMap(): Promise<ICredentialMap> {
-  const base64 = await keylessStorageUtils.storageGetItem(STORAGE_KEY);
+  let base64: Awaited<ReturnType<typeof keylessStorageUtils.storageGetItem>>;
+  try {
+    base64 = await keylessStorageUtils.storageGetItem(STORAGE_KEY);
+  } catch (error) {
+    logHardwareCloudSyncDiagnostic('credential_storage_read_failed');
+    throw error;
+  }
   if (!base64) {
     return {};
   }
+  let decrypted = false;
   try {
     // Fixed-key local obfuscation for keyless sync metadata. This is not a
     // wallet-password protection boundary and is outside the 600k KDF target.
@@ -37,10 +45,17 @@ async function readMap(): Promise<ICredentialMap> {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
     });
-    return JSON.parse(json) as ICredentialMap;
+    decrypted = true;
+    const map = JSON.parse(json) as ICredentialMap;
+    return map;
   } catch {
-    // Corrupted — wipe everything
-    await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+    logHardwareCloudSyncDiagnostic(
+      decrypted
+        ? 'credential_storage_parse_failed'
+        : 'credential_storage_decrypt_failed',
+    );
+    // Reads can outlive a source change. Only explicit serialized writers may
+    // replace or remove the currently stored credential.
     return {};
   }
 }
@@ -83,10 +98,6 @@ async function getCredential(
   const map = await readMap();
   const credential = map[keylessWalletId];
   if (!credential) {
-    // Not found — clear all orphaned entries
-    if (Object.keys(map).length > 0) {
-      await writeMap({});
-    }
     return null;
   }
   return credential;
@@ -96,8 +107,18 @@ async function removeAllCredentials(): Promise<void> {
   await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
 }
 
+async function getPendingHardwareKeyMigration(): Promise<
+  IKeylessCloudSyncCredential | undefined
+> {
+  const map = await readMap();
+  return Object.values(map).find(
+    (credential) => credential.pendingHardwareKeyMigration,
+  );
+}
+
 export default {
   saveCredential,
   getCredential,
   removeAllCredentials,
+  getPendingHardwareKeyMigration,
 };

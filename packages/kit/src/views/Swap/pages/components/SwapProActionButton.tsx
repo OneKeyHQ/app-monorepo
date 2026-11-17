@@ -18,25 +18,28 @@ import {
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProTokenMarketDetailInfoAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSpeedQuoteFetchingAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { isSwapQuoteInputAmountMatched } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { resolveStockBalanceSeed } from '../../hooks/swapStockChannelUtils';
 import {
   useSwapProAccount,
   useSwapProInputToken,
@@ -46,8 +49,8 @@ import {
   useSwapQuoteProgressState,
   useSwapZeroProviderQuoteCompleted,
 } from '../../hooks/useSwapState';
+import { shouldOfferSwapDepositAction } from '../../utils/swapDepositActionUtils';
 import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
-import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
 
 /**
  * Format value with compact notation (k, M, B, T)
@@ -79,6 +82,7 @@ const formatCompactValue = (value: string, currencySymbol: string): string => {
 
 interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
+  onDepositToTrade?: () => void;
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
   supportSpeedSwap: boolean;
@@ -87,6 +91,7 @@ interface ISwapProActionButtonProps {
 
 const SwapProActionButton = ({
   onSwapProActionClick,
+  onDepositToTrade,
   hasEnoughBalance,
   balanceLoading,
   supportSpeedSwap,
@@ -96,21 +101,13 @@ const SwapProActionButton = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
-  // Stock market closed → trading is impossible even if a quote returns a price.
-  // Guard on the selected token so a stale Pro detail can't drive this state.
-  const stockMarketClosed = isSelectedProStockMarketClosed(
-    proTokenDetail,
-    swapProSelectToken,
-  );
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
   const { isWaitingActionableQuote, hasPreviousActionableQuote } =
     useSwapQuoteProgressState();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
-  const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
+  const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
@@ -125,7 +122,7 @@ const SwapProActionButton = ({
   }, [swapProTradeType, swapProInputAmount, swapFromInputAmount.value]);
   const quoteToAmount = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult?.toAmount || '0';
+      return swapQuoteResult?.toAmount || '0';
     }
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       // Single source with the Est. Receive row (synced from the computed
@@ -145,7 +142,6 @@ const SwapProActionButton = ({
   }, [
     swapProTradeType,
     swapQuoteResult?.toAmount,
-    swapProQuoteResult?.toAmount,
     toTokenAmount.value,
     limitPriceUseRate?.rate,
     swapFromInputAmount.value,
@@ -169,13 +165,27 @@ const SwapProActionButton = ({
   }, [inputToken?.price, inputAmount]);
 
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { selectToToken, selectFromToken } = useSwapActions().current;
+  const { clearSwapTokenCarryIntent, selectToToken, selectFromToken } =
+    useSwapActions().current;
   const [swapSelectToken, setSwapSelectFromToken] =
     useSwapSelectFromTokenAtom();
   const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
+  const currentQuoteRes = useMemo(() => {
+    return swapQuoteResult;
+  }, [swapQuoteResult]);
+  const isWrapped = useMemo(
+    () =>
+      checkWrappedTokenPair({
+        fromToken: inputToken,
+        toToken,
+      }),
+    [inputToken, toToken],
+  );
+  const canExecuteInPro = supportSpeedSwap || isWrapped;
 
   const handleJumpToSwapAction = useCallback(() => {
+    clearSwapTokenCarryIntent();
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (
@@ -219,6 +229,7 @@ const SwapProActionButton = ({
   }, [
     swapProDirection,
     swapProInputAmount,
+    clearSwapTokenCarryIntent,
     setSwapTypeSwitch,
     swapSelectToken,
     swapProSelectToken,
@@ -231,31 +242,6 @@ const SwapProActionButton = ({
     selectFromToken,
     setSwapFromInputAmount,
   ]);
-  const onPressActionButton = useCallback(() => {
-    if (!supportSpeedSwap) {
-      handleJumpToSwapAction();
-    } else {
-      onSwapProActionClick();
-    }
-  }, [supportSpeedSwap, handleJumpToSwapAction, onSwapProActionClick]);
-
-  const debouncedOnSwapProActionClick = useDebouncedCallback(
-    onPressActionButton,
-    500,
-    { leading: true, trailing: false },
-  );
-  const currentQuoteRes = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return swapQuoteResult;
-  }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
-  const currentQuoteLoading = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return quoteFetching;
-    }
-    return isWaitingActionableQuote;
-  }, [swapProTradeType, isWaitingActionableQuote, quoteFetching]);
   const shouldShowNoProviderSupport = useMemo(
     () =>
       (swapProTradeType !== ESwapProTradeType.MARKET &&
@@ -265,7 +251,62 @@ const SwapProActionButton = ({
       ),
     [currentQuoteRes, isZeroProviderQuoteCompleted, swapProTradeType],
   );
+  const swapProAccountAddress = swapProAccount?.result?.addressDetail.address;
+  // Same verdict as the Swap page (OK-63470): a loaded zero pay-token balance
+  // turns the button into the deposit entry, whatever the amount or the
+  // execution route. Missing account and unsupported pairs still win. Pro
+  // stamps the balance with the account it was fetched for, so only a stamp
+  // matching the current account counts (a fresh pick or another account's
+  // figure stays unknown until the next sync lands).
+  const shouldDepositToTrade = useMemo(
+    () =>
+      shouldOfferSwapDepositAction({
+        balance: resolveStockBalanceSeed({
+          hasActiveAccount: true,
+          networkAccountAddress: swapProAccountAddress,
+          token: inputToken as ISwapToken | undefined,
+        }),
+        hasFromToken: !!inputToken,
+        hasToToken: !!toToken,
+        hasFromAddress: !!swapProAccountAddress,
+        noProviderSupportsTrade: shouldShowNoProviderSupport,
+      }),
+    [inputToken, shouldShowNoProviderSupport, swapProAccountAddress, toToken],
+  );
+
+  const onPressActionButton = useCallback(() => {
+    if (shouldDepositToTrade) {
+      onDepositToTrade?.();
+      return;
+    }
+    if (!canExecuteInPro) {
+      handleJumpToSwapAction();
+    } else {
+      onSwapProActionClick();
+    }
+  }, [
+    shouldDepositToTrade,
+    onDepositToTrade,
+    canExecuteInPro,
+    handleJumpToSwapAction,
+    onSwapProActionClick,
+  ]);
+
+  const debouncedOnSwapProActionClick = useDebouncedCallback(
+    onPressActionButton,
+    500,
+    { leading: true, trailing: false },
+  );
+  const currentQuoteLoading = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return quoteFetching;
+    }
+    return isWaitingActionableQuote;
+  }, [swapProTradeType, isWaitingActionableQuote, quoteFetching]);
   const actionButtonDisabled = useMemo(() => {
+    if (shouldDepositToTrade) {
+      return !onDepositToTrade;
+    }
     let originalDisabled =
       !!isActionDisabled ||
       !hasEnoughBalance ||
@@ -273,19 +314,20 @@ const SwapProActionButton = ({
       !currentQuoteRes?.toAmount ||
       balanceLoading ||
       currentQuoteLoading;
-    if (!supportSpeedSwap) {
+    if (!canExecuteInPro) {
       originalDisabled = !!isActionDisabled || !hasEnoughBalance;
     }
-    return originalDisabled || stockMarketClosed;
+    return originalDisabled;
   }, [
+    shouldDepositToTrade,
+    onDepositToTrade,
     isActionDisabled,
     hasEnoughBalance,
     currentQuoteRes?.toAmount,
     shouldShowNoProviderSupport,
     balanceLoading,
     currentQuoteLoading,
-    supportSpeedSwap,
-    stockMarketClosed,
+    canExecuteInPro,
   ]);
 
   const actionButtonText = useMemo(() => {
@@ -300,6 +342,15 @@ const SwapProActionButton = ({
     const currencySymbol = currencyInfo?.symbol ?? '$';
     if (swapProDirection === ESwapDirection.BUY) {
       tokenSymbol = toToken?.symbol ?? '-';
+    }
+
+    if (shouldDepositToTrade) {
+      return {
+        plainText: intl.formatMessage({
+          id: ETranslations.perp_trade_deposit_to_trade__action,
+        }),
+        subValue: '',
+      };
     }
 
     if (!hasEnoughBalance) {
@@ -321,6 +372,15 @@ const SwapProActionButton = ({
       return {
         plainText: intl.formatMessage({
           id: ETranslations.global_select_wallet,
+        }),
+        subValue: '',
+      };
+    }
+
+    if (isWrapped) {
+      return {
+        plainText: intl.formatMessage({
+          id: ETranslations.swap_page_button_wrap,
         }),
         subValue: '',
       };
@@ -362,9 +422,11 @@ const SwapProActionButton = ({
     swapProDirection,
     inputToken?.symbol,
     currencyInfo?.symbol,
+    shouldDepositToTrade,
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
     swapProAccount?.accountStatus,
+    isWrapped,
     shouldShowNoProviderSupport,
     inputTokenValue,
     toToken?.symbol,
@@ -373,10 +435,14 @@ const SwapProActionButton = ({
   ]);
 
   const isBuy = swapProDirection === ESwapDirection.BUY;
-  // Match the design-system accent (buy) / destructive (sell) buttons. The
-  // accent variant labels use $textInverse, destructive uses $textOnColor;
+  // Match the design-system accent (buy) / destructive (sell) buttons; the
+  // deposit entry uses the neutral primary button like the Swap page. Accent
+  // and primary labels use $textInverse, destructive uses $textOnColor;
   // childrenAsText is false, so the label color must be set explicitly.
-  const labelColor = isBuy ? '$textInverse' : '$textOnColor';
+  const tradeVariant = isBuy ? 'accent' : 'destructive';
+  const buttonVariant = shouldDepositToTrade ? 'primary' : tradeVariant;
+  const labelColor =
+    buttonVariant === 'destructive' ? '$textOnColor' : '$textInverse';
   // The current quote must belong to the typed amount (kind-aware: BUY-kind
   // quotes match on toAmount). An unmatched or missing quote means the next
   // one is still on its way — the debounce window before it fires, the
@@ -388,15 +454,16 @@ const SwapProActionButton = ({
     fromAmount: inputAmount,
     toAmount: toTokenAmount.value,
   });
-  // Zero/invalid amounts never produce a quote, and without speed-swap
-  // support the button is a jump-to-Swap CTA — neither may spin forever.
+  // Zero/invalid amounts never produce a quote, and an ordinary pair without
+  // speed-swap support is a jump-to-Swap CTA — neither may spin forever.
   // LIMIT interval refreshes keep the previous quote's label instead of
   // blanking to a spinner on every cycle (previous-quote state belongs to
   // the standard quote stream, so it only applies to LIMIT).
   const inputAmountBN = new BigNumber(inputAmount || '0');
   const hasPositiveInputAmount = !inputAmountBN.isNaN() && inputAmountBN.gt(0);
   const isQuoting =
-    supportSpeedSwap &&
+    !shouldDepositToTrade &&
+    canExecuteInPro &&
     hasPositiveInputAmount &&
     hasEnoughBalance &&
     !shouldShowNoProviderSupport &&
@@ -416,17 +483,19 @@ const SwapProActionButton = ({
       disabled={actionButtonDisabled}
       loading={showButtonLoading}
       onPress={debouncedOnSwapProActionClick}
-      variant={isBuy ? 'accent' : 'destructive'}
+      variant={buttonVariant}
       size="small"
       childrenAsText={false}
+      minHeight={50}
       py={5}
     >
       {showButtonLoading ? null : (
-        <YStack alignItems="center">
+        <YStack alignItems="center" width="100%" minWidth={0} flexShrink={1}>
           <SizableText
             size="$bodyMdMedium"
             color={labelColor}
             textAlign="center"
+            width="100%"
           >
             {actionButtonText.plainText || (
               <>
@@ -452,6 +521,7 @@ const SwapProActionButton = ({
               size="$bodyMdMedium"
               color={labelColor}
               textAlign="center"
+              width="100%"
             >
               {actionButtonText.subValue}
             </SizableText>

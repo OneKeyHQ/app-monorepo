@@ -1,43 +1,345 @@
-import { useCallback, useMemo, useState } from 'react';
+// cspell:ignore heikin Ashi
+import { useCallback, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
 
 import {
-  AppearanceCandleSettingsContent,
-  AppearanceCoordinatesSettingsContent,
-  AppearanceEventsSettingsContent,
-  AppearanceLayoutSettingsContent,
-  AppearanceSidebar,
-  applyOkxChartTrendColors,
-} from './TradingViewChartAppearance';
-import { OkxChartColorSettingsPanel } from './TradingViewChartColorSettings';
+  Button,
+  Dialog,
+  Page,
+  ScrollView,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
+
+import { CHART_TYPE_ICONS } from '../utils/NativeChartControlsShared';
+
+import { TradingViewSettingsDialog } from './TradingViewSettingsDialog';
 import {
   createTradingViewChartSettingsValue,
   toggleTradingViewSettingsMockAppearanceItem,
   updateTradingViewSettingsMockAppearanceItemColor,
 } from './TradingViewSettingsMockState';
 import {
-  OKX_CHART_BG,
-  OKX_CHART_BORDER,
-  OKX_CHART_DIVIDER,
-  OKX_CHART_TEXT,
-  useSettingsDraftValue,
-} from './TradingViewSettingsShared';
+  CHART_DISPLAY_SELECT_WIDTH,
+  SettingsCheckboxRow,
+  SettingsColorField,
+  SettingsColorPicker,
+  SettingsGroup,
+  SettingsRow,
+  SettingsSelect,
+} from './TradingViewSettingsPrimitives';
+import { useSettingsDraftValue } from './TradingViewSettingsShared';
 
+import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 import type {
   ITradingViewChartSettingsOptions,
+  ITradingViewChartSettingsPriceColorMode,
   ITradingViewChartSettingsValue,
+  ITradingViewSettingsMockAppearanceItem,
   ITradingViewSettingsMockAppearanceSectionId,
+  ITradingViewSettingsMockColorRole,
 } from './TradingViewSettingsMockState';
 
-const OKX_CHART_SETTINGS_WIDTH = 552;
-const OKX_CHART_SETTINGS_HEIGHT = 517;
-const OKX_CHART_HEADER_HEIGHT = 49;
-const OKX_CHART_BODY_HEIGHT = 400;
-const OKX_CHART_FOOTER_HEIGHT = 66;
-const OKX_CHART_SIDEBAR_WIDTH = 130;
+const NAVIGATION_TRANSLATION_IDS: Record<
+  ITradingViewSettingsMockAppearanceSectionId,
+  ETranslations
+> = {
+  candles: ETranslations.market_chart_settings__candles,
+  coordinates: ETranslations.market_chart_settings__scales,
+  events: ETranslations.market_chart_settings__events,
+  layout: ETranslations.market_chart_settings__canvas,
+};
+
+const OPTION_TRANSLATION_IDS: Record<
+  Exclude<keyof ITradingViewChartSettingsOptions, 'previousClose'>,
+  ETranslations
+> = {
+  yAxis: ETranslations.market_chart_settings__y_axis,
+  countdown: ETranslations.market_chart_settings__countdown,
+  depth: ETranslations.market_chart_settings__depth,
+  priceChange: ETranslations.market_chart_settings__price_change,
+  latestPrice: ETranslations.market_chart_settings__latest_price,
+  futureEvents: ETranslations.market_chart_settings__show_upcoming_events,
+  pastEvents: ETranslations.market_chart_settings__show_past_events,
+  clickInteraction: ETranslations.market_chart_settings__chart_interaction,
+  crossLine: ETranslations.market_chart_settings__crosshair,
+  navigationButtons: ETranslations.chart_navigation_buttons__title,
+};
+
+const APPEARANCE_ITEM_TRANSLATION_IDS: Record<string, ETranslations> = {
+  body: ETranslations.market_chart_settings__body,
+  border: ETranslations.market_chart_settings__border,
+  wick: ETranslations.market_chart_settings__wick,
+};
+
+const PRICE_COLOR_MODE_OPTIONS = ['greenUpRedDown', 'redUpGreenDown'] as const;
+const LINE_STYLE_OPTIONS = ['solid', 'dashed'] as const;
+const BACKGROUND_STYLE_OPTIONS = ['solid', 'gradient'] as const;
+const GRID_STYLE_OPTIONS = ['both', 'horizontal', 'vertical', 'none'] as const;
+const BACKGROUND_STYLE_TRANSLATION_IDS = {
+  solid: ETranslations.market_chart_settings__solid_color,
+  gradient: ETranslations.market_chart_settings__gradient,
+};
+
+const TREND_COLOR_PRESETS = {
+  modern: {
+    positive: TRADING_VIEW_NATIVE_THEME_COLORS.brand,
+    negative: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+  },
+  classic: {
+    positive: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+    negative: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+  },
+} as const;
+
+function applyChartTrendColors(
+  value: ITradingViewChartSettingsValue,
+  priceColorMode: ITradingViewChartSettingsPriceColorMode,
+): ITradingViewChartSettingsValue {
+  const preset = TREND_COLOR_PRESETS.classic;
+  const trendColors =
+    priceColorMode === 'greenUpRedDown'
+      ? {
+          upColor: preset.positive,
+          downColor: preset.negative,
+        }
+      : {
+          upColor: preset.negative,
+          downColor: preset.positive,
+        };
+
+  return {
+    ...value,
+    colorMode: 'classic',
+    priceColorMode,
+    appearanceSections: value.appearanceSections.map((section) =>
+      section.id === 'candles'
+        ? {
+            ...section,
+            items: section.items.map((item) => ({
+              ...item,
+              ...trendColors,
+            })),
+          }
+        : section,
+    ),
+    latestPriceLine: {
+      ...value.latestPriceLine,
+      ...trendColors,
+    },
+  };
+}
+
+function SettingsColorPair({
+  item,
+  disabled,
+  onToggle,
+  onColorChange,
+}: {
+  item: ITradingViewSettingsMockAppearanceItem;
+  disabled: boolean;
+  onToggle: (itemId: string, enabled: boolean) => void;
+  onColorChange: (
+    itemId: string,
+    role: ITradingViewSettingsMockColorRole,
+    color: string,
+  ) => void;
+}) {
+  const intl = useIntl();
+  const label =
+    APPEARANCE_ITEM_TRANSLATION_IDS[item.id] !== undefined
+      ? intl.formatMessage({
+          id: APPEARANCE_ITEM_TRANSLATION_IDS[item.id],
+        })
+      : item.label;
+
+  return (
+    <SettingsCheckboxRow
+      label={label}
+      testID={item.id}
+      value={item.enabled}
+      disabled={disabled}
+      onChange={(enabled) => onToggle(item.id, enabled)}
+    >
+      <XStack
+        gap="$4"
+        alignItems="center"
+        opacity={item.enabled ? 1 : 0.5}
+        pointerEvents={item.enabled && !disabled ? 'auto' : 'none'}
+      >
+        <SettingsColorField
+          label={intl.formatMessage({
+            id: ETranslations.market_chart_settings__up,
+          })}
+          value={item.upColor}
+          disabled={disabled || !item.enabled}
+          onChange={(color) => onColorChange(item.id, 'up', color)}
+        />
+        <SettingsColorField
+          label={intl.formatMessage({
+            id: ETranslations.market_chart_settings__down,
+          })}
+          value={item.downColor}
+          disabled={disabled || !item.enabled}
+          onChange={(color) => onColorChange(item.id, 'down', color)}
+        />
+      </XStack>
+    </SettingsCheckboxRow>
+  );
+}
+
+const CHART_TYPE_PREFERENCES = [
+  'auto',
+  'candlestick',
+  'heikinAshi',
+  'bars',
+  'line',
+  'area',
+] as const satisfies readonly ITradingViewChartSettingsValue['chartType'][];
+
+const CHART_TYPE_PREFERENCE_ICONS = {
+  auto: 'MagicStickOutline',
+  ...CHART_TYPE_ICONS,
+} as const satisfies Record<
+  ITradingViewChartSettingsValue['chartType'],
+  IKeyOfIcons
+>;
+
+export function TradingViewChartTypeSettingsRow({
+  value,
+  disabled = false,
+  onChange,
+}: {
+  value: ITradingViewChartSettingsValue['chartType'];
+  disabled?: boolean;
+  onChange: (value: ITradingViewChartSettingsValue['chartType']) => void;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.market_chart_style });
+
+  return (
+    <SettingsRow label={title} testID="trading-view-settings-chart-type-row">
+      <SettingsSelect
+        testID="chart-type"
+        title={title}
+        value={value}
+        options={CHART_TYPE_PREFERENCES}
+        optionIcons={CHART_TYPE_PREFERENCE_ICONS}
+        width={CHART_DISPLAY_SELECT_WIDTH}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    </SettingsRow>
+  );
+}
+
+function ChartSettingsNavigation({
+  sections,
+  selectedSectionId,
+  disabled,
+  compact,
+  onSelect,
+}: {
+  sections: ITradingViewChartSettingsValue['appearanceSections'];
+  selectedSectionId: ITradingViewSettingsMockAppearanceSectionId;
+  disabled: boolean;
+  compact: boolean;
+  onSelect: (sectionId: ITradingViewSettingsMockAppearanceSectionId) => void;
+}) {
+  const intl = useIntl();
+
+  if (compact) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        flexGrow={0}
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+        contentContainerStyle={{
+          px: '$4',
+          py: '$2',
+          gap: '$1',
+        }}
+      >
+        {sections.map((section) => {
+          const selected = section.id === selectedSectionId;
+          return (
+            <Button
+              key={section.id}
+              testID={`trading-view-settings-section-${section.id}`}
+              size="medium"
+              icon={section.icon}
+              variant={selected ? 'secondary' : 'tertiary'}
+              disabled={disabled}
+              onPress={() => onSelect(section.id)}
+            >
+              {intl.formatMessage({
+                id: NAVIGATION_TRANSLATION_IDS[section.id],
+              })}
+            </Button>
+          );
+        })}
+      </ScrollView>
+    );
+  }
+
+  return (
+    <>
+      {sections.map((section) => (
+        <DesktopTabItem
+          key={section.id}
+          testID={`trading-view-settings-section-${section.id}`}
+          icon={section.icon}
+          label={intl.formatMessage({
+            id: NAVIGATION_TRANSLATION_IDS[section.id],
+          })}
+          selected={section.id === selectedSectionId}
+          size="medium"
+          showTooltip={false}
+          pointerEvents={disabled ? 'none' : 'auto'}
+          opacity={disabled ? 0.5 : 1}
+          onPress={() => onSelect(section.id)}
+        />
+      ))}
+    </>
+  );
+}
+
+function PriceMovementColorSelector({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: ITradingViewChartSettingsValue;
+  disabled: boolean;
+  onChange: (priceColorMode: ITradingViewChartSettingsPriceColorMode) => void;
+}) {
+  const intl = useIntl();
+  return (
+    <SettingsSelect
+      testID="price-change-colors"
+      width={176}
+      title={intl.formatMessage({
+        id: ETranslations.market_chart_settings__price_change_colors,
+      })}
+      value={value.priceColorMode}
+      options={PRICE_COLOR_MODE_OPTIONS}
+      disabled={disabled}
+      onChange={onChange}
+    />
+  );
+}
 
 export type ITradingViewChartSettingsProps = {
+  dialogRef?: ITradingViewSettingsDialogRef;
   /** Use value for controlled committed state, or defaultValue for local state. */
   value?: ITradingViewChartSettingsValue;
   defaultValue?: ITradingViewChartSettingsValue;
@@ -46,22 +348,51 @@ export type ITradingViewChartSettingsProps = {
   onChange?: (value: ITradingViewChartSettingsValue) => void;
   /** Receives the complete value after the user confirms the draft. */
   onConfirm?: (value: ITradingViewChartSettingsValue) => void | Promise<void>;
+  /** Called after a confirmation or dialog reset has been committed locally. */
+  onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
   onCancel?: () => void;
   onClose?: () => void;
+  /** Render the actions through the surrounding OneKey modal page. */
+  usePageFooter?: boolean;
+  /** Render the mobile settings as a single vertically scrolling list. */
+  mobileLayout?: boolean;
+  /** Show native chart type preferences in the settings content. */
+  showChartType?: boolean;
+  /**
+   * Renders the first row of the chart display group, such as a chart source
+   * switch. Call confirmDraft before leaving the page so pending edits persist.
+   */
+  renderChartDisplayLeadingRow?: (helpers: {
+    confirmDraft: () => Promise<boolean>;
+  }) => ReactNode;
+  /** Hide sections that the consuming chart does not currently implement. */
+  hiddenAppearanceSectionIds?: readonly ITradingViewSettingsMockAppearanceSectionId[];
+  /** Hide options that the consuming chart does not currently implement. */
+  hiddenOptionIds?: readonly (keyof ITradingViewChartSettingsOptions)[];
 };
 
 export function TradingViewChartSettings({
+  dialogRef,
   value,
   defaultValue,
   isSubmitting = false,
   onChange,
   onConfirm,
+  onConfirmSuccess,
   onConfirmError,
   onCancel,
   onClose,
+  usePageFooter = false,
+  mobileLayout = false,
+  showChartType = false,
+  renderChartDisplayLeadingRow,
+  hiddenAppearanceSectionIds,
+  hiddenOptionIds,
 }: ITradingViewChartSettingsProps) {
+  const intl = useIntl();
+  const { md } = useMedia();
   const [
     settingsValue,
     updateSettingsValue,
@@ -75,25 +406,37 @@ export function TradingViewChartSettings({
   });
   const [selectedAppearanceSectionId, setSelectedAppearanceSectionId] =
     useState<ITradingViewSettingsMockAppearanceSectionId>('candles');
-  const [contentResetVersion, setContentResetVersion] = useState(0);
-  const [isColorSettingsPanelOpen, setIsColorSettingsPanelOpen] =
-    useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const submitInProgress = isSubmitting || isConfirming;
+  const [isCommitting, setIsCommitting] = useState(false);
+  const isResettingRef = useRef(false);
+  const submitInProgress = isSubmitting || isCommitting;
+
+  const isAppearanceSectionVisible = useCallback(
+    (sectionId: ITradingViewSettingsMockAppearanceSectionId) =>
+      !hiddenAppearanceSectionIds?.includes(sectionId),
+    [hiddenAppearanceSectionIds],
+  );
+  const isOptionVisible = useCallback(
+    (optionId: keyof ITradingViewChartSettingsOptions) =>
+      !hiddenOptionIds?.includes(optionId),
+    [hiddenOptionIds],
+  );
+  const visibleAppearanceSections = useMemo(
+    () =>
+      settingsValue.appearanceSections.filter((section) =>
+        isAppearanceSectionVisible(section.id),
+      ),
+    [isAppearanceSectionVisible, settingsValue.appearanceSections],
+  );
 
   const selectedAppearanceSection = useMemo(
     () =>
-      settingsValue.appearanceSections.find(
+      visibleAppearanceSections.find(
         (section) => section.id === selectedAppearanceSectionId,
-      ) ?? settingsValue.appearanceSections[0],
-    [selectedAppearanceSectionId, settingsValue.appearanceSections],
+      ) ?? visibleAppearanceSections[0],
+    [selectedAppearanceSectionId, visibleAppearanceSections],
   );
-
-  const handleReset = useCallback(() => {
-    updateSettingsValue(() => createTradingViewChartSettingsValue());
-    setContentResetVersion((currentVersion) => currentVersion + 1);
-    setIsColorSettingsPanelOpen(false);
-  }, [updateSettingsValue]);
+  const effectiveSelectedAppearanceSectionId =
+    selectedAppearanceSection?.id ?? 'candles';
 
   const handleOptionChange = useCallback(
     (key: keyof ITradingViewChartSettingsOptions, checked: boolean) => {
@@ -108,149 +451,49 @@ export function TradingViewChartSettings({
     [updateSettingsValue],
   );
 
-  const renderAppearanceContent = () => {
-    if (selectedAppearanceSectionId === 'candles') {
-      return (
-        <AppearanceCandleSettingsContent
-          key={contentResetVersion}
-          items={selectedAppearanceSection?.items ?? []}
-          colorMode={settingsValue.colorMode}
-          priceColorMode={settingsValue.priceColorMode}
-          onOpenColorSettings={() => setIsColorSettingsPanelOpen(true)}
-          onToggleItem={(itemId, enabled) => {
-            updateSettingsValue((currentValue) =>
-              toggleTradingViewSettingsMockAppearanceItem(
-                currentValue,
-                itemId,
-                enabled,
-              ),
-            );
-          }}
-          onColorChange={(itemId, role, color) => {
-            updateSettingsValue((currentValue) =>
-              updateTradingViewSettingsMockAppearanceItemColor(
-                currentValue,
-                itemId,
-                role,
-                color,
-              ),
-            );
-          }}
-        />
+  const handleToggleAppearanceItem = useCallback(
+    (itemId: string, enabled: boolean) => {
+      updateSettingsValue((currentValue) =>
+        toggleTradingViewSettingsMockAppearanceItem(
+          currentValue,
+          itemId,
+          enabled,
+        ),
       );
-    }
+    },
+    [updateSettingsValue],
+  );
 
-    if (selectedAppearanceSectionId === 'coordinates') {
-      return (
-        <AppearanceCoordinatesSettingsContent
-          key={contentResetVersion}
-          optionState={settingsValue.options}
-          latestPriceLine={settingsValue.latestPriceLine}
-          onOptionChange={handleOptionChange}
-          onLatestPriceColorChange={(upColor, downColor) => {
-            updateSettingsValue((currentValue) => ({
-              ...currentValue,
-              latestPriceLine: {
-                ...currentValue.latestPriceLine,
-                upColor,
-                downColor,
-              },
-            }));
-          }}
-          onLatestPriceLineStyleChange={(style) => {
-            updateSettingsValue((currentValue) => ({
-              ...currentValue,
-              latestPriceLine: {
-                ...currentValue.latestPriceLine,
-                style,
-              },
-            }));
-          }}
-        />
+  const handleAppearanceItemColorChange = useCallback(
+    (
+      itemId: string,
+      role: ITradingViewSettingsMockColorRole,
+      color: string,
+    ) => {
+      updateSettingsValue((currentValue) =>
+        updateTradingViewSettingsMockAppearanceItemColor(
+          currentValue,
+          itemId,
+          role,
+          color,
+        ),
       );
-    }
+    },
+    [updateSettingsValue],
+  );
 
-    if (selectedAppearanceSectionId === 'events') {
-      return (
-        <AppearanceEventsSettingsContent
-          key={contentResetVersion}
-          optionState={settingsValue.options}
-          onOptionChange={handleOptionChange}
-        />
-      );
-    }
-
-    return (
-      <AppearanceLayoutSettingsContent
-        key={contentResetVersion}
-        optionState={settingsValue.options}
-        background={settingsValue.background}
-        grid={settingsValue.grid}
-        crossLine={settingsValue.crossLine}
-        onOptionChange={handleOptionChange}
-        onBackgroundStyleChange={(style) => {
-          updateSettingsValue((currentValue) => ({
-            ...currentValue,
-            background: {
-              ...currentValue.background,
-              style,
-            },
-          }));
-        }}
-        onBackgroundColorChange={(index, color) => {
-          updateSettingsValue((currentValue) => {
-            const colors: [string, string] = [
-              ...currentValue.background.colors,
-            ];
-            colors[index] = color;
-            return {
-              ...currentValue,
-              background: {
-                ...currentValue.background,
-                colors,
-              },
-            };
-          });
-        }}
-        onGridStyleChange={(style) => {
-          updateSettingsValue((currentValue) => ({
-            ...currentValue,
-            grid: {
-              ...currentValue.grid,
-              style,
-            },
-          }));
-        }}
-        onGridColorChange={(role, color) => {
-          updateSettingsValue((currentValue) => ({
-            ...currentValue,
-            grid: {
-              ...currentValue.grid,
-              [role]: color,
-            },
-          }));
-        }}
-        onCrossLineColorChange={(color) => {
-          updateSettingsValue((currentValue) => ({
-            ...currentValue,
-            crossLine: {
-              ...currentValue.crossLine,
-              color,
-            },
-          }));
-        }}
-        onCrossLineStyleChange={(style) => {
-          updateSettingsValue((currentValue) => ({
-            ...currentValue,
-            crossLine: {
-              ...currentValue.crossLine,
-              style,
-            },
-          }));
-        }}
-      />
-    );
-  };
+  const handleLatestPriceColorChange = useCallback(
+    (role: ITradingViewSettingsMockColorRole, color: string) => {
+      updateSettingsValue((currentValue) => ({
+        ...currentValue,
+        latestPriceLine: {
+          ...currentValue.latestPriceLine,
+          [role === 'up' ? 'upColor' : 'downColor']: color,
+        },
+      }));
+    },
+    [updateSettingsValue],
+  );
 
   const handleCancel = () => {
     cancelSettingsValue();
@@ -262,209 +505,634 @@ export function TradingViewChartSettings({
     onClose?.();
   };
 
-  const handleConfirm = async () => {
-    if (submitInProgress) {
-      return;
-    }
-
-    setIsConfirming(true);
+  const persistValue = async (nextValue: ITradingViewChartSettingsValue) => {
     try {
-      await onConfirm?.(settingsValue);
-      commitSettingsValue();
+      await onConfirm?.(nextValue);
+      return { isCurrentDraft: commitSettingsValue(nextValue) };
     } catch (error) {
       onConfirmError?.(error);
-    } finally {
-      setIsConfirming(false);
+      return null;
     }
   };
 
-  return (
-    <YStack
-      testID="trading-view-chart-settings-okx-dialog"
-      w={OKX_CHART_SETTINGS_WIDTH}
-      h={OKX_CHART_SETTINGS_HEIGHT}
-      position="relative"
-      overflow="visible"
-      borderWidth={1}
-      borderColor={OKX_CHART_BORDER}
-      borderRadius={0}
-      bg={OKX_CHART_BG}
-    >
-      <XStack
-        h={OKX_CHART_HEADER_HEIGHT}
-        px={24}
-        alignItems="center"
-        justifyContent="space-between"
-        borderBottomWidth={1}
-        borderBottomColor={OKX_CHART_BORDER}
-      >
-        <SizableText
-          fontSize={16}
-          lineHeight={22}
-          fontWeight="700"
-          color={OKX_CHART_TEXT}
-        >
-          图表设置
-        </SizableText>
-        <Stack
-          w={28}
-          h={28}
-          alignItems="center"
-          justifyContent="center"
-          cursor={submitInProgress ? 'default' : 'pointer'}
-          pointerEvents={submitInProgress ? 'none' : 'auto'}
-          onPress={handleClose}
-        >
-          <Icon name="CrossedSmallOutline" size="$5" color="$icon" />
-        </Stack>
-      </XStack>
+  const commitValue = async (nextValue: ITradingViewChartSettingsValue) => {
+    setIsCommitting(true);
+    try {
+      return await persistValue(nextValue);
+    } finally {
+      setIsCommitting(false);
+    }
+  };
 
-      <XStack
-        h={OKX_CHART_BODY_HEIGHT}
-        minHeight={0}
-        pointerEvents={submitInProgress ? 'none' : 'auto'}
-      >
-        <Stack
-          w={OKX_CHART_SIDEBAR_WIDTH}
-          position="relative"
-          bg={OKX_CHART_BG}
+  const handleReset = async () => {
+    if (submitInProgress || isResettingRef.current) {
+      return;
+    }
+    isResettingRef.current = true;
+    const resetValue = createTradingViewChartSettingsValue();
+    updateSettingsValue(() => resetValue);
+    // Keep controls enabled during the short save to avoid flashing the dialog.
+    try {
+      const result = await persistValue(resetValue);
+      if (result?.isCurrentDraft && !usePageFooter) {
+        await onConfirmSuccess?.();
+      }
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      isResettingRef.current = false;
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (submitInProgress || isResettingRef.current) {
+      return false;
+    }
+
+    if (!(await commitValue(settingsValue))) {
+      return false;
+    }
+
+    try {
+      await onConfirmSuccess?.();
+    } catch (error) {
+      onConfirmError?.(error);
+      return false;
+    }
+    return true;
+  };
+
+  const chartDisplayLeadingRow = renderChartDisplayLeadingRow?.({
+    confirmDraft: handleConfirm,
+  });
+
+  const renderCandleSettings = () => (
+    <YStack>
+      {showChartType || chartDisplayLeadingRow ? (
+        <SettingsGroup
+          title={intl.formatMessage({
+            id: ETranslations.market_chart_settings__chart_display,
+          })}
         >
-          <AppearanceSidebar
-            sections={settingsValue.appearanceSections}
-            selectedSectionId={selectedAppearanceSectionId}
-            onSelect={(sectionId) => {
-              setIsColorSettingsPanelOpen(false);
-              setSelectedAppearanceSectionId(sectionId);
-            }}
-          />
-          <Stack
-            position="absolute"
-            top={0}
-            right={0}
-            bottom={0}
-            w={1}
-            zIndex={2}
-            bg={OKX_CHART_DIVIDER}
-            pointerEvents="none"
-          />
-        </Stack>
-
-        <Stack flex={1} bg={OKX_CHART_BG}>
-          {renderAppearanceContent()}
-        </Stack>
-      </XStack>
-
-      {isColorSettingsPanelOpen ? (
-        <OkxChartColorSettingsPanel
-          colorMode={settingsValue.colorMode}
-          priceColorMode={settingsValue.priceColorMode}
-          onColorModeChange={(colorMode) => {
-            updateSettingsValue((currentValue) =>
-              applyOkxChartTrendColors(
-                currentValue,
-                colorMode,
-                currentValue.priceColorMode,
-              ),
-            );
-          }}
-          onPriceColorModeChange={(priceColorMode) => {
-            updateSettingsValue((currentValue) =>
-              applyOkxChartTrendColors(
-                currentValue,
-                currentValue.colorMode,
-                priceColorMode,
-              ),
-            );
-          }}
-          onClose={() => setIsColorSettingsPanelOpen(false)}
-          isDisabled={submitInProgress}
-        />
+          {chartDisplayLeadingRow}
+          {showChartType ? (
+            <TradingViewChartTypeSettingsRow
+              value={settingsValue.chartType}
+              disabled={submitInProgress}
+              onChange={(chartType) => {
+                updateSettingsValue((currentValue) => ({
+                  ...currentValue,
+                  chartType,
+                }));
+              }}
+            />
+          ) : null}
+        </SettingsGroup>
       ) : null}
 
-      <XStack
-        h={OKX_CHART_FOOTER_HEIGHT}
-        alignItems="center"
-        justifyContent="space-between"
-        borderTopWidth={1}
-        borderTopColor={OKX_CHART_BORDER}
-        bg={OKX_CHART_BG}
+      <SettingsGroup
+        title={intl.formatMessage({
+          id: ETranslations.market_chart_settings__color_preferences,
+        })}
       >
-        <XStack
-          testID="trading-view-settings-mock-reset"
-          h={41}
-          w={90}
-          ml={24}
-          gap={8}
-          alignItems="center"
-          justifyContent="center"
-          borderRadius={20}
-          cursor={submitInProgress ? 'default' : 'pointer'}
-          opacity={submitInProgress ? 0.5 : 1}
-          pointerEvents={submitInProgress ? 'none' : 'auto'}
-          userSelect="none"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          onPress={handleReset}
+        <SettingsRow
+          label={intl.formatMessage({
+            id: ETranslations.market_chart_settings__price_change_colors,
+          })}
         >
-          <Icon name="RotateCounterclockwiseOutline" size="$5" color="$icon" />
-          <SizableText fontSize={15} lineHeight={20} color={OKX_CHART_TEXT}>
-            重置
-          </SizableText>
-        </XStack>
+          <PriceMovementColorSelector
+            value={settingsValue}
+            disabled={submitInProgress}
+            onChange={(priceColorMode) => {
+              updateSettingsValue((currentValue) =>
+                applyChartTrendColors(currentValue, priceColorMode),
+              );
+            }}
+          />
+        </SettingsRow>
+      </SettingsGroup>
 
-        <XStack mr={24} gap={12} alignItems="center">
-          <XStack
-            testID="trading-view-settings-mock-cancel"
-            w={81}
-            h={36}
-            alignItems="center"
-            justifyContent="center"
-            borderRadius={18}
-            borderWidth={1}
-            borderColor="$borderStrong"
-            bg={OKX_CHART_BG}
-            cursor={submitInProgress ? 'default' : 'pointer'}
-            opacity={submitInProgress ? 0.5 : 1}
-            pointerEvents={submitInProgress ? 'none' : 'auto'}
-            onPress={handleCancel}
-          >
-            <SizableText
-              fontSize={14}
-              lineHeight={20}
-              fontWeight="600"
-              color={OKX_CHART_TEXT}
-            >
-              取消
-            </SizableText>
-          </XStack>
-          <XStack
-            testID="trading-view-settings-mock-confirm"
-            w={81}
-            h={36}
-            alignItems="center"
-            justifyContent="center"
-            borderRadius={18}
-            bg="$bgInverse"
-            cursor={submitInProgress ? 'default' : 'pointer'}
-            opacity={submitInProgress ? 0.5 : 1}
-            pointerEvents={submitInProgress ? 'none' : 'auto'}
-            onPress={() => void handleConfirm()}
-          >
-            <SizableText
-              fontSize={14}
-              lineHeight={20}
-              fontWeight="600"
-              color="$textInverse"
-            >
-              确认
-            </SizableText>
-          </XStack>
-        </XStack>
-      </XStack>
+      <SettingsGroup
+        title={intl.formatMessage({
+          id: ETranslations.market_chart_settings__candles,
+        })}
+      >
+        {(selectedAppearanceSection?.items ?? []).map((item) => (
+          <SettingsColorPair
+            key={item.id}
+            item={item}
+            disabled={submitInProgress}
+            onToggle={handleToggleAppearanceItem}
+            onColorChange={handleAppearanceItemColorChange}
+          />
+        ))}
+      </SettingsGroup>
     </YStack>
+  );
+
+  const renderCoordinateSettings = () => (
+    <YStack>
+      {(['yAxis', 'countdown', 'depth', 'priceChange'] as const).some(
+        isOptionVisible,
+      ) ? (
+        <SettingsGroup
+          title={intl.formatMessage({
+            id: ETranslations.market_chart_settings__price_scales,
+          })}
+        >
+          {(['yAxis', 'countdown', 'depth', 'priceChange'] as const)
+            .filter(isOptionVisible)
+            .map((option) => (
+              <SettingsCheckboxRow
+                key={option}
+                label={intl.formatMessage({
+                  id: OPTION_TRANSLATION_IDS[option],
+                })}
+                testID={option}
+                value={settingsValue.options[option]}
+                disabled={submitInProgress}
+                onChange={(checked) => handleOptionChange(option, checked)}
+              />
+            ))}
+        </SettingsGroup>
+      ) : null}
+
+      {isOptionVisible('latestPrice') || isOptionVisible('previousClose') ? (
+        <SettingsGroup
+          title={intl.formatMessage({
+            id: ETranslations.market_chart_settings__price_label_and_line,
+          })}
+        >
+          {isOptionVisible('latestPrice') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.latestPrice,
+              })}
+              testID="latest-price"
+              value={settingsValue.options.latestPrice}
+              disabled={submitInProgress}
+              onChange={(checked) => handleOptionChange('latestPrice', checked)}
+            >
+              <XStack
+                gap="$3"
+                alignItems="center"
+                opacity={settingsValue.options.latestPrice ? 1 : 0.5}
+              >
+                <SettingsColorField
+                  label={intl.formatMessage({
+                    id: ETranslations.market_chart_settings__up,
+                  })}
+                  testID="latest-price-up-color"
+                  value={settingsValue.latestPriceLine.upColor}
+                  disabled={
+                    submitInProgress || !settingsValue.options.latestPrice
+                  }
+                  onChange={(color) =>
+                    handleLatestPriceColorChange('up', color)
+                  }
+                />
+                <SettingsColorField
+                  label={intl.formatMessage({
+                    id: ETranslations.market_chart_settings__down,
+                  })}
+                  testID="latest-price-down-color"
+                  value={settingsValue.latestPriceLine.downColor}
+                  disabled={
+                    submitInProgress || !settingsValue.options.latestPrice
+                  }
+                  onChange={(color) =>
+                    handleLatestPriceColorChange('down', color)
+                  }
+                />
+              </XStack>
+            </SettingsCheckboxRow>
+          ) : null}
+          {isOptionVisible('previousClose') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: ETranslations.market_prev_close,
+              })}
+              testID="previous-close"
+              value={settingsValue.options.previousClose}
+              disabled={submitInProgress}
+              onChange={(checked) =>
+                handleOptionChange('previousClose', checked)
+              }
+            />
+          ) : null}
+        </SettingsGroup>
+      ) : null}
+    </YStack>
+  );
+
+  const renderEventSettings = () => (
+    <YStack>
+      <SettingsGroup
+        title={intl.formatMessage({
+          id: ETranslations.market_chart_settings__economic_calendar,
+        })}
+      >
+        {(['futureEvents', 'pastEvents'] as const)
+          .filter(isOptionVisible)
+          .map((option) => (
+            <SettingsCheckboxRow
+              key={option}
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS[option],
+              })}
+              testID={option}
+              value={settingsValue.options[option]}
+              disabled={submitInProgress}
+              onChange={(checked) => handleOptionChange(option, checked)}
+            />
+          ))}
+      </SettingsGroup>
+    </YStack>
+  );
+
+  const renderLayoutSettings = () => (
+    <YStack>
+      {isOptionVisible('clickInteraction') ||
+      isOptionVisible('navigationButtons') ? (
+        <SettingsGroup
+          title={intl.formatMessage({
+            id: ETranslations.market_chart_settings__chart_interface,
+          })}
+        >
+          {isOptionVisible('clickInteraction') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.clickInteraction,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.chart_interaction__desc,
+              })}
+              testID="click-interaction"
+              value={settingsValue.options.clickInteraction}
+              disabled={submitInProgress}
+              onChange={(checked) =>
+                handleOptionChange('clickInteraction', checked)
+              }
+            />
+          ) : null}
+          {isOptionVisible('navigationButtons') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.navigationButtons,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.chart_navigation_buttons__desc,
+              })}
+              testID="navigation-buttons"
+              value={settingsValue.options.navigationButtons}
+              disabled={submitInProgress}
+              onChange={(checked) =>
+                handleOptionChange('navigationButtons', checked)
+              }
+            />
+          ) : null}
+        </SettingsGroup>
+      ) : null}
+
+      <SettingsGroup
+        title={intl.formatMessage({
+          id: ETranslations.market_chart_style,
+        })}
+        showDivider={false}
+      >
+        <SettingsRow
+          label={intl.formatMessage({
+            id: ETranslations.market_chart_settings__background,
+          })}
+        >
+          <XStack gap="$3" alignItems="center">
+            <SettingsSelect
+              testID="background-style"
+              title={intl.formatMessage({
+                id: ETranslations.market_chart_settings__background_style,
+              })}
+              value={settingsValue.background.style}
+              options={BACKGROUND_STYLE_OPTIONS}
+              disabled={submitInProgress}
+              optionTranslationIds={BACKGROUND_STYLE_TRANSLATION_IDS}
+              onChange={(style) => {
+                updateSettingsValue((currentValue) => ({
+                  ...currentValue,
+                  background: {
+                    ...currentValue.background,
+                    style,
+                  },
+                }));
+              }}
+            />
+            <SettingsColorField
+              label=""
+              value={settingsValue.background.colors[0]}
+              disabled={submitInProgress}
+              onChange={(color) => {
+                updateSettingsValue((currentValue) => ({
+                  ...currentValue,
+                  background: {
+                    ...currentValue.background,
+                    colors: [color, currentValue.background.colors[1]],
+                  },
+                }));
+              }}
+            />
+            {settingsValue.background.style === 'gradient' ? (
+              <SettingsColorField
+                label=""
+                value={settingsValue.background.colors[1]}
+                disabled={submitInProgress}
+                onChange={(color) => {
+                  updateSettingsValue((currentValue) => ({
+                    ...currentValue,
+                    background: {
+                      ...currentValue.background,
+                      colors: [currentValue.background.colors[0], color],
+                    },
+                  }));
+                }}
+              />
+            ) : null}
+          </XStack>
+        </SettingsRow>
+
+        <SettingsRow
+          label={intl.formatMessage({
+            id: ETranslations.market_chart_settings__grid_lines,
+          })}
+        >
+          <XStack gap="$3" alignItems="center">
+            <SettingsSelect
+              testID="grid-lines"
+              width={176}
+              title={intl.formatMessage({
+                id: ETranslations.market_chart_settings__grid_lines,
+              })}
+              value={settingsValue.grid.style}
+              options={GRID_STYLE_OPTIONS}
+              disabled={submitInProgress}
+              onChange={(style) => {
+                updateSettingsValue((currentValue) => ({
+                  ...currentValue,
+                  grid: {
+                    ...currentValue.grid,
+                    style,
+                  },
+                }));
+              }}
+            />
+            {['both', 'horizontal'].includes(settingsValue.grid.style) ? (
+              <SettingsColorField
+                label=""
+                value={settingsValue.grid.horizontalColor}
+                disabled={submitInProgress}
+                onChange={(horizontalColor) => {
+                  updateSettingsValue((currentValue) => ({
+                    ...currentValue,
+                    grid: {
+                      ...currentValue.grid,
+                      horizontalColor,
+                    },
+                  }));
+                }}
+              />
+            ) : null}
+            {['both', 'vertical'].includes(settingsValue.grid.style) ? (
+              <SettingsColorField
+                label=""
+                value={settingsValue.grid.verticalColor}
+                disabled={submitInProgress}
+                onChange={(verticalColor) => {
+                  updateSettingsValue((currentValue) => ({
+                    ...currentValue,
+                    grid: {
+                      ...currentValue.grid,
+                      verticalColor,
+                    },
+                  }));
+                }}
+              />
+            ) : null}
+          </XStack>
+        </SettingsRow>
+
+        {isOptionVisible('crossLine') ? (
+          <SettingsCheckboxRow
+            label={intl.formatMessage({
+              id: OPTION_TRANSLATION_IDS.crossLine,
+            })}
+            testID="crosshair"
+            value={settingsValue.options.crossLine}
+            disabled={submitInProgress}
+            onChange={(checked) => handleOptionChange('crossLine', checked)}
+          >
+            <XStack
+              gap="$3"
+              alignItems="center"
+              opacity={settingsValue.options.crossLine ? 1 : 0.5}
+            >
+              <SettingsSelect
+                testID="crosshair-line-style"
+                title={intl.formatMessage({
+                  id: ETranslations.market_chart_settings__crosshair_line_style,
+                })}
+                value={settingsValue.crossLine.style}
+                options={LINE_STYLE_OPTIONS}
+                disabled={submitInProgress || !settingsValue.options.crossLine}
+                showLinePreview
+                onChange={(style) => {
+                  updateSettingsValue((currentValue) => ({
+                    ...currentValue,
+                    crossLine: {
+                      ...currentValue.crossLine,
+                      style,
+                    },
+                  }));
+                }}
+              />
+              <SettingsColorPicker
+                value={settingsValue.crossLine.color}
+                disabled={submitInProgress || !settingsValue.options.crossLine}
+                onChange={(color) => {
+                  updateSettingsValue((currentValue) => ({
+                    ...currentValue,
+                    crossLine: {
+                      ...currentValue.crossLine,
+                      color,
+                    },
+                  }));
+                }}
+              />
+            </XStack>
+          </SettingsCheckboxRow>
+        ) : null}
+      </SettingsGroup>
+    </YStack>
+  );
+
+  const renderSettingsContent = () => {
+    if (effectiveSelectedAppearanceSectionId === 'candles') {
+      return renderCandleSettings();
+    }
+    if (effectiveSelectedAppearanceSectionId === 'coordinates') {
+      return renderCoordinateSettings();
+    }
+    if (effectiveSelectedAppearanceSectionId === 'events') {
+      return renderEventSettings();
+    }
+    return renderLayoutSettings();
+  };
+
+  const handleSectionSelect = (
+    sectionId: ITradingViewSettingsMockAppearanceSectionId,
+  ) => {
+    setSelectedAppearanceSectionId(sectionId);
+  };
+
+  const resetButton = (
+    <Button
+      testID="trading-view-settings-mock-reset"
+      size="medium"
+      variant="secondary"
+      disabled={submitInProgress}
+      onPress={() => void handleReset()}
+    >
+      {intl.formatMessage({ id: ETranslations.global_reset })}
+    </Button>
+  );
+
+  const renderSettingsBody = (footer?: ReactNode) => (
+    <XStack flex={1} minHeight={0} flexDirection={md ? 'column' : 'row'}>
+      {md ? (
+        <ChartSettingsNavigation
+          sections={visibleAppearanceSections}
+          selectedSectionId={effectiveSelectedAppearanceSectionId}
+          disabled={submitInProgress}
+          compact
+          onSelect={handleSectionSelect}
+        />
+      ) : (
+        <YStack
+          testID="trading-view-chart-settings-sidebar"
+          width={192}
+          height="100%"
+          flexShrink={0}
+          px="$3"
+          py="$4"
+          gap="$1"
+          borderRightWidth="$px"
+          borderRightColor="$neutral3"
+        >
+          <ChartSettingsNavigation
+            sections={visibleAppearanceSections}
+            selectedSectionId={effectiveSelectedAppearanceSectionId}
+            disabled={submitInProgress}
+            compact={false}
+            onSelect={handleSectionSelect}
+          />
+        </YStack>
+      )}
+
+      <YStack flex={1} minWidth={0} minHeight={0}>
+        <ScrollView
+          flex={1}
+          minHeight={0}
+          contentContainerStyle={{
+            pb: '$5',
+          }}
+        >
+          {renderSettingsContent()}
+        </ScrollView>
+        {footer}
+      </YStack>
+    </XStack>
+  );
+
+  const mobileSettingsBody = (
+    <ScrollView
+      testID="trading-view-chart-settings-mobile"
+      flex={1}
+      minHeight={0}
+      contentContainerStyle={{
+        pb: '$8',
+      }}
+    >
+      {isAppearanceSectionVisible('candles') ? renderCandleSettings() : null}
+      {isAppearanceSectionVisible('coordinates')
+        ? renderCoordinateSettings()
+        : null}
+      {isAppearanceSectionVisible('events') ? renderEventSettings() : null}
+      {isAppearanceSectionVisible('layout') ? renderLayoutSettings() : null}
+    </ScrollView>
+  );
+
+  if (mobileLayout) {
+    return mobileSettingsBody;
+  }
+
+  if (usePageFooter) {
+    return (
+      <>
+        <Page.Footer>
+          <Page.FooterActions
+            cancelButton={resetButton}
+            onConfirm={(close) => {
+              void handleConfirm().then((confirmed) => {
+                if (confirmed) {
+                  close({ flag: 'confirm' });
+                }
+              });
+            }}
+            confirmButtonProps={{
+              disabled: submitInProgress,
+            }}
+          />
+        </Page.Footer>
+        <XStack
+          testID="trading-view-chart-settings-dialog"
+          width="100%"
+          flex={1}
+          minHeight={0}
+        >
+          {renderSettingsBody()}
+        </XStack>
+      </>
+    );
+  }
+
+  return (
+    <TradingViewSettingsDialog
+      dialogRef={dialogRef}
+      testID="trading-view-chart-settings-dialog"
+      testIDPrefix="trading-view-settings"
+      title={intl.formatMessage({ id: ETranslations.market_chart_settings })}
+      isSubmitting={submitInProgress}
+      onReset={() => void handleReset()}
+      onCancel={handleCancel}
+      onClose={handleClose}
+      onConfirm={handleConfirm}
+    >
+      {renderSettingsBody}
+    </TradingViewSettingsDialog>
   );
 }
 
 export function TradingViewChartSettingsMockGallery() {
-  return <TradingViewChartSettings />;
+  const intl = useIntl();
+  return (
+    <Button
+      testID="trading-view-chart-settings-gallery-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewChartSettings dialogRef={ref} />
+          ),
+        })
+      }
+    >
+      {intl.formatMessage({ id: ETranslations.market_chart_settings })}
+    </Button>
+  );
 }

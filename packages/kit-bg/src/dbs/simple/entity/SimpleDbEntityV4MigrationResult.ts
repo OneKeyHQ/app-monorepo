@@ -56,7 +56,7 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
     );
   }
 
-  saveMigratedWalletId({
+  async saveMigratedWalletId({
     v4walletId,
     v5walletId,
   }: {
@@ -91,7 +91,7 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
     });
   }
 
-  saveMigratedAccountId({
+  async saveMigratedAccountId({
     v4accountId,
     v5accountId,
   }: {
@@ -126,7 +126,7 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
     });
   }
 
-  saveMigratedIndexedAccountId({
+  async saveMigratedIndexedAccountId({
     v5indexedAccountId,
   }: {
     v5indexedAccountId: string;

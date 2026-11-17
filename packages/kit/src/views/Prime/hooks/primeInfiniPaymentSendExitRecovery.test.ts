@@ -70,12 +70,13 @@ describe('startPrimeInfiniPaymentSendExitRecovery', () => {
 
   it('fails closed without restoring the exit lock when reconciliation fails', async () => {
     const onRejected = jest.fn();
+    const error = new OneKeyLocalError('background unavailable');
 
     await startPrimeInfiniPaymentSendExitRecovery({
       immediatePhase: 'selecting',
       fallbackPhase: 'selecting',
       resolveDidBroadcastStart: async () => {
-        throw new OneKeyLocalError('background unavailable');
+        throw error;
       },
       shouldApply: () => true,
       onImmediate: jest.fn(),
@@ -83,6 +84,6 @@ describe('startPrimeInfiniPaymentSendExitRecovery', () => {
       onRejected,
     });
 
-    expect(onRejected).toHaveBeenCalledWith('polling');
+    expect(onRejected).toHaveBeenCalledWith('polling', error);
   });
 });

@@ -9,6 +9,7 @@ import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/
 import {
   DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
+  getSecureStorageLocalSecretEnvelopeLayerAvailability,
   isSecureStorageLocalSecretEnvelopeLayerAvailable,
 } from './secureStorageLayerAdapter';
 
@@ -212,6 +213,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     await expect(
       isSecureStorageLocalSecretEnvelopeLayerAvailable({
         keyRef: 'test:lse:secure-storage:probe',
+        maxAttempts: 1,
         randomBytes: buildDeterministicRandomBytes(),
         secureStorage,
       }),
@@ -281,6 +283,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     const params = {
       failureCacheTtlMs: 1000,
       keyRef: 'test:lse:secure-storage:probe:timeout',
+      maxAttempts: 1,
       now: () => nowState.value,
       probeTimeoutMs: 1,
       randomBytes: buildDeterministicRandomBytes(),
@@ -307,6 +310,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     await expect(
       isSecureStorageLocalSecretEnvelopeLayerAvailable({
         keyRef: 'test:lse:secure-storage:probe',
+        maxAttempts: 1,
         randomBytes: buildDeterministicRandomBytes(),
         secureStorage,
       }),
@@ -326,6 +330,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     await expect(
       isSecureStorageLocalSecretEnvelopeLayerAvailable({
         keyRef: 'test:lse:secure-storage:probe',
+        maxAttempts: 1,
         randomBytes: buildDeterministicRandomBytes(),
         secureStorage,
       }),
@@ -335,5 +340,47 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     expect(calls.get).toBe(3);
     expect(calls.remove).toBe(1);
     expect(records.size).toBe(0);
+  });
+
+  it('classifies a stable support rejection as unsupported without retrying', async () => {
+    const { calls, secureStorage } = buildMemorySecureStorage({
+      supported: false,
+    });
+
+    await expect(
+      getSecureStorageLocalSecretEnvelopeLayerAvailability({
+        keyRef: 'test:lse:secure-storage:probe:unsupported-state',
+        maxAttempts: 3,
+        retryDelaysMs: [0, 0],
+        secureStorage,
+      }),
+    ).resolves.toBe('unsupported');
+
+    expect(calls.support).toBe(1);
+    expect(calls.set).toBe(0);
+  });
+
+  it('stops after three transient failures and caches the temporary outage', async () => {
+    const { calls, secureStorage } = buildMemorySecureStorage({
+      persistWrites: false,
+    });
+    const params = {
+      failureCacheTtlMs: 1000,
+      keyRef: 'test:lse:secure-storage:probe:bounded-retry',
+      maxAttempts: 3,
+      randomBytes: buildDeterministicRandomBytes(),
+      retryDelaysMs: [0, 0],
+      secureStorage,
+    };
+
+    await expect(
+      getSecureStorageLocalSecretEnvelopeLayerAvailability(params),
+    ).resolves.toBe('temporarily-unavailable');
+    await expect(
+      getSecureStorageLocalSecretEnvelopeLayerAvailability(params),
+    ).resolves.toBe('temporarily-unavailable');
+
+    expect(calls.set).toBe(3);
+    expect(calls.remove).toBe(3);
   });
 });

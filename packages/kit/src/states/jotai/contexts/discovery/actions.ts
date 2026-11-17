@@ -147,8 +147,9 @@ const persistTabsToSimpleDbDebounced = debounce(
 // Flush the pending debounced persist before the JS runtime can be suspended
 // or the window closes. Routed through `onVisibilityStateChange` so we cover
 // all four platforms uniformly (mobile AppState, desktop Electron focus,
-// web document.hidden + window blur) — a bare RN `AppState.addEventListener`
-// is silent dead code on desktop and incomplete on web.
+// web document.hidden, extension document.hidden + window blur) — a bare RN
+// `AppState.addEventListener` is silent dead code on desktop and incomplete on
+// web and extension.
 //
 // iOS in particular may freeze the bridge in <500ms after backgrounding,
 // which would otherwise drop the last user action (open/close/reorder tab).
@@ -1250,14 +1251,21 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
     ) => {
       if (webSite) {
+        let favicon: string | undefined;
+        try {
+          favicon =
+            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+              webSite.url,
+            );
+        } catch {
+          // A favicon is optional; opening the website must remain available
+          // when the icon service is unavailable in any runtime mode.
+        }
         return this.gotoSite.call(set, {
           id: tabId,
           url: webSite.url,
           title: webSite.title,
-          favicon:
-            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
-              webSite.url,
-            ),
+          favicon,
           isNewWindow,
         });
       }

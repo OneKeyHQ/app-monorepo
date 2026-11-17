@@ -4,6 +4,12 @@ import type { IIpTableRemoteConfig } from '../types/ipTable';
 
 // ========== IP Table Service Configuration Constants ==========
 
+/**
+ * Master switch. When false, every request goes to the domain directly:
+ * no SNI/IP requests, no remote config fetch and no speed tests.
+ */
+export const IP_TABLE_ENABLED = true;
+
 export const CDN_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
 
 /**
@@ -31,6 +37,21 @@ export const IP_TABLE_DOMAIN_FAILOVER_THRESHOLD = 3;
  */
 export const IP_TABLE_ADAPTER_FAILOVER_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 5,
+});
+
+/**
+ * SNI Bypass Threshold
+ * After this many consecutive real-request failures on the selected IP, the
+ * adapter stops handing requests to the SNI transport for a short window and
+ * sends them over the domain, exactly as if no IP were selected. The service
+ * needs IP_TABLE_SNI_FAILURE_THRESHOLD failures plus a probing round before it
+ * can change the selection; this keeps a dead IP from costing every request a
+ * wasted attempt (or a non-idempotent request its only attempt) until then.
+ */
+export const IP_TABLE_SNI_BYPASS_THRESHOLD = 3;
+
+export const IP_TABLE_SNI_BYPASS_TTL_MS = timerUtils.getTimeDurationMs({
+  minute: 1,
 });
 
 /**
@@ -90,32 +111,14 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
     'onekeycn.com': {
       'endpoints': [
         {
-          'ip': '104.18.20.233',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '104.18.21.233',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.3.115',
-          'provider': 'volcengine',
+          'ip': '43.168.19.96',
+          'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
         },
         {
-          'ip': '216.19.2.116',
-          'provider': 'volcengine',
-          'region': 'CN',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.4.106',
-          'provider': 'volcengine',
+          'ip': '43.168.24.171',
+          'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
         },
@@ -124,41 +127,23 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
     'onekeytest.com': {
       'endpoints': [
         {
-          'ip': '104.18.31.39',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '104.18.30.39',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.3.115',
-          'provider': 'volcengine',
+          'ip': '43.168.24.171',
+          'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
         },
         {
-          'ip': '216.19.2.116',
-          'provider': 'volcengine',
-          'region': 'CN',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.4.106',
-          'provider': 'volcengine',
+          'ip': '43.168.19.96',
+          'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
         },
       ],
     },
   },
-  'generated_at': '2025-11-06T08:30:54.066Z',
+  'generated_at': '2026-11-10T09:54:17.103Z',
   'signature':
-    '0x68ba1ea09f8775576df53c7d3182b9837e0e752df41d147cc716713aa4b6ded054d26904655d01a0f02c504ac2861ec3eeee3e075ee5f00a4c299bc165ec43331c',
+    '0x524d44617e3581c0d52e3b9276ffadf192e6611c0651b172bca05b20b3790f257d29ecd0d5e5172b282bb99403447ff1926e60d964b19ce01e9d46a4cfc11f931b',
   'ttl_sec': 86_400,
   'version': 1,
 };

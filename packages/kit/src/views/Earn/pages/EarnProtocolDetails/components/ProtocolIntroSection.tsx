@@ -18,17 +18,18 @@ import {
   Divider,
   Icon,
   Image,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { EarnIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -51,6 +52,15 @@ import type {
   IEarnProtocolIntroText,
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
+
+const PROTOCOL_INTRO_PROTOCOL_LOGO_PRELOAD_RESIZE_WIDTHS = [24, 28] as const;
+const PROTOCOL_INTRO_MEMBER_AVATAR_PRELOAD_RESIZE_WIDTHS = [20, 24] as const;
+const PROTOCOL_INTRO_AUDIT_LOGO_PRELOAD_RESIZE_WIDTHS = [20, s(20)] as const;
+
+type IImagePreloadSourceWithResizeWidth = {
+  uri: string;
+  resizeWidth: number;
+};
 
 function toEarnText(text?: IEarnProtocolIntroText): IEarnText | undefined {
   if (!text) {
@@ -321,6 +331,16 @@ function getLinkTitle({
   return getHostname(getLinkUrl(link));
 }
 
+/** Whether the intro payload has anything the Protocol tab could show. */
+export function hasProtocolIntroContent(
+  protocolInfo: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[] | undefined,
+): boolean {
+  const items = Array.isArray(protocolInfo)
+    ? protocolInfo
+    : protocolInfo?.items;
+  return (items ?? []).some(hasProtocolIntroItemContent);
+}
+
 function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
   return Boolean(
     hasText(getItemTitle(item)) ||
@@ -354,7 +374,7 @@ function DialogContent({ children }: { children: React.ReactNode }) {
   const isCompact = Boolean(platformEnv.isRuntimeBrowser && md);
 
   return (
-    <ScrollView
+    <Dialog.ScrollView
       height={isCompact ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
       maxHeight={isCompact ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
       nestedScrollEnabled
@@ -362,7 +382,7 @@ function DialogContent({ children }: { children: React.ReactNode }) {
       <YStack px="$5" pb="$5">
         {children}
       </YStack>
-    </ScrollView>
+    </Dialog.ScrollView>
   );
 }
 
@@ -429,7 +449,6 @@ function ProtocolLogo({
 
 const DESCRIPTION_LINE_HEIGHT = 20;
 const DESCRIPTION_MAX_LINES = 3;
-const DESCRIPTION_PENDING_MEASURE_MAX_CHARS = 132;
 
 function getCollapsedDescriptionText(description: string, target: number) {
   let cut = description.slice(0, target);
@@ -484,24 +503,15 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   );
 
   const maxVisibleHeight = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES + 1;
-  const hasPendingMeasurement = fullHeight === 0;
-  const hasOverflow =
-    fullHeight > maxVisibleHeight ||
-    (hasPendingMeasurement &&
-      description.length > DESCRIPTION_PENDING_MEASURE_MAX_CHARS);
+  const hasOverflow = fullHeight > maxVisibleHeight;
 
   // Estimate how many characters fit within DESCRIPTION_MAX_LINES, based on
   // the ratio of the visible-line height to the full text height. Height-based
   // measurement works on every platform (unlike onTextLayout, which is not
   // reliable on react-native-web here).
   const truncatedText = useMemo(() => {
-    if (!hasOverflow || !fullHeight) {
-      return hasOverflow
-        ? getCollapsedDescriptionText(
-            description,
-            DESCRIPTION_PENDING_MEASURE_MAX_CHARS,
-          )
-        : description;
+    if (!hasOverflow) {
+      return description;
     }
     const ratio =
       (DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES) / fullHeight;
@@ -516,12 +526,20 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   }
 
   return (
-    <YStack position="relative">
+    <YStack
+      position="relative"
+      minHeight={
+        !expanded && hasOverflow
+          ? DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES
+          : undefined
+      }
+    >
       {expanded || !hasOverflow ? (
         <SizableText
           size="$bodyMd"
           lineHeight={DESCRIPTION_LINE_HEIGHT}
           color={color}
+          numberOfLines={expanded ? undefined : DESCRIPTION_MAX_LINES}
         >
           {description}
         </SizableText>
@@ -546,6 +564,7 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
         </SizableText>
       )}
       <YStack
+        key={description}
         position="absolute"
         opacity={0}
         pointerEvents="none"
@@ -568,6 +587,26 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
         </SizableText>
       </YStack>
     </YStack>
+  );
+}
+
+// A link opened from inside one of the intro dialogs. On the phone the page
+// it opens lands on top of the sheet, which is still sitting there when the
+// user comes back (OK-62885), so the sheet goes first. On desktop the link
+// opens a browser tab and the dialog stays where it was. Outside a dialog the
+// close is a no-op.
+function useOpenLinkFromDialog() {
+  const dialog = useDialogInstance();
+  return useCallback(
+    async (url: string) => {
+      if (platformEnv.isNative) {
+        // Awaited: presenting the browser while the sheet is still on its
+        // way out would overlap the two transitions.
+        await dialog.close();
+      }
+      openUrlExternal(url);
+    },
+    [dialog],
   );
 }
 
@@ -832,28 +871,60 @@ function getAudits(audits?: IEarnProtocolIntroAudits) {
     : audits?.items || [];
 }
 
-function addProtocolIntroImageUrl(urls: Set<string>, url?: string | null) {
+function addProtocolIntroImagePreloadSources(
+  sources: Map<string, Set<number>>,
+  url: string | null | undefined,
+  resizeWidths: readonly number[],
+) {
   const safeUrl = getSafeExternalUrl(url);
   if (safeUrl) {
-    urls.add(safeUrl);
+    const sourceResizeWidths = sources.get(safeUrl) ?? new Set<number>();
+    resizeWidths.forEach((resizeWidth) => {
+      if (resizeWidth > 0) {
+        sourceResizeWidths.add(resizeWidth);
+      }
+    });
+    if (sourceResizeWidths.size > 0) {
+      sources.set(safeUrl, sourceResizeWidths);
+    }
   }
 }
 
-function collectProtocolIntroImageUrls(
+function collectProtocolIntroImagePreloadSources(
   item: IEarnProtocolIntroItem,
-  urls: Set<string>,
+  sources: Map<string, Set<number>>,
 ) {
-  addProtocolIntroImageUrl(urls, getProtocolLogoURI(item));
+  addProtocolIntroImagePreloadSources(
+    sources,
+    getProtocolLogoURI(item),
+    PROTOCOL_INTRO_PROTOCOL_LOGO_PRELOAD_RESIZE_WIDTHS,
+  );
 
   [item.team, item.teamMembers].forEach((team) => {
     getTeamMembers(team).forEach((member) => {
-      addProtocolIntroImageUrl(urls, getMemberAvatar(member));
+      addProtocolIntroImagePreloadSources(
+        sources,
+        getMemberAvatar(member),
+        PROTOCOL_INTRO_MEMBER_AVATAR_PRELOAD_RESIZE_WIDTHS,
+      );
     });
   });
 
   getAudits(item.audits).forEach((audit) => {
-    addProtocolIntroImageUrl(urls, audit.auditorLogoUrl || audit.logoURI);
+    addProtocolIntroImagePreloadSources(
+      sources,
+      audit.auditorLogoUrl || audit.logoURI,
+      PROTOCOL_INTRO_AUDIT_LOGO_PRELOAD_RESIZE_WIDTHS,
+    );
   });
+}
+
+function toProtocolIntroImagePreloadSources(
+  sources: Map<string, Set<number>>,
+): IImagePreloadSourceWithResizeWidth[] {
+  return Array.from(sources.entries()).flatMap(([uri, resizeWidths]) =>
+    Array.from(resizeWidths).map((resizeWidth) => ({ uri, resizeWidth })),
+  );
 }
 
 function getInvestorTitle(round?: IEarnProtocolIntroInvestorRound) {
@@ -892,11 +963,12 @@ function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
 
 function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
   const url = getLinkUrl(link);
+  const openLink = useOpenLinkFromDialog();
   const handlePress = useCallback(() => {
     if (url) {
-      openUrlExternal(url);
+      void openLink(url);
     }
-  }, [url]);
+  }, [openLink, url]);
 
   if (!url || link.disabled) {
     return null;
@@ -1336,11 +1408,12 @@ function AuditAccordionItem({
     getText(audit.button?.title) ||
     intl.formatMessage({ id: ETranslations.global_view });
   const hasContent = hasScopeText || shouldShowButton;
+  const openLink = useOpenLinkFromDialog();
   const handleOpen = useCallback(() => {
     if (url && !isButtonDisabled) {
-      openUrlExternal(url);
+      void openLink(url);
     }
-  }, [isButtonDisabled, url]);
+  }, [isButtonDisabled, openLink, url]);
 
   return (
     <Accordion.Item value={String(index)}>
@@ -1401,7 +1474,7 @@ function AuditAccordionItem({
               jc="flex-end"
             >
               <Stack
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
               >
@@ -1416,12 +1489,12 @@ function AuditAccordionItem({
         )}
       </Accordion.Trigger>
       {hasContent ? (
-        <Accordion.HeightAnimator animation="quick">
+        <Accordion.HeightAnimator transition="quick">
           <Accordion.Content
             unstyled
             pt="$3"
             pb="$4"
-            animation="100ms"
+            transition="100ms"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
@@ -1511,20 +1584,20 @@ function ProtocolIntroSectionComponent({
       : protocolInfo?.items;
     return (items ?? []).filter(hasProtocolIntroItemContent);
   }, [protocolInfo]);
-  const imageUrls = useMemo(() => {
-    const urls = new Set<string>();
-    protocolItems.forEach((item) => collectProtocolIntroImageUrls(item, urls));
-    return Array.from(urls);
+  const imageSources = useMemo(() => {
+    const sources = new Map<string, Set<number>>();
+    protocolItems.forEach((item) =>
+      collectProtocolIntroImagePreloadSources(item, sources),
+    );
+    return toProtocolIntroImagePreloadSources(sources);
   }, [protocolItems]);
 
   useEffect(() => {
-    if (!imageUrls.length) {
+    if (!imageSources.length) {
       return;
     }
-    void Image.preloadImages(imageUrls.map((uri) => ({ uri }))).catch(
-      () => undefined,
-    );
-  }, [imageUrls]);
+    void Image.preloadImages(imageSources).catch(() => undefined);
+  }, [imageSources]);
 
   const selectedIndex =
     selection.protocolInfo === protocolInfo &&
@@ -1572,6 +1645,10 @@ function ProtocolIntroSectionComponent({
         },
         showCancelButton: false,
         disableDrag: platformEnv.isRuntimeBrowser,
+        // These bodies scroll; only the grabber and the title drag the sheet
+        // away, so the list never fights the sheet for a vertical swipe
+        // (OK-61140).
+        sheetDragArea: 'header',
       });
     },
     [intl],

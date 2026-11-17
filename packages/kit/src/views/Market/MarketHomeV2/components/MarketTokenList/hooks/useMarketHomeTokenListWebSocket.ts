@@ -52,6 +52,8 @@ type IMarketHomeTokenListWebSocketParams = {
   onSubscriptionCountChange?: (count: number) => void;
 };
 
+// The most token subscriptions one Market list keeps open at a time.
+export const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const DEFAULT_MARKET_HOME_WS_CHART_TYPE = '1m';
 const DEFAULT_MARKET_HOME_WS_CURRENCY = 'usd';
 
@@ -219,6 +221,9 @@ function mergeLiveOverride(
   }
   if (override.change24h !== undefined) {
     nextToken.change24h = override.change24h;
+    // Keep the raw value in step, so a row whose feed had no change ('-' or
+    // omitted) shows the live change instead of still reading as missing.
+    nextToken.priceChangeRaw = String(override.change24h);
     hasOverride = true;
   }
   if (override.marketCap !== undefined) {
@@ -341,6 +346,30 @@ export function useMarketHomeTokenListWebSocket({
   const isMountedRef = useRef(true);
   const isSyncingSubscriptionsRef = useRef(false);
   const syncRequestIdRef = useRef(0);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() =>
+    typeof document === 'undefined'
+      ? true
+      : document.visibilityState !== 'hidden',
+  );
+
+  useEffect(() => {
+    if (
+      typeof document === 'undefined' ||
+      typeof document.addEventListener !== 'function'
+    ) {
+      return;
+    }
+    const handleVisibilityChange = () => {
+      setIsDocumentVisible(document.visibilityState !== 'hidden');
+    };
+    handleVisibilityChange();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const effectiveEnabled = Boolean(enabled && isDocumentVisible);
 
   const subscriptionIdentity = useMemo(
     () => subscriptions.map((item) => item.key).join('|'),
@@ -589,13 +618,13 @@ export function useMarketHomeTokenListWebSocket({
   ]);
 
   useEffect(() => {
-    desiredSubscriptionsRef.current = enabled
+    desiredSubscriptionsRef.current = effectiveEnabled
       ? new Map(subscriptions.map((item) => [item.key, item]))
       : new Map<string, IMarketHomeTokenSubscription>();
     syncRequestIdRef.current += 1;
     void syncMarketHomeTokenSubscriptions();
   }, [
-    enabled,
+    effectiveEnabled,
     subscriptions,
     subscriptionIdentity,
     syncMarketHomeTokenSubscriptions,
@@ -610,7 +639,7 @@ export function useMarketHomeTokenListWebSocket({
   }, [syncMarketHomeTokenSubscriptions]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!effectiveEnabled) {
       return;
     }
 
@@ -712,7 +741,7 @@ export function useMarketHomeTokenListWebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [enabled]);
+  }, [effectiveEnabled]);
 
   const liveTokenOverrides = useMemo(
     () => Object.values(liveOverridesByKey),
@@ -720,7 +749,7 @@ export function useMarketHomeTokenListWebSocket({
   );
 
   return useMemo(() => {
-    if (!enabled) {
+    if (!effectiveEnabled) {
       return tokens;
     }
 
@@ -728,5 +757,5 @@ export function useMarketHomeTokenListWebSocket({
       tokens,
       liveTokenOverrides,
     });
-  }, [enabled, tokens, liveTokenOverrides]);
+  }, [effectiveEnabled, tokens, liveTokenOverrides]);
 }

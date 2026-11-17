@@ -10,22 +10,28 @@ import type { IKytIntroClaimResult } from '@onekeyhq/shared/types/kyt';
 
 import {
   finishPrimeSubscriptionPurchaseSuccess,
+  getErrorMessage,
   handlePrimePurchaseSuccessCloseRequest,
   preparePrimeSubscriptionPurchaseSuccess,
 } from './primeSubscriptionPurchaseSuccess';
 
-const mockFetchPrimeUserInfo = jest.fn<Promise<void>, []>();
+const mockFetchPrimeUserInfo = jest.fn<
+  Promise<void>,
+  [{ forceRefresh?: boolean }?]
+>();
 const mockTryClaimKytIntro = jest.fn<
   Promise<IKytIntroClaimResult>,
   [unknown]
 >();
 const mockPurchaseSuccessListener = jest.fn();
+const mockPrimeReceiveKytIntroFlowFailed = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: {
-      apiFetchPrimeUserInfo: () => mockFetchPrimeUserInfo(),
+      apiFetchPrimeUserInfo: (params?: { forceRefresh?: boolean }) =>
+        mockFetchPrimeUserInfo(params),
     },
     serviceSetting: {
       tryClaimKytIntro: (params: unknown) => mockTryClaimKytIntro(params),
@@ -36,7 +42,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
-      usage: { primeReceiveKytIntroFlowFailed: jest.fn() },
+      usage: {
+        primeReceiveKytIntroFlowFailed: (...args: unknown[]) => {
+          mockPrimeReceiveKytIntroFlowFailed(...args);
+        },
+      },
     },
   },
 }));
@@ -77,12 +87,18 @@ describe('Prime subscription purchase success', () => {
     expect(mockFetchPrimeUserInfo.mock.invocationCallOrder[0]).toBeLessThan(
       mockPurchaseSuccessListener.mock.invocationCallOrder[0],
     );
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
   });
 
   it('refreshes without emitting when checkout did not confirm a purchase', async () => {
     await finishPrimeSubscriptionPurchaseSuccess(undefined);
 
     expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
     expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
   });
 
@@ -109,6 +125,9 @@ describe('Prime subscription purchase success', () => {
         onekeyUserId: 'user-a',
       }),
     );
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
   });
 
   it('only closes an Android callback for a mismatched user', async () => {
@@ -126,5 +145,35 @@ describe('Prime subscription purchase success', () => {
     expect(mockTryClaimKytIntro).not.toHaveBeenCalled();
     expect(mockFetchPrimeUserInfo).not.toHaveBeenCalled();
     expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
+  });
+
+  it('scrubs secrets from purchase success diagnostics', () => {
+    expect(
+      getErrorMessage(
+        new Error('refresh failed for user@example.com token=secret-token'),
+      ),
+    ).toBe('refresh failed for [email] token=[redacted]');
+  });
+
+  it('scrubs a detached purchase refresh failure', async () => {
+    const pop = jest.fn();
+    mockFetchPrimeUserInfo.mockRejectedValueOnce(
+      new Error('refresh failed with token=secret-token'),
+    );
+
+    handlePrimePurchaseSuccessCloseRequest({
+      params: { onekeyUserId: 'user-a' },
+      hashRoutePath: '/prime/purchase',
+      routePrimeUserId: 'user-a',
+      isWebEmbed: true,
+      pop,
+    });
+
+    await waitFor(() =>
+      expect(mockPrimeReceiveKytIntroFlowFailed).toHaveBeenCalledWith({
+        stage: 'primeUserRefresh',
+        errorMessage: 'refresh failed with token=[redacted]',
+      }),
+    );
   });
 });

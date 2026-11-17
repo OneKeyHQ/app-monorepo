@@ -15,6 +15,7 @@ import {
   Heading,
   Image,
   Keyboard,
+  NATIVE_HIT_SLOP,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -25,26 +26,36 @@ import {
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
-import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
-import { DevPerpsWebSocketUpdateView } from '../../FullWindowOverlayContainer/DevOverlayWindow';
-
 import { AppStateContainer } from './AppStateContainer';
+import {
+  NativeStorageLockError,
+  NativeStorageLockToast,
+  useNativeStorageLockError,
+} from './NativeStorageLockRecovery';
 
-import type { View as IView, KeyboardEvent } from 'react-native';
+import type { KeyboardEvent, ViewInstance } from 'react-native';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
-  lockContainerRef: ForwardedRef<IView>;
+  lockContainerRef: ForwardedRef<ViewInstance>;
 }
+
+const DevPerpsWebSocketUpdateView = LazyLoad(async () => {
+  const { DevPerpsWebSocketUpdateView: Component } =
+    await import('../../FullWindowOverlayContainer/DevOverlayWindow');
+  return {
+    default: () => <Component />,
+  };
+});
 
 // Diagnostic sink: mirror to console unconditionally (defaultLogger's local
 // transport only console-logs in dev and its background bridge can be down on
@@ -90,6 +101,7 @@ const AppStateLock = ({
   const resetApp = useResetApp({ inAppStateLock: true });
   const [v4migrationData] = useV4migrationAtom();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+  const storageError = useNativeStorageLockError();
 
   const handleExportLogs = useCallback(async () => {
     // Gate the hidden lock-screen log-upload entry behind a biometric check so
@@ -161,6 +173,8 @@ const AppStateLock = ({
       }
     }
     diagLog('[KeychainLogUploadDiag] passing gate -> showExportLogsDialog');
+    const { showExportLogsDialog } =
+      await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog');
     showExportLogsDialog({
       title: intl.formatMessage({
         id: ETranslations.settings_upload_state_logs,
@@ -178,8 +192,6 @@ const AppStateLock = ({
         ref={lockContainerRef}
         position="absolute"
         fullscreen
-        // keep the lock screen interface at the top by the z-index on Web & Android
-        zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
         pointerEvents={platformEnv.isNative ? undefined : 'auto'}
@@ -205,8 +217,8 @@ const AppStateLock = ({
             <Stack gap="$4" alignItems="center">
               {/* Hidden support entry: a continuous multi-click on the logo
                   (NOT a long-press) opens the state-log upload dialog. Uses
-                  MultipleClickStack's default threshold — it fires on the 12th
-                  consecutive tap in production (5th in dev). Keep it
+                  MultipleClickStack's default threshold — it fires on the 10th
+                  consecutive tap in production (3rd in dev). Keep it
                   deliberately hard to trigger so it is not hit by accident on
                   the lock screen. (OK-56874) */}
               <MultipleClickStack onPress={handleExportLogs}>
@@ -225,6 +237,7 @@ const AppStateLock = ({
               }}
             >
               {passwordVerifyContainer}
+              <NativeStorageLockError message={storageError} />
             </Stack>
           </Stack>
           <DevPerpsWebSocketUpdateView />
@@ -234,6 +247,14 @@ const AppStateLock = ({
               <Button
                 size="small"
                 variant="tertiary"
+                // A `tertiary` Button is only its label plus 4pt of padding and
+                // its negative margins pull the frame above the glyphs, so on a
+                // phone the real touch target is a ~26pt band sitting slightly
+                // higher than the text the user aims at — well under the 44pt
+                // Apple asks for. Taps on the visible label missed it, which is
+                // what "Forgot passcode? does nothing" was on iOS. IconButton
+                // already pads small buttons the same way. (OK-62416)
+                hitSlop={NATIVE_HIT_SLOP}
                 onPress={resetApp}
                 testID="app-state-lock.tsx-btn"
               >
@@ -244,6 +265,7 @@ const AppStateLock = ({
             )}
           </Stack>
         </Animated.View>
+        <NativeStorageLockToast message={storageError} />
       </ThemeableStack>
     </AppStateContainer>
   );

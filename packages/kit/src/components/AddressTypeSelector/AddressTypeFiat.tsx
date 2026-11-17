@@ -7,6 +7,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { Currency } from '../Currency';
@@ -66,6 +67,7 @@ function AddressTypeFiat({
         balanceParsed: '0',
         fiatValue: '0',
         currency: undefined as string | undefined,
+        balanceMultiplier: undefined as string | undefined,
       };
     }
     return result;
@@ -83,7 +85,10 @@ function AddressTypeFiat({
           size={media.gtMd ? '$bodySmMedium' : '$bodyMdMedium'}
           formatter="balance"
         >
-          {tokenFiat.balanceParsed}
+          {tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenFiat.balanceParsed,
+            balanceMultiplier: tokenFiat.balanceMultiplier,
+          })}
         </NumberSizeableText>
       </XStack>
       <Currency

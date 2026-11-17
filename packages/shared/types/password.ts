@@ -3,6 +3,9 @@ export enum EPasswordVerifyStatus {
   VERIFYING = 'verifying',
   VERIFIED = 'verified',
   ERROR = 'error',
+  // Not verified, but trying again is all it takes (wrong passcode, dismissed
+  // biometric prompt): shown as a neutral hint rather than a field error.
+  RETRY = 'retry',
 }
 
 export type IPasswordSecuritySession = {
@@ -26,6 +29,7 @@ export enum EPasswordMode {
 }
 
 export const BIOLOGY_AUTH_CANCEL_ERROR = 'user_cancel';
+export const BIOLOGY_AUTH_ABORTED_ERROR = 'app_cancel';
 
 export const PASSCODE_LENGTH = 6;
 export const PASSCODE_PROTECTION_ATTEMPTS = 10;

@@ -2,8 +2,14 @@
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentFlowParams } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
+import { getPrimeInfiniPaymentErrorFailure } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
+
+import { scrubSensitiveErrorMessageText } from '../../utils/sensitiveErrorMessageUtils';
 
 import type { IPrimePurchaseMonitorEvent } from './hooks/usePrimePurchaseMonitor';
+
+export { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 
 type IPrimeInfiniPaymentLogParams = IPrimeCryptoPaymentFlowParams & {
   error?: unknown;
@@ -23,21 +29,21 @@ function toOptionalString(value: unknown) {
   return undefined;
 }
 
-export function getPrimeInfiniPaymentSafeError(error: unknown) {
+export function getPrimeInfiniPaymentLocalError(error: unknown) {
   const plainError = toPlainErrorObject(error);
+  const safeError = getPrimeInfiniPaymentSafeError(error);
+  const rawMessage =
+    typeof error === 'string'
+      ? toOptionalString(error)
+      : toOptionalString(plainError.message);
   return {
+    ...safeError,
     errorName:
-      toOptionalString(plainError.name) ??
-      toOptionalString(plainError.className) ??
-      toOptionalString(plainError.constructorName),
-    errorCode:
-      toOptionalString(plainError.code) ?? toOptionalString(plainError.key),
-    requestId: toOptionalString(plainError.requestId),
-    httpStatusCode:
-      typeof plainError.httpStatusCode === 'number' &&
-      Number.isFinite(plainError.httpStatusCode)
-        ? plainError.httpStatusCode
-        : undefined,
+      safeError.errorName ??
+      (typeof error === 'string' ? 'StringError' : 'UnknownError'),
+    errorMessage: rawMessage
+      ? scrubSensitiveErrorMessageText(rawMessage)
+      : undefined,
   };
 }
 
@@ -45,10 +51,21 @@ export function logPrimeInfiniPaymentFlow({
   error,
   ...params
 }: IPrimeInfiniPaymentLogParams) {
+  const safeError = error ? getPrimeInfiniPaymentSafeError(error) : undefined;
   defaultLogger.prime.subscription.primeCryptoPaymentFlow({
     ...params,
-    ...(error ? getPrimeInfiniPaymentSafeError(error) : undefined),
+    ...safeError,
+    failureReason:
+      params.failureReason ?? getPrimeInfiniPaymentErrorFailure(error),
   });
+  if (error) {
+    defaultLogger.prime.subscription.primeCryptoPaymentError({
+      ...params,
+      ...safeError,
+      failureReason:
+        params.failureReason ?? getPrimeInfiniPaymentErrorFailure(error),
+    });
+  }
 }
 
 export function logPrimeInfiniPaymentMonitorEvent<TData>({
@@ -78,6 +95,15 @@ export function logPrimeInfiniPaymentMonitorEvent<TData>({
       retryCount: event.retryCount,
       reason: getFailureReason(event.issue.reason),
       error: event.issue.error,
+    });
+    event.issue.relatedIssues?.forEach((issue) => {
+      logPrimeInfiniPaymentFlow({
+        ...context,
+        status: 'failed',
+        retryCount: event.retryCount,
+        reason: getFailureReason(issue.reason),
+        error: issue.error,
+      });
     });
   } else if (event.type === 'recovered') {
     logPrimeInfiniPaymentFlow({

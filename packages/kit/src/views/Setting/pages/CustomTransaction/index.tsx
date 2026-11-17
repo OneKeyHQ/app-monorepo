@@ -8,7 +8,6 @@ import {
   SizableText,
   Switch,
   YStack,
-  startViewTransition,
   useDialogInstance,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -19,6 +18,8 @@ import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 function CustomTxDataLearnMoreButton({
   closeDialogAfterClick = true,
@@ -70,7 +71,7 @@ function CustomTransaction() {
           id: ETranslations.global_customize_transaction,
         })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <YStack gap="$6">
           <YStack>
             <ListItem
@@ -82,13 +83,11 @@ function CustomTransaction() {
                 testID="setting-intl-switch"
                 size={ESwitchSize.small}
                 value={settings.isCustomNonceEnabled}
-                onChange={async (value) => {
-                  startViewTransition(() => {
-                    setSettings((v) => ({
-                      ...v,
-                      isCustomNonceEnabled: !!value,
-                    }));
-                  });
+                onChange={(value) => {
+                  setSettings((v) => ({
+                    ...v,
+                    isCustomNonceEnabled: !!value,
+                  }));
                 }}
               />
             </ListItem>
@@ -133,12 +132,10 @@ function CustomTransaction() {
                       resolve();
                     }
                   });
-                  startViewTransition(() => {
-                    setSettings((v) => ({
-                      ...v,
-                      isCustomTxMessageEnabled: !!value,
-                    }));
-                  });
+                  setSettings((v) => ({
+                    ...v,
+                    isCustomTxMessageEnabled: !!value,
+                  }));
                 }}
               />
             </ListItem>

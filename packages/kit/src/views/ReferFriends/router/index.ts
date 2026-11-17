@@ -6,6 +6,7 @@ import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 const ReferFriends = LazyLoadPage(() => import('../pages/ReferAFriend'));
 const InvitedByFriend = LazyLoadPage(() => import('../pages/InvitedByFriend'));
 const YourReferred = LazyLoadPage(() => import('../pages/YourReferred'));
+const InviteCodes = LazyLoadPage(() => import('../pages/InviteCodes'));
 const HardwareSalesReward = LazyLoadPage(
   () => import('../pages/HardwareSalesReward'),
 );
@@ -26,6 +27,7 @@ const RedemptionHistory = LazyLoadPage(
   () => import('../../Redemption/pages/RedemptionHistory'),
 );
 const PerpsReward = LazyLoadPage(() => import('../pages/PerpsReward'));
+const SwapReward = LazyLoadPage(() => import('../pages/SwapReward'));
 
 const BtcRewardRecover = LazyLoadPage(
   () => import('../../Redemption/pages/BtcReward/Recover'),
@@ -61,6 +63,10 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.YourReferred,
     component: YourReferred,
+  },
+  {
+    name: EModalReferFriendsRoutes.InviteCodes,
+    component: InviteCodes,
   },
   {
     name: EModalReferFriendsRoutes.YourReferredWalletAddresses,
@@ -101,6 +107,10 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.PerpsReward,
     component: PerpsReward,
+  },
+  {
+    name: EModalReferFriendsRoutes.SwapReward,
+    component: SwapReward,
   },
   {
     name: EModalReferFriendsRoutes.BtcRewardRecover,

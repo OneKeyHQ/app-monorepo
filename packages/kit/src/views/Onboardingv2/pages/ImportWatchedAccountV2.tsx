@@ -121,7 +121,7 @@ export default function ImportWatchedAccountV2() {
               {selected === 'address' ? (
                 <YStack
                   key="address"
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
@@ -147,7 +147,7 @@ export default function ImportWatchedAccountV2() {
               ) : (
                 <YStack
                   key="publicKey"
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,

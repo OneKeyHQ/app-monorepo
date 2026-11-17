@@ -143,6 +143,46 @@ export function buildSwapQuoteProviderKey(quote: {
   return `${quote.info.provider}-${quote.info.providerName}`;
 }
 
+/**
+ * Keeps the current event's quotes visible while the mirrored provider-key
+ * state catches up with the quote list state.
+ *
+ * Quote results and provider keys are published by separate atom updates. On
+ * native route transitions the provider picker can render between those
+ * updates, so filtering only by the provider keys briefly hides every quote.
+ */
+export function selectSwapCurrentEventQuotes({
+  quotes,
+  quoteEventTotalCount,
+  currentEventProviderKeys,
+}: {
+  quotes: IFetchQuoteResult[];
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  currentEventProviderKeys: string[];
+}) {
+  if (quoteEventTotalCount.count <= 0) {
+    return quotes;
+  }
+
+  if (currentEventProviderKeys.length > 0) {
+    const currentEventProviderKeySet = new Set(currentEventProviderKeys);
+    return quotes.filter(
+      (quote) =>
+        currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)) &&
+        (!quoteEventTotalCount.eventId ||
+          quote.eventId === quoteEventTotalCount.eventId),
+    );
+  }
+
+  if (!quoteEventTotalCount.eventId) {
+    return [];
+  }
+
+  return quotes.filter(
+    (quote) => quote.eventId === quoteEventTotalCount.eventId,
+  );
+}
+
 export function buildSwapManualProviderSelectionIntent(
   quote: { info: ISwapQuoteProviderIdentity } | undefined,
 ): ISwapQuoteSelectionIntent | undefined {
@@ -224,18 +264,22 @@ export function isSwapNoProviderSupportsTrade({
   zeroProviderQuoteCompleted,
   quote,
   quoteResultPairNoMatch,
+  quoteEventCompleted,
+  quoteRequestMatchesCurrentInput,
 }: {
   zeroProviderQuoteCompleted: boolean;
   quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
   quoteResultPairNoMatch: boolean;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
 }) {
-  // Only trust the no-provider verdict when the quote belongs to the current
-  // token pair; a stale quote left over from a previous pair must not lock
-  // the action button out of its "Refresh quotes" recovery state. The veto
-  // must stay identity-based: provider-error quotes carry no amount fields
-  // at all, so an amount-based mismatch check would permanently veto the
-  // genuine no-provider signal. (OK-57545)
+  // Provider errors can arrive before the rest of the quote event. Only the
+  // matching request's terminal state can establish that no provider supports
+  // the trade. Pair identity remains separate because provider-error quotes
+  // do not carry amount fields. (OK-57545, OK-58528)
   return (
+    quoteEventCompleted &&
+    quoteRequestMatchesCurrentInput &&
     (zeroProviderQuoteCompleted ||
       Boolean(quote && !quote.toAmount && !quote.limit)) &&
     !quoteResultPairNoMatch
@@ -302,18 +346,23 @@ export function isSwapQuoteInputAmountMatched({
 }
 
 export function shouldOfferSwapQuoteRefresh({
+  hasValidQuoteInput,
   isRefreshQuote,
   quoteResultNoMatch,
   quoteResultNoMatchDebounced,
   quoteLoading,
   quoteEventFetching,
 }: {
+  hasValidQuoteInput: boolean;
   isRefreshQuote: boolean;
   quoteResultNoMatch: boolean;
   quoteResultNoMatchDebounced: boolean;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 }) {
+  if (!hasValidQuoteInput) {
+    return false;
+  }
   if (isRefreshQuote) {
     return true;
   }
@@ -324,6 +373,36 @@ export function shouldOfferSwapQuoteRefresh({
     quoteResultNoMatch &&
     quoteResultNoMatchDebounced
   );
+}
+
+export function isSwapQuoteInputAmountValid({
+  quoteKind,
+  fromTokenAmount,
+  toTokenAmount,
+  hasTokenPair,
+}: {
+  quoteKind: ESwapQuoteKind;
+  fromTokenAmount: { value: string; isInput: boolean };
+  toTokenAmount: { value: string; isInput: boolean };
+  hasTokenPair: boolean;
+}) {
+  const inputAmount =
+    quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount;
+  const amount = new BigNumber(inputAmount.value);
+
+  return Boolean(
+    hasTokenPair && inputAmount.isInput && amount.isFinite() && amount.gt(0),
+  );
+}
+
+export function isSwapQuoteManualRefreshRequired({
+  shouldRefreshQuote,
+  quoteRequestMatchesCurrentInput,
+}: {
+  shouldRefreshQuote: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
+}) {
+  return shouldRefreshQuote && quoteRequestMatchesCurrentInput;
 }
 
 export function shouldShowSwapQuoteActionLoading({
@@ -478,6 +557,16 @@ export function shouldShowSwapQuoteRequestLoading({
   return !quoteEventCompleted;
 }
 
+export function shouldShowSwapQuoteLimitWarning({
+  quoteEventCompleted,
+  quoteEventFetching,
+}: {
+  quoteEventCompleted: boolean;
+  quoteEventFetching: boolean;
+}) {
+  return quoteEventCompleted && !quoteEventFetching;
+}
+
 export function isSwapQuoteFromCurrentEvent({
   quote,
   quoteEventTotalCount,
@@ -496,6 +585,44 @@ export function isSwapQuoteFromCurrentEvent({
     return quote.eventId === quoteEventTotalCount.eventId;
   }
   return !quoteLoading && !quoteEventFetching;
+}
+
+/**
+ * Proof that the selected quote belongs to the active quote round for the
+ * current inputs. Pair equality alone cannot provide this, and neither can
+ * event membership plus a lock match on their own: quoteAction's starting
+ * interval clears the event id and writes the new lock BEFORE runQuoteEvent
+ * flips the loading flags, so a retained previous quote would pass the
+ * no-event-id fallback while the freshly written lock matches the current
+ * input. That interval is identified by actionLock with no event id yet and
+ * counts as unproven.
+ */
+export function isSwapQuoteProvenForCurrentRequest({
+  quote,
+  quoteEventTotalCount,
+  quoteLoading,
+  quoteEventFetching,
+  quoteActionLocked,
+  requestMatchesCurrentInput,
+}: {
+  quote?: IFetchQuoteResult;
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+  quoteActionLocked: boolean;
+  requestMatchesCurrentInput: boolean;
+}) {
+  if (quoteActionLocked && !quoteEventTotalCount.eventId) {
+    return false;
+  }
+  return (
+    isSwapQuoteFromCurrentEvent({
+      quote,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+    }) && requestMatchesCurrentInput
+  );
 }
 
 export function selectSwapPreviousActionableQuote({

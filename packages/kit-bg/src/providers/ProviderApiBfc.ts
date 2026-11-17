@@ -1,4 +1,5 @@
 import { TransactionBlock } from '@benfen/bfc.js/transactions';
+import { normalizeHexAddress } from '@benfen/bfc.js/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -149,9 +150,15 @@ class ProviderApiBfc extends ProviderApiBase {
     params: ISignAndExecuteTransactionBlockInput,
   ): Promise<BenfenTransactionBlockResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeHexAddress,
+    );
+    this.assertAccountAddress(account, address, normalizeHexAddress);
     const encodedTx: IEncodedTxBfc = {
       rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
       sender: address ?? '',
@@ -182,9 +189,15 @@ class ProviderApiBfc extends ProviderApiBase {
     params: ISignTransactionBlockInput,
   ): Promise<ISignTransactionBlockOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeHexAddress,
+    );
+    this.assertAccountAddress(account, address, normalizeHexAddress);
     const encodedTx: IEncodedTxBfc = {
       rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
       sender: address ?? '',
@@ -213,9 +226,14 @@ class ProviderApiBfc extends ProviderApiBase {
     params: ISignMessageInput,
   ): Promise<ISuiSignMessageOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeHexAddress,
+    );
 
     const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,

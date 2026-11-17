@@ -1,8 +1,15 @@
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowBalance,
+  IBorrowToken,
+  IEarnText,
+} from '@onekeyhq/shared/types/staking';
 
+import { BorrowAssetToken } from '../BorrowAssetToken';
+
+import { BorrowBalanceText } from './BorrowBalanceText';
+import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
 
 type IAssetFieldToken = Pick<IBorrowToken, 'logoURI' | 'symbol'>;
@@ -11,12 +18,10 @@ type IAssetWithAmountFieldProps = {
   token: IAssetFieldToken;
   canBeCollateral?: boolean;
   amountLabel?: IEarnText;
-  amount?: IEarnText;
-  amountDescription?: IEarnText;
-  showWalletIcon?: boolean;
+  balance: IBorrowBalance;
   platformBonusApy?: {
     title: IEarnText;
-    logoURI: string;
+    logoURI?: string;
   };
 };
 
@@ -24,32 +29,19 @@ export const AssetWithAmountField = ({
   token,
   canBeCollateral,
   amountLabel,
-  amount,
-  amountDescription,
-  showWalletIcon,
+  balance,
   platformBonusApy,
 }: IAssetWithAmountFieldProps) => {
   return (
     <FieldWrapper flex={1}>
       <XStack ai="center">
-        <Token size="md" tokenImageUri={token.logoURI} />
+        <BorrowAssetToken size="md" logoURI={token.logoURI} />
         <YStack ml="$3" gap="$0.5">
           <XStack ai="center" gap="$1">
             <SizableText size="$bodyMdMedium" color="$text">
               {token.symbol}
             </SizableText>
-            {canBeCollateral ? (
-              <Icon
-                br="$1"
-                bg="$bgSuccess"
-                name="Checkmark2SmallOutline"
-                size="$5"
-                w="$5"
-                h="$5"
-                flexShrink={0}
-                color="$iconSuccess"
-              />
-            ) : null}
+            <CollateralBadge canBeCollateral={canBeCollateral} />
           </XStack>
           {platformBonusApy ? (
             <XStack ai="center" gap="$1">
@@ -59,25 +51,40 @@ export const AssetWithAmountField = ({
                 color="$textSuccess"
                 whiteSpace="nowrap"
               />
-              <Image
-                src={platformBonusApy.logoURI}
-                width="$3.5"
-                height="$3.5"
-              />
+              {platformBonusApy.logoURI ? (
+                <Image
+                  src={platformBonusApy.logoURI}
+                  width="$3.5"
+                  height="$3.5"
+                />
+              ) : null}
             </XStack>
           ) : null}
           <XStack ai="center" gap="$1">
-            {showWalletIcon ? (
-              <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-            ) : null}
             <EarnText text={amountLabel} size="$bodySm" color="$textSubdued" />
-            <EarnText text={amount} size="$bodySm" color="$textSubdued" />
-            {amountDescription ? (
-              <EarnText
-                text={{ text: `(${amountDescription.text})` }}
+            <BorrowBalanceText
+              kind="balance"
+              text={balance.title}
+              value={balance.number ?? balance.amount}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+            {balance.description ? (
+              <SizableText
                 size="$bodySm"
                 color="$textSubdued"
-              />
+                accessibilityLabel={`(${balance.description.text})`}
+                aria-label={`(${balance.description.text})`}
+              >
+                (
+                <BorrowBalanceText
+                  kind="fiat"
+                  text={{ text: balance.description.text }}
+                  size="$bodySm"
+                  color="$textSubdued"
+                />
+                )
+              </SizableText>
             ) : null}
           </XStack>
         </YStack>

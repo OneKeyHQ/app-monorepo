@@ -34,6 +34,15 @@ export interface ICompactFiat {
   price: number;
   price24h?: number;
   currency?: string;
+  // Scaled-UI / rebase tokens (e.g. xStocks). See ITokenFiat.balanceMultiplier
+  // / tokenRebaseUtils — must survive the cold-start round trip so a restored
+  // snapshot does not paint an un-multiplied balance until the live fetch
+  // lands.
+  balanceMultiplier?: string;
+  // Resolved shared-balance decision (ITokenFiat.sharedBalanceExcludedFromTotal,
+  // Arc OK-63633) — must survive the round trip so a cold-start small-balance
+  // sum does not double count until the live fetch lands.
+  sharedBalanceExcludedFromTotal?: boolean;
 }
 
 /**
@@ -159,6 +168,12 @@ function toCompactFiat(fiat: ITokenFiat): ICompactFiat {
   }
   if (fiat.currency !== undefined) {
     compact.currency = fiat.currency;
+  }
+  if (fiat.balanceMultiplier !== undefined) {
+    compact.balanceMultiplier = fiat.balanceMultiplier;
+  }
+  if (fiat.sharedBalanceExcludedFromTotal === true) {
+    compact.sharedBalanceExcludedFromTotal = true;
   }
   return compact;
 }

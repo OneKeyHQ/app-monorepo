@@ -6,6 +6,7 @@ import { Dialog, Stack, YStack } from '@onekeyhq/components';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EAmountInputMode,
   EBulkSendMode,
@@ -102,6 +103,24 @@ function SetAmountPerAddressDialogContent({
     onConfirm(amountInputMode, amountInputValues);
   }, [amountInputMode, amountInputValues, onConfirm]);
 
+  // Scaled-UI (rebase) tokens: same display-basis contract as the amounts
+  // page — validation inside the dialog must run against the display balance.
+  const rebaseMultiplier = useMemo(
+    () =>
+      tokenInfo && !tokenInfo.isNative
+        ? tokenRebaseUtils.pickBalanceMultiplier(tokenDetails)
+        : undefined,
+    [tokenInfo, tokenDetails],
+  );
+  const displayBalance = useMemo(
+    () =>
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: tokenDetails?.balanceParsed,
+        balanceMultiplier: rebaseMultiplier,
+      }),
+    [tokenDetails?.balanceParsed, rebaseMultiplier],
+  );
+
   // Create context value for AmountInputSection to use
   const contextValue = useMemo(
     () => ({
@@ -187,6 +206,11 @@ function SetAmountPerAddressDialogContent({
       setSenderBalancesFailed: () => {},
       senderAccountIdMap: new Map(),
       hasDuplicateSenders: false,
+      rebaseMultiplier,
+      displayBalance,
+      // The dialog is a OneToMany-only surface; the ManyToOne/ManyToMany
+      // scaled-UI restriction never applies here.
+      isScaledUiUnsupported: false,
     }),
     [
       accountId,
@@ -201,6 +225,8 @@ function SetAmountPerAddressDialogContent({
       totalTokenAmount,
       totalFiatAmount,
       minTransferAmountProp,
+      rebaseMultiplier,
+      displayBalance,
     ],
   );
 

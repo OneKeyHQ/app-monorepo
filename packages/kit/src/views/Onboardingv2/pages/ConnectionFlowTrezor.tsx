@@ -8,6 +8,7 @@ import {
   Button,
   EVideoResizeMode,
   HeightTransition,
+  type IVideoSource,
   LottieView,
   SegmentControl,
   SizableText,
@@ -24,7 +25,10 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  ThirdPartyWalletAvatarImages,
+  getThirdPartyDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
@@ -35,7 +39,11 @@ import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import {
+  getForceTransportType,
+  getThirdPartySearchTarget,
+  sortDevicesData,
+} from '../utils';
 
 import {
   TREZOR_SCAN_MAX_TRY_COUNT,
@@ -47,7 +55,6 @@ import {
 import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { ReactVideoSource } from 'react-native-video';
 
 enum EConnectionStatus {
   init = 'init',
@@ -57,11 +64,11 @@ enum EConnectionStatus {
 
 function DevicePlaceholder({ isBle }: { isBle: boolean }) {
   const themeVariant = useThemeVariant();
-  const videoSource = useMemo<ReactVideoSource>(
+  const videoSource = useMemo<IVideoSource>(
     () =>
       themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-L.mp4') as ReactVideoSource),
+        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-D.mp4') as IVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Connect-Trezor-L.mp4') as IVideoSource),
     [themeVariant],
   );
   return (
@@ -195,11 +202,6 @@ export default function TrezorConnectionFlow() {
     const forceTransportType = await getForceTransportType(
       EConnectDeviceChannel.usbOrBle,
     );
-    if (forceTransportType) {
-      await backgroundApiProxy.serviceHardware.setForceTransportType({
-        forceTransportType,
-      });
-    }
 
     let pollsCompleted = 0;
     const transportType = getTrezorSearchTransportType(forceTransportType);
@@ -260,7 +262,12 @@ export default function TrezorConnectionFlow() {
       TREZOR_SCAN_MAX_TRY_COUNT,
       vendor,
       // waitForAllTransports: don't drop BLE when a USB device is also present.
-      { resetSession: true, transportType, waitForAllTransports: true },
+      {
+        resetSession: true,
+        transportType,
+        waitForAllTransports: true,
+        discoveryMethod: 'searchDeviceTargets',
+      },
     );
   }, [deviceScanner, vendor, intl]);
 
@@ -281,11 +288,24 @@ export default function TrezorConnectionFlow() {
   // --- Device list data ---
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: ThirdPartyWalletAvatarImages.trezor,
-        device: item,
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const vendorFields = item as SearchDevice & {
+          vendorModel?: string;
+          vendorModelName?: string;
+        };
+        return {
+          title: item.name,
+          src: ThirdPartyWalletAvatarImages.trezor,
+          device: item,
+          searchTarget: getThirdPartySearchTarget(item),
+          avatarImg: getThirdPartyDeviceAvatarImage({
+            vendor: EHardwareVendor.trezor,
+            vendorModel: vendorFields.vendorModel,
+            vendorModelName: vendorFields.vendorModelName,
+            fallback: 'trezor',
+          }),
+        };
+      }),
     [searchedDevices],
   );
 
@@ -331,7 +351,7 @@ export default function TrezorConnectionFlow() {
   }, [scanDevice]);
 
   // --- Start connection ---
-  // WebUSB only lists previously authorized devices, so desktop/extension need
+  // WebUSB only lists previously authorized devices, so web/extension need
   // a click-bound picker before scan. Desktop keeps scanning after a picker
   // cancel so BLE-only users are not blocked by USB permission.
   const onStartConnection = useCallback(async () => {
@@ -339,6 +359,7 @@ export default function TrezorConnectionFlow() {
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: !!platformEnv.isDesktop,
         isExtension: !!platformEnv.isExtension,
+        isWeb: !!platformEnv.isWeb,
       })
     ) {
       setIsChecking(true);
@@ -490,7 +511,10 @@ export default function TrezorConnectionFlow() {
                   {visibleDevicesData.map((data) => (
                     <ListItem
                       key={
-                        data.device?.deviceId ?? data.device?.connectId ?? ''
+                        data.searchTarget?.searchTargetId ||
+                        data.device?.deviceId ||
+                        data.device?.connectId ||
+                        'trezor-device'
                       }
                       drillIn
                       onPress={async () => {
@@ -498,7 +522,10 @@ export default function TrezorConnectionFlow() {
                       }}
                       userSelect="none"
                     >
-                      <WalletAvatar wallet={undefined} img="trezor" />
+                      <WalletAvatar
+                        wallet={undefined}
+                        img={data.avatarImg ?? 'trezor'}
+                      />
                       <ListItem.Text primary={data.device?.name} flex={1} />
                     </ListItem>
                   ))}

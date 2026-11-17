@@ -183,24 +183,45 @@ function isPerpTokenSelectorPrimaryTab(tabId: string) {
   return PRIMARY_TAB_ID_SET.has(normalizeTabId(tabId));
 }
 
-function isPerpTokenSelectorDynamicTabUserSort({
-  activeTab,
-  sortSource,
-  sortSourceTab,
-}: {
+type IPerpTokenSelectorUserSortParams = {
   activeTab?: string;
   sortSource?: IPerpTokenSelectorConfig['sortSource'];
   sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
-}) {
+};
+
+function isPerpTokenSelectorTabUserSort({
+  activeTab,
+  sortSource,
+  sortSourceTab,
+}: IPerpTokenSelectorUserSortParams) {
   const currentActiveTab = activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
-  if (isPerpTokenSelectorPrimaryTab(currentActiveTab)) {
-    return false;
-  }
   return (
     sortSource === 'user' &&
     sortSourceTab !== undefined &&
     normalizeTabId(sortSourceTab) === normalizeTabId(currentActiveTab)
   );
+}
+
+function isPerpTokenSelectorDynamicTabUserSort(
+  params: IPerpTokenSelectorUserSortParams,
+) {
+  const currentActiveTab = params.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  if (isPerpTokenSelectorPrimaryTab(currentActiveTab)) {
+    return false;
+  }
+  return isPerpTokenSelectorTabUserSort(params);
+}
+
+// Favorites keep the drag order from the favorites bar unless a header sort
+// was clicked on that tab.
+function isPerpTokenSelectorFavoritesTabUserSort(
+  params: IPerpTokenSelectorUserSortParams,
+) {
+  const currentActiveTab = params.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  if (!isPerpTokenSelectorFavoritesTab(currentActiveTab)) {
+    return false;
+  }
+  return isPerpTokenSelectorTabUserSort(params);
 }
 
 function isMissingSortValue(value: ITokenSelectorSortValue) {
@@ -299,12 +320,18 @@ function getPerpTokenSelectorDynamicTabItems<
 >({
   items,
   tokens,
+  filteredQuery,
   useSortedItemsOrder,
 }: {
   items: T[];
   tokens: string[];
+  filteredQuery?: string;
   useSortedItemsOrder?: boolean;
 }) {
+  if (filteredQuery?.trim()) {
+    return items;
+  }
+
   const tokenNameSet = new Set(
     tokens.map((token) => token.trim()).filter(Boolean),
   );
@@ -392,11 +419,13 @@ function isPerpTokenSelectorSortFieldActive({
   sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
 }) {
   const currentActiveTab = activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
-  const isDynamicTab = !isPerpTokenSelectorPrimaryTab(currentActiveTab);
+  const followsUserSortOnly =
+    !isPerpTokenSelectorPrimaryTab(currentActiveTab) ||
+    isPerpTokenSelectorFavoritesTab(currentActiveTab);
   return (
     sortField === field &&
-    (!isDynamicTab ||
-      isPerpTokenSelectorDynamicTabUserSort({
+    (!followsUserSortOnly ||
+      isPerpTokenSelectorTabUserSort({
         activeTab: currentActiveTab,
         sortSource,
         sortSourceTab,
@@ -512,6 +541,7 @@ export {
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorFavoritesTabUserSort,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSortFieldActive,

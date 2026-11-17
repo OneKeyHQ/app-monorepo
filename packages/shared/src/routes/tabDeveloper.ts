@@ -10,6 +10,7 @@ export enum ETabDeveloperRoutes {
 }
 
 export type ITabDeveloperParamList = {
+  [EGalleryRoutes.ComponentPrivacyTokenDetails]: undefined;
   [ETabDeveloperRoutes.TabDeveloper]: undefined;
   [ETabDeveloperRoutes.ComponentsGallery]: undefined;
   [ETabDeveloperRoutes.DevHome]: undefined;

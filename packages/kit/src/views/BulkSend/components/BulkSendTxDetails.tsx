@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Accordion,
+  Badge,
   type IYStackProps,
   Icon,
   IconButton,
@@ -26,6 +27,7 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EBulkSendMode,
   type ITransferInfoErrors,
@@ -92,6 +94,9 @@ type IProps = {
   // native batch), each entry is the transfers of one transaction batch and
   // the groups concatenate to match `transfersInfo` in order.
   receiverGroups?: ITransferInfo[][];
+  // Parallel to `receiverGroups`: true once that transaction has left the
+  // device, so a retry after a mid-batch failure shows what it will skip.
+  sentReceiverGroups?: boolean[];
 };
 
 type ITransferListItemProps = {
@@ -506,6 +511,7 @@ function ReceiverEntriesList({
 
 type IBatchAccordionItemProps = IReceiverGroupSectionProps & {
   groupIndex: number;
+  isSent?: boolean;
 };
 
 function BatchAccordionItem({
@@ -513,6 +519,7 @@ function BatchAccordionItem({
   entries,
   tokenSymbol,
   getError,
+  isSent,
 }: IBatchAccordionItemProps) {
   const intl = useIntl();
   return (
@@ -550,18 +557,31 @@ function BatchAccordionItem({
                 ({entries.length})
               </SizableText>
             </XStack>
-            <View
-              animation="quick"
-              animateOnly={ANIMATE_ONLY_TRANSFORM}
-              rotate={open ? '180deg' : '0deg'}
-              transformOrigin="center"
-            >
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            </View>
+            <XStack alignItems="center" gap="$2">
+              {isSent ? (
+                <Badge
+                  badgeType="success"
+                  badgeSize="sm"
+                  testID={`bulk-send-tx-sent-${groupIndex}`}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_sent_successfully,
+                  })}
+                </Badge>
+              ) : null}
+              <View
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={open ? '180deg' : '0deg'}
+                transformOrigin="center"
+              >
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </View>
+            </XStack>
           </>
         )}
       </Accordion.Trigger>
@@ -600,6 +620,7 @@ function BulkSendTxDetails(props: IProps) {
     senderBalancesLoading,
     senderBalancesFailed,
     receiverGroups,
+    sentReceiverGroups,
   } = props;
 
   const intl = useIntl();
@@ -618,10 +639,25 @@ function BulkSendTxDetails(props: IProps) {
   const tokenSymbol = tokenInfo.symbol;
 
   const resolveTransferAmount = useCallback(
-    (transfer: ITransferInfo) =>
-      shouldResolveMaxAmounts
+    (transfer: ITransferInfo) => {
+      const amount = shouldResolveMaxAmounts
         ? senderBalances?.[transfer.from]
-        : transfer.amount,
+        : transfer.amount;
+      // Scaled-UI (rebase) tokens: post-submit transfers carry raw amounts
+      // with the snapshot multiplier stamped on tokenInfo at conversion time
+      // — re-derive the display amount so rows match the display-basis
+      // totals. Pre-submit transfers are display-basis and carry no
+      // multiplier (stripped at creation), so this passes through, as it
+      // does for ordinary tokens and max-mode sender balances.
+      return (
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount,
+          balanceMultiplier: tokenRebaseUtils.pickBalanceMultiplier(
+            transfer.tokenInfo,
+          ),
+        }) ?? amount
+      );
+    },
     [shouldResolveMaxAmounts, senderBalances],
   );
 
@@ -791,15 +827,7 @@ function BulkSendTxDetails(props: IProps) {
           })}
           count={transfersInfo.length}
         >
-          <YStack gap="$2" pt="$2">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.wallet_bulk_send_split_txns_description,
-                },
-                { count: receiverGroupEntries.length },
-              )}
-            </SizableText>
+          <YStack pt="$2">
             <Accordion
               type="multiple"
               defaultValue={['tx-0']}
@@ -813,6 +841,7 @@ function BulkSendTxDetails(props: IProps) {
                   entries={entries}
                   tokenSymbol={tokenSymbol}
                   getError={getTransferError}
+                  isSent={sentReceiverGroups?.[groupIndex]}
                 />
               ))}
             </Accordion>
@@ -845,4 +874,5 @@ function BulkSendTxDetails(props: IProps) {
   );
 }
 
-export default BulkSendTxDetails;
+// Memoized: the review page re-renders on each signing progress tick
+export default memo(BulkSendTxDetails);

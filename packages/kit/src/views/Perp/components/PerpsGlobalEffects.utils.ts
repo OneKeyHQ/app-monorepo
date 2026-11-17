@@ -1,3 +1,5 @@
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
+
 type IShouldCheckPerpsAccountStatusOnFocusParams = {
   isFocused: boolean;
   hasSelectedAccountParams: boolean;
@@ -6,6 +8,107 @@ type IShouldCheckPerpsAccountStatusOnFocusParams = {
   nowMs: number;
   staleMs: number;
 };
+
+type IInitialTradeAsset = {
+  coin: string;
+};
+
+type IInitialSpotTradeAsset = IInitialTradeAsset & {
+  universe?: ISpotUniverse;
+};
+
+type IInitialTradeInstrument =
+  | { mode: 'perp'; coin: string }
+  | { mode: 'spot'; coin: string; universe?: ISpotUniverse };
+
+// What the first Perp frame of a launch should restore. A market picked by a
+// context-less caller outranks the persisted one: both answer the same
+// question, but that pick happened after the snapshot was written, and the
+// event carrying it cannot reach a page that has not mounted. Its assetId and
+// universe are unresolved by construction — the background fills them in when
+// it applies the switch.
+export function resolveInitialPreferredInstrument<
+  TRestored extends { mode: 'perp' | 'spot'; coin: string },
+>({
+  pendingInstrument,
+  restoredInstrument,
+}: {
+  pendingInstrument: { mode: 'perp' | 'spot'; coin: string } | undefined;
+  restoredInstrument: TRestored | undefined;
+}) {
+  if (!pendingInstrument?.coin) {
+    return restoredInstrument;
+  }
+  return {
+    mode: pendingInstrument.mode,
+    coin: pendingInstrument.coin,
+    assetId: undefined,
+    universe: undefined,
+  };
+}
+
+export function buildInitialTradeInstrumentSwitchParams({
+  mode,
+  perpAsset,
+  spotAsset,
+  force,
+  allowPerpFallback,
+  preferredInstrument,
+}: {
+  mode: 'perp' | 'spot';
+  perpAsset?: IInitialTradeAsset;
+  spotAsset?: IInitialSpotTradeAsset;
+  force?: boolean;
+  allowPerpFallback?: boolean;
+  preferredInstrument?: IInitialTradeInstrument;
+}) {
+  // Written synchronously when a switch starts, while the mode and asset atoms
+  // are written near the end and can be skipped by a superseding request. It is
+  // therefore never the staler record, and it is also what the first frame
+  // already rendered — restoring anything else shows the user a pair flip.
+  if (preferredInstrument?.coin) {
+    if (preferredInstrument.mode === 'spot') {
+      return {
+        mode: 'spot' as const,
+        coin: preferredInstrument.coin,
+        spotUniverse: preferredInstrument.universe,
+        force,
+      };
+    }
+    return {
+      mode: 'perp' as const,
+      coin: preferredInstrument.coin,
+      force,
+    };
+  }
+
+  if (mode === 'spot') {
+    if (spotAsset?.coin) {
+      return {
+        mode: 'spot' as const,
+        coin: spotAsset.coin,
+        spotUniverse: spotAsset.universe,
+        force,
+      };
+    }
+
+    // changeActiveSpotAsset persists the mode before the asset, so a restart
+    // can restore spot with no coin. Only the cold-start caller opts in —
+    // for resync callers the fallback would abort an in-flight spot switch.
+    if (!allowPerpFallback) {
+      return undefined;
+    }
+  }
+
+  if (!perpAsset?.coin) {
+    return undefined;
+  }
+  return {
+    mode: 'perp' as const,
+    coin: perpAsset.coin,
+    force,
+  };
+}
 
 export function shouldCheckPerpsAccountStatusOnFocus({
   isFocused,

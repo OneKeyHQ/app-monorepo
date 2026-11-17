@@ -15,6 +15,10 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  IPrimeTransferChunk,
+  IPrimeTransferChunkManifest,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { buildCallRemoteApiMethod } from '../../../apis/RemoteApiProxyBase';
@@ -261,13 +265,33 @@ export class E2EEClientToClientApi {
   }
 
   async cancelTransfer() {
+    await appGlobals.$backgroundApiProxy.servicePrimeTransfer.cancelNetworkTransfer();
     appEventBus.emit(EAppEventBusNames.PrimeTransferCancel, undefined);
   }
 
   async getTransferType(): Promise<{
     transferType: EPrimeTransferDataType | undefined;
+    chunkedTransferVersion?: number;
   }> {
-    return { transferType: selfTransferType };
+    return { transferType: selfTransferType, chunkedTransferVersion: 1 };
+  }
+
+  async beginChunkedTransfer(manifest: IPrimeTransferChunkManifest) {
+    return appGlobals.$backgroundApiProxy.servicePrimeTransfer.beginChunkedTransfer(
+      manifest,
+    );
+  }
+
+  async sendTransferChunk(chunk: IPrimeTransferChunk) {
+    return appGlobals.$backgroundApiProxy.servicePrimeTransfer.receiveTransferChunk(
+      chunk,
+    );
+  }
+
+  async finishChunkedTransfer({ transferId }: { transferId: string }) {
+    return appGlobals.$backgroundApiProxy.servicePrimeTransfer.finishChunkedTransfer(
+      { transferId },
+    );
   }
 
   async sendTransferData({ rawData }: { rawData: string }) {

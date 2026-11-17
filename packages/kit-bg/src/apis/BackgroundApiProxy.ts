@@ -19,7 +19,9 @@ import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
+import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
@@ -39,6 +41,7 @@ import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
@@ -71,8 +74,10 @@ import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
+import type ServicePrivacyChain from '../services/ServicePrivacyChain';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -89,11 +94,14 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceTravelMode from '../services/ServiceTravelMode';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletConnectPay from '../services/ServiceWalletConnectPay';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
@@ -144,6 +152,10 @@ class BackgroundApiProxy
     return this.getProxyService<ServicePassword>('servicePassword');
   }
 
+  get serviceTravelMode(): ServiceTravelMode {
+    return this.getProxyService<ServiceTravelMode>('serviceTravelMode');
+  }
+
   get serviceWebviewPerp(): ServiceWebviewPerp {
     return this.getProxyService<ServiceWebviewPerp>('serviceWebviewPerp');
   }
@@ -184,8 +196,16 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceSend>('serviceSend');
   }
 
+  get serviceBatchTxSign(): ServiceBatchTxSign {
+    return this.getProxyService<ServiceBatchTxSign>('serviceBatchTxSign');
+  }
+
   get serviceSwap(): ServiceSwap {
     return this.getProxyService<ServiceSwap>('serviceSwap');
+  }
+
+  get serviceUnifoldDeposit(): ServiceUnifoldDeposit {
+    return this.getProxyService<ServiceUnifoldDeposit>('serviceUnifoldDeposit');
   }
 
   get serviceToken(): ServiceToken {
@@ -266,6 +286,12 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceDappSide>('serviceDappSide');
   }
 
+  get serviceWalletConnectPay(): ServiceWalletConnectPay {
+    return this.getProxyService<ServiceWalletConnectPay>(
+      'serviceWalletConnectPay',
+    );
+  }
+
   get serviceWalletConnect(): ServiceWalletConnect {
     return this.getProxyService<ServiceWalletConnect>('serviceWalletConnect');
   }
@@ -288,6 +314,16 @@ class BackgroundApiProxy
 
   get servicePrimeCloudSync(): ServicePrimeCloudSync {
     return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get servicePrimeFreeTrial(): ServicePrimeFreeTrial {
+    return this.getProxyService<ServicePrimeFreeTrial>('servicePrimeFreeTrial');
+  }
+
+  get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {
+    return this.getProxyService<ServiceHardwarePortfolioSync>(
+      'serviceHardwarePortfolioSync',
+    );
   }
 
   get serviceKeylessCloudSync(): ServiceKeylessCloudSync {
@@ -392,6 +428,10 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceContextMenu>('serviceContextMenu');
   }
 
+  get serviceBulkSend(): ServiceBulkSend {
+    return this.getProxyService<ServiceBulkSend>('serviceBulkSend');
+  }
+
   get serviceFiatCrypto(): ServiceFiatCrypto {
     return this.getProxyService<ServiceFiatCrypto>('serviceFiatCrypto');
   }
@@ -424,6 +464,10 @@ class BackgroundApiProxy
 
   get serviceCustomRpc(): ServiceCustomRpc {
     return this.getProxyService<ServiceCustomRpc>('serviceCustomRpc');
+  }
+
+  get servicePrivacyChain(): ServicePrivacyChain {
+    return this.getProxyService<ServicePrivacyChain>('servicePrivacyChain');
   }
 
   get serviceSignatureConfirm(): ServiceSignatureConfirm {

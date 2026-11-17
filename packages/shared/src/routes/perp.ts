@@ -1,12 +1,18 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 
+import type { IFill } from '../../types/hyperliquid/sdk';
+import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
+
 export enum EModalPerpRoutes {
+  PerpTradeHistoryDetails = 'PerpTradeHistoryDetails',
   PerpTradersHistoryList = 'PerpTradersHistoryList',
   MobilePerpMarket = 'MobilePerpMarket',
   MobileTokenSelector = 'MobileTokenSelector',
   MobileSetTpsl = 'MobileSetTpsl',
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
   MobileDepositSelectToken = 'MobileDepositSelectToken',
+  MobileUnifoldDepositTransfer = 'MobileUnifoldDepositTransfer',
+  MobileUnifoldDepositTracker = 'MobileUnifoldDepositTracker',
   PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
   MobilePortfolioPage = 'MobilePortfolioPage',
   PerpGuidePage = 'PerpGuidePage',
@@ -28,13 +34,36 @@ export type IPerpsDepositTokenRouteItem = {
   logoURI?: string;
 };
 
-export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Account';
+export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Funding' | 'Account';
+
+export type IMobilePerpMarketTab = 'orderbook' | 'info' | 'funding';
+
+export type IUnifoldSourceSelectorResult =
+  | {
+      requestId: string;
+      mode: 'token';
+      assetSymbol: string;
+    }
+  | {
+      requestId: string;
+      mode: 'chain';
+      assetSymbol: string;
+      chainType: string;
+      chainId: string;
+    };
 
 export type IModalPerpParamList = {
+  [EModalPerpRoutes.PerpTradeHistoryDetails]: {
+    fill: IFill;
+    builderFeeRate?: number;
+    pairName?: string;
+  };
   [EModalPerpRoutes.PerpTradersHistoryList]:
     | { initialTab?: IPerpHistoryTab }
     | undefined;
-  [EModalPerpRoutes.MobilePerpMarket]: undefined;
+  [EModalPerpRoutes.MobilePerpMarket]:
+    | { initialTab?: IMobilePerpMarketTab }
+    | undefined;
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: {
@@ -46,7 +75,23 @@ export type IModalPerpParamList = {
     hasLoadedDepositTokenBalances?: boolean;
     symbol: string;
   };
+  // expectedRecipient is never trusted directly: the session hook cross-checks
+  // it against the live active-account atom and fails closed on mismatch.
+  [EModalPerpRoutes.MobileUnifoldDepositTransfer]: {
+    expectedRecipient: string;
+    sourceSelectorResult?: IUnifoldSourceSelectorResult;
+    openSourceSelectorOnReady?: boolean;
+    analyticsEntrySource?: TPerpDepositEntrySource;
+  };
+  [EModalPerpRoutes.MobileUnifoldDepositTracker]: {
+    expectedRecipient: string;
+    openedFromTransfer?: boolean;
+  };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
-  [EModalPerpRoutes.MobilePortfolioPage]: undefined;
+  [EModalPerpRoutes.MobilePortfolioPage]:
+    | {
+        initialChartType?: 'accountValue' | 'pnl' | 'funding';
+      }
+    | undefined;
   [EModalPerpRoutes.PerpGuidePage]: undefined;
 };

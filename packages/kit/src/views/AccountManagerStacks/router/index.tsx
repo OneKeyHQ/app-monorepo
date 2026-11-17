@@ -4,7 +4,10 @@ import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes/accountManagerStacks';
 
 const AccountSelectorStackPage = LazyLoadPage(
-  () => import('../pages/AccountSelectorStack'),
+  () => import('../pages/AccountSelectorStack/AccountSelectorStackV2'),
+  undefined,
+  undefined,
+  false,
 );
 
 const ExportPrivateKeys = LazyLoadPage(
@@ -30,6 +33,8 @@ const PageResolveSameWallets = LazyLoadPage(
 const BotWalletManager = LazyLoadPage(
   () => import('../pages/BotWalletManager'),
 );
+
+const PrivacyNetworks = LazyLoadPage(() => import('../pages/PrivacyNetworks'));
 
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
@@ -70,5 +75,9 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.BotWalletManager,
     component: BotWalletManager,
+  },
+  {
+    name: EAccountManagerStacksRoutes.PrivacyNetworks,
+    component: PrivacyNetworks,
   },
 ];

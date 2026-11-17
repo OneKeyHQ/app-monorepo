@@ -5,6 +5,8 @@ const DEFAULT_CONSTRAINTS = [
   'Validate with the listed focused command, then run yarn agent:check --profile commit for changed TypeScript files.',
 ];
 
+const jestShardTotal = process.env.JEST_SHARD_TOTAL || '3';
+
 const RUNTIME_NOTES = {
   ciOnly:
     'Scope: CI-only diagnostics. This helper does not change app runtime behavior, native resources, or per-runtime JS heap state.',
@@ -77,7 +79,8 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'FAILED_SHARD=1',
-      `yarn test --coverage --shard="\${FAILED_SHARD}/3" --coverageDirectory="coverage/shard-\${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}`,
+      `JEST_SHARD_TOTAL=${jestShardTotal}`,
+      `yarn test --coverage --shard="\${FAILED_SHARD}/\${JEST_SHARD_TOTAL}" --coverageDirectory="coverage/shard-\${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}`,
       'yarn agent:check --profile commit',
     ],
     constraints: [
@@ -123,13 +126,13 @@ const ciFailureConfigs = {
     diagnostics: [
       'Download the allocation-reports artifact and inspect bundle-architecture-check.log plus allocation-report-*.json.',
       'Start from ERROR lines, then trace which sync import or segment assignment pulled forbidden code into common, main, or background.',
-      'For main/common regressions, inspect startup.modules, violations, and segment-manifest*.json before changing code.',
+      'For main/common regressions, inspect startup.modules, violations, and segments in allocation-report-*.json before changing code.',
       'If a native/storage/startup path is involved, explicitly label whether the impact is main, background, or both.',
     ],
     commands: [
       'yarn install --immutable',
       'cd apps/mobile',
-      'ENABLE_NATIVE_BACKGROUND_THREAD=true UNION_BUILD=true NODE_OPTIONS=--max_old_space_size=8192 node scripts/unionBuild.js --platform ios --common-bundle-output dist-ci/common.jsbundle --common-sourcemap-output dist-ci/common.jsbundle.map --main-bundle-output dist-ci/main.jsbundle --main-sourcemap-output dist-ci/main.jsbundle.map --background-bundle-output dist-ci/background.bundle.js --background-sourcemap-output dist-ci/background.bundle.map --assets-dest dist-ci/assets',
+      'ENABLE_NATIVE_BACKGROUND_THREAD=true UNION_BUILD=true NODE_OPTIONS=--max_old_space_size=8192 node scripts/unionBuild.js --platform ios --report-only --common-bundle-output dist-ci/common.jsbundle --common-sourcemap-output dist-ci/common.jsbundle.map --main-bundle-output dist-ci/main.jsbundle --main-sourcemap-output dist-ci/main.jsbundle.map --background-bundle-output dist-ci/background.bundle.js --background-sourcemap-output dist-ci/background.bundle.map --assets-dest dist-ci/assets',
       'node scripts/check-bundle-architecture.js',
     ],
     constraints: [

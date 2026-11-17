@@ -19,11 +19,16 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapSpeedQuoteFetchingAtom,
-  useSwapSpeedQuoteResultAtom,
+  useSwapQuoteFetchingAtom,
+  useSwapQuoteListAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -31,40 +36,45 @@ import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
-import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
 
 import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
+import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
 
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
   onBalanceMax: () => void;
+  // Shared deposit entry (Done shortcut, balance reload, funnel event), same
+  // as the "Deposit to Trade" action button.
+  onDepositPress?: () => void;
+  storeName: EJotaiContextStoreNames;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
+  onDepositPress,
+  storeName,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
-  const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
+  const [swapProQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapQuoteList] = useSwapQuoteListAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const navigation = useAppNavigation();
 
-  const handleDepositPress = useCallback(() => {
-    if (!inputToken || !activeAccount) {
-      return;
-    }
-    pushSwapReceiveSelector({
-      navigation,
-      token: inputToken,
-      accountInfo: activeAccount,
+  const handleOpenProviderList = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName,
+      },
     });
-  }, [navigation, inputToken, activeAccount]);
+  }, [navigation, storeName]);
 
   const inputTokenNetworkId = inputToken?.networkId;
   const { result: enableAddressTypeSelector } = usePromiseResult(
@@ -89,12 +99,7 @@ const SwapProTradeInfoGroup = ({
     return balanceBN.toFixed();
   }, [inputToken]);
 
-  const swapProQuoteResult = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapCurrentQuoteResult;
-    }
-    return swapProQuoteResultPro;
-  }, [swapProQuoteResultPro, swapCurrentQuoteResult, swapProTradeType]);
+  const swapProQuoteResult = swapCurrentQuoteResult;
 
   const receiveValue = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -148,6 +153,8 @@ const SwapProTradeInfoGroup = ({
             {!!inputToken && enableAddressTypeSelector ? (
               <AddressTypeSelector
                 refreshOnOpen
+                whenCollapsed="hide"
+                revalidateCollapseOnFocus
                 placement="bottom-start"
                 networkId={inputToken.networkId ?? ''}
                 indexedAccountId={activeAccount?.indexedAccount?.id ?? ''}
@@ -158,7 +165,9 @@ const SwapProTradeInfoGroup = ({
               />
             ) : null}
             <XStack
-              onPress={handleDepositPress}
+              onPress={onDepositPress}
+              disabled={!onDepositPress}
+              opacity={onDepositPress ? 1 : 0.5}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
               hoverStyle={{ opacity: 0.7 }}
               pressStyle={{ opacity: 0.5 }}
@@ -195,11 +204,35 @@ const SwapProTradeInfoGroup = ({
         isLoading={
           swapProTradeType === ESwapProTradeType.LIMIT
             ? false
-            : swapProQuoteFetchingPro
+            : swapProQuoteFetching
         }
         containerProps={{
           py: '$1',
         }}
+      />
+      {swapProTradeType === ESwapProTradeType.MARKET ? (
+        <SwapProviderInfoItem
+          providerIcon={swapProQuoteResult?.info.providerLogo ?? ''}
+          providerName={swapProQuoteResult?.info.providerName ?? ''}
+          isLoading={swapProQuoteFetching}
+          titleProps={ITEM_TITLE_PROPS}
+          valueProps={ITEM_VALUE_PROPS}
+          compact
+          showEmptyPlaceholder
+          fromToken={inputToken}
+          toToken={toToken}
+          percentageFee={swapProQuoteResult?.fee?.percentageFee}
+          percentOriginFee={swapProQuoteResult?.fee?.percentOriginFee}
+          onPress={
+            swapQuoteList.length > 1 ? handleOpenProviderList : undefined
+          }
+        />
+      ) : null}
+      <SwapQuoteRiskAlert
+        quote={swapProQuoteResult}
+        fromToken={inputToken}
+        toToken={toToken}
+        isLoading={swapProQuoteFetching}
       />
     </YStack>
   );

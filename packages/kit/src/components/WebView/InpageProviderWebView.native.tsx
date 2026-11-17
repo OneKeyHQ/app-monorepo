@@ -1,7 +1,15 @@
 import type { FC } from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
+import { Asset } from 'expo-asset';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { StatusBar } from 'react-native';
 
 import {
@@ -10,18 +18,37 @@ import {
   Stack,
   useKeyboardHeight,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode } from '../../views/Discovery/types';
 
-// refresh hash: 889263555577754
-// @ts-expect-error
-import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
+
+const injectedNativeAsset = require('./injectedNative.js.txt') as number;
+let injectedNativeCodePromise: Promise<string> | undefined;
+
+function loadInjectedNativeCode() {
+  injectedNativeCodePromise ??= Asset.fromModule(injectedNativeAsset)
+    .downloadAsync()
+    .then((asset) => {
+      if (!asset.localUri) {
+        throw new OneKeyLocalError(
+          'Failed to resolve the injected native asset locally',
+        );
+      }
+      return readAsStringAsync(asset.localUri);
+    })
+    .catch((error: unknown) => {
+      injectedNativeCodePromise = undefined;
+      throw error;
+    });
+  return injectedNativeCodePromise;
+}
 
 const desktopUserAgent = platformEnv.isNativeIOS
   ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
@@ -45,7 +72,7 @@ const injectedMetaJavaScript = `
 const defaultOnMessage = (_event: any) => {};
 
 type INativeInpageProviderWebViewProps = IInpageProviderWebViewProps &
-  Pick<WebViewProps, 'containerStyle' | 'style'>;
+  Pick<WebViewProps, 'containerStyle' | 'style' | 'injectedJavaScript'>;
 
 const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
   (
@@ -70,6 +97,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       displayProgressBar,
       onProgress,
       webviewDebuggingEnabled,
+      recreateOnContentProcessTerminate,
       siteMode,
       mediaPermissionWhitelist,
       onMessage,
@@ -80,15 +108,45 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       allowFileAccessFromFileURLs,
       allowFileAccess,
       allowingReadAccessToURL,
+      scrollViewClipsToBounds,
       onError,
       onHttpError,
       disableBridge,
+      injectedJavaScript,
     }: INativeInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);
     const keyboardHeight = useKeyboardHeight();
     const { webviewRef, setWebViewRef } = useWebViewBridge();
+    const shouldLoadInjectedNativeCode =
+      useInjectedNativeCode && !disableBridge;
+    const [injectedNativeCode, setInjectedNativeCode] = useState<string>();
+    const [injectedNativeCodeError, setInjectedNativeCodeError] =
+      useState<unknown>();
+
+    useEffect(() => {
+      if (!shouldLoadInjectedNativeCode || injectedNativeCode) {
+        return;
+      }
+
+      let isActive = true;
+      void loadInjectedNativeCode().then(
+        (code) => {
+          if (isActive) {
+            setInjectedNativeCode(code);
+          }
+        },
+        (error: unknown) => {
+          if (isActive) {
+            setInjectedNativeCodeError(error);
+          }
+        },
+      );
+      return () => {
+        isActive = false;
+      };
+    }, [injectedNativeCode, shouldLoadInjectedNativeCode]);
 
     useImperativeHandle(
       ref,
@@ -123,8 +181,9 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string =
-        useInjectedNativeCode && !disableBridge ? injectedNativeCode : '';
+      let code: string = shouldLoadInjectedNativeCode
+        ? (injectedNativeCode ?? '')
+        : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -143,10 +202,10 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       }
       return code;
     }, [
-      disableBridge,
+      injectedNativeCode,
       isDesktopMode,
       nativeInjectedJavaScriptBeforeContentLoaded,
-      useInjectedNativeCode,
+      shouldLoadInjectedNativeCode,
     ]);
 
     const progressLoading = useMemo(() => {
@@ -199,6 +258,18 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       };
     }, [keyboardHeight]);
 
+    if (injectedNativeCodeError) {
+      throw injectedNativeCodeError;
+    }
+
+    if (shouldLoadInjectedNativeCode && !injectedNativeCode) {
+      return (
+        <Stack flex={1} alignItems="center" justifyContent="center">
+          <Spinner size="large" />
+        </Stack>
+      );
+    }
+
     return (
       <Stack {...containerStyle}>
         {progressLoading}
@@ -207,12 +278,14 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
           webviewDebuggingEnabled={webviewDebuggingEnabled}
+          recreateOnContentProcessTerminate={recreateOnContentProcessTerminate}
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}
           receiveHandler={disableBridge ? undefined : receiveHandler}
           disableBridge={disableBridge}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
+          injectedJavaScript={injectedJavaScript}
           style={style}
           containerStyle={webViewContainerStyle}
           onLoadProgress={({ nativeEvent }) => {
@@ -246,6 +319,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           }
           {...nativeWebviewProps}
           allowingReadAccessToURL={allowingReadAccessToURL}
+          scrollViewClipsToBounds={scrollViewClipsToBounds}
           onError={onError}
           onHttpError={onHttpError}
         />

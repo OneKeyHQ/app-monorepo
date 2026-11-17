@@ -12,6 +12,5 @@
 "NSCameraUsageDescription" = "Use a câmera para escanear o código QR.";
 "NSFaceIDUsageDescription" = "Use o Face ID para autenticar e desbloquear sua carteira.";
 "NSPhotoLibraryAddUsageDescription" = "Use a biblioteca de fotos para salvar imagens.";
-"NSPhotoLibraryUsageDescription" = "Use a biblioteca de fotos para ler imagens de QR Code.";
 "NSLocalNetworkUsageDescription" = "Este aplicativo será capaz de descobrir e conectar-se a dispositivos nas redes que você usa.";
 

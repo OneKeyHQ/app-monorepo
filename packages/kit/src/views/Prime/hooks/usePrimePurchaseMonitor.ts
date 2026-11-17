@@ -12,6 +12,10 @@ const POLL_BACKOFF_MULTIPLIERS = [1, 2, 4, 6] as const;
 export type IPrimePurchaseMonitorIssue = {
   reason: string;
   error?: unknown;
+  relatedIssues?: {
+    reason: string;
+    error?: unknown;
+  }[];
 };
 
 export type IPrimePurchaseMonitorPollResult<
@@ -132,6 +136,9 @@ export function usePrimePurchaseMonitor<TData, TTerminalReason extends string>({
   const terminalGenerationRef = useRef<number | undefined>(undefined);
   const timedOutGenerationRef = useRef<number | undefined>(undefined);
   const consecutiveFailureCountRef = useRef(0);
+  const lastIssueRef = useRef<IPrimePurchaseMonitorIssue | undefined>(
+    undefined,
+  );
   const dataRef = useRef(initialData);
   const requestPollRef = useRef<({ manual }?: { manual?: boolean }) => void>(
     () => undefined,
@@ -228,6 +235,7 @@ export function usePrimePurchaseMonitor<TData, TTerminalReason extends string>({
       let failureRecorded = false;
 
       const recordIssue = (issue: IPrimePurchaseMonitorIssue) => {
+        lastIssueRef.current = issue;
         if (consecutiveFailureCountRef.current === 0) {
           emitEvent({
             type: 'failed',
@@ -266,6 +274,7 @@ export function usePrimePurchaseMonitor<TData, TTerminalReason extends string>({
             });
           }
           consecutiveFailureCountRef.current = 0;
+          lastIssueRef.current = undefined;
           setHasError(false);
         }
 
@@ -369,6 +378,7 @@ export function usePrimePurchaseMonitor<TData, TTerminalReason extends string>({
     pendingImmediateGenerationRef.current = undefined;
     pendingImmediateIsManualRef.current = false;
     consecutiveFailureCountRef.current = 0;
+    lastIssueRef.current = undefined;
     dataRef.current = propsRef.current.initialData;
     setData(propsRef.current.initialData);
     setIsPolling(false);
@@ -448,6 +458,7 @@ export function usePrimePurchaseMonitor<TData, TTerminalReason extends string>({
       requestPollRef.current({ manual: true });
     });
   }, [emitEvent]);
+  const getLastIssue = useCallback(() => lastIssueRef.current, []);
 
   return {
     data,
@@ -455,5 +466,6 @@ export function usePrimePurchaseMonitor<TData, TTerminalReason extends string>({
     hasError,
     isTimedOut,
     refresh,
+    getLastIssue,
   };
 }

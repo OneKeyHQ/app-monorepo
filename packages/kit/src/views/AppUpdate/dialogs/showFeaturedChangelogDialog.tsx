@@ -1,9 +1,13 @@
 import {
   createContext,
+  forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -13,8 +17,12 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { Dialog, Toast } from '@onekeyhq/components';
-import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, DialogContainer, Toast } from '@onekeyhq/components';
+import type {
+  IDialogContainerProps,
+  IDialogInstance,
+} from '@onekeyhq/components';
+import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import {
   appUpdatePersistAtom,
   useAppUpdatePersistAtom,
@@ -32,6 +40,7 @@ import type {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -43,6 +52,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
+import {
+  markPendingContactSupportHandoff,
+  useForceUpdateContactSupport,
+  waitForContactSupportHandoff,
+} from '../hooks/useForceUpdateContactSupport';
+
+import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
 
 // Injected payload for the ops-only Featured Changelog preview page.
 // `featuredChangelog` drives the carousel in both modes; `latestVersion` is the
@@ -76,15 +92,19 @@ function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   // carrier for the URL/JSON; fall back to href so backends that only set
   // href still work for the URL-opening modes.
   if (activeFeature.mode !== undefined) {
-    parseNotificationPayload(
+    // Returning here unconditionally made the CTA dead whenever the payload
+    // never dispatched.
+    const dispatched = parseNotificationPayload(
       activeFeature.mode,
       activeFeature.payload ?? activeFeature.href,
-      () => {
-        if (isAllowedFeaturedHref(activeFeature.href)) {
-          handleDeepLinkUrl({ url: activeFeature.href });
-        }
-      },
+      () => {},
     );
+    if (dispatched) {
+      return;
+    }
+    if (isAllowedFeaturedHref(activeFeature.href)) {
+      handleDeepLinkUrl({ url: activeFeature.href });
+    }
     return;
   }
   if (!isAllowedFeaturedHref(activeFeature.href)) return;
@@ -99,18 +119,22 @@ function useFeaturedCta({
   isPreInstall,
   isLocked,
   activeFeature,
+  hasNext,
+  onNext,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
   activeFeature: IFeaturedItem | undefined;
+  hasNext: boolean;
+  onNext: () => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const { downloadPackage } = useDownloadPackage();
+  const { downloadPackage, downloadASC } = useDownloadPackage();
 
   // In preview mode the CTA is inert (see onCtaPress), so the real update
   // fields are intentionally absent — only `latestVersion` (the target) feeds
@@ -135,16 +159,27 @@ function useFeaturedCta({
   const shouldOpenStore =
     isPreInstall && updateFileType === EUpdateFileType.appShell && !!storeUrl;
 
-  const ctaText = isPreInstall
-    ? intl.formatMessage({
-        id: shouldOpenStore
-          ? ETranslations.update_update_now
-          : ETranslations.update_download_and_verify_text,
-      })
-    : (activeFeature?.ctaText ??
-      intl.formatMessage({ id: ETranslations.global_done }));
+  let ctaText =
+    activeFeature?.ctaText ??
+    intl.formatMessage({ id: ETranslations.global_done });
+  if (isPreInstall) {
+    ctaText = intl.formatMessage({
+      id: shouldOpenStore
+        ? ETranslations.update_update_now
+        : ETranslations.update_download_and_verify_text,
+    });
+  } else if (activeFeature?.ctaAction === 'next') {
+    ctaText = intl.formatMessage({
+      id: hasNext ? ETranslations.global_next : ETranslations.global_done,
+    });
+  }
 
   const onCtaPress = useCallback(async () => {
+    if (!isPreInstall && activeFeature?.ctaAction === 'next') {
+      if (hasNext) onNext();
+      else await closeDialog();
+      return;
+    }
     // Ops preview: the pre-install CTA must not start a real download / open
     // the store / push DownloadVerify on a production device. The
     // already-upgraded CTA (dispatchFeatureCta) stays LIVE — jumping to the
@@ -178,13 +213,37 @@ function useFeaturedCta({
       if (downloadUrl || jsBundle?.downloadUrl) {
         if (status === EAppUpdateStatus.notify) {
           void downloadPackage();
+        } else if (status === EAppUpdateStatus.downloadASCFailed) {
+          void downloadASC?.();
+        } else if (
+          status &&
+          [
+            EAppUpdateStatus.done,
+            EAppUpdateStatus.failed,
+            EAppUpdateStatus.updateIncomplete,
+            EAppUpdateStatus.downloadPackageFailed,
+            EAppUpdateStatus.verifyASCFailed,
+            EAppUpdateStatus.verifyPackageFailed,
+          ].includes(status)
+        ) {
+          void downloadPackage({ userInitiated: true });
         }
-        await closeDialog();
+        const release = acquireDeferredGuideBlocker();
+        try {
+          await closeDialog();
+        } catch (error) {
+          release();
+          throw error;
+        }
         setTimeout(() => {
-          navigation.pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.DownloadVerify,
-            params: { isForceUpdate: isLocked },
-          });
+          try {
+            navigation.pushModal(EModalRoutes.AppUpdateModal, {
+              screen: EAppUpdateRoutes.DownloadVerify,
+              params: { isForceUpdate: isLocked },
+            });
+          } finally {
+            release();
+          }
         }, 300);
         return;
       }
@@ -203,10 +262,13 @@ function useFeaturedCta({
     downloadUrl,
     jsBundle?.downloadUrl,
     status,
+    downloadASC,
     downloadPackage,
     navigation,
     closeDialog,
     activeFeature,
+    hasNext,
+    onNext,
   ]);
 
   return { ctaText, onCtaPress };
@@ -230,29 +292,80 @@ function useFeatures(): IFeaturedItem[] {
 function FeaturedChangelogContent({
   isPreInstall,
   isLocked,
+  onLockChange,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
+  onLockChange?: (locked: boolean) => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
   const features = useFeatures();
+  const {
+    updateInfo,
+    isForceUpdate: isLiveLocked,
+    handleContactSupport,
+  } = useForceUpdateContactSupport({
+    initialForceUpdate: isLocked,
+    enabled: isPreInstall && !isPreview,
+  });
 
-  const [activeFeature, setActiveFeature] = useState<IFeaturedItem | undefined>(
-    features[0],
+  useEffect(() => {
+    onLockChange?.(isLiveLocked);
+  }, [isLiveLocked, onLockChange]);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeFeature = features[activeIndex] ?? features[0];
+  const carouselRef = useRef<IFeaturedCarouselRef>(null);
+  const onActiveFeatureChange = useCallback(
+    (_feature: IFeaturedItem, index: number) => setActiveIndex(index),
+    [],
   );
+  const onNext = useCallback(() => carouselRef.current?.next(), []);
 
   const { ctaText, onCtaPress } = useFeaturedCta({
     isPreInstall,
-    isLocked,
+    isLocked: isLiveLocked,
     activeFeature,
+    hasNext: activeIndex < features.length - 1,
+    onNext,
     closeDialog,
   });
 
-  // Drive an explicit pixel height on the dialog content. The dialog frame on
-  // desktop (TMDialog.Content) doesn't transition auto-height when child layout
+  const handleContactSupportPress = useCallback(async () => {
+    // Global dialogs cover the RN support route on every platform. Transfer
+    // the update lock and whitelist polling before opening support above it.
+    markPendingContactSupportHandoff();
+    const release = acquireDeferredGuideBlocker();
+    try {
+      await closeDialog();
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.UpdatePreview,
+        params: {
+          latestVersion: updateInfo?.latestVersion,
+          isForceUpdate: isLiveLocked,
+        },
+      });
+    } finally {
+      release();
+    }
+    // Open support only after UpdatePreview has mounted and taken over the
+    // lock, instead of guessing how long the modal stack takes to commit.
+    await waitForContactSupportHandoff();
+    await handleContactSupport();
+  }, [
+    closeDialog,
+    handleContactSupport,
+    isLiveLocked,
+    navigation,
+    updateInfo?.latestVersion,
+  ]);
+
+  // Drive an explicit pixel height on the dialog content. The centered dialog
+  // card on desktop doesn't transition auto-height when child layout
   // changes, so we give it a single child with a Reanimated-driven height that
   // smoothly animates per frame, and the frame's natural height tracks it.
   const totalCarouselHeight = useSharedValue(0);
@@ -290,17 +403,20 @@ function FeaturedChangelogContent({
       ]}
     >
       <FeaturedCarousel
+        ref={carouselRef}
         features={features}
         badgeText={badgeText}
-        showCloseButton={!isLocked}
+        showCloseButton={!isLiveLocked}
         onClose={() => void closeDialog()}
-        onActiveFeatureChange={setActiveFeature}
+        onActiveFeatureChange={onActiveFeatureChange}
         totalHeight={totalCarouselHeight}
       />
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={Boolean(!isLocked && !isPreview)}
+        showFullChangelog={Boolean(!isLiveLocked && !isPreview)}
+        showContactSupport={Boolean(isLiveLocked && !isPreview)}
+        onContactSupportPress={() => void handleContactSupportPress()}
         isPreInstall={isPreInstall}
         closeDialog={closeDialog}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
@@ -308,6 +424,54 @@ function FeaturedChangelogContent({
     </Animated.View>
   );
 }
+
+interface IFeaturedDialogState {
+  isLocked: boolean;
+}
+
+function createFeaturedDialogStore(initial: IFeaturedDialogState) {
+  let state = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    set: (patch: Partial<IFeaturedDialogState>) => {
+      const next = { ...state, ...patch };
+      if (next.isLocked === state.isLocked) {
+        return;
+      }
+      state = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+type IFeaturedDialogStore = ReturnType<typeof createFeaturedDialogStore>;
+
+// Dialog.show props are fixed at creation, so the dismissal switches are
+// rendered here from the live lock: a force strategy that arrives after the
+// dialog opened must close overlay/drag/system-close entry points too.
+const FeaturedChangelogDialogContainer = forwardRef<
+  IDialogInstance,
+  IDialogContainerProps & { store: IFeaturedDialogStore }
+>(function FeaturedChangelogDialogContainer({ store, ...props }, ref) {
+  const { isLocked } = useSyncExternalStore(store.subscribe, store.get);
+  return (
+    <DialogContainer
+      ref={ref}
+      {...props}
+      dismissOnOverlayPress={!isLocked}
+      disableDrag={isLocked}
+      disableSystemClose={isLocked}
+      trapFocus={!platformEnv.isNative}
+    />
+  );
+});
 
 export function showFeaturedChangelogDialog(
   params: IShowFeaturedChangelogDialogParams = {},
@@ -332,6 +496,10 @@ export function showFeaturedChangelogDialog(
     : !!atomInfo &&
       isForceUpdateStrategy(atomInfo.updateStrategy) &&
       isPreInstall;
+  const isLockedRef = { current: isLocked };
+  const dialogStore = createFeaturedDialogStore({
+    isLocked,
+  });
 
   const mountTime = Date.now();
 
@@ -340,25 +508,41 @@ export function showFeaturedChangelogDialog(
     current: undefined,
   };
   const closeDialog = async () => {
-    await instanceRef.current?.close();
+    await instanceRef.current?.close({ flag: 'programmatic' });
   };
 
   const dialogInstance = Dialog.show({
-    showFooter: false,
-    showHeader: false,
-    dismissOnOverlayPress: !isLocked,
-    disableDrag: isLocked,
-    disableSystemClose: isLocked,
-    floatingPanelProps: { width: 480, overflow: 'hidden' },
-    renderContent: (
-      <FeaturedChangelogPreviewContext.Provider value={previewData}>
-        <FeaturedChangelogContent
-          isPreInstall={isPreInstall}
-          isLocked={isLocked}
-          closeDialog={closeDialog}
-        />
-      </FeaturedChangelogPreviewContext.Provider>
+    // Block dismissal at the source while locked: on native the sheet animates
+    // closed before onBeforeClose runs, so the guard alone cannot keep it open.
+    // Once support unlocks the device, the close button reappears instead.
+    // A custom container gets only the mount wiring (close, exit, guard) from
+    // Dialog.show, so every presentational prop is passed to it directly.
+    dialogContainer: ({ ref }) => (
+      <FeaturedChangelogDialogContainer
+        ref={ref}
+        store={dialogStore}
+        showFooter={false}
+        showHeader={false}
+        floatingPanelProps={{ width: 480, overflow: 'hidden' }}
+        renderContent={
+          <FeaturedChangelogPreviewContext.Provider value={previewData}>
+            <FeaturedChangelogContent
+              isPreInstall={isPreInstall}
+              isLocked={isLocked}
+              onLockChange={(nextLocked) => {
+                isLockedRef.current = nextLocked;
+                dialogStore.set({ isLocked: nextLocked });
+              }}
+              closeDialog={closeDialog}
+            />
+          </FeaturedChangelogPreviewContext.Provider>
+        }
+        // Dialog.show's close forwarder runs alongside this no-op.
+        onClose={async () => undefined}
+      />
     ),
+    onBeforeClose: (extra) =>
+      extra?.flag === 'programmatic' || !isLockedRef.current,
     onClose: async () => {
       // Preview mode must stay side-effect-free: whatsNewClosed is
       // @LogToServer (a real analytics event), so skipping it keeps ops

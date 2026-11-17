@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEmpty, unionBy, uniqBy } from 'lodash';
 
@@ -6,7 +14,6 @@ import {
   onVisibilityStateChange,
   useMedia,
   useScrollContentTabBarOffset,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -32,13 +39,14 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { splitPrivacyChainHistoryTxsBySide } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
+import type { IPrivacyChainHistorySideRow } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
-import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
@@ -54,14 +62,13 @@ import {
 } from '../../../states/jotai/contexts/historyList';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
+import { HomeHistoryListView } from '../components/HomeHistoryListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { useTabIsRefreshingFocused } from '../hooks/useHomeTab';
 
 import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
-import {
-  FrozenTopHistoryScrollObserver,
-  useFrozenTopHistoryData,
-} from './hooks/useFrozenTopHistoryData';
+import { useFrozenTopHistoryData } from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 type ITokenRefreshAccount = {
@@ -202,9 +209,13 @@ function TxHistoryListContainer(
     onAddressMap: handleLoadMoreAddressMap,
   });
 
+  const privacyChainSideRowByIdRef = useRef<
+    Map<string, IPrivacyChainHistorySideRow> | undefined
+  >(undefined);
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
+      const sideRow = privacyChainSideRowByIdRef.current?.get(history.id);
 
       if (
         history.decodedTx.status === EDecodedTxStatus.Pending &&
@@ -214,7 +225,7 @@ function TxHistoryListContainer(
           await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
             accountId: history.decodedTx.accountId,
             networkId: history.decodedTx.networkId,
-            historyId: history.id,
+            historyId: sideRow?.sourceId ?? history.id,
           });
 
         // tx has been replaced by another tx
@@ -240,6 +251,7 @@ function TxHistoryListContainer(
           accountId: history.decodedTx.accountId,
           historyTx: history,
           isAllNetworks: network.isAllNetworks,
+          ...(sideRow ? { privacyChainPoolId: sideRow.poolId } : {}),
         },
       });
     },
@@ -350,6 +362,27 @@ function TxHistoryListContainer(
       wallet?.id,
     ],
   );
+
+  // When the list survives an account switch, `historyData` would render
+  // the previous identity's rows
+  // until `initHistoryState`'s local DB read returns. Drop them in the same
+  // commit the identity changes (layout effect, before paint) so the skeleton
+  // shows instead; the init effect below re-seeds from the new identity's
+  // local cache. Same-identity reruns (filter / currency) are left alone.
+  const prevIdentityKeyRef = useRef(identityKey);
+  useLayoutEffect(() => {
+    if (prevIdentityKeyRef.current === identityKey) {
+      return;
+    }
+    prevIdentityKeyRef.current = identityKey;
+    setHistoryData((prev) => (prev.length === 0 ? prev : []));
+    setHistoryState({
+      initialized: false,
+      isRefreshing: true,
+    });
+    // Appended load-more pages are merged into the rows; drop them now too.
+    resetLoadMore();
+  }, [identityKey, resetLoadMore]);
 
   // Monotonic request id; bumped on identity change AND at the start of every
   // `run()` body (before any early return) so older in-flight fetches can't
@@ -741,6 +774,25 @@ function TxHistoryListContainer(
     [historyData, appendedTxs],
   );
 
+  // As BTC lists a move between two of its address types, a move between the
+  // public and private sides lists once per side, as each pool tab shows it.
+  const isPrivacyChainHistory =
+    !!network?.id &&
+    networkUtils.isLocalWalletNetwork({ networkId: network.id });
+  const privacyChainHistory = useMemo(() => {
+    if (!isPrivacyChainHistory) return undefined;
+    const sideRows = splitPrivacyChainHistoryTxsBySide(combinedHistoryData);
+    return {
+      txs: sideRows.map((row) => row.tx),
+      sideRowById: new Map(
+        sideRows
+          .filter((row) => row.poolId !== undefined)
+          .map((row) => [row.tx.id, row]),
+      ),
+    };
+  }, [combinedHistoryData, isPrivacyChainHistory]);
+  privacyChainSideRowByIdRef.current = privacyChainHistory?.sideRowById;
+
   // OK-57070: freeze top-of-list growth while the user is scrolled away from
   // the top. A background refresh that prepends new rows would otherwise shift
   // the viewport and make the native SectionList jitter (it has no exact
@@ -768,7 +820,7 @@ function TxHistoryListContainer(
     ],
   );
   const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
-    combinedHistoryData,
+    privacyChainHistory?.txs ?? combinedHistoryData,
     frozenTopEnabled,
     frozenTopIdentityKey,
   );
@@ -843,7 +895,7 @@ function TxHistoryListContainer(
 
   // On native, the Alert renders inside the list header so it sits below the
   // sticky TabBar and scrolls with the list. On web, the same Alert renders
-  // via Tabs.Container's `renderSubHeader` slot so its height changes cannot
+  // via the web pager's `renderSubHeader` slot so its height changes cannot
   // invalidate the virtualized list's CellMeasurer cache mid-scroll.
   const listHeaderComponent = useMemo(
     () =>
@@ -855,13 +907,11 @@ function TxHistoryListContainer(
 
   return (
     <>
-      {isFrozenTopTabScenario ? (
-        <FrozenTopHistoryScrollObserver
-          enabled={frozenTopEnabled}
-          onAwayFromTopChange={onAwayFromTopChange}
-        />
-      ) : null}
-      <TxHistoryListView
+      <HomeHistoryListView
+        frozenTopEnabled={frozenTopEnabled}
+        frozenTopIdentityKey={frozenTopIdentityKey}
+        onAwayFromTopChange={onAwayFromTopChange}
+        observeFrozenTop={isFrozenTopTabScenario}
         plainMode={plainMode}
         isTabFocused={isFocused}
         showIcon
@@ -877,7 +927,9 @@ function TxHistoryListContainer(
         networkId={network?.id}
         indexedAccountId={indexedAccount?.id}
         initialized={historyState.initialized}
-        tableLayout={tableLayout ?? media.gtMd}
+        tableLayout={
+          platformEnv.isNative ? tableLayout : (tableLayout ?? media.gtMd)
+        }
         listViewStyleProps={{
           contentContainerStyle: {
             mt: '$3',

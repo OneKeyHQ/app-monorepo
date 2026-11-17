@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CANDLE_GAP,
   TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
   TRADING_VIEW_NATIVE_MIN_ZOOM_SCALE,
@@ -16,13 +17,13 @@ import {
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
+  getTradingViewNativePanOffsetBounds,
   getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativePointIndexAtX,
   getTradingViewNativePriceExtrema,
   getTradingViewNativePriceRange,
   getTradingViewNativeRelativePinchScale,
   getTradingViewNativeViewportForPointRange,
-  getTradingViewNativeViewportOffsetTransition,
   getTradingViewNativeViewportPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
@@ -44,7 +45,67 @@ function buildPoint(
 }
 
 describe('TradingViewNative chart viewport', () => {
-  it('clamps horizontal panning to the available candle data', () => {
+  it.each([
+    { type: 'chartWidthPercentage' as const, value: 5 },
+    { type: 'pointCount' as const, value: 2 },
+    { type: 'pointCount' as const, value: 0 },
+  ])(
+    'preserves the pan boundary when the left edge is cropped (%p)',
+    (rightOffset) => {
+      const referenceWidth = 780.5;
+      const options = {
+        initialRightOffset: { ...rightOffset, referenceWidth },
+        pointCount: 200,
+        zoomScale: 1.25,
+      };
+      const fullBounds = getTradingViewNativePanOffsetBounds({
+        ...options,
+        chartWidth: referenceWidth,
+      });
+      for (const offset of [fullBounds.minOffset, fullBounds.maxOffset]) {
+        const beforeX = getTradingViewNativeCandleX({
+          ...options,
+          index: options.pointCount - 1,
+          offset,
+          priceAxisX: referenceWidth,
+        });
+        for (const chartWidth of [referenceWidth - 48, referenceWidth]) {
+          expect(
+            getTradingViewNativePanOffsetBounds({ ...options, chartWidth }),
+          ).toEqual(fullBounds);
+          const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+            ...options,
+            appendedPointCount: 0,
+            chartWidth,
+            currentOffset: offset,
+          });
+          expect(nextOffset).toBe(offset);
+          expect(
+            getTradingViewNativeCandleX({
+              ...options,
+              index: options.pointCount - 1,
+              offset: nextOffset,
+              priceAxisX: chartWidth,
+            }) +
+              referenceWidth -
+              chartWidth,
+          ).toBeCloseTo(beforeX);
+        }
+      }
+      expect(
+        getTradingViewNativeVisiblePointRange({
+          ...options,
+          chartWidth: referenceWidth - 48,
+          offset: fullBounds.minOffset,
+        }),
+      ).toEqual({
+        startIndex: options.pointCount,
+        endIndex: options.pointCount,
+      });
+    },
+  );
+
+  it('allows empty space while keeping an edge candle visible', () => {
     const chartWidth = 100;
     const pointCount = 20;
     const maxOffset = getTradingViewNativeMaxPanOffset({
@@ -61,7 +122,7 @@ describe('TradingViewNative chart viewport', () => {
         pointCount,
         zoomScale: 1,
       }),
-    ).toBe(0);
+    ).toBe(-20);
     expect(
       clampTradingViewNativePanOffset({
         chartWidth,
@@ -77,8 +138,111 @@ describe('TradingViewNative chart viewport', () => {
         pointCount,
         zoomScale: 1,
       }),
-    ).toBe(maxOffset);
+    ).toBe(100);
+    expect(
+      clampTradingViewNativePanOffset({
+        chartWidth,
+        pointCount,
+        zoomScale: 1,
+        offset: -1000,
+      }),
+    ).toBe(-94);
+    expect(
+      clampTradingViewNativePanOffset({
+        chartWidth,
+        pointCount,
+        zoomScale: 1,
+        offset: 1000,
+      }),
+    ).toBe(115);
   });
+
+  it.each(
+    [1, 20].flatMap((pointCount) =>
+      [
+        TRADING_VIEW_NATIVE_MIN_ZOOM_SCALE,
+        1,
+        TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
+      ].flatMap((zoomScale) =>
+        [TRADING_VIEW_NATIVE_CANDLE_GAP, 3].flatMap((candleGap) =>
+          [
+            undefined,
+            { type: 'pointCount' as const, value: 6 },
+            { type: 'chartWidthPercentage' as const, value: 100 },
+          ].map((initialRightOffset) => ({
+            pointCount,
+            zoomScale,
+            candleGap,
+            initialRightOffset,
+          })),
+        ),
+      ),
+    ),
+  )('keeps a whole candle visible at each boundary (%j)', (viewport) => {
+    const chartWidth = 100;
+    const halfBody =
+      (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * viewport.zoomScale) / 2;
+    for (const direction of [-1, 1]) {
+      const offset = clampTradingViewNativePanOffset({
+        ...viewport,
+        chartWidth,
+        offset: direction * 100_000,
+      });
+      const edgeIndex = direction < 0 ? viewport.pointCount - 1 : 0;
+      const center = getTradingViewNativeCandleX({
+        ...viewport,
+        index: edgeIndex,
+        offset,
+        priceAxisX: chartWidth,
+      });
+      expect(center - halfBody).toBeGreaterThanOrEqual(-0.000_001);
+      expect(center + halfBody).toBeLessThanOrEqual(chartWidth + 0.000_001);
+      const range = getTradingViewNativeVisiblePointRange({
+        ...viewport,
+        chartWidth,
+        offset,
+      });
+      expect(range.startIndex).toBeLessThanOrEqual(edgeIndex);
+      expect(range.endIndex).toBeGreaterThan(edgeIndex);
+    }
+  });
+
+  it('keeps a candle centered when the chart is narrower than its body', () => {
+    for (const offset of [-1000, 1000]) {
+      const clampedOffset = clampTradingViewNativePanOffset({
+        chartWidth: 1,
+        pointCount: 1,
+        zoomScale: 1,
+        offset,
+      });
+      expect(
+        getTradingViewNativeCandleX({
+          index: 0,
+          offset: clampedOffset,
+          pointCount: 1,
+          priceAxisX: 1,
+          zoomScale: 1,
+        }),
+      ).toBe(0.5);
+    }
+  });
+
+  it.each([
+    { chartWidth: 0, pointCount: 20 },
+    { chartWidth: 100, pointCount: 0 },
+    { chartWidth: Number.NaN, pointCount: 20 },
+  ])(
+    'resets the offset before chart data and layout are ready (%j)',
+    (viewport) => {
+      expect(
+        clampTradingViewNativePanOffset({
+          ...viewport,
+          zoomScale: 1,
+          offset: 1000,
+        }),
+      ).toBe(0);
+    },
+  );
 
   it('supports a platform-specific candle gap', () => {
     const maxOffset = getTradingViewNativeMaxPanOffset({
@@ -97,7 +261,105 @@ describe('TradingViewNative chart viewport', () => {
         pointCount: 20,
         zoomScale: 1,
       }),
-    ).toBe(maxOffset);
+    ).toBe(100);
+  });
+
+  it('reserves two candle steps to the right of the latest candle', () => {
+    const initialRightOffset = { type: 'pointCount', value: 2 } as const;
+
+    expect(
+      getTradingViewNativeMaxPanOffset({
+        chartWidth: 100,
+        initialRightOffset,
+        pointCount: 20,
+        zoomScale: 1,
+      }),
+    ).toBe(32);
+    expect(
+      getTradingViewNativeCandleX({
+        index: 19,
+        initialRightOffset,
+        offset: 0,
+        pointCount: 20,
+        priceAxisX: 100,
+        zoomScale: 2,
+      }),
+    ).toBe(69);
+    expect(
+      getTradingViewNativeCandleX({
+        index: 19,
+        initialRightOffset,
+        offset: 12,
+        pointCount: 20,
+        priceAxisX: 100,
+        zoomScale: 1,
+      }),
+    ).toBe(96.5);
+    expect(
+      getTradingViewNativePointIndexAtX({
+        initialRightOffset,
+        offset: 0,
+        pointCount: 20,
+        priceAxisX: 100,
+        x: 69,
+        zoomScale: 2,
+      }),
+    ).toBe(19);
+    expect(
+      getTradingViewNativeVisiblePointRange({
+        chartWidth: 45,
+        initialRightOffset,
+        offset: 0,
+        pointCount: 5,
+        zoomScale: 2,
+      }),
+    ).toEqual({ endIndex: 5, startIndex: 3 });
+  });
+
+  it('supports a chart-width percentage for the initial right offset', () => {
+    const initialRightOffset = {
+      type: 'chartWidthPercentage',
+      value: 5,
+    } as const;
+
+    expect(
+      getTradingViewNativeMaxPanOffset({
+        chartWidth: 100,
+        initialRightOffset,
+        pointCount: 20,
+        zoomScale: 1,
+      }),
+    ).toBe(25);
+    expect(
+      getTradingViewNativeCandleX({
+        index: 19,
+        initialRightOffset,
+        offset: 0,
+        pointCount: 20,
+        priceAxisX: 100,
+        zoomScale: 1,
+      }),
+    ).toBe(91.5);
+    expect(
+      getTradingViewNativeCandleX({
+        index: 19,
+        initialRightOffset,
+        offset: 5,
+        pointCount: 20,
+        priceAxisX: 100,
+        zoomScale: 1,
+      }),
+    ).toBe(96.5);
+    expect(
+      getTradingViewNativePointIndexAtX({
+        initialRightOffset,
+        offset: 0,
+        pointCount: 20,
+        priceAxisX: 100,
+        x: 91.5,
+        zoomScale: 1,
+      }),
+    ).toBe(19);
   });
 
   it('keeps zoom within the supported range', () => {
@@ -130,7 +392,7 @@ describe('TradingViewNative chart viewport', () => {
     ).toBe(1);
   });
 
-  it('uses one data-update contract for the latest candle and viewport delta', () => {
+  it('reports appended candles and the latest timestamp', () => {
     const points = [
       buildPoint(1, 2, 1),
       buildPoint(1, 2, 2),
@@ -142,15 +404,6 @@ describe('TradingViewNative chart viewport', () => {
     });
 
     expect(metadata).toEqual({ appendedPointCount: 1, latestTimestamp: 3 });
-    expect(
-      getTradingViewNativeViewportOffsetTransition({
-        appendedPointCount: metadata.appendedPointCount,
-        chartWidth: 100,
-        currentOffset: 10,
-        pointCount: 21,
-        zoomScale: 1,
-      }),
-    ).toEqual({ nextOffset: 16, offsetDelta: 6 });
   });
 
   it('does not infer appended candles from unrelated history', () => {
@@ -299,6 +552,41 @@ describe('TradingViewNative chart viewport', () => {
     });
   });
 
+  it('derives line and area price ranges from close prices', () => {
+    const points: IMarketTokenKLineDataPoint[] = [
+      { c: 10, h: 1000, l: 1, o: 9, t: 1, v: 0 },
+      { c: 30, h: 500, l: 2, o: 10, t: 2, v: 0 },
+      { c: 20, h: 800, l: 3, o: 30, t: 3, v: 0 },
+    ];
+
+    expect(
+      getTradingViewNativePriceRange({
+        chartType: 'line',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({ maxPrice: 30, minPrice: 10 });
+    expect(
+      getTradingViewNativePriceRange({
+        chartType: 'area',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({ maxPrice: 30, minPrice: 10 });
+  });
+
+  it('has no price range when there are no candles to anchor the scale', () => {
+    expect(
+      getTradingViewNativePriceRange({
+        startIndex: 0,
+        endIndex: 0,
+        points: [],
+      }),
+    ).toBeNull();
+  });
+
   it('includes candle bodies that intersect either viewport edge', () => {
     expect(
       getTradingViewNativeVisiblePointRange({
@@ -425,6 +713,20 @@ describe('TradingViewNative chart viewport', () => {
     );
   });
 
+  it('keeps the right edge fixed when zooming without a focused anchor', () => {
+    const chartWidth = 100;
+    const viewport = getTradingViewNativeZoomedViewport({
+      anchorX: chartWidth,
+      chartWidth,
+      currentOffset: 24,
+      currentZoomScale: 1,
+      nextZoomScale: 2,
+      pointCount: 100,
+    });
+
+    expect(viewport).toEqual({ offset: 48, zoomScale: 2 });
+  });
+
   it('resolves timestamp and time-range targets to candle indices', () => {
     const points = [
       buildPoint(1, 2, 100),
@@ -498,5 +800,37 @@ describe('TradingViewNative chart viewport', () => {
     });
     expect(timeRangeVisibleRange.startIndex).toBeLessThanOrEqual(40);
     expect(timeRangeVisibleRange.endIndex).toBeGreaterThan(59);
+  });
+});
+
+describe('bounded viewport updates', () => {
+  it('retains the newest and oldest candles at the respective boundaries', () => {
+    expect(
+      getTradingViewNativeVisiblePointRange({
+        chartWidth: 300,
+        pointCount: 20,
+        offset: -1000,
+        zoomScale: 1,
+      }),
+    ).toEqual({ startIndex: 19, endIndex: 20 });
+    expect(
+      getTradingViewNativeVisiblePointRange({
+        chartWidth: 300,
+        pointCount: 20,
+        offset: 1000,
+        zoomScale: 1,
+      }),
+    ).toEqual({ startIndex: 0, endIndex: 1 });
+  });
+  it('preserves the visible time anchor in future space when candles append', () => {
+    expect(
+      getTradingViewNativePanOffsetAfterDataUpdate({
+        appendedPointCount: 2,
+        chartWidth: 300,
+        currentOffset: -200,
+        pointCount: 22,
+        zoomScale: 1,
+      }),
+    ).toBe(-188);
   });
 });

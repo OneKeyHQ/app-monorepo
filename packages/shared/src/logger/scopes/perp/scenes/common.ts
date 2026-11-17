@@ -3,13 +3,14 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
   EPerpPageEnterSource,
+  IPerpAccountStatusParams,
   IPerpTradeButtonClickParams,
 } from '../type';
 
 export class CommonScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public pageView({
+  public perpPageView({
     source,
     walletType,
   }: {
@@ -22,6 +23,12 @@ export class CommonScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpTradeButtonClick(params: IPerpTradeButtonClickParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpAccountStatus(params: IPerpAccountStatusParams) {
     return params;
   }
 

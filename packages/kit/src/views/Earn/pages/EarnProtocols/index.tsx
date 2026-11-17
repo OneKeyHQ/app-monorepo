@@ -35,6 +35,7 @@ import type {
   ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
@@ -42,10 +43,20 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { AprText } from '../../components/AprText';
+import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnNavigation, parseFormattedLiquidityValue } from '../../earnUtils';
+import { EarnTestIDs } from '../../testIDs';
+import {
+  filterAndSortProtocols,
+  getProtocolNetworkData,
+  isDisplayableMetricText,
+} from '../../utils/protocolListUtils';
 
+import type { IEarnSortOption } from '../../components/EarnMobileSortControl';
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 type IEarnSortDirection = 'asc' | 'desc';
 
@@ -108,6 +119,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const media = useMedia();
 
   const isDesktopLayout = !platformEnv.isNative && media.gtSm;
+  const [listWidth, setListWidth] = useState(0);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
+  const isTableLayout =
+    isDesktopLayout || (platformEnv.isNative && listWidth >= 768);
+  const isNativeTableLayout = platformEnv.isNative && isTableLayout;
 
   const customHeaderLeft = useMemo(
     () => (
@@ -139,6 +157,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const [sortDirection, setSortDirection] = useState<IEarnSortDirection>(
     isInitialFixedRateCategory ? 'asc' : 'desc',
   );
+  const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>(() =>
+    filterNetworkId &&
+    !networkUtils.isAllNetwork({ networkId: filterNetworkId })
+      ? [filterNetworkId]
+      : [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const accountId = activeAccount.account?.id;
   const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
@@ -163,6 +187,15 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     setSortDirection('desc');
   }, [selectedCategory]);
 
+  useEffect(() => {
+    setSelectedNetworkIds(
+      filterNetworkId &&
+        !networkUtils.isAllNetwork({ networkId: filterNetworkId })
+        ? [filterNetworkId]
+        : [],
+    );
+  }, [filterNetworkId]);
+
   const fetchProtocolData = useCallback(async () => {
     if (!activeAccount.ready) {
       return;
@@ -179,7 +212,6 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         symbol,
         accountId,
         networkId: accountNetworkId,
-        filterNetworkId,
         includeWithdrawOnly: true,
       });
 
@@ -189,13 +221,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [
-    symbol,
-    accountId,
-    accountNetworkId,
-    filterNetworkId,
-    activeAccount.ready,
-  ]);
+  }, [symbol, accountId, accountNetworkId, activeAccount.ready]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -272,12 +298,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           })
             ? protocol.provider.vault
             : undefined,
+          logoURI,
         });
       } catch (_error) {
         // ignore error
       }
     },
-    [symbol, navigation],
+    [symbol, navigation, logoURI],
   );
 
   const protocolDisplayData = useMemo(() => {
@@ -288,6 +315,83 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         : category === EProtocolCategory.SimpleEarn;
     });
   }, [isFixedRateCategory, protocolData]);
+
+  const { availableNetworkIds, networkAssetCounts } = useMemo(
+    () => getProtocolNetworkData(protocolDisplayData),
+    [protocolDisplayData],
+  );
+
+  const networkFilteredProtocolData = useMemo(() => {
+    if (selectedNetworkIds.length === 0) {
+      return protocolDisplayData;
+    }
+    const selectedNetworkIdSet = new Set(selectedNetworkIds);
+    return protocolDisplayData.filter((item) =>
+      selectedNetworkIdSet.has(item.network.networkId),
+    );
+  }, [protocolDisplayData, selectedNetworkIds]);
+
+  const mobileProtocolData = useMemo(() => {
+    if (isFixedRateCategory || isDesktopLayout) {
+      return networkFilteredProtocolData;
+    }
+    return filterAndSortProtocols({
+      items: protocolDisplayData,
+      selectedNetworkIds,
+      sortKey: sortKey === 'tvl' ? 'tvl' : 'yield',
+      sortDirection,
+    });
+  }, [
+    isDesktopLayout,
+    isFixedRateCategory,
+    networkFilteredProtocolData,
+    protocolDisplayData,
+    selectedNetworkIds,
+    sortDirection,
+    sortKey,
+  ]);
+
+  const mobileSortOptions = useMemo<IEarnSortOption[]>(() => {
+    const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
+    const yieldLabel = intl.formatMessage({
+      id: ETranslations.defi_apr_apy,
+    });
+    // Direction labels use the shared high-to-low / low-to-high i18n, matching
+    // the Tokens and Fixed-rate sort sheets (OK-58880). Bare ↓/↑ glyphs read
+    // as untranslated UI and give a screen reader nothing to announce.
+    const highToLow = intl.formatMessage({
+      id: ETranslations.high_to_low__action,
+    });
+    const lowToHigh = intl.formatMessage({
+      id: ETranslations.low_to_high__action,
+    });
+    return [
+      {
+        label: `${tvlLabel} ${highToLow}`,
+        triggerLabel: tvlLabel,
+        value: 'tvl',
+        direction: 'desc',
+      },
+      {
+        label: `${tvlLabel} ${lowToHigh}`,
+        triggerLabel: tvlLabel,
+        value: 'tvl',
+        direction: 'asc',
+      },
+      {
+        label: `${yieldLabel} ${highToLow}`,
+        triggerLabel: yieldLabel,
+        value: 'yield',
+        direction: 'desc',
+      },
+      {
+        label: `${yieldLabel} ${lowToHigh}`,
+        triggerLabel: yieldLabel,
+        value: 'yield',
+        direction: 'asc',
+      },
+    ];
+  }, [intl]);
 
   const columns: ITableColumn<IStakeProtocolListItem>[] = useMemo(() => {
     const getMaturityDisplay = (item: IStakeProtocolListItem) => {
@@ -332,7 +436,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   size="md"
                   borderRadius="$2"
                   tokenImageUri={item.provider.logoURI}
-                  showNetworkIcon={!isDesktopLayout}
+                  showNetworkIcon={!isTableLayout}
                   networkId={item.network.networkId}
                 />
               </Stack>
@@ -371,14 +475,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   </SizableText>
                 ) : (
                   <>
-                    {isDesktopLayout && item?.provider?.vaultName ? (
+                    {/* Walkthrough r3: mobile subtitle keeps only the vault
+                        name; TVL moved to the right column under APY (the
+                        server-side description bundles "TVL · vault") */}
+                    {item?.provider?.vaultName ? (
                       <SizableText size="$bodySmMedium" color="$textSubdued">
                         {item.provider.vaultName}
-                      </SizableText>
-                    ) : null}
-                    {!isDesktopLayout && item?.provider?.description ? (
-                      <SizableText size="$bodySmMedium" color="$textSubdued">
-                        {item.provider.description}
                       </SizableText>
                     ) : null}
                   </>
@@ -410,11 +512,14 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         hideInMobile: true,
         align: 'flex-end',
         sortable: true,
-        comparator: (a, b) => {
-          const tvlA = parseFloat(a.provider.totalFiatValue || '0');
-          const tvlB = parseFloat(b.provider.totalFiatValue || '0');
-          return tvlA - tvlB;
-        },
+        comparator:
+          isNativeTableLayout && !isFixedRateCategory
+            ? undefined
+            : (a, b) => {
+                const tvlA = parseFloat(a.provider.totalFiatValue || '0');
+                const tvlB = parseFloat(b.provider.totalFiatValue || '0');
+                return tvlA - tvlB;
+              },
         render: (item) => (
           <SizableText size="$bodyLgMedium">
             <EarnText size="$bodyLg" text={item?.tvl} />
@@ -451,24 +556,42 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         minWidth:
-          isFixedRateCategory && !isDesktopLayout
+          isFixedRateCategory && !isTableLayout
             ? MOBILE_FIXED_RATE_YIELD_COLUMN_MIN_WIDTH
             : undefined,
         align: 'flex-end',
         sortable: true,
-        comparator: (a, b) => {
-          const aprA = parseFloat(a.provider.aprWithoutFee || '0');
-          const aprB = parseFloat(b.provider.aprWithoutFee || '0');
-          return aprA - aprB;
-        },
+        comparator:
+          isNativeTableLayout && !isFixedRateCategory
+            ? undefined
+            : (a, b) => {
+                const aprA = parseFloat(a.provider.aprWithoutFee || '0');
+                const aprB = parseFloat(b.provider.aprWithoutFee || '0');
+                return aprA - aprB;
+              },
         render: (item) => {
           const showMobileLiquidity =
             isFixedRateCategory &&
-            !isDesktopLayout &&
+            !isTableLayout &&
             Boolean(item.provider.liquidity);
           const mobileLiquidityLabel = intl.formatMessage({
             id: ETranslations.global_liquidity,
           });
+          // Walkthrough r3: on mobile, TVL renders under APY in the right
+          // column (fixed-rate keeps its liquidity line instead)
+          // Same guard as the protocol Tokens page: the server has shipped
+          // "NaN" TVL copy, and this string is rendered verbatim
+          const showMobileTvl =
+            !isFixedRateCategory &&
+            !isTableLayout &&
+            isDisplayableMetricText(item.tvl?.text);
+          const mobileTvl = showMobileTvl ? (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {`${item.tvl?.text ?? ''} ${intl.formatMessage({
+                id: ETranslations.earn_tvl,
+              })}`}
+            </SizableText>
+          ) : null;
           const mobileLiquidity = showMobileLiquidity ? (
             <XStack ai="center" jc="flex-end" gap="$0.5" w="100%" minWidth={0}>
               <SizableText
@@ -500,13 +623,14 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                     intl.formatMessage({ id: ETranslations.defi_redeemable })}
                 </SizableText>
                 {mobileLiquidity}
+                {mobileTvl}
               </YStack>
             );
           }
           return (
             <YStack ai="flex-end" gap="$0.5" minWidth={0}>
               <AprText
-                hideSuffix={isDesktopLayout}
+                hideSuffix={isTableLayout}
                 asset={{
                   aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
                   aprInfo: item?.aprInfo,
@@ -514,12 +638,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 }}
               />
               {mobileLiquidity}
+              {mobileTvl}
             </YStack>
           );
         },
       },
     ];
-  }, [intl, isDesktopLayout, isFixedRateCategory]);
+  }, [intl, isTableLayout, isNativeTableLayout, isFixedRateCategory]);
 
   const shouldShowCategoryTabs =
     protocolCategoryCounts.simpleEarnCount > 0 &&
@@ -590,13 +715,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   ]);
 
   const content = useMemo(() => {
+    let skeletonProtocolFlex = 1;
+    if (isTableLayout) {
+      skeletonProtocolFlex = isNativeTableLayout ? 5 : 2.5;
+    }
     if (isLoading) {
       return (
-        <YStack>
+        <YStack onLayout={platformEnv.isNative ? onListLayout : undefined}>
           {/* Table Header - Desktop only */}
-          {isDesktopLayout ? (
+          {isTableLayout ? (
             <ListItem mx="$0" px="$pagePadding">
-              <XStack flex={2.5}>
+              <XStack flex={isNativeTableLayout ? 5 : 2.5}>
                 <Skeleton h="$3" w={80} />
               </XStack>
               <XStack flex={1} jc="flex-end">
@@ -605,6 +734,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               <XStack flex={2} jc="flex-end">
                 <Skeleton h="$3" w={40} />
               </XStack>
+              {isNativeTableLayout && isFixedRateCategory ? (
+                <XStack flex={2} jc="flex-end">
+                  <Skeleton h="$3" w={40} />
+                </XStack>
+              ) : null}
               <XStack flex={2} jc="flex-end">
                 <Skeleton h="$3" w={40} />
               </XStack>
@@ -617,10 +751,10 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               key={index}
               mx="$0"
               px="$pagePadding"
-              ai={isDesktopLayout ? 'center' : 'flex-start'}
+              ai={isTableLayout ? 'center' : 'flex-start'}
             >
               {/* Protocol column */}
-              <XStack flex={isDesktopLayout ? 2.5 : 1} ai="center" gap="$3">
+              <XStack flex={skeletonProtocolFlex} ai="center" gap="$3">
                 <Skeleton w="$10" h="$10" borderRadius="$2" />
                 <YStack gap="$1" flex={1}>
                   <Skeleton h="$4" w="70%" />
@@ -628,7 +762,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 </YStack>
               </XStack>
 
-              {isDesktopLayout ? (
+              {isTableLayout ? (
                 <>
                   {/* Network column */}
                   <XStack flex={1} jc="flex-end">
@@ -638,6 +772,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   <XStack flex={2} jc="flex-end">
                     <Skeleton h="$4" w={100} />
                   </XStack>
+                  {isNativeTableLayout && isFixedRateCategory ? (
+                    <XStack flex={2} jc="flex-end">
+                      <Skeleton h="$4" w={80} />
+                    </XStack>
+                  ) : null}
                   {/* APR column */}
                   <XStack flex={2} jc="flex-end">
                     <Skeleton h="$4" w={80} />
@@ -656,7 +795,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
     if (protocolData.length === 0) {
       return (
-        <YStack alignItems="center" flex={1}>
+        <YStack
+          alignItems="center"
+          flex={1}
+          onLayout={platformEnv.isNative ? onListLayout : undefined}
+        >
           <Empty
             px="$pagePadding"
             py="$0"
@@ -680,25 +823,79 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     }
 
     return (
-      <YStack>
+      <YStack onLayout={platformEnv.isNative ? onListLayout : undefined}>
+        {!isDesktopLayout ? (
+          <XStack
+            px="$pagePadding"
+            h="$8"
+            py="$2"
+            ai="center"
+            jc="space-between"
+            gap="$3"
+          >
+            <XStack flex={1} minWidth={0}>
+              <NetworkFilterControl
+                testID={EarnTestIDs.protocolNetworkFilter}
+                variant="compact"
+                availableNetworkIds={availableNetworkIds}
+                selectedNetworkIds={selectedNetworkIds}
+                networkAssetCounts={networkAssetCounts}
+                onSelectionChange={setSelectedNetworkIds}
+              />
+            </XStack>
+            {!isFixedRateCategory ? (
+              <EarnMobileSortControl
+                compact
+                testID={EarnTestIDs.protocolSort}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                options={mobileSortOptions}
+                getOptionTestID={(option) =>
+                  EarnTestIDs.protocolSortOption(
+                    option.value,
+                    option.direction ?? 'desc',
+                  )
+                }
+                onSortChange={handleSortChange}
+              />
+            ) : null}
+          </XStack>
+        ) : null}
         {categoryTabs}
         <TableList<IStakeProtocolListItem>
           key={selectedCategory}
-          data={protocolDisplayData}
+          data={mobileProtocolData}
           columns={columns}
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
+          withHeader={isTableLayout}
+          tableLayout={platformEnv.isNative ? isTableLayout : undefined}
+          sortKey={isTableLayout || isFixedRateCategory ? sortKey : undefined}
+          sortDirection={
+            isTableLayout || isFixedRateCategory ? sortDirection : undefined
+          }
+          onSortChange={
+            isTableLayout || isFixedRateCategory ? handleSortChange : undefined
+          }
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
           isLoading={isLoading}
+          ListEmptyComponent={
+            selectedNetworkIds.length > 0 ? (
+              <Empty
+                px="$pagePadding"
+                icon="SearchOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_title,
+                })}
+              />
+            ) : undefined
+          }
         />
       </YStack>
     );
   }, [
     isLoading,
     protocolData,
-    protocolDisplayData,
+    mobileProtocolData,
     categoryTabs,
     sortKey,
     sortDirection,
@@ -707,8 +904,16 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     selectedCategory,
     handleProtocolPress,
     isDesktopLayout,
+    isTableLayout,
+    isNativeTableLayout,
+    onListLayout,
+    isFixedRateCategory,
     intl,
     fetchProtocolData,
+    availableNetworkIds,
+    selectedNetworkIds,
+    networkAssetCounts,
+    mobileSortOptions,
   ]);
 
   const tabBarHeight = useScrollContentTabBarOffset();

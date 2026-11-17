@@ -8,11 +8,15 @@ import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEvent
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { scrubSensitiveErrorMessageText } from '../../utils/sensitiveErrorMessageUtils';
+
 export type IPrimeSubscriptionPurchaseSuccessPayload =
   IAppEventBusPayload[EAppEventBusNames.PrimeSubscriptionPurchaseSuccess];
 
 export function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+  return scrubSensitiveErrorMessageText(
+    error instanceof Error ? error.message : String(error),
+  );
 }
 
 export async function preparePrimeSubscriptionPurchaseSuccess(
@@ -49,7 +53,10 @@ export function emitPrimeSubscriptionPurchaseSuccess(
 
 export async function refreshPrimeUserInfoAfterPurchase() {
   try {
-    await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+    // Checkout can change membership; skip the short-TTL user-info cache.
+    await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
+      forceRefresh: true,
+    });
   } catch (error) {
     // RevenueCat is authoritative for purchase completion; the server
     // projection may lag behind its webhook and can be refreshed later.
@@ -119,5 +126,10 @@ export function handlePrimePurchaseSuccessCloseRequest({
     // instantly, e.g. an immediate refresh failure).
     await timerUtils.wait(350);
     await finishPrimeSubscriptionPurchaseSuccess(payload);
-  })();
+  })().catch((error) => {
+    defaultLogger.prime.usage.primeReceiveKytIntroFlowFailed({
+      stage: 'purchaseSuccessTail',
+      errorMessage: getErrorMessage(error),
+    });
+  });
 }

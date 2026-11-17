@@ -64,9 +64,10 @@ export function SwapQuoteStockMarketStatusAlert({
     token: toToken,
   });
   const detailCandidates = [fromTokenDetail, toTokenDetail];
-  const isResolvingAmbiguousStockSide =
-    !hasSingleStockSide && (fromTokenDetail.pending || toTokenDetail.pending);
-  const stockDetail = isResolvingAmbiguousStockSide
+  const marketDetailSettled = !detailCandidates.some(
+    (candidate) => candidate.pending,
+  );
+  const stockDetail = !marketDetailSettled
     ? undefined
     : (detailCandidates.find(
         (candidate) => candidate.tokenDetail?.stock?.isOpen === false,
@@ -84,7 +85,13 @@ export function SwapQuoteStockMarketStatusAlert({
     scopeKey: marketScopeKey,
   });
 
-  if (!isCurrentMarketClosedError) {
+  const isMarketConfirmedOpen =
+    stockDetail?.tokenDetail?.stock?.isOpen === true;
+  if (
+    !isCurrentMarketClosedError ||
+    !marketDetailSettled ||
+    isMarketConfirmedOpen
+  ) {
     return null;
   }
 
@@ -97,6 +104,7 @@ export function SwapQuoteStockMarketStatusAlert({
     <StockMarketStatusAlert
       statusCase={resolveStockMarketStatusCase({
         isOpen: false,
+        isPaused: stockDetail?.tokenDetail?.stock?.isPaused,
         hasOpenTime: Boolean(closedTimeText),
         hasPerps: Boolean(hlTicker),
       })}

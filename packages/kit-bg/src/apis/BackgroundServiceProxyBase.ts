@@ -12,7 +12,10 @@ export abstract class BackgroundServiceProxyBase {
 
   _proxyServiceCache = {} as any;
 
-  _createProxyService(serviceName = 'ROOT') {
+  _createProxyService(
+    serviceName = 'ROOT',
+    immediateMembers?: Record<PropertyKey, unknown>,
+  ) {
     if (this._serviceCreatedNames[serviceName]) {
       throw new OneKeyLocalError(
         `_createProxyService name duplicated. name=${serviceName}`,
@@ -23,6 +26,15 @@ export abstract class BackgroundServiceProxyBase {
       {},
       {
         get: (target, serviceMethod) => {
+          if (
+            immediateMembers &&
+            Object.prototype.hasOwnProperty.call(
+              immediateMembers,
+              serviceMethod,
+            )
+          ) {
+            return Reflect.get(immediateMembers, serviceMethod);
+          }
           if (typeof serviceMethod === 'string') {
             const key = this.serviceNameSpace
               ? `${this.serviceNameSpace}@${serviceName}.${serviceMethod}`
@@ -30,9 +42,11 @@ export abstract class BackgroundServiceProxyBase {
             if (!this._proxyServiceCache[key]) {
               this._proxyServiceCache[key] = (...args: any) => {
                 if (
-                  !['serviceApp.addLogger', 'serviceLogger.addMsg'].includes(
-                    key,
-                  )
+                  ![
+                    'serviceApp.addLogger',
+                    'serviceLogger.addMsg',
+                    'serviceLogger.readLogExportPage',
+                  ].includes(key)
                 ) {
                   defaultLogger.app.background.call(key);
                 }

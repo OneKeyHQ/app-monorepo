@@ -31,11 +31,17 @@ import {
   OAuthLoginCancelError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
-import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
+import type {
+  IOAuthLoginCancelErrorData,
+  IOAuthPopupOptions,
+  IOAuthPopupResult,
+} from './types';
 import type { GoogleSignin as GoogleSigninType } from '@react-native-google-signin/google-signin';
 
 // Lazy load GoogleSignin to avoid crash if native module is not available
@@ -168,6 +174,21 @@ export class OAuthPopup extends OAuthPopupBase {
   }
 
   // ============ Private Methods - Shared ============
+
+  // A cancel of a native sign-in sheet rather than a web page.
+  private static createSystemSheetCancelError(): OAuthLoginCancelError {
+    const data: IOAuthLoginCancelErrorData = { systemSheet: true };
+    return new OAuthLoginCancelError({ data });
+  }
+
+  // Play services reports an unreachable Google as an error (status 7), so a
+  // cancel of its sheet is deliberate. On iOS the SDK signs in through a web
+  // auth session, where a page that cannot load also ends as a cancel.
+  private static createGoogleCancelError(): OAuthLoginCancelError {
+    return platformEnv.isNativeAndroid
+      ? OAuthPopup.createSystemSheetCancelError()
+      : new OAuthLoginCancelError();
+  }
 
   /**
    * Generate a random nonce and its SHA-256 hash.
@@ -309,7 +330,7 @@ export class OAuthPopup extends OAuthPopupBase {
       });
 
       if (error) {
-        throw new OneKeyLocalError(error.message);
+        throw error;
       }
 
       if (!data.session) {
@@ -334,7 +355,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific Apple Sign-In errors
       if (OAuthPopup.isAppleUserCancelledError(error)) {
-        throw new OAuthLoginCancelError();
+        throw OAuthPopup.createSystemSheetCancelError();
       }
 
       throw error;
@@ -527,7 +548,7 @@ export class OAuthPopup extends OAuthPopupBase {
       };
 
       if (resultWithType.type === 'cancelled') {
-        throw new OAuthLoginCancelError();
+        throw OAuthPopup.createGoogleCancelError();
       }
 
       if (resultWithType.data?.idToken) {
@@ -560,7 +581,7 @@ export class OAuthPopup extends OAuthPopupBase {
       });
 
       if (error) {
-        throw new OneKeyLocalError(error.message);
+        throw error;
       }
 
       if (!data.session) {
@@ -585,7 +606,7 @@ export class OAuthPopup extends OAuthPopupBase {
     } catch (error) {
       // Handle specific GoogleSignin errors
       if (OAuthPopup.isUserCancelledError(error)) {
-        throw new OAuthLoginCancelError();
+        throw OAuthPopup.createGoogleCancelError();
       }
       throw OAuthPopup.wrapError(error, 'Google Sign-In failed');
     }
@@ -619,7 +640,14 @@ export class OAuthPopup extends OAuthPopupBase {
         cb.host === rt.host &&
         normalizePath(cb.pathname) === normalizePath(rt.pathname)
       );
-    } catch {
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `Native OAuth callback URL validation failed: ${getSanitizedErrorLogText(
+          error,
+        )}`,
+        trigger: 'interactive',
+        error,
+      });
       return false;
     }
   }

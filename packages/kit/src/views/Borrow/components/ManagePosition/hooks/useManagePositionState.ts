@@ -7,7 +7,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { isSamePositiveAmount, resolveRepayAllAmountValue } from '../utils';
+import { isManagePositionRepayAll, isSamePositiveAmount } from '../utils';
 
 import type { IManagePositionProps, IManagePositionState } from '../types';
 
@@ -16,8 +16,6 @@ export function useManagePositionState(props: IManagePositionProps): {
     IManagePositionState,
     | 'amountValue'
     | 'submitting'
-    | 'shouldApprove'
-    | 'approveLoading'
     | 'tokenSelectorMode'
     | 'tokenSelectorTriggerProps'
   >;
@@ -102,30 +100,28 @@ export function useManagePositionState(props: IManagePositionProps): {
     });
   }, [props.action, amountValue, maxAmountValue]);
 
-  const repayAllAmountValue = useMemo(
+  const isRepayAll = useMemo(
     () =>
-      resolveRepayAllAmountValue({
+      isManagePositionRepayAll({
         action: props.action,
+        amount: amountValue,
+        debtBalance: props.debtBalance,
         maxAmountValue,
         repayAllBalance: props.repayAllBalance,
       }),
-    [props.action, maxAmountValue, props.repayAllBalance],
+    [
+      props.action,
+      props.debtBalance,
+      props.repayAllBalance,
+      amountValue,
+      maxAmountValue,
+    ],
   );
-
-  const isRepayAll = useMemo(() => {
-    if (props.action !== 'repay') return false;
-    return isSamePositiveAmount({
-      amount: amountValue,
-      targetAmount: repayAllAmountValue,
-    });
-  }, [props.action, amountValue, repayAllAmountValue]);
 
   const state: Omit<
     IManagePositionState,
     | 'amountValue'
     | 'submitting'
-    | 'shouldApprove'
-    | 'approveLoading'
     | 'tokenSelectorMode'
     | 'tokenSelectorTriggerProps'
   > = useMemo(
@@ -148,6 +144,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       price,
       balance: props.balance,
       maxBalance: props.maxBalance,
+      debtBalance: props.debtBalance,
       tokenInfo: props.tokenInfo,
       token,
 
@@ -192,6 +189,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       props.decimals,
       props.balance,
       props.maxBalance,
+      props.debtBalance,
       props.tokenInfo,
       props.isDisabled,
       props.isInModalContext,

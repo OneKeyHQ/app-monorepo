@@ -1,0 +1,562 @@
+/**
+ * buildMergedAllNetworkSnapshot — pure merge/sort/split of all-network fetch
+ * rounds. Extracted (P0) from `TokenListBlock.updateAllNetworksTokenList` so the
+ * live consumer (L2 progressive paint) and the cold cache-seed (L1) share ONE
+ * merge truth. Behavior must mirror the inline original exactly:
+ *   merge-derive → $key dedup → sortTokensByFiatValue → zero-balance re-sort →
+ *   high/low split at TOKEN_LIST_HIGH_VALUE_MAX.
+ */
+import BigNumber from 'bignumber.js';
+
+import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import { buildMergedAllNetworkSnapshot } from './buildMergedAllNetworkSnapshot';
+
+import type { IAllNetworkSnapshotRound } from './buildMergedAllNetworkSnapshot';
+
+function makeFiat(
+  fiatValue: string,
+  overrides: Partial<ITokenFiat> = {},
+): ITokenFiat {
+  return {
+    balance: '0',
+    balanceParsed: '0',
+    fiatValue,
+    price: 0,
+    ...overrides,
+  };
+}
+
+function makeToken(
+  key: string,
+  overrides: Partial<IAccountToken> = {},
+): IAccountToken {
+  return {
+    $key: key,
+    name: key,
+    symbol: key,
+    decimals: 18,
+    address: `0x${key}`,
+    isNative: false,
+    ...overrides,
+  } as IAccountToken;
+}
+
+function makeRound(
+  over: Partial<IAllNetworkSnapshotRound>,
+): IAllNetworkSnapshotRound {
+  return {
+    networkId: 'evm--1',
+    accountId: 'acc1',
+    tokens: { data: [], keys: '', map: {} },
+    smallBalanceTokens: { data: [], keys: '', map: {} },
+    riskTokens: { data: [], keys: '', map: {} },
+    ...over,
+  };
+}
+
+describe('buildMergedAllNetworkSnapshot', () => {
+  it('keeps retained aggregate rounds unchanged when a network is evicted', () => {
+    const firstToken = makeToken('first', { networkId: 'evm--1' });
+    const secondToken = makeToken('second', { networkId: 'evm--56' });
+    const first = makeRound({
+      aggregateTokenListMap: { aggregate_ETH_: { tokens: [firstToken] } },
+    });
+    const second = makeRound({
+      networkId: 'evm--56',
+      aggregateTokenListMap: { aggregate_ETH_: { tokens: [secondToken] } },
+    });
+    for (const round of [first, second]) {
+      for (const group of Object.values(round.aggregateTokenListMap ?? {})) {
+        Object.freeze(group.tokens);
+        Object.freeze(group);
+      }
+      Object.freeze(round.aggregateTokenListMap);
+      Object.freeze(round);
+    }
+    const merged = buildMergedAllNetworkSnapshot({
+      rounds: [first, second],
+      mergeDeriveAssetsByNetworkId: {},
+    });
+    expect(merged.aggregateTokenListMap.aggregate_ETH_.tokens).toEqual([
+      firstToken,
+      secondToken,
+    ]);
+    const evicted = buildMergedAllNetworkSnapshot({
+      rounds: [first],
+      mergeDeriveAssetsByNetworkId: {},
+    });
+    expect(evicted.aggregateTokenListMap.aggregate_ETH_.tokens).toEqual([
+      firstToken,
+    ]);
+    expect(first.aggregateTokenListMap?.aggregate_ETH_.tokens).toEqual([
+      firstToken,
+    ]);
+    expect(merged.aggregateTokenListMap.aggregate_ETH_.tokens).toHaveLength(2);
+  });
+
+  it('merges derived balances without mutating a cached raw entry shared by the token groups', () => {
+    const cachedFiat = Object.freeze(
+      makeFiat('10', {
+        balance: '1',
+        balanceParsed: '2',
+        frozenBalance: '3',
+        totalBalance: '4',
+        balanceMultiplier: '2',
+      }),
+    );
+    const cachedMap = Object.freeze({ 'btc--0_native': cachedFiat });
+    const incomingMap = Object.freeze({
+      'btc--0_other_native': Object.freeze(
+        makeFiat('20', {
+          balance: '2',
+          balanceParsed: '4',
+          frozenBalance: '5',
+          totalBalance: '6',
+          balanceMultiplier: '2',
+        }),
+      ),
+    });
+    const cachedTokens = Object.freeze([makeToken('btc--0_native')]);
+    const rounds = [
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: false,
+        accountWorth: '10',
+        tokens: { data: [...cachedTokens], keys: 'cache', map: cachedMap },
+        smallBalanceTokens: { data: [], keys: '', map: cachedMap },
+        riskTokens: { data: [], keys: '', map: cachedMap },
+      }),
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: true,
+        tokens: {
+          data: [makeToken('btc--0_other_native', { mergeAssets: true })],
+          keys: 'live',
+          map: incomingMap,
+        },
+      }),
+    ];
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+    });
+
+    // Small-balance keys retain their existing final override precedence.
+    expect(snapshot.mergeTokenListMap['btc--0_native']).toEqual(cachedFiat);
+    expect(snapshot.riskyTokenListMap['btc--0_native']).toEqual(cachedFiat);
+    expect(cachedFiat.balance).toBe('1');
+    expect(cachedFiat.fiatValue).toBe('10');
+    expect(rounds[0].tokens.data).toEqual(cachedTokens);
+
+    const withoutSmallOverride = buildMergedAllNetworkSnapshot({
+      rounds: [
+        { ...rounds[0], smallBalanceTokens: { data: [], keys: '', map: {} } },
+        rounds[1],
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+    });
+    expect(
+      withoutSmallOverride.mergeTokenListMap['btc--0_native'],
+    ).toMatchObject({
+      balance: '3',
+      balanceParsed: '6',
+      fiatValue: '30',
+      frozenBalance: '8',
+      totalBalance: '10',
+      balanceMultiplier: '2',
+    });
+  });
+
+  it('preserves last raw-key overwrite and first token metadata across 22 appended rounds', () => {
+    const rounds = Array.from({ length: 22 }, (_, index) =>
+      makeRound({
+        networkId: `network-${index}`,
+        tokens: {
+          data: [
+            makeToken('shared', { name: `metadata-${index}` }),
+            makeToken(`unique-${index}`),
+          ],
+          keys: String(index),
+          map: {
+            shared: makeFiat(String(index + 1)),
+            [`unique-${index}`]: makeFiat('1'),
+          },
+        },
+      }),
+    );
+    const before = JSON.stringify(rounds);
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+    });
+
+    expect(snapshot.orderedTokens).toHaveLength(23);
+    expect(snapshot.orderedTokens[0]).toMatchObject({
+      $key: 'shared',
+      name: 'metadata-0',
+    });
+    expect(snapshot.mergeTokenListMap.shared.fiatValue).toBe('22');
+    expect(snapshot.orderedTokens.slice(1).map((token) => token.$key)).toEqual(
+      Array.from({ length: 22 }, (_, index) => `unique-${index}`),
+    );
+    expect(JSON.stringify(rounds)).toBe(before);
+    expect(
+      buildMergedAllNetworkSnapshot({
+        rounds,
+        mergeDeriveAssetsByNetworkId: {},
+      }),
+    ).toEqual(snapshot);
+  });
+
+  it('sorts by fiat desc, pushes zero-balance last, and sums per-network worth', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'evm--1',
+        tokens: {
+          data: [makeToken('a1'), makeToken('a2')],
+          keys: 'ka',
+          map: { a1: makeFiat('10'), a2: makeFiat('0') },
+        },
+      }),
+      makeRound({
+        networkId: 'evm--56',
+        tokens: {
+          data: [makeToken('b1')],
+          keys: 'kb',
+          map: { b1: makeFiat('5') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['a1', 'b1', 'a2']);
+    expect(snap.smallBalanceTokens).toHaveLength(0);
+
+    expect(
+      new BigNumber(
+        snap.accountsWorth[
+          accountUtils.buildAccountValueKey({
+            accountId: 'acc1',
+            networkId: 'evm--1',
+          })
+        ],
+      ).toNumber(),
+    ).toBe(10);
+    expect(
+      new BigNumber(
+        snap.accountsWorth[
+          accountUtils.buildAccountValueKey({
+            accountId: 'acc1',
+            networkId: 'evm--56',
+          })
+        ],
+      ).toNumber(),
+    ).toBe(5);
+    // non-others account: every round's worth folds into createAtNetworkWorth
+    expect(new BigNumber(snap.createAtNetworkWorth).toNumber()).toBe(15);
+  });
+
+  it('dedups the same $key appearing across networks', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'evm--1',
+        tokens: {
+          data: [makeToken('dup')],
+          keys: 'k1',
+          map: { dup: makeFiat('10') },
+        },
+      }),
+      makeRound({
+        networkId: 'evm--56',
+        tokens: {
+          data: [makeToken('dup')],
+          keys: 'k2',
+          map: { dup: makeFiat('10') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['dup']);
+  });
+
+  it('does not double a cache-floor round worth whose groups share one map', () => {
+    // seedAndFlushCache builds cache-floor rounds with the ONE cached full
+    // tokenListMap as tokens.map, smallBalanceTokens.map AND riskTokens.map
+    // (the cache stores a single merged map). The per-round worth must count
+    // each $key once — summing tokens.map + smallBalanceTokens.map verbatim
+    // doubled every cache-floor network on the Home total (desktop "assets
+    // doubled" report, ticket 906970).
+    const fullCachedMap = {
+      usdt: makeFiat('5000'),
+      trx: makeFiat('150'),
+    };
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'tron--0.9',
+        accountId: 'acc1',
+        tokens: {
+          data: [makeToken('usdt'), makeToken('trx')],
+          keys: 'k',
+          map: fullCachedMap,
+        },
+        smallBalanceTokens: { data: [], keys: '', map: fullCachedMap },
+        riskTokens: { data: [], keys: '', map: fullCachedMap },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(
+      snap.accountsWorth[
+        accountUtils.buildAccountValueKey({
+          accountId: 'acc1',
+          networkId: 'tron--0.9',
+        })
+      ],
+    ).toBe('5150');
+  });
+
+  it('prefers the explicit round accountWorth so risk-only keys stay out of the worth', () => {
+    // Cache-floor rounds share the ONE cached full tokenListMap — which also
+    // holds risk-only entries — across all three group maps. Per-$key dedup
+    // fixes the doubling, but a map-derived sum would still count risk-only
+    // keys, while the cached tokenListValue counts tokens + smallBalanceTokens
+    // only. The explicit accountWorth must win so the authoritative snapshot
+    // matches the cache-hydrate overview write.
+    const fullCachedMap = {
+      usdt: makeFiat('5000'),
+      trx: makeFiat('150'),
+      scam: makeFiat('999'),
+    };
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'tron--0.9',
+        accountId: 'acc1',
+        accountWorth: '5150',
+        tokens: {
+          data: [makeToken('usdt'), makeToken('trx')],
+          keys: 'k',
+          map: fullCachedMap,
+        },
+        smallBalanceTokens: { data: [], keys: '', map: fullCachedMap },
+        riskTokens: {
+          data: [makeToken('scam')],
+          keys: 'kr',
+          map: fullCachedMap,
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(
+      snap.accountsWorth[
+        accountUtils.buildAccountValueKey({
+          accountId: 'acc1',
+          networkId: 'tron--0.9',
+        })
+      ],
+    ).toBe('5150');
+    // the explicit worth also feeds the createAtNetworkWorth accumulation
+    expect(new BigNumber(snap.createAtNetworkWorth).toNumber()).toBe(5150);
+  });
+
+  it('carries and sorts the risky slice', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        riskTokens: {
+          data: [makeToken('r2'), makeToken('r1')],
+          keys: 'kr',
+          map: { r1: makeFiat('9'), r2: makeFiat('3') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.riskyTokens.map((t) => t.$key)).toEqual(['r1', 'r2']);
+    expect(snap.orderedTokens).toHaveLength(0);
+  });
+
+  it('collapses derive tokens when mergeDeriveAssets is enabled for the network', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'btc--0',
+        tokens: {
+          data: [makeToken('btc--0_xpubabc_native', { mergeAssets: true })],
+          keys: 'kbtc',
+          map: { 'btc--0_xpubabc_native': makeFiat('7') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: { 'btc--0': true },
+      accountId: 'acc1',
+    });
+
+    // merge-derive rewrites `$key` to `${impl-chain}_${last}` => `btc--0_native`
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['btc--0_native']);
+  });
+
+  it('per-round mergeDeriveAssets:true overrides an empty networkId map', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: true,
+        tokens: {
+          data: [makeToken('btc--0_xpubabc_native', { mergeAssets: true })],
+          keys: 'kbtc',
+          map: { 'btc--0_xpubabc_native': makeFiat('7') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {}, // empty → only the per-round flag drives it
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['btc--0_native']);
+  });
+
+  it('per-round mergeDeriveAssets:false prevents merge even when the map says true', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: false,
+        tokens: {
+          data: [makeToken('btc--0_xpubabc_native', { mergeAssets: true })],
+          keys: 'kbtc',
+          map: { 'btc--0_xpubabc_native': makeFiat('7') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: { 'btc--0': true }, // map says true; round overrides to false
+      accountId: 'acc1',
+    });
+
+    // not merged → keeps the raw per-derive `$key`
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual([
+      'btc--0_xpubabc_native',
+    ]);
+  });
+
+  it('uses aggregate fiat when partitioning the zero-value tail', () => {
+    const aggregateBtc = makeToken('aggregate_BTC_', {
+      symbol: 'BTC',
+      isAggregateToken: true,
+      order: 2,
+    });
+    const zeroToken = makeToken('zero', { order: 1 });
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          networkId: 'btc--0',
+          tokens: {
+            data: [aggregateBtc, zeroToken],
+            keys: 'kbtc',
+            map: { zero: makeFiat('0') },
+          },
+          aggregateTokenMap: {
+            aggregate_BTC_: makeFiat('100', {
+              balance: '1',
+              balanceParsed: '1',
+            }),
+          },
+          aggregateTokenListMap: {
+            aggregate_BTC_: {
+              tokens: [makeToken('btc-sub', { networkId: 'btc--0' })],
+            },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual([
+      'aggregate_BTC_',
+      'zero',
+    ]);
+  });
+
+  it('includes aggregate fiat in the small-balance scalar', () => {
+    const highValueTokens = Array.from(
+      { length: TOKEN_LIST_HIGH_VALUE_MAX },
+      (_, index) => makeToken(`token-${index}`),
+    );
+    const aggregateBtc = makeToken('aggregate_BTC_', {
+      symbol: 'BTC',
+      isAggregateToken: true,
+    });
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          networkId: 'btc--0',
+          tokens: {
+            data: [...highValueTokens, aggregateBtc],
+            keys: 'kbtc',
+            map: Object.fromEntries(
+              highValueTokens.map((token, index) => [
+                token.$key,
+                makeFiat(`${TOKEN_LIST_HIGH_VALUE_MAX - index + 1}`),
+              ]),
+            ),
+          },
+          aggregateTokenMap: {
+            aggregate_BTC_: makeFiat('1', {
+              balance: '0.01',
+              balanceParsed: '0.01',
+            }),
+          },
+          aggregateTokenListMap: {
+            aggregate_BTC_: {
+              tokens: [makeToken('btc-sub', { networkId: 'btc--0' })],
+            },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual([
+      'aggregate_BTC_',
+    ]);
+    expect(snap.smallBalanceFiatValue).toBe('1');
+  });
+});

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
   SetupCard,
@@ -12,7 +14,7 @@ import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 import { Layout } from './utils/Layout';
 
-const pro2Avatar = HwWalletAvatarImages.pro2;
+const proAvatar = HwWalletAvatarImages[EDeviceType.Pro];
 
 // A short paragraph body, the common case for a stepper card.
 function TextBody({ children }: { children: string }) {
@@ -110,24 +112,24 @@ const SetupStepItemGallery = () => (
     description="设备 onboarding 的卡片体系。SetupCard 是共享外壳（header 由 title 显隐、footer 由 instruction 显隐、elevated 控外观）。SetupStepItem = 左侧 indicator（state 驱动 icon/标题色/elevated）+ SetupCard。SetupStatusCard = 无状态居中卡（status check / device ready）。文案取自 Figma 真实稿。"
     elements={[
       {
-        title: 'Pro 2 stepper（done → inProgress → pending，真实文案）',
+        title: 'Pro stepper（done → inProgress → pending，真实文案）',
         element: (
           <YStack>
             <SetupStepItem
               state="done"
-              title="OneKey Pro 2 is genuine"
+              title="OneKey Pro is genuine"
               showConnector
             />
             <SetupStepItem
               state="inProgress"
               title="PIN set"
               showConnector
-              deviceImage={pro2Avatar}
-              instruction="Set your PIN on your OneKey Pro 2"
+              deviceImage={proAvatar}
+              instruction="Set your PIN on your OneKey Pro"
             >
               <TextBody>
                 Just like any password or passcode, the PIN lets you unlock your
-                OneKey Pro 2 and prevent unwanted access.
+                OneKey Pro and prevent unwanted access.
               </TextBody>
             </SetupStepItem>
             <SetupStepItem
@@ -145,14 +147,14 @@ const SetupStepItemGallery = () => (
           <YStack>
             <SetupStepItem
               state="inProgress"
-              title="OneKey Pro 2 is genuine"
+              title="OneKey Pro is genuine"
               showConnector
-              deviceImage={pro2Avatar}
-              instruction="Tap on your OneKey Pro 2 to start setup"
+              deviceImage={proAvatar}
+              instruction="Tap on your OneKey Pro to start setup"
             >
               <TextBody>
-                Your OneKey Pro 2 is safe to use. You&apos;re good to go with
-                the setup.
+                Your OneKey Pro is safe to use. You&apos;re good to go with the
+                setup.
               </TextBody>
             </SetupStepItem>
             <SetupStepItem state="pending" title="PIN set" />
@@ -167,8 +169,8 @@ const SetupStepItemGallery = () => (
               state="inProgress"
               title="Setup and backup"
               showConnector
-              deviceImage={pro2Avatar}
-              instruction="Tap on your OneKey Pro 2 to start setup"
+              deviceImage={proAvatar}
+              instruction="Tap on your OneKey Pro to start setup"
             >
               <SetupCardBody gap="$4">
                 <SizableText color="$textSubdued">
@@ -197,8 +199,8 @@ const SetupStepItemGallery = () => (
               state="inProgress"
               title="Setup and backup"
               showConnector
-              deviceImage={pro2Avatar}
-              instruction="Follow instructions on OneKey Pro 2"
+              deviceImage={proAvatar}
+              instruction="Follow instructions on OneKey Pro"
               backgroundSlot={
                 <SetupCardBackground
                   variant="brand"
@@ -222,8 +224,8 @@ const SetupStepItemGallery = () => (
               state="inProgress"
               title="Setup and backup"
               showConnector
-              deviceImage={pro2Avatar}
-              instruction="Follow instructions on OneKey Pro 2"
+              deviceImage={proAvatar}
+              instruction="Follow instructions on OneKey Pro"
               backgroundSlot={
                 <SetupCardBackground
                   variant="neutral"
@@ -305,7 +307,7 @@ const SetupStepItemGallery = () => (
             <SetupCard
               elevated
               title="Elevated + title + footer"
-              deviceImage={pro2Avatar}
+              deviceImage={proAvatar}
               instruction="Footer shows because instruction is set"
             >
               <TextBody>Body is the open slot.</TextBody>

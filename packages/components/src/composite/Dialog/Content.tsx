@@ -7,8 +7,10 @@ export function Content({
   children,
   estimatedContentHeight,
   isAsync = false,
+  nativeSheetPresentation: _nativeSheetPresentation,
   ...others
-}: IDialogContentProps & Omit<IYStackProps, 'children'>) {
+}: IDialogContentProps &
+  Omit<IYStackProps, 'children'> & { nativeSheetPresentation?: boolean }) {
   if (!children) {
     return null;
   }

@@ -11,6 +11,7 @@ import {
   IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
+  IMPL_ZCASH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import TxExtraInfoAlgo from './ExtraInfoAlgo';
@@ -20,6 +21,7 @@ import TxExtraInfoSol from './ExtraInfoSol';
 import TxExtraInfoTon from './ExtraInfoTon';
 import TxExtraInfoTron from './ExtraInfoTron';
 import TxExtraInfoXrp from './ExtraInfoXrp';
+import TxExtraInfoZcash from './ExtraInfoZcash';
 
 type IProps = {
   accountId: string;
@@ -37,6 +39,9 @@ export function getTxExtraInfo({ impl }: { impl: string }) {
       }) => React.ReactNode | null)
     | undefined;
   switch (impl) {
+    case IMPL_ZCASH:
+      component = TxExtraInfoZcash;
+      break;
     case IMPL_SOL:
       component = TxExtraInfoSol;
       break;

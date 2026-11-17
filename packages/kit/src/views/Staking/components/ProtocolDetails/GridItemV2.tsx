@@ -6,6 +6,7 @@ import type {
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
+import { DottedUnderlineText } from './DottedUnderline';
 import { EarnActionIcon } from './EarnActionIcon';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
@@ -16,12 +17,15 @@ export function GridItem({
   descriptionComponent,
   actionIcon,
   tooltip,
+  tooltipTrigger = 'icon',
   type = 'default',
 }: {
   title: IEarnText;
   description?: IEarnText;
   descriptionComponent?: React.ReactNode;
   tooltip?: IEarnTooltip;
+  /** how the tooltip opens: an info icon, or the title marked with a dotted rule (phone) */
+  tooltipTrigger?: 'icon' | 'title';
   actionIcon?: IEarnActionIcon;
   type?: 'default' | 'info' | 'alert';
 }) {
@@ -63,10 +67,24 @@ export function GridItem({
         flexBasis: '33.33%',
       }}
     >
-      <XStack gap="$1" mb="$1.5">
-        <EarnText text={title} size="$bodyMd" color="$textSubdued" />
-        <EarnTooltip title={title.text} tooltip={tooltip} />
-      </XStack>
+      {tooltip && tooltipTrigger === 'title' ? (
+        <XStack mb="$1.5">
+          <EarnTooltip
+            title={title.text}
+            tooltip={tooltip}
+            renderTrigger={
+              <DottedUnderlineText size="$bodyMd" color="$textSubdued">
+                {title.text}
+              </DottedUnderlineText>
+            }
+          />
+        </XStack>
+      ) : (
+        <XStack gap="$1" mb="$1.5">
+          <EarnText text={title} size="$bodyMd" color="$textSubdued" />
+          <EarnTooltip title={title.text} tooltip={tooltip} />
+        </XStack>
+      )}
       <XStack gap="$1" alignItems="center">
         {/* flexShrink lets long values (e.g. Morpho vault names) wrap inside
             this grid cell instead of overflowing into the neighbor column. */}

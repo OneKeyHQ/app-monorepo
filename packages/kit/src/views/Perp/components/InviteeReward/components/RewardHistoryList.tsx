@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -73,7 +73,13 @@ function RewardItem({ item, token }: IRewardItemProps) {
               })}
             </SizableText>
             {item.tx ? (
-              <XStack ai="center" gap="$1" onPress={handleTxPress}>
+              <XStack
+                testID={`perp-invitee-reward-tx-${item.tx}`}
+                ai="center"
+                gap="$1"
+                onPress={handleTxPress}
+                cursor="pointer"
+              >
                 <SizableText size="$bodySm" color="$textSubdued">
                   {`${item.tx.slice(0, 8)}...${item.tx.slice(-6)}`}
                 </SizableText>
@@ -106,15 +112,8 @@ export function RewardHistoryList({
   const intl = useIntl();
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
-  const displayedHistory = useMemo(() => {
-    if (!history) return [];
-    return history.slice(0, displayCount);
-  }, [history, displayCount]);
-
-  const hasMore = useMemo(() => {
-    if (!history) return false;
-    return displayCount < history.length;
-  }, [history, displayCount]);
+  const displayedHistory = history?.slice(0, displayCount) ?? [];
+  const hasMore = Boolean(history && displayCount < history.length);
 
   const handleShowMore = useCallback(() => {
     setDisplayCount((prev) => prev + PAGE_SIZE);
@@ -134,7 +133,6 @@ export function RewardHistoryList({
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_no_data,
-            defaultMessage: 'No data',
           })}
         </SizableText>
       </YStack>
@@ -143,11 +141,16 @@ export function RewardHistoryList({
 
   return (
     <YStack gap="$5" pt="$2">
-      {displayedHistory.map((item) => (
-        <RewardItem key={item.tx} item={item} token={token} />
+      {displayedHistory.map((item, index) => (
+        <RewardItem
+          key={`${item.date}-${item.tx}-${index}`}
+          item={item}
+          token={token}
+        />
       ))}
       {hasMore ? (
         <XStack
+          testID="perp-invitee-reward-show-more"
           ai="center"
           jc="center"
           gap="$1"
@@ -155,12 +158,11 @@ export function RewardHistoryList({
           onPress={handleShowMore}
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
-          cursor="default"
+          cursor="pointer"
         >
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.global_show_more,
-              defaultMessage: 'Show More',
             })}
           </SizableText>
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />

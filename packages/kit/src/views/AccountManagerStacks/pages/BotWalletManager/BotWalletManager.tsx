@@ -23,10 +23,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
 import {
@@ -324,8 +320,6 @@ function BotWalletManagerContent() {
   >();
   const { parentKeylessWalletId } = route.params;
   const actions = useAccountSelectorActions();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -379,6 +373,8 @@ function BotWalletManagerContent() {
 
   const handleCurrentHomeWalletHidden = useCallback(
     async (walletId: string) => {
+      const selectedAccount = actions.current.getSelectedAccount({ num: 0 });
+      const activeAccount = actions.current.getActiveAccount({ num: 0 });
       const isCurrentHomeWallet =
         selectedAccount.focusedWallet === walletId ||
         selectedAccount.walletId === walletId ||
@@ -407,12 +403,7 @@ function BotWalletManagerContent() {
         sceneName: EAccountSelectorSceneName.home,
       });
     },
-    [
-      actions,
-      activeAccount.wallet?.id,
-      selectedAccount.focusedWallet,
-      selectedAccount.walletId,
-    ],
+    [actions],
   );
 
   const handleBotWalletVisibilityToggle = useCallback(

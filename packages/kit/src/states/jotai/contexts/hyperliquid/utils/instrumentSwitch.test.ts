@@ -1,4 +1,116 @@
-import { publishLatestOrderBookOptions } from './instrumentSwitch';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import {
+  captureSubscriptionRecoveryProof,
+  publishLatestOrderBookOptions,
+  recoverSubscriptionsWithProof,
+  shouldSyncSubscriptionsAfterInstrumentChange,
+} from './instrumentSwitch';
+
+describe('recoverSubscriptionsWithProof', () => {
+  it('does not call recover when no proof is present', async () => {
+    const recover = jest.fn<Promise<boolean>, [number]>();
+
+    await expect(
+      recoverSubscriptionsWithProof({
+        recoveryProof: undefined,
+        recover,
+      }),
+    ).resolves.toBe(false);
+    expect(recover).not.toHaveBeenCalled();
+  });
+
+  it('forwards the proof generation to recover and returns its result', async () => {
+    const recover = jest
+      .fn<Promise<boolean>, [number]>()
+      .mockResolvedValue(true);
+
+    await expect(
+      recoverSubscriptionsWithProof({
+        recoveryProof: { disabledCount: 6, source: 'token-selector' },
+        recover,
+      }),
+    ).resolves.toBe(true);
+    expect(recover).toHaveBeenCalledWith(6);
+  });
+
+  it('falls back safely when recover rejects', async () => {
+    await expect(
+      recoverSubscriptionsWithProof({
+        recoveryProof: { disabledCount: 6, source: 'token-selector' },
+        recover: async () => {
+          throw new OneKeyLocalError('bridge unavailable');
+        },
+      }),
+    ).resolves.toBe(false);
+  });
+});
+
+describe('captureSubscriptionRecoveryProof', () => {
+  it.each(['token-selector', 'trade-history-details'] as const)(
+    'captures the bg generation while %s stays live',
+    async (source) => {
+      await expect(
+        captureSubscriptionRecoveryProof({
+          source,
+          isSourceLive: () => true,
+          isAppVisible: () => true,
+          isAppLocked: async () => false,
+          readDisabledCount: async () => 4,
+        }),
+      ).resolves.toEqual({
+        disabledCount: 4,
+        source,
+      });
+    },
+  );
+
+  it('drops the proof when the UI source disappears during the bridge read', async () => {
+    let live = true;
+
+    await expect(
+      captureSubscriptionRecoveryProof({
+        source: 'token-selector',
+        isSourceLive: () => live,
+        isAppVisible: () => true,
+        isAppLocked: async () => false,
+        readDisabledCount: async () => {
+          live = false;
+          return 4;
+        },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ['hidden', false, false],
+    ['locked', true, true],
+  ])('drops the proof when the app is %s', async (_name, visible, locked) => {
+    await expect(
+      captureSubscriptionRecoveryProof({
+        source: 'token-selector',
+        isSourceLive: () => true,
+        isAppVisible: () => visible,
+        isAppLocked: async () => locked,
+        readDisabledCount: async () => 4,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('falls back safely when the bg generation read rejects', async () => {
+    await expect(
+      captureSubscriptionRecoveryProof({
+        source: 'token-selector',
+        isSourceLive: () => true,
+        isAppVisible: () => true,
+        isAppLocked: async () => false,
+        readDisabledCount: async () => {
+          throw new OneKeyLocalError('bridge unavailable');
+        },
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe('publishLatestOrderBookOptions', () => {
   it('does not publish stale options after a newer instrument switch starts', async () => {
@@ -83,4 +195,28 @@ describe('publishLatestOrderBookOptions', () => {
     await expect(latest).resolves.toBe(true);
     expect(committed).toEqual({ coin: '@108' });
   });
+});
+
+describe('shouldSyncSubscriptionsAfterInstrumentChange', () => {
+  it.each(['token-selector', 'trade-history-details'] as const)(
+    'keeps a %s proof valid after the modal closes',
+    (source) => {
+      expect(
+        shouldSyncSubscriptionsAfterInstrumentChange({
+          viewState: {
+            routeFocused: false,
+            tokenSelectorOpen: false,
+            tradeHistoryDetailsOpen: false,
+            tokenSelectorTab: 'perps',
+            infoPanelTab: 'Positions',
+            favoritesBarSpotActive: false,
+          },
+          recoveryProof: {
+            disabledCount: 3,
+            source,
+          },
+        }),
+      ).toBe(true);
+    },
+  );
 });

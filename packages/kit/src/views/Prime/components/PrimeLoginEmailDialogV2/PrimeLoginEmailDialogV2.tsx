@@ -1,40 +1,62 @@
-import { useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Dialog,
   Form,
   Input,
-  SizableText,
   Stack,
-  XStack,
+  Toast,
+  YStack,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { showOneKeyIdLegacyOAuthBindDialog } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
 } from '../oneKeyIdLoginToastUtils';
 import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector';
+import { PrimeLoginPasswordTestDialog } from '../PrimeDevUtils/PrimeLoginPasswordTestDialog';
+import { useEmailOtpDevTools } from '../PrimeDevUtils/useEmailOtpDevTools';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-function PrimeLoginEmailDialogV2(props: {
+type IPrimeLoginEmailDialogV2Props = {
   onComplete: () => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   title?: string;
   description?: string;
-  onConfirm?: (code: string) => void;
+  onConfirm?: (code: string) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
-  initialSignUpMode?: boolean;
-}) {
+  disabled?: boolean;
+  debugPanelOpenCount?: number;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
+} & (
+  | {
+      embedded: true;
+      embeddedVerificationEmail?: string;
+      onEmbeddedVerificationEmailChange: (email?: string) => void;
+    }
+  | {
+      embedded?: false;
+      embeddedVerificationEmail?: never;
+      onEmbeddedVerificationEmailChange?: never;
+    }
+);
+
+function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
   const {
     onComplete,
     onLoginSuccess,
@@ -42,8 +64,19 @@ function PrimeLoginEmailDialogV2(props: {
     description,
     onConfirm,
     onCancel,
-    initialSignUpMode,
+    embedded,
+    embeddedVerificationEmail,
+    onEmbeddedVerificationEmailChange,
+    disabled = false,
+    debugPanelOpenCount = 0,
+    onSubmittingChange,
   } = props;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [
+    embeddedVerificationSessionEmail,
+    setEmbeddedVerificationSessionEmail,
+  ] = useState<string>();
+  const isSubmittingRef = useRef(false);
 
   const [devSettings] = useDevSettingsPersistAtom();
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
@@ -56,39 +89,68 @@ function PrimeLoginEmailDialogV2(props: {
     useLoginWithEmail,
     // user
   } = useOneKeyAuth();
-  const { sendCode, loginWithCode } = useLoginWithEmail();
+  const { sendCode: originalSendCode, loginWithCode: originalLoginWithCode } =
+    useLoginWithEmail();
 
   const intl = useIntl();
-  const [isSignUpMode, setIsSignUpMode] = useState(Boolean(initialSignUpMode));
 
   const form = useForm<{ email: string }>({
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
   });
 
+  const devAuth = useEmailOtpDevTools({
+    openCount: embedded ? debugPanelOpenCount : 0,
+    email: embeddedVerificationEmail ?? form.watch('email'),
+    sendCode: originalSendCode,
+    loginWithCode: originalLoginWithCode,
+  });
+  const { sendCode, loginWithCode } = devAuth;
+
+  const resetSubmittingState = useCallback(() => {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+    onSubmittingChange?.(false);
+  }, [onSubmittingChange]);
+
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
       const { preventClose } = options;
+      if (isSubmittingRef.current || disabled || !devAuth.canSend) {
+        preventClose?.();
+        return;
+      }
       await form.trigger();
-      if (!form.formState.isValid) {
+      if (!form.formState.isValid || isSubmittingRef.current) {
         preventClose?.();
         return;
       }
       const data = form.getValues();
 
-      appStorage.syncStorage.set(
-        EAppSyncStorageKeys.last_onekey_id_login_email,
-        data.email,
-      );
-
+      isSubmittingRef.current = true;
+      setIsSubmitting(true);
+      onSubmittingChange?.(true);
+      let didCloseDialogForNextStep = false;
+      let didAdvanceToCodeStep = false;
       try {
+        await appStorage.syncStorage.set(
+          EAppSyncStorageKeys.last_onekey_id_login_email,
+          data.email,
+        );
+        if (embedded) {
+          setEmbeddedVerificationSessionEmail(data.email);
+          onEmbeddedVerificationEmailChange(data.email);
+          didAdvanceToCodeStep = true;
+          return;
+        }
         await onComplete();
-        const dialog = Dialog.show({
+        didCloseDialogForNextStep = true;
+        const dialog = showOneKeyIdLoginDialog({
           onCancel,
+          floatingPanelProps: platformEnv.isDesktop
+            ? { width: 440 }
+            : undefined,
           onClose: async (extra) => {
-            // dialog.close({ flag: 'loginSuccess' }) means the dialog was
-            // closed programmatically after a successful login; skip the
-            // cancel handler so the outer login promise is not rejected
-            // with PrimeLoginDialogCancelError before onLoginSuccess runs.
+            // A successful login settles the outer flow explicitly.
             if (extra?.flag === 'loginSuccess') {
               return;
             }
@@ -108,8 +170,23 @@ function PrimeLoginEmailDialogV2(props: {
                   // OTP verification, session persistence, and Prime commit.
                   isOneKeyIdLoginCommitted = true;
                   showOneKeyIdLoginSuccessToast(intl);
-                  await dialog.close({ flag: 'loginSuccess' });
-                  isDialogClosed = true;
+                  // Await the dialog close before the outer continuation
+                  // navigates: running close() and pushModal concurrently is
+                  // the documented Fabric leftover-dialog hazard. A close
+                  // failure must still not turn the committed login into a
+                  // cancelled flow, so it only logs.
+                  try {
+                    await dialog.close({ flag: 'loginSuccess' });
+                    isDialogClosed = true;
+                  } catch (closeError) {
+                    logOneKeyIdLoginFailureReason(
+                      `OneKey ID login dialog close failed after committed login: ${getSanitizedAuthErrorText(
+                        closeError,
+                      )}`,
+                      closeError,
+                      { trigger: 'interactive' },
+                    );
+                  }
                   await onLoginSuccess?.();
                   await showOneKeyIdLegacyOAuthBindDialog({
                     type: 'post-email-login',
@@ -121,137 +198,261 @@ function PrimeLoginEmailDialogV2(props: {
                   throw error;
                 } finally {
                   if (!isDialogClosed) {
-                    await dialog.close();
+                    try {
+                      await dialog.close();
+                    } catch (closeError) {
+                      logOneKeyIdLoginFailureReason(
+                        `OneKey ID login dialog final close retry failed: ${getSanitizedAuthErrorText(
+                          closeError,
+                        )}`,
+                        closeError,
+                        { trigger: 'interactive' },
+                      );
+                    }
                   }
                 }
               }}
             />
           ),
         });
+        didAdvanceToCodeStep = true;
       } catch (error) {
         preventClose?.();
-        throw error;
+        showOneKeyIdLoginFailedToast({ error, intl });
+        if (didCloseDialogForNextStep) {
+          await onCancel?.();
+        }
+      } finally {
+        if (!didAdvanceToCodeStep) {
+          resetSubmittingState();
+        }
       }
     },
     [
+      disabled,
+      devAuth.canSend,
+      embedded,
       form,
       intl,
       loginWithCode,
       onComplete,
       onConfirm,
+      onEmbeddedVerificationEmailChange,
       onLoginSuccess,
+      onSubmittingChange,
+      resetSubmittingState,
       sendCode,
       onCancel,
     ],
   );
 
+  const handleEmbeddedLoginSuccess = useCallback(async () => {
+    if (devAuth.isTestProject || devAuth.isPasswordLogin) {
+      Toast.success({
+        title: devAuth.isPasswordLogin
+          ? 'Test Supabase password login succeeded. OneKey ID session unchanged.'
+          : 'Test Supabase OTP verified. OneKey ID session unchanged.',
+      });
+      return;
+    }
+    showOneKeyIdLoginSuccessToast(intl);
+    // OTP verification has already committed the login in the bg runtime.
+    // Await the host dialog close before the outer continuation navigates:
+    // running close() and pushModal concurrently is the documented Fabric
+    // leftover-dialog hazard. A close failure (pathological — Dialog.close
+    // otherwise always resolves) must not stop the committed login's
+    // continuations, so it only logs.
+    try {
+      await onComplete();
+    } catch (closeError) {
+      logOneKeyIdLoginFailureReason(
+        `OneKey ID login host dialog close failed after committed login: ${getSanitizedAuthErrorText(
+          closeError,
+        )}`,
+        closeError,
+        { trigger: 'interactive' },
+      );
+    }
+    await onLoginSuccess?.();
+    await showOneKeyIdLegacyOAuthBindDialog({
+      type: 'post-email-login',
+    });
+  }, [
+    devAuth.isPasswordLogin,
+    devAuth.isTestProject,
+    intl,
+    onComplete,
+    onLoginSuccess,
+  ]);
+
+  const handleChooseAnotherSignInMethod = useCallback(() => {
+    resetSubmittingState();
+    onEmbeddedVerificationEmailChange?.(undefined);
+  }, [onEmbeddedVerificationEmailChange, resetSubmittingState]);
+
+  let embeddedVerificationCodeContent: ReactNode = null;
+  if (embedded && embeddedVerificationSessionEmail) {
+    embeddedVerificationCodeContent =
+      devAuth.isPasswordLogin && devAuth.captchaOverride ? (
+        <PrimeLoginPasswordTestDialog
+          key={embeddedVerificationSessionEmail}
+          active={
+            embeddedVerificationEmail === embeddedVerificationSessionEmail
+          }
+          email={embeddedVerificationSessionEmail}
+          captchaConfig={devAuth.captchaOverride}
+          revision={devAuth.revision}
+          disabled={!devAuth.canSend}
+          loginWithPassword={devAuth.loginWithPassword}
+          onLoginSuccess={handleEmbeddedLoginSuccess}
+          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+          developmentControls={devAuth.renderControls}
+        />
+      ) : (
+        <PrimeLoginEmailCodeDialogV2
+          key={embeddedVerificationSessionEmail}
+          active={
+            embeddedVerificationEmail === embeddedVerificationSessionEmail
+          }
+          sendCode={sendCode}
+          loginWithCode={loginWithCode}
+          email={embeddedVerificationSessionEmail}
+          onConfirm={onConfirm}
+          onLoginSuccess={handleEmbeddedLoginSuccess}
+          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+          developmentControls={devAuth.renderControls}
+          captchaConfig={devAuth.captchaOverride}
+          sendCodeDisabled={!devAuth.canSend}
+          developmentConfigRevision={devAuth.revision}
+          isolatedTest={devAuth.isTestProject}
+        />
+      );
+  }
+  const showEmailForm = !embedded || embeddedVerificationEmail === undefined;
+
   const titleContent = (
-    <Dialog.Title>
+    <Dialog.Title testID="prime-login-email-title">
       {title ||
         intl.formatMessage({
-          id: isSignUpMode
-            ? ETranslations.prime_onekeyid_signup
-            : ETranslations.prime_signup_login,
+          id: ETranslations.sign_in_to_onekey_id__title,
         })}
     </Dialog.Title>
   );
-  const showSignUpEntry = !title;
 
   return (
-    <Stack>
-      <Dialog.Header>
-        <Dialog.Icon icon="EmailOutline" />
-        {titleContent}
-        <Dialog.Description>
-          {description ||
-            intl.formatMessage({
-              id: ETranslations.prime_onekeyid_continue_description,
-            })}
-        </Dialog.Description>
-      </Dialog.Header>
-      <Stack>
-        {devSettings.enabled ? <DevTestAccountSelector /> : null}
-        <Form form={form}>
-          <Form.Field
-            name="email"
-            rules={{
-              validate: (value) => {
-                if (!value) {
-                  return false;
-                }
-                if (!stringUtils.isValidEmail(value)) {
-                  return intl.formatMessage({
-                    id: ETranslations.prime_onekeyid_email_error,
-                  });
-                }
-                return true;
-              },
-              required: {
-                value: true,
-                message: '',
-              },
-              onChange: () => {
-                form.clearErrors();
-              },
-            }}
-          >
-            <Input
-              testID="prime-input"
-              autoFocus
-              autoCapitalize="none"
-              size="large"
-              placeholder="your@email.com"
-              flex={1}
-              onChangeText={(text) => text?.trim() ?? text}
-              onSubmitEditing={() => submit()}
-            />
-          </Form.Field>
-        </Form>
-      </Stack>
-      <Dialog.Footer
-        showCancelButton={false}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        confirmButtonProps={{
-          disabled: !form.formState.isValid || !isReady,
-        }}
-        onConfirm={async ({ preventClose }) => {
-          await submit({ preventClose });
-        }}
-        extraContent={
-          showSignUpEntry ? (
-            <XStack jc="center" px="$5" pb="$5">
-              {isSignUpMode ? null : (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {`${intl.formatMessage({
-                    id: ETranslations.no_account,
-                  })}?`}
-                </SizableText>
-              )}
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textInteractive"
-                ml="$1"
-                cursor="pointer"
-                role="button"
-                hoverStyle={{ opacity: 0.8 }}
-                pressStyle={{ opacity: 0.7 }}
-                onPress={() => setIsSignUpMode((prev) => !prev)}
-              >
-                {isSignUpMode
-                  ? intl.formatMessage({
-                      id: ETranslations.prime_signup_login,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.prime_onekeyid_signup,
+    <>
+      {embeddedVerificationCodeContent}
+      {showEmailForm ? (
+        <Stack>
+          {embedded ? null : (
+            <Dialog.Header>
+              <Dialog.Icon icon="EmailOutline" />
+              {titleContent}
+              <Dialog.Description>
+                {description ||
+                  intl.formatMessage({
+                    id: ETranslations.onekey_id_auto_create__desc,
+                  })}
+              </Dialog.Description>
+            </Dialog.Header>
+          )}
+          <YStack gap="$3">
+            {devSettings.enabled ? <DevTestAccountSelector /> : null}
+            <Form form={form}>
+              <Form.Field
+                label={intl.formatMessage({
+                  id: ETranslations.email__label,
+                })}
+                name="email"
+                description={
+                  <Form.FieldDescription
+                    size="$bodySm"
+                    testID="prime-login-email-existing-only-hint"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.onekey_id_email_existing_only__desc,
                     })}
-              </SizableText>
-            </XStack>
-          ) : undefined
-        }
-      />
-    </Stack>
+                  </Form.FieldDescription>
+                }
+                rules={{
+                  validate: (value) => {
+                    if (!value) {
+                      return false;
+                    }
+                    if (!stringUtils.isValidEmail(value)) {
+                      return intl.formatMessage({
+                        id: ETranslations.prime_onekeyid_email_error,
+                      });
+                    }
+                    return true;
+                  },
+                  required: {
+                    value: true,
+                    message: '',
+                  },
+                  onChange: () => {
+                    form.clearErrors();
+                  },
+                }}
+              >
+                <Input
+                  testID="prime-input"
+                  autoFocus={!embedded}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  size="large"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.email_address_example__desc,
+                  })}
+                  flex={1}
+                  disabled={disabled || isSubmitting}
+                  onChangeText={(text) => text?.trim() ?? text}
+                  onSubmitEditing={() => void submit()}
+                />
+              </Form.Field>
+            </Form>
+            {embedded ? (
+              <Button
+                variant="primary"
+                size="large"
+                testID="prime-login-email-btn"
+                loading={isSubmitting}
+                disabled={
+                  disabled ||
+                  !form.formState.isValid ||
+                  !isReady ||
+                  !devAuth.canSend
+                }
+                onPress={() => void submit()}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_sign_in,
+                })}
+              </Button>
+            ) : null}
+            {devAuth.renderControls(isSubmitting)}
+          </YStack>
+          {embedded ? null : (
+            <Dialog.Footer
+              showCancelButton={false}
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.global_continue,
+              })}
+              confirmButtonProps={{
+                disabled:
+                  disabled ||
+                  isSubmitting ||
+                  !form.formState.isValid ||
+                  !isReady,
+              }}
+              onConfirm={async ({ preventClose }) => {
+                await submit({ preventClose });
+              }}
+            />
+          )}
+        </Stack>
+      ) : null}
+    </>
   );
 }
 

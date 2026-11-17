@@ -2,32 +2,30 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { Button, Portal } from '@onekeyhq/components';
+import { Button, Portal, SizableText, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
+// Overlays render in `OverlayView`; Portal only moves content into an in-page
+// slot (here the suggestion list slot, as the phrase input does).
 const ActiveDemo = () => {
-  const [, setCount] = useState(0);
+  const [count, setCount] = useState(0);
   useEffect(() => {
-    setInterval(() => {
+    const timer = setInterval(() => {
       setCount((i) => i + 1);
     }, 1000);
+    return () => clearInterval(timer);
   }, []);
-  const A = useMemo(() => <Button>++456</Button>, []);
-  // const b = useMemo(() => <Button>++789</Button>, []);
+  const content = useMemo(() => <Button>Rendered through the slot</Button>, []);
   return (
-    <>
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        {/* <Button>++456</Button> */}
-        {A}
+    <YStack gap="$3">
+      <SizableText>{`Ticks: ${count}`}</SizableText>
+      <Portal.Body container={Portal.Constant.SUGGESTION_LIST}>
+        {content}
       </Portal.Body>
-      {/* <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        <Button>++789</Button>
-      </Portal.Body>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        <Button>++789</Button>
-      </Portal.Body> */}
-    </>
+      <SizableText>Slot:</SizableText>
+      <Portal.Container name={Portal.Constant.SUGGESTION_LIST} />
+    </YStack>
   );
 };
 

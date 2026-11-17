@@ -1,0 +1,189 @@
+import { act, renderHook } from '@testing-library/react-native';
+
+import { useSwapModalAutoCloseOnBroadcast } from './useSwapModalAutoCloseOnBroadcast';
+
+function createDeferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+function renderAutoClose({
+  enabled = true,
+  isFocused = true,
+  close = jest.fn().mockResolvedValue(undefined),
+  onPopStack = jest.fn(),
+  onBroadcast = jest.fn(),
+}: {
+  enabled?: boolean;
+  isFocused?: boolean;
+  close?: jest.Mock<Promise<void>, []>;
+  onPopStack?: jest.Mock<void, []>;
+  onBroadcast?: jest.Mock<void | Promise<void>, []>;
+} = {}) {
+  const dialogRef = { current: { close } };
+  const view = renderHook(
+    (props: { enabled: boolean; isFocused: boolean }) =>
+      useSwapModalAutoCloseOnBroadcast({
+        ...props,
+        dialogRef,
+        onPopStack,
+        onBroadcast,
+      }),
+    { initialProps: { enabled, isFocused } },
+  );
+  return { ...view, close, onPopStack, onBroadcast, dialogRef };
+}
+
+describe('useSwapModalAutoCloseOnBroadcast', () => {
+  it('acknowledges an old broadcast without closing a new Review', async () => {
+    const { result, onBroadcast, close, onPopStack } = renderAutoClose();
+    await act(async () => {
+      await result.current(() => false);
+    });
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    expect(onPopStack).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current(() => true);
+    });
+    expect(onBroadcast).toHaveBeenCalledTimes(2);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks the Review again after the business acknowledgment', async () => {
+    const acknowledgment = createDeferred();
+    const { result, close, onPopStack } = renderAutoClose({
+      onBroadcast: jest.fn(() => acknowledgment.promise),
+    });
+    let current = true;
+    let completion!: Promise<void>;
+    act(() => {
+      completion = result.current(() => current);
+    });
+    current = false;
+    await act(async () => {
+      acknowledgment.resolve();
+      await completion;
+    });
+    expect(close).not.toHaveBeenCalled();
+    expect(onPopStack).not.toHaveBeenCalled();
+  });
+
+  it('does not pop a new Review opened while the old dialog closes', async () => {
+    const closing = createDeferred();
+    const { result, dialogRef, onPopStack } = renderAutoClose({
+      close: jest.fn(() => closing.promise),
+    });
+    let completion!: Promise<void>;
+    await act(async () => {
+      completion = result.current();
+    });
+    dialogRef.current = { close: jest.fn().mockResolvedValue(undefined) };
+    await act(async () => {
+      closing.resolve();
+      await completion;
+    });
+    expect(onPopStack).not.toHaveBeenCalled();
+    expect(dialogRef.current.close).not.toHaveBeenCalled();
+  });
+
+  it('closes the owned review dialog before popping the focused Swap modal', async () => {
+    const { result, close, onPopStack } = renderAutoClose();
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(onPopStack).toHaveBeenCalledTimes(1);
+    expect(close.mock.invocationCallOrder[0]).toBeLessThan(
+      onPopStack.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('acknowledges the broadcast before closing the Swap UI', async () => {
+    const { result, onBroadcast, close } = renderAutoClose();
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(onBroadcast.mock.invocationCallOrder[0]).toBeLessThan(
+      close.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('still closes after an acknowledgment error', async () => {
+    const onBroadcast = jest
+      .fn<Promise<void>, []>()
+      .mockRejectedValue(new Error('acknowledgment failed'));
+    const { result, close, onPopStack } = renderAutoClose({ onBroadcast });
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(onPopStack).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for an overlaid signature modal to return focus to Swap', async () => {
+    const { result, rerender, close, onPopStack } = renderAutoClose({
+      isFocused: false,
+    });
+
+    await act(async () => {
+      await result.current();
+    });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(onPopStack).not.toHaveBeenCalled();
+
+    rerender({ enabled: true, isFocused: true });
+    expect(onPopStack).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing when the caller did not opt in', async () => {
+    const { result, close, onPopStack } = renderAutoClose({ enabled: false });
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(close).not.toHaveBeenCalled();
+    expect(onPopStack).not.toHaveBeenCalled();
+  });
+
+  it('handles duplicate broadcast callbacks only once', async () => {
+    const { result, close, onPopStack } = renderAutoClose();
+
+    await act(async () => {
+      await result.current();
+      await result.current();
+    });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(onPopStack).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not navigate after the Swap modal unmounts during dialog close', async () => {
+    const deferred = createDeferred();
+    const close = jest.fn(() => deferred.promise);
+    const { result, unmount, onPopStack } = renderAutoClose({ close });
+
+    let broadcastPromise: Promise<void> | undefined;
+    act(() => {
+      broadcastPromise = result.current();
+    });
+    unmount();
+    await act(async () => {
+      deferred.resolve();
+      await broadcastPromise;
+    });
+
+    expect(onPopStack).not.toHaveBeenCalled();
+  });
+});

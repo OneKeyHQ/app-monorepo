@@ -20,7 +20,7 @@ import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 
 export function useAutoSelectAccount({ num }: { num: number }) {
   const {
-    activeAccount: { ready: activeAccountReady, account },
+    activeAccount: { ready: activeAccountReady },
   } = useActiveAccount({ num });
   const [storageReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
@@ -42,6 +42,7 @@ export function useAutoSelectAccount({ num }: { num: number }) {
         num,
         sceneName,
         sceneUrl,
+        source: 'active-ready',
       });
     };
     void run();
@@ -53,20 +54,46 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   // **** autoSelectAccount after WalletUpdate
   useEffect(() => {
     const fn = async () => {
-      if (!account) {
-        await timerUtils.wait(600);
-        await actions.current.autoSelectNextAccount({
-          num,
-          sceneName,
-          sceneUrl,
-        });
+      const settledForMs = 600;
+      await timerUtils.wait(settledForMs);
+      const latestActiveAccount = actions.current.getActiveAccount({ num });
+      if (latestActiveAccount.account && latestActiveAccount.wallet) {
+        return;
       }
+      await actions.current.autoSelectNextAccount({
+        num,
+        sceneName,
+        sceneUrl,
+        settledForMs,
+        source: 'wallet-update',
+      });
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
     };
-  }, [account, actions, num, sceneName, sceneUrl]);
+  }, [actions, num, sceneName, sceneUrl]);
+
+  // **** autoSelectAccount after WalletRemove
+  useEffect(() => {
+    const fn = async ({ walletId }: { walletId: string }) => {
+      // Do not rebind a DApp connection during wallet cleanup.
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        return;
+      }
+      await actions.current.autoSelectNextAccount({
+        num,
+        sceneName,
+        sceneUrl,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: walletId,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.WalletRemove, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletRemove, fn);
+    };
+  }, [actions, num, sceneName, sceneUrl]);
 
   // **** autoSelectAccount after AccountRemove
   useEffect(() => {
@@ -75,6 +102,7 @@ export function useAutoSelectAccount({ num }: { num: number }) {
         num,
         sceneName,
         sceneUrl,
+        source: 'account-remove',
         triggerBy: EAccountSelectorAutoSelectTriggerBy.removeAccount,
       });
     };

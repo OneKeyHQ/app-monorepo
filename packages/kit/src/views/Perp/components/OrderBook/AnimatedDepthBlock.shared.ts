@@ -24,9 +24,9 @@ export const ORDER_BOOK_HORIZONTAL_BAR_INSET = 0;
 export const ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP = 1;
 export const ORDER_BOOK_VERTICAL_BAR_INSET = 0;
 
-// Mobile layout: fixed 20pt rows, no inter-row margin. Bar is inset by the row
+// Mobile layout: fixed 22pt rows, no inter-row margin. Bar is inset by the row
 // gap (0 today — kept as a named constant so it is never hard-coded away).
-export const ORDER_BOOK_MOBILE_ROW_HEIGHT = 20;
+export const ORDER_BOOK_MOBILE_ROW_HEIGHT = 22;
 export const ORDER_BOOK_MOBILE_ROW_GAP = 0;
 export const ORDER_BOOK_MOBILE_ROW_MARGIN_TOP = 0;
 export const ORDER_BOOK_MOBILE_BAR_INSET = ORDER_BOOK_MOBILE_ROW_GAP;

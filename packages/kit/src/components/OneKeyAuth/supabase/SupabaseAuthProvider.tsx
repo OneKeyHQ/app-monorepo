@@ -1,25 +1,40 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getKeylessSupabaseAuthSessionKey,
-  getSupabaseAuthSessionKey,
-} from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
+import { getKeylessSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { SupabaseAuthContext } from './SupabaseAuthContext';
 
+import type { ISupabaseAuthData } from './SupabaseAuthContext';
 import type { Session } from '@supabase/supabase-js';
 
 const WEB_SUPABASE_AUTH_START_DELAY_MS = 6000;
+const INITIAL_AUTH_DATA: ISupabaseAuthData = {
+  session: undefined,
+  isLoading: true,
+  isLoggedIn: false,
+};
 
 const waitForSupabaseAuthStart = () => {
   if (!platformEnv.isWeb || typeof globalThis.addEventListener !== 'function') {
@@ -71,6 +86,37 @@ function logSupabaseAuthProvider(message: string) {
 }
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const { projectUrl } = getOneKeyIdAuthConfigByDevSettings(devSettings);
+  const [projection, setProjection] = useState<{
+    projectUrl: string;
+    data: ISupabaseAuthData;
+  }>();
+  const onChange = useCallback(
+    (data: ISupabaseAuthData) => setProjection({ projectUrl, data }),
+    [projectUrl],
+  );
+  // Remount only auth state/subscriptions. Navigation and every screen live
+  // under this context and must retain their identity until the actual restart.
+  return (
+    <SupabaseAuthContext.Provider
+      value={
+        projection?.projectUrl === projectUrl
+          ? projection.data
+          : INITIAL_AUTH_DATA
+      }
+    >
+      <SupabaseAuthStateForEnvironment key={projectUrl} onChange={onChange} />
+      {children}
+    </SupabaseAuthContext.Provider>
+  );
+}
+
+function SupabaseAuthStateForEnvironment({
+  onChange,
+}: {
+  onChange: (data: ISupabaseAuthData) => void;
+}) {
   // Per-realm session slots. A OneKey ID login is backed by ONE of two
   // Supabase realms persisted under DIFFERENT storage keys: the legacy email
   // realm or the Keyless OAuth realm (see supabaseClientUtils /
@@ -102,7 +148,13 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
       setAuthSessionSource(source);
     } catch (error) {
-      console.error('Error reading auth session source:', error);
+      logOneKeyIdLoginFailureReason(
+        `SupabaseAuthProvider auth session source read failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+        { trigger: 'passive' },
+      );
     }
   }, []);
 
@@ -118,7 +170,11 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       getKeylessSupabaseClient,
       isSupabaseTokenRefreshRuntime,
     } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
-    const { client: legacyClient, storage } = getSupabaseClient();
+    const {
+      client: legacyClient,
+      storage,
+      sessionKey: legacySessionKey,
+    } = await getSupabaseClient();
     const keylessClient = getKeylessSupabaseClient().client;
     let nextLegacySession: Session | null = null;
     let nextKeylessSession: Session | null = null;
@@ -129,7 +185,13 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       const readClientSession = async (client: typeof legacyClient) => {
         const { data, error } = await client.auth.getSession();
         if (error) {
-          console.error('Error fetching session:', error);
+          logOneKeyIdLoginFailureReason(
+            `SupabaseAuthProvider session fetch failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+            { trigger: 'passive' },
+          );
         }
         return data.session;
       };
@@ -151,11 +213,17 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           const parsed = raw ? (JSON.parse(raw) as Session) : null;
           return parsed?.access_token && parsed?.refresh_token ? parsed : null;
         } catch (error) {
-          console.error('Error reading stored session:', error);
+          logOneKeyIdLoginFailureReason(
+            `SupabaseAuthProvider stored session read failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+            { trigger: 'passive' },
+          );
           return null;
         }
       };
-      nextLegacySession = await readStoredSession(getSupabaseAuthSessionKey());
+      nextLegacySession = await readStoredSession(legacySessionKey);
       nextKeylessSession = await readStoredSession(
         getKeylessSupabaseAuthSessionKey(),
       );
@@ -170,14 +238,24 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let isActive = true;
     void (async () => {
-      await refreshAuthSessionSource();
-      const { nextLegacySession, nextKeylessSession } =
-        await readSessionSlots();
-      if (!isActive) {
-        return;
+      try {
+        await refreshAuthSessionSource();
+        const { nextLegacySession, nextKeylessSession } =
+          await readSessionSlots();
+        if (!isActive) {
+          return;
+        }
+        setLegacySession(nextLegacySession);
+        setKeylessSession(nextKeylessSession);
+      } catch (error) {
+        logOneKeyIdLoginFailureReason(
+          `SupabaseAuthProvider login-state projection refresh failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+          { trigger: 'passive' },
+        );
       }
-      setLegacySession(nextLegacySession);
-      setKeylessSession(nextKeylessSession);
     })();
     return () => {
       isActive = false;
@@ -220,7 +298,8 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         setLegacySession(nextLegacySession);
         setKeylessSession(nextKeylessSession);
         if (isSupabaseTokenRefreshRuntime()) {
-          const legacyClient = getSupabaseClient().client;
+          const legacyClient = (await getSupabaseClient()).client;
+          if (cancelled) return;
           const keylessClient = getKeylessSupabaseClient().client;
           // Only the runtime that owns token refresh has an authoritative
           // auth-js memory session. A Main runtime uses persistSession:false,
@@ -228,17 +307,25 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           // from BG-owned shared storage.
           const legacySubscription = legacyClient.auth.onAuthStateChange(
             (_event, nextSession) => {
-              setLegacySession(nextSession);
+              if (!cancelled) setLegacySession(nextSession);
             },
           ).data.subscription;
           unsubscribes.push(() => legacySubscription.unsubscribe());
           const keylessSubscription = keylessClient.auth.onAuthStateChange(
             (_event, nextSession) => {
-              setKeylessSession(nextSession);
+              if (!cancelled) setKeylessSession(nextSession);
             },
           ).data.subscription;
           unsubscribes.push(() => keylessSubscription.unsubscribe());
         }
+      } catch (error) {
+        logOneKeyIdLoginFailureReason(
+          `SupabaseAuthProvider initial session fetch failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+          { trigger: 'passive' },
+        );
       } finally {
         logSupabaseAuthProvider('fetchSession done');
         if (!cancelled) {
@@ -289,9 +376,12 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           setLegacySession(nextLegacySession);
           setKeylessSession(nextKeylessSession);
         } catch (error) {
-          console.error(
-            'Error refreshing session projection from storage:',
+          logOneKeyIdLoginFailureReason(
+            `SupabaseAuthProvider event projection refresh failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
             error,
+            { trigger: 'passive' },
           );
         }
       })();
@@ -356,19 +446,10 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       "message": "Could not find the table 'public.profiles' in the schema cache"
     }
   */
-  return (
-    <SupabaseAuthContext.Provider
-      value={useMemo(
-        () => ({
-          session: authSession,
-          isLoading,
-          // profile,
-          isLoggedIn: !!authSession,
-        }),
-        [authSession, isLoading],
-      )}
-    >
-      {children}
-    </SupabaseAuthContext.Provider>
+  const data = useMemo(
+    () => ({ session: authSession, isLoading, isLoggedIn: !!authSession }),
+    [authSession, isLoading],
   );
+  useLayoutEffect(() => onChange(data), [data, onChange]);
+  return null;
 }

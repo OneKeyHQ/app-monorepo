@@ -118,7 +118,7 @@ function BulkExportHistoryNetworkAvatars({
             borderColor="$bgApp"
             alignItems="center"
             justifyContent="center"
-            zIndex={999}
+            zIndex={remainingCountMode === 'overlay' ? 999 : 0}
             {...(remainingCountMode === 'overlay'
               ? {
                   position: 'absolute' as const,

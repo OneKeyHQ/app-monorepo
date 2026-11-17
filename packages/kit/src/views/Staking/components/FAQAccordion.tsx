@@ -26,7 +26,7 @@ export function FAQAccordion<T>({
   }
 
   return (
-    <Accordion type="multiple" gap="$2" defaultValue={defaultValue}>
+    <Accordion type="multiple" defaultValue={defaultValue}>
       {items.map((item, index) => {
         const itemKey = getItemKey?.(item, index) ?? String(index);
         return (
@@ -35,12 +35,13 @@ export function FAQAccordion<T>({
               unstyled
               flexDirection="row"
               alignItems="center"
+              justifyContent="space-between"
               borderWidth={0}
               bg="$transparent"
-              px="$2"
-              py="$1"
-              mx="$-2"
-              my="$-1"
+              p={0}
+              py="$5"
+              m={0}
+              cursor="pointer"
               hoverStyle={{
                 bg: '$bgHover',
               }}
@@ -53,25 +54,27 @@ export function FAQAccordion<T>({
                 <>
                   {renderTitle(item, { open })}
                   <Stack
-                    animation="quick"
+                    transition="quick"
                     animateOnly={ANIMATE_ONLY_TRANSFORM}
                     rotate={open ? '180deg' : '0deg'}
                   >
                     <Icon
                       name="ChevronDownSmallOutline"
-                      color={open ? '$iconActive' : '$iconSubdued'}
-                      size="$5"
+                      color="$iconSubdued"
+                      size="$6"
                     />
                   </Stack>
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.HeightAnimator transition="quick" overflow="hidden">
               <Accordion.Content
                 unstyled
-                pt="$2"
+                p={0}
+                pt="$1"
                 pb="$5"
-                animation="100ms"
+                pr="$8"
+                transition="100ms"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}

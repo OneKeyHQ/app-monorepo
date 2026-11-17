@@ -1,5 +1,13 @@
 /* cspell:ignore Infini */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -18,7 +26,10 @@ import {
   Toast,
   XStack,
   YStack,
+  closeAllDialogInstances,
   getFontVariantStyle,
+  popToMainRoute,
+  resetToRoute,
   usePreventRemove,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -26,6 +37,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { useSpecifiedTokenSelectorBalances } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -35,21 +47,28 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
+  useCurrencyPersistAtom,
+  useDevSettingsPersistAtom,
   usePrimePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeCryptoPaymentSupported } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
@@ -57,6 +76,7 @@ import type {
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   buildPrimeInfiniPaymentCacheKey,
   createPrimeInfiniPaymentBindingId,
@@ -64,20 +84,42 @@ import {
   isSamePrimeInfiniPaymentCacheKey,
   isSamePrimeInfiniPaymentTransferSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentErrorFailure,
+  getPrimeInfiniPaymentValidationFailure,
+  toPrimeInfiniPaymentPersistenceError,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
+import {
+  getPrimeInfiniPaymentWarningsFingerprint,
+  hasUnconfirmedPrimeInfiniPaymentWarnings,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IPrimeInfiniPendingPaymentSession as IPersistedPrimeInfiniPendingPaymentSession,
+  IPrimeInfiniCheckoutAuthContext,
   IPrimeInfiniPayment,
+  IPrimeInfiniPaymentFlowContext,
+  IPrimeInfiniPaymentValidationFailure,
   IPrimeInfiniSubscriptionPlan,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
+  isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniAccountSelectionPress,
+  resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
+  resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
   shouldShowPrimeInfiniPaymentButtonSkeleton,
 } from '../hooks/primeInfiniPaymentDisplaySnapshot';
+import { closePrimeInfiniPaymentOverlaysAndNavigate } from '../hooks/primeInfiniPaymentNavigation';
+import {
+  type IPrimeInfiniPaymentReloadRequest,
+  resolvePrimeInfiniPaymentReloadCommit,
+} from '../hooks/primeInfiniPaymentReload';
 import {
   addPrimeInfiniDiscardedPaymentBindingId,
   getPrimeInfiniAccountSelectionIdentity,
@@ -100,39 +142,64 @@ import {
   getPrimeInfiniPaymentOutcome,
   hasPrimeInfiniPaymentProgress,
   isPrimeInfiniBalanceSufficient,
-  isPrimeInfiniPaymentForAsset,
   isPrimeInfiniPaymentReplaceable,
   isPrimeInfiniPaymentWithinSendSafetyWindow,
   shouldBlockPrimeInfiniPaymentRefresh,
   shouldRenderPrimeInfiniPaymentSelection,
 } from '../hooks/primeInfiniPaymentUtils';
+import { confirmPrimeInfiniPaymentWarnings } from '../hooks/primeInfiniPaymentWarnings';
+import {
+  createPrimeInfiniRemotePendingPaymentResolver,
+  preparePrimeInfiniRemotePayment,
+} from '../hooks/primeInfiniRemotePendingPayment';
+import {
+  capturePrimeInfiniSessionRevision,
+  releasePrimeInfiniTerminalSession,
+} from '../hooks/primeInfiniTerminalRelease';
 import {
   isPrimeInfiniExternalCheckoutInFlight,
   usePrimeInfiniPurchase,
 } from '../hooks/usePrimeInfiniPurchase';
-import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
-import { PRIME_PAY_WITH_CRYPTO_LABEL } from '../primePaymentLabels';
+import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
+import {
+  getPrimeInfiniPaymentLocalError,
+  logPrimeInfiniPaymentFlow,
+} from '../primeInfiniPaymentLogger';
 import { ensurePrimePurchaseEligible } from '../primePurchaseEligibility';
 import {
   finishPrimeSubscriptionPurchaseSuccess,
   preparePrimeSubscriptionPurchaseSuccess,
 } from '../primeSubscriptionPurchaseSuccess';
 
+import { showPrimeInfiniPaymentWarnings } from './PrimeInfiniPaymentWarnings';
 import { showPrimeInfiniWaitingDialog } from './PrimeInfiniWaitingDialog';
+import { usePrimePurchaseCallback } from './PrimePurchaseDialog/PrimePurchaseDialog';
+import { showPrimeInfiniUnfinishedPaymentDialog } from './PrimePurchaseDialog/showPrimeInfiniUnfinishedPaymentDialog';
 
+import type { IPrimeInfiniPaymentSessionRevision } from '../hooks/primeInfiniPaymentReplacement';
 import type {
   IPrimeInfiniPaymentAsset,
   IPrimeInfiniPaymentPhase,
   IPrimeInfiniPurchaseBaseline,
 } from '../hooks/primeInfiniPaymentUtils';
+import type { IPrimeInfiniRemotePaymentRecovery } from '../hooks/primeInfiniRemotePendingPayment';
 import type { ISubscriptionPeriod } from '../hooks/usePrimePaymentTypes';
 
 const ACCOUNT_SELECTOR_ENABLED_NUM = [0];
-const MIN_PAYMENT_VALIDITY_BEFORE_SEND_MS = 30_000;
+const PrimeInfiniPaymentFlowContext = createContext<
+  IPrimeInfiniPaymentFlowContext | undefined
+>(undefined);
+const MIN_PAYMENT_VALIDITY_BEFORE_SEND_MS =
+  PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS;
 const PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS = 300;
 const PRIME_PAYMENT_BUTTON_NUMERIC_STYLE = getFontVariantStyle([
   'tabular-nums',
 ]);
+const PRIME_INFINI_MOCK_WARNING_MESSAGES = [
+  'Mock warning: verify that the selected network and token match the invoice before paying.',
+  'Mock warning: keep enough native tokens to cover network fees. Fees are not included in the subscription price.',
+  'Mock warning: this is a real payment flow. Continuing will open the normal transaction confirmation or external checkout.',
+];
 
 function getPrimeInfiniPaymentLogContext({
   payment,
@@ -146,18 +213,32 @@ function getPrimeInfiniPaymentLogContext({
     networkId: asset.networkId,
     tokenSymbol: asset.token,
     amountDue: payment?.amountDue,
+    expectedChain: asset.chain,
+    expectedToken: asset.token,
+    actualChain: payment?.chain,
+    actualToken: payment?.token,
+    remainingMs: payment ? payment.expiresAt - Date.now() : undefined,
+    hasPaymentProgress: payment
+      ? hasPrimeInfiniPaymentProgress(payment)
+      : false,
   };
 }
 
 type ILoadPaymentOptionsState = {
+  loadAttempt: number;
   assets: IPrimeInfiniPaymentAsset[];
   baseline: IPrimeInfiniPurchaseBaseline;
   hasError: boolean;
   canUseExternalCheckout: boolean;
   shouldCreatePayment: boolean;
   shouldShowExistingPaymentChoice: boolean;
+  staleExistingPaymentSession?: IPrimeInfiniPendingPaymentSession;
   pendingSession?: IPrimeInfiniPendingPaymentSession;
   completedPaymentId?: string;
+  contextError?: unknown;
+  remoteRecovery?: IPrimeInfiniRemotePaymentRecovery;
+  discoveryAuthContext?: IPrimeInfiniCheckoutAuthContext;
+  remotePaymentCancelled?: boolean;
 };
 
 type IPrimeInfiniPendingPaymentSession = Omit<
@@ -183,6 +264,7 @@ type IConfirmAccountSelectedPayload = {
 };
 
 type IPayWithExternalWallet = (params: {
+  flowId?: string;
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
   beforeCheckout?: () => Promise<boolean>;
@@ -224,6 +306,7 @@ function PrimeInfiniExternalCheckoutLink({
   loading,
   onPress,
 }: IPrimeInfiniExternalCheckoutLinkProps) {
+  const intl = useIntl();
   return (
     <XStack justifyContent="center" $gtMd={{ justifyContent: 'flex-start' }}>
       <Button
@@ -237,11 +320,12 @@ function PrimeInfiniExternalCheckoutLink({
         onPress={onPress}
       >
         <XStack alignItems="center" gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {/* TODO: i18n pending translation key */}
-            Pay with an external wallet
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.prime_pay_with_external_wallet__action,
+            })}
           </SizableText>
-          <Icon name="ArrowTopRightOutline" size="$3.5" color="$iconSubdued" />
+          <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </Button>
     </XStack>
@@ -260,12 +344,26 @@ function PrimeInfiniPaymentFooter({
   onConfirm,
   afterActionsContent,
 }: IPrimeInfiniPaymentFooterProps) {
+  const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
+  const intl = useIntl();
   const [confirmButtonMinWidth, setConfirmButtonMinWidth] = useState<number>();
   const handleConfirm = useCallback(() => {
     void Promise.resolve(onConfirm?.()).catch((error) => {
-      errorToastUtils.showToastOfError(error);
+      logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
+        stage: 'paymentContext',
+        status: 'failed',
+        reason: 'paymentActionRejected',
+        error,
+      });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
     });
-  }, [onConfirm]);
+  }, [intl, onConfirm]);
   let confirmButton: ReactElement | undefined;
   if (showConfirmButton && showConfirmButtonSkeleton) {
     confirmButton = (
@@ -502,30 +600,71 @@ function PrimeInfiniPaymentUnavailableSelection({
 function PrimeInfiniExistingPaymentChoice({
   session,
   isStartingNewPayment,
+  isPaymentStateStale,
   onContinueExistingPayment,
   onStartNewPayment,
 }: {
   session: IPrimeInfiniPendingPaymentSession;
   isStartingNewPayment: boolean;
+  isPaymentStateStale: boolean;
   onContinueExistingPayment: () => void;
   onStartNewPayment: () => Promise<void>;
 }) {
+  const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
+  const intl = useIntl();
   const handleStartNewPayment = useCallback(() => {
     void onStartNewPayment().catch((error) => {
-      errorToastUtils.showToastOfError(error);
+      logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
+        stage: 'paymentReplacement',
+        status: 'failed',
+        subscriptionPeriod: session.selectedSubscriptionPeriod,
+        plan: session.plan,
+        checkoutType: 'internalWallet',
+        ...getPrimeInfiniPaymentLogContext({
+          payment: session.payment,
+          asset: session.asset,
+        }),
+        reason: 'startNewPaymentActionRejected',
+        sendStarted: session.sendStarted,
+        error,
+      });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.prime_payment_start_failed__msg,
+        }),
+      });
     });
-  }, [onStartNewPayment]);
+  }, [intl, onStartNewPayment, session]);
 
   return (
     <>
       <YStack gap="$4">
         <Alert
           type="warning"
-          // TODO: i18n pending translation key
-          title="Unfinished payment found"
-          // TODO: i18n pending translation key
-          description="The previous transfer may still complete. Starting a new payment could result in duplicate transfers."
+          title={intl.formatMessage({
+            id: ETranslations.prime_unfinished_payment__title,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.prime_unfinished_payment__desc,
+          })}
         />
+        {isPaymentStateStale ? (
+          // The amounts below come from the local record because the server
+          // could not be reached for this invoice. Presenting them as current
+          // would let someone read a stale "0 confirming" as proof they never
+          // paid, which is exactly the judgement this screen asks them to make.
+          <Alert
+            type="critical"
+            title={intl.formatMessage({
+              id: ETranslations.prime_payment_refresh_failed__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.prime_payment_stale__desc,
+            })}
+          />
+        ) : null}
         <YStack
           gap="$3"
           p="$4"
@@ -534,26 +673,45 @@ function PrimeInfiniExistingPaymentChoice({
           borderRadius="$3"
         >
           <XStack justifyContent="space-between" gap="$3">
-            {/* TODO: i18n pending translation key */}
-            <SizableText color="$textSubdued">Payment amount</SizableText>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_amount__label,
+              })}
+            </SizableText>
             <SizableText size="$bodyMdMedium">
               {session.payment.amountDue} {session.payment.token}
             </SizableText>
           </XStack>
           <XStack justifyContent="space-between" gap="$3">
-            {/* TODO: i18n pending translation key */}
-            <SizableText color="$textSubdued">Confirmed</SizableText>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_confirmed__label,
+              })}
+            </SizableText>
             <SizableText size="$bodyMdMedium">
               {session.payment.amountConfirmed ?? '0'} {session.payment.token}
             </SizableText>
           </XStack>
           <XStack justifyContent="space-between" gap="$3">
-            {/* TODO: i18n pending translation key */}
-            <SizableText color="$textSubdued">Confirming</SizableText>
+            <SizableText color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_confirming })}
+            </SizableText>
             <SizableText size="$bodyMdMedium">
               {session.payment.amountConfirming ?? '0'} {session.payment.token}
             </SizableText>
           </XStack>
+          {isPaymentStateStale ? (
+            <YStack gap="$1">
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.prime_recipient_address__label,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" userSelect="text">
+                {session.payment.address}
+              </SizableText>
+            </YStack>
+          ) : null}
           {platformEnv.isDev ? (
             <YStack gap="$1">
               <SizableText color="$textSubdued">Payment ID</SizableText>
@@ -569,27 +727,32 @@ function PrimeInfiniExistingPaymentChoice({
         </YStack>
       </YStack>
       <Page.Footer>
-        <YStack gap="$2" px="$5" py="$5">
-          <Button
-            testID="prime-infini-continue-existing-payment"
-            variant="secondary"
-            disabled={isStartingNewPayment}
-            onPress={onContinueExistingPayment}
-          >
-            {/* TODO: i18n pending translation key */}
-            Keep waiting for this payment
-          </Button>
-          <Button
-            testID="prime-infini-start-new-payment"
-            variant="primary"
-            loading={isStartingNewPayment}
-            disabled={isStartingNewPayment}
-            onPress={handleStartNewPayment}
-          >
-            {/* TODO: i18n pending translation key */}
-            Start a new payment anyway
-          </Button>
-        </YStack>
+        <Page.FooterActions
+          // The close callbacks are unused on purpose: declaring the parameter
+          // opts out of FooterCancelButton's auto-pop, and continuing the
+          // existing payment must never navigate away.
+          onCancel={(_close) => {
+            onContinueExistingPayment();
+          }}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.prime_keep_waiting__action,
+          })}
+          cancelButtonProps={{
+            testID: 'prime-infini-continue-existing-payment',
+            disabled: isStartingNewPayment,
+          }}
+          onConfirm={() => {
+            handleStartNewPayment();
+          }}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.prime_start_new_payment__action,
+          })}
+          confirmButtonProps={{
+            testID: 'prime-infini-start-new-payment',
+            loading: isStartingNewPayment,
+            disabled: isStartingNewPayment,
+          }}
+        />
       </Page.Footer>
     </>
   );
@@ -712,11 +875,14 @@ function PrimeInfiniWalletPaymentContent({
   selectedAsset,
   baseline,
   pendingSession,
+  remoteRecovery,
+  discoveryAuthContext,
   onSelectedAssetChange,
   onDiscardPaymentSession,
   onReplacePaymentSession,
   onReloadPaymentSession,
   onRestartPaymentSession,
+  onPaymentSessionPersisted,
   onPayWithExternalWallet,
   onClose,
   onExitPreventedChange,
@@ -726,6 +892,8 @@ function PrimeInfiniWalletPaymentContent({
   paymentContextErrorTitle,
   isPaymentContextRetrying,
   onRetryPaymentContext,
+  fallbackWarningMessages,
+  onEnableMockPaymentWarnings,
 }: {
   plan: IPrimeInfiniSubscriptionPlan;
   selectedSubscriptionPeriod: ISubscriptionPeriod;
@@ -734,6 +902,8 @@ function PrimeInfiniWalletPaymentContent({
   selectedAsset: IPrimeInfiniPaymentAsset;
   baseline: IPrimeInfiniPurchaseBaseline;
   pendingSession?: IPrimeInfiniPendingPaymentSession;
+  remoteRecovery?: IPrimeInfiniRemotePaymentRecovery;
+  discoveryAuthContext?: IPrimeInfiniCheckoutAuthContext;
   onSelectedAssetChange: (assetKey: string) => void;
   onDiscardPaymentSession: (bindingId: string) => void;
   onReplacePaymentSession: ({
@@ -743,8 +913,11 @@ function PrimeInfiniWalletPaymentContent({
     bindingId: string;
     assetKey: string;
   }) => void;
-  onReloadPaymentSession: () => void;
+  onReloadPaymentSession: (reviewPaymentBindingId?: string) => void;
   onRestartPaymentSession: () => void;
+  // Reports every binding this content persisted, so the root can keep its
+  // loader re-runs from bouncing an in-flow payment back to the choice screen.
+  onPaymentSessionPersisted: (bindingId: string) => void;
   onPayWithExternalWallet: IPayWithExternalWallet;
   onClose: () => void;
   onExitPreventedChange: (isPrevented: boolean) => void;
@@ -756,9 +929,13 @@ function PrimeInfiniWalletPaymentContent({
   paymentContextErrorTitle?: string;
   isPaymentContextRetrying: boolean;
   onRetryPaymentContext: () => Promise<void>;
+  fallbackWarningMessages?: readonly string[];
+  onEnableMockPaymentWarnings: () => void;
 }) {
+  const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap = {} }] = useCurrencyPersistAtom();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
   const { user, isLoggedIn, isReady: isAuthReady } = useOneKeyAuth();
   const actions = useAccountSelectorActions();
@@ -770,6 +947,10 @@ function PrimeInfiniWalletPaymentContent({
   const account = activeAccount.account;
   const accountId = account?.id;
   const accountAddress = account?.address;
+  // External wallets send during signing and skip ServiceSend's broadcast
+  // branch, including Infini invoice validation, expiry checks, and the
+  // sendStarted claim that prevents duplicate payments. Keep them excluded
+  // until external sends support equivalent safeguards.
   const isOwnAccount = Boolean(
     accountId && accountUtils.isOwnAccount({ accountId }),
   );
@@ -794,19 +975,56 @@ function PrimeInfiniWalletPaymentContent({
   const [payment, setPayment] = useState<IPrimeInfiniPayment | undefined>(
     pendingSession?.payment,
   );
+  const [paymentValidationFailure, setPaymentValidationFailure] = useState<
+    IPrimeInfiniPaymentValidationFailure | undefined
+  >(() =>
+    pendingSession &&
+    !pendingSession.sendStarted &&
+    !hasPrimeInfiniPaymentProgress(pendingSession.payment)
+      ? getPrimeInfiniPaymentValidationFailure({
+          payment: pendingSession.payment,
+          asset: selectedAsset,
+        })
+      : undefined,
+  );
   const [isPaymentWithinSendSafetyWindow, setIsPaymentWithinSendSafetyWindow] =
     useState(false);
   const [sendStarted, setSendStarted] = useState(
     pendingSession?.sendStarted ?? false,
   );
   const [accountSyncFailed, setAccountSyncFailed] = useState(false);
-  const [accountSyncReady, setAccountSyncReady] = useState(false);
+  const [accountSyncedNetworkId, setAccountSyncedNetworkId] = useState('');
+  const accountSyncReady = isPrimeInfiniPaymentAccountSyncReady({
+    syncedNetworkId: accountSyncedNetworkId,
+    selectedNetworkId: selectedAsset.networkId,
+  });
   const paymentRef = useRef(payment);
   paymentRef.current = payment;
+  const validationPaymentRef = useRef(payment);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const sendStartedRef = useRef(sendStarted);
   sendStartedRef.current = sendStarted;
+  const sessionCreatedAtRef = useRef(
+    pendingSession?.createdAt ?? pendingSession?.updatedAt,
+  );
+  if (flowContextRef.current) {
+    flowContextRef.current = {
+      ...flowContextRef.current,
+      expectedChain: selectedAsset.chain,
+      expectedToken: selectedAsset.token,
+      createNewPaymentIntent: shouldCreatePayment,
+      sessionMode: sendStarted ? 'tracking' : 'quote',
+      sendStarted,
+      hasPaymentProgress: payment
+        ? hasPrimeInfiniPaymentProgress(payment)
+        : false,
+      sessionAgeMs:
+        sessionCreatedAtRef.current === undefined
+          ? undefined
+          : Date.now() - sessionCreatedAtRef.current,
+    };
+  }
   const paymentAccountIdRef = useRef(pendingSession?.payerAccountId);
   const paymentAccountAddressRef = useRef(pendingSession?.payerAddress);
   const paymentCacheKeyRef = useRef(pendingSession?.paymentCacheKey);
@@ -828,7 +1046,9 @@ function PrimeInfiniWalletPaymentContent({
   const accountSyncGenerationRef = useRef(0);
   const accountSelectorOpenRef = useRef(false);
   const accountSelectorInitialIdentityRef = useRef('');
+  const onboardingNavigationInFlightRef = useRef(false);
   const replacementTargetAssetKeyRef = useRef('');
+  const balanceErrorToastSelectionRef = useRef('');
   const replacementSourceAssetRef = useRef<
     IPrimeInfiniPaymentAsset | undefined
   >(undefined);
@@ -853,6 +1073,7 @@ function PrimeInfiniWalletPaymentContent({
     balanceStateByKey,
     isComplete: isBalanceComplete,
     isLoading: isBalanceLoading,
+    issues: balanceIssues,
     refresh: refreshTokenBalances,
   } = useSpecifiedTokenSelectorBalances({
     accountId,
@@ -869,12 +1090,14 @@ function PrimeInfiniWalletPaymentContent({
       nextPayerAccountId = paymentAccountIdRef.current,
       nextPayerAddress = paymentAccountAddressRef.current,
       nextAsset = paymentAssetRef.current,
+      isRemoteRecovery = false,
     }: {
       nextPayment: IPrimeInfiniPayment;
       nextSendStarted?: boolean;
       nextPayerAccountId?: string;
       nextPayerAddress?: string;
       nextAsset?: IPrimeInfiniPaymentAsset;
+      isRemoteRecovery?: boolean;
     }): Promise<IPrimeInfiniPendingPaymentSession> => {
       const onekeyUserId = baseline.onekeyUserId;
       if (!onekeyUserId || !nextPayerAccountId || !nextPayerAddress) {
@@ -891,12 +1114,23 @@ function PrimeInfiniWalletPaymentContent({
         payerAccountId: nextPayerAccountId,
         payerAddress: nextPayerAddress,
       });
-      const persistedSession = await sessionPersistenceQueueRef.current.persist(
-        async () => {
+      const persistedSession = await sessionPersistenceQueueRef.current
+        .persist(async () => {
+          if (
+            discoveryAuthContext &&
+            !(await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+              {
+                context: discoveryAuthContext,
+              },
+            ))
+          ) {
+            throw new OneKeyLocalError('Infini purchase user changed');
+          }
           const storedSession =
             await backgroundApiProxy.simpleDb.prime.setInfiniPendingPaymentSession(
               {
                 onekeyUserId,
+                isRemoteRecovery,
                 session: {
                   asset: nextAsset,
                   baseline: {
@@ -911,14 +1145,39 @@ function PrimeInfiniWalletPaymentContent({
                   paymentCacheKey,
                   payment: nextPayment,
                   sendStarted: nextSendStarted,
+                  flowId: flowContextRef.current?.flowId,
                 },
               },
             );
           paymentCacheKeyRef.current = storedSession.paymentCacheKey;
           paymentAssetRef.current = storedSession.asset;
+          sessionCreatedAtRef.current =
+            storedSession.createdAt ?? storedSession.updatedAt;
+          logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
+            ...getPrimeInfiniPaymentLogContext({
+              payment: storedSession.payment,
+              asset: storedSession.asset,
+            }),
+            stage: 'sessionPersistence',
+            status: 'succeeded',
+            sessionAgeMs:
+              Date.now() - (storedSession.createdAt ?? storedSession.updatedAt),
+            sessionMode: storedSession.sendStarted ? 'tracking' : 'quote',
+            sendStarted: storedSession.sendStarted,
+          });
           return storedSession;
-        },
-      );
+        })
+        .catch((error: unknown) => {
+          const persistenceError = toPrimeInfiniPaymentPersistenceError(error);
+          logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
+            stage: 'sessionPersistence',
+            status: 'failed',
+            error: persistenceError,
+          });
+          throw persistenceError;
+        });
       if (!persistedSession) {
         throw new OneKeyLocalError(
           'Infini payment session persistence was finalized',
@@ -931,9 +1190,18 @@ function PrimeInfiniWalletPaymentContent({
           'Infini payment session persistence returned invalid data',
         );
       }
+      onPaymentSessionPersisted(normalizedSession.paymentCacheKey.bindingId);
       return normalizedSession;
     },
-    [baseline, featureName, paymentBindingId, plan, selectedSubscriptionPeriod],
+    [
+      baseline,
+      discoveryAuthContext,
+      featureName,
+      onPaymentSessionPersisted,
+      paymentBindingId,
+      plan,
+      selectedSubscriptionPeriod,
+    ],
   );
 
   const discardPaymentSessionForSelectionChange = useCallback(
@@ -976,6 +1244,80 @@ function PrimeInfiniWalletPaymentContent({
     [baseline.onekeyUserId],
   );
 
+  // Releases an invoice the server closed with nothing collected. The ordinary
+  // discard above refuses it once sendStarted is latched, which would strand
+  // the user on a dead payment with no way to change the selection.
+  const captureTerminalPaymentSessionRevision = useCallback(async () => {
+    const onekeyUserId = baseline.onekeyUserId;
+    if (!onekeyUserId) {
+      return undefined;
+    }
+    return capturePrimeInfiniSessionRevision({
+      queue: sessionPersistenceQueueRef.current,
+      fetchPersistedSession: () =>
+        backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
+          onekeyUserId,
+        }),
+      onError: (error) => {
+        logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
+          stage: 'paymentSession',
+          status: 'failed',
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          plan,
+          checkoutType: 'internalWallet',
+          ...getPrimeInfiniPaymentLogContext({
+            payment: paymentRef.current,
+            asset: selectedAsset,
+          }),
+          reason: 'terminalSessionRevisionUnavailable',
+          sendStarted: sendStartedRef.current,
+          error,
+        });
+      },
+    });
+  }, [
+    baseline.onekeyUserId,
+    featureName,
+    plan,
+    selectedAsset,
+    selectedSubscriptionPeriod,
+  ]);
+
+  const discardTerminalPaymentSessionForSelectionChange = useCallback(
+    async (
+      latestPayment: IPrimeInfiniPayment,
+      sessionRevision: IPrimeInfiniPaymentSessionRevision | undefined,
+    ) => {
+      const onekeyUserId = baseline.onekeyUserId;
+      const expectedPaymentCacheIdentity = paymentCacheKeyRef.current;
+      if (
+        !onekeyUserId ||
+        expectedPaymentCacheIdentity?.paymentId !== latestPayment.paymentId
+      ) {
+        return false;
+      }
+      return releasePrimeInfiniTerminalSession({
+        queue: sessionPersistenceQueueRef.current,
+        discardTerminalSession: () =>
+          backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+            {
+              onekeyUserId,
+              expectedPaymentCacheIdentity,
+              // Revision pinned before the caller's remote fetch. Absent means
+              // there was no session then, and the DB layer still refuses if
+              // one has appeared since.
+              expectedUpdatedAt: sessionRevision?.updatedAt ?? 0,
+              expectedSendStarted: sessionRevision?.sendStarted ?? false,
+              latestPayment,
+            },
+          ),
+      });
+    },
+    [baseline.onekeyUserId],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -988,7 +1330,7 @@ function PrimeInfiniWalletPaymentContent({
     const generation = accountSyncGenerationRef.current + 1;
     accountSyncGenerationRef.current = generation;
     setAccountSyncFailed(false);
-    setAccountSyncReady(false);
+    setAccountSyncedNetworkId('');
     void (async () => {
       if (initialAccountSyncPromiseRef.current === undefined) {
         initialAccountSyncPromiseRef.current = actions.current.syncFromScene({
@@ -1013,13 +1355,35 @@ function PrimeInfiniWalletPaymentContent({
         networkId: selectedAsset.networkId,
       });
       if (accountSyncGenerationRef.current === generation) {
-        setAccountSyncReady(true);
+        setAccountSyncedNetworkId(selectedAsset.networkId);
       }
-    })().catch(() => {
+    })().catch((error) => {
       if (accountSyncGenerationRef.current === generation) {
         initialAccountSyncPromiseRef.current = undefined;
-        setAccountSyncReady(false);
+        setAccountSyncedNetworkId('');
         setAccountSyncFailed(true);
+        logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
+          stage: 'accountSelection',
+          status: 'failed',
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          plan,
+          checkoutType: 'internalWallet',
+          ...getPrimeInfiniPaymentLogContext({
+            payment: paymentRef.current,
+            asset: selectedAsset,
+          }),
+          reason: 'accountSyncFailed',
+          sendStarted: sendStartedRef.current,
+          error,
+        });
+        showPrimeInfiniPaymentErrorToast({
+          error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+        });
       }
     });
     return () => {
@@ -1027,7 +1391,15 @@ function PrimeInfiniWalletPaymentContent({
         accountSyncGenerationRef.current += 1;
       }
     };
-  }, [actions, initialAccountSyncPromiseRef, selectedAsset.networkId]);
+  }, [
+    actions,
+    featureName,
+    initialAccountSyncPromiseRef,
+    intl,
+    plan,
+    selectedAsset,
+    selectedSubscriptionPeriod,
+  ]);
 
   useEffect(() => {
     if (payment && isAuthReady && !isPurchaseUserCurrent) {
@@ -1063,6 +1435,8 @@ function PrimeInfiniWalletPaymentContent({
     onExitPreventedChange(false);
     const waitingSession: IPrimeInfiniPendingPaymentSession = {
       schemaVersion: 2,
+      flowId: flowContextRef.current?.flowId,
+      createdAt: sessionCreatedAtRef.current,
       asset: paymentAssetRef.current,
       baseline: {
         ...baseline,
@@ -1093,6 +1467,7 @@ function PrimeInfiniWalletPaymentContent({
       });
     })().catch((error) => {
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentPolling',
         status: 'failed',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1107,10 +1482,17 @@ function PrimeInfiniWalletPaymentContent({
         reason: 'waitingDialogHandoffFailed',
         error,
       });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
     });
   }, [
     baseline,
     featureName,
+    intl,
     onClose,
     onExitPreventedChange,
     payment,
@@ -1131,6 +1513,57 @@ function PrimeInfiniWalletPaymentContent({
       selectedBalanceState?.balanceLoaded === false ||
       (isBalanceComplete === true && !balanceDetail)),
   );
+  const balanceError = useMemo(() => {
+    if (!hasBalanceError) {
+      return undefined;
+    }
+    return (
+      balanceIssues?.[0] ??
+      new OneKeyLocalError(
+        'Unable to load the selected account and token balance',
+      )
+    );
+  }, [balanceIssues, hasBalanceError]);
+  useEffect(() => {
+    if (!balanceError || !selectionIdentity) {
+      balanceErrorToastSelectionRef.current = '';
+      return;
+    }
+    if (balanceErrorToastSelectionRef.current === selectionIdentity) {
+      return;
+    }
+    balanceErrorToastSelectionRef.current = selectionIdentity;
+    logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
+      stage: 'accountSelection',
+      status: 'failed',
+      subscriptionPeriod: selectedSubscriptionPeriod,
+      featureName,
+      plan,
+      checkoutType: 'internalWallet',
+      ...getPrimeInfiniPaymentLogContext({
+        payment: paymentRef.current,
+        asset: selectedAsset,
+      }),
+      reason: 'balanceUnavailable',
+      sendStarted: sendStartedRef.current,
+      error: balanceError,
+    });
+    showPrimeInfiniPaymentErrorToast({
+      error: balanceError,
+      fallbackMessage: intl.formatMessage({
+        id: ETranslations.global_failed,
+      }),
+    });
+  }, [
+    balanceError,
+    featureName,
+    intl,
+    plan,
+    selectedAsset,
+    selectedSubscriptionPeriod,
+    selectionIdentity,
+  ]);
   const isBusy =
     phase === 'switching' ||
     phase === 'creating' ||
@@ -1187,6 +1620,27 @@ function PrimeInfiniWalletPaymentContent({
       ? `${activeAccount.wallet.name} / ${account.name}`
       : account.name;
   }
+  const currentSelectionSnapshot =
+    useMemo<IPrimeInfiniPaymentSelectionSnapshot>(
+      () => ({
+        accountDisplayName,
+        activeAccount,
+        asset: selectedAsset,
+        balanceDetail,
+      }),
+      [accountDisplayName, activeAccount, balanceDetail, selectedAsset],
+    );
+  const isSelectionSnapshotReady = Boolean(
+    selectionIdentity && accountSyncReady && !accountSyncFailed,
+  );
+  const [lastReadySelectionSnapshot, setLastReadySelectionSnapshot] = useState<
+    IPrimeInfiniPaymentSelectionSnapshot | undefined
+  >();
+  useEffect(() => {
+    if (isSelectionSnapshotReady) {
+      setLastReadySelectionSnapshot(currentSelectionSnapshot);
+    }
+  }, [currentSelectionSnapshot, isSelectionSnapshotReady]);
   const {
     selectionSnapshot: displaySelectionSnapshot,
     payment: displayPayment,
@@ -1194,22 +1648,44 @@ function PrimeInfiniWalletPaymentContent({
     IPrimeInfiniPaymentSelectionSnapshot,
     IPrimeInfiniPayment
   >({
-    selectionSnapshot: {
-      accountDisplayName,
-      activeAccount,
-      asset: selectedAsset,
-      balanceDetail,
-    },
+    selectionSnapshot: currentSelectionSnapshot,
+    lastReadySelectionSnapshot,
+    isSelectionReady: isSelectionSnapshotReady,
     payment,
     isPaymentCurrent: isPaymentCacheContextCurrent,
   });
+  const displayPaymentRef = useRef(displayPayment);
+  displayPaymentRef.current = displayPayment;
   const displayActiveAccount = displaySelectionSnapshot.activeAccount;
   const displayAccount = displayActiveAccount.account;
   const displayAccountAddress = displayAccount?.address;
   const displayAccountName = displaySelectionSnapshot.accountDisplayName;
   const displayAsset = displaySelectionSnapshot.asset;
   const displayBalanceDetail = displaySelectionSnapshot.balanceDetail;
+  const displayFiatBalanceDetail = displayBalanceDetail
+    ? convertTokenFiatToCurrency({
+        tokenFiat: displayBalanceDetail,
+        targetCurrency: settings.currencyInfo.id,
+        currencyMap,
+      })
+    : undefined;
+  const displaySelectionIdentity =
+    displayAccount?.id &&
+    displayAccountAddress &&
+    displayActiveAccount.ready &&
+    displayActiveAccount.network?.id === displayAsset.networkId &&
+    !displayActiveAccount.isNetworkNotMatched
+      ? `${displayAccount.id}:${displayAccountAddress}:${
+          displayAsset.networkId
+        }:${displayAsset.contractAddress}`
+      : '';
+  const isDisplayedSelectionCurrent =
+    Boolean(displaySelectionIdentity) &&
+    displaySelectionIdentity === selectionIdentity;
+  const displaySelectionIdentityRef = useRef(displaySelectionIdentity);
+  displaySelectionIdentityRef.current = displaySelectionIdentity;
   const isPaymentButtonPreparing = shouldShowPrimeInfiniPaymentButtonSkeleton({
+    hasPaymentAccount: Boolean(isOwnAccount && accountAddress),
     hasCurrentPayment: Boolean(displayPayment),
     isOptionsRefreshing,
     isBalanceLoading,
@@ -1219,12 +1695,14 @@ function PrimeInfiniWalletPaymentContent({
   const shouldRenderExternalCheckout =
     shouldShowPrimeInfiniExternalCheckoutLink({
       canUseExternalCheckout: shouldShowExternalCheckout,
-      isPaymentButtonPreparing,
+      isOptionsRefreshing,
     });
   const canContinue = Boolean(
     phase === 'selecting' &&
     payment &&
+    displayPayment &&
     isPaymentCacheContextCurrent &&
+    isDisplayedSelectionCurrent &&
     accountId &&
     accountAddress &&
     isOwnAccount &&
@@ -1261,7 +1739,14 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       setIsPaymentWithinSendSafetyWindow(isWithinSendSafetyWindow);
-      if (isExpired && phaseRef.current === 'selecting') {
+      if (
+        (isExpired || isWithinSendSafetyWindow) &&
+        phaseRef.current === 'selecting' &&
+        !sendStartedRef.current
+      ) {
+        setPaymentValidationFailure(
+          isExpired ? 'quoteExpired' : 'quoteValidityTooShort',
+        );
         setPhase('expired');
       }
     },
@@ -1271,12 +1756,34 @@ function PrimeInfiniWalletPaymentContent({
     expiresAt: displayPayment?.expiresAt,
     onStateChange: handlePaymentExpiryStateChange,
   });
+  useEffect(() => {
+    if (
+      phase !== 'selecting' ||
+      !payment ||
+      sendStarted ||
+      hasPrimeInfiniPaymentProgress(payment)
+    ) {
+      return;
+    }
+    const failure = getPrimeInfiniPaymentValidationFailure({
+      payment,
+      asset: selectedAsset,
+    });
+    if (failure === 'quoteExpired' || failure === 'quoteValidityTooShort') {
+      setPaymentValidationFailure(failure);
+      setPhase('expired');
+    }
+  }, [payment, phase, selectedAsset, sendStarted]);
   const payButtonText = displayPayment
-    ? `${intl.formatMessage({
-        id: ETranslations.global_pay,
-      })} ${displayPayment.amountDue} ${displayPayment.token}${
-        paymentExpiryCountdown ? ` · ${paymentExpiryCountdown}` : ''
-      }`
+    ? `${intl.formatMessage(
+        {
+          id: ETranslations.prime_pay_amount__action,
+        },
+        {
+          amount: displayPayment.amountDue,
+          token: displayPayment.token,
+        },
+      )}${paymentExpiryCountdown ? ` · ${paymentExpiryCountdown}` : ''}`
     : intl.formatMessage({
         id: ETranslations.global_pay,
       });
@@ -1285,13 +1792,14 @@ function PrimeInfiniWalletPaymentContent({
     if (accountSyncFailed && accountId && isSelectedNetworkReady) {
       initialAccountSyncPromiseRef.current ??= Promise.resolve();
       setAccountSyncFailed(false);
-      setAccountSyncReady(true);
+      setAccountSyncedNetworkId(selectedAsset.networkId);
     }
   }, [
     accountId,
     accountSyncFailed,
     initialAccountSyncPromiseRef,
     isSelectedNetworkReady,
+    selectedAsset.networkId,
   ]);
 
   const replacePaymentForSelectionChange = useCallback(
@@ -1323,6 +1831,7 @@ function PrimeInfiniWalletPaymentContent({
       onExitPreventedChange(true);
       setPhase('switching');
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentReplacement',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1358,10 +1867,14 @@ function PrimeInfiniWalletPaymentContent({
           sendStarted: sendStartedRef.current,
           fetchLatestPayment: (paymentId) =>
             backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+              flowContext: flowContextRef.current,
               paymentId,
               expectedOneKeyUserId: baseline.onekeyUserId ?? '',
             }),
           discardPaymentSession: discardPaymentSessionForSelectionChange,
+          captureSessionRevision: captureTerminalPaymentSessionRevision,
+          discardTerminalPaymentSession:
+            discardTerminalPaymentSessionForSelectionChange,
           fetchPersistedPaymentSession: () =>
             backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
               onekeyUserId: baseline.onekeyUserId ?? '',
@@ -1377,6 +1890,7 @@ function PrimeInfiniWalletPaymentContent({
 
         if (result.type === 'cancelled') {
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'paymentReplacement',
             status: 'cancelled',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1406,6 +1920,7 @@ function PrimeInfiniWalletPaymentContent({
 
         if (result.type === 'track') {
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'paymentReplacement',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1441,6 +1956,7 @@ function PrimeInfiniWalletPaymentContent({
 
         if (result.type === 'reload') {
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'paymentReplacement',
             status: 'recovered',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1475,6 +1991,7 @@ function PrimeInfiniWalletPaymentContent({
         const nextAsset =
           assets.find((asset) => asset.key === nextAssetKey) ?? paymentAsset;
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'succeeded',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1504,6 +2021,7 @@ function PrimeInfiniWalletPaymentContent({
         }
         setPhase('replacementFailed');
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'failed',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1519,9 +2037,10 @@ function PrimeInfiniWalletPaymentContent({
           sendStarted: sendStartedRef.current,
           error,
         });
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_network_error,
+        showPrimeInfiniPaymentErrorToast({
+          error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.global_failed,
           }),
         });
       }
@@ -1530,6 +2049,8 @@ function PrimeInfiniWalletPaymentContent({
       baseline.onekeyUserId,
       assets,
       discardPaymentSessionForSelectionChange,
+      captureTerminalPaymentSessionRevision,
+      discardTerminalPaymentSessionForSelectionChange,
       featureName,
       intl,
       onExitPreventedChange,
@@ -1568,6 +2089,7 @@ function PrimeInfiniWalletPaymentContent({
     onExitPreventedChange(true);
     setPhase('switching');
     logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
       stage: 'paymentReplacement',
       status: 'started',
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1601,6 +2123,7 @@ function PrimeInfiniWalletPaymentContent({
         sendStarted: sendStartedRef.current,
         fetchLatestPayment: (paymentId) =>
           backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+            flowContext: flowContextRef.current,
             paymentId,
             expectedOneKeyUserId: baseline.onekeyUserId ?? '',
           }),
@@ -1627,6 +2150,7 @@ function PrimeInfiniWalletPaymentContent({
 
       if (result.type === 'cancelled') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'cancelled',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1653,6 +2177,7 @@ function PrimeInfiniWalletPaymentContent({
       }
       if (result.type === 'track') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1679,6 +2204,7 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentReplacement',
         status: 'succeeded',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1704,6 +2230,7 @@ function PrimeInfiniWalletPaymentContent({
       }
       setPhase('replacementFailed');
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentReplacement',
         status: 'failed',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1718,9 +2245,10 @@ function PrimeInfiniWalletPaymentContent({
         sendStarted: sendStartedRef.current,
         error,
       });
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.global_network_error,
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
         }),
       });
     }
@@ -1784,6 +2312,7 @@ function PrimeInfiniWalletPaymentContent({
       const nextAsset = assets.find((asset) => asset.key === nextAssetKey);
       if (nextAsset) {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'assetSelection',
           status: 'selected',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1860,6 +2389,7 @@ function PrimeInfiniWalletPaymentContent({
       }
       if (outcome === 'changed') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'accountSelection',
           status: 'selected',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -1905,8 +2435,35 @@ function PrimeInfiniWalletPaymentContent({
     }
   }, [canChangeAccountSelection]);
 
-  const handleShowAccountSelector = useCallback(() => {
-    if (!canChangeAccountSelection) {
+  const handleShowAccountSelector = useCallback(async () => {
+    const action = resolvePrimeInfiniAccountSelectionPress({
+      canChangeAccountSelection,
+      hasWallet: Boolean(activeAccount.wallet),
+    });
+    if (action === 'disabled') {
+      return;
+    }
+    if (action === 'onboarding') {
+      if (onboardingNavigationInFlightRef.current) {
+        return;
+      }
+      onboardingNavigationInFlightRef.current = true;
+      try {
+        await closePrimeInfiniPaymentOverlaysAndNavigate({
+          closeDialogs: closeAllDialogInstances,
+          closeModals: popToMainRoute,
+          navigate: () => {
+            resetToRoute(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.GetStarted,
+              },
+            });
+          },
+        });
+      } finally {
+        onboardingNavigationInFlightRef.current = false;
+      }
       return;
     }
     accountSelectorOpenRef.current = true;
@@ -1915,12 +2472,22 @@ function PrimeInfiniWalletPaymentContent({
         actions.current.getSelectedAccount({ num: 0 }),
       );
     showAccountSelector();
-  }, [actions, canChangeAccountSelection, showAccountSelector]);
+  }, [
+    actions,
+    activeAccount.wallet,
+    canChangeAccountSelection,
+    showAccountSelector,
+  ]);
 
   const preparePaymentForSelection = useCallback(async () => {
     const expectedOneKeyUserId = baseline.onekeyUserId;
+    let resumedRemotePayment = false;
+    let preparationStage: 'paymentRestore' | 'paymentCreation' = remoteRecovery
+      ? 'paymentRestore'
+      : 'paymentCreation';
     if (
       submitInFlightRef.current ||
+      isOptionsRefreshing ||
       paymentRef.current ||
       phase !== 'selecting' ||
       !expectedOneKeyUserId ||
@@ -1937,6 +2504,7 @@ function PrimeInfiniWalletPaymentContent({
       return;
     }
     submitInFlightRef.current = true;
+    setPaymentValidationFailure(undefined);
     onExitPreventedChange(true);
     setPhase('creating');
     const attemptGeneration = asyncAttemptGenerationRef.current + 1;
@@ -1956,6 +2524,7 @@ function PrimeInfiniWalletPaymentContent({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId,
+          intl,
         }))
       ) {
         submitInFlightRef.current = false;
@@ -1966,7 +2535,8 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       logPrimeInfiniPaymentFlow({
-        stage: 'paymentCreation',
+        ...flowContextRef.current,
+        stage: preparationStage,
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
@@ -1977,34 +2547,92 @@ function PrimeInfiniWalletPaymentContent({
         }),
         sendStarted: false,
       });
-      defaultLogger.prime.subscription.primeSubscribeIntent({
-        subscriptionPeriod: selectedSubscriptionPeriod,
-        featureName,
-        currency: 'USD',
-        paymentMethod: 'crypto',
-      });
-      const createdPayment =
-        await backgroundApiProxy.servicePrime.apiCreateInfiniPayment({
+      const createPayment = async () => {
+        preparationStage = 'paymentCreation';
+        defaultLogger.prime.subscription.primeSubscribeIntent({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          currency: 'USD',
+          paymentMethod: 'crypto',
+        });
+        return backgroundApiProxy.servicePrime.apiCreateInfiniPayment({
+          flowContext: flowContextRef.current,
           plan,
           chain: capturedAsset.chain,
           token: capturedAsset.token,
           expectedOneKeyUserId,
+          authContext: discoveryAuthContext,
         });
-      if (
-        !isPrimeInfiniPaymentForAsset({
-          payment: createdPayment,
+      };
+      let createdPayment: IPrimeInfiniPayment;
+      if (remoteRecovery) {
+        const prepared = await preparePrimeInfiniRemotePayment({
+          recovery: remoteRecovery,
           asset: capturedAsset,
-        }) ||
-        createdPayment.expiresAt <=
-          Date.now() + MIN_PAYMENT_VALIDITY_BEFORE_SEND_MS
+          fetchLookup: () =>
+            backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+              expectedOneKeyUserId,
+              authContext: discoveryAuthContext,
+            }),
+          createPayment,
+          chooseNew: (lookupUnavailable) =>
+            showPrimeInfiniUnfinishedPaymentDialog({
+              intl,
+              canResume: false,
+              lookupUnavailable,
+            }),
+          validateAuth: async () =>
+            !discoveryAuthContext ||
+            backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent({
+              context: discoveryAuthContext,
+            }),
+          shouldContinue: isAttemptCurrent,
+        });
+        if (!prepared) {
+          if (isAttemptCurrent()) onClose();
+          return;
+        }
+        createdPayment = prepared.payment;
+        resumedRemotePayment = prepared.resumed;
+      } else createdPayment = await createPayment();
+      const validationFailure = getPrimeInfiniPaymentValidationFailure({
+        payment: createdPayment,
+        previousPayment: resumedRemotePayment
+          ? remoteRecovery?.payment
+          : undefined,
+        asset: capturedAsset,
+        validateQuote: !hasPrimeInfiniPaymentProgress(createdPayment),
+      });
+      validationPaymentRef.current = createdPayment;
+      if (
+        validationFailure &&
+        validationFailure !== 'quoteExpired' &&
+        validationFailure !== 'quoteValidityTooShort'
       ) {
-        throw new OneKeyLocalError(
-          'Invalid Infini payment for the selected asset',
-        );
+        logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
+          ...getPrimeInfiniPaymentLogContext({
+            payment: createdPayment,
+            asset: capturedAsset,
+          }),
+          stage: 'responseValidation',
+          status: 'failed',
+          failureReason: validationFailure,
+          paymentSource: resumedRemotePayment
+            ? 'restoreRefresh'
+            : 'createResponse',
+        });
+        throw createPrimeInfiniPaymentValidationError(validationFailure, {
+          expectedChain: capturedAsset.chain,
+          expectedToken: capturedAsset.token,
+          actualChain: createdPayment.chain,
+          actualToken: createdPayment.token,
+        });
       }
       if (!isAttemptCurrent()) {
         logPrimeInfiniPaymentFlow({
-          stage: 'paymentCreation',
+          ...flowContextRef.current,
+          stage: preparationStage,
           status: 'cancelled',
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
@@ -2026,15 +2654,17 @@ function PrimeInfiniWalletPaymentContent({
       }
       paymentAccountIdRef.current = capturedAccountId;
       paymentAccountAddressRef.current = capturedAccountAddress;
-      await persistPaymentSession({
+      const createdSession = await persistPaymentSession({
         nextPayment: createdPayment,
+        isRemoteRecovery: resumedRemotePayment,
         nextPayerAccountId: capturedAccountId,
         nextPayerAddress: capturedAccountAddress,
         nextAsset: capturedAsset,
       });
       if (!isAttemptCurrent()) {
         logPrimeInfiniPaymentFlow({
-          stage: 'paymentCreation',
+          ...flowContextRef.current,
+          stage: preparationStage,
           status: 'cancelled',
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
@@ -2067,7 +2697,23 @@ function PrimeInfiniWalletPaymentContent({
               onReloadPaymentSession();
             }
           }
-        } catch {
+        } catch (error) {
+          logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
+            stage: 'paymentSession',
+            status: 'failed',
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            featureName,
+            plan,
+            checkoutType: 'internalWallet',
+            ...getPrimeInfiniPaymentLogContext({
+              payment: createdPayment,
+              asset: capturedAsset,
+            }),
+            reason: 'staleCreatedPaymentCleanupFailed',
+            sendStarted: false,
+            error,
+          });
           if (mountedRef.current) {
             onReloadPaymentSession();
           }
@@ -2077,9 +2723,32 @@ function PrimeInfiniWalletPaymentContent({
       paymentRef.current = createdPayment;
       setPayment(createdPayment);
       submitInFlightRef.current = false;
-      setPhase('selecting');
+      setPaymentValidationFailure(validationFailure);
+      sendStartedRef.current = createdSession.sendStarted;
+      setSendStarted(createdSession.sendStarted);
+      let createdPhase: IPaymentPhase = validationFailure
+        ? 'expired'
+        : 'selecting';
+      if (createdSession.sendStarted) {
+        createdPhase = 'polling';
+      }
+      setPhase(createdPhase);
       logPrimeInfiniPaymentFlow({
-        stage: 'paymentCreation',
+        ...flowContextRef.current,
+        stage: 'responseValidation',
+        status: validationFailure ? 'blocked' : 'succeeded',
+        failureReason: validationFailure,
+        paymentSource: resumedRemotePayment
+          ? 'restoreRefresh'
+          : 'createResponse',
+        ...getPrimeInfiniPaymentLogContext({
+          payment: createdPayment,
+          asset: capturedAsset,
+        }),
+      });
+      logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
+        stage: preparationStage,
         status: 'succeeded',
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
@@ -2101,9 +2770,11 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       submitInFlightRef.current = false;
+      setPaymentValidationFailure(getPrimeInfiniPaymentErrorFailure(error));
       setPhase('replacementFailed');
       logPrimeInfiniPaymentFlow({
-        stage: 'paymentCreation',
+        ...flowContextRef.current,
+        stage: preparationStage,
         status: 'failed',
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
@@ -2113,12 +2784,15 @@ function PrimeInfiniWalletPaymentContent({
           asset: capturedAsset,
         }),
         durationMs: Date.now() - startedAt,
-        reason: 'createOrPersistFailed',
+        reason: getPrimeInfiniPaymentErrorFailure(error) ?? 'apiRequestFailed',
         sendStarted: false,
         error,
       });
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.global_network_error }),
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
       });
     }
   }, [
@@ -2127,12 +2801,16 @@ function PrimeInfiniWalletPaymentContent({
     accountSyncReady,
     baseline.onekeyUserId,
     discardPaymentSessionForSelectionChange,
+    discoveryAuthContext,
+    remoteRecovery,
     featureName,
     intl,
     isOwnAccount,
+    isOptionsRefreshing,
     isPurchaseUserCurrent,
     isSelectedNetworkReady,
     onExitPreventedChange,
+    onClose,
     onReloadPaymentSession,
     onRestartPaymentSession,
     persistPaymentSession,
@@ -2149,35 +2827,59 @@ function PrimeInfiniWalletPaymentContent({
   }, [preparePaymentForSelection]);
 
   const handleContinue = useCallback(async () => {
-    let currentPayment = paymentRef.current;
+    const currentPaymentSnapshot = paymentRef.current;
+    const capturedDisplayPayment = displayPaymentRef.current;
+    const capturedDisplaySelectionIdentity =
+      displaySelectionIdentityRef.current;
+    const capturedAsset = displayAsset;
     if (
       submitInFlightRef.current ||
       !canContinue ||
-      !accountId ||
-      !accountAddress ||
+      !displayAccount?.id ||
+      !displayAccountAddress ||
       !balanceDetail ||
-      !currentPayment
+      !currentPaymentSnapshot ||
+      !capturedDisplayPayment ||
+      !capturedDisplaySelectionIdentity ||
+      capturedDisplaySelectionIdentity !== selectionIdentity ||
+      shouldBlockPrimeInfiniPaymentRefresh({
+        currentPayment: capturedDisplayPayment,
+        refreshedPayment: currentPaymentSnapshot,
+        asset: capturedAsset,
+      })
     ) {
       return;
     }
+    let currentPayment = capturedDisplayPayment;
     const initialPayment = currentPayment;
     submitInFlightRef.current = true;
     onExitPreventedChange(true);
     setPhase('creating');
     const attemptGeneration = asyncAttemptGenerationRef.current + 1;
     asyncAttemptGenerationRef.current = attemptGeneration;
-    const capturedSelectionIdentity = selectionIdentity;
-    const capturedAsset = selectedAsset;
+    const capturedSelectionIdentity = capturedDisplaySelectionIdentity;
     const startedAt = Date.now();
+    const capturedAccountId = displayAccount.id;
+    const capturedAccountAddress = displayAccountAddress;
     const isAttemptCurrent = () =>
       mountedRef.current &&
       asyncAttemptGenerationRef.current === attemptGeneration &&
       isPurchaseUserCurrentRef.current &&
-      selectionIdentityRef.current === capturedSelectionIdentity;
+      selectionIdentityRef.current === capturedSelectionIdentity &&
+      displaySelectionIdentityRef.current === capturedSelectionIdentity &&
+      Boolean(
+        displayPaymentRef.current &&
+        isSamePrimeInfiniPaymentTransferSnapshot({
+          first: capturedDisplayPayment,
+          second: displayPaymentRef.current,
+          networkId: capturedAsset.networkId,
+        }),
+      );
     let paymentRefreshBlocked = false;
     let sendExitLogged = false;
     try {
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentPreflight',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2192,11 +2894,12 @@ function PrimeInfiniWalletPaymentContent({
       });
       const [refreshedPayment, freshBalanceDetails] = await Promise.all([
         backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+          flowContext: flowContextRef.current,
           paymentId: currentPayment.paymentId,
           expectedOneKeyUserId: baseline.onekeyUserId ?? '',
         }),
         backgroundApiProxy.serviceToken.fetchTokensDetails({
-          accountId,
+          accountId: capturedAccountId,
           networkId: capturedAsset.networkId,
           contractList: [capturedAsset.contractAddress],
           withFrozenBalance: true,
@@ -2209,17 +2912,16 @@ function PrimeInfiniWalletPaymentContent({
         }
         return;
       }
-      if (
-        shouldBlockPrimeInfiniPaymentRefresh({
-          currentPayment: initialPayment,
-          refreshedPayment,
-          asset: capturedAsset,
-        })
-      ) {
+      const refreshFailure = getPrimeInfiniPaymentValidationFailure({
+        previousPayment: initialPayment,
+        payment: refreshedPayment,
+        asset: capturedAsset,
+        validateQuote: false,
+      });
+      validationPaymentRef.current = refreshedPayment;
+      if (refreshFailure) {
         paymentRefreshBlocked = true;
-        throw new OneKeyLocalError(
-          'Invalid Infini payment for the selected asset',
-        );
+        throw createPrimeInfiniPaymentValidationError(refreshFailure);
       }
       currentPayment = refreshedPayment;
       paymentRef.current = refreshedPayment;
@@ -2234,6 +2936,7 @@ function PrimeInfiniWalletPaymentContent({
         hasPrimeInfiniPaymentProgress(currentPayment)
       ) {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentPreflight',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2259,7 +2962,11 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       if (preflightOutcome === 'expired' || preflightOutcome === 'failed') {
+        setPaymentValidationFailure(
+          preflightOutcome === 'expired' ? 'quoteExpired' : undefined,
+        );
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentPreflight',
           status: preflightOutcome,
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2281,7 +2988,14 @@ function PrimeInfiniWalletPaymentContent({
         currentPayment.expiresAt <=
         Date.now() + MIN_PAYMENT_VALIDITY_BEFORE_SEND_MS
       ) {
+        setPaymentValidationFailure(
+          getPrimeInfiniPaymentValidationFailure({
+            payment: currentPayment,
+            asset: capturedAsset,
+          }),
+        );
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentPreflight',
           status: 'expired',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2327,6 +3041,7 @@ function PrimeInfiniWalletPaymentContent({
         })
       ) {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentPreflight',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2363,8 +3078,8 @@ function PrimeInfiniWalletPaymentContent({
           asset: capturedAsset,
           onekeyUserId: purchaseUserIdForSend,
           plan,
-          payerAccountId: accountId,
-          payerAddress: accountAddress,
+          payerAccountId: capturedAccountId,
+          payerAddress: capturedAccountAddress,
         })
       ) {
         throw new OneKeyLocalError(
@@ -2375,9 +3090,11 @@ function PrimeInfiniWalletPaymentContent({
       const recoverAfterSendExit = ({
         immediatePhase,
         fallbackPhase,
+        reviewPendingPayment = false,
       }: {
         immediatePhase: IPaymentPhase;
         fallbackPhase: IPaymentPhase;
+        reviewPendingPayment?: boolean;
       }) => {
         if (!isAttemptCurrent()) {
           return;
@@ -2408,19 +3125,93 @@ function PrimeInfiniWalletPaymentContent({
           onSettled: ({ didBroadcastStart, phase: nextPhase }) => {
             sendStartedRef.current = didBroadcastStart;
             setSendStarted(didBroadcastStart);
-            setPhase(nextPhase);
-            void refreshTokenBalances();
+            setPhase(
+              reviewPendingPayment && didBroadcastStart
+                ? 'retryableFailed'
+                : nextPhase,
+            );
+            if (reviewPendingPayment && didBroadcastStart) {
+              onReloadPaymentSession(paymentCacheKeyForSend.bindingId);
+            }
+            void refreshTokenBalances().catch((error) => {
+              logPrimeInfiniPaymentFlow({
+                ...flowContextRef.current,
+                stage: 'accountSelection',
+                status: 'failed',
+                subscriptionPeriod: selectedSubscriptionPeriod,
+                featureName,
+                plan,
+                checkoutType: 'internalWallet',
+                ...getPrimeInfiniPaymentLogContext({
+                  payment: paymentForSend,
+                  asset: capturedAsset,
+                }),
+                reason: 'postSendBalanceRefreshFailed',
+                sendStarted: didBroadcastStart,
+                error,
+              });
+              showPrimeInfiniPaymentErrorToast({
+                error,
+                fallbackMessage: intl.formatMessage({
+                  id: ETranslations.global_failed,
+                }),
+              });
+            });
           },
-          onRejected: (nextPhase) => {
+          onRejected: (nextPhase, error) => {
             sendStartedRef.current = true;
             setSendStarted(true);
-            setPhase(nextPhase);
+            setPhase(reviewPendingPayment ? 'retryableFailed' : nextPhase);
+            if (reviewPendingPayment) {
+              onReloadPaymentSession(paymentCacheKeyForSend.bindingId);
+            }
+            logPrimeInfiniPaymentFlow({
+              ...flowContextRef.current,
+              stage: 'paymentSession',
+              status: 'failed',
+              subscriptionPeriod: selectedSubscriptionPeriod,
+              featureName,
+              plan,
+              checkoutType: 'internalWallet',
+              ...getPrimeInfiniPaymentLogContext({
+                payment: paymentForSend,
+                asset: capturedAsset,
+              }),
+              reason: 'sendExitReconciliationFailed',
+              sendStarted: true,
+              error,
+            });
           },
         });
       };
+      if (
+        !(await confirmPrimeInfiniPaymentWarnings({
+          payment: currentPayment,
+          fallbackWarningMessages,
+          confirmWarnings: (messages) =>
+            showPrimeInfiniPaymentWarnings(messages, intl),
+          shouldContinue: isAttemptCurrent,
+        }))
+      ) {
+        submitInFlightRef.current = false;
+        onExitPreventedChange(false);
+        if (isAttemptCurrent()) {
+          setPhase('selecting');
+        }
+        return;
+      }
+      const confirmedQuoteFailure = getPrimeInfiniPaymentValidationFailure({
+        payment: currentPayment,
+        asset: capturedAsset,
+      });
+      if (confirmedQuoteFailure) {
+        throw createPrimeInfiniPaymentValidationError(confirmedQuoteFailure);
+      }
+      setPaymentValidationFailure(undefined);
       onExitPreventedChange(true);
       setPhase('confirming');
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentPreflight',
         status: 'succeeded',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2435,6 +3226,7 @@ function PrimeInfiniWalletPaymentContent({
         sendStarted: false,
       });
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'sendConfirmation',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2449,8 +3241,8 @@ function PrimeInfiniWalletPaymentContent({
       });
       const { transferInfo, transferPayload } =
         buildPrimeInfiniPaymentTransferIntent({
-          accountId,
-          accountAddress,
+          accountId: capturedAccountId,
+          accountAddress: capturedAccountAddress,
           asset: capturedAsset,
           payment: paymentForSend,
           tokenInfo: freshBalanceDetail.info,
@@ -2463,10 +3255,14 @@ function PrimeInfiniWalletPaymentContent({
         broadcastDeadline: paymentForSend.expiresAt,
         beforeBroadcastAction: {
           type: 'primeInfiniPayment',
+          flowContext: flowContextRef.current,
+          confirmedWarningsFingerprint:
+            getPrimeInfiniPaymentWarningsFingerprint(paymentForSend),
           paymentCacheKey: paymentCacheKeyForSend,
         },
         onBeforeSend: async () => {
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'broadcast',
             status: 'started',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2493,6 +3289,7 @@ function PrimeInfiniWalletPaymentContent({
               onekeyUserId: purchaseUserIdForSend,
             }),
             backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+              flowContext: flowContextRef.current,
               paymentId: paymentForSend.paymentId,
               expectedOneKeyUserId: purchaseUserIdForSend,
             }),
@@ -2519,20 +3316,30 @@ function PrimeInfiniWalletPaymentContent({
             preSendBlockedPhase = 'failed';
             throw new OneKeyLocalError('Infini payment attempt is stale');
           }
-          if (
-            !isSamePrimeInfiniPaymentTransferSnapshot({
-              first: paymentForSend,
-              second: latestPayment,
-              networkId: capturedAsset.networkId,
-            }) ||
-            !isPrimeInfiniPaymentForAsset({
-              payment: latestPayment,
-              asset: capturedAsset,
-            })
-          ) {
+          const beforeSendFailure = getPrimeInfiniPaymentValidationFailure({
+            previousPayment: paymentForSend,
+            payment: latestPayment,
+            asset: capturedAsset,
+            validateQuote: false,
+          });
+          if (beforeSendFailure) {
+            setPaymentValidationFailure(beforeSendFailure);
             preSendBlockedPhase = 'failed';
             setPhase('failed');
-            throw new OneKeyLocalError('Infini payment changed before send');
+            throw createPrimeInfiniPaymentValidationError(beforeSendFailure);
+          }
+          if (
+            hasUnconfirmedPrimeInfiniPaymentWarnings({
+              payment: latestPayment,
+              confirmedWarningsFingerprint:
+                getPrimeInfiniPaymentWarningsFingerprint(paymentForSend),
+            })
+          ) {
+            preSendBlockedPhase = 'selecting';
+            setPaymentValidationFailure('transferSnapshotChanged');
+            throw createPrimeInfiniPaymentValidationError(
+              'transferSnapshotChanged',
+            );
           }
           paymentRef.current = latestPayment;
           setPayment(latestPayment);
@@ -2561,6 +3368,12 @@ function PrimeInfiniWalletPaymentContent({
           ) {
             preSendBlockedPhase =
               latestOutcome === 'failed' ? 'failed' : 'expired';
+            setPaymentValidationFailure(
+              getPrimeInfiniPaymentValidationFailure({
+                payment: latestPayment,
+                asset: capturedAsset,
+              }),
+            );
             await persistPaymentSession({
               nextPayment: latestPayment,
               nextSendStarted: false,
@@ -2576,6 +3389,7 @@ function PrimeInfiniWalletPaymentContent({
         onSuccess: () => {
           sendExitLogged = true;
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'broadcast',
             status: 'succeeded',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2599,11 +3413,29 @@ function PrimeInfiniWalletPaymentContent({
             .apiSyncInfiniWebhook({
               expectedOneKeyUserId: purchaseUserIdForSend,
             })
-            .catch(() => undefined);
+            .catch((error) => {
+              logPrimeInfiniPaymentFlow({
+                ...flowContextRef.current,
+                stage: 'paymentPolling',
+                status: 'failed',
+                subscriptionPeriod: selectedSubscriptionPeriod,
+                featureName,
+                plan,
+                checkoutType: 'internalWallet',
+                ...getPrimeInfiniPaymentLogContext({
+                  payment: paymentForSend,
+                  asset: capturedAsset,
+                }),
+                reason: 'postBroadcastWebhookSyncFailed',
+                sendStarted: true,
+                error,
+              });
+            });
         },
         onFail: () => {
           sendExitLogged = true;
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'broadcast',
             status: 'failed',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2618,17 +3450,19 @@ function PrimeInfiniWalletPaymentContent({
             sendStarted: sendStartedRef.current,
           });
           recoverAfterSendExit({
-            immediatePhase: 'polling',
+            immediatePhase: 'retryableFailed',
             fallbackPhase:
               preSendBlockedPhase ??
               (Date.now() >= paymentForSend.expiresAt
                 ? 'expired'
                 : 'selecting'),
+            reviewPendingPayment: true,
           });
         },
         onCancel: () => {
           sendExitLogged = true;
           logPrimeInfiniPaymentFlow({
+            ...flowContextRef.current,
             stage: 'sendConfirmation',
             status: 'cancelled',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2656,25 +3490,43 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       submitInFlightRef.current = false;
-      if (!sendExitLogged) {
-        logPrimeInfiniPaymentFlow({
-          stage: paymentRefreshBlocked ? 'paymentPreflight' : 'broadcast',
-          status: 'failed',
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-          plan,
-          checkoutType: 'internalWallet',
-          ...getPrimeInfiniPaymentLogContext({
-            payment: currentPayment,
-            asset: capturedAsset,
-          }),
-          durationMs: Date.now() - startedAt,
-          reason: paymentRefreshBlocked
-            ? 'paymentSnapshotMismatch'
-            : 'preflightOrBroadcastFailed',
-          sendStarted: sendStartedRef.current,
-          error,
-        });
+      const validationFailure = getPrimeInfiniPaymentErrorFailure(error);
+      setPaymentValidationFailure(validationFailure);
+      let failureReason = 'preflightOrBroadcastFailed';
+      if (paymentRefreshBlocked) {
+        failureReason = 'paymentSnapshotMismatch';
+      } else if (sendExitLogged) {
+        failureReason = 'sendFlowErrorPropagated';
+      }
+      logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
+        stage: paymentRefreshBlocked ? 'paymentPreflight' : 'broadcast',
+        status: 'failed',
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName,
+        plan,
+        checkoutType: 'internalWallet',
+        ...getPrimeInfiniPaymentLogContext({
+          payment: currentPayment,
+          asset: capturedAsset,
+        }),
+        durationMs: Date.now() - startedAt,
+        reason: failureReason,
+        sendStarted: sendStartedRef.current,
+        error,
+      });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
+      if (
+        validationFailure === 'quoteExpired' ||
+        validationFailure === 'quoteValidityTooShort'
+      ) {
+        setPhase('expired');
+        return;
       }
       if (paymentRefreshBlocked) {
         setPhase('replacementFailed');
@@ -2689,23 +3541,42 @@ function PrimeInfiniWalletPaymentContent({
         paymentRef.current = currentPayment;
         setPayment(currentPayment);
         void persistPaymentSession({ nextPayment: currentPayment }).catch(
-          () => undefined,
+          (persistError) => {
+            logPrimeInfiniPaymentFlow({
+              ...flowContextRef.current,
+              stage: 'paymentSession',
+              status: 'failed',
+              subscriptionPeriod: selectedSubscriptionPeriod,
+              featureName,
+              plan,
+              checkoutType: 'internalWallet',
+              ...getPrimeInfiniPaymentLogContext({
+                payment: currentPayment,
+                asset: capturedAsset,
+              }),
+              reason: 'postFailureSessionPersistenceFailed',
+              sendStarted: sendStartedRef.current,
+              error: persistError,
+            });
+          },
         );
       }
     }
   }, [
-    accountAddress,
-    accountId,
     balanceDetail,
     baseline.onekeyUserId,
     canContinue,
+    fallbackWarningMessages,
     featureName,
     intl,
     onExitPreventedChange,
+    onReloadPaymentSession,
     persistPaymentSession,
     plan,
     refreshTokenBalances,
-    selectedAsset,
+    displayAsset,
+    displayAccount?.id,
+    displayAccountAddress,
     selectedSubscriptionPeriod,
     selectionIdentity,
     signatureConfirm,
@@ -2721,6 +3592,7 @@ function PrimeInfiniWalletPaymentContent({
       return;
     }
     submitInFlightRef.current = true;
+    setPaymentValidationFailure(undefined);
     onExitPreventedChange(true);
     setPhase('creating');
     const attemptGeneration = asyncAttemptGenerationRef.current + 1;
@@ -2730,6 +3602,7 @@ function PrimeInfiniWalletPaymentContent({
       asyncAttemptGenerationRef.current === attemptGeneration &&
       isPurchaseUserCurrentRef.current;
     logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
       stage: 'paymentReplacement',
       status: 'started',
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2749,12 +3622,18 @@ function PrimeInfiniWalletPaymentContent({
         currentPayment,
         selectedAsset,
         sendStarted: sendStartedRef.current,
+        allowTerminalRelease: false,
+        allowChangedUnsentQuote: true,
         fetchLatestPayment: (paymentId) =>
           backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+            flowContext: flowContextRef.current,
             paymentId,
             expectedOneKeyUserId: baseline.onekeyUserId ?? '',
           }),
         discardPaymentSession: discardPaymentSessionForSelectionChange,
+        captureSessionRevision: captureTerminalPaymentSessionRevision,
+        discardTerminalPaymentSession:
+          discardTerminalPaymentSessionForSelectionChange,
         fetchPersistedPaymentSession: () =>
           backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
             onekeyUserId: baseline.onekeyUserId ?? '',
@@ -2771,6 +3650,7 @@ function PrimeInfiniWalletPaymentContent({
       }
       if (result.type === 'cancelled') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'cancelled',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2794,6 +3674,7 @@ function PrimeInfiniWalletPaymentContent({
       }
       if (result.type === 'reload') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'recovered',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2813,6 +3694,7 @@ function PrimeInfiniWalletPaymentContent({
       }
       if (result.type === 'track') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2837,6 +3719,7 @@ function PrimeInfiniWalletPaymentContent({
         return;
       }
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentReplacement',
         status: 'succeeded',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2855,6 +3738,7 @@ function PrimeInfiniWalletPaymentContent({
     } catch (error) {
       if (isAttemptOwned()) {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'failed',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -2870,13 +3754,17 @@ function PrimeInfiniWalletPaymentContent({
           sendStarted: sendStartedRef.current,
           error,
         });
+        setPaymentValidationFailure(getPrimeInfiniPaymentErrorFailure(error));
         setPhase(
           getPrimeInfiniPaymentOutcome({ payment: currentPayment }) === 'failed'
             ? 'failed'
             : 'expired',
         );
-        Toast.error({
-          title: intl.formatMessage({ id: ETranslations.global_network_error }),
+        showPrimeInfiniPaymentErrorToast({
+          error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
         });
       }
     } finally {
@@ -2885,6 +3773,8 @@ function PrimeInfiniWalletPaymentContent({
   }, [
     baseline.onekeyUserId,
     discardPaymentSessionForSelectionChange,
+    captureTerminalPaymentSessionRevision,
+    discardTerminalPaymentSessionForSelectionChange,
     featureName,
     intl,
     isPurchaseUserCurrent,
@@ -2931,22 +3821,43 @@ function PrimeInfiniWalletPaymentContent({
       let reloadedPaymentSession = false;
       try {
         const didOpenCheckout = await onPayWithExternalWallet({
+          flowId: flowContextRef.current?.flowId,
           selectedSubscriptionPeriod,
           featureName,
           beforeCheckout: async () => {
             if (!currentPayment) {
-              return isAttemptOwned();
+              return confirmPrimeInfiniPaymentWarnings({
+                payment: {},
+                fallbackWarningMessages,
+                confirmWarnings: (messages) =>
+                  showPrimeInfiniPaymentWarnings(messages, intl),
+                shouldContinue: isAttemptOwned,
+              });
             }
             const result = await resolvePrimeInfiniPaymentReplacement({
               currentPayment,
               selectedAsset,
               sendStarted: sendStartedRef.current,
+              allowTerminalRelease: false,
+              allowChangedUnsentQuote: true,
+              confirmLatestPayment: (latestPayment) =>
+                confirmPrimeInfiniPaymentWarnings({
+                  payment: latestPayment,
+                  fallbackWarningMessages,
+                  confirmWarnings: (messages) =>
+                    showPrimeInfiniPaymentWarnings(messages, intl),
+                  shouldContinue: isAttemptOwned,
+                }),
               fetchLatestPayment: (paymentId) =>
                 backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+                  flowContext: flowContextRef.current,
                   paymentId,
                   expectedOneKeyUserId: baseline.onekeyUserId ?? '',
                 }),
               discardPaymentSession: discardPaymentSessionForSelectionChange,
+              captureSessionRevision: captureTerminalPaymentSessionRevision,
+              discardTerminalPaymentSession:
+                discardTerminalPaymentSessionForSelectionChange,
               fetchPersistedPaymentSession: () =>
                 backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
                   {
@@ -3034,8 +3945,28 @@ function PrimeInfiniWalletPaymentContent({
         }
       } catch (error) {
         await closeExternalCheckoutConfirmation();
-        errorToastUtils.toastIfError(error);
-        errorToastUtils.showToastOfError(error);
+        logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
+          stage: 'externalCheckout',
+          status: 'failed',
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          plan,
+          checkoutType: 'externalWallet',
+          ...getPrimeInfiniPaymentLogContext({
+            payment: paymentRef.current,
+            asset: selectedAsset,
+          }),
+          reason: 'externalCheckoutHandoffFailed',
+          sendStarted: sendStartedRef.current,
+          error,
+        });
+        showPrimeInfiniPaymentErrorToast({
+          error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+        });
         if (isAttemptOwned()) {
           submitInFlightRef.current = false;
           onExitPreventedChange(false);
@@ -3056,12 +3987,17 @@ function PrimeInfiniWalletPaymentContent({
     [
       baseline.onekeyUserId,
       discardPaymentSessionForSelectionChange,
+      captureTerminalPaymentSessionRevision,
+      discardTerminalPaymentSessionForSelectionChange,
+      fallbackWarningMessages,
       featureName,
+      intl,
       onClose,
       onExitPreventedChange,
       onPayWithExternalWallet,
       onReloadPaymentSession,
       persistPaymentSession,
+      plan,
       selectedAsset,
       selectedSubscriptionPeriod,
     ],
@@ -3069,6 +4005,7 @@ function PrimeInfiniWalletPaymentContent({
 
   const handleExternalCheckout = useCallback(() => {
     logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
       stage: 'paymentMethod',
       status: 'selected',
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3083,11 +4020,12 @@ function PrimeInfiniWalletPaymentContent({
       reason: 'externalWalletSelectedFromInternalPayment',
     });
     Dialog.show({
-      // TODO: i18n pending translation key
-      title: 'Pay with an external wallet?',
-      // TODO: i18n pending translation key
-      description:
-        'You’ll continue payment in your browser. The current in-app payment will be closed.',
+      title: intl.formatMessage({
+        id: ETranslations.prime_pay_with_external_wallet__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.prime_external_wallet_checkout__desc,
+      }),
       showFooter: true,
       showCancelButton: true,
       showConfirmButton: true,
@@ -3119,6 +4057,9 @@ function PrimeInfiniWalletPaymentContent({
   }, [onRestartPaymentSession, replacePaymentForSelectionChange]);
 
   const selectedNetwork = listedNetworkMap[displayAsset.networkId];
+  const balanceErrorMessage = balanceError
+    ? getPrimeInfiniPaymentLocalError(balanceError).errorMessage
+    : undefined;
   const mustKeepTrackingPayment = Boolean(
     payment &&
     !isPrimeInfiniPaymentReplaceable({
@@ -3127,10 +4068,24 @@ function PrimeInfiniWalletPaymentContent({
     }),
   );
   let inlinePaymentErrorTitle = paymentContextErrorTitle;
+  if (!inlinePaymentErrorTitle && paymentValidationFailure && !isBusy) {
+    const failedPayment = validationPaymentRef.current;
+    inlinePaymentErrorTitle = createPrimeInfiniPaymentValidationError(
+      paymentValidationFailure,
+      failedPayment
+        ? {
+            expectedChain: selectedAsset.chain,
+            expectedToken: selectedAsset.token,
+            actualChain: failedPayment.chain,
+            actualToken: failedPayment.token,
+          }
+        : undefined,
+    ).message;
+  }
   if (!inlinePaymentErrorTitle) {
     if (phase === 'replacementFailed' || phase === 'retryableFailed') {
       inlinePaymentErrorTitle = intl.formatMessage({
-        id: ETranslations.global_network_error,
+        id: ETranslations.global_failed,
       });
     } else if (phase === 'expired') {
       inlinePaymentErrorTitle = intl.formatMessage({
@@ -3147,8 +4102,16 @@ function PrimeInfiniWalletPaymentContent({
       await onRetryPaymentContext();
       return;
     }
+    if (phase === 'selecting' && paymentValidationFailure) {
+      await handleContinue();
+      return;
+    }
     if (phase === 'replacementFailed') {
-      await handleReplacementRetry();
+      if (paymentRef.current) {
+        await handleRetry();
+      } else {
+        await handleReplacementRetry();
+      }
       return;
     }
     if (phase === 'retryableFailed') {
@@ -3180,7 +4143,7 @@ function PrimeInfiniWalletPaymentContent({
       avatarProps={
         displayAccount
           ? {
-              size: 'small',
+              size: 'medium',
               indexedAccount: displayActiveAccount.indexedAccount,
               account: displayAccount,
               dbAccount: displayActiveAccount.dbAccount,
@@ -3221,7 +4184,7 @@ function PrimeInfiniWalletPaymentContent({
             shouldRenderExternalCheckout ? (
               <PrimeInfiniExternalCheckoutLink
                 testID="prime-infini-external-checkout"
-                disabled={isSelectionDataRefreshing}
+                disabled={isOptionsRefreshing}
                 onPress={handleExternalCheckout}
               />
             ) : undefined
@@ -3236,9 +4199,13 @@ function PrimeInfiniWalletPaymentContent({
         onConfirmContent={
           isPaymentButtonPreparing ? undefined : (
             <SizableText
-              size="$bodyLgMedium"
+              size="$bodyMdMedium"
+              $gtMd={{ size: '$bodyLgMedium' }}
               color="$textInverse"
               style={PRIME_PAYMENT_BUTTON_NUMERIC_STYLE}
+              minWidth={0}
+              flexShrink={1}
+              textAlign="center"
               numberOfLines={1}
             >
               {payButtonText}
@@ -3261,7 +4228,7 @@ function PrimeInfiniWalletPaymentContent({
           shouldRenderExternalCheckout ? (
             <PrimeInfiniExternalCheckoutLink
               testID="prime-infini-external-checkout"
-              disabled={isSelectionDataRefreshing}
+              disabled={isOptionsRefreshing}
               onPress={handleExternalCheckout}
             />
           ) : undefined
@@ -3276,6 +4243,29 @@ function PrimeInfiniWalletPaymentContent({
 
   return (
     <YStack gap="$4">
+      {/* Order summary: state what is being purchased, not only how to pay. */}
+      <YStack gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {`OneKey Prime · ${intl.formatMessage({
+            id:
+              plan === 'yearly'
+                ? ETranslations.prime_crypto_yearly_plan__title
+                : ETranslations.prime_crypto_monthly_plan__title,
+          })}`}
+        </SizableText>
+        <MultipleClickStack
+          testID="prime-infini-payment-mock-warnings"
+          devSettingsOnly
+          maxWidth={720}
+          onPress={onEnableMockPaymentWarnings}
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.prime_crypto_manual_renewal__desc,
+            })}
+          </SizableText>
+        </MultipleClickStack>
+      </YStack>
       <YStack gap="$2">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.global_account })}
@@ -3295,6 +4285,7 @@ function PrimeInfiniWalletPaymentContent({
           borderColor="$borderSubdued"
           tokenImageSrc={displayBalanceDetail?.info.logoURI}
           networkImageSrc={selectedNetwork?.logoURI}
+          tokenSize="md"
           tokenSymbol={displayAsset.token}
           tokenName={displayBalanceDetail?.info.name ?? displayAsset.token}
           tokenSymbolAccessory={
@@ -3304,9 +4295,11 @@ function PrimeInfiniWalletPaymentContent({
           }
           balance={displayBalanceDetail?.balanceParsed}
           valueProps={
-            displayBalanceDetail?.fiatValue
+            displayFiatBalanceDetail?.fiatValue &&
+            (!displayFiatBalanceDetail.currency ||
+              displayFiatBalanceDetail.currency === settings.currencyInfo.id)
               ? {
-                  value: displayBalanceDetail.fiatValue,
+                  value: displayFiatBalanceDetail.fiatValue,
                   currency: settings.currencyInfo.symbol,
                 }
               : undefined
@@ -3332,7 +4325,10 @@ function PrimeInfiniWalletPaymentContent({
       {accountSyncFailed || hasBalanceError ? (
         <Alert
           type="warning"
-          title={intl.formatMessage({ id: ETranslations.global_network_error })}
+          title={
+            balanceErrorMessage ??
+            intl.formatMessage({ id: ETranslations.global_failed })
+          }
         />
       ) : null}
 
@@ -3351,7 +4347,6 @@ function PrimeInfiniWalletPaymentContent({
 
       {platformEnv.isDev && displayPayment ? (
         <YStack testID="prime-infini-payment-id" gap="$1">
-          {/* TODO: i18n pending translation key */}
           <SizableText color="$textSubdued">Payment ID</SizableText>
           <SizableText size="$bodySm" color="$textSubdued" userSelect="text">
             {displayPayment.paymentId}
@@ -3364,7 +4359,7 @@ function PrimeInfiniWalletPaymentContent({
   );
 }
 
-function PrimeInfiniWalletPaymentRoot({
+export function PrimeInfiniWalletPaymentRoot({
   plan,
   selectedSubscriptionPeriod,
   featureName,
@@ -3373,6 +4368,8 @@ function PrimeInfiniWalletPaymentRoot({
   onExitPreventedChange,
   hasValidRouteParams,
   createNewPayment,
+  preferredNetworkId,
+  remotePaymentResumeIntent,
 }: {
   plan: IPrimeInfiniSubscriptionPlan;
   selectedSubscriptionPeriod: ISubscriptionPeriod;
@@ -3382,9 +4379,32 @@ function PrimeInfiniWalletPaymentRoot({
   onExitPreventedChange: (isPrevented: boolean) => void;
   hasValidRouteParams: boolean;
   createNewPayment: boolean;
+  preferredNetworkId?: string;
+  remotePaymentResumeIntent?: IPrimeParamList[EPrimePages.PrimeInfiniPayment]['remotePaymentResumeIntent'];
 }) {
+  const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
   const [primeUserInfo] = usePrimePersistAtom();
+  // Keep the fallback enabled across content remounts during invoice reloads.
+  const [isMockPaymentWarningsEnabled, setIsMockPaymentWarningsEnabled] =
+    useState(false);
+  const fallbackWarningMessages =
+    devSettings.enabled && isMockPaymentWarningsEnabled
+      ? PRIME_INFINI_MOCK_WARNING_MESSAGES
+      : undefined;
+  const handleEnableMockPaymentWarnings = useCallback(() => {
+    if (!devSettings.enabled || isMockPaymentWarningsEnabled) {
+      return;
+    }
+    setIsMockPaymentWarningsEnabled(true);
+    Toast.success({ title: 'Mock payment warning fallback enabled' });
+  }, [devSettings.enabled, isMockPaymentWarningsEnabled]);
+  useEffect(() => {
+    if (!devSettings.enabled) {
+      setIsMockPaymentWarningsEnabled(false);
+    }
+  }, [devSettings.enabled]);
   const [selectedAssetKey, setSelectedAssetKey] = useState('');
   const [discardedPaymentBindingIds, setDiscardedPaymentBindingIds] = useState<
     ReadonlySet<string>
@@ -3396,6 +4416,27 @@ function PrimeInfiniWalletPaymentRoot({
     continuedExistingPaymentBindingId,
     setContinuedExistingPaymentBindingId,
   ] = useState('');
+  // Bindings the content already worked with in this mount (created, refreshed
+  // or broadcast here). Mid-flow loader re-runs must not bounce them back to
+  // the existing-payment choice: right after a broadcast the server may not
+  // report progress yet, and offering "start new payment" in that window is
+  // exactly the duplicate-transfer risk the choice screen warns about.
+  const hasPersistedPaymentSessionRef = useRef(false);
+  const remoteResumedPaymentIdRef = useRef('');
+  const [handledPaymentBindingIds, setHandledPaymentBindingIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const handlePaymentSessionPersisted = useCallback((bindingId: string) => {
+    hasPersistedPaymentSessionRef.current = true;
+    setHandledPaymentBindingIds((current) => {
+      if (current.has(bindingId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.add(bindingId);
+      return next;
+    });
+  }, []);
   const [isStartingForcedReplacement, setIsStartingForcedReplacement] =
     useState(false);
   const [
@@ -3409,23 +4450,42 @@ function PrimeInfiniWalletPaymentRoot({
   const initialAccountSyncPromiseRef = useRef<Promise<void> | undefined>(
     undefined,
   );
+  const { purchase } = usePrimePurchaseCallback({
+    networkId: preferredNetworkId,
+  });
   const completedPaymentHandledRef = useRef('');
   const paymentCreationIntentRef = useRef(createNewPayment);
   const forcedReplacementGenerationRef = useRef(0);
   const paymentContextLoadAttemptRef = useRef(0);
-  useEffect(
-    () => () => {
-      forcedReplacementGenerationRef.current += 1;
-    },
-    [],
+  const remoteResolverRef = useRef(
+    createPrimeInfiniRemotePendingPaymentResolver(),
   );
-  const { result, isLoading, run } = usePromiseResult<ILoadPaymentOptionsState>(
+  const currentPurchaseUserIdRef = useRef(primeUserInfo.onekeyUserId);
+  if (currentPurchaseUserIdRef.current !== primeUserInfo.onekeyUserId) {
+    hasPersistedPaymentSessionRef.current = false;
+    remoteResumedPaymentIdRef.current = '';
+  }
+  currentPurchaseUserIdRef.current = primeUserInfo.onekeyUserId;
+  const rootMountedRef = useRef(true);
+  const pendingReloadRequestRef = useRef<
+    IPrimeInfiniPaymentReloadRequest | undefined
+  >(undefined);
+  const paymentContextErrorToastLoadAttemptRef = useRef(0);
+  useEffect(() => {
+    rootMountedRef.current = true;
+    return () => {
+      rootMountedRef.current = false;
+      forcedReplacementGenerationRef.current += 1;
+    };
+  }, []);
+  const paymentContext = usePromiseResult<ILoadPaymentOptionsState>(
     async () => {
       const loadAttempt = paymentContextLoadAttemptRef.current + 1;
       paymentContextLoadAttemptRef.current = loadAttempt;
       const startedAt = Date.now();
       const shouldCreatePayment = paymentCreationIntentRef.current;
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentContext',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3448,6 +4508,34 @@ function PrimeInfiniWalletPaymentRoot({
         backgroundApiProxy.servicePrime.apiGetInfiniPaymentOptions(),
         purchaseStatusRequest,
       ]);
+      if (optionsResult.status === 'rejected') {
+        logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
+          stage: 'paymentContext',
+          status: 'failed',
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          plan,
+          checkoutType: 'internalWallet',
+          isRetry: loadAttempt > 1,
+          reason: 'paymentOptionsUnavailable',
+          error: optionsResult.reason,
+        });
+      }
+      if (purchaseStatusResult.status === 'rejected') {
+        logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
+          stage: 'paymentContext',
+          status: 'failed',
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+          plan,
+          checkoutType: 'internalWallet',
+          isRetry: loadAttempt > 1,
+          reason: 'purchaseStatusUnavailable',
+          error: purchaseStatusResult.reason,
+        });
+      }
       const supportedAssets =
         optionsResult.status === 'fulfilled'
           ? getPrimeInfiniPaymentAssets(optionsResult.value)
@@ -3465,23 +4553,34 @@ function PrimeInfiniWalletPaymentRoot({
           ? purchaseStatusResult.value.infiniSubscription
           : undefined;
       let sessionLoadFailed = false;
+      let sessionLoadError: unknown;
       let pendingSession: IPrimeInfiniPendingPaymentSession | undefined;
       let completedPaymentId: string | undefined;
+      // Kept outside the try so a failed server refresh can still fall back to
+      // what is stored locally.
+      let localSessionSnapshot: IPrimeInfiniPendingPaymentSession | undefined;
       if (onekeyUserId) {
         try {
           const restoredSession = normalizePendingPaymentSession(
             await backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
-              { onekeyUserId },
+              { onekeyUserId, flowContext: flowContextRef.current },
             ),
           );
+          localSessionSnapshot = restoredSession;
           if (restoredSession) {
             const canonicalAsset = getCanonicalPrimeInfiniPaymentAsset(
               restoredSession.asset,
             );
             if (!canonicalAsset) {
               sessionLoadFailed = true;
+              sessionLoadError = new OneKeyLocalError(
+                'Infini payment session asset is unavailable',
+              );
             } else {
               const restoreResult = await resolvePrimeInfiniPaymentRestore({
+                sessionChangedMessage: intl.formatMessage({
+                  id: ETranslations.prime_close_and_try_again__desc,
+                }),
                 session: {
                   ...restoredSession,
                   asset: canonicalAsset,
@@ -3489,10 +4588,25 @@ function PrimeInfiniWalletPaymentRoot({
                 supportedAssets,
                 paymentOptionsLoaded: optionsResult.status === 'fulfilled',
                 createNewPayment: shouldCreatePayment,
-                requestedPlan: plan,
-                requestedSubscriptionPeriod: selectedSubscriptionPeriod,
+                flowId: flowContextRef.current?.flowId,
+                requestedPlan:
+                  remoteResumedPaymentIdRef.current ===
+                  restoredSession.payment.paymentId
+                    ? restoredSession.plan
+                    : plan,
+                requestedSubscriptionPeriod:
+                  remoteResumedPaymentIdRef.current ===
+                  restoredSession.payment.paymentId
+                    ? restoredSession.selectedSubscriptionPeriod
+                    : selectedSubscriptionPeriod,
                 fetchLatestPayment: (paymentId) =>
                   backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+                    flowContext: flowContextRef.current
+                      ? {
+                          ...flowContextRef.current,
+                          paymentSource: 'restoreRefresh',
+                        }
+                      : undefined,
                     paymentId,
                     expectedOneKeyUserId: onekeyUserId,
                   }),
@@ -3507,6 +4621,17 @@ function PrimeInfiniWalletPaymentRoot({
                     {
                       onekeyUserId,
                       expectedPaymentCacheIdentity,
+                    },
+                  ),
+                discardTerminalPaymentSession: (latestPayment) =>
+                  backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+                    {
+                      onekeyUserId,
+                      expectedPaymentCacheIdentity:
+                        restoredSession.paymentCacheKey,
+                      expectedUpdatedAt: restoredSession.updatedAt,
+                      expectedSendStarted: restoredSession.sendStarted,
+                      latestPayment,
                     },
                   ),
                 clearCompletedPaymentSession: (expectedPaymentCacheIdentity) =>
@@ -3532,6 +4657,7 @@ function PrimeInfiniWalletPaymentRoot({
                         paymentCacheKey: nextRestoredSession.paymentCacheKey,
                         payment: nextRestoredSession.payment,
                         sendStarted: nextRestoredSession.sendStarted,
+                        flowId: flowContextRef.current?.flowId,
                       },
                     },
                   ),
@@ -3547,8 +4673,10 @@ function PrimeInfiniWalletPaymentRoot({
           }
         } catch (error) {
           sessionLoadFailed = true;
+          sessionLoadError = error;
           logPrimeInfiniPaymentFlow({
-            stage: 'paymentSession',
+            ...flowContextRef.current,
+            stage: 'paymentRestore',
             status: 'failed',
             subscriptionPeriod: selectedSubscriptionPeriod,
             featureName,
@@ -3560,6 +4688,62 @@ function PrimeInfiniWalletPaymentRoot({
           });
         }
       }
+      let remoteRecovery: IPrimeInfiniRemotePaymentRecovery | undefined;
+      let discoveryAuthContext: IPrimeInfiniCheckoutAuthContext | undefined;
+      let remotePaymentCancelled = false;
+      let remotePreparationAllowed: boolean | undefined;
+      if (
+        onekeyUserId &&
+        !pendingSession &&
+        !completedPaymentId &&
+        !sessionLoadFailed &&
+        !localSessionSnapshot &&
+        hasValidRouteParams &&
+        !hasPersistedPaymentSessionRef.current &&
+        optionsResult.status === 'fulfilled'
+      ) {
+        const shouldContinue = () =>
+          rootMountedRef.current &&
+          paymentContextLoadAttemptRef.current === loadAttempt &&
+          currentPurchaseUserIdRef.current === onekeyUserId;
+        try {
+          const lookup =
+            await backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+              expectedOneKeyUserId: onekeyUserId,
+              authContext: remotePaymentResumeIntent?.authContext,
+            });
+          discoveryAuthContext = lookup.authContext;
+          const decision = await remoteResolverRef.current({
+            lookup,
+            assets: supportedAssets,
+            choose: (canResume, lookupUnavailable) =>
+              showPrimeInfiniUnfinishedPaymentDialog({
+                intl,
+                canResume,
+                lookupUnavailable,
+              }),
+            validateAuth: () =>
+              backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+                { context: lookup.authContext },
+              ),
+            shouldContinue,
+            resumePaymentId: remotePaymentResumeIntent?.paymentId,
+            allowNewPayment: shouldCreatePayment,
+          });
+          remotePreparationAllowed = decision.type !== 'cancelled';
+          if (decision.type === 'resume') {
+            remoteRecovery = decision.recovery;
+            remoteResumedPaymentIdRef.current =
+              decision.recovery.payment.paymentId;
+          } else if (decision.type === 'cancelled') {
+            remotePaymentCancelled = true;
+          }
+        } catch (error) {
+          // Request failures already fail open in bg; identity failures do not.
+          sessionLoadFailed = true;
+          sessionLoadError = error;
+        }
+      }
       const assets =
         pendingSession &&
         !supportedAssets.some((asset) => asset.key === pendingSession.asset.key)
@@ -3569,15 +4753,14 @@ function PrimeInfiniWalletPaymentRoot({
       const primeExpiresAt = wasPrimeActive
         ? primeSubscription?.expiresAt || undefined
         : undefined;
-      let infiniPeriodEnd: number | undefined;
-      if (wasPrimeActive) {
-        infiniPeriodEnd = infiniSubscription?.currentPeriodEnd ?? 0;
-      }
+      const infiniPeriodEnd = infiniSubscription?.currentPeriodEnd ?? 0;
       const freshBaseline = {
         onekeyUserId,
         wasPrimeActive,
         primeExpiresAt,
         infiniPeriodEnd,
+        infiniSubscriptionId:
+          infiniSubscription?.subscriptionId?.trim() || null,
       };
       let hasError = false;
       if (!completedPaymentId) {
@@ -3593,18 +4776,44 @@ function PrimeInfiniWalletPaymentRoot({
       if (!hasError) {
         paymentCreationIntentRef.current = false;
       }
+      // Deliberately not gated on the payment creation intent: every entry
+      // with a non-replaceable pending session pauses here once, resume
+      // included, so the user always passes the one screen that can force a
+      // new payment instead of being funneled straight into polling. Bindings
+      // this mount already worked with are filtered out downstream via
+      // handledPaymentBindingIds — a mid-flow loader re-run must not bounce a
+      // just-broadcast payment back to this choice.
       const shouldShowExistingPaymentChoice = Boolean(
-        shouldCreatePayment &&
         pendingSession &&
         !isPrimeInfiniPaymentReplaceable({
           payment: pendingSession.payment,
           sendStarted: pendingSession.sendStarted,
         }),
       );
+      // The server can keep failing on one specific invoice. Showing only the
+      // retry screen would hide the unfinished-payment choice behind an error
+      // the user cannot clear, which is the one screen that can release the
+      // session. Fall back to the stored snapshot, clearly marked as stale.
+      // Like the fresh choice above, this ignores the creation intent: a
+      // resume entry whose load failed has nothing to resume into, so the
+      // choice is the only screen that helps.
+      const staleExistingPaymentSession =
+        sessionLoadFailed &&
+        localSessionSnapshot &&
+        !isPrimeInfiniPaymentReplaceable({
+          payment: localSessionSnapshot.payment,
+          sendStarted: localSessionSnapshot.sendStarted,
+        })
+          ? localSessionSnapshot
+          : undefined;
       if (pendingSession) {
         logPrimeInfiniPaymentFlow({
-          stage: 'paymentSession',
+          ...flowContextRef.current,
+          stage: 'paymentRestore',
           status: 'restored',
+          paymentSource: 'restoreRefresh',
+          sessionAgeMs:
+            Date.now() - (pendingSession.createdAt ?? pendingSession.updatedAt),
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
           plan,
@@ -3619,7 +4828,9 @@ function PrimeInfiniWalletPaymentRoot({
         });
       }
       let contextError: unknown;
-      if (optionsResult.status === 'rejected') {
+      if (sessionLoadError) {
+        contextError = sessionLoadError;
+      } else if (optionsResult.status === 'rejected') {
         contextError = optionsResult.reason;
       } else if (purchaseStatusResult.status === 'rejected') {
         contextError = purchaseStatusResult.reason;
@@ -3647,6 +4858,7 @@ function PrimeInfiniWalletPaymentRoot({
         contextReason = 'readyForPaymentCreation';
       }
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentContext',
         status: hasError ? 'failed' : 'succeeded',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3662,15 +4874,23 @@ function PrimeInfiniWalletPaymentRoot({
         isRetry: loadAttempt > 1,
         durationMs: Date.now() - startedAt,
         reason: contextReason,
-        error: contextError,
       });
       return {
+        loadAttempt,
         assets,
         baseline: freshBaseline,
         pendingSession,
         completedPaymentId,
-        shouldCreatePayment,
+        contextError,
+        shouldCreatePayment:
+          !remotePaymentCancelled &&
+          !sessionLoadFailed &&
+          (remotePreparationAllowed ?? shouldCreatePayment),
+        remoteRecovery,
+        discoveryAuthContext,
+        remotePaymentCancelled,
         shouldShowExistingPaymentChoice,
+        staleExistingPaymentSession,
         canUseExternalCheckout: Boolean(
           hasValidRouteParams &&
           onekeyUserId &&
@@ -3684,12 +4904,22 @@ function PrimeInfiniWalletPaymentRoot({
     [
       featureName,
       hasValidRouteParams,
+      intl,
       plan,
       primeUserInfo.onekeyUserId,
       selectedSubscriptionPeriod,
+      remotePaymentResumeIntent,
     ],
     { watchLoading: true, undefinedResultIfReRun: false },
   );
+
+  const { result, isLoading, run } = paymentContext;
+
+  useEffect(() => {
+    if (result?.remotePaymentCancelled) {
+      onClose();
+    }
+  }, [onClose, result?.remotePaymentCancelled]);
 
   const effectivePendingSession =
     result?.pendingSession &&
@@ -3698,13 +4928,76 @@ function PrimeInfiniWalletPaymentRoot({
     )
       ? undefined
       : result?.pendingSession;
-  const existingPaymentChoiceSession =
+  useEffect(() => {
+    const pendingAssetKey = effectivePendingSession?.asset.key;
+    if (pendingAssetKey) {
+      setSelectedAssetKey((current) =>
+        resolvePrimeInfiniPaymentPinnedAssetKey({
+          selectedAssetKey: current,
+          pendingAssetKey,
+        }),
+      );
+    }
+  }, [effectivePendingSession?.asset.key]);
+  useEffect(() => {
+    const request = pendingReloadRequestRef.current;
+    if (!request || !result) {
+      return;
+    }
+    const resolution = resolvePrimeInfiniPaymentReloadCommit({
+      request,
+      committedLoadAttempt: result.loadAttempt,
+      committedBindingId: effectivePendingSession?.paymentCacheKey.bindingId,
+    });
+    if (resolution === 'wait') {
+      return;
+    }
+    pendingReloadRequestRef.current = undefined;
+    if (resolution === 'remount') {
+      setPaymentSessionGeneration((value) => value + 1);
+    }
+  }, [effectivePendingSession?.paymentCacheKey.bindingId, result]);
+  useEffect(() => {
+    if (
+      !result?.hasError ||
+      !result.contextError ||
+      paymentContextErrorToastLoadAttemptRef.current >= result.loadAttempt
+    ) {
+      return;
+    }
+    paymentContextErrorToastLoadAttemptRef.current = result.loadAttempt;
+    showPrimeInfiniPaymentErrorToast({
+      error: result.contextError,
+      fallbackMessage: intl.formatMessage({
+        id: ETranslations.global_failed,
+      }),
+    });
+  }, [intl, result]);
+  const freshExistingPaymentChoiceSession =
     result?.shouldShowExistingPaymentChoice &&
     effectivePendingSession &&
+    !handledPaymentBindingIds.has(
+      effectivePendingSession.paymentCacheKey.bindingId,
+    ) &&
     continuedExistingPaymentBindingId !==
       effectivePendingSession.paymentCacheKey.bindingId
       ? effectivePendingSession
       : undefined;
+  const staleExistingPaymentChoiceSession =
+    !freshExistingPaymentChoiceSession &&
+    result?.staleExistingPaymentSession &&
+    !discardedPaymentBindingIds.has(
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId,
+    ) &&
+    !handledPaymentBindingIds.has(
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId,
+    ) &&
+    continuedExistingPaymentBindingId !==
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId
+      ? result.staleExistingPaymentSession
+      : undefined;
+  const existingPaymentChoiceSession =
+    freshExistingPaymentChoiceSession ?? staleExistingPaymentChoiceSession;
 
   useEffect(() => {
     const completedPaymentId = result?.completedPaymentId;
@@ -3720,6 +5013,7 @@ function PrimeInfiniWalletPaymentRoot({
     setFailedCompletionFinalizationPaymentId('');
     onExitPreventedChange(true);
     logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
       stage: 'purchaseCompletion',
       status: 'started',
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3745,6 +5039,7 @@ function PrimeInfiniWalletPaymentRoot({
       await timerUtils.wait(350);
       await finishPrimeSubscriptionPurchaseSuccess(successPayload);
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'purchaseCompletion',
         status: 'succeeded',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3759,6 +5054,7 @@ function PrimeInfiniWalletPaymentRoot({
       onExitPreventedChange(false);
       setFailedCompletionFinalizationPaymentId(completedPaymentId);
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'purchaseCompletion',
         status: 'failed',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3770,7 +5066,12 @@ function PrimeInfiniWalletPaymentRoot({
         reason: 'restoredCompletionFinalizationFailed',
         error,
       });
-      errorToastUtils.showToastOfError(error);
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
     });
   }, [
     intl,
@@ -3795,12 +5096,20 @@ function PrimeInfiniWalletPaymentRoot({
 
   const selectedAsset = useMemo(
     () =>
-      result?.assets.find(
-        (asset) =>
-          asset.key ===
-          (selectedAssetKey || effectivePendingSession?.asset.key),
-      ) ?? result?.assets[0],
-    [effectivePendingSession?.asset.key, result, selectedAssetKey],
+      (!selectedAssetKey ? result?.remoteRecovery?.asset : undefined) ??
+      resolvePrimeInfiniPaymentAsset({
+        assets: result?.assets ?? [],
+        selectedAssetKey,
+        pendingAssetKey: effectivePendingSession?.asset.key,
+        preferredNetworkId,
+      }),
+    [
+      effectivePendingSession?.asset.key,
+      preferredNetworkId,
+      result?.assets,
+      result?.remoteRecovery,
+      selectedAssetKey,
+    ],
   );
   const availableNetworksMap = useMemo(
     () =>
@@ -3814,6 +5123,28 @@ function PrimeInfiniWalletPaymentRoot({
         : undefined,
     [selectedAsset],
   );
+  const handlePaymentContextRunError = useCallback(
+    (error: unknown, reason: string) => {
+      logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
+        stage: 'paymentSession',
+        status: 'failed',
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName,
+        plan,
+        checkoutType: 'internalWallet',
+        reason,
+        error,
+      });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
+    },
+    [featureName, intl, plan, selectedSubscriptionPeriod],
+  );
   const handleDiscardPaymentSession = useCallback(
     (bindingId: string) => {
       paymentCreationIntentRef.current = true;
@@ -3821,9 +5152,11 @@ function PrimeInfiniWalletPaymentRoot({
         return addPrimeInfiniDiscardedPaymentBindingId(current, bindingId);
       });
       setPaymentSessionGeneration((value) => value + 1);
-      void run({ alwaysSetState: true });
+      void run({ alwaysSetState: true }).catch((error) => {
+        handlePaymentContextRunError(error, 'discardedSessionReloadFailed');
+      });
     },
-    [run],
+    [handlePaymentContextRunError, run],
   );
   const handleReplacePaymentSession = useCallback(
     ({ bindingId, assetKey }: { bindingId: string; assetKey: string }) => {
@@ -3833,25 +5166,58 @@ function PrimeInfiniWalletPaymentRoot({
         return addPrimeInfiniDiscardedPaymentBindingId(current, bindingId);
       });
       setPaymentSessionGeneration((value) => value + 1);
-      void run({ alwaysSetState: true });
+      void run({ alwaysSetState: true }).catch((error) => {
+        handlePaymentContextRunError(error, 'replacedSessionReloadFailed');
+      });
     },
-    [run],
+    [handlePaymentContextRunError, run],
   );
-  const handleReloadPaymentSession = useCallback(() => {
-    setSelectedAssetKey('');
-    setPaymentSessionGeneration((value) => value + 1);
-    void run({ alwaysSetState: true });
-  }, [run]);
+  const handleReloadPaymentSession = useCallback(
+    (reviewPaymentBindingId?: string) => {
+      if (reviewPaymentBindingId) {
+        setContinuedExistingPaymentBindingId((current) =>
+          current === reviewPaymentBindingId ? '' : current,
+        );
+        setHandledPaymentBindingIds((current) => {
+          const next = new Set(current);
+          next.delete(reviewPaymentBindingId);
+          return next;
+        });
+      }
+      if (pendingReloadRequestRef.current) {
+        return;
+      }
+      const request: IPrimeInfiniPaymentReloadRequest = {
+        minimumLoadAttempt: paymentContextLoadAttemptRef.current + 1,
+        previousBindingId: effectivePendingSession?.paymentCacheKey.bindingId,
+      };
+      pendingReloadRequestRef.current = request;
+      void run({ alwaysSetState: true }).catch((error) => {
+        if (pendingReloadRequestRef.current === request) {
+          pendingReloadRequestRef.current = undefined;
+        }
+        handlePaymentContextRunError(error, 'sessionReloadFailed');
+      });
+    },
+    [
+      effectivePendingSession?.paymentCacheKey.bindingId,
+      handlePaymentContextRunError,
+      run,
+    ],
+  );
   const handleRestartPaymentSession = useCallback(() => {
     paymentCreationIntentRef.current = true;
     setPaymentSessionGeneration((value) => value + 1);
-    void run({ alwaysSetState: true });
-  }, [run]);
+    void run({ alwaysSetState: true }).catch((error) => {
+      handlePaymentContextRunError(error, 'restartedSessionReloadFailed');
+    });
+  }, [handlePaymentContextRunError, run]);
   const handleContinueExistingPayment = useCallback(() => {
     if (!existingPaymentChoiceSession) {
       return;
     }
     logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
       stage: 'paymentSession',
       status: 'restored',
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3865,14 +5231,29 @@ function PrimeInfiniWalletPaymentRoot({
       reason: 'userContinuedExistingPayment',
       sendStarted: existingPaymentChoiceSession.sendStarted,
     });
+    if (staleExistingPaymentChoiceSession) {
+      // This choice was rendered from the stored snapshot because the server
+      // would not confirm the invoice, so there is nothing to resume into:
+      // polling needs the same request that just failed. Marking it continued
+      // would also hide the forced replacement along with the screen, leaving
+      // no way back to it. Retry the load instead, which either recovers the
+      // real session or brings both options back.
+      void run({ alwaysSetState: true }).catch((error) => {
+        handlePaymentContextRunError(error, 'staleSessionReloadFailed');
+      });
+      return;
+    }
     setContinuedExistingPaymentBindingId(
       existingPaymentChoiceSession.paymentCacheKey.bindingId,
     );
   }, [
     existingPaymentChoiceSession,
     featureName,
+    handlePaymentContextRunError,
     plan,
+    run,
     selectedSubscriptionPeriod,
+    staleExistingPaymentChoiceSession,
   ]);
   const handleStartForcedReplacement = useCallback(async () => {
     if (
@@ -3888,10 +5269,11 @@ function PrimeInfiniWalletPaymentRoot({
     forcedReplacementGenerationRef.current = attemptGeneration;
     const shouldContinue = () =>
       forcedReplacementGenerationRef.current === attemptGeneration;
-    let handedOffToPaymentCreation = false;
+    let handedOffToPaymentEntry = false;
     setIsStartingForcedReplacement(true);
     onExitPreventedChange(true);
     logPrimeInfiniPaymentFlow({
+      ...flowContextRef.current,
       stage: 'paymentReplacement',
       status: 'started',
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3911,6 +5293,7 @@ function PrimeInfiniWalletPaymentRoot({
           currentSession,
           fetchLatestPayment: (paymentId) =>
             backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+              flowContext: flowContextRef.current,
               paymentId,
               expectedOneKeyUserId: onekeyUserId,
             }),
@@ -3926,27 +5309,29 @@ function PrimeInfiniWalletPaymentRoot({
                 latestPayment,
               },
             ),
-          persistTrackedPayment: (latestPayment) =>
-            backgroundApiProxy.simpleDb.prime.setInfiniPendingPaymentSession({
-              onekeyUserId,
-              session: {
+          onLatestPaymentUnavailable: (error) => {
+            logPrimeInfiniPaymentFlow({
+              ...flowContextRef.current,
+              stage: 'paymentReplacement',
+              status: 'failed',
+              subscriptionPeriod: selectedSubscriptionPeriod,
+              featureName,
+              plan,
+              checkoutType: 'internalWallet',
+              ...getPrimeInfiniPaymentLogContext({
+                payment: currentSession.payment,
                 asset: currentSession.asset,
-                baseline: currentSession.baseline,
-                plan: currentSession.plan,
-                selectedSubscriptionPeriod:
-                  currentSession.selectedSubscriptionPeriod,
-                featureName: currentSession.featureName,
-                payerAccountId: currentSession.payerAccountId,
-                payerAddress: currentSession.payerAddress,
-                paymentCacheKey: currentSession.paymentCacheKey,
-                payment: latestPayment,
-                sendStarted: true,
-              },
-            }),
+              }),
+              reason: 'forcedReplacementInvoiceUnavailable',
+              sendStarted: currentSession.sendStarted,
+              error,
+            });
+          },
           shouldContinue,
         });
       if (!shouldContinue() || replacementResult.type === 'cancelled') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'cancelled',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3964,6 +5349,7 @@ function PrimeInfiniWalletPaymentRoot({
       }
       if (replacementResult.type === 'replace') {
         logPrimeInfiniPaymentFlow({
+          ...flowContextRef.current,
           stage: 'paymentReplacement',
           status: 'succeeded',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -3977,36 +5363,26 @@ function PrimeInfiniWalletPaymentRoot({
           reason: 'previousPaymentSuperseded',
           sendStarted: false,
         });
-        paymentCreationIntentRef.current = true;
-        setSelectedAssetKey(currentSession.asset.key);
         setIsStartingForcedReplacement(false);
         onExitPreventedChange(false);
-        handedOffToPaymentCreation = true;
-        await run({ alwaysSetState: true });
+        handedOffToPaymentEntry = true;
+        // The superseded session no longer holds the entry gate, so hand the
+        // user back to the payment method picker rather than silently minting
+        // another invoice for the same token. Someone forcing a new payment may
+        // be doing it precisely because they can no longer pay with that asset,
+        // and having accepted the duplicate-transfer warning they are entitled
+        // to every channel, not just the crypto one.
+        onClose();
+        if (platformEnv.isNative) {
+          await timerUtils.wait(PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS);
+        }
+        await purchase({ selectedSubscriptionPeriod, featureName });
         return;
-      }
-      if (replacementResult.type === 'track') {
-        logPrimeInfiniPaymentFlow({
-          stage: 'paymentReplacement',
-          status: 'blocked',
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          featureName,
-          plan,
-          checkoutType: 'internalWallet',
-          ...getPrimeInfiniPaymentLogContext({
-            payment: replacementResult.payment,
-            asset: currentSession.asset,
-          }),
-          reason: 'paymentProgressDetected',
-          sendStarted: true,
-        });
-        setContinuedExistingPaymentBindingId(
-          currentSession.paymentCacheKey.bindingId,
-        );
       }
       await run({ alwaysSetState: true });
     } catch (error) {
       logPrimeInfiniPaymentFlow({
+        ...flowContextRef.current,
         stage: 'paymentReplacement',
         status: 'failed',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -4021,10 +5397,14 @@ function PrimeInfiniWalletPaymentRoot({
         sendStarted: currentSession.sendStarted,
         error,
       });
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
     } finally {
-      if (!handedOffToPaymentCreation) {
+      if (!handedOffToPaymentEntry) {
         setIsStartingForcedReplacement(false);
         onExitPreventedChange(false);
       }
@@ -4033,7 +5413,10 @@ function PrimeInfiniWalletPaymentRoot({
     existingPaymentChoiceSession,
     featureName,
     isStartingForcedReplacement,
+    intl,
+    onClose,
     onExitPreventedChange,
+    purchase,
     result?.baseline.onekeyUserId,
     run,
     plan,
@@ -4048,6 +5431,7 @@ function PrimeInfiniWalletPaymentRoot({
     let shouldRestoreExit = true;
     try {
       const didOpenCheckout = await onPayWithExternalWallet({
+        flowId: flowContextRef.current?.flowId,
         selectedSubscriptionPeriod,
         featureName,
       });
@@ -4057,8 +5441,12 @@ function PrimeInfiniWalletPaymentRoot({
       shouldRestoreExit = false;
       onClose();
     } catch (error) {
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
     } finally {
       if (shouldRestoreExit) {
         onExitPreventedChange(false);
@@ -4067,6 +5455,7 @@ function PrimeInfiniWalletPaymentRoot({
     }
   }, [
     featureName,
+    intl,
     isErrorExternalCheckoutPending,
     onClose,
     onExitPreventedChange,
@@ -4086,6 +5475,7 @@ function PrimeInfiniWalletPaymentRoot({
   }, [run]);
 
   const paymentContent = (() => {
+    if (result?.remotePaymentCancelled) return <Stack />;
     if (!result) {
       return <PrimeInfiniPaymentSkeleton />;
     }
@@ -4103,6 +5493,7 @@ function PrimeInfiniWalletPaymentRoot({
       return (
         <PrimeInfiniExistingPaymentChoice
           session={existingPaymentChoiceSession}
+          isPaymentStateStale={Boolean(staleExistingPaymentChoiceSession)}
           isStartingNewPayment={
             isStartingForcedReplacement || Boolean(isLoading)
           }
@@ -4113,15 +5504,16 @@ function PrimeInfiniWalletPaymentRoot({
     }
     let paymentContextErrorTitle: string | undefined;
     if (!effectivePendingSession && !hasValidRouteParams) {
-      // TODO: i18n pending translation key
-      paymentContextErrorTitle =
-        'Unable to start payment because the purchase context is invalid';
+      paymentContextErrorTitle = intl.formatMessage({
+        id: ETranslations.prime_payment_start_failed__msg,
+      });
     } else if (!result.baseline.onekeyUserId) {
-      // TODO: i18n pending translation key
-      paymentContextErrorTitle = 'Please log in to your OneKey ID first';
+      paymentContextErrorTitle = intl.formatMessage({
+        id: ETranslations.prime_not_logged_in_description,
+      });
     } else if (result.hasError) {
       paymentContextErrorTitle = intl.formatMessage({
-        id: ETranslations.global_network_error,
+        id: ETranslations.global_failed,
       });
     }
     if (!selectedAsset || !availableNetworksMap) {
@@ -4130,7 +5522,7 @@ function PrimeInfiniWalletPaymentRoot({
           errorTitle={
             paymentContextErrorTitle ??
             intl.formatMessage({
-              id: ETranslations.global_network_error,
+              id: ETranslations.global_failed,
             })
           }
           isRetrying={isErrorExternalCheckoutPending || Boolean(isLoading)}
@@ -4146,21 +5538,30 @@ function PrimeInfiniWalletPaymentRoot({
         key={`${
           effectivePendingSession?.paymentCacheKey.bindingId ?? 'new-payment'
         }:${paymentSessionGeneration}`}
-        plan={effectivePendingSession?.plan ?? plan}
+        plan={
+          effectivePendingSession?.plan ?? result.remoteRecovery?.plan ?? plan
+        }
         selectedSubscriptionPeriod={
           effectivePendingSession?.selectedSubscriptionPeriod ??
-          selectedSubscriptionPeriod
+          (result.remoteRecovery
+            ? { monthly: 'P1M' as const, yearly: 'P1Y' as const }[
+                result.remoteRecovery.plan
+              ]
+            : selectedSubscriptionPeriod)
         }
         featureName={effectivePendingSession?.featureName ?? featureName}
         assets={result.assets}
         selectedAsset={selectedAsset}
         baseline={effectivePendingSession?.baseline ?? result.baseline}
         pendingSession={effectivePendingSession}
+        remoteRecovery={selectedAssetKey ? undefined : result.remoteRecovery}
+        discoveryAuthContext={result.discoveryAuthContext}
         onSelectedAssetChange={setSelectedAssetKey}
         onDiscardPaymentSession={handleDiscardPaymentSession}
         onReplacePaymentSession={handleReplacePaymentSession}
         onReloadPaymentSession={handleReloadPaymentSession}
         onRestartPaymentSession={handleRestartPaymentSession}
+        onPaymentSessionPersisted={handlePaymentSessionPersisted}
         onPayWithExternalWallet={onPayWithExternalWallet}
         onClose={onClose}
         onExitPreventedChange={onExitPreventedChange}
@@ -4169,9 +5570,10 @@ function PrimeInfiniWalletPaymentRoot({
         paymentContextErrorTitle={paymentContextErrorTitle}
         isPaymentContextRetrying={Boolean(isLoading)}
         onRetryPaymentContext={handleRetryPaymentContext}
+        fallbackWarningMessages={fallbackWarningMessages}
+        onEnableMockPaymentWarnings={handleEnableMockPaymentWarnings}
         shouldCreatePayment={
-          !paymentContextErrorTitle &&
-          (result.shouldCreatePayment || paymentCreationIntentRef.current)
+          !paymentContextErrorTitle && result.shouldCreatePayment
         }
       />
     );
@@ -4189,8 +5591,13 @@ function PrimeInfiniWalletPaymentRoot({
 }
 
 export default function PrimeInfiniWalletPayment() {
+  const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
   const route = useAppRoute<IPrimeParamList, EPrimePages.PrimeInfiniPayment>();
+  const [flowContext] = useState<IPrimeInfiniPaymentFlowContext>(() => ({
+    flowId: route.params?.flowId ?? generateUUID(),
+    createNewPaymentIntent: route.params?.createNewPayment === true,
+  }));
   const createNewPaymentRef = useRef(route.params?.createNewPayment === true);
   const { purchaseByExternalCheckout } = usePrimeInfiniPurchase();
   const [isExitPrevented, setIsExitPrevented] = useState(false);
@@ -4238,43 +5645,53 @@ export default function PrimeInfiniWalletPayment() {
     selectedSubscriptionPeriod === 'P1M' ? 'P1M' : 'P1Y';
   const plan: IPrimeInfiniSubscriptionPlan =
     effectiveSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-  const isCryptoPaymentSupported =
-    !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
+  const isCryptoPaymentSupported = isPrimeCryptoPaymentSupported();
 
   useEffect(() => {
     if (isCryptoPaymentSupported) {
       return;
     }
     Toast.error({
-      // TODO: i18n pending translation key
-      title: 'Crypto payments are not available on this platform',
+      title: intl.formatMessage({
+        id: ETranslations.prime_crypto_payment_unsupported__msg,
+      }),
     });
     closePaymentPage();
-  }, [closePaymentPage, isCryptoPaymentSupported]);
+  }, [closePaymentPage, intl, isCryptoPaymentSupported]);
 
   return (
-    <Page testID="prime-infini-payment-page" scrollEnabled>
-      <Page.Header headerTitle={PRIME_PAY_WITH_CRYPTO_LABEL} />
-      <Page.Body>
-        <YStack px="$5" py="$4" gap="$4">
-          {isCryptoPaymentSupported ? (
-            <PrimeInfiniWalletPaymentRoot
-              plan={plan}
-              selectedSubscriptionPeriod={effectiveSubscriptionPeriod}
-              featureName={featureName}
-              onPayWithExternalWallet={purchaseByExternalCheckout}
-              onClose={closePaymentPage}
-              onExitPreventedChange={setIsExitPrevented}
-              hasValidRouteParams={hasValidRouteParams}
-              createNewPayment={createNewPaymentRef.current}
-            />
-          ) : (
-            <Stack alignItems="center" py="$6">
-              <Spinner size="large" />
-            </Stack>
-          )}
-        </YStack>
-      </Page.Body>
-    </Page>
+    <PrimeInfiniPaymentFlowContext.Provider value={flowContext}>
+      <Page testID="prime-infini-payment-page" scrollEnabled>
+        <Page.Header
+          headerTitle={intl.formatMessage({
+            id: ETranslations.prime_pay_with_crypto__title,
+          })}
+        />
+        <Page.Body>
+          <YStack px="$5" py="$4" gap="$4">
+            {isCryptoPaymentSupported ? (
+              <PrimeInfiniWalletPaymentRoot
+                plan={plan}
+                selectedSubscriptionPeriod={effectiveSubscriptionPeriod}
+                featureName={featureName}
+                onPayWithExternalWallet={purchaseByExternalCheckout}
+                onClose={closePaymentPage}
+                onExitPreventedChange={setIsExitPrevented}
+                hasValidRouteParams={hasValidRouteParams}
+                createNewPayment={createNewPaymentRef.current}
+                preferredNetworkId={route.params?.networkId}
+                remotePaymentResumeIntent={
+                  route.params?.remotePaymentResumeIntent
+                }
+              />
+            ) : (
+              <Stack alignItems="center" py="$6">
+                <Spinner size="large" />
+              </Stack>
+            )}
+          </YStack>
+        </Page.Body>
+      </Page>
+    </PrimeInfiniPaymentFlowContext.Provider>
   );
 }

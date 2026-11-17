@@ -5,6 +5,12 @@ import { Easing, FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 // The onboarding's enter/exit transitions all use ease-out cubic — the
 // web-animation rule that content entering or leaving the viewport eases out
 // (an instant, responsive start that settles into place).
+//
+// Web constraint: `exiting` only plays when the element's PARENT survives the
+// unmount (an in-page swap). Exiting views inside a wholesale-removed subtree
+// (route/stack teardown) are dropped without animating — patches/
+// react-native-reanimated+4.2.1.patch disables reanimated's exit-dummy
+// reattach observer, which used to strand such views on screen forever.
 export const EASE_OUT_CUBIC = Easing.out(Easing.cubic);
 
 // A sequenced ("mode=wait") opacity cross-fade: the old content fully fades OUT,

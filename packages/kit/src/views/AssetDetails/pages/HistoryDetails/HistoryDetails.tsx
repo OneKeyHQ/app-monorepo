@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -27,11 +28,16 @@ import {
   formatTransferOverflowLabel,
 } from '@onekeyhq/kit/src/components/TxAction/consts';
 import { SpeedUpAction } from '@onekeyhq/kit/src/components/TxHistoryListView/SpeedUpAction';
+import { ZcashMemo } from '@onekeyhq/kit/src/components/ZcashMemo';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import {
+  resolvePrivacyChainEndpointDisplay,
+  toPrivacyChainLocalWalletDisplay,
+} from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import {
   isPrivateSendHistoryTx,
@@ -51,9 +57,23 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectPrivacyChainOwnAddresses,
+  getPrivacyChainEndpointFlow,
+  getPrivacyChainPublicDisplayFlow,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import type { IPrivacyChainEndpointItem } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  swrCacheNamespaces,
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -389,6 +409,7 @@ function HistoryDetails() {
     notificationAccountId,
     allowClickAccountNameSwitch,
     historyTx: historyTxParam,
+    privacyChainPoolId,
     isAllNetworks,
     checkIsFocused = true,
   } = route.params;
@@ -405,6 +426,17 @@ function HistoryDetails() {
     accountId,
   });
 
+  const isLocalWalletHistory = !!vaultSettings?.localWallet;
+  useEffect(() => {
+    if (!isLocalWalletHistory) return;
+    // Detail snapshots can contain decrypted memos and private recipients,
+    // including one that landed before vault settings resolved.
+    // Keep these facts in wallet-owned storage, not the shared display cache.
+    swrCacheUtils.removeByPrefix(
+      `${swrCacheNamespaces.historyTxDetail}:v1:${networkId}:`,
+    );
+    swrCacheUtils.flushNow();
+  }, [isLocalWalletHistory, networkId]);
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
   const isInitialPrivateSendHistory = historyTxParam
@@ -469,6 +501,7 @@ function HistoryDetails() {
         networkId,
         accountAddress,
         txid,
+        privacyChainPoolId,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
         // narrow vault extra params (btc find-address) to the addresses the
         // tapped tx involves; deep links have no tx context and fall back
@@ -524,6 +557,7 @@ function HistoryDetails() {
       accountId,
       networkId,
       txid,
+      privacyChainPoolId,
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
       isInitialPrivateSendHistory,
@@ -541,6 +575,7 @@ function HistoryDetails() {
       swrKey: txid
         ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
         : undefined,
+      swrShouldPersist: () => !isLocalWalletHistory,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
@@ -601,10 +636,23 @@ function HistoryDetails() {
       accountId,
       networkId,
       txId: txid,
-      inputs: historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
-      outputs: historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoTo,
+      privacyChainPoolId,
+      inputs: isLocalWalletHistory
+        ? undefined
+        : historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
+      outputs: isLocalWalletHistory
+        ? undefined
+        : historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoTo,
     });
-  }, [navigation, accountId, networkId, txid, historyTx?.decodedTx.actions]);
+  }, [
+    navigation,
+    accountId,
+    networkId,
+    txid,
+    historyTx?.decodedTx.actions,
+    privacyChainPoolId,
+    isLocalWalletHistory,
+  ]);
 
   const txAddresses = useMemo(() => {
     if (!historyTx) {
@@ -793,21 +841,45 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
+    // Only let the indexer label win when it actually has one: networks the
+    // indexer cannot parse return an empty label, and overwriting with it
+    // wiped out the title derived above.
     if (
-      !historyTx.isLocalCreated ||
-      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+      !isLocalWalletHistory &&
+      label &&
+      (!historyTx.isLocalCreated ||
+        decodedTx.status !== EDecodedTxStatus.Pending)
     ) {
       title = label;
     }
 
-    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+    const action = decodedTx.actions[0];
+
+    // Same fallbacks the history list item uses, so the row and its details
+    // page never disagree on the action type.
+    if (!title && action?.assetTransfer?.isInternalSwap) {
       title = intl.formatMessage({
         id: ETranslations.global_swap,
       });
+    } else if (!title && action?.assetTransfer?.isInternalStaking) {
+      title =
+        action.assetTransfer.internalStakingLabel ||
+        (historyTx.stakingInfo
+          ? getStakingActionLabel({ stakingInfo: historyTx.stakingInfo })
+          : '');
+    }
+
+    if (!title && (action?.functionCall || action?.unknownAction)) {
+      title =
+        action.functionCall?.functionName ||
+        action.unknownAction?.label ||
+        intl.formatMessage({
+          id: ETranslations.transaction__contract_interaction,
+        });
     }
 
     return title;
-  }, [historyTx, intl, isSendToSelf]);
+  }, [historyTx, intl, isSendToSelf, isLocalWalletHistory]);
 
   const transfersToRender = useMemo(() => {
     if (!historyTx) {
@@ -1031,7 +1103,13 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const status = txDetails?.status ?? historyTx?.decodedTx.status;
+    let status = txDetails?.status ?? historyTx?.decodedTx.status;
+    if (
+      isLocalWalletHistory &&
+      status === EOnChainHistoryTxStatus.Pending &&
+      historyTx?.decodedTx.status === EDecodedTxStatus.Dropped
+    )
+      status = EDecodedTxStatus.Dropped;
     const { key, color, isConfirming } = getTxStatusTextProps(status);
 
     const broadcastTimeMs = txDetails?.timestamp
@@ -1043,6 +1121,11 @@ function HistoryDetails() {
           confirmationETABlocks: txDetails?.confirmationETABlocks,
           broadcastTimeMs,
           nowMs: Date.now(),
+          // Mirror only the real speed-up entry (renderReplaceButtons requires
+          // canReplaceTx); the "Order inquiry" button is not an accelerate
+          // action, so checkSpeedUpStateEnabled must not unlock the nudge.
+          // Stays undefined until the async capability check resolves.
+          canSpeedUp: canReplaceTx,
         })
       : null;
 
@@ -1074,6 +1157,7 @@ function HistoryDetails() {
       </YStack>
     );
   }, [
+    isLocalWalletHistory,
     historyTx?.decodedTx.status,
     historyTx?.decodedTx.updatedAt,
     historyTx?.decodedTx.createdAt,
@@ -1084,10 +1168,270 @@ function HistoryDetails() {
     txDetails?.confirmationETASeconds,
     txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
+    canReplaceTx,
   ]);
+
+  const localWalletHistoryFlow = useMemo(
+    () =>
+      isLocalWalletHistory
+        ? getPrivacyChainPublicDisplayFlow({
+            publicAddressPattern:
+              vaultSettings?.localWallet?.publicAddressPattern,
+            transfer: historyTx?.decodedTx.actions[0]?.assetTransfer,
+          })
+        : undefined,
+    [
+      historyTx?.decodedTx.actions,
+      isLocalWalletHistory,
+      vaultSettings?.localWallet?.publicAddressPattern,
+    ],
+  );
+  const isSentFromThisWallet =
+    (!!historyTx?.decodedTx.signer &&
+      historyTx.decodedTx.signer === historyTx.decodedTx.owner) ||
+    (isLocalWalletHistory && !!txDetails?.sends?.some((send) => send.isOwn));
+  // Every endpoint a local-wallet row shows, in order: shielded and private
+  // ones, then public addresses. The background leaves an own address only
+  // when it is a displayed one; anything else is named by its pool.
+  const localWalletEndpoints = useMemo(() => {
+    if (!isLocalWalletHistory || !vaultSettings?.localWallet) return undefined;
+    const localWallet = toPrivacyChainLocalWalletDisplay(
+      vaultSettings.localWallet,
+    );
+    const transfer = historyTx?.decodedTx.actions[0]?.assetTransfer;
+    const ownAddresses = collectPrivacyChainOwnAddresses({
+      owner: historyTx?.decodedTx.owner,
+      transfer,
+      inputTransfers: txDetails?.sends,
+      outputTransfers: txDetails?.receives,
+    });
+    const flow = getPrivacyChainEndpointFlow({
+      pools: localWallet.pools,
+      publicAddressPattern: localWallet.publicAddressPattern,
+      privateAddressPattern: localWallet.privateAddressPattern,
+      transfer,
+      inputTransfers: txDetails?.sends,
+      outputTransfers: txDetails?.receives,
+      isSent: isSentFromThisWallet,
+      ownAddresses,
+    });
+    const publicPoolId = localWallet.pools?.find(
+      (pool) => pool.kind === 'public',
+    )?.id;
+    const resolve = (direction: 'from' | 'to') => {
+      const items: { item: IPrivacyChainEndpointItem; isPublic: boolean }[] = [
+        ...flow[direction].map((item) => ({ item, isPublic: false })),
+        ...(localWalletHistoryFlow?.[direction] ?? []).map((address) => ({
+          item: ownAddresses.has(address)
+            ? ({
+                kind: 'own',
+                poolId: publicPoolId,
+                address,
+              } as const)
+            : ({ kind: 'address', address } as const),
+          isPublic: true,
+        })),
+      ];
+      const resolved = items.map(({ item, isPublic }) => ({
+        ...resolvePrivacyChainEndpointDisplay({
+          intl,
+          localWallet,
+          item,
+        }),
+        poolId: item.kind === 'address' ? undefined : item.poolId,
+        isPublic,
+      }));
+      // A shown own address makes the same pool's fallback name redundant.
+      const poolsWithOwnAddress = new Set(
+        resolved
+          .filter((endpoint) => endpoint.isOwn && endpoint.address)
+          .map((endpoint) => endpoint.poolId),
+      );
+      const seen = new Set<string>();
+      return resolved.filter((endpoint) => {
+        if (
+          endpoint.isOwn &&
+          !endpoint.address &&
+          poolsWithOwnAddress.has(endpoint.poolId)
+        ) {
+          return false;
+        }
+        const key = endpoint.address ?? `pool:${endpoint.poolLabel ?? ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+    return { from: resolve('from'), to: resolve('to') };
+  }, [
+    historyTx?.decodedTx.actions,
+    historyTx?.decodedTx.owner,
+    intl,
+    isLocalWalletHistory,
+    isSentFromThisWallet,
+    localWalletHistoryFlow,
+    txDetails?.sends,
+    txDetails?.receives,
+    vaultSettings?.localWallet,
+  ]);
+  const hasWalletIO =
+    txDetails?.inputOutputSource === 'account' &&
+    !!(txDetails.sends?.length || txDetails.receives?.length);
+  const showUTXOs =
+    !localWalletHistoryFlow ||
+    hasWalletIO ||
+    localWalletHistoryFlow.from.length > 0 ||
+    localWalletHistoryFlow.to.length > 0;
 
   const renderTxFlow = useCallback(() => {
     const action = historyTx?.decodedTx.actions[0];
+
+    if (localWalletHistoryFlow) {
+      const senderUnknownDescription = (
+        <SizableText color="$textSubdued" size="$bodySm">
+          {intl.formatMessage({
+            id: ETranslations.privacy_history_sender_unknown__desc,
+          })}
+        </SizableText>
+      );
+      const publicLocalWalletPoolId = vaultSettings?.localWallet?.pools?.find(
+        (pool) => pool.kind === 'public',
+      )?.id;
+      // A private address the chain does not show; this wallet read it.
+      const localRecipientDescription = (
+        <XStack gap="$1.5" alignItems="center">
+          <Icon name="ShieldOutline" size="$4" color="$iconSubdued" />
+          <SizableText color="$textSubdued" size="$bodySm" flexShrink={1}>
+            {intl.formatMessage({
+              id: ETranslations.privacy_history_local_recipient__desc,
+            })}
+          </SizableText>
+        </XStack>
+      );
+      return (
+        <>
+          {!isSentFromThisWallet &&
+          !localWalletHistoryFlow.from.length &&
+          !localWalletEndpoints?.from.length ? (
+            <InfoItem
+              label={intl.formatMessage({ id: ETranslations.global_from })}
+              renderContent={intl.formatMessage({
+                id: ETranslations.global_unknown,
+              })}
+              description={senderUnknownDescription}
+            />
+          ) : null}
+          {(['from', 'to'] as const).map((direction) => {
+            const label = intl.formatMessage({
+              id:
+                direction === 'from'
+                  ? ETranslations.global_from
+                  : ETranslations.global_to,
+            });
+            const endpoints = localWalletEndpoints?.[direction] ?? [];
+            // As on BTC, several outside senders show as a count; Inputs &
+            // Outputs lists them.
+            const senderAddresses =
+              direction === 'from'
+                ? endpoints.filter(
+                    (endpoint) =>
+                      endpoint.isPublic && !endpoint.isOwn && endpoint.address,
+                  )
+                : [];
+            const collapsedSenders =
+              senderAddresses.length > 1 ? senderAddresses : [];
+            return (
+              <Fragment key={direction}>
+                {endpoints.map((endpoint) => {
+                  if (collapsedSenders.includes(endpoint)) {
+                    return endpoint === collapsedSenders[0] ? (
+                      <InfoItem
+                        key="senders"
+                        testID="history-details-from-addresses"
+                        label={label}
+                        renderContent={intl.formatMessage(
+                          { id: ETranslations.explore_addresses_count },
+                          { number: collapsedSenders.length },
+                        )}
+                      />
+                    ) : null;
+                  }
+                  if (!endpoint.address) {
+                    return (
+                      <InfoItem
+                        key={`pool-${endpoint.poolLabel}`}
+                        testID={`history-details-${direction}-pool`}
+                        label={label}
+                        renderContent={endpoint.poolLabel}
+                        description={
+                          direction === 'from' &&
+                          !endpoint.isOwn &&
+                          !isSentFromThisWallet
+                            ? senderUnknownDescription
+                            : undefined
+                        }
+                      />
+                    );
+                  }
+                  let description: ReactNode;
+                  // Our transparent address is public on chain; only a private one is this wallet's record.
+                  const isPublicAddress =
+                    endpoint.isPublic ||
+                    (endpoint.isOwn &&
+                      endpoint.poolId !== undefined &&
+                      endpoint.poolId === publicLocalWalletPoolId);
+                  if (isPublicAddress) {
+                    description = (
+                      <AddressInfo
+                        address={endpoint.address}
+                        networkId={networkId}
+                        accountId={accountId}
+                        allowClickAccountNameSwitch={
+                          allowClickAccountNameSwitch
+                        }
+                        addressMap={addressMap}
+                      />
+                    );
+                  } else {
+                    // A private address, ours or a recipient's, named by its account or address book
+                    // entry as a public one is.
+                    description = (
+                      <YStack gap="$1.5">
+                        <AddressInfo
+                          address={endpoint.address}
+                          networkId={networkId}
+                          accountId={accountId}
+                          allowClickAccountNameSwitch={
+                            allowClickAccountNameSwitch
+                          }
+                        />
+                        {localRecipientDescription}
+                      </YStack>
+                    );
+                  }
+                  let testID: string | undefined;
+                  if (endpoint.isOwn) {
+                    testID = `history-details-${direction}-own`;
+                  } else if (!endpoint.isPublic) {
+                    testID = `history-details-${direction}-recipient`;
+                  }
+                  return (
+                    <InfoItem
+                      key={`endpoint-${endpoint.address}`}
+                      testID={testID}
+                      label={label}
+                      renderContent={endpoint.address}
+                      showCopy
+                      description={description}
+                    />
+                  );
+                })}
+              </Fragment>
+            );
+          })}
+        </>
+      );
+    }
 
     if (action?.assetTransfer?.isInternalSwap) {
       const { from, to, swapReceivedAddress, swapReceivedNetworkId } =
@@ -1222,6 +1566,10 @@ function HistoryDetails() {
     accountId,
     allowClickAccountNameSwitch,
     addressMap,
+    localWalletHistoryFlow,
+    localWalletEndpoints,
+    isSentFromThisWallet,
+    vaultSettings?.localWallet?.pools,
   ]);
 
   const renderTxApproveFor = useCallback(() => {
@@ -1283,42 +1631,74 @@ function HistoryDetails() {
     historyTx,
   });
 
-  const renderFeeInfo = useCallback(
-    () => (
+  const renderFeeInfo = useCallback(() => {
+    // A private receive funded by someone else's transparent inputs has a fee this wallet cannot see;
+    // only a loaded detail can tell.
+    if (isLocalWalletHistory && isNil(txInfo?.gasFee) && isLoading === false) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_unknown })}
+        </SizableText>
+      );
+    }
+    const gasFeeDisplayValues = getHistoryFeeDisplayValues({
+      gasFee: txInfo?.gasFee,
+      gasFeeFiatValue: txInfo?.gasFeeFiatValue,
+    });
+    const gasFeeTextColor = gasFeeDisplayValues.isRefunded
+      ? '$textSuccess'
+      : '$textSubdued';
+
+    return (
       <XStack alignItems="center">
+        {gasFeeDisplayValues.isRefunded ? (
+          <SizableText size="$bodyMd" color={gasFeeTextColor}>
+            +
+          </SizableText>
+        ) : null}
         <NumberSizeableTextWrapper
           formatter="balance"
           size="$bodyMd"
-          color="$textSubdued"
+          color={gasFeeTextColor}
           formatterOptions={{
             tokenSymbol: nativeToken?.symbol,
           }}
         >
-          {txInfo?.gasFee}
+          {gasFeeDisplayValues.gasFee}
         </NumberSizeableTextWrapper>
-        {!isNil(txInfo?.gasFeeFiatValue) ? (
-          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+        {!isNil(gasFeeDisplayValues.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color={gasFeeTextColor} ml="$1">
             (
             <NumberSizeableTextWrapper
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
               size="$bodyMd"
-              color="$textSubdued"
+              color={gasFeeTextColor}
             >
-              {txInfo?.gasFeeFiatValue ?? '0'}
+              {gasFeeDisplayValues.gasFeeFiatValue ?? '0'}
             </NumberSizeableTextWrapper>
             )
           </SizableText>
         ) : null}
+        {gasFeeDisplayValues.isRefunded ? (
+          <SizableText size="$bodyMd" color={gasFeeTextColor} ml="$1">
+            ·{' '}
+            {intl.formatMessage({
+              id: ETranslations.sui_rebate_refunded,
+            })}
+          </SizableText>
+        ) : null}
       </XStack>
-    ),
-    [
-      nativeToken?.symbol,
-      settings.currencyInfo.symbol,
-      txInfo?.gasFee,
-      txInfo?.gasFeeFiatValue,
-    ],
-  );
+    );
+  }, [
+    intl,
+    isLoading,
+    isLocalWalletHistory,
+    nativeToken?.symbol,
+    settings.currencyInfo.symbol,
+    txInfo?.gasFee,
+    txInfo?.gasFeeFiatValue,
+  ]);
 
   const renderHistoryDetails = useCallback(() => {
     // On the notification path no `historyTx` is passed in, so the detail is
@@ -1430,6 +1810,15 @@ function HistoryDetails() {
           <Divider mx="$5" />
           <InfoItemGroup>
             {renderTxMetaInfo()}
+            {isLocalWalletHistory &&
+            (txDetails?.memo || txDetails?.binaryMemos?.length) ? (
+              <Stack p="$2.5" width="100%">
+                <ZcashMemo
+                  text={txDetails.memo}
+                  binaryMemos={txDetails.binaryMemos}
+                />
+              </Stack>
+            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
@@ -1489,7 +1878,8 @@ function HistoryDetails() {
               />
             ) : null}
 
-            {vaultSettings?.isUtxo &&
+            {showUTXOs &&
+            vaultSettings?.isUtxo &&
             (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
               !vaultSettings.hideTxUtxoListWhenPending) ? (
               <InfoItem
@@ -1530,11 +1920,15 @@ function HistoryDetails() {
     allowClickAccountNameSwitch,
     addressMap,
     renderTxMetaInfo,
+    txDetails?.memo,
+    txDetails?.binaryMemos,
+    isLocalWalletHistory,
     txid,
     vaultSettings?.hideBlockExplorer,
     vaultSettings?.nonceRequired,
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
+    showUTXOs,
     renderFeeInfo,
     network?.name,
     network?.id,

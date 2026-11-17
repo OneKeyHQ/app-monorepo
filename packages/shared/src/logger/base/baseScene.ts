@@ -38,7 +38,7 @@ export abstract class BaseScene {
     methodName: string,
     args: unknown[],
     metadataList: IMethodDecoratorMetadata[],
-  ) {
+  ): void | Promise<void> {
     const now = new Date();
 
     const lastDuration =
@@ -60,7 +60,7 @@ export abstract class BaseScene {
       return `${ts} ${durationInfo.duration}`;
     };
 
-    logFn({
+    return logFn({
       scopeName: this.scopeName,
       sceneName: this.sceneName,
       methodName,

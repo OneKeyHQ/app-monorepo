@@ -5,6 +5,7 @@ import { Divider, YStack } from '@onekeyhq/components';
 import { useManagePositionContext } from '../../ManagePositionContext';
 
 import { ApyInfo } from './ApyInfo';
+import { BorrowInfoSectionSkeleton } from './BorrowInfoSectionSkeleton';
 import { CollateralInfo } from './CollateralInfo';
 import { FeeInfo } from './FeeInfo';
 import { HealthFactorInfo } from './HealthFactorInfo';
@@ -27,13 +28,18 @@ export function InfoDisplaySection({
     networkId,
     showApyDetail: showApyDetailState,
   } = state;
-  const { transactionConfirmation } = actionResult;
+  const { transactionConfirmation, transactionConfirmationLoading } =
+    actionResult;
 
   const showApyDetail = showApyDetailProp ?? showApyDetailState;
 
   // Supply always renders info section (no isDisabled check in original code)
   // Other actions check isDisabled
   if (action !== 'supply' && isDisabled) return null;
+
+  if (!transactionConfirmation && transactionConfirmationLoading) {
+    return <BorrowInfoSectionSkeleton action={action} />;
+  }
 
   // Check what info items are available
   const hasHealthFactor = !!transactionConfirmation?.healthFactor;
@@ -42,7 +48,12 @@ export function InfoDisplaySection({
   const hasApyDetail = showApyDetail && !!transactionConfirmation?.apyDetail;
   const hasRefundableFee = !!transactionConfirmation?.refundableFee;
   const hasRefundFee = !!transactionConfirmation?.refundFee;
-  const hasCanBeCollateral = !!transactionConfirmation?.canBeCollateral;
+  const canBeCollateral = transactionConfirmation?.canBeCollateral;
+  const usageAsCollateral = transactionConfirmation?.usageAsCollateral;
+  // Older responses omit usageAsCollateral; do not infer the collateral switch state.
+  const hasCollateralStatus =
+    canBeCollateral === false ||
+    (canBeCollateral === true && usageAsCollateral !== undefined);
 
   // Determine if we should show swap/bridge based on action
   const shouldShowSwapOrBridge =
@@ -53,7 +64,7 @@ export function InfoDisplaySection({
     hasApyDetail ||
     hasRefundableFee ||
     hasRefundFee ||
-    hasCanBeCollateral ||
+    hasCollateralStatus ||
     shouldShowSwapOrBridge;
 
   const showInfoSection = hasPrimaryInfo || hasSecondaryInfo;
@@ -73,7 +84,7 @@ export function InfoDisplaySection({
           hasMySupply ||
           hasApyDetail ||
           hasRefundableFee ||
-          hasCanBeCollateral)
+          hasCollateralStatus)
       );
     }
     if (action === 'borrow' || action === 'repay') {
@@ -137,7 +148,12 @@ export function InfoDisplaySection({
           {hasRefundFee ? (
             <FeeInfo type="refund" data={transactionConfirmation.refundFee!} />
           ) : null}
-          {hasCanBeCollateral ? <CollateralInfo /> : null}
+          {hasCollateralStatus ? (
+            <CollateralInfo
+              canBeCollateral={canBeCollateral}
+              usageAsCollateral={usageAsCollateral}
+            />
+          ) : null}
           {shouldShowSwapOrBridge ? (
             <SwapOrBridgeInfo
               token={token}

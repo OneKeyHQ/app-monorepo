@@ -168,7 +168,7 @@ function HistoryListModal() {
   }, 500);
 
   return (
-    <Page testID={DiscoveryTestIDs.historyListPage} lazyLoad>
+    <Page testID={DiscoveryTestIDs.historyListPage}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,

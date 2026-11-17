@@ -22,6 +22,10 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
         [ESpotlightTour.earnRewardHistory]: 0,
         [ESpotlightTour.showDevelopmentBuildWarningDialog]: 0,
         [ESpotlightTour.splitViewFirstPrompt]: 0,
+        [ESpotlightTour.perpLayoutSettingsMenu]: 0,
+        [ESpotlightTour.perpLayoutSettings]: 0,
+        [ESpotlightTour.perpDesktopChartResize]: 0,
+        [ESpotlightTour.portfolioMoreMenu]: 0,
       },
     },
   });

@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native-view-shot/lib/index.d.ts b/node_modules/react-native-view-shot/lib/index.d.ts
+index a7db9a9..5a2497d 100644
+--- a/node_modules/react-native-view-shot/lib/index.d.ts
++++ b/node_modules/react-native-view-shot/lib/index.d.ts
+@@ -1,5 +1,6 @@
+ import React, { ReactNode, RefObject } from "react";
+ import { View, StyleProp, ViewStyle, LayoutChangeEvent } from "react-native";
++import type { HostInstance } from "react-native";
+ export interface CaptureOptions {
+     /**
+      * (Android only) the file name of the file. Must be at least 3 characters long.
+@@ -82,7 +83,8 @@ export interface ViewShotProperties {
+      */
+     style?: StyleProp<ViewStyle>;
+ }
+-export declare function captureRef<T = any>(view: number | React.ReactInstance | RefObject<T> | null, optionsObject?: CaptureOptions): Promise<string>;
++// OneKey patch: RN 0.87+ strict API refs resolve to host instances, not class components.
++export declare function captureRef<T = any>(view: number | React.ReactInstance | HostInstance | RefObject<T> | null, optionsObject?: CaptureOptions): Promise<string>;
+ export declare function releaseCapture(uri: string): void;
+ export declare function captureScreen(optionsObject?: CaptureOptions): Promise<string>;
+ /**

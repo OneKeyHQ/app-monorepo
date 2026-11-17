@@ -10,11 +10,24 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   FIRST_BTC_TAPROOT_ADDRESS_PATH,
   FIRST_EVM_ADDRESS_PATH,
+  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import type { EInviteCodeAttributionSource } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
+import {
+  INSTALL_REFERRER_TTL_DAYS,
+  isInstallReferrerCaptureFinal,
+  isInstallReferrerExpired,
+  isValidInviteCode,
+} from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
@@ -49,7 +62,11 @@ import type {
   IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
+  IInviteRewardScope,
+  IInviteRewardScopesResponse,
   IInviteSummary,
+  IInviteeRewardsModuleResult,
+  IInviteeRewardsOverview,
   IPerpsCumulativeRewardsParams,
   IPerpsCumulativeRewardsResponse,
   IPerpsInviteeRewardsResponse,
@@ -59,20 +76,41 @@ import type {
   IRedemptionCodeRedeemParams,
   IRedemptionCodeRedeemResponse,
   IRedemptionRecordsResponse,
+  ISwapCumulativeRewardsParams,
+  ISwapCumulativeRewardsResponse,
+  ISwapInviteeRewardsParams,
+  ISwapInviteeRewardsResponse,
+  ISwapInvitesParams,
+  ISwapInvitesResponse,
+  ISwapRecordsParams,
+  ISwapRecordsResponse,
   IUpdateInviteCodeNoteResponse,
   IWalletCreationRecordItem,
   IWalletDevUnbindParams,
   IWalletDevUnbindResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 
 import ServiceBase from './ServiceBase';
 
 import type { IDBWallet } from '../dbs/local/types';
 import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
+type ISwapInvitesRequestParams = ISwapInvitesParams & {
+  disableAutoToast?: boolean;
+};
+
+type ISwapRecordsRequestParams = ISwapRecordsParams & {
+  disableAutoToast?: boolean;
+};
 
 // Background best-effort referral endpoints share this options bag: in
 // production we don't want unhealthy backends to surface scary error toasts
@@ -92,17 +130,56 @@ class ServiceReferralCode extends ServiceBase {
 
   @backgroundMethod()
   async getSummaryInfo() {
+    const { onekeyUserId } = await primePersistAtom.get();
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const summary = await client.get<{
       data: IInviteSummary;
     }>('/rebate/v1/invite/summary');
-    if (summary.data.data.inviteCode) {
+    if (summary.data.data.inviteCode && onekeyUserId) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         summary.data.data.inviteCode,
+        onekeyUserId,
       );
     }
-    return summary.data.data;
+    return {
+      ...summary.data.data,
+      inviteUrl: ensureHttpsPrefix(summary.data.data.inviteUrl),
+    };
   }
+
+  // Unauthenticated, so invitees without a OneKey ID login see it too.
+  @backgroundMethod()
+  async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
+    try {
+      const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+      return await this._getInviteRewardScopesMemo(locale.toLowerCase());
+    } catch (error) {
+      // Optional hint copy: callers hide it on failure, so never toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  // Both tabs share localized copy, while failed requests are not cached.
+  private _getInviteRewardScopesMemo = memoizee(
+    async (locale: string): Promise<IInviteRewardScope[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: IInviteRewardScopesResponse;
+      }>('/rebate/v1/invite/reward-scopes');
+      // Interceptors choose the request locale. Reject if the app locale
+      // differs from the cache key when the response arrives.
+      const currentLocale =
+        await this.backgroundApi.serviceSetting.getCurrentLocale();
+      if (currentLocale.toLowerCase() !== locale) {
+        throw new OneKeyLocalError(
+          'Locale changed during reward scopes request',
+        );
+      }
+      return response.data.data?.rewardScopes ?? [];
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },
+  );
 
   @backgroundMethod()
   async getLevelDetail() {
@@ -167,7 +244,7 @@ class ServiceReferralCode extends ServiceBase {
       subject: params.subject,
     };
     // Only pass timeRange when not using custom date range
-    if (params.startTime && params.endTime) {
+    if (params.startTime !== undefined && params.endTime !== undefined) {
       queryParams.startTime = params.startTime;
       queryParams.endTime = params.endTime;
     } else {
@@ -519,9 +596,141 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMyReferralCode() {
-    const myReferralCode =
-      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+  async getSwapCumulativeRewards(
+    params: ISwapCumulativeRewardsParams = {},
+  ): Promise<ISwapCumulativeRewardsResponse> {
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: ISwapCumulativeRewardsResponse;
+      }>('/rebate/v1/invite/swap-cumulative-rewards', {
+        params,
+      });
+      return response.data.data;
+    } catch (error) {
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapInvites(
+    params: ISwapInvitesRequestParams,
+  ): Promise<ISwapInvitesResponse> {
+    const { disableAutoToast, ...queryParams } = params;
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapInvitesResponse }>(
+        '/rebate/v1/invite/swap-invites',
+        { params: queryParams },
+      );
+      return response.data.data;
+    } catch (error) {
+      if (disableAutoToast) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapRecords(
+    params: ISwapRecordsRequestParams = {},
+  ): Promise<ISwapRecordsResponse> {
+    const { disableAutoToast, ...queryParams } = params;
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapRecordsResponse }>(
+        '/rebate/v1/invite/swap-records',
+        { params: queryParams },
+      );
+      return response.data.data;
+    } catch (error) {
+      if (disableAutoToast) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapInviteeRewards(
+    params: ISwapInviteeRewardsParams,
+  ): Promise<ISwapInviteeRewardsResponse> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapInviteeRewardsResponse }>(
+        '/rebate/v1/invite/swap-invitee-rewards',
+        { params },
+      );
+      return response.data.data;
+    } catch (error) {
+      // The invitee reward dialog renders its own inline error state; keep the
+      // rejection but mute the proxy-layer auto toast so failures don't show
+      // both a raw server toast and the inline error.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getInviteeRewardsOverview({
+    walletAddress,
+  }: {
+    walletAddress: string;
+  }): Promise<IInviteeRewardsOverview> {
+    const toModuleResult = <T>(
+      result: PromiseSettledResult<T>,
+    ): IInviteeRewardsModuleResult<T> =>
+      result.status === 'fulfilled'
+        ? { status: 'success', data: result.value }
+        : { status: 'error' };
+
+    // Each module degrades independently so one failing backend does not
+    // hide the rewards from the others.
+    const [perps, swap, earn] = await Promise.allSettled([
+      this.getPerpsInviteeRewards({ walletAddress }),
+      this.getSwapInviteeRewards({ walletAddress }),
+      this.backgroundApi.serviceStaking.getEarnSummaryV2({
+        accountAddress: walletAddress,
+        networkId: getNetworkIdsMap().eth,
+      }),
+    ]);
+
+    return {
+      perps: toModuleResult(perps),
+      swap: toModuleResult(swap),
+      earn: toModuleResult(earn),
+    };
+  }
+
+  @backgroundMethod()
+  async getCachedMyReferralCode(params?: { onekeyUserId: string }) {
+    const user = await primePersistAtom.get();
+    const onekeyUserId = params?.onekeyUserId ?? user.onekeyUserId;
+    if (
+      !onekeyUserId ||
+      user.onekeyUserId !== onekeyUserId ||
+      !user.isLoggedIn ||
+      !user.isLoggedInOnServer
+    ) {
+      return '';
+    }
+    const code =
+      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode({
+        onekeyUserId,
+      });
+    const currentUser = await primePersistAtom.get();
+    return currentUser.onekeyUserId === onekeyUserId &&
+      currentUser.isLoggedIn &&
+      currentUser.isLoggedInOnServer
+      ? code
+      : '';
+  }
+
+  @backgroundMethod()
+  async getMyReferralCode(params?: { onekeyUserId: string }) {
+    const myReferralCode = await this.getCachedMyReferralCode(params);
     setTimeout(async () => {
       const isLogin = await this.backgroundApi.servicePrime.isLoggedIn();
       if (isLogin) {
@@ -551,10 +760,120 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateMyReferralCode(code: string) {
-    await this.backgroundApi.simpleDb.referralCode.updateCode({
-      myReferralCode: code,
-    });
+  async getBoundEvmReferralCodeWalletInfo({
+    accountId,
+    requestTimeoutMs,
+  }: {
+    accountId: string;
+    requestTimeoutMs?: number;
+  }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
+    // Swap attribution uses the first EVM address as the stable wallet identity.
+    if (!walletInfo || walletInfo.networkId !== getNetworkIdsMap().eth) {
+      return undefined;
+    }
+
+    const bindStatusParams = {
+      address: walletInfo.address,
+      networkId: walletInfo.networkId,
+    };
+    const bindStatus = requestTimeoutMs
+      ? await this.checkWalletBindStatus(bindStatusParams, requestTimeoutMs)
+      : await this.checkWalletBindStatus(bindStatusParams);
+    if (!bindStatus.data) {
+      return undefined;
+    }
+
+    const rebateAddress = await this.getCurrentEvmAccountAddress({
+      accountId,
+    }).catch(() => undefined);
+    return {
+      ...walletInfo,
+      ...(rebateAddress ? { rebateAddress } : {}),
+    };
+  }
+
+  @backgroundMethod()
+  async getCurrentEvmAccountAddress({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }): Promise<string | undefined> {
+    try {
+      // Others accounts (watch-only / imported / external) have no indexed
+      // sibling. Use the stored EVM address when the account itself is EVM.
+      if (accountId && accountUtils.isOthersAccount({ accountId })) {
+        const dbAccount =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        if (dbAccount?.impl === IMPL_EVM && dbAccount.address) {
+          return dbAccount.address;
+        }
+        return undefined;
+      }
+
+      let currentIndexedAccountId = indexedAccountId;
+      if (!currentIndexedAccountId && accountId) {
+        const dbAccount =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        currentIndexedAccountId = dbAccount?.indexedAccountId;
+      }
+      if (!currentIndexedAccountId) {
+        return undefined;
+      }
+
+      const networkId = getNetworkIdsMap().eth;
+      const deriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const evmAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId: currentIndexedAccountId,
+          deriveType,
+          networkId,
+        });
+      return evmAccount?.address;
+    } catch {
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async updateMyReferralCode(code: string, onekeyUserId: string) {
+    const staleWriteError = new OneKeyLocalError('Referral code owner changed');
+    try {
+      // Check ownership inside the storage mutex, after any queued writes.
+      await this.backgroundApi.simpleDb.referralCode.setRawData(
+        async (rawData) => {
+          const user = await primePersistAtom.get();
+          if (
+            !onekeyUserId ||
+            onekeyUserId !== user.onekeyUserId ||
+            !user.isLoggedIn ||
+            !user.isLoggedInOnServer
+          ) {
+            throw staleWriteError;
+          }
+          return {
+            ...rawData,
+            myReferralCode: code,
+            myReferralCodeUserId: onekeyUserId,
+          };
+        },
+      );
+    } catch (error) {
+      if (error !== staleWriteError) {
+        throw error;
+      }
+    }
   }
 
   @backgroundMethod()
@@ -575,7 +894,31 @@ class ServiceReferralCode extends ServiceBase {
     }>('/rebate/v1/invite/post-config');
     const postConfig = response.data.data;
     await this.backgroundApi.simpleDb.referralCode.updatePostConfig(postConfig);
+    // Completes `getPostConfig`'s stale-while-revalidate: a background refresh
+    // otherwise lands only in the cache, and screens already showing the stale
+    // config would keep it for the rest of the session.
+    appEventBus.emit(EAppEventBusNames.ReferralPostConfigUpdated, postConfig);
     return postConfig;
+  }
+
+  /**
+   * Refreshes the invite post-config (rebate rate) while an install-referral
+   * code is waiting to be offered, so a bind dialog opened later reads a fresh
+   * rate from the cache instead of a stale one that a refresh then withdraws.
+   * Runs from the startup capture; a no-op network-wise when there is no
+   * unbound code, and a failure only leaves the dialogs on their fallback.
+   */
+  @backgroundMethod()
+  async prefetchInstallReferralPostConfig(): Promise<void> {
+    const { code } = await this.getInstallReferralAutoFill();
+    if (!code) {
+      return;
+    }
+    try {
+      await this.fetchPostConfig();
+    } catch {
+      // The dialogs fall back to the cached config or the default rate.
+    }
   }
 
   @backgroundMethod()
@@ -584,7 +927,9 @@ class ServiceReferralCode extends ServiceBase {
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
     if (postConfig?.locales) {
       setTimeout(() => {
-        void this.fetchPostConfig();
+        // Background revalidation: a failure keeps the cached config and must
+        // not surface as an unhandled rejection.
+        void this.fetchPostConfig().catch(() => undefined);
       });
       return postConfig;
     }
@@ -671,6 +1016,134 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async setCachedInviteCode(code: string) {
     return this.backgroundApi.simpleDb.referralCode.setCachedInviteCode(code);
+  }
+
+  @backgroundMethod()
+  async isInstallReferralCaptureResolved() {
+    return this.backgroundApi.simpleDb.referralCode.isInstallReferralCaptureResolved();
+  }
+
+  /**
+   * Persists the invite code recovered from this install's store referrer
+   * (Android Play install referrer) or App Clip handoff (iOS App Group).
+   *
+   * Both are read on the `main` runtime (expo-application talks to the Play
+   * Store from there; the App Clip record goes through a main-thread native
+   * module), so the already-extracted code arrives here over the background
+   * proxy.
+   *
+   * Marking the capture resolved is what stops later cold starts from asking
+   * the store again, so it must only happen on a *definitive* answer:
+   * - a referrer that carried no usable code (organic or ad-tagged install)
+   *   is definitive, and
+   * - an empty referrer past Play's 90-day serving window is definitive too,
+   *   because nothing can be recovered after it.
+   * An empty referrer inside that window is left unresolved instead: Play can
+   * answer OK with an empty string transiently, and giving up there would
+   * permanently lose a real referral install's code.
+   */
+  @backgroundMethod()
+  async resolveInstallReferral({
+    code,
+    attributedAt,
+    hasReferrer,
+    source,
+  }: {
+    code: string | undefined;
+    attributedAt: number;
+    hasReferrer: boolean;
+    source: EInviteCodeAttributionSource;
+  }): Promise<{ isResolved: boolean; hasCode: boolean }> {
+    if (!isValidInviteCode(code)) {
+      const isResolved = isInstallReferrerCaptureFinal({
+        hasReferrer,
+        installedAt: attributedAt,
+      });
+      if (isResolved) {
+        await this.backgroundApi.simpleDb.referralCode.markInstallReferralCaptureResolved();
+      } else {
+        // Only a fresh install reaches this branch; remember that, so the
+        // retry survives an app update in between.
+        await this.backgroundApi.simpleDb.referralCode.markInstallReferralPendingFreshInstall();
+      }
+      // `isResolved: false` means the capture is left pending and will be
+      // retried on the next cold start — callers must not report it as done.
+      return { isResolved, hasCode: false };
+    }
+    await this.backgroundApi.simpleDb.referralCode.setInstallReferral({
+      code: code as string,
+      source,
+      attributedAt,
+      createdAt: Date.now(),
+      ttlDays: INSTALL_REFERRER_TTL_DAYS,
+    });
+    return { isResolved: true, hasCode: true };
+  }
+
+  @backgroundMethod()
+  async markInstallReferralPendingFreshInstall(): Promise<void> {
+    await this.backgroundApi.simpleDb.referralCode.markInstallReferralPendingFreshInstall();
+  }
+
+  @backgroundMethod()
+  async getInstallReferralCaptureState() {
+    return this.backgroundApi.simpleDb.referralCode.getInstallReferralCaptureState();
+  }
+
+  @backgroundMethod()
+  async markInstallReferralCaptureResolved() {
+    return this.backgroundApi.simpleDb.referralCode.markInstallReferralCaptureResolved();
+  }
+
+  /**
+   * The invite code eligible for pre-filling a bind dialog, plus whether the
+   * startup capture has finished.
+   *
+   * `isCaptureResolved` lets a caller tell "there is no code" from "the code
+   * has not been read yet", so a dialog opened during a fresh install's very
+   * first seconds can wait instead of rendering an empty field.
+   *
+   * The code is withheld once it has been bound, once the TTL measured from
+   * install time has lapsed, or when it is the user's own code — self-referral
+   * is rejected by the server anyway, so offering it would only look broken.
+   *
+   * Editing the suggestion away does NOT retire it: product wants the offer to
+   * keep reappearing until the user actually binds something, so an invite
+   * accidentally dismissed is not lost.
+   */
+  @backgroundMethod()
+  async getInstallReferralAutoFill(): Promise<{
+    code: string | undefined;
+    isCaptureResolved: boolean;
+  }> {
+    const { record, isCaptureResolved } =
+      await this.backgroundApi.simpleDb.referralCode.getInstallReferralState();
+    if (!record?.code || record.consumedAt) {
+      return { code: undefined, isCaptureResolved };
+    }
+    if (isInstallReferrerExpired({ attributedAt: record.attributedAt })) {
+      return { code: undefined, isCaptureResolved };
+    }
+    const myReferralCode =
+      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+    if (
+      myReferralCode &&
+      myReferralCode.toLowerCase() === record.code.toLowerCase()
+    ) {
+      return { code: undefined, isCaptureResolved };
+    }
+    return { code: record.code, isCaptureResolved };
+  }
+
+  @backgroundMethod()
+  async consumeInstallReferralIfBound({
+    referralCode,
+  }: {
+    referralCode: string;
+  }): Promise<boolean> {
+    return this.backgroundApi.simpleDb.referralCode.markInstallReferralConsumedIfMatches(
+      { code: referralCode, now: Date.now() },
+    );
   }
 
   @backgroundMethod()
@@ -772,35 +1245,69 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchCheckWalletsBoundReferralCodeV2(items: IBatchCheckWalletItem[]) {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    // Bind-status checks gate dialogs / nudges; skip the prompt silently in
-    // production rather than toast a backend error to the user.
-    const response = await client.post<{
-      data: IBatchCheckWalletV2Response;
-    }>('/rebate/v1/wallet/batch-check-v2', { items }, SILENT_IN_PROD);
-    return response.data.data;
+  async batchCheckWalletsBoundReferralCodeV2(
+    items: IBatchCheckWalletItem[],
+    requestTimeoutMs?: number,
+  ) {
+    const requestAbortController =
+      requestTimeoutMs && requestTimeoutMs > 0
+        ? new AbortController()
+        : undefined;
+    const requestTimeout = requestAbortController
+      ? setTimeout(() => requestAbortController.abort(), requestTimeoutMs)
+      : undefined;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      // Bind-status checks gate dialogs / nudges; skip the prompt silently in
+      // production rather than toast a backend error to the user.
+      const response = await client.post<{
+        data: IBatchCheckWalletV2Response;
+      }>(
+        '/rebate/v1/wallet/batch-check-v2',
+        { items },
+        {
+          ...SILENT_IN_PROD,
+          ...(requestAbortController
+            ? {
+                signal: requestAbortController.signal,
+                timeout: requestTimeoutMs,
+              }
+            : {}),
+        },
+      );
+      return response.data.data;
+    } finally {
+      if (requestTimeout) {
+        clearTimeout(requestTimeout);
+      }
+    }
   }
 
   @backgroundMethod()
-  async checkWalletBindStatus({
-    address,
-    networkId,
-  }: {
-    address: string;
-    networkId: string;
-  }) {
+  async checkWalletBindStatus(
+    {
+      address,
+      networkId,
+    }: {
+      address: string;
+      networkId: string;
+    },
+    requestTimeoutMs?: number,
+  ) {
     const requestAddress =
       normalizeTokenContractAddress({
         networkId,
         contractAddress: address,
       }) || address;
-    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2([
-      {
-        address: requestAddress,
-        networkId,
-      },
-    ]);
+    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2(
+      [
+        {
+          address: requestAddress,
+          networkId,
+        },
+      ],
+      requestTimeoutMs,
+    );
     const requestedKey = `${networkId}:${requestAddress}`;
     const serverData = batchResult[requestedKey];
     if (!serverData) {

@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -25,7 +27,6 @@ export enum ESwapStockChannelStage {
   InitializingStock = 'initializingStock',
   MissingStock = 'missingStock',
   CheckingMarketStatus = 'checkingMarketStatus',
-  MarketClosed = 'marketClosed',
   MarketUnavailable = 'marketUnavailable',
   InitializingPayToken = 'initializingPayToken',
   MissingPayToken = 'missingPayToken',
@@ -37,16 +38,93 @@ export enum ESwapStockTradeSide {
   Sell = 'sell',
 }
 
+export const SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES = 20;
+
+export function upsertSwapStockPayTokenScopeCache<T>({
+  cache,
+  scope,
+  value,
+}: {
+  cache: Record<string, T>;
+  scope: string;
+  value: T;
+}): Record<string, T> {
+  const entries = Object.entries(cache).filter(([key]) => key !== scope);
+  entries.push([scope, value]);
+  return Object.fromEntries(
+    entries.slice(-SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES),
+  );
+}
+
+export function resolveStockExecutionTokensForTradeSideSwitch({
+  payToken,
+  stockToken,
+}: {
+  payToken?: ISwapToken;
+  stockToken?: ISwapToken;
+}): { payToken: ISwapToken; stockToken: ISwapToken } | undefined {
+  if (!payToken || !stockToken) {
+    return undefined;
+  }
+  return { payToken, stockToken };
+}
+
+export function resolveStockExecutionTokensToSync({
+  currentFromToken,
+  currentToToken,
+  payToken,
+  readyForQuote,
+  stockToken,
+  tradeSide,
+}: {
+  currentFromToken?: ISwapToken;
+  currentToToken?: ISwapToken;
+  payToken?: ISwapToken;
+  readyForQuote: boolean;
+  stockToken?: ISwapToken;
+  tradeSide: ESwapStockTradeSide;
+}): { fromToken: ISwapToken; toToken: ISwapToken } | undefined {
+  if (!readyForQuote) {
+    return undefined;
+  }
+  const fromToken =
+    tradeSide === ESwapStockTradeSide.Buy ? payToken : stockToken;
+  const toToken = tradeSide === ESwapStockTradeSide.Buy ? stockToken : payToken;
+  if (!stockToken || !fromToken || !toToken) {
+    return undefined;
+  }
+  const executionPairSynced =
+    equalTokenNoCaseSensitive({
+      token1: currentFromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: currentToToken,
+      token2: toToken,
+    });
+  const currentStockToken =
+    tradeSide === ESwapStockTradeSide.Buy ? currentToToken : currentFromToken;
+  const stockExecutionMetadataSynced =
+    currentStockToken?.decimals === stockToken.decimals &&
+    Boolean(currentStockToken?.isStock) === Boolean(stockToken.isStock);
+  return executionPairSynced && stockExecutionMetadataSynced
+    ? undefined
+    : { fromToken, toToken };
+}
+
+/**
+ * A closed/paused market no longer blocks quoting (OK-58986): providers keep
+ * serving on-chain liquidity outside US sessions, so the quote response — not
+ * a prediction here — decides whether the token can trade.
+ */
 export function isStockTradeReadyForQuote({
   currentStockToken,
-  marketOpen,
   marketStatusStatus,
   payToken,
   payTokenStatus,
   stockTokenStatus,
 }: {
   currentStockToken?: ISwapToken;
-  marketOpen?: boolean;
   marketStatusStatus: ESwapStockChannelAsyncStatus;
   payToken?: ISwapToken;
   payTokenStatus: ESwapStockChannelAsyncStatus;
@@ -57,8 +135,7 @@ export function isStockTradeReadyForQuote({
     payToken &&
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
-    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketOpen !== false,
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready,
   );
 }
 
@@ -81,6 +158,179 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   return `${token.networkId}:${token.contractAddress ?? ''}:${
     token.isNative ? 'native' : 'token'
   }`;
+}
+
+// Stock token keys this app run has already settled against the default
+// issuer rule: checked once, picked by the user, or brought in by an explicit
+// entry such as Market's Buy/Sell. In memory only, so a cold start checks a
+// restored token again while tab switches keep the user's own picks.
+const settledSwapStockTokenKeys = new Set<string>();
+
+export function settleSwapStockTokenKey(key: string) {
+  if (key) settledSwapStockTokenKeys.add(key);
+}
+
+export function isSwapStockTokenKeySettled(key: string) {
+  return settledSwapStockTokenKeys.has(key);
+}
+
+export function resolveDisplayedStockToken({
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const externalStockToken = controlledStockToken ?? persistedStockToken;
+  if (
+    externalStockToken &&
+    getTokenIdentityKey(externalStockToken) !==
+      getTokenIdentityKey(stockTokenState)
+  ) {
+    return externalStockToken;
+  }
+  return (
+    stockTokenState ??
+    externalStockToken ??
+    stockPairToken ??
+    coldStartStockToken
+  );
+}
+
+// Desktop and web keep the previous selection order. Mobile follows a stock
+// written by the market detail trade handoff when it differs from local state.
+export function resolvePlatformDisplayedStockToken({
+  isNative,
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  isNative: boolean;
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  if (!isNative) {
+    return (
+      stockTokenState ??
+      persistedStockToken ??
+      stockPairToken ??
+      coldStartStockToken
+    );
+  }
+  return resolveDisplayedStockToken({
+    coldStartStockToken,
+    controlledStockToken,
+    persistedStockToken,
+    stockPairToken,
+    stockTokenState,
+  });
+}
+
+export function resolveFollowedStockToken({
+  isNative,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+}: {
+  isNative: boolean;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+}) {
+  if (!isNative) {
+    return controlledStockToken ?? stockPairToken;
+  }
+  return controlledStockToken ?? persistedStockToken ?? stockPairToken;
+}
+
+// The mobile header can show a newly selected stock before local state catches
+// up. Commit that stock when the published state or execution pair is still
+// the previous one. Once local state matches, leave execution catch-up to the
+// selection call so a slow write cannot retrigger it.
+export function shouldCommitFollowedStockToken({
+  displayedStockToken,
+  executionStockToken,
+  followedStockToken,
+  stockTokenState,
+}: {
+  displayedStockToken?: ISwapToken;
+  executionStockToken?: ISwapToken;
+  followedStockToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const followedKey = getTokenIdentityKey(followedStockToken);
+  if (!followedKey) {
+    return false;
+  }
+  const stateKey = getTokenIdentityKey(stockTokenState);
+  const executionKey = getTokenIdentityKey(executionStockToken);
+  if (stateKey && stateKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && executionKey && executionKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && !executionKey) {
+    return followedKey !== getTokenIdentityKey(displayedStockToken);
+  }
+  return false;
+}
+
+// A mounted stock page must follow the side requested by the Market entry.
+export function shouldResetStockTradeSideForMarketEntry({
+  isStockMarketJump,
+  tradeSide,
+  direction = 'to',
+}: {
+  isStockMarketJump: boolean;
+  tradeSide: ESwapStockTradeSide;
+  direction?: 'from' | 'to';
+}) {
+  const entrySide =
+    direction === 'from' ? ESwapStockTradeSide.Sell : ESwapStockTradeSide.Buy;
+  return isStockMarketJump && tradeSide !== entrySide;
+}
+
+export function shouldSyncControlledStockTokenMetadata({
+  controlledStockToken,
+  currentStockToken,
+}: {
+  controlledStockToken?: ISwapToken;
+  currentStockToken?: ISwapToken;
+}) {
+  const controlledTokenKey = getTokenIdentityKey(controlledStockToken);
+  return Boolean(
+    controlledTokenKey &&
+    controlledTokenKey === getTokenIdentityKey(currentStockToken) &&
+    controlledStockToken &&
+    currentStockToken &&
+    controlledStockToken.decimals > 0 &&
+    controlledStockToken.decimals !== currentStockToken.decimals,
+  );
+}
+
+export function buildStockPayTokenDisplaySeed(token: ISwapToken): ISwapToken {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    decimals: token.decimals,
+    isNative: token.isNative,
+    symbol: token.symbol,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+  };
 }
 
 export function shouldResetStockTradeReceiveAmount({
@@ -161,7 +411,10 @@ export function getMarketListTokenKey(token?: IMarketTokenListItem) {
 
 export function buildStockSwapTokenFromMarketToken(
   token: IMarketToken,
-): ISwapToken {
+): ISwapToken | undefined {
+  if (!isMarketTokenDecimalsReady(token)) {
+    return undefined;
+  }
   return {
     networkId: token.networkId,
     contractAddress: token.address,
@@ -173,6 +426,108 @@ export function buildStockSwapTokenFromMarketToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+    stock: token.stock,
+  };
+}
+
+function mergeStockExecutionMetadata({
+  currentStock,
+  tokenDetailStock,
+}: {
+  currentStock: ISwapToken['stock'];
+  tokenDetailStock: ISwapToken['stock'];
+}): ISwapToken['stock'] {
+  if (!currentStock || !tokenDetailStock) {
+    return tokenDetailStock ?? currentStock;
+  }
+
+  const mergedStock = { ...currentStock };
+  Object.entries(tokenDetailStock).forEach(([key, value]) => {
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === 'string' && !value.trim())
+    ) {
+      return;
+    }
+    Object.assign(mergedStock, { [key]: value });
+  });
+
+  return isEqual(mergedStock, currentStock) ? currentStock : mergedStock;
+}
+
+export function shouldSyncStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}) {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({ token1: token, token2: tokenDetail })
+  ) {
+    return false;
+  }
+  if (
+    token.decimals !== tokenDetail.decimals ||
+    token.isNative !== (tokenDetail.isNative ?? token.isNative) ||
+    !token.isStock
+  ) {
+    return true;
+  }
+  return (
+    [
+      'stockId',
+      'subtitle',
+      'source',
+      'underlyingAssetTicker',
+      'underlyingAssetName',
+      'tokenToAssetRatio',
+    ] as const
+  ).some((key) => {
+    const value = tokenDetail.stock?.[key];
+    return !!value?.trim() && value !== token.stock?.[key];
+  });
+}
+
+export function resolveStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}): ISwapToken | undefined {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({
+      token1: token,
+      token2: tokenDetail,
+    })
+  ) {
+    return undefined;
+  }
+  const isNative = tokenDetail.isNative ?? token.isNative;
+  const stock = mergeStockExecutionMetadata({
+    currentStock: token.stock,
+    tokenDetailStock: tokenDetail.stock,
+  });
+  if (
+    token.decimals === tokenDetail.decimals &&
+    token.isNative === isNative &&
+    token.isStock === true &&
+    token.stock === stock
+  ) {
+    return token;
+  }
+  return {
+    ...token,
+    decimals: tokenDetail.decimals,
+    isNative,
+    isStock: true,
+    stock,
   };
 }
 
@@ -193,6 +548,7 @@ export function buildStockSwapTokenFromMarketListToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+    stock: token.stock,
   };
 }
 
@@ -332,6 +688,50 @@ export function isStockPayTokenReadyForTradeInput({
   );
 }
 
+export function resolveStockPayTokenState({
+  channelToken,
+  coldStartToken,
+  liveToken,
+  stockPairToken,
+  swapPairToken,
+}: {
+  channelToken?: ISwapToken;
+  coldStartToken?: ISwapToken;
+  liveToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  swapPairToken?: ISwapToken;
+}) {
+  const stockOwnedToken = channelToken ?? stockPairToken ?? coldStartToken;
+  return {
+    displayToken: liveToken ?? stockOwnedToken,
+    selectionToken: stockOwnedToken ?? swapPairToken,
+  };
+}
+
+export function resolveStockTradeInputTokenStatus({
+  isBuySide,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  isBuySide: boolean;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  if (!isBuySide) {
+    return stockTokenStatus;
+  }
+  if (stockTokenStatus === ESwapStockChannelAsyncStatus.Empty) {
+    return ESwapStockChannelAsyncStatus.Empty;
+  }
+  if (
+    stockTokenStatus !== ESwapStockChannelAsyncStatus.Ready ||
+    payTokenStatus === ESwapStockChannelAsyncStatus.Idle
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+  return payTokenStatus;
+}
+
 export function shouldRenderStockTradeInputSkeleton({
   inputTokenStatus,
   inputTokenReady,
@@ -349,6 +749,21 @@ export function shouldRenderStockTradeInputSkeleton({
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
 }
 
+export function isStockBalanceActionReady({
+  authoritativeBalance,
+  authoritativeStockToken,
+  isBuySide,
+}: {
+  authoritativeBalance?: string;
+  authoritativeStockToken?: ISwapToken;
+  isBuySide: boolean;
+}) {
+  return Boolean(
+    authoritativeBalance !== undefined &&
+    (isBuySide || authoritativeStockToken),
+  );
+}
+
 export function isStockBalanceInitializing({
   balance,
   requestPending,
@@ -357,6 +772,14 @@ export function isStockBalanceInitializing({
   requestPending: boolean;
 }) {
   return balance === undefined && requestPending;
+}
+
+export function hasValidStockBalanceForTrade(balance?: string) {
+  if (!balance) {
+    return false;
+  }
+  const balanceBN = new BigNumber(balance);
+  return balanceBN.isFinite() && balanceBN.gte(0);
 }
 
 export function resolveStockBalanceSeed({
@@ -388,6 +811,7 @@ export type IStockBalanceSnapshot = {
   ownerScope: string;
   balance: string;
   tokenDetail?: ISwapToken;
+  unverified: boolean;
 };
 
 export function resolveStockBalanceSnapshot({
@@ -395,6 +819,7 @@ export function resolveStockBalanceSnapshot({
   authoritativeTokenDetail,
   ownerScope,
   previousSnapshot,
+  requestSettled = false,
   seededBalance,
   seededTokenDetail,
 }: {
@@ -402,6 +827,7 @@ export function resolveStockBalanceSnapshot({
   authoritativeTokenDetail?: ISwapToken;
   ownerScope: string;
   previousSnapshot?: IStockBalanceSnapshot;
+  requestSettled?: boolean;
   seededBalance?: string;
   seededTokenDetail?: ISwapToken;
 }): IStockBalanceSnapshot | undefined {
@@ -410,30 +836,37 @@ export function resolveStockBalanceSnapshot({
       ownerScope,
       balance: authoritativeBalance,
       tokenDetail: authoritativeTokenDetail,
+      unverified: false,
     };
   }
   if (previousSnapshot?.ownerScope === ownerScope) {
-    return previousSnapshot;
+    if (!requestSettled || previousSnapshot.unverified) {
+      return previousSnapshot;
+    }
+    return { ...previousSnapshot, unverified: true };
   }
   if (seededBalance !== undefined) {
     return {
       ownerScope,
       balance: seededBalance,
       tokenDetail: seededTokenDetail,
+      unverified: true,
     };
   }
   return undefined;
 }
 
 export function resolveStockBalanceViewState({
+  authoritativeBalance,
   balanceSnapshot,
   cachedDisplayBalance,
 }: {
+  authoritativeBalance?: string;
   balanceSnapshot?: IStockBalanceSnapshot;
   cachedDisplayBalance?: string;
 }) {
   return {
-    balance: balanceSnapshot?.balance,
+    balance: authoritativeBalance,
     displayBalance: balanceSnapshot?.balance ?? cachedDisplayBalance,
     tokenDetail: balanceSnapshot?.tokenDetail,
   };
@@ -484,13 +917,17 @@ export function findDefaultStockPayToken({
 }
 
 export function resolveStockPayTokenDisplaySeed({
+  allowPersistedTokenFallback,
   balances,
   candidates,
+  persistedToken,
   persistedTokenKey,
   selectedToken,
 }: {
+  allowPersistedTokenFallback?: boolean;
   balances?: Record<string, string | undefined>;
   candidates: IToken[];
+  persistedToken?: ISwapToken;
   persistedTokenKey?: string;
   selectedToken?: Partial<ISwapTokenBase>;
 }) {
@@ -507,8 +944,18 @@ export function resolveStockPayTokenDisplaySeed({
         (candidate) => getTokenIdentityKey(candidate) === persistedTokenKey,
       )
     : undefined;
+  const persistedDisplayCandidate = findTokenFromCandidates({
+    candidates,
+    token: persistedToken,
+  });
+  const coldStartDisplaySeed =
+    allowPersistedTokenFallback && candidates.length === 0 && persistedToken
+      ? filterStockPayTokenCandidates([persistedToken])[0]
+      : undefined;
   return (
     persistedCandidate ??
+    persistedDisplayCandidate ??
+    coldStartDisplaySeed ??
     findDefaultStockPayToken({
       candidates,
       balances,

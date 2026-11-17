@@ -5,10 +5,8 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Button,
   Icon,
   SizableText,
-  Spinner,
   XStack,
   YStack,
   useMedia,
@@ -27,6 +25,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   OnboardingHeading,
   OnboardingIconBadge,
+  OnboardingIconButton,
   OnboardingOrDivider,
   OnboardingPage,
   OnboardingSidebar,
@@ -130,8 +129,76 @@ function CreateNewWallet() {
 
   const { md } = useMedia();
 
+  const actions = (
+    <YStack
+      gap="$3"
+      $md={{
+        pt: '$3',
+        pb: '$5',
+      }}
+      $gtMd={{
+        flex: 1,
+        pt: 88,
+        gap: '$5',
+      }}
+    >
+      {isKeylessWalletEnabled ? (
+        <>
+          <OnboardingIconButton
+            testID={OnboardingTestIDs.googleSignInButton}
+            variant="primary"
+            icon="GoogleIllus"
+            isLoading={isGoogleLoading}
+            disabled={isKeylessLoginInProgress}
+            onPress={handleGoogleLogin}
+          >
+            {intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Google' },
+            )}
+          </OnboardingIconButton>
+          <OnboardingIconButton
+            testID={OnboardingTestIDs.appleSignInButton}
+            variant="primary"
+            icon="AppleBrand"
+            isLoading={isAppleLoading}
+            disabled={isKeylessLoginInProgress}
+            onPress={handleAppleLogin}
+          >
+            {intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Apple' },
+            )}
+          </OnboardingIconButton>
+        </>
+      ) : null}
+      {isWebKeylessSidePanelMode ? null : (
+        <>
+          {!md && isKeylessWalletEnabled ? <OnboardingOrDivider /> : null}
+          <OnboardingIconButton
+            testID={OnboardingTestIDs.createNewWalletSeedPhraseBtn}
+            icon="SecretPhraseOutline"
+            onPress={handleCreateSeedPhraseWallet}
+          >
+            {intl.formatMessage({
+              id: ETranslations.create_seed_phrase_wallet,
+            })}
+          </OnboardingIconButton>
+        </>
+      )}
+      {isWebKeylessSidePanelMode || !isKeylessWalletEnabled ? null : (
+        <KeylessOnboardingDebugPanel
+          isResetMode={isResetMode}
+          onResetModeChange={setIsResetMode}
+        />
+      )}
+    </YStack>
+  );
+
+  // A phone-class window pins the actions under a scrolling page: a long
+  // locale on a short screen used to push the last button off a fixed page.
   return (
-    <OnboardingPage>
+    <OnboardingPage scrollable={md} footer={md ? actions : undefined}>
       <OnboardingHeading>
         {intl.formatMessage({
           id: ETranslations.onboarding_create_new_wallet,
@@ -146,126 +213,39 @@ function CreateNewWallet() {
           mt: -40,
         }}
       >
-        <OnboardingSidebar $md={{ pt: '$5' }}>
-          {md ? null : <OnboardingIconBadge icon="EmailSparkleSolid" />}
-          <YStack gap="$6">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({
-                id: ETranslations.onboarding_keyless_tagline,
-              })}
-            </SizableText>
-            {bullets.map((item) => (
-              <XStack key={item.titleId} gap="$5" alignItems="flex-start">
-                {md ? (
-                  <Icon
-                    name={item.icon}
-                    color="$iconSubdued"
-                    size="$6"
-                    flexShrink={0}
-                  />
-                ) : null}
-                <YStack flex={1} gap="$1">
-                  <SizableText size="$bodyLgMedium">
-                    {intl.formatMessage({ id: item.titleId })}
-                  </SizableText>
-                  <SizableText size="$bodyLg" color="$textSubdued">
-                    {intl.formatMessage({ id: item.descriptionId })}
-                  </SizableText>
-                </YStack>
-              </XStack>
-            ))}
-          </YStack>
-        </OnboardingSidebar>
-        <YStack
-          gap="$3"
-          $md={{
-            mt: 'auto',
-            pb: '$5',
-          }}
-          $gtMd={{
-            flex: 1,
-            pt: 88,
-            gap: '$5',
-          }}
-        >
-          <Button
-            testID={OnboardingTestIDs.googleSignInButton}
-            variant="primary"
-            size="large"
-            alignSelf="stretch"
-            childrenAsText={false}
-            disabled={isKeylessLoginInProgress}
-            onPress={handleGoogleLogin}
-          >
-            <YStack position="absolute" left="$5">
-              {isGoogleLoading ? (
-                <Spinner size="small" color="$iconInverse" />
-              ) : (
-                <Icon name="GoogleIllus" size="$5" color="$iconInverse" />
-              )}
+        {isKeylessWalletEnabled ? (
+          <OnboardingSidebar $md={{ pt: '$5', pb: '$5' }}>
+            {md ? null : <OnboardingIconBadge icon="WalletCryptoSolid" />}
+            <YStack gap="$6">
+              <SizableText size="$headingMd">
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_keyless_tagline,
+                })}
+              </SizableText>
+              {bullets.map((item) => (
+                <XStack key={item.titleId} gap="$5" alignItems="flex-start">
+                  {md ? (
+                    <Icon
+                      name={item.icon}
+                      color="$iconSubdued"
+                      size="$6"
+                      flexShrink={0}
+                    />
+                  ) : null}
+                  <YStack flex={1} gap="$1">
+                    <SizableText size="$bodyLgMedium">
+                      {intl.formatMessage({ id: item.titleId })}
+                    </SizableText>
+                    <SizableText size="$bodyLg" color="$textSubdued">
+                      {intl.formatMessage({ id: item.descriptionId })}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+              ))}
             </YStack>
-            <SizableText size="$bodyLgMedium" color="$textInverse">
-              {intl.formatMessage(
-                { id: ETranslations.continue_with_social_platform },
-                { platform: 'Google' },
-              )}
-            </SizableText>
-          </Button>
-          <Button
-            testID={OnboardingTestIDs.appleSignInButton}
-            variant="primary"
-            size="large"
-            alignSelf="stretch"
-            childrenAsText={false}
-            disabled={isKeylessLoginInProgress}
-            onPress={handleAppleLogin}
-          >
-            <YStack position="absolute" left="$5">
-              {isAppleLoading ? (
-                <Spinner size="small" color="$iconInverse" />
-              ) : (
-                <Icon name="AppleBrand" size="$5" color="$iconInverse" />
-              )}
-            </YStack>
-            <SizableText size="$bodyLgMedium" color="$textInverse">
-              {intl.formatMessage(
-                { id: ETranslations.continue_with_social_platform },
-                { platform: 'Apple' },
-              )}
-            </SizableText>
-          </Button>
-          {isWebKeylessSidePanelMode ? null : (
-            <>
-              {!md ? <OnboardingOrDivider /> : null}
-              <Button
-                testID={OnboardingTestIDs.createNewWalletSeedPhraseBtn}
-                size="large"
-                alignSelf="stretch"
-                childrenAsText={false}
-                onPress={handleCreateSeedPhraseWallet}
-              >
-                <Icon
-                  name="SecretPhraseOutline"
-                  position="absolute"
-                  left="$5"
-                  size="$5"
-                  color="$icon"
-                />
-                <SizableText size="$bodyLgMedium" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.create_seed_phrase_wallet,
-                  })}
-                </SizableText>
-              </Button>
-            </>
-          )}
-          {isWebKeylessSidePanelMode ? null : (
-            <KeylessOnboardingDebugPanel
-              isResetMode={isResetMode}
-              onResetModeChange={setIsResetMode}
-            />
-          )}
-        </YStack>
+          </OnboardingSidebar>
+        ) : null}
+        {md ? null : actions}
       </YStack>
     </OnboardingPage>
   );

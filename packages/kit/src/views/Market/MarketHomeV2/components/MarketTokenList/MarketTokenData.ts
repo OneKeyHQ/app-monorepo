@@ -1,9 +1,10 @@
 export interface IMarketToken {
+  assetId?: string;
   id: string;
   name: string;
   symbol: string;
   address: string;
-  decimals: number;
+  decimals?: number;
   price: number;
   change24h: number;
   priceChangeRaw?: string;
@@ -24,7 +25,12 @@ export interface IMarketToken {
   sortIndex?: number;
   isNative?: boolean;
   communityRecognized?: boolean;
+  stockId?: string;
   stock?: import('@onekeyhq/shared/types/marketV2').IMarketStockInfo;
+  // Stock listings: listing market badges (e.g. US / HK).
+  stockTags?: string[];
+  // Stock listings: tokens issued against the stock, shown on hover.
+  stockVariants?: import('@onekeyhq/shared/types/marketV2').IMarketStockListVariant[];
   // Perps watchlist: coin name (e.g. "BTC"). When set, this is a perps token.
   perpsCoin?: string;
   // Perps: max leverage (e.g. 40)

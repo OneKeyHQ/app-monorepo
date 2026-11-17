@@ -19,7 +19,7 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const { showPortfolio } = useShowPortfolio();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('webAccountPanel');
 
   const isForThisAccount =
     !!userAddress &&
@@ -41,7 +41,8 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
     return null;
   }
 
-  const isEmptyAccount = new BigNumber(accountValue).lte(0);
+  const isEmptyAccount =
+    !computedValue?.isAccountValuePartial && new BigNumber(accountValue).lte(0);
 
   const handlePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
@@ -78,6 +79,7 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
       ) : (
         <PerpsAccountNumberValue
           value={accountValue}
+          isPartial={computedValue?.isAccountValuePartial}
           textSize="$bodyLgMedium"
         />
       )}

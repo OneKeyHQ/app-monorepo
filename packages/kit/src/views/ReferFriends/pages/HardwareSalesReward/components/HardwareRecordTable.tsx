@@ -81,7 +81,7 @@ function TableRow({ item }: ITableRowProps) {
             w="$5"
             ai="center"
             jc="center"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
@@ -214,7 +214,7 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
             textTransform="uppercase"
           >
             {intl.formatMessage({
-              id: ETranslations.earn_rewards,
+              id: ETranslations.referral_order_reward,
             })}
           </SizableText>
         </XStack>

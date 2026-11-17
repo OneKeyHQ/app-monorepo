@@ -1,290 +1,119 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
-
-import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
-  HeaderIconButton,
-  Icon,
-  Image,
-  LottieView,
-  Popover,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
-import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+  ActivityHubAction,
+  ActivityHubContent,
+  shouldShowActivityHubInvitePanel,
+  useShowActivityHub,
+} from '@onekeyhq/kit/src/components/ActivityHub';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { useReferFriends } from '../../../hooks/useReferFriends';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
 
-import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
-
-function ActivityShortcutCard({
-  title,
-  iconName,
-  lottieSrc,
-  onPress,
-}: {
-  title: string;
-  iconName?: IButtonProps['icon'];
-  lottieSrc?: object;
-  onPress: () => void;
-}) {
-  return (
-    <YStack
-      flexBasis="25%"
-      flexShrink={0}
-      minWidth={0}
-      borderRadius="$2"
-      py="$2.5"
-      gap="$1"
-      alignItems="center"
-      justifyContent="flex-start"
-      onPress={onPress}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      cursor="default"
-      userSelect="none"
-    >
-      {iconName ? (
-        <Stack w="$6" h="$6" ai="center" jc="center">
-          <Icon name={iconName} size="$6" color="$icon" />
-        </Stack>
-      ) : null}
-      {lottieSrc ? (
-        <Stack w="$6" h="$6" ai="center" jc="center">
-          <LottieView width={32} height={32} source={lottieSrc} />
-        </Stack>
-      ) : null}
-      <SizableText
-        size="$bodySmMedium"
-        textAlign="center"
-        numberOfLines={2}
-        color="$textSubdued"
-      >
-        {title}
-      </SizableText>
-    </YStack>
-  );
-}
-
-function ActivityCampaignCard({
-  title,
-  subtitle,
-  imageUrl,
-  fallbackIconName = 'GiftOutline',
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  imageUrl?: string;
-  fallbackIconName?: IButtonProps['icon'];
-  onPress: () => void;
-}) {
-  return (
-    <XStack
-      onPress={onPress}
-      alignItems="center"
-      gap="$3"
-      px="$3"
-      py="$2"
-      borderRadius="$4"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-      bg="$bg"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      cursor="default"
-      userSelect="none"
-    >
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        w="$8"
-        h="$8"
-        borderRadius="$2"
-        bg="$bgSubdued"
-      >
-        {imageUrl ? (
-          <Image
-            w="$8"
-            h="$8"
-            src={imageUrl}
-            borderRadius="$2"
-            fallback={<Icon name={fallbackIconName} size="$6" color="$icon" />}
-          />
-        ) : (
-          <Icon name={fallbackIconName} size="$6" color="$iconSubdued" />
-        )}
-      </Stack>
-      <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$headingSm" color="$text" numberOfLines={1}>
-          {title}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {subtitle}
-        </SizableText>
-      </YStack>
-      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
-    </XStack>
-  );
-}
-
-export function PerpsActivityCenterContent({
-  copyAsUrl = false,
-  closePopover,
-  showTitle = true,
-}: {
-  copyAsUrl?: boolean;
-  closePopover: () => void;
-  showTitle?: boolean;
-}) {
-  const intl = useIntl();
-  const { gtMd } = useMedia();
-  const isDesktop = gtMd;
-  const themeVariant = useThemeVariant();
-  const { shareReferRewards } = useReferFriends();
-  const { showInviteeRewardModal } = useShowInviteeRewardModal();
+function usePerpsActivityCampaigns() {
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
-  const activityCards = useMemo(
+  return useMemo(
     () => perpConfigCommon?.activityCards ?? [],
     [perpConfigCommon?.activityCards],
   );
-  const activityCenterTitle = intl.formatMessage({
-    id: ETranslations.perps_activity_hub,
-  });
-  const hasActivityCards = activityCards.length > 0;
+}
 
-  const handleOpenReferReward = useCallback(() => {
-    void shareReferRewards(undefined, undefined, 'Perps', copyAsUrl);
-  }, [copyAsUrl, shareReferRewards]);
+// The shared header loads this only for Perps, and the opener outlives the menu.
+export function PerpsReferralEntry({
+  children,
+}: {
+  children: (openReferralPage: IActivityHubOpenReferral) => ReactNode;
+}) {
+  const openReferralPage = useOpenReferralPage();
+  const openReferralPageRef = useRef(openReferralPage);
+  openReferralPageRef.current = openReferralPage;
+  // RawPopover uses the content callback as a component type. Theme changes
+  // must update the opener without remounting the account panel's subpage.
+  const handleOpenReferral = useCallback<IActivityHubOpenReferral>(
+    (...args) => openReferralPageRef.current(...args),
+    [],
+  );
+  return children(handleOpenReferral);
+}
 
-  const handleOpenTradeReward = useCallback(() => {
-    void showInviteeRewardModal();
-  }, [showInviteeRewardModal]);
+export function PerpsActivityCenterContent({
+  closePopover,
+  showTitle = true,
+  menuLayout = false,
+  menuPopoverLayout = false,
+  menuShortcuts,
+  renderMenuReferral,
+  onOpenReferral,
+}: {
+  closePopover: () => void;
+  showTitle?: boolean;
+  menuLayout?: boolean;
+  menuPopoverLayout?: boolean;
+  menuShortcuts?: ReactNode;
+  renderMenuReferral?: (referral: ReactNode) => ReactNode;
+  // Must come from a component that outlives this menu: the menu closes
+  // before the referral page opens, and the referral entry cancels itself
+  // when its owner unmounts.
+  onOpenReferral: IActivityHubOpenReferral;
+}) {
+  const campaigns = usePerpsActivityCampaigns();
+  const showActivityHub = useShowActivityHub();
+  // The menu already lists the campaigns, so the dialog holds only the
+  // invite panel.
+  const openInvitePanel = useCallback(() => {
+    showActivityHub({ source: 'Perps', onOpenReferral });
+  }, [onOpenReferral, showActivityHub]);
 
   return (
-    <YStack mb="$2">
-      {isDesktop && showTitle ? (
-        <XStack px="$5" pt="$4" pb="$1">
-          <SizableText size="$headingMd" color="$text" userSelect="none">
-            {activityCenterTitle}
-          </SizableText>
-        </XStack>
-      ) : null}
-      <YStack px="$4" pt={isDesktop && showTitle ? '$3.5' : '$3'} pb="$3.5">
-        <XStack width="100%" flexWrap="nowrap">
-          <ActivityShortcutCard
-            lottieSrc={
-              themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark
-            }
-            title={intl.formatMessage({
-              id: ETranslations.sidebar_refer_a_friend,
-            })}
-            onPress={() => {
-              closePopover();
-              handleOpenReferReward();
-            }}
-          />
-          <ActivityShortcutCard
-            iconName="HandCoinsOutline"
-            title={intl.formatMessage({
-              id: ETranslations.perps_trade_reward,
-            })}
-            onPress={() => {
-              closePopover();
-              handleOpenTradeReward();
-            }}
-          />
-        </XStack>
-        {hasActivityCards ? (
-          <YStack gap="$2.5" mt="$4">
-            <SizableText size="$headingXs" color="$text">
-              {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${activityCards.length})`}
-            </SizableText>
-            <YStack gap="$2">
-              {activityCards.map((item) => (
-                <ActivityCampaignCard
-                  key={item.id}
-                  imageUrl={item.imageUrl}
-                  fallbackIconName={
-                    (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
-                  }
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  onPress={() => {
-                    closePopover();
-                    void openUrlExternal(item.url);
-                  }}
-                />
-              ))}
-            </YStack>
-          </YStack>
-        ) : null}
-      </YStack>
-    </YStack>
+    <ActivityHubContent
+      source="Perps"
+      closePopover={closePopover}
+      showTitle={showTitle}
+      menuLayout={menuLayout}
+      menuPopoverLayout={menuPopoverLayout}
+      menuShortcuts={menuShortcuts}
+      renderMenuReferral={renderMenuReferral}
+      campaignFallbackIllustration={
+        menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
+      }
+      onOpenReferral={onOpenReferral}
+      onOpenInvitePanel={
+        menuLayout && shouldShowActivityHubInvitePanel()
+          ? openInvitePanel
+          : undefined
+      }
+      campaigns={campaigns}
+    />
   );
 }
 
 export function PerpsActivityCenterAction({
   size = 'medium',
-  copyAsUrl = false,
   renderTrigger,
   open,
   onOpenChange,
 }: {
   size?: IButtonProps['size'];
-  copyAsUrl?: boolean;
   renderTrigger?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const intl = useIntl();
-  const { gtMd } = useMedia();
-  const activityCenterTitle = intl.formatMessage({
-    id: ETranslations.perps_activity_hub,
-  });
+  const campaigns = usePerpsActivityCampaigns();
+  const handleOpenReferral = useOpenReferralPage();
 
   return (
-    <Popover
+    <ActivityHubAction
+      source="Perps"
+      size={size}
+      renderTrigger={renderTrigger}
       open={open}
       onOpenChange={onOpenChange}
-      title={activityCenterTitle}
-      showHeader={!gtMd}
-      placement="bottom-end"
-      sheetProps={
-        gtMd
-          ? undefined
-          : {
-              dismissOnSnapToBottom: true,
-            }
-      }
-      floatingPanelProps={{
-        width: gtMd ? 384 : undefined,
-      }}
-      renderTrigger={
-        renderTrigger ?? (
-          <HeaderIconButton
-            title={activityCenterTitle}
-            icon="GiftOutline"
-            size={size}
-          />
-        )
-      }
-      renderContent={({ closePopover }) => (
-        <PerpsActivityCenterContent
-          copyAsUrl={copyAsUrl}
-          closePopover={closePopover}
-        />
-      )}
+      onOpenReferral={handleOpenReferral}
+      campaigns={campaigns}
     />
   );
 }

@@ -1,5 +1,11 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
+import {
+  OverlayPageHostScope,
+  OverlayPageOwnerScope,
+  useOverlayPageScope,
+} from '@onekeyfe/react-native-native-overlay';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -30,6 +36,26 @@ export type IPageHeaderProps = IStackNavigationOptions &
     headerRightNoGlass?: boolean;
   };
 
+function getPageHeaderStyleOptions({
+  headerTransparent,
+  headerStyle,
+}: Pick<IPageHeaderProps, 'headerTransparent' | 'headerStyle'>): Pick<
+  IPageHeaderProps,
+  'headerStyle'
+> {
+  if (headerTransparent) {
+    return {
+      headerStyle: [
+        headerStyle ?? {},
+        {
+          backgroundColor: 'transparent',
+        },
+      ],
+    };
+  }
+  return headerStyle === undefined ? {} : { headerStyle };
+}
+
 // `reload()` returns a flat options object whose values are reference-stable by
 // convention (callers wrap header render functions in `useCallback`). A shallow
 // own-key comparison is therefore enough to detect real changes, and avoids the
@@ -52,6 +78,31 @@ function shallowEqualHeaderOptions(
     }
   }
   return true;
+}
+
+function restoreHeaderPageScope<T extends (...args: never[]) => unknown>(
+  renderHeader: T,
+  hostKey: string,
+  ownerKey: string,
+): T {
+  return ((...args: Parameters<T>) => {
+    const rendered = renderHeader(...args);
+    if (
+      rendered === null ||
+      rendered === undefined ||
+      typeof rendered === 'boolean' ||
+      typeof rendered === 'function'
+    ) {
+      return rendered;
+    }
+    return (
+      <OverlayPageHostScope hostKey={hostKey}>
+        <OverlayPageOwnerScope ownerKey={ownerKey}>
+          {rendered as ReactNode}
+        </OverlayPageOwnerScope>
+      </OverlayPageHostScope>
+    );
+  }) as T;
 }
 
 const usePageHeaderReloadOptions = () => {
@@ -103,8 +154,9 @@ const usePageHeaderReloadOptions = () => {
                 unstable_headerRightItems: noGlassRightItems,
               }
             : { headerRight: wrapHeaderRenderInGlass(restProps.headerRight) })),
-        ...(headerTransparent && {
-          headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
+        ...getPageHeaderStyleOptions({
+          headerTransparent,
+          headerStyle,
         }),
         ...(!platformEnv.isNativeIOS &&
           headerSearchBarOptions && {
@@ -135,7 +187,47 @@ const usePageHeaderReloadOptions = () => {
  */
 function PageHeader(props: IPageHeaderProps) {
   const pageHeaderReload = usePageHeaderReloadOptions();
-  const nextReloadOptions = pageHeaderReload.reload(props);
+  const { hostKey, ownerKey } = useOverlayPageScope();
+  const { headerLeft, headerRight, headerTitle } = props;
+  const scopedHeaderLeft = useMemo(
+    () =>
+      hostKey && ownerKey && typeof headerLeft === 'function'
+        ? restoreHeaderPageScope(headerLeft, hostKey, ownerKey)
+        : headerLeft,
+    [headerLeft, hostKey, ownerKey],
+  );
+  const scopedHeaderRight = useMemo(
+    () =>
+      hostKey && ownerKey && typeof headerRight === 'function'
+        ? restoreHeaderPageScope(headerRight, hostKey, ownerKey)
+        : headerRight,
+    [headerRight, hostKey, ownerKey],
+  );
+  const scopedHeaderTitle = useMemo(
+    () =>
+      hostKey && ownerKey && typeof headerTitle === 'function'
+        ? restoreHeaderPageScope(headerTitle, hostKey, ownerKey)
+        : headerTitle,
+    [headerTitle, hostKey, ownerKey],
+  );
+  const scopedProps =
+    scopedHeaderLeft === headerLeft &&
+    scopedHeaderRight === headerRight &&
+    scopedHeaderTitle === headerTitle
+      ? props
+      : {
+          ...props,
+          ...(scopedHeaderLeft !== headerLeft && {
+            headerLeft: scopedHeaderLeft,
+          }),
+          ...(scopedHeaderRight !== headerRight && {
+            headerRight: scopedHeaderRight,
+          }),
+          ...(scopedHeaderTitle !== headerTitle && {
+            headerTitle: scopedHeaderTitle,
+          }),
+        };
+  const nextReloadOptions = pageHeaderReload.reload(scopedProps);
 
   // `reload()` returns a brand-new object on every render. Feeding that fresh
   // reference into the layout effect below (and into `navigation.setOptions`)

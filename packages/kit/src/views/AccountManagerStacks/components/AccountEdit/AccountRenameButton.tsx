@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  ActionList,
+  Icon,
+  SizableText,
+  XStack,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type {
@@ -10,8 +16,9 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -70,7 +77,7 @@ export function useAccountRenameMethod({
         }
       },
     });
-  }, [account?.id, indexedAccount, name, serviceAccount, wallet?.id, intl]);
+  }, [account?.id, indexedAccount, intl, name, serviceAccount, wallet?.id]);
 
   const showAccountRenameDialog = useCallback(() => {
     if (indexedAccount?.id) {
@@ -148,13 +155,20 @@ export function AccountRenameButton({
     account,
     wallet,
   });
+  const handleShowAccountRenameDialog = useCallback(
+    (close: () => void) =>
+      runAfterActionListClose(close, showAccountRenameDialog, {
+        waitForAnimation: platformEnv.isNative,
+      }),
+    [showAccountRenameDialog],
+  );
 
   return (
     <ActionList.Item
       icon="PencilOutline"
       label={intl.formatMessage({ id: ETranslations.global_rename })}
       onClose={onClose}
-      onPress={showAccountRenameDialog}
+      onPress={handleShowAccountRenameDialog}
     />
   );
 }

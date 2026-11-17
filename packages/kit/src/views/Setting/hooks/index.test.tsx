@@ -1,0 +1,218 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { inAppStateLockDialogProps, useResetApp } from '.';
+
+import { act, renderHook } from '@testing-library/react';
+
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
+jest.mock('@onekeyhq/components', () => {
+  const MockComponent = () => null;
+  const dialogShow = jest.fn();
+  return {
+    __dialogShow: dialogShow,
+    Dialog: {
+      Form: MockComponent,
+      FormField: MockComponent,
+      show: dialogShow,
+    },
+    Input: MockComponent,
+    Portal: {
+      Constant: {
+        APP_STATE_LOCK_CONTAINER_OVERLAY: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+      },
+    },
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/locale', () => ({
+  ETranslations: {
+    global_reset: 'global_reset',
+    reset_app_desc: 'reset_app_desc',
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    setting: {
+      page: {
+        resetApp: jest.fn(),
+      },
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const platformEnv = {
+    isExtensionUiPopup: false,
+    isNative: false,
+  };
+  return {
+    __esModule: true,
+    __platformEnv: platformEnv,
+    default: platformEnv,
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/utils/resetUtils', () => ({
+  __esModule: true,
+  default: {
+    endResetting: jest.fn(),
+    startResetting: jest.fn(),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
+  __esModule: true,
+  default: {
+    wait: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock('../../../background/instance/backgroundApiProxy', () => {
+  const isAppLocked = jest.fn();
+  return {
+    __esModule: true,
+    __isAppLocked: isAppLocked,
+    default: {
+      serviceApp: {
+        isAppLocked,
+        resetApp: jest.fn(),
+      },
+    },
+  };
+});
+
+jest.mock('./useLanguageSelector', () => ({}));
+jest.mock('./useLocaleOptions', () => ({}));
+
+function getMocks() {
+  return {
+    dialogShow: jest.requireMock('@onekeyhq/components')
+      .__dialogShow as jest.Mock,
+    isAppLocked: jest.requireMock(
+      '../../../background/instance/backgroundApiProxy',
+    ).__isAppLocked as jest.Mock,
+    resetApp: jest.requireMock(
+      '../../../background/instance/backgroundApiProxy',
+    ).default.serviceApp.resetApp as jest.Mock,
+  };
+}
+
+describe('inAppStateLockDialogProps', () => {
+  it('renders lock-screen dialogs inside the lock overlay on every platform', () => {
+    expect(inAppStateLockDialogProps).toEqual({
+      portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+    });
+  });
+});
+
+describe('useResetApp', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = false;
+    getMocks().isAppLocked.mockResolvedValue(true);
+    getMocks().resetApp.mockReset();
+    getMocks().resetApp.mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('opens the lock-screen reset dialog with the lock overlay props', async () => {
+    const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.objectContaining(inAppStateLockDialogProps),
+    );
+  });
+
+  it('leaves an unlocked reset dialog outside the lock overlay', async () => {
+    const { result } = renderHook(() => useResetApp());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+      }),
+    );
+  });
+
+  it('still hands the lock screen its own container on native', async () => {
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = true;
+    const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+      }),
+    );
+  });
+
+  it('rejects manual confirmation on failure and allows the same dialog to retry', async () => {
+    const resetError = new Error('AppStorage clear failed');
+    getMocks().resetApp.mockRejectedValueOnce(resetError);
+    const { result } = renderHook(() => useResetApp());
+    await act(async () => {
+      await result.current();
+    });
+    const { onConfirm } = getMocks().dialogShow.mock
+      .calls[0][0] as IDialogShowProps;
+    const confirmArgs: Parameters<
+      NonNullable<IDialogShowProps['onConfirm']>
+    >[0] = {
+      close: jest.fn(),
+      preventClose: jest.fn(),
+      getForm: jest.fn(),
+      isExist: jest.fn().mockReturnValue(true),
+    };
+
+    await expect(onConfirm?.(confirmArgs)).rejects.toBe(resetError);
+    await expect(onConfirm?.(confirmArgs)).resolves.toBeUndefined();
+    expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
+    expect(getMocks().resetApp).toHaveBeenLastCalledWith({
+      preserveBackupRecovery: true,
+    });
+  });
+
+  it('returns failure for silent reset so password verification can finish and retry', async () => {
+    getMocks().resetApp.mockRejectedValueOnce(
+      new Error('AppStorage clear failed'),
+    );
+    const { result } = renderHook(() => useResetApp({ silentReset: true }));
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe(false);
+      await expect(result.current()).resolves.toBe(true);
+    });
+    expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
+    expect(getMocks().resetApp).toHaveBeenLastCalledWith({
+      preserveBackupRecovery: false,
+    });
+  });
+});

@@ -44,7 +44,7 @@ export function DecorativeOneKeyLogo() {
       $platform-web={decorativeWebStyle}
       $platform-native={decorativeNativeStyle}
       borderRadius={13}
-      animation="quick"
+      transition="quick"
       animateOnly={decorativeAnimateOnly}
       hoverStyle={decorativeHoverStyle}
     >

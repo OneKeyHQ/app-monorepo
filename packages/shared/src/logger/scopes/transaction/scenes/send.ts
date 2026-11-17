@@ -1,8 +1,19 @@
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { sanitizeSolanaTxDiagnosticEvent } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+import type { ISolanaTxDiagnosticEvent } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
+
+import type {
+  IGasAccountActionParams,
+  IGasAccountAnalyticsContext,
+  ISendCexDepositWarningActionParams,
+  ISendCexDepositWarningContext,
+} from '../types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type ISendMode = 'public' | 'private';
 type IPrivateSendQuoteStatus = 'success' | 'failed';
@@ -60,6 +71,11 @@ interface ISendPrivateOrderFinalStatusParams {
 }
 
 export class SendScene extends BaseScene {
+  @LogToLocal()
+  public solanaTxDiagnostic(params: ISolanaTxDiagnosticEvent) {
+    return sanitizeSolanaTxDiagnosticEvent(params) ?? NO_LOG_OUTPUT;
+  }
+
   private _sendFlowId: string | undefined;
 
   private _addressInputMethod: string | undefined;
@@ -180,6 +196,8 @@ export class SendScene extends BaseScene {
 
   @LogToServer()
   public sendConfirm({
+    walletType,
+    deviceType,
     network,
     txnType,
     interactContract,
@@ -199,6 +217,8 @@ export class SendScene extends BaseScene {
     tronUseRedemptionCode,
     tronIsCreditAutoClaimed,
   }: {
+    walletType: string;
+    deviceType: IDeviceType | undefined;
     network: string | undefined;
     txnType: string | undefined;
     txnParseType: string | undefined;
@@ -219,6 +239,8 @@ export class SendScene extends BaseScene {
     tronIsCreditAutoClaimed: boolean | undefined;
   }) {
     const result = {
+      walletType,
+      deviceType,
       sendFlowId: this._sendFlowId,
       network,
       txnType,
@@ -330,6 +352,24 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  public sendCexDepositWarningShow(params: ISendCexDepositWarningContext) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningAction(
+    params: ISendCexDepositWarningActionParams,
+  ) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
   public sendPrivateCreateOrder(params: ISendPrivateCreateOrderParams) {
     return params;
   }
@@ -358,23 +398,27 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public insufficientFeeOnConfirm({
-    network,
-    tokenSymbol,
-    fillUpAmount,
-    feeType,
-  }: {
-    network: string | undefined;
-    tokenSymbol: string | undefined;
-    fillUpAmount: string | undefined;
-    feeType: 'native' | 'token';
-  }) {
+  public gasAccountDecision(params: IGasAccountAnalyticsContext) {
+    return params;
+  }
+
+  @LogToServer()
+  public gasAccountAction(params: IGasAccountActionParams) {
+    return params;
+  }
+
+  @LogToServer()
+  public insufficientFeeOnConfirm(
+    params: {
+      network: string | undefined;
+      tokenSymbol: string | undefined;
+      fillUpAmount: string | undefined;
+      feeType: 'native' | 'token';
+    } & Partial<Omit<IGasAccountAnalyticsContext, 'network'>>,
+  ) {
     return {
       sendFlowId: this._sendFlowId,
-      network,
-      tokenSymbol,
-      fillUpAmount,
-      feeType,
+      ...params,
     };
   }
 
@@ -429,6 +473,25 @@ export class SendScene extends BaseScene {
     return {
       network,
       error,
+    };
+  }
+
+  // Logged when a refTx field arrives empty and is read as 0 — the only trace
+  // if that substitution was actually wrong.
+  @LogToLocal()
+  public refTxFieldDefaulted({
+    network,
+    txId,
+    field,
+  }: {
+    network: string | undefined;
+    txId: string;
+    field: string;
+  }) {
+    return {
+      network,
+      txId,
+      field,
     };
   }
 }

@@ -1,7 +1,11 @@
+import { Transaction, payments } from 'bitcoinjs-lib';
+
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
+import { getBitcoinECPair, initBitcoinEcc } from '../btc/sdkBtc';
+import { getBtcForkNetwork } from '../btc/sdkBtc/networks';
 
 import CoreChainHd from './CoreChainHd';
 
@@ -53,6 +57,39 @@ const {
 
 // yarn jest packages/core/src/chains/bch/CoreChainSoftware.test.ts
 describe('BCH Core tests', () => {
+  it('uses the BCH forkId signer and preserves its transaction vector', () => {
+    initBitcoinEcc();
+    const ECPair = getBitcoinECPair();
+    const key = ECPair.fromPrivateKey(Buffer.alloc(32, 1));
+    const script = payments.p2pkh({ pubkey: key.publicKey }).output!;
+    const parent = new Transaction();
+    parent.addInput(Buffer.alloc(32, 3), 0);
+    parent.addOutput(script, 100_000n);
+    const psbt = new CoreChainHd().getPsbt({
+      network: getBtcForkNetwork('bch'),
+    });
+    psbt.addInput({
+      hash: parent.getHash(),
+      index: 0,
+      nonWitnessUtxo: parent.toBuffer(),
+    });
+    psbt.addOutput({ script, value: 99_000n });
+    psbt.signInput(0, key);
+    expect(psbt.data.inputs[0].partialSig?.[0].signature.at(-1)).toBe(0x41);
+    expect(
+      psbt.validateSignaturesOfInput(0, (pubkey, hash, signature) =>
+        ECPair.fromPublicKey(Buffer.from(pubkey)).verify(
+          Buffer.from(hash),
+          Buffer.from(signature),
+        ),
+      ),
+    ).toBe(true);
+    expect(psbt.finalizeAllInputs().extractTransaction().toHex()).toBe(
+      '0200000001b603d6c490bacf4f5ed31809fd1b539164f39e45e4f02049c802b63bf152b788000000006a473044022063b3d3c68e546c7b7cf84e10ad9766e3a079153771b540b07990d534f0ccd3ce02200b8a10cf6c7b9d65482096f6bb9204d6ffbaa6c9870a684d62cf362159d741514121031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078fffffffff01b8820100000000001976a91479b000887626b294a914501a4cd226b58b23598388ac00000000',
+    );
+    expect(psbt.getFee()).toBe(1000n);
+  });
+
   it('mnemonic verify', async () => {
     await coreTestsUtils.expectMnemonicValid({
       hdCredential,

@@ -68,7 +68,7 @@ describe('devicePerformanceTier web capabilities', () => {
     expect(getDeviceCpuTier()).toBe(EDeviceCpuTier.high);
   });
 
-  it('persists the CPU developer override independently from memory', () => {
+  it('persists the CPU developer override independently from memory', async () => {
     const {
       EDeviceCpuTier,
       EDeviceMemoryClass,
@@ -77,7 +77,7 @@ describe('devicePerformanceTier web capabilities', () => {
     } =
       require('./devicePerformanceTier') as typeof import('./devicePerformanceTier');
 
-    setDeviceCpuTier(EDeviceCpuTier.low);
+    await setDeviceCpuTier(EDeviceCpuTier.low);
 
     const profile = getDevicePerformanceProfile();
     expect(storage.get('onekey_device_cpu_tier_override_v2')).toBe('low');

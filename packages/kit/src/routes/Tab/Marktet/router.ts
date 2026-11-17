@@ -15,7 +15,7 @@ import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 import { MarketDetailV2LoadingFallback } from './MarketDetailV2LoadingFallback';
 
 const MarketHome = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../../../views/Market/MarketHome'),
+  () => import('../../../views/Market/MarketHome'),
   createElement(RootTabLoadingFallback, {
     tabRoute: ETabRoutes.Market,
     mobileContentFallback: createElement(MarketHomeLoadingFallback),
@@ -23,7 +23,7 @@ const MarketHome = LazyLoadRootTabPage(
 );
 
 const MarketDetail = LazyLoadPage(
-  () => import('../../../views/Market/MarketDetail'),
+  () => import('../../../views/Market/LegacyMarketDetailRoute'),
 );
 
 const MarketDetailV2 = createMarketDetailV2Route(
@@ -51,6 +51,12 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: MarketDetailV2,
     headerShown: !platformEnv.isNative,
     rewrite: '/token/:network/:tokenAddress',
+  },
+  {
+    name: ETabMarketRoutes.MarketStockDetail,
+    component: MarketDetailV2,
+    headerShown: !platformEnv.isNative,
+    rewrite: '/stock/:stockId',
   },
   {
     name: ETabMarketRoutes.MarketNativeDetail,

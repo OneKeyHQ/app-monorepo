@@ -1,13 +1,12 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet, View } from 'react-native';
+import { CollapsiblePagerView, NativeScroller } from 'react-native-pager-view';
 
-import type {
-  ITabContainerProps,
-  ITabContainerRef,
-} from '@onekeyhq/components';
-import { Tabs, XStack, YStack } from '@onekeyhq/components';
-import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
+import { XStack, YStack } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
+import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
@@ -27,7 +26,7 @@ import { InterestRateModelSection } from './InterestRateModelSection';
 import { RiskSection } from './RiskSection';
 
 import type { ITimePeriod } from '../hooks/useBorrowChartData';
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type { LayoutChangeEvent } from 'react-native';
 
 interface IReserveDetailsTabsProps {
   networkId: string;
@@ -35,8 +34,13 @@ interface IReserveDetailsTabsProps {
   marketAddress: string;
   reserveAddress: string;
   details?: IBorrowReserveDetail;
-  containerProps?: ITabContainerProps;
+  header: React.ReactNode;
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  measuredContent: { position: 'absolute', top: 0, left: 0, right: 0 },
+});
 
 const ReserveDetailsTabsComponent = ({
   networkId,
@@ -44,10 +48,12 @@ const ReserveDetailsTabsComponent = ({
   marketAddress,
   reserveAddress,
   details,
-  containerProps,
+  header,
 }: IReserveDetailsTabsProps) => {
   const intl = useIntl();
-  const tabsRef = useRef<ITabContainerRef>(null);
+  const pagerRef = useRef<CollapsiblePagerView>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [supplyTimePeriod, setSupplyTimePeriod] = useState<ITimePeriod>('week');
   const [borrowTimePeriod, setBorrowTimePeriod] = useState<ITimePeriod>('week');
 
@@ -83,42 +89,84 @@ const ReserveDetailsTabsComponent = ({
     timePeriod: borrowTimePeriod,
   });
 
-  const renderTabBar = useCallback((tabBarProps: TabBarProps<string>) => {
-    const handleTabPress = (name: string) => {
-      tabBarProps.onTabPress?.(name);
-    };
-    return (
-      <Tabs.TabBar
-        {...tabBarProps}
-        scrollable={platformEnv.isNative}
-        keepFocusedTabVisible={platformEnv.isNative}
-        onTabPress={handleTabPress}
-      />
-    );
+  const pages = useMemo(
+    () =>
+      (['supply', 'borrow', 'more'] as const).map((key) => ({
+        key,
+        name: tabNames[key],
+      })),
+    [tabNames],
+  );
+  const tabBarNames = useMemo(() => pages.map((page) => page.name), [pages]);
+  const controller = useAppPagerController({
+    pages,
+    initialTabName: tabNames.supply,
+    pagerRef,
+    animationEnabled: platformEnv.isNative,
+  });
+  const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    setHeaderHeight(Math.ceil(event.nativeEvent.layout.height));
+  }, []);
+  const handleStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    setStickyHeaderHeight(Math.ceil(event.nativeEvent.layout.height));
   }, []);
 
-  const tabContainerWidth = useTabContainerWidth();
-
-  const tabsContainerProps: ITabContainerProps & { ref: typeof tabsRef } = {
-    width: platformEnv.isNative ? (tabContainerWidth as number) : undefined,
-    ref: tabsRef,
-    renderTabBar,
-    initialTabName: tabNames.supply,
-    ...containerProps,
-  };
-
   return (
-    <Tabs.Container
-      {...(tabsContainerProps as Parameters<typeof Tabs.Container>[0])}
+    <CollapsiblePagerView
+      ref={pagerRef}
+      style={styles.fill}
+      initialPage={controller.initialIndex}
+      headerHeight={headerHeight}
+      stickyHeaderHeight={stickyHeaderHeight}
+      nestedScrollEnabled
+      nativeSmoothHeaderScrollEnabled={
+        headerHeight > 0 && stickyHeaderHeight > 0
+      }
+      pageRetentionDistance={2}
+      offscreenPageLimit={platformEnv.isNativeAndroid ? 2 : undefined}
+      scrollEnabled={platformEnv.isNative}
+      header={
+        <View style={styles.measuredContent} onLayout={handleHeaderLayout}>
+          {header}
+        </View>
+      }
+      stickyHeader={
+        <View
+          style={styles.measuredContent}
+          onLayout={handleStickyHeaderLayout}
+        >
+          <TabBar
+            tabNames={tabBarNames}
+            focusedTab={controller.focusedTab}
+            indexDecimal={
+              platformEnv.isNative ? controller.indexDecimal : undefined
+            }
+            onTabPress={controller.jumpToTab}
+            scrollable={platformEnv.isNative}
+            keepFocusedTabVisible={platformEnv.isNative}
+          />
+        </View>
+      }
+      onPageScroll={({ nativeEvent }) => {
+        controller.indexDecimal.value =
+          nativeEvent.position + nativeEvent.offset;
+      }}
+      onPageSelected={({ nativeEvent }) =>
+        controller.selectIndex(nativeEvent.position)
+      }
     >
       {/* Supply Info Tab */}
-      <Tabs.Tab name={tabNames.supply}>
-        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <View key="supply" style={styles.fill} collapsable={false}>
+        <NativeScroller
+          pagerScrollKey="supply"
+          style={styles.fill}
+          showsVerticalScrollIndicator={false}
+        >
           <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {supplyBadge ? <XStack>{supplyBadge}</XStack> : null}
 
             <ApyChartSection
-              apyValue={supplyData.latestApy}
+              apyValue={details?.supply.apyDetail.apy ?? '0'}
               apyLabel={supplyApyLabel}
               history={supplyData.history}
               isLoading={supplyData.isLoading ?? false}
@@ -146,17 +194,21 @@ const ReserveDetailsTabsComponent = ({
               tooltipLabel={supplyApyLabel}
             />
           </YStack>
-        </Tabs.ScrollView>
-      </Tabs.Tab>
+        </NativeScroller>
+      </View>
 
       {/* Borrow Info Tab */}
-      <Tabs.Tab name={tabNames.borrow}>
-        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <View key="borrow" style={styles.fill} collapsable={false}>
+        <NativeScroller
+          pagerScrollKey="borrow"
+          style={styles.fill}
+          showsVerticalScrollIndicator={false}
+        >
           <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {borrowBadge ? <XStack>{borrowBadge}</XStack> : null}
 
             <ApyChartSection
-              apyValue={borrowData.latestApy}
+              apyValue={details?.borrow.apyDetail.apy ?? '0'}
               apyLabel={borrowApyLabel}
               history={borrowData.history}
               isLoading={borrowData.isLoading ?? false}
@@ -175,18 +227,22 @@ const ReserveDetailsTabsComponent = ({
               tooltipLabel={borrowApyLabel}
             />
           </YStack>
-        </Tabs.ScrollView>
-      </Tabs.Tab>
+        </NativeScroller>
+      </View>
 
       {/* More Tab */}
-      <Tabs.Tab name={tabNames.more}>
-        <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <View key="more" style={styles.fill} collapsable={false}>
+        <NativeScroller
+          pagerScrollKey="more"
+          style={styles.fill}
+          showsVerticalScrollIndicator={false}
+        >
           <YStack px="$5" pt="$6" pb="$6" gap="$8">
             <InterestRateModelSection
               networkId={networkId}
               provider={provider}
               marketAddress={marketAddress}
-              reserveAddress={reserveAddress}
+              reserveAddress={details?.borrow.reserveAddress || reserveAddress}
               utilizationRatio={details?.utilizationRatio}
             />
             <DailyCapsSection details={details} />
@@ -198,9 +254,9 @@ const ReserveDetailsTabsComponent = ({
               reserveAddress={reserveAddress}
             />
           </YStack>
-        </Tabs.ScrollView>
-      </Tabs.Tab>
-    </Tabs.Container>
+        </NativeScroller>
+      </View>
+    </CollapsiblePagerView>
   );
 };
 

@@ -16,6 +16,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useUpdateEffect,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -225,6 +226,7 @@ function AmountCard() {
     isMaxMode,
     setIsMaxMode,
     hasDuplicateSenders,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
@@ -234,7 +236,10 @@ function AmountCard() {
   const shouldShowMaxMode = isOneToMany
     ? !tokenInfo?.isNative
     : !hasDuplicateSenders;
-  const balance = tokenDetails?.balanceParsed ?? '0';
+  // Display basis for scaled-UI tokens (raw × multiplier); equals the raw
+  // balance for ordinary tokens. Drives validation, MAX split, and the
+  // Available label alike so they share one basis with user input.
+  const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
       getBulkSendMinTransferDisplayAmount({
@@ -251,6 +256,7 @@ function AmountCard() {
     previewState,
     setPreviewState,
     balance: isOneToMany ? tokenDetails?.balanceParsed : undefined,
+    minTransferAmount,
   });
 
   // Mode select options
@@ -447,6 +453,45 @@ function AmountCard() {
   const localRangeMaxRef = useRef(localRangeMax);
   localRangeMaxRef.current = localRangeMax;
 
+  // Validates the range and refills the transfers from it
+  const applyRangeValues = (values: typeof amountInputValues) => {
+    const error = validateRangeInput({
+      rangeMin: values.rangeMin,
+      rangeMax: values.rangeMax,
+      balance: isOneToMany ? balance : undefined,
+      transferCount: isOneToMany ? transfersInfo.length : undefined,
+      minTransferAmount,
+      tokenSymbol: tokenInfo?.symbol,
+      tokenDecimals: tokenInfo?.decimals,
+      intl,
+    });
+    setAmountInputErrors({
+      ...amountInputErrorsRef.current,
+      rangeError: error,
+    });
+
+    updateTransfersInfoWithAmounts(amountInputMode, values);
+  };
+  const applyRangeValuesRef = useRef(applyRangeValues);
+  applyRangeValuesRef.current = applyRangeValues;
+  const amountInputModeRef = useRef(amountInputMode);
+  amountInputModeRef.current = amountInputMode;
+
+  // The chain minimum arrives with the vault settings, after the page mounts.
+  // A range entered before that was validated and generated against the
+  // smallest token unit, so redo both once the real minimum is known.
+  useUpdateEffect(() => {
+    const values = amountInputValuesRef.current;
+    if (
+      amountInputModeRef.current !== EAmountInputMode.Range ||
+      !values.rangeMax
+    ) {
+      return;
+    }
+
+    applyRangeValuesRef.current(values);
+  }, [minTransferAmount]);
+
   // Debounced handler for validation and transfer info update
   const debouncedRangeUpdate = useDebouncedCallback(
     (newValues: { rangeMin: string; rangeMax: string }) => {
@@ -457,21 +502,7 @@ function AmountCard() {
       };
       setAmountInputValues(fullValues);
 
-      const error = validateRangeInput({
-        rangeMin: newValues.rangeMin,
-        rangeMax: newValues.rangeMax,
-        balance: isOneToMany ? balance : undefined,
-        minTransferAmount,
-        tokenSymbol: tokenInfo?.symbol,
-        tokenDecimals: tokenInfo?.decimals,
-        intl,
-      });
-      setAmountInputErrors({
-        ...amountInputErrorsRef.current,
-        rangeError: error,
-      });
-
-      updateTransfersInfoWithAmounts(amountInputMode, fullValues);
+      applyRangeValues(fullValues);
     },
     300,
   );
@@ -828,7 +859,7 @@ function AmountCard() {
               formatter="balance"
               formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
             >
-              {tokenDetails?.balanceParsed ?? '-'}
+              {displayBalance ?? tokenDetails?.balanceParsed ?? '-'}
             </NumberSizeableText>
           </XStack>
         ) : (

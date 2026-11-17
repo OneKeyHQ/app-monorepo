@@ -1,5 +1,7 @@
 import { Semaphore } from 'async-mutex';
 
+import { getOneKeyIdAuthConfig } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
+import { ONEKEY_ID_AUTH_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import {
@@ -7,10 +9,6 @@ import {
   getSupabaseAuthSessionKey,
 } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
-import {
-  getKeylessSupabaseClient,
-  getSupabaseClient,
-} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -43,27 +41,29 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * BG-owned slots; they never sign out or write persistent credentials.
  */
 
-function getSupabaseClientBySessionSource(
+export async function getSupabaseClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
-): SupabaseClient {
+): Promise<SupabaseClient> {
+  const { getKeylessSupabaseClient, getSupabaseClient } =
+    await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
   return authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
     ? getKeylessSupabaseClient().client
-    : getSupabaseClient().client;
+    : (await getSupabaseClient()).client;
 }
 
-function getSupabaseAuthSessionKeyBySessionSource(
+async function getSupabaseAuthSessionKeyBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
-): string {
+): Promise<string> {
   return authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
     ? getKeylessSupabaseAuthSessionKey()
-    : getSupabaseAuthSessionKey();
+    : getSupabaseAuthSessionKey((await getOneKeyIdAuthConfig()).projectUrl);
 }
 
-export function allowAuthSessionStorageWritesBySessionSource(
+export async function allowAuthSessionStorageWritesBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
-): void {
+): Promise<void> {
   supabaseStorageInstance.allowWritesForKey(
-    getSupabaseAuthSessionKeyBySessionSource(authSessionSource),
+    await getSupabaseAuthSessionKeyBySessionSource(authSessionSource),
   );
 }
 
@@ -71,7 +71,7 @@ async function blockAuthSessionStorageWritesBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
   await supabaseStorageInstance.blockWritesForKey(
-    getSupabaseAuthSessionKeyBySessionSource(authSessionSource),
+    await getSupabaseAuthSessionKeyBySessionSource(authSessionSource),
   );
 }
 
@@ -97,7 +97,7 @@ export async function getAuthTokenBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<string> {
   return getSupabaseSdkAuthToken(
-    getSupabaseClientBySessionSource(authSessionSource),
+    await getSupabaseClientBySessionSource(authSessionSource),
   );
 }
 
@@ -177,14 +177,16 @@ export async function persistKeylessAuthSession({
       'Failed to persist Keyless OAuth session: missing token',
     );
   }
-  allowAuthSessionStorageWritesBySessionSource(
+  await allowAuthSessionStorageWritesBySessionSource(
     EPrimeAuthSessionSource.KeylessOAuth,
   );
-  const { data, error } =
-    await getKeylessSupabaseClient().client.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+  const client = await getSupabaseClientBySessionSource(
+    EPrimeAuthSessionSource.KeylessOAuth,
+  );
+  const { data, error } = await client.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
   if (error || !data.session) {
     const statusPart =
       typeof error?.status === 'number' ? ` status=${error.status}` : '';
@@ -223,7 +225,7 @@ export async function readPersistedAccessTokenBySessionSourceStrict(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<IPersistedAccessTokenStrictReadResult> {
   const sessionKey =
-    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+    await getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
   // getItem rethrows transient device-key/storage failures — let them
   // propagate so the caller treats the slot as "unknown", not "empty".
   const rawValue = await supabaseStorageInstance.getItem(sessionKey);
@@ -271,8 +273,8 @@ export async function removeAuthSessionStorageBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
   const sessionKey =
-    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
-  await blockAuthSessionStorageWritesBySessionSource(authSessionSource);
+    await getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+  await supabaseStorageInstance.blockWritesForKey(sessionKey);
   await supabaseStorageInstance.removeItem(sessionKey);
   supabaseStorageInstance.clearCache();
 }
@@ -291,7 +293,7 @@ export async function removeAuthSessionStorageBySessionSource(
 export async function signOutAuthSessionClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
-  const client = getSupabaseClientBySessionSource(authSessionSource);
+  const client = await getSupabaseClientBySessionSource(authSessionSource);
   try {
     await client.auth.signOut({ scope: 'local' });
   } catch {
@@ -313,7 +315,7 @@ export async function readPersistedAccessTokenBySessionSource(
 ): Promise<string> {
   try {
     const sessionKey =
-      getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+      await getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
     const rawValue = await supabaseStorageInstance.getItem(sessionKey);
     if (!rawValue) {
       return '';
@@ -343,7 +345,7 @@ export async function revokeAuthSessionTokenOnServerBestEffort({
     return;
   }
   try {
-    const client = getSupabaseClientBySessionSource(authSessionSource);
+    const client = await getSupabaseClientBySessionSource(authSessionSource);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
@@ -381,6 +383,43 @@ export async function clearAuthSessionBySessionSource(
   });
 }
 
+export async function clearIdentityAuthSessionsForEnvironmentChange(): Promise<void> {
+  // The caller holds the lifecycle mutex and has verified that OneKey ID
+  // and the local Keyless wallet are both absent. Lock one realm at a time.
+  for (const source of [
+    EPrimeAuthSessionSource.LegacyEmailSupabase,
+    EPrimeAuthSessionSource.KeylessOAuth,
+  ]) {
+    await runExclusiveOnAuthSessionSlot(source, async () => {
+      const sessionKeys =
+        source === EPrimeAuthSessionSource.KeylessOAuth
+          ? [getKeylessSupabaseAuthSessionKey()]
+          : [ONEKEY_ID_AUTH_CONFIG.prod, ONEKEY_ID_AUTH_CONFIG.test].map(
+              ({ projectUrl }) => getSupabaseAuthSessionKey(projectUrl),
+            );
+      // Keep stale SDK refreshes blocked until a new interactive login.
+      await Promise.all(
+        sessionKeys.map((key) =>
+          supabaseStorageInstance.blockWritesForKey(key),
+        ),
+      );
+      try {
+        const removals = sessionKeys.flatMap((key) => [
+          supabaseStorageInstance.removeItem(key),
+          supabaseStorageInstance.removeItem(`${key}-user`),
+          supabaseStorageInstance.removeItem(`${key}-code-verifier`),
+        ]);
+        // Do not release the slot queue while another deletion can still
+        // remove a later login. Re-throw only after all removals have settled.
+        await Promise.allSettled(removals);
+        await Promise.all(removals);
+      } finally {
+        supabaseStorageInstance.clearCache();
+      }
+    });
+  }
+}
+
 /**
  * Destroy every local Supabase auth session: sign out both sources, sweep
  * all known session storage keys (including PKCE helper keys), and clear
@@ -393,7 +432,8 @@ export async function clearAllSupabaseAuthSessions(): Promise<void> {
   await clearAuthSessionBySessionSource(EPrimeAuthSessionSource.KeylessOAuth);
   try {
     const sessionKeys = [
-      getSupabaseAuthSessionKey(),
+      getSupabaseAuthSessionKey(ONEKEY_ID_AUTH_CONFIG.prod.projectUrl),
+      getSupabaseAuthSessionKey(ONEKEY_ID_AUTH_CONFIG.test.projectUrl),
       getKeylessSupabaseAuthSessionKey(),
     ];
     await Promise.all(

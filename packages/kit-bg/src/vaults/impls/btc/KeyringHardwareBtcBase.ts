@@ -33,6 +33,8 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -46,11 +48,32 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { RefTransaction } from '@onekeyfe/hd-core';
-import type { HDNodeType, Messages } from '@onekeyfe/hd-transport';
+import type { HDNodeType, PROTO, RefTransaction } from '@onekeyfe/hd-core';
 
 export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   abstract override coreApi: CoreChainSoftwareBtc | undefined;
+
+  override async deriveContextHash(
+    params: IDeriveContextHashKeyringParams,
+  ): Promise<string> {
+    const account = await this.vault.getAccount();
+    const { dbDevice, deviceCommonParams } = checkIsDefined(
+      params.deviceParams,
+    );
+    const { connectId, deviceId } = dbDevice;
+    const sdk = await this.getHardwareSDKInstance({ connectId });
+    const response = await sdk.btcDeriveContextHash(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: `${account.path}/${account.relPath ?? '0/0'}`,
+      appName: params.appName,
+      context: params.context,
+      network: params.canonicalNetworkName,
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload.secret;
+  }
 
   override buildPrepareAccountsPrefixedPath(
     params: IBuildPrepareAccountsPrefixedPathParams,
@@ -145,7 +168,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   private buildHardwareInput = async (
     input: IBtcInput,
     path: string,
-  ): Promise<Messages.TxInputType> => {
+  ): Promise<PROTO.TxInputType> => {
     const { getHDPath, getScriptType } = await CoreSDKLoader();
     const addressN = getHDPath(path);
     const scriptType = getScriptType(addressN);
@@ -162,7 +185,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
 
   private buildHardwareOutput = async (
     output: IBtcOutput,
-  ): Promise<Messages.TxOutputType> => {
+  ): Promise<PROTO.TxOutputType> => {
     const { isChange, bip44Path, opReturn } = output.payload || {};
 
     if (opReturn && typeof opReturn === 'string' && opReturn.length > 0) {
@@ -444,6 +467,8 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   }
 
   async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    for (const { message } of params.messages as IUnsignedMessageBtc[])
+      assertNoHardwareCloudSyncSigningRequest(message);
     const network = await this.getNetwork();
     const coinName = await checkIsDefined(this.coreApi).getCoinName({
       network,
@@ -476,13 +501,15 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             }
           }
 
+          const messageHex = Buffer.from(message).toString('hex');
+          assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
           const response = await sdk.btcSignMessage(connectId, deviceId, {
             ...params.deviceParams?.deviceCommonParams,
             path:
               receiveAddressPath ??
               `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
             coin: coinName,
-            messageHex: Buffer.from(message).toString('hex'),
+            messageHex,
             dAppSignType:
               !isFromDapp && dAppSignType === 'ecdsa'
                 ? undefined

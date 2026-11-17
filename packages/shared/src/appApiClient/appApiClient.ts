@@ -7,6 +7,7 @@ import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
 import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { REQUEST_TIMEOUT } from '../request/requestConst';
+import { createRuntimeNetworkAdapter } from '../travelMode/runtimeNetworkAdapter';
 import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
 import timerUtils from '../utils/timerUtils';
 
@@ -61,7 +62,11 @@ const getBasicClient = async ({
   if (!endpoint || !name) {
     throw new OneKeyError('Invalid endpoint name.');
   }
-  if (!endpoint.startsWith('https://')) {
+  // Dev builds may target a local mock server (custom API endpoint setting).
+  const isLocalDevEndpoint =
+    platformEnv.isDev &&
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(endpoint);
+  if (!endpoint.startsWith('https://') && !isLocalDevEndpoint) {
     throw new OneKeyError('Invalid endpoint, https only');
   }
 
@@ -88,10 +93,14 @@ const getBasicClient = async ({
     ? createIpTableAdapter(baseConfig)
     : undefined;
 
+  const transportAdapter = createRuntimeNetworkAdapter(
+    ipTableAdapter ?? axios.getAdapter(axios.defaults.adapter),
+  );
+
   const options = {
     ...baseConfig,
     autoHandleError,
-    adapter: ipTableAdapter,
+    adapter: transportAdapter,
   };
 
   const client = axios.create(options);

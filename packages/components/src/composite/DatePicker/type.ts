@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
 import type { IInputProps } from '../../forms/Input';
-import type { SheetProps } from '../../shared/tamagui';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export type DatePickerMode = 'date' | 'range' | 'month' | 'year' | 'multiple';
@@ -21,7 +21,7 @@ export interface IDatePickerBaseProps {
   testID?: string;
   renderTrigger?: (props: IDatePickerRenderTriggerProps) => ReactElement;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
-  sheetProps?: SheetProps;
+  sheetProps?: ISheetOptions;
   onOpenChange?: (isOpen: boolean) => void;
 }
 
@@ -37,12 +37,19 @@ export interface IDatePickerProps extends IDatePickerBaseProps {
   mode?: 'date';
   value?: Date | null;
   onChange?: (date: Date | null) => void;
+  /** Defaults to true; the day grid still marks today with a dot. */
+  showTodayShortcut?: boolean;
 }
 
 export interface IRangePickerProps extends IDatePickerBaseProps {
   mode?: 'range';
   value?: IDateRange;
   onChange?: (range: IDateRange) => void;
+  /**
+   * Affects only the gtMd dual-panel layout: shows previous+current months
+   * instead of current+next. Single-panel (phone) calendars always open on
+   * the current month.
+   */
   showPreviousMonth?: boolean;
   presets?: IDateRangePreset[];
 }
@@ -95,6 +102,14 @@ export interface IDayCellProps {
       | 'will-be-range-end';
   };
   onPress: (date: string) => void;
+  /** Web only: previews the pending range while picking its second date. */
+  onHoverIn?: (date: string) => void;
+  /**
+   * The range band ends on this side (week-row edge or month edge) and is
+   * rounded off there.
+   */
+  capLeft?: boolean;
+  capRight?: boolean;
 }
 
 export interface IDateRangePreset {

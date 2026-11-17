@@ -4,6 +4,10 @@ jest.mock('child_process', () => ({
   spawn: jest.fn(),
 }));
 
+jest.mock('electron', () => ({
+  app: { isPackaged: true },
+}));
+
 jest.mock('electron-is-dev', () => false);
 
 jest.mock('electron-log/main', () => ({
@@ -12,8 +16,6 @@ jest.mock('electron-log/main', () => ({
   warn: jest.fn(),
   debug: jest.fn(),
 }));
-
-jest.mock('node-fetch', () => jest.fn());
 
 jest.mock('../resoucePath', () => ({
   getAppStaticResourcesPath: jest.fn(() => '/mock/resources'),
@@ -25,6 +27,7 @@ import BridgeProcess, { BRIDGE_SUPPORTED_SYSTEMS } from './Bridge';
 
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
 const originalArch = Object.getOwnPropertyDescriptor(process, 'arch');
+const originalFetch = globalThis.fetch;
 
 type ILoggerMock = {
   info: jest.Mock;
@@ -59,6 +62,7 @@ describe('BridgeProcess', () => {
   afterEach(() => {
     jest.clearAllMocks();
     restorePlatform();
+    globalThis.fetch = originalFetch;
   });
 
   test('only supports Linux bridge systems', () => {
@@ -95,5 +99,26 @@ describe('BridgeProcess', () => {
     const bridge = new BridgeProcess();
 
     expect(bridge.isCurrentSystemSupported()).toBe(true);
+  });
+
+  test('checks bridge status with the Node runtime fetch implementation', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      status: 200,
+      json: jest.fn().mockResolvedValue({ version: '2.0.0' }),
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const bridge = new BridgeProcess();
+
+    await expect(bridge.getStatus()).resolves.toEqual({
+      service: true,
+      process: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:21320/', {
+      method: 'POST',
+      headers: {
+        Origin: 'https://electron.onekey.so',
+      },
+    });
   });
 });

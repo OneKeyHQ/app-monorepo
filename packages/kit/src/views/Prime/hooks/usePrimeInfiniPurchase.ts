@@ -16,50 +16,64 @@ import type {
   EPrimeFeatures,
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeInfiniSubscriptionPlan } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showPrimeInfiniWaitingDialog } from '../components/PrimeInfiniWaitingDialog';
+import { showPrimeInfiniUnfinishedPaymentDialog } from '../components/PrimePurchaseDialog/showPrimeInfiniUnfinishedPaymentDialog';
 import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
 
 import { getPrimeInfiniExternalCheckoutGuard } from './primeInfiniExternalCheckoutGuard';
+import { getPrimeInfiniPaymentAssets } from './primeInfiniPaymentUtils';
+import { createPrimeInfiniRemotePendingPaymentResolver } from './primeInfiniRemotePendingPayment';
 
 import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 
 // Module-level so every hook/page instance in the App runtime shares the same
 // guard. It spans prepared-payment retirement and hosted-checkout creation, so
 // another internal or external attempt cannot claim the same user in between.
-let isExternalCheckoutInFlight = false;
+let externalCheckoutGeneration = 0;
+let externalCheckoutOpeningGeneration: number | undefined;
 let isWalletPaymentPageOpening = false;
 const PRIME_WAITING_DIALOG_OPEN_DELAY_MS = 300;
 
 export function isPrimeInfiniExternalCheckoutInFlight() {
-  return isExternalCheckoutInFlight;
+  return externalCheckoutOpeningGeneration !== undefined;
 }
 
-async function ensurePrimeLoggedIn() {
+async function ensurePrimeLoggedIn(
+  intl: ReturnType<typeof useIntl>,
+): Promise<boolean> {
   const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
   if (!isLoggedIn) {
     Toast.error({
-      // TODO: i18n pending translation key
-      title: 'Please log in to your OneKey ID first',
+      title: intl.formatMessage({
+        id: ETranslations.prime_not_logged_in_description,
+      }),
     });
   }
   return isLoggedIn;
 }
 
-export function usePrimeInfiniPurchase() {
+export function usePrimeInfiniPurchase({
+  networkId,
+}: {
+  networkId?: string;
+} = {}) {
   const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
 
   const purchaseByExternalCheckout = useCallback(
     async ({
+      flowId = generateUUID(),
       selectedSubscriptionPeriod,
       featureName,
       beforeCheckout,
       beforeOpenCheckout,
     }: {
+      flowId?: string;
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
       beforeCheckout?: () => Promise<boolean>;
@@ -67,8 +81,12 @@ export function usePrimeInfiniPurchase() {
     }) => {
       const plan: IPrimeInfiniSubscriptionPlan =
         selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-      if (isExternalCheckoutInFlight || isWalletPaymentPageOpening) {
+      if (
+        isPrimeInfiniExternalCheckoutInFlight() ||
+        isWalletPaymentPageOpening
+      ) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'externalCheckout',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -79,8 +97,25 @@ export function usePrimeInfiniPurchase() {
         });
         return false;
       }
-      isExternalCheckoutInFlight = true;
+      externalCheckoutGeneration += 1;
+      const checkoutGeneration = externalCheckoutGeneration;
+      externalCheckoutOpeningGeneration = checkoutGeneration;
+      let waitingDialog:
+        | ReturnType<typeof showPrimeInfiniWaitingDialog>
+        | undefined;
+      let didOpenCheckout = false;
+      const isCheckoutCurrent = () =>
+        externalCheckoutGeneration === checkoutGeneration;
+      const cancelCheckout = () => {
+        if (isCheckoutCurrent()) {
+          externalCheckoutGeneration += 1;
+        }
+        if (externalCheckoutOpeningGeneration === checkoutGeneration) {
+          externalCheckoutOpeningGeneration = undefined;
+        }
+      };
       logPrimeInfiniPaymentFlow({
+        flowId,
         stage: 'externalCheckout',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -93,8 +128,9 @@ export function usePrimeInfiniPurchase() {
         // ensureOneKeyIDLoggedIn (usePrimeRequirements) before reaching here.
         // Calling usePrimeRequirements directly would create a circular import
         // with PrimePurchaseDialog, so the login state is verified via bg service.
-        if (!(await ensurePrimeLoggedIn())) {
+        if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'externalCheckout',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -105,8 +141,28 @@ export function usePrimeInfiniPurchase() {
           });
           return false;
         }
+        const authContext =
+          await backgroundApiProxy.servicePrime.getInfiniCheckoutAuthContext();
+        const validateCheckout = async () => {
+          const isAuthCurrent =
+            isCheckoutCurrent() &&
+            (await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+              {
+                context: authContext,
+              },
+            ));
+          // Cancellation or a new attempt can happen while the background
+          // identity check crosses the main/bg runtime boundary.
+          if (isAuthCurrent && isCheckoutCurrent()) {
+            return true;
+          }
+          cancelCheckout();
+          await waitingDialog?.close();
+          return false;
+        };
         if (beforeCheckout && !(await beforeCheckout())) {
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'externalCheckout',
             status: 'cancelled',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -117,22 +173,7 @@ export function usePrimeInfiniPurchase() {
           });
           return false;
         }
-        let checkoutGuard: Awaited<
-          ReturnType<typeof getPrimeInfiniExternalCheckoutGuard>
-        >;
-        try {
-          checkoutGuard = await getPrimeInfiniExternalCheckoutGuard();
-        } catch {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
-          throw new OneKeyLocalError({
-            message: 'Unable to verify the Infini payment session',
-            autoToast: false,
-          });
-        }
+        const checkoutGuard = await getPrimeInfiniExternalCheckoutGuard();
         if (!checkoutGuard.isLoggedIn) {
           return false;
         }
@@ -145,8 +186,11 @@ export function usePrimeInfiniPurchase() {
             autoToast: false,
           });
         }
-        const purchaserUserId = checkoutGuard.onekeyUserId;
-        if (!purchaserUserId) {
+        const purchaserUserId = authContext.onekeyUserId;
+        if (
+          checkoutGuard.onekeyUserId !== purchaserUserId ||
+          !(await validateCheckout())
+        ) {
           return false;
         }
 
@@ -160,23 +204,19 @@ export function usePrimeInfiniPurchase() {
             },
           );
         if (baselineSnapshot.onekeyUserId !== purchaserUserId) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
           throw new OneKeyLocalError({
             message: 'Infini checkout context changed before creation',
-            autoToast: false,
           });
         }
         const baselinePrimeSubscription = baselineSnapshot.primeSubscription;
         if (baselinePrimeSubscription?.isActive) {
           Toast.message({
-            // TODO: i18n pending translation key
-            title: 'OneKey Prime is already active for this account.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_already_active__msg,
+            }),
           });
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'externalCheckout',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -187,6 +227,61 @@ export function usePrimeInfiniPurchase() {
           });
           return false;
         }
+        const lookup =
+          await backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+            expectedOneKeyUserId: purchaserUserId,
+            authContext,
+          });
+        if (
+          lookup.hasPendingPayments ||
+          lookup.pendingPayment ||
+          lookup.status === 'unavailable'
+        ) {
+          const options = await backgroundApiProxy.servicePrime
+            .apiGetInfiniPaymentOptions()
+            .catch(() => []);
+          const decision =
+            await createPrimeInfiniRemotePendingPaymentResolver()({
+              lookup,
+              assets: getPrimeInfiniPaymentAssets(options),
+              choose: (canResume, lookupUnavailable) =>
+                showPrimeInfiniUnfinishedPaymentDialog({
+                  intl,
+                  canResume,
+                  lookupUnavailable,
+                }),
+              validateAuth: validateCheckout,
+              shouldContinue: isCheckoutCurrent,
+            });
+          if (decision.type === 'cancelled') {
+            return false;
+          }
+          if (decision.type === 'resume') {
+            await beforeOpenCheckout?.();
+            if (!(await validateCheckout())) {
+              return false;
+            }
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeInfiniPayment,
+              params: {
+                flowId,
+                selectedSubscriptionPeriod:
+                  decision.recovery.plan === 'monthly' ? 'P1M' : 'P1Y',
+                featureName,
+                createNewPayment: false,
+                networkId: decision.recovery.asset.networkId,
+                remotePaymentResumeIntent: {
+                  paymentId: decision.recovery.payment.paymentId,
+                  authContext: lookup.authContext,
+                },
+              },
+            });
+            return false;
+          }
+        }
+        if (!(await validateCheckout())) {
+          return false;
+        }
         defaultLogger.prime.subscription.primeSubscribeIntent({
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
@@ -195,40 +290,29 @@ export function usePrimeInfiniPurchase() {
         });
         const checkoutResult =
           await backgroundApiProxy.servicePrime.apiGetInfiniCheckoutUrl({
+            flowContext: { flowId, paymentSource: 'externalCheckout' },
             plan,
             expectedOneKeyUserId: purchaserUserId,
+            authContext,
           });
-        const postCreateGuard =
-          await getPrimeInfiniExternalCheckoutGuard().catch(() => undefined);
+        const postCreateGuard = await getPrimeInfiniExternalCheckoutGuard();
         if (
           !postCreateGuard?.isLoggedIn ||
           postCreateGuard.onekeyUserId !== purchaserUserId ||
           postCreateGuard.hasPendingPayment
         ) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
           throw new OneKeyLocalError({
             message: 'Infini checkout context changed before opening',
-            autoToast: false,
           });
         }
         const checkoutUrl = checkoutResult?.checkoutUrl;
         if (!checkoutUrl) {
           // Guards the unconfirmed backend response schema: a 200 response
           // with an unexpected field name must not become a silent dead end
-          // (plan §9 requires a toast on checkout creation failure). Network
-          // and business errors are already toasted by @toastIfError on
-          // apiGetInfiniCheckoutUrl; only this local throw needs it.
-          Toast.error({
-            // TODO: i18n pending translation key
-            title: 'Failed to create the checkout, please try again',
-          });
+          // (plan §9 requires a toast on checkout creation failure). The
+          // caller preserves this message in its payment error toast.
           throw new OneKeyLocalError({
             message: 'Infini checkout url is empty',
-            autoToast: false,
           });
         }
 
@@ -236,13 +320,23 @@ export function usePrimeInfiniPurchase() {
 
         // The checkout URL is part of the external monitor session identity,
         // so a new hosted checkout cannot reuse an older monitor generation.
-        showPrimeInfiniWaitingDialog({
+        waitingDialog = showPrimeInfiniWaitingDialog({
+          // Include system-back and swipe dismissal before their animation.
+          onCloseRequested: cancelCheckout,
+          onClose: cancelCheckout,
           context: {
+            flowId,
             checkoutType: 'externalWallet',
             plan,
             onekeyUserId: purchaserUserId,
             featureName,
             checkoutUrl,
+            validateCheckout,
+            renewalBaselineInfiniPeriodEnd:
+              baselineSnapshot.infiniSubscription?.currentPeriodEnd ?? 0,
+            baselineInfiniSubscriptionId:
+              baselineSnapshot.infiniSubscription?.subscriptionId?.trim() ||
+              null,
           },
         });
         // Keep the waiting state visible before handing control to the system
@@ -252,11 +346,30 @@ export function usePrimeInfiniPurchase() {
           PRIME_WAITING_DIALOG_OPEN_DELAY_MS,
         );
 
+        if (!isCheckoutCurrent()) {
+          return false;
+        }
+        const preOpenGuard = await getPrimeInfiniExternalCheckoutGuard();
+        if (
+          !preOpenGuard.isLoggedIn ||
+          preOpenGuard.onekeyUserId !== purchaserUserId ||
+          preOpenGuard.hasPendingPayment
+        ) {
+          cancelCheckout();
+          await waitingDialog.close();
+          return false;
+        }
+        if (!(await validateCheckout())) {
+          return false;
+        }
+
         // Open the hosted checkout in the external system browser on all
         // supported platforms (see integration plan §8): Binance Pay and
         // wallet-app deep links are unreliable inside the in-app browser
         openUrlUtils.openUrlExternal(checkoutUrl, { useSystemBrowser: true });
+        didOpenCheckout = true;
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'externalCheckout',
           status: 'succeeded',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -267,7 +380,10 @@ export function usePrimeInfiniPurchase() {
         });
         return true;
       } catch (error) {
+        cancelCheckout();
+        await waitingDialog?.close();
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'externalCheckout',
           status: 'failed',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -279,24 +395,38 @@ export function usePrimeInfiniPurchase() {
         });
         throw error;
       } finally {
-        isExternalCheckoutInFlight = false;
+        if (!didOpenCheckout) {
+          cancelCheckout();
+        }
+        if (externalCheckoutOpeningGeneration === checkoutGeneration) {
+          externalCheckoutOpeningGeneration = undefined;
+        }
       }
     },
-    [intl],
+    [intl, navigation],
   );
 
   const purchaseByCrypto = useCallback(
     async ({
       selectedSubscriptionPeriod,
       featureName,
+      createNewPayment = true,
+      remotePaymentResumeIntent,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
+      createNewPayment?: boolean;
+      remotePaymentResumeIntent?: IPrimeParamList[EPrimePages.PrimeInfiniPayment]['remotePaymentResumeIntent'];
     }) => {
+      const flowId = generateUUID();
       const plan: IPrimeInfiniSubscriptionPlan =
         selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-      if (isWalletPaymentPageOpening || isExternalCheckoutInFlight) {
+      if (
+        isWalletPaymentPageOpening ||
+        isPrimeInfiniExternalCheckoutInFlight()
+      ) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'walletPaymentPage',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -309,6 +439,7 @@ export function usePrimeInfiniPurchase() {
       }
       isWalletPaymentPageOpening = true;
       logPrimeInfiniPaymentFlow({
+        flowId,
         stage: 'walletPaymentPage',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -317,8 +448,9 @@ export function usePrimeInfiniPurchase() {
         checkoutType: 'internalWallet',
       });
       try {
-        if (!(await ensurePrimeLoggedIn())) {
+        if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'walletPaymentPage',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -332,12 +464,16 @@ export function usePrimeInfiniPurchase() {
         navigation.pushModal(EModalRoutes.PrimeModal, {
           screen: EPrimePages.PrimeInfiniPayment,
           params: {
+            flowId,
             selectedSubscriptionPeriod,
             featureName,
-            createNewPayment: true,
+            createNewPayment,
+            networkId,
+            ...(remotePaymentResumeIntent ? { remotePaymentResumeIntent } : {}),
           },
         });
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'walletPaymentPage',
           status: 'succeeded',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -347,6 +483,7 @@ export function usePrimeInfiniPurchase() {
         });
       } catch (error) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'walletPaymentPage',
           status: 'failed',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -360,7 +497,7 @@ export function usePrimeInfiniPurchase() {
         isWalletPaymentPageOpening = false;
       }
     },
-    [navigation],
+    [intl, navigation, networkId],
   );
 
   return { purchaseByCrypto, purchaseByExternalCheckout };
