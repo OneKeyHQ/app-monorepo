@@ -3,14 +3,25 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
+  ESwitchSize,
   Popover,
+  SizableText,
   Stack,
+  Switch,
   XStack,
+  YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS } from '@onekeyhq/shared/types/tradingViewNative';
-import type { ITradingViewNativeMultiChartPreset } from '@onekeyhq/shared/types/tradingViewNative';
+import {
+  TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS,
+  TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS,
+} from '@onekeyhq/shared/types/tradingViewNative';
+import type {
+  ITradingViewNativeMultiChartPreset,
+  ITradingViewNativeMultiChartSyncOption,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeMultiChartEqualRects } from './multiChartLayout';
 
@@ -70,61 +81,110 @@ function LayoutGlyph({
   );
 }
 
-function LayoutOptions({
-  onChange,
-  preset,
-  title,
-}: {
+const SYNC_OPTION_LABELS: Record<
+  ITradingViewNativeMultiChartSyncOption,
+  ETranslations
+> = {
+  symbol: ETranslations.global_asset,
+  interval: ETranslations.market_intervals,
+  crosshair: ETranslations.market_chart_settings__crosshair,
+  time: ETranslations.global_time,
+  dateRange: ETranslations.export_history_date_range__title,
+};
+
+interface ILayoutSelectProps {
   onChange: (preset: ITradingViewNativeMultiChartPreset) => void;
   preset: ITradingViewNativeMultiChartPreset;
-  title: string;
-}) {
+  sync: Record<ITradingViewNativeMultiChartSyncOption, boolean>;
+  onSyncChange: (
+    option: ITradingViewNativeMultiChartSyncOption,
+    isSynced: boolean,
+  ) => void;
+}
+
+function LayoutOptions({
+  onChange,
+  onSyncChange,
+  preset,
+  sync,
+  title,
+}: ILayoutSelectProps & { title: string }) {
+  const intl = useIntl();
   const { closePopover } = usePopoverContext();
   return (
-    <XStack p="$2" gap="$1" testID="trading-view-multi-chart-layout-options">
-      {TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS.map((item) => {
-        const isActive = item === preset;
-        return (
-          <Stack
-            key={item}
-            testID={`trading-view-multi-chart-layout-${item}`}
-            role="button"
-            aria-label={`${title} ${item}`}
-            aria-pressed={isActive}
-            width={40}
-            height={36}
-            alignItems="center"
-            justifyContent="center"
-            borderRadius="$2"
-            bg={isActive ? '$bgActive' : '$transparent'}
-            hoverStyle={{ bg: isActive ? '$bgActive' : '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            cursor="pointer"
-            userSelect="none"
-            onPress={() => {
-              if (!isActive) onChange(item);
-              void closePopover?.();
-            }}
-          >
-            <LayoutGlyph
-              preset={item}
-              color={isActive ? '$icon' : '$iconSubdued'}
-            />
-          </Stack>
-        );
-      })}
-    </XStack>
+    <YStack p="$2" gap="$2">
+      <XStack gap="$1" testID="trading-view-multi-chart-layout-options">
+        {TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS.map((item) => {
+          const isActive = item === preset;
+          return (
+            <Stack
+              key={item}
+              testID={`trading-view-multi-chart-layout-${item}`}
+              role="button"
+              aria-label={`${title} ${item}`}
+              aria-pressed={isActive}
+              width={40}
+              height={36}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$2"
+              bg={isActive ? '$bgActive' : '$transparent'}
+              hoverStyle={{ bg: isActive ? '$bgActive' : '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              cursor="pointer"
+              userSelect="none"
+              onPress={() => {
+                if (!isActive) onChange(item);
+                void closePopover?.();
+              }}
+            >
+              <LayoutGlyph
+                preset={item}
+                color={isActive ? '$icon' : '$iconSubdued'}
+              />
+            </Stack>
+          );
+        })}
+      </XStack>
+      <Divider />
+      <YStack
+        px="$1"
+        pb="$1"
+        gap="$2"
+        testID="trading-view-multi-chart-sync-options"
+      >
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_synced })}
+        </SizableText>
+        {TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS.map((option) => {
+          const label = intl.formatMessage({ id: SYNC_OPTION_LABELS[option] });
+          return (
+            <XStack
+              key={option}
+              gap="$3"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <SizableText size="$bodyMd" flexShrink={1}>
+                {label}
+              </SizableText>
+              <Switch
+                testID={`trading-view-multi-chart-sync-${option}`}
+                accessibilityLabel={label}
+                size={ESwitchSize.small}
+                value={sync[option]}
+                onChange={(checked) => onSyncChange(option, Boolean(checked))}
+              />
+            </XStack>
+          );
+        })}
+      </YStack>
+    </YStack>
   );
 }
 
 export const TradingViewNativeMultiChartLayoutSelect = memo(
-  ({
-    onChange,
-    preset,
-  }: {
-    onChange: (preset: ITradingViewNativeMultiChartPreset) => void;
-    preset: ITradingViewNativeMultiChartPreset;
-  }) => {
+  ({ onChange, onSyncChange, preset, sync }: ILayoutSelectProps) => {
     const intl = useIntl();
     const title = intl.formatMessage({
       id: ETranslations.perps_layout_settings__title,
@@ -154,7 +214,13 @@ export const TradingViewNativeMultiChartLayoutSelect = memo(
           </Stack>
         }
         renderContent={
-          <LayoutOptions preset={preset} title={title} onChange={onChange} />
+          <LayoutOptions
+            preset={preset}
+            title={title}
+            onChange={onChange}
+            sync={sync}
+            onSyncChange={onSyncChange}
+          />
         }
       />
     );

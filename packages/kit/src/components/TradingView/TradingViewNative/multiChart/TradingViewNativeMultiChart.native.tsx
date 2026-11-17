@@ -15,6 +15,7 @@ export function TradingViewNativeMultiChart({
     index: 0,
     isMain: true,
     isSplit: false,
+    isSymbolSynced: false,
     source: mainSource,
     layoutControl: null,
     setSource: ignoreSourceChange,

@@ -19,6 +19,42 @@ under separate owners:
   `3`, `4`); track sizes are saved per preset and a divider only spans the cells
   it separates. iOS and Android resolve the `.native` pass-through and keep a
   single chart.
+- The split view's layout picker also holds its sync options (`sync` in the
+  saved layout): symbol, interval, crosshair, time and date range. All are
+  off until the user turns them on. Every panel gets a
+  `TradingViewNativeMultiChartSyncContext` with what it shares; a part that is
+  off is null there, and the provider stays mounted, so changing an option
+  never remounts a chart.
+  - Symbol: the grid renders the first panel's source in every panel and sets
+    `isSymbolSynced` on the panels. The host then lets a pick in any panel
+    change its own source. A panel keeps its saved token for when the option
+    is turned off.
+  - Interval: `multiChart/intervalSync` holds the shared interval. The first
+    panel sets it when syncing starts, a pick in any panel changes it, and
+    every chart takes it through `useMultiChartIntervalSync`; a chart that
+    cannot show the interval keeps its own.
+  - Crosshair: `multiChart/crosshairSync` carries one crosshair. A chart
+    publishes the time and price under its own crosshair after each draw, and
+    withdraws them when the pointer leaves, a drag starts or it unmounts. The
+    other charts redraw in the same frame and resolve the time against their
+    own candles in the scene, so the crosshair stays on that time through
+    their data updates and viewport changes, and is left out while the time is
+    out of view. A price is drawn only by charts of the same instrument and
+    only inside their price range. The position lives in the channel, never
+    in a chart's runtime state: a chart's own crosshair always wins, and
+    trade-mark tooltips keep following the pointer only.
+  - Time and date range: `multiChart/viewportSync` lets the charts follow the
+    one the user moved last; until then they follow the first panel. The
+    leading chart reports, after each draw, the times of the newest and
+    oldest candles in view and where they sit (`utils/syncedViewport`). A
+    following chart lines itself up before each of its own draws: its candle
+    holding the newest time goes to the same place at the right, and with date
+    range on its zoom changes so the oldest time lands at the same place at
+    the left, within the zoom limits. A time it has not loaded goes to its
+    nearest loaded candle, from where its history loads as usual. A following
+    chart never reports back, so charts cannot move each other in circles;
+    panning, zooming, the navigation buttons and a picked date make a chart
+    the leading one.
 - `drawings/model` and `drawings/geometry` are shared time/price calculations. The
   browser Canvas renderer and native Skia renderer consume the same geometry.
 - `drawings/useChartDrawings` owns editing and selection. Browser
@@ -76,7 +112,11 @@ Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
 ownership, split-view panel state (token, interval, indicators, sizes) across
 preset changes and reloads, drawing in every split-view panel with live sync
-between panels showing one token, and unmount cleanup. UI acceptance must include actual candle pixels,
+between panels showing one token, every sync option on and off across a
+reload (symbol and interval changed from the first and from another panel; the
+crosshair between panels of different tokens and intervals, with its price
+line for the same token only; panning and zooming one chart with time and with
+date range synced, between different intervals), and unmount cleanup. UI acceptance must include actual candle pixels,
 editing a restored object, and restarting the page/app.
 Verify pane resizing on web/desktop; native pane heights must stay unchanged when
 dragging pane boundaries. For native, distinguish process memory

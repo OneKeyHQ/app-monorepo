@@ -69,6 +69,10 @@ import {
   getTradingViewNativeSubIndicatorValueRange,
   getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from '../utils/subIndicatorRender';
+import {
+  getTradingViewNativeFollowedViewport,
+  getTradingViewNativeSyncedViewport,
+} from '../utils/syncedViewport';
 
 import {
   type ITradingViewNativeCanvasPriceAxisLabels,
@@ -96,7 +100,9 @@ import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasC
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { TradingViewNativeSubIndicatorPriceAxis } from './TradingViewNativeSubIndicatorPriceAxis';
+import { useChartCrosshairSync } from './useChartCrosshairSync';
 import { useChartPriceSelection } from './useChartPriceSelection';
+import { useChartViewportSync } from './useChartViewportSync';
 import { useReferenceLineInteraction } from './useReferenceLineInteraction';
 import { useTradingViewNativeCanvasRender } from './useTradingViewNativeCanvasRender';
 import {
@@ -229,6 +235,12 @@ export const TradingViewNativeChart = memo(
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
     const drawingText = useDrawingCanvasText();
     const drawingRedrawRef = useRef<() => void>(() => undefined);
+    // Redraws for what the other charts of a split view share.
+    const syncRedrawRef = useRef<() => void>(() => undefined);
+    const { getSyncedCrosshair, publishCrosshair } =
+      useChartCrosshairSync(syncRedrawRef);
+    const { getFollowedViewport, leadViewport, publishViewport } =
+      useChartViewportSync(syncRedrawRef);
     const priceSelectionLeaveRef = useRef<() => void>(() => undefined);
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
@@ -589,6 +601,7 @@ export const TradingViewNativeChart = memo(
           runtimeState: nextRuntimeState,
           showLegend,
           subIndicatorPanes: scaledSubIndicatorPanes,
+          syncedCrosshair: getSyncedCrosshair(),
           timeAxisFontSize,
           timeAxisHeight,
           timeAxisBorderWidth,
@@ -648,6 +661,19 @@ export const TradingViewNativeChart = memo(
         setMeasuredChartWidth((currentWidth) =>
           currentWidth === nextChartWidth ? currentWidth : nextChartWidth,
         );
+        // Last: the charts following this one redraw inside these calls.
+        publishViewport(
+          scene?.layout
+            ? getTradingViewNativeSyncedViewport({
+                candleIntervalSeconds,
+                candleTimeMode,
+                chartWidth: scene.layout.priceAxisX - CHART_HORIZONTAL_PADDING,
+                points,
+                viewport: scene.viewport,
+              })
+            : null,
+        );
+        publishCrosshair(scene?.crosshairPosition ?? null);
       },
       [
         axisText,
@@ -658,6 +684,9 @@ export const TradingViewNativeChart = memo(
         getInteractiveChartComponents,
         getDrawingRenderState,
         getReferenceLinePriceRange,
+        getSyncedCrosshair,
+        publishCrosshair,
+        publishViewport,
         chartSettings,
         chartType,
         currentPriceLabel,
@@ -691,10 +720,74 @@ export const TradingViewNativeChart = memo(
       ],
     );
 
+    // Lines the viewport up with the chart the user moved last, if this chart
+    // follows one. Done before every draw, so the chart stays lined up as its
+    // own candles load and its size changes.
+    const followSyncedViewport = useCallback(() => {
+      const followed = getFollowedViewport();
+      const canvas = canvasRef.current;
+      if (
+        !followed ||
+        !canvas ||
+        pointerPanDragStateRef.current ||
+        timeAxisPointerDragStateRef.current
+      ) {
+        return;
+      }
+      const chartWidth = getTradingViewNativeCanvasChartWidth(
+        canvas,
+        priceAxisLabels,
+        priceScaleModelRef.current,
+        priceAxisFontSize,
+      );
+      const currentRuntimeState = runtimeStateRef.current;
+      const viewport = getTradingViewNativeFollowedViewport({
+        candleIntervalSeconds,
+        candleTimeMode,
+        chartWidth,
+        fitRange: followed.fitRange,
+        followed: followed.viewport,
+        points,
+        viewport: currentRuntimeState.viewport,
+      });
+      if (
+        !viewport ||
+        (viewport.offset === currentRuntimeState.viewport.offset &&
+          viewport.zoomScale === currentRuntimeState.viewport.zoomScale)
+      ) {
+        return;
+      }
+      runtimeStateRef.current = {
+        ...currentRuntimeState,
+        viewport: { ...currentRuntimeState.viewport, ...viewport },
+      };
+      setViewportState(runtimeStateRef.current.viewport);
+    }, [
+      candleIntervalSeconds,
+      candleTimeMode,
+      getFollowedViewport,
+      points,
+      priceAxisFontSize,
+      priceAxisLabels,
+    ]);
+    const isDrawingRef = useRef(false);
     const drawCurrentChart = useCallback(() => {
-      drawChart(runtimeStateRef.current);
-    }, [drawChart]);
+      isDrawingRef.current = true;
+      try {
+        followSyncedViewport();
+        drawChart(runtimeStateRef.current);
+      } finally {
+        isDrawingRef.current = false;
+      }
+    }, [drawChart, followSyncedViewport]);
     const renderChart = useTradingViewNativeCanvasRender(drawCurrentChart);
+    useLayoutEffect(() => {
+      // Draw in the frame of the chart the user is on, so the charts move
+      // together. A change that arrives while this chart is drawing, as when
+      // the pointer crosses from it to another chart, waits for a frame.
+      syncRedrawRef.current = () =>
+        renderChart({ immediate: !isDrawingRef.current });
+    }, [renderChart]);
 
     useLayoutEffect(() => {
       renderChart();
@@ -811,6 +904,8 @@ export const TradingViewNativeChart = memo(
         chartWidth: measuredChartWidth,
         requestId: viewportRequest.requestId,
       };
+      // A request that only keeps the view in place is not the user's move.
+      if (!viewportRequest.preserveVisibleAnchor) leadViewport();
       runtimeStateRef.current = nextRuntimeState;
       const dragState = pointerPanDragStateRef.current;
       const timeAxisDragState = timeAxisPointerDragStateRef.current;
@@ -833,6 +928,7 @@ export const TradingViewNativeChart = memo(
       setViewportState(nextViewport);
       onViewportRequestApplied?.(viewportRequest.requestId);
     }, [
+      leadViewport,
       measuredChartWidth,
       onViewportRequestApplied,
       pointCount,
@@ -1098,6 +1194,7 @@ export const TradingViewNativeChart = memo(
           }
           dragState.subIndicatorSettingsTarget = null;
           event.preventDefault();
+          leadViewport();
           const translationY = event.clientY - dragState.startClientY;
           if (!dragState.isPricePanActive && Math.abs(translationY) > 4) {
             dragState.priceRange =
@@ -1193,6 +1290,7 @@ export const TradingViewNativeChart = memo(
         chartSettings.options.crossLine,
         handlePriceRangePan,
         handlePriceScalePointerLeave,
+        leadViewport,
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
@@ -1315,6 +1413,7 @@ export const TradingViewNativeChart = memo(
           return;
         }
         event.preventDefault();
+        leadViewport();
         dragState.isActive = true;
         const chartWidth = measuredChartWidth;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
@@ -1344,7 +1443,7 @@ export const TradingViewNativeChart = memo(
             : nextRuntimeState.viewport,
         );
       },
-      [measuredChartWidth, pointCount, renderChart],
+      [leadViewport, measuredChartWidth, pointCount, renderChart],
     );
 
     const finishTimeAxisPointerDrag = useCallback(
@@ -1427,6 +1526,7 @@ export const TradingViewNativeChart = memo(
           priceScaleModelRef.current,
           priceAxisFontSize,
         );
+        leadViewport();
         const currentRuntimeState = runtimeStateRef.current;
         let nextRuntimeState = currentRuntimeState;
         if (wheelDelta.deltaY !== 0) {
@@ -1477,6 +1577,7 @@ export const TradingViewNativeChart = memo(
         handlePriceScaleWheel,
         chartSettings.options.yAxis,
         isReferenceLineInteracting,
+        leadViewport,
         measuredPriceAxisWidth,
         pointCount,
         priceAxisFontSize,
@@ -1557,6 +1658,7 @@ export const TradingViewNativeChart = memo(
         if (!runtimeEvent) {
           return;
         }
+        leadViewport();
         const previousViewport = runtimeStateRef.current.viewport;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
           runtimeStateRef.current,
@@ -1580,6 +1682,7 @@ export const TradingViewNativeChart = memo(
       [
         handleAutoScalePress,
         isAutoScale,
+        leadViewport,
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
