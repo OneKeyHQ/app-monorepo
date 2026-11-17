@@ -9,8 +9,6 @@ import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListVie
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { FrozenTopHistoryScrollObserver } from '../../pages/hooks/useFrozenTopHistoryData';
-
 import { NativeHistoryList } from './NativeHistoryList';
 
 import type { IHomeHistoryListViewProps } from './types';
@@ -208,10 +206,6 @@ function WebHistoryList(props: IHomeHistoryListViewProps) {
   );
   return (
     <>
-      <FrozenTopHistoryScrollObserver
-        enabled={props.observeFrozenTop && props.frozenTopEnabled}
-        onAwayFromTopChange={props.onAwayFromTopChange}
-      />
       <AppPagerContent>
         <SharedHistoryList
           {...props}

@@ -49,6 +49,24 @@ export type IEarnPositionAssetCategory =
   | 'reward';
 
 /**
+ * A principal row of a position: the wallet asset plus what the Earn card
+ * adds to it (OK-61790, Unitas: a claim on the USDT vault pays USDu, which
+ * the server converts back).
+ */
+export type IEarnPositionAsset = IDeFiAsset & {
+  /**
+   * A line hung under the row, where a withdrawal's days left sit: why Claim
+   * is back, or what the row is waiting for.
+   */
+  note?: IEarnText;
+  /**
+   * Shown on the card and counted in no total: the amount has already left
+   * the position (USDu the server is converting back to USDT).
+   */
+  excludedFromTotals?: true;
+};
+
+/**
  * A position's PnL as numbers: the card prints it as fiat with the
  * percentage of the cost basis ('1.69' for +1.69%), absent when the cost
  * basis is zero. Only positions with a cost basis (Pendle markets) carry it.
@@ -213,9 +231,10 @@ export type IEarnPositionExtension = {
 
 export type IEarnPortfolioPosition = Omit<
   IDeFiPosition,
-  'category' | 'rewards'
+  'category' | 'rewards' | 'assets'
 > & {
   category: IEarnPositionCategory;
+  assets: IEarnPositionAsset[];
   rewards: IEarnPositionRewardAsset[];
   earn: IEarnPositionExtension;
 };

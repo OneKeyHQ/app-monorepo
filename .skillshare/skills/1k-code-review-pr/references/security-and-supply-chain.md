@@ -1,5 +1,11 @@
 # Security & Supply-Chain Review
 
+Use the selected scope's `review_diff` and `review_file` helpers from
+[quick-commands.md](quick-commands.md#select-the-review-scope). All source,
+manifest, and dependency comparisons below refer to that same PR or local
+scope. Installed packages must match the reviewed lockfile/version; otherwise
+obtain that version separately and report the coverage gap.
+
 ## 1. Secrets / PII Leakage
 
 This is a crypto wallet — any secret leakage can result in fund loss. Check ALL exfiltration paths:
@@ -24,9 +30,14 @@ This is a crypto wallet — any secret leakage can result in fund loss. Check AL
 - **Fix**: concrete remediation
 
 ```bash
-# Grep for potential leaks in changed files
-git diff origin/x...HEAD --name-only | xargs grep -n -E \
-  "mnemonic|seed|private.?key|secret|password|token|apiKey|cookie|session" 2>/dev/null
+# Scan changed files at the reviewed source, excluding deleted paths.
+# Print matched field names and line numbers, never secret values.
+review_diff --name-only --diff-filter=ACMR |
+  while IFS= read -r f; do
+    printf '%s\n' "$f"
+    review_file "$f" | rg -n -o \
+      'mnemonic|seed|private.?key|secret|password|token|apiKey|cookie|session'
+  done
 ```
 
 ## 2. AuthN / AuthZ

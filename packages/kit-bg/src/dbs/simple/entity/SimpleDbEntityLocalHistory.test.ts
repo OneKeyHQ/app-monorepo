@@ -139,3 +139,35 @@ describe('batch-updated pending history', () => {
     expect(lastWrite).not.toContain('private-row-txid');
   });
 });
+
+describe('fiat currency of cached rows', () => {
+  it('records the given currency on rows that name none', async () => {
+    const storage = createUntrackedMemoryStorage(null);
+    const entity = new SimpleDbEntityLocalHistory();
+    (entity as { appStorage: unknown }).appStorage = {
+      getItem: storage.getItem,
+      setItem: storage.setItem,
+    };
+    const row = (id: string, fiatCurrency?: string) =>
+      ({
+        id,
+        fiatCurrency,
+        decodedTx: { networkId: getNetworkIdsMap().btc },
+      }) as IAccountHistoryTx;
+    await entity.setRawData({
+      pendingTxs: { key: [row('pending')] },
+      confirmedTxs: { key: [row('unknown'), row('known', 'eur')] },
+    });
+
+    await entity.stampUnknownFiatCurrency({ fiatCurrency: 'usd' });
+
+    const data = await entity.getRawData();
+    expect(data?.pendingTxs.key.map((item) => item.fiatCurrency)).toEqual([
+      'usd',
+    ]);
+    expect(data?.confirmedTxs.key.map((item) => item.fiatCurrency)).toEqual([
+      'usd',
+      'eur',
+    ]);
+  });
+});

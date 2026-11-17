@@ -71,28 +71,26 @@ jest.mock('@onekeyhq/components', () => {
     Keyboard: { Controller: { isVisible: () => mockControllerVisible } },
     SizableText: Container,
     XStack: Container,
-    Tabs: {
-      TabBar: ({
-        tabNames,
-        onTabPress,
-      }: {
-        tabNames: string[];
-        onTabPress: (name: string) => void;
-      }) => (
-        <div>
-          {tabNames.map((name, index) => (
-            <button
-              key={name}
-              type="button"
-              data-testid={`tab-${index}`}
-              onClick={() => onTabPress(name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      ),
-    },
+    TabBar: ({
+      tabNames,
+      onTabPress,
+    }: {
+      tabNames: string[];
+      onTabPress: (name: string) => void;
+    }) => (
+      <div>
+        {tabNames.map((name, index) => (
+          <button
+            key={name}
+            type="button"
+            data-testid={`tab-${index}`}
+            onClick={() => onTabPress(name)}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    ),
   };
 });
 

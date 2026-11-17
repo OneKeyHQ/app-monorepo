@@ -9,10 +9,10 @@ import {
   Popover,
   SizableText,
   Stack,
-  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -747,7 +747,7 @@ export function CalendarPanelPopover({
         {/* Same underline tabs as the indicator dialog (Figma 26652:31723). */}
         <XStack px="$5" gap="$5">
           {panelOptions.map(([value, label], index) => (
-            <Tabs.TabBarItem
+            <TabBarItem
               key={value}
               testID={`trading-view-calendar-panel-${value}`}
               name={value}

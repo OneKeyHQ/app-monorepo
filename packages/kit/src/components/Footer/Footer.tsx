@@ -3,8 +3,8 @@ import { Suspense, lazy, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';

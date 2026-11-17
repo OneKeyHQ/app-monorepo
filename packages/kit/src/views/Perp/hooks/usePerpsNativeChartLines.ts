@@ -3,14 +3,21 @@ import { useMemo } from 'react';
 import { useTheme } from '@onekeyhq/components';
 import { useTradingViewSettingsThemeColors } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 import type { ITradingViewNativeReferenceLineComponent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { useActivePerpsChartInstrument } from './usePerpsChartInstrument';
 import { usePerpsChartLineActions } from './usePerpsChartLineActions';
 import { usePerpsChartLines } from './usePerpsChartLines';
 
-export function usePerpsNativeChartLines(enableTradingUi: boolean) {
+import type { IPerpsChartInstrument } from './usePerpsChartInstrument';
+
+// Defaults to the active trade instrument; a split-view panel passes its own
+// and keeps `enableTradingUi` off, so its lines are informational.
+export function usePerpsNativeChartLines(
+  enableTradingUi: boolean,
+  target?: IPerpsChartInstrument,
+) {
   const theme = useTheme();
   const labelBackground = theme.bgApp.val;
   const labelColor = theme.text.val;
@@ -18,13 +25,12 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
   const quantityColor = theme.textInverse.val;
   const orderQuantityColor = theme.textOnColor.val;
   const themeColors = useTradingViewSettingsThemeColors();
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const activeInstrument = useActivePerpsChartInstrument();
+  const activeTradeInstrument = target ?? activeInstrument;
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const szDecimals =
-    activeTradeInstrument.mode === 'spot'
-      ? activeTradeInstrument.universe?.baseSzDecimals
-      : activeTradeInstrument.universe?.szDecimals;
+  const { szDecimals } = activeTradeInstrument;
   const lines = usePerpsChartLines({
+    instrument: activeTradeInstrument,
     symbol: activeTradeInstrument.coin,
     szDecimals: szDecimals ?? 2,
     userAddress: currentAccount?.accountAddress,

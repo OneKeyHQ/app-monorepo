@@ -124,6 +124,30 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it.each([true, false])(
+  'renders ordinary notification actions with isNative=%s',
+  (isNative) => {
+    jest.replaceProperty(platformEnv, 'isNative', isNative);
+    const open = jest.fn();
+    Toast.notification({
+      title: 'Support reply',
+      message: 'A test reply',
+      onPress: open,
+      actions: (
+        <Button testID="test-support-notification-open" onPress={open}>
+          View conversation
+        </Button>
+      ),
+    });
+    showLatest();
+    fireEvent.click(screen.getByRole('button', { name: 'View conversation' }));
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByTestId('native-storage-repair-toast-action'),
+    ).toBeNull();
+  },
+);
+
 it.each(['error', 'warning', 'success', 'message', 'loading'] as const)(
   'adds one recovery action to direct Toast.%s without changing text or presentation',
   async (method) => {
