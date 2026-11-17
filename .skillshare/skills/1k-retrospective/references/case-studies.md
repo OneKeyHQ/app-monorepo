@@ -1702,3 +1702,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The gas-price hardware sign message has no access-list field, so the device signs a legacy payload. Since the Trezor integration the builder assembled an EIP-2930 transaction locally whenever `accessList` was truthy, attaching the legacy signature to different bytes that recover to another sender. The existing test asserted the type 1 assembly itself and never compared it with what the device signs.
 **Fix**: Drop `accessList` and `txType` on the gas-price hardware path so the locally assembled transaction is the legacy one the device signed. Tests compare the serialized bytes with the list-less legacy transaction for non-empty and empty lists.
 **Catchable by**: NEW — not covered (when a signer has its own message format, assert that the bytes assembled locally are the bytes it signs, including empty-array and optional-field inputs)
+
+## Case: Web translation setting labels truncated (OK-67494)
+**Date**: 2026-11-17 | **Platforms**: All clients with the in-app browser (shared hook); verified on the iOS simulator in English.
+**Symptom**: In the in-app browser Web translation settings, segment labels were cut off in English, e.g. `Standard transl…` and `Follow app lang…`; longer locales such as German and Portuguese are affected as well.
+**Root Cause**: Each segment item reserved `$5` horizontal padding on both sides, leaving too little width for two-word labels inside a half-width segment.
+**Fix**: Reduce the segment item horizontal padding to `$2`.
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) — include the longest translated labels.
