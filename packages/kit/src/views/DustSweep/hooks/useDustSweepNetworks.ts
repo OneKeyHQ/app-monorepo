@@ -147,7 +147,23 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
         isManualRefresh,
         ...(forceFresh ? { forceFresh: true } : {}),
         onContexts: (verifiedContexts) => {
-          if (isCurrent()) publish({ ...scope.state, verifiedContexts });
+          if (!isCurrent()) return;
+          const previous = scope.state.data;
+          const networks = previous?.networks.filter((entry) =>
+            verifiedContexts.some((verified) =>
+              matchesVerifiedContext(entry, verified),
+            ),
+          );
+          const data =
+            previous && networks && networks.length !== previous.networks.length
+              ? { ...previous, networks }
+              : previous;
+          if (data && data !== previous) {
+            setDustSweepNetworksCache(params, data, write, {
+              preserveCapturedAt: true,
+            });
+          }
+          publish({ ...scope.state, data, verifiedContexts });
         },
       })
         .then((result) => {

@@ -146,6 +146,22 @@ it('starts a new lifetime when a refreshed result replaces a snapshot', () => {
   expect(getDustSweepNetworksCache(params)).toBeUndefined();
 });
 
+it('does not extend or revive a cache entry when pruning it', () => {
+  setDustSweepNetworksCache(params, result());
+  now += 4 * 60 * 1000;
+  const pruned = { networks: [], partialError: false };
+  setDustSweepNetworksCache(params, pruned, undefined, {
+    preserveCapturedAt: true,
+  });
+  expect(getDustSweepNetworksCache(params)).toEqual(pruned);
+  now += 60 * 1000;
+  expect(getDustSweepNetworksCache(params)).toBeUndefined();
+  setDustSweepNetworksCache(params, pruned, undefined, {
+    preserveCapturedAt: true,
+  });
+  expect(getDustSweepNetworksCache(params)).toBeUndefined();
+});
+
 it.each(['read', 'write'] as const)(
   'evicts the least recently used entry after a %s without exceeding sixteen scopes',
   (access) => {

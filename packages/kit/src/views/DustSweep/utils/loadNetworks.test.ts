@@ -90,7 +90,7 @@ function okxProvider() {
       providerName: 'OKX Dex',
     },
     isSupportSingleSwap: true,
-    supportSingleSwapNetworks: [ethereum],
+    supportSingleSwapNetworks: [ethereum, otherNetwork],
   };
 }
 
@@ -140,11 +140,11 @@ describe('loadDustSweepNetworks request ownership', () => {
     expect(serviceSwap.fetchSwapNetworks.mock.calls).toEqual([
       [{ autoHandleError: false }],
     ]);
-    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(0);
-    expect(
-      serviceSwap.fetchSwapProviderSupportNetworks.mock.calls,
-    ).toHaveLength(0);
-    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(0);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(serviceSwap.fetchSwapProviderSupportNetworks.mock.calls).toEqual([
+      [{ provider: 'SwapOKX' }],
+    ]);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(1);
     expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
   });
 
@@ -184,7 +184,7 @@ describe('loadDustSweepNetworks request ownership', () => {
     };
   }
 
-  it('uses Swap network support for fresh and cached asset discovery', async () => {
+  it('uses supported networks for fresh and cached asset discovery', async () => {
     serviceSwap.fetchSwapNetworks.mockResolvedValue([
       ethereum,
       { ...otherNetwork, supportSingleSwap: false },
@@ -202,9 +202,9 @@ describe('loadDustSweepNetworks request ownership', () => {
         ([request]) => request.networkId,
       ),
     ).toEqual([ethereum.networkId]);
-    expect(
-      serviceSwap.fetchSwapProviderSupportNetworks.mock.calls,
-    ).toHaveLength(0);
+    expect(serviceSwap.fetchSwapProviderSupportNetworks.mock.calls).toEqual([
+      [{ provider: 'SwapOKX' }],
+    ]);
   });
 
   it('requests Swap candidates with the resolved network, account, and USD scope', async () => {
@@ -397,6 +397,10 @@ describe('loadDustSweepNetworks request ownership', () => {
     async ({ nativePrice, nativeInSmall }) => {
       const arc = { ...ethereum, networkId: 'evm--5042', name: 'Arc' };
       serviceSwap.fetchSwapNetworks.mockResolvedValueOnce([arc]);
+      serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
+        { ...okxProvider(), supportSingleSwapNetworks: [arc] },
+      ]);
+      serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValueOnce([arc]);
       serviceAllNetwork.getAllNetworkAccounts.mockResolvedValueOnce(
         accountsInfo([arc]),
       );
@@ -993,7 +997,7 @@ describe('loadDustSweepNetworks request ownership', () => {
     await oldLoad;
   });
 
-  it('does not apply saved provider restrictions to network eligibility', async () => {
+  it('applies saved provider restrictions to network eligibility', async () => {
     swapConfigs.getSwapProviderManager.mockResolvedValue([
       {
         providerInfo: okxProvider().providerInfo,
@@ -1005,10 +1009,9 @@ describe('loadDustSweepNetworks request ownership', () => {
       params,
       new AbortController().signal,
     );
-    expect(result.networks.map((item) => item.network.networkId)).toEqual([
-      ethereum.networkId,
-    ]);
-    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(0);
+    expect(result.networks).toEqual([]);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
   });
 
   it('reports the network balance from regular and small-balance tokens, skipping unavailable values', async () => {
@@ -1165,18 +1168,37 @@ describe('loadDustSweepNetworks request ownership', () => {
     );
   });
 
-  it('loads eligible networks without restricting them to OKX', async () => {
+  it('does not load assets for a network missing from OKX support', async () => {
     serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum, otherNetwork]);
+    serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValueOnce([
+      ethereum,
+    ]);
     const result = await loadDustSweepNetworks(
       params,
       new AbortController().signal,
     );
     expect(result.networks.map((item) => item.network.networkId)).toEqual([
       ethereum.networkId,
-      otherNetwork.networkId,
+    ]);
+    expect(serviceSwap.fetchSwapProviderSupportNetworks.mock.calls).toEqual([
+      [{ provider: 'SwapOKX' }],
     ]);
     expect(
-      serviceSwap.fetchSwapProviderSupportNetworks.mock.calls,
-    ).toHaveLength(0);
+      serviceToken.fetchAccountTokens.mock.calls.map(([p]) => p.networkId),
+    ).toEqual([ethereum.networkId]);
+    expect(
+      serviceSwap.fetchSwapTokens.mock.calls.map(([p]) => p.networkId),
+    ).toEqual([ethereum.networkId]);
+  });
+
+  it('does not broaden network eligibility when OKX support lookup fails', async () => {
+    const failure = new Error('OKX support lookup failed');
+    serviceSwap.fetchSwapProviderSupportNetworks.mockRejectedValueOnce(failure);
+
+    await expect(
+      loadDustSweepNetworks(params, new AbortController().signal),
+    ).rejects.toBe(failure);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
+    expect(serviceSwap.fetchSwapTokens.mock.calls).toHaveLength(0);
   });
 });
