@@ -1,5 +1,5 @@
 import { Mutex } from 'async-mutex';
-import { uniq } from 'lodash';
+import { isEqual, uniq } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
@@ -1319,24 +1319,23 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  private inFlightLocalWalletReads = new Map<string, Promise<unknown>>();
+  private inFlightLocalWalletReads?: Map<string, Promise<unknown>>;
 
   private coalesceInFlightLocalWalletRead<T>(
     key: string,
     read: () => Promise<T>,
   ): Promise<T> {
-    const existing = this.inFlightLocalWalletReads.get(key) as
-      | Promise<T>
-      | undefined;
+    const reads = (this.inFlightLocalWalletReads ??= new Map());
+    const existing = reads.get(key) as Promise<T> | undefined;
     if (existing) {
       return existing;
     }
     const promise = read().finally(() => {
-      if (this.inFlightLocalWalletReads.get(key) === promise) {
+      if (this.inFlightLocalWalletReads?.get(key) === promise) {
         this.inFlightLocalWalletReads.delete(key);
       }
     });
-    this.inFlightLocalWalletReads.set(key, promise);
+    reads.set(key, promise);
     return promise;
   }
 
@@ -1347,21 +1346,22 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountIds?: string[];
   }) {
-    if (!this.inFlightLocalWalletReads.size) return;
+    const reads = this.inFlightLocalWalletReads;
+    if (!reads?.size) return;
     if (!accountIds?.length) {
       const marker = `:${networkId}:`;
-      for (const key of this.inFlightLocalWalletReads.keys()) {
+      for (const key of reads.keys()) {
         if (key.includes(marker)) {
-          this.inFlightLocalWalletReads.delete(key);
+          reads.delete(key);
         }
       }
       return;
     }
     for (const accountId of accountIds) {
       const suffix = `:${networkId}:${accountId}`;
-      for (const key of this.inFlightLocalWalletReads.keys()) {
+      for (const key of reads.keys()) {
         if (key.endsWith(suffix)) {
-          this.inFlightLocalWalletReads.delete(key);
+          reads.delete(key);
         }
       }
     }
@@ -2157,6 +2157,10 @@ class ServicePrivacyChain extends ServiceBase {
     this.presetLocalWalletNetworkIds ??= (async () => {
       const ids: string[] = [];
       for (const network of getPresetNetworks()) {
+        if (!networkUtils.isLocalWalletNetwork({ networkId: network.id })) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         try {
           // eslint-disable-next-line no-await-in-loop
           const settings = await getVaultSettings({ networkId: network.id });
@@ -2264,6 +2268,8 @@ class ServicePrivacyChain extends ServiceBase {
 
   localWalletNetworkIdsCacheAt = 0;
 
+  localWalletNetworkIdsPending: Promise<string[]> | undefined;
+
   // The networks that scan: listed, with privacy not switched off by the server.
   @backgroundMethod()
   async getLocalWalletNetworkIds(): Promise<string[]> {
@@ -2279,21 +2285,36 @@ class ServicePrivacyChain extends ServiceBase {
       Date.now() - this.localWalletNetworkIdsCacheAt >
         timerUtils.getTimeDurationMs({ minute: 1 })
     ) {
-      const { networks } =
-        await this.backgroundApi.serviceNetwork.getAllNetworks();
-      const ids: string[] = [];
-      for (const network of networks) {
+      this.localWalletNetworkIdsPending ??= (async () => {
         try {
-          const settings = await getVaultSettings({ networkId: network.id });
-          if (settings.localWallet) {
-            ids.push(network.id);
+          const { networks } =
+            await this.backgroundApi.serviceNetwork.getAllNetworks();
+          const ids: string[] = [];
+          for (const network of networks) {
+            if (!networkUtils.isLocalWalletNetwork({ networkId: network.id })) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              const settings = await getVaultSettings({
+                networkId: network.id,
+              });
+              if (settings.localWallet) {
+                ids.push(network.id);
+              }
+            } catch {
+              // Not a candidate.
+            }
           }
-        } catch {
-          // Not a candidate.
+          this.localWalletNetworkIdsCache = ids;
+          this.localWalletNetworkIdsCacheAt = Date.now();
+          return ids;
+        } finally {
+          this.localWalletNetworkIdsPending = undefined;
         }
-      }
-      this.localWalletNetworkIdsCache = ids;
-      this.localWalletNetworkIdsCacheAt = Date.now();
+      })();
+      return this.localWalletNetworkIdsPending;
     }
     return this.localWalletNetworkIdsCache;
   }
@@ -2806,13 +2827,18 @@ class ServicePrivacyChain extends ServiceBase {
           canPruneNetwork(networkId) && !seenAccountIds.has(accountId),
       );
       await privacyChainAtom.set((value) => {
-        const syncErrorByNetworkId = Object.fromEntries(
-          Object.entries(value.syncErrorByNetworkId).filter(
-            ([networkId]) =>
-              !canPruneNetwork(networkId) || liveNetworkIds.has(networkId),
-          ),
+        const entries = Object.entries(value.syncErrorByNetworkId);
+        const filtered = entries.filter(
+          ([networkId]) =>
+            !canPruneNetwork(networkId) || liveNetworkIds.has(networkId),
         );
-        return { ...value, syncErrorByNetworkId };
+        if (filtered.length === entries.length) {
+          return value;
+        }
+        return {
+          ...value,
+          syncErrorByNetworkId: Object.fromEntries(filtered),
+        };
       });
       if (boostStateChanged) {
         await this.publishBoostingNetworks();
@@ -5435,13 +5461,23 @@ class ServicePrivacyChain extends ServiceBase {
       deviceIsCellular: this.deviceIsCellular,
       allowPrivacySyncOnCellular: this.allowCellularSyncCache,
     });
-    await privacyChainAtom.set((v) => ({
-      ...v,
-      boostingNetworkIds,
-      dataBlockedNetworkIds,
-      pausedNetworkIds,
-      scanAllowed,
-    }));
+    await privacyChainAtom.set((v) => {
+      if (
+        v.scanAllowed === scanAllowed &&
+        isEqual(v.boostingNetworkIds, boostingNetworkIds) &&
+        isEqual(v.dataBlockedNetworkIds, dataBlockedNetworkIds) &&
+        isEqual(v.pausedNetworkIds, pausedNetworkIds)
+      ) {
+        return v;
+      }
+      return {
+        ...v,
+        boostingNetworkIds,
+        dataBlockedNetworkIds,
+        pausedNetworkIds,
+        scanAllowed,
+      };
+    });
   }
 
   // Foreground pace derived from the just-published position. Skips the metered-data check: a boost

@@ -655,9 +655,14 @@ async function handleRequest(callId: string, value: string | number | boolean) {
     }, 5000);
   }
 
+  const isHighFrequencyPrivateBridgeCall =
+    request.type === 'bridge-call' && request.payload.scope === '$private';
+
   try {
     let result: unknown;
-    logBgRpcTrace(`exec-start callId=${callId}, request=${requestLabel}`);
+    if (!isHighFrequencyPrivateBridgeCall) {
+      logBgRpcTrace(`exec-start callId=${callId}, request=${requestLabel}`);
+    }
     switch (request.type) {
       case 'service-call':
       case 'bridge-call':
@@ -674,11 +679,12 @@ async function handleRequest(callId: string, value: string | number | boolean) {
           `Background request type is not supported: ${(request as IBackgroundThreadRequest).type}`,
         );
     }
-    logBgRpcTrace(
-      `exec-done callId=${callId}, request=${requestLabel}, elapsedMs=${
-        Date.now() - requestStartedAt
-      }`,
-    );
+    const elapsedMs = Date.now() - requestStartedAt;
+    if (!isHighFrequencyPrivateBridgeCall || elapsedMs >= 1000) {
+      logBgRpcTrace(
+        `exec-done callId=${callId}, request=${requestLabel}, elapsedMs=${elapsedMs}`,
+      );
+    }
     const isOriginalResponseWritten = writeBackgroundThreadResponse({
       sharedRPC,
       responseKey,
@@ -689,7 +695,7 @@ async function handleRequest(callId: string, value: string | number | boolean) {
       callId,
       requestLabel,
     });
-    if (isOriginalResponseWritten) {
+    if (isOriginalResponseWritten && !isHighFrequencyPrivateBridgeCall) {
       logBgRpcTrace(`write-ok callId=${callId}, request=${requestLabel}`);
     }
     if (shouldTracePendingInstallTask) {

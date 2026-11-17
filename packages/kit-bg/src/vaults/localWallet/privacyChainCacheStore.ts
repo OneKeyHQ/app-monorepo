@@ -518,6 +518,8 @@ export async function listLastLocalWalletBalanceAccountIds({
   return backgroundApi.simpleDb.privacyChainCache.listLastBalanceAccountIds();
 }
 
+const lastSavedChainTips = new WeakMap<IBackgroundApi, Map<string, number>>();
+
 // Last observed tip for display and local scan-data management. Sending and
 // normal sync fetch their current chain data from the node.
 export async function getLastLocalWalletChainTip({
@@ -537,6 +539,11 @@ export async function removeLastLocalWalletChainTips({
   backgroundApi: IBackgroundApi;
   networkId?: string;
 }): Promise<void> {
+  if (networkId) {
+    lastSavedChainTips.get(backgroundApi)?.delete(networkId);
+  } else {
+    lastSavedChainTips.delete(backgroundApi);
+  }
   await backgroundApi.simpleDb.privacyChainCache.removeChainTips({
     networkId,
   });
@@ -551,9 +558,16 @@ export async function saveLastLocalWalletChainTip({
   networkId: string;
   height: number;
 }): Promise<void> {
+  let byNetwork = lastSavedChainTips.get(backgroundApi);
+  if (byNetwork?.get(networkId) === height) return;
   const saved = await backgroundApi.simpleDb.privacyChainCache.getChainTip({
     networkId,
   });
+  if (!byNetwork) {
+    byNetwork = new Map();
+    lastSavedChainTips.set(backgroundApi, byNetwork);
+  }
+  byNetwork.set(networkId, height);
   if (saved === height) return;
   await backgroundApi.simpleDb.privacyChainCache.setChainTip({
     networkId,

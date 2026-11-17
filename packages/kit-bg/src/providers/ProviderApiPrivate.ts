@@ -823,12 +823,14 @@ class ProviderApiPrivate extends ProviderApiBase {
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 
     this.syncWebEmbedMainRuntime();
-    defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
-      module: data?.module || '',
-      method: data?.method || '',
-      isWebEmbedApiReady: !!this.isWebEmbedApiReady,
-      hasWebEmbedBridge: !!bg?.webEmbedBridge,
-    });
+    if (!this.isWebEmbedApiReady || !bg?.webEmbedBridge) {
+      defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
+        module: data?.module || '',
+        method: data?.method || '',
+        isWebEmbedApiReady: !!this.isWebEmbedApiReady,
+        hasWebEmbedBridge: !!bg?.webEmbedBridge,
+      });
+    }
 
     await waitForDataLoaded({
       data: () => {
