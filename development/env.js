@@ -43,8 +43,10 @@ if (process.env.NODE_ENV !== 'production') {
 process.env.BUILD_TIME = process.env.BUILD_TIME || Date.now();
 
 if (
-  !/^\d{13}$/.test(process.env.BUILD_TIME) ||
-  !Number.isSafeInteger(Number(process.env.BUILD_TIME))
+  process.env.ONEKEY_REPRODUCIBLE_BUILD === '1' &&
+  process.env.EXT_CHANNEL === 'firefox' &&
+  (!/^\d{13}$/.test(process.env.BUILD_TIME) ||
+    !Number.isSafeInteger(Number(process.env.BUILD_TIME)))
 ) {
   throw new Error('BUILD_TIME must be a Unix timestamp in milliseconds.');
 }

@@ -457,6 +457,51 @@ describe('web-embed-prebundle', () => {
     },
   );
 
+  it('loads the canonical zero timestamp through the shared environment loader', () => {
+    const env = getCanonicalBuildEnvironment({
+      env: { ONEKEY_REPRODUCIBLE_BUILD: '1', EXT_CHANNEL: 'firefox' },
+      inputKey: 'a'.repeat(64),
+    });
+    const result = jest
+      .requireActual('child_process')
+      .spawnSync(
+        process.execPath,
+        [
+          '-e',
+          "require('./development/env'); process.stdout.write(JSON.stringify({buildTime:process.env.BUILD_TIME,buildNumber:process.env.BUILD_NUMBER,bundleVersion:process.env.BUNDLE_VERSION}));",
+        ],
+        { cwd: repoRoot, env: { ...process.env, ...env }, encoding: 'utf8' },
+      );
+    expect(result.error).toBeUndefined();
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      buildTime: '0',
+      buildNumber: '0',
+      bundleVersion: '0',
+    });
+  });
+
+  it('still rejects zero timestamps in the Firefox reproducible release path', () => {
+    const result = jest
+      .requireActual('child_process')
+      .spawnSync(process.execPath, ['-e', "require('./development/env');"], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          ONEKEY_REPRODUCIBLE_BUILD: '1',
+          EXT_CHANNEL: 'firefox',
+          BUILD_TIME: '0',
+        },
+      });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      'BUILD_TIME must be a Unix timestamp in milliseconds.',
+    );
+  });
+
   it('uses one canonical environment for every prebundle build', async () => {
     const inputKey = 'c'.repeat(64);
     const webBuildDirectory = path.join(
