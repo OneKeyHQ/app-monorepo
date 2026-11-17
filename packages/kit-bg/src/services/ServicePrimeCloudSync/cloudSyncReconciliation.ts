@@ -333,7 +333,7 @@ export async function runCloudSyncReconciliation({
         ensureCurrent();
         const contract = contractFor(response, limits);
         const verified = !!contract && adapter.isBoundedCheckVerified(contract);
-        legacyResponseSeen = !verified;
+        legacyResponseSeen = response?.reconciliation === undefined;
         if (
           !response ||
           !Array.isArray(response.diff) ||
@@ -341,6 +341,8 @@ export async function runCloudSyncReconciliation({
           !Array.isArray(response.deleted) ||
           !Array.isArray(response.obsoleted)
         )
+          throw new ReconciliationStop('invalid-response');
+        if (!legacyResponseSeen && !verified)
           throw new ReconciliationStop('invalid-response');
         const count =
           response.diff.length +
@@ -353,8 +355,8 @@ export async function runCloudSyncReconciliation({
             'response-budget',
             limits.blockedRetryDelayMs,
           );
-        // Old backends may return an entire space. Keep their single-pass
-        // compatibility without another full payload serialization/copy.
+        // Legacy checks return the full difference set. Pagination and its
+        // response limits apply only when the server declares that capability.
         const info =
           verified && contract
             ? responseInfo(response, contract.maxBytes)
@@ -440,9 +442,8 @@ export async function runCloudSyncReconciliation({
         summaryInfo = nextSummaryInfo;
         state.rounds += 1;
         consecutiveFailures = 0;
-        if (!verified || !contract)
-          return finish('backend-unverified', 'backend-unverified');
-        if (!contract.hasMore) return finish('complete', 'finished');
+        if (!verified || !contract || !contract.hasMore)
+          return finish('complete', 'finished');
         if (!progress)
           return finish('blocked', 'no-progress', limits.blockedRetryDelayMs);
         seen.add(info.fingerprint);
@@ -467,7 +468,11 @@ export async function runCloudSyncReconciliation({
         if (legacyResponseSeen) {
           // A legacy reply is one compatibility pass, including on local
           // processing failure. A later owner-controlled retry may try again.
-          return finish('backend-unverified', 'retry-exhausted');
+          return finish(
+            'blocked',
+            'retry-exhausted',
+            limits.blockedRetryDelayMs,
+          );
         }
         if (consecutiveFailures > limits.maxRetries)
           return finish(

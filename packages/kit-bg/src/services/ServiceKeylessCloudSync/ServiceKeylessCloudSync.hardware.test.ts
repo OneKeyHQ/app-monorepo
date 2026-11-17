@@ -1132,11 +1132,28 @@ describe('hardware Cloud key source lifecycle', () => {
     const { service } = setup();
     const selectedWalletId = 'public-test-keyless-wallet';
     const before = service.getCloudAccountImportGeneration();
+    const beforeSelection = service.getKeylessWalletSelectionGeneration();
     await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
     const selected = service.getCloudAccountImportGeneration();
+    const selectedWallet = service.getKeylessWalletSelectionGeneration();
     expect(selected).toBeGreaterThan(before);
+    expect(selectedWallet).toBeGreaterThan(beforeSelection);
     await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
     expect(service.getCloudAccountImportGeneration()).toBe(selected);
+    expect(service.getKeylessWalletSelectionGeneration()).toBe(selectedWallet);
+  });
+
+  test('page cleanup cancels hardware operations without changing the selected wallet generation', async () => {
+    const { service } = setup();
+    const beforeImport = service.getCloudAccountImportGeneration();
+    const beforeSelection = service.getKeylessWalletSelectionGeneration();
+
+    await service.cancelHardwareCloudKeyOperation();
+
+    expect(service.getCloudAccountImportGeneration()).toBeGreaterThan(
+      beforeImport,
+    );
+    expect(service.getKeylessWalletSelectionGeneration()).toBe(beforeSelection);
   });
 
   test('turning sync off deletes the stored hardware key and its memory cache', async () => {
@@ -2048,6 +2065,24 @@ describe('hardware Cloud key source lifecycle', () => {
 });
 
 describe('hardware Cloud key in production builds', () => {
+  const activeCredential: IKeylessCloudSyncCredential = {
+    ...credential,
+    hardwareSession: {
+      deviceKeyJwk: {
+        kty: 'EC',
+        crv: 'P-256',
+        x: 'public-test-x',
+        y: 'public-test-y',
+        d: 'public-test-d',
+      },
+      accessToken: 'public-test-access',
+      accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+      refreshToken: 'public-test-refresh',
+      sessionId: 'public-test-session',
+      dekId: 'public-test-dek',
+    },
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockConfig = {
@@ -2056,10 +2091,10 @@ describe('hardware Cloud key in production builds', () => {
       hardwareCloudSyncKeySource: source,
       currentCloudSyncKeylessWalletId: source.credentialId,
     };
-    mockStored = credential;
+    mockStored = activeCredential;
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
-      .mockImplementation(withSignIn({ credential, source }));
+      .mockImplementation(withSignIn({ credential: activeCredential, source }));
   });
 
   test('keeps a key in use: sync runs and Keyless auto-enable leaves it alone', async () => {
@@ -2072,7 +2107,7 @@ describe('hardware Cloud key in production builds', () => {
     await expect(service.isSelectedHardwareCloudKeyMissing()).resolves.toBe(
       false,
     );
-    expect(mockStored).toBe(credential);
+    expect(mockStored).toBe(activeCredential);
     expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
     expect(
@@ -2089,6 +2124,51 @@ describe('hardware Cloud key in production builds', () => {
       service.enableHardwareCloudSync({ connectId }),
     ).rejects.toThrow('Turn off Cloud sync');
     expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
+  });
+
+  test('a legacy credential without a session offers reconnect without deleting its key', async () => {
+    const { service } = setup();
+    mockStored = credential;
+    await expect(service.isSelectedHardwareCloudKeyMissing()).resolves.toBe(
+      true,
+    );
+    expect(mockStored).toBe(credential);
+    expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('the selected legacy key can sign in again while sync remains enabled', async () => {
+    const { service } = setup([{ pwdHash: credential.pwdHash }]);
+    mockStored = credential;
+    await service.enableHardwareCloudSync({ connectId });
+    expect(generateHardwareCloudSyncCredentialWithSdk).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedCredentialId: source.credentialId }),
+    );
+    expect(mockStored).toEqual(expect.objectContaining(activeCredential));
+    expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('a failed legacy sign-in preserves the existing key and sync selection', async () => {
+    const { service } = setup([{ pwdHash: credential.pwdHash }]);
+    mockStored = credential;
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockRejectedValueOnce(new Error('Synthetic device cancellation'));
+    await expect(
+      service.enableHardwareCloudSync({ connectId }),
+    ).rejects.toThrow('Synthetic device cancellation');
+    expect(mockStored).toBe(credential);
+    expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+    expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
   });
 
   // An App version without hardware Cloud keys deletes the key and resets the

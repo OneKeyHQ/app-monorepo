@@ -264,6 +264,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return this.hardwareCloudKeyGeneration + this.cloudAccountImportGeneration;
   }
 
+  getKeylessWalletSelectionGeneration(): number {
+    return this.cloudAccountImportGeneration;
+  }
+
   private hardwareCloudKeyGeneration = 0;
 
   private hardwareCloudKeyPending = false;
@@ -384,6 +388,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         !(
           resignsSelectedSource &&
           !(await keylessSyncCredentialStorage.getCredential(targetId))
+            ?.hardwareSession
         ))
     ) {
       throw new HardwareCloudSyncError(
@@ -963,9 +968,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const source = (await primeCloudSyncPersistAtom.get())
       .hardwareCloudSyncKeySource;
     if (!source) return false;
-    return !(await keylessSyncCredentialStorage.getCredential(
+    const credential = await keylessSyncCredentialStorage.getCredential(
       source.credentialId,
-    ));
+    );
+    return !credential?.hardwareSession;
   }
 
   @backgroundMethod()
