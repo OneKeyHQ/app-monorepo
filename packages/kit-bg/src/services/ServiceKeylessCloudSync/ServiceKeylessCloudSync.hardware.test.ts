@@ -20,6 +20,7 @@ import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keyless
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import localDb from '../../dbs/local/localDb';
+import { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import { LocalDbBaseContainer } from '../../dbs/local/LocalDbBaseContainer';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
@@ -269,6 +270,7 @@ function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
       })),
     },
     servicePrimeCloudSync: {
+      cancelPublicAccountSnapshotImport: jest.fn(async () => undefined),
       setCloudSyncEnabledWithKeyLock: jest.fn(async (enabled: boolean) => {
         mockConfig.isCloudSyncEnabled = enabled;
       }),
@@ -288,6 +290,7 @@ function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
         async (): Promise<string | undefined> => undefined,
       ),
       clearCachedSyncCredential,
+      prepareLocalSyncWallets: jest.fn(async () => undefined),
       initLocalSyncItemsDB,
     },
   };
@@ -1093,6 +1096,49 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
   });
 
+  test('disabling sync cancels imports before waiting for an active import to finish', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = credential;
+    let release: () => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const active = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const paused = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const importing = service.runWithCloudAccountImportLock(async () => {
+      entered();
+      await paused;
+    });
+    await active;
+    const disabling = service.setCloudSyncEnabledKeyless(false);
+    await Promise.resolve();
+    expect(
+      backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport,
+    ).toHaveBeenCalled();
+    expect(mockStored).toBe(credential);
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+    release();
+    await Promise.all([importing, disabling]);
+    expect(mockStored).toBeUndefined();
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+  });
+
+  test('wallet selection invalidates account imports but an unchanged selection does not', async () => {
+    const { service } = setup();
+    const selectedWalletId = 'public-test-keyless-wallet';
+    const before = service.getCloudAccountImportGeneration();
+    await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
+    const selected = service.getCloudAccountImportGeneration();
+    expect(selected).toBeGreaterThan(before);
+    await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
+    expect(service.getCloudAccountImportGeneration()).toBe(selected);
+  });
+
   test('turning sync off deletes the stored hardware key and its memory cache', async () => {
     const { service } = setup();
     mockConfig.hardwareCloudSyncKeySource = source;
@@ -1828,11 +1874,35 @@ describe('hardware Cloud key source lifecycle', () => {
     await releaseLock();
     await expect(preparing).resolves.toEqual({ success: true });
     expect(initLocalSyncItemsDB).toHaveBeenCalledWith({
+      skipWalletPreparation: true,
       password: 'public-test-password',
       syncCredential: expect.objectContaining({
         keylessCredential,
       }),
     });
+  });
+
+  test('prepare rejects a same-identity data-key rotation during wallet preparation', async () => {
+    const { service, backgroundApi, initLocalSyncItemsDB } =
+      setupKeylessPrepare();
+    const selected = { ...keylessCredential, signingPublicKey: '' };
+    const getCredential = jest
+      .spyOn(service, 'getKeylessCloudSyncCredential')
+      .mockImplementation(async () => selected);
+    backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets.mockImplementation(
+      async () => {
+        // A same-source rotation keeps its signing identity but changes its DEK.
+        getCredential.mockResolvedValue({
+          ...selected,
+          pwdHash: 'rotated-hash',
+          encryptionKey: 'rotated-data-key',
+        });
+      },
+    );
+    await expect(
+      service.prepareCloudSyncKeyless({ silentEnable: true }),
+    ).rejects.toThrow('The encryption method for Cloud sync changed');
+    expect(initLocalSyncItemsDB).not.toHaveBeenCalled();
   });
 
   test('Keyless prepare skips its local write when the key switched while it waited', async () => {
@@ -2432,6 +2502,9 @@ describe('a hardware key never outlives turned-off sync', () => {
     expect(
       backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently,
     ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently,
+    ).toHaveBeenCalledWith(expect.objectContaining({ forceSync: true }));
     await service.onHardwareKeyFlushPush({ pwdHash: 'hw-dek-another' });
     expect(getCurrentHardwareCloudSyncDataKeyId).toHaveBeenCalledTimes(1);
   });
@@ -3261,6 +3334,168 @@ describe('hardware reset session and local data races', () => {
     expect(newer.data).toBe('newer-ciphertext');
     expect(newer.dataTime).toBe(2);
   });
+
+  test('scene account rename does not reacquire the key lock', async () => {
+    const { service } = setup();
+    const lock = jest.spyOn(service, 'runWithCloudSyncKeyLock');
+    const write = jest.fn(async () => undefined);
+    const db: LocalDbBase = Object.assign(
+      Object.create(LocalDbBase.prototype) as LocalDbBase,
+      {
+        backgroundApi: { serviceKeylessCloudSync: service },
+        setAccountNameWithCloudKeyLock: write,
+      },
+    );
+    const params = {
+      accountId: 'hd-1--account',
+      name: 'Public name',
+      skipSaveLocalSyncItem: true,
+    };
+    await db.setAccountName(params);
+    expect(write).toHaveBeenCalledWith(params, undefined);
+    expect(lock).not.toHaveBeenCalled();
+  });
+
+  test.each([false, true])(
+    'local public-account write admitted before rotation is migrated (deleted=%s)',
+    async (isDeleted) => {
+      const { service, backgroundApi } = setup();
+      const record = {
+        id: 'public-account',
+        dataType: 'Account',
+        rawData: '',
+        rawKey: '',
+        data: 'old-version',
+        pwdHash: current.pwdHash,
+        dataTime: 1,
+        isDeleted: false,
+        serverUploaded: false,
+        localSceneUpdated: true,
+      } as IDBCloudSyncItem;
+      let release = () => {};
+      let entered = () => {};
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const write = async () => {
+        const selectedHash = mockStored?.pwdHash;
+        entered();
+        await paused;
+        Object.assign(record, {
+          pwdHash: selectedHash,
+          data: 'new-version',
+          dataTime: 2,
+          isDeleted,
+        });
+        return { isOverrideAccounts: false, existsAccounts: [] };
+      };
+      const db: LocalDbBase = Object.assign(
+        Object.create(LocalDbBase.prototype) as LocalDbBase,
+        {
+          backgroundApi: { serviceKeylessCloudSync: service },
+          addAccountsToWalletWithCloudKeyLock: write,
+          removeAccountWithCloudKeyLock: write,
+        },
+      );
+      backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockImplementation(
+        async () => ({ items: [{ ...record }] }),
+      );
+      jest
+        .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+        .mockImplementation(async ({ items }) =>
+          items.map((item) => ({
+            ...item,
+            data: 'new-key-version',
+            pwdHash: next.pwdHash,
+          })),
+        );
+      jest
+        .spyOn(localDb, 'updateSyncItem')
+        .mockImplementation(async ({ updater }) => {
+          await updater(record);
+        });
+      const writing = isDeleted
+        ? db.removeAccount({ accountId: 'hd-1--account', walletId: 'hd-1' })
+        : db.addAccountsToWallet({ walletId: 'hd-1', accounts: [] });
+      await ready;
+      const rotating = service['commitHardwareDataKey'](current, next);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(
+        backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems,
+      ).not.toHaveBeenCalled();
+      release();
+      await Promise.all([writing, rotating]);
+      expect(record).toMatchObject({
+        rawData: '',
+        pwdHash: next.pwdHash,
+        data: 'new-key-version',
+        dataTime: 2,
+        isDeleted,
+        serverUploaded: false,
+      });
+    },
+  );
+
+  test.each([false, true])(
+    'local public-account write admitted after rotation reads the new credential (deleted=%s)',
+    async (isDeleted) => {
+      const { service } = setup();
+      let release = () => {};
+      let entered = () => {};
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      jest
+        .mocked(sessionApi.reencryptHardwareCloudSyncItems)
+        .mockImplementationOnce(async ({ items }) => {
+          entered();
+          await paused;
+          return items;
+        });
+      jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+      let record: Partial<IDBCloudSyncItem> | undefined;
+      const write = jest.fn(async () => {
+        record = {
+          rawData: '',
+          pwdHash: mockStored?.pwdHash,
+          dataTime: 2,
+          isDeleted,
+          serverUploaded: false,
+        };
+        return { isOverrideAccounts: false, existsAccounts: [] };
+      });
+      const db: LocalDbBase = Object.assign(
+        Object.create(LocalDbBase.prototype) as LocalDbBase,
+        {
+          backgroundApi: { serviceKeylessCloudSync: service },
+          addAccountsToWalletWithCloudKeyLock: write,
+          removeAccountWithCloudKeyLock: write,
+        },
+      );
+      const rotating = service['commitHardwareDataKey'](current, next);
+      await ready;
+      const writing = isDeleted
+        ? db.removeAccount({ accountId: 'hd-1--account', walletId: 'hd-1' })
+        : db.addAccountsToWallet({ walletId: 'hd-1', accounts: [] });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(write).not.toHaveBeenCalled();
+      release();
+      await Promise.all([rotating, writing]);
+      expect(record).toMatchObject({
+        rawData: '',
+        pwdHash: next.pwdHash,
+        dataTime: 2,
+        isDeleted,
+        serverUploaded: false,
+      });
+    },
+  );
 
   test('reset waits for an admitted server write before reading and committing local data', async () => {
     const { service, backgroundApi } = setup();
