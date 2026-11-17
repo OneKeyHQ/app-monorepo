@@ -629,6 +629,50 @@ it('shares drawings and their undo history between charts of the same token', as
   expect(first.result.current.state.history.present).toEqual([drawing]);
 });
 
+it('ends a drag when another chart changes the dragged drawing', async () => {
+  const first = setup('shared-drag');
+  const second = setup('shared-drag');
+  await waitFor(() => expect(first.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(second.result.current.state.ready).toBe(true));
+  first.line();
+  const [drawing] = first.result.current.state.history.present;
+  const drag = (fromY: number, toY: number) =>
+    act(() => {
+      first.result.current.onPointerDown(
+        first.event('pointerdown', 300, fromY),
+      );
+      first.result.current.onPointerMove(first.event('pointermove', 300, toY));
+    });
+  const release = (y: number) =>
+    act(() => {
+      first.result.current.onPointerUp(first.event('pointerup', 300, y));
+    });
+
+  // A change to another drawing leaves the drag alone.
+  drag(160, 200);
+  second.line(-60);
+  release(200);
+  const [moved, other] = second.result.current.state.history.present;
+  expect(moved.id).toBe(drawing.id);
+  expect(moved.points).not.toEqual(drawing.points);
+  expect(other.id).not.toBe(drawing.id);
+
+  // Locking the dragged drawing in the other chart ends the drag, so the
+  // release does not put the unlocked drawing back.
+  drag(200, 240);
+  expect(first.result.current.getRenderState().drawings[0]).not.toEqual(moved);
+  act(() => second.result.current.selectDrawing(drawing.id));
+  act(() => second.result.current.toggleSelectedLock());
+  const locked = { ...moved, locked: true };
+  expect(first.result.current.getRenderState().drawings).toEqual([
+    locked,
+    other,
+  ]);
+  release(240);
+  for (const chart of [first, second])
+    expect(chart.result.current.state.history.present).toEqual([locked, other]);
+});
+
 it('reports a failed save in every chart of the same token', async () => {
   setItem.mockRejectedValueOnce(new OneKeyLocalError('Storage unavailable'));
   const first = setup('shared-failed-write');

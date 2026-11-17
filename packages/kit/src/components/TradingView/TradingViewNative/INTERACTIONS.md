@@ -29,8 +29,11 @@ under separate owners:
   serialization. Charts mounted with the same drawing key, such as one token in
   several split-view panels, join one live document: an edit, undo or failed
   save in one shows in all of them, while tool, selection, hide and lock stay
-  per chart. On web a key press goes to the chart under the pointer, otherwise
-  to the focused one, so one shortcut never runs in two charts.
+  per chart. A drag ends when another chart changes a drawing it is moving, so
+  its release cannot undo that change. On web a key press goes to the chart
+  under the pointer, otherwise to the focused one, so one shortcut never runs
+  in two charts; a tool menu takes arrow keys only while focus is in its own
+  toolbar and closes when focus moves to another toolbar.
 - `indicatorPanes` owns the order and preferred heights of the indicator panes.
   They are kept per namespace and per split-view panel, not per token, so they
   survive a token switch like the indicator settings they arrange. Web/desktop

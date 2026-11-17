@@ -165,7 +165,22 @@ export function useChartDrawings({
     // another chart arrives here.
     const drawingDocument = openDrawingDocument(key, () => {
       if (!model.ready) return;
-      showDrawingHistory(model, drawingDocument.history);
+      const { history } = drawingDocument;
+      // A drag moves the drawings as they were when it began. Once another
+      // chart has changed one of them the drag ends, so releasing it cannot
+      // put the old drawing back over that change.
+      const { drag } = model;
+      if (
+        drag?.original &&
+        [drag.original, ...(drag.companions ?? [])].some(
+          (drawing) => !history.present.includes(drawing),
+        )
+      ) {
+        model.drag = null;
+        model.preview = null;
+        model.companionPreviews = [];
+      }
+      showDrawingHistory(model, history);
       model.saveFailed = drawingDocument.saveFailed;
       update();
     });
