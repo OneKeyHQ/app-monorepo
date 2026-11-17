@@ -408,12 +408,15 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     const tasks = accountRequests.map(({ account, scopes }) => {
       const { apiAddress, networkId: accountNetworkId, accountId } = account;
       const stockScopes = scopes.filter((scope) => scope.stockOnly);
+      const isPureStockRequest =
+        stockScopes.length > 0 && stockScopes.length === scopes.length;
       return async () => {
         const sharedRequestKey = JSON.stringify([
           accountNetworkId,
           accountId,
           apiAddress,
           positionCurrencyId,
+          isPureStockRequest ? `stock:${requestLocale ?? ''}` : 'swap',
         ]);
         let tokenPromise = !options?.forceRefresh
           ? inFlightAccountTokenRequests.get(sharedRequestKey)
@@ -430,7 +433,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
               throwOnError: true,
               currency: positionCurrencyId,
               protocol: ESwapTabSwitchType.SWAP,
-              ...(stockScopes.length
+              ...(isPureStockRequest
                 ? {
                     includeStockMarketMetadata: true,
                     requestLocale,
