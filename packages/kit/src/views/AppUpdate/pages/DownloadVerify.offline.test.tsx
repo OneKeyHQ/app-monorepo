@@ -106,11 +106,16 @@ function setOnline(online: boolean) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // jest-setup.js stubs this globally; connectivity tests need real DOM events.
+  jest
+    .spyOn(globalThis, 'addEventListener')
+    .mockImplementation(EventTarget.prototype.addEventListener);
   mockStatus = EAppUpdateStatus.downloadPackage;
   setOnline(true);
 });
 
 afterEach(() => {
+  jest.restoreAllMocks();
   Reflect.deleteProperty(globalThis.navigator, 'onLine');
 });
 
