@@ -214,11 +214,11 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     l1: {
       emoji: '❌',
       detail:
-        "L1 没有开启 safe error taming，当前使用 'unsafe-debug'，保留完整 stack 方便 Sentry 排查。",
+        "Web 生产和 native 使用 'unsafe' 保留可读栈及受限调试 hook；Web 开发环境保留 'unsafe-debug'。其他 runtime 按其配置。",
     },
     l2: {
       emoji: '❌',
-      detail: "L2 仍没有开启 safe error taming，继续使用 'unsafe-debug'。",
+      detail: 'L2 的错误栈策略与 L1 相同，按平台及生产/开发环境决定。',
     },
   },
   {
@@ -285,11 +285,11 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     l1: {
       emoji: '❌',
       detail:
-        "L1 没有开启 safe RegExp taming，当前使用 'unsafe'，避免改变正则兼容行为。",
+        "Web/native 使用 'safe' 移除旧 compile 接口；其他 runtime 保持各自配置。",
     },
     l2: {
       emoji: '❌',
-      detail: "L2 仍没有开启 safe RegExp taming，继续使用 'unsafe'。",
+      detail: 'L2 的 RegExp 策略与 L1 相同，按当前平台配置。',
     },
   },
   {
@@ -302,12 +302,12 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     },
     l1: {
       emoji: '❌',
-      detail: "L1 使用 'unsafe-eval'，保留原生 eval / Function 兼容性。",
+      detail:
+        "通用 L1 使用 'unsafe-eval'；Native/扩展的保护模式强制 'no-eval'。",
     },
     l2: {
       emoji: '✅',
-      detail:
-        "L2 使用 'safe-eval'，限制 Function('return this')() 拿到当前 globalThis。",
+      detail: "Web/Desktop L2 使用 'safe-eval'；Native/扩展强制 'no-eval'。",
     },
   },
   {
@@ -319,12 +319,14 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
       detail: 'L0 不启用 SES，因此没有 no-eval。',
     },
     l1: {
-      emoji: '❌',
-      detail: 'L1 不启用 no-eval。',
+      emoji: platformEnv.isNative || platformEnv.isExtension ? '✅' : '❌',
+      detail:
+        'Native/扩展保护模式启用 no-eval，拒绝动态 eval/Function；其他 runtime 按其等级。',
     },
     l2: {
-      emoji: '❌',
-      detail: 'L2 不启用 no-eval，只启用 safe-eval。',
+      emoji: platformEnv.isNative || platformEnv.isExtension ? '✅' : '❌',
+      detail:
+        'Native/扩展保护模式启用 no-eval；Web/Desktop L2 使用 safe-eval。',
     },
   },
   {
@@ -1400,9 +1402,9 @@ export default function DevSesHardenRuntimeCheck() {
                 <SizableText color="$textSubdued">
                   lockdown 在当前 JS realm 内不可逆。当前等级只由
                   packages/shared/src/security/sesHarden/config.ts
-                  的同步常量控制； 修改 L0/L1/L2 后需要重新构建或 reload
-                  让入口按新常量初始化。当前实现里 L2 相比 L1 只额外把
-                  evalTaming 从 unsafe-eval 收紧到 safe-eval。
+                  的同步常量控制 Web/Desktop 等级。Native 使用构建开关
+                  ONEKEY_MOBILE_LOCKDOWN，启用时固定 no-eval；扩展保护模式也强制
+                  no-eval。修改配置需要重新构建并重启 runtime。
                 </SizableText>
                 <SizableText color="$textSubdued">
                   图例：✅ 启用或收紧；❌ 未启用或未收紧；➖

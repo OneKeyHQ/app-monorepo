@@ -63,6 +63,37 @@ function createRuntime({
 }
 
 describe('mobile lockdown bootstrap', () => {
+  test.each(['main', 'background'])(
+    '%s blocks dynamic evaluation and constructor recovery',
+    (runtime) => {
+      const context = createRuntime();
+      context.exports.finishMobileLockdown(runtime);
+      for (const source of [
+        'eval("1 + 2")',
+        '(0, eval)("1 + 2")',
+        'globalThis.eval("1 + 2")',
+        'Reflect.apply(eval, undefined, ["1 + 2"])',
+        'Function("return globalThis")()',
+        'new Function("return globalThis")()',
+        'Reflect.construct(Function, ["return globalThis"])()',
+        '(()=>{}).constructor("return globalThis")()',
+        '(async()=>{}).constructor("return globalThis")()',
+        '(function*(){}).constructor("return globalThis")()',
+        '(async function*(){}).constructor("return globalThis")()',
+      ])
+        expect(() => vm.runInContext(source, context)).toThrow();
+      expect(
+        vm.runInContext('(function(a,b){return a+b;})(2,3)', context),
+      ).toBe(5);
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Function) && Object.isFrozen(Function.prototype)',
+          context,
+        ),
+      ).toBe(true);
+    },
+  );
+
   test.each([true, false])(
     'preserves the Hermes native stack formatter: custom=%s',
     (custom) => {
@@ -355,7 +386,7 @@ describe('mobile lockdown bootstrap', () => {
         enabled: true,
         runtime,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
       });
       expect(
         vm.runInContext(

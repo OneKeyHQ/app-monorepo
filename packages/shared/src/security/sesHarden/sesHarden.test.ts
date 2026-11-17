@@ -76,13 +76,13 @@ test.each(['main', 'background'] as const)(
         enabled: true,
         runtime,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
       };
       expect(getSesHardenRuntimeState()).toEqual({
         level: 'L1',
         runtime: `mobile-${runtime}`,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
         objectPrototypeFrozen: Object.isFrozen(Object.prototype),
       });
       expect(getSesHardenLevelFromRuntime()).toBe('L1');
@@ -319,6 +319,32 @@ test('only changes eval taming in L2', () => {
     evalTaming: 'unsafe-eval',
   });
   expect(l2Options?.evalTaming).toBe('safe-eval');
+});
+
+test('web removes RegExp compile and limits production Error hooks', () => {
+  const original = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    for (const level of ['L1', 'L2'] as const) {
+      expect(getSesLockdownOptions(level, 'web')).toMatchObject({
+        regExpTaming: 'safe',
+        errorTaming: 'unsafe',
+      });
+    }
+    expect(getSesLockdownOptions('L0', 'web')).toBeUndefined();
+    expect(getSesLockdownOptions('L2', 'desktop-renderer')).toMatchObject({
+      regExpTaming: 'unsafe',
+      errorTaming: 'unsafe-debug',
+    });
+    process.env.NODE_ENV = 'development';
+    expect(getSesLockdownOptions('L2', 'web')).toMatchObject({
+      regExpTaming: 'safe',
+      errorTaming: 'unsafe-debug',
+    });
+  } finally {
+    if (original === undefined) Reflect.deleteProperty(process.env, 'NODE_ENV');
+    else process.env.NODE_ENV = original;
+  }
 });
 
 test('forces no-eval for every extension runtime regardless of level', () => {
@@ -889,6 +915,18 @@ describe('Function global escape self-check', () => {
 
     expect(check.status).toBe('fail');
   });
+
+  test.each(['mobile-main', 'mobile-background'] as const)(
+    'requires no-eval for protected %s but preserves rollback',
+    (runtime) => {
+      expect(
+        withBlockedFunction(() => runFunctionGlobalEscapeCheck('L1', runtime))
+          .status,
+      ).toBe('pass');
+      expect(runFunctionGlobalEscapeCheck('L1', runtime).status).toBe('fail');
+      expect(runFunctionGlobalEscapeCheck('L0', runtime).status).toBe('pass');
+    },
+  );
 
   test('keeps native eval as the expectation for web at L1', () => {
     // web/desktop L1 keeps native eval, so reaching globalThis is expected.

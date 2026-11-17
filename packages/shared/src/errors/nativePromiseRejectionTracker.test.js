@@ -85,6 +85,13 @@ function createRuntime({
     });
     return { filename, code };
   };
+  // Like Metro's module factories, compilation belongs to the host loader,
+  // outside the application realm where SES intentionally rejects Function.
+  context.compileModule = (code) =>
+    vm.runInContext(
+      `(function(require, module, exports) {\n${code}\n})`,
+      context,
+    );
   vm.runInContext(
     `
     globalThis.cache = {};
@@ -93,7 +100,7 @@ function createRuntime({
       if (cache[filename]) return cache[filename].exports;
       const module = { exports: {} };
       cache[filename] = module;
-      Function('require', 'module', 'exports', code)(
+      compileModule(code)(
         (name) => load(name, filename), module, module.exports
       );
       return module.exports;

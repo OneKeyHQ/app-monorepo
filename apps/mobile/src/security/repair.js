@@ -19,7 +19,7 @@
     unhandledRejectionTrapping: 'none',
     overrideTaming: 'severe',
     stackFiltering: 'verbose',
-    evalTaming: 'unsafe-eval',
+    evalTaming: 'no-eval',
     localeTaming: 'unsafe',
   });
 

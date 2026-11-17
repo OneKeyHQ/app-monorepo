@@ -138,6 +138,67 @@ test('the intrinsic audit rejects an unhardened realm', () => {
   expect(collectSesIntrinsicLockEvidence().mutable.length).toBeGreaterThan(300);
 });
 
+test.each(['L1', 'L2'])(
+  'production web %s keeps library behavior and parseable stacks with restricted Error hooks',
+  (level) => {
+    const source = `
+const input = JSON.parse(process.argv[1]);
+process.env.NODE_ENV = 'production';
+require('ses');
+const options = require(input.options).getSesLockdownOptions(input.level, 'web');
+lockdown(options);
+const error = new Error('public SES production stack fixture');
+const originalPrepare = Error.prepareStackTrace;
+let exposedCallSitePower;
+try {
+  Error.prepareStackTrace = function(error, sites) {
+    exposedCallSitePower = sites.some(site => typeof site.getThis === 'function' || typeof site.getFunction === 'function');
+    return 'public custom stack fixture';
+  };
+  void new Error('public callback fixture').stack;
+} finally {
+  Error.prepareStackTrace = originalPrepare;
+}
+const { eventFromException, defaultStackParser } = require('@sentry/browser');
+const { SES_LIBRARY_TASKS } = require(input.tasks);
+Promise.all([
+  eventFromException(defaultStackParser, error),
+  Promise.all(SES_LIBRARY_TASKS.map(async ({name, run}) => ({name, detail: await run()}))),
+]).then(([event, libraries]) => {
+  const regex = /key/giu;
+  process.stdout.write(JSON.stringify({options, exposedCallSitePower, compile:typeof RegExp.prototype.compile, regexWorks:regex.exec('OneKey KEY').index === 3 && regex.exec('OneKey KEY').index === 7, frames:event.exception.values[0].stacktrace.frames.length, message:event.exception.values[0].value, libraries, evidence:require(input.intrinsics).collectSesIntrinsicLockEvidence()}));
+}).catch(error => { process.stderr.write(String(error.stack)); process.exitCode = 1; });
+`;
+    const result = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          '-e',
+          source,
+          JSON.stringify({
+            level,
+            options: path.join(directory, 'options.cjs'),
+            tasks: path.join(directory, 'tasks.cjs'),
+            intrinsics: path.join(directory, 'intrinsics.cjs'),
+          }),
+        ],
+        { cwd: root, timeout: 20_000 },
+      ).toString(),
+    );
+    expect(result.options).toMatchObject({
+      regExpTaming: 'safe',
+      errorTaming: 'unsafe',
+    });
+    expect(result.exposedCallSitePower).toBe(false);
+    expect(result.compile).toBe('undefined');
+    expect(result.regexWorks).toBe(true);
+    expect(result.frames).toBeGreaterThan(0);
+    expect(result.message).toBe('public SES production stack fixture');
+    expect(result.libraries).toHaveLength(5);
+    expect(result.evidence.mutable).toEqual([]);
+  },
+);
+
 test.each(['main', 'background'])(
   '%s lazily loads real libraries after SES 2.3.0 hardening',
   (runtime) => {
@@ -172,7 +233,11 @@ Promise.all(SES_LIBRARY_TASKS.map(async ({name, run}) => ({name, detail: await r
       }).toString(),
     );
     expect(result.version).toBe('2.3.0');
-    expect(result.state).toMatchObject({ runtime, lockdownApplied: true });
+    expect(result.state).toMatchObject({
+      runtime,
+      lockdownApplied: true,
+      evalTaming: 'no-eval',
+    });
     expect(result.frozen).toBe(true);
     expect(result.evidence.mutable).toEqual([]);
     expect(result.evidence.functions).toBeGreaterThan(300);

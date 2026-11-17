@@ -2,7 +2,7 @@
 import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 
-import { isExtensionRuntime } from './options';
+import { getSesLockdownOptions, isExtensionRuntime } from './options';
 import {
   SES_HARDEN_PATCH_WARNING_LIMIT,
   getSesHardenLevelFromRuntime,
@@ -249,6 +249,15 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
         '确认 harden 不只是浅冻结，而是能递归冻结对象图，防止 facade 内部对象被改写。',
     },
     {
+      name: 'Dynamic evaluation policy',
+      dimension: 'tamper-resistance',
+      title: 'Dynamic evaluation policy / 动态执行策略',
+      functionality:
+        '验证 eval 别名与动态 Function 是否按当前 runtime 策略执行或拒绝。',
+      hardening:
+        'Native/扩展 no-eval 必须拒绝动态求值；Web 保留其 L1/L2 的表达式兼容性。',
+    },
+    {
       name: 'Function global escape',
       dimension: 'tamper-resistance',
       title: 'Function global escape / 动态函数逃逸',
@@ -296,7 +305,7 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       title: 'RegExp / 正则表达式',
       functionality: '检查基础正则匹配是否仍能正常工作。',
       hardening:
-        '这是兼容性检查。当前 regExpTaming 保持 unsafe，目的是避免改动正则行为影响业务逻辑。',
+        'Web/native 使用 safe RegExp taming，并要求旧 compile 接口不可用；其他 runtime 按各自配置验证。',
     },
     {
       name: 'Error stack',
@@ -305,7 +314,7 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       functionality:
         '检查 Error.stack 可读，native 还要求 Sentry 能解析带位置的调用帧。',
       hardening:
-        '这是诊断能力检查。Web 保持 unsafe-debug；native 保持 adapter 的 unsafe，并在 hardening 前保留 Hermes 原生错误栈格式化能力。',
+        'Web 生产使用 unsafe 保留可读栈并限制原始 V8 调试权限；native 保留 Hermes 原生格式及自定义回调的权限限制。',
     },
     {
       name: 'Array patch methods',
@@ -738,22 +747,20 @@ function buildDimensionSummary(
   return summary;
 }
 
-// Exported for the SES self-check test suite so the ext no-eval expectation can
+// Exported for the SES self-check test suite so the native/ext no-eval policy can
 // be asserted directly without standing up a full lockdown.
 export function runFunctionGlobalEscapeCheck(
   level: ISesHardenLevel,
   runtime?: ISesHardenRuntime,
 ): ISesRuntimeCheckItem {
-  // Extension runtimes are forced to `evalTaming: 'no-eval'` for every level
-  // (see getSesLockdownOptions in options.ts), because the extension CSP forbids
-  // host eval / new Function. On ext, `new Function('return this')()` is
-  // therefore expected to be blocked entirely (throws) regardless of L1/L2, so a
-  // blocked dynamic function IS the secure outcome here. For web/desktop the
-  // level-based expectation stays: L1 keeps native eval, L2 (safe-eval) must
-  // prevent the globalThis escape.
-  const evalBlockedByDesign = isExtensionRuntime(runtime);
+  // Extensions and protected native runtimes forbid dynamic evaluation. A
+  // blocked constructor is expected there; native L0 retains the rollback path.
+  // Web/desktop L1 keeps native eval, while L2 must prevent the global escape.
+  const evalBlockedByDesign =
+    isExtensionRuntime(runtime) ||
+    (runtime?.startsWith('mobile-') === true && level !== 'L0');
   const purpose =
-    '验证 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
+    '验证 L2 safe-eval 或 native/扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
   const expectsBlocked = evalBlockedByDesign || level === 'L2';
 
   try {
@@ -787,6 +794,85 @@ export function runFunctionGlobalEscapeCheck(
       `threw=${getErrorMessage(error)}, runtime=${runtime ?? 'unknown'}`,
     );
   }
+}
+
+function runDynamicEvaluationPolicyCheck(
+  level: ISesHardenLevel,
+  runtime?: ISesHardenRuntime,
+): ISesRuntimeCheckItem {
+  const name = 'Dynamic evaluation policy';
+  const purpose = '验证动态求值策略和函数构造器恢复路径。';
+  if (level === 'L0' && !isExtensionRuntime(runtime))
+    return buildInfoCheck(
+      name,
+      'tamper-resistance',
+      purpose,
+      'L0 does not restrict dynamic evaluation',
+    );
+  const noEval =
+    isExtensionRuntime(runtime) || runtime?.startsWith('mobile-') === true;
+  const attempts: { name: string; blocked: boolean; run: () => unknown }[] = [
+    {
+      name: 'indirect eval',
+      blocked: noEval,
+      run: () =>
+        Reflect.apply(
+          Reflect.get(globalThis, 'eval') as (...args: unknown[]) => unknown,
+          undefined,
+          ['1 + 2'],
+        ),
+    },
+    {
+      name: 'Function',
+      blocked: noEval,
+      run: () => (Reflect.construct(Function, ['return 3']) as () => unknown)(),
+    },
+  ];
+  function* generator() {
+    yield 1;
+  }
+  async function* asyncGenerator() {
+    yield 1;
+  }
+  for (const [name0, fn] of [
+    ['ordinary constructor', () => undefined],
+    ['async constructor', async () => undefined],
+    ['generator constructor', generator],
+    ['async generator constructor', asyncGenerator],
+  ] as const) {
+    attempts.push({
+      name: name0,
+      blocked: true,
+      run: () => {
+        const constructor = Reflect.get(
+          Object.getPrototypeOf(fn) as object,
+          'constructor',
+        ) as FunctionConstructor;
+        return (
+          Reflect.construct(constructor, ['return 3']) as () => unknown
+        )();
+      },
+    });
+  }
+  const results = attempts.map((attempt) => {
+    try {
+      const value = attempt.run();
+      return {
+        name: attempt.name,
+        blocked: false,
+        passed: !attempt.blocked && value === 3,
+      };
+    } catch {
+      return { name: attempt.name, blocked: true, passed: attempt.blocked };
+    }
+  });
+  return buildCheck(
+    name,
+    'tamper-resistance',
+    purpose,
+    results.every((result) => result.passed),
+    JSON.stringify({ noEval, results }),
+  );
 }
 
 function runArrayPatchMethodsCheck(): ISesRuntimeCheckItem {
@@ -1475,6 +1561,7 @@ async function collectSesRuntimeCheckReport(
   }
 
   checks.push(runFunctionGlobalEscapeCheck(level, state?.runtime));
+  checks.push(runDynamicEvaluationPolicyCheck(level, state?.runtime));
 
   try {
     const parsed = JSON.parse(JSON.stringify({ ok: true })) as { ok: boolean };
@@ -1598,13 +1685,19 @@ async function collectSesRuntimeCheckReport(
 
   try {
     const matched = /^onekey-\d+$/.test('onekey-2026');
+    const safeRegExp =
+      level !== 'L0' &&
+      (state?.runtime.startsWith('mobile-') ||
+        getSesLockdownOptions(level, state?.runtime)?.regExpTaming === 'safe');
+    const hasCompile =
+      typeof Reflect.get(RegExp.prototype, 'compile') === 'function';
     checks.push(
       buildCheck(
         'RegExp',
         'functionality',
         '确认 harden 后正则表达式匹配仍然可用。',
-        matched,
-        `matched=${String(matched)}`,
+        matched && (!safeRegExp || !hasCompile),
+        `matched=${String(matched)}, safeRegExp=${String(safeRegExp)}, hasCompile=${String(hasCompile)}`,
       ),
     );
   } catch (error) {

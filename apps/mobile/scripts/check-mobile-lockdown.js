@@ -115,6 +115,15 @@ async function main() {
         `var state = exports.finishMobileLockdown(${JSON.stringify(runtime)});`,
         `if (state.lockdownApplied !== ${enabled}) throw new Error("Unexpected lockdown state");`,
         `if (Object.isFrozen(Object.prototype) !== ${enabled}) throw new Error("Unexpected intrinsic integrity");`,
+        ...(enabled
+          ? [
+              'if (state.evalTaming !== "no-eval") throw new Error("Expected native no-eval");',
+              'var dynamicCodeBlocked = false; try { Reflect.construct(Function, ["return 3"]); } catch (_) { dynamicCodeBlocked = true; }',
+              'if (!dynamicCodeBlocked) throw new Error("Dynamic Function remained available");',
+              'var evalBlocked = false; try { (0, eval)("1 + 2"); } catch (_) { evalBlocked = true; }',
+              'if (!evalBlocked) throw new Error("eval remained available");',
+            ]
+          : []),
         'if (({}).onekeyLockdownFixture() !== 42) throw new Error("Vetted shim was lost");',
         `if (exports.finishMobileLockdown(${JSON.stringify(runtime)}) !== state) throw new Error("Duplicate initialization");`,
         'Promise.resolve(42).then(function (value) { if (value !== 42) throw new Error("Promise failed"); print("MOBILE_LOCKDOWN_PASS"); });',
