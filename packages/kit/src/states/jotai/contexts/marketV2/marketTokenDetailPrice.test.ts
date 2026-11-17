@@ -52,6 +52,24 @@ function merge({
 }
 
 describe('mergeMarketTokenDetailPrice', () => {
+  it('does not stamp an old response or a preserved chart price with its completion time', () => {
+    expect(
+      merge({
+        current: undefined,
+        tokenData: { price: '1' },
+        requestStartedAt: initialTime,
+        now: initialTime + 5000,
+      }).priceObservedAt,
+    ).toBe(initialTime);
+    expect(
+      merge({
+        current: { ...ticked, priceObservedAt: initialTime + 1000 },
+        tokenData: { price: '0.5' },
+        requestStartedAt: initialTime,
+        now: initialTime + 5000,
+      }).priceObservedAt,
+    ).toBe(initialTime + 1000);
+  });
   afterEach(() => {
     jest.restoreAllMocks();
   });
