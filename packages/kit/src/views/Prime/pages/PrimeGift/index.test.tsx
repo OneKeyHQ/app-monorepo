@@ -19,10 +19,15 @@ import {
 import type { IShowOnboardingInviteCodeDialog } from '../../../Onboardingv2/components/OnboardingInviteCodeDialog';
 
 const zhTranslations: Record<string, string> = zhMessages;
-const mockNavigation = { pop: jest.fn(), switchTabAsync: jest.fn() };
+const mockNavigation = {
+  pop: jest.fn(),
+  popStack: jest.fn(),
+  switchTabAsync: jest.fn(),
+};
 const mockClearTransport = jest.fn();
 const mockFlushToast = jest.fn();
-let mockSource: 'onboarding' | 'deviceDetails' = 'onboarding';
+let mockSource: 'onboarding' | 'deviceDetails' | 'primeDashboard' =
+  'onboarding';
 let mockClaimState: 'success' | 'redeemed' = 'success';
 let mockClaimOverride:
   | {
@@ -46,8 +51,25 @@ jest.mock('@onekeyhq/components', () => {
   const Container = ({ children }: { children?: ReactNode }) =>
     React.createElement('div', null, children);
   return {
-    Page: Object.assign(Container, { Header: () => null, Body: Container }),
-    NavCloseButton: () => null,
+    Page: Object.assign(Container, {
+      Header: ({
+        headerShown,
+        headerLeft,
+      }: {
+        headerShown?: boolean;
+        headerLeft?: () => ReactNode;
+      }) =>
+        headerShown === false
+          ? null
+          : React.createElement(React.Fragment, null, headerLeft?.()),
+      Body: Container,
+    }),
+    NavCloseButton: ({ onPress }: { onPress?: () => void }) =>
+      React.createElement('button', {
+        'data-testid': 'prime-gift-close',
+        onClick: onPress,
+        type: 'button',
+      }),
     XStack: Container,
     useSafeAreaInsets: () => ({ top: 0 }),
   };
@@ -336,6 +358,28 @@ it('closes an already redeemed claim with Done and does not verify or redeem', (
   expect(mockNavigation.switchTabAsync).not.toHaveBeenCalled();
   expect(mockVerify).not.toHaveBeenCalled();
   expect(mockRedeem).not.toHaveBeenCalled();
+});
+
+it('returns a Prime-page claim to the dashboard', () => {
+  mockSource = 'primeDashboard';
+  const view = render(
+    <IntlProvider locale="zh-CN" messages={zhTranslations}>
+      <PrimeGiftPage />
+    </IntlProvider>,
+  );
+  fireEvent.click(screen.getByText(zhTranslations['global.done']));
+  expect(mockNavigation.popStack).toHaveBeenCalledTimes(1);
+  expect(mockNavigation.pop).not.toHaveBeenCalled();
+
+  mockClaimState = 'redeemed';
+  view.rerender(
+    <IntlProvider locale="zh-CN" messages={zhTranslations}>
+      <PrimeGiftPage />
+    </IntlProvider>,
+  );
+  fireEvent.click(screen.getByTestId('prime-gift-close'));
+  expect(mockNavigation.popStack).toHaveBeenCalledTimes(2);
+  expect(mockNavigation.pop).not.toHaveBeenCalled();
 });
 
 it('closes device-details success back to the caller', () => {
