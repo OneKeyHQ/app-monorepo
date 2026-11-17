@@ -86,6 +86,7 @@ export type IMarketWidgetModule = {
   setEditorDraft?: (
     assets: IMarketWidgetAsset[],
     editorSession: string,
+    visibleAssets?: IMarketWidgetAsset[],
   ) => Promise<IMarketWidgetEditorState>;
   getEditorState: (editorSession?: string) => Promise<IMarketWidgetEditorState>;
   refreshEditorState?: (

@@ -102,14 +102,14 @@ const marketWidget: IMarketWidgetModule = {
   async beginEditing() {
     return getNativeModule()?.beginWidgetEditing?.();
   },
-  async setEditorDraft(assets, editorSession) {
+  async setEditorDraft(assets, editorSession, visibleAssets = []) {
     const nativeModule = getNativeModule();
     if (!nativeModule?.setWidgetEditorDraft)
       throw new OneKeyLocalError('Widget draft editing is unavailable');
     return JSON.parse(
       await nativeModule.setWidgetEditorDraft(
         editorSession,
-        JSON.stringify(assets),
+        JSON.stringify({ assets, visibleAssets }),
       ),
     ) as IMarketWidgetEditorState;
   },

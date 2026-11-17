@@ -74,8 +74,7 @@ export const MarketWidgetEditor = () => {
   const [activeSlot, setActiveSlot] = useState<number>();
   const isPickingAsset = activeSlot !== undefined;
   const [query, setQuery] = useState('');
-  const selectionRequest = useRef(0);
-  const { searchStocks, cancelSearch } = editor;
+  const { searchStocks, cancelSearch, cancelDraft } = editor;
   useEffect(() => {
     const normalized = query.trim();
     if (!normalized || !isPickingAsset || source !== 'hot') return;
@@ -211,14 +210,12 @@ export const MarketWidgetEditor = () => {
   }, [editor.state, query, source]);
 
   const closePicker = useCallback(() => {
-    selectionRequest.current += 1;
+    cancelDraft();
     setActiveSlot(undefined);
     setQuery('');
-  }, []);
+  }, [cancelDraft]);
   const chooseAsset = useCallback(
     async (item: IMarketWidgetAsset) => {
-      selectionRequest.current += 1;
-      const request = selectionRequest.current;
       editor.cancelSearch();
       const next = slots.map((value, index) =>
         index === activeSlot ? item : value,
@@ -226,19 +223,19 @@ export const MarketWidgetEditor = () => {
       try {
         const retained = await editor.retainDraft(
           next.filter((asset): asset is IMarketWidgetAsset => !!asset),
+          slots.filter((asset): asset is IMarketWidgetAsset => !!asset),
         );
-        if (!retained || request !== selectionRequest.current) return;
+        if (!retained) return;
         setSlots(next);
         setSaveError(undefined);
         closePicker();
       } catch (error) {
         logMarketWidgetEvent('editor.draft_failed', {}, editorSession, error);
-        if (request === selectionRequest.current)
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_unknown_error_retry_message,
-            }),
-          });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          }),
+        });
       }
     },
     [activeSlot, closePicker, editor, editorSession, intl, slots],

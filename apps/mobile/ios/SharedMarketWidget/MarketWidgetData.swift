@@ -439,9 +439,14 @@ struct MarketWidgetStore {
   }
 
   func editorDraft(json: String, previous: [MarketWidgetAsset]) throws -> [MarketWidgetAsset] {
-    guard let data = json.data(using: .utf8), data.count <= 8192 else { throw MarketWidgetError.invalidProfile }
-    let requested = try JSONDecoder().decode([MarketWidgetAsset].self, from: data)
-    guard requested.count <= 3, requested.allSatisfy(\.isValid),
+    struct Input: Decodable {
+      let assets: [MarketWidgetAsset]
+      let visibleAssets: [MarketWidgetAsset]
+    }
+    guard let data = json.data(using: .utf8), data.count <= 16_384 else { throw MarketWidgetError.invalidProfile }
+    let input = try JSONDecoder().decode(Input.self, from: data)
+    guard input.assets.count <= 3, input.visibleAssets.count <= 3,
+          (input.assets + input.visibleAssets).allSatisfy(\.isValid),
           let configuration = configuration().configuration, configuration.privacyMasked != true else {
       throw MarketWidgetError.invalidProfile
     }
@@ -449,10 +454,13 @@ struct MarketWidgetStore {
       .flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
     let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + previous
       + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").filter { $0.kind == .stock }
-    return try requested.map { asset in
+    let proposed = try input.assets.map { asset in
       guard let canonical = candidates.first(where: { $0.id == asset.id }) else { throw MarketWidgetError.invalidProfile }
       return assetWithMetadata(canonical)
     }
+    let visible = input.visibleAssets.compactMap { asset in candidates.first { $0.id == asset.id } }
+    var seen = Set<String>()
+    return (visible + proposed).filter { seen.insert($0.id).inserted }
   }
 
   func editorState() throws -> MarketWidgetEditorState {

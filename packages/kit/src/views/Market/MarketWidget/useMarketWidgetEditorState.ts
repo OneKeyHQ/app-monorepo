@@ -26,6 +26,8 @@ export function useMarketWidgetEditorState(editorSession?: string) {
   const lifecycleRef = useRef(0);
   const requestRef = useRef(0);
   const searchRequestRef = useRef(0);
+  const draftRequestRef = useRef(0);
+  const draftQueueRef = useRef(Promise.resolve());
   const [nativeSession, setNativeSession] = useState(editorSession);
   const sessionRef = useRef(editorSession);
   const pendingSessionRef = useRef<Promise<string | undefined> | undefined>(
@@ -69,33 +71,53 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     return pendingSessionRef.current;
   }, [releaseSession]);
 
+  const cancelDraft = useCallback(() => {
+    draftRequestRef.current += 1;
+  }, []);
   const retainDraft = useCallback(
-    async (assets: IMarketWidgetAsset[]) => {
+    async (
+      assets: IMarketWidgetAsset[],
+      visibleAssets: IMarketWidgetAsset[] = [],
+    ) => {
       if (!focusedRef.current || !activeRef.current) return false;
       const lifecycle = lifecycleRef.current;
-      const session = await getEditorSession();
-      if (
-        !mountedRef.current ||
-        !focusedRef.current ||
-        !activeRef.current ||
-        lifecycle !== lifecycleRef.current
-      )
-        return false;
-      if (!session || !marketWidget.setEditorDraft) return true;
-      requestRef.current += 1;
-      const next = await marketWidget.setEditorDraft(assets, session);
-      if (
-        !mountedRef.current ||
-        !focusedRef.current ||
-        !activeRef.current ||
-        lifecycle !== lifecycleRef.current
-      )
-        return false;
-      const masked =
-        next.privacyMasked || travelModeManager.isMaskingDataSync();
-      setPrivacyMasked(masked);
-      setState(masked ? undefined : next);
-      return !masked;
+      draftRequestRef.current += 1;
+      const request = draftRequestRef.current;
+      const isCurrent = () =>
+        mountedRef.current &&
+        focusedRef.current &&
+        activeRef.current &&
+        lifecycle === lifecycleRef.current &&
+        request === draftRequestRef.current;
+      const operation = draftQueueRef.current.then(async () => {
+        try {
+          if (!isCurrent()) return false;
+          const session = await getEditorSession();
+          if (!isCurrent()) return false;
+          if (!session || !marketWidget.setEditorDraft) return true;
+          requestRef.current += 1;
+          // Preserve the visible selection until JS accepts its replacement.
+          const next = await marketWidget.setEditorDraft(
+            assets,
+            session,
+            visibleAssets,
+          );
+          if (!isCurrent()) return false;
+          const masked =
+            next.privacyMasked || travelModeManager.isMaskingDataSync();
+          setPrivacyMasked(masked);
+          setState(masked ? undefined : next);
+          return !masked;
+        } catch (error) {
+          if (!isCurrent()) return false;
+          throw error;
+        }
+      });
+      draftQueueRef.current = operation.then(
+        () => undefined,
+        () => undefined,
+      );
+      return operation;
     },
     [getEditorSession],
   );
@@ -242,6 +264,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
           }
         } else {
           cancelSearch();
+          cancelDraft();
           activeRef.current = false;
           lifecycleRef.current += 1;
           if (!sessionRef.current) pendingSessionRef.current = undefined;
@@ -257,6 +280,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         lifecycleRef.current += 1;
         requestRef.current += 1;
         cancelSearch();
+        cancelDraft();
         subscription.remove();
         if (!editorSession && sessionRef.current)
           releaseSession(sessionRef.current);
@@ -267,11 +291,12 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         setIsLoading(true);
         setHasError(false);
       };
-    }, [editorSession, refresh, cancelSearch, releaseSession]),
+    }, [editorSession, refresh, cancelSearch, cancelDraft, releaseSession]),
   );
 
   return {
     editorSession: nativeSession,
+    cancelDraft,
     retainDraft,
     state,
     isLoading,

@@ -17,7 +17,7 @@ const mockBeginEditing = jest.fn<Promise<string | undefined>, []>();
 const mockFinishEditing = jest.fn<Promise<void>, [string, boolean]>();
 const mockSetEditorDraft = jest.fn<
   Promise<IMarketWidgetEditorState>,
-  [IMarketWidgetAsset[], string]
+  [IMarketWidgetAsset[], string, IMarketWidgetAsset[]]
 >();
 const mockRefreshEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
 const mockSearchStocks = jest.fn<
@@ -61,8 +61,11 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
     get beginEditing() {
       return mockDraftSessionsSupported ? mockBeginEditing : undefined;
     },
-    setEditorDraft: (assets: IMarketWidgetAsset[], session: string) =>
-      mockSetEditorDraft(assets, session),
+    setEditorDraft: (
+      assets: IMarketWidgetAsset[],
+      session: string,
+      visibleAssets: IMarketWidgetAsset[],
+    ) => mockSetEditorDraft(assets, session, visibleAssets),
     finishEditing: (session: string, saved: boolean) =>
       mockFinishEditing(session, saved),
     searchStocks: (query: string, session?: string) =>
@@ -140,7 +143,11 @@ describe('market widget editor native snapshot lifecycle', () => {
     await act(async () => {
       expect(await result.current.retainDraft([asset])).toBe(true);
     });
-    expect(mockSetEditorDraft).toHaveBeenCalledWith([asset], 'draft-session');
+    expect(mockSetEditorDraft).toHaveBeenCalledWith(
+      [asset],
+      'draft-session',
+      [],
+    );
     await act(async () => result.current.searchStocks('AAPL'));
     expect(result.current.state?.searchAssets).toEqual([asset]);
     expect(mockBeginEditing).toHaveBeenCalledTimes(1);
@@ -161,6 +168,136 @@ describe('market widget editor native snapshot lifecycle', () => {
     await act(async () => resolveSession('late-session'));
     expect(mockFinishEditing).toHaveBeenCalledWith('late-session', false);
     expect(mockGetEditorState).not.toHaveBeenCalled();
+  });
+
+  it.each(['back', 'inactive'] as const)(
+    'preserves visible draft pins when %s cancels a replacement before native resolves',
+    async (cancellation) => {
+      const visible: IMarketWidgetAsset = {
+        kind: 'stock',
+        stockId: 'QQQ',
+        symbol: 'QQQ',
+        name: 'QQQ',
+      };
+      const proposed: IMarketWidgetAsset = {
+        kind: 'stock',
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+      };
+      const pending = createPendingState();
+      let nativePins: IMarketWidgetAsset[] = [visible];
+      mockGetEditorState.mockImplementation(async () => ({
+        ...createState('native'),
+        searchAssets: nativePins,
+      }));
+      mockSetEditorDraft.mockImplementation(
+        (assets, _session, visibleAssets) => {
+          nativePins = [...visibleAssets, ...assets];
+          return pending.promise;
+        },
+      );
+      const { result } = renderHook(() =>
+        useMarketWidgetEditorState('session'),
+      );
+      await waitFor(() => expect(result.current.state).toBeDefined());
+      let accepted: Promise<boolean> | undefined;
+      act(() => {
+        accepted = result.current.retainDraft([proposed], [visible]);
+      });
+      await waitFor(() => expect(mockSetEditorDraft).toHaveBeenCalledTimes(1));
+      act(() => {
+        if (cancellation === 'inactive') mockAppStateChanged?.('inactive');
+        else result.current.cancelDraft();
+      });
+      await act(async () =>
+        pending.resolve({
+          ...createState('pending'),
+          searchAssets: nativePins,
+        }),
+      );
+      await expect(accepted).resolves.toBe(false);
+      expect(nativePins).toContainEqual(visible);
+      if (cancellation === 'inactive') {
+        act(() => mockAppStateChanged?.('active'));
+        await waitFor(() =>
+          expect(result.current.state?.searchAssets).toContainEqual(visible),
+        );
+      } else {
+        expect(result.current.state?.profiles[0].name).toBe('native');
+      }
+    },
+  );
+
+  it('serializes native draft writes and ignores a superseded response', async () => {
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    const first = createPendingState();
+    const second = createPendingState();
+    mockSetEditorDraft
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const visible: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'QQQ',
+      symbol: 'QQQ',
+      name: 'QQQ',
+    };
+    const apple: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+    };
+    const msft: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'MSFT',
+      symbol: 'MSFT',
+      name: 'Microsoft',
+    };
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() => expect(result.current.state).toBeDefined());
+    let firstAccepted: Promise<boolean> | undefined;
+    let secondAccepted: Promise<boolean> | undefined;
+    act(() => {
+      firstAccepted = result.current.retainDraft([apple], [visible]);
+    });
+    await waitFor(() => expect(mockSetEditorDraft).toHaveBeenCalledTimes(1));
+    act(() => {
+      secondAccepted = result.current.retainDraft([msft], [visible]);
+    });
+    await act(async () => undefined);
+    expect(mockSetEditorDraft).toHaveBeenCalledTimes(1);
+    await act(async () => first.resolve(createState('stale')));
+    await expect(firstAccepted).resolves.toBe(false);
+    expect(result.current.state?.profiles[0].name).toBe('local');
+    expect(mockSetEditorDraft).toHaveBeenNthCalledWith(2, [msft], 'session', [
+      visible,
+    ]);
+    await act(async () => second.resolve(createState('latest')));
+    await expect(secondAccepted).resolves.toBe(true);
+    expect(result.current.state?.profiles[0].name).toBe('latest');
+  });
+
+  it('suppresses canceled native failures and permits the next choice', async () => {
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    const pending = createPendingState();
+    mockSetEditorDraft
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(createState('recovered'));
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() => expect(result.current.state).toBeDefined());
+    let accepted: Promise<boolean> | undefined;
+    act(() => {
+      accepted = result.current.retainDraft([]);
+    });
+    await waitFor(() => expect(mockSetEditorDraft).toHaveBeenCalledTimes(1));
+    act(() => result.current.cancelDraft());
+    await act(async () => pending.reject(new Error('late native failure')));
+    await expect(accepted).resolves.toBe(false);
+    await act(async () =>
+      expect(await result.current.retainDraft([])).toBe(true),
+    );
+    expect(result.current.state?.profiles[0].name).toBe('recovered');
   });
 
   it('ignores a draft response after blur and preserves launcher-owned Android sessions', async () => {

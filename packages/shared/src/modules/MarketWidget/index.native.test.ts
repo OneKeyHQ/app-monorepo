@@ -91,7 +91,10 @@ describe('market widget editor bridge availability', () => {
     await marketWidget.saveSettings(profile, token);
     await marketWidget.finishEditing?.(token, false);
     expect(getWidgetEditorState).toHaveBeenCalledWith(token);
-    expect(setWidgetEditorDraft).toHaveBeenCalledWith(token, '[]');
+    expect(setWidgetEditorDraft).toHaveBeenCalledWith(
+      token,
+      JSON.stringify({ assets: [], visibleAssets: [] }),
+    );
     expect(searchWidgetStocks).toHaveBeenCalledWith(token, 'QQQ');
     expect(saveWidgetSettings).toHaveBeenCalledWith(
       token,

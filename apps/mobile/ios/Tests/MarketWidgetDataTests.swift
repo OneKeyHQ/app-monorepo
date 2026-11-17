@@ -67,8 +67,9 @@ struct MarketWidgetDataTests {
       MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
         isNative: nil, symbol: id, name: "Stock \(id)", logoURL: nil, stockId: id)
     }
-    func encode(_ assets: [MarketWidgetAsset]) throws -> String {
-      String(decoding: try JSONEncoder().encode(assets), as: UTF8.self)
+    func encode(_ assets: [MarketWidgetAsset], visible: [MarketWidgetAsset] = []) throws -> String {
+      struct Input: Encodable { let assets: [MarketWidgetAsset]; let visibleAssets: [MarketWidgetAsset] }
+      return String(decoding: try JSONEncoder().encode(Input(assets: assets, visibleAssets: visible)), as: UTF8.self)
     }
     let qqq = stock("QQQ"), apple = stock("AAPL"), bitcoin = MarketWidgetAsset.defaults[0]
     try store.cacheLockScreenCandidates([qqq])
@@ -80,10 +81,22 @@ struct MarketWidgetDataTests {
       _ = try store.editorDraft(json: encode([qqq]), previous: [])
     }
     try store.cacheLockScreenCandidates([apple])
-    let slots = try store.editorDraft(json: encode([qqq, apple, bitcoin]), previous: draft)
+    let canceled = try store.editorDraft(json: encode([apple], visible: [qqq]), previous: draft)
+    for batch in 4..<8 { try store.cacheLockScreenCandidates((0..<100).map { stock("S\(batch)X\($0)") }) }
+    expect(canceled.map(\.id) == [qqq.id, apple.id], "A pending replacement retains the visible selection until JS accepts it")
+    _ = try store.saveSettings(json: settingsJSON(kind: .single, asset: qqq, assets: [qqq]), draftAssets: canceled)
+    expect(store.selection(kind: .single).assets.first?.id == qqq.id,
+      "Canceling a replacement after candidate eviction leaves the visible selection saveable")
+    expect(!store.permitsRequests(for: apple), "An abandoned proposal never grants quote permission")
+    let next = try store.editorDraft(json: encode([bitcoin], visible: [qqq, stock("FORGED")]), previous: canceled)
+    expect(next.map(\.id) == [qqq.id, bitcoin.id], "The next proposal drops abandoned pins and ignores unknown visible identities")
+    rejects("An abandoned proposal loses its draft trust after the next selection") {
+      _ = try store.editorDraft(json: encode([apple]), previous: next)
+    }
+    let slots = try store.editorDraft(json: encode([qqq, apple, bitcoin]), previous: canceled)
     expect(slots.map(\.id) == [qqq, apple, bitcoin].map(\.id), "Selected draft assets survive later searches in slot order")
-    expect(!store.permitsRequests(for: qqq) && !store.permitsRequests(for: apple),
-      "Draft retention does not authorize price or chart requests")
+    expect(!store.permitsRequests(for: apple),
+      "Draft retention does not authorize price or chart requests for the unsaved replacement")
     rejects("An unknown JS stock cannot enter a trusted draft") {
       _ = try store.editorDraft(json: encode([stock("FORGED")]), previous: draft)
     }

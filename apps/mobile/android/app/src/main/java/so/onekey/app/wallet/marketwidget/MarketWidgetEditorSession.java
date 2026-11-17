@@ -42,7 +42,7 @@ final class MarketWidgetEditorSession {
         }
         JSONArray draft = value.optJSONArray("draftAssets");
         if (draft != null) {
-            if (draft.length() > (single ? 1 : 3)) throw new JSONException("Invalid draft slots");
+            if (draft.length() > (single ? 2 : 6)) throw new JSONException("Invalid draft slots");
             for (int index = 0; index < draft.length(); index++) draftAssets.add(new MarketWidgetData.Asset(draft.getJSONObject(index)));
         }
     }
@@ -56,14 +56,24 @@ final class MarketWidgetEditorSession {
 
     static synchronized void retainDraft(Context context, String token, String raw) throws JSONException {
         MarketWidgetEditorSession session = requireActive(context, token);
-        if (raw.length() > 8192 || !MarketWidgetStore.canDisplay(context)) throw new IllegalArgumentException("Invalid editor draft");
-        JSONArray requested = new JSONArray(raw);
-        if (requested.length() > (session.single ? 1 : 3)) throw new IllegalArgumentException("Invalid draft slots");
+        if (raw.length() > 16384 || !MarketWidgetStore.canDisplay(context)) throw new IllegalArgumentException("Invalid editor draft");
+        JSONObject input = new JSONObject(raw);
+        JSONArray requested = input.getJSONArray("assets");
+        JSONArray visible = input.getJSONArray("visibleAssets");
+        if (requested.length() > (session.single ? 1 : 3) || visible.length() > (session.single ? 1 : 3)) {
+            throw new IllegalArgumentException("Invalid draft slots");
+        }
         List<MarketWidgetData.Asset> candidates = MarketWidgetStore.availableAssets(context, MarketWidgetStore.WATCHLIST);
         candidates.addAll(MarketWidgetStore.availableAssets(context, MarketWidgetStore.HOT));
         candidates.addAll(MarketWidgetStore.assets(context, session.widgetId, session.single));
         candidates.addAll(session.trustedAssets());
-        JSONArray draft = new JSONArray();
+        LinkedHashMap<String, MarketWidgetData.Asset> retained = new LinkedHashMap<>();
+        for (int index = 0; index < visible.length(); index++) {
+            MarketWidgetData.Asset asset = new MarketWidgetData.Asset(visible.getJSONObject(index));
+            for (MarketWidgetData.Asset candidate : candidates) {
+                if (candidate.key().equals(asset.key())) { retained.put(asset.key(), candidate); break; }
+            }
+        }
         for (int index = 0; index < requested.length(); index++) {
             MarketWidgetData.Asset asset = new MarketWidgetData.Asset(requested.getJSONObject(index));
             MarketWidgetData.Asset canonical = null;
@@ -71,8 +81,10 @@ final class MarketWidgetEditorSession {
                 if (candidate.key().equals(asset.key())) { canonical = candidate; break; }
             }
             if (canonical == null) throw new IllegalArgumentException("Unknown editor asset");
-            draft.put(canonical.json());
+            retained.put(canonical.key(), canonical);
         }
+        JSONArray draft = new JSONArray();
+        for (MarketWidgetData.Asset asset : retained.values()) draft.put(asset.json());
         JSONObject value = new JSONObject(preferences(context).getString(token, "")).put("draftAssets", draft);
         if (!preferences(context).edit().putString(token, value.toString()).commit()) throw new IllegalStateException("Could not retain draft");
         MarketWidgetLog.event("editor.draft_retained", "sessionRef", MarketWidgetLog.sessionRef(token), "slotCount", draft.length());
