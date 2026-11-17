@@ -238,6 +238,12 @@ it.each([0, 690])(
           headerRef={{ current: header }}
           stickyHeaderRef={{ current: stickyHeader }}
           active={active}
+          renderHeader={() => (
+            <>
+              <div data-testid="highlight-header">Headline</div>
+              <MarketBannerList compactTopSpacing />
+            </>
+          )}
         >
           <div data-testid="pager" data-collapsible-pager-active="true">
             <div data-testid={MarketTestIDs.bannerScrollView} />
@@ -274,6 +280,9 @@ it.each([0, 690])(
     );
     scrollHost.scrollLeft = scrollLeft;
     const expectAlignedCover = () => {
+      expect(
+        screen.getByTestId('highlight-header').closest('[aria-hidden="true"]'),
+      ).toBeTruthy();
       const cover = screen
         .getAllByTestId(MarketTestIDs.bannerScrollView)
         .find((element) => element !== scrollHost);
@@ -310,6 +319,7 @@ it.each([0, 690])(
     paintFrame();
     expect(screen.queryByTestId('banner')).toBeNull();
     expect(scrollHost.scrollLeft).toBe(scrollLeft);
+    expect(screen.queryByTestId('highlight-header')).toBeNull();
   },
 );
 

@@ -34,9 +34,13 @@ describe('web cold network fixtures', () => {
       method: 'GET',
       url: 'https://utility.onekeycn.com/utility/v1/market/highlight',
     }).entry.json.data.data;
-    const assets = highlights
-      .slice(0, 5)
-      .flatMap((item) => item.assets.slice(0, 3));
+    const assets = [
+      ...new Map(
+        highlights
+          .flatMap((item) => item.assets.slice(0, 3))
+          .map((asset) => [JSON.stringify(asset), asset]),
+      ).values(),
+    ];
     const requests = [
       {
         path: '/utility/v2/market/token/list/batch',
@@ -54,9 +58,13 @@ describe('web cold network fixtures', () => {
       {
         path: '/utility/v1/stocks/batch',
         body: {
-          stockIds: assets
-            .filter((asset) => asset.type === 'stock')
-            .map((asset) => asset.stockId),
+          stockIds: [
+            ...new Set(
+              assets
+                .filter((asset) => asset.type === 'stock')
+                .map((asset) => asset.stockId),
+            ),
+          ],
         },
       },
     ];
@@ -75,6 +83,12 @@ describe('web cold network fixtures', () => {
         }),
       ).toBe('request body not allowed for this endpoint');
     }
+    const listingRequest = {
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v1/market/asset/detail?assetId=btc&currency=usd',
+    };
+    expect(recordRefusal(listingRequest)).toBeNull();
+    expect(store.lookup(listingRequest).entry?.json.code).toBe(0);
     const perpsRequest = {
       method: 'GET',
       url: 'https://utility.onekeycn.com/utility/v2/market/perps/token-list?assetTypeVersion=3&category=all',

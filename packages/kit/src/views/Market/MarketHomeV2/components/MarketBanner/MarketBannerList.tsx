@@ -19,7 +19,6 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../testIDs';
 
@@ -260,10 +259,12 @@ export function MarketBannerLayout({
   headerRef,
   stickyHeaderRef,
   active,
+  renderHeader,
 }: PropsWithChildren<{
   headerRef: RefObject<IElement | null>;
   stickyHeaderRef: RefObject<IElement | null>;
   active: boolean;
+  renderHeader: () => ReactNode;
 }>) {
   const rootRef = useRef<IElement | null>(null);
   const coverRef = useRef<IElement | null>(null);
@@ -365,9 +366,7 @@ export function MarketBannerLayout({
           bg="$bgApp"
           aria-hidden
         >
-          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
-            <MarketBannerList />
-          </YStack>
+          {renderHeader()}
         </YStack>
       ) : null}
       <YStack

@@ -364,9 +364,11 @@ export function MarketHighlightStrip({
   const quoteAssets = useMemo(
     () =>
       carouselItems.length
-        ? carouselItems.flatMap((item) => item.assets.slice(0, 3))
+        ? (highlights ?? carouselItems).flatMap((item) =>
+            item.assets.slice(0, 3),
+          )
         : undefined,
-    [carouselItems],
+    [carouselItems, highlights],
   );
   const quotes = useMarketHighlightQuotes(quoteAssets);
   useEffect(() => {

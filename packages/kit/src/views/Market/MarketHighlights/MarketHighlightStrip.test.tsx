@@ -9,6 +9,7 @@ import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 import { MarketHighlightStrip } from './MarketHighlightStrip';
 
 const mockPushModal = jest.fn();
+const mockQuote = { price: '123', logoUrl: 'https://example.com/token.png' };
 
 type IStackProps = PropsWithChildren<{
   role?: AriaRole;
@@ -97,7 +98,13 @@ jest.mock('../MarketDetailV2/utils/marketDetailImagePreload', () => ({
   prewarmMarketTokenImages: jest.fn(),
 }));
 jest.mock('./useMarketHighlightQuotes', () => ({
-  useMarketHighlightQuotes: () => undefined,
+  useMarketHighlightQuotes: (assets?: IMarketHighlight['assets']) =>
+    new Map(
+      assets?.map((asset) => [
+        `stock:${asset.type === 'stock' ? asset.stockId : ''}`,
+        mockQuote,
+      ]),
+    ),
 }));
 
 it('keeps the visible first headline interactive throughout the carousel wrap', () => {
@@ -139,4 +146,38 @@ it('keeps the visible first headline interactive throughout the carousel wrap', 
     view.unmount();
     jest.useRealTimers();
   }
+});
+
+it('opens the details with prefetched quotes beyond the five carousel headlines', () => {
+  const items: IMarketHighlight[] = Array.from({ length: 6 }, (_, index) => ({
+    highlightId: String(index),
+    title: `Headline ${index}`,
+    description: '',
+    publishedAt: '2026-11-16T00:00:00Z',
+    assets: [
+      {
+        type: 'stock',
+        symbol: `STOCK${index}`,
+        stockId: `STOCK${index}`,
+        favorite: {
+          stockId: `STOCK${index}`,
+          chainId: '',
+          contractAddress: '',
+        },
+      },
+    ],
+    links: [],
+  }));
+  const view = render(
+    <MarketHighlightStrip highlight={items[0]} highlights={items} compact />,
+  );
+  fireEvent.click(view.getAllByRole('button')[0]);
+  expect(mockPushModal).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      params: expect.objectContaining({
+        initialQuotes: expect.arrayContaining([['stock:STOCK5', mockQuote]]),
+      }),
+    }),
+  );
 });

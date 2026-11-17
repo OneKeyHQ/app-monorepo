@@ -32,6 +32,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -60,12 +61,11 @@ import type {
   IModalMarketParamList,
 } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
+import type { FlashListRef } from '@shopify/flash-list';
 import type { ListRenderItem } from 'react-native';
 
 const MAX_CARD_ASSETS = 3;
 const ASSET_SLOT_MAX_WIDTH = 240;
-// 20px gap on each side of the 1px divider between asset slots.
-const ASSET_SLOT_SEPARATOR_WIDTH = 41;
 // Keeps the last slot's star off the card edge.
 const ASSET_ROW_TRAILING_PADDING = 10;
 
@@ -239,31 +239,24 @@ function HighlightAssetRow({
   quote,
   onPress,
   wide,
-  slotWidth,
 }: {
   asset: IMarketHighlightAsset;
   quote?: IMarketHighlightQuote;
   onPress: (asset: IMarketHighlightAsset) => void;
   wide: boolean;
-  slotWidth?: number;
 }) {
   const { favorite } = asset;
   const maxLeverage = asset.type === 'perp' ? quote?.maxLeverage : undefined;
-  let slotRowWidth: number | '100%' | undefined = '100%';
-  if (wide) {
-    slotRowWidth = slotWidth ? slotWidth + 24 : undefined;
-  }
   return (
     <XStack
       alignItems="center"
-      // Hover background bleeds 12px past the slot via negative margins, so
-      // the occupied width (and star alignment) stays at slotWidth.
-      width={slotRowWidth}
+      // Hover background extends beyond the fixed slot without changing its width.
+      alignSelf="stretch"
+      width={wide ? undefined : '100%'}
       px={wide ? '$3' : undefined}
       mx={wide ? '$-3' : undefined}
       borderRadius={wide ? '$3' : undefined}
       hoverStyle={wide ? { bg: '$bgHover' } : undefined}
-      maxWidth={wide ? ASSET_SLOT_MAX_WIDTH + 24 : undefined}
       minWidth={0}
       py={wide ? '$3' : undefined}
       gap={wide ? '$5' : '$1'}
@@ -271,7 +264,7 @@ function HighlightAssetRow({
       <XStack
         testID={`market-highlights-asset-${getMarketWatchlistKey(favorite)}`}
         role="button"
-        flex={wide && !slotWidth ? undefined : 1}
+        flex={1}
         flexShrink={1}
         minWidth={0}
         alignItems="center"
@@ -383,21 +376,6 @@ function HighlightCard({
 }) {
   const publishedAt = new Date(item.publishedAt);
   const time = formatRelativeTimeAbbr(publishedAt);
-  const [assetRowWidth, setAssetRowWidth] = useState(0);
-  // Every card splits its row into MAX_CARD_ASSETS equal slots, whatever its
-  // own asset count, so stars line up across cards.
-  const slotWidth =
-    wide && assetRowWidth > 0
-      ? Math.min(
-          ASSET_SLOT_MAX_WIDTH,
-          Math.floor(
-            (assetRowWidth -
-              ASSET_ROW_TRAILING_PADDING -
-              (MAX_CARD_ASSETS - 1) * ASSET_SLOT_SEPARATOR_WIDTH) /
-              MAX_CARD_ASSETS,
-          ),
-        )
-      : undefined;
 
   return (
     <YStack
@@ -446,37 +424,54 @@ function HighlightCard({
         alignItems={wide ? 'center' : 'stretch'}
         gap={wide ? '$5' : '$2'}
         pr={wide ? ASSET_ROW_TRAILING_PADDING : undefined}
-        onLayout={
-          wide
-            ? ({ nativeEvent }) => setAssetRowWidth(nativeEvent.layout.width)
-            : undefined
-        }
       >
-        {item.assets.slice(0, MAX_CARD_ASSETS).map((asset, index) => {
-          const identity = getMarketWatchlistKey(asset.favorite);
-          return (
-            <Fragment key={`${identity}:${index}`}>
-              {wide && index > 0 ? (
-                <Stack width={1} height={44} bg="$borderDisabled" />
-              ) : null}
-              <HighlightAssetRow
-                asset={asset}
-                quote={quotes?.get(identity)}
-                onPress={onAssetPress}
-                wide={wide}
-                slotWidth={slotWidth}
-              />
-            </Fragment>
-          );
-        })}
+        {Array.from(
+          {
+            length:
+              wide && item.assets.length > 0
+                ? MAX_CARD_ASSETS
+                : Math.min(item.assets.length, MAX_CARD_ASSETS),
+          },
+          (_, index) => {
+            const asset = item.assets[index];
+            const identity = asset
+              ? getMarketWatchlistKey(asset.favorite)
+              : 'empty';
+            return (
+              <Fragment key={`${identity}:${index}`}>
+                {wide && index > 0 ? (
+                  <Stack
+                    width={1}
+                    height={44}
+                    bg={asset ? '$borderDisabled' : undefined}
+                  />
+                ) : null}
+                <YStack
+                  flex={wide ? 1 : undefined}
+                  flexBasis={wide ? 0 : undefined}
+                  maxWidth={wide ? ASSET_SLOT_MAX_WIDTH : undefined}
+                  minWidth={0}
+                >
+                  {asset ? (
+                    <HighlightAssetRow
+                      asset={asset}
+                      quote={quotes?.get(identity)}
+                      onPress={onAssetPress}
+                      wide={wide}
+                    />
+                  ) : null}
+                </YStack>
+              </Fragment>
+            );
+          },
+        )}
       </YStack>
     </YStack>
   );
 }
 
 const LIST_EDGE_SPACING = 10;
-// When opened at a later highlight, leave the bottom of the previous card in
-// view (36px of card + the 12px gap) so it is clear there is more above.
+// Desktop leaves a preview of the previous card above the selected headline.
 const PREVIOUS_CARD_PEEK = 48;
 
 function MarketHighlightsContent() {
@@ -508,6 +503,15 @@ function MarketHighlightsContent() {
     [items],
   );
   const quotes = useMarketHighlightQuotes(assets, initialQuotes);
+  const [listHeight, setListHeight] = useState(0);
+  const [lastRowHeight, setLastRowHeight] = useState(0);
+  const [measuredFooterHeight, setMeasuredFooterHeight] = useState(0);
+  const footerHeight = platformEnv.isNative
+    ? Math.max(
+        LIST_EDGE_SPACING,
+        listHeight - lastRowHeight - LIST_EDGE_SPACING,
+      )
+    : LIST_EDGE_SPACING;
 
   // Open the list at the highlight tapped in the strip, once.
   const listRef = useRef<IListViewRef<IMarketHighlight> | null>(null);
@@ -521,22 +525,56 @@ function MarketHighlightsContent() {
   );
   const didInitialScrollRef = useRef(false);
   const scrollRetryRef = useRef(0);
-  const scrollToHighlight = useCallback((index: number) => {
-    listRef.current?.scrollToIndex({
-      index,
-      animated: false,
-      viewOffset: PREVIOUS_CARD_PEEK,
-    });
-  }, []);
+  const scrollToHighlight = useCallback(
+    (index: number) => {
+      let viewOffset = wide ? PREVIOUS_CARD_PEEK : LIST_EDGE_SPACING;
+      // FlashList adds viewOffset to the scroll position; FlatList subtracts it.
+      if (platformEnv.isNative) viewOffset = -LIST_EDGE_SPACING;
+      const list = listRef.current;
+      if (!list) return;
+      if (platformEnv.isNative) {
+        const nativeList = list as unknown as FlashListRef<IMarketHighlight>;
+        void nativeList
+          .scrollToIndex({ index, animated: false, viewOffset })
+          .then(() => {
+            if (listRef.current !== list) return;
+            const layout = nativeList.getLayout(index);
+            if (!layout) return;
+            // FlashList's index scrolling clamps to item content and excludes the
+            // footer. Use the measured offset to align headlines near the end.
+            nativeList.scrollToOffset({
+              offset:
+                layout.y + nativeList.getFirstItemOffset() - LIST_EDGE_SPACING,
+              animated: false,
+            });
+          });
+        return;
+      }
+      list.scrollToIndex({ index, animated: false, viewOffset });
+    },
+    [wide],
+  );
   useEffect(() => {
-    if (didInitialScrollRef.current || initialIndex < 1) return;
+    if (
+      didInitialScrollRef.current ||
+      initialIndex < 1 ||
+      (platformEnv.isNative &&
+        (listHeight === 0 || Math.abs(measuredFooterHeight - footerHeight) > 1))
+    )
+      return;
     // Give the list a moment to lay out its rows before scrolling.
     const timer = setTimeout(() => {
       didInitialScrollRef.current = true;
       scrollToHighlight(initialIndex);
     }, 50);
     return () => clearTimeout(timer);
-  }, [initialIndex, scrollToHighlight]);
+  }, [
+    footerHeight,
+    initialIndex,
+    listHeight,
+    measuredFooterHeight,
+    scrollToHighlight,
+  ]);
   const onScrollToIndexFailed = useCallback(
     (info: { index: number; averageItemLength: number }) => {
       // FlatList (web) can only scroll to measured rows: jump near the target
@@ -582,8 +620,16 @@ function MarketHighlightsContent() {
     [navigateToPerps, popStack, toDetailPage],
   );
   const renderItem = useCallback<ListRenderItem<IMarketHighlight>>(
-    ({ item }) => (
-      <YStack px={wide ? '$5' : '$4'} pb="$3">
+    ({ item, index }) => (
+      <YStack
+        px={wide ? '$5' : '$4'}
+        pb="$3"
+        onLayout={
+          platformEnv.isNative && index === (items?.length ?? 0) - 1
+            ? ({ nativeEvent }) => setLastRowHeight(nativeEvent.layout.height)
+            : undefined
+        }
+      >
         <HighlightCard
           item={item}
           quotes={quotes}
@@ -592,7 +638,7 @@ function MarketHighlightsContent() {
         />
       </YStack>
     ),
-    [onAssetPress, quotes, wide],
+    [items?.length, onAssetPress, quotes, wide],
   );
 
   return (
@@ -621,14 +667,36 @@ function MarketHighlightsContent() {
           </XStack>
         ) : null}
         {items?.length ? (
-          <YStack testID="market-highlights-list" flex={1} minHeight={0}>
+          <YStack
+            testID="market-highlights-list"
+            flex={1}
+            minHeight={0}
+            onLayout={
+              platformEnv.isNative
+                ? ({ nativeEvent }) => setListHeight(nativeEvent.layout.height)
+                : undefined
+            }
+          >
             <ListView
               ref={listRef}
               data={items}
               keyExtractor={(item) => item.highlightId}
               renderItem={renderItem}
               ListHeaderComponent={<Stack height={LIST_EDGE_SPACING} />}
-              ListFooterComponent={<Stack height={LIST_EDGE_SPACING} />}
+              // Allow the last headline to align below the header instead of
+              // clamping the scroll in the middle of an earlier card.
+              ListFooterComponent={
+                <Stack
+                  testID="market-highlights-list-footer"
+                  height={footerHeight}
+                  onLayout={
+                    platformEnv.isNative
+                      ? ({ nativeEvent }) =>
+                          setMeasuredFooterHeight(nativeEvent.layout.height)
+                      : undefined
+                  }
+                />
+              }
               onScrollToIndexFailed={onScrollToIndexFailed}
             />
           </YStack>

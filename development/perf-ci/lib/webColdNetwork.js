@@ -70,8 +70,13 @@ const RECORDABLE_ENDPOINTS = [
   { route: 'GET utility.onekeycn.com/utility/v1/currency/exchange-rates/map' },
   { route: 'GET utility.onekeycn.com/utility/v1/market/highlight' },
   {
+    route: 'GET utility.onekeycn.com/utility/v1/market/asset/detail',
+    query: ['assetId', 'currency'],
+    values: { assetId: /^btc$/, currency: /^usd$/ },
+  },
+  {
     route: 'POST utility.onekeycn.com/utility/v1/stocks/batch',
-    body: /^\{"stockIds":\["NVDA"\]\}$/,
+    body: /^\{"stockIds":\["NVDA"(?:,"AAPL")?\]\}$/,
   },
   {
     route: 'GET utility.onekeycn.com/utility/v1/market/tokens',

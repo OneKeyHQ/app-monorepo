@@ -138,30 +138,36 @@ export function DesktopLayout({
   const highlight = highlights?.[0];
   const hasHighlightSlot =
     Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
+  const renderBannerContent = useCallback(
+    () => (
+      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
+        {hasHighlightSlot ? (
+          <YStack
+            testID="market-highlights-slot"
+            h={MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT}
+            flexShrink={0}
+          >
+            <MarketHighlightStrip
+              highlight={highlight}
+              highlights={highlights}
+              compact={false}
+            />
+          </YStack>
+        ) : null}
+        <MarketBannerList compactTopSpacing={hasHighlightSlot} />
+      </YStack>
+    ),
+    [hasHighlightSlot, highlight, highlights],
+  );
   const containerProps = useMemo(
     () => ({
       renderHeader: () => (
         <YStack ref={bannerHeaderRef} bg="$bgApp" pointerEvents="box-none">
-          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
-            {hasHighlightSlot ? (
-              <YStack
-                testID="market-highlights-slot"
-                h={MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT}
-                flexShrink={0}
-              >
-                <MarketHighlightStrip
-                  highlight={highlight}
-                  highlights={highlights}
-                  compact={false}
-                />
-              </YStack>
-            ) : null}
-            <MarketBannerList compactTopSpacing={hasHighlightSlot} />
-          </YStack>
+          {renderBannerContent()}
         </YStack>
       ),
     }),
-    [hasHighlightSlot, highlight, highlights],
+    [renderBannerContent],
   );
 
   // Portal target for sticky column headers.
@@ -551,6 +557,7 @@ export function DesktopLayout({
         headerRef={bannerHeaderRef}
         stickyHeaderRef={stickyHeaderRef}
         active={isLayoutActive}
+        renderHeader={renderBannerContent}
       >
         <AppPager
           ref={tabsRef}
