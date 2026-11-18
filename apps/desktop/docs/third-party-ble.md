@@ -14,8 +14,9 @@ App responsibilities are limited to:
   transport retries or automatic device selection.
 
 Do not add pairing timers, WinRT decision slots, GATT retries, device address
-rewrites, or vendor scan filtering to the App module wrapper. Both the developer
-test page and normal onboarding use the same SDK implementation.
+rewrites, or vendor scan filtering to the App module wrapper. Normal onboarding
+uses the SDK implementation directly. The temporary BLE developer test page has
+been removed.
 
 ## SDK release transition
 
