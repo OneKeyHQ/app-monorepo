@@ -91,6 +91,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceStaking: {
       getEarnAssetsList: (...args: unknown[]) => mockGetEarnAssetsList(...args),
+      fetchTokenAllowance: jest
+        .fn()
+        .mockResolvedValue({ allowanceParsed: '0' }),
     },
     serviceToken: {
       fetchTokensDetails: (...args: unknown[]) =>
@@ -120,16 +123,23 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => {
     default: { ...actual.default, isBTCNetwork: () => false },
   };
 });
-jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
-  __esModule: true,
-  default: {
-    isEtherFiProvider: ({ providerName }: { providerName: string }) =>
-      providerName.toLowerCase() === 'etherfi',
-    isNativeProvider: ({ providerName }: { providerName: string }) =>
-      providerName.toLowerCase() === 'native',
-    shouldSendEarnProtocolVault: () => false,
-  },
-}));
+jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/earnUtils')
+  >('@onekeyhq/shared/src/utils/earnUtils');
+  return {
+    ...actual,
+    __esModule: true,
+    default: {
+      ...actual.default,
+      isEtherFiProvider: ({ providerName }: { providerName: string }) =>
+        providerName.toLowerCase() === 'etherfi',
+      isNativeProvider: ({ providerName }: { providerName: string }) =>
+        providerName.toLowerCase() === 'native',
+      shouldSendEarnProtocolVault: () => false,
+    },
+  };
+});
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorProviderMirror: ({
     children,

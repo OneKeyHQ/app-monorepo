@@ -35,6 +35,9 @@ jest.mock(
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  showIntercom: jest.fn(),
+}));
 
 jest.mock('@onekeyhq/shared/src/utils/messageUtils', () => ({
   autoFixPersonalSignMessage: ({ message }: { message: string }) => message,

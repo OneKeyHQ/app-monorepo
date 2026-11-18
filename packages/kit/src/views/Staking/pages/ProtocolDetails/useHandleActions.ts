@@ -73,6 +73,33 @@ export const useHandleWithdraw = (scopeKey = '') => {
       const resultAttempt = resultAttemptRef.current;
       const isResultCurrent = () =>
         isCurrent() && resultAttemptRef.current === resultAttempt;
+      if (
+        withdrawType === EStakingActionType.CancelWithdrawal &&
+        getEarnProtocol(provider).getCancelWithdrawalRoute() ===
+          'withdraw-options'
+      ) {
+        const earnAccount = protocolInfo?.earnAccount;
+        if (
+          earnAccount &&
+          (earnAccount.accountId !== accountId ||
+            earnAccount.networkId !== networkId)
+        ) {
+          return;
+        }
+        appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
+          accountId,
+          networkId,
+          protocolInfo,
+          tokenInfo,
+          symbol,
+          provider,
+          withdrawType: 'cancel',
+          onSuccess: () => {
+            if (isResultCurrent()) onSuccess?.();
+          },
+        });
+        return;
+      }
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,

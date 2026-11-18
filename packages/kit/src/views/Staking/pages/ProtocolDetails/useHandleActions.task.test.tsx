@@ -59,7 +59,7 @@ const request = {
   withdrawType: EStakingActionType.CancelWithdrawal,
   accountId: 'account-1',
   networkId: 'evm--1',
-  provider: 'etherfi',
+  provider: 'native',
   symbol: 'ETH',
 };
 
@@ -82,12 +82,12 @@ describe('cancel withdrawal confirmation', () => {
 
   it('binds a cancellation to the displayed account through the send boundary', async () => {
     const protocolInfo: IProtocolInfo = {
-      provider: 'etherfi',
+      provider: 'native',
       networkId: request.networkId,
       symbol: 'ETH',
       vault: 'vault',
       stakeTag: '',
-      providerDetail: { name: 'EtherFi', logoURI: '' },
+      providerDetail: { name: 'Native', logoURI: '' },
       earnAccount: {
         accountId: request.accountId,
         networkId: request.networkId,
