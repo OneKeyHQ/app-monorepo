@@ -237,13 +237,18 @@ const spaceValue = (token: ILayoutToken) =>
 const sizeValue = (token: ILayoutToken) =>
   getTokenValue(token, 'size') as number;
 
-// Line height of the "How it works" link, used only before its first
-// onLayout. Read from the font token so it follows the platform text scale.
+const PRIVATE_SEND_FOOTER_HELP_GAP_TOKEN = '$1';
+
+// Height of the footer help (one notice line plus the "How it works" link),
+// used only before its first onLayout. Read from the font token so it follows
+// the platform text scale.
 function getPrivateSendFooterHelpFallbackHeight() {
-  const token = getFontToken('$bodyMd');
-  return typeof token === 'object' && typeof token?.lineHeight === 'number'
-    ? token.lineHeight
-    : 20;
+  const token = getFontToken('$bodySm');
+  const lineHeight =
+    typeof token === 'object' && typeof token?.lineHeight === 'number'
+      ? token.lineHeight
+      : 16;
+  return lineHeight * 2 + spaceValue(PRIVATE_SEND_FOOTER_HELP_GAP_TOKEN);
 }
 
 // Measures a node's laid-out height. The handler is stable, so it can live in
@@ -5229,12 +5234,16 @@ function SendAmountInputContainer() {
       return null;
     }
     return (
-      <XStack
+      <YStack
         width="100%"
-        justifyContent="center"
+        alignItems="center"
+        gap={PRIVATE_SEND_FOOTER_HELP_GAP_TOKEN}
         $gtMd={{
+          // Share the footer row with the action buttons without pushing them out.
           width: 'auto',
-          justifyContent: 'flex-start',
+          flex: 1,
+          minWidth: 0,
+          alignItems: 'flex-start',
         }}
         onLayout={
           isMobilePrivateSendLayout
@@ -5242,22 +5251,49 @@ function SendAmountInputContainer() {
             : undefined
         }
       >
+        <SizableText
+          testID="private-send-third-party-notice"
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          $gtMd={{ textAlign: 'left' }}
+        >
+          {intl.formatMessage({
+            id: ETranslations.private_send_third_party_notice__desc,
+          })}
+        </SizableText>
         <DashText
           testID="private-send-how-it-works"
-          size="$bodyMd"
+          size="$bodySm"
           color="$textSubdued"
           dashColor="$textSubdued"
           dashThickness={0.5}
           cursor="pointer"
+          role="button"
           hoverStyle={{ color: '$text' }}
           pressStyle={{ opacity: 0.7 }}
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: 2,
+          }}
           onPress={() => {
             void openPrivateSendGuide();
           }}
+          {...(!platformEnv.isNative && {
+            tabIndex: 0,
+            onKeyDown: (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              event.stopPropagation();
+              void openPrivateSendGuide();
+            },
+          })}
         >
           {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
         </DashText>
-      </XStack>
+      </YStack>
     );
   }, [
     handlePrivateSendFooterHelpLayout,

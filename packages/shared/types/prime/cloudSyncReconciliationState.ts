@@ -25,6 +25,7 @@ export type ICloudSyncReconciliationPersistState = {
   spaceId: string;
   status: 'running' | 'waiting' | 'complete' | 'partial' | 'blocked';
   unfinished: boolean;
+  forceSceneReplay?: true;
   reason?: string;
   nextRetryAt?: number;
   failures: number;

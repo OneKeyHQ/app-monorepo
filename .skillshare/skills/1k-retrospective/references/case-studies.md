@@ -1716,3 +1716,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The three stats split the row equally although Top exposure holds a category plus a percentage while the other two hold single numbers. The first fix widened that column to 1:1:2, which then squeezed the count labels below the German and Spanish label widths on 375-point screens (found in review).
 **Fix**: On narrow screens show the two counts side by side and give Top exposure its own full-width row; keep the single 1:1:2 row on wider screens.
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest) — include the longest translated labels, not only English and Chinese.
+
+## Case: Address risk signal count pushed out of the risk intelligence card (OK-67493)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React component); verified on the iOS simulator in English and Chinese.
+**Symptom**: In the address risk check Risk intelligence list, a long category description such as `Fake airdrop claim, Wallet drainer, Approval phishing` left only `3` of `3 signals` / `3 个信号` visible; the rest of the count was outside the card.
+**Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
+**Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) — use the longest realistic content in each row, not only short sample text.

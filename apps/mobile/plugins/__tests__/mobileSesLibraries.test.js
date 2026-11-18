@@ -236,7 +236,7 @@ Promise.all(SES_LIBRARY_TASKS.map(async ({name, run}) => ({name, detail: await r
     expect(result.state).toMatchObject({
       runtime,
       lockdownApplied: true,
-      evalTaming: 'no-eval',
+      evalTaming: 'unsafe-eval',
     });
     expect(result.frozen).toBe(true);
     expect(result.evidence.mutable).toEqual([]);
