@@ -412,6 +412,20 @@ describe('Prime subscription loading fail states', () => {
     expect(hook.result.current.packagesFailure).toBeUndefined();
   });
 
+  it('loads Android APK store plans when the card price request fails', async () => {
+    mockIsMas = false;
+    mockIsNativeAndroid = true;
+    const storePackage = { subscriptionPeriod: 'P1Y' } as IPackage;
+    mockGetPackages.mockResolvedValue([storePackage]);
+    mockGetPackagesWebFallback.mockRejectedValue(new Error('offline'));
+
+    const { hook, error } = await loadPackages();
+
+    expect(error).toBeUndefined();
+    expect(hook.result.current.packages).toEqual([storePackage]);
+    expect(hook.result.current.packagesFailure).toBeUndefined();
+  });
+
   it('keeps a general configuration failure generic even for a CHN account', async () => {
     mockGetPackages.mockRejectedValue({
       code: '23',

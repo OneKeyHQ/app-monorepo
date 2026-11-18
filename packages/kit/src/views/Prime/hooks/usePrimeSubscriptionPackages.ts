@@ -86,8 +86,14 @@ export function usePrimeSubscriptionPackages({
         return EMPTY_PACKAGES;
       }
 
-      const pkgList = await getPackagesWebFallback?.();
-      return pkgList ?? EMPTY_PACKAGES;
+      // Optional fallback: its failure must not reject Retry or the store
+      // plans loaded beside it.
+      try {
+        const pkgList = await getPackagesWebFallback?.();
+        return pkgList ?? EMPTY_PACKAGES;
+      } catch {
+        return EMPTY_PACKAGES;
+      }
     },
     [enabled, getPackagesWebFallback, isPurchaseReady],
     {
