@@ -13,6 +13,11 @@ export interface ITradingViewNativeMultiChartPanel {
   isMain: boolean;
   /** More than one chart is on screen. */
   isSplit: boolean;
+  /**
+   * Every panel shows the first panel's token. A pick in any panel should then
+   * change the host's own source instead of calling `setSource`.
+   */
+  isSymbolSynced: boolean;
   source: ITradingViewNativeSource;
   /** Layout picker. The host places it in the first panel's controls. */
   layoutControl: ReactNode;
