@@ -26,13 +26,16 @@ function desired(entry, records, locales) {
 }
 
 // The approval covers one onekey-i18n branch and release channel. A plan
-// prepared before they were recorded has an unknown target: it may only finish
-// the PR an earlier apply opened (pulling that PR's pinned commit).
+// prepared before they were recorded has an unknown target, so apply does not
+// continue it; the PR an earlier apply opened is finished by pulling its pinned
+// commit and running verify, which checks that same commit.
 function assertTarget(plan, client, proposal) {
   if (!plan.central) {
-    if (proposal?.commit) return;
+    const script = path.join(ROOT, 'development/scripts/i18n/i18n-pull.js');
     throw new Error(
-      'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
+      proposal?.commit
+        ? `The plan predates recording its onekey-i18n branch and release channel, so apply does not continue it. To finish onekey-i18n PR #${proposal.number}, run \`node "${script}" --pr ${proposal.number} --commit ${proposal.commit} --wait\`, then \`yarn i18n:workflow verify --file <plan.json>\`. For anything else, prepare another preview.`
+        : 'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
     );
   }
   const approved = plan.central;
@@ -191,7 +194,9 @@ async function applyPlan({
       // A finished apply opened an onekey-i18n PR whose content main may not
       // have yet; the pulled local files are what can still be checked.
       if (previous.status === 'complete') {
-        assertTarget(plan, client, previous.proposal);
+        // Only re-verifies local files. A plan without a recorded target (which
+        // may have finished without a PR) can't be checked and is left as before.
+        if (plan.central) assertTarget(plan, client, previous.proposal);
         verifyLocal(plan, root);
         return previous;
       }

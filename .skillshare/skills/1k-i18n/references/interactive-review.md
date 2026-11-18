@@ -59,6 +59,8 @@ normal sync and scan, then re-import with
 `--baseline <fresh-scanned-draft.json>` for the same project. To revise earlier,
 close that PR and run `yarn i18n:pull` (latest release). It rewrites only the
 generated files, replacing the PR preview, and leaves the git index and every other
-file alone. Then sync and scan. Source/remote changes
+file alone. A plain `sync` refuses generated files that differ from git, so rebuild
+the baseline with `yarn i18n:workflow sync --verify-current --out <dir>/sync-next.json`
+and scan against it. Source/remote changes
 also require a refreshed baseline and new preview. Preserve unknown local changes;
 see [recovery](rules/i18n.md#recovery).

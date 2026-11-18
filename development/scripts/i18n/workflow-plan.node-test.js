@@ -306,7 +306,7 @@ test('apply refuses a plan approved for another onekey-i18n branch or channel, b
   assert.deepEqual(readJson(`${ctx.file}.receipt.json`), finished);
 });
 
-test('a plan that predates recorded targets may only finish the PR it opened', async (t) => {
+test('apply does not continue a plan that predates recorded targets, but re-verifies a finished one', async (t) => {
   const ctx = await prepared(t, (item) => [
     {
       key: 'global.existing',
@@ -327,11 +327,13 @@ test('a plan that predates recorded targets may only finish the PR it opened', a
       root: ctx.root,
       pullImpl: fakePull,
     });
+  const receiptFile = `${file}.receipt.json`;
   await assert.rejects(apply, /predates recording its onekey-i18n branch/);
   assert.equal(ctx.writes.length, 0);
-  assert(!fs.existsSync(`${file}.receipt.json`));
+  assert(!fs.existsSync(receiptFile));
 
-  writeJson(`${file}.receipt.json`, {
+  // An open PR is finished with a pinned pull and verify, not by apply.
+  const opened = {
     schemaVersion: 1,
     kind: 'i18n-receipt',
     approval: legacy.approval,
@@ -339,11 +341,19 @@ test('a plan that predates recorded targets may only finish the PR it opened', a
     failedStage: 'pulling',
     operations: [],
     proposal: { number: 9, commit: 'c2' },
-  });
-  ctx.client.project = async () => {
-    throw new Error('reached the preflight');
   };
-  await assert.rejects(apply, /reached the preflight/);
+  writeJson(receiptFile, opened);
+  await assert.rejects(
+    apply,
+    /To finish onekey-i18n PR #9, run `node "[^"]*i18n-pull\.js" --pr 9 --commit c2 --wait`, then `yarn i18n:workflow verify/,
+  );
+  assert.deepEqual(readJson(receiptFile), opened);
+
+  // A finished one, even without a PR, is re-verified as before.
+  assert.equal((await ctx.apply()).status, 'complete');
+  const finished = { approval: legacy.approval, status: 'complete' };
+  writeJson(receiptFile, finished);
+  assert.deepEqual(await apply(), finished);
 });
 
 test('a failed preflight leaves the receipt of an earlier apply as it was', async (t) => {
