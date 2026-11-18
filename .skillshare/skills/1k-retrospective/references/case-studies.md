@@ -1717,13 +1717,6 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: On narrow screens show the two counts side by side and give Top exposure its own full-width row; keep the single 1:1:2 row on wider screens.
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest) — include the longest translated labels, not only English and Chinese.
 
-## Case: Web translation setting labels truncated (OK-67494)
-**Date**: 2026-11-17 | **Platforms**: All clients with the in-app browser (shared hook); verified on the iOS simulator in English.
-**Symptom**: In the in-app browser Web translation settings, segment labels were cut off in English, e.g. `Standard transl…` and `Follow app lang…`; longer locales such as German and Portuguese are affected as well.
-**Root Cause**: Each segment item reserved `$5` horizontal padding on both sides, leaving too little width for two-word labels inside a half-width segment.
-**Fix**: Reduce the segment item horizontal padding to `$2`.
-**Catchable by**: Section 3: UI changes verified on mobile (narrowest) — include the longest translated labels.
-
 ## Case: Address risk signal count pushed out of the risk intelligence card (OK-67493)
 **Date**: 2026-11-17 | **Platforms**: All clients (shared React component); verified on the iOS simulator in English and Chinese.
 **Symptom**: In the address risk check Risk intelligence list, a long category description such as `Fake airdrop claim, Wallet drainer, Approval phishing` left only `3` of `3 signals` / `3 个信号` visible; the rest of the count was outside the card.
