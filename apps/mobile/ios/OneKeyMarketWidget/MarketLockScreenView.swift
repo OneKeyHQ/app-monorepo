@@ -12,7 +12,7 @@ struct MarketLockScreenView: View {
 
   private var locale: Locale { Locale(identifier: entry.configuration?.locale ?? "en-US") }
   private var isMasked: Bool { entry.configuration == nil || entry.configuration?.privacyMasked == true }
-  private var row: MarketWidgetRow? { isMasked ? nil : entry.rows.first?.withFreshLockScreenQuote() }
+  private var row: MarketWidgetRow? { isMasked ? nil : entry.rows.first }
 
   var body: some View {
     content
@@ -42,22 +42,12 @@ struct MarketLockScreenView: View {
       if isMasked || entry.rows.isEmpty {
         unavailable
       } else {
-        ForEach(Array(entry.rows.prefix(3).map { $0.withFreshLockScreenQuote() }.enumerated()), id: \.offset) { _, item in
-          HStack(spacing: 4) {
-            Text(symbol(item))
-              .lineLimit(1).minimumScaleFactor(0.75)
-              .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 2) {
-              direction(item, size: 8)
-              Text(price(item))
-                .lineLimit(1).minimumScaleFactor(0.65).monospacedDigit()
-            }
-            .layoutPriority(1)
-          }
-          .font(.system(size: 12, weight: .medium))
-          .frame(maxHeight: .infinity)
-          .accessibilityElement(children: .ignore)
-          .accessibilityLabel(accessibilityLabel(item))
+        ForEach(Array(entry.rows.prefix(3).enumerated()), id: \.offset) { _, item in
+          priceLine(item)
+            .font(.system(size: 12, weight: .medium))
+            .frame(maxHeight: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel(item))
         }
       }
     }
@@ -76,7 +66,11 @@ struct MarketLockScreenView: View {
           Text(price(row, compact: true))
             .font(.system(size: 12, weight: .medium))
             .lineLimit(1).minimumScaleFactor(0.6).monospacedDigit()
-          direction(row, size: 8)
+          if let date = row.lockScreenCacheDate(at: entry.date) {
+            cacheTimestamp(date, size: 9)
+          } else {
+            direction(row, size: 8)
+          }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(row))
@@ -88,10 +82,15 @@ struct MarketLockScreenView: View {
     VStack(alignment: .leading, spacing: 5) {
       if let row {
         HStack(spacing: 3) {
-          direction(row, size: 10)
-          Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.65)
-          Text(MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale))
-            .lineLimit(1).minimumScaleFactor(0.75).monospacedDigit()
+          if let date = row.lockScreenCacheDate(at: entry.date) {
+            Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.65)
+            cacheTimestamp(date, size: 11)
+          } else {
+            direction(row, size: 10)
+            Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.65)
+            Text(MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale))
+              .lineLimit(1).minimumScaleFactor(0.75).monospacedDigit()
+          }
         }
         .font(.system(size: 13, weight: .medium))
         Text(price(row, currency: true, fixedDecimals: true))
@@ -108,19 +107,11 @@ struct MarketLockScreenView: View {
   private var chart: some View {
     VStack(spacing: 5) {
       if let row {
-        HStack(spacing: 4) {
-          Text(symbol(row))
-            .lineLimit(1).minimumScaleFactor(0.7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          HStack(spacing: 2) {
-            direction(row, size: 8)
-            Text(price(row, currency: true))
-              .lineLimit(1).minimumScaleFactor(0.65).monospacedDigit()
-          }
-          .layoutPriority(1)
-        }
-        .font(.system(size: 13, weight: .medium))
-        .frame(height: 16)
+        priceLine(row, currency: true)
+          .font(.system(size: 13, weight: .medium))
+          .frame(height: 16)
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel(accessibilityLabel(row))
         if let points = row.quote?.plotPoints, MarketLockScreenChartGeometry.isValid(points) {
           MarketLockScreenChart(points: points)
             .accessibilityLabel(localized(row.asset.kind == .stock ? "market_widget_stock_chart__desc" : "market_widget_chart__desc"))
@@ -157,6 +148,31 @@ struct MarketLockScreenView: View {
       currency: currency, compact: compact, fixedDecimals: fixedDecimals)
   }
 
+  private func priceLine(_ row: MarketWidgetRow, currency: Bool = false) -> some View {
+    let cachedDate = row.lockScreenCacheDate(at: entry.date)
+    return HStack(spacing: 4) {
+      Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.7)
+      if let cachedDate { cacheTimestamp(cachedDate, size: 9) }
+      Spacer(minLength: 0)
+      HStack(spacing: 2) {
+        if cachedDate == nil { direction(row, size: 8) }
+        Text(price(row, currency: currency)).lineLimit(1).minimumScaleFactor(0.65).monospacedDigit()
+      }
+      .layoutPriority(1)
+    }
+  }
+
+  private func cacheTimestamp(_ date: Date, size: CGFloat) -> some View {
+    let sameDay = Calendar.current.isDate(date, inSameDayAs: entry.date)
+    let format = Date.FormatStyle(date: sameDay ? .omitted : .numeric,
+      time: sameDay ? .shortened : .omitted, locale: locale)
+    return HStack(spacing: 2) {
+      Image(systemName: "clock")
+      Text(date, format: format).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+    }
+    .font(.system(size: size, weight: .medium))
+  }
+
   @ViewBuilder private func direction(_ row: MarketWidgetRow, size: CGFloat) -> some View {
     if row.quote?.marketClosed == true {
       Image(systemName: "moon.fill").font(.system(size: size))
@@ -174,20 +190,16 @@ struct MarketLockScreenView: View {
 
   private func accessibilityLabel(_ row: MarketWidgetRow) -> String {
     let change = MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale)
-    if row.asset.kind == .stock {
-      var parts = [symbol(row), localized("market_widget_usd_price__desc", arguments: [price(row, fixedDecimals: style == .price)]), change]
-      if row.quote?.marketClosed == true { parts.append(localized("market_widget_market_closed__title")) }
-      if let date = row.quote?.priceUpdatedAt {
-        let formatter = DateFormatter()
-        formatter.locale = locale
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        parts.append(formatter.string(from: date))
-      }
-      return parts.joined(separator: ", ")
-    }
-    return localized(row.failed ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
+    guard row.quote != nil else { return "\(symbol(row)), \(unavailableLabel)" }
+    let cachedDate = row.lockScreenCacheDate(at: entry.date)
+    let description = localized(cachedDate == nil ? "market_widget_quote__desc" : "market_widget_quote_cached__desc",
       arguments: [symbol(row), price(row, fixedDecimals: style == .price), change])
+    var parts = [description]
+    if row.quote?.marketClosed == true { parts.append(localized("market_widget_market_closed__title")) }
+    if let date = cachedDate ?? row.quote?.priceUpdatedAt {
+      parts.append(date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale)))
+    }
+    return parts.joined(separator: ", ")
   }
 }
 

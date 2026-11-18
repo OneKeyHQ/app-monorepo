@@ -137,6 +137,7 @@ enum MarketWidgetConfigurationState {
 }
 
 struct MarketWidgetQuote: Codable {
+  static let chartLifetime: TimeInterval = 3600
   let asset: MarketWidgetAsset
   let price: String
   let change24h: String?
@@ -179,7 +180,7 @@ struct MarketWidgetQuote: Codable {
   func withFreshChart(at now: Date = Date()) -> MarketWidgetQuote {
     var quote = self
     if asset.kind == .stock {
-      if fetchedAt > now.addingTimeInterval(60) || now.timeIntervalSince(fetchedAt) >= 3600 {
+      if fetchedAt > now.addingTimeInterval(60) || now.timeIntervalSince(fetchedAt) >= Self.chartLifetime {
         quote.stockSparkline = nil
       }
       return quote
@@ -187,7 +188,7 @@ struct MarketWidgetQuote: Codable {
     guard let chart, chart.count >= 12,
           let first = chart.first, let last = chart.last, last.timestamp - first.timestamp >= 18 * 3600,
           let chartFetchedAt, chartFetchedAt <= now.addingTimeInterval(60),
-          now.timeIntervalSince(chartFetchedAt) < 3600 else {
+          now.timeIntervalSince(chartFetchedAt) < Self.chartLifetime else {
       quote.chart = nil
       quote.chartFetchedAt = nil
       return quote

@@ -16,7 +16,7 @@ struct MarketLockScreenTests {
     try await checkChartRequests()
     try await checkPrivacyDuringRequest()
     try await checkEmptySelection()
-    try await checkExpiredQuotes()
+    try await checkCachedQuotes()
     print("MarketLockScreenTests: \(checks) checks passed")
   }
 
@@ -172,7 +172,7 @@ struct MarketLockScreenTests {
     expect(LockScreenURLProtocol.requests.isEmpty, "An empty selection does not start market requests")
   }
 
-  private static func checkExpiredQuotes() async throws {
+  private static func checkCachedQuotes() async throws {
     let fixture = try LockScreenFixture()
     defer { fixture.close() }
     let asset = MarketWidgetAsset.defaults[0]
@@ -181,20 +181,59 @@ struct MarketLockScreenTests {
     try fixture.store.saveQuote(MarketWidgetQuote(asset: asset, price: "123.45", change24h: "2.5",
       fetchedAt: now.addingTimeInterval(-7 * 86400)))
     let snapshot = MarketLockScreenTimeline.snapshot(assets: [asset], isWatchlist: false, store: fixture.store, at: now)
-    expect(snapshot.rows.first?.quote == nil && snapshot.rows.first?.failed == true,
-      "A snapshot cannot present a seven-day-old quote as current")
+    let cached = snapshot.rows[0]
+    expect(cached.quote?.price == "123.45" && cached.lockScreenCacheDate(at: now) == cached.quote?.fetchedAt,
+      "A seven-day-old snapshot retains the price and identifies the time of the last quote")
     LockScreenURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
     for chart in [false, true] {
       let timeline = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
         includingChart: chart, store: fixture.store, service: fixture.service)
-      expect(timeline.entries.first?.rows.first?.quote == nil, "Offline price and chart widgets hide expired quotes")
+      expect(timeline.entries.allSatisfy { $0.rows[0].quote?.price == "123.45" && $0.rows[0].failed },
+        "An offline refresh keeps the cached price")
     }
-    try fixture.store.saveQuote(MarketWidgetQuote(asset: asset, price: "123.45", change24h: "2.5", fetchedAt: now))
-    let timeline = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
+    let missing = MarketWidgetAsset.defaults[1]
+    let offline = await MarketLockScreenTimeline.timeline(assets: [asset, missing], isWatchlist: true,
       includingChart: false, store: fixture.store, service: fixture.service)
-    expect(timeline.entries.first?.rows.first?.quote != nil, "A recent cached quote remains usable offline")
-    expect(timeline.entries.last?.rows.first?.quote == nil && timeline.entries.count == 2,
-      "A local expiry entry hides the quote even if the system never runs another network refresh")
+    expect(offline.entries[0].rows.map { $0.quote?.price } == ["123.45", nil],
+      "A failed watchlist slot cannot borrow another asset's cached price")
+    let recent = now.addingTimeInterval(-6 * 60)
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: asset, price: "222", change24h: nil, fetchedAt: recent))
+    let failed = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
+      includingChart: false, store: fixture.store, service: fixture.service)
+    expect(failed.entries[0].rows[0].lockScreenCacheDate(at: now) == recent,
+      "A failed refresh marks even a six-minute-old quote as cached")
+    LockScreenURLProtocol.configure { try response($0) }
+    let refreshed = await MarketLockScreenTimeline.timeline(assets: [asset], isWatchlist: false,
+      includingChart: true, store: fixture.store, service: fixture.service)
+    let first = refreshed.entries[0]
+    let row = first.rows[0]
+    expect(row.quote?.price == "77000.12" && row.lockScreenCacheDate(at: first.date) == nil,
+      "A successful refresh replaces the cached quote and clears its marker")
+    let quote = row.quote!
+    let staleAt = quote.fetchedAt.addingTimeInterval(15 * 60)
+    let stale = refreshed.entries.first { $0.date == staleAt }
+    expect(stale?.rows[0].quote?.price == quote.price && stale?.rows[0].lockScreenCacheDate(at: staleAt) == quote.fetchedAt,
+      "The local 15-minute entry marks the price as cached without a blank frame")
+    let chartExpiry = quote.chartFetchedAt!.addingTimeInterval(3600)
+    let expiredChart = refreshed.entries.first { $0.date == chartExpiry }
+    expect(expiredChart != nil && expiredChart?.rows[0].quote?.chart == nil &&
+      refreshed.entries.allSatisfy { $0.rows[0].quote?.price == quote.price },
+      "An expired chart disappears independently of the last valid price")
+    if let midnight = Calendar.current.dateInterval(of: .day, for: quote.fetchedAt)?.end, midnight > staleAt {
+      expect(refreshed.entries.contains { $0.date == midnight }, "Cached times switch to dates at local midnight")
+    }
+    expect(LockScreenURLProtocol.requests.count == 2, "Future presentation entries add no price or chart requests")
+    let second = MarketWidgetAsset.defaults[1]
+    let fetched = Date().addingTimeInterval(-30)
+    try fixture.store.saveQuote(MarketWidgetQuote(asset: second, price: "2200.34", change24h: nil, fetchedAt: fetched))
+    let delayed = await MarketLockScreenTimeline.timeline(assets: [second, asset], isWatchlist: true,
+      includingChart: false, store: fixture.store, service: fixture.service)
+    let boundary = fetched.addingTimeInterval(900)
+    let mixed = delayed.entries.first { $0.date == boundary }
+    expect(mixed?.rows.map { $0.quote?.price } == ["2200.34", "77000.12"] &&
+      mixed?.rows.map { $0.lockScreenCacheDate(at: boundary) } == [fetched, nil],
+      "A 30-second cache hit reaches its own 15-minute boundary without blanking either list price")
+    expect(LockScreenURLProtocol.requests.count == 2, "A second timeline can reuse both cached prices")
   }
 
   private static func assetID(_ request: URLRequest) -> String? {
