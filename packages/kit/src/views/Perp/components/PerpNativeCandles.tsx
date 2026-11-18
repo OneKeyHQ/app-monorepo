@@ -105,7 +105,8 @@ const getDefaultPanelSource: ITradingViewNativeMultiChartProps['getDefaultPanelS
 
 // An extra split-view panel: any token's candles with the account's lines and
 // fills for it, read-only. Trading stays with the first panel; drawing tools
-// are available whenever the first panel has them.
+// are available whenever the first panel has them. While the split view syncs
+// its token, the panel shows the trade instrument and a pick switches it.
 function PerpNativePanelCandles({
   enableDrawings,
   mainSource,
@@ -117,7 +118,7 @@ function PerpNativePanelCandles({
 }) {
   const intl = useIntl();
   const actions = useHyperliquidActions();
-  const { id, setSource, source } = panel;
+  const { id, isSymbolSynced, setSource, source } = panel;
   const coin = source.kind === 'hyperliquid' ? source.coin : '';
   const { display, instrument } = usePerpsChartPanelInstrument(coin);
   const { chartComponents: lines } = usePerpsNativeChartLines(
@@ -170,19 +171,22 @@ function PerpNativePanelCandles({
         <PerpChartTokenSelector
           testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${id}`}
           display={display}
-          onSelectToken={handleSelectToken}
+          onSelectToken={isSymbolSynced ? undefined : handleSelectToken}
         />
       }
       nativeControlsTrailing={
-        <IconButton
-          testID={`${PerpTestIDs.NativeChartPanelTrade}-${id}`}
-          size="small"
-          variant="tertiary"
-          icon="SwitchHorOutline"
-          iconSize="$5"
-          title={intl.formatMessage({ id: ETranslations.global_trade })}
-          onPress={handleTrade}
-        />
+        // Nothing to swap while every panel shows the trade instrument.
+        isSymbolSynced ? undefined : (
+          <IconButton
+            testID={`${PerpTestIDs.NativeChartPanelTrade}-${id}`}
+            size="small"
+            variant="tertiary"
+            icon="SwitchHorOutline"
+            iconSize="$5"
+            title={intl.formatMessage({ id: ETranslations.global_trade })}
+            onPress={handleTrade}
+          />
+        )
       }
     />
   );
