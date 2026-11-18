@@ -13,6 +13,8 @@ import {
   useSwapStockChannel,
 } from '../../hooks/useSwapStockChannel';
 
+import { useSwapHistoryChannelIntent } from './SwapHistoryTradeAgainContext';
+
 const SwapStockTradeContext = createContext<
   IUseSwapStockChannelReturn | undefined
 >(undefined);
@@ -27,10 +29,12 @@ export function SwapStockTradeProvider({
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeToken?: ISwapToken;
 }>) {
+  const historyIntent = useSwapHistoryChannelIntent();
   const stockChannel = useSwapStockChannel(
     stockSpeedConfig,
     stockTradeToken,
     storeName,
+    historyIntent,
   );
 
   return (

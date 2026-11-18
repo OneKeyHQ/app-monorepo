@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
   Progress,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -20,18 +21,21 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { AssetItem } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails';
 import {
+  settingsAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import type {
+import {
   EModalSwapRoutes,
-  IModalSwapParamList,
+  type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
@@ -59,12 +63,18 @@ import {
 } from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
+import { buildLimitOrderTradeAgainParams } from '../../utils/swapHistoryTradeAgain';
+import { waitForSwapHistoryRecipientReset } from '../../utils/waitForSwapHistoryRecipientReset';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import { SwapHistoryFooter } from './SwapHistoryFooter';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const LimitOrderDetailModal = () => {
+  const navigation = useAppNavigation();
+  const routeNavigation = useNavigation();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.LimitOrderDetail>
@@ -78,6 +88,17 @@ const LimitOrderDetailModal = () => {
     swapLimitOrdersAccountIdKey,
   );
   const [orderItemState, setOrderItemState] = useState(orderItem);
+  const tradeAgainPendingRef = useRef(false);
+  const cancelTradeAgainResetRef = useRef<() => void>(undefined);
+  useEffect(() => {
+    const unsubscribe = routeNavigation.addListener('blur', () => {
+      cancelTradeAgainResetRef.current?.();
+    });
+    return () => {
+      unsubscribe();
+      cancelTradeAgainResetRef.current?.();
+    };
+  }, [routeNavigation]);
   const limitOrderUpdate = useMemo(
     () =>
       shouldShowSwapLimitOrders
@@ -87,6 +108,69 @@ const LimitOrderDetailModal = () => {
   );
   const { gtMd } = useMedia();
   const intl = useIntl();
+  const tradeAgainParams = useMemo(
+    () =>
+      shouldShowSwapLimitOrders
+        ? buildLimitOrderTradeAgainParams(orderItemState)
+        : undefined,
+    [orderItemState, shouldShowSwapLimitOrders],
+  );
+  const latestTradeAgainParamsRef = useRef(tradeAgainParams);
+  latestTradeAgainParamsRef.current = tradeAgainParams;
+  const onTradeAgainFromSource = route.params?.onTradeAgain;
+  const onTradeAgain = useCallback(() => {
+    if (!tradeAgainParams || !orderItemState || tradeAgainPendingRef.current)
+      return;
+    tradeAgainPendingRef.current = true;
+    void (async () => {
+      let navigated = false;
+      try {
+        defaultLogger.swap.swapHistoryTradeAgain.swapHistoryTradeAgainClick({
+          status: orderItemState.status,
+          swapType: 'limit',
+          fromTokenSymbol: tradeAgainParams.importFromToken.symbol,
+          fromNetworkId: tradeAgainParams.importFromToken.networkId,
+          toTokenSymbol: tradeAgainParams.importToToken.symbol,
+          toNetworkId: tradeAgainParams.importToToken.networkId,
+          source: 'limitOrderDetail',
+        });
+        const reset = waitForSwapHistoryRecipientReset({
+          reset: () =>
+            settingsAtom.set((previous) => ({
+              ...previous,
+              swapToAnotherAccountSwitchOn: false,
+            })),
+          readIsEnabled: async () =>
+            (await settingsAtom.get()).swapToAnotherAccountSwitchOn,
+          subscribe: (callback) => settingsAtom.sub(callback),
+        });
+        cancelTradeAgainResetRef.current = reset.cancel;
+        const ready = await reset.promise;
+        const latest = latestTradeAgainParamsRef.current;
+        if (!ready || !routeNavigation.isFocused() || !latest) return;
+        if (onTradeAgainFromSource?.(latest)) navigation.popStack();
+        else navigation.replace(EModalSwapRoutes.SwapMainLand, latest);
+        navigated = true;
+      } catch {
+        if (routeNavigation.isFocused())
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+      } finally {
+        cancelTradeAgainResetRef.current = undefined;
+        if (!navigated) tradeAgainPendingRef.current = false;
+      }
+    })();
+  }, [
+    intl,
+    navigation,
+    onTradeAgainFromSource,
+    orderItemState,
+    routeNavigation,
+    tradeAgainParams,
+  ]);
   useEffect(() => {
     if (!shouldShowSwapLimitOrders) {
       if (orderItemState) {
@@ -767,15 +851,11 @@ const LimitOrderDetailModal = () => {
         })}
       />
       <Page.Body>{renderLimitOrderDetails()}</Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_support,
-        })}
-        confirmButtonProps={{
-          icon: 'BubbleAnnotationOutline',
-          variant: 'secondary',
-        }}
-        onConfirm={() => {
+      <SwapHistoryFooter
+        canTradeAgain={Boolean(tradeAgainParams)}
+        hasSupport
+        onTradeAgain={onTradeAgain}
+        onSupport={() => {
           void showIntercom();
         }}
       />

@@ -398,7 +398,7 @@ it('preserves shared help defaults when Dust options are absent or removed', () 
 });
 
 it.each([true, false])(
-  'estimates the receive amount from the selection and shows the configured provider (desktop=%s)',
+  'estimates the receive amount without showing the configured provider (desktop=%s)',
   (desktop) => {
     render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
 
@@ -406,10 +406,11 @@ it.each([true, false])(
     expect(screen.getByText('0.01 ETH')).toBeTruthy();
     expect(screen.getByText('$10.00')).toBeTruthy();
     expect(screen.queryByTestId('dust-sweep-result-estimate-help')).toBeNull();
-    expect(screen.getByText(configuredProvider.providerName)).toBeTruthy();
-    expect(screen.getByTestId('provider-icon').getAttribute('data-uri')).toBe(
-      configuredProvider.logo,
-    );
+    expect(screen.queryByText(configuredProvider.providerName)).toBeNull();
+    expect(screen.queryByTestId('dust-sweep-provider')).toBeNull();
+    expect(
+      screen.getByText(ETranslations.slippage_tolerance_title),
+    ).toBeTruthy();
     expect(screen.getByTestId('dust-sweep-action').textContent).toBe(
       'button_convert_tokens_estimated_amount:1:$10.00',
     );
@@ -427,16 +428,14 @@ it('shows the receive estimate as unavailable when the native price is zero', ()
 });
 
 it.each([true, false])(
-  'shows configured provider metadata with no selected token and formats zero fiat (desktop=%s)',
+  'hides provider metadata with no selected token and formats zero fiat (desktop=%s)',
   (desktop) => {
     mockSelected = [];
     mockSelectedValueUsd = '0';
     render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
 
-    expect(screen.getByText(configuredProvider.providerName)).toBeTruthy();
-    expect(screen.getByTestId('provider-icon').getAttribute('data-uri')).toBe(
-      configuredProvider.logo,
-    );
+    expect(screen.queryByText(configuredProvider.providerName)).toBeNull();
+    expect(screen.queryByTestId('dust-sweep-provider')).toBeNull();
     expect(screen.getByText('0 ETH')).toBeTruthy();
     expect(screen.getByText('$0.00')).toBeTruthy();
     expect(screen.getByTestId('dust-sweep-action').textContent).toContain(
@@ -459,16 +458,16 @@ it.each(['loading', 'error'] as const)(
     expect(screen.queryByTestId('provider-icon')).toBeNull();
     if (status === 'loading')
       expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
-    else expect(screen.getByText('--')).toBeTruthy();
+    expect(screen.queryByTestId('dust-sweep-provider')).toBeNull();
   },
 );
 
-it('keeps the empty provider placeholder when the list does not contain metadata', () => {
+it('does not show a provider placeholder when metadata is missing', () => {
   mockSelected = [];
   mockProviderInfo = undefined;
   render(<DustSweepSummary desktop onDetails={jest.fn()} />);
 
-  expect(screen.getByText('--')).toBeTruthy();
+  expect(screen.queryByText('--')).toBeNull();
   expect(screen.queryByTestId('provider-icon')).toBeNull();
 });
 
