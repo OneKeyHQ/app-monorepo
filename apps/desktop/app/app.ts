@@ -1278,6 +1278,9 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     },
   );
   overlaySession.setDevicePermissionHandler(() => false);
+  // Block all file downloads initiated from untrusted notification/deeplink
+  // overlay pages to prevent drive-by downloads. Clear prior listeners first
+  // so MAS soft restarts do not stack duplicate handlers on the persistent session.
   overlaySession.removeAllListeners('will-download');
   overlaySession.on('will-download', (event) => {
     event.preventDefault();
@@ -1447,7 +1450,11 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     if (permission === 'media') return true;
     return WEBVIEW_ALLOWED_PERMISSIONS.has(permission);
   });
+  // Deny direct WebUSB / WebHID / WebSerial device access from DApp webviews
+  // so pages cannot bypass background hardware-wallet services.
   webviewSession.setDevicePermissionHandler(() => false);
+  // Block automatic (drive-by) downloads that lack an explicit user gesture,
+  // while still allowing user-initiated exports (e.g. CSV/receipt downloads).
   webviewSession.removeAllListeners('will-download');
   webviewSession.on('will-download', (event, item) => {
     if (!item.hasUserGesture()) {
