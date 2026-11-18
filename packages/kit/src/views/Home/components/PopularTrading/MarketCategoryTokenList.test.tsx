@@ -7,7 +7,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 
-import type { IPopularTradingRowContainerProps } from './PopularTradingRowContainer';
 import type { IFavoriteTokenDisplay } from './types';
 import type { GestureResponderEvent, PressableProps } from 'react-native';
 
@@ -113,22 +112,6 @@ jest.mock(
     ),
   }),
 );
-jest.mock('./PopularTradingRowContainer', () => {
-  const webModule = jest.requireActual<
-    typeof import('./PopularTradingRowContainer')
-  >('./PopularTradingRowContainer');
-  const nativeModule = jest.requireActual<
-    typeof import('./PopularTradingRowContainer.native')
-  >('./PopularTradingRowContainer.native');
-  return {
-    PopularTradingRowContainer: (props: IPopularTradingRowContainerProps) =>
-      platformEnv.isNative ? (
-        <nativeModule.PopularTradingRowContainer {...props} />
-      ) : (
-        <webModule.PopularTradingRowContainer {...props} />
-      ),
-  };
-});
 jest.mock('./metricColumns', () => {
   const actual =
     jest.requireActual<typeof import('./metricColumns')>('./metricColumns');
