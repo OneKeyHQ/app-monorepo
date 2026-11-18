@@ -233,6 +233,19 @@ export default function PrimeMyOrders() {
                 />
               ) : null
             }
+            ListFooterComponent={
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+                pt="$4"
+                px="$2"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.prime_orders_last_6_months__desc,
+                })}
+              </SizableText>
+            }
             contentContainerStyle={{
               px: gtMd ? 60 : 20,
               pb: '$4',
