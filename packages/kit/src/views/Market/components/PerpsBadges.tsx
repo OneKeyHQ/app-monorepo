@@ -457,6 +457,30 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   },
 };
 
+export function USStockMarketStatusIcon() {
+  const intl = useIntl();
+  const status = useUSMarketStatus();
+  if (!status || status.unavailable) return null;
+  const variant = resolveUSMarketStatusVariant({
+    isUSListing: true,
+    isOpen: status.open,
+    status,
+  });
+  if (!variant) return null;
+  const chip = STOCK_MARKET_STATUS_CHIPS[variant];
+  return (
+    <Icon
+      testID="us-stock-market-status-icon"
+      name={chip.icon}
+      size="$4"
+      color={chip.color}
+      accessibilityLabel={
+        chip.titleId ? intl.formatMessage({ id: chip.titleId }) : chip.title
+      }
+    />
+  );
+}
+
 /**
  * Market status chip for tokenized stocks of every issuer (see OK-58043).
  * The chip describes the underlying market only; it does not determine
