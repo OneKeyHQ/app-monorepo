@@ -51,9 +51,10 @@ const createOffscreenApiModule = memoizee(
     switch (name) {
       case 'hardwareSDKLowLevel':
         if (!HardwareLowLevelSDK) {
-          HardwareLowLevelSDK = await (
-            await import('@onekeyhq/shared/src/hardware/sdk-loader')
-          ).importHardwareSDKLowLevel();
+          // Core and WebUSB belong to this document, outside the service worker.
+          HardwareLowLevelSDK = (
+            await import('@onekeyfe/hd-common-connect-sdk')
+          ).HardwareSDKLowLevel;
           registerHardwareGlobalEventListener();
         }
         return HardwareLowLevelSDK;
@@ -87,16 +88,20 @@ const callOffscreenApiMethodBase =
   );
 
 const callOffscreenApiMethod = async (message: IOffscreenApiMessagePayload) => {
-  const result: unknown = await callOffscreenApiMethodBase(message);
   const params = Array.isArray(message.params) ? message.params : [];
   const didClearAllHardwareListeners =
     message.module === 'hardwareSDKLowLevel' &&
     (message.method === 'dispose' ||
       (message.method === 'removeAllListeners' && params.length === 0));
-  if (didClearAllHardwareListeners) {
-    registerHardwareGlobalEventListener();
+  try {
+    const result: unknown = await callOffscreenApiMethodBase(message);
+    return result;
+  } finally {
+    // Local Core clears listeners before awaiting transport disposal.
+    if (didClearAllHardwareListeners && HardwareLowLevelSDK) {
+      registerHardwareGlobalEventListener();
+    }
   }
-  return result;
 };
 
 export default {
