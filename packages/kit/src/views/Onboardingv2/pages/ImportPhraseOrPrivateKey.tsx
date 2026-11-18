@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -24,6 +25,7 @@ import {
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -31,12 +33,10 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2ImportPhraseOrPrivateKeyTab,
 } from '@onekeyhq/shared/src/routes';
-import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useRecoveryPhraseProtected from '../../../hooks/useRecoveryPhraseProtected';
-import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import useScanQrCodeLazy from '../../ScanQrCode/hooks/useScanQrCodeLazy';
 import {
   OnboardingHeading,
@@ -54,7 +54,11 @@ import type {
   TextInputSelectionChangeEvent,
 } from 'react-native';
 
-function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
+function PrivateKeyInput({
+  value = '',
+  onChangeText,
+  onSubmitEditing,
+}: ITextAreaInputProps) {
   const intl = useIntl();
   useRecoveryPhraseProtected({ dialogType: 'sensitiveInformation' });
   const [privateKey, setPrivateKey] = useState(value);
@@ -186,6 +190,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   return (
     <TextAreaInput
       ref={inputRef as RefObject<TextInputInstance>}
+      testID={OnboardingTestIDs.importPrivateKeyInput}
       allowPaste
       allowScan
       addOns={eyeToggleAddOn}
@@ -196,6 +201,10 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
       numberOfLines={5}
       value={formattedValue}
       onChangeText={handleChangeText}
+      returnKeyType="done"
+      submitBehavior={platformEnv.isNative ? 'blurAndSubmit' : undefined}
+      blurOnSubmit={platformEnv.isNative ? undefined : true}
+      onSubmitEditing={onSubmitEditing}
       $platform-native={{
         minHeight: 160,
       }}
@@ -248,9 +257,12 @@ export default function ImportPhraseOrPrivateKey() {
     useState<EOnboardingV2ImportPhraseOrPrivateKeyTab>(defaultTab);
   const { gtMd } = useMedia();
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
+  const selectedRef = useRef(selected);
+  const confirmRequestRef = useRef<symbol | undefined>(undefined);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+  const privateKeyRef = useRef('');
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
 
   const sidebarFaqs =
@@ -258,57 +270,95 @@ export default function ImportPhraseOrPrivateKey() {
       ? phraseFaqs
       : privateKeyFaqs;
 
-  const handleConfirm = async () => {
-    if (selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase) {
-      const timerId = setTimeout(() => {
-        setIsConfirming(false);
-      }, 500);
+  const handleTabChange = useCallback((tab: string | number) => {
+    if (
+      tab === selectedRef.current ||
+      (tab !== EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase &&
+        tab !== EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey)
+    ) {
+      return;
+    }
+
+    selectedRef.current = tab;
+    confirmRequestRef.current = undefined;
+    setIsConfirming(false);
+    setSelected(tab);
+  }, []);
+
+  const handlePrivateKeyChange = useCallback((value: string) => {
+    privateKeyRef.current = value;
+    setPrivateKey(value);
+  }, []);
+
+  const handleConfirm = useCallback(
+    async (tab: EOnboardingV2ImportPhraseOrPrivateKeyTab) => {
+      if (tab !== selectedRef.current || confirmRequestRef.current) return;
+
+      const isPrivateKey =
+        tab === EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey;
+      const key = isPrivateKey ? trim(privateKeyRef.current) : '';
+      if (isPrivateKey && !key) return;
+
+      const request = Symbol('confirm import');
+      confirmRequestRef.current = request;
       setIsConfirming(true);
-      if (phaseInputAreaRef.current) {
-        try {
-          const { mnemonic, mnemonicType } =
-            await phaseInputAreaRef.current.submit();
-          if (mnemonicType === EMnemonicType.TON) {
+      try {
+        if (!isPrivateKey) {
+          const phrase = await phaseInputAreaRef.current?.submit();
+          if (phrase && confirmRequestRef.current === request) {
             navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-              mnemonic,
-              mnemonicType,
+              ...phrase,
               isWalletBackedUp: true,
             });
-            return;
           }
-          // The privacy-chain scan-start question is asked later on the token
-          // details page (LocalWalletPoolStatus), not during import.
-          navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-            mnemonic,
-            mnemonicType,
-            isWalletBackedUp: true,
+          return;
+        }
+
+        const input =
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: key,
           });
-        } catch (error) {
-          console.error(error);
-        } finally {
+        if (confirmRequestRef.current !== request) return;
+
+        const { detectedNetworks } =
+          await backgroundApiProxy.serviceNetwork.detectNetworksByPrivateKey({
+            privateKey: input,
+          });
+        if (
+          confirmRequestRef.current !== request ||
+          trim(privateKeyRef.current) !== key
+        ) {
+          return;
+        }
+        navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, {
+          input,
+          detectedNetworks,
+          importType: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
+        });
+        handlePrivateKeyChange('');
+      } catch (error) {
+        if (confirmRequestRef.current === request) {
+          errorToastUtils.toastIfError(error);
+          errorToastUtils.showToastOfError(error);
+        }
+      } finally {
+        if (confirmRequestRef.current === request) {
+          confirmRequestRef.current = undefined;
           setIsConfirming(false);
-          clearTimeout(timerId);
         }
       }
-    } else {
-      let input = fixInputImportSingleChain(privateKey || '') || '';
-      input = await backgroundApiProxy.servicePassword.encodeSensitiveText({
-        text: input || '',
-      });
-      const results =
-        await backgroundApiProxy.serviceNetwork.detectNetworksByPrivateKey({
-          privateKey: input || '',
-        });
-      const params: IOnboardingParamListV2[EOnboardingPagesV2.SelectPrivateKeyNetwork] =
-        {
-          input,
-          detectedNetworks: results.detectedNetworks,
-          importType: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
-        };
-      navigation.push(EOnboardingPagesV2.SelectPrivateKeyNetwork, params);
-      setPrivateKey('');
-    }
-  };
+    },
+    [handlePrivateKeyChange, navigation],
+  );
+
+  const handleConfirmPress = useCallback(
+    () => handleConfirm(selected),
+    [handleConfirm, selected],
+  );
+  const handlePrivateKeySubmit = useCallback(
+    () => handleConfirm(EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey),
+    [handleConfirm],
+  );
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
@@ -356,17 +406,17 @@ export default function ImportPhraseOrPrivateKey() {
                     id: ETranslations.global_recovery_phrase,
                   }),
                   value: EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
+                  testID: OnboardingTestIDs.importPhraseTab,
                 },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.global_private_key,
                   }),
                   value: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
+                  testID: OnboardingTestIDs.importPrivateKeyTab,
                 },
               ]}
-              onChange={(value) =>
-                setSelected(value as EOnboardingV2ImportPhraseOrPrivateKeyTab)
-              }
+              onChange={handleTabChange}
             />
             <HeightTransition>
               {selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase ? (
@@ -419,7 +469,8 @@ export default function ImportPhraseOrPrivateKey() {
                 >
                   <PrivateKeyInput
                     value={privateKey}
-                    onChangeText={setPrivateKey}
+                    onChangeText={handlePrivateKeyChange}
+                    onSubmitEditing={handlePrivateKeySubmit}
                   />
                 </YStack>
               )}
@@ -429,7 +480,8 @@ export default function ImportPhraseOrPrivateKey() {
                 testID={OnboardingTestIDs.importPhraseConfirmBtn}
                 size="large"
                 variant="primary"
-                onPress={handleConfirm}
+                onPress={handleConfirmPress}
+                loading={isConfirming}
               >
                 {intl.formatMessage({ id: ETranslations.global_confirm })}
               </Button>
@@ -463,7 +515,7 @@ export default function ImportPhraseOrPrivateKey() {
             })}
             confirmButtonProps={{
               testID: OnboardingTestIDs.importPhraseConfirmBtn,
-              onPress: handleConfirm,
+              onPress: handleConfirmPress,
               loading: isConfirming,
             }}
           >
