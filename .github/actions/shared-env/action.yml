@@ -225,52 +225,34 @@ runs:
           FULL_DATE="${TODAY//-/}"
 
           if [ "${workflow_name:-}" = "daily-build-dev" ]; then
-            CUTOVER_FLOOR=68
             DATE_PREFIX="1000${FULL_DATE:4:4}"
-            ROLLOVER_PREFIX="10001119"
           else
-            CUTOVER_FLOOR=4501
             DATE_PREFIX="${FULL_DATE}"
-            ROLLOVER_PREFIX="20261119"
           fi
 
-          if [ "${workflow_run_number}" -le "${CUTOVER_FLOOR}" ]; then
-            run_number=$(( workflow_run_number % 100 ))
-            run_number=$(printf "%02d" "$run_number")
-            build_number="${DATE_PREFIX}${run_number}"
-          else
-            CREATED_RANGE="${TODAY}"
-            MIN_RUN_FLOOR=0
-            if [ "$FULL_DATE" = "20261118" ] || [ "$FULL_DATE" = "20261119" ]; then
-              DATE_PREFIX="${ROLLOVER_PREFIX}"
-              CREATED_RANGE="2026-11-18..2026-11-19"
-              MIN_RUN_FLOOR="${CUTOVER_FLOOR}"
+          min_run_today=""
+          for attempt in 1 2 3; do
+            min_run_today=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_id}/runs?created=${TODAY}&per_page=100" \
+              --jq "if any(.workflow_runs[]; .run_number == ${workflow_run_number}) then ([.workflow_runs[] | select(.run_number <= ${workflow_run_number}) | .run_number] | min // empty) else empty end" \
+              2>/dev/null || true)
+            if [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+              break
             fi
-
-            min_run_today=""
-            for attempt in 1 2 3; do
-              min_run_today=$(gh api \
-                "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_id}/runs?created=${CREATED_RANGE}&per_page=100" \
-                --jq "if any(.workflow_runs[]; .run_number == ${workflow_run_number}) then ([.workflow_runs[] | select(.run_number > ${MIN_RUN_FLOOR} and .run_number <= ${workflow_run_number}) | .run_number] | min // empty) else empty end" \
-                2>/dev/null || true)
-              if [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
-                break
-              fi
-              sleep 2
-            done
-            if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
-              echo "::error::Failed to query workflow runs for ${CREATED_RANGE} (run #${workflow_run_number})"
-              exit 1
-            fi
-
-            daily_seq=$(( workflow_run_number - min_run_today + 1 ))
-            if [ "$daily_seq" -lt 1 ] || [ "$daily_seq" -gt 99 ]; then
-              echo "::error::Daily build sequence (${daily_seq}) out of range 1..99 for ${DATE_PREFIX}"
-              exit 1
-            fi
-            run_number=$(printf "%02d" "$daily_seq")
-            build_number="${DATE_PREFIX}${run_number}"
+            sleep 2
+          done
+          if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to query workflow runs for ${TODAY} (run #${workflow_run_number})"
+            exit 1
           fi
+
+          daily_seq=$(( workflow_run_number - min_run_today + 1 ))
+          if [ "$daily_seq" -lt 1 ] || [ "$daily_seq" -gt 99 ]; then
+            echo "::error::Daily build sequence (${daily_seq}) out of range 1..99 for ${DATE_PREFIX}"
+            exit 1
+          fi
+          run_number=$(printf "%02d" "$daily_seq")
+          build_number="${DATE_PREFIX}${run_number}"
 
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
