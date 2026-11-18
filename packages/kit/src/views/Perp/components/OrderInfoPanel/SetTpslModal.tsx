@@ -75,6 +75,7 @@ export interface ISetTpslParams {
 }
 
 interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
+  inPage?: boolean;
   onClose: () => void;
 }
 
@@ -221,6 +222,7 @@ const SetTpslForm = memo(
     assetId,
     presetTriggerPrice,
     presetTpsl,
+    inPage = false,
     onClose = () => {},
   }: ISetTpslFormProps) => {
     const intl = useIntl();
@@ -586,9 +588,30 @@ const SetTpslForm = memo(
       return null;
     }
 
+    const confirmButton = (
+      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+        <Button
+          testID="perp-processed-value-btn"
+          size={PERP_DIALOG_BUTTON_SIZE}
+          variant="primary"
+          onPress={handleSubmit}
+          disabled={!canSubmitForScopedAccount || !isValidForm || isSubmitting}
+          loading={isSubmitting}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_confirm_order,
+          })}
+        </Button>
+      </TradingGuardWrapper>
+    );
+
     return (
-      <YStack flex={1}>
-        <YStack flex={1} gap="$3" pb={platformEnv.isNative ? '$8' : '$4'}>
+      <YStack flex={inPage ? undefined : 1}>
+        <YStack
+          flex={inPage ? undefined : 1}
+          gap="$3"
+          pb={platformEnv.isNative ? '$8' : '$4'}
+        >
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -744,22 +767,15 @@ const SetTpslForm = memo(
             ) : null}
           </YStack>
         </YStack>
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-          <Button
-            testID="perp-processed-value-btn"
-            size={PERP_DIALOG_BUTTON_SIZE}
-            variant="primary"
-            onPress={handleSubmit}
-            disabled={
-              !canSubmitForScopedAccount || !isValidForm || isSubmitting
-            }
-            loading={isSubmitting}
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_confirm_order,
-            })}
-          </Button>
-        </TradingGuardWrapper>
+        {inPage ? (
+          <Page.Footer>
+            <YStack px="$4" py="$2">
+              {confirmButton}
+            </YStack>
+          </Page.Footer>
+        ) : (
+          confirmButton
+        )}
       </YStack>
     );
   },
@@ -778,27 +794,29 @@ function SetTpslModal() {
     navigation.goBack();
   }, [navigation]);
   return (
-    <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.perp_tp_sl_position,
-        })}
-      />
-      <Page.Body>
-        <PerpsAccountSelectorProviderMirror>
-          <PerpsProviderMirror>
-            <YStack px="$4" flex={1}>
-              <SetTpslForm
-                coin={coin}
-                szDecimals={szDecimals}
-                assetId={assetId}
-                onClose={handleClose}
-              />
-            </YStack>
-          </PerpsProviderMirror>
-        </PerpsAccountSelectorProviderMirror>
-      </Page.Body>
-    </Page>
+    <PerpsAccountSelectorProviderMirror>
+      <PerpsProviderMirror>
+        <Page
+          scrollEnabled
+          scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+        >
+          <Page.Header
+            title={intl.formatMessage({
+              id: ETranslations.perp_tp_sl_position,
+            })}
+          />
+          <Page.Body px="$4" flex={0}>
+            <SetTpslForm
+              coin={coin}
+              szDecimals={szDecimals}
+              assetId={assetId}
+              inPage
+              onClose={handleClose}
+            />
+          </Page.Body>
+        </Page>
+      </PerpsProviderMirror>
+    </PerpsAccountSelectorProviderMirror>
   );
 }
 
