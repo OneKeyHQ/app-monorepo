@@ -1,0 +1,26 @@
+diff --git a/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.js b/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.js
+index 0ed90a5..fdc98f6 100644
+--- a/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.js
++++ b/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.js
+@@ -5351,7 +5351,7 @@ var LedgerConnectorBase = class {
+   }
+   async disconnect(sessionId) {
+     if (!this._deviceManager) return;
+-    debugLog("[DMK] disconnect requested", { sessionId, caller: describeCaller(new Error()) });
++    debugLog("[DMK] disconnect requested", { caller: describeCaller(new Error()) });
+     const deviceId = this._deviceManager.getDeviceId(sessionId);
+     this._signerManager?.invalidate(sessionId);
+     this._unwatchSessionState(sessionId);
+diff --git a/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs b/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs
+index c907f19..83f1085 100644
+--- a/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs
++++ b/node_modules/@onekeyfe/hwk-ledger-adapter/dist/index.mjs
+@@ -5346,7 +5346,7 @@ var LedgerConnectorBase = class {
+   }
+   async disconnect(sessionId) {
+     if (!this._deviceManager) return;
+-    debugLog("[DMK] disconnect requested", { sessionId, caller: describeCaller(new Error()) });
++    debugLog("[DMK] disconnect requested", { caller: describeCaller(new Error()) });
+     const deviceId = this._deviceManager.getDeviceId(sessionId);
+     this._signerManager?.invalidate(sessionId);
+     this._unwatchSessionState(sessionId);

@@ -15,7 +15,7 @@ if (!isMac && !isWindows) {
 }
 
 // An error message only the Windows patch adds doubles as the binary marker.
-const WIN_BINARY_MARKER = 'could not maintain GATT session';
+const WIN_BINARY_MARKER = 'could not activate maintained GATT session';
 
 const desktopPackageRoot = path.join(__dirname, '..');
 const runtimeAppDir = path.join(desktopPackageRoot, 'app');
@@ -35,7 +35,7 @@ const macNativeSources = [
 ];
 const winNativeSources = [
   ['lib/win/src/ble_manager.cc', WIN_BINARY_MARKER],
-  ['lib/win/src/peripheral_winrt.cc', 'gattSession->MaintainConnection(false)'],
+  ['lib/win/src/peripheral_winrt.cc', 'session->MaintainConnection(false)'],
 ];
 const nativeSources = [
   ...commonNativeSources,
