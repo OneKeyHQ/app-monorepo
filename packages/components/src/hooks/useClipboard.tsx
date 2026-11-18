@@ -10,7 +10,6 @@ import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { Toast } from '../actions/Toast';
-import { Button } from '../primitives/Button';
 
 import type { IPasteEventParams } from '../forms';
 
@@ -66,18 +65,14 @@ export function useClipboard() {
             message: intl.formatMessage({
               id: ETranslations.clipboard_copy_may_fail__msg,
             }),
-            actions: (
-              <Button
-                testID="clipboard-go-to-settings-btn"
-                size="small"
-                variant="primary"
-                onPress={handleOpenClipboardSettings}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_go_to_settings,
-                })}
-              </Button>
-            ),
+            actions: {
+              testID: 'clipboard-go-to-settings-btn',
+              variant: 'primary',
+              label: intl.formatMessage({
+                id: ETranslations.global_go_to_settings,
+              }),
+              onPress: handleOpenClipboardSettings,
+            },
           });
         } else {
           Toast.success({
