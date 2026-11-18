@@ -43,6 +43,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
 import { PrimeGiftDashboardEntry } from '../../components/PrimeGiftDashboardEntry';
+import { PrimePackagesFetchFailed } from '../../components/PrimePurchaseDialog/PrimePackagesFetchFailed';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeGiftClaimableDevices } from '../../hooks/usePrimeGiftClaimableDevices';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -388,10 +389,15 @@ export default function PrimeDashboard({
     return true;
   }, [isPrimeSubscriptionActive, shouldShowConfirmButton]);
 
-  const { packages, isPurchaseReady, restorePurchases } =
-    usePrimeSubscriptionPackages({
-      enabled: shouldShowSubscriptionPlans,
-    });
+  const {
+    packages,
+    isPurchaseReady,
+    restorePurchases,
+    packagesFailure,
+    reloadPackages,
+  } = usePrimeSubscriptionPackages({
+    enabled: shouldShowSubscriptionPlans,
+  });
 
   const selectedPackage = useMemo(
     () =>
@@ -599,11 +605,18 @@ export default function PrimeDashboard({
 
             {shouldShowSubscriptionPlans ? (
               <Stack px="$5" pt="$5" pb="$2" gap="$2">
-                <PrimeSubscriptionPlans
-                  packages={packages}
-                  selectedSubscriptionPeriod={selectedSubscriptionPeriod}
-                  onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
-                />
+                {packagesFailure ? (
+                  <PrimePackagesFetchFailed
+                    failure={packagesFailure}
+                    onRetry={reloadPackages}
+                  />
+                ) : (
+                  <PrimeSubscriptionPlans
+                    packages={packages}
+                    selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                    onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
+                  />
+                )}
               </Stack>
             ) : null}
 
