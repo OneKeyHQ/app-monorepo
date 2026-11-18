@@ -35,8 +35,6 @@ import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
-import type { UseFormReturn } from 'react-hook-form';
-
 type IFormValues = {
   networkId?: string;
   input?: string;
@@ -66,9 +64,7 @@ export function ImportSingleChainBase({
   inputTestID?: string;
   invalidMessage: string;
   children?: React.ReactNode;
-  onConfirm: (
-    form: UseFormReturn<IFormValues, any, undefined>,
-  ) => Promise<void>;
+  onConfirm: (values: IFormValues) => Promise<void>;
   networkIds?: string[];
 }) {
   const intl = useIntl();
@@ -91,92 +87,122 @@ export function ImportSingleChainBase({
       },
       mode: 'onChange' as IFormMode,
       reValidateMode: 'onBlur' as IReValidateMode,
-      onSubmit: onConfirm,
     }),
-    [network?.id, onConfirm],
+    [network?.id],
   );
   const form = useForm<IFormValues>(formOptions);
 
-  const { setValue, control } = form;
-  const [validateResult, setValidateResult] = useState<
-    IGeneralInputValidation | undefined
-  >();
-  const isValidating = useRef<boolean>(false);
-  const networkIdText = useFormWatch({ control, name: 'networkId' });
+  const { control } = form;
+  const submittingRef = useRef(false);
+  const networkId = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const inputTextDebounced = useDebounce(inputText, 600);
-
   const accountName = useFormWatch({ control, name: 'accountName' });
-  const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
+  const trimmedAccountName = accountName?.trim() ?? '';
+  const accountNameDebounced = useDebounce(trimmedAccountName, 600);
 
-  const validateFn = useCallback(async () => {
-    if (accountNameDebounced) {
-      try {
-        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
-          name: accountNameDebounced,
-          walletId: WALLET_TYPE_IMPORTED,
-        });
+  const validationRequest = useMemo(
+    () => ({
+      networkId,
+      input: inputTextDebounced,
+      accountName: accountNameDebounced,
+    }),
+    [networkId, inputTextDebounced, accountNameDebounced],
+  );
+  const [validation, setValidation] = useState<{
+    request: typeof validationRequest;
+    result: IGeneralInputValidation;
+  }>();
+
+  useEffect(() => {
+    let cancelled = false;
+    const validate = async () => {
+      const { input, networkId: id, accountName: name } = validationRequest;
+      if (name) {
+        try {
+          await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate(
+            {
+              name,
+              walletId: WALLET_TYPE_IMPORTED,
+            },
+          );
+          if (cancelled) return;
+          form.clearErrors('accountName');
+        } catch (error) {
+          if (cancelled) return;
+          form.setError('accountName', {
+            message: (error as Error)?.message,
+          });
+        }
+      } else {
         form.clearErrors('accountName');
-      } catch (error) {
-        form.setError('accountName', {
-          message: (error as Error)?.message,
-        });
       }
-    } else {
-      form.clearErrors('accountName');
-    }
 
-    setValue('deriveType', undefined);
-    if (inputTextDebounced && networkIdText) {
-      const input =
-        await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: fixInputImportSingleChain(inputTextDebounced),
-        });
+      form.setValue('deriveType', undefined);
+      if (!input || !id) return;
+
+      let result: IGeneralInputValidation;
       try {
-        const result =
+        const encodedInput =
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: fixInputImportSingleChain(input),
+          });
+        if (cancelled) return;
+        result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
             {
               ...validationParams,
-              input,
-              networkId: networkIdText,
+              input: encodedInput,
+              networkId: id,
             },
           );
-        setValidateResult(result);
-        console.log('validateGeneralInputOfImporting result', result);
-        // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
-      } catch (_error) {
-        setValidateResult({
-          isValid: false,
-        });
+      } catch {
+        result = { isValid: false };
       }
-    } else {
-      setValidateResult(undefined);
-    }
-  }, [
-    accountNameDebounced,
-    form,
-    inputTextDebounced,
-    networkIdText,
-    setValue,
-    validationParams,
-  ]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        isValidating.current = true;
-        await validateFn();
-      } finally {
-        isValidating.current = false;
+      if (!cancelled) {
+        setValidation({ request: validationRequest, result });
       }
-    })();
-  }, [validateFn]);
+    };
+    void validate();
+    return () => {
+      cancelled = true;
+    };
+  }, [form, validationParams, validationRequest]);
 
-  useEffect(() => {
-    if (networkIdText) {
-      // setValue('input', '');
+  const validateResult =
+    validation?.request.input === inputTextDebounced &&
+    validation?.request.networkId === networkId
+      ? validation?.result
+      : undefined;
+  const confirmDisabled =
+    validation?.request !== validationRequest ||
+    !validateResult?.isValid ||
+    inputText !== inputTextDebounced ||
+    trimmedAccountName !== accountNameDebounced ||
+    Object.keys(form.formState.errors).length > 0;
+
+  const submit = useCallback(async () => {
+    const values = form.getValues();
+    if (
+      confirmDisabled ||
+      submittingRef.current ||
+      values.input !== validationRequest.input ||
+      values.networkId !== validationRequest.networkId ||
+      (values.accountName?.trim() ?? '') !== validationRequest.accountName ||
+      form.getFieldState('accountName').error
+    ) {
+      return;
     }
-  }, [networkIdText, setValue]);
+
+    submittingRef.current = true;
+    try {
+      await form.handleSubmit(onConfirm)();
+    } finally {
+      submittingRef.current = false;
+    }
+  }, [confirmDisabled, form, onConfirm, validationRequest]);
+
+  const formWithSubmit = useMemo(() => ({ ...form, submit }), [form, submit]);
 
   const { start } = useScanQrCodeLazy();
 
@@ -184,7 +210,7 @@ export function ImportSingleChainBase({
     <Page scrollEnabled>
       <Page.Header title={title} />
       <Page.Body px="$5">
-        <Form form={form}>
+        <Form form={formWithSubmit}>
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_network })}
             name="networkId"
@@ -198,6 +224,8 @@ export function ImportSingleChainBase({
               size={media.gtMd ? 'medium' : 'large'}
               testID={inputTestID}
               onPaste={onPasteClearText}
+              returnKeyType="done"
+              onSubmitEditing={submit}
               addOns={[
                 {
                   iconName: 'ScanOutline',
@@ -283,12 +311,8 @@ export function ImportSingleChainBase({
         {children}
       </Page.Body>
       <Page.Footer
-        confirmButtonProps={{
-          disabled:
-            !validateResult?.isValid ||
-            !!Object.values(form.formState.errors).length,
-        }}
-        onConfirm={form.submit}
+        confirmButtonProps={{ disabled: confirmDisabled }}
+        onConfirm={submit}
       />
     </Page>
   );
