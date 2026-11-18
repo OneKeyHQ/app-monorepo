@@ -17,6 +17,7 @@ jest.mock('expo-application', () => ({
 jest.mock('@onekeyfe/react-native-device-utils', () => ({
   ReactNativeDeviceUtils: {
     getAppleAdsAttributionToken: jest.fn(),
+    getInstallerPackageName: jest.fn(),
   },
 }));
 
@@ -64,11 +65,17 @@ const getAttributionTokenMock = jest.spyOn(
   ReactNativeDeviceUtils,
   'getAppleAdsAttributionToken',
 );
+const getInstallerPackageNameMock = jest.spyOn(
+  ReactNativeDeviceUtils,
+  'getInstallerPackageName',
+);
+const installationTime = new Date();
 
 describe('Apple Ads install attribution', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getInstallationTimeMock.mockResolvedValue(new Date());
+    getInstallationTimeMock.mockResolvedValue(installationTime);
+    getInstallerPackageNameMock.mockReturnValue('appStore');
     getReportedMock.mockResolvedValue(null);
     markReportedMock.mockResolvedValue(undefined);
     logAppleAdsAttributionMock.mockResolvedValue(undefined);
@@ -111,6 +118,7 @@ describe('Apple Ads install attribution', () => {
     );
     expect(logAppleAdsAttributionMock).toHaveBeenCalledWith({
       $insertId: 'apple_ads_install_attr:installation-123',
+      $timestamp: installationTime.getTime(),
       adGroupId: '542317095',
       adId: '542317136',
       attributionSource: 'apple_ads_adservices',
@@ -155,6 +163,71 @@ describe('Apple Ads install attribution', () => {
     expect(markReportedMock).toHaveBeenCalledWith(
       'install_attr_apple_ads_v1',
       '1',
+    );
+  });
+
+  it.each([
+    undefined,
+    { handled: false, attribution: false },
+    { handled: true },
+  ])('leaves an incomplete exchange retryable: %o', async (data) => {
+    postMock.mockResolvedValueOnce({ data: { data } });
+
+    await expect(
+      reportAppleAdsInstallAttribution('https://utility.onekey.so', 'inst-1'),
+    ).rejects.toThrow('Apple Ads attribution exchange is incomplete');
+
+    expect(logAppleAdsAttributionMock).not.toHaveBeenCalled();
+    expect(markReportedMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['testFlight', 'other', 'unknown'] as const)(
+    'skips an installation from %s before fetching a token',
+    async (installer) => {
+      getInstallerPackageNameMock.mockReturnValueOnce(installer);
+
+      await reportAppleAdsInstallAttribution(
+        'https://utility.onekey.so',
+        'inst-1',
+      );
+
+      expect(getInstallationTimeMock).not.toHaveBeenCalled();
+      expect(getAttributionTokenMock).not.toHaveBeenCalled();
+      expect(postMock).not.toHaveBeenCalled();
+      expect(markReportedMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reuses the install event ID and timestamp when retrying across UTC dates', async () => {
+    const installedAt = new Date('2026-11-17T12:00:00.000Z');
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+    markReportedMock.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    jest.useFakeTimers({ now: new Date('2026-11-17T23:59:59.000Z') });
+    try {
+      await expect(
+        reportAppleAdsInstallAttribution('https://utility.onekey.so', 'inst-1'),
+      ).rejects.toThrow('storage unavailable');
+      jest.setSystemTime(new Date('2026-11-18T00:00:01.000Z'));
+      await reportAppleAdsInstallAttribution(
+        'https://utility.onekey.so',
+        'inst-1',
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+
+    const eventIdentity = expect.objectContaining({
+      $insertId: 'apple_ads_install_attr:inst-1',
+      $timestamp: installedAt.getTime(),
+    });
+    expect(logAppleAdsAttributionMock).toHaveBeenNthCalledWith(
+      1,
+      eventIdentity,
+    );
+    expect(logAppleAdsAttributionMock).toHaveBeenNthCalledWith(
+      2,
+      eventIdentity,
     );
   });
 
@@ -250,12 +323,17 @@ describe('Apple Ads install attribution', () => {
 
   it('bounds and normalizes Apple Ads attribution fields', () => {
     expect(
-      buildAppleAdsInstallAttributionParams('inst-1', {
-        campaignId: ` ${'1'.repeat(200)} `,
-        claimType: 'Impression',
-      }),
+      buildAppleAdsInstallAttributionParams(
+        'inst-1',
+        installationTime.getTime(),
+        {
+          campaignId: ` ${'1'.repeat(200)} `,
+          claimType: 'Impression',
+        },
+      ),
     ).toEqual({
       $insertId: 'apple_ads_install_attr:inst-1',
+      $timestamp: installationTime.getTime(),
       attributionSource: 'apple_ads_adservices',
       campaignId: '1'.repeat(128),
       claimType: 'Impression',

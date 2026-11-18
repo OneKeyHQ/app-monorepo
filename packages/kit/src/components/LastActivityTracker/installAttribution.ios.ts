@@ -64,12 +64,7 @@ const nativeModule = NativeModules.AppClipAttribution as
 let reportInstallAttributionTask: Promise<void> | undefined;
 let reportInstallAttributionRequested = false;
 let captureAppClipInviteCodeTask: Promise<void> | undefined;
-let pendingAppleAdsContext:
-  | {
-      installationId: string;
-      utilityEndpoint: string;
-    }
-  | undefined;
+let reportAppleAdsAttributionTask: Promise<void> | undefined;
 
 function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (!value || typeof value !== 'object') {
@@ -307,33 +302,10 @@ function captureAppClipInviteCode(): Promise<void> {
   });
 }
 
-async function reportAppleAdsAttributionIfEligible(): Promise<void> {
-  if (
-    !platformEnv.isNativeIOSStore ||
-    !platformEnv.isNativeMainThread ||
-    platformEnv.isE2E ||
-    !pendingAppleAdsContext
-  ) {
-    return;
-  }
-  const { installationId, utilityEndpoint } = pendingAppleAdsContext;
-  pendingAppleAdsContext = undefined;
-  await reportAppleAdsInstallAttribution(utilityEndpoint, installationId);
-}
-
 async function drainPendingInstallAttribution(): Promise<void> {
   do {
     reportInstallAttributionRequested = false;
-    const [appClipResult, appleAdsResult] = await Promise.allSettled([
-      reportPendingInstallAttribution(),
-      reportAppleAdsAttributionIfEligible(),
-    ]);
-    if (appClipResult.status === 'rejected') {
-      throw appClipResult.reason;
-    }
-    if (appleAdsResult.status === 'rejected') {
-      throw appleAdsResult.reason;
-    }
+    await reportPendingInstallAttribution();
   } while (reportInstallAttributionRequested);
 }
 
@@ -361,17 +333,30 @@ export function reportInstallAttribution(
   // Independent of the click-id report below, which needs the network and
   // clears its record once done; the invite code has no such dependency.
   void prefetchInstallInviteCode();
-  if (utilityEndpoint && installationId) {
-    pendingAppleAdsContext = {
-      installationId,
-      utilityEndpoint,
-    };
-  }
   reportInstallAttributionRequested = true;
   reportInstallAttributionTask ??= drainPendingInstallAttribution().finally(
     () => {
       reportInstallAttributionTask = undefined;
     },
   );
-  return reportInstallAttributionTask;
+  const appClipTask = reportInstallAttributionTask;
+
+  if (
+    !platformEnv.isNativeIOSStore ||
+    !platformEnv.isNativeMainThread ||
+    platformEnv.isE2E ||
+    !utilityEndpoint ||
+    !installationId
+  ) {
+    return appClipTask;
+  }
+  reportAppleAdsAttributionTask ??= reportAppleAdsInstallAttribution(
+    utilityEndpoint,
+    installationId,
+  ).finally(() => {
+    reportAppleAdsAttributionTask = undefined;
+  });
+  return Promise.all([appClipTask, reportAppleAdsAttributionTask]).then(
+    () => undefined,
+  );
 }

@@ -58,6 +58,7 @@ function sanitizeField(value: unknown): string | undefined {
 
 export function buildAppleAdsInstallAttributionParams(
   installationId: string,
+  installationTimestamp: number,
   attributionData?: IAppleAdsAttributionData,
 ): IAppleAdsInstallAttributionParams {
   const adGroupId = sanitizeField(attributionData?.adGroupId);
@@ -74,6 +75,7 @@ export function buildAppleAdsInstallAttributionParams(
 
   return {
     $insertId: `apple_ads_install_attr:${installationId}`,
+    $timestamp: installationTimestamp,
     attributionSource: 'apple_ads_adservices',
     utmSource: 'apple_ads',
     utmMedium: supplyPlacement ?? claimType ?? 'asa',
@@ -99,7 +101,12 @@ export async function reportAppleAdsInstallAttribution(
     return;
   }
 
-  if (!isRecentInstall(await getInstallationTimeAsync())) {
+  if (ReactNativeDeviceUtils.getInstallerPackageName() !== 'appStore') {
+    return;
+  }
+
+  const installationTime = await getInstallationTimeAsync();
+  if (!isRecentInstall(installationTime)) {
     await markAttributionHandled();
     return;
   }
@@ -122,10 +129,14 @@ export async function reportAppleAdsInstallAttribution(
     { headers: { [INSTANCE_ID_HEADER]: installationId } },
   );
   const result = response.data?.data;
-  if (result?.attribution) {
+  if (result?.handled !== true || typeof result.attribution !== 'boolean') {
+    throw new OneKeyLocalError('Apple Ads attribution exchange is incomplete');
+  }
+  if (result.attribution) {
     await defaultLogger.app.install.reportAppleAdsInstallAttribution(
       buildAppleAdsInstallAttributionParams(
         installationId,
+        installationTime.getTime(),
         result.attributionData,
       ),
     );

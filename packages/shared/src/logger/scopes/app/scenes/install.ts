@@ -31,7 +31,8 @@ export type IAppClipInstallAttributionParams = IInstallAttributionParams & {
 };
 
 export type IAppleAdsInstallAttributionParams = IInstallAttributionParams & {
-  $insertId?: string;
+  $insertId: string;
+  $timestamp: number;
   adGroupId?: string;
   adId?: string;
   attributionSource?: 'apple_ads_adservices';

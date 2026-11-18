@@ -652,6 +652,27 @@ describe('Apple Ads install attribution runtime guard', () => {
     );
   });
 
+  it('drains a queued App Clip handoff when the Apple Ads request rejects', async () => {
+    mockReportAppleAdsInstallAttribution.mockRejectedValueOnce(
+      new Error('Apple Ads unavailable'),
+    );
+    mockReadPending
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(pendingRecord);
+    mockPost.mockResolvedValueOnce({ data: { data: { found: true } } });
+
+    const startup = reportInstallAttribution(
+      'https://utility.onekey.so',
+      'installation-123',
+    );
+    const appClip = reportInstallAttribution();
+    await expect(startup).rejects.toThrow('Apple Ads unavailable');
+    await appClip;
+
+    expect(mockReadPending).toHaveBeenCalledTimes(2);
+    expect(mockReportAttribution).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     { isNativeIOSStore: false },
     { isNativeMainThread: false },
