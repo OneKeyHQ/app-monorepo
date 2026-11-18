@@ -290,7 +290,8 @@ export function WebMarketTokenList({
       background: theme.bgApp.val,
       rowBackground: theme.bgApp.val,
       rowSelectedBackground: theme.bgActive.val,
-      rowPressedBackground: theme.bgHover.val,
+      rowPressedBackground: theme.bgActive.val,
+      rowHoverBackground: theme.bgHover.val,
       subduedBackground: theme.bgSubdued.val,
       strongBackground: theme.bgStrong.val,
       imageFallbackBackground: theme.gray5.val,
@@ -1383,6 +1384,7 @@ export function WebMarketTokenList({
     <Stack ref={setRootRef} width="100%" minHeight={registeredHeight}>
       <NativeList
         ref={listRef}
+        testID={watchlistMode ? 'market-watchlist-list' : undefined}
         snapshot={baseSnapshot}
         webScrollHost={isFocusedTab ? (scrollElement ?? null) : null}
         webStickyInset={stickyInset}

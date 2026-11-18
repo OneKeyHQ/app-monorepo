@@ -68,7 +68,7 @@ export function formatPrivacyChainEndpointLabel({
   endpoint: IPrivacyChainShieldedEndpointLabel;
 }): string {
   const pool =
-    endpoint.poolId === undefined || localWallet?.isSinglePool
+    endpoint.poolId === undefined
       ? undefined
       : localWallet?.pools?.find((item) => item.id === endpoint.poolId);
   if (pool) {

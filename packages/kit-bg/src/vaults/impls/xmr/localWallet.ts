@@ -11,6 +11,7 @@ import {
   XMR_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import {
@@ -487,6 +488,7 @@ export function buildXmrLocalWalletCapability(
   const notifyAccountsChanged = async (params: {
     accountId: string;
     backfillActive: boolean;
+    change?: 'syncState';
   }) => {
     try {
       await vault.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged(
@@ -494,6 +496,7 @@ export function buildXmrLocalWalletCapability(
           networkId: vault.networkId,
           accountIds: [params.accountId],
           backfillActive: params.backfillActive,
+          ...(params.change ? { change: params.change } : {}),
         },
       );
     } catch (error) {
@@ -586,7 +589,16 @@ export function buildXmrLocalWalletCapability(
       birthdaySource,
     });
     if (accepted)
-      void notifyAccountsChanged({ accountId, backfillActive: true });
+      void notifyAccountsChanged({
+        accountId,
+        backfillActive: true,
+        ...(previous.intent === 'off' &&
+        previous.resumeFromHeight !== undefined &&
+        birthdayHeight === undefined &&
+        birthdayTimestamp === undefined
+          ? { change: 'syncState' as const }
+          : {}),
+      });
     else if (!expectedState)
       throw new OneKeyLocalError(
         'xmr: privacy request changed during authorization',
@@ -604,13 +616,19 @@ export function buildXmrLocalWalletCapability(
       };
     },
     async getAccountState({ accountId }): Promise<ILocalWalletAccountState> {
-      const state = await stateDb().getXmrAccountState({ accountId });
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const [state, freshMnemonic, createdAt] = await Promise.all([
+        stateDb().getXmrAccountState({ accountId }),
+        stateDb().getWalletFreshMnemonic({ walletId }),
+        stateDb().getWalletCreatedAtTimestamp({ walletId }),
+      ]);
       return {
         enabled: state.intent === 'on',
         paused: state.intent === 'off' && state.resumeFromHeight !== undefined,
         birthdayHeight: state.birthdayHeight,
         birthdaySource: state.birthdaySource,
         birthdayTimestamp: state.birthdayTimestamp,
+        birthdayHintTimestamp: freshMnemonic ? createdAt : undefined,
       };
     },
 
@@ -625,7 +643,11 @@ export function buildXmrLocalWalletCapability(
         resumeFromHeight:
           progress?.tipScannedHeight ?? state.birthdayHeight ?? 0,
       });
-      await notifyAccountsChanged({ accountId, backfillActive: false });
+      await notifyAccountsChanged({
+        accountId,
+        backfillActive: false,
+        change: 'syncState',
+      });
     },
 
     async getAccountAddresses({
@@ -1144,6 +1166,7 @@ export function buildXmrLocalWalletCapability(
         fromHeight = estimateXmrHeightDaysAgo({
           daysAgo: from.daysAgo,
           chainTip: tip,
+          now: Date.now(),
         });
       }
       if (dryRun) return { fromHeight };

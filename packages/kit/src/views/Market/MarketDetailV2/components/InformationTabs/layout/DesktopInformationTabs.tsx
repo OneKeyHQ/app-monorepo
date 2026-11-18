@@ -6,10 +6,12 @@ import {
   Badge,
   Icon,
   SizableText,
+  Tab,
   Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { useMarketTransactionsRealtimePauseAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -63,8 +65,8 @@ function DesktopInformationTabsHeader({
     scrollTransactionsToTop?.();
   }, [resumeRealtimeUpdates, scrollTransactionsToTop]);
   const renderTabBarItem = useCallback(
-    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         label={
@@ -88,7 +90,7 @@ function DesktopInformationTabsHeader({
       {/* Figma 25593:18628: the TabBar's defaults already match the redesigned
           tabs ($bodyLgMedium text, 2px active indicator on the item) — only the
           full-width divider under the row is off spec. */}
-      <Tabs.TabBar {...props} divider={false} renderItem={renderTabBarItem} />
+      <TabBar {...props} divider={false} renderItem={renderTabBarItem} />
       {realtimePauseState.isPaused ? (
         <Badge
           position="absolute"
@@ -196,7 +198,7 @@ export function DesktopInformationTabs({
 
     const items = [
       shouldShowTransactionsTab && (
-        <Tabs.Tab
+        <Tab
           key="transactions"
           name={intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions,
@@ -206,9 +208,9 @@ export function DesktopInformationTabs({
             tokenAddress={tokenAddress}
             networkId={networkId}
           />
-        </Tabs.Tab>
+        </Tab>
       ),
-      <Tabs.Tab
+      <Tab
         key="portfolio"
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_myposition,
@@ -224,9 +226,9 @@ export function DesktopInformationTabs({
           tokenLogoUrl={tokenLogoUrl}
           isMarketDetail
         />
-      </Tabs.Tab>,
+      </Tab>,
       shouldShowLiquidityPoolsTab && (
-        <Tabs.Tab
+        <Tab
           key="liquidityPools"
           name={intl.formatMessage({
             id: ETranslations.global_liquidity,
@@ -241,12 +243,12 @@ export function DesktopInformationTabs({
               pb="$4"
             />
           </Tabs.ScrollView>
-        </Tabs.Tab>
+        </Tab>
       ),
       shouldShowHoldersTab && (
-        <Tabs.Tab key="holders" name={holdersTabName}>
+        <Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Tabs.Tab>
+        </Tab>
       ),
     ].filter(Boolean);
     return items;

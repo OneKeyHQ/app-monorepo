@@ -294,6 +294,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
+  EEnterWay: { MarketList: 'MarketList' },
   EWatchlistFrom: { Homepage: 'Homepage' },
 }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({}));

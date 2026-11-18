@@ -9,6 +9,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  hasViewedMarketHomeInSession,
+  markMarketHomeViewed,
+  resolveMarketHomeView,
+  takeMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isInitialSectionConsumed } from '../utils/marketDetailNavigation';
@@ -34,12 +40,17 @@ export function useMarketEnterAnalytics(params?: {
       isFirstRender.current = false;
       return;
     }
-    const routeParams = route.params as { from?: EEnterWay } | undefined;
+    const routeParams = route.params as
+      | { from?: EEnterWay; marketTokenCategory?: string }
+      | undefined;
 
     if (routeParams?.from) {
       // Entry from route params (e.g., from tab, search)
       defaultLogger.dex.enter.dexEnter({
         enterWay: routeParams.from,
+        ...(routeParams.marketTokenCategory
+          ? { marketTokenCategory: routeParams.marketTokenCategory }
+          : undefined),
       });
     } else if (platformEnv.isWeb && route?.path?.includes?.('/market')) {
       // Direct link entry on web platform
@@ -68,4 +79,29 @@ export function useMarketHomePageEnterAnalytics() {
     };
   }, []);
   useMarketEnterAnalytics({ isLazyLoad: true });
+}
+
+/**
+ * Reports `marketHomeView` once per entry into the Market home. Unlike the
+ * tab-press event above, it also covers programmatic tab switches (Discovery,
+ * Wallet Home, deep links) and the first press before the home is mounted.
+ */
+export function useMarketHomeViewAnalytics(isFocused: boolean) {
+  const wasFocusedRef = useRef(false);
+  useEffect(() => {
+    const becameFocused = isFocused && !wasFocusedRef.current;
+    wasFocusedRef.current = isFocused;
+    if (!becameFocused) return;
+    const hasViewed = hasViewedMarketHomeInSession();
+    const entrySource = resolveMarketHomeView({
+      entrySource: takeMarketHomeEntry(),
+      hasViewed,
+    });
+    if (!entrySource) return;
+    defaultLogger.market.home.marketHomeView({
+      entrySource,
+      isFirstView: !hasViewed,
+    });
+    markMarketHomeViewed();
+  }, [isFocused]);
 }

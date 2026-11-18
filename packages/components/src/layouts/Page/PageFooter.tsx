@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
@@ -17,7 +24,11 @@ import {
 import { PageContext } from './PageContext';
 import { FooterActions } from './PageFooterActions';
 
-import type { IPageFooterProps, IPageFooterSafeAreaBottomMode } from './type';
+import type {
+  IPageDirectFooterProps,
+  IPageFooterProps,
+  IPageFooterSafeAreaBottomMode,
+} from './type';
 
 // The default FooterActions already adds $5 (20) of bottom padding. Subtracting
 // 10 preserves its existing visual gap above native system UI.
@@ -83,11 +94,24 @@ const PageFooterContainer = ({
 
 function PageFooterContext(props: IPageFooterProps) {
   const { footerRef } = useContext(PageContext);
+  const wasDirectFooterActive = !!footerRef.current.directFooterActive;
   useMemo(() => {
-    footerRef.current.props = props;
-    footerRef.current.notifyUpdate?.();
+    // Preserve the registered footer's existing initialization path unless
+    // the page is switching away from an active direct footer.
+    if (!wasDirectFooterActive) {
+      footerRef.current.props = props;
+      footerRef.current.notifyUpdate?.();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    if (!wasDirectFooterActive) return;
+    // Do not expose props from an interrupted render while switching paths.
+    footer.props = props;
+    footer.notifyUpdate?.();
+  }, [footerRef, props, wasDirectFooterActive]);
 
   useEffect(() => {
     footerRef.current.props = props;
@@ -103,8 +127,10 @@ function PageFooterContext(props: IPageFooterProps) {
 }
 
 export function BasicPageFooter({
+  directProps,
   onKeyboardLiftChange,
 }: {
+  directProps?: IPageDirectFooterProps;
   // Reports whether the footer lifts itself above the keyboard, which also
   // shrinks the page ScrollView above it.
   onKeyboardLiftChange?: (isLifted: boolean) => void;
@@ -112,7 +138,30 @@ export function BasicPageFooter({
   const { footerRef } = useContext(PageContext);
   const { gtMd } = useMedia();
   const [, setCount] = useState(0);
-  const { props: footerProps } = footerRef.current;
+  const hasDirectFooter = !!directProps?.enabled;
+  let footerProps = footerRef.current.props;
+  if (
+    directProps &&
+    (hasDirectFooter || footerRef.current.directFooterActive)
+  ) {
+    const { enabled: _enabled, ...directFooterProps } = directProps;
+    footerProps = directFooterProps;
+  }
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    const wasActive = !!footer.directFooterActive;
+    footer.directFooterActive = hasDirectFooter;
+    if (wasActive && !hasDirectFooter) {
+      setCount((count) => count + 1);
+    }
+  }, [footerRef, hasDirectFooter]);
+
+  useLayoutEffect(() => {
+    const footer = footerRef.current;
+    return () => {
+      footer.directFooterActive = false;
+    };
+  }, [footerRef]);
   useEffect(() => {
     footerRef.current.notifyUpdate = () => {
       setCount((i) => i + 1);

@@ -3,14 +3,18 @@ import type { ReactNode } from 'react';
 import type {
   ITradingViewNativeChartLineStyle,
   ITradingViewNativeChartType,
+  ITradingViewNativeSource,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
-export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
+export type {
+  ITradingViewNativeChartType,
+  ITradingViewNativeHyperliquidEnvironment,
+  ITradingViewNativeSource,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
-export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
 export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
@@ -22,30 +26,6 @@ export interface ITradingViewNativeCandleLabels {
   low: string;
   open: string;
 }
-
-export type ITradingViewNativeSource =
-  | {
-      kind: 'asset';
-      assetId: string;
-    }
-  | {
-      kind: 'hyperliquid';
-      coin: string;
-      environment: ITradingViewNativeHyperliquidEnvironment;
-    }
-  | {
-      kind: 'market';
-      fallbackCoinGeckoId?: string;
-      isNative?: boolean;
-      networkId: string;
-      tokenAddress: string;
-      symbol: string;
-      realtime: 'disabled' | 'websocket';
-    }
-  | {
-      kind: 'stock';
-      stockId: string;
-    };
 
 export type ITradingViewNativeDataStatus =
   | 'idle'
@@ -203,6 +183,13 @@ export interface ITradingViewNativeProps {
    * embed the widget flush in their own layout; off by default.
    */
   nativeControlsFlushHorizontalInset?: boolean;
+  /**
+   * Extra control at the start of the desktop controls row, before the
+   * intervals; a split-view panel names its token here.
+   */
+  nativeControlsLeading?: ReactNode;
+  /** Extra control at the end of the desktop controls row. */
+  nativeControlsTrailing?: ReactNode;
   showNativeChartCloseControl?: boolean;
   showNativeIndicatorQuickBar?: boolean;
   /**
@@ -222,6 +209,13 @@ export interface ITradingViewNativeProps {
     state: ITradingViewNativeIndicatorQuickBarState,
   ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
+  /**
+   * Android: set while a fullscreen session rotates the window, from the
+   * session's start until the window has settled in portrait again. Only then
+   * is a landscape page layout transient; a window can also be landscape on
+   * its own, e.g. in split screen.
+   */
+  onNativeChartWindowRotationChange?: (isRotating: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
 }
 

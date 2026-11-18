@@ -260,13 +260,20 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     expect(mockPushModal).not.toHaveBeenCalled();
   });
 
-  it.each(['replace', 'cancel'] as const)(
-    'handles unavailable external discovery after explicit choice: %s',
-    async (choice) => {
+  it.each([
+    ['unavailable', 'replace'],
+    ['unavailable', 'cancel'],
+    ['multiple', 'replace'],
+    ['multiple', 'cancel'],
+  ] as const)(
+    'handles %s external discovery after explicit choice: %s',
+    async (kind, choice) => {
       setupRemotePending();
       mockApiGetInfiniPendingPayment.mockResolvedValue({
         authContext: checkoutAuthContext,
-        status: 'unavailable',
+        ...(kind === 'unavailable'
+          ? { status: 'unavailable' }
+          : { hasPendingPayments: true }),
       });
       mockUnfinishedPaymentChoice.mockImplementation(async () => {
         expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
@@ -280,7 +287,10 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
         });
       });
       expect(mockUnfinishedPaymentChoice).toHaveBeenCalledWith(
-        expect.objectContaining({ canResume: false, lookupUnavailable: true }),
+        expect.objectContaining({
+          canResume: false,
+          lookupUnavailable: kind === 'unavailable' ? true : undefined,
+        }),
       );
       expect(mockApiGetInfiniCheckoutUrl).toHaveBeenCalledTimes(
         choice === 'replace' ? 1 : 0,

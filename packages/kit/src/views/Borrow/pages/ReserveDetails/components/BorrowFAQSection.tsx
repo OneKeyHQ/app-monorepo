@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { FAQAccordion } from '@onekeyhq/kit/src/views/Staking/components/FAQAccordion';
@@ -10,10 +16,10 @@ import { DetailsSectionContainer } from './DetailsSectionContainer';
 
 function FAQPanelSkeleton() {
   return (
-    <YStack gap="$2">
+    <YStack>
       {Array.from({ length: 4 }).map((_, index) => (
-        <XStack key={index} px="$2" py="$1" mx="$-2">
-          <Skeleton width="100%" height={16} borderRadius="$2" />
+        <XStack key={index} py="$5">
+          <Skeleton width="100%" height={24} borderRadius="$2" />
         </XStack>
       ))}
     </YStack>
@@ -32,6 +38,7 @@ export function BorrowFAQSection({
   reserveAddress: string;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const { result: faqData, isLoading } = usePromiseResult(
     async () => {
       if (
@@ -71,18 +78,23 @@ export function BorrowFAQSection({
       ) : (
         <FAQAccordion
           items={faqList}
-          renderTitle={(item, { open }) => (
+          renderTitle={(item) => (
             <SizableText
               textAlign="left"
               flex={1}
-              size="$bodyLgMedium"
-              color={open ? '$text' : '$textSubdued'}
+              size={media.gtMd ? '$headingLg' : '$headingMd'}
+              color="$text"
+              pr="$2"
             >
               {item.question}
             </SizableText>
           )}
           renderContent={(item) => (
-            <SizableText size="$bodyMd" color="$text" whiteSpace="pre-line">
+            <SizableText
+              size="$bodyLg"
+              color="$textSubdued"
+              whiteSpace="pre-line"
+            >
               {item.answer}
             </SizableText>
           )}

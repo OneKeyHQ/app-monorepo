@@ -25,3 +25,25 @@ export function shouldShowMobileNativeChart({
 }): boolean {
   return isNativeChartPreferred || isSharePrice || !hasTradingViewParams;
 }
+
+// The native chart fullscreen lays the page out in landscape underneath the
+// chart while the window rotates in and out. While the page keeps its portrait
+// layout through that, a layout wider than the window's shortest edge is one of
+// those; measuring it would bring the page, and the chart sized from it, back
+// at landscape height.
+export function isTransientLandscapePageLayout({
+  keepsPortraitLayout,
+  layoutWidth,
+  windowHeight,
+  windowWidth,
+}: {
+  keepsPortraitLayout: boolean;
+  layoutWidth: number;
+  windowHeight: number;
+  windowWidth: number;
+}): boolean {
+  return (
+    keepsPortraitLayout &&
+    Math.round(layoutWidth) > Math.round(Math.min(windowWidth, windowHeight))
+  );
+}

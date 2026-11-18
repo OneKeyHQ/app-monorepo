@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+import type { ITermsConsentState } from '@onekeyhq/shared/types/setting';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
@@ -68,6 +69,7 @@ export type ISettingsPersistAtom = {
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
   enableMenuBarTray?: boolean;
+  enableAutoDownloadAppUpdate?: boolean;
   hapticFeedbackEnabled?: boolean;
   // Split-view layout for tablets / Android foldable devices. Undefined === enabled
   // (default-on for back-compat). Toggling triggers app restart.
@@ -119,6 +121,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
   enableMenuBarTray: true,
+  enableAutoDownloadAppUpdate: true,
   hapticFeedbackEnabled: true,
   newBrowserTabPosition: 'bottom',
   useGasAccountByDefault: true,
@@ -142,6 +145,18 @@ export const { target: inscriptionProtectionControlPersistAtom } =
       enabled: true,
     },
   });
+
+// Kept out of settingsPersistAtom: UI-side setting writes send the whole
+// settings object back to the background and could overwrite a consent record
+// the background wrote a moment earlier.
+export const {
+  target: termsConsentPersistAtom,
+  use: useTermsConsentPersistAtom,
+} = globalAtom<ITermsConsentState>({
+  persist: true,
+  name: EAtomNames.termsConsentPersistAtom,
+  initialValue: {},
+});
 
 export type IInscriptionProtectionStateAtom = {
   localEnabled: boolean;

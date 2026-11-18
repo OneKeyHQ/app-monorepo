@@ -44,14 +44,23 @@ function TestStack(props: Parameters<typeof useNavigationBuilder>[1]) {
   );
   return (
     <NavigationContent>
-      {state.routes.map((route, index) => (
-        <div key={route.key} hidden={index !== state.index}>
-          {(
-            descriptors[route.key].options as { headerLeft?: () => ReactNode }
-          ).headerLeft?.()}
-          {descriptors[route.key].render()}
-        </div>
-      ))}
+      {state.routes.map((route, index) => {
+        const options = descriptors[route.key].options as {
+          headerLeft?: () => ReactNode;
+          cardStyle?: { backgroundColor?: string };
+        };
+        return (
+          <div
+            key={route.key}
+            hidden={index !== state.index}
+            data-stack-card
+            data-card-bg={options.cardStyle?.backgroundColor}
+          >
+            {options.headerLeft?.()}
+            {descriptors[route.key].render()}
+          </div>
+        );
+      })}
     </NavigationContent>
   );
 }
@@ -1030,11 +1039,52 @@ it('returns completed mobile Done to token selection in the same session', async
   expect(activeTestId('dust-sweep-action').textContent).toBe(
     ETranslations.global_done,
   );
-  fireEvent.click(activeTestId('dust-sweep-action'));
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
   expect(mockAgain).toHaveBeenCalledTimes(1);
   expect(flowRoutes()?.map((route) => route.name)).toEqual(['Selection']);
   expect(ref.getCurrentRoute()?.name).toBe('Selection');
   expect(mockProviderUnmounts).toBe(0);
+});
+
+it('waits for the completed live sheet to close before resetting and popping Execution', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(completeItem);
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const closing = deferred<void>();
+  mockDialogClose.mockImplementationOnce(() => closing.promise);
+  const done = activeTestId('dust-sweep-action');
+  await act(async () => {
+    fireEvent.click(done);
+    fireEvent.click(done);
+  });
+  expect(mockAgain).not.toHaveBeenCalled();
+  expect(ref.getCurrentRoute()?.name).toBe('Execution');
+  expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  await act(async () => closing.resolve());
+  expect(mockAgain).toHaveBeenCalledTimes(1);
+  expect(ref.getCurrentRoute()?.name).toBe('Selection');
+  expect(mockProviderUnmounts).toBe(0);
+});
+
+it('does not replace the closing result sheet when Execution blurs and refocuses', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(completeItem);
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const closing = deferred<void>();
+  mockDialogClose.mockImplementationOnce(() => closing.promise);
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const sheetsBefore = liveSheetCalls().length;
+  await act(async () => ref.navigate('Other'));
+  await act(async () => ref.goBack());
+  expect(liveSheetCalls()).toHaveLength(sheetsBefore);
+  expect(mockAgain).not.toHaveBeenCalled();
+  await act(async () => closing.resolve());
+  expect(mockAgain).toHaveBeenCalledTimes(1);
+  expect(ref.getCurrentRoute()?.name).toBe('Selection');
 });
 
 it('bubbles selection Back through the first modal screen without starting execution', () => {
@@ -1101,6 +1151,25 @@ it('shows the Home tab top bar on the desktop tab route', () => {
   expect(screen.queryByTestId('tab-page-header')).toBeTruthy();
   expect(screen.queryByTestId('dust-sweep-back')).toBeNull();
 });
+
+it.each([
+  { native: false, overlay: false, cardBg: 'transparent' },
+  { native: false, overlay: true, cardBg: null },
+  { native: true, overlay: false, cardBg: null },
+])(
+  'only clears the nested card background on the web tab route (native: $native, overlay: $overlay)',
+  ({ native, overlay, cardBg }) => {
+    mockNative = native;
+    mockOverlay = overlay;
+    mountFlow();
+    expect(
+      screen
+        .getByTestId('dust-sweep-page')
+        .closest('[data-stack-card]')
+        ?.getAttribute('data-card-bg'),
+    ).toBe(cardBg);
+  },
+);
 
 it('keeps a back control in a desktop-width modal without the Home tab top bar', () => {
   mountFlow();

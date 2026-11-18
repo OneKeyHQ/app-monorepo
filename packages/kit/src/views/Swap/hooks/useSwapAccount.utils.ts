@@ -458,16 +458,10 @@ export function shouldUseSwapCustomRecipientAddress({
     });
   }
 
-  return (
-    areSwapRecipientNetworksCompatible({
-      selectedRecipientNetworkId,
-      targetNetworkId: activeNetworkId,
-    }) ||
-    areSwapRecipientNetworksCompatible({
-      selectedRecipientNetworkId,
-      targetNetworkId: tokenNetworkId,
-    })
-  );
+  return areSwapRecipientNetworksCompatible({
+    selectedRecipientNetworkId,
+    targetNetworkId: tokenNetworkId || activeNetworkId,
+  });
 }
 
 export function shouldShowSwapRecipientAddressInfo({

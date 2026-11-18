@@ -2020,6 +2020,31 @@ function TokenSelector() {
         aggregateTokenFiatMap: merged.aggregateTokenFiatMap,
       });
       applyNormalTokenSelectorSnapshot(snapshot);
+      if (!isSelectorAllNetworks && !showTokenSelectorFilter && responses[0]) {
+        const response = responses[0];
+        let valueAccountId = indexedAccountId || '';
+        if (!valueAccountId && accountUtils.isOthersAccount({ accountId })) {
+          valueAccountId = accountId;
+        }
+        if (valueAccountId) {
+          const valueKey = accountUtils.buildAccountValueKey({
+            accountId,
+            networkId,
+          });
+          const totalFiatValue = new BigNumber(response.tokens.fiatValue ?? '0')
+            .plus(response.smallBalanceTokens.fiatValue ?? '0')
+            .toFixed();
+          // Keep ChainSelector's displayed network value in sync with the
+          // selector request that refreshed the token list.
+          void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+            {
+              accountId: valueAccountId,
+              value: { [valueKey]: totalFiatValue },
+              currency: response.tokens.currency ?? 'usd',
+            },
+          );
+        }
+      }
       if (!isIncompleteAllNetworksFanOut) {
         writeNormalTokenSelectorViewSnapshot({
           key: normalTokenSelectorViewSWRKey,
@@ -2059,6 +2084,7 @@ function TokenSelector() {
     showActiveAccountTokenList,
     showFetchTokenListErrorToast,
     showLpTokensOnly,
+    showTokenSelectorFilter,
     tokenSelectorFilterParams,
     useSelectorFilteredTokenList,
   ]);

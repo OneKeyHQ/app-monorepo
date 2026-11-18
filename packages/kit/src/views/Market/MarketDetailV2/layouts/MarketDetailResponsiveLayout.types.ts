@@ -1,4 +1,7 @@
-import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/routes';
+import type {
+  IMarketStockDetailInitialSection,
+  IMarketTokenDetailRouteParams,
+} from '@onekeyhq/shared/src/routes';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 export interface IMarketDetailResponsiveLayoutProps {
@@ -8,6 +11,8 @@ export interface IMarketDetailResponsiveLayoutProps {
   active?: boolean;
   isDesktopLayout: boolean;
   isLayoutPending?: boolean;
+  pendingMarketAsset?: IMarketTokenDetailRouteParams['pendingMarketAsset'];
+  retryMarketAsset?: () => void;
   isInitialContentPending?: boolean;
   isTokenDetailRequestPending?: boolean;
   disablePerpsBanner?: boolean;

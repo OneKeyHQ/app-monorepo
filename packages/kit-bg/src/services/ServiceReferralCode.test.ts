@@ -156,6 +156,37 @@ function createReferralCache(initial: IReferralCodeData) {
   return { service, entity, getStored: () => stored };
 }
 
+describe('ServiceReferralCode invite sharing URL', () => {
+  it.each([
+    ['onekey.so/r/ABC123', 'https://onekey.so/r/ABC123'],
+    ['onekeytest.com/r/ABC123', 'https://onekeytest.com/r/ABC123'],
+    [
+      'onekey.so/r/ABC123?a=1&b=2#details',
+      'https://onekey.so/r/ABC123?a=1&b=2#details',
+    ],
+    ['https://onekey.so/r/ABC123', 'https://onekey.so/r/ABC123'],
+    ['https://onekeytest.com/r/ABC123', 'https://onekeytest.com/r/ABC123'],
+    ['http://onekey.so/r/ABC123', 'http://onekey.so/r/ABC123'],
+    ['', ''],
+  ])('normalizes the sharing URL %j', async (inviteUrl, expectedUrl) => {
+    const { service } = createService();
+    const summary = { inviteCode: 'ABC123', inviteUrl, totalRewards: '10' };
+    const get = jest.fn().mockResolvedValue({ data: { data: summary } });
+    jest
+      .spyOn(service, 'getOneKeyIdClient')
+      .mockResolvedValue({ get } as unknown as Awaited<
+        ReturnType<ServiceReferralCode['getOneKeyIdClient']>
+      >);
+    jest.spyOn(service, 'updateMyReferralCode').mockResolvedValue(undefined);
+
+    await expect(service.getSummaryInfo()).resolves.toEqual({
+      ...summary,
+      inviteUrl: expectedUrl,
+    });
+    expect(summary.inviteUrl).toBe(inviteUrl);
+  });
+});
+
 describe('ServiceReferralCode owned invite code', () => {
   it('only exposes the active account code through the public share reader', async () => {
     jest.useFakeTimers();

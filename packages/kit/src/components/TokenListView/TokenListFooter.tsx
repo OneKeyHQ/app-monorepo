@@ -13,6 +13,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -50,6 +51,8 @@ import {
 import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
 import { Currency } from '../Currency';
 
+import { getTokenListFooterLayout } from './tokenListRowLayout';
+import { getTokenListFooterLeading } from './tokenListRowLayoutShared';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
@@ -435,31 +438,37 @@ function TokenListFooter(props: IProps) {
     };
   }, [run]);
 
+  const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
+  const { gtMd } = useMedia();
+  const footerLeading = getTokenListFooterLeading(gtMd);
+
   return (
-    <Stack mx={tableLayout ? undefined : '$2'}>
+    <Stack mx={footerLayout.mx}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
           userSelect="none"
-          {...(tableLayout && plainMode
-            ? undefined
-            : {
-                px: '$3',
-                mx: 0,
-              })}
+          {...footerLayout.itemProps}
         >
           <XStack
             flexGrow={1}
             flexBasis={0}
             minWidth={0}
             alignItems="center"
-            gap="$3"
+            gap={footerLeading.gap}
           >
-            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
+            <Stack
+              width={footerLeading.boxSize}
+              height={footerLeading.boxSize}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size="$6"
+                size={footerLeading.iconSize}
               />
             </Stack>
             <ListItem.Text
@@ -530,16 +539,22 @@ function TokenListFooter(props: IProps) {
         <ListItem
           onPress={handleOnPressRiskyTokens}
           userSelect="none"
-          {...(tableLayout && plainMode
-            ? undefined
-            : {
-                px: '$3',
-                mx: 0,
-              })}
+          {...footerLayout.itemProps}
         >
-          <XStack alignItems="center" gap="$3" flex={1}>
-            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
-              <Icon name="ErrorSolid" color="$iconSubdued" size="$6" />
+          <XStack alignItems="center" gap={footerLeading.gap} flex={1}>
+            <Stack
+              width={footerLeading.boxSize}
+              height={footerLeading.boxSize}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
+              <Icon
+                name="ErrorSolid"
+                color="$iconSubdued"
+                size={footerLeading.iconSize}
+              />
             </Stack>
             <ListItem.Text
               primary={intl.formatMessage(

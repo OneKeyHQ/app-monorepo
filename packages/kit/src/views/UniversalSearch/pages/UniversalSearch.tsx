@@ -25,13 +25,13 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   View,
   XStack,
   YStack,
   isLiquidGlassAvailable,
   useMedia,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
@@ -1342,7 +1342,7 @@ export function UniversalSearch({
             content = (
               <MarketSearchStockSection
                 {...getStockProps(section)}
-                titleBg="$bgApp"
+                headerBg="$bgApp"
               />
             );
           } else if (isMarketSection(section.tabIndex)) {
@@ -1352,7 +1352,7 @@ export function UniversalSearch({
                 showMore={Boolean(section.showMore)}
                 onShowMore={() => handleTabPress(section.title)}
                 onPress={handleTokenRowPress}
-                titleBg="$bgApp"
+                headerBg="$bgApp"
               />
             );
           } else {
@@ -1441,7 +1441,7 @@ export function UniversalSearch({
         if (isMarketSearch) {
           return (
             <>
-              <Tabs.TabBar
+              <TabBar
                 key="search-tabs-loading"
                 scrollable
                 tabNames={loadingTabTitles}
@@ -1549,7 +1549,7 @@ export function UniversalSearch({
         return (
           <>
             {visibleTabTitles.length > 1 || isMarketSearch ? (
-              <Tabs.TabBar
+              <TabBar
                 key="search-tabs-done"
                 scrollable
                 tabNames={visibleTabTitles}

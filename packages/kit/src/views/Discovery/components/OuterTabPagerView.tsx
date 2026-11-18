@@ -101,6 +101,7 @@ interface IOuterTabPagerViewProps {
       host can show a page's content the moment it becomes visible rather than
       waiting for the swipe to commit (OK-60300) */
   onVisiblePagesChange?: (pages: number[]) => void;
+  onTransitioningChange?: (transitioning: boolean) => void;
 }
 
 // --- Component ---
@@ -115,11 +116,19 @@ function OuterTabPagerViewComponent({
   earnBorrowPagerRef,
   pageScrollPosition,
   onVisiblePagesChange,
+  onTransitioningChange,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 1;
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
+  const [isEarnInactiveCommitted, setIsEarnInactiveCommitted] = useState(false);
+  useEffect(() => {
+    if (platformEnv.isNativeIOS) return;
+    // Let Earn commit its inactive props and clean up passive effects before
+    // suspending it, even when native idle precedes the bg tab update.
+    setIsEarnInactiveCommitted(selectedHeaderTab !== ETranslations.global_earn);
+  }, [selectedHeaderTab]);
   // OK-59246 used to pause this pager while the earn banner was being dragged.
   // Flipping scrollEnabled on a native pager mid-gesture is itself a hazard
   // (OK-61515), and it never covered the header's own RNGH tab-switch pan. The
@@ -158,13 +167,28 @@ function OuterTabPagerViewComponent({
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
   selectedHeaderTabRef.current = selectedHeaderTab;
 
-  const setTransitioning = useCallback((value: boolean) => {
-    if (isOuterPageTransitioningRef.current === value) {
-      return;
+  const setTransitioning = useCallback(
+    (value: boolean) => {
+      if (isOuterPageTransitioningRef.current === value) {
+        return;
+      }
+      isOuterPageTransitioningRef.current = value;
+      onTransitioningChange?.(value);
+      setIsOuterPageTransitioning(value);
+    },
+    [onTransitioningChange],
+  );
+
+  useEffect(() => {
+    if (isOuterPageTransitioningRef.current) {
+      onTransitioningChange?.(true);
     }
-    isOuterPageTransitioningRef.current = value;
-    setIsOuterPageTransitioning(value);
-  }, []);
+    return () => {
+      if (isOuterPageTransitioningRef.current) {
+        onTransitioningChange?.(false);
+      }
+    };
+  }, [onTransitioningChange]);
 
   const setVisiblePair = useCallback((pair: [number, number] | null) => {
     const prev = visiblePagePairRef.current;
@@ -431,7 +455,15 @@ function OuterTabPagerViewComponent({
           {platformEnv.isNativeIOS ? (
             earnContent
           ) : (
-            <Freeze freeze={shouldFreezePage(0)}>{earnContent}</Freeze>
+            <Freeze
+              freeze={
+                shouldFreezePage(0) &&
+                selectedHeaderTab !== ETranslations.global_earn &&
+                isEarnInactiveCommitted
+              }
+            >
+              {earnContent}
+            </Freeze>
           )}
         </View>
       ) : (
@@ -439,7 +471,13 @@ function OuterTabPagerViewComponent({
           <Stack flex={1} />
         </View>
       ),
-    [isPageMounted, shouldFreezePage, earnContent],
+    [
+      isPageMounted,
+      shouldFreezePage,
+      selectedHeaderTab,
+      isEarnInactiveCommitted,
+      earnContent,
+    ],
   );
 
   const browserPage = useMemo(

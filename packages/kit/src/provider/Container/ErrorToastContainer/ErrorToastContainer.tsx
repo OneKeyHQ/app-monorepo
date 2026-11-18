@@ -1,8 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import {
+  Dialog,
+  Toast,
+  globalNetInfo,
+  useClipboard,
+} from '@onekeyhq/components';
+import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -10,12 +16,15 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PRIME_USER_BANNED_CODE } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 import {
   getNativeAppStorageEmergencyStatus,
   subscribeNativeAppStorageEmergencyStatus,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+
+import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -69,6 +78,12 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 
 export function ErrorToastContainer() {
   const intl = useIntl();
+  const bannedDialogVisible = useRef(false);
+  // The toast actions are data, so the hooks their handlers need run here.
+  const { copyText } = useClipboard();
+  const { openChangeLogModal } = useFirmwareUpdateActions();
+  const actionDeps = useRef({ copyText, openChangeLogModal });
+  actionDeps.current = { copyText, openChangeLogModal };
 
   useEffect(() => {
     if (!platformEnv.isNative) return;
@@ -111,7 +126,8 @@ export function ErrorToastContainer() {
 
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      if (!p.title) {
+      const isPrimeUserBanned = Number(p.errorCode) === PRIME_USER_BANNED_CODE;
+      if (!p.title && !isPrimeUserBanned) {
         return;
       }
       const isInternetReachable =
@@ -126,6 +142,49 @@ export function ErrorToastContainer() {
         return;
       }
 
+      // A banned OneKey ID is signed out, so the notice is always a blocking
+      // dialog rather than a toast with account actions.
+      if (isPrimeUserBanned) {
+        if (bannedDialogVisible.current) return;
+        bannedDialogVisible.current = true;
+        void (async () => {
+          try {
+            await closeOneKeyIdLoginDialogs();
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__desc,
+              }),
+              icon: 'ErrorOutline',
+              tone: 'warning',
+              showCancelButton: false,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+              confirmButtonProps: {
+                testID: 'prime-banned-login-error-confirm-btn',
+              },
+              dismissOnOverlayPress: false,
+              disableDrag: true,
+              onClose: () => {
+                bannedDialogVisible.current = false;
+              },
+            });
+          } catch {
+            bannedDialogVisible.current = false;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              toastId: String(PRIME_USER_BANNED_CODE),
+            });
+          }
+        })();
+        return;
+      }
+
       const deduplication = getDeduplicationId(statusCodeForDeduplicate);
       // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
       // Otherwise, respect custom toastId from caller
@@ -137,13 +196,21 @@ export function ErrorToastContainer() {
           p.title ||
           p.requestId;
 
-      const actions = getErrorAction({
-        errorCode: p.errorCode,
-        connectId: p.connectId,
-        requestId: p.requestId,
-        diagnosticText: p.diagnosticText,
-        i18nKey: p.i18nKey,
-      });
+      const actions = getErrorAction(
+        {
+          errorCode: p.errorCode,
+          connectId: p.connectId,
+          requestId: p.requestId,
+          diagnosticText: p.diagnosticText,
+          i18nKey: p.i18nKey,
+        },
+        {
+          intl,
+          copyText: (text) => actionDeps.current.copyText(text),
+          openChangeLogModal: (params) =>
+            actionDeps.current.openChangeLogModal(params),
+        },
+      );
 
       const canLocalizeError =
         !(

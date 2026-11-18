@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildMarketReviewRateDifference,
   buildMarketReviewState,
   findMarketTxConfirmFeeInfo,
   shouldAutoContinueMarketResetApprove,
@@ -65,6 +66,80 @@ function createQuoteResult(
 }
 
 describe('marketReviewExecutionUtils', () => {
+  it.each([
+    [EProtocolOfExchange.STOCK, undefined],
+    [EProtocolOfExchange.SWAP, '+100.00%'],
+  ])(
+    'uses strict currency conversion for Stock Market review only (%s)',
+    (protocol, expected) => {
+      const result = buildMarketReviewRateDifference({
+        quoteResult: { protocol, instantRate: '0.02' },
+        swapInfo: {
+          sender: { token: { price: '1', currency: 'usd' } },
+          receiver: { token: { price: '100', currency: 'cny' } },
+        },
+        currencyMap: {
+          usd: {
+            id: 'usd',
+            unit: '$',
+            name: 'US Dollar',
+            type: ['fiat'],
+            value: '1',
+          },
+          cny: {
+            id: 'cny',
+            unit: '¥',
+            name: 'Chinese Yuan',
+            type: ['fiat'],
+            value: '0',
+          },
+        },
+      });
+      expect(result?.value).toBe(expected);
+    },
+  );
+
+  it('uses the Stock entry type when a Market quote omits protocol', () => {
+    const result = buildMarketReviewRateDifference({
+      quoteResult: { instantRate: '0.02' },
+      swapInfo: {
+        sender: { token: { price: '1', currency: 'usd' } },
+        receiver: { token: { price: '100', currency: 'cny' } },
+      },
+      currencyMap: {
+        usd: {
+          id: 'usd',
+          unit: '$',
+          name: 'US Dollar',
+          type: ['fiat'],
+          value: '1',
+        },
+        cny: {
+          id: 'cny',
+          unit: '¥',
+          name: 'Chinese Yuan',
+          type: ['fiat'],
+          value: '0',
+        },
+      },
+      strictCurrencyConversion: true,
+    });
+    expect(result).toBeUndefined();
+  });
+
+  it('retains Stock display strictness without changing execution type for an untagged quote', () => {
+    const state = buildMarketReviewState({
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2',
+      quoteResult: createQuoteResult({ protocol: undefined }),
+      strictCurrencyConversion: true,
+      texts,
+    });
+    expect(state.preSwapData.strictCurrencyConversion).toBe(true);
+    expect(state.preSwapData.swapType).toBe(ESwapTabSwitchType.SWAP);
+  });
   it('keeps the Market review flow on separate approve then send steps', () => {
     const reviewState = buildMarketReviewState({
       accountId: 'account-1',

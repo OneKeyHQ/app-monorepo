@@ -100,24 +100,21 @@ const DetailsPartComponent = ({
     currencySymbol: currencyInfo.symbol,
   });
 
-  const mobileContainerProps = useMemo(
-    () => ({
-      allowHeaderOverscroll: true,
-      renderHeader: () => (
-        <YStack px="$5" pt="$6" bg="$bgApp" pointerEvents="box-none">
-          <ReserveProtocolHeader
-            symbol={symbol}
-            logoURI={logoURI}
-            oraclePrice={formattedOraclePrice}
-            reserveSize={formattedReserveSize}
-            availableLiquidity={formattedAvailableLiquidity}
-            utilizationRatio={details?.utilizationRatio}
-            platformBonus={details?.platformBonus}
-            managers={details?.managers}
-          />
-        </YStack>
-      ),
-    }),
+  const mobileHeader = useMemo(
+    () => (
+      <YStack px="$5" pt="$6" bg="$bgApp" pointerEvents="box-none">
+        <ReserveProtocolHeader
+          symbol={symbol}
+          logoURI={logoURI}
+          oraclePrice={formattedOraclePrice}
+          reserveSize={formattedReserveSize}
+          availableLiquidity={formattedAvailableLiquidity}
+          utilizationRatio={details?.utilizationRatio}
+          platformBonus={details?.platformBonus}
+          managers={details?.managers}
+        />
+      </YStack>
+    ),
     [
       symbol,
       logoURI,
@@ -138,12 +135,18 @@ const DetailsPartComponent = ({
       >
         {details ? (
           <ReserveDetailsTabs
+            key={JSON.stringify([
+              networkId,
+              provider,
+              marketAddress,
+              reserveAddress,
+            ])}
             networkId={networkId}
             provider={provider}
             marketAddress={marketAddress}
             reserveAddress={reserveAddress}
             details={details}
-            containerProps={mobileContainerProps}
+            header={mobileHeader}
           />
         ) : null}
       </PageFrame>

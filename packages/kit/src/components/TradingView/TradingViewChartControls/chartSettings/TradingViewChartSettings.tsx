@@ -1,5 +1,5 @@
 // cspell:ignore heikin Ashi
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -348,7 +348,7 @@ export type ITradingViewChartSettingsProps = {
   onChange?: (value: ITradingViewChartSettingsValue) => void;
   /** Receives the complete value after the user confirms the draft. */
   onConfirm?: (value: ITradingViewChartSettingsValue) => void | Promise<void>;
-  /** Called after the confirmed draft has been committed locally. */
+  /** Called after a confirmation or dialog reset has been committed locally. */
   onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
@@ -407,6 +407,7 @@ export function TradingViewChartSettings({
   const [selectedAppearanceSectionId, setSelectedAppearanceSectionId] =
     useState<ITradingViewSettingsMockAppearanceSectionId>('candles');
   const [isCommitting, setIsCommitting] = useState(false);
+  const isResettingRef = useRef(false);
   const submitInProgress = isSubmitting || isCommitting;
 
   const isAppearanceSectionVisible = useCallback(
@@ -504,33 +505,47 @@ export function TradingViewChartSettings({
     onClose?.();
   };
 
+  const persistValue = async (nextValue: ITradingViewChartSettingsValue) => {
+    try {
+      await onConfirm?.(nextValue);
+      return { isCurrentDraft: commitSettingsValue(nextValue) };
+    } catch (error) {
+      onConfirmError?.(error);
+      return null;
+    }
+  };
+
   const commitValue = async (nextValue: ITradingViewChartSettingsValue) => {
     setIsCommitting(true);
     try {
-      await onConfirm?.(nextValue);
-      commitSettingsValue();
-      return true;
-    } catch (error) {
-      onConfirmError?.(error);
-      return false;
+      return await persistValue(nextValue);
     } finally {
       setIsCommitting(false);
     }
   };
 
   const handleReset = async () => {
-    if (submitInProgress) {
+    if (submitInProgress || isResettingRef.current) {
       return;
     }
+    isResettingRef.current = true;
     const resetValue = createTradingViewChartSettingsValue();
     updateSettingsValue(() => resetValue);
-    // Reset is a sibling action of Confirm rather than a pending edit, so the
-    // defaults are applied right away while the settings stay open.
-    await commitValue(resetValue);
+    // Keep controls enabled during the short save to avoid flashing the dialog.
+    try {
+      const result = await persistValue(resetValue);
+      if (result?.isCurrentDraft && !usePageFooter) {
+        await onConfirmSuccess?.();
+      }
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      isResettingRef.current = false;
+    }
   };
 
   const handleConfirm = async () => {
-    if (submitInProgress) {
+    if (submitInProgress || isResettingRef.current) {
       return false;
     }
 
@@ -749,6 +764,9 @@ export function TradingViewChartSettings({
               label={intl.formatMessage({
                 id: OPTION_TRANSLATION_IDS.clickInteraction,
               })}
+              description={intl.formatMessage({
+                id: ETranslations.chart_interaction__desc,
+              })}
               testID="click-interaction"
               value={settingsValue.options.clickInteraction}
               disabled={submitInProgress}
@@ -761,6 +779,9 @@ export function TradingViewChartSettings({
             <SettingsCheckboxRow
               label={intl.formatMessage({
                 id: OPTION_TRANSLATION_IDS.navigationButtons,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.chart_navigation_buttons__desc,
               })}
               testID="navigation-buttons"
               value={settingsValue.options.navigationButtons}

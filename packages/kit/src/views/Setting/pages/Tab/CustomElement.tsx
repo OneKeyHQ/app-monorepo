@@ -55,6 +55,7 @@ import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnrea
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openTravelModeSettingsWithAdmission } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useAppUpdatePersistAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -77,7 +78,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ISettingsEntrySurface } from '@onekeyhq/shared/src/logger/scopes/setting';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -1049,6 +1049,42 @@ export function MenuBarTrayListItem({
         size={ESwitchSize.small}
         value={isEnabled}
         onChange={toggleMenuBarTray}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function AutoDownloadAppUpdateListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
+  const [{ enableAutoDownloadAppUpdate }] = useSettingsPersistAtom();
+  const isEnabled = enableAutoDownloadAppUpdate ?? true;
+  const onChange = useCallback(
+    (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'auto-download-app-update',
+        from: String(isEnabled),
+        to: String(value),
+      });
+      void backgroundApiProxy.serviceSetting.setEnableAutoDownloadAppUpdate(
+        value,
+      );
+    },
+    [analyticsSource, isEnabled, logItemClick],
+  );
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        testID="settings-auto-download-app-update"
+        size={ESwitchSize.small}
+        value={isEnabled}
+        onChange={onChange}
       />
     </TabSettingsListItem>
   );

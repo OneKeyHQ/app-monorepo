@@ -45,7 +45,7 @@ export const HARDWARE_PATH_TEST_PRESETS: IHardwarePathTestPreset[] = [
   })),
   {
     labelKey: ETranslations.dev_hw_path_account_zero__title,
-    path: "m/44'/0'/0'/1/835069775",
+    path: "m/44'/0'/0'/1/369775",
   },
   { label: 'BIP44 (P2PKH)', path: "m/44'/0'/0'/0/0" },
   { label: 'BIP49 (P2SH-P2WPKH)', path: "m/49'/0'/0'/0/0" },

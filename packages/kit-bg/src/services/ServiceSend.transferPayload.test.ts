@@ -342,7 +342,7 @@ describe('privacy send approval lifecycle', () => {
   );
 
   it.each(['xmr--0', 'zec--0'])(
-    '%s logs the signed tx without its hex payloads',
+    '%s returns the signed tx without logging its payload',
     async (networkId) => {
       const { service, accountId, signedTx } = privacySendFixture(networkId);
       const unsignedTx = await service.buildUnsignedTx({
@@ -351,25 +351,14 @@ describe('privacy send approval lifecycle', () => {
       });
       const log = jest.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        await service.signTransaction({
+        const result = await service.signTransaction({
           accountId,
           networkId,
           unsignedTx,
           signOnly: true,
         });
-        const signLogs = log.mock.calls.filter(([label]) =>
-          [
-            'signTx@vault.signTransaction',
-            'signTx@serviceSend.signTransaction',
-          ].includes(label as string),
-        );
-        expect(signLogs).toHaveLength(2);
-        for (const [, payload] of signLogs) {
-          expect(payload).toEqual(
-            expect.objectContaining({ txid: signedTx.txid }),
-          );
-          expect(JSON.stringify(payload)).not.toContain('aabb');
-        }
+        expect(result).toBe(signedTx);
+        expect(log).not.toHaveBeenCalled();
       } finally {
         log.mockRestore();
       }
@@ -429,7 +418,7 @@ describe('privacy send approval lifecycle', () => {
 
 describe('privacy fee checks stay local', () => {
   it.each(['xmr--0', 'zec--0'])(
-    '%s checks the actual fee and high-fee warning without uploading the proposal',
+    '%s checks the actual fee without uploading the proposal',
     async (networkId) => {
       const post = jest.fn();
       const service = new ServiceSend({
@@ -458,6 +447,7 @@ describe('privacy fee checks stay local', () => {
           feeAmount: '0.00001',
         }),
       ).resolves.toBe(true);
+      // A fee as large as the payment is not flagged; the runtime bounds it.
       const highFee = networkId === 'xmr--0' ? '1000000000000' : '100000000';
       await expect(
         service.preCheckIsFeeInfoOverflow({
@@ -465,7 +455,7 @@ describe('privacy fee checks stay local', () => {
           encodedTx: privacyProposal(networkId, highFee),
           feeAmount: '1',
         }),
-      ).resolves.toBe(networkId === 'xmr--0');
+      ).resolves.toBe(false);
       await expect(
         service.preCheckIsFeeInfoOverflow({
           ...params,

@@ -19,18 +19,46 @@ jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ height: 800, width: 1200 }),
 }));
 
+jest.mock('./TradingViewSettingsDialog', () => ({
+  TradingViewSettingsDialog: ({
+    children,
+    onReset,
+    testIDPrefix,
+  }: {
+    children: (footer: ReactNode) => ReactNode;
+    onReset: () => void;
+    testIDPrefix: string;
+  }) =>
+    children(
+      <button
+        data-testid={`${testIDPrefix}-mock-reset`}
+        onClick={onReset}
+        type="button"
+      >
+        Reset
+      </button>,
+    ),
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const View = ({
     children,
+    disabled,
     onPress,
     testID,
   }: {
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
     testID?: string;
   }) =>
     onPress ? (
-      <button data-testid={testID} onClick={onPress} type="button">
+      <button
+        data-testid={testID}
+        disabled={disabled}
+        onClick={onPress}
+        type="button"
+      >
         {children}
       </button>
     ) : (
@@ -40,17 +68,20 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button: View,
     Checkbox: ({
+      description,
       label,
       onChange,
       testID,
       value,
     }: {
+      description?: string;
       label?: ReactNode;
       onChange?: (value: boolean) => void;
       testID?: string;
       value?: boolean;
     }) => (
       <button
+        data-description={description}
         data-testid={testID}
         data-value={String(value)}
         onClick={() => onChange?.(!value)}
@@ -237,6 +268,14 @@ describe('TradingViewChartSettings', () => {
     expect(navigationButtonsCheckbox.textContent).toBe(
       'chart_navigation_buttons__title',
     );
+    expect(navigationButtonsCheckbox.getAttribute('data-description')).toBe(
+      'chart_navigation_buttons__desc',
+    );
+    expect(
+      screen
+        .getByTestId('trading-view-settings-checkbox-click-interaction')
+        .getAttribute('data-description'),
+    ).toBe('chart_interaction__desc');
     expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(navigationButtonsCheckbox);
@@ -340,7 +379,7 @@ describe('TradingViewChartSettings', () => {
     expect(nextValue?.chartType).toBe('line');
   });
 
-  it('applies reset defaults immediately without waiting for confirm', async () => {
+  it.each([true, false])('saves on Reset (page footer: %s)', async (page) => {
     const committedValue: ITradingViewChartSettingsValue = {
       ...createTradingViewChartSettingsValue(),
       chartType: 'line',
@@ -353,7 +392,7 @@ describe('TradingViewChartSettings', () => {
     render(
       <TradingViewChartSettings
         value={committedValue}
-        usePageFooter
+        usePageFooter={page}
         showChartType
         onConfirm={onConfirm}
         onConfirmSuccess={onConfirmSuccess}
@@ -376,8 +415,7 @@ describe('TradingViewChartSettings', () => {
     expect(onConfirm).toHaveBeenCalledWith(
       createTradingViewChartSettingsValue(),
     );
-    // Reset persists in place; only Confirm closes the settings.
-    expect(onConfirmSuccess).not.toHaveBeenCalled();
+    expect(onConfirmSuccess).toHaveBeenCalledTimes(page ? 0 : 1);
     expect(
       (
         screen.getByTestId(
@@ -385,6 +423,113 @@ describe('TradingViewChartSettings', () => {
         ) as HTMLSelectElement
       ).value,
     ).toBe('auto');
+  });
+
+  it('keeps controls enabled and ignores repeat presses while reset persists', async () => {
+    let resolveConfirm: () => void = () => {};
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={{
+          ...createTradingViewChartSettingsValue(),
+          chartType: 'line',
+        }}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+      />,
+    );
+
+    const resetButton = screen.getByTestId(
+      'trading-view-settings-mock-reset',
+    ) as HTMLButtonElement;
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+
+    // Reset resolves almost instantly, so flipping the dialog into its
+    // submitting state for that window reads as a flash.
+    expect(resetButton.disabled).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveConfirm();
+    });
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the dialog open with edits made while reset persists', async () => {
+    let resolveConfirm: () => void = () => {};
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+    const onConfirmSuccess = jest.fn();
+    const renderSettings = (value: ITradingViewChartSettingsValue) => (
+      <TradingViewChartSettings
+        value={value}
+        showChartType
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+      />
+    );
+    const getChartTypeSelect = () =>
+      screen.getByTestId(
+        'trading-view-settings-select-chart-type',
+      ) as HTMLSelectElement;
+
+    const { rerender } = render(
+      renderSettings({
+        ...createTradingViewChartSettingsValue(),
+        chartType: 'line',
+      }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+    expect(getChartTypeSelect().value).toBe('auto');
+
+    fireEvent.change(getChartTypeSelect(), { target: { value: 'area' } });
+    expect(getChartTypeSelect().value).toBe('area');
+
+    // The persisted reset reaches the controlled value as a fresh object
+    // before onConfirm resolves, like a store-backed settings atom.
+    rerender(renderSettings(createTradingViewChartSettingsValue()));
+    await act(async () => {
+      resolveConfirm();
+    });
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      createTradingViewChartSettingsValue(),
+    );
+    expect(getChartTypeSelect().value).toBe('area');
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
   });
 
   it('keeps the reset draft and reports the error when applying it fails', async () => {

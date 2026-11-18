@@ -170,6 +170,9 @@ export type IOnramperStateKind =
 export type IOnramperState = {
   kind: IOnramperStateKind;
   requirementTypes?: string[];
+  // requireLogin: a user_info field is already satisfied, i.e. the checkout
+  // was prepared for a signed-in user (hasVerifiedOnramperUserInfo).
+  hasVerifiedUserInfo?: boolean;
   renderType?: string;
   paymentType?: string;
   errorCode?: string;
@@ -215,8 +218,9 @@ export type IOnramperClient = {
     name: IOnramperEventName,
     listener: IOnramperEventListener,
   ) => () => void;
-  // SDK state machine transitions (diagnostics only — the UI drives off the
-  // checkout events above).
+  // SDK state machine transitions: diagnostics, plus the only signal for the
+  // OnramperID login (getOnramperSignedInFromState). The rest of the UI drives
+  // off the checkout events above.
   addStateListener: (listener: IOnramperStateListener) => () => void;
   reset: () => Promise<void>;
   signOut: () => Promise<void>;

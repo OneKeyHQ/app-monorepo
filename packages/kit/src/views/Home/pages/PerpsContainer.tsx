@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -47,6 +48,7 @@ import {
   useCurrencyPersistAtom,
   usePerpsCustomSettingsAtom,
   useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
@@ -55,6 +57,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EMarketHomeEntrySource } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -245,13 +248,14 @@ function PerpsUsd({
     return <SizableText {...rest}>--</SizableText>;
   }
   return (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue
       formatter="value"
       formatterOptions={{ currency: '$' }}
       {...rest}
     >
       {value}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 }
 
@@ -264,7 +268,11 @@ function PerpsTotalUsd({
   isDegraded?: boolean;
 } & Omit<ISizableTextProps, 'children'>) {
   const [settings] = useSettingsPersistAtom();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  if (hideValue) {
+    return <SizableText {...rest}>****</SizableText>;
+  }
   const displayValue =
     value === undefined
       ? undefined
@@ -310,10 +318,11 @@ function PerpsSignedUsd({
   ISizableTextProps,
   'children' | 'color'
 >) {
-  if (value === undefined) {
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+  if (hideValue || value === undefined) {
     return (
       <SizableText color="$textSubdued" {...rest}>
-        --
+        {hideValue ? '****' : '--'}
       </SizableText>
     );
   }
@@ -696,6 +705,7 @@ function PerpsEmptyRecommendSection() {
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
+              entrySource: EMarketHomeEntrySource.WalletHome,
               tabToSelect: 'perps',
               perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
             })
@@ -941,6 +951,7 @@ function PerpsEmptyRecommendSection() {
             testID={HomeTestIDs.popularViewMoreBtn}
             onPress={() =>
               navigateToMarketTab({
+                entrySource: EMarketHomeEntrySource.WalletHome,
                 tabToSelect: 'perps',
                 perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
               })
@@ -1173,14 +1184,15 @@ function PerpsMobileHoldingRow({
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {holding.displaySymbol}
           </SizableText>
-          <NumberSizeableText
+          <NumberSizeableTextWrapper
+            hideValue
             formatter="balance"
             size="$bodyMd"
             color="$textSubdued"
             numberOfLines={1}
           >
             {holding.balance}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         </YStack>
       </XStack>
       <YStack flexShrink={0} alignItems="flex-end" gap="$0.5">
@@ -1337,6 +1349,7 @@ function PerpsMetric({
   emphasis?: boolean;
 }) {
   const intl = useIntl();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const alignItems = align === 'right' ? 'flex-end' : 'flex-start';
   let columnFlexGrow = 1;
   let columnGtMdFlexGrow = 1;
@@ -1348,7 +1361,9 @@ function PerpsMetric({
     columnGtMdFlexGrow = 0.55;
   }
   let valueColor = '$text';
-  if (positive) {
+  if (hideValue) {
+    valueColor = '$textSubdued';
+  } else if (positive) {
     valueColor = '$green11';
   } else if (negative) {
     valueColor = '$red11';
@@ -1376,8 +1391,9 @@ function PerpsMetric({
               {labelExtra}
             </SizableText>
           </XStack>
-          {formatter ? (
+          {formatter || hideValue ? (
             <NumberSizeableText
+              hideValue={hideValue}
               size={valueSize}
               color={valueColor}
               $gtMd={{ size: valueGtMdSize }}

@@ -107,6 +107,7 @@ import {
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
+  openTokenSelectorsAtom,
   orderBookTickOptionsAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
@@ -137,6 +138,7 @@ import {
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
 import {
+  getPerpsActiveAccountChangedMessage,
   getPerpsOrderChangedMessage,
   getPerpsOrderNoLongerEligibleForChaseMessage,
   getPerpsTokenInfoNotFoundMessage,
@@ -558,11 +560,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
     ) => IPerpsActiveOpenOrdersAtom,
     oid: number,
+    expectedAccountAddress?: string,
   ): Promise<HL.IPerpsFrontendOrder | undefined> {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAccountAddress = normalizePerpsAccountAddress(
       activeAccount?.accountAddress,
     );
+    if (
+      expectedAccountAddress !== undefined &&
+      activeAccountAddress !==
+        normalizePerpsAccountAddress(expectedAccountAddress)
+    ) {
+      throw new OneKeyLocalError(getPerpsActiveAccountChangedMessage());
+    }
     if (!activeAccountAddress) {
       return undefined;
     }
@@ -1442,12 +1452,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeInstrument = get(activeTradeInstrumentAtom());
-    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
+  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo | null) => {
     if (!data) {
+      set(bboAtom(), null);
       return;
     }
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
       if (
@@ -2003,6 +2014,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(tradeRouteViewStateAtom(), {
         ...current,
         ...patch,
+      });
+    },
+  );
+
+  /** Token pickers report here; the flag stays on while any is open. */
+  setTokenSelectorOpen = contextAtomMethod(
+    (get, set, params: { owner: string; open: boolean }) => {
+      const owners = get(openTokenSelectorsAtom());
+      if (owners.includes(params.owner) === params.open) return;
+      const next = params.open
+        ? [...owners, params.owner]
+        : owners.filter((owner) => owner !== params.owner);
+      set(openTokenSelectorsAtom(), next);
+      this.setTradeRouteViewState.call(set, {
+        tokenSelectorOpen: next.length > 0,
       });
     },
   );
@@ -3374,7 +3400,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          const existing = await this.findChartOrder(get, params.oid);
+          const existing = await this.findChartOrder(
+            get,
+            params.oid,
+            params.expectedAccountAddress,
+          );
           if (!existing) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
@@ -3391,6 +3421,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
+          // Preserve queue priority for unchanged ALO orders; same-price GTC orders
+          // still need amendment to enforce post-only execution.
+          if (
+            existing.tif === 'Alo' &&
+            new BigNumber(existing.limitPx).eq(params.newPrice)
+          ) {
+            return undefined;
+          }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3402,11 +3440,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               amendKind,
               cloid: existing.cloid,
               expectedAccountAddress: params.expectedAccountAddress,
-              alwaysPlace: true,
             },
           );
         },
         actionType: EActionType.MODIFY_ORDER,
+        shouldShowSuccess: (result) => result !== undefined,
       });
     },
   );
@@ -3952,6 +3990,7 @@ export function useHyperliquidActions() {
   const captureInstrumentSwitchSubscriptionProof =
     actions.captureInstrumentSwitchSubscriptionProof.use();
   const setTradeRouteViewState = actions.setTradeRouteViewState.use();
+  const setTokenSelectorOpen = actions.setTokenSelectorOpen.use();
   const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
@@ -4029,6 +4068,7 @@ export function useHyperliquidActions() {
     switchTradeInstrument,
     captureInstrumentSwitchSubscriptionProof,
     setTradeRouteViewState,
+    setTokenSelectorOpen,
     updateTwapStates,
     updateTwapHistory,
     updateTwapSliceFills,

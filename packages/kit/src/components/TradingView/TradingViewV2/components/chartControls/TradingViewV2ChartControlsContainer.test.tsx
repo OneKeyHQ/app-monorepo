@@ -24,6 +24,7 @@ const mockTradingViewChartControls = jest.fn<null, [Record<string, unknown>]>(
 );
 
 jest.mock('@onekeyhq/components', () => ({
+  IconButton: () => null,
   Dialog: {
     show: (config: IDialogConfig) => mockDialogShow(config),
   },
@@ -100,16 +101,19 @@ function renderControls({
   onChartSwitch,
   onControlInteraction,
   onOpenChartSettings,
+  isControlsReady = true,
 }: {
   enableNativeChartSettings?: boolean;
   layoutMode?: 'mobile' | 'desktop';
   onChartSwitch?: () => void;
   onControlInteraction?: () => void;
   onOpenChartSettings?: () => void;
+  isControlsReady?: boolean;
 }) {
   return render(
     <TradingViewV2ChartControlsContainer
       enableNativeChartSettings={enableNativeChartSettings}
+      isControlsReady={isControlsReady}
       intervalConfig={{ activeInterval: '60', intervals: [] }}
       nativeChartControlsConfig={null}
       nativeIndicatorState={{
@@ -139,6 +143,47 @@ describe('TradingViewV2ChartControlsContainer', () => {
     jest.clearAllMocks();
     mockNativeChartControlsOverrides = {};
   });
+
+  it('keeps a settings recovery action when the chart never becomes ready', () => {
+    const onChartSwitch = jest.fn();
+    const onOpenChartSettings = jest.fn();
+    renderControls({
+      isControlsReady: false,
+      onChartSwitch,
+      onOpenChartSettings,
+    });
+
+    const controls = mockTradingViewChartControls.mock.calls.at(-1)?.[0];
+    expect(controls?.isControlsReady).toBe(false);
+    const recovery = controls?.rightControl as ReactElement<{
+      onPress: () => void;
+      icon: string;
+    }>;
+    expect(recovery).toBeTruthy();
+    expect(recovery.props.icon).toBe('SliderHorOutline');
+    recovery.props.onPress();
+
+    const content = mockDialogShow.mock.calls.at(-1)?.[0].renderContent;
+    expect(content?.props.onOpenSettings).toBeUndefined();
+    expect(content?.props.tradingViewChartStyle).toBeUndefined();
+    (content?.props.onChartSwitch as () => void)();
+    expect(onChartSwitch).toHaveBeenCalledTimes(1);
+    expect(onOpenChartSettings).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { isControlsReady: true },
+    { isControlsReady: false, layoutMode: 'desktop' as const },
+    { isControlsReady: false, enableNativeChartSettings: false },
+  ])(
+    'does not add a recovery control outside the mobile unready state: %j',
+    (options) => {
+      renderControls({ onChartSwitch: jest.fn(), ...options });
+      expect(
+        mockTradingViewChartControls.mock.calls.at(-1)?.[0].rightControl,
+      ).toBeUndefined();
+    },
+  );
 
   it.each<{
     enableNativeChartSettings: boolean;

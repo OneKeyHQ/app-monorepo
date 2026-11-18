@@ -1,24 +1,62 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
-import { rootNavigationRef, useOnRouterChange } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Toast,
+  rootNavigationRef,
+  useOnRouterChange,
+} from '@onekeyhq/components';
+import {
+  dismissIntercomNotification,
+  getIntercomNotification,
+  openIntercomNotification,
+  refreshIntercomNotifications,
+  setIntercomInAppMessageVisibility,
+  subscribeToIntercomNotifications,
+} from '@onekeyhq/kit/src/views/Intercom/client';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
-import { setIntercomInAppMessageVisibility } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 
-import { useHideIntercomMessengerWhenLocked } from './useHideIntercomMessengerWhenLocked';
 import {
   type IIntercomNavigationState,
   shouldShowIntercomInAppMessages,
 } from './visibility';
 
-function updateVisibility(visible: boolean) {
-  void setIntercomInAppMessageVisibility(visible).catch(() => {
-    console.warn('Failed to update Intercom message visibility');
-  });
-}
-
 export function IntercomNotificationContainer() {
+  const intl = useIntl();
   const [isLocked] = useAppIsLockedAtom();
   const [isRouteAllowed, setIsRouteAllowed] = useState(false);
+  const [foreground, setForeground] = useState(getCurrentVisibilityState);
+  const notification = useSyncExternalStore(
+    subscribeToIntercomNotifications,
+    getIntercomNotification,
+    getIntercomNotification,
+  );
+  useEffect(() => onVisibilityStateChange(setForeground), []);
+  useEffect(() => {
+    const onPush = ({ conversationId }: { conversationId?: string }) => {
+      refreshIntercomNotifications(conversationId);
+    };
+    appEventBus.on(EAppEventBusNames.SupportConversationUpdated, onPush);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SupportConversationUpdated, onPush);
+    };
+  }, []);
   const handleRouterChange = useCallback(
     (state: IIntercomNavigationState | undefined) => {
       setIsRouteAllowed(shouldShowIntercomInAppMessages(state));
@@ -26,7 +64,6 @@ export function IntercomNotificationContainer() {
     [],
   );
   useOnRouterChange(handleRouterChange);
-  useHideIntercomMessengerWhenLocked();
 
   useEffect(() => {
     const navigation = rootNavigationRef.current;
@@ -39,11 +76,45 @@ export function IntercomNotificationContainer() {
     );
   }, [handleRouterChange]);
 
-  const visible = !isLocked && isRouteAllowed;
+  const visible = foreground && !isLocked && isRouteAllowed;
   useLayoutEffect(() => {
-    updateVisibility(visible);
-    return () => updateVisibility(false);
+    setIntercomInAppMessageVisibility(visible);
+    return () => setIntercomInAppMessageVisibility(false);
   }, [visible]);
+
+  useLayoutEffect(() => {
+    if (!visible || !notification) return;
+    let disposed = false;
+    const open = () => {
+      void openIntercomNotification(notification.id);
+    };
+    const support = intl.formatMessage({ id: ETranslations.global_support });
+    const toast = Toast.notification({
+      toastId: `support-${notification.id}`,
+      title: notification.author
+        ? `${support} · ${notification.author.slice(0, 80)}`
+        : support,
+      message: notification.message || undefined,
+      icon: 'HelpSupportOutline',
+      iconImageUri: notification.avatarUrl,
+      duration: 10_000,
+      onPress: open,
+      onClose: () => {
+        if (!disposed) dismissIntercomNotification(notification.id);
+      },
+      actions: {
+        label: intl.formatMessage({ id: ETranslations.global_view }),
+        variant: 'primary',
+        testID: 'support-notification-open',
+        onPress: open,
+      },
+      actionsAlign: 'left',
+    });
+    return () => {
+      disposed = true;
+      void toast?.close();
+    };
+  }, [intl, notification, visible]);
 
   return null;
 }

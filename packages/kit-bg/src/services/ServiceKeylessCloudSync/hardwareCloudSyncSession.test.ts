@@ -3,9 +3,15 @@ import { createHash, createPublicKey, verify } from 'crypto';
 import {
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   assertHardwareCloudSyncAuthMessage,
+  buildHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -16,12 +22,15 @@ import {
   bootstrapHardwareCloudSyncDataKey,
   computeHardwareCloudSyncPwdHash,
   createHardwareCloudSyncDeviceKey,
+  downloadAllForReset,
   getHardwareCloudSyncDeviceKeyThumbprint,
   getHardwareCloudSyncDevicePublicJwk,
   reencryptHardwareCloudSyncItems,
+  refreshHardwareCloudSyncSessionIfNeeded,
   requestHardwareCloudSyncChallenge,
   requestWithHardwareCloudSyncSession,
   rotateHardwareCloudSyncDataKey,
+  verifyHardwareCloudSyncChallenge,
 } from './hardwareCloudSyncSession';
 
 import type { AxiosInstance } from 'axios';
@@ -51,6 +60,8 @@ function wallet(secret: string) {
   );
 }
 const WALLET = 'wallet-a';
+const identityTag = '0123456789abcdef';
+const env = 'test' as const;
 
 function fakeClient() {
   const get = jest.fn();
@@ -116,6 +127,80 @@ describe('hardware Cloud sync session', () => {
     jest.restoreAllMocks();
   });
 
+  test('forwards reconciliation cancellation and timeout without replacing auth headers', async () => {
+    const c = fakeClient();
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const controller = new AbortController();
+    await requestWithHardwareCloudSyncSession({
+      client: c.client,
+      session: session(),
+      method: 'POST',
+      urlPath: '/prime/v1/sync/check',
+      data: {},
+      requestOptions: { signal: controller.signal, timeout: 1234 },
+    });
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/check',
+      {},
+      expect.objectContaining({
+        signal: controller.signal,
+        timeout: 1234,
+        headers: expect.objectContaining({
+          DPoP: expect.any(String),
+          Authorization: expect.stringMatching(/^DPoP /),
+        }),
+      }),
+    );
+  });
+
+  test('repeated successful sync requests do not produce diagnostic traffic', async () => {
+    const logger = jest.spyOn(defaultLogger.app.error, 'log');
+    logger.mockClear();
+    const c = fakeClient();
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const activeSession = session();
+    for (let i = 0; i < 5; i += 1) {
+      await requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: activeSession,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/download',
+        data: {},
+      });
+    }
+    expect(logger).not.toHaveBeenCalled();
+  });
+
+  test('challenge request failures log their phase and preserve the original error without retry', async () => {
+    const logger = jest.spyOn(defaultLogger.app.error, 'log');
+    logger.mockClear();
+    const c = fakeClient();
+    const error = new OneKeyServerApiError({
+      httpStatusCode: 503,
+      message: 'private-challenge-detail',
+    });
+    c.post.mockRejectedValue(error);
+    await expect(
+      requestHardwareCloudSyncChallenge({
+        client: c.client,
+        jwk: createHardwareCloudSyncDeviceKey(),
+        identityTag,
+        env,
+      }),
+    ).rejects.toBe(error);
+    expect(c.post).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('request_challenge'),
+    );
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('"httpStatus":503'),
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(
+      'private-challenge-detail',
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(identityTag);
+  });
+
   describe('server clock', () => {
     test('DPoP proofs carry the server time when the local clock is off', async () => {
       estimatedClockOffsetMs = -120 * MINUTE;
@@ -178,18 +263,19 @@ describe('hardware Cloud sync session', () => {
       measuredClockOffsetMs = -10 * MINUTE;
       const jwk = createHardwareCloudSyncDeviceKey();
       const expires = new Date(Date.now() - 10 * MINUTE + 2 * MINUTE);
-      const message = `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'ab'.repeat(
-        32,
-      )}\nDevice: ${getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(
-        0,
-        8,
-      )}\nExpires: ${expires.toISOString()}`;
+      const message = buildHardwareCloudSyncAuthMessage({
+        identityTag,
+        env,
+        nonce: 'ab'.repeat(32),
+        jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+        expires: expires.toISOString(),
+      });
       const { client, post } = fakeClient();
       post.mockResolvedValue(
         ok({ challengeId: 'public-test-challenge', message }),
       );
       await expect(
-        requestHardwareCloudSyncChallenge({ client, jwk }),
+        requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
       ).resolves.toMatchObject({ challengeId: 'public-test-challenge' });
       expect(refreshServerTime).toHaveBeenCalledTimes(1);
     });
@@ -233,6 +319,139 @@ describe('hardware Cloud sync session', () => {
     );
     expect(valid).toBe(true);
   });
+
+  describe.each(['verify', 'refresh'] as const)(
+    '%s token response',
+    (operation) => {
+      const tokens = {
+        accessToken: 'public-test-opaque-access',
+        accessTokenExpiresIn: 90.5,
+        refreshToken: 'public-test-opaque-refresh',
+        sessionId: 'public-test-session-id',
+      };
+      const requestSession = (
+        client: AxiosInstance,
+        current: IHardwareCloudSyncSession,
+      ) =>
+        operation === 'verify'
+          ? verifyHardwareCloudSyncChallenge({
+              client,
+              jwk: current.deviceKeyJwk,
+              challengeId: 'public-test-challenge',
+              signature: 'public-test-signature',
+            })
+          : refreshHardwareCloudSyncSessionIfNeeded({
+              client,
+              session: current,
+              force: true,
+            });
+
+      test.each([90.5, 90.5005])(
+        'accepts opaque tokens with a lifetime of %s seconds',
+        async (lifetime) => {
+          const now = 1_700_000_000_000;
+          jest.spyOn(Date, 'now').mockReturnValue(now);
+          const { client, post } = fakeClient();
+          const current = { ...session(), dekId: 'public-test-dek-id' };
+          post.mockResolvedValue(
+            ok({ ...tokens, accessTokenExpiresIn: lifetime }),
+          );
+
+          await expect(requestSession(client, current)).resolves.toEqual({
+            deviceKeyJwk: current.deviceKeyJwk,
+            accessToken: tokens.accessToken,
+            accessTokenExpiresAt: now + lifetime * 1000,
+            refreshToken: tokens.refreshToken,
+            sessionId: tokens.sessionId,
+            dekId: operation === 'refresh' ? current.dekId : '',
+          });
+        },
+      );
+
+      const malformedResponses: [string, unknown][] = [
+        ['missing data', undefined],
+        ['null data', null],
+        ['non-object data', 'invalid-response'],
+        ['missing token fields', {}],
+        [
+          'missing lifetime',
+          {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            sessionId: tokens.sessionId,
+          },
+        ],
+        ['string lifetime', { ...tokens, accessTokenExpiresIn: '90.5' }],
+        ['zero lifetime', { ...tokens, accessTokenExpiresIn: 0 }],
+        ['negative lifetime', { ...tokens, accessTokenExpiresIn: -1 }],
+        ['NaN lifetime', { ...tokens, accessTokenExpiresIn: Number.NaN }],
+        ['infinite lifetime', { ...tokens, accessTokenExpiresIn: Infinity }],
+        [
+          'negative infinite lifetime',
+          { ...tokens, accessTokenExpiresIn: -Infinity },
+        ],
+        [
+          'overflowing expiry',
+          { ...tokens, accessTokenExpiresIn: Number.MAX_VALUE },
+        ],
+        [
+          'unsafe expiry',
+          { ...tokens, accessTokenExpiresIn: Number.MAX_SAFE_INTEGER },
+        ],
+        [
+          'unrepresentable expiry',
+          { ...tokens, accessTokenExpiresIn: Number.MIN_VALUE },
+        ],
+      ];
+
+      test.each(malformedResponses)(
+        'rejects %s without exposing the response',
+        async (_label, data) => {
+          const logSpy = jest.spyOn(defaultLogger.app.error, 'log');
+          const { client, post } = fakeClient();
+          const current = session();
+          const original = { ...current };
+          post.mockResolvedValue(ok(data));
+
+          await expect(requestSession(client, current)).rejects.toMatchObject({
+            reason: 'Invalid Cloud sync session response',
+          });
+          expect(current).toEqual(original);
+          expect(logSpy).toHaveBeenLastCalledWith(
+            '[HardwareCloudSync] Data check failed: Invalid Cloud sync session response',
+          );
+        },
+      );
+
+      describe.each(['accessToken', 'refreshToken', 'sessionId'] as const)(
+        '%s',
+        (field) => {
+          test.each([
+            ['missing', undefined],
+            ['null', null],
+            ['empty', ''],
+            ['blank', ' \t\n'],
+            ['non-string', 123],
+          ])('rejects %s values', async (_label, value) => {
+            const { client, post } = fakeClient();
+            const data: Record<string, unknown> = { ...tokens };
+            if (value === undefined) {
+              delete data[field];
+            } else {
+              data[field] = value;
+            }
+            post.mockResolvedValue(ok(data));
+
+            await expect(
+              requestSession(client, session()),
+            ).rejects.toMatchObject({
+              reason: 'Invalid Cloud sync session response',
+            });
+          });
+        },
+      );
+    },
+  );
 
   test('the first device creates the data key and flushes it wrapped', async () => {
     const { client, get, post } = fakeClient();
@@ -307,7 +526,10 @@ describe('hardware Cloud sync session', () => {
         session: session(),
         deriveKek: wallet('wallet-b'),
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({
+      key: ETranslations.cloud_sync_data_unreadable__msg,
+      reason: 'Cloud sync key envelope could not be decrypted',
+    });
   });
 
   test('a wrapped key does not unwrap under another key id', async () => {
@@ -366,36 +588,24 @@ describe('hardware Cloud sync session', () => {
     expect(adopted).toEqual(won);
   });
 
-  test('sign-in challenges must not be the data key message', () => {
-    const nonce = 'ab'.repeat(32);
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z`,
-      ),
-    ).not.toThrow();
-    // Extra server-chosen text is never shown on the device.
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z\nSend 1 BTC to approve`,
-      ),
-    ).toThrow();
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        buildHardwareCloudSyncMessage(
-          '0123456789abcdef',
-          '0123456789abcdef0123456789abcdef',
-        ),
-      ),
-    ).toThrow();
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\n${buildHardwareCloudSyncMessage(
-          '0123456789abcdef',
-          '0123456789abcdef0123456789abcdef',
-        )}\nNonce: ${nonce}\n`,
-      ),
-    ).toThrow();
-    expect(() => assertHardwareCloudSyncAuthMessage('Sign anything')).toThrow();
+  test('sign-in accepts final v1 bytes, but never legacy or key messages', () => {
+    const jwk = createHardwareCloudSyncDeviceKey();
+    const message = buildHardwareCloudSyncAuthMessage({
+      identityTag,
+      env,
+      nonce: 'ab'.repeat(32),
+      jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+      expires: '2030-01-01T00:05:00.000Z',
+    });
+    expect(() => assertHardwareCloudSyncAuthMessage(message)).not.toThrow();
+    for (const invalid of [
+      `${message}\nSend 1 BTC to approve`,
+      'OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: abcdef',
+      buildHardwareCloudSyncMessage(identityTag, '01'.repeat(16)),
+      'Sign anything',
+    ]) {
+      expect(() => assertHardwareCloudSyncAuthMessage(invalid)).toThrow();
+    }
   });
 
   test.each([
@@ -495,32 +705,91 @@ describe('hardware Cloud sync session', () => {
     ).rejects.toThrow();
   });
 
-  test('signs only a fresh challenge for this request device key', () => {
+  test('signs only a fresh challenge bound to the complete local context', () => {
     const jwk = createHardwareCloudSyncDeviceKey();
-    const tag = getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8);
+    const jkt = getHardwareCloudSyncDeviceKeyThumbprint(jwk);
     const now = Date.parse('2030-01-01T00:00:00.000Z');
-    const message = (device: string, expires: string) =>
-      `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'ab'.repeat(32)}\nDevice: ${device}\nExpires: ${expires}`;
-    expect(() =>
+    const fields = {
+      identityTag,
+      env,
+      nonce: 'ab'.repeat(32),
+      jkt,
+      expires: '2030-01-01T00:05:00.000Z',
+    };
+    const check = (message: string) =>
       assertHardwareCloudSyncChallengeFor({
-        message: message(tag, '2030-01-01T00:05:00.000Z'),
+        message,
         jwk,
+        identityTag,
+        env,
         now,
-      }),
+      });
+    expect(() =>
+      check(buildHardwareCloudSyncAuthMessage(fields)),
     ).not.toThrow();
-    for (const [device, expires] of [
-      ['zzzzzzzz', '2030-01-01T00:05:00.000Z'],
-      [tag, '2029-12-31T23:59:59.000Z'],
-      [tag, '2030-01-02T00:00:00.000Z'],
+    for (const patch of [
+      { jkt: `${jkt.slice(0, 8)}${'a'.repeat(35)}` },
+      { identityTag: 'fedcba9876543210' },
+      { env: 'prod' as const },
+      { expires: '2029-12-31T23:59:59.000Z' },
+      { expires: '2030-01-02T00:00:00.000Z' },
     ]) {
       expect(() =>
-        assertHardwareCloudSyncChallengeFor({
-          message: message(device, expires),
-          jwk,
-          now,
-        }),
+        check(buildHardwareCloudSyncAuthMessage({ ...fields, ...patch })),
       ).toThrow("Couldn't read Cloud sync data");
     }
+  });
+
+  test('matches the RFC 9449 public JWK thumbprint, excluding private and optional fields', () => {
+    // RFC 9449 Figure 5 public key and Figure 9 thumbprint.
+    const publicJwk = {
+      kty: 'EC' as const,
+      crv: 'P-256' as const,
+      x: 'l8tFrhx-34tV3hRICRDY9zCkDlpBhF42UQUfWVAWBFs',
+      y: '9VE4jf_Ok_o64zbTTlcuNJajHmt6v9TDVrU0CdvGRDA',
+    };
+    const jwk = { ...publicJwk, d: 'public-test-placeholder', kid: 'ignored' };
+    const expected = '0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I';
+    expect(getHardwareCloudSyncDeviceKeyThumbprint(jwk)).toBe(expected);
+    const canonical = `{"crv":"P-256","kty":"EC","x":"${publicJwk.x}","y":"${publicJwk.y}"}`;
+    expect(createHash('sha256').update(canonical).digest('base64url')).toBe(
+      expected,
+    );
+    expect(getHardwareCloudSyncDevicePublicJwk(jwk)).toEqual(publicJwk);
+  });
+
+  test('challenge request sends only the public key and wallet tag, preserving server bytes', async () => {
+    const jwk = createHardwareCloudSyncDeviceKey();
+    const message = buildHardwareCloudSyncAuthMessage({
+      identityTag,
+      env,
+      nonce: 'ab'.repeat(32),
+      jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+      expires: new Date(Date.now() + 5 * MINUTE).toISOString(),
+    });
+    const { client, post } = fakeClient();
+    post.mockResolvedValue(ok({ challengeId: 'challenge-1', message }));
+    await expect(
+      requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
+    ).resolves.toEqual({ challengeId: 'challenge-1', message });
+    expect(post).toHaveBeenCalledWith('/prime/v1/hw-sync/auth/challenge', {
+      deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
+      identityTag,
+    });
+    expect(post.mock.calls[0][1].deviceKeyJwk.d).toBeUndefined();
+    post.mockResolvedValue(ok({ challengeId: '', message }));
+    await expect(
+      requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
+    ).rejects.toThrow();
+    post.mockResolvedValue(
+      ok({
+        challengeId: 'legacy',
+        message: 'OneKey Cloud Sync sign-in\nNonce: abc',
+      }),
+    );
+    await expect(
+      requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
+    ).rejects.toThrow();
   });
 
   describe('data key reset', () => {
@@ -560,8 +829,8 @@ describe('hardware Cloud sync session', () => {
       // The server also holds a record this device has no local copy of.
       const remote = await item(key.dek, key.pwdHash, 'from-other-device');
       const serverData = [
-        envelopeItem,
         { key: 'a', dataType: 'BrowserBookmark', data: local[0].data },
+        envelopeItem,
         { key: remote.id, dataType: remote.dataType, data: remote.data },
         { key: 'gone', dataType: 'BrowserBookmark', data: '', isDeleted: true },
       ];
@@ -700,22 +969,142 @@ describe('hardware Cloud sync session', () => {
       },
     );
 
-    test('reads every page of server records before resetting', async () => {
-      const { key, lock } = await firstDevice();
-      const deleted = (n: number, from: number) =>
-        Array.from({ length: n }, (_, i) => ({
-          key: `k${from + i}`,
+    test.each([1000, 1002, 2500])(
+      'downloads all %s records once before the nonce-guarded reset',
+      async (count) => {
+        const { key, lock, envelopeItem } = await firstDevice();
+        const records = Array.from({ length: count }, (_, i) => ({
+          key: `a${i.toString().padStart(6, '0')}`,
           dataType: 'BrowserBookmark',
           data: '',
           isDeleted: true,
         }));
+        // Keep a historical envelope beyond the first page when possible.
+        records[count - 1] = envelopeItem;
+        const c = fakeClient();
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(
+          async (url: string, body: { skip?: number; limit?: number }) => {
+            if (url.endsWith('/check')) return ok({ nonce: 3 });
+            if (url.endsWith('/download')) {
+              // The server ignores start and defaults skip to zero.
+              const skip = body.skip ?? 0;
+              return ok({
+                serverData: records.slice(
+                  skip,
+                  body.limit === undefined ? undefined : skip + body.limit,
+                ),
+              });
+            }
+            return ok({});
+          },
+        );
+        await rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending: jest.fn(async () => undefined),
+        });
+        const downloads = c.post.mock.calls.filter(
+          ([url]) => url === '/prime/v1/sync/download',
+        );
+        expect(downloads).toHaveLength(1);
+        const resetLogs = jest
+          .spyOn(defaultLogger.app.error, 'log')
+          .mock.calls.flat()
+          .filter(
+            (line) =>
+              typeof line === 'string' &&
+              line.includes('reset_download_received'),
+          );
+        expect(resetLogs.at(-1)).toEqual(
+          expect.stringContaining(`"returnedCount":${count}`),
+        );
+        expect(resetLogs.at(-1)).toEqual(
+          expect.stringContaining('"historyCompleteKnown":false'),
+        );
+        expect(resetLogs.at(-1)).not.toContain('requestedLimit');
+        const body = downloads[0][1];
+        expect(body).toMatchObject({ includeDeleted: true });
+        expect(body).not.toHaveProperty('start');
+        expect(body).not.toHaveProperty('skip');
+        expect(body).not.toHaveProperty('limit');
+        const flush = c.post.mock.calls.find(
+          ([url]) => url === '/prime/v1/sync/flush',
+        );
+        expect(flush?.[1]).toMatchObject({ expectedNonce: 3 });
+        const flushed = flush?.[1].localData as {
+          key: string;
+          isDeleted: boolean;
+        }[];
+        expect(flushed).toHaveLength(count + 1);
+        expect(flushed.filter((record) => record.isDeleted)).toHaveLength(
+          count - 1,
+        );
+        expect(c.post.mock.calls.map(([url]) => url as string)).toEqual([
+          '/prime/v1/sync/check',
+          ...downloads.map(() => '/prime/v1/sync/download'),
+          '/prime/v1/sync/flush',
+        ]);
+        expect(new Set(flushed.map((record) => record.key)).size).toBe(
+          count + 1,
+        );
+        expect(flushed).toEqual(expect.arrayContaining([envelopeItem]));
+      },
+    );
+
+    test('retains the all-record API used by migration callers', async () => {
+      const c = fakeClient();
+      const records = [
+        { key: 'z', dataType: 'Wallet' },
+        { key: 'a', dataType: 'Wallet' },
+      ];
+      c.post.mockResolvedValue(ok({ serverData: records }));
+      await expect(
+        downloadAllForReset({
+          client: c.client,
+          session: session(),
+          pwdHash: 'public-test-pwdhash',
+        }),
+      ).resolves.toEqual(records);
+      expect(c.post).toHaveBeenCalledTimes(1);
+      expect(c.post.mock.calls[0][1]).toEqual({
+        pwdHash: 'public-test-pwdhash',
+        includeDeleted: true,
+      });
+    });
+
+    test('uses one complete reset read regardless of server collation', async () => {
+      const { key, lock, envelopeItem } = await firstDevice();
+      const records = [
+        ...Array.from({ length: 500 }, (_, i) => ({
+          key: `a${i.toString().padStart(6, '0')}`,
+          dataType: 'Wallet',
+          data: '',
+          isDeleted: true,
+        })),
+        { key: 'B', dataType: 'Wallet', data: '', isDeleted: true },
+        envelopeItem,
+      ];
       const c = fakeClient();
       c.get.mockResolvedValue(ok({ lock }));
-      c.post
-        .mockResolvedValueOnce(ok({ nonce: 3 }))
-        .mockResolvedValueOnce(ok({ serverData: deleted(1000, 0) }))
-        .mockResolvedValueOnce(ok({ serverData: deleted(2, 1000) }))
-        .mockResolvedValueOnce(ok({}));
+      c.post.mockImplementation(
+        async (url: string, body: { skip?: number; limit?: number }) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 9 });
+          if (url === '/prime/v1/sync/download')
+            return ok({
+              serverData: records.slice(
+                body.skip ?? 0,
+                body.limit === undefined
+                  ? undefined
+                  : (body.skip ?? 0) + body.limit,
+              ),
+            });
+          return ok({});
+        },
+      );
       await rotateHardwareCloudSyncDataKey({
         client: c.client,
         session: session(),
@@ -724,15 +1113,147 @@ describe('hardware Cloud sync session', () => {
         localItems: [],
         savePending: jest.fn(async () => undefined),
       });
-      expect(c.post.mock.calls[1][1]).toMatchObject({ start: 0, limit: 1000 });
-      expect(c.post.mock.calls[2][1]).toMatchObject({
-        start: 1000,
-        limit: 1000,
+      const downloads = c.post.mock.calls.filter(
+        ([url]) => url === '/prime/v1/sync/download',
+      );
+      expect(downloads).toHaveLength(1);
+      expect(downloads[0][1]).toEqual({
+        pwdHash: key.pwdHash,
+        includeDeleted: true,
       });
-      const flushed = c.post.mock.calls[3][1].localData as unknown[];
-      // 1002 records plus the new envelope.
-      expect(flushed).toHaveLength(1003);
+      const flush = c.post.mock.calls.find(
+        ([url]) => url === '/prime/v1/sync/flush',
+      )?.[1] as { localData: Array<{ isDeleted: boolean }> } | undefined;
+      expect(flush).toMatchObject({
+        expectedNonce: 9,
+        expectedPwdHash: key.pwdHash,
+      });
+      expect(flush?.localData).toHaveLength(records.length + 1);
+      expect(
+        flush?.localData.filter((record) => record.isDeleted),
+      ).toHaveLength(501);
     });
+
+    test.each(['failed', 'malformed', 'key changed', 'cancelled'])(
+      'a %s complete download cannot save or flush a partial reset',
+      async (mode) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let current = true;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 3 });
+          if (mode === 'failed')
+            throw new OneKeyLocalError('Download unavailable');
+          if (mode === 'key changed')
+            throw Object.assign(new Error('Key changed'), { code: 90_704 });
+          if (mode === 'cancelled') {
+            current = false;
+            return ok({ serverData: [] });
+          }
+          return ok({ serverData: [null] });
+        });
+        const savePending = jest.fn(async () => undefined);
+        const beforeFlush = jest.fn(async () => undefined);
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending,
+            beforeFlush,
+            isCurrent: () => current,
+          }),
+        ).rejects.toThrow();
+        expect(savePending).not.toHaveBeenCalled();
+        expect(beforeFlush).not.toHaveBeenCalled();
+        expect(
+          c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
+        ).toBe(false);
+      },
+    );
+
+    test.each(['upload', 'delete', 'flush'])(
+      'a concurrent %s during download preserves the original nonce and makes no write',
+      async () => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let serverNonce = 7;
+        let writes = 0;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(
+          async (
+            url: string,
+            body: { skip?: number; expectedNonce?: number },
+          ) => {
+            if (url === '/prime/v1/sync/check')
+              return ok({ nonce: serverNonce });
+            if (url === '/prime/v1/sync/download') {
+              serverNonce += 1;
+              return ok({ serverData: [] });
+            }
+            if (body.expectedNonce !== serverNonce)
+              throw Object.assign(new Error('Data version changed'), {
+                code: 90_705,
+              });
+            writes += 1;
+            return ok({});
+          },
+        );
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending: jest.fn(async () => undefined),
+          }),
+        ).rejects.toMatchObject({ code: 90_705 });
+        expect(writes).toBe(0);
+        expect(
+          c.post.mock.calls.find(
+            ([url]) => url === '/prime/v1/sync/flush',
+          )?.[1],
+        ).toMatchObject({
+          expectedNonce: 7,
+          expectedPwdHash: key.pwdHash,
+        });
+        expect(c.post.mock.calls[0][0]).toBe('/prime/v1/sync/check');
+      },
+    );
+
+    test.each(['failure', 'malformed'])(
+      'download %s prevents a partial reset',
+      async (mode) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(async (url: string) => {
+          if (url.endsWith('/check')) return ok({ nonce: 3 });
+          if (mode === 'failure')
+            throw new OneKeyLocalError('Download unavailable');
+          return ok({});
+        });
+        const savePending = jest.fn(async () => undefined);
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending,
+          }),
+        ).rejects.toThrow();
+        expect(savePending).not.toHaveBeenCalled();
+        expect(
+          c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
+        ).toBe(false);
+      },
+    );
 
     test.each(['signature', 'download', 'pending'] as const)(
       'cancellation during %s prevents the irreversible flush',
@@ -771,7 +1292,8 @@ describe('hardware Cloud sync session', () => {
         });
         expect(
           c.post.mock.calls.some(
-            ([url]) => typeof url === 'string' && url.endsWith('/flush'),
+            ([url]) =>
+              typeof url === 'string' && url === '/prime/v1/sync/flush',
           ),
         ).toBe(false);
         expect(beforeFlush).not.toHaveBeenCalled();
@@ -798,7 +1320,7 @@ describe('hardware Cloud sync session', () => {
       expect(c.post).not.toHaveBeenCalled();
     });
 
-    test('a joining device learns earlier key versions by id', async () => {
+    test('a joining device reads historical keys beyond the old download cap', async () => {
       const { key, envelopeItem } = await firstDevice();
       const other = await (async () => {
         const c = fakeClient();
@@ -826,21 +1348,70 @@ describe('hardware Cloud sync session', () => {
       joiner.get.mockResolvedValue(
         ok({ lock: rotated.post.mock.calls[0][1].lock }),
       );
-      joiner.post.mockResolvedValue(
-        ok({
-          serverData: [
-            envelopeItem,
-            other,
-            { ...other, data: '{"dekId":"legacy"}' },
-          ],
-        }),
+      const records = [
+        ...Array.from({ length: 100_000 }, () => ({ dataType: 'Wallet' })),
+        envelopeItem,
+        other,
+        { ...other, data: '{"dekId":"legacy"}' },
+        { ...other, data: '{invalid-json' },
+      ];
+      joiner.post.mockImplementation(
+        async (_url: string, body: { limit?: number }) =>
+          ok({ serverData: records.slice(0, body.limit) }),
       );
       const joined = await bootstrapHardwareCloudSyncDataKey({
         client: joiner.client,
         session: session(),
         deriveKek: wallet(WALLET),
       });
+      expect(joiner.post.mock.calls[0][1]).not.toHaveProperty('limit');
+      expect(joiner.post.mock.calls[0][1]).not.toHaveProperty('skip');
+      expect(joiner.post.mock.calls[0][1]).not.toHaveProperty('start');
       expect(joined.dek).toBe(newer.dek);
+      const diagnostics = jest
+        .spyOn(defaultLogger.app.error, 'log')
+        .mock.calls.flat()
+        .filter(
+          (line) =>
+            typeof line === 'string' &&
+            line.includes('history_received_completeness_unknown'),
+        );
+      expect(diagnostics.at(-1)).not.toContain('requestedLimit');
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"returnedCount":100004'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidEnvelopeCount":2'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidIdCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidJsonCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidShapeCount":0'),
+      );
+
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"historyCompleteKnown":false'),
+      );
+      const logs = JSON.stringify(
+        jest.spyOn(defaultLogger.app.error, 'log').mock.calls,
+      );
+      for (const secret of [
+        key.dek,
+        key.dekId,
+        key.pwdHash,
+        newer.dek,
+        newer.dekId,
+        'public-test-access',
+        'public-test-refresh',
+        'public-test-session',
+      ]) {
+        expect(logs).not.toContain(secret);
+      }
+
       expect(joined.previousPwdHashes.toSorted()).toEqual(
         [
           key.pwdHash,

@@ -1,6 +1,7 @@
 import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
+import { MarketHomeScene } from './scenes/home';
 import { MarketNavigationScene } from './scenes/navigation';
 import { TokenScene } from './scenes/token';
 
@@ -10,4 +11,6 @@ export class MarketScope extends BaseScope {
   token = this.createScene('token', TokenScene);
 
   navigation = this.createScene('navigation', MarketNavigationScene);
+
+  home = this.createScene('home', MarketHomeScene);
 }

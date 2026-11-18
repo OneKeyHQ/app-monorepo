@@ -103,16 +103,10 @@ function fakeClient(context) {
   }
   makeKey('global.existing', context.old);
   const client = {
-    projectId: 'project-test',
-    project: async (name) => {
-      if (name && name !== 'Monorepo test')
-        throw new Error('Project name mismatch');
-      return {
-        id: client.projectId,
-        name: 'Monorepo test',
-        languages: context.locales.map((lang_iso) => ({ lang_iso })),
-      };
-    },
+    project: async () => ({
+      name: 'Monorepo test',
+      languages: context.locales.map((lang_iso) => ({ lang_iso })),
+    }),
     findKey: async (name) => structuredClone(keys.get(name) || null),
     create: async (entry, localeMap) => {
       writes.push({

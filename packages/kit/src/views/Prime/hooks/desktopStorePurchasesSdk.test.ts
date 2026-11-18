@@ -45,6 +45,10 @@ const mockApi = {
   ),
   revenueCatSupportsVerifiedIdentity: jest.fn(async () => true),
   revenueCatConfigure: jest.fn(async (_params: unknown) => undefined),
+  revenueCatGetStorefront: jest.fn<
+    Promise<{ countryCode: string } | null>,
+    []
+  >(),
   revenueCatGetCustomerInfo: jest.fn(async (_params: unknown) => undefined),
   revenueCatPurchasePackage: jest.fn<Promise<unknown>, [unknown]>(),
   revenueCatRestorePurchases: jest.fn<Promise<unknown>, [unknown]>(),
@@ -128,6 +132,31 @@ describe('desktop RevenueCat adapter', () => {
       offeringIdentifier: 'default',
       expectedAppUserId: 'user-a',
     });
+  });
+
+  it('reads the Storefront and tolerates older native addons rejecting it', async () => {
+    mockApi.revenueCatGetStorefront.mockResolvedValueOnce({
+      countryCode: 'CHN',
+    });
+    await expect(desktopStorePurchasesSdk.getStorefront?.()).resolves.toEqual({
+      countryCode: 'CHN',
+    });
+    mockApi.revenueCatGetStorefront.mockRejectedValueOnce(
+      new Error('Unsupported RevenueCat operation'),
+    );
+    await expect(
+      desktopStorePurchasesSdk.getStorefront?.(),
+    ).resolves.toBeNull();
+  });
+
+  it('falls back when the Electron shell lacks Storefront support', async () => {
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: { inAppPurchase: {} },
+    });
+    await expect(
+      desktopStorePurchasesSdk.getStorefront?.(),
+    ).resolves.toBeNull();
   });
 
   it('reports an unsupported older application shell clearly', async () => {

@@ -293,8 +293,8 @@ textarea {
   }
 }
 
-/* custom sonner toast styles, should remove if the burnt library support such api to custom styles */
-[data-sonner-toast] {
+/* Keep a toast card inside a narrow window. */
+[data-onekey-toast] {
   max-width: calc(100vw - 32px);
 }
 
@@ -325,6 +325,20 @@ textarea {
     [data-native-list-account-control='createAddress']
   ) {
   cursor: default;
+}
+
+/* Watchlist rows stay reorderable but keep the default cursor. */
+[data-testid='market-watchlist-list']
+  .ok-native-list-item[data-native-list-reorderable='true']
+  > .ok-native-list-row {
+  cursor: default;
+}
+
+/* NFT tiles signal hover by dimming the image, without a tile background. */
+[data-testid='home-nft-list']
+  .ok-native-list-item[data-native-list-row-press-enabled='true']:hover
+  .ok-native-list-media-image {
+  opacity: 0.8;
 }
 
 /* The package centers the index rail inside its host container through an

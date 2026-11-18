@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
@@ -60,6 +61,7 @@ interface ISwapSwapMbContainerProps {
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   supportNetworksList: ISwapNetwork[];
   supportNetworksReady: boolean;
+  showThirdPartyNotice?: boolean;
 }
 
 const SwapSwapMbContainer = ({
@@ -84,6 +86,7 @@ const SwapSwapMbContainer = ({
   swapRecentTokenPairs,
   supportNetworksList,
   supportNetworksReady,
+  showThirdPartyNotice,
 }: ISwapSwapMbContainerProps) => {
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -154,6 +157,7 @@ const SwapSwapMbContainer = ({
           tokenPairs={swapRecentTokenPairs}
           fromTokenAmount={fromTokenAmountValue}
         />
+        {showThirdPartyNotice ? <SwapThirdPartyNotice /> : null}
         {platformEnv.isNative && !fromTokenAmountValue ? (
           <SwapProTabListContainer
             onTokenPress={onTokenPressCallback}

@@ -18,16 +18,25 @@ import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { getPerpFillDirectionType } from '../components/OrderInfoPanel/utils';
 
+import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
 import { useShowPositionShare } from './useShowPositionShare';
 
 export function useShareTradeHistory() {
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
+  const positions = usePerpsAccountScopedActivePositions();
   const { showPositionShare } = useShowPositionShare();
 
   const getLeverage = useCallback(
     async (coin: string): Promise<number> => {
+      const positionLeverage = positions.find(
+        ({ position }) => position.coin === coin,
+      )?.position.leverage.value;
+      // Match Hyperliquid's current-position fallback; fills have no historical leverage.
+      if (positionLeverage) {
+        return positionLeverage;
+      }
       if (lastUsedLeverage?.[coin]) {
         return lastUsedLeverage[coin];
       }
@@ -42,7 +51,7 @@ export function useShareTradeHistory() {
         return 1;
       }
     },
-    [activeAsset, lastUsedLeverage],
+    [activeAsset, lastUsedLeverage, positions],
   );
 
   const calculateEntryPrice = useCallback(

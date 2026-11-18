@@ -11,6 +11,7 @@ import {
 
 import {
   useFocusEffect,
+  useIsFocused,
   useNavigation,
   useRoute,
 } from '@react-navigation/core';
@@ -73,7 +74,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { formatPrivacyChainPoolKindLabel } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
-import { confirmLocalWalletDeviceVerify } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
+import { confirmLocalWalletVerify } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
 import { LocalWalletPasswordAlert } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
@@ -196,7 +197,10 @@ import {
 } from './privateSendMaxAmountUtils';
 import { selectPrivateSendQuote } from './privateSendQuoteUtils';
 import { useLocalWalletSendPool } from './useLocalWalletSendPool';
-import { useLocalWalletSendReadiness } from './useLocalWalletSendReadiness';
+import {
+  useLocalWalletSendPrewarm,
+  useLocalWalletSendReadiness,
+} from './useLocalWalletSendReadiness';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -233,13 +237,18 @@ const spaceValue = (token: ILayoutToken) =>
 const sizeValue = (token: ILayoutToken) =>
   getTokenValue(token, 'size') as number;
 
-// Line height of the "How it works" link, used only before its first
-// onLayout. Read from the font token so it follows the platform text scale.
+const PRIVATE_SEND_FOOTER_HELP_GAP_TOKEN = '$1';
+
+// Height of the footer help (one notice line plus the "How it works" link),
+// used only before its first onLayout. Read from the font token so it follows
+// the platform text scale.
 function getPrivateSendFooterHelpFallbackHeight() {
-  const token = getFontToken('$bodyMd');
-  return typeof token === 'object' && typeof token?.lineHeight === 'number'
-    ? token.lineHeight
-    : 20;
+  const token = getFontToken('$bodySm');
+  const lineHeight =
+    typeof token === 'object' && typeof token?.lineHeight === 'number'
+      ? token.lineHeight
+      : 16;
+  return lineHeight * 2 + spaceValue(PRIVATE_SEND_FOOTER_HELP_GAP_TOKEN);
 }
 
 // Measures a node's laid-out height. The handler is stable, so it can live in
@@ -1373,31 +1382,6 @@ function SendAmountInputContainer() {
   });
   const hasLocalWallet = !isNFT && !!vaultSettings?.localWallet;
   const sendSourcePool = selectedSendPool?.key;
-  useEffect(() => {
-    if (
-      !isRouteFocused ||
-      !hasLocalWallet ||
-      !currentAccountId ||
-      !sendSourcePool
-    ) {
-      return;
-    }
-    void backgroundApiProxy.servicePrivacyChain
-      .prewarmLocalWalletSend({
-        networkId,
-        accountId: currentAccountId,
-        sourcePool: sendSourcePool,
-        toAddress: recipientAddress,
-      })
-      .catch(() => undefined);
-  }, [
-    isRouteFocused,
-    hasLocalWallet,
-    currentAccountId,
-    sendSourcePool,
-    networkId,
-    recipientAddress,
-  ]);
   const { isWaitingForSync, statusText: sendSyncStatusText } =
     useLocalWalletSendReadiness({
       enabled: hasLocalWallet,
@@ -1405,6 +1389,14 @@ function SendAmountInputContainer() {
       accountId: currentAccountId,
       sourcePool: sendSourcePool,
     });
+  useLocalWalletSendPrewarm({
+    enabled: isRouteFocused && hasLocalWallet,
+    networkId,
+    accountId: currentAccountId,
+    sourcePool: sendSourcePool,
+    toAddress: recipientAddress,
+    isWaitingForSync,
+  });
   // Funds a view-only scan cannot prove unspent are not spendable until the
   // password confirms them, so ask before the amount, not after it fails.
   useEffect(() => {
@@ -2736,6 +2728,11 @@ function SendAmountInputContainer() {
 
   // Track if amount input is focused
   const [isAmountInputFocused, setIsAmountInputFocused] = useState(false);
+  // The confirm page is pushed on top of this screen in the same modal, and on
+  // desktop/web this screen stays mounted, so a window-level Enter listener
+  // would keep firing under the confirm page and start a second submit for the
+  // same key press. Only answer shortcuts while this screen is the active one.
+  const isScreenFocused = useIsFocused();
 
   // Ref for AmountInput to trigger button focus
   const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
@@ -3232,21 +3229,21 @@ function SendAmountInputContainer() {
             return;
           }
 
-          // A hardware account's device must verify new funds before a send
-          // is built; explain first so the device does not ask unprompted.
-          if (
-            hasLocalWallet &&
-            accountUtils.isHwAccount({ accountId: currentAccountId })
-          ) {
+          // New funds must be verified, on the device or by unlocking, before a
+          // send is built; explain first so neither asks unprompted.
+          if (hasLocalWallet) {
             const unverified =
-              await backgroundApiProxy.servicePrivacyChain.getLocalWalletDeviceVerifyAmount(
+              await backgroundApiProxy.servicePrivacyChain.getLocalWalletVerifyAmount(
                 { networkId, accountId: currentAccountId },
               );
             if (unverified) {
               await dismissAmountInputKeyboardBeforeOverlayOpen();
-              const shouldVerify = await confirmLocalWalletDeviceVerify({
+              const shouldVerify = await confirmLocalWalletVerify({
                 intl,
                 amount: `${unverified} ${network?.symbol ?? ''}`.trim(),
+                onDevice: accountUtils.isHwAccount({
+                  accountId: currentAccountId,
+                }),
               });
               if (!shouldVerify) return;
               await backgroundApiProxy.servicePrivacyChain.verifyLocalWalletWithPassword(
@@ -3881,20 +3878,30 @@ function SendAmountInputContainer() {
   // Keep ref in sync with isSubmitDisabled
   isSubmitDisabledRef.current = isSubmitDisabled;
 
+  // One Enter press can reach the confirm action twice on desktop: once from the
+  // footer button that still has keyboard focus and once from the window
+  // shortcut below. Keep a synchronous lock so the gesture builds the tx once.
+  const confirmLockRef = useRef(false);
   const handleConfirm = useCallback(async () => {
+    if (confirmLockRef.current) return;
+    confirmLockRef.current = true;
     const shouldLockPrivateSend = sendMode === ESendMode.PRIVATE;
     if (shouldLockPrivateSend) {
       setIsSubmitting(true);
     }
-    const isValid = await form.trigger();
-    if (!isValid) {
-      if (shouldLockPrivateSend) {
-        setIsSubmitting(false);
+    try {
+      const isValid = await form.trigger();
+      if (!isValid) {
+        if (shouldLockPrivateSend) {
+          setIsSubmitting(false);
+        }
+        return;
       }
-      return;
-    }
 
-    await onSubmitRef.current?.();
+      await onSubmitRef.current?.();
+    } finally {
+      confirmLockRef.current = false;
+    }
   }, [form, sendMode]);
 
   // Keyboard shortcuts for desktop (when input is not focused)
@@ -3903,8 +3910,17 @@ function SendAmountInputContainer() {
     if (platformEnv.isNative || isNFT) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if input is focused or if modifier keys are pressed
-      if (isAmountInputFocused || e.metaKey || e.ctrlKey || e.altKey) return;
+      // Skip while another screen covers this one (e.g. the confirm page pushed
+      // on top), when the input is focused, or when modifier keys are pressed.
+      if (
+        !isScreenFocused ||
+        isAmountInputFocused ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey
+      ) {
+        return;
+      }
 
       if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
@@ -3920,7 +3936,13 @@ function SendAmountInputContainer() {
 
     globalThis.addEventListener('keydown', handleKeyDown);
     return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, [handleConfirm, isAmountInputFocused, isNFT, onSelectPercentageStage]);
+  }, [
+    handleConfirm,
+    isAmountInputFocused,
+    isNFT,
+    isScreenFocused,
+    onSelectPercentageStage,
+  ]);
 
   const balanceInfoContent = useMemo(() => {
     if (!hasFrozenBalance) return null;
@@ -3967,6 +3989,9 @@ function SendAmountInputContainer() {
         // The shared Android input survives mode changes, so dismiss its
         // keyboard explicitly instead of relying on the previous remount.
         if (platformEnv.isNativeAndroid) {
+          // Apply the unfocused layout in the same render as the new mode;
+          // the native blur callback can arrive after that render.
+          setIsAmountInputFocused(false);
           amountInputRef.current?.blur();
           Keyboard.dismiss();
         }
@@ -5209,12 +5234,16 @@ function SendAmountInputContainer() {
       return null;
     }
     return (
-      <XStack
+      <YStack
         width="100%"
-        justifyContent="center"
+        alignItems="center"
+        gap={PRIVATE_SEND_FOOTER_HELP_GAP_TOKEN}
         $gtMd={{
+          // Share the footer row with the action buttons without pushing them out.
           width: 'auto',
-          justifyContent: 'flex-start',
+          flex: 1,
+          minWidth: 0,
+          alignItems: 'flex-start',
         }}
         onLayout={
           isMobilePrivateSendLayout
@@ -5222,22 +5251,49 @@ function SendAmountInputContainer() {
             : undefined
         }
       >
+        <SizableText
+          testID="private-send-third-party-notice"
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          $gtMd={{ textAlign: 'left' }}
+        >
+          {intl.formatMessage({
+            id: ETranslations.private_send_third_party_notice__desc,
+          })}
+        </SizableText>
         <DashText
           testID="private-send-how-it-works"
-          size="$bodyMd"
+          size="$bodySm"
           color="$textSubdued"
           dashColor="$textSubdued"
           dashThickness={0.5}
           cursor="pointer"
+          role="button"
           hoverStyle={{ color: '$text' }}
           pressStyle={{ opacity: 0.7 }}
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: 2,
+          }}
           onPress={() => {
             void openPrivateSendGuide();
           }}
+          {...(!platformEnv.isNative && {
+            tabIndex: 0,
+            onKeyDown: (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              event.stopPropagation();
+              void openPrivateSendGuide();
+            },
+          })}
         >
           {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
         </DashText>
-      </XStack>
+      </YStack>
     );
   }, [
     handlePrivateSendFooterHelpLayout,
@@ -5663,8 +5719,33 @@ function SendAmountInputContainer() {
     );
   }
 
+  const footerContent = (
+    <>
+      {shouldUseScrollableAmountBody ? null : (
+        <Stack px="$5" gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
+          {isMobilePrivateSendLayout
+            ? renderMobilePrivateSendFooterInfoContent
+            : renderBottomInfoContent}
+        </Stack>
+      )}
+      {renderFooterActions}
+    </>
+  );
+  // Keep the direct footer until a private mode reset completes if support
+  // changes while the page is open.
+  const useDirectFooter =
+    platformEnv.isNativeAndroid &&
+    (showPrivateSendModeSwitch || isPrivateSendMode);
+
   return (
-    <Page safeAreaEnabled>
+    <Page
+      safeAreaEnabled
+      directFooter={
+        platformEnv.isNativeAndroid
+          ? { enabled: useDirectFooter, children: footerContent }
+          : undefined
+      }
+    >
       <Page.Header
         title={intl.formatMessage({ id: pageTitleTranslationId })}
         headerRight={renderPrivateSendHeaderRight}
@@ -5675,16 +5756,7 @@ function SendAmountInputContainer() {
 
       {renderPageBody}
 
-      <Page.Footer>
-        {shouldUseScrollableAmountBody ? null : (
-          <Stack px="$5" gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
-            {isMobilePrivateSendLayout
-              ? renderMobilePrivateSendFooterInfoContent
-              : renderBottomInfoContent}
-          </Stack>
-        )}
-        {renderFooterActions}
-      </Page.Footer>
+      {useDirectFooter ? null : <Page.Footer>{footerContent}</Page.Footer>}
     </Page>
   );
 }

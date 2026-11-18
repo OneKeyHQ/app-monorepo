@@ -54,7 +54,7 @@ export class HardwareCloudSyncUnlockError extends OneKeyLocalError {
         { key: ETranslations.cloud_sync_hardware_unlock_failed__msg },
         {
           defaultMessage:
-            "Couldn't get the encryption key. Switch to the standard wallet.",
+            'Couldn’t complete this action. Reconnect, unlock with the standard wallet PIN and try again.',
         },
       ),
     );

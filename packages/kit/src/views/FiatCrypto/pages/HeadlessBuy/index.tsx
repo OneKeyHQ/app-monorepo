@@ -1,26 +1,43 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { CommonActions, useNavigation, useRoute } from '@react-navigation/core';
+import {
+  CommonActions,
+  useIsFocused,
+  useNavigation,
+  useNavigationState,
+  useRoute,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { AccessibilityInfo } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
+  LayoutAnimationConfig,
   LinearTransition,
   useAnimatedStyle,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
 import {
   ActionList,
   Button,
-  HeaderIconButton,
   Icon,
+  NavBackButton,
+  NavCloseButton,
   Page,
   SizableText,
   Stack,
   Toast,
   XStack,
   YStack,
+  glassBarItem,
   usePreventRemove,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -30,15 +47,18 @@ import {
 } from '@onekeyhq/kit/src/components/NativeAmountKeypad';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnramperLogContext } from '@onekeyhq/shared/src/logger/scopes/fiatCrypto/scenes/onramper';
 import type {
+  IOnramperButtonStyle,
   IOnramperEvent,
   IOnramperQuote,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -51,12 +71,17 @@ import type {
 import { BuyActionZone } from '../../components/Headless/BuyActionZone';
 import { CheckoutInfoCard } from '../../components/Headless/CheckoutInfoCard';
 import {
-  MOTION_EASE_IN,
+  MOTION_BLOCK_ENTERING,
+  MOTION_BLOCK_EXITING,
   MOTION_EASE_IN_OUT,
   MOTION_EASE_OUT,
+  MOTION_EASE_PRESS,
   MOTION_ENTER_MS,
   MOTION_EXIT_MS,
-  MOTION_MICRO_MS,
+  MOTION_MICRO_ENTERING,
+  MOTION_MICRO_ENTERING_AFTER_EXIT,
+  MOTION_MICRO_EXITING,
+  MOTION_PRESS_MS,
 } from '../../components/Headless/motionTokens';
 import { PresetRow } from '../../components/Headless/PresetRow';
 import { getProviderDisplayName } from '../../components/Headless/ProviderLogo';
@@ -65,14 +90,30 @@ import { useOnramperCheckout } from '../../components/Headless/useOnramperChecko
 import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
-// Pure black pill in both themes (deliberate design choice, not theme-driven);
-// borderRadius = half of the native button's 56pt min-height → fully rounded.
-const HEADLESS_BUY_BUTTON_STYLE = {
-  backgroundColor: '#000000',
-  foregroundColor: '#FFFFFF',
-  borderRadius: 28,
-} as const;
+// The SDK pay button is the screen's primary action, so it takes the primary
+// button's colors — the same pill as "Review order" one step earlier: dark in
+// light mode, light in dark mode (a dark pill on the dark page has no visible
+// edge — Apple Pay's own guidance is black on light backgrounds, white on
+// dark ones). The SDK wants literal colors, not theme tokens: these are
+// $bgPrimary and $textInverse resolved per theme. borderRadius = half of the
+// native button's 56pt min-height → fully rounded.
+const HEADLESS_BUY_BUTTON_STYLES: Record<
+  'light' | 'dark',
+  IOnramperButtonStyle
+> = {
+  light: {
+    backgroundColor: '#202020',
+    foregroundColor: '#EFEFEF',
+    borderRadius: 28,
+  },
+  dark: {
+    backgroundColor: '#EEEEEE',
+    foregroundColor: '#1E1E1E',
+    borderRadius: 28,
+  },
+};
 
 // Two-state screen: the amount block (big fiat figure + ≈crypto estimate)
 // persists across both states, centered in the space the lower half leaves;
@@ -86,9 +127,26 @@ type IBuyMode = 'input' | 'review';
 // error under the amount) instead of offering an in-place retry.
 const AMOUNT_ERROR_CODES = new Set(['amountOutOfRange', 'quoteUnavailable']);
 
-// Mode-swap animation: the leaving lower block fades out fast (accelerating,
-// overlaid at its last position), the entering one fades in slower
-// (decelerating) into the cleared space, and the amount block's layout
+// Reads a status line out when it appears or changes — only while this screen
+// is on top: the page keeps quoting under a pushed order detail, and its lines
+// must not be read over that page. A line that changed meanwhile is read once
+// the page is back.
+function useAnnounceStatus(text: string | undefined, isFocused: boolean) {
+  const announcedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+    if (text && text !== announcedRef.current) {
+      AccessibilityInfo.announceForAccessibility(text);
+    }
+    announcedRef.current = text;
+  }, [text, isFocused]);
+}
+
+// Mode-swap animation: the leaving lower block fades out fast (overlaid at
+// its last position), the entering one fades in slower into the cleared
+// space, and the amount block's layout
 // transition glides it to its new centered position over the enter duration —
 // reanimated coordinates all three, which moti's AnimatePresence did not (the
 // hero snapped). Durations/easings come from the shared motion tokens.
@@ -101,7 +159,9 @@ function HeadlessBuyPage() {
   const { networkId, accountId, tokenAddress, token, entryFrom } = route.params;
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
+  const isFocused = useIsFocused();
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
 
   const [amountText, setAmountText] = useState('');
   const [mode, setMode] = useState<IBuyMode>('input');
@@ -253,6 +313,19 @@ function HeadlessBuyPage() {
     { undefinedResultIfReRun: true },
   );
 
+  // Shown before the address on the review card — the same lookup the order
+  // record makes, so review and order detail name the account alike. Display
+  // only: a failed lookup leaves the bare address.
+  const { result: accountName } = usePromiseResult(async () => {
+    if (!accountId) {
+      return undefined;
+    }
+    return backgroundApiProxy.serviceAccount
+      .getAccount({ accountId, networkId })
+      .then((account) => account?.name)
+      .catch(() => undefined);
+  }, [accountId, networkId]);
+
   // Network display name for the review card's network row. Keyed on the
   // ROUTE id, not activeToken (the token is resolved by matching this very
   // network/address, so the values are identical — depending on activeToken
@@ -303,7 +376,8 @@ function HeadlessBuyPage() {
   // Order lifecycle → background store (product spec 2026-10-16): record on
   // the first transaction id (before Apple Pay), note payment authorization,
   // drop the hidden record on cancel / pre-payment failure (but keep it when
-  // the provider failed with the payment outcome unknown).
+  // the provider failed with the payment outcome unknown, and show it as
+  // failed when the provider's payment page said the authorization failed).
   const handleTransactionCreated = useCallback((transactionId: string) => {
     void backgroundApiProxy.serviceFiatCrypto.addHeadlessBuyOrder(
       buildOrderParamsRef.current(transactionId),
@@ -398,9 +472,14 @@ function HeadlessBuyPage() {
     isMock,
     errorMessage,
     errorCode,
+    unknownOutcomeTransactionId,
     payMock,
     retry,
+    canRetryInit,
+    retryInit,
+    isTakingLong,
     refreshQuote,
+    canSignOut,
     signOut,
     getLogContext,
   } = useOnramperCheckout({
@@ -425,7 +504,7 @@ function HeadlessBuyPage() {
     // what providers enforce at checkout (country == device IP ==
     // verified-phone country) — staging tests must run behind a US/EU VPN.
     onlyOnramps,
-    buttonStyle: HEADLESS_BUY_BUTTON_STYLE,
+    buttonStyle: HEADLESS_BUY_BUTTON_STYLES[themeVariant],
     entryFrom,
     onCompleted: handleCompleted,
     onTransactionCreated: handleTransactionCreated,
@@ -435,15 +514,24 @@ function HeadlessBuyPage() {
   quoteRef.current = quote;
   getLogContextRef.current = getLogContext;
 
+  // The way out of a failure, so its own failure must not pass silently:
+  // offline, a timeout or a server error would otherwise leave a button that
+  // seems to do nothing.
   const openWebFallback = useCallback(async () => {
-    const { url } =
-      await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-        networkId,
-        tokenAddress: activeToken?.address ?? tokenAddress,
-        accountId,
-        // This page is buy-only (sell always stays on the web widget).
-        type: 'buy',
-      });
+    let url: string | undefined;
+    try {
+      const widget =
+        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+          networkId,
+          tokenAddress: activeToken?.address ?? tokenAddress,
+          accountId,
+          // This page is buy-only (sell always stays on the web widget).
+          type: 'buy',
+        });
+      url = widget.url;
+    } catch {
+      // Reported below like an empty URL.
+    }
     defaultLogger.fiatCrypto.onramper.webFallbackPressed({
       ...getLogContext(),
       errorCode,
@@ -451,7 +539,11 @@ function HeadlessBuyPage() {
     });
     if (url) {
       openFiatCryptoUrl(url);
+      return;
     }
+    Toast.error({
+      title: intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
+    });
   }, [
     networkId,
     activeToken?.address,
@@ -459,6 +551,7 @@ function HeadlessBuyPage() {
     accountId,
     getLogContext,
     errorCode,
+    intl,
   ]);
 
   // Leaving review abandons the mounted native pay button: the SDK's prepared
@@ -474,15 +567,15 @@ function HeadlessBuyPage() {
     refreshQuote();
   }, [refreshQuote, getLogContext, amount, actionState]);
 
-  // In review, every page-leave intent (header X / back arrow, Android back,
-  // iOS swipe) returns to the input view instead of closing the modal.
-  // A screen-level headerLeft override can't do this reliably: on iOS 26 the
-  // modal close is a navigator-level `unstable_headerLeftItems` bar item that
-  // takes the slot over `headerLeft`. usePreventRemove (NOT a raw beforeRemove
-  // preventDefault): it registers the prevented state with the native stack so
-  // gesture-driven dismissals are blocked up front — cancelling a native
-  // gesture after the fact leaves native and JS navigation state out of sync
-  // and has frozen the app on close (intermittent hard-hang, device-observed).
+  // In review, every page-leave intent returns to the input view instead of
+  // closing the modal. The header's own button already does (it becomes a
+  // back arrow in review, below); this catches the ones a header can't —
+  // Android back, the iOS swipe-down. usePreventRemove (NOT a raw
+  // beforeRemove preventDefault): it registers the prevented state with the
+  // native stack so gesture-driven dismissals are blocked up front —
+  // cancelling a native gesture after the fact leaves native and JS
+  // navigation state out of sync and has frozen the app on close
+  // (intermittent hard-hang, device-observed).
   usePreventRemove(mode === 'review', ({ data }) => {
     if (allowLeaveRef.current) {
       // Completed checkout: let the blocked action (the success-page reset)
@@ -493,45 +586,149 @@ function HeadlessBuyPage() {
     exitReview();
   });
 
+  // The header's left button says what it does. Input: the navigator's own
+  // button — close at the root of the modal, back when pushed from the buy
+  // list — restated here because header options merge, so whatever review
+  // set would otherwise stay (on iOS 26 a pushed screen gets the system back
+  // button back by clearing the items, which keeps its long-press history
+  // menu). Review: a back arrow, because it returns to the amount
+  // (exitReview) rather than closing the page.
+  const isStackRoot = useNavigationState(
+    (state) => state.routes[0]?.key === route.key,
+  );
+  const goBack = useCallback(() => {
+    reactNavigation.goBack();
+  }, [reactNavigation]);
+  const backLabel = intl.formatMessage({ id: ETranslations.global_back });
+  const closeLabel = intl.formatMessage({ id: ETranslations.global_close });
+  const showBackButton = mode === 'review' || !isStackRoot;
+  const handleBackPress = mode === 'review' ? exitReview : goBack;
+  const buildIOS26HeaderLeftItems = useCallback(
+    (): NativeStackHeaderItem[] => [
+      showBackButton
+        ? // The system back glyph, as on every pushed iOS 26 screen.
+          {
+            type: 'button',
+            label: backLabel,
+            accessibilityLabel: backLabel,
+            icon: { type: 'sfSymbol', name: 'chevron.backward' },
+            identifier: 'headless-buy-back',
+            onPress: handleBackPress,
+          }
+        : // Same item the navigator puts on a modal root.
+          glassBarItem(
+            <NavCloseButton aria-label={closeLabel} onPress={goBack} />,
+          ),
+    ],
+    [showBackButton, backLabel, closeLabel, handleBackPress, goBack],
+  );
+  const renderHeaderLeft = useCallback(
+    () =>
+      showBackButton ? (
+        <NavBackButton aria-label={backLabel} onPress={handleBackPress} />
+      ) : (
+        <NavCloseButton aria-label={closeLabel} onPress={goBack} />
+      ),
+    [showBackButton, backLabel, closeLabel, handleBackPress, goBack],
+  );
+  let headerLeftOptions: {
+    headerLeft?: typeof renderHeaderLeft;
+    unstable_headerLeftItems?: typeof buildIOS26HeaderLeftItems;
+  };
+  if (platformEnv.isNativeIOS26Plus) {
+    headerLeftOptions = {
+      unstable_headerLeftItems:
+        mode === 'review' || isStackRoot
+          ? buildIOS26HeaderLeftItems
+          : undefined,
+    };
+  } else if (platformEnv.isNativeIOS || mode === 'review') {
+    headerLeftOptions = { headerLeft: renderHeaderLeft };
+  } else {
+    // The JS header draws the navigator's own button when none is given.
+    headerLeftOptions = { headerLeft: undefined };
+  }
+
   // Amount-level failures are fixed on the input screen, not retried in place.
   // The quote error stays visible under the amount (heroError below) until the
-  // next edit re-quotes; while it is showing, "Preview order" is disabled —
+  // next edit re-quotes; while it is showing, "Review order" is disabled —
   // otherwise the effect below would bounce the tap straight back to input
   // (a one-frame flash that reads as a dead button).
   const hasAmountError =
     actionState === EBuyActionState.RetryableError &&
     errorCode !== undefined &&
     AMOUNT_ERROR_CODES.has(errorCode);
-  useEffect(() => {
+  // A layout effect: the switch lands before the frame is drawn. A passive
+  // one let the review screen paint once with the error twice — under the
+  // amount and in the pay zone, with a Retry — before bouncing.
+  useLayoutEffect(() => {
     if (mode === 'review' && hasAmountError) {
       setMode('input');
     }
   }, [mode, hasAmountError]);
 
+  // Under the amount only while the amount is where it gets fixed: on the
+  // input screen (quoting is live there) and for amount-level failures. In
+  // review every other failure sits right above the action that answers it
+  // (BuyActionZone), not at the top of the page, far from it.
   const heroError =
-    actionState === EBuyActionState.RetryableError ? errorMessage : undefined;
+    actionState === EBuyActionState.RetryableError &&
+    (mode === 'input' || hasAmountError)
+      ? errorMessage
+      : undefined;
+  // What the page shows of a failure, wherever it shows it: the hero line
+  // above, or the action zone in review (retryable and web-fallback states).
+  const visibleError =
+    heroError ??
+    (mode === 'review' &&
+    (actionState === EBuyActionState.RetryableError ||
+      actionState === EBuyActionState.WebFallback)
+      ? errorMessage
+      : undefined);
+  // Status lines are read out as they appear: they change without any
+  // action of the user's, so a screen-reader user would otherwise never
+  // learn that the quote failed or is still coming.
+  useAnnounceStatus(visibleError, isFocused);
 
   const heroLayout = layoutAnimReady
     ? LinearTransition.duration(MOTION_ENTER_MS).easing(MOTION_EASE_IN_OUT)
     : undefined;
 
-  // Always-mounted fade for the error line — the slot is fixed-height (two
-  // $bodySm lines: error copy wraps, and appearance still never shifts the
-  // hero layout), so only opacity moves; the last message is retained so the
-  // text doesn't blank out mid-fade.
-  const lastHeroErrorRef = useRef<string | undefined>(undefined);
-  if (heroError) {
-    lastHeroErrorRef.current = heroError;
-  }
-  const heroErrorStyle = useAnimatedStyle(
-    () => ({
-      opacity: withTiming(heroError ? 1 : 0, {
-        duration: MOTION_MICRO_MS,
-        easing: MOTION_EASE_OUT,
-      }),
-    }),
-    [heroError],
-  );
+  // In review the amount is a way back to editing it: pressing it presses
+  // the number itself in a little (the overlay below has no fill of its own).
+  const amountPressed = useSharedValue(false);
+  const amountPressStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        // Asymmetric: the press-in is the user's, the snap-back the
+        // system's — and short, so it is done before the release's mode
+        // swap glides the amount away.
+        scale: amountPressed.value
+          ? withTiming(0.97, {
+              duration: MOTION_PRESS_MS,
+              easing: MOTION_EASE_PRESS,
+            })
+          : withTiming(1, {
+              duration: MOTION_EXIT_MS,
+              easing: MOTION_EASE_OUT,
+            }),
+      },
+    ],
+  }));
+  const handleAmountPressIn = useCallback(() => {
+    amountPressed.value = true;
+  }, [amountPressed]);
+  const handleAmountPressOut = useCallback(() => {
+    amountPressed.value = false;
+  }, [amountPressed]);
+  // The overlay unmounts with review: a press it never saw end (e.g. an
+  // amount error sending the page back to input) must not leave the amount
+  // pressed in.
+  useEffect(() => {
+    if (mode !== 'review') {
+      amountPressed.value = false;
+    }
+  }, [mode, amountPressed]);
 
   // Same-token order still processing (direct entries skip the Buy tab's
   // banner, and this is where a repeat purchase is most likely). Shown in the
@@ -566,28 +763,52 @@ function HeadlessBuyPage() {
       transactionId: sameTokenOrder.transactionId,
     });
   }, [sameTokenOrder, processingOrders.length, navigation]);
+  // The checkout failed with the payment outcome unknown: the action zone
+  // opens that order instead of offering a one-tap retry.
+  const openUnknownOutcomeOrder = useCallback(() => {
+    if (!unknownOutcomeTransactionId) {
+      return;
+    }
+    defaultLogger.fiatCrypto.onramper.ordersEntryPressed({
+      source: 'paymentUnknown',
+      processingCount: processingOrders.length,
+    });
+    navigation.push(EModalFiatCryptoRoutes.HeadlessBuyOrderDetail, {
+      transactionId: unknownOutcomeTransactionId,
+    });
+  }, [unknownOutcomeTransactionId, processingOrders.length, navigation]);
 
   // The ≈crypto line under the amount: live payout from the quote, a skeleton
   // while a quote is in flight (avoids showing a stale figure for the newly
-  // typed amount), and a plain 0 when there is nothing to quote.
+  // typed amount), a plain 0 when there is nothing to quote, and "--" when
+  // the quote failed — the same empty value as the card below ("0 ETH" under
+  // a real amount read as buying nothing).
   const isQuoting =
     amount > 0 &&
     (actionState === EBuyActionState.Preparing ||
       actionState === EBuyActionState.Refreshing);
-  const estimateValueProps = useMemo(
-    () => ({
-      // The hook keeps the last successful quote; with the amount cleared that
-      // figure is stale, so the estimate falls back to 0 immediately.
-      value:
-        amount > 0 && quote?.payout !== undefined ? String(quote.payout) : '0',
+  const isQuoteFailed =
+    amount > 0 &&
+    (actionState === EBuyActionState.RetryableError ||
+      actionState === EBuyActionState.WebFallback);
+  const estimateValueProps = useMemo(() => {
+    // The hook keeps the last successful quote; with the amount cleared that
+    // figure is stale, so the estimate falls back to 0 immediately.
+    let value = '0';
+    if (amount > 0 && quote?.payout !== undefined) {
+      value = String(quote.payout);
+    } else if (isQuoteFailed) {
+      value = '--';
+    }
+    return {
+      value,
       tokenSymbol: activeToken?.symbol,
       formatter: 'balance' as const,
       // Regular body type — the estimate is secondary to the amount above it.
       size: '$bodyLg' as const,
       loading: isQuoting,
-    }),
-    [amount, quote?.payout, activeToken?.symbol, isQuoting],
-  );
+    };
+  }, [amount, quote?.payout, activeToken?.symbol, isQuoting, isQuoteFailed]);
 
   // Switchable providers: the current quote's ramp plus the SDK's recommended
   // alternatives. TODO(onramper): confirm `recommendations` carries provider
@@ -617,12 +838,14 @@ function HeadlessBuyPage() {
       setSelectedProvider(slug);
     };
     ActionList.show({
-      title: 'Select provider',
+      title: intl.formatMessage({ id: ETranslations.provider_title }),
       sections: [
         {
           items: [
             {
-              label: 'Auto (recommended)',
+              label: intl.formatMessage({
+                id: ETranslations.buy_provider_auto__title,
+              }),
               onPress: () => pickProvider(undefined),
             },
             ...providerOptions.map((slug) => ({
@@ -633,43 +856,139 @@ function HeadlessBuyPage() {
         },
       ],
     });
-  }, [providerOptions, selectedProvider, getLogContext]);
+  }, [providerOptions, selectedProvider, getLogContext, intl]);
 
   // Drops the stored OnramperID login so the next checkout re-runs email +
-  // phone verification. User-facing on all builds: the SDK keeps the OIDC
-  // login in native storage and offers no in-flow way to switch accounts —
-  // without this, a user whose OnramperID cannot transact (e.g. KYC country
-  // vs current region mismatch) is stuck with no way to try another account.
-  const renderSignOutButton = useCallback(
-    () => (
-      <HeaderIconButton
-        testID="headless-buy-signout"
-        icon="LogoutOutline"
-        onPress={async () => {
-          try {
-            await signOut();
-          } catch {
-            // Already logged by the hook (signOutFailed).
-            Toast.error({ title: 'Sign out failed' });
-            return;
-          }
+  // phone verification (the hook re-quotes, so a fresh pay button follows).
+  // User-facing on all builds: the SDK keeps the OIDC login in native storage
+  // and offers no in-flow way to switch accounts — without this, a user whose
+  // OnramperID cannot transact (e.g. KYC country vs current region mismatch)
+  // is stuck with no way to try another account. Offered from the failure
+  // states only, and only while there may be a login to drop (canSignOut).
+  // One sign-out at a time: a second tap while the first is in flight would
+  // sign out and re-quote twice and stack two toasts (one may even report a
+  // failure). The button also shows a spinner until this settles
+  // (onPressLoadingEnabled in BuyActionZone); the ref closes the window
+  // before that re-render lands.
+  const switchingAccountRef = useRef(false);
+  const handleSwitchAccount = useCallback(async () => {
+    if (switchingAccountRef.current) {
+      return;
+    }
+    switchingAccountRef.current = true;
+    try {
+      await signOut().then(
+        () => {
           Toast.success({
-            title: 'Signed out of OnramperID',
-            message: 'The next purchase will re-verify email and phone',
+            title: intl.formatMessage({
+              id: ETranslations.logged_out_feedback,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.buy_onramper_signed_out__msg,
+            }),
           });
-        }}
-      />
-    ),
-    [signOut],
-  );
+        },
+        () => {
+          // Already logged by the hook (signOutFailed).
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        },
+      );
+    } finally {
+      switchingAccountRef.current = false;
+    }
+  }, [signOut, intl]);
+
+  // The init or the quote has kept the user waiting (the hook's
+  // isTakingLong): entering the page to a first quote takes 7-16 s on device,
+  // most of it session + SDK init. Yields to a quote error.
+  const slowWaitText =
+    !heroError && isTakingLong
+      ? intl.formatMessage({ id: ETranslations.buy_quote_slow__msg })
+      : undefined;
+  useAnnounceStatus(slowWaitText, isFocused);
+
+  // The one line under the amount. A quote error comes first; then the slow
+  // wait, which only lasts until the pending answer lands; then the reminder
+  // of a same-token order, which matters once there is something to pay.
+  // Each kind fades out, then the next fades in, in place (keyed by kind
+  // below); the slot is fixed-height, so a swap never moves the amount.
+  let heroNoticeKind: 'error' | 'slow' | 'reminder' | undefined;
+  let heroNotice: ReactNode = null;
+  if (heroError) {
+    heroNoticeKind = 'error';
+    heroNotice = (
+      <SizableText
+        size="$bodySm"
+        color="$textCritical"
+        textAlign="center"
+        numberOfLines={2}
+      >
+        {heroError}
+      </SizableText>
+    );
+  } else if (slowWaitText) {
+    heroNoticeKind = 'slow';
+    heroNotice = (
+      <SizableText
+        testID="headless-buy-slow-wait"
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        numberOfLines={2}
+      >
+        {slowWaitText}
+      </SizableText>
+    );
+  } else if (sameTokenOrder) {
+    heroNoticeKind = 'reminder';
+    heroNotice = (
+      <XStack
+        testID="headless-buy-order-reminder"
+        ai="center"
+        jc="center"
+        gap="$1"
+        role="button"
+        onPress={openSameTokenOrder}
+        // One 16pt text line → a 44pt target; the slot only holds this line,
+        // and nothing above or below it is pressable.
+        hitSlop={{ top: 14, bottom: 14 }}
+        cursor="pointer"
+        pressStyle={{ opacity: 0.6 }}
+      >
+        <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {intl.formatMessage({
+            id: ETranslations.buy_order_in_progress_same_token__msg,
+          })}
+        </SizableText>
+        {/* The small chevron's glyph leaves ~6pt of empty box on its right;
+            cancelling it keeps the centered line optically centered. */}
+        <Icon
+          name="ChevronRightSmallOutline"
+          size="$4"
+          color="$iconSubdued"
+          mr="$-1.5"
+        />
+      </XStack>
+    );
+  }
 
   return (
     <Page>
-      {/* In review the close button returns to input via the beforeRemove
-          interception above. */}
       <Page.Header
-        title={activeToken?.symbol ? `Buy ${activeToken.symbol}` : 'Buy'}
-        headerRight={renderSignOutButton}
+        title={
+          activeToken?.symbol
+            ? intl.formatMessage(
+                { id: ETranslations.dexmarket_buy_token_default },
+                { TokenName: activeToken.symbol },
+              )
+            : intl.formatMessage({ id: ETranslations.global_buy })
+        }
+        {...headerLeftOptions}
       />
       <Page.Body>
         <YStack flex={1} px="$5" pb="$3">
@@ -684,80 +1003,87 @@ function HeadlessBuyPage() {
               inner wrapper alone is what makes the centered amount glide. */}
           <Stack flex={1} jc="center">
             <Animated.View layout={heroLayout}>
-              <SendAutoSizeAmountInput
-                value={amountText}
-                onChange={handleAmountChange}
-                justifyContent="center"
-                inputProps={{
-                  placeholder: '0',
-                  // The custom keypad below is the only input path.
-                  editable: false,
-                  keyboardType: 'decimal-pad',
-                  leftAddOnProps: { label: '$', pr: '$0', pl: '$0', mr: '$-2' },
-                }}
-                valueProps={estimateValueProps}
-                extraContent={
-                  // alignSelf breaks out of the root Stack's ai="center":
-                  // without a definite slot width the text measures unbounded
-                  // and a long message runs off-screen instead of wrapping.
-                  // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
-                  // numberOfLines truncates copy that outgrows the slot.
-                  <Stack h="$8" jc="center" alignSelf="stretch">
-                    {!heroError && sameTokenOrder ? (
-                      <XStack
-                        testID="headless-buy-order-reminder"
-                        ai="center"
-                        jc="center"
-                        gap="$1"
-                        onPress={openSameTokenOrder}
-                        cursor="pointer"
-                        pressStyle={{ opacity: 0.6 }}
-                      >
-                        <Stack
-                          w="$1.5"
-                          h="$1.5"
-                          borderRadius="$full"
-                          bg="$iconInfo"
-                        />
-                        <SizableText
-                          size="$bodySm"
-                          color="$textSubdued"
-                          numberOfLines={1}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.buy_order_in_progress_same_token__msg,
-                          })}
-                        </SizableText>
-                        <Icon
-                          name="ChevronRightSmallOutline"
-                          size="$4"
-                          color="$iconSubdued"
-                        />
-                      </XStack>
-                    ) : (
-                      <Animated.View style={heroErrorStyle}>
-                        <SizableText
-                          size="$bodySm"
-                          color="$textCritical"
-                          textAlign="center"
-                          numberOfLines={2}
-                        >
-                          {lastHeroErrorRef.current ?? ''}
-                        </SizableText>
-                      </Animated.View>
-                    )}
-                  </Stack>
-                }
-                width="100%"
-              />
+              {/* Separate from the layout-animated wrapper above: the press
+                  scale must not fight the hero's glide. */}
+              <Animated.View style={amountPressStyle}>
+                <SendAutoSizeAmountInput
+                  value={amountText}
+                  onChange={handleAmountChange}
+                  justifyContent="center"
+                  inputProps={{
+                    placeholder: '0',
+                    // The keypad below is the only input path, iPad included:
+                    // an editable field there kept its own cleaned-up text
+                    // ("$" or "," typed into it) after the keypad or a preset
+                    // changed the amount, so the hero could show a different
+                    // amount than the one quoted and paid.
+                    editable: false,
+                    keyboardType: 'decimal-pad',
+                    leftAddOnProps: {
+                      label: '$',
+                      pr: '$0',
+                      pl: '$0',
+                      mr: '$-2',
+                    },
+                  }}
+                  valueProps={estimateValueProps}
+                  extraContent={
+                    // alignSelf breaks out of the root Stack's ai="center":
+                    // without a definite slot width the text measures unbounded
+                    // and a long message runs off-screen instead of wrapping.
+                    // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
+                    // numberOfLines truncates copy that outgrows the slot.
+                    <Stack h="$8" jc="center" alignSelf="stretch">
+                      {/* The line the page opens with is part of the page;
+                        only later changes fade. */}
+                      <LayoutAnimationConfig skipEntering>
+                        {heroNoticeKind ? (
+                          <Animated.View
+                            key={heroNoticeKind}
+                            entering={MOTION_MICRO_ENTERING_AFTER_EXIT}
+                            exiting={MOTION_MICRO_EXITING}
+                          >
+                            {heroNotice}
+                          </Animated.View>
+                        ) : null}
+                      </LayoutAnimationConfig>
+                    </Stack>
+                  }
+                  width="100%"
+                />
+              </Animated.View>
+              {mode === 'review' ? (
+                // In review the amount is a way back to editing it — where
+                // the eye already is, same move as the header's back arrow.
+                // It stops above the notice slot: the order reminder there
+                // is its own button.
+                <Stack
+                  testID="headless-buy-edit-amount"
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom="$8"
+                  // Childless, so VoiceOver only lands on this with
+                  // `accessible`: role and label alone don't make an element
+                  // on iOS.
+                  accessible
+                  role="button"
+                  aria-label={intl.formatMessage({
+                    id: ETranslations.global_edit,
+                  })}
+                  cursor="pointer"
+                  onPressIn={handleAmountPressIn}
+                  onPressOut={handleAmountPressOut}
+                  onPress={exitReview}
+                />
+              ) : null}
             </Animated.View>
           </Stack>
           {mode === 'review' ? (
             <Animated.View
               key="review"
-              entering={FadeIn.duration(MOTION_ENTER_MS).easing(
-                MOTION_EASE_OUT,
-              )}
+              entering={MOTION_BLOCK_ENTERING}
               // Deliberately NO exiting fade: the exit snapshot freezes the
               // subtree, and the native SDK button misbehaves inside it — its
               // overflow-drawn consent copy vanishes at once and the SwiftUI
@@ -778,8 +1104,13 @@ function HeadlessBuyPage() {
                   transactionFee={quote?.transactionFee}
                   providerName={selectedProvider ?? quote?.ramp}
                   address={effectiveAddress}
+                  accountName={accountName}
+                  // Not while the payment outcome is unknown: a new provider
+                  // means a fresh checkout in place of "View order".
                   onSelectProvider={
-                    canSwitchProvider ? handleSelectProvider : undefined
+                    canSwitchProvider && !unknownOutcomeTransactionId
+                      ? handleSelectProvider
+                      : undefined
                   }
                 />
                 <BuyActionZone
@@ -789,37 +1120,61 @@ function HeadlessBuyPage() {
                   errorText={errorMessage}
                   onMockPay={payMock}
                   onRetry={retry}
+                  onViewOrder={
+                    unknownOutcomeTransactionId
+                      ? openUnknownOutcomeOrder
+                      : undefined
+                  }
+                  onRetryInit={canRetryInit ? retryInit : undefined}
                   onWebFallback={openWebFallback}
+                  offerWebFallback={errorCode === 'paymentFailed'}
+                  onSwitchAccount={canSignOut ? handleSwitchAccount : undefined}
                 />
               </YStack>
             </Animated.View>
           ) : (
             <Animated.View
               key="input"
-              entering={FadeIn.duration(MOTION_ENTER_MS).easing(
-                MOTION_EASE_OUT,
-              )}
-              exiting={FadeOut.duration(MOTION_EXIT_MS).easing(MOTION_EASE_IN)}
+              entering={MOTION_BLOCK_ENTERING}
+              exiting={MOTION_BLOCK_EXITING}
             >
               <YStack gap="$3">
                 {/* One slot, two states: presets while the amount is empty
                     (tapping one jumps straight to review); a typed amount
                     morphs the slot into the preview CTA. Clearing the amount
                     brings the presets back. Both render at the large-button
-                    height, so the swap never reflows the keypad below. */}
-                {amount > 0 ? (
-                  <Button
-                    testID="headless-buy-review"
-                    size="large"
-                    variant="primary"
-                    disabled={hasAmountError}
-                    onPress={enterReview}
-                  >
-                    Preview order
-                  </Button>
-                ) : (
-                  <PresetRow onSelect={handlePresetSelect} />
-                )}
+                    height, so the swap never reflows the keypad below, and
+                    each fades in place. Not when the whole input block
+                    arrives: it fades in as one. */}
+                <LayoutAnimationConfig skipEntering>
+                  {amount > 0 ? (
+                    <Animated.View
+                      key="review-cta"
+                      entering={MOTION_MICRO_ENTERING}
+                      exiting={MOTION_MICRO_EXITING}
+                    >
+                      <Button
+                        testID="headless-buy-review"
+                        size="large"
+                        variant="primary"
+                        disabled={hasAmountError}
+                        onPress={enterReview}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_review_order,
+                        })}
+                      </Button>
+                    </Animated.View>
+                  ) : (
+                    <Animated.View
+                      key="presets"
+                      entering={MOTION_MICRO_ENTERING}
+                      exiting={MOTION_MICRO_EXITING}
+                    >
+                      <PresetRow onSelect={handlePresetSelect} />
+                    </Animated.View>
+                  )}
+                </LayoutAnimationConfig>
                 <NativeAmountKeypad
                   onKeyPress={handleKeyPress}
                   onBackspaceLongPress={handleBackspaceLongPress}

@@ -5,11 +5,21 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import {
+  isSupportReplyPushMessage,
+  parseNotificationPayload,
+} from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   ENotificationCommand,
   ENotificationPushMessageMode,
+  ENotificationPushTopicTypes,
 } from '@onekeyhq/shared/types/notification';
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+
+import {
+  notificationsAtom,
+  notificationsDevSettingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceNotification from './ServiceNotification';
 
@@ -23,6 +33,12 @@ jest.mock('@onekeyhq/shared/src/utils/extUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
+}));
+jest.mock('../../states/jotai/atoms', () => ({
+  notificationsDevSettingsPersistAtom: {
+    get: jest.fn(async () => ({ showMessagePushSource: false })),
+  },
+  notificationsAtom: { set: jest.fn(async () => {}) },
 }));
 
 describe('support notification delivery across startup', () => {
@@ -149,7 +165,7 @@ describe('support notification delivery across startup', () => {
     });
   });
 
-  it('rejects a non-string conversation id before queuing', () => {
+  it('accepts a numeric conversation id and queues it as a string', async () => {
     const fallback = jest.fn();
     expect(
       parseNotificationPayload(
@@ -160,7 +176,265 @@ describe('support notification delivery across startup', () => {
         }),
         fallback,
       ),
+    ).toBe(true);
+    expect(fallback).not.toHaveBeenCalled();
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: '123',
+    });
+  });
+
+  it('accepts a conversation id placed next to the action', async () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          conversationId: '499',
+        }),
+        fallback,
+      ),
+    ).toBe(true);
+    expect(fallback).not.toHaveBeenCalled();
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: '499',
+    });
+  });
+
+  it('lets extras.params.conversationId override the payload id', async () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          data: { conversationId: 'payload-id' },
+        }),
+        fallback,
+        { params: { conversationId: 'params-id' } },
+      ),
+    ).toBe(true);
+    expect(fallback).not.toHaveBeenCalled();
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: 'params-id',
+    });
+  });
+
+  it('keeps the payload id when extras.params has no conversation id', async () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          data: { conversationId: 'payload-id' },
+        }),
+        fallback,
+        { params: { conversationId: undefined, msgId: 'msg-1' } },
+      ),
+    ).toBe(true);
+    expect(fallback).not.toHaveBeenCalled();
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: 'payload-id',
+    });
+  });
+
+  it.each([null, ''])(
+    'falls back to the payload id when extras.params.conversationId is %p',
+    async (paramsConversationId) => {
+      const fallback = jest.fn();
+      expect(
+        parseNotificationPayload(
+          ENotificationPushMessageMode.command,
+          JSON.stringify({
+            action: 'openSupportConversation',
+            data: { conversationId: 'payload-id' },
+          }),
+          fallback,
+          { params: { conversationId: paramsConversationId } },
+        ),
+      ).toBe(true);
+      expect(fallback).not.toHaveBeenCalled();
+      await expect(service.takePendingSupportConversation()).resolves.toEqual({
+        conversationId: 'payload-id',
+      });
+    },
+  );
+
+  it('rejects an unusable conversation id before queuing', () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          data: { conversationId: { id: 123 } },
+        }),
+        fallback,
+      ),
     ).toBe(false);
     expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['jpush', 'websocket'] as const)(
+    'refreshes support after %s receipt once, with no cross-runtime message preview',
+    async (pushSource) => {
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const ack = jest
+        .spyOn(service, 'ackNotificationMessage')
+        .mockResolvedValue(undefined);
+      const badge = jest
+        .spyOn(service, 'increaseBadgeCountWhenNotificationReceived')
+        .mockResolvedValue(undefined);
+      // JPush may have displayed the native notification before this callback.
+      jest
+        .spyOn(service, 'isNotificationShowed')
+        .mockResolvedValue(pushSource === 'jpush');
+      const show = jest
+        .spyOn(service, 'showNotification')
+        .mockResolvedValue({ notificationId: 'push-42' });
+      const message: INotificationPushMessageInfo = {
+        pushSource,
+        title: 'Untrusted push title',
+        content: 'Untrusted push preview',
+        extras: {
+          msgId: 'push-42',
+          topic: ENotificationPushTopicTypes.accountActivity,
+          mode: ENotificationPushMessageMode.command,
+          payload: JSON.stringify({
+            action: ENotificationCommand.openSupportConversation,
+            data: { conversationId: '42' },
+          }),
+          params: {
+            msgId: 'push-42',
+            accountAddress: '',
+            accountId: '',
+            networkId: '',
+            transactionHash: '',
+          },
+        },
+      };
+      await service.onNotificationReceived(message);
+      await service.onNotificationReceived(message);
+      const hints = emit.mock.calls.filter(
+        ([event]) => event === EAppEventBusNames.SupportConversationUpdated,
+      );
+      expect(hints).toEqual([
+        [
+          EAppEventBusNames.SupportConversationUpdated,
+          { conversationId: '42' },
+        ],
+      ]);
+      expect(
+        emit.mock.calls.some(
+          ([event]) => event === EAppEventBusNames.ShowInAppPushNotification,
+        ),
+      ).toBe(false);
+      expect(ack).toHaveBeenCalledTimes(2);
+      expect(badge).toHaveBeenCalledTimes(2);
+      if (pushSource === 'websocket') expect(show).toHaveBeenCalled();
+      else expect(show).not.toHaveBeenCalled();
+      await expect(
+        service.takePendingSupportConversation(),
+      ).resolves.toBeUndefined();
+    },
+  );
+
+  // Shape of the support reply push in the OK-67112 logs.
+  function createSupportReplyPush(
+    extras: Partial<NonNullable<INotificationPushMessageInfo['extras']>> = {},
+  ): INotificationPushMessageInfo {
+    return {
+      title: 'Support replied',
+      content: 'You have a new support reply.',
+      pushSource: 'jpush',
+      extras: {
+        msgId: 'support:1:2',
+        mode: '6',
+        payload: JSON.stringify({
+          action: ENotificationCommand.openSupportConversation,
+          data: {},
+        }),
+        params: { msgId: 'support:1:2' },
+        ...extras,
+      } as INotificationPushMessageInfo['extras'],
+    };
+  }
+
+  it('recognizes support reply pushes by their command payload', () => {
+    expect(isSupportReplyPushMessage(createSupportReplyPush())).toBe(true);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({ mode: ENotificationPushMessageMode.command }),
+      ),
+    ).toBe(true);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({ mode: ENotificationPushMessageMode.page }),
+      ),
+    ).toBe(false);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({
+          payload: JSON.stringify({ action: 'openHardwareSalesOrder' }),
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isSupportReplyPushMessage(createSupportReplyPush({ payload: '{' })),
+    ).toBe(false);
+  });
+
+  it('refreshes support unread state once per reply on every platform, even without a usable conversation id', async () => {
+    const previousIsNative = platformEnv.isNative;
+    // Persisted atoms never hydrate in this suite.
+    jest
+      .spyOn(notificationsDevSettingsPersistAtom, 'get')
+      .mockResolvedValue({ showMessagePushSource: false });
+    jest.spyOn(notificationsAtom, 'set').mockResolvedValue(undefined);
+    jest.spyOn(service, 'ackNotificationMessage').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'increaseBadgeCountWhenNotificationReceived')
+      .mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const supportHints = () =>
+      emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.SupportConversationUpdated,
+      );
+
+    try {
+      for (const isNative of [true, false]) {
+        platformEnv.isNative = isNative;
+        emit.mockClear();
+        const msgId = `support:1:${isNative ? 2 : 3}`;
+        const reply = createSupportReplyPush({
+          msgId,
+          params: { msgId },
+        } as Partial<NonNullable<INotificationPushMessageInfo['extras']>>);
+        // The same reply delivered over both websocket and JPush.
+        await service.onNotificationReceived(reply);
+        await service.onNotificationReceived(reply);
+        expect(supportHints()).toEqual([
+          [EAppEventBusNames.SupportConversationUpdated, {}],
+        ]);
+      }
+
+      emit.mockClear();
+      await service.onNotificationReceived(
+        createSupportReplyPush({
+          msgId: 'support:1:4',
+          payload: JSON.stringify({
+            action: ENotificationCommand.openSupportConversation,
+            data: { conversationId: { id: 4 } },
+          }),
+          params: { msgId: 'support:1:4' },
+        } as Partial<NonNullable<INotificationPushMessageInfo['extras']>>),
+      );
+      expect(supportHints()).toEqual([
+        [EAppEventBusNames.SupportConversationUpdated, {}],
+      ]);
+    } finally {
+      platformEnv.isNative = previousIsNative;
+    }
   });
 });

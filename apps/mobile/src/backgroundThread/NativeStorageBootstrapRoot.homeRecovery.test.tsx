@@ -86,22 +86,52 @@ const mockRestart = jest.fn(async (_options: unknown) => {
   reloadBackground();
   mockDismissRecovery();
 });
-type IToast = {
-  title: string;
-  message?: string;
-  actions?: import('react').ReactNode;
-  nativeStorageRecoveryTestSessionId?: string;
+type ICapturedToast = {
+  spec: import('@onekeyfe/react-native-native-overlay').IOverlayToastSpec;
+  handlers: import('@onekeyfe/react-native-native-overlay').IOverlayToastHandlers;
 };
-let mockToast: IToast | undefined;
+let mockToast: ICapturedToast | undefined;
 const mockToastListeners = new Set<() => void>();
-function updateToast(toast?: IToast) {
+function updateToast(toast?: ICapturedToast) {
   mockToast = toast;
   mockToastListeners.forEach((listener) => listener());
 }
-const mockToastError = jest.fn((toast: IToast) => updateToast(toast));
+const mockToastError = jest.fn(
+  (
+    toast: import('../../../../packages/components/src/actions/Toast').IToastProps,
+  ) => {
+    const { TOAST_COLOR_KEYS, TOAST_FONT_KEYS, setToastStyleContext } =
+      require('../../../../packages/components/src/actions/Toast/toastStyleContext') as typeof import('../../../../packages/components/src/actions/Toast/toastStyleContext');
+    const { Toast } =
+      require('../../../../packages/components/src/actions/Toast') as typeof import('../../../../packages/components/src/actions/Toast');
+    const colors = Object.fromEntries(
+      TOAST_COLOR_KEYS.map((key) => [key, `color-${key}`]),
+    ) as import('../../../../packages/components/src/actions/Toast/toastStyleContext').IToastStyleContext['colors'];
+    const fonts = Object.fromEntries(
+      TOAST_FONT_KEYS.map((key) => [
+        key,
+        {
+          fontSize: 14,
+          lineHeight: 20,
+          fontWeight: '400' as const,
+          letterSpacing: 0,
+        },
+      ]),
+    ) as import('../../../../packages/components/src/actions/Toast/toastStyleContext').IToastStyleContext['fonts'];
+    setToastStyleContext({
+      colors,
+      fonts,
+      isWide: false,
+      isRTL: false,
+      intl: {
+        formatMessage: ({ defaultMessage }: { defaultMessage?: string }) =>
+          defaultMessage ?? 'Retry',
+      } as unknown as import('../../../../packages/components/src/actions/Toast/toastStyleContext').IToastStyleContext['intl'],
+    });
+    return Toast.error(toast);
+  },
+);
 function TestToastHost() {
-  const { NativeStorageRecoveryToastActions } =
-    require('../../../../packages/components/src/actions/Toast/NativeStorageRecoveryToastActions') as typeof import('../../../../packages/components/src/actions/Toast/NativeStorageRecoveryToastActions');
   const toast = mockReact.useSyncExternalStore(
     (listener) => {
       mockToastListeners.add(listener);
@@ -113,11 +143,17 @@ function TestToastHost() {
   );
   return toast ? (
     <div>
-      {toast.title}
-      <NativeStorageRecoveryToastActions
-        {...toast}
-        onRequestClose={() => updateToast()}
-      />
+      {toast.spec.actions?.map((action) => (
+        <button
+          key={action.id}
+          type="button"
+          data-testid={action.testID}
+          disabled={action.disabled}
+          onClick={() => toast.handlers.onAction?.(action.id)}
+        >
+          {action.label}
+        </button>
+      ))}
     </div>
   ) : null;
 }
@@ -146,9 +182,55 @@ function TestButton({ children, testID, onPress, disabled }: IElementProps) {
 jest.mock('../../../../packages/components/src/primitives/Button', () => ({
   Button: TestButton,
 }));
+jest.mock('../../../../packages/components/src/primitives/Icon/Icons', () => ({
+  resolveIconName: (name: string) => name,
+}));
+jest.mock(
+  '../../../../packages/components/src/actions/Toast/ShowCustom',
+  () => ({
+    ShowCustom: TestView,
+    ShowToasterClose: TestView,
+  }),
+);
+jest.mock(
+  '../../../../packages/components/src/actions/Toast/ToastContent',
+  () => ({
+    ToastContent: TestView,
+  }),
+);
+jest.mock(
+  '../../../../packages/components/src/actions/Toast/ToastHost',
+  () => ({
+    ToastHost: () => null,
+  }),
+);
+jest.mock(
+  '../../../../packages/components/src/actions/Toast/toastIconHref',
+  () => ({
+    getToastIconHref: () => undefined,
+  }),
+);
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   OverlayView: ({ children }: { children?: import('react').ReactNode }) =>
     children,
+  OverlayToastHost: () => null,
+  overlayToastStore: {
+    createId: () => 'test-toast-id',
+    show: (
+      spec: import('@onekeyfe/react-native-native-overlay').IOverlayToastSpec,
+      handlers: import('@onekeyfe/react-native-native-overlay').IOverlayToastHandlers,
+    ) => {
+      updateToast({ spec, handlers });
+      return { id: spec.id, dismiss: () => updateToast() };
+    },
+    update: jest.fn(),
+    dismiss: () => {
+      const current = mockToast;
+      updateToast();
+      current?.handlers.onClose?.('programmatic');
+    },
+    configure: jest.fn(),
+  },
 }));
 
 jest.mock('react-native', () => ({
@@ -169,6 +251,7 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: TestView,
   XStack: TestView,
   YStack: TestView,
+  useClipboard: () => ({ copyText: jest.fn() }),
   Toast: {
     error: mockToastError,
     dismiss: () => updateToast(),
@@ -288,6 +371,22 @@ jest.mock(
   () => ({ LogLevel: { Info: 'info' }, NativeLogger: { write: jest.fn() } }),
 );
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({ travelModeManager: {} }));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    ui: {
+      button: {
+        click: jest.fn(),
+      },
+    },
+  },
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => {
+  const user = { isLoggedIn: false, isLoggedInOnServer: false };
+  return {
+    usePrimePersistAtom: () => [user],
+    primePersistAtom: { get: async () => user },
+  };
+});
 jest.mock(
   '@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement',
   () => ({ completeTravelModeRuntimeLaunchAcknowledgement: async () => true }),
@@ -304,6 +403,18 @@ jest.mock(
   '@onekeyhq/kit/src/provider/Container/ErrorToastContainer/ErrorToasts',
   () => ({ getErrorAction: () => undefined }),
 );
+jest.mock(
+  '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions',
+  () => ({
+    useFirmwareUpdateActions: () => ({ openChangeLogModal: jest.fn() }),
+  }),
+);
+jest.mock('@onekeyhq/shared/src/keyboard', () => ({
+  dismissKeyboard: jest.fn(),
+}));
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  openUrlExternal: jest.fn(),
+}));
 jest.mock('@onekeyhq/kit/src/utils/swrCacheMutationInvalidation', () => ({
   registerSwrCacheMutationInvalidation: jest.fn(),
 }));

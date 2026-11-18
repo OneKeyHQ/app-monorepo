@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -187,6 +187,18 @@ const SwapSettingsSlippageItem = ({
 const SWAP_SETTINGS_DIALOG_TOP_SAFE_GAP = 16;
 const SWAP_SETTINGS_DIALOG_CHROME_HEIGHT = 220;
 const SWAP_SETTINGS_DIALOG_MIN_CONTENT_HEIGHT = 120;
+
+// A filled hairline avoids iOS dropping a zero-height, one-sided border.
+const swapSettingsDividerProps = Platform.select({
+  ios: {
+    height: StyleSheet.hairlineWidth,
+    bg: '$borderSubdued',
+    borderBottomWidth: 0,
+    flex: 0,
+    y: 0,
+  } as const,
+  default: undefined,
+});
 
 const swapSlippageTransition = {
   duration: 150,
@@ -527,7 +539,7 @@ const SwapSettingsDialogContent = ({
                 {slippageContent}
               </SwapSlippageHeightTransition>
             )}
-            <Divider />
+            <Divider {...swapSettingsDividerProps} />
           </>
         ) : null}
         {showSmartModeSetting ? (
@@ -613,7 +625,7 @@ const SwapSettingsDialogContent = ({
         ) : null}
         {activityHubAction ? (
           <>
-            <Divider />
+            <Divider {...swapSettingsDividerProps} />
             <SwapActivityHubSettingsItem
               onOpenReferral={activityHubAction.onOpenReferral}
             />

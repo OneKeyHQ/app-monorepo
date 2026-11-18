@@ -115,6 +115,7 @@ import {
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
+  ESignedTxBroadcastStatus,
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
@@ -629,6 +630,45 @@ export default class VaultBtc extends VaultBase {
       ...unsignedTx,
       ...newUnsignedTx,
     };
+  }
+
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return this.checkSignedTxBroadcastStatusByTxDetails({
+      signedTx,
+      isAcceptedByNode,
+    });
+  }
+
+  // Two txs that spend the same output cannot both confirm. Coin selection
+  // that ran after the earlier payload reached the mempool picks other
+  // outputs (its change included), and that tx would pay the same
+  // recipients a second time. A payload whose inputs are not on record
+  // proves nothing, so it is sent again rather than replaced.
+  override async isUnsignedTxConflictingWithSignedTx({
+    unsignedTx,
+    signedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const signedInputs = (signedTx.encodedTx as IEncodedTxBtc | null)?.inputs;
+    const inputs = (unsignedTx.encodedTx as IEncodedTxBtc | null)?.inputs;
+    if (!Array.isArray(signedInputs) || !Array.isArray(inputs)) {
+      return false;
+    }
+    const signedOutpoints = new Set(
+      signedInputs.map((input) => `${input.txid}:${input.vout}`),
+    );
+    return inputs.some((input) =>
+      signedOutpoints.has(`${input.txid}:${input.vout}`),
+    );
   }
 
   override async buildUnsignedTx(

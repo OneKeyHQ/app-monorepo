@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Haptics,
   Icon,
@@ -9,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Numeric keypad grid, forked from the Perps deposit keypad
@@ -47,6 +50,14 @@ type IProps = {
 };
 
 function BasicNativeAmountKeypad({ onKeyPress, onBackspaceLongPress }: IProps) {
+  const intl = useIntl();
+  // Each key is one accessibility element (iOS needs `accessible` for that;
+  // role and label alone don't make one). Digits and the decimal point are
+  // named by their own text; the backspace key is an icon and needs a name of
+  // its own.
+  const backspaceLabel = intl.formatMessage({
+    id: ETranslations.global_delete,
+  });
   return (
     <YStack gap="$2" pb={platformEnv.isNativeAndroid ? '$3' : '$0'}>
       {AMOUNT_KEYPAD_ROWS.map((row) => (
@@ -54,6 +65,9 @@ function BasicNativeAmountKeypad({ onKeyPress, onBackspaceLongPress }: IProps) {
           {row.map((item) => (
             <Stack
               key={item}
+              accessible
+              role="button"
+              aria-label={item === 'backspace' ? backspaceLabel : undefined}
               flex={1}
               h="$14"
               alignItems="center"

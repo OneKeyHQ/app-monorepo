@@ -1383,6 +1383,8 @@ async function updateUnsignedTxAndSendTx({
     networkId,
     accountId,
     unsignedTx: updatedUnsignedTxItem,
+    // a replayed payload is recorded as it is on the wire
+    signedTx,
     feeInfo: {
       feeInfo,
       total,

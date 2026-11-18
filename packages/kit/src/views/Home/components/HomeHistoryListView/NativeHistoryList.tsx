@@ -79,6 +79,10 @@ import type {
 } from '@onekeyfe/react-native-native-list';
 import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
+// NativeList applies this inset to the rows and to its header and empty slots.
+// Web activity rows carry the same 8px as their own margin instead.
+const getHistoryListContentInset = () => (platformEnv.isNative ? 8 : 0);
+
 type IPendingActions = {
   actions: FooterAction[];
   onAction: (event: RowActionEvent) => void;
@@ -251,7 +255,6 @@ export function NativeHistoryList(
             ...nativeListTheme,
             cautionBackground: componentTheme.bgCaution.val,
             accent: componentTheme.focusRing.val,
-            rowPressedBackground: componentTheme.bgHover.val,
             imageFallbackBackground: tableLayout
               ? undefined
               : componentTheme.gray5.val,
@@ -578,7 +581,7 @@ export function NativeHistoryList(
             : section.title || intl.formatMessage({ id: section.titleKey }),
           style: {
             container: { contentVerticalAlignment: 'bottom' },
-            horizontalPadding: 20,
+            horizontalPadding: 20 - getHistoryListContentInset(),
             verticalPadding: 8,
             title: {
               fontSize: 12,
@@ -600,12 +603,11 @@ export function NativeHistoryList(
             });
             const badge = addressesInfo[addressKey];
             const localLabel = badge?.label || localLabels?.[addressKey];
-            let description = model.row.description;
-            if (localLabel) {
-              description = model.row.description?.includes(' • ')
-                ? `${model.row.description.split(' • ')[0]} • ${localLabel}`
-                : localLabel;
-            }
+            // A label replaces the address part and keeps the text in front
+            // of it; the label itself may hold any characters.
+            const description = localLabel
+              ? `${model.descriptionPrefix}${localLabel}`
+              : model.row.description;
             const info =
               networkData?.[
                 JSON.stringify([
@@ -745,6 +747,9 @@ export function NativeHistoryList(
               sectionKey,
               description,
               descriptionActionKey: badge ? 'address-info' : undefined,
+              descriptionActionStart: badge
+                ? model.descriptionPrefix.length
+                : undefined,
               footerActions: pendingActions.get(history.id),
               fee: tableLayout
                 ? {
@@ -834,6 +839,7 @@ export function NativeHistoryList(
       layout: {
         kind: 'sectioned',
         stickyHeaders: false,
+        contentPaddingHorizontal: getHistoryListContentInset(),
         contentPaddingTop: webContentPadding?.top ?? 12,
         contentPaddingBottom: webContentPadding?.bottom ?? bottom ?? 0,
       },
@@ -931,7 +937,12 @@ export function NativeHistoryList(
     [filtered, onPressHistory, models, addressesInfo],
   );
   const empty = useMemo(() => {
-    if (!initialized) return <HistoryLoadingView tableLayout={tableLayout} />;
+    if (!initialized)
+      return (
+        <Stack mx={-getHistoryListContentInset()}>
+          <HistoryLoadingView tableLayout={tableLayout} />
+        </Stack>
+      );
     if (searchKey && data.length) return <EmptySearch />;
     return (
       <EmptyHistory
@@ -998,7 +1009,13 @@ export function NativeHistoryList(
         }
         snapshot={platformEnv.isNative ? preparedSnapshot : webSnapshot}
         webScrollHost={webScrollHost}
-        listHeader={ListHeaderComponent}
+        listHeader={
+          ListHeaderComponent ? (
+            <Stack mx={-getHistoryListContentInset()}>
+              {ListHeaderComponent}
+            </Stack>
+          ) : undefined
+        }
         listEmpty={empty}
         listFooter={
           <ListFooterComponent

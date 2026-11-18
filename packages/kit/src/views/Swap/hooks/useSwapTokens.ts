@@ -183,7 +183,9 @@ export function useSwapTokenList(
     supportNetworksOverride ?? swapSupportAllNetworksBase;
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
-  const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
+  const swapAddressInfo = useSwapAddressInfo(selectTokenModalType, {
+    networkScope: 'selector',
+  });
   const [tokenListRequests] = useSwapTokenListRequestsAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();

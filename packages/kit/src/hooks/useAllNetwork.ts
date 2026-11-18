@@ -236,7 +236,12 @@ function filterAllNetworkAccountsInfoResult({
       result.accountsInfoBackendIndexed.filter(filterFn),
     accountsInfoBackendNotIndexed:
       result.accountsInfoBackendNotIndexed.filter(filterFn),
-    allAccountsInfo: result.allAccountsInfo.filter(filterFn),
+    // Not category-filtered: this is the owner's account set across the
+    // enabled networks, and consumers derive the shared visible-network count
+    // from it. A filtered copy made the NFT list report zero for an owner
+    // whose only addresses sit on networks without NFT support, which flipped
+    // Home back to the no-address state after the token list had cleared it.
+    allAccountsInfo: result.allAccountsInfo,
   };
 }
 
@@ -385,6 +390,9 @@ function useAllNetworkRequests<T>(params: {
     // it after every await, before writing.
     isRunCurrent?: () => boolean;
   }) => Promise<void>;
+  // `accounts` is what this run fetches (NFT / DeFi runs keep only their own
+  // networks); `allAccounts` is every account the owner has on the enabled
+  // networks, the same for every request kind.
   allNetworkAccountsData?: ({
     accounts,
     allAccounts,

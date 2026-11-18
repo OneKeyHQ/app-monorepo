@@ -47,6 +47,11 @@ jest.mock('../../primitives', () => ({
     </div>
   ),
 }));
+jest.mock('@react-navigation/elements', () => ({
+  HeaderHeightContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext<number | undefined>(undefined),
+}));
 jest.mock('react-native-safe-area-context', () => ({}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,

@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import { createPrivacyChainFetchStreamRelay } from '../utils/privacyChainNodeRelay';
@@ -108,4 +109,57 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     await provider.setWebEmbedApiNotReady();
     expect(provider.isWebEmbedApiReady).toBe(false);
   });
+
+  it('keeps the encode key from other privileged pages off native', async () => {
+    const env = platformEnv as { isNative?: boolean };
+    env.isNative = false;
+    try {
+      await expect(
+        setup().getSensitiveEncodeKey(page('https://tradingview.onekey.so')),
+      ).rejects.toThrow('getSensitiveEncodeKey: not allowed');
+    } finally {
+      env.isNative = true;
+    }
+  });
+});
+
+describe('ProviderApiPrivate risk white list', () => {
+  const request = {
+    origin: 'https://site.example',
+    scope: '$private',
+    data: { method: 'wallet_addBrowserUrlToRiskWhiteList' },
+  } as unknown as IJsBridgeMessagePayload;
+
+  function setupWithModalResult(result: unknown) {
+    const addBrowserUrlToRiskWhiteList = jest.fn(async () => undefined);
+    const provider = new ProviderApiPrivate({
+      backgroundApi: {
+        serviceDApp: { openRiskWhiteListModal: jest.fn(async () => result) },
+        serviceDiscovery: { addBrowserUrlToRiskWhiteList },
+      },
+    });
+    return { provider, addBrowserUrlToRiskWhiteList };
+  }
+
+  it('adds the site after the user confirms', async () => {
+    const { provider, addBrowserUrlToRiskWhiteList } = setupWithModalResult({
+      confirmed: true,
+    });
+    await provider.wallet_addBrowserUrlToRiskWhiteList(request);
+    expect(addBrowserUrlToRiskWhiteList).toHaveBeenCalledWith(
+      'https://site.example',
+    );
+  });
+
+  it.each([[undefined], [{}], [{ confirmed: 'true' }]])(
+    'leaves the list alone when the modal settles with %j',
+    async (result) => {
+      const { provider, addBrowserUrlToRiskWhiteList } =
+        setupWithModalResult(result);
+      await expect(
+        provider.wallet_addBrowserUrlToRiskWhiteList(request),
+      ).rejects.toMatchObject({ code: 4001 });
+      expect(addBrowserUrlToRiskWhiteList).not.toHaveBeenCalled();
+    },
+  );
 });

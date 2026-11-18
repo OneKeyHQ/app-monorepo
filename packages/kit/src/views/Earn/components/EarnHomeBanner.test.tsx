@@ -19,6 +19,8 @@ type IMockImageHandlers = {
 const mockImageHandlers: Record<string, IMockImageHandlers> = {};
 const mockPressHandlers: Record<string, (() => unknown) | undefined> = {};
 const mockUseReducedMotion = jest.fn(() => false);
+let mockAppStateChange: ((state: string) => void) | undefined;
+let mockCurrentAppState: string | null = 'active';
 
 jest.mock('@onekeyhq/components', () => {
   const MockStack = ({
@@ -60,14 +62,19 @@ jest.mock('@onekeyhq/components', () => {
     Carousel: ({
       data,
       renderItem,
+      autoPlayEnabled,
     }: {
       data: IEarnPageBannerListItem[];
+      autoPlayEnabled?: boolean;
       renderItem: (info: {
         item: IEarnPageBannerListItem;
         index: number;
       }) => ReactNode;
     }) => (
-      <div data-testid="banner-carousel">
+      <div
+        data-testid="banner-carousel"
+        data-autoplay={String(autoPlayEnabled)}
+      >
         {data.map((item, index) => (
           <div key={index}>{renderItem({ item, index })}</div>
         ))}
@@ -97,6 +104,19 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
+  AppState: {
+    get currentState() {
+      return mockCurrentAppState;
+    },
+    addEventListener: (_event: string, callback: (state: string) => void) => {
+      mockAppStateChange = callback;
+      return {
+        remove: () => {
+          mockAppStateChange = undefined;
+        },
+      };
+    },
+  },
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -158,7 +178,52 @@ describe('EarnHomeBanner', () => {
   afterEach(() => {
     jest.useRealTimers();
     mockUseReducedMotion.mockReturnValue(false);
+    mockCurrentAppState = 'active';
     jest.mocked(openUrlExternal).mockClear();
+  });
+
+  it('allows autoplay only while the owning page and app are active', () => {
+    const { rerender } = render(
+      <EarnHomeBanner banners={[banner]} isLoading={false} autoPlayEnabled />,
+    );
+    expect(
+      screen.getByTestId('banner-carousel').getAttribute('data-autoplay'),
+    ).toBe('true');
+    act(() => mockAppStateChange?.('background'));
+    expect(
+      screen.getByTestId('banner-carousel').getAttribute('data-autoplay'),
+    ).toBe('false');
+    act(() => mockAppStateChange?.('active'));
+    expect(
+      screen.getByTestId('banner-carousel').getAttribute('data-autoplay'),
+    ).toBe('true');
+    rerender(
+      <EarnHomeBanner
+        banners={[banner]}
+        isLoading={false}
+        autoPlayEnabled={false}
+      />,
+    );
+    expect(
+      screen.getByTestId('banner-carousel').getAttribute('data-autoplay'),
+    ).toBe('false');
+  });
+
+  it('waits for the initial app state when it is not available yet', () => {
+    mockCurrentAppState = null;
+    render(
+      <EarnHomeBanner banners={[banner]} isLoading={false} autoPlayEnabled />,
+    );
+    expect(
+      screen.getByTestId('banner-carousel').getAttribute('data-autoplay'),
+    ).toBe('false');
+    act(() => {
+      mockCurrentAppState = 'active';
+      mockAppStateChange?.('active');
+    });
+    expect(
+      screen.getByTestId('banner-carousel').getAttribute('data-autoplay'),
+    ).toBe('true');
   });
 
   it('reserves the banner block with a skeleton on a true cache miss', () => {

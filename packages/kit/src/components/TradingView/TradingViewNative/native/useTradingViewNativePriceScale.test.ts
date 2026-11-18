@@ -9,7 +9,7 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { I18nManager } from 'react-native';
 
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/HeaderScrollGestureContext';
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeIndicatorPriceRange } from '../utils/chartIndicators';
@@ -43,6 +43,7 @@ type IMockGestureHandler = (...args: unknown[]) => void;
 
 const mockPanGestureHandlers: Record<string, IMockGestureHandler>[] = [];
 const mockTapGestureHandlers: Record<string, IMockGestureHandler>[] = [];
+let mockIntervalReaction: (interval: number, previous: number | null) => void;
 
 function createMockSharedValue<T>(value: T): SharedValue<T> {
   const sharedValue: SharedValue<T> = {
@@ -84,7 +85,7 @@ function mockCreateGestureBuilder(
 }
 
 jest.mock(
-  '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext',
+  '@onekeyhq/components/src/composite/HeaderScrollGestureContext',
   () => ({
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
@@ -115,6 +116,12 @@ jest.mock('react-native', () => ({
 
 jest.mock('react-native-reanimated', () => ({
   cancelAnimation: jest.fn(),
+  useAnimatedReaction: (
+    _prepare: () => number,
+    reaction: typeof mockIntervalReaction,
+  ) => {
+    mockIntervalReaction = reaction;
+  },
   useSharedValue: <T>(value: T) =>
     jest.requireActual<typeof import('react')>('react').useRef({ value })
       .current,
@@ -232,6 +239,41 @@ describe('useTradingViewNativePriceScale', () => {
     I18nManager.isRTL = false;
     mockPanGestureHandlers.length = 0;
     mockTapGestureHandlers.length = 0;
+  });
+
+  it('resets manual and logarithmic controls when the interval runtime resets', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      result.current.handleAutoScalePress();
+      result.current.handleLogScalePress();
+    });
+    expect(result.current.mode).toBe('logarithmic');
+    act(() => {
+      chartRuntime.value = {
+        ...chartRuntime.value,
+        candleIntervalSeconds: 900,
+        pinnedPriceRange: null,
+        priceScaleMode: 'linear',
+      };
+      mockIntervalReaction(900, 60);
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(result.current.mode).toBe('linear');
+  });
+
+  it('restores adopted fullscreen price controls after an interval change', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      chartRuntime.value = {
+        ...chartRuntime.value,
+        candleIntervalSeconds: 900,
+        pinnedPriceRange: { minPrice: 9, maxPrice: 16 },
+        priceScaleMode: 'logarithmic',
+      };
+      mockIntervalReaction(900, 60);
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(result.current.mode).toBe('logarithmic');
   });
 
   it.each([

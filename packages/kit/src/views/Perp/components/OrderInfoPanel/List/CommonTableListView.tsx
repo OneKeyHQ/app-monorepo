@@ -35,7 +35,6 @@ import {
   Skeleton,
   Spinner,
   Stack,
-  Tabs,
   Tooltip,
   XStack,
   YStack,
@@ -59,7 +58,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
-import { PullToRefresh } from '../../PullToRefresh';
 import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import {
@@ -578,14 +576,12 @@ export interface ICommonTableListViewProps<T = unknown> {
   pageSize?: number;
   currentListPage?: number;
   setCurrentListPage?: (page: number) => void;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
   paginationAction?: ReactElement | null;
-  onPullToRefresh?: () => Promise<void>;
   ListHeaderComponent?: ReactElement | null;
   mobileLoadingComponent?: ReactElement;
 }
@@ -593,7 +589,6 @@ export interface ICommonTableListViewProps<T = unknown> {
 export function CommonTableListView<T>({
   columns,
   data,
-  useTabsList,
   disableListScroll,
   renderRow,
   keyExtractor,
@@ -615,11 +610,9 @@ export function CommonTableListView<T>({
   listViewDebugRenderTrackerProps,
   onViewAll,
   paginationAction,
-  onPullToRefresh,
   ListHeaderComponent,
   mobileLoadingComponent,
 }: ICommonTableListViewProps<T>) {
-  const shouldUseTabsList = useTabsList ?? true;
   const themeVariant = useThemeVariant();
   const isDark = themeVariant === 'dark';
 
@@ -768,7 +761,6 @@ export function CommonTableListView<T>({
       setCurrentListPage(page);
     }
   };
-  const ListComponent = shouldUseTabsList ? Tabs.FlatList : ListView;
   const defaultEmptyComponent = (
     <YStack flex={1} alignItems="center" p="$6">
       <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
@@ -817,7 +809,6 @@ export function CommonTableListView<T>({
           dataLength: data.length,
           paginatedLength: paginatedData.length,
           listLoading: effectiveListLoading,
-          useTabsList: shouldUseTabsList,
           disableListScroll,
           hasHeader: Boolean(ListHeaderComponent),
           hasEmptyComponent: Boolean(ListEmptyComponent),
@@ -835,7 +826,6 @@ export function CommonTableListView<T>({
       enablePagination,
       effectiveListLoading,
       paginatedData.length,
-      shouldUseTabsList,
       totalPages,
       traceName,
     ],
@@ -858,7 +848,6 @@ export function CommonTableListView<T>({
           dataLength: data.length,
           paginatedLength: paginatedData.length,
           listLoading: effectiveListLoading,
-          useTabsList: shouldUseTabsList,
           disableListScroll,
           hasHeader: Boolean(ListHeaderComponent),
           hasEmptyComponent: Boolean(ListEmptyComponent),
@@ -873,7 +862,6 @@ export function CommonTableListView<T>({
       disableListScroll,
       effectiveListLoading,
       paginatedData.length,
-      shouldUseTabsList,
       traceName,
     ],
   );
@@ -887,7 +875,6 @@ export function CommonTableListView<T>({
       dataLength: data.length,
       paginatedLength: paginatedData.length,
       listLoading: effectiveListLoading,
-      useTabsList: shouldUseTabsList,
       disableListScroll,
       hasHeader: Boolean(ListHeaderComponent),
       hasEmptyComponent: Boolean(ListEmptyComponent),
@@ -909,7 +896,6 @@ export function CommonTableListView<T>({
     onViewAll,
     paginatedData.length,
     paginationToBottom,
-    shouldUseTabsList,
     totalPages,
     traceName,
   ]);
@@ -940,7 +926,7 @@ export function CommonTableListView<T>({
     // tab switch). These embedded lists are short and defer scrolling to the
     // parent, so render their rows inline (non-virtualized). Lists that own their
     // scroll (e.g. the trades-history modal, scrollEnabled=true) keep FlashList.
-    const renderRowsInline = !shouldUseTabsList && Boolean(disableListScroll);
+    const renderRowsInline = Boolean(disableListScroll);
 
     let ListContent: ReactElement;
     if (renderRowsInline) {
@@ -972,19 +958,11 @@ export function CommonTableListView<T>({
     } else {
       ListContent = (
         <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
-          <ListComponent
+          <ListView
             onLayout={(event) => handleMobileTraceLayout('list', event)}
             onContentSizeChange={handleMobileContentSizeChange}
             showsVerticalScrollIndicator={false}
-            refreshControl={
-              shouldUseTabsList && onPullToRefresh ? (
-                <PullToRefresh onRefresh={onPullToRefresh} />
-              ) : undefined
-            }
-            windowSize={
-              platformEnv.isNativeAndroid && shouldUseTabsList ? 3 : undefined
-            }
-            scrollEnabled={shouldUseTabsList || !disableListScroll}
+            scrollEnabled={!disableListScroll}
             data={paginatedData}
             keyExtractor={keyExtractor}
             ListHeaderComponent={ListHeaderComponent ?? undefined}
@@ -1138,7 +1116,7 @@ export function CommonTableListView<T>({
         testID="perp-desktop-table-header"
         style={{ flex: 1 }}
         horizontal
-        scrollEnabled={false}
+        scrollEnabled={!platformEnv.isNative && showDesktopEmptyState}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           minWidth: scrollableMinWidth,

@@ -29,7 +29,6 @@ import {
   Skeleton,
   Spinner,
   Stack,
-  Tabs,
   XStack,
   YStack,
   useInPageDialog,
@@ -37,6 +36,7 @@ import {
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
@@ -545,13 +545,14 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioFailed } = usePortfolioData({
-    tokenAddress,
-    networkId,
-    accountAddress,
-    xpub,
-    isStock: Boolean(isStockToken || isStockRoute),
-  });
+  const { portfolioData, isPortfolioPending, isPortfolioFailed } =
+    usePortfolioData({
+      tokenAddress,
+      networkId,
+      accountAddress,
+      xpub,
+      isStock: Boolean(isStockToken || isStockRoute),
+    });
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -607,7 +608,10 @@ export function MobileLayout({
   // the measured viewport while a keyboard is up; its overlays already hide
   // the main tab bar, so they use the actual page viewport.
   const usesMeasuredPageViewport =
-    platformEnv.isNativeIOS || (platformEnv.isNativeAndroid && isModalPage);
+    platformEnv.isNativeIOS ||
+    (platformEnv.isNativeAndroid && isModalPage) ||
+    // The extension's read-only chart modal does not have a trade footer.
+    (platformEnv.isExtension && disableTrade);
   const layoutHeight =
     usesMeasuredPageViewport && pageViewportHeight > 0
       ? pageViewportHeight
@@ -1070,7 +1074,7 @@ export function MobileLayout({
               pendingHeader={informationHeader}
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
               isPortfolioFailed={isPortfolioFailed}
               tokenLogoUrl={tokenDetail?.logoUrl}
             />
@@ -1106,7 +1110,7 @@ export function MobileLayout({
       informationHeader,
       isTradingViewScrollLocked,
       portfolioData,
-      isRefreshing,
+      isPortfolioPending,
       isPortfolioFailed,
       tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
@@ -1230,7 +1234,7 @@ export function MobileLayout({
       bg="$bgApp"
       onLayout={handleContainerLayout}
     >
-      <Tabs.TabBar
+      <TabBar
         divider={false}
         onTabPress={handleTabChange}
         tabNames={tabNames}

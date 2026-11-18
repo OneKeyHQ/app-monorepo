@@ -150,6 +150,20 @@ function healingMethod(
       } catch (error) {
         const code = readLostStateCode(error);
         if (!code) throw error;
+        // No node is connected, so the runtime rightly has none. That is not lost state, and
+        // reopening would drop the retry window.
+        if (code === 'NODE_NOT_CONFIGURED' && !current.nodeUrl) {
+          if (current.nodeAttempt) {
+            // Shaped like the runtime's own errors, so every caller reports an unreachable node.
+            throw new OneKeyLocalError(
+              JSON.stringify({
+                code: 'NETWORK_ERROR',
+                params: { operation: 'connectNode' },
+              }),
+            );
+          }
+          throw error;
+        }
         console.warn('[xmr] runtime lost its state; reopening', {
           method,
           code,
@@ -340,6 +354,9 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
       : await openSessionSingleFlight({ network, nodeUrl });
   if (current.nodeUrl !== nodeUrl) {
     await connectNode(current, nodeUrl);
+  } else if (!nodeUrl) {
+    // None is wanted, so an earlier failed connect no longer explains the missing node.
+    current.nodeAttempt = undefined;
   }
   return current.api;
 }

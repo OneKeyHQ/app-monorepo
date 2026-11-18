@@ -9,7 +9,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { getPublicKey } from '../vaults/impls/near/utils';
+import {
+  deserializeTransaction,
+  getPublicKey,
+} from '../vaults/impls/near/utils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -169,9 +172,21 @@ class ProviderApiNear extends ProviderApiBase {
     const { transactions } = params;
     const transactionHashes: string[] = [];
 
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    // Validate the entire batch before any transaction can be approved.
+    for (const encodedTx of transactions) {
+      const transaction = deserializeTransaction(encodedTx);
+      this.assertAccountAddress(account, transaction.signerId);
+      if (
+        transaction.publicKey.toString() !==
+        getPublicKey({ accountPub: account.pub })
+      ) {
+        throw web3Errors.provider.unauthorized();
+      }
+    }
 
     for (let i = 0; i < transactions.length; i += 1) {
       const tx = transactions[i];

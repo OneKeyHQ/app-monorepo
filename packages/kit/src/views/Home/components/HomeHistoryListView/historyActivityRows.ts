@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import {
   MAX_DISPLAYED_TRANSFERS,
   formatTransferOverflowLabel,
@@ -206,6 +207,8 @@ function buildHistoryActivityRowUnchecked({
     presentation: 'stacked' | 'table';
   };
   address: string;
+  /** Text of `row.description` in front of its address part; empty without one. */
+  descriptionPrefix: string;
 } {
   const decodedTx = history.decodedTx;
   const action = getDisplayedActions({ decodedTx })[0];
@@ -565,19 +568,21 @@ function buildHistoryActivityRowUnchecked({
   const time = decodedTx.updatedAt ?? decodedTx.createdAt;
   const shortAddress =
     accountUtils.shortenAddress({ address }) || shieldedTargetLabel;
-  const description = [
+  const timeText =
     time && (tableLayout || !shortAddress)
       ? formatTime(new Date(time), {
           hideSeconds: true,
           hideMilliseconds: true,
         })
-      : '',
-    shortAddress,
-  ]
-    .filter(Boolean)
-    .join(' • ');
+      : '';
+  // The address part opens the address sheet, the time in front of it does
+  // not. NativeList is told where that part starts (`descriptionActionStart`)
+  // and never reads it out of the string, so the boundary is kept here.
+  const descriptionPrefix = timeText && shortAddress ? `${timeText} • ` : '';
+  const description = `${descriptionPrefix}${shortAddress || timeText}`;
   return {
     address,
+    descriptionPrefix,
     row: {
       key: history.id,
       type: 'activity',
@@ -594,7 +599,8 @@ function buildHistoryActivityRowUnchecked({
           : 1,
       separator: false,
       style: {
-        horizontalPadding: 20,
+        container: TOKEN_ROW_CONTAINER_STYLE,
+        horizontalPadding: 12,
         verticalPadding: 12,
         lineGap: tableLayout ? 4 : 0,
         title: {
@@ -619,6 +625,7 @@ export function buildHistoryActivityRow(
   } catch (error) {
     return {
       address: '',
+      descriptionPrefix: '',
       row: {
         type: 'activity',
         key: params.history.id,

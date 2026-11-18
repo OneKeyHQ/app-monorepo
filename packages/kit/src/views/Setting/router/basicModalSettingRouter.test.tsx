@@ -17,6 +17,7 @@ jest.mock('../../AddressBook/router', () => ({ ModalAddressBookRouter: [] }));
 const galleries = [
   EModalSettingRoutes.SettingDevPerpGalleryModal,
   EModalSettingRoutes.SettingDevCryptoGalleryModal,
+  EModalSettingRoutes.SettingDevHardwarePathTestModal,
   EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
   EModalSettingRoutes.SettingDevAuthGalleryModal,
   EModalSettingRoutes.SettingDevKeylessWalletGallery,

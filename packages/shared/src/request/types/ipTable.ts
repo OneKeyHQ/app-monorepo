@@ -147,6 +147,21 @@ export interface ISniRequestConfig {
 }
 
 /**
+ * SNI file upload configuration. The native transport reads the raw bytes of
+ * `filePath` (an app-sandbox file) as the request body.
+ */
+export interface ISniUploadFileConfig {
+  requestId?: string;
+  ip: string;
+  hostname: string;
+  path: string;
+  headers: Record<string, string>;
+  method: 'POST' | 'PUT';
+  filePath: string;
+  timeout: number;
+}
+
+/**
  * Local-only SNI request options. These values must not cross a native or IPC
  * bridge; platform adapters translate them into transport cancellation calls.
  */

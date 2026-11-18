@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
@@ -9,7 +9,9 @@ import {
   LocalWalletPoolStatus,
   LocalWalletSyncRow,
 } from './LocalWalletPoolStatus';
+import { TokenPrivacyPanel } from './TokenPrivacyPanel';
 
+import type { createPrivacyEnableForm } from './PrivacyEnableContent';
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
 jest.mock('react-intl', () => ({
@@ -18,18 +20,15 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
-const mockPushModal = jest.fn();
-
 jest.mock('react-native-reanimated', () => ({
   useReducedMotion: () => false,
+  Easing:
+    jest.requireActual<typeof import('react-native')>('react-native').Easing,
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
-  __esModule: true,
-  default: () => ({ pushModal: mockPushModal }),
-}));
-
-const mockAssertAdmission = jest.fn(async (_params: unknown) => undefined);
+const mockAssertAdmission = jest.fn(
+  async (_params: unknown): Promise<void> => undefined,
+);
 const mockTwinBirthday = jest.fn(
   async (_params: unknown): Promise<{ birthdayHeight: number } | undefined> =>
     undefined,
@@ -109,7 +108,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button,
     IconButton: Button,
-    Dialog: { confirm: jest.fn() },
+    Dialog: { show: jest.fn() },
     Toast: { error: jest.fn() },
     Divider: () => null,
     Icon: () => null,
@@ -190,21 +189,46 @@ describe('LocalWalletPoolStatus for a temp wallet', () => {
     expect(screen.getByTestId('local-wallet-enable-button')).toBeTruthy();
   });
 
-  it('also withholds authorization in the token-details presentation', () => {
-    render(
-      <LocalWalletPoolStatus
-        networkId="zec--0"
-        accountId={accountId}
-        pool={pool({ isUnsupportedWallet: true, isTempWallet: true })}
-        presentation="tokenDetails"
-      />,
-    );
+  it.each(['tokenDetails', 'home'] as const)(
+    'also withholds authorization in the %s presentation',
+    (presentation) => {
+      render(
+        <LocalWalletPoolStatus
+          networkId="zec--0"
+          accountId={accountId}
+          pool={pool({ isUnsupportedWallet: true, isTempWallet: true })}
+          presentation={presentation}
+        />,
+      );
 
-    expect(
-      screen.getByText(ETranslations.privacy_temp_wallet_unavailable__desc),
-    ).toBeTruthy();
-    expect(screen.queryByTestId('token-privacy-action')).toBeNull();
-  });
+      expect(
+        screen.getByText(ETranslations.privacy_temp_wallet_unavailable__desc),
+      ).toBeTruthy();
+      expect(screen.queryByTestId('token-privacy-action')).toBeNull();
+    },
+  );
+
+  it.each([
+    { isUnsupportedWallet: true },
+    { isTempWallet: true },
+    { state: { enabled: true, paused: false, privacyDisabled: true } },
+  ])(
+    'withholds Home authorization even if an unavailable account retains enabled intent (%j)',
+    (unavailable) => {
+      render(
+        <LocalWalletPoolStatus
+          networkId="xmr--0"
+          accountId="hd-1--0"
+          presentation="home"
+          pool={pool({ enabled: true, ...unavailable })}
+        />,
+      );
+      expect(screen.getByTestId('token-privacy-status').textContent).toBe(
+        ETranslations.global_not_available,
+      );
+      expect(screen.queryByTestId('token-privacy-action')).toBeNull();
+    },
+  );
 });
 
 describe('LocalWalletPoolStatus for an enabled account', () => {
@@ -283,6 +307,9 @@ it('shows no error while registration is pending', () => {
 });
 
 type IConfirmArgs = {
+  renderContent: ReactElement<{
+    formRef: ReturnType<typeof createPrivacyEnableForm>;
+  }>;
   onConfirm: (params: { preventClose: () => void }) => Promise<void>;
 };
 
@@ -328,43 +355,50 @@ it.each([
 
 describe('LocalWalletPoolStatus enable failure', () => {
   const { Dialog } = jest.requireMock<{
-    Dialog: { confirm: jest.Mock<void, [IConfirmArgs]> };
+    Dialog: { show: jest.Mock<void, [IConfirmArgs]> };
   }>('@onekeyhq/components');
 
   beforeEach(() => {
-    Dialog.confirm.mockReset();
+    Dialog.show.mockReset();
     mockAssertAdmission.mockReset().mockResolvedValue(undefined);
     mockTwinBirthday.mockReset().mockResolvedValue(undefined);
     mockShowSlotsFull.mockClear();
-    mockPushModal.mockClear();
     mockBirthday = { birthdayTimestamp: 1_700_000_000_000 };
   });
 
-  it('explains a full network before the birthday form, offering settings', async () => {
-    mockAssertAdmission.mockRejectedValue(slotsFullError);
-    const enableAccount = jest.fn(async () => undefined);
-    render(
-      <LocalWalletPoolStatus
-        networkId="zec--0"
-        accountId="hd-1--0"
-        pool={pool({
-          enableAccount,
-          settings: { accountSetup: { requiresBirthday: true } },
-        } as unknown as Partial<ILocalWalletPool>)}
-      />,
-    );
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
-    });
+  it.each([undefined, 'home'] as const)(
+    'lists a full network’s accounts to delete before the birthday form (%s)',
+    async (presentation) => {
+      mockAssertAdmission.mockRejectedValue(slotsFullError);
+      const enableAccount = jest.fn(async () => undefined);
+      render(
+        <LocalWalletPoolStatus
+          networkId="zec--0"
+          accountId="hd-1--0"
+          presentation={presentation}
+          pool={pool({
+            enableAccount,
+            settings: { accountSetup: { requiresBirthday: true } },
+          } as unknown as Partial<ILocalWalletPool>)}
+        />,
+      );
+      await act(async () => {
+        fireEvent.click(
+          screen.getByTestId(
+            presentation === 'home'
+              ? 'token-privacy-action'
+              : 'local-wallet-enable-button',
+          ),
+        );
+      });
 
-    expect(Dialog.confirm).not.toHaveBeenCalled();
-    expect(enableAccount).not.toHaveBeenCalled();
-    const params = mockShowSlotsFull.mock.calls[0][0] as {
-      onOpenSettings?: () => void;
-    };
-    params.onOpenSettings?.();
-    expect(mockPushModal).toHaveBeenCalledTimes(1);
-  });
+      expect(Dialog.show).not.toHaveBeenCalled();
+      expect(enableAccount).not.toHaveBeenCalled();
+      expect(mockShowSlotsFull).toHaveBeenCalledWith(
+        expect.objectContaining({ networkId: 'zec--0' }),
+      );
+    },
+  );
 
   it('explains a network that filled up while the form was open', async () => {
     const enableAccount = jest.fn().mockRejectedValue(slotsFullError);
@@ -390,7 +424,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
   });
 
   function lastDialog(): IConfirmArgs {
-    const call = Dialog.confirm.mock.calls.at(-1);
+    const call = Dialog.show.mock.calls.at(-1);
     expect(call).toBeDefined();
     return (call as [IConfirmArgs])[0];
   }
@@ -401,6 +435,11 @@ describe('LocalWalletPoolStatus enable failure', () => {
     { presentation: 'tokenDetails' as const, birthday: undefined },
     {
       presentation: 'tokenDetails' as const,
+      birthday: { birthdayHeight: 2_500_000 },
+    },
+    { presentation: 'home' as const, birthday: undefined },
+    {
+      presentation: 'home' as const,
       birthday: { birthdayHeight: 2_500_000 },
     },
   ])(
@@ -422,7 +461,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
       await act(async () => {
         fireEvent.click(
           screen.getByTestId(
-            presentation === 'tokenDetails'
+            presentation === 'tokenDetails' || presentation === 'home'
               ? 'token-privacy-action'
               : 'local-wallet-enable-button',
           ),
@@ -464,7 +503,107 @@ describe('LocalWalletPoolStatus enable failure', () => {
       accountId: 'hw-1--0',
     });
     expect(enableAccount).toHaveBeenCalledWith({ birthdayHeight: 3_400_000 });
-    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
+  });
+
+  it('prefills a twin birthday on Home but waits for explicit confirmation', async () => {
+    mockTwinBirthday.mockResolvedValue({ birthdayHeight: 3_400_000 });
+    mockBirthday = { birthdayHeight: 3_400_000 };
+    const enableAccount = jest.fn(async () => undefined);
+    const page = render(
+      <LocalWalletPoolStatus
+        networkId="xmr--0"
+        accountId="hd-1--0"
+        presentation="home"
+        pool={pool({
+          enableAccount,
+          settings: { accountSetup: { requiresBirthday: true } },
+        } as unknown as Partial<ILocalWalletPool>)}
+      />,
+    );
+    expect(enableAccount).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('token-privacy-action'));
+    });
+    expect(enableAccount).not.toHaveBeenCalled();
+    expect(lastDialog().renderContent.props.formRef.current).toMatchObject({
+      mode: 'height',
+      height: '3400000',
+      startChoice: 'height',
+    });
+    await act(async () => {
+      await lastDialog().onConfirm({ preventClose: jest.fn() });
+    });
+    expect(enableAccount).toHaveBeenCalledTimes(1);
+    expect(enableAccount).toHaveBeenCalledWith({ birthdayHeight: 3_400_000 });
+    page.unmount();
+  });
+
+  it('does not open the previous account enable dialog after an account switch', async () => {
+    let resolveAdmission: (() => void) | undefined;
+    mockAssertAdmission.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveAdmission = resolve;
+        }),
+    );
+    const enableAccount = jest.fn(async () => undefined);
+    const homePool = pool({
+      enableAccount,
+      settings: { accountSetup: { requiresBirthday: true } },
+    } as unknown as Partial<ILocalWalletPool>);
+    const page = render(
+      <LocalWalletPoolStatus
+        networkId="xmr--0"
+        accountId="hd-1--0"
+        presentation="home"
+        pool={homePool}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('token-privacy-action'));
+    page.rerender(
+      <LocalWalletPoolStatus
+        networkId="xmr--0"
+        accountId="hd-1--1"
+        presentation="home"
+        pool={homePool}
+      />,
+    );
+    await act(async () => {
+      resolveAdmission?.();
+    });
+    expect(mockTwinBirthday).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(enableAccount).not.toHaveBeenCalled();
+  });
+
+  it('closes the Home confirmation on unmount and rejects a stale confirmation', async () => {
+    const close = jest.fn();
+    Dialog.show.mockImplementation(() => ({
+      close,
+      isExist: () => true,
+      getForm: () => undefined,
+    }));
+    const enableAccount = jest.fn(async () => undefined);
+    const page = render(
+      <LocalWalletPoolStatus
+        networkId="xmr--0"
+        accountId="hd-1--0"
+        presentation="home"
+        pool={pool({
+          enableAccount,
+          settings: { accountSetup: { requiresBirthday: true } },
+        } as unknown as Partial<ILocalWalletPool>)}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('token-privacy-action'));
+    });
+    const dialog = lastDialog();
+    page.unmount();
+    expect(close).toHaveBeenCalledTimes(1);
+    await dialog.onConfirm({ preventClose: jest.fn() });
+    expect(enableAccount).not.toHaveBeenCalled();
   });
 
   it('lets a rejected enable reach the user and keeps the dialog open', async () => {
@@ -486,7 +625,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
     });
-    expect(Dialog.confirm).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
 
     const preventClose = jest.fn();
     await expect(lastDialog().onConfirm({ preventClose })).rejects.toBe(
@@ -520,7 +659,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
       fireEvent.click(button);
     });
 
-    expect(Dialog.confirm).toHaveBeenCalledTimes(2);
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
   });
 
   it('shows the loading state only while the hook is busy', () => {
@@ -573,12 +712,78 @@ describe('LocalWalletPoolStatus enable failure', () => {
     expect(screen.getByTestId('local-wallet-enable-button').textContent).toBe(
       'global.resume',
     );
-    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(
       '[privacyChain] enable failed',
       expect.objectContaining({ error: 'offline' }),
     );
     consoleError.mockRestore();
+  });
+
+  it.each(['accountPaused', 'chainPaused'] as const)(
+    'renders the Home Enable trigger for %s and resumes without birthday setup',
+    async (syncStatus) => {
+      const enableAccount = jest.fn(async () => undefined);
+      const startSync = jest.fn(async () => undefined);
+      render(
+        <LocalWalletPoolStatus
+          networkId="xmr--0"
+          accountId="hd-1--0"
+          presentation="home"
+          pool={pool({
+            enabled: true,
+            isSyncPaused: true,
+            syncStatus,
+            state: {
+              enabled: syncStatus === 'chainPaused',
+              paused: syncStatus === 'accountPaused',
+            },
+            enableAccount,
+            startSync,
+            settings: { accountSetup: { requiresBirthday: true } },
+          } as unknown as Partial<ILocalWalletPool>)}
+          renderEnableTrigger={({ onPress, disabled }) => (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => void onPress()}
+            >
+              Enable
+            </button>
+          )}
+        />,
+      );
+      await act(async () => fireEvent.click(screen.getByText('Enable')));
+      expect(enableAccount).toHaveBeenCalledTimes(
+        syncStatus === 'accountPaused' ? 1 : 0,
+      );
+      if (syncStatus === 'accountPaused') {
+        expect(enableAccount).toHaveBeenCalledWith({});
+      }
+      expect(startSync).toHaveBeenCalledTimes(
+        syncStatus === 'chainPaused' ? 1 : 0,
+      );
+      expect(mockAssertAdmission).not.toHaveBeenCalled();
+      expect(mockTwinBirthday).not.toHaveBeenCalled();
+      expect(Dialog.show).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('TokenPrivacyPanel pause action', () => {
+  it.each(['syncing', 'preparing'] as const)(
+    'shows a working Pause button for %s',
+    (state) => {
+      const onStop = jest.fn();
+      render(<TokenPrivacyPanel state={state} onStop={onStop} />);
+      fireEvent.click(screen.getByText(ETranslations.global_pause));
+      expect(onStop).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not substitute Refresh for Pause during incomplete setup', () => {
+    render(<TokenPrivacyPanel state="preparing" onSync={jest.fn()} />);
+    expect(screen.queryByTestId('token-privacy-action')).toBeNull();
   });
 });
 
@@ -611,6 +816,7 @@ describe('LocalWalletSyncRow balance refresh', () => {
       time,
     );
     expect(screen.queryByTestId('local-wallet-disabled-card')).toBeNull();
+    expect(screen.queryByTestId('local-wallet-open-settings-btn')).toBeNull();
   });
 
   it('offers Resume for a paused chain and resumes it', async () => {

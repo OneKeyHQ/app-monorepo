@@ -2514,6 +2514,11 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       } as never);
       const service = new ServiceHardware({
         backgroundApi: {
+          serviceKeylessCloudSync: {
+            syncHardwareCloudSyncDeviceLabel: jest
+              .fn()
+              .mockResolvedValue(undefined),
+          },
           serviceAccount: {
             getWalletSafe: jest.fn().mockResolvedValue({
               associatedDevice: 'db-device-1',

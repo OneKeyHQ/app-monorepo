@@ -1970,6 +1970,7 @@ export function useSwapProSupportNetworksTokenList(
 
   return {
     hasAccount: Boolean(positionAccountId),
+    positionOwnerKey,
     resolvedNetworkIds: positionRuntimeEntry?.resolvedNetworkIds ?? [],
     positionLoadError: positionRuntimeEntry?.status === 'error',
     positionLoading:

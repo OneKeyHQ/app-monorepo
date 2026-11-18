@@ -11,6 +11,7 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import type { IElement } from '@onekeyhq/components';
 import { SizableText, Tooltip, XStack, YStack } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
@@ -32,6 +33,7 @@ import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
+import { MarketBannerLayout } from '../components/MarketBanner/MarketBannerList';
 import {
   MarketDesktopTableLoadingFallback,
   MarketListLoadingFallback,
@@ -96,6 +98,7 @@ const useIsFirstFocus = () => {
 };
 
 export function DesktopLayout({
+  isLayoutActive,
   filterBarProps,
   selectedNetworkId,
   onTabChange,
@@ -122,11 +125,13 @@ export function DesktopLayout({
 
   const isFocused = useIsFirstFocus();
   const isRouteFocused = useIsFocused();
+  const bannerHeaderRef = useRef<IElement | null>(null);
+  const stickyHeaderRef = useRef<IElement | null>(null);
 
   const containerProps = useMemo(
     () => ({
       renderHeader: () => (
-        <YStack bg="$bgApp" pointerEvents="box-none">
+        <YStack ref={bannerHeaderRef} bg="$bgApp" pointerEvents="box-none">
           <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
             <MarketBannerList />
           </YStack>
@@ -197,7 +202,7 @@ export function DesktopLayout({
   const hasActivated = (name: string) => everActiveTabsRef.current.has(name);
 
   // Ref so renderTabBar can update activeTabName immediately on press
-  // without recreating the callback (which would break collapsible tab memoisation).
+  // without recreating the pager callback.
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
   const handleTabChangeRef = useRef(handleTabChange);
@@ -287,7 +292,13 @@ export function DesktopLayout({
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
       return (
-        <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
+        <YStack
+          ref={stickyHeaderRef}
+          bg="$bgApp"
+          position={'sticky' as any}
+          top={0}
+          zIndex={10}
+        >
           <XStack
             {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}
             alignItems="center"
@@ -513,17 +524,21 @@ export function DesktopLayout({
 
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
-      <YStack flex={1}>
+      <MarketBannerLayout
+        headerRef={bannerHeaderRef}
+        stickyHeaderRef={stickyHeaderRef}
+        active={isLayoutActive}
+      >
         <AppPager
           ref={tabsRef}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
-          isRouteFocused={isRouteFocused}
+          isRouteFocused={isLayoutActive}
           onTabChange={onTabChangeHandler}
           {...containerProps}
           pages={pages}
         />
-      </YStack>
+      </MarketBannerLayout>
     </DesktopStickyHeaderContext.Provider>
   );
 }

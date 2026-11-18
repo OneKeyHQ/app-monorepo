@@ -10,15 +10,16 @@ import {
 import * as ReactNavigationCore from '@react-navigation/core';
 import { AppState } from 'react-native';
 
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { isForceUpdateStrategy } from '../../../components/AppUpdate';
 
 export const CONTACT_SUPPORT_RECHECK_INTERVAL_MS = 10_000;
 const CONTACT_SUPPORT_HANDOFF_TTL_MS = 5000;
+export const CONTACT_SUPPORT_HANDOFF_WAIT_MS = 1000;
 
 type IMountedForceUpdateListener = {
   onRemoteResponse: (response: IAppUpdateInfo) => void;
@@ -26,7 +27,17 @@ type IMountedForceUpdateListener = {
 };
 
 const mountedForceUpdateListeners = new Set<IMountedForceUpdateListener>();
-let pendingContactSupportHandoffAt = 0;
+// Each handoff gets a generation so a late mount effect from a superseded
+// handoff can never satisfy a newer one.
+let contactSupportHandoffGeneration = 0;
+let pendingContactSupportHandoff:
+  | { at: number; generation: number }
+  | undefined;
+let acceptedContactSupportHandoffGeneration = 0;
+const contactSupportHandoffWaiters = new Map<
+  (accepted: boolean) => void,
+  number
+>();
 // Shared across hook instances because every response is broadcast to all
 // mounted listeners. A response is dropped only when a newer one has already
 // been applied: a late older response cannot overwrite a newer lock decision,
@@ -35,18 +46,63 @@ let lastStartedRefreshGeneration = 0;
 let lastAppliedRefreshGeneration = 0;
 
 export function markPendingContactSupportHandoff(): void {
-  pendingContactSupportHandoffAt = Date.now();
+  contactSupportHandoffGeneration += 1;
+  pendingContactSupportHandoff = {
+    at: Date.now(),
+    generation: contactSupportHandoffGeneration,
+  };
+  // A superseded handoff will never be accepted; release its waiters now.
+  contactSupportHandoffWaiters.forEach((_, settle) => settle(false));
 }
 
-function consumePendingContactSupportHandoff(): boolean {
-  if (!pendingContactSupportHandoffAt) {
-    return false;
+function acceptContactSupportHandoff(generation: number) {
+  if (generation !== contactSupportHandoffGeneration) {
+    return;
   }
-  const isFresh =
-    Date.now() - pendingContactSupportHandoffAt <=
-    CONTACT_SUPPORT_HANDOFF_TTL_MS;
-  pendingContactSupportHandoffAt = 0;
-  return isFresh;
+  acceptedContactSupportHandoffGeneration = generation;
+  contactSupportHandoffWaiters.forEach((waiterGeneration, settle) => {
+    if (waiterGeneration === generation) {
+      settle(true);
+    }
+  });
+}
+
+// Resolves once a page that took over the latest handoff has committed its
+// mount, so its lock and whitelist polling sit below support. Resolves false
+// after `timeoutMs` when no page takes over (e.g. a deduplicated modal push)
+// or when a newer handoff supersedes it.
+export function waitForContactSupportHandoff(
+  timeoutMs = CONTACT_SUPPORT_HANDOFF_WAIT_MS,
+): Promise<boolean> {
+  const generation = contactSupportHandoffGeneration;
+  if (
+    generation > 0 &&
+    acceptedContactSupportHandoffGeneration === generation
+  ) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    const timeout: { id?: ReturnType<typeof setTimeout> } = {};
+    const settle = (accepted: boolean) => {
+      clearTimeout(timeout.id);
+      contactSupportHandoffWaiters.delete(settle);
+      resolve(accepted);
+    };
+    timeout.id = setTimeout(() => settle(false), timeoutMs);
+    contactSupportHandoffWaiters.set(settle, generation);
+  });
+}
+
+// Returns the generation of a fresh pending handoff, or 0 when there is none.
+function consumePendingContactSupportHandoff(): number {
+  const pending = pendingContactSupportHandoff;
+  pendingContactSupportHandoff = undefined;
+  if (!pending) {
+    return 0;
+  }
+  return Date.now() - pending.at <= CONTACT_SUPPORT_HANDOFF_TTL_MS
+    ? pending.generation
+    : 0;
 }
 
 type INavigationFocusLike = {
@@ -82,9 +138,17 @@ export function useForceUpdateContactSupport({
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [updateInfo, setUpdateInfo] = useState<IAppUpdateInfo>(appUpdateInfo);
   const [hasRemoteResponse, setHasRemoteResponse] = useState(false);
-  const [hasContactedSupport, setHasContactedSupport] = useState(() =>
-    enabled ? consumePendingContactSupportHandoff() : false,
+  const [acceptedHandoffGeneration] = useState(() =>
+    enabled ? consumePendingContactSupportHandoff() : 0,
   );
+  const [hasContactedSupport, setHasContactedSupport] = useState(
+    acceptedHandoffGeneration > 0,
+  );
+  useEffect(() => {
+    if (acceptedHandoffGeneration > 0) {
+      acceptContactSupportHandoff(acceptedHandoffGeneration);
+    }
+  }, [acceptedHandoffGeneration]);
   const didNotifyInitialRef = useRef(false);
   const onInitialRemoteResponseRef = useRef(onInitialRemoteResponse);
   onInitialRemoteResponseRef.current = onInitialRemoteResponse;
@@ -181,7 +245,7 @@ export function useForceUpdateContactSupport({
       isForceUpdateStrategy(updateInfo?.updateStrategy);
   const isForceUpdate = enabled ? resolvedForceUpdate : false;
 
-  // Re-fetch when returning from the support WebViewModal (navigation focus),
+  // Re-fetch when returning from the support modal (navigation focus),
   // resuming the app from background (AppState 'active'), or regaining window focus.
   useEffect(() => {
     if (!enabled || !isForceUpdate) {
@@ -226,10 +290,8 @@ export function useForceUpdateContactSupport({
     };
   }, [enabled, isForceUpdate, navigation, refreshUpdateInfo]);
 
-  // After the user clicks "Contact Support", poll periodically while still
-  // locked so that on Desktop/Web (where Intercom opens as an in-page widget
-  // without changing app/window focus) the force-update lock is lifted
-  // automatically once support adds their instanceId to forceUpdateWhitelist.
+  // Continue checking the whitelist while the support modal covers this page
+  // so support can release the update lock without an app/window focus change.
   useEffect(() => {
     if (!enabled || !isForceUpdate || !hasContactedSupport) {
       return undefined;

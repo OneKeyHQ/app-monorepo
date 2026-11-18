@@ -12,6 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   getEmailOtpRequestErrorMessage,
   isEmailOtpSendKnownFailure,
+  isEmailOtpSignupDisabledError,
 } from '../emailOtpErrorUtils';
 
 import { requestEmailOtp } from './requestEmailOtp';
@@ -34,6 +35,35 @@ const messages: Record<string, string> = {
 const intl = createIntl({ locale: 'en', messages });
 
 describe('Email OTP request security boundary', () => {
+  test.each(['signup_disabled', 'email_address_invalid'])(
+    'preserves the exact SDK code %s through wrapping and serialization without changing the toast',
+    async (code) => {
+      const sdkError = new AuthApiError(
+        'Signups not allowed for this instance',
+        422,
+        code,
+      );
+      const signInWithOtp = jest.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: sdkError,
+      });
+      const error = await requestEmailOtp({
+        client: { auth: { signInWithOtp } },
+        email: 'test@example.com',
+        intl,
+      }).catch((requestError: unknown) => requestError);
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      for (const candidate of [error, errorUtils.toPlainErrorObject(error)]) {
+        expect(isEmailOtpSignupDisabledError(candidate)).toBe(
+          code === 'signup_disabled',
+        );
+        expect(getEmailOtpRequestErrorMessage({ error: candidate, intl })).toBe(
+          sdkError.message,
+        );
+      }
+    },
+  );
+
   test.each([
     new AuthApiError(
       'Internal auth service failure',

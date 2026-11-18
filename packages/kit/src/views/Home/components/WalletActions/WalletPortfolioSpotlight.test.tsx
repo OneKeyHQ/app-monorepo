@@ -217,10 +217,19 @@ describe('WalletPortfolioSpotlight eligibility', () => {
   afterEach(cleanup);
 
   // A `$gtSm` override of `flex: 1, flexBasis: 0` kept the zero basis on
-  // native, collapsing the wide icon trigger to zero width.
+  // native, collapsing the wide icon trigger to zero width, and a numeric basis
+  // kept a cached width after folding back, so both states set `width`.
   it.each([
-    { gtSm: false, iconOnly: false, expected: { flex: 1, flexBasis: 0 } },
-    { gtSm: true, iconOnly: false, expected: null },
+    {
+      gtSm: false,
+      iconOnly: false,
+      expected: { flexGrow: 1, flexShrink: 1, width: 0 },
+    },
+    {
+      gtSm: true,
+      iconOnly: false,
+      expected: { flexGrow: 0, flexShrink: 0, width: 'auto' },
+    },
     { gtSm: false, iconOnly: true, expected: null },
   ])(
     'stretches the anchor only for the narrow card trigger (%o)',

@@ -2,6 +2,7 @@
 import { createIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhCN from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
 import { showPrimeInfiniUnfinishedPaymentDialog } from './showPrimeInfiniUnfinishedPaymentDialog';
@@ -22,7 +23,7 @@ jest.mock('@onekeyhq/components', () => ({
 const messages: Record<string, string> = {
   [ETranslations.prime_unfinished_payment__title]: 'Unfinished payment',
   [ETranslations.prime_unfinished_payment__desc]:
-    'The previous transfer may still complete. Starting a new payment could result in a duplicate payment.',
+    enUS.prime_unfinished_payment__desc,
   [ETranslations.prime_start_new_payment__action]: 'Start new payment',
   [ETranslations.prime_keep_waiting__action]: 'Keep waiting',
   [ETranslations.global_continue]: 'Continue',
@@ -40,9 +41,7 @@ describe('existing unfinished-payment warning', () => {
     });
     const warning = mockShow.mock.calls[0][0];
     expect(warning.title).toBe('Unfinished payment');
-    expect(warning.description).toBe(
-      'The previous transfer may still complete. Starting a new payment could result in a duplicate payment.',
-    );
+    expect(warning.description).toBe(enUS.prime_unfinished_payment__desc);
     expect(warning.onConfirmText).toBe('Start new payment');
     expect(warning.onCancelText).toBe('Keep waiting');
     warning.onCancel();
@@ -64,6 +63,25 @@ describe('existing unfinished-payment warning', () => {
     warning.onClose();
     await expect(result).resolves.toBe('replace');
   });
+  it.each([false, true])(
+    'uses the same unfinished-payment copy when recovery is available=%s',
+    async (canResume) => {
+      const result = showPrimeInfiniUnfinishedPaymentDialog({
+        intl,
+        canResume,
+      });
+      const warning = mockShow.mock.calls[0][0];
+      expect(warning.title).toBe('Unfinished payment');
+      expect(warning.description).toBe(
+        messages[ETranslations.prime_unfinished_payment__desc],
+      );
+      expect(warning.onConfirmText).toBe('Start new payment');
+      expect(warning.onCancelText).toBe(canResume ? 'Keep waiting' : 'Cancel');
+      warning.onCancel();
+      warning.onClose();
+      await expect(result).resolves.toBe(canResume ? 'resume' : 'cancel');
+    },
+  );
   it.each([false, true])(
     'never resumes missing/unreliable recovery data, unavailable=%s',
     async (lookupUnavailable) => {

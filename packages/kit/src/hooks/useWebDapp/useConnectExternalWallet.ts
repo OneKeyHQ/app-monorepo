@@ -12,6 +12,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessPendingLogin } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IConnectExternalWalletPayload } from '@onekeyhq/shared/types/analytics/onboarding';
@@ -179,6 +180,13 @@ export function useConnectExternalWallet() {
         const account = r?.accounts?.[0];
         if (!account) {
           throw new OneKeyLocalError('Failed to create external account');
+        }
+        if (platformEnv.isWebDappMode) {
+          // The web asks no question: connecting a wallet is the consent its
+          // connect page states, so record it like an Agree.
+          void backgroundApiProxy.serviceSetting
+            .acceptTermsConsent({ source: 'web_connect' })
+            .catch(() => undefined);
         }
         const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
           account,

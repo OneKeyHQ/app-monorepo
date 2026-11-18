@@ -66,6 +66,23 @@ beforeEach(() => {
   );
 });
 
+it('does not request financials without a stock identity', async () => {
+  const initialProps: { stockId?: string } = { stockId: undefined };
+  const hook = renderHook(
+    ({ stockId }: { stockId?: string }) => useStockFinancials(stockId),
+    { initialProps },
+  );
+  await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+  expect(mockFetch).not.toHaveBeenCalled();
+  hook.rerender({ stockId: 'AMD' });
+  await waitFor(() => expect(hook.result.current.result?.stockId).toBe('AMD'));
+  expect(mockFetch).toHaveBeenCalledTimes(2);
+  hook.rerender({ stockId: undefined });
+  expect(hook.result.current.result).toBeUndefined();
+  await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+  expect(mockFetch).toHaveBeenCalledTimes(2);
+});
+
 it('reuses cached periods after unmount and refreshes on explicit retry', async () => {
   const first = renderHook(() => useStockFinancials('AAPL'));
   await waitFor(() =>

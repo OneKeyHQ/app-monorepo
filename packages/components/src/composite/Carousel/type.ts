@@ -21,6 +21,8 @@ export interface ICarouselProps<T> {
   pageWidth?: number | string;
   data?: T[];
   autoPlayInterval?: number;
+  /** Whether this carousel is currently allowed to advance automatically. */
+  autoPlayEnabled?: boolean;
   loop?: boolean;
   ref?: React.RefObject<ICarouselInstance | null>;
   renderItem: ({ item, index }: { item: T; index: number }) => React.ReactNode;

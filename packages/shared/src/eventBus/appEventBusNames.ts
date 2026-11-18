@@ -2,6 +2,7 @@ export enum EAppEventBusNames {
   ConfirmAccountSelected = 'ConfirmAccountSelected',
   LocalSystemTimeInvalid = 'LocalSystemTimeInvalid',
   LocalSystemTimeStatusChanged = 'LocalSystemTimeStatusChanged',
+  IpTableConfigChanged = 'IpTableConfigChanged',
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',
@@ -193,6 +194,8 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  OpenAppUpdateDetails = 'OpenAppUpdateDetails',
+  AppUpdateCompleted = 'AppUpdateCompleted',
   BundleUpdateRestartFailed = 'BundleUpdateRestartFailed',
   ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
@@ -220,6 +223,7 @@ export enum EAppEventBusNames {
   DevLargeWalletDataCreationProgress = 'DevLargeWalletDataCreationProgress',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
+  EarnServerOrderSettled = 'EarnServerOrderSettled',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',
@@ -231,6 +235,7 @@ export enum EAppEventBusNames {
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
   ShowInAppPushNotification = 'ShowInAppPushNotification',
+  SupportConversationUpdated = 'SupportConversationUpdated',
   ExecuteNotificationCommand = 'ExecuteNotificationCommand',
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',

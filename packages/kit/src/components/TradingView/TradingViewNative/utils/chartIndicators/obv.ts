@@ -2,6 +2,7 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  hasTradingViewNativeReportedVolume,
   isTradingViewNativeFiniteValue,
   toTradingViewNativeFiniteValue,
 } from './indicatorMath';
@@ -24,13 +25,6 @@ export interface ITradingViewNativeObvOptions {
   zeroVolumeIsMissing?: boolean;
 }
 
-function hasReportedVolume(volume: number, zeroVolumeIsMissing: boolean) {
-  return (
-    isTradingViewNativeFiniteValue(volume) &&
-    (!zeroVolumeIsMissing || volume > 0)
-  );
-}
-
 export function calculateTradingViewNativeOnBalanceVolume(
   points: readonly IMarketTokenKLineDataPoint[],
   movingAveragePeriod = DEFAULT_OBV_MOVING_AVERAGE_PERIOD,
@@ -46,7 +40,7 @@ export function calculateTradingViewNativeOnBalanceVolume(
   const obvIndexes = points.flatMap((point, index) =>
     point &&
     isTradingViewNativeFiniteValue(point.c) &&
-    !hasReportedVolume(point.v, zeroVolumeIsMissing)
+    !hasTradingViewNativeReportedVolume(point.v, zeroVolumeIsMissing)
       ? []
       : [index],
   );

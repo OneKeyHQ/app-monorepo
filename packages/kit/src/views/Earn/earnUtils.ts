@@ -17,6 +17,7 @@ import {
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IEarnUtmParams } from '@onekeyhq/shared/types/staking';
 
 import { shouldResetEarnRouteStackBeforePush } from './utils/earnNavigationPolicy';
 import {
@@ -548,7 +549,7 @@ export const EarnNavigation = {
 
   pushToEarnProtocolDetailsShare(
     navigation: IAppNavigation,
-    params: {
+    params: IEarnUtmParams & {
       network: string;
       symbol: string;
       provider: string;

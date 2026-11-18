@@ -221,6 +221,10 @@ import ServiceBase from '../ServiceBase';
 import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import {
   buildAnalyticsWalletProfile,
@@ -265,9 +269,11 @@ import type {
 } from '../../vaults/types';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { IPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export type IAddHDOrHWAccountsParams = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   walletId: string | undefined;
   networkId: string | undefined;
   indexes?: Array<number>; // multiple add by indexes
@@ -1377,6 +1383,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountNames,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    publicAccountCreationContext,
   }: {
     walletId: string;
     networkId: string;
@@ -1386,6 +1393,7 @@ class ServiceAccount extends ServiceBase {
     };
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -1398,19 +1406,23 @@ class ServiceAccount extends ServiceBase {
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
       );
     }
-    await this.addIndexedAccount({
-      walletId,
-      indexes: [dbAccount.pathIndex],
-      skipIfExists: true,
-      names: indexedAccountNames,
-      applyRestoreSyncPolicy,
-    });
+    if (!isPublicAccountCreationContext(publicAccountCreationContext)) {
+      await this.addIndexedAccount({
+        walletId,
+        indexes: [dbAccount.pathIndex],
+        skipIfExists: true,
+        names: indexedAccountNames,
+        applyRestoreSyncPolicy,
+      });
+    }
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
       skipEventEmit,
       applyRestoreSyncPolicy,
+      publicAccountCreationContext,
+      publicAccountIndexedNames: indexedAccountNames,
     });
   }
 
@@ -1462,6 +1474,14 @@ class ServiceAccount extends ServiceBase {
       indexes,
       deriveType,
     };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccountsForUserCreation(params: IAddHDOrHWAccountsParams) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
+    );
   }
 
   @backgroundMethod()
@@ -2589,7 +2609,7 @@ class ServiceAccount extends ServiceBase {
     let address = '';
     let xpub = '';
     let btcForkAddressEncoding: EAddressEncodings | undefined;
-    const addressValidationResult = await vault.validateAddress(input);
+    const addressValidationResult = await vault.validateWatchingAddress(input);
     if (addressValidationResult.isValid) {
       address = addressValidationResult.normalizedAddress;
       btcForkAddressEncoding = addressValidationResult.encoding;
@@ -3404,6 +3424,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    return this.setAccountNameInternal(params);
+  }
+
+  // Background-only replay entry point; the guard never crosses a UI bridge.
+  async setAccountNameFromCloud(
+    params: IDBSetAccountNameParams,
+    isCurrent: () => boolean,
+  ): Promise<void> {
+    return this.setAccountNameInternal(params, isCurrent);
+  }
+
+  private async setAccountNameInternal(
+    params: IDBSetAccountNameParams,
+    isCurrent?: () => boolean,
+  ): Promise<void> {
     const { accountId, indexedAccountId, name } = params;
 
     let account: IDBAccount | undefined;
@@ -3433,7 +3468,9 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const r = await localDb.setAccountName(params);
+    const r = isCurrent
+      ? await localDb.setAccountName(params, { isCurrent })
+      : await localDb.setAccountName(params);
 
     if (!params.applyRestoreSyncPolicy) {
       if (!params.skipEventEmit) {
@@ -5525,6 +5562,11 @@ class ServiceAccount extends ServiceBase {
       hideImmediately,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    if (!isTemp) {
+      void this.backgroundApi.servicePrimeCloudSync
+        .resumeCloudSyncReconciliation({ reason: 'wallet-ready' })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+    }
     void this.backgroundApi.servicePrivacyChain
       .onWalletTempStatusChanged({ walletId })
       .catch((error: unknown) => {

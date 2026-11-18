@@ -22,6 +22,7 @@ import {
   OneKeyWeb3RpcError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IAddressValidation,
@@ -46,6 +47,8 @@ import {
   EDecodedTxDirection,
   EDecodedTxStatus,
   type IDecodedTx,
+  type IDecodedTxAction,
+  type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -57,11 +60,15 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientTon } from './sdkTon/ClientTon';
 import {
-  decodePayload,
+  getTonHardwareSdkTransaction,
+  isSameTonAddress,
+  parseTonTransactionMessage,
+  usesTonHardwareAppRepresentation,
+} from './sdkTon/transactionParser';
+import {
   encodeComment,
   encodeJettonPayload,
   getAccountVersion,
-  getJettonData,
   getJettonWalletAddress,
   getWalletContractInstance,
   serializeUnsignedTransaction,
@@ -192,103 +199,139 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    const originalEncodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    const isHardware = accountUtils.isHwAccount({ accountId: this.accountId });
+    const appRepresentation =
+      usesTonHardwareAppRepresentation(originalEncodedTx);
+    const encodedTx =
+      !params.saveToLocalHistory && isHardware && !appRepresentation
+        ? getTonHardwareSdkTransaction(originalEncodedTx)
+        : originalEncodedTx;
     const swapInfo = params.unsignedTx.swapInfo;
     const from = await this.getAccountAddress();
     const network = await this.getNetwork();
     let toAddress = '';
-    let actions = await Promise.all(
-      encodedTx.messages.map(async (message) => {
-        const decodedPayload = decodePayload(message.payload);
-        if (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER) {
-          let tokenAddress = message.jetton?.jettonMasterAddress ?? '';
+    const messageActions = await Promise.all(
+      encodedTx.messages.map(async (message): Promise<IDecodedTxAction[]> => {
+        const unknownAction: IDecodedTxAction = {
+          type: EDecodedTxActionType.UNKNOWN,
+          direction: EDecodedTxDirection.OTHER,
+          unknownAction: { from, to: message.address },
+        };
+        const nativeTransfer: IDecodedTxTransferInfo = {
+          from,
+          to: message.address,
+          amount: new BigNumber(message.amount)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          icon: '',
+          symbol: network.symbol,
+          name: network.symbol,
+          tokenIdOnNetwork: '',
+          isNative: true,
+        };
+        const buildUnknownActions = async (): Promise<IDecodedTxAction[]> => {
+          if (!new BigNumber(message.amount).gt(0)) return [unknownAction];
+          // Unknown contract effects do not hide the native value already
+          // committed by this message. Keep the interaction visible as well.
+          return [
+            unknownAction,
+            await this.buildTxTransferAssetAction({
+              from,
+              to: message.address,
+              transfers: [nativeTransfer],
+            }),
+          ];
+        };
+        const parsed = await parseTonTransactionMessage({
+          message,
+          from,
+          backgroundApi: this.backgroundApi,
+          networkId: network.id,
+        });
+        const decodedPayload = parsed.payload;
+        // Verified token outflows remain known when forwarded contract effects are not.
+        if (
+          parsed.jetton ||
+          (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER &&
+            !decodedPayload.jetton)
+        ) {
+          const tokenAddress = parsed.jetton?.tokenAddress ?? '';
           let to = message.address;
           let amount = message.amount.toString();
           // Determine native by transfer structure, not by symbol equality:
           // the native-coin symbol is mutable (renamed TON -> GRAM) and can
           // diverge from network.symbol; a token.symbol === network.symbol
           // check would wrongly flip isNative and drop the max-send fee
-          // reservation. A native TON transfer never carries a jetton.
-          const isNativeTransfer = !message.jetton && !decodedPayload.jetton;
+          // reservation. Only the signed payload determines the transfer type.
+          const isNativeTransfer = !decodedPayload.jetton;
           if (decodedPayload.jetton) {
-            to = message.jetton?.toAddress ?? decodedPayload.jetton.toAddress;
+            to = decodedPayload.jetton.toAddress;
             amount = decodedPayload.jetton.amount;
-            if (!tokenAddress) {
-              const jettonData = await getJettonData({
-                backgroundApi: this.backgroundApi,
-                networkId: network.id,
-                address: message.address,
-              }).catch((e) => {
-                console.error(e);
-              });
-              if (jettonData) {
-                tokenAddress = jettonData.jettonMinterAddress.toString();
-              }
-            }
           }
-          const token = await this.backgroundApi.serviceToken.getToken({
-            networkId: network.id,
-            accountId: this.accountId,
-            tokenIdOnNetwork: tokenAddress,
+          const snapshotTokenInfo = params.transferPayload?.tokenInfo;
+          const snapshotMatchesToken = isSameTonAddress(
+            snapshotTokenInfo?.address,
+            tokenAddress,
+          );
+          const token =
+            (await this.backgroundApi.serviceToken.getToken({
+              networkId: network.id,
+              accountId: this.accountId,
+              tokenIdOnNetwork: tokenAddress,
+            })) ?? (snapshotMatchesToken ? snapshotTokenInfo : undefined);
+          if (!token && !isNativeTransfer) {
+            return buildUnknownActions();
+          }
+          // Keep the multiplier from the snapshot that rendered the
+          // confirmed amount; a fresh token lookup may have drifted.
+          // Compare canonical TON addresses because chain data may use raw
+          // addresses while the snapshot uses a friendly address. External
+          // requests have no transferPayload and use current token metadata.
+          // Native coins must never carry a multiplier.
+          let balanceMultiplier: string | undefined;
+          if (!isNativeTransfer) {
+            balanceMultiplier = snapshotMatchesToken
+              ? snapshotTokenInfo?.balanceMultiplier
+              : token?.balanceMultiplier;
+          }
+          amount = tokenRebaseUtils.applyBalanceMultiplier({
+            amount: new BigNumber(amount)
+              .shiftedBy(-(token?.decimals ?? network.decimals))
+              .toFixed(),
+            balanceMultiplier,
           });
-          if (token) {
-            // For a jetton transfer, prefer the multiplier from the send-page
-            // snapshot (transferPayload.tokenInfo) over a fresh getToken()
-            // lookup: the tokenRebaseUtils contract requires the multiplier
-            // to come from the same snapshot that rendered the confirmed
-            // amount, and the local tokens cache can drift between showing
-            // and decoding. Addresses are compared case-insensitively because
-            // the getJettonData() fallback above can yield a differently
-            // cased raw "0:<hex>" address than the snapshot's `token.address`.
-            // Fall back to the fresh `token` for dApp/external txs that never
-            // populated transferPayload. Native transfers must never carry a
-            // multiplier at all (native coins are never scaled-UI assets).
-            const snapshotTokenInfo = params.transferPayload?.tokenInfo;
-            const snapshotMatchesToken =
-              !!snapshotTokenInfo?.address &&
-              snapshotTokenInfo.address.toLowerCase() ===
-                tokenAddress.toLowerCase();
-            let balanceMultiplier: string | undefined;
-            if (!isNativeTransfer) {
-              balanceMultiplier = snapshotMatchesToken
-                ? snapshotTokenInfo?.balanceMultiplier
-                : token.balanceMultiplier;
-            }
-            amount = tokenRebaseUtils.applyBalanceMultiplier({
-              amount: new BigNumber(amount)
-                .shiftedBy(-token.decimals)
-                .toFixed(),
-              balanceMultiplier,
-            });
-          }
           toAddress = to;
-          return this.buildTxTransferAssetAction({
+          const transfers: IDecodedTxTransferInfo[] = [
+            {
+              from,
+              to,
+              amount,
+              icon: token?.logoURI ?? '',
+              symbol: token?.symbol ?? (isNativeTransfer ? network.symbol : ''),
+              name: token?.name ?? (isNativeTransfer ? network.symbol : ''),
+              tokenIdOnNetwork: token?.address ?? '',
+              isNative: isNativeTransfer,
+            },
+          ];
+          if (!isNativeTransfer && new BigNumber(message.amount).gt(0)) {
+            // Attached TON is a separate signed outflow, even if the Jetton
+            // wallet later refunds some of it to the payload's response address.
+            transfers.push(nativeTransfer);
+          }
+          const assetAction = await this.buildTxTransferAssetAction({
             from,
             to,
-            transfers: [
-              {
-                from,
-                to,
-                amount,
-                icon: token?.logoURI ?? '',
-                symbol: token?.symbol ?? '',
-                name: token?.name ?? '',
-                tokenIdOnNetwork: token?.address ?? '',
-                isNative: isNativeTransfer,
-              },
-            ],
+            transfers,
           });
+          return decodedPayload.type === EDecodedTxActionType.UNKNOWN
+            ? [unknownAction, assetAction]
+            : [assetAction];
         }
-        return {
-          type: EDecodedTxActionType.UNKNOWN,
-          direction: EDecodedTxDirection.OTHER,
-          unknownAction: {
-            from,
-            to: message.address,
-          },
-        };
+        return buildUnknownActions();
       }),
     );
+    let actions = messageActions.flat();
 
     if (swapInfo) {
       actions = [
@@ -326,6 +369,36 @@ export default class Vault extends VaultBase {
         memo: params.transferPayload?.memo,
       },
       encodedTx,
+    };
+  }
+
+  override async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<{ encodedTx: Partial<IEncodedTx> | undefined }> {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+    const transaction = encodedTx as IEncodedTxTon;
+    // Server parsing receives signing fields only. Hardware metadata remains
+    // available locally and is validated against the payload before use.
+    return {
+      encodedTx: {
+        from: transaction.from,
+        sequenceNo: transaction.sequenceNo,
+        validUntil: transaction.validUntil,
+        network: transaction.network,
+        messages: transaction.messages.map(
+          ({ address, amount, payload, stateInit, sendMode }) => ({
+            address,
+            amount,
+            payload,
+            stateInit,
+            sendMode,
+          }),
+        ),
+      },
     };
   }
 

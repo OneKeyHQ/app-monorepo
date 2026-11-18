@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { ComponentProps } from 'react';
+import type { CSSProperties, ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,6 +28,12 @@ import {
 } from '../../utils/statValue';
 import { useTokenDetailHeaderLeftActions } from '../TokenDetailHeader/hooks/useTokenDetailHeaderLeftActions';
 import { TokenSecurityAlert } from '../TokenSecurityAlert/TokenSecurityAlert';
+
+const DESKTOP_OVERVIEW_GRID_STYLE: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 144px), 1fr))',
+  rowGap: 24,
+};
 
 interface ISupplementaryRow {
   key: string;
@@ -324,6 +330,45 @@ export function TokenSupplementaryInfo({
   }
 
   if (variant === 'overview') {
+    const items = rows.map((item) => (
+      <YStack
+        key={item.key}
+        width={isMobileOverview ? '50%' : undefined}
+        minWidth={0}
+        pr="$2.5"
+        gap={isMobileOverview ? '$1.5' : '$1'}
+      >
+        <OverviewStatLabel item={item} isMobileOverview={isMobileOverview} />
+        {isMobileOverview ? (
+          <XStack ai="center" gap="$1">
+            <SizableText
+              size="$headingMd"
+              numberOfLines={1}
+              onPress={item.onPress}
+              color={
+                item.onPress && item.key !== 'contractAddress'
+                  ? '$textInfo'
+                  : '$text'
+              }
+            >
+              {item.value}
+            </SizableText>
+            {item.key === 'contractAddress' && item.onPress ? (
+              <InteractiveIcon
+                testID="token-mobile-overview-copy-address"
+                icon="Copy3Outline"
+                size="$4"
+                onPress={item.onPress}
+              />
+            ) : null}
+          </XStack>
+        ) : (
+          <SizableText size="$headingMd" numberOfLines={1}>
+            {item.value}
+          </SizableText>
+        )}
+      </YStack>
+    ));
     return (
       <YStack
         width="100%"
@@ -331,51 +376,13 @@ export function TokenSupplementaryInfo({
         py={isMobileOverview ? '$8' : '$6'}
         gap={isMobileOverview ? '$8' : '$5'}
       >
-        <XStack width="100%" flexWrap="wrap" rowGap="$6">
-          {rows.map((item) => (
-            <YStack
-              key={item.key}
-              flex={isMobileOverview ? undefined : 1}
-              width={isMobileOverview ? '50%' : undefined}
-              minWidth={isMobileOverview ? 0 : 144}
-              pr="$2.5"
-              gap={isMobileOverview ? '$1.5' : '$1'}
-            >
-              <OverviewStatLabel
-                item={item}
-                isMobileOverview={isMobileOverview}
-              />
-              {isMobileOverview ? (
-                <XStack ai="center" gap="$1">
-                  <SizableText
-                    size="$headingMd"
-                    numberOfLines={1}
-                    onPress={item.onPress}
-                    color={
-                      item.onPress && item.key !== 'contractAddress'
-                        ? '$textInfo'
-                        : '$text'
-                    }
-                  >
-                    {item.value}
-                  </SizableText>
-                  {item.key === 'contractAddress' && item.onPress ? (
-                    <InteractiveIcon
-                      testID="token-mobile-overview-copy-address"
-                      icon="Copy3Outline"
-                      size="$4"
-                      onPress={item.onPress}
-                    />
-                  ) : null}
-                </XStack>
-              ) : (
-                <SizableText size="$headingMd" numberOfLines={1}>
-                  {item.value}
-                </SizableText>
-              )}
-            </YStack>
-          ))}
-        </XStack>
+        {isMobileOverview ? (
+          <XStack width="100%" flexWrap="wrap" rowGap="$6">
+            {items}
+          </XStack>
+        ) : (
+          <div style={DESKTOP_OVERVIEW_GRID_STYLE}>{items}</div>
+        )}
         {isMobileOverview && !btcMetadata ? <TokenOverviewLinks /> : null}
       </YStack>
     );

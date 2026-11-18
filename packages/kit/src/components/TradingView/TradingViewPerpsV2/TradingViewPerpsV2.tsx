@@ -30,7 +30,6 @@ import {
   useNavigationHandler,
   useTradingViewUrl,
 } from '../hooks';
-import { TradingViewChartModeSelect } from '../TradingViewChartControls';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 import {
   TradingViewNativeIndicatorQuickBar,
@@ -837,14 +836,6 @@ export function TradingViewPerpsV2(
         <TradingViewV2ChartControlsContainer
           {...controlsProps}
           isControlsReady={isChartControlsReady}
-          mobileToolbarExtra={
-            platformEnv.isNative && !isChartControlsReady && onChartSwitch ? (
-              <TradingViewChartModeSelect
-                chartMode="tradingView"
-                onChartSwitch={onChartSwitch}
-              />
-            ) : undefined
-          }
           enableNativeChartSettings={platformEnv.isNative}
           chartTypeControlMode={platformEnv.isNative ? 'toggle' : 'select'}
           indicatorControlMode={platformEnv.isNative ? 'dialog' : 'popover'}

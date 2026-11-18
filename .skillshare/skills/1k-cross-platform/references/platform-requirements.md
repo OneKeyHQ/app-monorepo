@@ -21,7 +21,7 @@ uname -s
 | Tool | Required Version | How to Check | Platform |
 |------|-----------------|--------------|----------|
 | **Node.js** | >=22 | `node -v` | All |
-| **Yarn** | 4.12.0 | `yarn -v` | All |
+| **Yarn** | 4.18.1 | `yarn -v` | All |
 | **Java/JDK** | 17+ | `java -version` | All |
 | **Gradle** | 8.13 | `./gradlew --version` | All |
 | **Go** | 1.24.0 | `go version` | All |
@@ -161,7 +161,7 @@ grep -A2 '"engines"' package.json
 
 ### Yarn
 
-**Required**: 4.12.0 (Yarn Berry / Yarn 4)
+**Required**: 4.18.1 (Yarn Berry / Yarn 4)
 
 **Location**: `package.json:3`
 
@@ -172,7 +172,7 @@ grep '"packageManager"' package.json
 
 **Configuration**:
 ```json
-"packageManager": "yarn@4.12.0"
+"packageManager": "yarn@4.18.1"
 ```
 
 ### Java/JDK

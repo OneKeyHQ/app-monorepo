@@ -40,6 +40,7 @@ export function BorrowEModeMetric({
   const provider = market?.provider;
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
+  const providerLogoURI = market?.logoURI;
   const earnAccountData = earnAccount.data;
   const earnAccountId = getBorrowEarnAccountId(earnAccountData);
 
@@ -68,6 +69,7 @@ export function BorrowEModeMetric({
       networkId,
       provider,
       marketAddress,
+      providerLogoURI,
     });
   }, [
     earnAccountData?.account?.indexedAccountId,
@@ -76,6 +78,7 @@ export function BorrowEModeMetric({
     navigation,
     networkId,
     provider,
+    providerLogoURI,
     showError,
   ]);
 
