@@ -17,6 +17,7 @@ import {
   Switch,
   Tooltip,
   XStack,
+  YStack,
   resetToRoute,
   runAfterActionListClose,
   useIsOverlayPage,
@@ -113,31 +114,44 @@ interface ISwapActionsStateProps {
 // cspell:ignore ellipsize
 
 function IncognitoTooltipText({
+  intro,
   description,
   onAction,
 }: {
+  intro: string;
   description: string;
   onAction?: (url: string) => void;
 }) {
   return (
-    <FormatHyperlinkText
-      autoExecuteParsedAction={false}
-      onAction={onAction}
-      size="$bodyMd"
-      color="$textSubdued"
-      urlTextProps={{
-        color: '$textInfo',
-      }}
-      underlineTextProps={{
-        color: '$textInfo',
-      }}
-    >
-      {description}
-    </FormatHyperlinkText>
+    <YStack gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intro}
+      </SizableText>
+      <FormatHyperlinkText
+        autoExecuteParsedAction={false}
+        onAction={onAction}
+        size="$bodyMd"
+        color="$textSubdued"
+        urlTextProps={{
+          color: '$textInfo',
+        }}
+        underlineTextProps={{
+          color: '$textInfo',
+        }}
+      >
+        {description}
+      </FormatHyperlinkText>
+    </YStack>
   );
 }
 
-function IncognitoPopoverContent({ description }: { description: string }) {
+function IncognitoPopoverContent({
+  intro,
+  description,
+}: {
+  intro: string;
+  description: string;
+}) {
   const { closePopover } = usePopoverContext();
   const handleAction = useCallback(
     (url: string) => {
@@ -152,7 +166,11 @@ function IncognitoPopoverContent({ description }: { description: string }) {
 
   return (
     <Stack px="$5" pt="$1" pb="$5">
-      <IncognitoTooltipText description={description} onAction={handleAction} />
+      <IncognitoTooltipText
+        intro={intro}
+        description={description}
+        onAction={handleAction}
+      />
     </Stack>
   );
 }
@@ -237,10 +255,13 @@ const SwapActionsState = ({
   const incognitoTitle = intl.formatMessage({
     id: ETranslations.trade_privacy_mode,
   });
+  const incognitoTooltipIntro = intl.formatMessage({
+    id: ETranslations.trade_privacy_mode_tooltips,
+  });
   const incognitoTooltipDescription = useMemo(
     () =>
       `${intl.formatMessage({
-        id: ETranslations.trade_privacy_mode_tooltips,
+        id: ETranslations.trade_privacy_mode_compliance__desc,
       })} <url>${incognitoHelpLink}<underline>${intl.formatMessage({
         id: ETranslations.trade_incognito_read_more,
       })}</underline></url>`,
@@ -249,15 +270,21 @@ const SwapActionsState = ({
   const incognitoTooltipContent = useMemo(
     () => (
       <IncognitoTooltipText
+        intro={incognitoTooltipIntro}
         description={incognitoTooltipDescription}
         onAction={openUrlExternal}
       />
     ),
-    [incognitoTooltipDescription],
+    [incognitoTooltipDescription, incognitoTooltipIntro],
   );
   const incognitoPopoverContent = useMemo(
-    () => <IncognitoPopoverContent description={incognitoTooltipDescription} />,
-    [incognitoTooltipDescription],
+    () => (
+      <IncognitoPopoverContent
+        intro={incognitoTooltipIntro}
+        description={incognitoTooltipDescription}
+      />
+    ),
+    [incognitoTooltipDescription, incognitoTooltipIntro],
   );
 
   // OK-58977: `swapProviderSupportReceiveAddressAtom` is computed from the
