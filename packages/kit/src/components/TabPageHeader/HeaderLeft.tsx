@@ -1,6 +1,5 @@
 import { type ReactNode, useCallback, useMemo } from 'react';
 
-import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, {
@@ -26,15 +25,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ETabHomeRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
+import { urlAccountNavigation } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import { WalletConnectionGroup } from './components';
@@ -221,20 +216,8 @@ export function HeaderLeft({
                     pop: true,
                   },
                 );
-              } else if (
-                getHomeTabStackLength() > 1 &&
-                rootNavigationRef.current?.canGoBack()
-              ) {
-                rootNavigationRef.current?.goBack();
-              } else if (platformEnv.isNative) {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: ETabHomeRoutes.TabHome }],
-                });
               } else {
-                rootNavigationRef.current?.dispatch(
-                  StackActions.replace(ETabHomeRoutes.TabHome),
-                );
+                urlAccountNavigation.returnToHomePage(navigation);
               }
             }}
           />

@@ -1,4 +1,4 @@
-import { StackActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
 
 import {
   navigateFromOverlayToTab,
@@ -196,26 +196,22 @@ export function isCurrentlyInUrlAccountPage(): boolean {
   }
 }
 
-export function getHomeTabStackLength(): number {
-  try {
-    const state = rootNavigationRef.current?.getRootState();
-    if (!state?.routes) return 0;
-
-    const mainRoute = state.routes.find(
-      (route) => route.name === ERootRoutes.Main,
-    );
-    if (!mainRoute?.state?.routes) return 0;
-
-    const homeTabRoute = mainRoute.state.routes.find(
-      (route) => route.name === ETabRoutes.Home,
-    );
-    return homeTabRoute?.state?.routes?.length ?? 0;
-  } catch (_error) {
-    return 0;
-  }
-}
-
 export const urlAccountNavigation = {
+  returnToHomePage(navigation: IAppNavigation) {
+    navigation.dispatch(({ key, routes }) => {
+      if (routes[0]?.name === ETabHomeRoutes.TabHome) {
+        return { ...StackActions.popToTop(), target: key };
+      }
+      if (routes.length === 1 && !platformEnv.isNative) {
+        return StackActions.replace(ETabHomeRoutes.TabHome);
+      }
+      // Address search can replace TabHome, leaving no home route to pop to.
+      return CommonActions.reset({
+        index: 0,
+        routes: [{ name: ETabHomeRoutes.TabHome }],
+      });
+    });
+  },
   pushHomePage(navigation: IAppNavigation) {
     navigation.dispatch(
       // StackActions.replace(ETabHomeRoutes.TabHome, routeParams),
