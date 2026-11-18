@@ -666,15 +666,6 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
                 }
             }
 
-            // assets/ (Metro asset files for OTA diff reconstruction)
-            def unionAssetsDir = file("${unionOutputDir}/assets")
-            if (unionAssetsDir.exists()) {
-                copy {
-                    from unionAssetsDir
-                    into file("${mainBundleAssetsDir}/assets")
-                }
-            }
-
             // module-id-map.json — maps numeric Metro moduleIds back to source
             // file paths so a runtime "Requiring unknown module" crash can be
             // diagnosed straight from the installed APK.
@@ -704,9 +695,6 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
                 }
                 if (segmentsBgDir.exists()) {
                     copy { from segmentsBgDir; into file("${destDir}/segments-background") }
-                }
-                if (unionAssetsDir.exists()) {
-                    copy { from unionAssetsDir; into file("${destDir}/assets") }
                 }
                 if (moduleIdMap.exists()) {
                     copy { from moduleIdMap; into destDir }

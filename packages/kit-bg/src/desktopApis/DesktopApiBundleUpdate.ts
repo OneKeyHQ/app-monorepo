@@ -920,6 +920,20 @@ class DesktopApiAppBundleUpdate {
     return candidateBuildDirs;
   }
 
+  private getExtraResourceCandidateRelPaths(relPath: string): string[] {
+    const normalized = relPath.replace(/\\/g, '/');
+    if (normalized === 'static/udev/99-onekey.rules') {
+      return ['static/udev/99-onekey.rules'];
+    }
+    const bridgeMatch = normalized.match(
+      /^static\/bin\/bridge\/[^/]+\/([^/]+)$/,
+    );
+    if (bridgeMatch && bridgeMatch[1]) {
+      return [`bin/bridge/${bridgeMatch[1]}`];
+    }
+    return [];
+  }
+
   private findMatchingLocalFile(
     candidateBuildDirs: string[],
     relPath: string,
@@ -948,6 +962,33 @@ class DesktopApiAppBundleUpdate {
           checkFileSha512(candidatePath, expectedSha512)
         ) {
           return candidatePath;
+        }
+      }
+    }
+    const resourcesPath =
+      typeof process.resourcesPath === 'string' ? process.resourcesPath : '';
+    if (resourcesPath) {
+      const resolvedResourcesDir = path.resolve(resourcesPath);
+      for (const extraRel of this.getExtraResourceCandidateRelPaths(relPath)) {
+        const candidatePath = path.resolve(resolvedResourcesDir, extraRel);
+        if (candidatePath.startsWith(`${resolvedResourcesDir}${path.sep}`)) {
+          let isSymlink = false;
+          try {
+            isSymlink = Boolean(
+              fs
+                .lstatSync(candidatePath, { throwIfNoEntry: false })
+                ?.isSymbolicLink(),
+            );
+          } catch {
+            // ignore
+          }
+          if (
+            !isSymlink &&
+            fs.existsSync(candidatePath) &&
+            checkFileSha512(candidatePath, expectedSha512)
+          ) {
+            return candidatePath;
+          }
         }
       }
     }
@@ -1108,6 +1149,46 @@ class DesktopApiAppBundleUpdate {
         code: EUpdateErrorCode.integrityFailed,
         step: 'verifyASC',
       });
+    }
+
+    const changedEntries = Object.entries(diffManifest.changedFiles);
+    const reusedEntries = Object.entries(diffManifest.reusedFiles);
+    const targetEntries = Object.entries(targetMetadata);
+    if (changedEntries.length + reusedEntries.length !== targetEntries.length) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyASC',
+      });
+    }
+    for (const [relPath, expectedSha512] of changedEntries) {
+      if (
+        Object.prototype.hasOwnProperty.call(
+          diffManifest.reusedFiles,
+          relPath,
+        ) ||
+        !Object.prototype.hasOwnProperty.call(targetMetadata, relPath) ||
+        typeof targetMetadata[relPath] !== 'string' ||
+        targetMetadata[relPath].toLowerCase() !==
+          String(expectedSha512).toLowerCase()
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
+      }
+    }
+    for (const [relPath, expectedSha512] of reusedEntries) {
+      if (
+        !Object.prototype.hasOwnProperty.call(targetMetadata, relPath) ||
+        typeof targetMetadata[relPath] !== 'string' ||
+        targetMetadata[relPath].toLowerCase() !==
+          String(expectedSha512).toLowerCase()
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
+      }
     }
 
     const stagingBuildDir = path.resolve(stagingDir, 'build');
