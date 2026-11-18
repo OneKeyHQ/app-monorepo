@@ -172,8 +172,8 @@ test('a failed pull after delete reports the PR, and rerunning the deletion name
     '--pull-after-delete',
   ]);
   const finalized = [];
-  const run = async (pullAfterDelete) => {
-    const client = fakeClient([{ ref: 'old', name: 'old' }]);
+  const run = async (pullAfterDelete, target = {}) => {
+    const client = Object.assign(fakeClient([{ ref: 'old', name: 'old' }]), target);
     client.finalize = async (request) => {
       finalized.push(request);
       return {
@@ -204,6 +204,13 @@ test('a failed pull after delete reports the PR, and rerunning the deletion name
   assert.equal(retried.pulledAfterDelete, true);
   assert.match(finalized[0].key, /^[0-9a-f]{12}$/);
   assert.equal(finalized[1].key, finalized[0].key);
+
+  // The same refs against another branch or channel get a branch of their own.
+  await run(() => {}, { base: 'try-tooling' });
+  await run(() => {}, { channel: 'test' });
+  assert.notEqual(finalized[2].key, finalized[0].key);
+  assert.notEqual(finalized[3].key, finalized[0].key);
+  assert.notEqual(finalized[3].key, finalized[2].key);
 });
 
 test('the Lokalise deletion flag is retired', () => {
