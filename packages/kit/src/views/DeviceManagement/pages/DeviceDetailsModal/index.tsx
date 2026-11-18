@@ -36,7 +36,7 @@ import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalSty
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 
 import DeviceBasicInfo from './DeviceBasicInfo';
-import DeviceGetStarted from './DeviceGetStarted';
+import { DeviceHelpSidebar } from './DeviceHelpSidebar';
 import DeviceSectionAdvance from './DeviceSectionAdvance';
 import DeviceSectionDangerZone from './DeviceSectionDangerZone';
 import DeviceSectionDeviceConnect from './DeviceSectionDeviceConnect';
@@ -45,7 +45,6 @@ import DeviceSectionQrInfo from './DeviceSectionQrInfo';
 import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
 import DeviceSectionTrezorDebug from './DeviceSectionTrezorDebug';
-import { DeviceUpdateAlert } from './DeviceUpdateAlert';
 import {
   buildDeviceDetailsVisibility,
   shouldShowDeviceInteractiveSections,
@@ -55,20 +54,8 @@ import {
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
-function DeviceGetStartedLayout({ visible }: { visible: boolean }) {
-  const { gtXl } = useMedia();
-  const { isModalStack } = useDeviceManagerModalStyle();
-
-  if (!visible || !gtXl || isModalStack) {
-    return null;
-  }
-
-  return (
-    <YStack width={320}>
-      <DeviceGetStarted />
-    </YStack>
-  );
-}
+// One settings column; rows bleed 12px past it on both sides.
+const DEVICE_DETAILS_COLUMN_WIDTH = 640 + 12 * 2;
 
 function DeviceDetailsModalV2Cmp({
   walletId,
@@ -78,6 +65,8 @@ function DeviceDetailsModalV2Cmp({
   initialDeviceVendor?: EHardwareVendor;
 }) {
   const intl = useIntl();
+  const { gtXl } = useMedia();
+  const { isModalStack } = useDeviceManagerModalStyle();
   const localActions = useDeviceDetailsActions();
   const { applyDeviceStateEvent, refresh } = localActions;
   const { handleBackPress } = useDeviceBackNavigation();
@@ -200,22 +189,34 @@ function DeviceDetailsModalV2Cmp({
     [localActions, actions],
   );
 
+  // Help gets its own column only where there is room for it; elsewhere the
+  // troubleshooting row in the page stands in for it.
+  const showHelpSidebar =
+    gtXl &&
+    !isModalStack &&
+    Boolean(showDeviceSettings && showInteractiveSections);
+
   return (
     <Page scrollEnabled>
       <DeviceCommonHeader
         title={intl.formatMessage({ id: ETranslations.global_about_device })}
       />
-      {showFirmwareActions ? <DeviceUpdateAlert type="top" /> : null}
       <Page.Body
         alignItems="stretch"
         pt="$0"
-        pb="$8"
+        pb="$0"
         testID="device-details-content"
-        $gtMd={{ pt: '$8' }}
       >
-        <Page.Container>
-          <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
-            <YStack gap="$8" flex={1}>
+        <XStack w="100%" alignItems="flex-start">
+          <YStack
+            flex={1}
+            minWidth={0}
+            alignItems="center"
+            px="$2"
+            pb="$8"
+            $gtMd={{ px: '$6', pt: '$8' }}
+          >
+            <YStack w="100%" maxWidth={DEVICE_DETAILS_COLUMN_WIDTH} gap="$8">
               {/* DeviceBasicInfo self-manages its skeleton; sections gate on
                   their own hasLoadedDevice. The offer shares this slot so a
                   0-height entrance does not consume the column gap. */}
@@ -227,18 +228,19 @@ function DeviceDetailsModalV2Cmp({
                   showDeviceVerification={Boolean(
                     vendorProfile?.firmware.verify,
                   )}
+                  showFirmwareUpdate={showFirmwareActions}
                 />
                 {device && !isQrWallet ? (
                   <PrimeGiftOffer device={device} source="deviceDetails" />
                 ) : null}
               </YStack>
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
-              {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (
                 <DeviceSectionSupport
                   onPressCheckForUpdates={onPressCheckForUpdates}
                   showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
                   showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
+                  showTroubleshooting={!showHelpSidebar}
                 />
               ) : null}
               {showDeviceSettings && showInteractiveSections ? (
@@ -262,11 +264,9 @@ function DeviceDetailsModalV2Cmp({
               ) : null}
               {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
-            <DeviceGetStartedLayout
-              visible={Boolean(showDeviceSettings && showInteractiveSections)}
-            />
-          </XStack>
-        </Page.Container>
+          </YStack>
+          {showHelpSidebar ? <DeviceHelpSidebar /> : null}
+        </XStack>
       </Page.Body>
     </Page>
   );

@@ -55,11 +55,7 @@ function DeviceSectionTrezorDebug() {
   if (!dbDeviceId) return null;
 
   return (
-    <ListItemGroup
-      withSeparator
-      itemProps={{ minHeight: '$12' }}
-      title="Developer · Trezor THP"
-    >
+    <ListItemGroup withSeparator title="Developer · Trezor THP">
       <ListItem
         title="Randomize bad THP handshake"
         subtitle="Corrupt stored credentials so the next handshake is rejected"

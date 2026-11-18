@@ -35,6 +35,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import { LIST_ITEM_GROUP_ITEM_PROPS } from '../listItemGroupLayout';
 
 import { DeviceBrightnessSlider } from './DeviceBrightnessSlider';
 import { TREZOR_AUTO_LOCK_OPTIONS } from './utils';
@@ -156,11 +157,7 @@ export function LanguageListItem({
       sheetProps={{ disableDrag: true }}
       renderTrigger={() => (
         <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
+          {...LIST_ITEM_GROUP_ITEM_PROPS}
           title={intl.formatMessage({
             id: ETranslations.global_language,
           })}
@@ -172,7 +169,7 @@ export function LanguageListItem({
               primary={displayLabel}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: '$bodyMd',
                 color: '$textSubdued',
               }}
             />
@@ -236,11 +233,7 @@ export function AutoLockListItem({
   return (
     <ListItem
       testID={DeviceManagementTestIDs.autoLockSelect}
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_auto_lock,
       })}
@@ -267,7 +260,7 @@ export function AutoLockListItem({
               primary={displayLabel}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: '$bodyMd',
                 color: '$textSubdued',
               }}
             />
@@ -333,11 +326,7 @@ export function AutoShutDownListItem({
   return (
     <ListItem
       testID={DeviceManagementTestIDs.autoShutDownSelect}
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_auto_shutdown,
       })}
@@ -364,7 +353,7 @@ export function AutoShutDownListItem({
               primary={displayLabel}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: '$bodyMd',
                 color: '$textSubdued',
               }}
             />
@@ -389,9 +378,7 @@ export function HapticFeedbackListItem() {
 
   return (
     <ListItem.StatefulItem
-      mx="$0"
-      px="$5"
-      borderRadius="$0"
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_vibration_haptic,
       })}
@@ -652,7 +639,6 @@ function DeviceSectionGeneral() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
         id: ETranslations.global_general,
       })}

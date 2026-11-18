@@ -103,7 +103,11 @@ function DeviceSectionDangerZone({
             }),
           },
         )}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{
+          size: '$bodyMdMedium',
+          // Switching erases the device; it reads as the danger it is.
+          color: isFirmwareTypeChangeComingSoon ? '$text' : '$textCritical',
+        }}
         disabled={isFirmwareTypeChangeComingSoon}
         drillIn={!isFirmwareTypeChangeComingSoon}
         onPress={
@@ -119,7 +123,7 @@ function DeviceSectionDangerZone({
               })}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: '$bodyMd',
                 color: '$textSubdued',
               }}
             />
@@ -196,12 +200,8 @@ function DeviceSectionDangerZone({
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
-      groupProps={{
-        borderColor: '$borderCriticalSubdued',
-      }}
       title={intl.formatMessage({
-        id: ETranslations.global_danger_zone,
+        id: ETranslations.device_details_danger_zone__title,
       })}
     >
       {firmwareTypeChangeView}
@@ -209,7 +209,7 @@ function DeviceSectionDangerZone({
         title={intl.formatMessage({
           id: ETranslations.global_wipe_device,
         })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{ size: '$bodyMdMedium', color: '$textCritical' }}
         drillIn
         onPress={onPressWipeDevice}
         testID={DeviceManagementTestIDs.wipeDeviceItem}

@@ -33,7 +33,6 @@ function DeviceSectionSecurity() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
         id: ETranslations.global_security,
       })}

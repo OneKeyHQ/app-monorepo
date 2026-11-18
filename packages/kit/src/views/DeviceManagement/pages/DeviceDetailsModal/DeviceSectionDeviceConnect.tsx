@@ -81,9 +81,8 @@ function DeviceSectionDeviceConnect() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
-        id: ETranslations.global_device_connection,
+        id: ETranslations.device_details_connection__title,
       })}
     >
       {canRebindBle ? (

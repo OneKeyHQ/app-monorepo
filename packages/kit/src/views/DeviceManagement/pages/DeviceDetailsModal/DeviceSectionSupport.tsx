@@ -24,6 +24,7 @@ function DeviceSectionSupport({
   onPressCheckForUpdates,
   showFirmwareVerify = true,
   showFirmwareUpdate = true,
+  showTroubleshooting = true,
 }: {
   onPressCheckForUpdates: (
     firmwareType?: EFirmwareType,
@@ -31,6 +32,8 @@ function DeviceSectionSupport({
   ) => void;
   showFirmwareVerify?: boolean;
   showFirmwareUpdate?: boolean;
+  // Off while the help sidebar is on screen; it covers troubleshooting.
+  showTroubleshooting?: boolean;
 }) {
   const intl = useIntl();
   const { pushToTroubleshooting } = useDeviceManagerNavigation();
@@ -79,7 +82,7 @@ function DeviceSectionSupport({
   }, [pushToTroubleshooting, actions]);
 
   return (
-    <ListItemGroup withSeparator itemProps={{ minHeight: '$12' }}>
+    <ListItemGroup withSeparator>
       <ListItem
         key="aboutDevice"
         title={intl.formatMessage({
@@ -115,16 +118,18 @@ function DeviceSectionSupport({
           testID={DeviceManagementTestIDs.checkForUpdatesItem}
         />
       ) : null}
-      <ListItem
-        key="troubleshooting"
-        title={intl.formatMessage({
-          id: ETranslations.global_hardware_troubleshooting,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressTroubleshooting}
-        testID={DeviceManagementTestIDs.troubleshootingItem}
-      />
+      {showTroubleshooting ? (
+        <ListItem
+          key="troubleshooting"
+          title={intl.formatMessage({
+            id: ETranslations.global_hardware_troubleshooting,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={onPressTroubleshooting}
+          testID={DeviceManagementTestIDs.troubleshootingItem}
+        />
+      ) : null}
     </ListItemGroup>
   );
 }

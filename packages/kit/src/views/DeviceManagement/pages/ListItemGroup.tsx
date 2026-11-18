@@ -1,16 +1,13 @@
 import { Children, cloneElement, isValidElement, useMemo } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
-import {
-  Divider,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
-import { TabSettingsSection } from '../../Setting/pages/Tab/ListItem';
+import {
+  LIST_ITEM_GROUP_INSET,
+  LIST_ITEM_GROUP_ITEM_PROPS,
+} from './listItemGroupLayout';
 
 type IListItemGroupProps = {
   title?: string;
@@ -27,9 +24,6 @@ function ListItemGroupBase({
   withSeparator = false,
   groupProps,
 }: IListItemGroupProps) {
-  const { gtMd } = useMedia();
-  const py = gtMd ? undefined : '$3';
-
   const normalizedChildren = useMemo(() => {
     const arr = Children.toArray(children);
     const res: ReactNode[] = [];
@@ -42,10 +36,7 @@ function ListItemGroupBase({
       }
 
       const mergedProps = {
-        mx: '$0',
-        px: '$5',
-        py,
-        borderRadius: '$0',
+        ...LIST_ITEM_GROUP_ITEM_PROPS,
         ...itemProps,
         ...(child.props as object),
       } as ComponentProps<typeof ListItem>;
@@ -54,7 +45,7 @@ function ListItemGroupBase({
       const isLast = idx === arr.length - 1;
       if (!isLast && withSeparator) {
         res.push(
-          <XStack key={`sep-${idx}`} mx="$5">
+          <XStack key={`sep-${idx}`} mx={LIST_ITEM_GROUP_INSET}>
             <Divider borderColor="$neutral4" />
           </XStack>,
         );
@@ -62,33 +53,26 @@ function ListItemGroupBase({
     });
 
     return res;
-  }, [children, itemProps, withSeparator, py]);
+  }, [children, itemProps, withSeparator]);
 
   return (
-    <YStack>
-      {title ? (
-        <XStack ai="center" h="$10" px="$5">
-          <SizableText size="$headingSm" color="$textSubdued">
-            {title}
-          </SizableText>
-        </XStack>
-      ) : null}
-
-      <TabSettingsSection
-        borderRadius="$4"
+    <YStack gap="$2.5" {...groupProps}>
+      {title ? <SizableText size="$headingMd">{title}</SizableText> : null}
+      <YStack
         bg="$bgApp"
         borderWidth={1}
-        borderColor="$neutral4"
-        {...groupProps}
+        borderColor="$borderSubdued"
+        borderRadius={12}
+        overflow="hidden"
       >
         {normalizedChildren}
-      </TabSettingsSection>
+      </YStack>
     </YStack>
   );
 }
 
 function ListItemGroupItem(props: ComponentProps<typeof ListItem>) {
-  return <ListItem mx="$0" px="$5" borderRadius="$0" {...props} />;
+  return <ListItem {...LIST_ITEM_GROUP_ITEM_PROPS} {...props} />;
 }
 
 export const ListItemGroup = Object.assign(ListItemGroupBase, {

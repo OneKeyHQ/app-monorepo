@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
 import {
   useCurrentWalletIdAtom,
   useDeviceConnectIdAtom,
@@ -12,17 +12,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
-import { FirmwareUpdateReminderAlert } from '../../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareUpdateDetectStatus } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { getTargetFirmwareTypeLabel } from '../../../FirmwareUpdate/utils';
+import { DeviceManagementTestIDs } from '../../testIDs';
 
-export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
+// A detected update, said in the shipped sentence as a link under the
+// device's name; it opens the changelog for that update.
+export function DeviceUpdateLink() {
   const intl = useIntl();
   const [currentWalletId] = useCurrentWalletIdAtom();
   const isQrWallet = accountUtils.isQrWallet({ walletId: currentWalletId });
-
-  const { gtMd } = useMedia();
 
   const [deviceConnectId] = useDeviceConnectIdAtom();
   const [deviceType] = useDeviceTypeAtom();
@@ -45,14 +45,6 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
     const shouldUpdate = detectInfo?.hasUpgrade;
     return { shouldUpdate, detectInfo };
   }, [deviceConnectId, deviceDetectStatus]);
-
-  if (type === 'top' && gtMd) {
-    return null;
-  }
-
-  if (type === 'bottom' && !gtMd) {
-    return null;
-  }
 
   if (isQrWallet) return null;
   if (!detectResult?.shouldUpdate) return null;
@@ -91,16 +83,18 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
   }
 
   return (
-    <FirmwareUpdateReminderAlert
-      containerProps={{
-        py: '$3.5',
-        borderWidth: '$px',
-        borderRadius: type === 'top' ? undefined : '$3',
-        borderLeftWidth: type === 'top' ? 0 : '$px',
-        borderRightWidth: type === 'top' ? 0 : '$px',
-      }}
-      message={message}
+    <Button
+      variant="link"
+      size="small"
+      p="$0"
+      alignSelf="flex-start"
+      // The link is one text line tall; give fingers the room a row has.
+      hitSlop={12}
+      iconAfter="ChevronRightSmallOutline"
       onPress={openChangeLogModalCallback}
-    />
+      testID={DeviceManagementTestIDs.firmwareUpdateLink}
+    >
+      {message}
+    </Button>
   );
 }

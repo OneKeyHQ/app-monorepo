@@ -13,6 +13,7 @@ export const DeviceManagementTestIDs = {
   authRequestItem: 'device-mgmt-auth-request-item',
   checkForUpdatesItem: 'device-mgmt-check-for-updates-item',
   troubleshootingItem: 'device-mgmt-troubleshooting-item',
+  firmwareUpdateLink: 'device-mgmt-firmware-update-link',
 
   // --- General Section ---
   languageSelect: 'device-mgmt-language-select',
@@ -48,4 +49,8 @@ export const DeviceManagementTestIDs = {
   contactSupportBtn: 'device-mgmt-contact-support-btn',
   helpCenterBtn: 'device-mgmt-help-center-btn',
   copySerialBtn: 'device-mgmt-copy-serial-btn',
+
+  // --- Device Details help sidebar ---
+  helpFaqItem: 'device-mgmt-help-faq-item',
+  helpContactSupportBtn: 'device-mgmt-help-contact-support-btn',
 } as const;

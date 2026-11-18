@@ -11,6 +11,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
+import { LIST_ITEM_GROUP_INSET } from '../listItemGroupLayout';
 
 const MIN_BRIGHTNESS = 10;
 const MAX_BRIGHTNESS = 100;
@@ -119,7 +120,7 @@ export function DeviceBrightnessSlider({
 
   return (
     <YStack
-      px="$5"
+      px={LIST_ITEM_GROUP_INSET}
       py="$3"
       gap="$3"
       opacity={disabled ? 0.5 : 1}

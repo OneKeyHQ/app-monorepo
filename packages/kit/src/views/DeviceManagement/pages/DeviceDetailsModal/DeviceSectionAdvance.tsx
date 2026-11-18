@@ -16,6 +16,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import { LIST_ITEM_GROUP_ITEM_PROPS } from '../listItemGroupLayout';
 
 import { useDialogPassphraseEnable } from './dialog/DialogPassphraseEnable';
 
@@ -49,11 +50,7 @@ function DeviceSectionAdvancePassphrase() {
 
   return (
     <ListItem.StatefulItem
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.global_passphrase,
       })}
@@ -88,11 +85,7 @@ function DeviceSectionAdvanceInputPinOnSoftware() {
 
   return (
     <ListItem.StatefulItem
-      mx="$0"
-      px="$5"
-      py="$3"
-      borderRadius="$0"
-      $gtMd={{ py: '$0' }}
+      {...LIST_ITEM_GROUP_ITEM_PROPS}
       title={intl.formatMessage({
         id: ETranslations.enter_pin_on_app,
       })}
@@ -124,9 +117,8 @@ function DeviceSectionAdvance() {
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
       title={intl.formatMessage({
-        id: ETranslations.global_advance,
+        id: ETranslations.device_details_advanced__title,
       })}
     >
       <DeviceSectionAdvancePassphrase />
