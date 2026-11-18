@@ -156,8 +156,16 @@ function HomeHeaderNetworkTrigger({ plain }: { plain: boolean }) {
   const isAllNetworks =
     network?.isAllNetworks &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
+  // Liquid Glass reacts to the press itself, so the trigger's own press tint
+  // would only add a gray box inside it.
+  const glass = !plain && isLiquidGlassAvailable();
   const trigger = isAllNetworks ? (
-    <LazyAllNetworksManagerTrigger num={0} unifiedMode hideChevron />
+    <LazyAllNetworksManagerTrigger
+      num={0}
+      unifiedMode
+      hideChevron
+      hidePressStyle={glass}
+    />
   ) : (
     <NetworkSelectorTriggerHome
       num={0}
@@ -166,9 +174,10 @@ function HomeHeaderNetworkTrigger({ plain }: { plain: boolean }) {
       hideOnNoAccount
       unifiedMode
       hideChevron
+      hidePressStyle={glass}
     />
   );
-  if (!plain && isLiquidGlassAvailable()) {
+  if (glass) {
     return (
       // One network is a circle like the search button. The chips sit 8 from
       // the capsule's ends, as from its top and bottom, so their round ends

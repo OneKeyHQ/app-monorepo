@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -100,6 +101,7 @@ function NetworkSelectorTriggerHomeCmp({
   unifiedMode = false,
   desktopHeader = false,
   hideChevron = false,
+  hidePressStyle = false,
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
@@ -109,6 +111,8 @@ function NetworkSelectorTriggerHomeCmp({
   desktopHeader?: boolean;
   // For a host that already draws the trigger in its own pill.
   hideChevron?: boolean;
+  // For a host whose glass already reacts to the press.
+  hidePressStyle?: boolean;
 }) {
   const {
     activeAccount: { network, accountName },
@@ -160,13 +164,11 @@ function NetworkSelectorTriggerHomeCmp({
       alignItems="center"
       p="$1"
       m="$-1"
-      borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      // In the home header's round pill (no chevron) the web focus ring
+      // follows the pill instead of drawing a square inside it.
+      borderRadius={hideChevron && !platformEnv.isNative ? '$full' : '$2'}
+      hoverStyle={hidePressStyle ? undefined : { bg: '$bgHover' }}
+      pressStyle={hidePressStyle ? undefined : { bg: '$bgActive' }}
       focusable
       focusVisibleStyle={{
         outlineWidth: 2,
@@ -176,6 +178,17 @@ function NetworkSelectorTriggerHomeCmp({
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
       onPress={handlePress}
+      // The logo alone names nothing for a screen reader.
+      aria-label={networkTriggerText}
+      // `focusable` gives no tab stop on web, so outside the desktop header
+      // (the extension's home header) it takes one and presses on Enter or
+      // Space as well.
+      {...(!desktopHeader &&
+        !platformEnv.isNative && {
+          tabIndex: 0,
+          onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+            handleDesktopHeaderKeyDown(event, handlePress),
+        })}
       {...(desktopHeader && {
         ...DESKTOP_HEADER_TRIGGER_PROPS,
         'aria-label': networkTriggerText,
