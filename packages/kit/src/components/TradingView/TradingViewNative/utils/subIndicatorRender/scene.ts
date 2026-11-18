@@ -29,6 +29,11 @@ import type {
   ITradingViewNativeChartScenePaintStyle,
 } from '../chartScene';
 
+const CIRCLE_SERIES_MIN_RADIUS = 1;
+const CIRCLE_SERIES_MAX_RADIUS = 2.5;
+// Share of the candle body width a circle takes, so adjacent circles never touch.
+const CIRCLE_SERIES_BODY_WIDTH_RATIO = 0.35;
+
 interface ISubIndicatorSceneItem {
   item:
     | ITradingViewNativeSubIndicatorRenderBand
@@ -324,6 +329,55 @@ function appendBarSeriesCommands({
   }
 }
 
+function appendCircleSeriesCommands({
+  candleBodyWidth,
+  commands,
+  endIndex,
+  getPointX,
+  layout,
+  series,
+  startIndex,
+}: Pick<
+  IAppendSubIndicatorCommandsOptions,
+  'candleBodyWidth' | 'commands' | 'endIndex' | 'getPointX' | 'startIndex'
+> & {
+  layout: ITradingViewNativeSubIndicatorPaneLayout;
+  series: ITradingViewNativeSubIndicatorRenderSeries;
+}) {
+  'worklet';
+
+  if (!layout.range) {
+    return;
+  }
+  const baselineY = getTradingViewNativeSubIndicatorY({
+    bottom: layout.plotBottom,
+    range: layout.range,
+    top: layout.plotTop,
+    value: series.style.baseline,
+  });
+  const radius = Math.min(
+    Math.max(
+      candleBodyWidth * CIRCLE_SERIES_BODY_WIDTH_RATIO,
+      CIRCLE_SERIES_MIN_RADIUS,
+    ),
+    CIRCLE_SERIES_MAX_RADIUS,
+  );
+  const lastIndex = Math.min(endIndex, series.values.length);
+  for (let index = Math.max(startIndex, 0); index < lastIndex; index += 1) {
+    const value = series.values[index];
+    if (value !== null && value !== undefined && Number.isFinite(value)) {
+      commands.push({
+        customPaintId: getSeriesPointPaintId({ index, layout, series }),
+        cx: getPointX(index),
+        cy: baselineY,
+        kind: 'circle',
+        paint: 'axisText',
+        radius,
+      });
+    }
+  }
+}
+
 function appendPlotFillCommands({
   commands,
   endIndex,
@@ -515,6 +569,16 @@ function appendSceneItem({
   }
   if (series.style.type === 'line') {
     appendLineSeriesCommands({
+      commands,
+      endIndex,
+      getPointX,
+      layout,
+      series,
+      startIndex,
+    });
+  } else if (series.style.type === 'circles') {
+    appendCircleSeriesCommands({
+      candleBodyWidth,
       commands,
       endIndex,
       getPointX,
