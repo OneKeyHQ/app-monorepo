@@ -44,6 +44,7 @@ import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/prim
 
 import {
   getSanitizedAuthErrorText,
+  isDeliberateOAuthCancel,
   logOneKeyIdLoginFailureReason,
   scrubSensitiveErrorMessageText,
   showOneKeyIdLoginFailedToast,
@@ -273,9 +274,10 @@ function PrimeLoginOAuthDialog(props: {
           (error as IOneKeyError | undefined)?.className ===
             EOneKeyErrorClassNames.OAuthLoginCancelError
         ) {
-          defaultLogger.prime.subscription.onekeyIdOAuthLoginCancelled({
+          defaultLogger.prime.subscription.onekeyIdOAuthLoginExited({
             method: provider,
             featureId: freeTrialFeatureId,
+            reason: isDeliberateOAuthCancel(error) ? 'cancelled' : 'unknown',
           });
         }
         if (!isOneKeyIdLoginCommitted) {

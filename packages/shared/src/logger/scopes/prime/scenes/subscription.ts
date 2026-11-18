@@ -787,7 +787,7 @@ export class PrimeSubscriptionScene extends BaseScene {
 
   /**
    * Google / Apple button pressed in the OneKey ID login dialog.
-   * With onekeyIdOAuthLoginCancelled, tells a login dialog closed untouched
+   * With onekeyIdOAuthLoginExited, tells a login dialog closed untouched
    * from a provider sign-in abandoned midway. `featureId` is set when a
    * Prime free trial asked for the login.
    */
@@ -800,12 +800,16 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   /**
-   * The user cancelled the Google / Apple sign-in page or sheet.
+   * The Google / Apple sign-in ended without signing in and without an error.
+   * `cancelled`: the user certainly cancelled (a native sheet, or the
+   * extension). `unknown`: a web sign-in page that failed to load ends the
+   * same way, so it may not be the user's choice.
    */
   @LogToServer()
-  public onekeyIdOAuthLoginCancelled(params: {
+  public onekeyIdOAuthLoginExited(params: {
     method: EOAuthSocialLoginProvider;
     featureId?: EPrimeFeatures;
+    reason: 'cancelled' | 'unknown';
   }) {
     return params;
   }

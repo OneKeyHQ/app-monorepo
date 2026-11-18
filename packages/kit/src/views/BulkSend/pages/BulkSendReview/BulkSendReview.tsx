@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,6 +25,7 @@ import {
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimeEntitlementSource } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalBulkSendRoutes,
@@ -79,9 +79,11 @@ const TX_DETAILS_CONTAINER_PROPS = { px: '$5' } as const;
 function BaseBulkSendReview({
   onSuccess,
   onFail,
+  entitlementSource,
 }: {
   onSuccess?: (data: any[]) => void;
   onFail?: (error: Error) => void;
+  entitlementSource?: IPrimeEntitlementSource;
 }) {
   const {
     networkId,
@@ -480,15 +482,14 @@ function BaseBulkSendReview({
     featureId: EPrimeFeatures.BulkSend,
   });
   const reviewUsageIdRef = useRef<string | undefined>(undefined);
-  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   useEffect(() => {
     defaultLogger.prime.usage.bulkSendReviewShow({
       featureName: EPrimeFeatures.BulkSend,
       featureId: EPrimeFeatures.BulkSend,
-      entitlementSource: isPrimeSubscriptionActive ? 'prime' : 'freeTrial',
+      entitlementSource,
       sendMode: bulkSendMode,
     });
-    // Once per page instance, with the state as of opening.
+    // Once per page instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Starting or checking a usage can take a while; a page closed meanwhile
@@ -1127,6 +1128,7 @@ function BulkSendReviewContent({
   isMaxMode,
   ataCount,
   intervalSettings,
+  entitlementSource,
   onSuccess,
   onFail,
 }: IBulkSendReviewRouteParams) {
@@ -1224,7 +1226,11 @@ function BulkSendReviewContent({
 
   return (
     <BulkSendReviewContext.Provider value={contextValue}>
-      <BaseBulkSendReview onSuccess={onSuccess} onFail={onFail} />
+      <BaseBulkSendReview
+        onSuccess={onSuccess}
+        onFail={onFail}
+        entitlementSource={entitlementSource}
+      />
     </BulkSendReviewContext.Provider>
   );
 }

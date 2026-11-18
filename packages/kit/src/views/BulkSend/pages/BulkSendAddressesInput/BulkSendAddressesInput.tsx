@@ -26,6 +26,7 @@ import {
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPrimeEntitlementSource } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalBulkSendParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -517,6 +518,11 @@ function BaseBulkSendAddressesInput({
     ],
   );
 
+  // Analytics only: the access the last "Next" check granted, for the funnel
+  // events of the following pages.
+  const grantedEntitlementSourceRef = useRef<
+    IPrimeEntitlementSource | undefined
+  >(undefined);
   const navigateToNextStep = useCallback(async () => {
     if (!selectedNetworkId || !selectedToken) {
       return;
@@ -630,6 +636,7 @@ function BaseBulkSendAddressesInput({
       tokenDetails: effectiveTokenDetails,
       bulkSendMode,
       hasDuplicateSenders: duplicateSenderAddressCount > 0,
+      entitlementSource: grantedEntitlementSourceRef.current,
     };
 
     if (isInModal) {
@@ -696,6 +703,7 @@ function BaseBulkSendAddressesInput({
   // the exhausted feedback before filling in the amounts. Start on the
   // Review page stays the final judge.
   const checkBulkSendAccess = useCallback(async () => {
+    grantedEntitlementSourceRef.current = undefined;
     if (platformEnv.isE2E) {
       return true;
     }
@@ -716,6 +724,8 @@ function BaseBulkSendAddressesInput({
         isContextValid: () =>
           !isUnmountedRef.current && getNextContextKey() === contextKeyAtPress,
       });
+      if (access.granted)
+        grantedEntitlementSourceRef.current = access.entitlementSource;
       return access.granted;
     } finally {
       isCheckingAccessRef.current = false;
