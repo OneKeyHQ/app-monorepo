@@ -133,6 +133,9 @@ jest.mock('../components/PerpNetworkAlert', () => ({
 jest.mock('../components/PerpOrderBook', () => ({
   PerpOrderBook: () => <div>Order book</div>,
 }));
+jest.mock('../components/PerpsRecallBanner', () => ({
+  PerpsRecallBanner: () => <div>Recall banner</div>,
+}));
 jest.mock('../components/PerpTips', () => ({ PerpTips: () => null }));
 jest.mock('../components/TickerBar/PerpTickerBar', () => ({
   PerpTickerBar: () => <div>Ticker</div>,

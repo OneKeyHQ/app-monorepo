@@ -1,3 +1,4 @@
+import { isLocallyCreatedSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
   BROADCAST_TX_CONTEXT_DATA_FIELD,
   getBroadcastTxContextFromData,
@@ -354,8 +355,30 @@ export function buildBackgroundThreadErrorResponse(
 
 export function buildSafeBackgroundThreadErrorData(
   data: unknown,
-  context?: { request: IBackgroundThreadRequest; message: string },
+  context?: {
+    request: IBackgroundThreadRequest;
+    message: string;
+    error?: unknown;
+  },
 ) {
+  if (
+    context?.request.type === 'service-call' &&
+    (context.request.method === 'serviceSend.signAndSendTransaction' ||
+      context.request.method === 'serviceSend.batchSignAndSendTransaction') &&
+    isLocallyCreatedSwapReviewQuoteExpiredError(context.error) &&
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    'swapReviewQuoteExpiredBeforeBroadcast' in data &&
+    data.swapReviewQuoteExpiredBeforeBroadcast === true &&
+    'definitelyNotSubmitted' in data &&
+    typeof data.definitelyNotSubmitted === 'boolean'
+  ) {
+    return {
+      swapReviewQuoteExpiredBeforeBroadcast: true,
+      definitelyNotSubmitted: data.definitelyNotSubmitted,
+    };
+  }
   const broadcastTxContext = getBroadcastTxContextFromData(data);
   // Lets bg tell a privacy runtime that is down from an ordinary failure.
   const runtimeFailure =
