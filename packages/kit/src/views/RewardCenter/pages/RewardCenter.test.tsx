@@ -40,18 +40,17 @@ let mockActiveAccount: {
   network?: typeof mockNetwork;
   account?: typeof mockAccount;
 } = {};
-const mockClaim = jest.fn<
-  Promise<{ success: boolean; resMsg?: string } | undefined>,
-  []
->();
+// The proxy answers a delivered issuance with an empty body (null).
+type IMockIssuanceResponse =
+  | { success: boolean; resMsg?: string }
+  | null
+  | undefined;
+const mockClaim = jest.fn<Promise<IMockIssuanceResponse>, []>();
 let mockRedeemCode = '';
 let mockActivated = true;
 const mockPushModal = jest.fn();
 const mockResetField = jest.fn();
-const mockRedeem = jest.fn<
-  Promise<{ success: boolean } | undefined>,
-  [unknown]
->();
+const mockRedeem = jest.fn<Promise<IMockIssuanceResponse>, [unknown]>();
 const mockInventory = {
   remaining: 1,
   totalReceivedLimit: 500,
@@ -337,10 +336,11 @@ describe('inline TRON energy claim', () => {
     mockInventory.monthIPRemain = 2;
   });
 
-  function inlineCenter(onClose?: () => void) {
+  function inlineCenter(onClose?: () => void, onIssued?: () => void) {
     return (
       <TronRewardCenterContent
         params={{ accountId: '', networkId: mockNetwork.id, onClose }}
+        onIssued={onIssued}
         renderInline={({ claimed, validUntil, claimDetails }) => (
           <>
             <span>{claimed ? 'claimed' : 'unclaimed'}</span>
@@ -471,29 +471,97 @@ describe('inline TRON energy claim', () => {
     );
   });
 
-  it.each([undefined, { success: false, resMsg: 'failed' }])(
-    'keeps an unsuccessful claim retryable (%j)',
+  it('reports each successful claim and redemption so records can refresh', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    mockRedeem.mockResolvedValue({ success: true });
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(onIssued).not.toHaveBeenCalled();
+
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(onIssued).toHaveBeenCalledTimes(1);
+
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(RewardCenterTestIDs.redeemBtn));
+    });
+    expect(onIssued).toHaveBeenCalledTimes(2);
+  });
+
+  // The live proxy answers a delivered claim with an empty body and throws
+  // for every rejection (e.g. code 110 "already claimed within 24 hours").
+  it.each([null, undefined])(
+    'treats an empty success body as a delivered claim (%j)',
     async (response) => {
       mockClaim.mockResolvedValue(response);
-      render(inlineCenter());
+      const onIssued = jest.fn();
+      render(inlineCenter(undefined, onIssued));
       const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
       await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
         timeout: 3000,
       });
-      await act(async () => {
-        fireEvent.click(claim);
-      });
-      expect(screen.getByText('unclaimed')).toBeTruthy();
-      expect(screen.queryByText('valid')).toBeNull();
-      expect(claim).toHaveProperty('disabled', false);
+      fireEvent.click(claim);
+      expect(await screen.findByText('claimed')).toBeTruthy();
+      expect(screen.getByText('valid')).toBeTruthy();
+      expect(claim).toHaveProperty('disabled', true);
+      expect(onIssued).toHaveBeenCalledTimes(1);
+      fireEvent.click(claim);
+      expect(mockClaim).toHaveBeenCalledTimes(1);
     },
   );
 
-  it('keeps the code for retry when redemption returns an empty response', async () => {
-    mockRedeem.mockResolvedValue(undefined);
-    const view = render(inlineCenter());
+  it.each([
+    ['an explicit failure body', { success: false, resMsg: 'failed' }],
+    ['a rejected request', new Error('already claimed within 24 hours')],
+  ])('keeps an unsuccessful claim retryable (%s)', async (_name, outcome) => {
+    if (outcome instanceof Error) {
+      mockClaim.mockRejectedValue(outcome);
+    } else {
+      mockClaim.mockResolvedValue(outcome);
+    }
+    const onIssued = jest.fn();
+    render(inlineCenter(undefined, onIssued));
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    await act(async () => {
+      fireEvent.click(claim);
+    });
+    expect(screen.getByText('unclaimed')).toBeTruthy();
+    expect(screen.queryByText('valid')).toBeNull();
+    expect(claim).toHaveProperty('disabled', false);
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty success body as a completed redemption', async () => {
+    mockRedeem.mockResolvedValue(null);
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
     mockRedeemCode = 'test-coupon';
-    view.rerender(inlineCenter());
+    view.rerender(inlineCenter(undefined, onIssued));
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(mockRedeem).toHaveBeenCalledTimes(1);
+    expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the code for retry when the redemption request is rejected', async () => {
+    mockRedeem.mockRejectedValue(new Error('invalid code'));
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
     const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
     await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
     await act(async () => {
@@ -502,5 +570,21 @@ describe('inline TRON energy claim', () => {
     expect(mockRedeem).toHaveBeenCalledTimes(1);
     expect(mockRedeemCode).toBe('test-coupon');
     expect(redeem).toHaveProperty('disabled', false);
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('does not report a rejected redemption', async () => {
+    mockRedeem.mockResolvedValue({ success: false, resMsg: 'invalid code' });
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(mockRedeem).toHaveBeenCalledTimes(1);
+    expect(onIssued).not.toHaveBeenCalled();
   });
 });

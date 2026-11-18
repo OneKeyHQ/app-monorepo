@@ -35,7 +35,9 @@ export type ISubsidyHistoryView = {
 
 // Loads once per signed-in identity. History and summary share a per-member
 // rate limit on the server, so there is no polling and no refetch on focus;
-// the only other trigger is an explicit reload.
+// the only other trigger is an explicit reload (a retry, or a refresh after a
+// claim). A reload keeps the data already on screen: it is replaced when the
+// new response arrives and stays put if the refresh fails.
 function useSubsidyQuery<T>({
   identity,
   fetcher,
@@ -52,29 +54,42 @@ function useSubsidyQuery<T>({
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
-  const load = useCallback(async () => {
-    requestRef.current += 1;
-    const request = requestRef.current;
-    if (!identity) {
-      setState({ data: undefined, isLoading: false, isError: false });
-      return;
-    }
-    setState({ data: undefined, isLoading: true, isError: false });
-    try {
-      const data = await fetcherRef.current();
-      if (requestRef.current === request) {
-        setState({ data, isLoading: false, isError: false });
+  const load = useCallback(
+    async ({ keepData }: { keepData: boolean }) => {
+      requestRef.current += 1;
+      const request = requestRef.current;
+      if (!identity) {
+        setState({ data: undefined, isLoading: false, isError: false });
+        return;
       }
-    } catch {
-      // The service already silenced the toast; the caller renders a retry.
-      if (requestRef.current === request) {
-        setState({ data: undefined, isLoading: false, isError: true });
+      setState((prev) =>
+        keepData && prev.data !== undefined
+          ? prev
+          : { data: undefined, isLoading: true, isError: false },
+      );
+      try {
+        const data = await fetcherRef.current();
+        if (requestRef.current === request) {
+          setState({ data, isLoading: false, isError: false });
+        }
+      } catch {
+        // The service already silenced the toast. Without data the caller
+        // renders a retry; with data the stale list is better than an error.
+        if (requestRef.current === request) {
+          setState((prev) =>
+            prev.data !== undefined
+              ? prev
+              : { data: undefined, isLoading: false, isError: true },
+          );
+        }
       }
-    }
-  }, [identity]);
+    },
+    [identity],
+  );
 
   useEffect(() => {
-    void load();
+    // Records of another identity must never stay on screen.
+    void load({ keepData: false });
     return () => {
       // Drop the response of a request that outlives its identity or page.
       requestRef.current += 1;
@@ -82,7 +97,7 @@ function useSubsidyQuery<T>({
   }, [load]);
 
   const reload = useCallback(() => {
-    void load();
+    void load({ keepData: true });
   }, [load]);
 
   return { ...state, reload };

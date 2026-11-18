@@ -176,6 +176,51 @@ describe('useSubsidyHistory', () => {
     expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the list on screen while a reload is in flight, then replaces it', async () => {
+    const refreshed = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    mockFetchSubsidyHistory.mockReturnValueOnce(refreshed.promise);
+
+    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    act(() => result.current.reload());
+
+    // No skeleton flash: the first page stays visible during the refresh.
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data?.items).toHaveLength(1);
+
+    await act(async () => {
+      refreshed.resolve(
+        historyResponse({
+          items: [{ ...tronRecord, id: 'tron_energy:attempt-2' }, tronRecord],
+        }),
+      );
+      await refreshed.promise;
+    });
+
+    await waitFor(() => expect(result.current.data?.items).toHaveLength(2));
+    expect(result.current.data?.items[0].id).toBe('tron_energy:attempt-2');
+  });
+
+  it('keeps the list when a reload fails instead of showing an error', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90804'));
+
+    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    await act(async () => {
+      result.current.reload();
+    });
+
+    await waitFor(() =>
+      expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2),
+    );
+    expect(result.current.isError).toBe(false);
+    expect(result.current.data?.items).toHaveLength(1);
+  });
+
   it('drops the records of the previous user after an account switch', async () => {
     const first = deferred<ReturnType<typeof historyResponse>>();
     mockFetchSubsidyHistory.mockReturnValueOnce(first.promise);

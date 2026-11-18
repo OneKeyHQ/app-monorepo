@@ -519,6 +519,13 @@ function SubsidyCenter() {
   const identity = useSubsidyIdentity();
   const summaryQuery = useSubsidySummary(identity);
   const historyQuery = useSubsidyHistory(identity);
+  // A claim or redemption adds a record and can change the totals.
+  const { reload: reloadSummary } = summaryQuery;
+  const { reload: reloadHistory } = historyQuery;
+  const refreshRecords = useCallback(() => {
+    reloadSummary();
+    reloadHistory();
+  }, [reloadSummary, reloadHistory]);
   const { gtMd } = useMedia();
   const wide = Boolean(
     gtMd &&
@@ -857,6 +864,7 @@ function SubsidyCenter() {
         }}
         renderLoading={wide ? renderSubsidyBenefits : undefined}
         renderInline={renderSubsidyBenefits}
+        onIssued={refreshRecords}
       />
     );
   } else {

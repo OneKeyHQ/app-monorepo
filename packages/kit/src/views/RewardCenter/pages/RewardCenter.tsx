@@ -104,12 +104,18 @@ function RewardCenterDetails({
   selectorSceneUrl,
   params: { accountId, networkId, onClose, showAccountSelector = true },
   renderInline,
+  onIssued,
 }: {
   selectorSceneUrl: string;
   params: IRewardCenterParams;
   renderInline?: IInlineRewardView;
+  onIssued?: () => void;
 }) {
   const intl = useIntl();
+  const onIssuedRef = useRef(onIssued);
+  useEffect(() => {
+    onIssuedRef.current = onIssued;
+  }, [onIssued]);
   const form = useForm({
     defaultValues: {
       code: '',
@@ -480,6 +486,7 @@ function RewardCenterDetails({
     refreshTimerRef.current = setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
     }, 1000);
+    onIssuedRef.current?.();
   }, [intl, isInline]);
 
   const handleClaimResource = useCallback(async () => {
@@ -515,10 +522,14 @@ function RewardCenterDetails({
           },
         });
 
-      if (!resp?.success) {
+      // A successful issuance comes back with an empty body: the proxy turns
+      // every supplier rejection into a thrown error. Only a body that says
+      // so explicitly is a failure; treating "no body" as one would report a
+      // delivered claim as failed and invite a second attempt.
+      if (resp?.success === false) {
         Toast.error({
           title:
-            resp?.resMsg ||
+            resp.resMsg ||
             intl.formatMessage({ id: ETranslations.global_failed }),
         });
         return;
@@ -606,10 +617,11 @@ function RewardCenterDetails({
           },
         });
 
-      if (!resp?.success) {
+      // Same contract as the free claim: an empty body is a success.
+      if (resp?.success === false) {
         Toast.error({
           title:
-            resp?.resMsg ||
+            resp.resMsg ||
             intl.formatMessage({ id: ETranslations.global_failed }),
         });
         return;
@@ -1312,10 +1324,13 @@ export function TronRewardCenterContent({
   params,
   renderInline,
   renderLoading,
+  onIssued,
 }: {
   params: IRewardCenterParams;
   renderInline?: IInlineRewardView;
   renderLoading?: () => ReactNode;
+  // Called after a successful free claim or code redemption.
+  onIssued?: () => void;
 }) {
   const selectorSceneUrlRef = useRef<string | undefined>(undefined);
   selectorSceneUrlRef.current ??= `reward-center-${Date.now()}-${Math.random()}`;
@@ -1337,6 +1352,7 @@ export function TronRewardCenterContent({
           selectorSceneUrl={selectorSceneUrl}
           params={params}
           renderInline={renderInline}
+          onIssued={onIssued}
         />
       </RewardCenterAccountSelectorSync>
     </AccountSelectorProviderMirror>
