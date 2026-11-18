@@ -95,7 +95,7 @@ const toNativeNumber = (value: unknown): number => {
 
 type IReactNativeBundleUpdateWithPrune = Omit<
   typeof ReactNativeBundleUpdate,
-  'downloadBundle' | 'verifyBundleASC' | 'downloadBundleASC'
+  'downloadBundle' | 'verifyBundle' | 'verifyBundleASC' | 'downloadBundleASC'
 > & {
   pruneStaleAppVersionBundles(): Promise<number>;
   downloadBundle(params: {
@@ -118,11 +118,21 @@ type IReactNativeBundleUpdateWithPrune = Omit<
     diffSha256?: string;
     diffSignature?: string;
   }>;
+  verifyBundle(params: {
+    sha256: string;
+    latestVersion: string;
+    bundleVersion: string;
+    signature?: string;
+    diffSha256?: string;
+    diffSignature?: string;
+  }): Promise<void>;
   verifyBundleASC(params: {
     sha256: string;
     latestVersion: string;
     bundleVersion: string;
     signature: string;
+    downloadUrl?: string;
+    fileSize?: number;
     diffDownloadUrl?: string;
     diffFileSize?: number;
     diffSha256?: string;
@@ -397,6 +407,7 @@ export const BundleUpdate: IBundleUpdate = {
       downloadUrl: result.downloadUrl,
       latestVersion: result.latestVersion,
       bundleVersion: result.bundleVersion,
+      fileSize: params.fileSize,
       sha256: result.sha256,
       signature: params.signature,
       diffDownloadUrl: result.diffDownloadUrl ?? params.diffDownloadUrl,
@@ -407,10 +418,19 @@ export const BundleUpdate: IBundleUpdate = {
   },
   verifyBundle: (params) =>
     runUpdateOperation('verifyPackage', () =>
-      ReactNativeBundleUpdate.verifyBundle({
+      ReactNativeBundleUpdateWithPrune.verifyBundle({
         sha256: toNativeString(params?.sha256),
         latestVersion: toNativeString(params?.latestVersion),
         bundleVersion: toNativeString(params?.bundleVersion),
+        ...(params?.signature
+          ? { signature: toNativeString(params.signature) }
+          : null),
+        ...(params?.diffSha256
+          ? { diffSha256: toNativeString(params.diffSha256) }
+          : null),
+        ...(params?.diffSignature
+          ? { diffSignature: toNativeString(params.diffSignature) }
+          : null),
       }),
     ),
   verifyBundleASC: (params) =>
@@ -420,6 +440,13 @@ export const BundleUpdate: IBundleUpdate = {
         latestVersion: toNativeString(params?.latestVersion),
         bundleVersion: toNativeString(params?.bundleVersion),
         signature: toNativeString(params?.signature),
+        ...(params?.downloadUrl
+          ? { downloadUrl: toNativeString(params.downloadUrl) }
+          : null),
+        ...(typeof params?.fileSize === 'number' &&
+        Number.isFinite(params.fileSize)
+          ? { fileSize: params.fileSize }
+          : null),
         ...(params?.diffDownloadUrl
           ? { diffDownloadUrl: toNativeString(params.diffDownloadUrl) }
           : null),

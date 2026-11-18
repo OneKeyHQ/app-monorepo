@@ -26,6 +26,7 @@ export type IUpdateDownloadedEvent =
       | 'latestVersion'
       | 'downloadUrl'
       | 'bundleVersion'
+      | 'fileSize'
       | 'sha256'
       | 'signature'
       | 'diffDownloadUrl'
