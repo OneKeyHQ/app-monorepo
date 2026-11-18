@@ -48,7 +48,10 @@ test.each(['main', 'background'])(
     expect(context.publicLazyFixture).toBe(42);
     expect(vm.runInContext('Function("return 3")()', context)).toBe(3);
     expect(() =>
-      vm.runInContext('(function(){}).constructor("return globalThis")()', context),
+      vm.runInContext(
+        '(function(){}).constructor("return globalThis")()',
+        context,
+      ),
     ).toThrow();
   },
 );
@@ -103,7 +106,10 @@ test.each(['main', 'background'])(
       ),
     ).toBe(true);
     expect(() =>
-      vm.runInContext('(function(){}).constructor("return globalThis")()', context),
+      vm.runInContext(
+        '(function(){}).constructor("return globalThis")()',
+        context,
+      ),
     ).toThrow();
   },
 );
