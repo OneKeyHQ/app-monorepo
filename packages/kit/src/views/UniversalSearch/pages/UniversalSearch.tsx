@@ -77,6 +77,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -144,6 +145,9 @@ interface IUniversalSection {
 const SEARCH_DEBOUNCE_MS = 500;
 // The longest the other results wait for the stock search's first page.
 const STOCK_FIRST_PAGE_WAIT_MS = 3000;
+// How long, from the start of a search, the help center request may hold the
+// done state and query analytics. Articles that land later are appended.
+const HELP_CENTER_RESULT_WAIT_MS = 1500;
 // The modal width every other modal opens at.
 const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
 const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
@@ -913,6 +917,14 @@ export function UniversalSearch({
               return {};
             })
         : undefined;
+      // The budget starts with the request, so it only delays the done state
+      // when the other rounds finish first.
+      const helpCenterWithinBudget = helpCenterPromise
+        ? Promise.race([
+            helpCenterPromise,
+            timerUtils.wait(HELP_CENTER_RESULT_WAIT_MS).then(() => undefined),
+          ])
+        : undefined;
       let paintedSections: IUniversalSection[] = [];
       let searchFailed = false;
       try {
@@ -976,31 +988,49 @@ export function UniversalSearch({
         searchFailed = true;
         paintedSections = primarySections;
       }
-      // While help center results are still on the way, an empty result set
-      // keeps the skeleton instead of flashing "No results".
-      if (paintedSections.length > 0 || !helpCenterPromise) {
+      // Within the help center wait budget, an empty result set keeps the
+      // skeleton instead of flashing "No results".
+      if (paintedSections.length > 0 || !helpCenterWithinBudget) {
         setSections(paintedSections);
         setSearchStatus(ESearchStatus.done);
       }
 
-      if (helpCenterPromise) {
-        const helpCenterResult = await helpCenterPromise;
-        if (isResponseStale()) {
-          return;
-        }
-        const helpCenterSections = buildSearchResultSections({
-          result: helpCenterResult,
-          input,
-        });
-        // Skip the repaint when nothing new arrived and results are already
-        // on screen.
-        if (helpCenterSections.length > 0 || paintedSections.length === 0) {
+      if (helpCenterPromise && helpCenterWithinBudget) {
+        const appendHelpCenterSections = (
+          helpCenterResult: IUniversalSearchBatchResult,
+        ) => {
+          const helpCenterSections = buildSearchResultSections({
+            result: helpCenterResult,
+            input,
+          });
+          if (helpCenterSections.length === 0) {
+            return false;
+          }
           paintedSections = mergeSearchResultSections(
             paintedSections,
             helpCenterSections,
           );
+          return true;
+        };
+        const helpCenterResult = await helpCenterWithinBudget;
+        if (isResponseStale()) {
+          return;
+        }
+        const appended = helpCenterResult
+          ? appendHelpCenterSections(helpCenterResult)
+          : false;
+        // Skip the repaint when nothing new arrived and results are already
+        // on screen.
+        if (appended || paintedSections.length === 0) {
           setSections(paintedSections);
           setSearchStatus(ESearchStatus.done);
+        }
+        if (!helpCenterResult) {
+          void helpCenterPromise.then((lateResult) => {
+            if (!isResponseStale() && appendHelpCenterSections(lateResult)) {
+              setSections(paintedSections);
+            }
+          });
         }
       }
 

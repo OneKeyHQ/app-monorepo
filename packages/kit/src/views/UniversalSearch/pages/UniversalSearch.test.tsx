@@ -24,6 +24,11 @@ let mockWatchlistItems: IMarketWatchListItemV2[] = [];
 let mockResults: IUniversalSearchBatchResult = {};
 let mockStocks: IMarketStockPublicItem[] = [];
 const mockSearch = jest.fn(async () => mockResults);
+const mockUniversalSearchQuery = jest.fn<void, unknown[]>();
+const mockHelpCenterSearch = jest.fn<
+  Promise<{ items: IUniversalSearchResultItem[] }>,
+  []
+>(async () => ({ items: [] }));
 const mockFetchAssetDetail = jest.fn<
   Promise<unknown>,
   [{ assetId: string; autoHandleError: boolean }]
@@ -180,7 +185,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceUniversalSearch: {
       universalSearch: () => mockSearch(),
-      universalSearchOfHelpCenter: async () => ({ items: [] }),
+      universalSearchOfHelpCenter: () => mockHelpCenterSearch(),
       universalSearchRecommend: async () => ({}),
     },
     serviceToken: { getAllAggregateTokenInfo: async () => ({}) },
@@ -365,7 +370,13 @@ jest.mock(
 );
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    universalSearch: { search: { universalSearchQuery: jest.fn() } },
+    universalSearch: {
+      search: {
+        universalSearchQuery: (...args: unknown[]) => {
+          mockUniversalSearchQuery(...args);
+        },
+      },
+    },
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -416,6 +427,9 @@ beforeEach(() => {
   mockStocks = [];
   mockResults = {};
   mockSearch.mockClear();
+  mockHelpCenterSearch.mockReset();
+  mockHelpCenterSearch.mockImplementation(async () => ({ items: [] }));
+  mockUniversalSearchQuery.mockClear();
   mockFetchAssetDetail.mockReset();
   mockStockResult.canLoadMore = false;
   mockStockResult.isLoadingMore = false;
@@ -563,6 +577,22 @@ describe.each([
       screen.queryByRole('button', { name: ETranslations.global_watchlist }),
     ).toBeNull();
   });
+});
+
+it('does not hold an empty search on a slow help center request', async () => {
+  mockHelpCenterSearch.mockImplementation(() => new Promise(() => {}));
+  render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
+    target: { value: 'match' },
+  });
+  await waitFor(
+    () =>
+      expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy(),
+    { timeout: 4000 },
+  );
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
+  );
 });
 
 it('keeps Watchlist hidden for DApp-only searches', async () => {
