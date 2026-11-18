@@ -9,8 +9,8 @@ import {
   Dialog,
   IconButton,
   Input,
+  SegmentSlider,
   SizableText,
-  Slider,
   Stack,
   Switch,
   Tooltip,
@@ -172,11 +172,11 @@ function DevOverlayWindow() {
           <XStack gap="$2" alignItems="center">
             <SizableText>TOP</SizableText>
             <Stack flex={1}>
-              <Slider
+              <SegmentSlider
+                value={positionInfo.top}
                 min={1}
                 max={100}
-                step={1}
-                defaultValue={positionInfo.top}
+                segments={0}
                 onChange={(v) => {
                   updateTopPosition(v);
                 }}

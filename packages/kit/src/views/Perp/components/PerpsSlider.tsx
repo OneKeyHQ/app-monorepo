@@ -3,12 +3,10 @@ import { memo } from 'react';
 import { SegmentSlider } from '@onekeyhq/components';
 
 /**
- * Platform-adaptive slider component for Perps trading.
- *
- * Uses SegmentSlider on every platform — the underlying implementation is
- * file-extension-split: native runs the reanimated-based slider, web/desktop/
- * extension run a pure-DOM implementation that avoids React-state-per-frame
- * during drag (fixes hysteresis, refresh layout race, and segment click drift).
+ * Slider for Perps trading, built on SegmentSlider (Nitro view on iOS/Android,
+ * DOM on web/desktop/extension). On iOS/Android a drag ticks a light haptic on
+ * every 1 unit (1% of a 0..100 range, 1x of leverage) and a stronger one on
+ * each segment mark.
  *
  * @param segments - Number of visual segment marks to display
  * @param sliderHeight - Height of the slider track
@@ -27,10 +25,8 @@ export interface IPerpsSliderProps {
   showBubble?: boolean;
   step?: number;
   centerOrigin?: boolean;
-  /**
-   * Native-only for now: when true, a tap snaps to the nearest segment mark
-   * while a drag stays free. Default false.
-   */
+  /** When true, a quick tap snaps to the nearest segment mark while a drag
+   * stays free. Default false. */
   snapTapToSegment?: boolean;
 }
 
@@ -58,6 +54,7 @@ function PerpsSliderComponent({
       showBubble={showBubble}
       centerOrigin={centerOrigin}
       snapTapToSegment={snapTapToSegment}
+      hapticStep={1}
     />
   );
 }

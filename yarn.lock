@@ -11028,7 +11028,6 @@ __metadata:
     "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@6.8.0-5"
     "@react-native-community/datetimepicker": "npm:9.1.0"
     "@react-native-community/netinfo": "npm:12.0.1"
-    "@react-native-community/slider": "npm:5.2.0"
     "@react-native-documents/picker": "npm:^12.0.1"
     "@react-native-google-signin/google-signin": "npm:16.1.0"
     "@react-native-masked-view/masked-view": "npm:0.3.2"
@@ -14700,13 +14699,6 @@ __metadata:
     react: "*"
     react-native: ">=0.59"
   checksum: 10/4eb5ee009bca74c601c65370ad95ea6f42357bb822bed15e404b1720d891ce43098432cc724dbb8a9e0d9e5f48ba70e2280732e484ba1b5f5434d4d8bacc671b
-  languageName: node
-  linkType: hard
-
-"@react-native-community/slider@npm:5.2.0":
-  version: 5.2.0
-  resolution: "@react-native-community/slider@npm:5.2.0"
-  checksum: 10/81078cef11297f3d4f49ecf0871a5479ca91ca78229556bff49c75c449bd00b853b552d32324230f70840b8a9004e898085a1a793ec0da64f3145d6247ea150f
   languageName: node
   linkType: hard
 

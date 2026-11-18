@@ -2535,51 +2535,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-slider (5.2.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-bridging
-    - React-Core
-    - React-cxxstableapi
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - react-native-slider/common (= 5.2.0)
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - react-native-slider/common (5.2.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-bridging
-    - React-Core
-    - React-cxxstableapi
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
   - react-native-view-shot (5.1.0):
     - hermes-engine
     - RCTRequired
@@ -4261,7 +4216,6 @@ DEPENDENCIES:
   - react-native-quick-base64 (from `../../../node_modules/react-native-quick-base64`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-skia (from `../../../node_modules/@shopify/react-native-skia`)"
-  - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
   - react-native-webview-cleaner (from `../../../node_modules/react-native-webview-cleaner`)
@@ -4609,8 +4563,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-skia:
     :path: "../../../node_modules/@shopify/react-native-skia"
-  react-native-slider:
-    :path: "../../../node_modules/@react-native-community/slider"
   react-native-view-shot:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
@@ -4911,7 +4863,6 @@ SPEC CHECKSUMS:
   react-native-quick-base64: 3f24d3c28843c94ac266b2d7b3afb3c32e86196f
   react-native-safe-area-context: ec6954aaf61fa1985272c71b5ca32ebc3e87c3a6
   react-native-skia: 6276d26c85494e87642b7f6e0c693de1736277a0
-  react-native-slider: a675a3128f24ab70e8cadff749c24c35b9aa6f4f
   react-native-view-shot: acef7a4e8f7b5d78b1e2451a37029e939d24087d
   react-native-webview: 2fbc4003c4f0284b0d01e3dcdbfe982694bae0d4
   react-native-webview-cleaner: 2c0f56c4ae6d3ae5dfd1ff422cb0a637dcfa8b16
