@@ -17,7 +17,7 @@ function createProtectedRuntime() {
 }
 
 test.each(['main', 'background'])(
-  '%s cannot execute the legacy HTTP chunk loader under no-eval',
+  '%s can execute the legacy HTTP chunk loader under unsafe-eval',
   async () => {
     const context = createProtectedRuntime();
     const coreModule = { exports: {} };
@@ -44,15 +44,17 @@ test.each(['main', 'background'])(
       fs.readFileSync(path.join(__dirname, '../asyncRequireTpl.js'), 'utf8'),
       context,
     );
-    await expect(context.module.exports(42, [])).rejects.toThrow('SES_NO_EVAL');
-    expect(() => vm.runInContext('Function("return 3")()', context)).toThrow(
-      'SES_NO_EVAL',
-    );
+    await expect(context.module.exports(42, [])).resolves.toBe(42);
+    expect(context.publicLazyFixture).toBe(42);
+    expect(vm.runInContext('Function("return 3")()', context)).toBe(3);
+    expect(() =>
+      vm.runInContext('(function(){}).constructor("return globalThis")()', context),
+    ).toThrow();
   },
 );
 
 test.each(['main', 'background'])(
-  '%s imports a bundled module through real Metro after a microtask under no-eval',
+  '%s imports a bundled module through real Metro after a microtask under unsafe-eval',
   async () => {
     const context = createProtectedRuntime();
     const imports = [];
@@ -93,6 +95,15 @@ test.each(['main', 'background'])(
     expect(context.module.exports.unstable_importMaybeSync(42)).toBe(42);
     expect(imports).toEqual([42, 42]);
     for (const source of ['eval("1+2")', 'Function("return 3")()'])
-      expect(() => vm.runInContext(source, context)).toThrow('SES_NO_EVAL');
+      expect(vm.runInContext(source, context)).toBe(3);
+    expect(
+      vm.runInContext(
+        'Object.isFrozen(Function) && Object.isFrozen(Function.prototype)',
+        context,
+      ),
+    ).toBe(true);
+    expect(() =>
+      vm.runInContext('(function(){}).constructor("return globalThis")()', context),
+    ).toThrow();
   },
 );
