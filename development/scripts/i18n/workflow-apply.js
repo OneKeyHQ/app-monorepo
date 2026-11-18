@@ -25,18 +25,8 @@ function desired(entry, records, locales) {
   );
 }
 
-// The approval covers one onekey-i18n branch and release channel. A plan
-// prepared before they were recorded has an unknown target, so apply does not
-// continue it; the PR an earlier apply opened is finished by pulling its pinned
-// commit and running verify, which checks that same commit.
-function assertTarget(plan, client, proposal) {
-  if (!plan.central) {
-    throw new Error(
-      proposal?.commit
-        ? `The plan predates recording its onekey-i18n branch and release channel, so apply does not continue it. To finish onekey-i18n PR #${proposal.number}, run \`node development/scripts/i18n/i18n-pull.js --pr ${proposal.number} --commit ${proposal.commit} --wait\` from the repository root, then \`yarn i18n:workflow verify --file <plan.json>\`. For anything else, prepare another preview.`
-        : 'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
-    );
-  }
+// The approval covers one onekey-i18n branch and release channel.
+function assertTarget(plan, client) {
   const approved = plan.central;
   const current = {
     base: client.base ?? 'main',
@@ -46,6 +36,21 @@ function assertTarget(plan, client, proposal) {
     throw new Error(
       `The plan was approved for onekey-i18n ${approved.base} (${approved.channel} release), but this shell targets ${current.base} (${current.channel} release). Set ONEKEY_I18N_BASE and ONEKEY_I18N_CHANNEL as they were for the preview, or prepare another preview.`,
     );
+}
+
+// The client that checks the project before apply writes or pulls. A plan
+// prepared before targets were recorded has an unknown target, so apply only
+// continues it when an earlier apply opened its PR, and checks it against that
+// PR's pinned commit instead of the shell's release.
+function projectClient(plan, client, proposal, clientAt) {
+  if (plan.central) {
+    assertTarget(plan, client);
+    return client;
+  }
+  if (proposal?.commit && clientAt) return clientAt(proposal.commit);
+  throw new Error(
+    'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
+  );
 }
 
 async function verifyProject(plan, client, root) {
@@ -144,6 +149,8 @@ async function applyPlan({
   client,
   root = ROOT,
   pullImpl = pull,
+  // Client reading an onekey-i18n commit; resumes plans that predate targets.
+  clientAt,
 }) {
   if (!approval)
     throw new Error(
@@ -195,7 +202,7 @@ async function applyPlan({
       if (previous.status === 'complete') {
         // Only re-verifies local files. A plan without a recorded target (which
         // may have finished without a PR) can't be checked and is left as before.
-        if (plan.central) assertTarget(plan, client, previous.proposal);
+        if (plan.central) assertTarget(plan, client);
         // verifyLocal reads only the plan's languages, so check that the
         // local catalog has no others before reporting the plan as done.
         if (digest(loadCatalog(root).locales) !== digest(plan.locales))
@@ -207,9 +214,9 @@ async function applyPlan({
       }
       if (previous.proposal) receipt.proposal = previous.proposal;
     }
-    assertTarget(plan, client, receipt.proposal);
+    const checked = projectClient(plan, client, receipt.proposal, clientAt);
     owned = true;
-    await verifyProject(plan, client, root);
+    await verifyProject(plan, checked, root);
     if (workspace(root).branch !== plan.workspace.branch)
       throw new Error('Current branch differs from the preview.');
     assertHashes(root, plan.sourceFiles, 'Source');

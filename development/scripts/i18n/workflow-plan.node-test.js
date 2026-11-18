@@ -306,7 +306,7 @@ test('apply refuses a plan approved for another onekey-i18n branch or channel, b
   assert.deepEqual(readJson(`${ctx.file}.receipt.json`), finished);
 });
 
-test('apply does not continue a plan that predates recorded targets, but re-verifies a finished one', async (t) => {
+test('apply resumes a plan that predates recorded targets only from its PR commit', async (t) => {
   const ctx = await prepared(t, (item) => [
     {
       key: 'global.existing',
@@ -319,6 +319,7 @@ test('apply does not continue a plan that predates recorded targets, but re-veri
   const legacy = { ...content, approval: digest(content) };
   const file = path.join(ctx.root, 'legacy-plan.json');
   savePlan(legacy, file);
+  const pinned = [];
   const apply = () =>
     applyPlan({
       file,
@@ -326,14 +327,19 @@ test('apply does not continue a plan that predates recorded targets, but re-veri
       client: ctx.client,
       root: ctx.root,
       pullImpl: fakePull,
+      clientAt: (commit) => {
+        pinned.push(commit);
+        return ctx.client;
+      },
     });
   const receiptFile = `${file}.receipt.json`;
   await assert.rejects(apply, /predates recording its onekey-i18n branch/);
   assert.equal(ctx.writes.length, 0);
   assert(!fs.existsSync(receiptFile));
 
-  // An open PR is finished with a pinned pull and verify, not by apply.
-  const opened = {
+  // With the PR an earlier apply opened, apply checks that PR's commit, runs
+  // its usual local checks, pulls the PR and completes the same receipt.
+  writeJson(receiptFile, {
     schemaVersion: 1,
     kind: 'i18n-receipt',
     approval: legacy.approval,
@@ -341,17 +347,14 @@ test('apply does not continue a plan that predates recorded targets, but re-veri
     failedStage: 'pulling',
     operations: [],
     proposal: { number: 9, commit: 'c2' },
-  };
-  writeJson(receiptFile, opened);
-  await assert.rejects(apply, (error) =>
-    error.message.includes(
-      'To finish onekey-i18n PR #9, run `node development/scripts/i18n/i18n-pull.js --pr 9 --commit c2 --wait` from the repository root, then `yarn i18n:workflow verify',
-    ),
-  );
-  assert.deepEqual(readJson(receiptFile), opened);
+  });
+  const resumed = await apply();
+  assert.equal(resumed.status, 'complete');
+  assert.deepEqual(resumed.proposal, { number: 9, commit: 'c2' });
+  assert.deepEqual(pinned, ['c2']);
+  assert.equal(ctx.writes.length, 0);
 
   // A finished one, even without a PR, is re-verified as before.
-  assert.equal((await ctx.apply()).status, 'complete');
   const finished = { approval: legacy.approval, status: 'complete' };
   writeJson(receiptFile, finished);
   assert.deepEqual(await apply(), finished);
