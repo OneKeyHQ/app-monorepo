@@ -458,6 +458,7 @@ type IPublicCloudAccountApplyParams = {
 
 type IPublicCloudAccountApplyResult = {
   added: number;
+  indexedAccountsChanged: boolean;
   deleted: number;
   unchanged: number;
   pending: number;
@@ -8758,6 +8759,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const unchangedResult = {
       added: 0,
+      indexedAccountsChanged: false,
       deleted: 0,
       unchanged: 0,
       pending: accounts.length,
@@ -9097,13 +9099,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // Write both record types in one transaction, without Cloud hooks or
           // per-account events. Existing records are never removed or updated.
           if (indexedToAdd.size) {
-            await this.txAddRecords({
+            const addedIndexes = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.IndexedAccount,
               records: Array.from(indexedToAdd.values()),
               skipIfExists: true,
             });
             checkCurrent();
+            result.indexedAccountsChanged = addedIndexes.added > 0;
           }
           if (toAdd.length) {
             const added = await this.txAddRecords({
@@ -9196,7 +9199,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               const indexIds = indexes
                 .filter((item) => item.walletId === walletId)
                 .map((item) => item.id);
-              if (indexIds.length)
+              if (indexIds.length) {
                 await this.txUpdateRecords({
                   tx,
                   name: ELocalDBStoreNames.IndexedAccount,
@@ -9211,6 +9214,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                     return item;
                   },
                 });
+                result.indexedAccountsChanged = true;
+              }
               checkCurrent();
             }
           }

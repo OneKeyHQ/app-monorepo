@@ -24,9 +24,7 @@ import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManagerAccount';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type {
-  IDBAccount,
   IDBCloudSyncItem,
-  IDBIndexedAccount,
   IDBSetAccountNameParams,
   IDBWallet,
 } from '../../../dbs/local/types';
@@ -95,14 +93,6 @@ function harness() {
   }));
   const bg = {
     localDb: {
-      getAllAccounts: jest.fn(
-        async (): Promise<{ accounts: IDBAccount[] }> => ({ accounts: [] }),
-      ),
-      getAllIndexedAccounts: jest.fn(
-        async (): Promise<{ indexedAccounts: IDBIndexedAccount[] }> => ({
-          indexedAccounts: [],
-        }),
-      ),
       getWalletSafe,
       getDeviceSafe,
       getAllWallets: jest.fn(async () => ({ wallets: [wallet] })),
@@ -204,6 +194,7 @@ describe('public account snapshot Cloud scene integration', () => {
         added: action === 'delete' ? 0 : snapshots.length,
         deleted: action === 'delete' ? snapshots.length : 0,
         skippedSnapshotIds: [],
+        indexedAccountsChanged: false,
         issuesBySnapshotId: {},
         unchanged: 0,
         pending: 0,
@@ -232,6 +223,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [matchingId],
       skippedSnapshotIds: [missingId],
+      indexedAccountsChanged: false,
       added: 1,
       deleted: 0,
       unchanged: 0,
@@ -272,49 +264,65 @@ describe('public account snapshot Cloud scene integration', () => {
     expect(h.pool.get(missingItem.id)?.localSceneUpdated).toBe(true);
   });
 
-  test('replays acknowledged Cloud snapshots only when an account or index is missing', async () => {
+  test('skipping a wallet does not notify account consumers of a change', async () => {
     const h = harness();
-    const snapshots = Array.from({ length: 4 }, (_, index) =>
-      publicAccountTestSnapshot(index),
-    );
-    const items = await Promise.all(
-      snapshots.map(async (snapshot) => {
-        const id = getPublicAccountSnapshotId(snapshot);
-        const item = await encryptedItem(h.manager, snapshot, id);
-        return {
-          ...item,
-          rawKey: `${EPrimeCloudSyncDataType.Account} >> ${id}`,
-          localSceneUpdated: true,
-        };
-      }),
-    );
-    items[3].isDeleted = true;
-    const accounts = snapshots.map((snapshot) =>
-      publicAccountSnapshotToAccount(snapshot, h.wallet.id),
-    );
-    h.bg.localDb.getAllAccounts.mockResolvedValue({
-      accounts: [accounts[0], accounts[2]],
+    const snapshot = publicAccountTestSnapshot();
+    const id = getPublicAccountSnapshotId(snapshot);
+    const item = await encryptedItem(h.manager, snapshot, id);
+    h.pool.set(item.id, item);
+    jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
+      appliedSnapshotIds: [],
+      skippedSnapshotIds: [id],
+      indexedAccountsChanged: false,
+      added: 0,
+      deleted: 0,
+      unchanged: 0,
+      pending: 0,
+      conflicts: 0,
+      rejected: 0,
+      cancelled: false,
+      issuesBySnapshotId: {},
     });
-    h.bg.localDb.getAllIndexedAccounts.mockResolvedValue({
-      indexedAccounts: [0, 1].map((index) => ({
-        id: `${h.wallet.id}--${index}`,
-        walletId: h.wallet.id,
-        index,
-        name: 'Local index',
-        idHash: '',
-      })),
+    const onAccountsChanged = jest.fn();
+    await h.manager.syncToScene({
+      syncCredential: credential,
+      items: [item],
+      onAccountsChanged,
     });
-    const replay = await h.manager.findAcknowledgedSnapshotsMissingLocalRecords(
-      { items, syncCredential: credential },
-    );
+    expect(onAccountsChanged).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
+  });
 
-    expect(replay).toEqual(
-      [items[1], items[2]].map((item) => ({
-        ...item,
-        localSceneUpdated: false,
-      })),
-    );
-    expect(items.every((item) => item.localSceneUpdated)).toBe(true);
+  test('forced replay can repair the index of a locally built snapshot', async () => {
+    const h = harness();
+    const item = await encryptedItem(h.manager);
+    item.localSceneUpdated = true;
+    item.serverUploaded = false;
+    h.pool.set(item.id, item);
+    jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
+      appliedSnapshotIds: [
+        getPublicAccountSnapshotId(publicAccountTestSnapshot()),
+      ],
+      skippedSnapshotIds: [],
+      indexedAccountsChanged: true,
+      added: 0,
+      deleted: 0,
+      unchanged: 1,
+      pending: 0,
+      conflicts: 0,
+      rejected: 0,
+      cancelled: false,
+      issuesBySnapshotId: {},
+    });
+    const onAccountsChanged = jest.fn();
+    await h.manager.syncToScene({
+      syncCredential: credential,
+      items: [item],
+      forceSync: true,
+      onAccountsChanged,
+    });
+    expect(importPublicAccountSnapshots).toHaveBeenCalledTimes(1);
+    expect(onAccountsChanged).toHaveBeenCalledTimes(1);
   });
 
   test('decrypts real Cloud ciphertext, copies data and acknowledges in batches without an echo', async () => {
@@ -413,6 +421,7 @@ describe('public account snapshot Cloud scene integration', () => {
     jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
       appliedSnapshotIds: [],
       skippedSnapshotIds: [],
+      indexedAccountsChanged: false,
       added: 0,
       deleted: 0,
       unchanged: 0,
@@ -686,6 +695,35 @@ describe('public account snapshot Cloud scene integration', () => {
     recovered.forEach((item) => h.pool.set(item.id, item));
     await expect(h.manager.buildInitSyncDBItems(params)).resolves.toEqual([]);
     expect(getDataTime).toHaveBeenCalledTimes(1);
+  });
+
+  test('stops the recovery scan on cancellation before processing the next account', async () => {
+    const h = harness();
+    let current = true;
+    const original = h.manager.isSupportSync.bind(h.manager);
+    const support = jest
+      .spyOn(h.manager, 'isSupportSync')
+      .mockImplementationOnce(async (target) => {
+        const supported = await original(target);
+        current = false;
+        return supported;
+      });
+    const accounts = [0, 1].map((index) =>
+      publicAccountSnapshotToAccount(
+        publicAccountTestSnapshot(index),
+        h.wallet.id,
+      ),
+    );
+
+    await expect(
+      h.manager.buildInitSyncDBItems({
+        dbRecords: accounts,
+        initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+        syncCredential: credential,
+        isCurrent: () => current,
+      }),
+    ).resolves.toEqual([]);
+    expect(support).toHaveBeenCalledTimes(1);
   });
 
   test('the shared initializer bounds 1000 lookups and does not re-encrypt unchanged Keyless rows', async () => {

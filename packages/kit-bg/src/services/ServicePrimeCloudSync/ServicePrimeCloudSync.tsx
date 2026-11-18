@@ -625,6 +625,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       | 'foreground'
       | 'timer'
       | 'manual'
+      | 'wallet-ready'
       | 'local-mutation';
   }) {
     const generation = this.publicAccountSnapshotImportGeneration;
@@ -638,7 +639,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!(await this.isCloudSyncIsAvailable())) return;
     const credential = await this.getSyncCredentialSafe();
     const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
-    if (!spaceId || !isCurrent()) return;
+    if (!credential || !spaceId || !isCurrent()) return;
+    if (reason === 'wallet-ready') {
+      const { items } = await this.getAllLocalSyncItems();
+      await this.replayDownloadedAccounts({ items, credential, isCurrent });
+      return;
+    }
     const config = await primeCloudSyncPersistAtom.get();
     if (!isCurrent()) return;
     let state =
@@ -674,9 +680,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (state && !state.unfinished && reason !== 'timer') {
       // A committed local write can outlive its in-memory debounce/retry marker.
       // Recover it after restart before treating the last completed run as clean.
-      if (this.cloudSyncNetworkReachable === false) return;
       const { items } = await this.getAllLocalSyncItems();
       if (!isCurrent()) return;
+      if (state.status === 'complete') {
+        await this.replayDownloadedAccounts({ items, credential, isCurrent });
+      }
+      if (!isCurrent() || this.cloudSyncNetworkReachable === false) return;
       if (
         items.some(
           (item) => item.pwdHash === spaceId && item.serverUploaded === false,
@@ -771,6 +780,44 @@ class ServicePrimeCloudSync extends ServiceBase {
     return this.startServerSyncFlowSilently({
       callerName: `Cloud reconciliation ${reason}`,
     });
+  }
+
+  private async replayDownloadedAccounts({
+    items,
+    credential,
+    isCurrent,
+  }: {
+    items: IDBCloudSyncItem[];
+    credential: ICloudSyncCredential;
+    isCurrent: () => boolean;
+  }) {
+    const spaceId = cloudSyncItemBuilder.getPwdHash(credential);
+    const pending = items.filter(
+      (item) =>
+        item.dataType === EPrimeCloudSyncDataType.Account &&
+        item.pwdHash === spaceId &&
+        item.serverUploaded &&
+        !item.localSceneUpdated &&
+        item.data &&
+        item.dataTime,
+    );
+    if (!pending.length || !isCurrent()) return;
+    await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      async () => {
+        if (!isCurrent()) return;
+        const selected = await this.getSyncCredentialSafe();
+        if (
+          !isCurrent() ||
+          cloudSyncItemBuilder.getPwdHash(selected) !== spaceId
+        )
+          return;
+        await this.syncToSceneWithLocalSyncItems({
+          items: pending,
+          syncCredential: credential,
+          isCurrent,
+        });
+      },
+    );
   }
 
   @backgroundMethod()
@@ -1489,11 +1536,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncPendingItemsToScene({
     forceSync,
     isCurrent,
-    repairPublicAccountSnapshots,
   }: {
     forceSync?: boolean;
     isCurrent?: () => boolean;
-    repairPublicAccountSnapshots?: boolean;
   } = {}) {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
@@ -1511,18 +1556,8 @@ class ServicePrimeCloudSync extends ServiceBase {
         forceSync,
       }),
     );
-    const acknowledgedItems =
-      repairPublicAccountSnapshots && !forceSync
-        ? await this.syncManagers.account.findAcknowledgedSnapshotsMissingLocalRecords(
-            {
-              items,
-              syncCredential,
-              isCurrent,
-            },
-          )
-        : [];
     return this.syncToSceneWithLocalSyncItems({
-      items: pendingItems.concat(acknowledgedItems),
+      items: pendingItems,
       syncCredential,
       forceSync,
       isCurrent,
@@ -1650,11 +1685,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
 
     // account sync
+    let accountsChanged = false;
     await this.syncManagers.account.syncToScene({
       syncCredential,
       items: accountItems,
       forceSync,
       isCurrent,
+      onAccountsChanged: () => {
+        accountsChanged = true;
+      },
     });
     assertCurrent();
     await this.syncManagers.indexedAccount.syncToScene({
@@ -1663,7 +1702,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       forceSync,
     });
     assertCurrent();
-    if (accountItems?.length || indexedAccountItems?.length) {
+    if (accountsChanged || indexedAccountItems.length) {
       emitEventsStack.push(() => {
         appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
       });
@@ -2009,7 +2048,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload,
     forceSync,
     bypassRetryBackoff,
-    repairPublicAccountSnapshots,
   }: IStartServerSyncFlowParams = {}): Promise<boolean | undefined> {
     if (localMutation) {
       const pending = {
@@ -2037,8 +2075,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         isFlush ||
         encryptedSecurityPasswordR1ForServer ||
         setUndefinedTimeToNow ||
-        noDebounceUpload ||
-        repairPublicAccountSnapshots
+        noDebounceUpload
       ) {
         // An explicit operation cannot borrow the result of an ordinary poll.
         // Re-enter after it settles, preserving serialization and key scope.
@@ -2065,7 +2102,6 @@ class ServicePrimeCloudSync extends ServiceBase {
           noDebounceUpload,
           forceSync,
           bypassRetryBackoff,
-          repairPublicAccountSnapshots,
         });
       }
       this.fullSyncRequested = true;
@@ -2083,7 +2119,6 @@ class ServicePrimeCloudSync extends ServiceBase {
             noDebounceUpload,
             forceSync,
             bypassRetryBackoff,
-            repairPublicAccountSnapshots,
           })
         : Promise.resolve(undefined),
     );
@@ -2132,6 +2167,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       // A snapshot rebuilt from local data must lose to an existing Cloud edit.
       initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
       syncCredential,
+      isCurrent,
     });
     await this.writeCloudSyncPoolInBatches({
       items,
@@ -2144,11 +2180,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   private async runFullCloudReconciliation({
     forceSync,
     bypassRetryBackoff,
-    repairPublicAccountSnapshots,
   }: {
     forceSync?: boolean;
     bypassRetryBackoff?: boolean;
-    repairPublicAccountSnapshots?: boolean;
   }) {
     const entryGeneration = this.publicAccountSnapshotImportGeneration;
     const entryKeyGeneration =
@@ -2183,14 +2217,20 @@ class ServicePrimeCloudSync extends ServiceBase {
         previous.nextRetryAt,
         Date.now() + 30 * 60_000,
       );
-      if (nextRetryAt !== previous.nextRetryAt)
-        await primeCloudSyncPersistAtom.set((value) => ({
-          ...value,
-          cloudSyncReconciliation:
-            value.cloudSyncReconciliation?.spaceId === spaceId
-              ? { ...value.cloudSyncReconciliation, nextRetryAt }
-              : value.cloudSyncReconciliation,
-        }));
+      if (nextRetryAt !== previous.nextRetryAt || forceSync)
+        await primeCloudSyncPersistAtom.set((value) => {
+          const state = value.cloudSyncReconciliation;
+          if (!entryIsCurrent() || state?.spaceId !== spaceId) return value;
+          return {
+            ...value,
+            cloudSyncReconciliation: {
+              ...state,
+              nextRetryAt,
+              forceSceneReplay: forceSync ? true : state.forceSceneReplay,
+            },
+          };
+        });
+      if (!entryIsCurrent()) return false;
       this.scheduleReconciliation(nextRetryAt, spaceId);
       return false;
     }
@@ -2211,11 +2251,16 @@ class ServicePrimeCloudSync extends ServiceBase {
       keyGeneration ===
         this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
     const isCurrent = () => !controller.signal.aborted && isSourceCurrent();
+    const forceSceneReplay =
+      forceSync || (previous?.unfinished && previous.forceSceneReplay)
+        ? true
+        : undefined;
     const baseline: ICloudSyncReconciliationPersistState = {
       version: 1,
       spaceId,
       status: 'running',
       unfinished: true,
+      forceSceneReplay,
       failures: previous?.unfinished ? previous.failures : 0,
       requests: previous?.unfinished ? previous.requests : 0,
       rounds: previous?.unfinished ? previous.rounds : 0,
@@ -2250,7 +2295,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
         async () => {
           await this.assertSyncCredentialUnchanged(credential);
-          if (repairPublicAccountSnapshots && isCurrent()) {
+          if (forceSceneReplay && isCurrent()) {
             await this.backfillHardwareAccountSnapshots({
               syncCredential: credential,
               isCurrent,
@@ -2470,10 +2515,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (shouldReplay) {
         await this.syncPendingItemsToScene({
           forceSync:
-            forceSync || !previous || config.cloudSyncAccountApplyVersion !== 2,
-          repairPublicAccountSnapshots,
+            forceSceneReplay ||
+            !previous ||
+            config.cloudSyncAccountApplyVersion !== 2,
           isCurrent,
         });
+        if (isCurrent())
+          this.pruneReconciledIncrementalItems(checkRequestItems);
       }
       if (!isSourceCurrent()) return false;
       const currentConfig = await primeCloudSyncPersistAtom.get();
@@ -2508,6 +2556,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         status,
         reason: result.reason,
         unfinished: result.unfinished,
+        forceSceneReplay: result.unfinished ? forceSceneReplay : undefined,
         nextRetryAt,
         failures,
         requests: baseline.requests + networkRequests,
@@ -2602,7 +2651,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload,
     forceSync,
     bypassRetryBackoff,
-    repairPublicAccountSnapshots,
   }: IStartServerSyncFlowParams) {
     try {
       // const syncMode = await this.getActiveSyncMode();
@@ -2618,7 +2666,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         return await this.runFullCloudReconciliation({
           forceSync,
           bypassRetryBackoff,
-          repairPublicAccountSnapshots,
         });
 
       // when data is written, because the cached password is missing to encrypt, so data is undefined
@@ -2720,6 +2767,29 @@ class ServicePrimeCloudSync extends ServiceBase {
   private serverSyncItemsToMerge = new Map<string, IDBCloudSyncItem>();
 
   private serverSyncSetUndefinedTimeToNow = false;
+
+  private pruneReconciledIncrementalItems(items: IDBCloudSyncItem[]) {
+    if (!this.serverSyncItemsToMerge.size) return;
+    for (const item of items) {
+      const queued = this.serverSyncItemsToMerge.get(item.id);
+      if (
+        queued &&
+        queued.pwdHash === item.pwdHash &&
+        queued.dataType === item.dataType &&
+        queued.dataTime === item.dataTime &&
+        queued.isDeleted === item.isDeleted &&
+        queued.data === item.data &&
+        (item.data ||
+          (queued.rawKey === item.rawKey && queued.rawData === item.rawData))
+      ) {
+        this.serverSyncItemsToMerge.delete(item.id);
+      }
+    }
+    if (!this.serverSyncItemsToMerge.size) {
+      this.serverSyncSetUndefinedTimeToNow = false;
+      this._startServerSyncFlowForItemsDebounced.cancel();
+    }
+  }
 
   _startServerSyncFlowForItemsDebounced = debounce(
     () => {

@@ -39,6 +39,7 @@ const BATCH_SIZE = 50;
 export type IPublicAccountSnapshotApplyResult =
   ICloudPublicAccountSnapshotResult & {
     deleted: number;
+    indexedAccountsChanged: boolean;
     skippedSnapshotIds: string[];
     issuesBySnapshotId: Record<string, 'pending' | 'conflicts' | 'rejected'>;
   };
@@ -47,6 +48,7 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
   return {
     added: 0,
     deleted: 0,
+    indexedAccountsChanged: false,
     issuesBySnapshotId: {},
     unchanged: 0,
     pending: 0,
@@ -446,6 +448,7 @@ export async function importPublicAccountSnapshots({
               : await localDb.importPublicCloudAccounts(params);
           result.added += imported.added;
           result.deleted += imported.deleted ?? 0;
+          result.indexedAccountsChanged ||= imported.indexedAccountsChanged;
           result.unchanged += imported.unchanged;
           result.pending += imported.pending;
           result.conflicts += imported.conflicts;

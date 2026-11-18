@@ -391,6 +391,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     jest.setSystemTime(1_750_000_000_000);
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(localDb, 'getAllAccounts').mockResolvedValue({ accounts: [] });
     jest
       .mocked(simpleDb.cloudSyncAccountIssues.getRawData)
       .mockResolvedValue(null);
@@ -406,7 +407,6 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
 
   test.each([
     { forceSync: true },
-    { repairPublicAccountSnapshots: true },
     { isFlush: true, encryptedSecurityPasswordR1ForServer: 'public-test-lock' },
     { noDebounceUpload: true, setUndefinedTimeToNow: true },
   ])('preserves explicit concurrent sync parameters %p', async (params) => {
@@ -438,7 +438,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(selected).toHaveBeenLastCalledWith(expect.objectContaining(params));
   });
 
-  test('includes a hardware account missing from the sync pool in the next selector check and upload', async () => {
+  test('manual sync uploads missing hardware snapshots without adding a selector scan', async () => {
     const h = harness();
     const snapshot = publicAccountTestSnapshot();
     const hardwareAccount = publicAccountSnapshotToAccount(
@@ -449,9 +449,11 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       snapshot,
       'hd-local',
     );
-    jest.spyOn(localDb, 'getAllAccounts').mockResolvedValue({
-      accounts: [hardwareAccount, softwareAccount],
-    });
+    const getAccounts = jest
+      .spyOn(localDb, 'getAllAccounts')
+      .mockResolvedValue({
+        accounts: [hardwareAccount, softwareAccount],
+      });
     jest.spyOn(localDb, 'getAllDevices').mockResolvedValue({ devices: [] });
     const recovered: IDBCloudSyncItem = {
       id: 'recovered-account',
@@ -467,6 +469,11 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     };
     const build = jest.fn(async () => [recovered]);
     h.service.syncManagers.account.buildInitSyncDBItems = build;
+    await h.service.startServerSyncFlowSilently({
+      callerName: 'AccountManagerStacks onMounted',
+    });
+    expect(getAccounts).not.toHaveBeenCalled();
+    expect(build).not.toHaveBeenCalled();
     h.check.mockImplementationOnce(async ({ localItems = [] }) =>
       reply({
         obsoleted: localItems.map((item) => item.id),
@@ -476,13 +483,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     const upload = jest
       .spyOn(h.service, '_callApiUploadItems')
       .mockResolvedValue({ nonce: 0, created: 1, updated: 0 });
-    const selectorSync = {
-      callerName: 'AccountManagerStacks onMounted',
-      repairPublicAccountSnapshots: true,
-    };
-
     await expect(
-      h.service.startServerSyncFlowSilently(selectorSync),
+      h.service.startServerSyncFlowSilently({ forceSync: true }),
     ).resolves.toBe(true);
 
     expect(build).toHaveBeenCalledWith(
@@ -498,7 +500,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       expect.objectContaining({ localItems: [recovered] }),
     );
     expect(h.replay).toHaveBeenCalledWith(
-      expect.objectContaining({ repairPublicAccountSnapshots: true }),
+      expect.objectContaining({ forceSync: true }),
     );
   });
 
@@ -1264,6 +1266,65 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(upload).toHaveBeenCalledTimes(2);
     expect(h.check.mock.calls[1][0]).toMatchObject({ isFullDBChecking: true });
     expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
+
+    const newVersion = { ...local, dataTime: (local.dataTime ?? 0) + 1 };
+    const other = { ...local, id: 'next-account' };
+    await h.service.startServerSyncFlowForItems({
+      localItems: [other],
+    });
+    h.check.mockResolvedValue(reply({ reconciliation: undefined }));
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check.mock.calls[2][0].localItems).toEqual([other]);
+
+    await h.service.startServerSyncFlowForItems({ localItems: [newVersion] });
+    await h.run();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check.mock.calls[4][0].localItems).toEqual([newVersion]);
+  });
+
+  test('an automatic retry retains the manual forced replay after a short receipt', async () => {
+    const h = harness();
+    await h.run();
+    h.replay.mockClear();
+    const server = serverItem(1);
+    h.pool.set(server.key, {
+      id: server.key,
+      data: server.data,
+      dataTime: server.dataTimestamp,
+      dataType: server.dataType,
+      pwdHash: server.pwdHash,
+      isDeleted: false,
+      rawKey: '',
+      rawData: '',
+      localSceneUpdated: true,
+      serverUploaded: false,
+    });
+    h.check.mockResolvedValueOnce(
+      reply({ obsoleted: [server.key], reconciliation: undefined }),
+    );
+    jest
+      .spyOn(h.service, '_callApiUploadItems')
+      .mockResolvedValueOnce({ nonce: 0, created: 0, updated: 0 });
+    await expect(
+      h.service.startServerSyncFlowSilently({
+        forceSync: true,
+        bypassRetryBackoff: true,
+      }),
+    ).resolves.toBe(false);
+    expect(h.replay).not.toHaveBeenCalled();
+    expect(h.config().cloudSyncReconciliation?.forceSceneReplay).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(h.replay).toHaveBeenCalledWith(
+      expect.objectContaining({ forceSync: true }),
+    );
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      unfinished: false,
+    });
+    expect(
+      h.config().cloudSyncReconciliation?.forceSceneReplay,
+    ).toBeUndefined();
   });
 
   test.each(['locked', 'offline'] as const)(
@@ -1695,6 +1756,42 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       requests: 4,
     });
   });
+
+  test.each(['wallet-ready', 'foreground'] as const)(
+    'replays downloaded accounts on %s while offline and status is complete',
+    async (reason) => {
+      const h = harness();
+      await h.run();
+      h.check.mockClear();
+      const server = serverItem(1);
+      const downloaded: IDBCloudSyncItem = {
+        id: server.key,
+        data: server.data,
+        dataTime: server.dataTimestamp,
+        dataType: server.dataType,
+        pwdHash: server.pwdHash,
+        isDeleted: false,
+        rawKey: '',
+        rawData: '',
+        localSceneUpdated: false,
+        serverUploaded: true,
+      };
+      h.pool.set(downloaded.id, downloaded);
+      h.pool.set('other-space', {
+        ...downloaded,
+        id: 'other-space',
+        pwdHash: 'different-space',
+      });
+      await h.service.setCloudSyncNetworkReachable(false);
+
+      await h.service.resumeCloudSyncReconciliation({ reason });
+
+      expect(h.scene).toHaveBeenCalledWith(
+        expect.objectContaining({ items: [downloaded] }),
+      );
+      expect(h.check).not.toHaveBeenCalled();
+    },
+  );
 
   test.each(['foreground', 'network', 'manual'] as const)(
     'pending push after completion is replayed on %s when dependencies recover',

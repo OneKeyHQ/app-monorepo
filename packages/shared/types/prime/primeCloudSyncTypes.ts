@@ -63,7 +63,6 @@ export type IStartServerSyncFlowParams = {
   callerName?: string;
   noDebounceUpload?: boolean;
   forceSync?: boolean;
-  repairPublicAccountSnapshots?: boolean;
   // Only explicit user retry/sync actions may bypass automatic backoff.
   bypassRetryBackoff?: boolean;
 };

@@ -308,13 +308,17 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     allDevices,
     initDataTime,
     syncCredential,
+    isCurrent = () => true,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
+    isCurrent?: () => boolean;
   }) {
+    if (!isCurrent()) return [];
     const { wallets } = await this.backgroundApi.localDb.getAllWallets();
+    if (!isCurrent()) return [];
     const byWallet = new Map(wallets.map((wallet) => [wallet.id, wallet]));
     const byDevice = new Map(allDevices?.map((device) => [device.id, device]));
     const { items } =
@@ -333,9 +337,9 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         wallet,
         dbDevice: byDevice.get(wallet?.associatedDevice ?? ''),
       };
-      if (!(await this.isSupportSync(target))) return;
+      if (!(await this.isSupportSync(target)) || !isCurrent()) return;
       const keyInfo = await this.buildSyncKeyInfo({ target });
-      if (!keyInfo) return;
+      if (!keyInfo || !isCurrent()) return;
       const old = existing.get(keyInfo.key);
       // Never regenerate an existing snapshot during a full scan. This also
       // preserves unknown future payloads, conflicts, and sticky tombstones.
@@ -370,99 +374,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         offset,
         offset + PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE,
       )) {
+        if (!isCurrent()) return [];
         await buildEach(account);
       }
       if (offset + PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE < accounts.length)
         await timerUtils.wait(0);
     }
-    return built;
-  }
-
-  async findAcknowledgedSnapshotsMissingLocalRecords({
-    items,
-    syncCredential,
-    isCurrent,
-  }: {
-    items: IDBCloudSyncItem[];
-    syncCredential: ICloudSyncCredential;
-    isCurrent?: () => boolean;
-  }): Promise<IDBCloudSyncItem[]> {
-    const prefix = `${this.dataType} >> ${PUBLIC_ACCOUNT_SNAPSHOT_PREFIX}`;
-    const missing = new Map(
-      items
-        .filter(
-          (item) =>
-            item.dataType === this.dataType &&
-            item.rawKey?.startsWith(prefix) &&
-            item.localSceneUpdated &&
-            item.serverUploaded &&
-            !item.isDeleted &&
-            cloudSyncItemBuilder.canLocalItemSyncToScene({
-              item,
-              syncCredential,
-              forceSync: true,
-            }),
-        )
-        .map((item) => [item.rawKey, item]),
-    );
-    if (!missing.size) return [];
-
-    const { localDb } = this.backgroundApi;
-    const [{ accounts }, { indexedAccounts }, { wallets }] = await Promise.all([
-      localDb.getAllAccounts(),
-      localDb.getAllIndexedAccounts(),
-      localDb.getAllWallets(),
-    ]);
-    const walletById = new Map(wallets.map((wallet) => [wallet.id, wallet]));
-    const indexById = new Map(
-      indexedAccounts.map((index) => [index.id, index]),
-    );
-    for (
-      let offset = 0;
-      offset < accounts.length && missing.size;
-      offset += PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE
-    ) {
-      if (isCurrent && !isCurrent()) return [];
-      for (const account of accounts.slice(
-        offset,
-        offset + PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE,
-      )) {
-        const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId: account.id,
-        });
-        const wallet = walletById.get(walletId);
-        const index = indexById.get(account.indexedAccountId ?? '');
-        if (
-          wallet &&
-          !wallet.isMocked &&
-          !wallet.isTemp &&
-          index &&
-          index.walletId === walletId &&
-          index.index === account.pathIndex
-        ) {
-          try {
-            const snapshot = buildPublicAccountSnapshot({ wallet, account });
-            if (snapshot)
-              missing.delete(
-                `${this.dataType} >> ${getPublicAccountSnapshotId(snapshot)}`,
-              );
-          } catch {
-            // The normal snapshot importer will validate unresolved records.
-          }
-        }
-      }
-      if (
-        missing.size &&
-        offset + PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE < accounts.length
-      )
-        await timerUtils.wait(0);
-    }
-    if (isCurrent && !isCurrent()) return [];
-    // Re-enter the validated import path without changing the stored ACK.
-    return Array.from(missing.values(), (item) => ({
-      ...item,
-      localSceneUpdated: false,
-    }));
+    return isCurrent() ? built : [];
   }
 
   override async syncToScene({
@@ -470,11 +388,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     items,
     forceSync,
     isCurrent: isOperationCurrent,
+    onAccountsChanged,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    onAccountsChanged?: () => void;
   }) {
     if (!syncCredential || !items.length) return;
     const keyless = this.backgroundApi.serviceKeylessCloudSync;
@@ -591,6 +511,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         cancelled: false,
       };
       let deleted = 0;
+      let indexedAccountsChanged = false;
       const applyCandidates = async (
         entries: typeof candidates,
         action: 'copy' | 'delete',
@@ -624,6 +545,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           cancelled: result.cancelled || applied.cancelled,
         };
         deleted += applied.deleted;
+        indexedAccountsChanged ||= applied.indexedAccountsChanged;
         // Clear issues persisted when an absent wallet was treated as pending.
         const clearIssueIds = new Set([
           ...applied.appliedSnapshotIds,
@@ -693,6 +615,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           },
         },
       );
+      if (legacy.length || result.added || deleted || indexedAccountsChanged)
+        onAccountsChanged?.();
     });
   }
 
