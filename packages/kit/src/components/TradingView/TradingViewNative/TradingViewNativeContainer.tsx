@@ -81,6 +81,7 @@ import {
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 import { createMobileIndicatorSettingsUpdater } from './mobileIndicatorSettingsUtils';
 import { TradingViewNativeMultiChartPanelContext } from './multiChart/TradingViewNativeMultiChartPanelContext';
+import { useMultiChartIntervalSync } from './multiChart/useMultiChartIntervalSync';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
@@ -708,7 +709,7 @@ const TradingViewNativeContent = memo(
       });
     }, [latestPrice, latestPriceTimestamp]);
 
-    const changeChartInterval = useCallback(
+    const applyChartInterval = useCallback(
       (
         interval: string,
         options?: {
@@ -727,7 +728,7 @@ const TradingViewNativeContent = memo(
             level: 'warning',
             name: 'interval.change.ignored',
           });
-          return;
+          return undefined;
         }
 
         emitTradingViewNativeDebugEvent({
@@ -743,8 +744,34 @@ const TradingViewNativeContent = memo(
           fromInterval,
           toInterval: nextInterval.value,
         });
+        return nextInterval.value;
       },
       [handleIntervalChange, intervalConfig.activeInterval, onIntervalChange],
+    );
+    // In a split view that syncs intervals, this chart takes the one another
+    // panel picked and passes on the one picked here.
+    const handleSyncedIntervalChange = useCallback(
+      (interval: string) => {
+        pendingCalendarViewportTargetRef.current = null;
+        applyChartInterval(interval);
+      },
+      [applyChartInterval],
+    );
+    const publishSyncedInterval = useMultiChartIntervalSync({
+      activeInterval: intervalConfig.activeInterval,
+      onSyncedIntervalChange: handleSyncedIntervalChange,
+    });
+    const changeChartInterval = useCallback(
+      (
+        interval: string,
+        options?: {
+          skipNextHistoryRequest?: boolean;
+        },
+      ) => {
+        const appliedInterval = applyChartInterval(interval, options);
+        if (appliedInterval) publishSyncedInterval(appliedInterval);
+      },
+      [applyChartInterval, publishSyncedInterval],
     );
 
     const handleChartIntervalChange = useCallback(
