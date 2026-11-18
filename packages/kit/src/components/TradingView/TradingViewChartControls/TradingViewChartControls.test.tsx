@@ -4,7 +4,7 @@
 
 import type { ComponentProps, ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewChartControls } from './TradingViewChartControls';
 
@@ -12,6 +12,10 @@ const mockSelectTriggerPress = jest.fn();
 const mockTradingViewNativeIntervalSelector = jest.fn<null, [unknown]>(
   () => null,
 );
+const mockLayoutHandlers = new Map<
+  string,
+  (event: { nativeEvent: { layout: { width: number } } }) => void
+>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -130,6 +134,7 @@ jest.mock('@onekeyhq/components', () => ({
     children,
     flex,
     flexShrink,
+    onLayout,
     onPress,
     gap,
     pl,
@@ -143,13 +148,21 @@ jest.mock('@onekeyhq/components', () => ({
     flex?: number;
     flexShrink?: number;
     gap?: string;
+    onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
     onPress?: (event: unknown) => void;
     pl?: string;
     pr?: string;
     testID?: string;
     transform?: { translateY: number }[];
-  }) =>
-    onPress ? (
+  }) => {
+    if (testID) {
+      if (onLayout) {
+        mockLayoutHandlers.set(testID, onLayout);
+      } else {
+        mockLayoutHandlers.delete(testID);
+      }
+    }
+    return onPress ? (
       <button
         aria-label={accessibilityLabel}
         data-align-self={alignSelf}
@@ -179,7 +192,8 @@ jest.mock('@onekeyhq/components', () => ({
       >
         {children}
       </div>
-    ),
+    );
+  },
 }));
 
 jest.mock('./calendarControls/CalendarPanelPopover', () => ({
@@ -285,6 +299,7 @@ function renderChartControls(
 describe('TradingView chart controls', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLayoutHandlers.clear();
   });
 
   it('renders a chart mode select and switches to the other chart', () => {
@@ -400,6 +415,70 @@ describe('TradingView chart controls', () => {
     expect(
       screen.queryByTestId('trading-view-mobile-fullscreen-toolbar'),
     ).toBeNull();
+  });
+
+  it('widens regular mobile interval preferences once the interval area fits six', () => {
+    render(<TradingViewChartControls {...BASE_PROPS} />);
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ wideMobileLayout: false }),
+    );
+
+    const layoutIntervalArea = (width: number) => {
+      const handler = mockLayoutHandlers.get(
+        'trading-view-chart-interval-area',
+      );
+      expect(handler).toBeDefined();
+      act(() => {
+        handler?.({ nativeEvent: { layout: { width } } });
+      });
+    };
+
+    // A tablet split-view pane leaves room beside the trailing tools.
+    layoutIntervalArea(480);
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: false,
+        wideMobileLayout: true,
+      }),
+    );
+
+    // A phone-width toolbar keeps the regular four slots.
+    layoutIntervalArea(336);
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ wideMobileLayout: false }),
+    );
+  });
+
+  it('keeps compact and desktop interval limits independent of the interval area width', () => {
+    const { rerender } = render(
+      <TradingViewChartControls {...BASE_PROPS} compactMobileLayout />,
+    );
+    expect(mockLayoutHandlers.has('trading-view-chart-interval-area')).toBe(
+      false,
+    );
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: true,
+        wideMobileLayout: false,
+      }),
+    );
+
+    rerender(<TradingViewChartControls {...BASE_PROPS} />);
+    act(() => {
+      mockLayoutHandlers.get('trading-view-chart-interval-area')?.({
+        nativeEvent: { layout: { width: 480 } },
+      });
+    });
+    rerender(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        intervalControlMode="popover"
+        layoutMode="desktop"
+      />,
+    );
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ wideMobileLayout: false }),
+    );
   });
 
   it('uses text-only active intervals in compact mode', () => {
