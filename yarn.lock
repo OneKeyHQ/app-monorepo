@@ -10279,15 +10279,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-device-utils@npm:6.8.0-3":
-  version: 6.8.0-3
-  resolution: "@onekeyfe/react-native-device-utils@npm:6.8.0-3"
+"@onekeyfe/react-native-device-utils@npm:6.8.0-alpha.514":
+  version: 6.8.0-alpha.514
+  resolution: "@onekeyfe/react-native-device-utils@npm:6.8.0-alpha.514"
   peerDependencies:
     "@onekeyfe/react-native-native-logger": "*"
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/420886bae47d87cd2b61a99063d043d099c7b8bc2df240b063faf26351a0fd8ceacfb99c9ae5923c844ad529b7b5b5d511555e3825b4e6575cba2c1e3f4c8e08
+  checksum: 10/3cfd3711af5d2474718239c1e30d55ec2ea653712a284fe841ef3de138d737c9011054bf7f7faba41e5b6d763d0e82e21871a4fb5e593821d7136e154a51183d
   languageName: node
   linkType: hard
 
@@ -11028,7 +11028,7 @@ __metadata:
     "@onekeyfe/react-native-chart-webview": "npm:6.8.0-3"
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:6.8.0-3"
     "@onekeyfe/react-native-cloud-kit-module": "npm:6.8.0-3"
-    "@onekeyfe/react-native-device-utils": "npm:6.8.0-3"
+    "@onekeyfe/react-native-device-utils": "npm:6.8.0-alpha.514"
     "@onekeyfe/react-native-image": "npm:6.8.0-3"
     "@onekeyfe/react-native-image-crop-picker": "npm:6.8.0-3"
     "@onekeyfe/react-native-keychain-module": "npm:6.8.0-3"

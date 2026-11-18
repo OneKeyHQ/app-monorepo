@@ -90,7 +90,7 @@
     "@onekeyfe/react-native-chart-webview": "6.8.0-3",
     "@onekeyfe/react-native-check-biometric-auth-changed": "6.8.0-3",
     "@onekeyfe/react-native-cloud-kit-module": "6.8.0-3",
-    "@onekeyfe/react-native-device-utils": "6.8.0-3",
+    "@onekeyfe/react-native-device-utils": "6.8.0-alpha.514",
     "@onekeyfe/react-native-image": "6.8.0-3",
     "@onekeyfe/react-native-image-crop-picker": "6.8.0-3",
     "@onekeyfe/react-native-keychain-module": "6.8.0-3",

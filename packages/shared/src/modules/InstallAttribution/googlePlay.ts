@@ -1,3 +1,4 @@
+/* cspell:ignore gbraid gclid wbraid */
 import {
   getInstallReferrerAsync,
   getInstallationTimeAsync,
@@ -19,12 +20,16 @@ const MAX_VALUE_LENGTH = 128;
 
 const referrerFields = [
   ['click_id', 'clickId'],
+  ['gad_source', 'gadSource'],
+  ['gbraid', 'gbraid'],
+  ['gclid', 'gclid'],
   ['utm_campaign', 'utmCampaign'],
   ['utm_content', 'utmContent'],
   ['utm_id', 'utmId'],
   ['utm_medium', 'utmMedium'],
   ['utm_source', 'utmSource'],
   ['utm_term', 'utmTerm'],
+  ['wbraid', 'wbraid'],
 ] as const;
 
 type IParsedReferrer = Partial<
@@ -256,7 +261,12 @@ export async function reportGooglePlayInstallAttribution(
   }
 
   const referrer = parseGooglePlayInstallReferrer(rawReferrer);
-  if (!referrer.utmSource) {
+  if (
+    !referrer.utmSource &&
+    !referrer.gclid &&
+    !referrer.gbraid &&
+    !referrer.wbraid
+  ) {
     return;
   }
 
