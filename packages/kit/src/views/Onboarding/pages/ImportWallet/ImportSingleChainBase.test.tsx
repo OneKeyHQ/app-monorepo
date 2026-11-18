@@ -6,15 +6,36 @@ import { cloneElement } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useController } from 'react-hook-form';
 
+import type {
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import { ImportSingleChainBase } from './ImportSingleChainBase';
 
 import type { UseFormReturn } from 'react-hook-form';
 
-const mockValidateInput = jest.fn(async ({ input }: { input: string }) => ({
-  isValid: input === 'valid-test-input',
-}));
+const btcDeriveTypes: IAccountDeriveTypes[] = ['BIP84', 'BIP44'];
+const btcDeriveItems: IAccountDeriveInfoItems[] = btcDeriveTypes.map(
+  (value) => ({
+    value,
+    label: value,
+    description: undefined,
+    item: { namePrefix: value, template: value, coinType: '0' },
+  }),
+);
+const btcValidation: IGeneralInputValidation = {
+  isValid: true,
+  deriveInfoItems: btcDeriveItems.map(({ item }) => item),
+};
+const mockValidateInput = jest.fn(
+  async ({ input }: { input: string }): Promise<IGeneralInputValidation> => ({
+    isValid: input === 'valid-test-input',
+  }),
+);
+const mockLoadDeriveItems = jest.fn(async () => btcDeriveItems);
 const mockCheckAccountName = jest.fn(async ({ name }: { name: string }) => {
   if (name === 'taken') {
     throw new OneKeyLocalError('Duplicate account name');
@@ -107,6 +128,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     servicePassword: {
       encodeSensitiveText: async ({ text }: { text: string }) => text,
     },
+    serviceNetwork: {
+      getDeriveInfoItemsOfNetwork: () => mockLoadDeriveItems(),
+    },
     serviceAccount: {
       ensureAccountNameNotDuplicate: (params: { name: string }) =>
         mockCheckAccountName(params),
@@ -122,7 +146,28 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
 jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger',
   () => ({
-    DeriveTypeSelectorFormInput: () => null,
+    DeriveTypeSelectorFormInput: ({
+      preloadedItems,
+      value,
+      onChangeText,
+    }: {
+      preloadedItems?: IAccountDeriveInfoItems[];
+      value?: string;
+      onChangeText?: (value: string) => void;
+    }) => (
+      <select
+        aria-label="Derivation path"
+        value={value ?? ''}
+        onChange={(event) => onChangeText?.(event.target.value)}
+      >
+        <option value="">Choose a derivation path</option>
+        {preloadedItems?.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    ),
   }),
 );
 jest.mock(
@@ -161,6 +206,7 @@ async function finishValidation() {
 describe('private key import submission', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -234,5 +280,108 @@ describe('private key import submission', () => {
       fireEvent.click(footer);
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the available BTC derivation types and a selection before confirming', async () => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    const footer = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Confirm',
+    });
+    const deriveItems = Promise.withResolvers<IAccountDeriveInfoItems[]>();
+    mockValidateInput.mockResolvedValueOnce(btcValidation);
+    mockLoadDeriveItems.mockReturnValueOnce(deriveItems.promise);
+
+    fireEvent.change(input, { target: { value: 'test-xprv' } });
+    await finishValidation();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(footer.disabled).toBe(true);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await act(async () => deriveItems.resolve(btcDeriveItems));
+    const selector = screen.getByRole('combobox', { name: 'Derivation path' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(footer.disabled).toBe(true);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    fireEvent.change(selector, { target: { value: 'BIP84' } });
+    expect(footer.disabled).toBe(false);
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ deriveType: 'BIP84' }),
+      undefined,
+    );
+  });
+
+  it('keeps a non-default BTC derivation type while checking an edited name', async () => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    mockValidateInput.mockResolvedValueOnce(btcValidation);
+    fireEvent.change(input, { target: { value: 'test-xprv' } });
+    await finishValidation();
+    const selector = screen.getByRole<HTMLSelectElement>('combobox', {
+      name: 'Derivation path',
+    });
+    fireEvent.change(selector, { target: { value: 'BIP44' } });
+
+    const nameCheck = Promise.withResolvers<void>();
+    mockCheckAccountName.mockReturnValueOnce(nameCheck.promise);
+    fireEvent.change(screen.getByTestId('onboarding-input'), {
+      target: { value: 'Renamed account' },
+    });
+    await finishValidation();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(selector.value).toBe('BIP44');
+
+    await act(async () => nameCheck.resolve());
+    expect(selector.value).toBe('BIP44');
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(mockValidateInput).toHaveBeenCalledTimes(1);
+    expect(mockLoadDeriveItems).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountName: 'Renamed account',
+        deriveType: 'BIP44',
+      }),
+      undefined,
+    );
+  });
+
+  it('discards key validation when the field is cleared, including late results', async () => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    mockValidateInput.mockResolvedValueOnce(btcValidation);
+    fireEvent.change(input, { target: { value: 'test-xprv' } });
+    await finishValidation();
+    expect(
+      screen.getByRole('combobox', { name: 'Derivation path' }),
+    ).toBeDefined();
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(
+      screen.queryByRole('combobox', { name: 'Derivation path' }),
+    ).toBeNull();
+
+    const validation = Promise.withResolvers<IGeneralInputValidation>();
+    mockValidateInput.mockReturnValueOnce(validation.promise);
+    fireEvent.change(input, { target: { value: 'test-xprv' } });
+    await finishValidation();
+    expect(mockValidateInput).toHaveBeenCalledTimes(2);
+
+    fireEvent.change(input, { target: { value: '' } });
+    await act(async () => validation.resolve(btcValidation));
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(mockLoadDeriveItems).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole('combobox', { name: 'Derivation path' }),
+    ).toBeNull();
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

@@ -27,6 +27,7 @@ import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDial
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import type {
+  IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -101,47 +102,82 @@ export function ImportSingleChainBase({
   const trimmedAccountName = accountName?.trim() ?? '';
   const accountNameDebounced = useDebounce(trimmedAccountName, 600);
 
+  const deriveType = useFormWatch({ control, name: 'deriveType' });
+
+  const inputToValidate =
+    inputText === inputTextDebounced ? inputText : undefined;
   const validationRequest = useMemo(
     () => ({
+      id: Symbol('import key validation'),
       networkId,
-      input: inputTextDebounced,
-      accountName: accountNameDebounced,
+      input: inputToValidate,
+      params: validationParams,
     }),
-    [networkId, inputTextDebounced, accountNameDebounced],
+    [networkId, inputToValidate, validationParams],
   );
   const [validation, setValidation] = useState<{
-    request: typeof validationRequest;
+    requestId: symbol;
     result: IGeneralInputValidation;
+    deriveItems?: IAccountDeriveInfoItems[];
   }>();
 
+  const nameToValidate =
+    trimmedAccountName === accountNameDebounced
+      ? trimmedAccountName
+      : undefined;
+  const nameRequest = useMemo(
+    () => ({ id: Symbol('account name validation'), name: nameToValidate }),
+    [nameToValidate],
+  );
+  const [checkedNameRequestId, setCheckedNameRequestId] = useState<symbol>();
+
   useEffect(() => {
+    const { id, name } = nameRequest;
+    if (name === undefined) return;
+    if (!name) {
+      form.clearErrors('accountName');
+      return;
+    }
+
     let cancelled = false;
-    const validate = async () => {
-      const { input, networkId: id, accountName: name } = validationRequest;
-      if (name) {
-        try {
-          await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate(
-            {
-              name,
-              walletId: WALLET_TYPE_IMPORTED,
-            },
-          );
-          if (cancelled) return;
-          form.clearErrors('accountName');
-        } catch (error) {
-          if (cancelled) return;
-          form.setError('accountName', {
-            message: (error as Error)?.message,
-          });
-        }
-      } else {
+    const validateName = async () => {
+      try {
+        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
+          name,
+          walletId: WALLET_TYPE_IMPORTED,
+        });
+        if (cancelled) return;
         form.clearErrors('accountName');
+        setCheckedNameRequestId(id);
+      } catch (error) {
+        if (cancelled) return;
+        form.setError('accountName', {
+          message: (error as Error)?.message,
+        });
       }
+    };
+    void validateName();
+    return () => {
+      cancelled = true;
+    };
+  }, [form, nameRequest]);
 
-      form.setValue('deriveType', undefined);
-      if (!input || !id) return;
+  useEffect(() => {
+    const {
+      id,
+      input,
+      networkId: requestNetworkId,
+      params,
+    } = validationRequest;
+    if (!input || !requestNetworkId) {
+      setValidation(undefined);
+      return;
+    }
 
+    let cancelled = false;
+    const validateKey = async () => {
       let result: IGeneralInputValidation;
+      let deriveItems: IAccountDeriveInfoItems[] | undefined;
       try {
         const encodedInput =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -150,35 +186,53 @@ export function ImportSingleChainBase({
         if (cancelled) return;
         result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
-            {
-              ...validationParams,
-              input: encodedInput,
-              networkId: id,
-            },
+            { ...params, input: encodedInput, networkId: requestNetworkId },
           );
+        if (cancelled) return;
+        if (result.isValid && result.deriveInfoItems?.length) {
+          deriveItems =
+            await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork(
+              {
+                networkId: requestNetworkId,
+                enabledItems: result.deriveInfoItems,
+              },
+            );
+        }
       } catch {
         result = { isValid: false };
       }
-      if (!cancelled) {
-        setValidation({ request: validationRequest, result });
+      if (cancelled) return;
+
+      const currentDeriveType = form.getValues('deriveType');
+      if (
+        currentDeriveType &&
+        !deriveItems?.some((item) => item.value === currentDeriveType)
+      ) {
+        form.setValue('deriveType', undefined);
       }
+
+      setValidation({ requestId: id, result, deriveItems });
     };
-    void validate();
+    void validateKey();
     return () => {
       cancelled = true;
     };
-  }, [form, validationParams, validationRequest]);
+  }, [form, validationRequest]);
 
-  const validateResult =
-    validation?.request.input === inputTextDebounced &&
-    validation?.request.networkId === networkId
-      ? validation?.result
-      : undefined;
+  const currentValidation =
+    validation?.requestId === validationRequest.id ? validation : undefined;
+  const validateResult = currentValidation?.result;
+  const deriveItems = currentValidation?.deriveItems;
+  const isDeriveTypeReady = useCallback(
+    (value: IAccountDeriveTypes | undefined) =>
+      !deriveItems || deriveItems.some((item) => item.value === value),
+    [deriveItems],
+  );
   const confirmDisabled =
-    validation?.request !== validationRequest ||
     !validateResult?.isValid ||
-    inputText !== inputTextDebounced ||
-    trimmedAccountName !== accountNameDebounced ||
+    !isDeriveTypeReady(deriveType) ||
+    nameRequest.name === undefined ||
+    (!!nameRequest.name && checkedNameRequestId !== nameRequest.id) ||
     Object.keys(form.formState.errors).length > 0;
 
   const submit = useCallback(async () => {
@@ -188,7 +242,8 @@ export function ImportSingleChainBase({
       submittingRef.current ||
       values.input !== validationRequest.input ||
       values.networkId !== validationRequest.networkId ||
-      (values.accountName?.trim() ?? '') !== validationRequest.accountName ||
+      (values.accountName?.trim() ?? '') !== nameRequest.name ||
+      !isDeriveTypeReady(values.deriveType) ||
       form.getFieldState('accountName').error
     ) {
       return;
@@ -200,7 +255,14 @@ export function ImportSingleChainBase({
     } finally {
       submittingRef.current = false;
     }
-  }, [confirmDisabled, form, onConfirm, validationRequest]);
+  }, [
+    confirmDisabled,
+    form,
+    isDeriveTypeReady,
+    nameRequest.name,
+    onConfirm,
+    validationRequest,
+  ]);
 
   const formWithSubmit = useMemo(() => ({ ...form, submit }), [form, submit]);
 
@@ -247,15 +309,14 @@ export function ImportSingleChainBase({
             </SizableText>
           ) : null}
 
-          {validateResult?.deriveInfoItems ? (
+          {deriveItems?.length ? (
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.derivation_path })}
               name="deriveType"
             >
               <DeriveTypeSelectorFormInput
-                networkId={form.getValues().networkId || ''}
-                enabledItems={validateResult?.deriveInfoItems || []}
-                undefinedResultIfReRun={false}
+                networkId={networkId || ''}
+                preloadedItems={deriveItems}
                 renderTrigger={({ label, onPress }) => (
                   <Stack
                     testID="wallet-derivation-path-selector-trigger"
