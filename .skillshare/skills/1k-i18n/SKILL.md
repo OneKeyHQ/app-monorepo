@@ -84,8 +84,9 @@ Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
    this repository's PR must not merge. After it merges and its release is published,
    run `yarn i18n:pull` (latest release), then commit the files. Report the onekey-i18n PR, locale count, pull verification, unrelated
    generated changes and code wiring. A prepared preview is not a completed write.
-9. If keys changed, preserve the old → new mapping. After apply, pull verification
-   and code migration succeed, prepare the [old-key cleanup](references/rules/i18n.md#old-key-cleanup)
+9. If keys changed, preserve the old → new mapping. After the onekey-i18n PR is merged
+   and released, step 8's `yarn i18n:pull` is committed and code migration succeeds,
+   prepare the [old-key cleanup](references/rules/i18n.md#old-key-cleanup)
    list and ask whether to delete it. Translation confirmation does not authorize
    deletion; keep old keys unless the user explicitly approves that deletion scope.
 

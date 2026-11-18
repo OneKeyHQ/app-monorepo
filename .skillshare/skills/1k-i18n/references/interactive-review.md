@@ -54,7 +54,10 @@ its remote record; reuse a target only when semantics match.
 
 ## Applied or stale plans
 
-Before revising an applied plan, run the normal sync and scan, then re-import with
-`--baseline <fresh-scanned-draft.json>` for the same project. Source/remote changes
+Before revising an applied plan whose onekey-i18n PR is merged and released, run the
+normal sync and scan, then re-import with
+`--baseline <fresh-scanned-draft.json>` for the same project. To revise earlier,
+close that PR and restore the generated files it pulled
+(`git checkout -- packages/shared/src/locale`), then sync and scan. Source/remote changes
 also require a refreshed baseline and new preview. Preserve unknown local changes;
 see [recovery](rules/i18n.md#recovery).
