@@ -5,9 +5,11 @@ import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
   EXT_ONEKEY_ID_AUTH_FLOW_PARAM,
+  EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM,
   EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import {
   consumeExtOneKeyIdAuthFlowFromUrl,
@@ -86,6 +88,40 @@ describe('extension OneKey ID auth expand-tab handoff', () => {
       toOneKeyIdPageOnLoginSuccess: false,
     });
     expect(globalThis.location.hash).toBe('#/?keep=true');
+  });
+
+  test('carries the free-trial feature of a login to the expand tab', async () => {
+    await redirectOneKeyIdAuthToExtExpandTab({
+      flow: EExtOneKeyIdAuthFlow.Login,
+      freeTrialFeatureId: EPrimeFeatures.BulkSend,
+    });
+    expect(mockOpenExtensionExpandTab).toHaveBeenCalledWith({
+      path: '/',
+      params: {
+        [EXT_ONEKEY_ID_AUTH_FLOW_PARAM]: EExtOneKeyIdAuthFlow.Login,
+        [EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM]: EPrimeFeatures.BulkSend,
+      },
+    });
+
+    globalThis.history.replaceState(
+      null,
+      '',
+      `#/?${EXT_ONEKEY_ID_AUTH_FLOW_PARAM}=${EExtOneKeyIdAuthFlow.Login}&${EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM}=${EPrimeFeatures.BulkSend}`,
+    );
+    expect(consumeExtOneKeyIdAuthFlowFromUrl()?.freeTrialFeatureId).toBe(
+      EPrimeFeatures.BulkSend,
+    );
+    expect(globalThis.location.hash).toBe('#/');
+
+    // Only free-trial features are trusted from the URL.
+    globalThis.history.replaceState(
+      null,
+      '',
+      `#/?${EXT_ONEKEY_ID_AUTH_FLOW_PARAM}=${EExtOneKeyIdAuthFlow.Login}&${EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM}=unknown`,
+    );
+    expect(
+      consumeExtOneKeyIdAuthFlowFromUrl()?.freeTrialFeatureId,
+    ).toBeUndefined();
   });
 
   test('does not trust an unknown provider from the URL', () => {

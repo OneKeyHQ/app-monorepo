@@ -42,6 +42,7 @@ function BulkSendIntervalInputContent({
   ataCount,
   intervalSettings: initialIntervalSettings,
   onConfirmIntervalSettings,
+  entitlementSource,
 }: IBulkSendIntervalInputRouteParams) {
   const intl = useIntl();
   const { title, reviewText } = useIntervalLabels();
@@ -91,6 +92,7 @@ function BulkSendIntervalInputContent({
       isMaxMode,
       ataCount,
       intervalSettings,
+      entitlementSource,
     });
   }, [
     intervalError,
@@ -109,6 +111,7 @@ function BulkSendIntervalInputContent({
     ataCount,
     intervalSettings,
     onConfirmIntervalSettings,
+    entitlementSource,
   ]);
 
   return (
