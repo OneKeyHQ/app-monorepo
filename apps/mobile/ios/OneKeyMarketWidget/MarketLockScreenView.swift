@@ -152,10 +152,10 @@ struct MarketLockScreenView: View {
     let cachedDate = row.lockScreenCacheDate(at: entry.date)
     return HStack(spacing: 4) {
       Text(symbol(row)).lineLimit(1).minimumScaleFactor(0.7)
-      if let cachedDate { cacheTimestamp(cachedDate, size: 9) }
+      if let cachedDate { cacheTimestamp(cachedDate, size: 9).layoutPriority(1) }
       Spacer(minLength: 0)
       HStack(spacing: 2) {
-        if cachedDate == nil { direction(row, size: 8) }
+        if cachedDate == nil, row.quote != nil { direction(row, size: 8) }
         Text(price(row, currency: currency)).lineLimit(1).minimumScaleFactor(0.65).monospacedDigit()
       }
       .layoutPriority(1)
@@ -164,8 +164,8 @@ struct MarketLockScreenView: View {
 
   private func cacheTimestamp(_ date: Date, size: CGFloat) -> some View {
     let sameDay = Calendar.current.isDate(date, inSameDayAs: entry.date)
-    let format = Date.FormatStyle(date: sameDay ? .omitted : .numeric,
-      time: sameDay ? .shortened : .omitted, locale: locale)
+    let format = sameDay ? Date.FormatStyle(date: .omitted, time: .shortened, locale: locale)
+      : Date.FormatStyle(locale: locale).year(.twoDigits).month(.defaultDigits).day()
     return HStack(spacing: 2) {
       Image(systemName: "clock")
       Text(date, format: format).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
@@ -199,7 +199,7 @@ struct MarketLockScreenView: View {
     if let date = cachedDate ?? row.quote?.priceUpdatedAt {
       parts.append(date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale)))
     }
-    return parts.joined(separator: ", ")
+    return parts.joined(separator: " ")
   }
 }
 
