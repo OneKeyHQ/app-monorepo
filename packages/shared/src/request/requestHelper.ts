@@ -5,6 +5,9 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import appGlobals from '../appGlobals';
+import platformEnv from '../platformEnv';
+
 import type { IIpTableConfigWithRuntime } from './types/ipTable';
 
 class RequestHelper {
@@ -41,6 +44,15 @@ class RequestHelper {
    */
   getIpTableConfig: () => Promise<IIpTableConfigWithRuntime | null> =
     async () => {
+      if (
+        platformEnv.isNativeMainThread &&
+        platformEnv.enableNativeBackgroundThread
+      ) {
+        // Keep SimpleDB in bg; main must use its current table, not builtins.
+        return (
+          appGlobals.$backgroundApiProxy?.serviceIpTable.getConfig() ?? null
+        );
+      }
       return null;
     };
 

@@ -389,8 +389,8 @@ export function useMarketTokenList({
     platformEnv.isWeb &&
     hasNetworkId &&
     apiNetworkId === '' &&
-    sortBy === 'v24hUSD' &&
-    sortType === 'desc' &&
+    sortBy === undefined &&
+    sortType === undefined &&
     pageSize === 20 &&
     minLiquidity === 5000 &&
     type === 'trending' &&
@@ -415,6 +415,14 @@ export function useMarketTokenList({
     cachedMarketTokenListEntry,
     shouldUseMarketHomeTokenListSeedForCurrentQuery,
   ]);
+  const initialCachedRankingQueryRef = useRef(
+    platformEnv.isDesktop && cachedMarketTokenListEntry?.data.list.length
+      ? currentQueryKey
+      : undefined,
+  );
+  const preservedInitialRankingResultRef = useRef<
+    IMarketTokenListResponseWithSource | undefined
+  >(undefined);
   const trustedMarketTokenListFallbackRef = useRef(cachedMarketTokenListEntry);
   const trustedMarketTokenListSwrKeyRef = useRef(marketTokenListSwrKey);
   const hasTrustedMarketTokenListCacheRef = useRef(
@@ -489,7 +497,6 @@ export function useMarketTokenList({
         );
       } catch (error) {
         if (
-          platformEnv.isNative &&
           currentQueryKeyRef.current === requestQueryKey &&
           firstPageRequestSequenceRef.current === requestSequence
         ) {
@@ -529,7 +536,7 @@ export function useMarketTokenList({
         return undefined;
       }
       if (
-        platformEnv.isNative &&
+        currentQueryKeyRef.current === requestQueryKey &&
         firstPageRequestSequenceRef.current === requestSequence
       ) {
         setErrorQueryKey(undefined);
@@ -555,6 +562,14 @@ export function useMarketTokenList({
           result: nextResult,
         };
       }
+      // Cache the authoritative ranking, but keep the already-painted desktop
+      // membership and order through the first automatic quote refresh.
+      preservedInitialRankingResultRef.current =
+        requestSequence === 1 &&
+        !forceRemote &&
+        initialCachedRankingQueryRef.current === requestQueryKey
+          ? nextResult
+          : undefined;
       return nextResult;
     },
     [
@@ -574,6 +589,7 @@ export function useMarketTokenList({
       // Native pages can mount before the default network is initialized.
       // usePromiseResult captures watchLoading when its runner is created.
       watchLoading: platformEnv.isNative || hasNetworkId,
+      undefinedResultIfError: true,
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -615,6 +631,40 @@ export function useMarketTokenList({
           networkLogoUri,
           timeRange: timeRangeRef.current,
         });
+
+  const previousLoadingStateRef = useRef({
+    isLoading,
+    queryKey: currentQueryKey,
+  });
+
+  useEffect(() => {
+    const previous = previousLoadingStateRef.current;
+    previousLoadingStateRef.current = { isLoading, queryKey: currentQueryKey };
+
+    if (isLoading === true && transformedData.length === 0) {
+      setIsNetworkSwitching(true);
+      return;
+    }
+
+    // A fast failure may settle before the loading render commits. Clear it
+    // only within the same query so an old request cannot discard new rows.
+    if (
+      hasNetworkId &&
+      previous.queryKey === currentQueryKey &&
+      previous.isLoading !== false &&
+      isLoading === false &&
+      apiResult === undefined
+    ) {
+      setTransformedDataState({ data: [], queryKey: currentQueryKey });
+      setIsNetworkSwitching(false);
+    }
+  }, [
+    apiResult,
+    currentQueryKey,
+    hasNetworkId,
+    isLoading,
+    transformedData.length,
+  ]);
 
   const effectiveIsLoading = hasNetworkId
     ? isLoading !== false
@@ -732,13 +782,23 @@ export function useMarketTokenList({
 
     // Update only rows whose visible fields changed so Table row memoization can
     // survive seed -> remote refresh and polling updates.
-    setTransformedDataState((prev) => ({
-      data: reuseStableMarketTokenRows({
-        prev: prev.queryKey === currentQueryKey ? prev.data : [],
-        next: transformed,
-      }),
-      queryKey: currentQueryKey,
-    }));
+    setTransformedDataState((prev) => {
+      const nextByKey =
+        apiResult === preservedInitialRankingResultRef.current &&
+        prev.queryKey === currentQueryKey
+          ? new Map(transformed.map((item) => [marketTokenKey(item), item]))
+          : undefined;
+      const next = nextByKey?.size
+        ? prev.data.map((item) => nextByKey.get(marketTokenKey(item)) ?? item)
+        : transformed;
+      return {
+        data: reuseStableMarketTokenRows({
+          prev: prev.queryKey === currentQueryKey ? prev.data : [],
+          next,
+        }),
+        queryKey: currentQueryKey,
+      };
+    });
     setCurrentPage(1);
     setHasReachedEnd(false);
     setIsLoadMoreError(false);
@@ -804,6 +864,12 @@ export function useMarketTokenList({
     setIsNetworkSwitching(true);
   }, [hasNetworkId, networkId]);
 
+  const isPreservingInitialRanking =
+    apiResult !== undefined &&
+    apiResult === preservedInitialRankingResultRef.current;
+  const paginationTokenCount = isPreservingInitialRanking
+    ? apiResult.list.length
+    : transformedData.length;
   const totalCount = apiResult?.total || 0;
 
   const totalPages = useMemo(() => {
@@ -811,8 +877,8 @@ export function useMarketTokenList({
   }, [totalCount, pageSize]);
   const loadedPageCount = useMemo(
     () =>
-      Math.max(currentPage, Math.ceil(transformedData.length / pageSize) || 1),
-    [currentPage, pageSize, transformedData.length],
+      Math.max(currentPage, Math.ceil(paginationTokenCount / pageSize) || 1),
+    [currentPage, pageSize, paginationTokenCount],
   );
 
   const refresh = useCallback(() => {
@@ -831,7 +897,7 @@ export function useMarketTokenList({
       (platformEnv.isNative && loadMoreRequestRef.current !== undefined) ||
       loadedPageCount >= maxPages ||
       loadedPageCount >= totalPages ||
-      (totalCount > 0 && transformedData.length >= totalCount) ||
+      (totalCount > 0 && paginationTokenCount >= totalCount) ||
       !hasNetworkId ||
       effectiveIsLoading ||
       hasReachedEnd
@@ -839,6 +905,21 @@ export function useMarketTokenList({
       return;
     }
 
+    if (isPreservingInitialRanking) {
+      // Pagination is an explicit list update. Reconcile the cached first page
+      // with the authoritative response before appending its next page.
+      preservedInitialRankingResultRef.current = undefined;
+      setTransformedDataState({
+        data: transformMarketTokenListResponse({
+          response: apiResult,
+          networkId,
+          networkLogoUriMap: networkLogoUriMapRef.current,
+          networkLogoUri: networkLogoUriRef.current,
+          timeRange: timeRangeRef.current,
+        }),
+        queryKey: currentQueryKeyRef.current,
+      });
+    }
     const nextPage = loadedPageCount + 1;
     const requestQueryKey = currentQueryKeyRef.current;
     const request = {};
@@ -922,7 +1003,9 @@ export function useMarketTokenList({
     loadedPageCount,
     totalCount,
     totalPages,
-    transformedData.length,
+    paginationTokenCount,
+    isPreservingInitialRanking,
+    apiResult,
     effectiveIsLoading,
     hasReachedEnd,
     hasNetworkId,
@@ -942,14 +1025,14 @@ export function useMarketTokenList({
     hasNetworkId &&
     loadedPageCount < maxPages &&
     loadedPageCount < totalPages &&
-    (totalCount === 0 || transformedData.length < totalCount) &&
+    (totalCount === 0 || paginationTokenCount < totalCount) &&
     !effectiveIsLoading &&
     !isLoadingMore &&
     !hasReachedEnd;
 
   const refetch = useCallback(() => {
     // A user refresh or Retry must reach the server even if a cached request failed.
-    forceRemoteFirstPageRef.current = Boolean(platformEnv.isNative);
+    forceRemoteFirstPageRef.current = true;
     return fetchMarketTokenList();
   }, [fetchMarketTokenList]);
 

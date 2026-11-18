@@ -2,22 +2,142 @@
 
 import type { ReactNode } from 'react';
 
-import { render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { AggregateTokenListItem } from './AggregateTokenSelector';
+import AggregateTokenSelector, {
+  AggregateTokenListItem,
+  resolveAggregateSelectorAccountScope,
+} from './AggregateTokenSelector';
 
 const mockGetNetworkAccount = jest.fn<
   Promise<{ id: string } | undefined>,
+  [{ indexedAccountId?: string; networkId?: string }]
+>();
+const mockCreateAddressForNetwork = jest.fn<
+  Promise<string | undefined>,
   [unknown]
 >();
+const mockGetAccount = jest.fn<
+  Promise<{ id: string }>,
+  [{ accountId: string; networkId: string }]
+>();
+const DEFAULT_COMPATIBLE_NETWORKS = [
+  { id: 'evm--1', name: 'Ethereum' },
+  { id: 'evm--42161', name: 'Arbitrum' },
+];
+let mockCompatibleNetworks: {
+  id: string;
+  name: string;
+  isCustomNetwork?: boolean;
+  logoURI?: string;
+}[] = DEFAULT_COMPATIBLE_NETWORKS;
+let mockRouteParams: Record<string, unknown> = {};
+let mockActiveAccount: {
+  wallet?: { id: string };
+  indexedAccount?: { id: string; walletId: string };
+} = {};
 let mockSubTokenFiat:
-  | { balanceParsed?: string; fiatValue?: string; currency?: string }
+  | {
+      balanceParsed?: string;
+      balanceMultiplier?: string;
+      fiatValue?: string;
+      currency?: string;
+    }
   | undefined;
 
 jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({ params: {} }),
+  useRoute: () => ({ params: mockRouteParams }),
+}));
+
+jest.mock('@onekeyfe/react-native-native-list', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    NativeList: ({
+      snapshot,
+      onRowAction,
+      listEmpty,
+    }: {
+      snapshot: {
+        rows: {
+          key: string;
+          title: string;
+          height?: number;
+          heightRounding?: string;
+          subtitle?: string;
+          disabled?: boolean;
+          trailing?: { kind: string; primary?: string; secondary?: string }[];
+          leading?: {
+            image?: { uri: string };
+            fallbackText?: string;
+            fallbackTextColor?: string;
+            backgroundColor?: string;
+          };
+        }[];
+      };
+      onRowAction: (event: { actionKey: string; rowKey: string }) => void;
+      listEmpty?: ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        snapshot.rows.length
+          ? snapshot.rows.map((row) =>
+              React.createElement(
+                'div',
+                {
+                  key: row.key,
+                  'data-testid': 'list-item',
+                  'data-height': row.height,
+                  'data-height-rounding': row.heightRounding,
+                  'data-balance': row.trailing?.find(
+                    (item) => item.kind === 'valuePair',
+                  )?.primary,
+                  'data-fiat-value': row.trailing?.find(
+                    (item) => item.kind === 'valuePair',
+                  )?.secondary,
+                  'data-avatar-letter': row.leading?.fallbackText,
+                  'data-avatar-image': row.leading?.image?.uri,
+                  'data-avatar-text-color': row.leading?.fallbackTextColor,
+                  'data-avatar-background': row.leading?.backgroundColor,
+                  onClick: row.disabled
+                    ? undefined
+                    : () =>
+                        onRowAction({ actionKey: 'press', rowKey: row.key }),
+                },
+                React.createElement(
+                  'span',
+                  { 'data-testid': 'title' },
+                  row.title,
+                ),
+                row.subtitle
+                  ? React.createElement(
+                      'span',
+                      { 'data-testid': 'subtitle' },
+                      row.subtitle,
+                    )
+                  : null,
+              ),
+            )
+          : listEmpty,
+      ),
+  };
+});
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
+  useCurrencyPersistAtom: () => [{ currencyMap: { usd: { unit: '$' } } }],
+}));
+
+jest.mock('../../Home/hooks/useHomeNativeListTheme', () => ({
+  useHomeNativeListTheme: () => ({
+    background: '#fff',
+    secondaryText: '#888',
+    iconSubdued: '#888',
+    inverseBackground: '#222',
+    inverseText: '#eee',
+  }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -65,9 +185,26 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'default'),
+      getChainSelectorNetworksCompatibleWithAccountId: jest.fn(async () => ({
+        mainnetItems: mockCompatibleNetworks,
+        testnetItems: [],
+        unavailableItems: [],
+      })),
     },
     serviceAccount: {
-      getNetworkAccount: (params: unknown) => mockGetNetworkAccount(params),
+      getNetworkAccount: (params: {
+        indexedAccountId?: string;
+        networkId?: string;
+      }) => mockGetNetworkAccount(params),
+      getAccount: (params: { accountId: string; networkId: string }) =>
+        mockGetAccount(params),
+    },
+    serviceAllNetwork: {
+      getAllNetworksState: jest.fn(async () => ({
+        disabledNetworks: {},
+        enabledNetworks: {},
+      })),
+      updateAllNetworksState: jest.fn(async () => undefined),
     },
   },
 }));
@@ -87,6 +224,17 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '../../../components/AccountSelector/hooks/useCreateAddressForNetwork',
+  () => ({
+    useCreateAddressForNetwork: () => ({
+      createAddressForNetwork: (params: unknown) =>
+        mockCreateAddressForNetwork(params),
+      enableNetwork: jest.fn(),
+    }),
+  }),
+);
+
 jest.mock('../../../components/Empty', () => ({
   EmptySearch: () => null,
 }));
@@ -98,14 +246,18 @@ jest.mock('../../../components/ListItem', () => {
       title,
       subtitle,
       children,
+      onPress,
+      disabled,
     }: {
       title?: ReactNode;
       subtitle?: ReactNode;
       children?: ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
     }) =>
       React.createElement(
         'div',
-        { 'data-testid': 'list-item' },
+        { 'data-testid': 'list-item', onClick: disabled ? undefined : onPress },
         React.createElement('span', { 'data-testid': 'title' }, title),
         subtitle
           ? React.createElement('span', { 'data-testid': 'subtitle' }, subtitle)
@@ -145,8 +297,12 @@ jest.mock('../../../hooks/usePromiseResult', () => {
   return {
     // Minimal stand-in that runs the loader once per deps change so the row's
     // account lookup settles asynchronously, the same way it does at runtime.
-    usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
-      const [result, setResult] = React.useState<unknown>(undefined);
+    usePromiseResult: (
+      fn: () => Promise<unknown>,
+      deps: unknown[],
+      options?: { initResult?: unknown },
+    ) => {
+      const [result, setResult] = React.useState<unknown>(options?.initResult);
       React.useEffect(() => {
         let cancelled = false;
         void fn().then((value) => {
@@ -165,12 +321,7 @@ jest.mock('../../../hooks/usePromiseResult', () => {
 });
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({
-    activeAccount: {
-      wallet: { id: 'hd-1' },
-      indexedAccount: { id: 'hd-1--0' },
-    },
-  }),
+  useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
 }));
 
 jest.mock('../../../states/jotai/contexts/tokenList', () => ({
@@ -217,14 +368,348 @@ function renderRow(token: IAccountToken = suiUsdc) {
       allNetworksState={{ disabledNetworks: {}, enabledNetworks: {} }}
       refreshAllNetworkState={jest.fn()}
       processingTokenKey={null}
+      walletId="hd-1"
+      indexedAccountId="hd-1--0"
+      createAddressForNetwork={jest.fn()}
+      beginSelection={() => () => true}
     />,
   );
 }
+
+describe('resolveAggregateSelectorAccountScope', () => {
+  const active = {
+    activeWalletId: 'hd-1',
+    activeIndexedAccountId: 'hd-1--1',
+    activeIndexedAccountWalletId: 'hd-1',
+  };
+
+  it('falls back to the active account when the route carries no indexed account, empty string included', () => {
+    for (const routeIndexedAccountId of ['', undefined]) {
+      expect(
+        resolveAggregateSelectorAccountScope({
+          routeAccountId: "hd-1--m/44'/60'/1'/0/0",
+          routeIndexedAccountId,
+          ...active,
+        }),
+      ).toEqual({ walletId: 'hd-1', indexedAccountId: 'hd-1--1' });
+    }
+  });
+
+  it('keeps the scope the route carries', () => {
+    expect(
+      resolveAggregateSelectorAccountScope({
+        routeAccountId: "hd-2--m/44'/60'/3'/0/0",
+        routeIndexedAccountId: 'hd-2--3',
+        ...active,
+      }),
+    ).toEqual({ walletId: 'hd-2', indexedAccountId: 'hd-2--3' });
+  });
+
+  it('does not borrow the active account for a page about another wallet', () => {
+    expect(
+      resolveAggregateSelectorAccountScope({
+        routeAccountId: "hd-2--m/44'/60'/0'/0/0",
+        routeIndexedAccountId: '',
+        ...active,
+      }),
+    ).toEqual({ walletId: 'hd-2', indexedAccountId: undefined });
+  });
+
+  it('uses the active wallet when the route carries no account', () => {
+    expect(
+      resolveAggregateSelectorAccountScope({
+        routeAccountId: '',
+        routeIndexedAccountId: undefined,
+        ...active,
+      }),
+    ).toEqual({ walletId: 'hd-1', indexedAccountId: 'hd-1--1' });
+  });
+});
+
+describe('AggregateTokenSelector', () => {
+  const AGGREGATE_USDC = {
+    $key: 'aggregate_USDC_',
+    isAggregateToken: true,
+    commonSymbol: 'USDC',
+    name: 'USD Coin',
+    symbol: 'USDC',
+    networkId: '',
+    address: 'aggregate_USDC_',
+    decimals: 0,
+    isNative: false,
+  } as IAccountToken;
+  const usdcOn = (
+    networkId: string,
+    networkName: string,
+    extra: Partial<IAccountToken> = {},
+  ): IAccountToken => ({
+    $key: `aggregate_USDC_${networkId}`,
+    address: '0xusdc',
+    decimals: 6,
+    isNative: false,
+    name: 'USD Coin',
+    symbol: 'USDC',
+    commonSymbol: 'USDC',
+    networkId,
+    networkName,
+    ...extra,
+  });
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+  function renderSelector(params: Record<string, unknown> = {}) {
+    const onSelect = jest.fn(async () => undefined);
+    mockRouteParams = {
+      // The page is about account #2 of the wallet.
+      accountId: "hd-1--m/44'/60'/1'/0/0",
+      indexedAccountId: 'hd-1--1',
+      aggregateToken: AGGREGATE_USDC,
+      aggregateSubTokenList: [],
+      allAggregateTokenList: [
+        usdcOn('evm--1', 'Ethereum'),
+        usdcOn('evm--42161', 'Arbitrum'),
+      ],
+      onSelect,
+      closeAfterSelect: true,
+      ...params,
+    };
+    const utils = render(<AggregateTokenSelector />);
+    const row = (networkName: string) => {
+      const found = utils
+        .getAllByTestId('list-item')
+        .find(
+          (item) =>
+            item.querySelector('[data-testid="title"]')?.textContent ===
+            networkName,
+        );
+      expect(found).toBeDefined();
+      return found as HTMLElement;
+    };
+    return { ...utils, onSelect, row };
+  }
+
+  beforeEach(() => {
+    mockGetNetworkAccount.mockReset();
+    mockGetAccount.mockReset();
+    mockCreateAddressForNetwork.mockReset();
+    mockCompatibleNetworks = DEFAULT_COMPATIBLE_NETWORKS;
+    mockSubTokenFiat = undefined;
+    mockActiveAccount = {
+      wallet: { id: 'hd-1' },
+      indexedAccount: { id: 'hd-1--1', walletId: 'hd-1' },
+    };
+    // Arbitrum has an address, Ethereum has none yet.
+    mockGetNetworkAccount.mockImplementation(async ({ networkId }) => {
+      if (networkId === 'evm--42161') {
+        return { id: 'hd-1--arb-1' };
+      }
+      return Promise.reject(new Error('account not found'));
+    });
+  });
+
+  it('resolves and creates addresses for the active account when the route passes an empty indexed account', async () => {
+    mockCreateAddressForNetwork.mockResolvedValue('hd-1--eth-1');
+    const { row, onSelect, queryAllByTestId } = renderSelector({
+      indexedAccountId: '',
+    });
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    await waitFor(() =>
+      expect(
+        row('Arbitrum').querySelector('[data-testid="subtitle"]'),
+      ).toBeNull(),
+    );
+    // Looked up for account #2, not for an empty scope.
+    for (const [params] of mockGetNetworkAccount.mock.calls) {
+      expect(params.indexedAccountId).toBe('hd-1--1');
+    }
+    // The network that already has an address is not offered for creation.
+    expect(
+      row('Ethereum').querySelector('[data-testid="subtitle"]')?.textContent,
+    ).toBe('global.create_address');
+
+    fireEvent.click(row('Ethereum'));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(mockCreateAddressForNetwork).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--1',
+        networkId: 'evm--1',
+      }),
+    );
+  });
+
+  it('resolves rows through the page account for a wallet without an indexed account and offers no creation', async () => {
+    // An imported EVM account: it exists on EVM networks as it is, and no
+    // address can be created for it anywhere.
+    mockActiveAccount = { wallet: { id: 'imported' } };
+    mockCompatibleNetworks = [
+      ...DEFAULT_COMPATIBLE_NETWORKS,
+      { id: 'sol--101', name: 'Solana' },
+    ];
+    mockGetAccount.mockImplementation(async ({ accountId, networkId }) =>
+      networkId.startsWith('evm--')
+        ? { id: accountId }
+        : Promise.reject(new Error('not compatible')),
+    );
+    const { row, onSelect, queryAllByTestId, queryByText } = renderSelector({
+      accountId: 'imported--60--0xabc',
+      indexedAccountId: '',
+      allAggregateTokenList: [
+        usdcOn('evm--1', 'Ethereum'),
+        usdcOn('evm--42161', 'Arbitrum'),
+        usdcOn('sol--101', 'Solana'),
+      ],
+    });
+
+    // The network it cannot be used on is not listed at all.
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(queryByText('Solana')).toBeNull();
+    for (const name of ['Ethereum', 'Arbitrum']) {
+      expect(row(name).querySelector('[data-testid="subtitle"]')).toBeNull();
+    }
+    expect(mockGetAccount).toHaveBeenCalledWith({
+      accountId: 'imported--60--0xabc',
+      networkId: 'evm--42161',
+    });
+    expect(mockGetNetworkAccount).not.toHaveBeenCalled();
+
+    fireEvent.click(row('Arbitrum'));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--42161',
+        accountId: 'imported--60--0xabc',
+      }),
+      expect.anything(),
+    );
+    expect(mockCreateAddressForNetwork).not.toHaveBeenCalled();
+  });
+
+  it('keeps the sub-token multiplier and fiat value in native rows', async () => {
+    mockSubTokenFiat = {
+      balanceParsed: '0.414',
+      balanceMultiplier: '1000',
+      fiatValue: '0.41',
+      currency: 'usd',
+    };
+    const { row, queryAllByTestId } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-balance')).toBe('414');
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('$0.41');
+    expect(row('Ethereum').getAttribute('data-balance')).toBeNull();
+    // Explicit heights opt out of Android's legacy sub-400dp 0.9 row scale,
+    // which clipped unscaled text metrics (OK-66072).
+    expect(row('Arbitrum').getAttribute('data-height')).toBe('60');
+    expect(row('Arbitrum').getAttribute('data-height-rounding')).toBe(
+      'nearest',
+    );
+  });
+
+  it('preserves an empty balance and unavailable fiat value', async () => {
+    mockSubTokenFiat = { fiatValue: '--', currency: 'usd' };
+    const { row, queryAllByTestId } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-balance')).toBe('');
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('--');
+  });
+
+  it('distinguishes missing sub-token fiat data from an actual zero', async () => {
+    const { row, queryAllByTestId, rerender } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('--');
+
+    mockSubTokenFiat = { fiatValue: '0', currency: 'usd' };
+    rerender(<AggregateTokenSelector />);
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('$0.00');
+  });
+
+  it('uses a letter avatar for a custom network even when it has a logo', async () => {
+    mockCompatibleNetworks = [
+      {
+        id: 'custom--1',
+        name: 'Custom Chain',
+        isCustomNetwork: true,
+        logoURI: 'https://example.com/logo.png',
+      },
+    ];
+    const { row, queryAllByTestId } = renderSelector({
+      allAggregateTokenList: [usdcOn('custom--1', 'Custom Chain')],
+    });
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(1));
+    expect(row('Custom Chain').getAttribute('data-avatar-letter')).toBe('C');
+    expect(row('Custom Chain').getAttribute('data-avatar-image')).toBeNull();
+    expect(row('Custom Chain').getAttribute('data-avatar-background')).toBe(
+      '#222',
+    );
+    expect(row('Custom Chain').getAttribute('data-avatar-text-color')).toBe(
+      '#eee',
+    );
+  });
+
+  it('does not report a network whose address finished creating after another network was picked', async () => {
+    let finishCreating: (accountId: string) => void = () => undefined;
+    mockCreateAddressForNetwork.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishCreating = resolve;
+        }),
+    );
+    const { row, onSelect, queryAllByTestId } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    await waitFor(() =>
+      expect(
+        row('Arbitrum').querySelector('[data-testid="subtitle"]'),
+      ).toBeNull(),
+    );
+
+    fireEvent.click(row('Ethereum'));
+    fireEvent.click(row('Arbitrum'));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(onSelect).toHaveBeenLastCalledWith(
+      expect.objectContaining({ networkId: 'evm--42161' }),
+      expect.anything(),
+    );
+
+    await act(async () => {
+      finishCreating('hd-1--eth-1');
+    });
+    await settle();
+    // Arbitrum was the last pick: Ethereum must not take over afterwards.
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report a network whose address finished creating after the selector closed', async () => {
+    let finishCreating: (accountId: string) => void = () => undefined;
+    mockCreateAddressForNetwork.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishCreating = resolve;
+        }),
+    );
+    const { row, onSelect, queryAllByTestId, unmount } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    fireEvent.click(row('Ethereum'));
+    unmount();
+    await act(async () => {
+      finishCreating('hd-1--eth-1');
+    });
+    await settle();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+});
 
 describe('AggregateTokenListItem', () => {
   beforeEach(() => {
     mockGetNetworkAccount.mockReset();
     mockSubTokenFiat = undefined;
+    mockActiveAccount = {
+      wallet: { id: 'hd-1' },
+      indexedAccount: { id: 'hd-1--0', walletId: 'hd-1' },
+    };
   });
 
   it('hides balance and value on a network without a created address (OK-61879)', async () => {

@@ -1,5 +1,5 @@
 // cspell:ignore heikin Ashi
-import { useState } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -9,15 +9,23 @@ import {
   ColorPicker,
   Divider,
   Icon,
-  Popover,
+  Select,
   SizableText,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { TRADING_VIEW_SETTINGS_COLOR_PALETTE } from './TradingViewSettingsShared';
+const LINE_STYLE_WIDTHS: Partial<Record<string, number>> = {
+  solid: 1,
+  medium: 2,
+  bold: 3,
+  extraBold: 4,
+};
+const LINE_PREVIEW_FLOATING_PANEL_PROPS = { width: 144 };
 
 export const SELECT_OPTION_TRANSLATION_IDS: Record<string, ETranslations> = {
   auto: ETranslations.global_auto,
@@ -65,6 +73,8 @@ export function formatTestID(value: string) {
 // line. Checkbox rows indent that line past the 20px box and the label's 8px
 // leading padding so it lines up with the first letter of the label.
 export const SETTINGS_ROW_CHECKBOX_LABEL_INDENT = 28;
+// Chart display selects share a width so their boxes line up in the group.
+export const CHART_DISPLAY_SELECT_WIDTH = 160;
 
 export function SettingsGroup({
   title,
@@ -136,17 +146,21 @@ export function SettingsRow({
 
 export function SettingsCheckboxRow({
   label,
+  description,
   testID,
   value,
   disabled,
   children,
+  controlsIndent = SETTINGS_ROW_CHECKBOX_LABEL_INDENT,
   onChange,
 }: {
   label: string;
+  description?: string;
   testID?: string;
   value: boolean;
   disabled: boolean;
   children?: ReactNode;
+  controlsIndent?: number;
   onChange: (value: boolean) => void;
 }) {
   return (
@@ -166,22 +180,33 @@ export function SettingsCheckboxRow({
           testID ?? formatTestID(label)
         }`}
         label={label}
+        description={description}
         value={value}
         disabled={disabled}
         labelProps={{ variant: '$bodyMdMedium' }}
-        containerProps={{ alignItems: 'center' }}
+        // A description makes the label block taller; keep the box on the
+        // label line instead of centering it against both lines. The 2px top
+        // padding matches the box's vertical margin so their centers align.
+        containerProps={{ alignItems: description ? 'flex-start' : 'center' }}
         // Drop the default web `flex: 1` so the label is sized by its text and
         // the row can tell when the controls no longer fit beside it.
         labelContainerProps={{
-          py: '$0',
+          pt: description ? '$0.5' : '$0',
+          pb: '$0',
           my: '$0',
           justifyContent: 'center',
           flex: undefined,
+          // Let a long description wrap within the dialog width.
+          flexShrink: description ? 1 : undefined,
         }}
         onChange={(checked) => onChange(Boolean(checked))}
       />
+      {/* Keep children on one line. On native, Yoga can wrap a content-sized
+          nested `flexWrap` stack even after sizing it for a single line (seen
+          with zh-CN labels). This row's own wrap moves the controls below the
+          label as a group when they do not fit. */}
       {children ? (
-        <XStack ml={SETTINGS_ROW_CHECKBOX_LABEL_INDENT} flexShrink={1}>
+        <XStack ml={controlsIndent} flexShrink={1}>
           {children}
         </XStack>
       ) : null}
@@ -203,8 +228,6 @@ export function SettingsColorPicker({
   return (
     <ColorPicker
       value={value}
-      colors={TRADING_VIEW_SETTINGS_COLOR_PALETTE}
-      columns={5}
       triggerSize={32}
       disabled={disabled}
       testID={testID}
@@ -245,17 +268,15 @@ export function SettingsColorField({
 
 export function SettingsLineStylePreview({
   style,
+  lineWidth = 1,
 }: {
   style: 'solid' | 'dashed';
+  lineWidth?: number;
 }) {
-  if (style === 'solid') {
-    return <XStack width="$8" height={2} bg="$iconSubdued" />;
-  }
-
   return (
-    <XStack width="$8" gap="$0.5" alignItems="center">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <XStack key={index} width="$1" height={2} bg="$iconSubdued" />
+    <XStack width="100%" height="$5" alignItems="center" gap="$1">
+      {Array.from({ length: style === 'dashed' ? 5 : 1 }).map((_, index) => (
+        <XStack key={index} flex={1} height={lineWidth} bg="$iconSubdued" />
       ))}
     </XStack>
   );
@@ -268,10 +289,12 @@ export function SettingsSelect<TValue extends string>({
   options,
   disabled,
   onChange,
+  width = 128,
   showLinePreview = false,
-  renderOption,
-  renderTriggerContent,
+  renderOptionLabel,
+  optionLabels,
   optionTranslationIds,
+  optionIcons,
 }: {
   testID: string;
   title: string;
@@ -279,104 +302,68 @@ export function SettingsSelect<TValue extends string>({
   options: readonly TValue[];
   disabled: boolean;
   onChange: (value: TValue) => void;
+  width?: number;
   showLinePreview?: boolean;
-  renderOption?: (value: TValue) => ReactNode;
-  renderTriggerContent?: (value: TValue) => ReactNode;
+  renderOptionLabel?: (value: TValue) => ReactNode;
+  optionLabels?: Partial<Record<TValue, string>>;
   optionTranslationIds?: Partial<Record<TValue, ETranslations>>;
+  optionIcons?: Partial<Record<TValue, IKeyOfIcons>>;
 }) {
   const intl = useIntl();
-  const [isOpen, setIsOpen] = useState(false);
-  const { md } = useMedia();
+  const items = useMemo(
+    () =>
+      options.map((option) => ({
+        value: option,
+        label:
+          optionLabels?.[option] ??
+          formatOptionLabel(intl, option, optionTranslationIds),
+        labelComponent:
+          renderOptionLabel?.(option) ??
+          (showLinePreview ? (
+            <SettingsLineStylePreview
+              style={option === 'dashed' ? 'dashed' : 'solid'}
+              lineWidth={LINE_STYLE_WIDTHS[option] ?? 1}
+            />
+          ) : undefined),
+        leading: optionIcons?.[option] ? (
+          <Icon name={optionIcons[option]} size="$5" color="$iconSubdued" />
+        ) : undefined,
+      })),
+    [
+      intl,
+      optionIcons,
+      optionLabels,
+      optionTranslationIds,
+      options,
+      renderOptionLabel,
+      showLinePreview,
+    ],
+  );
 
   return (
-    <Popover
+    <Select
+      testID={`trading-view-settings-select-${testID}`}
       title={title}
-      showHeader={md}
-      open={disabled ? false : isOpen}
-      onOpenChange={(nextOpen) => {
-        if (!disabled) {
-          setIsOpen(nextOpen);
-        }
-      }}
+      value={value}
+      // On Android, explicit false maps to readOnly={false} in the default
+      // trigger Input, overriding its editable={false} and intercepting taps.
+      disabled={platformEnv.isNativeAndroid ? disabled || undefined : disabled}
+      onChange={onChange}
       placement="bottom-end"
-      floatingPanelProps={{ width: 240 }}
-      renderTrigger={
-        <XStack
-          testID={`trading-view-settings-select-${testID}`}
-          gap="$1.5"
-          alignItems="center"
-          cursor={disabled ? 'default' : 'pointer'}
-          opacity={disabled ? 0.5 : 1}
-        >
-          {renderTriggerContent
-            ? renderTriggerContent(value)
-            : (renderOption?.(value) ?? (
-                <>
-                  {showLinePreview ? (
-                    <SettingsLineStylePreview
-                      style={value as 'solid' | 'dashed'}
-                    />
-                  ) : null}
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {formatOptionLabel(intl, value, optionTranslationIds)}
-                  </SizableText>
-                </>
-              ))}
-          <Icon
-            name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-            size="$4.5"
-            color="$iconSubdued"
-          />
-        </XStack>
+      floatingPanelProps={
+        showLinePreview ? LINE_PREVIEW_FLOATING_PANEL_PROPS : undefined
       }
-      renderContent={({ closePopover }) => (
-        <YStack p={md ? '$3' : '$1'} gap={md ? '$1' : '$0.5'}>
-          {options.map((option) => {
-            const selected = value === option;
-            return (
-              <XStack
-                key={option}
-                testID={`trading-view-settings-select-${testID}-${option}`}
-                minHeight={md ? 48 : 36}
-                px={md ? '$2.5' : '$2'}
-                py={md ? '$2.5' : '$1.5'}
-                alignItems="center"
-                justifyContent="space-between"
-                borderRadius="$2"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={() => {
-                  onChange(option);
-                  closePopover();
-                }}
-              >
-                {renderOption ? (
-                  renderOption(option)
-                ) : (
-                  <XStack gap="$2" alignItems="center">
-                    {showLinePreview ? (
-                      <SettingsLineStylePreview
-                        style={option as 'solid' | 'dashed'}
-                      />
-                    ) : null}
-                    <SizableText size="$bodyMd">
-                      {formatOptionLabel(intl, option, optionTranslationIds)}
-                    </SizableText>
-                  </XStack>
-                )}
-                {selected ? (
-                  <Icon
-                    name="CheckLargeOutline"
-                    size="$4"
-                    color="$iconActive"
-                  />
-                ) : null}
-              </XStack>
-            );
-          })}
-        </YStack>
-      )}
+      defaultTriggerInputProps={{
+        size: 'small',
+        width,
+        pr: '$8',
+        // The default trigger sets flex: 1 on the input. Native resolves that
+        // to a zero flex basis that ignores `width`, so the input shrinks to
+        // its padding and hides the value. Web keeps an auto basis.
+        ...(platformEnv.isNative ? { flex: 0 } : {}),
+        leftIconName: optionIcons?.[value],
+      }}
+      items={items}
     />
   );
 }

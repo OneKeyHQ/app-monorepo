@@ -141,3 +141,59 @@ describe('resolveCapsuleText, error step', () => {
     ).toBe('');
   });
 });
+
+describe('resolveCapsuleText, done step', () => {
+  it.each([
+    ['en-US', 'Portfolio updated'],
+    ['zh-CN', '资产概览已更新'],
+  ] as const)(
+    'uses localized operation-specific success copy in %s',
+    async (locale, expected) => {
+      const messages = await loadLocaleMessages(locale);
+      const uiIntl = createIntl({ locale, messages });
+      const successCopy = uiIntl.formatMessage({
+        id: ETranslations.portfolio_updated__title,
+      });
+
+      expect(
+        resolveCapsuleText(
+          uiIntl,
+          'done',
+          'OneKey',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          successCopy,
+        ),
+      ).toEqual({ title: expected, sub: 'OneKey' });
+    },
+  );
+});
+
+describe('resolveCapsuleText, stalled connecting', () => {
+  it('shows the transport hint only on the OneKey track', () => {
+    expect(
+      resolveCapsuleText(
+        intl,
+        'connecting',
+        'Keystone',
+        'keystone',
+        undefined,
+        undefined,
+        'usb',
+      ).sub,
+    ).toBe('');
+    expect(
+      resolveCapsuleText(
+        intl,
+        'connecting',
+        'Pro',
+        undefined,
+        undefined,
+        undefined,
+        'usb',
+      ).sub,
+    ).toBe(`<${ETranslations.device_stage_connecting_stalled_usb__desc}>`);
+  });
+});

@@ -1,9 +1,7 @@
 import { rootNavigationRef } from '@onekeyhq/components';
-import {
-  EModalSwapRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import { isMarketDetailRoute } from './swapNavigationUtils';
 
 import type { ISwapNavigationContext } from './swapNavigationUtils';
 
@@ -17,10 +15,7 @@ export const handleSwapNavigation = (
     const isInSwapTab = tabRoute?.name === ETabRoutes.Swap;
     const tabSubRouteIndex = tabRoute?.state?.index ?? 0;
     const tabSubRouteName = tabRoute?.state?.routes?.[tabSubRouteIndex]?.name;
-    const isInMarketDetail =
-      tabSubRouteName === ETabMarketRoutes.MarketDetail ||
-      tabSubRouteName === ETabMarketRoutes.MarketDetailV2 ||
-      tabSubRouteName === ETabMarketRoutes.MarketNativeDetail;
+    const isInMarketDetail = isMarketDetailRoute(tabSubRouteName);
     const hasModal = (state?.routes?.length || 0) > 1;
     let isHasSwapModal = false;
     let isSwapModalOnTheTop = false;

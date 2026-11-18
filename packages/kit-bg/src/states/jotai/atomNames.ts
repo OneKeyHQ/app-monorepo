@@ -1,11 +1,14 @@
 export enum EAtomNames {
+  receivePreferencesPersistAtom = 'receivePreferencesPersistAtom',
   bannerCloseIdsAtom = 'bannerCloseIdsAtom',
+  osEndOfSupportNoticePersistAtom = 'osEndOfSupportNoticePersistAtom',
   demoPriceAtom = 'demoPriceAtom',
   demoPriceInfoAtom = 'demoPriceInfoAtom',
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
   inscriptionProtectionControlPersistAtom = 'inscriptionProtectionControlPersistAtom',
+  termsConsentPersistAtom = 'termsConsentPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
   currencyPersistAtom = 'currencyPersistAtom',
@@ -25,6 +28,7 @@ export enum EAtomNames {
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   deviceStageAtom = 'deviceStageAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
+  thirdPartyBleBindingAtom = 'thirdPartyBleBindingAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
@@ -42,6 +46,8 @@ export enum EAtomNames {
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
   isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
+  privacyChainAtom = 'privacyChainAtom',
+  swapLimitOrdersLoadingAtom = 'swapLimitOrdersLoadingAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
@@ -66,6 +72,7 @@ export enum EAtomNames {
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',
+  primeFreeTrialAtom = 'primeFreeTrialAtom',
   keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
   keylessLastCancelVerifyPinTimeAtom = 'keylessLastCancelVerifyPinTimeAtom',
   keylessBackendShareV2MigrationPersistAtom = 'keylessBackendShareV2MigrationPersistAtom',
@@ -77,6 +84,7 @@ export enum EAtomNames {
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
+  webviewPerpTradeTargetAtom = 'webviewPerpTradeTargetAtom',
   perpsActiveAccountAtom = 'perpsActiveAccountAtom',
   perpsActiveAccountRefreshHookAtom = 'perpsActiveAccountRefreshHookAtom',
   perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',
@@ -113,6 +121,7 @@ export enum EAtomNames {
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
   perpsSpotDustingAtom = 'perpsSpotDustingAtom',
   perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
+  perpsLiquidationRiskInputsAtom = 'perpsLiquidationRiskInputsAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode
   tradingModeAtom = 'tradingModeAtom',
@@ -130,6 +139,9 @@ export enum EAtomNames {
   spotPairDisplayNameMapAtom = 'spotPairDisplayNameMapAtom',
   spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
+  perpsTradingViewChartSettingsPersistAtom = 'perpsTradingViewChartSettingsPersistAtom',
+  perpsTradingViewIndicatorSettingsPersistAtom = 'perpsTradingViewIndicatorSettingsPersistAtom',
+  perpsTradingViewMultiChartPersistAtom = 'perpsTradingViewMultiChartPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -137,6 +149,8 @@ export enum EAtomNames {
   translateSettingsPersistAtom = 'translateSettingsPersistAtom',
 
   // swap
+  dustSweepPreferencesPersistAtom = 'dustSweepPreferencesPersistAtom',
+  swapStockIssuerPreferencePersistAtom = 'swapStockIssuerPreferencePersistAtom',
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
@@ -144,14 +158,16 @@ export enum EAtomNames {
   // market
   marketDesktopLayoutAtom = 'marketDesktopLayoutAtom',
   marketSelectedTabAtom = 'marketSelectedTabAtom',
+  marketHomePreferencesAtom = 'marketHomePreferencesAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
-  marketPriceSourceAtom = 'marketPriceSourceAtom',
-  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
+  marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
+  marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
+  marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
@@ -165,6 +181,11 @@ export const atomsConfig: Partial<
   Record<IAtomNameKeys, { deepCompare?: boolean; mergeInitialValue?: boolean }>
 > = {
   [EAtomNames.notificationsAtom]: {
+    deepCompare: true,
+  },
+  // The hide-value toggle is applied on the UI runtime before the bg echo
+  // arrives; an equal echo must not re-render every masked number again.
+  [EAtomNames.settingsValuePersistAtom]: {
     deepCompare: true,
   },
   [EAtomNames.primePersistAtom]: {
@@ -188,6 +209,14 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.swapTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  // Written as a complete snapshot: lodash merge would keep the track sizes and
+  // panel state of a layout the user has already left.
+  [EAtomNames.perpsTradingViewMultiChartPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

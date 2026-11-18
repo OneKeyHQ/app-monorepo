@@ -19,13 +19,6 @@ export function createHardwareErrorDialogEventHandler(
 
   return Object.assign(
     (payload: IHardwareErrorDialogPayload) => {
-      if (
-        payload.errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR
-      ) {
-        handleHardwareErrorDialog(payload);
-        return;
-      }
-
       if (payload.errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND) {
         throttledDeviceNotFound(payload);
       }
@@ -55,17 +48,4 @@ export function isTrezorHardwareErrorDialogPayload(
   const vendor = getVendorFromPayload(payload);
 
   return vendor === EHardwareVendor.trezor || vendor === 'Trezor';
-}
-
-export function shouldReplaceHardwareErrorDialog({
-  currentErrorType,
-  nextErrorType,
-}: {
-  currentErrorType: string | null;
-  nextErrorType: string;
-}): boolean {
-  return (
-    nextErrorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR &&
-    currentErrorType !== HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR
-  );
 }

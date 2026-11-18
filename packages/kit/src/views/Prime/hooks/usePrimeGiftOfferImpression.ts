@@ -43,10 +43,12 @@ export function usePrimeGiftOfferImpression({
   enabled,
   serialNo,
   source,
+  deviceCount,
 }: {
   enabled: boolean;
   serialNo: string | undefined;
   source: IPrimeGiftAnalyticsSource;
+  deviceCount?: number;
 }) {
   const isFocused = useIsFocused();
   const [host, setHost] = useState<IPrimeGiftOfferImpressionHost>(null);
@@ -77,13 +79,21 @@ export function usePrimeGiftOfferImpression({
       }
     };
 
+    const stopWatching = () => {
+      stopPoll();
+      observer?.disconnect();
+      observer = undefined;
+    };
+
     const markShown = () => {
       if (!active || shownThisVisitRef.current.has(serialNo)) {
         return;
       }
       shownThisVisitRef.current.add(serialNo);
-      defaultLogger.prime.subscription.primeGiftOfferShown({ source });
-      stopPoll();
+      defaultLogger.prime.subscription.primeGiftOfferShown(
+        typeof deviceCount === 'number' ? { source, deviceCount } : { source },
+      );
+      stopWatching();
     };
 
     const tryLog = () => {
@@ -92,7 +102,7 @@ export function usePrimeGiftOfferImpression({
         return;
       }
       if (shownThisVisitRef.current.has(serialNo)) {
-        stopPoll();
+        stopWatching();
         return;
       }
       if (platformEnv.isNative) {
@@ -159,11 +169,10 @@ export function usePrimeGiftOfferImpression({
 
     return () => {
       active = false;
-      stopPoll();
-      observer?.disconnect();
+      stopWatching();
       unsubVisibility();
     };
-  }, [enabled, host, isFocused, serialNo, source]);
+  }, [deviceCount, enabled, host, isFocused, serialNo, source]);
 
   return setHost;
 }

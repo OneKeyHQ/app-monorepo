@@ -1,4 +1,9 @@
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  IRevenueCatCustomerInfo,
+  IRevenueCatPurchaseResult,
+  IRevenueCatStorefront,
+} from '@onekeyhq/shared/types/prime/revenueCat';
 
 import type {
   CustomerInfo as CustomerInfoWeb,
@@ -34,14 +39,19 @@ export type IRevenueCatCustomerInfoNative = CustomerInfoNative;
 
 export type IUsePrimePayment = {
   isReady: boolean;
+  initializationError?: Error;
+  getStorefront?: () => Promise<IRevenueCatStorefront | null>;
   getCustomerInfo: () => Promise<
-    IRevenueCatCustomerInfoWeb | IRevenueCatCustomerInfoNative
+    | IRevenueCatCustomerInfoWeb
+    | IRevenueCatCustomerInfoNative
+    | IRevenueCatCustomerInfo
   >;
   getPackagesNative: (() => Promise<IPackage[]>) | undefined;
   getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
   restorePurchases: (() => Promise<void>) | undefined;
   webEmbedQueryParams?: {
     apiKey: string;
+    isSandboxKey: boolean;
     primeUserId: string;
     primeUserEmail: string;
     subscriptionPeriod: ISubscriptionPeriod;
@@ -57,7 +67,7 @@ export type IUsePrimePayment = {
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
         featureName?: EPrimeFeatures;
-      }) => Promise<MakePurchaseResult>)
+      }) => Promise<MakePurchaseResult | IRevenueCatPurchaseResult>)
     | undefined;
   purchasePackageWeb:
     | (({

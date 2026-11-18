@@ -25,6 +25,8 @@ export interface ITokenListViewContextValue {
     }
   >;
   networksMap?: Record<string, IServerNetwork>;
+  // A scoped host supplies metadata; avatars must not issue per-row lookups.
+  networkMetadataProvided?: boolean;
   tokenListMap?: Record<string, ITokenFiat>;
   // Per-$key AGGREGATE fiat map (sum-of-subcells shape, `ITokenFiat`). Distinct
   // from `ownedAggregateTokenListMap` above, which carries aggregate sub-token

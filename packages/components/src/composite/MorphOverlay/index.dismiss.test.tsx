@@ -1,30 +1,69 @@
 /**
  * @jest-environment jsdom
+ * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { ReactNode } from 'react';
+import type {
+  CSSProperties,
+  HTMLAttributes,
+  KeyboardEvent,
+  ReactNode,
+} from 'react';
 
 import { MorphOverlay, useMorphOverlay } from '.';
 
-import { act, fireEvent, render, renderHook } from '@testing-library/react';
+import { FocusScope } from '@tamagui/focus-scope';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react';
+import { useWindowDimensions } from 'react-native';
 import {
   GestureDetector,
+  GestureHandlerRootView,
   PointerType,
   State,
 } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  isDualScreenDevice,
+  useIsSpanningInDualScreen,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useMedia } from '../../hooks/useStyle';
+
 import type { IMorphOverlayPose, IMorphOverlayProps } from '.';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type { Gesture } from 'react-native-gesture-handler';
 
 // This UI suite needs RN Web, not the CLI's repository-wide manual mock.
-jest.unmock('react-native');
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  useWindowDimensions: jest.fn(),
+}));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false, isNativeAndroid: false, isNativeIOS: false },
+}));
+jest.mock('@onekeyhq/shared/src/modules/DualScreenInfo', () => ({
+  isDualScreenDevice: jest.fn(),
+  useIsSpanningInDualScreen: jest.fn(),
+}));
 
 jest.mock('react-native-gesture-handler', () => ({
   ...jest.requireActual<typeof import('react-native-gesture-handler')>(
     'react-native-gesture-handler',
   ),
   GestureDetector: jest.fn(({ children }: { children: ReactNode }) => children),
+  GestureHandlerRootView: jest.fn(({ children }: { children: ReactNode }) => (
+    <div data-testid="morph-gesture-root">{children}</div>
+  )),
 }));
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
@@ -32,24 +71,49 @@ jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   getTokenValue: () => '#222',
   useThemeName: () => 'dark',
 }));
-jest.mock('../../primitives', () => ({
-  Stack: jest.requireActual<typeof import('react-native')>('react-native').View,
-}));
+jest.mock('../../primitives', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { StyleSheet } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  // Tamagui forwards DOM capture handlers; RN Web's View drops onBlurCapture.
+  return {
+    Stack: React.forwardRef<
+      HTMLDivElement,
+      Omit<HTMLAttributes<HTMLDivElement>, 'style'> & {
+        style?: StyleProp<ViewStyle>;
+      }
+    >(
+      (
+        { children, style, tabIndex, inert, onKeyDownCapture, onBlurCapture },
+        ref,
+      ) => (
+        <div
+          ref={ref}
+          style={StyleSheet.flatten(style) as CSSProperties}
+          tabIndex={tabIndex}
+          inert={inert}
+          onKeyDownCapture={onKeyDownCapture}
+          onBlurCapture={onBlurCapture}
+        >
+          {children}
+        </div>
+      ),
+    ),
+  };
+});
 jest.mock('../../actions/IconButton', () => ({
   IconButton:
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
 }));
-jest.mock('../../hocs', () => ({
-  Portal: {
-    Body: ({ children }: { children: ReactNode }) => children,
-    Constant: { HARDWARE_UI_STATE_DIALOG: 'stage' },
-  },
+jest.mock('../../shared/imperativeOverlayMount', () => ({
+  ImperativeOverlayMountBody: ({ children }: { children: ReactNode }) =>
+    children,
 }));
 jest.mock('../../hooks/useLayout', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 jest.mock('../../hooks/useStyle', () => ({
-  useMedia: () => ({ md: true }),
+  useMedia: jest.fn(),
 }));
 jest.mock('../../content/deviceScene', () => ({
   easeInFn: (value: number) => value,
@@ -76,9 +140,14 @@ jest.mock('react-native-reanimated', () => {
     makeMutable: <T,>(value: T) => ({ value }),
     runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
-    useAnimatedStyle: () => ({}),
+    // The keyboard rise's settle gate; no worklet runs under this mock.
+    useAnimatedReaction: jest.fn(),
+    // A detectable stand-in for every animated style, so a test can tell
+    // which element wears one without running any worklet.
+    useAnimatedStyle: () => ({ opacity: 0.42 }),
     useReducedMotion: () => false,
     useSharedValue: <T,>(value: T) => useRef({ value }).current,
+    withDelay: <T,>(_delay: number, value: T): T => value,
     withSpring: identity,
     withTiming: identity,
   };
@@ -96,12 +165,31 @@ const dragEvent = {
   absoluteX: 0,
   absoluteY: 0,
   translationX: 0,
-  translationY: 24,
+  translationY: -24,
   velocityX: 0,
   velocityY: 0,
 };
 
-function setup() {
+beforeEach(() => {
+  Object.assign(platformEnv, {
+    isNative: false,
+    isNativeAndroid: false,
+    isNativeIOS: false,
+  });
+  jest.mocked(useWindowDimensions).mockReturnValue({
+    width: 390,
+    height: 844,
+    scale: 1,
+    fontScale: 1,
+  });
+  jest
+    .mocked(useMedia)
+    .mockReturnValue({ md: true } as ReturnType<typeof useMedia>);
+  jest.mocked(isDualScreenDevice).mockReturnValue(false);
+  jest.mocked(useIsSpanningInDualScreen).mockReturnValue(false);
+});
+
+function setup(extra?: Pick<IMorphOverlayProps<string>, 'modal' | 'scrim'>) {
   const onDismiss = jest.fn();
   const state = renderHook(
     ({ pose }: { pose: IMorphOverlayPose }) =>
@@ -117,6 +205,7 @@ function setup() {
       capsuleKey="capsule"
       capsule={null}
       seats={seats}
+      {...extra}
     />
   );
   const view = render(overlay());
@@ -175,7 +264,7 @@ describe('MorphOverlay dismiss gesture', () => {
     setPose('card');
     act(() => {
       latestGesture().handlers.onEnd?.(
-        { ...dragEvent, translationY: 300 },
+        { ...dragEvent, translationY: -300 },
         true,
       );
     });
@@ -191,7 +280,10 @@ describe('MorphOverlay dismiss gesture', () => {
       setPose('hidden');
       setPose('card');
       act(() => {
-        latestGesture().handlers.onUpdate?.({ ...dragEvent, translationY: 48 });
+        latestGesture().handlers.onUpdate?.({
+          ...dragEvent,
+          translationY: -48,
+        });
       });
       const reopenedPresence = state.result.current.presence.value;
       expect(reopenedPresence).toBeLessThan(1);
@@ -203,7 +295,7 @@ describe('MorphOverlay dismiss gesture', () => {
           gesture.handlers.onFinalize?.(dragEvent, false);
         }
         if (event === 'dismiss') {
-          gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+          gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
         }
       });
       expect(state.result.current.presence.value).toBe(reopenedPresence);
@@ -215,7 +307,7 @@ describe('MorphOverlay dismiss gesture', () => {
     const { state, gesture, setPose, onDismiss } = setup();
     jest.mocked(runOnJS).mockImplementationOnce(() => jest.fn());
     act(() => {
-      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
     });
     const queuedDismiss = jest.mocked(runOnJS).mock.calls.at(-1)?.[0];
     expect(queuedDismiss).toBeInstanceOf(Function);
@@ -230,9 +322,386 @@ describe('MorphOverlay dismiss gesture', () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  it('never dismisses on a downward drag — the shell hangs from the top', () => {
+    const { state, gesture, onDismiss } = setup();
+    act(() => {
+      gesture.handlers.onUpdate?.({ ...dragEvent, translationY: 300 });
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+    });
+    expect(state.result.current.presence.value).toBe(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it('keeps the close button wired to dismissal', () => {
     const { view, onDismiss } = setup();
     fireEvent.click(view.getByTestId('morph-overlay-close'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('MorphOverlay wall', () => {
+  // OK-63431: RN's iOS hit test skips views whose alpha is under 0.01, so
+  // the wall must never wear the scrim's fading paint — it stays a static
+  // view of its own, and only the tint beside it carries color and opacity.
+  it.each([true, false])(
+    'keeps the blocking wall free of the scrim paint (scrim=%s)',
+    (scrim) => {
+      const { view } = setup({ modal: true, scrim });
+      const wall = view.getByTestId('morph-overlay-wall');
+      expect(wall.style.opacity).toBe('');
+      expect(wall.style.backgroundColor).toBe('');
+      const tint = wall.nextElementSibling as HTMLElement | null;
+      expect(tint).not.toBeNull();
+      if (!tint) throw new OneKeyLocalError('Missing scrim tint');
+      expect(tint.style.backgroundColor).not.toBe('');
+      expect(tint.style.opacity).toBe('0.42');
+      expect(globalThis.getComputedStyle(tint).pointerEvents).toBe('none');
+    },
+  );
+
+  it('mounts the wall only while blocking and shown', () => {
+    const { view, setPose } = setup({ modal: true });
+    expect(view.queryByTestId('morph-overlay-wall')).not.toBeNull();
+    setPose('hidden');
+    expect(view.queryByTestId('morph-overlay-wall')).toBeNull();
+    setPose('card');
+    expect(view.queryByTestId('morph-overlay-wall')).not.toBeNull();
+    // Queries are bound to document.body, so the modal render must leave
+    // before the non-modal one is judged.
+    view.unmount();
+    const open = setup();
+    expect(open.view.queryByTestId('morph-overlay-wall')).toBeNull();
+  });
+});
+
+it('keeps the Android gesture root inside the shell through pose changes', () => {
+  Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
+  const { view, setPose } = setup({ modal: true });
+  const root = view.getByTestId('morph-gesture-root');
+  expect(root.contains(view.getByTestId('morph-overlay-close'))).toBe(true);
+  expect(root.contains(view.getByTestId('morph-overlay-wall'))).toBe(false);
+  expect(jest.mocked(GestureHandlerRootView)).toHaveBeenCalled();
+
+  setPose('hidden');
+  expect(view.getByTestId('morph-gesture-root')).toBe(root);
+  expect(view.queryByTestId('morph-overlay-wall')).toBeNull();
+  setPose('card');
+  expect(view.getByTestId('morph-gesture-root')).toBe(root);
+});
+
+const preventKeyDefault = (event: KeyboardEvent) => event.preventDefault();
+const focusSeats: IMorphOverlayProps<string>['seats'] = [
+  {
+    key: 'parked',
+    active: false,
+    node: <input aria-label="Parked input" data-morph-initial-focus />,
+  },
+  {
+    key: 'input',
+    active: true,
+    node: (
+      <>
+        <button type="button">Details</button>
+        <input aria-label="Passphrase" data-morph-initial-focus />
+        <button type="button" onKeyDown={preventKeyDefault}>
+          Confirm
+        </button>
+      </>
+    ),
+  },
+];
+
+describe('MorphOverlay focus ownership', () => {
+  const elementFromPoint = jest.fn<Element | null, [number, number]>();
+  beforeEach(() => {
+    elementFromPoint.mockReset().mockReturnValue(null);
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: elementFromPoint,
+    });
+    // jsdom has no layout; all visibility changes here use inert.
+    const rect = document.body.getBoundingClientRect();
+    jest.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue({
+      0: rect,
+      length: 1,
+      item: () => rect,
+      [Symbol.iterator]: () => [rect][Symbol.iterator](),
+    });
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Reflect.deleteProperty(document, 'elementFromPoint');
+  });
+
+  function Harness({
+    pose,
+    modal = true,
+  }: {
+    pose: IMorphOverlayPose;
+    modal?: boolean;
+  }) {
+    const morph = useMorphOverlay({ pose, key: 'input', value: 'input' });
+    return (
+      <>
+        <FocusScope trapped loop>
+          <div>
+            <button type="button">Trigger</button>
+            <button type="button">Underlying action</button>
+          </div>
+        </FocusScope>
+        <MorphOverlay
+          morph={morph}
+          modal={modal}
+          cardInnerHeight={240}
+          cardContentMeasured
+          capsuleKey="wait"
+          capsule={null}
+          seats={focusSeats}
+        />
+      </>
+    );
+  }
+
+  it('hands focus to the live panel, loops past parked inputs, and restores the dialog', async () => {
+    const view = render(<Harness pose="hidden" />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" />);
+    const input = view.getByLabelText('Passphrase');
+    const details = view.getByText('Details');
+    const confirm = view.getByText('Confirm');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: 'test-passphrase' } });
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab' });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab' });
+    expect(document.activeElement).toBe(input);
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(input);
+
+    view.rerender(<Harness pose="hidden" />);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(view.getByText('Underlying action'));
+
+    view.rerender(<Harness pose="card" />);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('focuses the designated input after a wait, without refocusing on ordinary rerenders', async () => {
+    const view = render(<Harness pose="hidden" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByText('Trigger')),
+    );
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    view.rerender(<Harness pose="card" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByLabelText('Passphrase')),
+    );
+    const details = view.getByText('Details');
+    act(() => details.focus());
+    view.rerender(<Harness pose="card" />);
+    expect(document.activeElement).toBe(details);
+  });
+
+  it.each(['above', 'below'] as const)(
+    'keeps focus in the visually top layer when a dialog opens %s the hardware prompt',
+    async (position) => {
+      const view = render(<Harness pose="capsule" />);
+      const layer = view.getByTestId('morph-overlay-wall').parentElement;
+      await waitFor(() => expect(document.activeElement).toBe(layer));
+      const dialog = render(
+        <FocusScope trapped loop>
+          <div>
+            <button type="button">New dialog action</button>
+          </div>
+        </FocusScope>,
+      );
+      const action = dialog.getByText('New dialog action');
+      await waitFor(() => expect(document.activeElement).toBe(action));
+      const input = view.getByLabelText('Passphrase');
+      if (!(input instanceof HTMLInputElement)) {
+        throw new OneKeyLocalError('Missing passphrase input');
+      }
+      elementFromPoint.mockReturnValue(position === 'above' ? action : input);
+      view.rerender(<Harness pose="card" />);
+      await act(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          ),
+      );
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          position === 'above' ? action : input,
+        ),
+      );
+      if (position === 'below') {
+        fireEvent.change(input, { target: { value: 'kept-passphrase' } });
+        // A late autofocus from the covered dialog must not win either.
+        act(() => action.focus());
+        await waitFor(() => expect(document.activeElement).toBe(input));
+        expect(view.getByLabelText('Passphrase')).toBe(input);
+        expect(input.value).toBe('kept-passphrase');
+        view.rerender(<Harness pose="hidden" />);
+        await waitFor(() => expect(document.activeElement).toBe(action));
+      }
+    },
+  );
+
+  it('recovers focus when a step parks the focused input, without stealing it after exit', async () => {
+    const view = render(<Harness pose="hidden" />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" />);
+    const input = view.getByLabelText('Passphrase');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    // jsdom does not blur inert controls; replay Chromium's focusout to body.
+    act(() => input.blur());
+    fireEvent.focusOut(input, { relatedTarget: null });
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+
+    view.rerender(<Harness pose="card" />);
+    act(() => input.focus());
+    act(() => input.blur());
+    fireEvent.focusOut(input, { relatedTarget: null });
+    view.rerender(<Harness pose="hidden" />);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    await act(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('focuses the container during a wait without interactive controls', async () => {
+    const view = render(<Harness pose="hidden" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByText('Trigger')),
+    );
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    fireEvent.keyDown(layer as HTMLElement, { key: 'Tab' });
+    expect(document.activeElement).toBe(layer);
+  });
+
+  it('does not take focus for a non-blocking overlay', async () => {
+    const view = render(<Harness pose="hidden" modal={false} />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" modal={false} />);
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(view.getByText('Underlying action'));
+  });
+});
+
+describe('MorphOverlay viewport posture', () => {
+  it.each([
+    {
+      name: 'Android spanning with phone media',
+      platform: 'android',
+      dual: true,
+      spanning: true,
+      md: true,
+      width: 850,
+      cardWidth: 400,
+    },
+    {
+      name: 'Android spanning with wide media',
+      platform: 'android',
+      dual: true,
+      spanning: true,
+      md: false,
+      width: 850,
+      cardWidth: 400,
+    },
+    {
+      name: 'Android folded',
+      platform: 'android',
+      dual: true,
+      spanning: false,
+      md: true,
+      width: 440,
+      cardWidth: 424,
+    },
+    {
+      name: 'ordinary Android phone',
+      platform: 'android',
+      dual: false,
+      spanning: false,
+      md: true,
+      width: 440,
+      cardWidth: 424,
+    },
+    {
+      name: 'desktop',
+      platform: 'desktop',
+      dual: false,
+      spanning: false,
+      md: false,
+      width: 1200,
+      cardWidth: 400,
+    },
+    {
+      name: 'iOS phone',
+      platform: 'ios',
+      dual: false,
+      spanning: false,
+      md: true,
+      width: 440,
+      cardWidth: 424,
+    },
+    {
+      name: 'iOS wide window',
+      platform: 'ios',
+      dual: false,
+      spanning: false,
+      md: false,
+      width: 1024,
+      cardWidth: 400,
+    },
+  ])(
+    '$name keeps its width cap and hangs from the top',
+    ({ platform, dual, spanning, md, width, cardWidth }) => {
+      Object.assign(platformEnv, {
+        isNative: platform !== 'desktop',
+        isNativeAndroid: platform === 'android',
+        isNativeIOS: platform === 'ios',
+      });
+      jest.mocked(isDualScreenDevice).mockReturnValue(dual);
+      jest.mocked(useIsSpanningInDualScreen).mockReturnValue(spanning);
+      jest
+        .mocked(useMedia)
+        .mockReturnValue({ md } as ReturnType<typeof useMedia>);
+      jest
+        .mocked(useWindowDimensions)
+        .mockReturnValue({ width, height: 900, scale: 1, fontScale: 1 });
+
+      const { state, view, gesture, onDismiss } = setup();
+      expect(state.result.current.width.value).toBe(cardWidth);
+      const layer = view.container.firstElementChild;
+      expect(layer).not.toBeNull();
+      if (!layer) throw new OneKeyLocalError('Missing overlay layer');
+      expect(globalThis.getComputedStyle(layer).justifyContent).toBe(
+        'flex-start',
+      );
+      act(() => {
+        gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
+      });
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+    },
+  );
 });

@@ -68,6 +68,10 @@ export const PerpTestIDs = {
   TradesHistoryTab: 'perp-trades-history-tab',
   AccountTab: 'perp-account-tab',
 
+  // -- Account overview --
+  MarginRatioRiskButton: 'perp-margin-ratio-risk-button',
+  MarginRatioRiskDialog: 'perp-margin-ratio-risk-dialog',
+
   // -- Positions list --
   PositionRow: 'perp-position-row',
   PositionCloseMarketButton: 'perp-position-close-market-button',
@@ -76,6 +80,13 @@ export const PerpTestIDs = {
   PositionShareButton: 'perp-position-share-button',
   PositionShareRetryButton: 'perp-position-share-retry-button',
   PositionAdjustMarginButton: 'perp-position-adjust-margin-button',
+  PositionReverseButton: 'perp-position-reverse-button',
+  ReversePositionDialog: 'perp-reverse-position-dialog',
+  ReversePositionConfirmButton: 'perp-reverse-position-confirm-button',
+  PositionActionsSettingsButton: 'perp-position-actions-settings-button',
+  PositionActionsSettingsDialog: 'perp-position-actions-settings-dialog',
+  PositionActionSwitch: (action: string) =>
+    `perp-position-action-switch-${action}`,
   PositionAddButton: 'perp-position-add-button',
   CloseAllPositionsButton: 'perp-close-all-positions-button',
 
@@ -122,6 +133,10 @@ export const PerpTestIDs = {
   DesktopChartBoundary: 'perp-desktop-chart-boundary',
   DesktopAccountBoundary: 'perp-desktop-account-boundary',
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
+  NativeChartSplitView: 'perp-native-chart-split-view',
+  NativeChartPanel: 'perp-native-chart-panel',
+  NativeChartPanelTokenSelector: 'perp-native-chart-panel-token-selector',
+  NativeChartPanelTrade: 'perp-native-chart-panel-trade',
   ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',
   MobileChartOverlay: 'perp-mobile-chart-overlay',

@@ -34,6 +34,7 @@ const config = {
         profile: 'pixel_7',
       }),
       bundleId: 'so.onekey.app.wallet',
+      activityName: '.StandardLauncher',
     }),
   ],
   defaultRunner: 'ios',

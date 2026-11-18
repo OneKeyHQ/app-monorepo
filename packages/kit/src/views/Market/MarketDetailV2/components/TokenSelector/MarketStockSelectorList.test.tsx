@@ -44,7 +44,9 @@ const mockSelectorListResult = {
   isError: false,
   isLoadingMore: false,
   isLoadMoreError: false,
+  isImagePrewarming: false,
   canLoadMore: false,
+  isRevalidatingFirstPage: false,
   loadMore: jest.fn(),
   refresh: jest.fn(),
 };
@@ -146,9 +148,11 @@ describe('MarketStockSelectorList', () => {
     mockUseMarketStockColumns.mockClear();
     mockUseMarketStockSelectorList.mockClear();
     mockSelectorListResult.canLoadMore = false;
+    mockSelectorListResult.isRevalidatingFirstPage = false;
     mockSelectorListResult.items = [mockStock];
     mockSelectorListResult.isLoadMoreError = false;
     mockSelectorListResult.isLoadingMore = false;
+    mockSelectorListResult.isImagePrewarming = false;
     mockSelectorListResult.loadMore.mockClear();
   });
 
@@ -161,18 +165,19 @@ describe('MarketStockSelectorList', () => {
       compact: true,
       showSparkline: false,
       showWatchlist: true,
+      showMarketTags: true,
       watchlistFrom: EWatchlistFrom.Search,
     });
     expect(mockTableProps).toHaveBeenCalledWith({
       columns: mockColumns,
       dataSource: [mockStock],
-      estimatedItemSize: 56,
-      headerRowProps: { height: 40, minHeight: 40 },
+      estimatedItemSize: 64,
+      headerRowProps: { bg: '$bg', height: 36, minHeight: 36 },
       rowProps: {
+        bg: '$bg',
         width: '100%',
-        height: 56,
-        minHeight: 56,
-        borderRadius: '$0',
+        height: 64,
+        minHeight: 64,
       },
       onEndReached: expect.any(Function),
       onEndReachedThreshold: 0.2,
@@ -195,6 +200,21 @@ describe('MarketStockSelectorList', () => {
     expect(mockSelectorListResult.loadMore).toHaveBeenCalledTimes(1);
   });
 
+  it('queues pagination when the cached first page is still revalidating', () => {
+    mockSelectorListResult.canLoadMore = false;
+    mockSelectorListResult.isRevalidatingFirstPage = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    const tableProps = mockTableProps.mock.calls[0]?.[0] as {
+      onEndReached: () => void;
+      TableFooterComponent: ReactNode;
+    };
+    tableProps.onEndReached();
+
+    expect(mockSelectorListResult.loadMore).toHaveBeenCalledTimes(1);
+    expect(tableProps.TableFooterComponent).toBeNull();
+  });
+
   it('keeps the table mounted when an empty page has a continuation cursor', () => {
     mockSelectorListResult.items = [];
     mockSelectorListResult.canLoadMore = true;
@@ -202,5 +222,14 @@ describe('MarketStockSelectorList', () => {
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
     expect(mockTableProps).toHaveBeenCalled();
+  });
+
+  it('keeps rows selectable while image prewarming is still pending', () => {
+    mockSelectorListResult.isImagePrewarming = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    expect(screen.getByTestId('stock-table')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('stock-row-AAPL'));
+    expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
   });
 });

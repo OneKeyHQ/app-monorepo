@@ -78,6 +78,12 @@ export const maxRecentTokenPairs = 10;
 
 export const swapProviderRecommendApprovedWeights = 1.1;
 
+export const ARC_NETWORK_ID = 'evm--5042';
+export const ARC_ERC20_USDC_CONTRACT_ADDRESS =
+  '0x3600000000000000000000000000000000000000';
+export const ARC_EURC_CONTRACT_ADDRESS =
+  '0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1';
+
 export const limitOrderEstimationFeePercent = 1.05;
 
 export const defaultSupportUrl = 'https://help.onekey.so/articles/11536900';
@@ -200,10 +206,8 @@ export const swapProTimeRangeItems: {
 export const SWAP_QUOTE_INPUT_DEBOUNCE_MS = 500;
 export const SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS = 300;
 
-export const swapProPositionsListMinValue = 1;
-export const swapProPositionsListMaxCount = 20;
-// Stock positions use a lower floor so small (but non-dust) stock holdings show.
-export const swapProStockPositionsListMinValue = 0.1;
+export const swapProPositionsListMinValue = 0.01;
+export const swapProPositionsListMaxCount = 6;
 
 export const swapDefaultSetTokens: Record<
   string,
@@ -214,6 +218,26 @@ export const swapDefaultSetTokens: Record<
     limitToToken?: ISwapToken;
   }
 > = {
+  [ARC_NETWORK_ID]: {
+    fromToken: {
+      'networkId': ARC_NETWORK_ID,
+      'contractAddress': ARC_ERC20_USDC_CONTRACT_ADDRESS,
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI': `https://uni.onekey-asset.com/server-service-onchain/${ARC_NETWORK_ID}/tokens/${ARC_ERC20_USDC_CONTRACT_ADDRESS}.png`,
+      'isNative': false,
+    },
+    toToken: {
+      'networkId': ARC_NETWORK_ID,
+      'contractAddress': ARC_EURC_CONTRACT_ADDRESS,
+      'name': 'EURC',
+      'symbol': 'EURC',
+      'decimals': 6,
+      'logoURI': `https://uni.onekey-asset.com/server-service-onchain/${ARC_NETWORK_ID}/tokens/${ARC_EURC_CONTRACT_ADDRESS}.png`,
+      'isNative': false,
+    },
+  },
   'onekeyall--0': {
     fromToken: {
       'networkId': 'evm--1',

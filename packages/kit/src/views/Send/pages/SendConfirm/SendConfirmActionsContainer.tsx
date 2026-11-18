@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -27,6 +27,7 @@ import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -83,7 +84,7 @@ function SendConfirmActionsContainer(props: IProps) {
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const { updateSendTxStatus, clearSelectedUTXOs } =
     useSendConfirmActions().current;
-  const successfullySentTxs = useRef<string[]>([]);
+  const [sentTxsTrackingId] = useState(() => generateUUID());
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -215,7 +216,7 @@ function SendConfirmActionsContainer(props: IProps) {
           sourceInfo,
           replaceTxInfo,
           transferPayload,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
         });
 
       Toast.success({
@@ -268,6 +269,7 @@ function SendConfirmActionsContainer(props: IProps) {
     signOnly,
     sourceInfo,
     transferPayload,
+    sentTxsTrackingId,
     intl,
     popStack,
     onSuccess,

@@ -12,6 +12,7 @@ import {
   Stack,
   YStack,
   resetChainSelectorModal,
+  useMedia,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -34,6 +35,7 @@ import {
   EChainSelectorPages as EChainSelectorPagesEnum,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
@@ -47,18 +49,35 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
 import { ChainSelectorTestIDs } from '../../testIDs';
+import {
+  buildRecentNetworksSwrKey,
+  prependRecentNetworkToSwrCache,
+} from '../recentNetworksCache';
 import { TabSwitcher } from '../UnifiedNetworkSelector/TabSwitcher';
 
+import {
+  clearMoneroPortfolioDraft,
+  readMoneroPortfolioDraft,
+  saveMoneroPortfolioDraft,
+} from './moneroPortfolioDraft';
 import { NetworkContentV2 } from './NetworkContentV2';
 import PortfolioContentV2 from './PortfolioContentV2';
+import { useMoneroPortfolioGate } from './useMoneroPortfolioGate';
 import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 
+import type { IMoneroPortfolioOwnerGuard } from './useMoneroPortfolioGate';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
+// The single-network tab has no footer, so its web index rail reserves the
+// all-networks footer height to keep the letters in place when switching tabs.
+// These are the heights of the footer below (`p="$5"` around a medium / large
+// Button), used until the footer has been laid out once.
+const PORTFOLIO_FOOTER_FALLBACK_HEIGHT = { gtMd: 78, md: 90 };
 const INDEX_TO_TAB: ITabType[] = ['portfolio', 'network'];
 
 function UnifiedNetworkSelectorV2() {
@@ -116,6 +135,10 @@ function UnifiedNetworkSelectorV2() {
   }, [defaultTab, isOthersWallet, networkId]);
 
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
+  const pendingMoneroDraft = useMemo(
+    () => readMoneroPortfolioDraft({ walletId, accountId, indexedAccountId }),
+    [accountId, indexedAccountId, walletId],
+  );
 
   // Portfolio tab state (from AllNetworksManager).
   // Seed from the SWR cache synchronously so the first render doesn't flash
@@ -133,6 +156,7 @@ function UnifiedNetworkSelectorV2() {
       };
     }>(swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }));
     return (
+      pendingMoneroDraft ??
       cached?.allNetworksState ?? {
         enabledNetworks: {},
         disabledNetworks: {},
@@ -141,11 +165,12 @@ function UnifiedNetworkSelectorV2() {
   });
 
   const enabledNetworksInit = useRef(false);
-  const hasLocalNetworkChanges = useRef(false);
+  const hasLocalNetworkChanges = useRef(Boolean(pendingMoneroDraft));
 
   useEffect(() => {
-    hasLocalNetworkChanges.current = false;
-  }, [accountId, walletId]);
+    hasLocalNetworkChanges.current = Boolean(pendingMoneroDraft);
+    if (pendingMoneroDraft) setNetworksState(pendingMoneroDraft);
+  }, [accountId, pendingMoneroDraft, walletId]);
 
   const updateNetworksSelection = useCallback<typeof setNetworksState>(
     (value) => {
@@ -160,6 +185,15 @@ function UnifiedNetworkSelectorV2() {
   >([]);
 
   const [missingAddressCount, setMissingAddressCount] = useState(0);
+  const { gtMd } = useMedia();
+  const [portfolioFooterHeight, setPortfolioFooterHeight] = useState<number>();
+  const handlePortfolioFooterLayout = useCallback(
+    (event: LayoutChangeEvent) =>
+      // Web measures through the modal's opening scale animation; rounding
+      // skips the sub-pixel intermediate values.
+      setPortfolioFooterHeight(Math.round(event.nativeEvent.layout.height)),
+    [],
+  );
 
   const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
     useState(false);
@@ -182,6 +216,8 @@ function UnifiedNetworkSelectorV2() {
   activeTabRef.current = activeTab;
 
   const pagerRef = useRef<NativePagerView>(null);
+  const portfolioWebSectionIndexContainerRef = useRef<ViewInstance>(null);
+  const networkWebSectionIndexContainerRef = useRef<ViewInstance>(null);
 
   const handleTabChange = useCallback((tab: ITabType) => {
     setActiveTab(tab);
@@ -285,10 +321,26 @@ function UnifiedNetworkSelectorV2() {
   );
   useEffect(() => {
     if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
-      setOriginalEnabledNetworks(enabledNetworks);
+      setOriginalEnabledNetworks(
+        pendingMoneroDraft && networkMeta
+          ? networks.mainNetworks.filter((network) =>
+              isEnabledNetworksInAllNetworks({
+                networkId: network.id,
+                ...networkMeta.allNetworksState,
+                isTestnet: network.isTestnet,
+              }),
+            )
+          : enabledNetworks,
+      );
       enabledNetworksInit.current = true;
     }
-  }, [enabledNetworks, networks.allNetworks.length]);
+  }, [
+    enabledNetworks,
+    networkMeta,
+    networks.allNetworks.length,
+    networks.mainNetworks,
+    pendingMoneroDraft,
+  ]);
 
   const compatibleNetworks = networkMeta?.compatibleNetworks;
 
@@ -419,6 +471,19 @@ function UnifiedNetworkSelectorV2() {
     };
   }, [refreshNetworkMeta]);
 
+  // The slot the network tab's RecentNetworks chips paint from
+  // (NetworkContentV2 renders them with the All Networks chip enabled).
+  const recentNetworksSwrKey = useMemo(
+    () =>
+      buildRecentNetworksSwrKey({
+        scope: EAppSWRCacheScopes.editableChainSelector,
+        showAllNetwork: true,
+        walletId,
+        accountId,
+      }),
+    [accountId, walletId],
+  );
+
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
     async (item: IServerNetwork) => {
@@ -432,6 +497,13 @@ function UnifiedNetworkSelectorV2() {
       if (recordNetworkHistoryEnabled && activeNetwork) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
+        });
+        // The chips here never list All Networks (NetworkContentV2 hands
+        // them mainnet/testnet items only), so leaving it writes nothing.
+        prependRecentNetworkToSwrCache({
+          swrKey: recentNetworksSwrKey,
+          network: activeNetwork,
+          includeAllNetwork: false,
         });
       }
 
@@ -448,7 +520,14 @@ function UnifiedNetworkSelectorV2() {
         resetChainSelectorModal();
       }
     },
-    [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
+    [
+      actions,
+      num,
+      recordNetworkHistoryEnabled,
+      activeNetwork,
+      recentNetworksSwrKey,
+      sceneName,
+    ],
   );
 
   const handleAddCustomNetwork = useCallback(() => {
@@ -473,8 +552,9 @@ function UnifiedNetworkSelectorV2() {
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
-            cacheContext: { walletId, accountId },
           });
+          // The listener below refreshes `networkMeta`, and that refresh is
+          // what writes the new state into the SWR cache.
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
@@ -487,8 +567,6 @@ function UnifiedNetworkSelectorV2() {
     handleNetworkPressItem,
     networksState,
     updateNetworksSelection,
-    walletId,
-    accountId,
   ]);
 
   const handleEditCustomNetwork = useCallback(
@@ -516,33 +594,41 @@ function UnifiedNetworkSelectorV2() {
     [navigation],
   );
 
-  const isSameEnabledNetworks = useMemo(() => {
-    return (
-      enabledNetworks.length === originalEnabledNetworks.length &&
-      enabledNetworks.every((network) =>
-        originalEnabledNetworks.find((item) => item.id === network.id),
-      )
+  const preserveMoneroPortfolioDraft = useCallback(() => {
+    saveMoneroPortfolioDraft(
+      { walletId, accountId, indexedAccountId },
+      networksState,
     );
-  }, [enabledNetworks, originalEnabledNetworks]);
+  }, [accountId, indexedAccountId, networksState, walletId]);
 
-  // Portfolio tab done handler
-  const handlePortfolioDone = useCallback(async () => {
-    setIsCreatingEnabledAddresses(true);
-    try {
+  const commitPortfolioSelection = useCallback(
+    async ({
+      selection,
+      selectedNetworks,
+      isCurrentOwner = () => true,
+      forceSave = false,
+    }: {
+      selection: typeof networksState;
+      selectedNetworks: typeof enabledNetworks;
+      isCurrentOwner?: IMoneroPortfolioOwnerGuard;
+      forceSave?: boolean;
+    }) => {
+      if (!isCurrentOwner()) return;
       if (!isOthersWallet) {
         // 1. Find networks missing addresses
         const networksWithoutAccount = await findNetworksWithoutAccount({
           accountId: accountId ?? '',
           indexedAccountId,
-          enabledNetworks,
+          enabledNetworks: selectedNetworks,
         });
+        if (!isCurrentOwner()) return;
 
         setEnabledNetworksWithoutAccount(networksWithoutAccount);
 
         // 2. Create missing addresses if any
         if (networksWithoutAccount.length > 0) {
-          await createAddress({
-            num: 0,
+          const created = await createAddress({
+            num,
             account: {
               walletId,
               networkId: getNetworkIdsMap().onekeyall,
@@ -551,23 +637,68 @@ function UnifiedNetworkSelectorV2() {
             },
             customNetworks: networksWithoutAccount,
           });
+          if (!indexedAccountId) {
+            if (
+              created?.walletId !== walletId ||
+              !created.indexedAccountId ||
+              !isCurrentOwner(created)
+            )
+              return;
+            let selectedCreatedIndex = false;
+            await actions.current.updateSelectedAccount({
+              num,
+              reason: 'completeMoneroPortfolioCreation',
+              shouldCommit: isCurrentOwner,
+              builder: (previous) => {
+                if (
+                  previous.walletId !== walletId ||
+                  previous.networkId !== networkId ||
+                  (previous.indexedAccountId &&
+                    previous.indexedAccountId !== created.indexedAccountId)
+                )
+                  return previous;
+                selectedCreatedIndex = true;
+                return {
+                  ...previous,
+                  indexedAccountId: created.indexedAccountId,
+                };
+              },
+            });
+            if (!selectedCreatedIndex) return;
+          }
+          if (!isCurrentOwner()) return;
         }
       } else {
         setEnabledNetworksWithoutAccount([]);
       }
 
       // 3. Save network state only when selection changed
-      if (!isSameEnabledNetworks) {
+      const isSameEnabledNetworks =
+        selectedNetworks.length === originalEnabledNetworks.length &&
+        selectedNetworks.every((network) =>
+          originalEnabledNetworks.some((item) => item.id === network.id),
+        );
+      if (forceSave || !isSameEnabledNetworks) {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-          enabledNetworks: networksState.enabledNetworks,
-          disabledNetworks: networksState.disabledNetworks,
-          cacheContext: { walletId, accountId },
+          enabledNetworks: selection.enabledNetworks,
+          disabledNetworks: selection.disabledNetworks,
         });
+        if (!isCurrentOwner()) return;
+
+        // Write the new state into the SWR cache from here, so the next cold
+        // open paints it instead of the state this save replaced. It has to be
+        // this runtime: the entry belongs to the hook above, and a second
+        // writer on the other side of the bridge would be racing it over one
+        // MMKV file. `alwaysSetState` because the modal is closing.
+        void refreshNetworkMeta({ alwaysSetState: true });
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
+      clearMoneroPortfolioDraft({ walletId, accountId, indexedAccountId });
 
-      // 4. Switch to All Networks if not already on it
+      // 4. Switch to All Networks if not already on it. Recorded in the DB
+      // only: this selector's recent chips never list All Networks, so the
+      // SWR slot is left as the fetch will return it.
       if (!networkUtils.isAllNetwork({ networkId })) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: getNetworkIdsMap().onekeyall,
@@ -586,24 +717,95 @@ function UnifiedNetworkSelectorV2() {
       resetChainSelectorModal();
 
       void onNetworksChanged?.();
+    },
+    [
+      accountId,
+      actions,
+      createAddress,
+      findNetworksWithoutAccount,
+      indexedAccountId,
+      isOthersWallet,
+      networkId,
+      num,
+      onNetworksChanged,
+      originalEnabledNetworks,
+      refreshNetworkMeta,
+      walletId,
+    ],
+  );
+
+  const handleSkipMonero = useCallback(
+    async (
+      network: IServerNetwork,
+      isCurrentOwner: IMoneroPortfolioOwnerGuard,
+    ) => {
+      if (!isCurrentOwner()) return;
+      const selection = {
+        enabledNetworks: {
+          ...networksState.enabledNetworks,
+          [network.id]: false,
+        },
+        disabledNetworks: {
+          ...networksState.disabledNetworks,
+          [network.id]: true,
+        },
+      };
+      const selectedNetworks = enabledNetworks.filter(
+        (item) => item.id !== network.id,
+      );
+      updateNetworksSelection(selection);
+      // Keep the selector's existing rule: an empty portfolio cannot be applied.
+      if (selectedNetworks.length === 0) return;
+      setIsCreatingEnabledAddresses(true);
+      try {
+        await commitPortfolioSelection({
+          selection,
+          selectedNetworks,
+          isCurrentOwner,
+          forceSave: true,
+        });
+      } finally {
+        setIsCreatingEnabledAddresses(false);
+      }
+    },
+    [
+      commitPortfolioSelection,
+      enabledNetworks,
+      networksState,
+      updateNetworksSelection,
+    ],
+  );
+
+  const checkMoneroPortfolioGate = useMoneroPortfolioGate({
+    walletId,
+    accountId,
+    indexedAccountId,
+    activeNetworkId: networkId,
+    onOpenNetwork: handleNetworkPressItem,
+    onBeforeOpenNetwork: preserveMoneroPortfolioDraft,
+    onSkipNetwork: handleSkipMonero,
+  });
+
+  const handlePortfolioDone = useCallback(async () => {
+    setIsCreatingEnabledAddresses(true);
+    try {
+      const moneroNetwork = enabledNetworks.find(
+        (network) => network.id === getNetworkIdsMap().xmr,
+      );
+      if (moneroNetwork && (await checkMoneroPortfolioGate(moneroNetwork)))
+        return;
+      await commitPortfolioSelection({
+        selection: networksState,
+        selectedNetworks: enabledNetworks,
+      });
     } finally {
       setIsCreatingEnabledAddresses(false);
     }
   }, [
-    accountId,
-    actions,
-    createAddress,
+    checkMoneroPortfolioGate,
+    commitPortfolioSelection,
     enabledNetworks,
-    findNetworksWithoutAccount,
-    indexedAccountId,
-    networkId,
-    networksState.disabledNetworks,
-    networksState.enabledNetworks,
-    num,
-    onNetworksChanged,
-    walletId,
-    isSameEnabledNetworks,
-    isOthersWallet,
+    networksState,
   ]);
 
   // Header title renderer
@@ -721,6 +923,9 @@ function UnifiedNetworkSelectorV2() {
             >
               <Stack flex={1}>
                 <PortfolioContentV2
+                  webSectionIndexContainerRef={
+                    portfolioWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -743,6 +948,9 @@ function UnifiedNetworkSelectorV2() {
               </Stack>
               <Stack flex={1}>
                 <NetworkContentV2
+                  webSectionIndexContainerRef={
+                    networkWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -762,6 +970,9 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'portfolio' ? 'flex' : 'none'}
               >
                 <PortfolioContentV2
+                  webSectionIndexContainerRef={
+                    portfolioWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -787,6 +998,15 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'network' ? 'flex' : 'none'}
               >
                 <NetworkContentV2
+                  webSectionIndexContainerRef={
+                    networkWebSectionIndexContainerRef
+                  }
+                  webSectionIndexBottomInset={
+                    portfolioFooterHeight ??
+                    (gtMd
+                      ? PORTFOLIO_FOOTER_FALLBACK_HEIGHT.gtMd
+                      : PORTFOLIO_FOOTER_FALLBACK_HEIGHT.md)
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -803,6 +1023,7 @@ function UnifiedNetworkSelectorV2() {
         ) : (
           <Stack flex={1}>
             <NetworkContentV2
+              webSectionIndexContainerRef={networkWebSectionIndexContainerRef}
               walletId={walletId}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
@@ -824,6 +1045,9 @@ function UnifiedNetworkSelectorV2() {
             gap="$2.5"
             bg="$bgApp"
             flexDirection="column-reverse"
+            onLayout={
+              platformEnv.isNative ? undefined : handlePortfolioFooterLayout
+            }
             $gtMd={{
               flexDirection: 'row',
               alignItems: 'center',

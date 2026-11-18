@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
@@ -11,10 +12,10 @@ import type {
   ITradingViewPriceUpdateData,
   ITradingViewV2KLineDataFallback,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
+import { useMarketChartPriceUpdate } from '../../hooks/useMarketChartPriceUpdate';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
 import { MarketChartFullscreenHeader } from './MarketChartFullscreenHeader';
@@ -35,29 +36,13 @@ const STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingView
     TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
   ];
 
-function normalizeChartRealtimePrice(
-  price: ITradingViewPriceUpdateData['price'],
-) {
+function normalizeChartPrice(price: ITradingViewPriceUpdateData['price']) {
   const priceString =
     typeof price === 'number' ? price.toString() : price?.trim();
   const numericPrice = Number(priceString);
   return Number.isFinite(numericPrice) && numericPrice > 0
     ? priceString
     : undefined;
-}
-
-function normalizeChartUpdateTimestamp(
-  timestamp: ITradingViewPriceUpdateData['timestamp'],
-) {
-  if (
-    typeof timestamp !== 'number' ||
-    !Number.isFinite(timestamp) ||
-    timestamp <= 0
-  ) {
-    return Date.now();
-  }
-
-  return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
 function normalizeTokenAddress(address: string | undefined) {
@@ -102,6 +87,7 @@ export interface IMarketTradingViewProps {
   nativeIntervalControlMode?: 'dialog' | 'popover';
   nativePriceMarketCapControlMode?: 'settings' | 'select';
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  mobileToolbarExtra?: ReactNode;
   isNativeChartFullscreen?: boolean;
   showNativeIndicatorQuickBar?: boolean;
   onChartSwitch?: () => void;
@@ -141,6 +127,7 @@ export const MarketTradingView = memo(
     nativeIntervalControlMode,
     nativePriceMarketCapControlMode,
     nativeControlsLayoutMode,
+    mobileToolbarExtra,
     isNativeChartFullscreen,
     showNativeIndicatorQuickBar,
     onChartSwitch,
@@ -160,17 +147,14 @@ export const MarketTradingView = memo(
     onVisualReady,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
-    const tokenDetailActions = useTokenDetailActions();
+    const acceptChartPrice = useMarketChartPriceUpdate({
+      networkId,
+      tokenAddress,
+      enabled: !disableChartPriceUpdate,
+    });
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
-        if (disableChartPriceUpdate) {
-          return;
-        }
-        if (data.source === 'history') {
-          return;
-        }
-
         if (
           !isChartPriceUpdateForCurrentToken({
             data,
@@ -181,19 +165,14 @@ export const MarketTradingView = memo(
           return;
         }
 
-        const realtimePrice = normalizeChartRealtimePrice(data.price);
-        if (!realtimePrice) {
+        const chartPrice = normalizeChartPrice(data.price);
+        if (!chartPrice) {
           return;
         }
-
-        tokenDetailActions.current.applyChartPriceUpdate({
-          tokenAddress: data.tokenAddress,
-          networkId: data.networkId,
-          price: realtimePrice,
-          lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
-        });
+        // Only explicit history is gated; an untagged update is a live price.
+        acceptChartPrice(chartPrice, data.source ?? 'realtime');
       },
-      [disableChartPriceUpdate, networkId, tokenAddress, tokenDetailActions],
+      [acceptChartPrice, networkId, tokenAddress],
     );
 
     return (
@@ -232,6 +211,7 @@ export const MarketTradingView = memo(
         nativeIntervalControlMode={nativeIntervalControlMode}
         nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
         nativeControlsLayoutMode={nativeControlsLayoutMode}
+        mobileToolbarExtra={mobileToolbarExtra}
         isNativeChartFullscreen={isNativeChartFullscreen}
         onChartSwitch={onChartSwitch}
         nativeChartFullscreenHeader={

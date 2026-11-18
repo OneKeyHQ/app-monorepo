@@ -1,10 +1,13 @@
-import isDev from 'electron-is-dev';
+import { app } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import {
   buildBasicOptions,
   buildSentryReleaseName,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 // Perf: `@sentry/electron` is marked external (see scripts/build.js) so its ~5MB
 // (Sentry Node SDK + OpenTelemetry backend instrumentations) is NOT parsed as part

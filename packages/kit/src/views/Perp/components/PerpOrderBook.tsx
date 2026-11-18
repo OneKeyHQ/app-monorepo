@@ -10,7 +10,7 @@ import {
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, StyleSheet } from 'react-native';
+import { type LayoutChangeEvent, Platform, StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -111,8 +111,6 @@ function FundingDialogTrigger({
       title,
       showFooter: false,
       contentContainerProps: { p: '$0' },
-      sheetProps: { transition: '100ms' },
-      sheetOverlayProps: { transition: '100ms' },
       renderContent: renderContent(closeDialog),
     });
   }, [renderContent, title]);
@@ -621,6 +619,11 @@ export function PerpOrderBook({
   initialOrderBookHeight?: number;
 }) {
   const { gtMd } = useMedia();
+  // Let the Android pager measure the horizontal book at its intrinsic height.
+  const orderBookFlex = Platform.select({
+    android: !gtMd && entry === 'perpMobileMarket' ? undefined : 1,
+    default: 1,
+  });
   const actionsRef = useHyperliquidActions();
   const l2BookSnapshotRequestKeyRef = useRef<string | undefined>(undefined);
   const layoutRectsRef = useRef<
@@ -1188,7 +1191,7 @@ export function PerpOrderBook({
       <>
         {dataBridge}
         <YStack
-          flex={1}
+          flex={orderBookFlex}
           bg="$bgApp"
           onLayout={(event) =>
             handleTraceLayout('mobileHorizontalLoading', event)
@@ -1231,7 +1234,7 @@ export function PerpOrderBook({
 
   const content = (
     <YStack
-      flex={1}
+      flex={orderBookFlex}
       bg="$bgApp"
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >

@@ -100,6 +100,25 @@ struct AppClipKlineResult {
   let isCloseOnly: Bool
 }
 
+/// The invitee rebate from the rebate service's invite post-config, shown the
+/// same way as `formatInviteeDiscountFromConfig` in the full app.
+struct AppClipInviteeDiscount: Equatable {
+  let amount: Double
+  let unit: String
+
+  /// The full app's `DEFAULT_INVITEE_DISCOUNT_TEXT`, used until the config
+  /// loads or when it is missing or malformed.
+  static let fallbackText = "10%"
+
+  var text: String {
+    let amountText =
+      amount.rounded() == amount && abs(amount) < 1e15
+      ? String(Int64(amount))
+      : String(amount)
+    return "\(amountText)\(unit)"
+  }
+}
+
 enum AppClipMarketServiceError: Error {
   case business(code: Int, message: String?)
   case missingData
@@ -109,6 +128,27 @@ private struct MarketAPIEnvelope<Payload: Decodable>: Decodable {
   let code: Int
   let message: String?
   let data: Payload?
+}
+
+private struct InvitePostConfigPayload: Decodable {
+  struct Discount: Decodable {
+    let amount: Double?
+    let unit: String?
+
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      // Anything but a JSON number or string falls back, as on the web.
+      amount = try? container.decodeIfPresent(Double.self, forKey: .amount)
+      unit = try? container.decodeIfPresent(String.self, forKey: .unit)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case amount
+      case unit
+    }
+  }
+
+  let inviteeDiscount: Discount?
 }
 
 private struct MarketBasicConfigPayload: Decodable {
@@ -262,6 +302,21 @@ private struct MarketScalar: Decodable {
 }
 
 actor AppClipMarketService {
+  func fetchInviteeDiscount(rebateBaseURL: URL) async throws -> AppClipInviteeDiscount? {
+    let endpoint = rebateBaseURL.appendingPathComponent("rebate/v1/invite/post-config")
+    let payload = try await requestPayload(InvitePostConfigPayload.self, endpoint: endpoint)
+    guard
+      let amount = payload.inviteeDiscount?.amount,
+      amount.isFinite,
+      amount >= 0,
+      let unit = payload.inviteeDiscount?.unit,
+      !unit.isEmpty
+    else {
+      return nil
+    }
+    return AppClipInviteeDiscount(amount: amount, unit: unit)
+  }
+
   func fetchConfiguration(baseURL: URL) async throws -> AppClipMarketConfiguration {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v2/market/basic-config"),
@@ -561,10 +616,7 @@ actor AppClipMarketService {
     request.setValue("OneKey App Clip", forHTTPHeaderField: "X-Onekey-Request-Platform-Name")
     request.setValue("OneKey Wallet App Clip", forHTTPHeaderField: "X-Onekey-Request-Device-Name")
     request.setValue("usd", forHTTPHeaderField: "X-Onekey-Request-Currency")
-    request.setValue(
-      Locale.current.identifier.lowercased(),
-      forHTTPHeaderField: "X-Onekey-Request-Locale"
-    )
+    request.setValue(Self.requestLocale, forHTTPHeaderField: "X-Onekey-Request-Locale")
     request.setValue(Self.version, forHTTPHeaderField: "X-Onekey-Request-Version")
     request.setValue(Self.buildNumber, forHTTPHeaderField: "X-Onekey-Request-Build-Number")
     let requestId = UUID().uuidString
@@ -592,13 +644,21 @@ actor AppClipMarketService {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
   }
 
+  private static var requestLocale: String {
+    let localization = Bundle.main.preferredLocalizations.first?.lowercased() ?? "en"
+    return localization.hasPrefix("zh-hans") ? "zh-cn" : "en-us"
+  }
+
   private static let pathSegmentAllowed = CharacterSet(
     charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
   )
 
   private static func allowedLogoURL(_ value: String) -> URL? {
+    URL(string: value).flatMap(allowedLogoURL)
+  }
+
+  static func allowedLogoURL(_ url: URL) -> URL? {
     guard
-      let url = URL(string: value),
       url.scheme?.lowercased() == "https",
       let host = url.host?.lowercased(),
       host == "onekey-asset.com" || host.hasSuffix(".onekey-asset.com"),

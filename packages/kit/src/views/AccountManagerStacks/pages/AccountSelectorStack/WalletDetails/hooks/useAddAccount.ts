@@ -69,6 +69,11 @@ export function useAddAccount({
   const { createQrWalletAccount } = useCreateQrWallet();
   const { activeAccount } = useActiveAccount({ num });
   const { serviceAccount } = backgroundApiProxy;
+  // Mocked and deprecated wallets cannot derive accounts. Guarding here keeps
+  // every entry point from persisting an account the device step then rejects.
+  const canAddAccount = !accountUtils.isWalletDeprecatedOrMocked(
+    focusedWalletInfo?.wallet,
+  );
 
   const handleAddAccount = useDebouncedCallback(
     async () => {
@@ -97,7 +102,7 @@ export function useAddAccount({
         }
         return;
       }
-      if (!focusedWalletInfo) {
+      if (!focusedWalletInfo || !canAddAccount) {
         return;
       }
       return runAddAccountFlowOnce(focusedWalletInfo.wallet.id, async () => {
@@ -195,5 +200,6 @@ export function useAddAccount({
 
   return {
     handleAddAccount,
+    canAddAccount,
   };
 }

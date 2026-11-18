@@ -18,21 +18,35 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+  TOKEN_SELECTOR_POPOVER_HEIGHT,
+  TOKEN_SELECTOR_POPOVER_WIDTH,
   TOKEN_SELECTOR_ROW_HEIGHT,
+  TOKEN_SELECTOR_TABLE_PADDING,
 } from './constants';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
-const STOCK_SELECTOR_LIST_HEIGHT = 350;
-const STOCK_SELECTOR_TABLE_HEIGHT =
-  STOCK_SELECTOR_LIST_HEIGHT + TOKEN_SELECTOR_HEADER_HEIGHT;
+type IMarketStockSelectorListResult = ReturnType<
+  typeof useMarketStockSelectorList
+>;
 
-const MarketStockSelectorList = memo(
+/**
+ * The stocks table itself, fed by a `useMarketStockSelectorList` result so the
+ * browse list and the search Stocks tab render identical rows.
+ */
+const STOCK_TABLE_CONTENT_STYLE = {
+  paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+};
+
+const MarketStockSelectorTable = memo(
   ({
-    query,
+    result,
     onItemPress,
+    headerBg = '$bg',
   }: {
-    query?: string;
+    result: IMarketStockSelectorListResult;
     onItemPress: (item: IMarketStockPublicItem) => void;
+    headerBg?: '$bg' | '$bgApp';
   }) => {
     const intl = useIntl();
     // The selector dropdown is a picker, not the full Market Stocks table, so
@@ -41,9 +55,9 @@ const MarketStockSelectorList = memo(
       compact: true,
       showSparkline: false,
       showWatchlist: true,
+      showMarketTags: true,
       watchlistFrom: EWatchlistFrom.Search,
     });
-    const normalizedQuery = query?.trim() ?? '';
     const {
       items,
       isLoading,
@@ -51,14 +65,24 @@ const MarketStockSelectorList = memo(
       isLoadingMore,
       isLoadMoreError,
       canLoadMore,
+      isRevalidatingFirstPage,
       loadMore,
       refresh: retry,
-    } = useMarketStockSelectorList({ query: normalizedQuery });
+    } = result;
     const handleEndReached = useCallback(() => {
-      if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+      if (isLoadMoreError || isLoadingMore) {
+        return;
+      }
+      if (isRevalidatingFirstPage || canLoadMore) {
         void loadMore();
       }
-    }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+    }, [
+      canLoadMore,
+      isLoadMoreError,
+      isLoadingMore,
+      isRevalidatingFirstPage,
+      loadMore,
+    ]);
     const tableFooterComponent = useMemo(() => {
       if (isLoadingMore) {
         return (
@@ -81,7 +105,7 @@ const MarketStockSelectorList = memo(
           </Stack>
         );
       }
-      if (items.length > 0 && !canLoadMore) {
+      if (items.length > 0 && !canLoadMore && !isRevalidatingFirstPage) {
         return <ListEndIndicator />;
       }
       return null;
@@ -90,6 +114,7 @@ const MarketStockSelectorList = memo(
       intl,
       isLoadMoreError,
       isLoadingMore,
+      isRevalidatingFirstPage,
       items.length,
       loadMore,
     ]);
@@ -98,7 +123,7 @@ const MarketStockSelectorList = memo(
       return (
         <YStack
           testID="market-stock-selector-loading"
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
+          flex={1}
           alignItems="center"
           justifyContent="center"
         >
@@ -109,11 +134,7 @@ const MarketStockSelectorList = memo(
 
     if (isError) {
       return (
-        <YStack
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
-          alignItems="center"
-          justifyContent="center"
-        >
+        <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
             title={intl.formatMessage({
@@ -134,11 +155,7 @@ const MarketStockSelectorList = memo(
 
     if (items.length === 0 && !canLoadMore) {
       return (
-        <YStack
-          height={STOCK_SELECTOR_TABLE_HEIGHT}
-          alignItems="center"
-          justifyContent="center"
-        >
+        <YStack flex={1} alignItems="center" justifyContent="center">
           <Empty
             illustration="QuestionMark"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
@@ -148,31 +165,34 @@ const MarketStockSelectorList = memo(
     }
 
     return (
-      <YStack height={STOCK_SELECTOR_TABLE_HEIGHT}>
+      <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         <Table<IMarketStockPublicItem>
           columns={columns}
           dataSource={items}
           keyExtractor={(item) => item.stockId}
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
-          estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
+          estimatedListSize={{
+            width: TOKEN_SELECTOR_POPOVER_WIDTH,
+            height: TOKEN_SELECTOR_POPOVER_HEIGHT,
+          }}
           rowProps={{
+            bg: '$bg',
             width: '100%',
             height: TOKEN_SELECTOR_ROW_HEIGHT,
             minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
-            // The Table bakes an $3 radius into every row; the selector rows
-            // hover edge-to-edge like the other tabs, so it is squared off.
-            borderRadius: '$0',
           }}
           // Table spreads rowProps into the header row before headerRowProps,
           // so the row minHeight must be overridden here or the header stays
           // 56px tall no matter what height it is given.
           headerRowProps={{
+            bg: headerBg,
             height: TOKEN_SELECTOR_HEADER_HEIGHT,
             minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
           }}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.2}
           TableFooterComponent={tableFooterComponent}
+          contentContainerStyle={STOCK_TABLE_CONTENT_STYLE}
           onRow={(item) => ({
             onPress: () => onItemPress(item),
             rowProps: {
@@ -185,6 +205,28 @@ const MarketStockSelectorList = memo(
   },
 );
 
+MarketStockSelectorTable.displayName = 'MarketStockSelectorTable';
+
+const MarketStockSelectorList = memo(
+  ({
+    query,
+    category,
+    onItemPress,
+  }: {
+    query?: string;
+    category?: string;
+    onItemPress: (item: IMarketStockPublicItem) => void;
+  }) => {
+    const result = useMarketStockSelectorList({
+      query: query?.trim() ?? '',
+      ...(category ? { category } : {}),
+    });
+    return (
+      <MarketStockSelectorTable result={result} onItemPress={onItemPress} />
+    );
+  },
+);
+
 MarketStockSelectorList.displayName = 'MarketStockSelectorList';
 
-export { MarketStockSelectorList };
+export { MarketStockSelectorList, MarketStockSelectorTable };

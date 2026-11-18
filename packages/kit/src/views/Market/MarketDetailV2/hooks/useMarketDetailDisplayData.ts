@@ -1,11 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
+  IMarketStockTokenVariant,
   IMarketTokenDetail,
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMatchingMarketTokenIdentity } from '../utils/marketTokenIdentity';
 import { resolveIsStockToken } from '../utils/resolveIsStockToken';
 
 import { useStockDetail } from './StockDetailContext';
@@ -23,6 +27,7 @@ function buildPreviewTokenDetail(
   if (!tokenDetailPreview) return undefined;
 
   return {
+    firstTradeTime: tokenDetailPreview.firstTradeTime,
     address: tokenDetailPreview.address,
     networkId: tokenDetailPreview.networkId,
     isNative: tokenDetailPreview.isNative,
@@ -47,19 +52,35 @@ function buildStockPreviewTokenDetail({
   networkId,
   stockPreview,
   tokenAddress,
+  tokenVariant,
 }: {
   networkId: string;
   stockPreview?: IMarketStockDetailPreview;
   tokenAddress: string;
+  tokenVariant?: IMarketStockTokenVariant;
 }): IMarketTokenDetail | undefined {
   if (!stockPreview) return undefined;
+  // Once the variant is known the page shows that token, so preview its
+  // identity instead of the underlying stock's. Its quote stays out: the
+  // variant list and the detail endpoint report different 24h changes.
+  const variant =
+    tokenVariant &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: tokenVariant.networkId,
+        contractAddress: tokenVariant.contractAddress,
+      },
+      token2: { networkId, contractAddress: tokenAddress },
+    })
+      ? tokenVariant
+      : undefined;
 
   return {
     address: tokenAddress,
     networkId,
-    logoUrl: stockPreview.logoUrl,
-    name: stockPreview.name,
-    symbol: stockPreview.symbol,
+    logoUrl: variant?.logoUrl || stockPreview.logoUrl,
+    name: variant?.name || stockPreview.name,
+    symbol: variant?.symbol || stockPreview.symbol,
     decimals: 0,
     decimalsResolved: false,
   };
@@ -75,16 +96,11 @@ function isSameTokenIdentity({
   if (!previewTokenDetail || !tokenDetail) {
     return false;
   }
-  return (
-    (!previewTokenDetail.networkId ||
-      !tokenDetail.networkId ||
-      previewTokenDetail.networkId === tokenDetail.networkId) &&
-    (previewTokenDetail.isNative === undefined ||
-      tokenDetail.isNative === undefined ||
-      previewTokenDetail.isNative === tokenDetail.isNative) &&
-    previewTokenDetail.address.toLowerCase() ===
-      tokenDetail.address.toLowerCase()
-  );
+  return isMatchingMarketTokenIdentity(previewTokenDetail, {
+    tokenAddress: tokenDetail.address ?? '',
+    networkId: tokenDetail.networkId ?? '',
+    isNative: Boolean(tokenDetail.isNative),
+  });
 }
 
 export function preserveMarketDetailPreviewImage({
@@ -106,10 +122,15 @@ export function preserveMarketDetailPreviewImage({
   const fullDetailConfirmsPreviewImage = previewImageUris
     .filter(Boolean)
     .every((uri) => fullImageUris.includes(uri));
+  // Keeping the preview's source mode must not discard new detail fallbacks.
+  const previewIncludesFullImageSources = fullImageUris
+    .filter(Boolean)
+    .every((uri) => previewImageUris.includes(uri));
   if (
     !tokenDetail ||
     !hasPreviewImage ||
     !fullDetailConfirmsPreviewImage ||
+    !previewIncludesFullImageSources ||
     !isSameTokenIdentity({ previewTokenDetail, tokenDetail })
   ) {
     return tokenDetail;
@@ -127,46 +148,114 @@ export function preserveMarketDetailPreviewImage({
 
 export function useMarketDetailDisplayData() {
   const tokenDetailData = useTokenDetail();
-  const { stockPreview } = useStockDetail();
-  const { networkId, tokenAddress, tokenDetail, tokenDetailPreview } =
+  const { stockPreview, selectedTokenVariant } = useStockDetail();
+  const { networkId, tokenAddress, isNative, tokenDetail, tokenDetailPreview } =
     tokenDetailData;
 
   const previewTokenDetail = useMemo(
     () => buildPreviewTokenDetail(tokenDetailPreview),
     [tokenDetailPreview],
   );
+  // Requests clear the preview atom when full detail arrives. Retain it only
+  // for image continuity, never as a fallback for quotes or trading metadata.
+  const [previewImage, setPreviewImage] = useState(previewTokenDetail);
+  const nextPreviewImage =
+    previewTokenDetail ??
+    (previewImage &&
+    isMatchingMarketTokenIdentity(previewImage, {
+      tokenAddress,
+      networkId,
+      isNative,
+    })
+      ? previewImage
+      : undefined);
+  if (nextPreviewImage !== previewImage) {
+    setPreviewImage(nextPreviewImage);
+  }
   const stockPreviewTokenDetail = useMemo(
     () =>
       buildStockPreviewTokenDetail({
         networkId,
         stockPreview,
         tokenAddress,
+        tokenVariant: selectedTokenVariant,
       }),
-    [networkId, stockPreview, tokenAddress],
+    [networkId, selectedTokenVariant, stockPreview, tokenAddress],
   );
 
-  const stableFullTokenDetail = useMemo(
-    () =>
-      preserveMarketDetailPreviewImage({
-        previewTokenDetail,
-        tokenDetail,
-      }),
-    [previewTokenDetail, tokenDetail],
-  );
-  const displayTokenDetail =
-    stableFullTokenDetail ?? previewTokenDetail ?? stockPreviewTokenDetail;
+  const { displayTokenDetail, isPreviewTokenDetail } = useMemo(() => {
+    // The stock route has no token preview, only a stock one, and its image is
+    // just as worth preserving across the swap to the full detail.
+    const previewDisplay = previewTokenDetail ?? stockPreviewTokenDetail;
+    const matchesPreview =
+      !previewTokenDetail ||
+      isSameTokenIdentity({ previewTokenDetail, tokenDetail });
+    if (
+      tokenDetail &&
+      matchesPreview &&
+      isMatchingMarketTokenIdentity(tokenDetail, {
+        tokenAddress,
+        networkId,
+        isNative,
+      })
+    ) {
+      return {
+        displayTokenDetail: preserveMarketDetailPreviewImage({
+          previewTokenDetail: previewDisplay ?? previewImage,
+          tokenDetail,
+        }),
+        isPreviewTokenDetail: false,
+      };
+    }
+    return {
+      displayTokenDetail: previewDisplay,
+      isPreviewTokenDetail: Boolean(previewDisplay),
+    };
+  }, [
+    isNative,
+    networkId,
+    previewImage,
+    previewTokenDetail,
+    stockPreviewTokenDetail,
+    tokenAddress,
+    tokenDetail,
+  ]);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    // Preview and cached metadata can reach trading before the detail refresh.
+    const nativeDecimals = displayTokenDetail?.isNative
+      ? networkUtils.getLocalNetworkInfo(displayTokenDetail.networkId ?? '')
+          ?.decimals
+      : undefined;
+    const resolvedTokenDetail =
+      displayTokenDetail &&
+      nativeDecimals !== undefined &&
+      (displayTokenDetail.decimals !== nativeDecimals ||
+        displayTokenDetail.decimalsResolved === false)
+        ? {
+            ...displayTokenDetail,
+            decimals: nativeDecimals,
+            decimalsResolved: true,
+          }
+        : displayTokenDetail;
+
+    // Token and stock previews use the same image component as full details,
+    // including when the first response adds fallback sources.
+    const tokenDetailWithImageSources =
+      resolvedTokenDetail?.logoUrl && !resolvedTokenDetail.logoUrls?.length
+        ? { ...resolvedTokenDetail, logoUrls: [resolvedTokenDetail.logoUrl] }
+        : resolvedTokenDetail;
+
+    return {
       ...tokenDetailData,
-      tokenDetail: displayTokenDetail,
+      tokenDetail: tokenDetailWithImageSources,
       fullTokenDetail: tokenDetail,
-      isPreviewTokenDetail: Boolean(displayTokenDetail && !tokenDetail),
+      isPreviewTokenDetail,
       isStockToken:
-        tokenDetailData.isStockToken || resolveIsStockToken(displayTokenDetail),
-    }),
-    [displayTokenDetail, tokenDetail, tokenDetailData],
-  );
+        tokenDetailData.isStockToken ||
+        resolveIsStockToken(resolvedTokenDetail),
+    };
+  }, [displayTokenDetail, isPreviewTokenDetail, tokenDetail, tokenDetailData]);
 }
 
 export const useMarketDetailHeaderDisplayData = useMarketDetailDisplayData;

@@ -14,6 +14,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -84,8 +85,10 @@ function SearchResultItem({
       <ListItem.Text
         flex={1}
         primary={
-          <XStack gap="$2" ai="center">
-            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+          <XStack gap="$2" ai="center" minWidth={0}>
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+              {earnUtils.getDisplaySymbol(asset)}
+            </SizableText>
             <XStack gap="$1">
               {asset.badges?.map((badge) => (
                 <Badge
@@ -140,7 +143,7 @@ export function EarnAssetSearchContent({
     const query = searchText.toLowerCase();
     return source.filter(
       (a) =>
-        a.symbol.toLowerCase().includes(query) ||
+        earnUtils.matchesSymbolKeyword(a, query) ||
         a.name.toLowerCase().includes(query),
     );
   }, [availableAssetsByType, selectedCategory, searchText]);

@@ -1,8 +1,18 @@
+import type {
+  IMarketStockDetailInitialSection,
+  IMarketTokenDetailRouteParams,
+} from '@onekeyhq/shared/src/routes';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 export interface IMarketDetailResponsiveLayoutProps {
+  // False while a Desktop/Web route is retained but no longer owns the shared
+  // detail state. Polls have to stop there: focus checks cannot express this, so
+  // ownership is passed down the same way `useAutoRefreshTokenDetail` takes it.
+  active?: boolean;
   isDesktopLayout: boolean;
   isLayoutPending?: boolean;
+  pendingMarketAsset?: IMarketTokenDetailRouteParams['pendingMarketAsset'];
+  retryMarketAsset?: () => void;
   isInitialContentPending?: boolean;
   isTokenDetailRequestPending?: boolean;
   disablePerpsBanner?: boolean;
@@ -19,4 +29,6 @@ export interface IMarketDetailResponsiveLayoutProps {
   marketTokenCategory?: string;
   showFavoriteButton?: boolean;
   disableTrade?: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
+  onInitialSectionShown?: () => void;
 }

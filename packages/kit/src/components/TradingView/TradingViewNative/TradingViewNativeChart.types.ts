@@ -3,12 +3,16 @@ import type { RefObject } from 'react';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import type { IDrawingHistoryLoader } from './drawings/drawingHistory';
 import type { ITradingViewNativeChartRuntime } from './native/chartRuntime';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
+  ITradingViewNativePriceSelection,
+  ITradingViewNativeReferenceLineAction,
 } from './types';
 import type {
   ITradingViewNativeIndicatorSeries,
@@ -22,17 +26,37 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndica
 import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
+  drawingStorageKey?: string;
+  /**
+   * Where the indicator panes' order and heights are kept. They arrange the
+   * chart's indicators rather than one token's data, so the key should not
+   * change with the token. Falls back to `drawingStorageKey`.
+   */
+  indicatorPanesStorageKey?: string;
+  loadDrawingHistory?: IDrawingHistoryLoader;
+  enableDrawings?: boolean;
+  enableNavigationControls?: boolean;
+  prioritizePageScroll?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
     runtime: SharedValue<ITradingViewNativeChartRuntime>;
     decayOffset: SharedValue<number>;
   } | null>;
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
+  onReferenceLineAction?: (
+    action: ITradingViewNativeReferenceLineAction,
+  ) => Promise<void>;
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  priceAxisDecimalPlaces?: number;
+  priceDecimalPlaces?: number;
+  onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
+  priceSelectionLabel?: string;
+  onInteractionChange?: (isInteracting: boolean) => void;
   extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
@@ -40,6 +64,7 @@ export interface ITradingViewNativeChartProps {
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   isMobileLayout?: boolean;
+  resizesWithSubIndicatorPanes?: boolean;
   locale: string;
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDeviceStageBurstBeginParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/DeviceStageBurst';
+import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 /**
@@ -24,19 +25,28 @@ export function useDeviceStageBurst() {
   // strand an explicit hold in the background for good.
   const requestSeqRef = useRef(0);
 
-  const endBurst = useCallback(async (params?: { error?: unknown }) => {
-    requestSeqRef.current += 1;
-    const token = tokenRef.current;
-    if (token === undefined) {
-      return;
-    }
-    tokenRef.current = undefined;
-    await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
-      token,
-      error: params?.error ? toPlainErrorObject(params.error) : undefined,
-    });
-  }, []);
+  const endBurst = useCallback(
+    async (params?: {
+      error?: unknown;
+      doneI18n?: IDeviceStageState['doneI18n'];
+    }) => {
+      requestSeqRef.current += 1;
+      const token = tokenRef.current;
+      if (token === undefined) {
+        return;
+      }
+      tokenRef.current = undefined;
+      await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
+        token,
+        error: params?.error ? toPlainErrorObject(params.error) : undefined,
+        doneI18n: params?.doneI18n,
+      });
+    },
+    [],
+  );
 
+  /** Resolves to the burst the hold stands in (see deviceStageBeginBurst),
+   * or undefined when this request was superseded. */
   const beginBurst = useCallback(
     async (params: IDeviceStageBurstBeginParams = {}) => {
       // One holder at a time: a restarted flow supersedes its own burst
@@ -44,7 +54,7 @@ export function useDeviceStageBurst() {
       await endBurst();
       requestSeqRef.current += 1;
       const seq = requestSeqRef.current;
-      const token =
+      const { token, burstId } =
         await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst(
           params,
         );
@@ -52,9 +62,10 @@ export function useDeviceStageBurst() {
         await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
           token,
         });
-        return;
+        return undefined;
       }
       tokenRef.current = token;
+      return burstId;
     },
     [endBurst],
   );
@@ -68,7 +79,7 @@ export function useDeviceStageBurst() {
       requestSeqRef.current += 1;
       const seq = requestSeqRef.current;
       const reuseToken = tokenRef.current;
-      const token =
+      const { token } =
         await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
           ...params,
           reuseToken,

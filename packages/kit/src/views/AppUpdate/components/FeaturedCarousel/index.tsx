@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -34,12 +41,16 @@ import { useHeightSpring } from './useHeightSpring';
 import type { LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
+export interface IFeaturedCarouselRef {
+  next: () => void;
+}
+
 export interface IFeaturedCarouselProps {
   features: IFeaturedItem[];
   badgeText: string;
   showCloseButton: boolean;
   onClose: () => void;
-  onActiveFeatureChange?: (feature: IFeaturedItem) => void;
+  onActiveFeatureChange?: (feature: IFeaturedItem, index: number) => void;
   /** Optional out-prop: gets `MEDIA_HEIGHT + content height` written each frame
    * so a parent can drive its own explicit-height wrapper for a smooth dialog
    * resize on platforms whose container doesn't transition auto-height. */
@@ -144,14 +155,20 @@ function JumpSlideWrapper({
   );
 }
 
-export function FeaturedCarousel({
-  features,
-  badgeText,
-  showCloseButton,
-  onClose,
-  onActiveFeatureChange,
-  totalHeight,
-}: IFeaturedCarouselProps) {
+export const FeaturedCarousel = forwardRef<
+  IFeaturedCarouselRef,
+  IFeaturedCarouselProps
+>(function FeaturedCarousel(
+  {
+    features,
+    badgeText,
+    showCloseButton,
+    onClose,
+    onActiveFeatureChange,
+    totalHeight,
+  }: IFeaturedCarouselProps,
+  ref,
+) {
   const progress = useSharedValue(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -269,6 +286,11 @@ export function FeaturedCarousel({
     ],
   );
 
+  useImperativeHandle(ref, () => ({ next: () => jumpTo(activeIndex + 1) }), [
+    jumpTo,
+    activeIndex,
+  ]);
+
   const onCommit = useCallback((target: number) => {
     setActiveIndex(target);
   }, []);
@@ -324,7 +346,7 @@ export function FeaturedCarousel({
   // Notify parent on active change
   useEffect(() => {
     const feature = features[activeIndex];
-    if (feature) onActiveFeatureChange?.(feature);
+    if (feature) onActiveFeatureChange?.(feature, activeIndex);
   }, [activeIndex, features, onActiveFeatureChange]);
 
   const contentRegionStyle = useAnimatedStyle(() => ({
@@ -541,4 +563,4 @@ export function FeaturedCarousel({
       </Animated.View>
     </Animated.View>
   );
-}
+});

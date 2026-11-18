@@ -3,9 +3,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
 
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
+import { getFirmwareArtifactCache } from './FirmwareArtifactCache';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
 import type { IFirmwareArtifactReceipt } from './FirmwareArtifactAdapter.types';
+import type { IFirmwareDownloadContext } from './FirmwareArtifactCache';
 import type {
   CoreApi,
   FirmwareArtifactReader,
@@ -131,7 +133,7 @@ export type IBridgeFirmwareBinaries = {
 const assertReceipt = (
   receipt: IFirmwareArtifactReceipt,
   artifact: IFirmwareDownloadArtifact,
-): IFirmwareArtifactReference => {
+): IFirmwareArtifactReceipt => {
   if (
     !Number.isSafeInteger(receipt.size) ||
     receipt.size <= 0 ||
@@ -180,6 +182,7 @@ export const downloadFirmwareArtifact = async ({
   transactionId,
   leaseRef,
   deadlineAt,
+  downloadContext,
 }: {
   artifact: IFirmwareDownloadArtifact;
   artifactId: string;
@@ -187,70 +190,82 @@ export const downloadFirmwareArtifact = async ({
   transactionId: string;
   leaseRef: string;
   deadlineAt: number;
-}): Promise<IFirmwareArtifactReference> =>
+  downloadContext?: IFirmwareDownloadContext;
+}): Promise<IFirmwareArtifactReceipt> =>
   trackArtifactDownload(transactionId, async () => {
-    const remainingMs = deadlineAt - Date.now();
-    if (remainingMs <= 0) {
-      throw new OneKeyLocalError(
-        'Firmware artifact preparation exceeded its deadline',
-      );
-    }
-    const startedAt = Date.now();
-    firmwareUpdateTrace({
-      transactionId,
-      stage: 'artifact-download-start',
-      artifactId,
-      artifactRole: artifact.role,
-      expectedBytes: artifact.expectedSize,
-    });
-    // Pre-release artifacts resolved from pre-config.json live in
-    // developer-owned buckets outside the reviewed host allowlist.
-    const allowPreReleaseHosts =
-      (await getGatedFirmwareUpdateDevSetting('usePreReleaseConfig')) === true;
-    try {
-      const receipt = await firmwareArtifactAdapter.download({
-        taskId,
-        transactionId,
-        leaseRef,
-        artifactId,
-        url: artifact.url,
-        route: { routeType: 'domain' },
-        ...(artifact.expectedSize !== undefined
-          ? { expectedSize: artifact.expectedSize }
-          : {}),
-        ...(artifact.expectedSha256
-          ? { expectedSha256: artifact.expectedSha256 }
-          : {}),
-        ...(allowPreReleaseHosts ? { allowPreReleaseHosts } : {}),
-        maxBytes: artifact.expectedSize ?? MAX_ARTIFACT_BYTES,
-        overallDeadlineSeconds: remainingMs / 1000,
-      });
-      const verifiedReceipt = assertReceipt(receipt, artifact);
+    const execute = async () => {
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0) {
+        throw new OneKeyLocalError(
+          'Firmware artifact preparation exceeded its deadline',
+        );
+      }
+      const startedAt = Date.now();
       firmwareUpdateTrace({
         transactionId,
-        stage: 'artifact-download-complete',
+        stage: 'artifact-download-start',
         artifactId,
         artifactRole: artifact.role,
         expectedBytes: artifact.expectedSize,
-        durationMs: Date.now() - startedAt,
       });
-      return verifiedReceipt;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      firmwareUpdateTrace({
-        transactionId,
-        stage: 'artifact-download-failed',
-        artifactId,
-        artifactRole: artifact.role,
-        expectedBytes: artifact.expectedSize,
-        durationMs: Date.now() - startedAt,
-        errorCode:
-          errorMessage.match(/ARTIFACT_[A-Z0-9_]+/)?.[0] ??
-          (error instanceof Error ? error.name : 'UnknownError'),
-      });
-      throw error;
-    }
+      // Pre-release artifacts resolved from pre-config.json live in
+      // developer-owned buckets outside the reviewed host allowlist.
+      const allowPreReleaseHosts =
+        (await getGatedFirmwareUpdateDevSetting('usePreReleaseConfig')) ===
+        true;
+      try {
+        const receipt = await firmwareArtifactAdapter.download({
+          taskId,
+          transactionId,
+          leaseRef,
+          artifactId,
+          url: artifact.url,
+          route: { routeType: 'domain' },
+          ...(artifact.expectedSize !== undefined
+            ? { expectedSize: artifact.expectedSize }
+            : {}),
+          ...(artifact.expectedSha256
+            ? { expectedSha256: artifact.expectedSha256 }
+            : {}),
+          ...(allowPreReleaseHosts ? { allowPreReleaseHosts } : {}),
+          maxBytes: artifact.expectedSize ?? MAX_ARTIFACT_BYTES,
+          overallDeadlineSeconds: remainingMs / 1000,
+        });
+        const verifiedReceipt = assertReceipt(receipt, artifact);
+        firmwareUpdateTrace({
+          transactionId,
+          stage: 'artifact-download-complete',
+          artifactId,
+          artifactRole: artifact.role,
+          expectedBytes: artifact.expectedSize,
+          durationMs: Date.now() - startedAt,
+        });
+        return verifiedReceipt;
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        firmwareUpdateTrace({
+          transactionId,
+          stage: 'artifact-download-failed',
+          artifactId,
+          artifactRole: artifact.role,
+          expectedBytes: artifact.expectedSize,
+          durationMs: Date.now() - startedAt,
+          errorCode:
+            errorMessage.match(/ARTIFACT_[A-Z0-9_]+/)?.[0] ??
+            (error instanceof Error ? error.name : 'UnknownError'),
+        });
+        throw error;
+      }
+    };
+    return downloadContext
+      ? getFirmwareArtifactCache().download(
+          artifact,
+          leaseRef,
+          downloadContext,
+          execute,
+        )
+      : execute();
   });
 
 export const cancelFirmwareArtifactPreparations = async (): Promise<void> => {
@@ -446,6 +461,7 @@ export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
 export async function prepareBridgeFirmwareBinaries(
   plan: FirmwareUpdatePlan,
   requestedTransactionId?: string,
+  downloadContext?: IFirmwareDownloadContext,
 ): Promise<IBridgeFirmwareBinaries | undefined> {
   if (plan.executor === 'v4' && plan.targetsToUpdate.includes('resource')) {
     throw new OneKeyLocalError(
@@ -482,6 +498,9 @@ export async function prepareBridgeFirmwareBinaries(
         transactionId,
         leaseRef,
         deadlineAt,
+        downloadContext: downloadContext
+          ? { ...downloadContext, targetVersion: planArtifact.targetVersion }
+          : undefined,
       });
       targetBinaries[planArtifact.target] = await readFirmwareArtifact(receipt);
     }
@@ -549,10 +568,12 @@ export async function prepareFirmwareArtifacts(
     transactionId,
     leaseRef: existingLeaseRef,
     preparePlan,
+    downloadContext,
   }: {
     transactionId: string;
     leaseRef?: string;
     preparePlan: CoreApi['prepareFirmwareUpdatePlan'];
+    downloadContext?: IFirmwareDownloadContext;
   },
 ): Promise<IPreparedFirmwareArtifacts> {
   if (!(await isFirmwareArtifactCapabilityReady())) {
@@ -587,6 +608,9 @@ export async function prepareFirmwareArtifacts(
           transactionId,
           leaseRef,
           deadlineAt,
+          downloadContext: downloadContext
+            ? { ...downloadContext, targetVersion: planArtifact.targetVersion }
+            : undefined,
         });
         artifactsById[planArtifact.artifactId] = receipt;
         if (planArtifact.container === 'zip') {

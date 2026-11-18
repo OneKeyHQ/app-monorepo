@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { Keyboard } from 'react-native';
 
 import { XStack, useIsKeyboardShown } from '@onekeyhq/components';
-import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { PercentageStageRow } from './PercentageStageRow';
 
 const countLeadingZeroDecimals = (value: string) => {
   const num = new BigNumber(value);
@@ -85,19 +87,47 @@ export const calcPercentBalance = ({
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,
   reserveSpaceUntilKeyboardShown,
+  isAmountFocused = false,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
   /** Keep the footer height stable while an auto-focused input opens the keyboard. */
   reserveSpaceUntilKeyboardShown?: boolean;
+  isAmountFocused?: boolean;
 }) {
-  const isShow = useIsKeyboardShown();
+  const isKeyboardShown = useIsKeyboardShown();
+  const [isAndroidKeyboardShown, setIsAndroidKeyboardShown] = useState(
+    () => !!platformEnv.isNativeAndroid && Keyboard.isVisible(),
+  );
   const [hasKeyboardShown, setHasKeyboardShown] = useState(false);
 
   useEffect(() => {
-    if (isShow) {
+    if (!platformEnv.isNativeAndroid) return;
+
+    const subscriptions = [
+      Keyboard.addListener('keyboardDidShow', () =>
+        setIsAndroidKeyboardShown(true),
+      ),
+      Keyboard.addListener('keyboardDidHide', () =>
+        setIsAndroidKeyboardShown(false),
+      ),
+    ];
+    // A keyboard event may have occurred between the render and subscription.
+    setIsAndroidKeyboardShown(Keyboard.isVisible());
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+
+  const keyboardShown = platformEnv.isNativeAndroid
+    ? isAndroidKeyboardShown
+    : isKeyboardShown;
+  const isShow = platformEnv.isNativeAndroid
+    ? keyboardShown && isAmountFocused
+    : keyboardShown;
+
+  useEffect(() => {
+    if (keyboardShown) {
       setHasKeyboardShown(true);
     }
-  }, [isShow]);
+  }, [keyboardShown]);
 
   const shouldReserveSpace =
     platformEnv.isNative && reserveSpaceUntilKeyboardShown && !hasKeyboardShown;
@@ -114,21 +144,10 @@ export function PercentageStageOnKeyboard({
       opacity={isShow ? 1 : 0}
       pointerEvents={isShow ? 'auto' : 'none'}
     >
-      <>
-        {PercentageInputStageForNative.map((stage) => (
-          <SwapPercentageStageBadge
-            badgeSize="lg"
-            key={`swap-percentage-input-stage-${stage}`}
-            stage={stage}
-            borderRadius={0}
-            onSelectStage={onSelectPercentageStage}
-            flex={1}
-            justifyContent="center"
-            alignItems="center"
-            h="$10"
-          />
-        ))}
-      </>
+      <PercentageStageRow
+        onSelectPercentageStage={onSelectPercentageStage}
+        stageList={PercentageInputStageForNative}
+      />
     </XStack>
   ) : null;
 }

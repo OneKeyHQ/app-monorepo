@@ -25,7 +25,7 @@ import {
   CALENDAR_PREV,
   useSwipeMonthNavEnabled,
 } from './useSwipeMonthNavEnabled';
-import { callOnClick } from './utils';
+import { callOnClick, getCalendarMonthStart } from './utils';
 
 import type { ISwipeableDayGridProps } from './SwipeableDayGridTypes';
 import type { LayoutChangeEvent, ViewStyle } from 'react-native';
@@ -180,14 +180,10 @@ function MonthPager({
   // First day of the month the committed pager index currently maps to.
   // Derived from the rendered calendar (not from rehookify's offsetDate) so
   // it is locale-independent and always reflects what is actually on screen.
-  const committedMonthFirst = useMemo(() => {
-    const dayDate = calendars[CALENDAR_CURRENT]?.days.find(
-      (day) => day.inCurrentMonth,
-    )?.$date;
-    return dayDate
-      ? new Date(dayDate.getFullYear(), dayDate.getMonth(), 1)
-      : null;
-  }, [calendars]);
+  const committedMonthFirst = useMemo(
+    () => getCalendarMonthStart(calendars[CALENDAR_CURRENT]),
+    [calendars],
+  );
 
   // Latest-value refs keep the gesture's onEnd worklet (captured once by
   // useMemo below) reading the current setOffset instead of a stale closure
@@ -390,6 +386,7 @@ function MonthPager({
 export function SwipeableDayGrid({
   calendarIndex,
   fullWidth,
+  hideOutOfMonth = false,
   isPrevDisabled,
   isNextDisabled,
   minDate,
@@ -414,7 +411,7 @@ export function SwipeableDayGrid({
     return (
       <DayGrid
         calendarIndex={calendarIndex}
-        hideOutOfMonth={false}
+        hideOutOfMonth={hideOutOfMonth}
         fullWidth={fullWidth}
       />
     );

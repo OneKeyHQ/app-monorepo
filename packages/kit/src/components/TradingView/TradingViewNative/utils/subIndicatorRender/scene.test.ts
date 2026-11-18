@@ -3,6 +3,7 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 
 import { TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING } from '../../chartConstants';
 
+import { getTradingViewNativeSubIndicatorY } from './coordinates';
 import { getTradingViewNativeSubIndicatorPaneLayouts } from './layout';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 import {
@@ -170,6 +171,44 @@ describe('TradingViewNative sub-indicator scene', () => {
     }
   });
 
+  it('keeps RSI reference labels inside a manually zoomed pane', () => {
+    const [{ pane }] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'rsi', indicator: 'RSI' }],
+      points: POINTS,
+    });
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: [
+        { ...pane, scale: { kind: 'fixed', minValue: 45, maxValue: 55 } },
+      ],
+      stackBottom: 300,
+      stackTop: 220,
+      startIndex: 20,
+    });
+    const commands: ITradingViewNativeChartSceneCommand[] = [];
+    appendTradingViewNativeSubIndicatorCommands({
+      candleBodyWidth: 5,
+      chartWidth: 280,
+      commands,
+      customPaintStyles: {},
+      endIndex: POINTS.length,
+      getPointX: (index) => index * 6,
+      layouts,
+      priceAxisX: 280,
+      startIndex: 20,
+    });
+    const labels = commands.filter(
+      (command) => command.kind === 'text' && command.font === 'priceAxis',
+    );
+    expect(labels).toEqual([expect.objectContaining({ text: '50.00' })]);
+    expect(
+      labels.every(
+        (command) =>
+          command.kind === 'text' && command.y >= 220 && command.y <= 300,
+      ),
+    ).toBe(true);
+  });
+
   it('uses MACD palette slots and a zero baseline for columns', () => {
     const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
       configs: [{ id: 'macd', indicator: 'MACD' }],
@@ -291,6 +330,44 @@ describe('TradingViewNative sub-indicator scene', () => {
         y: 200,
       }),
     ).toBeNull();
+  });
+
+  it('keeps a nonzero crosshair value visible under a fixed precision', () => {
+    const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'macd', indicator: 'MACD' }],
+      points: POINTS,
+    }).map(({ pane: renderPane }) => renderPane);
+    expect(pane).toBeDefined();
+    if (!pane) {
+      return;
+    }
+    pane.format = { precision: 2, type: 'inherit' };
+    pane.scale = { kind: 'fixed', maxValue: 0.01, minValue: -0.01 };
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: [pane],
+      stackBottom: 300,
+      stackTop: 244,
+      startIndex: 0,
+    });
+    const [layout] = layouts;
+    expect(layout?.range).toBeTruthy();
+    if (!layout?.range) {
+      return;
+    }
+    const y = getTradingViewNativeSubIndicatorY({
+      bottom: layout.plotBottom,
+      range: layout.range,
+      top: layout.plotTop,
+      value: 0.0034,
+    });
+
+    const text = getTradingViewNativeSubIndicatorCrosshairValueText({
+      layouts,
+      y,
+    });
+    expect(text).not.toBe('0.00');
+    expect(Number(text)).toBeCloseTo(0.0034, 3);
   });
 
   it('supports plot fills across finite runs and narrow histogram bars', () => {

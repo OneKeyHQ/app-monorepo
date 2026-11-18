@@ -1,28 +1,8 @@
-export const APP_STATE_LOCK_Z_INDEX = 100_000_000;
+// Overlays stack by their native overlay level
+// (`@onekeyfe/react-native-native-overlay`); these are in-page layers only.
 
-export const RESET_OVERLAY_Z_INDEX = APP_STATE_LOCK_Z_INDEX + 2;
-
-export const DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX = APP_STATE_LOCK_Z_INDEX + 5;
-
-// in Tamagui:
-//  the z-index of the Sheet is 1e5 - 1.
-export const SHEET_AND_DIALOG_Z_INDEX = 100_000 - 1;
-//  the z-index of the Dialog is 1e5.
-//  the z-index of the Toast is 1e5.
-//  the z-index of the Popover 15e4.
-// Drag clone must render above Dialog (1e5) and Sheet (1e5-1) overlays
+// A drag clone (web) renders above the `modal` overlay layer (z-index 1e5),
+// so dragging inside a dialog stays visible.
 export const DRAG_CLONE_Z_INDEX = 100_001;
-// The hardware DeviceStage window: above every Dialog/Sheet stack level
-// (the flows that raise it start on those surfaces), below the sheet
-// popovers, the password prompt and the toasts.
-export const HARDWARE_STAGE_Z_INDEX = 120_000;
-export const SHEET_POPOVER_Z_INDEX = 150_000;
-
-export const PASSWORD_VERIFY_CONTAINER_Z_INDEX = 160_000;
-
-//  the z-index of burnt toast is 1e6.
-export const TOAST_Z_INDEX = 1_000_000;
 
 export const FLOAT_NAV_BAR_Z_INDEX = 50;
-
-export const PERPS_TERMS_OVERLAY_Z_INDEX = 80;

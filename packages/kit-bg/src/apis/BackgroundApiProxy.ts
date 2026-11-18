@@ -74,8 +74,10 @@ import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
+import type ServicePrivacyChain from '../services/ServicePrivacyChain';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -99,6 +101,7 @@ import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletConnectPay from '../services/ServiceWalletConnectPay';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
@@ -283,6 +286,12 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceDappSide>('serviceDappSide');
   }
 
+  get serviceWalletConnectPay(): ServiceWalletConnectPay {
+    return this.getProxyService<ServiceWalletConnectPay>(
+      'serviceWalletConnectPay',
+    );
+  }
+
   get serviceWalletConnect(): ServiceWalletConnect {
     return this.getProxyService<ServiceWalletConnect>('serviceWalletConnect');
   }
@@ -305,6 +314,10 @@ class BackgroundApiProxy
 
   get servicePrimeCloudSync(): ServicePrimeCloudSync {
     return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get servicePrimeFreeTrial(): ServicePrimeFreeTrial {
+    return this.getProxyService<ServicePrimeFreeTrial>('servicePrimeFreeTrial');
   }
 
   get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {
@@ -451,6 +464,10 @@ class BackgroundApiProxy
 
   get serviceCustomRpc(): ServiceCustomRpc {
     return this.getProxyService<ServiceCustomRpc>('serviceCustomRpc');
+  }
+
+  get servicePrivacyChain(): ServicePrivacyChain {
+    return this.getProxyService<ServicePrivacyChain>('servicePrivacyChain');
   }
 
   get serviceSignatureConfirm(): ServiceSignatureConfirm {

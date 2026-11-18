@@ -1,9 +1,6 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
-import type {
-  IFrozenTopHistoryScrollObserverProps,
-  IUseFrozenTopHistoryDataResult,
-} from './useFrozenTopHistoryData.types';
+import type { IUseFrozenTopHistoryDataResult } from './useFrozenTopHistoryData.types';
 
 // Web / desktop / extension render history through a different list path
 // (react-virtualized with fixed row heights) that anchors content
@@ -22,10 +19,4 @@ export function useFrozenTopHistoryData(
     displayedHistoryData: combined,
     onAwayFromTopChange: noopOnAwayFromTopChange,
   };
-}
-
-export function FrozenTopHistoryScrollObserver(
-  _props: IFrozenTopHistoryScrollObserverProps,
-) {
-  return null;
 }

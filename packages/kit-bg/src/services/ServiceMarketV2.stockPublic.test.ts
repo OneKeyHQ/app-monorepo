@@ -5,6 +5,7 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 let mockPauseMemoizationTasks = false;
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
@@ -60,19 +61,102 @@ describe('ServiceMarketV2 public stock APIs', () => {
         serviceMarket: { fetchMarketAssetDetail: mockAssetDetail },
       },
     });
-    service.getClient = jest.fn(async () => ({ get: mockGet })) as never;
+    service.getClient = jest.fn(async () => ({
+      get: mockGet,
+      post: mockPost,
+    })) as never;
     return service;
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockGet.mockReset();
+    mockPost.mockReset();
     mockListingCache = {};
   });
 
   afterEach(() => {
     mockPauseMemoizationTasks = false;
     jest.restoreAllMocks();
+  });
+
+  it('keeps partial batch rows aligned and only retries missing tokens', async () => {
+    const service = createService();
+    const unknown = {
+      chainId: 'evm--1',
+      contractAddress: `0x${'a'.repeat(40)}`,
+      isNative: false,
+    };
+    const stock = {
+      chainId: 'evm--1',
+      contractAddress: `0x${'b'.repeat(40)}`,
+      isNative: false,
+    };
+    const stockRow = {
+      networkId: stock.chainId,
+      address: stock.contractAddress.toUpperCase(),
+      isNative: false,
+      stock: { stockId: 'AAPL' },
+    };
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [stockRow] } } });
+    const first = await service.fetchMarketTokenListBatch({
+      tokenAddressList: [unknown, stock],
+    });
+    expect(first.list[0]).toBeUndefined();
+    expect(first.list[1]).toEqual(stockRow);
+
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [] } } });
+    const second = await service.fetchMarketTokenListBatch({
+      tokenAddressList: [unknown, stock],
+    });
+    expect(second.list[0]).toBeUndefined();
+    expect(second.list[1]).toEqual(stockRow);
+    expect(mockPost.mock.calls[1][1].tokenAddressList).toEqual([unknown]);
+  });
+
+  it('matches batch rows by network and native identity instead of order', async () => {
+    const service = createService();
+    const address = `0x${'a'.repeat(40)}`;
+    const tokenAddressList = [
+      { chainId: 'evm--1', contractAddress: address, isNative: false },
+      { chainId: 'evm--56', contractAddress: address, isNative: false },
+      { chainId: 'evm--1', contractAddress: '', isNative: true },
+    ];
+    const eth = {
+      networkId: 'evm--1',
+      address: `0x${'e'.repeat(40)}`,
+      isNative: true,
+      symbol: 'ETH',
+    };
+    const bsc = { networkId: 'evm--56', address, isNative: false };
+    mockPost.mockResolvedValue({ data: { data: { list: [eth, bsc] } } });
+
+    const { list } = await service.fetchMarketTokenListBatch({
+      tokenAddressList,
+    });
+    expect(list[0]).toBeUndefined();
+    expect(list[1]).toEqual(bsc);
+    expect(list[2]).toEqual(eth);
+  });
+
+  it('rejects malformed batch responses while accepting valid empty lists', async () => {
+    const service = createService();
+    const params = {
+      tokenAddressList: [
+        { chainId: 'evm--1', contractAddress: '', isNative: true },
+      ],
+    };
+    mockPost.mockResolvedValueOnce({ data: { data: {} } });
+    await expect(service.fetchMarketTokenListBatch(params)).rejects.toThrow(
+      'Invalid market token batch response',
+    );
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [] } } });
+    await expect(service.fetchMarketTokenListBatch(params)).resolves.toEqual({
+      list: [],
+    });
+    const error = new Error('offline');
+    mockPost.mockRejectedValueOnce(error);
+    await expect(service.fetchMarketTokenListBatch(params)).rejects.toBe(error);
   });
 
   it('deduplicates stock banner requests and clears cached quotes explicitly', async () => {
@@ -122,6 +206,41 @@ describe('ServiceMarketV2 public stock APIs', () => {
       response,
     );
     expect(mockGet).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not reuse an offline basic-config failure after reconnect', async () => {
+    mockPauseMemoizationTasks = true;
+    const service = createService();
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(service.fetchMarketBasicConfig()).rejects.toThrow('offline');
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: {
+        spotCategories: [
+          { type: 'trending', name: 'Trending' },
+          { type: 'stocks', name: 'Stocks' },
+          { type: 'robinhood_meme', name: 'Robinhood' },
+        ],
+      },
+    };
+    mockGet.mockResolvedValue({ data: response });
+    await expect(service.fetchMarketBasicConfig()).resolves.toEqual(response);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('suppresses optional basic-config errors for the detail lookup', async () => {
+    const service = createService();
+    const error = Object.assign(new Error('offline'), { autoToast: true });
+    mockGet.mockRejectedValueOnce(error);
+    await expect(
+      service.fetchMarketBasicConfig({ autoHandleError: false }),
+    ).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
+    expect(mockGet.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ autoHandleError: false }),
+    );
   });
 
   it('loads a stock watchlist quote without resolving a token variant', async () => {
@@ -426,7 +545,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(result.items[0]).not.toHaveProperty('contractAddress');
   });
 
-  it('sorts the stock list by 24h volume descending by default', async () => {
+  it('sorts the stock list by market cap descending by default', async () => {
     const service = createService();
     mockGet.mockResolvedValueOnce({
       data: {
@@ -444,7 +563,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
         cursor: undefined,
         limit: 20,
         category: undefined,
-        sortBy: 'volume24h',
+        sortBy: 'marketCap',
         sortType: 'desc',
       },
       headers: { 'x-onekey-request-currency': 'usd' },
@@ -499,6 +618,66 @@ describe('ServiceMarketV2 public stock APIs', () => {
       params: { query: 'aapl', limit: 20, cursor: 'next' },
       autoHandleError: false,
     });
+  });
+
+  it('loads favorited stocks through the batch endpoint in USD', async () => {
+    const service = createService();
+    mockPost.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [
+            { stockId: 'TSLA', symbol: 'TSLA', variants: [] },
+            { stockId: 'AAPL', symbol: 'AAPL', variants: [] },
+          ],
+          total: 2,
+        },
+      },
+    });
+
+    await expect(
+      service.fetchMarketStockBatch({ stockIds: ['TSLA', 'AAPL'] }),
+    ).resolves.toEqual([
+      { stockId: 'TSLA', symbol: 'TSLA', variants: [] },
+      { stockId: 'AAPL', symbol: 'AAPL', variants: [] },
+    ]);
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/stocks/batch',
+      { stockIds: ['TSLA', 'AAPL'] },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+        autoHandleError: false,
+      },
+    );
+  });
+
+  it('splits stock batch requests at the 100 ID limit', async () => {
+    const service = createService();
+    const stockIds = Array.from({ length: 101 }, (_, index) => `S${index}`);
+    mockPost.mockImplementation(
+      async (_url: string, body: { stockIds: string[] }) => ({
+        data: {
+          data: {
+            items: body.stockIds.map((stockId) => ({ stockId })),
+            total: body.stockIds.length,
+          },
+        },
+      }),
+    );
+
+    const result = await service.fetchMarketStockBatch({ stockIds });
+
+    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockPost.mock.calls[0][1].stockIds).toHaveLength(100);
+    expect(mockPost.mock.calls[1][1].stockIds).toEqual(['S100']);
+    expect(result.map((item) => item.stockId)).toEqual(stockIds);
+  });
+
+  it('skips the stock batch request for an empty ID list', async () => {
+    const service = createService();
+    await expect(
+      service.fetchMarketStockBatch({ stockIds: [] }),
+    ).resolves.toEqual([]);
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it('loads stock detail and token variants by stockId', async () => {

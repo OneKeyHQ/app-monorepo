@@ -376,4 +376,40 @@ describe('useSwapStockSelectedBalanceSync', () => {
     });
     expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
   });
+
+  it('does not publish an unverified retained balance to trade eligibility', () => {
+    const store = createStore();
+    const Wrapper = createSwapWrapper(store);
+    const { rerender } = renderHook(
+      ({
+        balance,
+        balanceVerified,
+      }: {
+        balance: string;
+        balanceVerified: boolean;
+      }) =>
+        useSwapStockSelectedBalanceSync({
+          balance,
+          balanceVerified,
+          enabled: true,
+          ownerScope: 'account-1:usdc',
+        }),
+      {
+        initialProps: { balance: '5', balanceVerified: true },
+        wrapper: Wrapper,
+      },
+    );
+
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('5');
+
+    act(() => {
+      rerender({ balance: '5', balanceVerified: false });
+    });
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+
+    act(() => {
+      rerender({ balance: '3', balanceVerified: true });
+    });
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('3');
+  });
 });

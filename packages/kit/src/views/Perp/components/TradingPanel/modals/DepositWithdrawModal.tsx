@@ -35,7 +35,6 @@ import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
@@ -76,13 +75,11 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
-  DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
   MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
   USDC_WITHDRAW_DESTINATIONS,
-  USDC_WITHDRAW_GAS_RESERVE,
   WITHDRAW_FEE,
   getUsdcWithdrawDestination,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -121,6 +118,12 @@ import {
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
+import {
+  usePerpsAmountInput,
+  usePerpsDepositQuoteAmount,
+} from './usePerpsAmountInput';
+import { useUsdcWithdrawRouting } from './useUsdcWithdrawRouting';
+import { formatUsdcWithdrawFeeText } from './withdrawFeeDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -136,16 +139,6 @@ const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
-
-function formatWithdrawFeeComponent(
-  component: IUsdcWithdrawFeeQuote['components'][number],
-) {
-  const amount = new BigNumber(component.amount).toFixed(2);
-  if (component.kind === 'hyperEvmGas') {
-    return `< $${amount}`;
-  }
-  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
-}
 
 function getWithdrawFeeKey(
   destination: IUsdcWithdrawDestinationConfig,
@@ -368,42 +361,71 @@ function DepositWithdrawContent({
   const { gtMd } = useMedia();
   const selectedAction = params.actionType;
   const [computedValue] = usePerpsComputedAccountValueAtom();
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [perpsCustomSettings, setPerpsCustomSettings] =
-    usePerpsCustomSettingsAtom();
+  const [, setPerpsCustomSettings] = usePerpsCustomSettingsAtom();
   const withdrawable = computedValue?.withdrawable ?? '';
-  const [amount, setAmount] = useState('');
-  const withdrawDestinationId = getUsdcWithdrawDestination(
-    perpsCustomSettings.lastUsdcWithdrawDestinationId,
-  )
-    ? perpsCustomSettings.lastUsdcWithdrawDestinationId
-    : DEFAULT_USDC_WITHDRAW_DESTINATION_ID;
-  const [withdrawRoute, setWithdrawRoute] = useState<
-    'bridge' | 'cctp' | undefined
-  >(undefined);
-  const fetchWithdrawRoute = useCallback(async () => {
-    try {
-      return await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawRoute(
-        { forceRefresh: true },
-      );
-    } catch (error) {
-      console.error(
-        '[DepositWithdrawModal] Failed to resolve withdraw route:',
-        error,
-      );
-      return undefined;
-    }
-  }, []);
-  // Seeded from the module cache so reopening the form does not blank the row
-  // again; the effects below refresh it on every open.
-  const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
-    Record<string, IUsdcWithdrawFeeQuote>
-  >(() => ({ ...withdrawFeeQuoteCache }));
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
     'usd',
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
+  const [
+    {
+      tokens,
+      defaultTokens,
+      currentPerpsDepositSelectedToken,
+      depositTokenListOwnerKey,
+      depositTokenListRevision,
+      depositTokenListSource,
+    },
+    setPerpsDepositTokensAtom,
+  ] = usePerpsDepositTokensAtom();
+
+  const currentDepositTokenIdentity = useMemo(
+    () =>
+      currentPerpsDepositSelectedToken
+        ? `${currentPerpsDepositSelectedToken.networkId ?? ''}::${
+            currentPerpsDepositSelectedToken.contractAddress ??
+            currentPerpsDepositSelectedToken.symbol ??
+            ''
+          }`
+        : undefined,
+    [currentPerpsDepositSelectedToken],
+  );
+  const {
+    amount,
+    setAmount,
+    source: amountSource,
+    tokenAmountBN,
+    convertedAmount,
+  } = usePerpsAmountInput({
+    unit: selectedAction === 'deposit' ? depositInputUnit : 'token',
+    tokenPrice: currentPerpsDepositSelectedToken?.price,
+    tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
+    resetKey:
+      selectedAction === 'deposit' ? currentDepositTokenIdentity : undefined,
+  });
+
+  const resetWithdrawAmount = useCallback(() => {
+    setAmount('');
+    setShowMinAmountError(false);
+  }, [setAmount]);
+  const {
+    withdrawRoute,
+    withdrawDestinationId,
+    withdrawDestinations,
+    refreshWithdrawRoute,
+  } = useUsdcWithdrawRouting({
+    enabled: selectedAction === 'withdraw',
+    isSubmitting,
+    onRoutingChange: resetWithdrawAmount,
+  });
+  // Seeded from the module cache so reopening the form does not blank the row
+  // again; the effects below refresh it on every open.
+  const [withdrawFeeQuotes, setWithdrawFeeQuotes] = useState<
+    Record<string, IUsdcWithdrawFeeQuote>
+  >(() => ({ ...withdrawFeeQuoteCache }));
   const [desktopDepositPage, setDesktopDepositPage] = useState<
     'form' | 'selectToken'
   >('form');
@@ -439,6 +461,59 @@ function DepositWithdrawContent({
   const shouldReserveWithdrawGas =
     selectedWithdrawDestination.transferType === 'hyperEvm' ||
     withdrawRoute === 'cctp';
+  const needsWithdrawReserve =
+    selectedAction === 'withdraw' && shouldReserveWithdrawGas;
+  const {
+    result: withdrawReserve,
+    isLoading: isCheckingWithdrawReserve,
+    run: refreshWithdrawReserve,
+  } = usePromiseResult(
+    async () => {
+      if (
+        !needsWithdrawReserve ||
+        !selectedAccount.accountId ||
+        !selectedAccount.accountAddress
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawReserve(
+        {
+          userAccountId: selectedAccount.accountId,
+        },
+      );
+    },
+    [
+      needsWithdrawReserve,
+      selectedAccount.accountId,
+      selectedAccount.accountAddress,
+    ],
+    {
+      watchLoading: true,
+      undefinedResultIfError: true,
+      overrideIsFocused: (isFocused) => isFocused && needsWithdrawReserve,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
+  );
+  const hasWithdrawAccountChanged =
+    needsWithdrawReserve &&
+    (activeAccount.accountId !== selectedAccount.accountId ||
+      activeAccount.accountAddress?.toLowerCase() !==
+        selectedAccount.accountAddress?.toLowerCase());
+  // The displayed balance follows the active account; its reserve must match.
+  const matchedWithdrawReserve =
+    !hasWithdrawAccountChanged &&
+    withdrawReserve?.accountAddress.toLowerCase() ===
+      selectedAccount.accountAddress?.toLowerCase()
+      ? withdrawReserve
+      : undefined;
+  const isWithdrawReserveReady =
+    !needsWithdrawReserve || Boolean(matchedWithdrawReserve);
+  const hasWithdrawReserveFetchFailed =
+    needsWithdrawReserve &&
+    !hasWithdrawAccountChanged &&
+    isCheckingWithdrawReserve === false &&
+    !matchedWithdrawReserve;
   // Gated on the confirmed quote, never the preview: submitting against a fee the
   // row never showed would take the difference out of the principal.
   const isWithdrawFeeQuoteComplete =
@@ -448,24 +523,13 @@ function DepositWithdrawContent({
     );
   const isWithdrawDestinationReady =
     selectedAction !== 'withdraw' ||
-    (isWithdrawFeeQuoteComplete &&
+    (isWithdrawReserveReady &&
+      isWithdrawFeeQuoteComplete &&
       (selectedWithdrawDestination.transferType === 'hyperEvm' ||
         withdrawRoute === 'cctp' ||
         (withdrawRoute === 'bridge' &&
           selectedWithdrawDestination.transferType === 'cctp' &&
           selectedWithdrawDestination.supportsLegacyBridge)));
-  const [
-    {
-      tokens,
-      defaultTokens,
-      currentPerpsDepositSelectedToken,
-      depositTokenListOwnerKey,
-      depositTokenListRevision,
-      depositTokenListSource,
-    },
-    setPerpsDepositTokensAtom,
-  ] = usePerpsDepositTokensAtom();
-
   const cachedDepositTokens = useMemo(
     () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
@@ -476,17 +540,6 @@ function DepositWithdrawContent({
   );
   const defaultTokensRef = useRef(defaultTokens);
   defaultTokensRef.current = defaultTokens;
-  const currentDepositTokenIdentity = useMemo(
-    () =>
-      currentPerpsDepositSelectedToken
-        ? `${currentPerpsDepositSelectedToken.networkId ?? ''}::${
-            currentPerpsDepositSelectedToken.contractAddress ??
-            currentPerpsDepositSelectedToken.symbol ??
-            ''
-          }`
-        : undefined,
-    [currentPerpsDepositSelectedToken],
-  );
   const currentPerpsDepositSelectedTokenRef = useRef<
     IPerpsDepositToken | undefined
   >(currentPerpsDepositSelectedToken);
@@ -866,7 +919,7 @@ function DepositWithdrawContent({
       setDepositInputUnit('usd');
       setShowMinAmountError(false);
     }
-  }, [currentDepositTokenIdentity, selectedAction]);
+  }, [currentDepositTokenIdentity, selectedAction, setAmount]);
 
   useEffect(() => {
     if (depositTokensWithPrice.length === 0) return;
@@ -966,13 +1019,6 @@ function DepositWithdrawContent({
   const isUsdInput = selectedAction === 'deposit' && depositInputUnit === 'usd';
   const shouldUseNativeAmountKeypad = platformEnv.isNative;
 
-  const tokenAmountBN = useMemo(() => {
-    if (isUsdInput && tokenPriceBN.gt(0)) {
-      return amountBN.dividedBy(tokenPriceBN);
-    }
-    return amountBN;
-  }, [amountBN, isUsdInput, tokenPriceBN]);
-
   const tokenAmount = useMemo(
     () =>
       tokenAmountBN.isNaN() || tokenAmountBN.lte(0)
@@ -986,62 +1032,39 @@ function DepositWithdrawContent({
     [tokenAmountBN, currentPerpsDepositSelectedToken?.decimals],
   );
 
-  const convertedDisplayValue = useMemo(() => {
-    if (selectedAction !== 'deposit' || amountBN.isNaN() || amountBN.lte(0)) {
-      return '';
-    }
-    if (isUsdInput && tokenPriceBN.gt(0)) {
-      const displayDecimals = Math.min(
-        currentPerpsDepositSelectedToken?.decimals ?? 6,
-        8,
-      );
-      const tokenVal = amountBN
-        .dividedBy(tokenPriceBN)
-        .decimalPlaces(displayDecimals, BigNumber.ROUND_DOWN);
-      return tokenVal.toFixed();
-    }
-    if (!isUsdInput && tokenPriceBN.gt(0)) {
-      const usdVal = amountBN
-        .multipliedBy(tokenPriceBN)
-        .decimalPlaces(2, BigNumber.ROUND_DOWN);
-      return usdVal.toFixed(2);
-    }
-    return '';
-  }, [
-    selectedAction,
-    amountBN,
-    isUsdInput,
-    tokenPriceBN,
-    currentPerpsDepositSelectedToken?.decimals,
-  ]);
+  const convertedDisplayValue =
+    selectedAction === 'deposit' && amountBN.gt(0) && tokenPriceBN.gt(0)
+      ? convertedAmount
+      : '';
 
   const availableBalanceBN = useMemo(
     () => new BigNumber(availableBalance.balance || '0'),
     [availableBalance.balance],
   );
 
-  // Hyperliquid may charge the sub-cent Core -> EVM gas outside the requested
-  // amount. Reserve one cent so a full-balance withdrawal does not fail.
   const maximumWithdrawAmountBN = useMemo(() => {
     const maximum = shouldReserveWithdrawGas
-      ? availableBalanceBN.minus(USDC_WITHDRAW_GAS_RESERVE)
+      ? availableBalanceBN.minus(matchedWithdrawReserve?.reserve ?? 0)
       : availableBalanceBN;
     return BigNumber.maximum(maximum, 0).decimalPlaces(
       USDC_TOKEN_INFO.decimals,
       BigNumber.ROUND_DOWN,
     );
-  }, [availableBalanceBN, shouldReserveWithdrawGas]);
+  }, [
+    availableBalanceBN,
+    shouldReserveWithdrawGas,
+    matchedWithdrawReserve?.reserve,
+  ]);
 
   const checkFromTokenFiatValue = useMemo(() => {
     return getPerpsDepositMinimumCheck({
-      inputAmount: amount,
-      isUsdInput,
+      inputAmount: amountSource.amount,
+      isUsdInput: amountSource.unit === 'usd',
       tokenPrice: currentPerpsDepositSelectedToken?.price,
       tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
     });
   }, [
-    amount,
-    isUsdInput,
+    amountSource,
     currentPerpsDepositSelectedToken?.decimals,
     currentPerpsDepositSelectedToken?.price,
   ]);
@@ -1133,7 +1156,10 @@ function DepositWithdrawContent({
     minimumWithdrawAmountText,
   ]);
 
-  const depositQuoteAmountDebounced = useDebounce(tokenAmount, 800);
+  const depositQuoteAmountDebounced = usePerpsDepositQuoteAmount(
+    tokenAmount,
+    currentDepositTokenIdentity,
+  );
   const shouldEnableDepositQuote =
     selectedAction === 'deposit' && checkAccountSupport;
   const selectedActionForDepositQuote: IPerpsDepositWithdrawActionType =
@@ -1213,6 +1239,7 @@ function DepositWithdrawContent({
       currentPerpsDepositSelectedToken?.decimals,
       selectedAction,
       depositInputUnit,
+      setAmount,
     ],
   );
 
@@ -1226,7 +1253,7 @@ function DepositWithdrawContent({
         return;
       }
       if (key === 'backspace') {
-        setAmount((prev) => prev.slice(0, -1));
+        handleAmountChange(amount.slice(0, -1));
         return;
       }
       if (key === '.') {
@@ -1253,7 +1280,12 @@ function DepositWithdrawContent({
       return;
     }
     setAmount('');
-  }, [checkAccountSupport, isSubmitting, shouldUseNativeAmountKeypad]);
+  }, [
+    checkAccountSupport,
+    isSubmitting,
+    setAmount,
+    shouldUseNativeAmountKeypad,
+  ]);
   const handleAmountBlur = useCallback(() => {
     if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
       if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
@@ -1322,32 +1354,8 @@ function DepositWithdrawContent({
 
   const handleToggleInputUnit = useCallback(() => {
     if (!canSwitchDepositInputUnit) return;
-    const newUnit = depositInputUnit === 'token' ? 'usd' : 'token';
-    if (amount && !amountBN.isNaN() && amountBN.gt(0) && tokenPriceBN.gt(0)) {
-      if (newUnit === 'usd') {
-        const usdVal = amountBN
-          .multipliedBy(tokenPriceBN)
-          .decimalPlaces(2, BigNumber.ROUND_DOWN);
-        setAmount(usdVal.toFixed());
-      } else {
-        const tokenVal = amountBN
-          .dividedBy(tokenPriceBN)
-          .decimalPlaces(
-            currentPerpsDepositSelectedToken?.decimals ?? 6,
-            BigNumber.ROUND_DOWN,
-          );
-        setAmount(tokenVal.toFixed());
-      }
-    }
-    setDepositInputUnit(newUnit);
-  }, [
-    canSwitchDepositInputUnit,
-    depositInputUnit,
-    amount,
-    amountBN,
-    tokenPriceBN,
-    currentPerpsDepositSelectedToken?.decimals,
-  ]);
+    setDepositInputUnit((unit) => (unit === 'token' ? 'usd' : 'token'));
+  }, [canSwitchDepositInputUnit]);
 
   const handleMaxPress = useCallback(
     (tokenParams?: {
@@ -1380,6 +1388,7 @@ function DepositWithdrawContent({
         setAmount(nextAmount);
         return;
       }
+      if (selectedAction === 'withdraw' && !isWithdrawDestinationReady) return;
       if (availableBalance) {
         const nextAmount =
           selectedAction === 'withdraw'
@@ -1394,7 +1403,9 @@ function DepositWithdrawContent({
       selectedAction,
       depositInputUnit,
       maximumWithdrawAmountBN,
+      isWithdrawDestinationReady,
       tokenPriceBN,
+      setAmount,
     ],
   );
 
@@ -1667,10 +1678,8 @@ function DepositWithdrawContent({
         logDirectDepositFailure('build', getPerpDepositErrorCode(error));
       }
       if (selectedAction === 'withdraw') {
-        const latestWithdrawRoute = await fetchWithdrawRoute();
-        if (latestWithdrawRoute) {
-          setWithdrawRoute(latestWithdrawRoute);
-        }
+        void refreshWithdrawReserve();
+        void refreshWithdrawRoute();
       }
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       throw error;
@@ -1702,7 +1711,8 @@ function DepositWithdrawContent({
     withdraw,
     isDepositQuotePendingDebounce,
     shouldRefreshDepositQuote,
-    fetchWithdrawRoute,
+    refreshWithdrawRoute,
+    refreshWithdrawReserve,
   ]);
 
   const nativeInputProps = platformEnv.isNativeIOS
@@ -2040,7 +2050,7 @@ function DepositWithdrawContent({
   const depositToAmount = useMemo(() => {
     let depositToAmountRes = '0';
     if (isArbitrumUsdcToken) {
-      depositToAmountRes = amountBN.toFixed();
+      depositToAmountRes = tokenAmount || '0';
     } else {
       depositToAmountRes = perpDepositQuote?.result?.toAmount ?? '0';
     }
@@ -2049,7 +2059,7 @@ function DepositWithdrawContent({
       value: depositToAmountRes,
       canDeposit: depositToAmountBN.gt(0) && !depositToAmountBN.isNaN(),
     };
-  }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
+  }, [isArbitrumUsdcToken, tokenAmount, perpDepositQuote?.result?.toAmount]);
 
   const depositEstimateDescription = useMemo(() => {
     if (selectedAction !== 'deposit') {
@@ -2239,7 +2249,7 @@ function DepositWithdrawContent({
 
   const withdrawDestinationItems = useMemo<ISelectItem[]>(
     () =>
-      USDC_WITHDRAW_DESTINATIONS.map((destination) => ({
+      withdrawDestinations.map((destination) => ({
         label: destination.name,
         value: destination.id,
         disabled:
@@ -2247,47 +2257,20 @@ function DepositWithdrawContent({
           withdrawRoute !== 'cctp' &&
           !destination.supportsLegacyBridge,
       })),
-    [withdrawRoute],
+    [withdrawDestinations, withdrawRoute],
   );
 
   const handleWithdrawDestinationChange = useCallback(
     (value: IUsdcWithdrawDestinationId | undefined) => {
-      if (value && getUsdcWithdrawDestination(value)) {
+      if (value && withdrawDestinations.some(({ id }) => id === value)) {
         setPerpsCustomSettings((previous) => ({
           ...previous,
           lastUsdcWithdrawDestinationId: value,
         }));
       }
     },
-    [setPerpsCustomSettings],
+    [setPerpsCustomSettings, withdrawDestinations],
   );
-
-  // Refreshed alongside the fee: a rail that flips while the form is open fails
-  // submission with "route changed", and the retry it asks for needs a live
-  // refresh instead of the longer-lived background cache.
-  useEffect(() => {
-    if (selectedAction !== 'withdraw') {
-      return;
-    }
-    let cancelled = false;
-    setWithdrawRoute(undefined);
-    const loadWithdrawRoute = () => {
-      void fetchWithdrawRoute().then((route) => {
-        if (!cancelled && route) {
-          setWithdrawRoute(route);
-        }
-      });
-    };
-    loadWithdrawRoute();
-    const refreshInterval = setInterval(
-      loadWithdrawRoute,
-      WITHDRAW_QUOTE_REFRESH_INTERVAL_MS,
-    );
-    return () => {
-      cancelled = true;
-      clearInterval(refreshInterval);
-    };
-  }, [fetchWithdrawRoute, selectedAction]);
 
   // Quote every destination up front. The rail only changes server-side, so this
   // runs once per form open and lets a switch land on a confirmed number instead
@@ -2297,7 +2280,7 @@ function DepositWithdrawContent({
       return;
     }
     let cancelled = false;
-    USDC_WITHDRAW_DESTINATIONS.forEach((destination) => {
+    withdrawDestinations.forEach((destination) => {
       const key = getWithdrawFeeKey(destination, withdrawRoute);
       if (!key || requestedWithdrawFeeKeysRef.current.has(key)) {
         return;
@@ -2322,7 +2305,12 @@ function DepositWithdrawContent({
     return () => {
       cancelled = true;
     };
-  }, [selectedAction, withdrawRoute, storeWithdrawFeeQuote]);
+  }, [
+    selectedAction,
+    withdrawDestinations,
+    withdrawRoute,
+    storeWithdrawFeeQuote,
+  ]);
 
   useEffect(() => {
     if (selectedAction !== 'withdraw') {
@@ -2387,8 +2375,18 @@ function DepositWithdrawContent({
 
   const withdrawFeeText = useMemo(
     () =>
-      withdrawFeeQuote?.components.map(formatWithdrawFeeComponent).join(' + '),
-    [withdrawFeeQuote],
+      formatUsdcWithdrawFeeText({
+        feeQuote: withdrawFeeQuote,
+        reserve: matchedWithdrawReserve?.reserve,
+        includeReserve: needsWithdrawReserve,
+        isReserveEstimate: matchedWithdrawReserve?.isEstimate,
+      }),
+    [
+      needsWithdrawReserve,
+      withdrawFeeQuote,
+      matchedWithdrawReserve?.reserve,
+      matchedWithdrawReserve?.isEstimate,
+    ],
   );
 
   const withdrawSubmitDisabled =
@@ -2616,6 +2614,7 @@ function DepositWithdrawContent({
                 </SizableText>
                 <Button
                   testID="perp-withdraw-max"
+                  disabled={!isWithdrawDestinationReady || isSubmitting}
                   variant="secondary"
                   size="small"
                   px="$2.5"
@@ -2638,7 +2637,7 @@ function DepositWithdrawContent({
             gap="$2.5"
           >
             {withdrawFeeHint}
-            {withdrawFeeQuote ? (
+            {withdrawFeeText !== undefined ? (
               <SizableText
                 size="$bodyLgMedium"
                 color="$text"
@@ -2653,6 +2652,32 @@ function DepositWithdrawContent({
             )}
           </XStack>
         </YStack>
+
+        {hasWithdrawAccountChanged ? (
+          <SizableText size="$bodySm" color="$textCritical">
+            {intl.formatMessage({
+              id: ETranslations.active_trading_account_changed__msg,
+            })}
+          </SizableText>
+        ) : null}
+
+        {hasWithdrawReserveFetchFailed ? (
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$bodySm" color="$textCritical" flex={1}>
+              {intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              })}
+            </SizableText>
+            <Button
+              testID="perp-withdraw-reserve-retry"
+              size="small"
+              variant="tertiary"
+              onPress={() => void refreshWithdrawReserve()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          </XStack>
+        ) : null}
 
         {!shouldUseNativeAmountKeypad ? (
           <YStack pt="$1">
@@ -2873,7 +2898,7 @@ function DepositWithdrawContent({
                     <Select
                       key={`perp-withdraw-destination-${
                         withdrawRoute ?? 'loading'
-                      }`}
+                      }-${withdrawDestinations.length}`}
                       testID="perp-withdraw-destination-select"
                       items={withdrawDestinationItems}
                       value={withdrawDestinationId}

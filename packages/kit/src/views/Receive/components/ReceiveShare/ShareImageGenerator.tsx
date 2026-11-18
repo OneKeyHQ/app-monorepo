@@ -10,6 +10,7 @@ import { Stack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import {
   drawDotQRCodeOnCanvas,
+  drawQRCodeBrandMark,
   drawRoundedRect,
 } from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -188,6 +189,104 @@ function drawStyledLineCentered(
   });
 }
 
+type ITitleBlock = {
+  kind: 'text' | 'symbol';
+  text: string;
+  width: number;
+};
+
+// The title as up to two blocks, the words and the token logo with the
+// symbol, broken into lines. The blocks only part at a line break, like the
+// on-screen title (see ReceiveTitleBlocks). Returns null when the logo +
+// symbol block cannot fit a line: the caller then draws the plain sentence,
+// which wraps anywhere and so keeps all of its text.
+function layoutTitleWithLogo(
+  ctx: CanvasRenderingContext2D,
+  {
+    before,
+    symbol,
+    after,
+    gap,
+    maxWidth,
+  }: {
+    before: string;
+    symbol: string;
+    after: string;
+    gap: number;
+    maxWidth: number;
+  },
+): ITitleBlock[][] | null {
+  const { iconSize, iconGap } = SHARE_CARD_CONFIG.title;
+  const symbolWidth = iconSize + iconGap + ctx.measureText(symbol).width;
+  if (symbolWidth > maxWidth) {
+    return null;
+  }
+  const toTextBlock = (text: string): ITitleBlock[] =>
+    text ? [{ kind: 'text', text, width: ctx.measureText(text).width }] : [];
+  const blocks: ITitleBlock[] = [
+    ...toTextBlock(before),
+    { kind: 'symbol', text: symbol, width: symbolWidth },
+    ...toTextBlock(after),
+  ];
+
+  const lines: ITitleBlock[][] = [];
+  let line: ITitleBlock[] = [];
+  let lineWidth = 0;
+  for (const block of blocks) {
+    const nextWidth = line.length ? lineWidth + gap + block.width : block.width;
+    if (line.length && nextWidth > maxWidth) {
+      lines.push(line);
+      line = [block];
+      lineWidth = block.width;
+    } else {
+      line.push(block);
+      lineWidth = nextWidth;
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+
+// Expects the title font, fill color and a top text baseline to be set.
+function drawTitleLineWithLogo(
+  ctx: CanvasRenderingContext2D,
+  line: ITitleBlock[],
+  logo: HTMLImageElement,
+  { centerX, y, gap }: { centerX: number; y: number; gap: number },
+) {
+  const { iconSize, iconGap, size } = SHARE_CARD_CONFIG.title;
+  const totalWidth = line.reduce(
+    (sum, block, index) => sum + block.width + (index ? gap : 0),
+    0,
+  );
+
+  ctx.textAlign = 'left';
+  let x = centerX - totalWidth / 2;
+  line.forEach((block, index) => {
+    if (index) x += gap;
+    if (block.kind === 'symbol') {
+      // the text hangs from the top of its em box; center the logo on it
+      const iconY = y + (size - iconSize) / 2;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(
+        x + iconSize / 2,
+        iconY + iconSize / 2,
+        iconSize / 2,
+        0,
+        Math.PI * 2,
+      );
+      ctx.clip();
+      ctx.drawImage(logo, x, iconY, iconSize, iconSize);
+      ctx.restore();
+      ctx.fillText(block.text, x + iconSize + iconGap, y);
+    } else {
+      ctx.fillText(block.text, x, y);
+    }
+    x += block.width;
+  });
+}
+
 export const ShareImageGenerator = memo(
   forwardRef<IReceiveShareImageGeneratorRef, IShareImageGeneratorProps>(
     ({ data }, ref) => {
@@ -197,22 +296,14 @@ export const ShareImageGenerator = memo(
       const lastResultRef = useRef<{ key: string; base64: string } | null>(
         null,
       );
-      const {
-        title,
-        subtitle,
-        networkName,
-        address,
-        tokenLogoURI,
-        networkLogoURI,
-      } = data;
+      const { title, titleLogo, subtitle, networkName, address } = data;
 
       const contentKey = [
         title,
         subtitle,
         networkName,
         address,
-        tokenLogoURI,
-        networkLogoURI,
+        titleLogo?.uri,
       ].join('|');
 
       const generate = useCallback(async (): Promise<string> => {
@@ -241,14 +332,12 @@ export const ShareImageGenerator = memo(
         } = SHARE_CARD_CONFIG;
 
         try {
-          const [tokenLogoImg, networkLogoImg, onekeyLogoImg] =
-            await Promise.all([
-              tokenLogoURI ? loadImage(tokenLogoURI) : Promise.resolve(null),
-              networkLogoURI
-                ? loadImage(networkLogoURI)
-                : Promise.resolve(null),
-              loadImage(ONEKEY_LOGO_URL),
-            ]);
+          // a title logo that fails to load leaves the plain title; the
+          // OneKey logo is only the footer's, the mark in the code is drawn
+          const [titleLogoImg, onekeyLogoImg] = await Promise.all([
+            titleLogo ? loadImage(titleLogo.uri) : Promise.resolve(null),
+            loadImage(ONEKEY_LOGO_URL),
+          ]);
 
           const groupedAddress = groupAddress(address);
           const cellWidth = content.width - wrapper.padding * 2;
@@ -258,8 +347,22 @@ export const ShareImageGenerator = memo(
           // then resize + scale + draw
           canvas.width = width * CANVAS_SCALE;
           ctx.font = toCanvasFont(titleStyle.size, titleStyle.weight);
-          const titleLines = wrapText(ctx, title, content.width);
-          const titleHeight = titleLines.length * titleStyle.lineHeight;
+          const titleBlockGap = titleLogo?.hasGap ? titleStyle.blockGap : 0;
+          const titleLogoLines =
+            titleLogo && titleLogoImg
+              ? layoutTitleWithLogo(ctx, {
+                  before: titleLogo.before,
+                  symbol: titleLogo.symbol,
+                  after: titleLogo.after,
+                  gap: titleBlockGap,
+                  maxWidth: content.width,
+                })
+              : null;
+          const titleLines = titleLogoLines
+            ? []
+            : wrapText(ctx, title, content.width);
+          const titleHeight =
+            (titleLogoLines ?? titleLines).length * titleStyle.lineHeight;
 
           const subtitleFont = toCanvasFont(
             subtitleStyle.size,
@@ -340,15 +443,25 @@ export const ShareImageGenerator = memo(
 
           ctx.fillStyle = titleStyle.color;
           ctx.font = toCanvasFont(titleStyle.size, titleStyle.weight);
-          ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          titleLines.forEach((line, index) => {
-            ctx.fillText(
-              line,
-              width / 2,
-              content.paddingTop + index * titleStyle.lineHeight,
-            );
-          });
+          if (titleLogoLines && titleLogoImg) {
+            titleLogoLines.forEach((line, index) => {
+              drawTitleLineWithLogo(ctx, line, titleLogoImg, {
+                centerX: width / 2,
+                y: content.paddingTop + index * titleStyle.lineHeight,
+                gap: titleBlockGap,
+              });
+            });
+          } else {
+            ctx.textAlign = 'center';
+            titleLines.forEach((line, index) => {
+              ctx.fillText(
+                line,
+                width / 2,
+                content.paddingTop + index * titleStyle.lineHeight,
+              );
+            });
+          }
 
           const subtitleY =
             content.paddingTop + titleHeight + subtitleStyle.gapAboveTitle;
@@ -399,73 +512,22 @@ export const ShareImageGenerator = memo(
               size: qr.size,
               // high error correction: the center plate occludes part of the code
               ecl: 'H',
-              // dots under the plate are cleared like the on-screen code; skip
-              // when the logo failed to load and no plate will be drawn
-              clearPlateSize: tokenLogoImg ? qr.logoPlateSize : undefined,
+              // dots under the plate are cleared like the on-screen code
+              clearPlateSize: qr.logoPlateSize,
             });
 
-            // center token logo on a white plate; skip entirely if the logo
-            // failed to load (CORS/404) so the QR stays clean and scannable
-            if (tokenLogoImg) {
-              const centerX = qrX + qr.size / 2;
-              const centerY = qrY + qr.size / 2;
-              ctx.fillStyle = '#FFFFFF';
-              ctx.beginPath();
-              ctx.arc(centerX, centerY, qr.logoPlateSize / 2, 0, Math.PI * 2);
-              ctx.fill();
-
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(centerX, centerY, qr.logoSize / 2, 0, Math.PI * 2);
-              ctx.clip();
-              ctx.drawImage(
-                tokenLogoImg,
-                centerX - qr.logoSize / 2,
-                centerY - qr.logoSize / 2,
-                qr.logoSize,
-                qr.logoSize,
-              );
-              ctx.restore();
-
-              // network corner badge at the bottom-right of the token logo
-              if (networkLogoImg) {
-                const badgeTotal =
-                  qr.networkBadgeIconSize + qr.networkBadgePadding * 2;
-                const badgeCenterX =
-                  centerX + qr.logoPlateSize / 2 - badgeTotal / 2;
-                const badgeCenterY =
-                  centerY + qr.logoPlateSize / 2 - badgeTotal / 2;
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath();
-                ctx.arc(
-                  badgeCenterX,
-                  badgeCenterY,
-                  badgeTotal / 2,
-                  0,
-                  Math.PI * 2,
-                );
-                ctx.fill();
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(
-                  badgeCenterX,
-                  badgeCenterY,
-                  qr.networkBadgeIconSize / 2,
-                  0,
-                  Math.PI * 2,
-                );
-                ctx.clip();
-                ctx.drawImage(
-                  networkLogoImg,
-                  badgeCenterX - qr.networkBadgeIconSize / 2,
-                  badgeCenterY - qr.networkBadgeIconSize / 2,
-                  qr.networkBadgeIconSize,
-                  qr.networkBadgeIconSize,
-                );
-                ctx.restore();
-              }
-            }
+            // the OneKey mark on a round white plate, as ReceiveQRCode has it
+            const centerX = qrX + qr.size / 2;
+            const centerY = qrY + qr.size / 2;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, qr.logoPlateSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            drawQRCodeBrandMark(ctx, {
+              x: centerX - qr.logoSize / 2,
+              y: centerY - qr.logoSize / 2,
+              size: qr.logoSize,
+            });
           } catch (error) {
             if (platformEnv.isDev) {
               console.error('Failed to generate QR code:', error);
@@ -558,15 +620,7 @@ export const ShareImageGenerator = memo(
           }
           return '';
         }
-      }, [
-        contentKey,
-        title,
-        subtitle,
-        networkName,
-        address,
-        tokenLogoURI,
-        networkLogoURI,
-      ]);
+      }, [contentKey, title, titleLogo, subtitle, networkName, address]);
 
       useImperativeHandle(ref, () => ({ generate }));
 

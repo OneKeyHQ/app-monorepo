@@ -604,7 +604,7 @@ describe('LightweightChart', () => {
     expect(fillStyles).toEqual(['#00aa00', '#ee0000']);
   });
 
-  it('resizes the chart height without recreating the chart instance', async () => {
+  it('refits the full range after resizing without recreating the chart instance', async () => {
     const series = {
       setData: jest.fn(),
       priceToCoordinate: jest.fn(),
@@ -636,6 +636,7 @@ describe('LightweightChart', () => {
     rerender(<LightweightChart data={data} height={360} />);
     expect(resizeObserverCallback).toBeDefined();
     expect(resizeObserverTarget).toBeDefined();
+    timeScale.fitContent.mockClear();
 
     act(() => {
       resizeObserverCallback?.(
@@ -655,6 +656,21 @@ describe('LightweightChart', () => {
       height: 360,
       width: 600,
     });
+    expect(timeScale.fitContent).toHaveBeenCalledTimes(1);
+    act(() => {
+      resizeObserverCallback?.(
+        [
+          {
+            contentRect: { height: 360, width: 900 },
+            target: resizeObserverTarget,
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      );
+    });
+    expect(timeScale.fitContent).toHaveBeenCalledTimes(2);
+    expect(createChart).toHaveBeenCalledTimes(1);
+    expect(chart.remove).not.toHaveBeenCalled();
   });
 
   it('keeps the pulse dot hidden until updated data finishes layout', async () => {
@@ -734,6 +750,61 @@ describe('LightweightChart', () => {
     expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-y')).toBe(
       '50',
     );
+  });
+
+  it('returns a reopened pulse to the tail instead of a stale hover point', async () => {
+    let crosshairListener: ((param: unknown) => void) | undefined;
+    const series = {
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn((price: number) => price),
+    };
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn((time: number) => time * 10),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn((listener: (param: unknown) => void) => {
+        crosshairListener ??= listener;
+      }),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+    const data = [
+      [1, 10],
+      [2, 20],
+    ] as IMarketTokenChart;
+    const { rerender } = render(
+      <LightweightChart data={data} height={240} pulseLastPoint />,
+    );
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    act(() => {
+      flushAnimationFrames();
+    });
+    const pulseX = () =>
+      screen.getByTestId('chart-pulse-dot').getAttribute('data-x');
+    expect(pulseX()).toBe('20');
+
+    act(() => {
+      crosshairListener?.({
+        time: 1,
+        point: { x: 10, y: 10 },
+        seriesData: new Map([[series, { value: 10 }]]),
+      });
+    });
+    expect(pulseX()).toBe('10');
+
+    // The market closes and reopens while the pointer stays still.
+    rerender(<LightweightChart data={data} height={240} />);
+    expect(screen.queryByTestId('chart-pulse-dot')).toBeNull();
+    rerender(<LightweightChart data={data} height={240} pulseLastPoint />);
+    expect(pulseX()).toBe('20');
   });
 
   it('replaces the overlay data without re-fitting the chart', async () => {

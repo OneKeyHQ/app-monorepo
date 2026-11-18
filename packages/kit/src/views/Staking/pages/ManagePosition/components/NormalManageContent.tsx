@@ -1,12 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Keyboard, TextInput } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { Dialog, SizableText, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Keyboard as DeviceKeyboard,
+  Dialog,
+  SizableText,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EManagePageActionType,
@@ -18,6 +29,7 @@ import type {
   IEarnManagePageResponse,
   IEarnSelectField,
   IEarnTokenInfo,
+  IEarnUtmParams,
   IProtocolInfo,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
@@ -55,6 +67,8 @@ interface INormalManageContentProps {
   };
   depositDisabled: boolean;
   withdrawDisabled: boolean;
+  withdrawApprovalUnavailable?: boolean;
+  actionsBlocked?: boolean;
   stakeBeforeFooter: React.ReactElement | null;
   withdrawBeforeFooter: React.ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
@@ -71,6 +85,7 @@ interface INormalManageContentProps {
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   suppressPlatformBonus?: boolean;
   ongoingValidator?: IEarnSelectField;
@@ -91,6 +106,8 @@ export function NormalManageContent({
   earnAccount,
   depositDisabled,
   withdrawDisabled,
+  withdrawApprovalUnavailable,
+  actionsBlocked,
   stakeBeforeFooter,
   withdrawBeforeFooter,
   footerActionOverride,
@@ -107,6 +124,7 @@ export function NormalManageContent({
   appNavigation,
   showApyDetail,
   fallbackTokenImageUri,
+  utm,
   stakeProtocolSwitchConfig,
   suppressPlatformBonus,
   ongoingValidator,
@@ -115,6 +133,7 @@ export function NormalManageContent({
   preferManagePageActionText = false,
 }: INormalManageContentProps) {
   const intl = useIntl();
+  const navigation = useNavigation();
   const useBorrowApi = useMemo(
     () => type !== EManagePositionType.Staking,
     [type],
@@ -376,6 +395,25 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
+  const pendingKeyboardHandoffRef = useRef<
+    | {
+        index: number;
+        name: string;
+        contextKey: string;
+        cleanup: () => void;
+      }
+    | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!platformEnv.isNativeIOSPhone) return undefined;
+    const unsubscribe = navigation.addListener('blur', () => {
+      pendingKeyboardHandoffRef.current?.cleanup();
+    });
+    return () => {
+      unsubscribe();
+      pendingKeyboardHandoffRef.current?.cleanup();
+    };
+  }, [navigation]);
   const [
     repayWithCollateralSetupReadyProgressKey,
     setRepayWithCollateralSetupReadyProgressKey,
@@ -587,6 +625,68 @@ export function NormalManageContent({
     );
   }, [protocolInfo?.withdrawAction?.type]);
 
+  // A provider that redeems per order (Stakefish SOL/ETH, Everstake SOL,
+  // Babylon) has no amount for the withdraw tab to take: Redeem is picking
+  // the order, on WithdrawOptions.
+  const openWithdrawOptions = useCallback(() => {
+    const withdrawParams = {
+      accountId: earnAccount?.accountId || '',
+      networkId,
+      protocolInfo,
+      tokenInfo: withdrawTokenInfo,
+      symbol,
+      provider,
+      onSuccess,
+      isInModalContext,
+    };
+
+    if (isInModalContext) {
+      appNavigation.push(EModalStakingRoutes.WithdrawOptions, withdrawParams);
+    } else {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params: withdrawParams,
+      });
+    }
+  }, [
+    earnAccount?.accountId,
+    networkId,
+    protocolInfo,
+    withdrawTokenInfo,
+    symbol,
+    provider,
+    onSuccess,
+    isInModalContext,
+    appNavigation,
+  ]);
+
+  const tabContextKey = JSON.stringify([
+    networkId,
+    provider,
+    _vault,
+    symbol,
+    type,
+    marketAddress,
+    reserveAddress,
+    earnAccount?.accountId,
+  ]);
+  const latestTabStateRef = useRef({
+    tabContextKey,
+    selectedTabIndex,
+    shouldDisablePrimaryTab,
+    isWithdrawOrder,
+    tabData,
+    onTabChange,
+  });
+  latestTabStateRef.current = {
+    tabContextKey,
+    selectedTabIndex,
+    shouldDisablePrimaryTab,
+    isWithdrawOrder,
+    tabData,
+    onTabChange,
+  };
+
   const handleTabChange = useCallback(
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
@@ -595,60 +695,153 @@ export function NormalManageContent({
           return;
         }
         if (index === 1 && isWithdrawOrder) {
-          const withdrawParams = {
-            accountId: earnAccount?.accountId || '',
-            networkId,
-            protocolInfo,
-            tokenInfo: withdrawTokenInfo,
-            symbol,
-            provider,
-            onSuccess,
-            isInModalContext,
-          };
-
-          if (isInModalContext) {
-            appNavigation.push(
-              EModalStakingRoutes.WithdrawOptions,
-              withdrawParams,
-            );
-          } else {
-            appNavigation.pushModal(EModalRoutes.StakingModal, {
-              screen: EModalStakingRoutes.WithdrawOptions,
-              params: withdrawParams,
-            });
-          }
+          pendingKeyboardHandoffRef.current?.cleanup();
+          openWithdrawOptions();
           return;
         }
+        if (pendingKeyboardHandoffRef.current) {
+          pendingKeyboardHandoffRef.current.index = index;
+          pendingKeyboardHandoffRef.current.name = name;
+          return;
+        }
+        if (index === selectedTabIndex) return;
 
-        focusedTab.value = name;
-        setSelectedTabIndex(index);
+        const switchTab = () => {
+          focusedTab.value = name;
+          setSelectedTabIndex(index);
+          onTabChange?.(index === 0 ? 'deposit' : 'withdraw');
+        };
 
-        const newTab = index === 0 ? 'deposit' : 'withdraw';
-        onTabChange?.(newTab);
+        if (
+          platformEnv.isNativeIOSPhone &&
+          (Keyboard.isVisible() || DeviceKeyboard.Controller.isVisible())
+        ) {
+          // A new accessory can be omitted from the keyboard frame while the
+          // previous input is still closing. Switch after the hide completes.
+          const handoff: {
+            subscription?: ReturnType<typeof Keyboard.addListener>;
+            timeout?: ReturnType<typeof setTimeout>;
+          } = {};
+          const cleanup = () => {
+            handoff.subscription?.remove();
+            clearTimeout(handoff.timeout);
+            pendingKeyboardHandoffRef.current = undefined;
+          };
+          const finishHandoff = () => {
+            const pending = pendingKeyboardHandoffRef.current;
+            const latest = latestTabStateRef.current;
+            cleanup();
+            if (
+              !pending ||
+              !navigation.isFocused() ||
+              pending.contextKey !== latest.tabContextKey ||
+              TextInput.State.currentlyFocusedInput() ||
+              pending.index === latest.selectedTabIndex ||
+              latest.tabData[pending.index]?.title !== pending.name ||
+              (pending.index === 0 && latest.shouldDisablePrimaryTab) ||
+              (pending.index === 1 && latest.isWithdrawOrder)
+            ) {
+              return;
+            }
+            focusedTab.value = pending.name;
+            setSelectedTabIndex(pending.index);
+            latest.onTabChange?.(pending.index === 0 ? 'deposit' : 'withdraw');
+          };
+          handoff.subscription = Keyboard.addListener('keyboardDidHide', () => {
+            finishHandoff();
+          });
+          handoff.timeout = setTimeout(() => {
+            if (
+              !Keyboard.isVisible() &&
+              !DeviceKeyboard.Controller.isVisible()
+            ) {
+              finishHandoff();
+            } else {
+              const pending = pendingKeyboardHandoffRef.current;
+              const latest = latestTabStateRef.current;
+              cleanup();
+              if (
+                pending &&
+                navigation.isFocused() &&
+                !TextInput.State.currentlyFocusedInput() &&
+                pending.contextKey === latest.tabContextKey &&
+                pending.index !== latest.selectedTabIndex &&
+                latest.tabData[pending.index]?.title === pending.name &&
+                !(pending.index === 0 && latest.shouldDisablePrimaryTab) &&
+                !(pending.index === 1 && latest.isWithdrawOrder)
+              ) {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_try_again,
+                  }),
+                });
+              }
+            }
+          }, 1500);
+          pendingKeyboardHandoffRef.current = {
+            index,
+            name,
+            contextKey: tabContextKey,
+            cleanup,
+          };
+          Keyboard.dismiss();
+        } else {
+          switchTab();
+        }
       }
     },
     [
       isWithdrawOrder,
       shouldDisablePrimaryTab,
-      earnAccount?.accountId,
       focusedTab,
       tabData,
-      protocolInfo,
-      appNavigation,
-      networkId,
-      withdrawTokenInfo,
-      symbol,
-      provider,
       onTabChange,
-      isInModalContext,
-      onSuccess,
+      openWithdrawOptions,
+      selectedTabIndex,
+      tabContextKey,
+      intl,
+      navigation,
     ],
   );
+
+  // Opened straight on the withdraw tab (the positions card's Redeem, the
+  // protocol list's) for such a provider: the tab would show an input with
+  // nothing to take (OK-64779's SOL). Once the manage read says the
+  // withdrawal is by order and the earn account is known, go to the order
+  // picker the way switching to the tab does, once, and leave the page on
+  // Deposit behind it unless Deposit is closed.
+  const withdrawOrderHandoffRef = useRef(false);
+  useEffect(() => {
+    if (
+      defaultTab !== 'withdraw' ||
+      !isWithdrawOrder ||
+      !earnAccount?.accountId ||
+      withdrawOrderHandoffRef.current
+    ) {
+      return;
+    }
+    withdrawOrderHandoffRef.current = true;
+    if (!depositDisabled) {
+      focusedTab.value = tabNames[0];
+      setSelectedTabIndex(0);
+      onTabChange?.('deposit');
+    }
+    openWithdrawOptions();
+  }, [
+    defaultTab,
+    isWithdrawOrder,
+    earnAccount?.accountId,
+    depositDisabled,
+    focusedTab,
+    tabNames,
+    onTabChange,
+    openWithdrawOptions,
+  ]);
 
   return (
     <>
       <XStack jc="space-between" px="$5">
-        <Tabs.TabBar
+        <TabBar
           divider={false}
           onTabPress={handleTabChange}
           tabNames={tabNames}
@@ -719,6 +912,12 @@ export function NormalManageContent({
       </XStack>
       {selectedTabIndex === 0 ? (
         <StakeSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          onTaskRecoveryComplete={() => {
+            onIndicatorRefresh?.();
+            void onRefreshPendingRef?.current?.();
+          }}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={stakeTokenInfo}
@@ -731,6 +930,7 @@ export function NormalManageContent({
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          utm={utm}
           protocolSwitchConfig={stakeProtocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
@@ -746,8 +946,24 @@ export function NormalManageContent({
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
       ) : null}
+      {selectedTabIndex === 1 && withdrawApprovalUnavailable ? (
+        <XStack px="$5" py="$2" ai="center" jc="space-between">
+          <SizableText size="$bodyMd" flex={1}>
+            {intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
+          </SizableText>
+          <Button
+            testID="earn-withdraw-approval-retry"
+            size="small"
+            onPress={onIndicatorRefresh}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </XStack>
+      ) : null}
       {selectedTabIndex === 1 ? (
         <WithdrawSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={withdrawTokenInfo}
@@ -759,6 +975,7 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          utm={utm}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}

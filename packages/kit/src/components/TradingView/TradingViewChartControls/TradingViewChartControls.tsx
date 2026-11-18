@@ -163,6 +163,10 @@ export interface ITradingViewChartControlsProps {
   fullscreenHeader?: ReactNode;
   rightControl?: ReactNode;
   rightControlLabel?: string;
+  /** Desktop row only: shown before the intervals. */
+  leadingControl?: ReactNode;
+  /** Desktop row only: shown after every other control. */
+  trailingControl?: ReactNode;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
@@ -239,6 +243,8 @@ export const TradingViewChartControls = memo(
     fullscreenHeader,
     rightControl,
     rightControlLabel,
+    leadingControl,
+    trailingControl,
     chartMode,
     isChartSwitchDisabled = false,
     onChartSwitch,
@@ -267,6 +273,8 @@ export const TradingViewChartControls = memo(
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
     const desktopFullscreenHeader =
       isDesktopLayout && isFullscreen ? fullscreenHeader : null;
+    const mobileFullscreenHeader =
+      !isDesktopLayout && isFullscreen ? fullscreenHeader : null;
     let desktopControlsPaddingX = '$4';
     if (desktopFullscreenHeader) {
       desktopControlsPaddingX = '$2';
@@ -465,8 +473,10 @@ export const TradingViewChartControls = memo(
       !hasFullscreenControl &&
       !hasHistoryControls &&
       !rightControl &&
+      !(isDesktopLayout && (leadingControl || trailingControl)) &&
       !chartSwitchControl &&
-      !desktopFullscreenHeader
+      !desktopFullscreenHeader &&
+      !mobileFullscreenHeader
     ) {
       return null;
     }
@@ -510,6 +520,7 @@ export const TradingViewChartControls = memo(
       const IntervalContainer = desktopToolbar ? Stack : ScrollView;
       return (
         <Stack
+          testID="trading-view-chart-controls"
           bg={backgroundColor}
           px={desktopControlsPaddingX}
           py="$1"
@@ -542,6 +553,10 @@ export const TradingViewChartControls = memo(
               gap="$2"
             >
               {desktopFullscreenHeader}
+
+              {leadingControl}
+
+              {leadingControl ? <ToolbarSeparator /> : null}
 
               <XStack
                 testID="trading-view-chart-ready-controls"
@@ -608,6 +623,7 @@ export const TradingViewChartControls = memo(
 
                 {fullscreenControl}
                 {rightControl}
+                {trailingControl}
                 {desktopToolbar}
               </XStack>
             </XStack>
@@ -616,8 +632,53 @@ export const TradingViewChartControls = memo(
       );
     }
 
+    const mobileControlsFlex =
+      shouldStretchReadyControls && !mobileFullscreenHeader ? 1 : undefined;
+    let mobileControlsFlexShrink =
+      compactMobileLayout && onRightControlPress ? 1 : undefined;
+    if (mobileFullscreenHeader) {
+      mobileControlsFlexShrink = 0;
+    }
+    const mobileReadyControls = (
+      <XStack
+        testID="trading-view-chart-ready-controls"
+        flex={mobileControlsFlex}
+        flexGrow={mobileFullscreenHeader ? 1 : undefined}
+        flexShrink={mobileControlsFlexShrink}
+        minWidth={0}
+        gap={shouldFillIntervalSelector ? '$0' : '$2'}
+        alignItems="center"
+        opacity={isControlsReady ? 1 : 0}
+        pointerEvents={isControlsReady ? 'auto' : 'none'}
+      >
+        <XStack
+          flex={mobileControlsFlex}
+          flexGrow={mobileFullscreenHeader ? 1 : undefined}
+          flexShrink={mobileControlsFlexShrink}
+          minWidth={0}
+          alignItems="center"
+        >
+          {intervalSelector}
+        </XStack>
+
+        <XStack
+          gap="$2"
+          alignItems="center"
+          justifyContent="flex-end"
+          flexShrink={mobileFullscreenHeader ? 0 : undefined}
+        >
+          {chartTypeControl}
+          {priceMarketCapControl}
+          {indicatorControl}
+          {calendarControl}
+          {settingsControl}
+        </XStack>
+      </XStack>
+    );
+
     return (
       <Stack
+        testID="trading-view-chart-controls"
         bg={backgroundColor}
         px="$2"
         py={compactMobileLayout ? undefined : '$2'}
@@ -647,37 +708,22 @@ export const TradingViewChartControls = memo(
             hasCompactChartCloseControl ? [{ translateY: 2 }] : undefined
           }
         >
-          <XStack
-            testID="trading-view-chart-ready-controls"
-            flex={shouldStretchReadyControls ? 1 : undefined}
-            flexShrink={
-              compactMobileLayout && onRightControlPress ? 1 : undefined
-            }
-            minWidth={0}
-            gap={shouldFillIntervalSelector ? '$0' : '$2'}
-            alignItems="center"
-            opacity={isControlsReady ? 1 : 0}
-            pointerEvents={isControlsReady ? 'auto' : 'none'}
-          >
-            <XStack
-              flex={shouldStretchReadyControls ? 1 : undefined}
-              flexShrink={
-                compactMobileLayout && onRightControlPress ? 1 : undefined
-              }
-              minWidth={0}
-              alignItems="center"
-            >
-              {intervalSelector}
-            </XStack>
+          {mobileFullscreenHeader}
 
-            <XStack gap="$2" alignItems="center" justifyContent="flex-end">
-              {chartTypeControl}
-              {priceMarketCapControl}
-              {indicatorControl}
-              {calendarControl}
-              {settingsControl}
-            </XStack>
-          </XStack>
+          {mobileFullscreenHeader ? (
+            <ScrollView
+              testID="trading-view-mobile-fullscreen-toolbar"
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              flex={1}
+              minWidth={0}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
+              {mobileReadyControls}
+            </ScrollView>
+          ) : (
+            mobileReadyControls
+          )}
 
           {chartSwitchControl ? (
             <XStack gap="$2" alignItems="center" justifyContent="flex-end">
@@ -707,6 +753,7 @@ export const TradingViewChartControls = memo(
             gap="$2"
             alignItems="center"
             justifyContent="flex-end"
+            flexShrink={mobileFullscreenHeader ? 0 : undefined}
             pl={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             accessibilityRole={onRightControlPress ? 'button' : undefined}

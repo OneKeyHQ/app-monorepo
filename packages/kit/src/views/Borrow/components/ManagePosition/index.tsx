@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
@@ -21,6 +22,7 @@ import type {
 } from './types';
 
 export function ManagePosition(props: IManagePositionProps) {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const {
     accountId,
     networkId,
@@ -142,7 +144,7 @@ export function ManagePosition(props: IManagePositionProps) {
   });
 
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!approval.approving) {
+    if (!approval.isFormInteractionLocked) {
       return tokenSelectorTriggerProps;
     }
     return {
@@ -151,7 +153,7 @@ export function ManagePosition(props: IManagePositionProps) {
       onPress: undefined,
       popover: undefined,
     };
-  }, [approval.approving, tokenSelectorTriggerProps]);
+  }, [approval.isFormInteractionLocked, tokenSelectorTriggerProps]);
 
   // Build complete state
   const state: IManagePositionState = useMemo(
@@ -211,9 +213,9 @@ export function ManagePosition(props: IManagePositionProps) {
   return (
     <ManagePositionContext.Provider value={contextValue}>
       <StakingFormWrapper>
-        <AmountInputSection />
+        <AmountInputSection onAmountFocusChange={onAmountFocusChange} />
         <InfoDisplaySection />
-        <ActionFooter />
+        <ActionFooter isAmountFocused={isAmountFocused} />
       </StakingFormWrapper>
     </ManagePositionContext.Provider>
   );

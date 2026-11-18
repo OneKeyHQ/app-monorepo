@@ -9,12 +9,14 @@ import {
   GOOGLE_LOGO_URL,
   SEARCH_ITEM_ID,
 } from '@onekeyhq/shared/src/consts/discovery';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM, IMPL_NEAR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { mapMarketStockPublicItemToSearchToken } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildCoinFromSearchAssetType,
@@ -38,6 +40,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IRpcProxyResponse } from '@onekeyhq/shared/types/proxy';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -63,6 +66,7 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
 // such as `nasdaq` are the point, and a non-ASCII one is where the localized
 // aliases the server may hold beyond our cached map are.
 const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
+const UNIVERSAL_SEARCH_STOCK_LIMIT = 10;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -151,6 +155,7 @@ class ServiceUniversalSearch extends ServiceBase {
               return {
                 type: EUniversalSearchType.V2MarketToken as const,
                 payload: {
+                  assetId: configToken.assetId,
                   name: batchItem?.name ?? configToken.name,
                   symbol: batchItem?.symbol ?? configToken.symbol,
                   price: batchItem?.price ?? '0',
@@ -175,7 +180,16 @@ class ServiceUniversalSearch extends ServiceBase {
             );
 
           if (v2Items.length) {
-            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+            const tokens =
+              await this.backgroundApi.serviceMarket.resolveSearchTokenAssets(
+                v2Items.map((item) => item.payload),
+              );
+            result[EUniversalSearchType.V2MarketToken] = {
+              items: tokens.map((payload) => ({
+                type: EUniversalSearchType.V2MarketToken,
+                payload,
+              })),
+            };
           }
         }
       } catch {
@@ -213,6 +227,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
         ? this.universalSearchOfV2MarketToken(input)
         : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.MarketStock)
+        ? this.universalSearchOfMarketStock(input)
+        : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
         : Promise.resolve([]),
@@ -243,6 +260,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const [
       addressResultSettled,
       v2MarketTokenResultSettled,
+      marketStockResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
@@ -266,6 +284,19 @@ class ServiceUniversalSearch extends ServiceBase {
       result[EUniversalSearchType.V2MarketToken] = {
         items: v2MarketTokenResultSettled.value.map((item) => ({
           type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      };
+    }
+
+    if (
+      marketStockResultSettled.status === 'fulfilled' &&
+      marketStockResultSettled.value &&
+      marketStockResultSettled.value.length > 0
+    ) {
+      result[EUniversalSearchType.MarketStock] = {
+        items: marketStockResultSettled.value.map((item) => ({
+          type: EUniversalSearchType.MarketStock,
           payload: item,
         })),
       };
@@ -328,6 +359,19 @@ class ServiceUniversalSearch extends ServiceBase {
   @backgroundMethod()
   async universalSearchOfV2MarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchV2Token(query);
+  }
+
+  @backgroundMethod()
+  async universalSearchOfMarketStock(query: string) {
+    const stockResult =
+      await this.backgroundApi.serviceMarketV2.searchMarketStocks({
+        query,
+        limit: UNIVERSAL_SEARCH_STOCK_LIMIT,
+      });
+    if (!Array.isArray(stockResult?.items)) {
+      return [];
+    }
+    return stockResult.items.map(mapMarketStockPublicItemToSearchToken);
   }
 
   async universalSearchOfAccountAssets({
@@ -568,11 +612,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     // Execute account name search in parallel
     const accountNameResults = await accountNameSearchPromise;
@@ -879,6 +922,55 @@ class ServiceUniversalSearch extends ServiceBase {
     return items;
   }
 
+  private nearSearchAccountExists = memoizee(
+    async (networkId: string, address: string): Promise<boolean> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<IRpcProxyResponse<{ amount: string }>>(
+        '/wallet/v1/proxy/wallet',
+        {
+          networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'query',
+                params: {
+                  request_type: 'view_account',
+                  account_id: address,
+                  finality: 'final',
+                },
+              },
+            },
+          ],
+        },
+        { timeout: timerUtils.getTimeDurationMs({ seconds: 3 }) },
+      );
+      const response = resp.data.data.data?.[0];
+      const error = response?.error;
+      if (error && 'cause' in error) {
+        const { cause } = error;
+        if (
+          cause &&
+          typeof cause === 'object' &&
+          'name' in cause &&
+          cause.name === 'UNKNOWN_ACCOUNT'
+        ) {
+          return false;
+        }
+      }
+      if (error || typeof response?.result?.amount !== 'string') {
+        // Reject transient/malformed responses so memoizee does not cache them.
+        throw new OneKeyLocalError('NEAR search account lookup failed');
+      }
+      return true;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 100,
+      promise: true,
+    },
+  );
+
   private async findExternalAddresses({
     input,
     networkId,
@@ -901,14 +993,28 @@ class ServiceUniversalSearch extends ServiceBase {
         const network = await serviceNetwork.getNetworkSafe({
           networkId: batchNetworkId,
         });
-        const localValidateResult = await serviceValidator.localValidateAddress(
-          {
+        // A result opens a watch-only account, so it takes the watch-only address forms.
+        const localValidateResult =
+          await serviceValidator.localValidateWatchingAddress({
             networkId: batchNetworkId,
             address: input,
-          },
-        );
+          });
 
         if (network && localValidateResult.isValid) {
+          if (
+            network.impl === IMPL_NEAR &&
+            localValidateResult.encoding === EAddressEncodings.REGISTER_ACCOUNT
+          ) {
+            // A syntactically valid name can also be an ordinary web domain.
+            const exists = await this.nearSearchAccountExists(
+              batchNetworkId,
+              localValidateResult.normalizedAddress,
+            ).catch(() => false);
+            if (!exists) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+          }
           const dedupeKey = this.buildAddressImplDedupeKey(
             localValidateResult.displayAddress,
             batchNetworkId,
@@ -959,11 +1065,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     if (!batchValidateResult.isValid) {
       return { items: [] } as IUniversalSearchSingleResult;

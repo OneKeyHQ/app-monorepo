@@ -1,21 +1,27 @@
 import { useCallback } from 'react';
 
+import { type RouteProp, useRoute } from '@react-navigation/native';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
   rootNavigationRef,
+  switchTabAsync,
   useIsModalPage,
   useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { buildMarketStockDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import {
-  EModalMarketRoutes,
-  type IModalMarketParamList,
-} from '@onekeyhq/kit/src/views/Market/router/types';
+  buildReplacedMarketDetailParams,
+  getCurrentMarketStockDetailRoute,
+  openOrReplaceMarketDetailRoute,
+  prepareMarketDetailTabBarTransition,
+  replaceFocusedMarketDetailRoute,
+} from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -26,32 +32,103 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  type IMarketStockDetailInitialSection,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockDetailPreview,
+  IMarketStockPublicItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
+  // Entry reported by detail analytics when the target does not set its own.
+  from?: EEnterWay;
 }
 
-export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview & {
-  tokenAddress?: string;
-  networkId?: string;
-  isNative?: boolean;
-};
+export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
+  Partial<
+    Pick<
+      IMarketStockPublicItem,
+      'price' | 'priceChange24hPercent' | 'quoteUpdatedAt'
+    >
+  > & {
+    tokenAddress?: string;
+    networkId?: string;
+    isNative?: boolean;
+    initialSection?: IMarketStockDetailInitialSection;
+    from?: EEnterWay;
+  };
 
 export type IMarketStockDetailNavigationInput =
   | string
   | IMarketStockDetailNavigationTarget;
+
+function readMarketStockDetailParams(params: unknown):
+  | {
+      isNative?: unknown;
+      stockId?: string;
+      tokenAddress?: unknown;
+    }
+  | undefined {
+  if (!params || typeof params !== 'object') {
+    return undefined;
+  }
+  const record = params as Record<string, unknown>;
+  return {
+    isNative: record.isNative,
+    stockId: typeof record.stockId === 'string' ? record.stockId : undefined,
+    tokenAddress: record.tokenAddress,
+  };
+}
+
+export function hasExplicitMarketStockTokenIdentity(params?: {
+  isNative?: unknown;
+  tokenAddress?: unknown;
+}): boolean {
+  const tokenAddress =
+    typeof params?.tokenAddress === 'string' ? params.tokenAddress.trim() : '';
+  return Boolean(tokenAddress) || params?.isNative === true;
+}
+
+export function shouldRetainCurrentStockTokenDetail({
+  currentHasExplicitToken,
+  currentStockId,
+  nextHasTokenParams,
+  nextStockId,
+  replaceCurrentDetail,
+}: {
+  currentHasExplicitToken: boolean;
+  currentStockId?: string;
+  nextHasTokenParams: boolean;
+  nextStockId: string;
+  replaceCurrentDetail?: boolean;
+}): boolean {
+  // Only an unresolved same-stock reselection may keep the loaded quote. An
+  // explicit variant must not survive a base-stock tap: the route drops that
+  // identity and the provider falls back to the default variant.
+  return Boolean(
+    replaceCurrentDetail &&
+    !nextHasTokenParams &&
+    !currentHasExplicitToken &&
+    currentStockId?.trim().toUpperCase() === nextStockId.trim().toUpperCase(),
+  );
+}
 
 export function useToMarketStockDetailPage(
   options?: IUseToMarketStockDetailPageOptions,
 ) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const currentRoute = useRoute<RouteProp<ITabMarketParamList>>();
+  const currentRouteName = currentRoute.name;
+  const currentStockId =
+    currentRoute.params && 'stockId' in currentRoute.params
+      ? currentRoute.params.stockId
+      : undefined;
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const isModalPage = useIsModalPage();
@@ -60,15 +137,28 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stock: IMarketStockDetailNavigationInput) => {
+    async (
+      stock: IMarketStockDetailNavigationInput,
+      request?: {
+        isCurrentRequest: () => boolean;
+        onNavigationStart?: () => void;
+      },
+    ): Promise<boolean> => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
-        return;
+        return false;
       }
+      const isCurrentRequest = request?.isCurrentRequest ?? (() => true);
+      if (!isCurrentRequest()) return false;
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
+      // Snapshot quotes are an in-memory native header optimization, never URL params.
+      const stockPreviewQuote =
+        platformEnv.isNative && stockPreview
+          ? buildMarketStockDetailPreview(stockPreview)?.quote
+          : undefined;
       const stockTokenParams =
         stockPreview?.tokenAddress && stockPreview.networkId
           ? {
@@ -80,17 +170,53 @@ export function useToMarketStockDetailPage(
               isNative: stockPreview.isNative,
             }
           : undefined;
+      const currentStockDetailParams = readMarketStockDetailParams(
+        getCurrentMarketStockDetailRoute() ??
+          (currentStockId ? currentRoute.params : undefined),
+      );
+      const currentStockDetailId =
+        currentStockDetailParams?.stockId ?? currentStockId;
+      const shouldKeepCurrentStockTokenDetail =
+        shouldRetainCurrentStockTokenDetail({
+          currentHasExplicitToken: hasExplicitMarketStockTokenIdentity(
+            currentStockDetailParams,
+          ),
+          currentStockId: currentStockDetailId,
+          nextHasTokenParams: Boolean(stockTokenParams),
+          nextStockId: stockId,
+          replaceCurrentDetail: options?.replaceCurrentDetail,
+        });
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
         isStockRoute: true,
         layout: preloadLayout,
       });
-      tokenDetailActions.current.prepareStockTokenDetail({
-        tokenAddress: stockTokenParams?.tokenAddress ?? '',
-        networkId: stockPreview?.networkId ?? '',
-        isNative: stockTokenParams?.isNative,
-      });
+      if (platformEnv.isNative) {
+        await preloadPromise;
+      }
+
+      if (!isCurrentRequest()) return false;
+
+      if (
+        platformEnv.isNative &&
+        options?.replaceCurrentDetail &&
+        isModalPage
+      ) {
+        // Dismiss the root overlay before updating its child stack, so its
+        // captured navigation state cannot restore the previous detail route.
+        request?.onNavigationStart?.();
+        await switchTabAsync(ETabRoutes.Market);
+        if (!isCurrentRequest()) return false;
+      }
+
+      if (!shouldKeepCurrentStockTokenDetail) {
+        tokenDetailActions.current.prepareStockTokenDetail({
+          tokenAddress: stockTokenParams?.tokenAddress ?? '',
+          networkId: stockPreview?.networkId ?? '',
+          isNative: stockTokenParams?.isNative,
+        });
+      }
 
       if (
         splitViewType !== ESplitViewType.UNKNOWN &&
@@ -100,10 +226,6 @@ export function useToMarketStockDetailPage(
           EAppEventBusNames.CleanTokenDetailInTabletDetailView,
           undefined,
         );
-      }
-
-      if (platformEnv.isNative) {
-        await preloadPromise;
       }
 
       if (
@@ -127,36 +249,89 @@ export function useToMarketStockDetailPage(
             : EEnterWay.ExtensionSidePanel,
         });
         closeExtensionPopupAfterExpandTabOpen();
-        return;
+        return true;
       }
+
+      const entryFrom = stockPreview?.from ?? options?.from;
 
       if (options?.replaceCurrentDetail) {
         const stockDetailParams = {
           stockId,
           ...stockTokenParams,
+          ...(entryFrom ? { from: entryFrom } : undefined),
           ...(stockPreview
             ? {
                 stockPreviewSymbol: stockPreview.symbol,
                 stockPreviewName: stockPreview.name,
                 stockPreviewLogoUrl: stockPreview.logoUrl,
+                ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
               }
             : undefined),
         };
         if (isModalPage) {
-          (
-            navigation as unknown as IModalNavigationProp<IModalMarketParamList>
-          ).replace(EModalMarketRoutes.MarketDetailV2, stockDetailParams);
+          const marketTab = ETabRoutes.Market;
+          const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
+            routeName: ETabMarketRoutes.MarketStockDetail,
+            params: stockDetailParams,
+          });
+          if (!platformEnv.isNative) {
+            request?.onNavigationStart?.();
+            await switchTabAsync(marketTab);
+          }
+          if (replacedCurrentDetail) return true;
+          if (!isCurrentRequest()) return false;
+          if (
+            replaceFocusedMarketDetailRoute({
+              routeName: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            })
+          ) {
+            return true;
+          }
+          if (!rootNavigationRef.current) return false;
+          rootNavigationRef.current.navigate(ERootRoutes.Main, {
+            screen: marketTab,
+            params: {
+              screen: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            },
+          });
+          prepareMarketDetailTabBarTransition();
         } else {
-          navigation.replace(
-            ETabMarketRoutes.MarketStockDetail,
-            stockDetailParams,
-          );
+          if (
+            !platformEnv.isNative &&
+            currentRouteName !== ETabMarketRoutes.MarketStockDetail &&
+            openOrReplaceMarketDetailRoute({
+              routeName: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            })
+          ) {
+            return true;
+          }
+          if (
+            (platformEnv.isDesktop || platformEnv.isWeb) &&
+            currentRouteName === ETabMarketRoutes.MarketStockDetail
+          ) {
+            navigation.setParams(
+              buildReplacedMarketDetailParams(stockDetailParams),
+            );
+          } else {
+            // Reset the tab stack so returning from the selected stock does not
+            // reveal a previously viewed non-stock detail.
+            navigation.popToTop();
+            navigation.push(
+              ETabMarketRoutes.MarketStockDetail,
+              stockDetailParams,
+            );
+            prepareMarketDetailTabBarTransition();
+          }
         }
-        return;
+        return true;
       }
 
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+      if (!rootNavigationRef.current) return false;
+      rootNavigationRef.current.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
           params: {
@@ -167,16 +342,27 @@ export function useToMarketStockDetailPage(
                   stockPreviewSymbol: stockPreview.symbol,
                   stockPreviewName: stockPreview.name,
                   stockPreviewLogoUrl: stockPreview.logoUrl,
+                  ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
                 }
               : undefined),
+            ...(stockPreview?.initialSection
+              ? { initialSection: stockPreview.initialSection }
+              : undefined),
+            ...(entryFrom ? { from: entryFrom } : undefined),
           },
         },
       });
+      prepareMarketDetailTabBarTransition();
+      return true;
     },
     [
       navigation,
+      currentRoute.params,
+      currentStockId,
+      currentRouteName,
       isModalPage,
       options?.replaceCurrentDetail,
+      options?.from,
       preloadLayout,
       splitViewType,
       tokenDetailActions,

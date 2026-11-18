@@ -53,13 +53,12 @@ import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { DimensionValue } from 'react-native';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
 type IAspectRatioInfo = {
   ratio: number;
-  flexBasis: DimensionValue | undefined;
+  flexBasis: string | undefined;
 };
 
 type IWallpaperCategory = {
@@ -75,7 +74,7 @@ function useAspectRatioInfo(params: {
   const { sizeInfo, deviceType } = params;
   const media = useMedia();
   return useMemo(() => {
-    let flexBasis: DimensionValue | undefined = '25%';
+    let flexBasis: string | undefined = '25%';
     let ratio = (sizeInfo?.width ?? 1) / (sizeInfo?.height ?? 1);
     if (
       [
@@ -93,7 +92,7 @@ function useAspectRatioInfo(params: {
   }, [sizeInfo?.width, sizeInfo?.height, deviceType, media.gtMd]);
 }
 
-const getCountByFlexBasis = (flexBasis: DimensionValue | undefined) => {
+const getCountByFlexBasis = (flexBasis: string | undefined) => {
   if (flexBasis === '25%') {
     return 8;
   }
@@ -456,8 +455,19 @@ function WallpaperCustomCategorySection({
     const data = await ImageCrop.openPicker({
       width: config.size?.width,
       height: config.size?.height,
+    }).catch((error: unknown) => {
+      const isCancelled =
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'E_PICKER_CANCELLED';
+      if (!isCancelled) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      }
+      return undefined;
     });
-    if (!data.data) {
+    if (!data?.data) {
       return;
     }
 
@@ -812,6 +822,13 @@ export default function HardwareHomeScreenModal({
           testID: 'hardware-wallpaper-apply-button',
         }}
         onConfirm={async (close) => {
+          const applyStartedAt = Date.now();
+          const isProtocolV2Wallpaper = isProtocolV2ProductType(
+            device?.deviceType,
+          );
+          let isCustomScreen = false;
+          let hardwareCallStartedAt: number | undefined;
+          let hardwareCallMs: number | undefined;
           try {
             if (!device?.id || !selectedItem) {
               return;
@@ -827,7 +844,7 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             } = selectedItem;
 
-            const isCustomScreen = resType === 'custom' || isUserUpload;
+            isCustomScreen = resType === 'custom' || !!isUserUpload;
 
             let buildCustomHexError: string | undefined = '';
 
@@ -846,7 +863,9 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: customBlurScreenHex,
                 } = await deviceHomeScreenUtils.buildCustomScreenHex({
                   dbDeviceId: device.id,
-                  url: selectedItem.uri || selectedItem.url,
+                  url: await UploadedHomeScreenCache.getOriginalImageUri(
+                    selectedItem.uri || selectedItem.url,
+                  ),
                   deviceType: device.deviceType,
                   isUserUpload,
                   config: deviceInfo?.config,
@@ -885,6 +904,7 @@ export default function HardwareHomeScreenModal({
               throw new OneKeyLocalError(buildCustomHexError);
             }
 
+            hardwareCallStartedAt = Date.now();
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
                 dbDeviceId: device?.id,
@@ -896,6 +916,7 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
+            hardwareCallMs = Date.now() - hardwareCallStartedAt;
             if (device.deviceType !== EDeviceType.Pro) {
               close();
             }
@@ -909,7 +930,47 @@ export default function HardwareHomeScreenModal({
                     id: ETranslations.hardware_wallpaper_add_success_information,
                   }),
             });
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'success',
+                totalDurationMs: Date.now() - applyStartedAt,
+                hardwareCallMs,
+                uploadSizeBytes:
+                  'size' in response && typeof response.size === 'number'
+                    ? response.size
+                    : undefined,
+              });
+            }
           } catch (error) {
+            if (isProtocolV2Wallpaper && device?.id && selectedItem) {
+              if (
+                hardwareCallStartedAt !== undefined &&
+                hardwareCallMs === undefined
+              ) {
+                hardwareCallMs = Date.now() - hardwareCallStartedAt;
+              }
+              const errorValue = error as {
+                code?: unknown;
+                errorCode?: unknown;
+              };
+              const code = errorValue?.code ?? errorValue?.errorCode;
+              const errorCode =
+                typeof code === 'string' || typeof code === 'number'
+                  ? String(code)
+                  : undefined;
+              const errorName = error instanceof Error ? error.name : undefined;
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'failed',
+                totalDurationMs: Date.now() - applyStartedAt,
+                hardwareCallMs,
+                errorCode,
+                errorName,
+              });
+            }
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {

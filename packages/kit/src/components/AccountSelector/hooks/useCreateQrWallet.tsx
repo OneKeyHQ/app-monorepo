@@ -66,17 +66,10 @@ export function useCreateQrWallet() {
         byDevice,
         isCreateAccountAction,
       } = params;
-      const { qrDevice, airGapAccounts, airGapMultiAccounts } =
+      const { qrDevice, airGapAccounts } =
         await backgroundApiProxy.serviceQrWallet.buildAirGapMultiAccounts({
           urJson,
         });
-      console.log(
-        'startScan qrDevice:',
-        qrDevice,
-        airGapAccounts,
-        airGapMultiAccounts,
-      );
-
       if (isCreateAccountAction && byDevice?.deviceId && qrDevice?.deviceId) {
         if (byDevice?.deviceId !== qrDevice?.deviceId) {
           throw new OneKeyErrorAirGapDeviceMismatch();
@@ -130,7 +123,6 @@ export function useCreateQrWallet() {
         autoExecuteParsedAction: false,
       });
       const fullURText = scanResult.raw?.trim();
-      console.log('startScan:', fullURText);
       if (process.env.NODE_ENV !== 'production') {
         if (fullURText) {
           await appStorage.syncStorage.set(

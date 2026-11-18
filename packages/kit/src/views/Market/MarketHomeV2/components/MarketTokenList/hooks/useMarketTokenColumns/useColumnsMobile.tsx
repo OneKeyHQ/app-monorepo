@@ -46,7 +46,7 @@ export const useColumnsMobile = (
                 : `${intl.formatMessage({
                     id: ETranslations.global_name,
                   })} / ${intl.formatMessage({
-                    id: ETranslations.dexmarket_turnover,
+                    id: ETranslations.market_stock_volume__title,
                   })}`}
             </SizableText>
             {sortIcon}

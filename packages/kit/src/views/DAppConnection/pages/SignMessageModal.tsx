@@ -166,7 +166,12 @@ function SignMessageModal() {
     riskLevel,
     urlSecurityInfo,
     isRiskSignMethod,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
+  } = useRiskDetection({
+    origin: $sourceInfo?.origin ?? '',
+    unsignedMessage,
+    walletConnectVerifyContext: $sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: $sourceInfo?.isWalletConnectRequest,
+  });
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
@@ -270,6 +275,7 @@ function SignMessageModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
+            sourceInfo={$sourceInfo}
             title={intl.formatMessage({
               id: ETranslations.dapp_connect_initiate_message_signature_request,
             })}

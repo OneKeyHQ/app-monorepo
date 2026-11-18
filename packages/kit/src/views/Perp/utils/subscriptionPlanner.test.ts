@@ -15,6 +15,7 @@ const baseInstrument: IActiveTradeInstrument = {
 const baseViewState: ITradeRouteViewState = {
   routeFocused: false,
   tokenSelectorOpen: false,
+  tradeHistoryDetailsOpen: false,
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,

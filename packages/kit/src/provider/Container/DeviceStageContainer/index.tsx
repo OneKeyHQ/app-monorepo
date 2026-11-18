@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { Keyboard } from 'react-native';
@@ -18,6 +18,7 @@ import type { IDeviceStageWaitEnd } from '@onekeyhq/components/src/composite/Dev
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useDevSettingsPersistAtom,
   useDeviceStageAtom,
@@ -31,17 +32,20 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  deviceStageOutcomeKey,
   isDeviceStageMachineWaitStep,
   resolveDeviceStageBackPress,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IDeviceStageExitViaValue } from '@onekeyhq/shared/types/deviceStage';
 
+import { registerHardwareStageBackHandler } from '../FullWindowOverlayContainer/HardwareStageOverlayContainer';
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
 
 import { DeviceStageQrScanner } from './DeviceStageQrScanner';
@@ -88,10 +92,14 @@ function toStageDeviceType(
 function toStageVendor(
   vendor: IDeviceStageState['vendor'],
 ): IDeviceStageVendor | undefined {
-  if (vendor === EHardwareVendor.trezor || vendor === EHardwareVendor.ledger) {
-    return vendor;
+  switch (vendor) {
+    case EHardwareVendor.trezor:
+    case EHardwareVendor.ledger:
+    case EHardwareVendor.keystone:
+      return vendor;
+    default:
+      return undefined;
   }
-  return undefined;
 }
 
 function DeviceStageContainerCmp() {
@@ -108,6 +116,17 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  const deviceProgress = stage?.payload?.deviceProgress;
+  // File writes carry byte counts; address scans only report a percentage.
+  const transferProgress =
+    !stage?.vendor &&
+    typeof deviceProgress?.totalBytes === 'number' &&
+    deviceProgress.totalBytes > 0
+      ? deviceProgress.progress
+      : undefined;
+  const isPro2NeoPassphraseCreation =
+    stage?.passphraseMode === 'create' &&
+    isProtocolV2ProductType(stage?.deviceType);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -155,7 +174,7 @@ function DeviceStageContainerCmp() {
       const response = buildThirdPartyHardwareUiResponse(
         current.thirdPartyAction,
         confirmed,
-        extras,
+        { ...extras, requestId: current.thirdPartyRequestId },
       );
       if (response) {
         void serviceThirdPartyHardware
@@ -171,6 +190,18 @@ function DeviceStageContainerCmp() {
       }
     },
     [serviceThirdPartyHardware],
+  );
+
+  // The ✗ leaves through its own retire, named by the outcome the person
+  // saw (the ✕ reads it at the press, the readable hold at its arming):
+  // an outcome has no call left to cancel, and the page under the notice
+  // is live (OK-64696), so the full close could end the attempt they just
+  // started from it. See DeviceStageBurstScope.retireErrorOutcome.
+  const retireErrorOutcome = useCallback(
+    (outcomeKey: string | undefined) => {
+      void serviceHardwareUI.deviceStageRetireErrorOutcome({ outcomeKey });
+    },
+    [serviceHardwareUI],
   );
 
   const handleExit = useCallback(
@@ -189,7 +220,11 @@ function DeviceStageContainerCmp() {
         stalled,
         afterAnswer: onWait && clocks.afterAnswer,
       });
-      if (current?.vendor && current.step !== 'error') {
+      if (current?.step === 'error') {
+        retireErrorOutcome(deviceStageOutcomeKey(current));
+        return;
+      }
+      if (current?.vendor) {
         // Third-party cancel semantics: decline the open request when it
         // takes a decline response, otherwise cancel the adapter call.
         sendVendorUiResponse(false);
@@ -204,6 +239,7 @@ function DeviceStageContainerCmp() {
       clocksRef,
       connectionType,
       stalled,
+      retireErrorOutcome,
       sendVendorUiResponse,
       serviceHardwareUI,
     ],
@@ -212,7 +248,8 @@ function DeviceStageContainerCmp() {
 
   // Android back (and Escape) while the stage is up: the close once the
   // exit is allowed, swallowed before that — never the screen underneath,
-  // which the stage's wall already hides. See resolveDeviceStageBackPress.
+  // not even under the error notice, whose page stays live. See
+  // resolveDeviceStageBackPress.
   const handleBackPress = useCallback(
     (via: IDeviceStageExitViaValue) => {
       const outcome = resolveDeviceStageBackPress({
@@ -236,6 +273,13 @@ function DeviceStageContainerCmp() {
   const handleNativeBackPress = useCallback(
     () => handleBackPressRef.current('back'),
     [],
+  );
+  useLayoutEffect(
+    () =>
+      platformEnv.isNativeAndroid
+        ? registerHardwareStageBackHandler(handleNativeBackPress)
+        : undefined,
+    [handleNativeBackPress],
   );
   useBackHandler(handleNativeBackPress, platformEnv.isNative && step !== 'off');
   const handleEscape = useCallback(() => {
@@ -425,21 +469,52 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
-  // The OneKey-track Device-not-connected card mirrors the legacy dialog
-  // verbatim (doc §4.1): the same article, the same Intercom entry.
+  // Support now opens inside the app on every platform, below the hardware
+  // overlay. External troubleshooting articles only need this exit on native.
+  const leaveStageForHelpPage = useCallback(
+    (via: 'troubleshoot' | 'support') => {
+      if (via === 'support' || platformEnv.isNative) {
+        handleExit(via);
+      }
+    },
+    [handleExit],
+  );
+
   const handleDeviceNotFoundTroubleshoot = useCallback(() => {
     openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
-  }, []);
+    leaveStageForHelpPage('troubleshoot');
+  }, [leaveStageForHelpPage]);
 
   const handleDeviceNotFoundSupport = useCallback(() => {
     void showIntercom();
-  }, []);
+    leaveStageForHelpPage('support');
+  }, [leaveStageForHelpPage]);
 
   // Air-gap pair (doc §4.6): Next and the way back walk the two steps in
   // bg; the completed scan answers through ServiceQrWallet from inside
   // the viewfinder itself. The camera mounts only while the step is
   // scanQr — every visit a fresh session, no idle camera behind a
   // parked panel.
+  const renderedQrSessionRef = useRef<string | undefined>(undefined);
+  const handleQrRenderReady = useCallback(() => {
+    const current = stageRef.current;
+    const renderKey = `${current?.qrDiagnostic?.correlationId ?? ''}:${current?.qrSessionId ?? ''}`;
+    if (
+      current?.step !== 'showQr' ||
+      current.qrSessionId !== stage?.qrSessionId ||
+      current.qrDiagnostic?.correlationId !==
+        stage?.qrDiagnostic?.correlationId ||
+      current.qrSessionId === undefined ||
+      renderedQrSessionRef.current === renderKey
+    )
+      return;
+    renderedQrSessionRef.current = renderKey;
+    logSolanaTxDiagnostic(current.qrDiagnostic, {
+      stage: 'qrRenderReady',
+      status: 'succeeded',
+      runtime: 'main',
+    });
+  }, [stage?.qrSessionId, stage?.qrDiagnostic?.correlationId]);
   const handleQrNext = useCallback(() => {
     void serviceHardwareUI.deviceStageQrProceedToScan();
   }, [serviceHardwareUI]);
@@ -449,6 +524,16 @@ function DeviceStageContainerCmp() {
 
   const handleBtcHighIndexConfirm = useCallback(() => {
     sendVendorUiResponse(true);
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  const handleQrFallbackConfirm = useCallback(() => {
+    sendVendorUiResponse(true);
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  const handleQrFallbackRetry = useCallback(() => {
+    sendVendorUiResponse(false, { retry: true });
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
@@ -477,10 +562,14 @@ function DeviceStageContainerCmp() {
     },
     [],
   );
-  const handleAuthSupport = useCallback(
-    () => emitAuthAction('support'),
-    [emitAuthAction],
-  );
+  // Support opens underneath the stage on every platform, so the card
+  // leaves with it. The check's owner opens Support first — the event is
+  // delivered synchronously — and then reads the exit as any other
+  // dismissal: the run ends with no verdict.
+  const handleAuthSupport = useCallback(() => {
+    emitAuthAction('support');
+    leaveStageForHelpPage('support');
+  }, [emitAuthAction, leaveStageForHelpPage]);
   const handleAuthRetry = useCallback(
     () => emitAuthAction('retry'),
     [emitAuthAction],
@@ -491,7 +580,7 @@ function DeviceStageContainerCmp() {
   );
 
   // Errors play the notice form by default (no onErrorAction): the ✗
-  // capsule informs and leaves on its own through the close grant above.
+  // capsule informs and leaves on its own (retireErrorOutcome).
   // The ask form (retry / reconnect) is granted per flow, only where an
   // honest retry exists — wired when those flows land.
 
@@ -501,6 +590,7 @@ function DeviceStageContainerCmp() {
     <DeviceStage
       step={step}
       deviceType={toStageDeviceType(stage?.deviceType)}
+      deviceColor={stage?.deviceColor}
       deviceName={stage?.deviceName}
       connectionType={connectionType}
       waitStalled={stalled}
@@ -508,14 +598,19 @@ function DeviceStageContainerCmp() {
       vendorModel={stage?.vendorModel}
       vendorModelName={stage?.vendorModelName}
       appName={stage?.appName}
+      transferProgress={transferProgress}
+      transferMetrics={deviceProgress}
       installProgress={stage?.installProgress}
       installQueue={stage?.installQueue}
       installActiveIndex={stage?.installActiveIndex}
       btcHighIndexPath={stage?.btcHighIndexPath}
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
+      qrFallbackReason={stage?.qrFallbackReason}
+      openAppReason={stage?.openAppReason}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}
+      doneI18n={stage?.doneI18n}
       authChecklist={stage?.authChecklist}
       authFailureReason={stage?.authFailureReason}
       authFailureMessage={stage?.authFailureMessage}
@@ -526,11 +621,10 @@ function DeviceStageContainerCmp() {
       allowAuthDevSkip={devSettings.enabled}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
+      passphraseAsciiCreationFeedback={isPro2NeoPassphraseCreation}
       passphraseAllowUtf8={
-        // Same key the legacy dialog used: only the wallet-session
-        // coordinator's requests reach a protocol V2 device, and those
-        // take NFKD UTF-8 instead of printable ASCII.
-        stage?.payload?.source === 'wallet-session-coordinator'
+        stage?.payload?.source === 'wallet-session-coordinator' &&
+        !isPro2NeoPassphraseCreation
       }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy
@@ -545,14 +639,31 @@ function DeviceStageContainerCmp() {
       confirmDescriptionDanger={stage?.confirmDescriptionDanger}
       confirmCount={stage?.confirmCount}
       qrValueUr={stage?.qrValueUr}
+      qrNoticeI18n={stage?.qrNoticeI18n}
+      qrSessionId={stage?.qrSessionId}
+      qrRenderKey={
+        stage?.qrDiagnostic
+          ? `${stage.qrDiagnostic.correlationId}:${stage.qrSessionId ?? ''}`
+          : undefined
+      }
       qrScannerView={
         step === 'scanQr' ? (
-          <DeviceStageQrScanner sessionId={stage?.qrSessionId} />
+          // Keyed by session: a scan that supersedes another on this step
+          // mounts a fresh scanner, so the decoder resets.
+          <DeviceStageQrScanner
+            key={stage?.qrSessionId}
+            sessionId={stage?.qrSessionId}
+          />
         ) : undefined
       }
       onQrNext={handleQrNext}
-      onQrBack={handleQrBack}
+      onQrRenderReady={handleQrRenderReady}
+      onQrBack={stage?.qrValueUr ? handleQrBack : undefined}
       onClose={closable ? handleClose : undefined}
+      onErrorNoticeExpire={retireErrorOutcome}
+      errorNoticeKey={
+        step === 'error' ? deviceStageOutcomeKey(stage) : undefined
+      }
       onPinSubmit={handlePinSubmit}
       onSwitchPinInputToApp={
         // Eligibility is stamped bg-side on the on-device route only
@@ -594,6 +705,8 @@ function DeviceStageContainerCmp() {
         stage?.vendor ? undefined : handleDeviceNotFoundSupport
       }
       onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
+      onQrFallbackConfirm={handleQrFallbackConfirm}
+      onQrFallbackRetry={handleQrFallbackRetry}
       onInstallConfirm={handleInstallConfirm}
     />
   );

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Radio, Stack, startViewTransition } from '@onekeyhq/components';
+import { Page, Radio, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -15,11 +15,9 @@ function AlignPrimaryAccount() {
   const [settings] = useSettingsPersistAtom();
 
   const setAlignPrimaryAccountMode = useCallback(async (mode: string) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setAlignPrimaryAccountMode(
-        mode as EAlignPrimaryAccountMode,
-      );
-    });
+    void backgroundApiProxy.serviceSetting.setAlignPrimaryAccountMode(
+      mode as EAlignPrimaryAccountMode,
+    );
   }, []);
 
   return (

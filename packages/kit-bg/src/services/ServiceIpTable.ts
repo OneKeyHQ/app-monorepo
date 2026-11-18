@@ -12,9 +12,18 @@ import {
   ONEKEY_HEALTH_CHECK_URL,
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  createApiAvailabilityTiming,
+  markApiAvailabilityIp,
+  markApiAvailabilityRoute,
+  reportApiAvailabilityError,
+  reportApiAvailabilityResponse,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import {
   IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
+  IP_TABLE_ENABLED,
   IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS,
   IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
   IP_TABLE_SNI_FAILURE_THRESHOLD,
@@ -48,6 +57,7 @@ import type {
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
   computeIpTableConfigHash,
+  getOrderedIpTableCandidates,
   isIpTableConfigRegression,
   isSupportIpTablePlatform,
   isValidIpTableRemoteConfigShape,
@@ -105,14 +115,14 @@ class ServiceIpTable extends ServiceBase {
 
   /**
    * Check if IP Table is enabled considering all conditions:
-   * 1. Platform support
+   * 1. Master switch (IP_TABLE_ENABLED) and platform support
    * 2. runtime.enabled
    * 3. devSettings conditions (disableIpTableInProd)
    * @returns true if IP Table should be active, false otherwise
    */
   private async isIpTableEnabled(): Promise<boolean> {
-    // 1. Check platform support
-    if (!isSupportIpTablePlatform()) {
+    // 1. Check the master switch and platform support
+    if (!IP_TABLE_ENABLED || !isSupportIpTablePlatform()) {
       return false;
     }
 
@@ -422,26 +432,22 @@ class ServiceIpTable extends ServiceBase {
       const rootDomain = url.hostname.split('.').slice(-2).join('.');
       const configWithRuntime = await this.getConfig();
 
-      const candidates: string[] = [];
-      const selectedIp = configWithRuntime.runtime?.selections?.[rootDomain];
-      const lastBestIp = configWithRuntime.runtime?.lastBestIp?.[rootDomain];
-      if (selectedIp) {
-        candidates.push(selectedIp);
-      }
-      if (lastBestIp) {
-        candidates.push(lastBestIp);
-      }
-      for (const endpoint of configWithRuntime.config.domains[rootDomain]
-        ?.endpoints ?? []) {
-        candidates.push(endpoint.ip);
-      }
-      const uniqueCandidates = [...new Set(candidates)].slice(0, 3);
+      const uniqueCandidates = getOrderedIpTableCandidates({
+        hostname: url.hostname,
+        configKey: rootDomain,
+        configWithRuntime,
+        maxCandidates: 3,
+      });
       if (uniqueCandidates.length === 0) {
         return null;
       }
 
       const headers = await getRequestHeaders();
       for (const ip of uniqueCandidates) {
+        const timing = createApiAvailabilityTiming({ url: IP_TABLE_CDN_URL });
+        markApiAvailabilityRoute(timing, 'sni');
+        markApiAvailabilityIp(timing, ip);
+        let httpStatus: number | undefined;
         try {
           defaultLogger.ipTable.request.info({
             info: `[IpTable] CDN fetch fallback: trying SNI candidate for ${url.hostname}`,
@@ -455,18 +461,33 @@ class ServiceIpTable extends ServiceBase {
             body: null,
             timeout: IP_TABLE_CDN_FETCH_TIMEOUT_MS,
           });
-          const body = response?.body ?? response?.data;
-          if (body) {
-            const parsed: unknown =
-              typeof body === 'string' ? JSON.parse(body) : body;
-            if (isValidIpTableRemoteConfigShape(parsed)) {
-              defaultLogger.ipTable.request.info({
-                info: `[IpTable] CDN fetch fallback succeeded via SNI, version: ${parsed.version}`,
-              });
-              return parsed;
-            }
+          if (!response)
+            throw new OneKeyLocalError('IP Table config response missing');
+          httpStatus = response.statusCode ?? response.status ?? 0;
+          if (httpStatus < 200 || httpStatus >= 300) {
+            throw new OneKeyLocalError('IP Table config HTTP status rejected');
           }
+          const body = response.body ?? response.data;
+          const parsed: unknown =
+            typeof body === 'string' ? JSON.parse(body) : body;
+          if (!isValidIpTableRemoteConfigShape(parsed)) {
+            throw new OneKeyLocalError('IP Table config body rejected');
+          }
+          reportApiAvailabilityResponse({ timing, httpStatus });
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] CDN fetch fallback succeeded via SNI, version: ${parsed.version}`,
+          });
+          return parsed;
         } catch (error) {
+          if (httpStatus !== undefined) {
+            reportApiAvailabilityResponse({
+              timing,
+              httpStatus,
+              isValidResponse: false,
+            });
+          } else {
+            reportApiAvailabilityError(timing, error);
+          }
           defaultLogger.ipTable.request.warn({
             info: `[IpTable] CDN fetch fallback candidate failed: ${
               error instanceof Error ? error.message : 'Unknown error'
@@ -681,9 +702,13 @@ class ServiceIpTable extends ServiceBase {
     );
   }
 
-  private async applySelection(domain: string, ip: string): Promise<void> {
+  private async applySelection(domain: string, ip: string): Promise<boolean> {
     this.bumpSelectionGeneration(domain);
-    await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, ip);
+    const applied = await this.backgroundApi.simpleDb.ipTable.updateSelection(
+      domain,
+      ip,
+    );
+    return applied;
   }
 
   /**
@@ -1056,13 +1081,14 @@ class ServiceIpTable extends ServiceBase {
         defaultLogger.ipTable.request.warn({
           info: `[IpTable] Fast failover: domain ${domain} failing real traffic, switching to last-best IP immediately`,
         });
-        await this.applySelection(domain, lastBestIp);
-        defaultLogger.ipTable.metrics.endpointSwitched({
-          domain,
-          from: 'domain',
-          to: 'ip',
-          trigger: 'fast_failover',
-        });
+        if (await this.applySelection(domain, lastBestIp)) {
+          defaultLogger.ipTable.metrics.endpointSwitched({
+            domain,
+            from: 'domain',
+            to: 'ip',
+            trigger: 'fast_failover',
+          });
+        }
       }
     }
 

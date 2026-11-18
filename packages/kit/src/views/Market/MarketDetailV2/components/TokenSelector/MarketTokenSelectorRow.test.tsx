@@ -20,6 +20,7 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   return {
+    Badge: Object.assign(StackComponent, { Text: StackComponent }),
     Icon: () => null,
     IconButton: () => <button aria-label="favorite" type="button" />,
     NATIVE_HIT_SLOP: {},
@@ -35,6 +36,15 @@ jest.mock('@onekeyhq/components', () => {
     useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: () => '' }),
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel',
+  () => ({ getTokenAgeLabel: () => undefined }),
+);
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
@@ -98,8 +108,12 @@ jest.mock('../../../components/MarketStarV2', () => ({
 }));
 
 jest.mock('../../../components/PerpsBadges', () => ({
+  LeverageBadge: ({ leverage }: { leverage: number }) => (
+    <span>{`${leverage}x`}</span>
+  ),
+  PerpDexBadge: ({ dexLabel }: { dexLabel?: string }) =>
+    dexLabel ? <span>{dexLabel}</span> : null,
   StockSourceLogo: () => null,
-  SubtitleText: () => null,
 }));
 
 jest.mock('../../utils/marketDetailImagePreload', () => ({
@@ -126,9 +140,8 @@ const baseItem: IMarketToken = {
 };
 
 const columns = {
-  nameColumnWidth: '50%' as const,
-  metricColumnWidth: '50%' as const,
   metrics: ['change'] as const,
+  flex: {},
 };
 
 describe('MarketTokenSelectorRow', () => {
@@ -175,5 +188,31 @@ describe('MarketTokenSelectorRow', () => {
 
     expect(screen.queryByText('--')).toBeNull();
     expect(screen.getByTestId('number-value').textContent).toBe('0');
+  });
+
+  it('renders an unresolved price as unavailable instead of NaN', () => {
+    render(
+      <MarketTokenSelectorRow
+        item={{ ...baseItem, price: Number.NaN }}
+        columns={{ ...columns, metrics: ['price'] }}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('--')).toBeTruthy();
+    expect(screen.queryByTestId('number-value')).toBeNull();
+  });
+
+  it('keeps a real price as numeric data', () => {
+    render(
+      <MarketTokenSelectorRow
+        item={baseItem}
+        columns={{ ...columns, metrics: ['price'] }}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('--')).toBeNull();
+    expect(screen.getByTestId('number-value').textContent).toBe('100');
   });
 });

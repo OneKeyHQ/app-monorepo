@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 import { defaultLogger } from '../logger/logger';
-import { DEFAULT_IP_TABLE_CONFIG } from '../request/constants/ipTableDefaults';
+import platformEnv from '../platformEnv';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
@@ -15,7 +15,7 @@ import {
   sniRequest,
 } from '../request/helpers/sniRequest';
 import requestHelper from '../request/requestHelper';
-import { getOrderedIpTableCandidates } from '../utils/ipTableUtils';
+import { getSharedDomainIpTableCandidates } from '../utils/ipTableUtils';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
@@ -82,30 +82,14 @@ async function getConfigSniCandidates(options: {
   } catch {
     activeConfig = null;
   }
-  const activeEndpoints =
-    activeConfig?.config.domains[configKey]?.endpoints ?? [];
-  const endorsedIps = new Set(activeEndpoints.map((endpoint) => endpoint.ip));
-  const preferredCandidates = [
-    activeConfig?.runtime?.selections?.[configKey],
-    activeConfig?.runtime?.lastBestIp?.[configKey],
-  ].filter(
-    (candidate): candidate is string =>
-      typeof candidate === 'string' &&
-      candidate.length > 0 &&
-      endorsedIps.has(candidate),
-  );
-  const builtinCandidates = getOrderedIpTableCandidates({
+  // The shared table is ranked against the API hosts. The firmware config
+  // host resolves to the CN CDN providers, so Cloudflare endpoints are skipped.
+  return getSharedDomainIpTableCandidates({
     hostname,
     configKey,
-    configWithRuntime: {
-      config: DEFAULT_IP_TABLE_CONFIG,
-      runtime: undefined,
-    },
+    activeConfig,
+    maxCandidates: CONFIG_FETCH_MAX_SNI_CANDIDATES,
   });
-  return [...new Set([...preferredCandidates, ...builtinCandidates])].slice(
-    0,
-    CONFIG_FETCH_MAX_SNI_CANDIDATES,
-  );
 }
 
 async function fetchFirmwareConfigWithinDeadline({
@@ -131,6 +115,10 @@ async function fetchFirmwareConfigWithinDeadline({
 
   const configUrl = preRelease ? PRE_RELEASE_CONFIG_URL : STABLE_CONFIG_URL;
   const parsedUrl = new URL(`${configUrl}?noCache=${Date.now().toString()}`);
+  const requestUrl =
+    platformEnv.isDev && platformEnv.isDesktop
+      ? `/__onekey_firmware_config${parsedUrl.pathname}${parsedUrl.search}`
+      : parsedUrl.toString();
   const rootDomain = parsedUrl.hostname.split('.').slice(-2).join('.');
   const configKey =
     (await getMappedDomainForIpLookup(rootDomain)) ?? rootDomain;
@@ -140,7 +128,7 @@ async function fetchFirmwareConfigWithinDeadline({
   const plainAxios = axios.create();
   const domainRequestSequence = nextIpTableRequestSequence();
   try {
-    const response = await plainAxios.get<unknown>(parsedUrl.toString(), {
+    const response = await plainAxios.get<unknown>(requestUrl, {
       timeout: Math.min(CONFIG_FETCH_TIMEOUT_MS, deadlineAt - Date.now()),
       signal,
     });

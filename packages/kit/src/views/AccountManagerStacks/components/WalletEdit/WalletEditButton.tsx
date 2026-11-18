@@ -24,9 +24,10 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -62,6 +63,10 @@ function WalletEditButtonView({
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
+  // Capture the source page before the global ActionList clears its scope.
+  const { bindWalletInviteCode } = useWalletBoundReferralCode({
+    entry: 'modal',
+  });
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
@@ -69,13 +74,15 @@ function WalletEditButtonView({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Only drives the Prime badge; access (incl. free trial) is checked by the
+  // button itself.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
 
   // True when the wallet is bound to a third-party hardware vendor.
   // Used only for entries that are still third-party-wide exclusions. Device
@@ -224,6 +231,7 @@ function WalletEditButtonView({
             <WalletBoundReferralCodeButton
               wallet={wallet}
               onClose={handleActionListClose}
+              bindWalletInviteCode={bindWalletInviteCode}
             />
           )}
 
@@ -348,6 +356,7 @@ function WalletEditButtonView({
     },
     [
       config,
+      bindWalletInviteCode,
       wallet,
       isKeyless,
       intl,

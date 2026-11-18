@@ -1,3 +1,4 @@
+import type { IAdaPublicAccountAddressesParams } from '../publicAccountAddresses';
 import type {
   IAdaBatchGetShelleyAddressByRootKeyHexParams,
   IAdaShelleyAddressInfo,
@@ -13,6 +14,9 @@ export interface IAdaSdk {
 }
 
 export interface IAdaSdkApi {
+  derivePublicAccountAddresses: (
+    params: IAdaPublicAccountAddressesParams,
+  ) => Promise<Record<string, string> | undefined>;
   composeTxPlan: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.composeTxPlan;
   signTransaction: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.signTransaction;
   hwSignTransaction: typeof import('@onekeyfe/cardano-coin-selection-asmjs').trezorUtils.signTransaction;

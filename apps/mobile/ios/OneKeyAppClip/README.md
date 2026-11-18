@@ -7,16 +7,27 @@ Hermes, CocoaPods, wallet services, authentication, or wallet JSBridge code.
 
 - Market: `https://app.onekey.so/clip/market`
 - Market detail handoff: append `network`, `address`, and optional `is_native`
-- Campaign WebView: `https://app.onekey.so/clip/web?web_url=<encoded OneKey HTTPS URL>`
+- Referral landing: `https://app.onekey.so/r/<code>/app/<page>` (also `/r/<code>` and
+  `/r/<code>/app`). `page` picks the perps, swap (`swap`) or DeFi (`earn`/`defi`) variant; any
+  other page falls back to perps. The code is saved like `ref_code`, and the install CTA opens the
+  same `/r/` URL so an installed full app lands on its own referral page. The full app only claims
+  it once the AASA `applinks` include `/r/*`; until then the CTA falls through to the StoreKit
+  overlay. Configure an advanced App Clip experience for the `https://app.onekey.so/r/` prefix.
+  The invitee rebate comes from `rebate.onekeycn.com/rebate/v1/invite/post-config`
+  (`rebate.onekeytest.com` on the test host) and falls back to 10%, like the web referral page.
+  The `referral.*` strings start from the web referral landing translations in every app
+  language, shortened for the App Clip's width; edit them in `Localizable.xcstrings`.
 - Test host: replace `app.onekey.so` with `app.onekeytest.com`
 
 Supported attribution query parameters are `click_id`, `campaign_id`, and the standard
 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_id`, and `utm_term` fields.
 The Short Link destination must use `direct_query` so `click_id` reaches the invocation URL.
 
-Campaign WebViews only load HTTPS pages on `app.onekey.so` or `app.onekeytest.com`, use an
-ephemeral data store, and expose no wallet bridge. Add new campaign hosts only after a security
-review, then update both `CampaignURLPolicy` and `WKAppBoundDomains`.
+An optional `ref_code` carries a referral invite code — the same key the Android Play install
+referrer uses. The App Clip stores it in the App Group (`app_clip_invite_code_v1.json`,
+separate from the click-id record) and the most recent invocation carrying a code wins. On first
+launch the full app captures it into the same invite-code slot as the Play referrer, so the
+onboarding and bind dialogs pre-fill it the same way.
 
 ## Attribution handoff
 
@@ -25,7 +36,7 @@ review, then update both `CampaignURLPolicy` and `WKAppBoundDomains`.
    reporting any interaction.
 3. The App Clip reports `open`, `market_select`, and `install_cta` lifecycle events to Utility.
 4. The install CTA opens the canonical HTTPS URL as a universal link only. An installed full app
-   opens the selected existing market detail route (or the approved campaign WebView); otherwise
+   opens the selected existing market detail route or referral landing; otherwise
    StoreKit presents the corresponding full-app download overlay.
 5. On first full-app startup or a validated App Clip warm handoff, the iOS main JS runtime reads the
    shared record and claims the server-side snapshot.
@@ -55,9 +66,9 @@ Use Xcode's App Clip local experience override to verify invocation payload deli
 2. Deploy the updated AASA file to both OneKey app domains with `application/json`, no redirect,
    and the App Clip bundle identifier `BVJ3FU5H2K.so.onekey.wallet.Clip`.
 3. Configure the default or advanced App Clip experiences in App Store Connect for `/clip/market`
-   and approved `/clip/web` campaign URLs, including card image, title, and action metadata.
+   and `/r/` referral URLs, including card image, title, and action metadata.
 4. Archive the `OneKeyWallet` app, not the App Clip target by itself, and confirm the archive embeds
    `OneKeyAppClip.app` and stays within Apple's current App Clip size limit.
 5. Deploy the Utility attribution endpoints before publishing Short Links that target the App Clip.
 6. Test both installed and not-installed paths on a physical device, then confirm claim idempotency,
-   analytics delivery, campaign WebView rejection, and post-install deep-link routing.
+   analytics delivery, referral handoff, and post-install deep-link routing.

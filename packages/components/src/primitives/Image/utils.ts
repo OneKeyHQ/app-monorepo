@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
@@ -18,11 +18,17 @@ export const useSourceRef = (source?: ImageSourcePropType) => {
   return sourceRef;
 };
 
+// `Array.isArray` does not narrow readonly arrays, which RN's strict
+// `ImageSourcePropType` now uses.
+export const isImageSourceArray = (
+  source: ImageSourcePropType,
+): source is readonly ImageURISource[] => Array.isArray(source);
+
 export const isEmptyResolvedSource = (source?: ImageSourcePropType | null) => {
   if (!source) {
     return true;
   }
-  if (Array.isArray(source)) {
+  if (isImageSourceArray(source)) {
     return source.length === 0;
   }
   return (
@@ -31,18 +37,24 @@ export const isEmptyResolvedSource = (source?: ImageSourcePropType | null) => {
   );
 };
 
+// Keyed by request identity rather than object identity: callers commonly pass
+// a fresh `{ uri }` object on every render, which must not clear a failed load
+// and remount the image (visible as a placeholder flash plus a refetch).
+// The reset runs during render rather than in an effect because a failing image
+// hands the error to its caller synchronously: the caller's swap to the next
+// fallback source lands in the same commit, so an effect-based reset would paint
+// one frame of the previous source's error state under the new source.
 export const useResetError = (
-  resolvedSource: ImageSourcePropType | null,
+  sourceIdentity: string,
   hasError: boolean,
   onResetError: (hasError: boolean) => void,
 ) => {
-  const hasErrorRef = useRef(hasError);
-  const resolvedSourceRef = useRef<ImageSourcePropType | null>(resolvedSource);
-  hasErrorRef.current = hasError;
-  useEffect(() => {
-    if (hasErrorRef.current && resolvedSourceRef.current !== resolvedSource) {
+  const [trackedSourceIdentity, setTrackedSourceIdentity] =
+    useState(sourceIdentity);
+  if (trackedSourceIdentity !== sourceIdentity) {
+    setTrackedSourceIdentity(sourceIdentity);
+    if (hasError) {
       onResetError(false);
     }
-    resolvedSourceRef.current = resolvedSource;
-  }, [resolvedSource, hasError, onResetError]);
+  }
 };

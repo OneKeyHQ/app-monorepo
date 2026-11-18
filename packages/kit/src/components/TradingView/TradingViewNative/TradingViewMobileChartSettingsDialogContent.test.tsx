@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type ITradingViewNativeChartSettings,
   type ITradingViewNativeChartTypePreference,
@@ -15,9 +16,14 @@ import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobile
 type IChartSettingsUpdater = (
   settings: ITradingViewNativeChartSettings,
 ) => ITradingViewNativeChartSettings;
-type IChartTypeSettingsRowProps = {
-  value: ITradingViewNativeChartTypePreference;
-  onChange: (value: ITradingViewNativeChartTypePreference) => void;
+type ISelectProps = {
+  testID?: string;
+  value?: ITradingViewNativeChartTypePreference;
+  items?: Array<{
+    value: ITradingViewNativeChartTypePreference;
+    label: string;
+  }>;
+  onChange?: (value: ITradingViewNativeChartTypePreference) => void;
 };
 type IChartModeSelectProps = {
   chartMode: 'native' | 'tradingView';
@@ -25,11 +31,16 @@ type IChartModeSelectProps = {
   onChartSwitch: () => void;
 };
 
-const mockChartTypeSettingsRow = jest.fn<null, [IChartTypeSettingsRowProps]>(
-  () => null,
-);
+const mockSelect = jest.fn<null, [ISelectProps]>(() => null);
 const mockChartModeSelect = jest.fn<null, [IChartModeSelectProps]>(() => null);
-const mockCheckbox = jest.fn<null, [{ testID?: string }]>(() => null);
+type ISwitchProps = {
+  testID?: string;
+  accessibilityLabel?: string;
+  value?: boolean;
+  onChange?: (value: boolean) => void;
+};
+
+const mockSwitch = jest.fn<null, [ISwitchProps]>(() => null);
 const mockDialogClose = jest.fn<Promise<void>, []>(() => Promise.resolve());
 const mockSetSettings = jest.fn<Promise<void>, [IChartSettingsUpdater]>();
 let mockSettings = createTradingViewNativeChartSettings();
@@ -46,10 +57,11 @@ jest.mock('@onekeyhq/components', () => {
   );
 
   return {
-    Checkbox: (props: { testID?: string }) => mockCheckbox(props),
-    Divider: () => null,
+    ESwitchSize: { small: 'small' },
     Icon: () => null,
+    Select: (props: ISelectProps) => mockSelect(props),
     SizableText: View,
+    Switch: (props: ISwitchProps) => mockSwitch(props),
     XStack: View,
     YStack: View,
     useDialogInstance: () => ({ close: mockDialogClose }),
@@ -59,11 +71,6 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('../TradingViewChartControls', () => ({
   TradingViewChartModeSelect: (props: IChartModeSelectProps) =>
     mockChartModeSelect(props),
-}));
-
-jest.mock('../TradingViewChartControls/chartSettings', () => ({
-  TradingViewChartTypeSettingsRow: (props: IChartTypeSettingsRowProps) =>
-    mockChartTypeSettingsRow(props),
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -90,11 +97,22 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
       />,
     );
 
-    const chartTypeProps = mockChartTypeSettingsRow.mock.calls[0][0];
-    expect(chartTypeProps.value).toBe('auto');
+    const chartStyleProps = mockSelect.mock.calls[0][0];
+    expect(chartStyleProps.testID).toBe(
+      'trading-view-native-chart-settings-dialog-chart-style-select',
+    );
+    expect(chartStyleProps.value).toBe('auto');
+    expect(chartStyleProps.items?.map((item) => item.value)).toEqual([
+      'auto',
+      'candlestick',
+      'heikinAshi',
+      'bars',
+      'line',
+      'area',
+    ]);
 
     act(() => {
-      chartTypeProps.onChange('line');
+      chartStyleProps.onChange?.('line');
     });
 
     expect(mockSetSettings).toHaveBeenCalledTimes(1);
@@ -103,7 +121,7 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
 
   it('lists Prev close only when the chart opts in', () => {
     const renderedOptions = () => [
-      ...new Set(mockCheckbox.mock.calls.map(([props]) => props.testID)),
+      ...new Set(mockSwitch.mock.calls.map(([props]) => props.testID)),
     ];
 
     const { unmount } = render(
@@ -115,7 +133,7 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
       'trading-view-native-chart-settings-dialog-option-yAxis',
     ]);
     unmount();
-    mockCheckbox.mockClear();
+    mockSwitch.mockClear();
 
     render(
       <TradingViewMobileChartSettingsDialogContent
@@ -127,6 +145,31 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
       'trading-view-native-chart-settings-dialog-option-yAxis',
       'trading-view-native-chart-settings-dialog-option-previousClose',
     ]);
+  });
+
+  it('toggles quick settings with switches', () => {
+    render(
+      <TradingViewMobileChartSettingsDialogContent
+        onOpenSettings={jest.fn()}
+      />,
+    );
+
+    const yAxisProps = mockSwitch.mock.calls.find(
+      ([props]) =>
+        props.testID ===
+        'trading-view-native-chart-settings-dialog-option-yAxis',
+    )?.[0];
+    expect(yAxisProps?.value).toBe(true);
+    expect(yAxisProps?.accessibilityLabel).toBe(
+      'market.chart_settings__y_axis',
+    );
+
+    act(() => {
+      yAxisProps?.onChange?.(false);
+    });
+
+    expect(mockSetSettings).toHaveBeenCalledTimes(1);
+    expect(mockSettings.options.yAxis).toBe(false);
   });
 
   it('shows the chart source switch and closes before switching', async () => {
@@ -157,6 +200,29 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
   });
 
+  it('allows switching away from an unready TradingView without chart settings', async () => {
+    const onChartSwitch = jest.fn();
+    render(
+      <TradingViewMobileChartSettingsDialogContent
+        chartMode="tradingView"
+        onChartSwitch={onChartSwitch}
+      />,
+    );
+    expect(screen.queryByText(ETranslations.market_chart_settings)).toBeNull();
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockSwitch).not.toHaveBeenCalled();
+    const chartModeProps = mockChartModeSelect.mock.calls[0][0];
+    expect(chartModeProps.isDisabled).toBe(false);
+    await act(async () => {
+      chartModeProps.onChartSwitch();
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
+    expect(onChartSwitch).toHaveBeenCalledTimes(1);
+    expect(mockDialogClose.mock.invocationCallOrder[0]).toBeLessThan(
+      onChartSwitch.mock.invocationCallOrder[0],
+    );
+  });
+
   it('hides native-only quick settings in TradingView mode', () => {
     render(
       <TradingViewMobileChartSettingsDialogContent
@@ -169,6 +235,6 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
     expect(mockChartModeSelect).toHaveBeenCalledWith(
       expect.objectContaining({ chartMode: 'tradingView' }),
     );
-    expect(mockChartTypeSettingsRow).not.toHaveBeenCalled();
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 });

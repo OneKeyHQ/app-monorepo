@@ -1,8 +1,16 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EmailOTPDialog } from './EmailOTPDialog';
@@ -40,6 +48,7 @@ jest.mock('@onekeyhq/components', () => {
         'button',
         {
           'aria-disabled': disabled,
+          disabled,
           onClick: onPress,
           type: 'button',
         },
@@ -81,8 +90,21 @@ describe('EmailOTPDialog', () => {
     retryAfterSeconds: 33,
   });
 
+  function advanceCountdown(seconds: number) {
+    for (let second = 0; second < seconds; second += 1) {
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+    }
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   test('synchronizes the resend countdown with a server cooldown error', async () => {
@@ -108,14 +130,97 @@ describe('EmailOTPDialog', () => {
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason:
         'Email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
+      trigger: 'interactive',
+      error: expect.objectContaining({
+        message: 'Please retry after 33 seconds.',
+      }),
     });
   });
 
   test('synchronizes the resend countdown after a manual resend', async () => {
+    jest.useFakeTimers();
     const sendCode = jest
       .fn()
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(rateLimitError);
+
+    await act(async () => {
+      render(
+        <EmailOTPDialog
+          title="Enter verification code"
+          description="Sent to test@example.com"
+          sendCode={sendCode}
+          onConfirm={jest.fn()}
+        />,
+      );
+    });
+    expect(sendCode).toHaveBeenCalledTimes(1);
+    advanceCountdown(60);
+    expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+      'false',
+    );
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(sendCode).toHaveBeenCalledTimes(2);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (33s)`,
+      );
+    });
+  });
+
+  test('shows the remaining OneKey server cooldown after reopening the dialog', async () => {
+    jest.useFakeTimers();
+    const error = toPlainErrorObject(
+      new OneKeyServerApiError({
+        code: 90_011,
+        autoToast: true,
+        message:
+          'Please wait 26 seconds before requesting a new verification code',
+        data: {
+          code: 90_011,
+          messageId: 'error__prime_otp_cooldown',
+          retryAfterSec: 26,
+        },
+      }),
+    );
+
+    render(
+      <EmailOTPDialog
+        title="Enter verification code"
+        description="Sent to test@example.com"
+        sendCode={jest.fn().mockRejectedValue(error)}
+        onConfirm={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (26s)`,
+      );
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+    });
+    expect(Toast.error).not.toHaveBeenCalled();
+    for (let second = 0; second < 26; second += 1) {
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+    }
+    expect(screen.getByRole('button').textContent).toBe(
+      ETranslations.prime_code_resend,
+    );
+    expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+      'false',
+    );
+  });
+
+  test('uses the server relative delay instead of the code validity', async () => {
+    const sendCode = jest.fn().mockResolvedValue({
+      retryAfterSeconds: 27,
+      resendAt: 300,
+    });
 
     render(
       <EmailOTPDialog
@@ -127,15 +232,158 @@ describe('EmailOTPDialog', () => {
     );
 
     await waitFor(() => {
-      expect(sendCode).toHaveBeenCalledTimes(1);
-    });
-    fireEvent.click(screen.getByRole('button'));
-
-    await waitFor(() => {
-      expect(sendCode).toHaveBeenCalledTimes(2);
       expect(screen.getByRole('button').textContent).toBe(
-        `${ETranslations.resend_code_countdown__action} (33s)`,
+        `${ETranslations.resend_code_countdown__action} (27s)`,
       );
     });
   });
+
+  test.each([undefined, 0, -1, 1.5, NaN, Infinity])(
+    'falls back to 60 seconds for an invalid successful delay: %s',
+    async (retryAfterSeconds) => {
+      jest.useFakeTimers();
+      await act(async () => {
+        render(
+          <EmailOTPDialog
+            title="Enter verification code"
+            description="Sent to test@example.com"
+            sendCode={jest.fn().mockResolvedValue({ retryAfterSeconds })}
+            onConfirm={jest.fn()}
+          />,
+        );
+      });
+
+      advanceCountdown(59);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (1s)`,
+      );
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+      advanceCountdown(1);
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'false',
+      );
+    },
+  );
+
+  test.each([
+    { trigger: 'initial', seconds: 61 },
+    { trigger: 'initial', seconds: 300 },
+    { trigger: 'resend', seconds: 18 },
+    { trigger: 'resend', seconds: 61 },
+    { trigger: 'resend', seconds: 300 },
+  ])(
+    'waits the full $seconds seconds after a successful $trigger send',
+    async ({ trigger, seconds }) => {
+      jest.useFakeTimers();
+      const sendCode = jest
+        .fn()
+        .mockResolvedValue({ retryAfterSeconds: seconds });
+      if (trigger === 'resend') {
+        sendCode.mockResolvedValueOnce(undefined);
+      }
+
+      await act(async () => {
+        render(
+          <EmailOTPDialog
+            title="Enter verification code"
+            description="Sent to test@example.com"
+            sendCode={sendCode}
+            onConfirm={jest.fn()}
+          />,
+        );
+      });
+      if (trigger === 'resend') {
+        advanceCountdown(60);
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button'));
+        });
+      }
+
+      const requestCount = trigger === 'resend' ? 2 : 1;
+      expect(sendCode).toHaveBeenCalledTimes(requestCount);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (${Math.min(60, seconds)}s)`,
+      );
+      advanceCountdown(seconds - 1);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (1s)`,
+      );
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+      fireEvent.click(screen.getByRole('button'));
+      expect(sendCode).toHaveBeenCalledTimes(requestCount);
+      advanceCountdown(1);
+      expect(screen.getByRole('button').textContent).toBe(
+        ETranslations.prime_code_resend,
+      );
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'false',
+      );
+    },
+  );
+
+  test.each([
+    { trigger: 'initial', seconds: 61 },
+    { trigger: 'initial', seconds: 300 },
+    { trigger: 'resend', seconds: 61 },
+    { trigger: 'resend', seconds: 300 },
+  ])(
+    'waits the full $seconds-second server cooldown for the $trigger request',
+    async ({ trigger, seconds }) => {
+      jest.useFakeTimers();
+      const error = toPlainErrorObject(
+        new OneKeyServerApiError({
+          code: 90_011,
+          autoToast: true,
+          message: `Please wait ${seconds} seconds before requesting a new verification code`,
+          data: { retryAfterSec: seconds },
+        }),
+      );
+      const sendCode = jest.fn().mockRejectedValue(error);
+      if (trigger === 'resend') {
+        sendCode.mockResolvedValueOnce(undefined);
+      }
+
+      await act(async () => {
+        render(
+          <EmailOTPDialog
+            title="Enter verification code"
+            description="Sent to test@example.com"
+            sendCode={sendCode}
+            onConfirm={jest.fn()}
+          />,
+        );
+      });
+      if (trigger === 'resend') {
+        advanceCountdown(60);
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button'));
+        });
+      }
+
+      const requestCount = trigger === 'resend' ? 2 : 1;
+      expect(sendCode).toHaveBeenCalledTimes(requestCount);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (60s)`,
+      );
+      advanceCountdown(60);
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+      fireEvent.click(screen.getByRole('button'));
+      expect(sendCode).toHaveBeenCalledTimes(requestCount);
+      advanceCountdown(seconds - 61);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (1s)`,
+      );
+      advanceCountdown(1);
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'false',
+      );
+      expect(Toast.error).not.toHaveBeenCalled();
+    },
+  );
 });

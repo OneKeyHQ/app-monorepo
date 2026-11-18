@@ -1,7 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import {
+  EGasAccountRequestStage,
+  getGasAccountErrorCode,
+  markGasAccountRequestStage,
+  markGasAccountSubmitResultUnknown,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IGasAccountActionParams,
@@ -18,10 +23,11 @@ import type { ISwapGasInfo } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
 } from '../../SignatureConfirm/constants/gasAccountErrorCodes';
 import {
   buildGasAccountAnalyticsContext,
+  getBackendGasAccountUnavailableReason,
   isGasSponsoredAnalyticsContext,
 } from '../../SignatureConfirm/utils/gasAccountAnalytics';
 
@@ -103,11 +109,13 @@ function getDirectSwapGasAccountUnavailableReason({
   useGasAccountByDefault,
   gasAccountCandidate,
   gasAccountScenarioReason,
+  gasAccountSkipReason,
 }: {
   hasEligibleQuote: boolean;
   useGasAccountByDefault: boolean | undefined;
   gasAccountCandidate: boolean;
   gasAccountScenarioReason: string | undefined;
+  gasAccountSkipReason: string | undefined;
 }) {
   if (hasEligibleQuote) {
     return undefined;
@@ -116,7 +124,10 @@ function getDirectSwapGasAccountUnavailableReason({
     return 'userDisabled';
   }
   if (gasAccountCandidate) {
-    return gasAccountScenarioReason ?? 'backend_unknown';
+    return getBackendGasAccountUnavailableReason({
+      gasAccountScenarioReason,
+      gasAccountSkipReason,
+    });
   }
   return 'swapBuildDisabled';
 }
@@ -189,11 +200,18 @@ export function buildDirectSwapGasAccountAnalyticsContext({
       useGasAccountByDefault,
       gasAccountCandidate,
       gasAccountScenarioReason: gasInfo.gasAccountScenarioReason,
+      gasAccountSkipReason: gasInfo.gasAccountSkipReason,
     }),
+    gasAccountSkipReason: gasInfo.gasAccountSkipReason,
+    quoteOwnerType: gasInfo.gasAccountQuote?.identity?.ownerType,
     estimatedGasNative: originalTotalNative ?? totalNative,
     nativeBalance,
     nativePrincipal,
-    extraFeeNative: getNativeOtherFeeAmount({ networkId, unsignedTx }),
+    extraFeeNative: new BigNumber(
+      getNativeOtherFeeAmount({ networkId, unsignedTx }),
+    )
+      .plus(unsignedTx.solanaRent ?? 0)
+      .toFixed(),
     nativeTokenPrice: gasInfo.common.nativeTokenPrice,
     fiatCurrency,
     tokenPrincipalInsufficient: false,
@@ -269,7 +287,7 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
   send: (gasAccountUiState?: IGasAccountUiState) => Promise<T>;
   onGasAccountError?: (
     error: unknown,
-    entry: NonNullable<ReturnType<typeof getGasAccountErrorEntry>>,
+    entry: NonNullable<ReturnType<typeof getGasAccountErrorEntryForError>>,
   ) => void | Promise<void>;
 }): Promise<T> {
   let result: T;
@@ -277,6 +295,16 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
   try {
     result = await send(gasAccountUiState);
   } catch (error) {
+    // Everything inside `send` is the sign-and-broadcast request. Tag the
+    // error so an outer catch that also wraps the pre-send estimate (Market
+    // direct send) resolves the stage-specific entry and copy. Only a send
+    // that carried a sponsored quote is a Gas Account request: a self-paid
+    // broadcast (no quote, `gasAccountUiState` undefined) stays untagged so
+    // its generic 400 keeps the ordinary error path instead of being read as
+    // "may already be submitted".
+    if (gasAccountUiState) {
+      markGasAccountRequestStage(error, EGasAccountRequestStage.Send);
+    }
     const errorCode = getGasAccountErrorCode(error);
     logDirectSwapGasAccountAction(context, {
       action: 'submitFailed',
@@ -284,13 +312,26 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
       errorCode,
     });
     const entry = gasAccountUiState
-      ? getGasAccountErrorEntry(errorCode)
+      ? getGasAccountErrorEntryForError(error, EGasAccountRequestStage.Send)
       : undefined;
     if (!entry) {
       throw error;
     }
 
-    await onGasAccountError?.(error, entry);
+    // A result-unknown send may already be on chain (OK-64746). Tag the
+    // error — and whatever the caller's handler throws in its place — so the
+    // review that owns this attempt can latch instead of offering a retry.
+    if (entry.resultUnknown) {
+      markGasAccountSubmitResultUnknown(error);
+    }
+    try {
+      await onGasAccountError?.(error, entry);
+    } catch (handlerError) {
+      if (entry.resultUnknown) {
+        markGasAccountSubmitResultUnknown(handlerError);
+      }
+      throw handlerError;
+    }
     if (entry.strategy !== EGasAccountErrorStrategy.Fallback) {
       throw error;
     }

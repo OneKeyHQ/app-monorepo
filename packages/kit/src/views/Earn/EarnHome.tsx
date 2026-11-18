@@ -62,6 +62,7 @@ import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 import {
+  STAKING_TX_SETTLE_DELAY_MS,
   useEarnPendingTxsSharedMeta,
   useStakingPendingTxsByInfo,
 } from './hooks/useStakingPendingTxs';
@@ -85,6 +86,7 @@ function BasicEarnHome({
   showHeader,
   showContent,
   isVisible,
+  bannerAutoPlayEnabled = true,
   overrideDefaultTab,
   tabsRef,
   useSwipePager,
@@ -100,6 +102,7 @@ function BasicEarnHome({
    * the swipe never triggers a request for a tab the user is only passing over.
    */
   isVisible?: boolean;
+  bannerAutoPlayEnabled?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -451,21 +454,25 @@ function BasicEarnHome({
     extraNetworkIds: borrowNetworkIds,
   });
 
-  const { filteredTxs } = useStakingPendingTxsByInfo({
+  const refreshAfterPendingTxs = useCallback(
+    () => refreshEarnData({ silent: true }),
+    [refreshEarnData],
+  );
+  // Refresh once the pending transactions have cleared, after the same settle
+  // delay the detail page uses. Fired at once, the refresh landed while the
+  // node could still be a block behind and cached the pre-transaction balance
+  // for the positions page (OK-63659).
+  // Native Explore renders Earn next to Browser and Market inside one focused
+  // route, so route focus alone would keep polling every Earn network while a
+  // dapp page is on screen.
+  const isPendingTxsActive = showContent !== false;
+  useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
     precomputed: sharedPendingTxsMeta,
+    onRefresh: refreshAfterPendingTxs,
+    onRefreshDelayMs: STAKING_TX_SETTLE_DELAY_MS,
+    isActive: isPendingTxsActive,
   });
-  const isPending = useMemo(() => {
-    return filteredTxs.length > 0;
-  }, [filteredTxs]);
-  const previousIsPendingRef = useRef(isPending);
-
-  useEffect(() => {
-    if (previousIsPendingRef.current && !isPending) {
-      void refreshEarnData({ silent: true });
-    }
-    previousIsPendingRef.current = isPending;
-  }, [isPending, refreshEarnData]);
 
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -503,6 +510,7 @@ function BasicEarnHome({
     onRefresh: handleBorrowPendingRefresh,
     onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
     precomputed: sharedPendingTxsMeta,
+    isActive: isPendingTxsActive,
   });
   const prevBorrowPendingIdsRef = useRef<string | null>(null);
 
@@ -651,9 +659,9 @@ function BasicEarnHome({
   // call site, not here — see the prop below.
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
-      if (direction === 'right') {
+      if (direction === 'left') {
         appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-          tab: ETranslations.global_market,
+          tab: ETranslations.global_browser,
           switchType: 'swipe',
         });
       }
@@ -709,7 +717,9 @@ function BasicEarnHome({
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
+          bannerAutoPlayEnabled={bannerAutoPlayEnabled}
           showContent={(isVisible ?? showContent) !== false}
+          keepHiddenLayout={Boolean(platformEnv.isNativeIOS && useSwipePager)}
           isRefreshing={isOverviewRefreshing}
           isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
@@ -814,6 +824,7 @@ export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
   isVisible,
+  bannerAutoPlayEnabled = true,
   defaultTab,
   tabsRef,
   useSwipePager,
@@ -822,6 +833,7 @@ export function EarnHomeWithProvider({
   showHeader?: boolean;
   showContent?: boolean;
   isVisible?: boolean;
+  bannerAutoPlayEnabled?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -840,6 +852,7 @@ export function EarnHomeWithProvider({
           showHeader={showHeader}
           showContent={showContent}
           isVisible={isVisible}
+          bannerAutoPlayEnabled={bannerAutoPlayEnabled}
           overrideDefaultTab={defaultTab}
           tabsRef={tabsRef}
           useSwipePager={useSwipePager}

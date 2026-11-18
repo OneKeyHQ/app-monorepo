@@ -7,11 +7,20 @@ import { Popover, useMedia } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getActivityHubLayout } from './layout';
+import {
+  ACTIVITY_HUB_PANEL_WIDTH,
+  getActivityHubTitleId,
+  shouldShowActivityHubInvitePanel,
+} from './layout';
 
-import type { IActivityHubCampaign, IActivityHubSource } from './types';
+import type {
+  IActivityHubCampaign,
+  IActivityHubOpenReferral,
+  IActivityHubSource,
+} from './types';
 
 const LazyActivityHubContent = LazyLoad(async () => {
   const { ActivityHubContent } = await import('./ActivityHubContent');
@@ -21,8 +30,7 @@ const LazyActivityHubContent = LazyLoad(async () => {
 export function ActivityHubAction({
   source,
   size = 'medium',
-  copyAsUrl = false,
-  onOpenInviteeReward,
+  onOpenReferral,
   campaigns,
   renderTrigger,
   open,
@@ -32,8 +40,7 @@ export function ActivityHubAction({
 }: {
   source: IActivityHubSource;
   size?: IButtonProps['size'];
-  copyAsUrl?: boolean;
-  onOpenInviteeReward: () => void;
+  onOpenReferral: IActivityHubOpenReferral;
   campaigns?: IActivityHubCampaign[];
   renderTrigger?: ReactNode;
   open?: boolean;
@@ -46,25 +53,59 @@ export function ActivityHubAction({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const activityCenterTitle = intl.formatMessage({
-    id: ETranslations.perps_activity_hub,
-  });
   const hasCampaigns = Boolean(campaigns?.length);
+  const hubTitle = intl.formatMessage({
+    id: getActivityHubTitleId({
+      hasCampaigns,
+      showInvitePanel: shouldShowActivityHubInvitePanel(),
+    }),
+  });
+  // The gift's tooltip names where it leads: the referral page, or the
+  // activity hub once there are campaigns.
+  const triggerTitle = intl.formatMessage({
+    id: hasCampaigns
+      ? ETranslations.perps_activity_hub
+      : ETranslations.sidebar_refer_a_friend,
+  });
   // Native popovers always Adapt to a Sheet, so floatingPanelProps.width is a
-  // no-op there. Compact tiles belong only to the desktop 208px floating panel.
+  // no-op there.
   const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
-  const isCompactPanel = isDesktopFloatingPanel && !hasCampaigns;
-  const { panelWidth } = getActivityHubLayout(hasCampaigns);
+
+  const giftButtonProps = {
+    title: triggerTitle,
+    icon: 'GiftOutline',
+    size,
+    testID,
+    ...triggerProps,
+  } as const;
+
+  // A native hub without campaigns would hold only the referral entry, so the
+  // gift opens the referral page itself instead of a one-item sheet. Pointer
+  // layouts keep the popover: it holds the code and link to copy.
+  if (!shouldShowActivityHubInvitePanel() && !hasCampaigns && !renderTrigger) {
+    return (
+      <HeaderIconButton
+        {...giftButtonProps}
+        onPress={() => {
+          defaultLogger.referral.activityHub.activityHubActionPressed({
+            source,
+            action: 'open_referral',
+          });
+          onOpenReferral();
+        }}
+      />
+    );
+  }
 
   return (
     <Popover
       open={open}
       onOpenChange={onOpenChange}
-      title={activityCenterTitle}
+      title={hubTitle}
       showHeader={!gtMd}
       placement="bottom-end"
       floatingPanelProps={{
-        width: isDesktopFloatingPanel ? panelWidth : undefined,
+        width: isDesktopFloatingPanel ? ACTIVITY_HUB_PANEL_WIDTH : undefined,
       }}
       sheetProps={
         gtMd
@@ -73,24 +114,12 @@ export function ActivityHubAction({
               dismissOnSnapToBottom: true,
             }
       }
-      renderTrigger={
-        renderTrigger ?? (
-          <HeaderIconButton
-            title={activityCenterTitle}
-            icon="GiftOutline"
-            size={size}
-            testID={testID}
-            {...triggerProps}
-          />
-        )
-      }
+      renderTrigger={renderTrigger ?? <HeaderIconButton {...giftButtonProps} />}
       renderContent={({ closePopover }) => (
         <LazyActivityHubContent
           source={source}
-          copyAsUrl={copyAsUrl}
           closePopover={closePopover}
-          isCompactPanel={isCompactPanel}
-          onOpenInviteeReward={onOpenInviteeReward}
+          onOpenReferral={onOpenReferral}
           campaigns={campaigns}
         />
       )}

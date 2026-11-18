@@ -14,12 +14,10 @@ import {
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { type TextInput } from 'react-native';
 
 import {
   Button,
   HeightTransition,
-  Input,
   Keyboard,
   SizableText,
   Skeleton,
@@ -27,10 +25,12 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { KEYLESS_PIN_LENGTH } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
+import PassCodeInput from '../../../components/Password/components/PassCodeInput';
 import { KeylessOnboardingDebugPanel } from '../pages/KeylessOnboardingDebugPanel';
 
 import {
@@ -53,7 +53,6 @@ interface IPinInputLayoutProps {
   isInputDisabled?: boolean;
   errorMessage?: string;
   isLoading?: boolean;
-  placeholder?: string;
   onClose?: () => Promise<void>;
   onUnmounted?: () => void;
   onEnableInput?: () => void;
@@ -62,11 +61,18 @@ interface IPinInputLayoutProps {
   showInputSkeleton?: boolean;
   testID?: string;
   inputTestID?: string;
+  // Spells out that this PIN restores the wallet, for the layouts that have no
+  // room for the explainer sidebar. The App unlock passcode states its own
+  // purpose on its setup page.
+  showRecoveryRoleHint?: boolean;
 }
 
 export interface IPinInputLayoutRef {
   focus: () => void;
 }
+
+// Height of the dot field, which carries its own vertical padding.
+const inputHeight = 80;
 
 const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
   (
@@ -84,7 +90,6 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       isInputDisabled = false,
       errorMessage,
       isLoading,
-      placeholder = '••••',
       onClose,
       onUnmounted,
       onEnableInput,
@@ -93,18 +98,29 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       showInputSkeleton = false,
       testID,
       inputTestID,
+      showRecoveryRoleHint = false,
     },
     ref,
   ) => {
     const intl = useIntl();
-    const inputRef = useRef<TextInput>(null);
+    const passCodeInputRef = useRef<{ focus: () => void } | null>(null);
     const { gtMd } = useMedia();
+    const hasSecondaryAction = Boolean(
+      secondaryButtonText && onSecondaryButtonPress,
+    );
+    // Only a pair of buttons can overflow; a lone submit button keeps the row.
+    const stackButtons = hasSecondaryAction && !gtMd;
+    const buttonWidthProps = stackButtons
+      ? ({ width: '100%' } as const)
+      : ({ flexGrow: 1, flexBasis: 0 } as const);
     const prevShowInputSkeletonRef = useRef(showInputSkeleton);
 
+    const focusInput = useCallback(() => {
+      passCodeInputRef.current?.focus();
+    }, []);
+
     useImperativeHandle(ref, () => ({
-      focus: () => {
-        inputRef.current?.focus();
-      },
+      focus: focusInput,
     }));
 
     useFocusEffect(
@@ -113,29 +129,19 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
         if (showInputSkeleton) {
           return;
         }
-        const timer = setTimeout(
-          () => {
-            inputRef.current?.focus();
-          },
-          platformEnv.isNative ? 500 : 300,
-        );
+        const timer = setTimeout(focusInput, platformEnv.isNative ? 500 : 300);
         return () => clearTimeout(timer);
-      }, [showInputSkeleton]),
+      }, [focusInput, showInputSkeleton]),
     );
 
     // Focus when skeleton transitions from shown to hidden
     useEffect(() => {
       if (prevShowInputSkeletonRef.current && !showInputSkeleton) {
-        const timer = setTimeout(
-          () => {
-            inputRef.current?.focus();
-          },
-          platformEnv.isNative ? 100 : 50,
-        );
+        const timer = setTimeout(focusInput, platformEnv.isNative ? 100 : 50);
         return () => clearTimeout(timer);
       }
       prevShowInputSkeletonRef.current = showInputSkeleton;
-    }, [showInputSkeleton]);
+    }, [focusInput, showInputSkeleton]);
 
     const handleChangeText = useCallback(
       (text: string) => {
@@ -159,6 +165,52 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
         disabled: isSubmitDisabled || isLoading,
       }),
       [isSubmitDisabled, isLoading, onSubmit],
+    );
+
+    const renderInput = () => {
+      if (showInputSkeleton) {
+        return <Skeleton h={inputHeight} w="100%" radius={12} />;
+      }
+      // One dot cell per digit, on every platform: a single long box hides how
+      // many digits the PIN has, which is the confusion this screen is fixing.
+      return (
+        <YStack h={inputHeight} justifyContent="center">
+          <PassCodeInput
+            ref={passCodeInputRef}
+            testId={inputTestID}
+            cellCount={KEYLESS_PIN_LENGTH}
+            cellSize={gtMd ? 24 : 16}
+            value={value}
+            editable={!isInputDisabled}
+            onPinCodeChange={handleChangeText}
+            onSubmitEditing={handleSubmitEditing}
+          />
+        </YStack>
+      );
+    };
+
+    const secondaryButton = hasSecondaryAction ? (
+      <Button
+        testID="onboardingv2-btn"
+        size="large"
+        variant="secondary"
+        {...buttonWidthProps}
+        onPress={onSecondaryButtonPress}
+      >
+        {secondaryButtonText}
+      </Button>
+    ) : null;
+
+    const submitButton = (
+      <Button
+        testID="onboardingv2-btn"
+        size="large"
+        variant={isSubmitDisabled ? 'secondary' : 'primary'}
+        {...buttonWidthProps}
+        {...submitButtonProps}
+      >
+        {buttonText}
+      </Button>
     );
 
     return (
@@ -185,6 +237,13 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
           <YStack flex={1}>
             <YStack gap="$2" mb="$5" $gtMd={{ mb: '$12' }}>
               <SizableText size="$heading4xl">{title}</SizableText>
+              {!gtMd && showRecoveryRoleHint ? (
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.create_pin_recovery_role__desc,
+                  })}
+                </SizableText>
+              ) : null}
               <MultipleClickStack onPress={onEnableInput}>
                 <SizableText size="$bodyLg" color={descriptionColor}>
                   {description}
@@ -199,29 +258,9 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
               }}
             >
               {/* Input Form */}
-              <HeightTransition initialHeight={50}>
+              <HeightTransition initialHeight={inputHeight}>
                 <YStack gap="$2">
-                  {showInputSkeleton ? (
-                    <Skeleton h={50} w="100%" radius={12} />
-                  ) : (
-                    <Input
-                      testID={inputTestID}
-                      ref={inputRef}
-                      size="large"
-                      placeholder={placeholder}
-                      textAlign="center"
-                      fontSize={platformEnv.isNative ? 20 : 24}
-                      h={50}
-                      maxLength={4}
-                      keyboardType="number-pad"
-                      secureTextEntry
-                      value={value}
-                      error={!!errorMessage}
-                      disabled={isInputDisabled}
-                      onChangeText={handleChangeText}
-                      onSubmitEditing={handleSubmitEditing}
-                    />
-                  )}
+                  {renderInput()}
                   {errorMessage ? (
                     <SizableText size="$bodySm" color="$textCritical">
                       {errorMessage}
@@ -241,32 +280,26 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
             <Keyboard.StickyView>
               <XStack
                 gap="$2"
+                // Half-width buttons cannot hold a long secondary label and its
+                // translations on a phone, so the pair stacks instead of
+                // wrapping. Stacked, the primary action goes on top; the two
+                // orders below keep focus and reading order matching that.
+                flexDirection={stackButtons ? 'column' : 'row'}
                 $md={{
                   pb: '$5',
                 }}
               >
-                {secondaryButtonText && onSecondaryButtonPress ? (
-                  <Button
-                    testID="onboardingv2-btn"
-                    size="large"
-                    variant="secondary"
-                    flexGrow={1}
-                    flexBasis={0}
-                    onPress={onSecondaryButtonPress}
-                  >
-                    {secondaryButtonText}
-                  </Button>
-                ) : null}
-                <Button
-                  testID="onboardingv2-btn"
-                  size="large"
-                  variant={isSubmitDisabled ? 'secondary' : 'primary'}
-                  flexGrow={1}
-                  flexBasis={0}
-                  {...submitButtonProps}
-                >
-                  {buttonText}
-                </Button>
+                {stackButtons ? (
+                  <>
+                    {submitButton}
+                    {secondaryButton}
+                  </>
+                ) : (
+                  <>
+                    {secondaryButton}
+                    {submitButton}
+                  </>
+                )}
               </XStack>
             </Keyboard.StickyView>
           </YStack>

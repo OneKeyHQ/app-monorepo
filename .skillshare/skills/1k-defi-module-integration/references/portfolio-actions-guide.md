@@ -1,71 +1,65 @@
-# DeFi Portfolio Actions
+# Positions, Capabilities, And Portfolio Refresh
 
-Use this for claim, withdraw, repay, claim-withdrawal, remove-liquidity, or a
-missing action on an existing portfolio position.
+## Join Three Contracts
 
-## Three Separate Sources
+A portfolio action needs three sources to agree:
 
-1. Portfolio positions own the visible position and execution metadata.
-2. Supported actions own protocol/network/category/action capability.
-3. The transaction builder owns final validation and transaction payloads.
+1. The position supplies the investment and execution metadata.
+2. Supported actions describe protocol/network/category/action capability.
+3. The builder validates the current request and produces the transaction.
 
-An action is renderable only when these contracts can be joined without
-guessing. A position remains visible when no action is executable.
+Keep a position visible when no action is executable. Distinguish capability
+not yet known, explicitly unsupported, supported but currently unavailable,
+and enabled. A server-declared action may be visible but disabled; use the
+surface's row and protocol capabilities rather than one convenient Boolean.
 
-On Earn protocol detail, treat account-scoped portfolio data as a read model,
-not global persisted truth. Scope it by account, indexed account, network,
-provider, symbol, and vault; re-fetch when a derived address or account scope
-changes. Server-declared action rows may remain visible but disabled when a
-capability is unavailable; do not hide them solely because one optional
-capability flag is false.
+Preserve source metadata when grouping positions: pool/vault, claim group,
+token or NFT IDs, queue IDs, currency, and provider extras may all be needed at
+build time. Normalize serialized transaction, approval, and permit variants at
+the service boundary so UI and confirmation code consume typed objects.
 
-Keep capability states distinct: unsupported (`false`), supported-but-not
-currently actionable (for example zero balance or pending setup), and enabled
-must not be coerced into one Boolean or filtered into the same empty state.
-Scope collateral capability and pending locks by provider, network, market,
-reserve, and account; a native reserve may legitimately use an empty address.
+## Use The Right Identity
 
-On mobile, treat the server-defined portfolio/reward read model as the owner of
-claimable, pending, and distributed stages. Preserve account and product scope
-when opening shared history or an action, and require both the row-level and
-protocol-level capability before rendering a redeem/action control. Keep this
-contract separate from any wider-layout portfolio projection.
+Define identity from the inputs that change this result. Depending on the
+contract, that includes account and indexed account, actual derived address,
+network, provider, vault/market/reserve, category, and position source. An
+unchanged account ID does not prove an unchanged address or derivation type.
+Do not merge positions by symbol alone.
 
-## Identity And Grouping
+Apply the chain's address comparison rules consistently to request matching,
+response matching, cache keys, and grouped rows. EVM casing differences can
+represent the same address; non-EVM identifiers may be case-sensitive. Reuse
+the repository's chain-aware helpers rather than lowercasing every identifier.
+An empty native-token address can be valid and is not always missing metadata.
 
-Match on the full stable identity required by the current contract, such as
-network, provider, vault/market/reserve, category, and source position. Do not
-collapse positions by symbol alone.
+Display identity can differ from execution identity. A reward token may need
+the investment's claim/config symbol, and an asset shown as native may resolve
+to a wrapped Earn product. Preserve the server's mapping. If several products
+match and the execution target is ambiguous, keep the position readable but
+stop the action instead of guessing a provider's historical token or vault.
 
-Grouped rows must retain their original source metadata. Pool addresses,
-claim group identifiers, token/NFT ids, queue ids, currency data, and provider
-extras cannot be reconstructed reliably after grouping.
+## Reconcile The Requested Scope
 
-Reward display identity and investment/config identity may differ. Preserve a
-server-derived claim/config symbol through normalization and action building;
-do not map a provider name to a hardcoded token or historical vault. If current
-data is ambiguous, fail closed for the action rather than guessing.
+Account-scoped detail/portfolio data is a read model, not global protocol
+configuration. Invalidate or re-fetch it when the actual account/address scope
+changes, and reject late results from the previous scope.
 
-## Route And Build Boundaries
+Before changing a batch merge, establish whether the response is complete for
+the requested scope and what omitted items mean:
 
-AssetDetails modal pages do not automatically inherit Home account context.
-Carry `accountId` and `indexedAccountId` through typed params or the protocol
-payload when the action requires them.
+| Result | Reconciliation |
+| --- | --- |
+| Explicit zero or authoritative empty result | Clear the matching old position/source. |
+| Partial result or per-item error | Update successes; retain or mark unavailable only the affected unresolved data. |
+| Omitted item with unspecified semantics | Resolve the contract before treating omission as zero. |
+| Result for an obsolete scope | Ignore it; it cannot refresh the current account. |
 
-For a Market asset that links into Earn, pass the protocol/product identity and
-server-derived symbol through the existing route helper. Preserve native versus
-wrapped mapping (for example an asset may display as native while the Earn
-product resolves to its wrapped symbol); never infer a vault or claim token
-from the provider name alone.
+A targeted refresh must reconcile its requested keys without clearing other
+networks, products, or sources such as airdrop data. A full refresh may remove
+absent positions only under its completeness contract. Retaining every old
+item hides an exit-to-zero; clearing every old item hides partial failures.
 
-Normalize transport variants such as serialized transaction, approval, or
-permit fields at the background/service boundary. UI and confirmation code
-should consume typed objects. If setup is required but the surface cannot
-confirm it, fail clearly instead of sending only the business transaction.
-
-## Proof
-
-Inspect one representative position, supported-action row, and build request.
-Exercise both the executable path and the missing/ambiguous-metadata path.
-For a position-changing success, prove matching account/network refresh;
-cancel and failure must not be reported as a changed position.
+Keep balance, reward, pending, and distributed stages consistent with the
+surface's server read model. After settlement, verify the matching position
+and action availability change together. A cache hit should preserve usable
+display while allowing the current owner to refresh it.

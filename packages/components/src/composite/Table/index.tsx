@@ -28,8 +28,7 @@ import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
-import { useTabsContext } from '../Tabs/context';
-import { useTabNameContextSafe } from '../Tabs/TabNameContext';
+import { useScrollContentRegistration } from '../ScrollContentRegistration';
 
 import { Column, MemoHeaderColumn } from './components';
 
@@ -217,8 +216,14 @@ function TableRow<T>({
 
   // Track native press state for visual feedback (bg='$bgActive').
   const [nativePressed, setNativePressed] = useState(false);
-  const handleNativePressIn = useCallback(() => setNativePressed(true), []);
-  const handleNativePressOut = useCallback(() => setNativePressed(false), []);
+  const handleNativePressIn = useCallback(() => {
+    setNativePressed(true);
+    onRowEvents?.onPressIn?.();
+  }, [onRowEvents]);
+  const handleNativePressOut = useCallback(() => {
+    setNativePressed(false);
+    onRowEvents?.onPressOut?.();
+  }, [onRowEvents]);
 
   const content = (
     <XStack
@@ -421,8 +426,7 @@ function BasicTable<T>({
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const scrollAtRef = useRef(0);
-  const currentTabName = useTabNameContextSafe();
-  const { requestRemeasure, scrollTabElementsRef } = useTabsContext();
+  const registerContent = useScrollContentRegistration();
 
   const dataSource = useMemo(() => {
     if (showSkeleton) {
@@ -603,43 +607,19 @@ function BasicTable<T>({
       !tabIntegrated ||
       platformEnv.isNative ||
       scrollEnabled ||
-      !currentTabName ||
+      !registerContent ||
       !webTabIntegratedRootHeight
     ) {
       return undefined;
     }
 
     const element = tableRootRef.current;
-    const refStore = scrollTabElementsRef?.current;
-    if (!element || !refStore) {
-      return undefined;
-    }
-
-    if (!refStore[currentTabName]) {
-      refStore[currentTabName] = {} as {
-        element: HTMLElement;
-        height?: number;
-      };
-    }
-    const entry = refStore[currentTabName];
-    entry.element = element;
-    entry.height = webTabIntegratedRootHeight;
-
-    requestRemeasure?.();
-
-    return () => {
-      const currentEntry = refStore[currentTabName];
-      if (currentEntry?.element === element) {
-        delete refStore[currentTabName];
-        requestRemeasure?.();
-      }
-    };
+    if (!element) return undefined;
+    return registerContent(element, webTabIntegratedRootHeight);
   }, [
-    currentTabName,
     dataSource.length,
-    requestRemeasure,
+    registerContent,
     scrollEnabled,
-    scrollTabElementsRef,
     tabIntegrated,
     webTabIntegratedRootHeight,
   ]);

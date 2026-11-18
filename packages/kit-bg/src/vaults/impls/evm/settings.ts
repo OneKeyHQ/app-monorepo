@@ -6,17 +6,22 @@ import {
   BinanceSmartChainLISTA,
   BinanceSmartChainU,
   BinanceSmartChainUSDT,
+  BinanceSmartChainXAUt,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
+  EthereumEBTC,
+  EthereumEETH,
   EthereumMORPHO,
   EthereumPol,
+  EthereumStETH,
   EthereumUSDC,
   EthereumUSDF,
   EthereumUSDT,
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
+  EthereumWeETH,
   KatanaVbUSDC,
   PlasmaNetworkId,
 } from '@onekeyhq/shared/src/consts/addresses';
@@ -179,6 +184,77 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
+      },
+      [EEarnProviderEnum.EtherFi]: {
+        supportedSymbols: [
+          'ETH',
+          'WETH',
+          'eETH',
+          'weETH',
+          'stETH',
+          'USDC',
+          'USDT',
+          'WBTC',
+          'cbBTC',
+          'eBTC',
+        ],
+        configs: {
+          ETH: commonStakeConfigs.ETH,
+          WETH: {
+            enabled: true,
+            tokenAddress: EthereumWETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          eETH: {
+            enabled: true,
+            tokenAddress: EthereumEETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          weETH: {
+            enabled: true,
+            tokenAddress: EthereumWeETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          stETH: {
+            enabled: true,
+            tokenAddress: EthereumStETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          USDC: {
+            enabled: true,
+            tokenAddress: EthereumUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          WBTC: {
+            enabled: true,
+            tokenAddress: EthereumWBTC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          cbBTC: {
+            enabled: true,
+            tokenAddress: EthereumCbBTC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          eBTC: {
+            enabled: true,
+            tokenAddress: EthereumEBTC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
       },
       [EEarnProviderEnum.Native]: {
         supportedSymbols: ['WETH', 'USDT'],
@@ -348,6 +424,30 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      // Unitas (OK-61790): USDT -> USDu vault, XAUt -> gold vault. Mint and
+      // redeem are executed by Unitas (server-side order), the user only signs
+      // approve / cooldown / claim.
+      [EEarnProviderEnum.Unitas]: {
+        supportedSymbols: ['USDT', 'XAUt'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          XAUt: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainXAUt,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
+      },
     },
   },
   [getNetworkIdsMap().hyperevm]: {
@@ -439,7 +539,11 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
 
-  supportedThirdPartyVendors: [EHardwareVendor.ledger, EHardwareVendor.trezor],
+  supportedThirdPartyVendors: [
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+    EHardwareVendor.keystone,
+  ],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -481,7 +585,6 @@ const settings: IVaultSettings = {
     [networkIdMap.flare]: 1.1,
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
-    [networkIdMap.blast]: 1.2,
     [networkIdMap.hsk]: 1.2,
   },
 
@@ -502,13 +605,15 @@ const settings: IVaultSettings = {
     [networkIdMap.base]: true,
     [networkIdMap.optimism]: true,
     [networkIdMap.polygon]: true,
-    [networkIdMap.blast]: true,
     [networkIdMap.bob]: true,
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
   },
 
   enabledInternalSignAndVerify: true,
+
+  // ~200 token transfers stay well below the EIP-7825 per-tx gas cap (2^24)
+  bulkSendMaxTransfersPerTx: 200,
 };
 
 export default Object.freeze(settings);

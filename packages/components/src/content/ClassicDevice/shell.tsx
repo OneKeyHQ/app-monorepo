@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Defs, Pattern, Rect, Svg, Image as SvgImage } from 'react-native-svg';
+
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
 import { BakedChrome } from '../deviceSceneHost';
 import { LinearGradient } from '../LinearGradient';
@@ -64,10 +66,15 @@ export const SCREEN_GLASS_H = 152;
 export const SCREEN_SLOT_LEFT = 4;
 export const SCREEN_SLOT_TOP = 12;
 
+const TRANSPARENT_SOURCE = require('@onekeyhq/shared/src/assets/wallet/avatar/Classic1sPureBTC.png');
+
 const NOISE_TILE_SOURCE = require('./noise-tile.png');
 // The model suffix keeps the filename unique: webpack/rspack dev emits
 // assets as bare [name].[ext], where same-named files overwrite each other.
 const SHELL_SOURCE = require('./shell-classic.png');
+// The supplied 300x308 avatar's case occupies (68, 15, 164, 270).
+// Crop its padding at render time so every surface shares the original PNG.
+const TRANSPARENT_ART_SCALE = DEVICE_W / 164;
 const NOISE_TILE_SIZE = 128;
 
 // Tiled through an SVG <Pattern> rather than an Image: RN core's
@@ -113,6 +120,16 @@ const styles = StyleSheet.create({
     width: DEVICE_W,
     height: DEVICE_H,
   },
+  transparentDevice: {
+    overflow: 'hidden',
+  },
+  transparentChrome: {
+    position: 'absolute',
+    left: -68 * TRANSPARENT_ART_SCALE,
+    top: -15 * TRANSPARENT_ART_SCALE,
+    width: 300 * TRANSPARENT_ART_SCALE,
+    height: 308 * TRANSPARENT_ART_SCALE,
+  },
   screenHole: {
     position: 'absolute',
     left: 24,
@@ -129,6 +146,16 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#000',
     overflow: 'hidden',
+  },
+  transparentScreenHole: {
+    left: 20 * TRANSPARENT_ART_SCALE,
+    top: 27 * TRANSPARENT_ART_SCALE,
+  },
+  transparentScreen: {
+    left: 0,
+    top: 0,
+    transformOrigin: 'top left',
+    transform: [{ scale: (128 * TRANSPARENT_ART_SCALE) / SCREEN_GLASS_W }],
   },
   // Powered-on-but-empty panel: a faint luminance field across the whole glass.
   screenGlow: {
@@ -156,6 +183,12 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     padding: 1,
     boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.5)',
+  },
+  transparentButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
   },
   btnFace: {
     width: 58,
@@ -192,6 +225,12 @@ const styles = StyleSheet.create({
   },
 });
 
+const TRANSPARENT_SCREEN_HOLE_STYLE = [
+  styles.screenHole,
+  styles.transparentScreenHole,
+];
+const TRANSPARENT_SCREEN_STYLE = [styles.screen, styles.transparentScreen];
+
 // The gradient wrapper runs style through Tamagui's usePropsAndStyle, which
 // expects a plain object - StyleSheet.absoluteFill is a registered id (a
 // number) on native.
@@ -217,9 +256,11 @@ const OK_ICON = <OkIcon />;
 function DeviceButton({
   press,
   children,
+  transparent,
 }: {
   press: Readonly<SharedValue<number>>;
   children: ReactNode;
+  transparent?: boolean;
 }) {
   // Physical key press, decomposed into light. As `press` goes 0 -> 1: the cap
   // (with its engraving) sinks 1.5pt, the hole lip swallows the crisp top
@@ -265,6 +306,15 @@ function DeviceButton({
     () => [styles.pressShade, lipShadowStyle],
     [lipShadowStyle],
   );
+  if (transparent) {
+    // The orange engravings are already in the artwork; only animate pressure.
+    return (
+      <View style={styles.transparentButton}>
+        <Animated.View pointerEvents="none" style={darkLayerStyle} />
+        <Animated.View pointerEvents="none" style={shadeLayerStyle} />
+      </View>
+    );
+  }
   return (
     // "Button hole": no fill, 1px INSIDE stroke black 50% (an inset ring, so
     // the 58pt face keeps its (1,1) offset - border+padding would double it).
@@ -309,9 +359,11 @@ function DeviceButton({
 const DeviceBody = memo(function DeviceBody({
   animation,
   screenContent,
+  transparent,
 }: {
   animation: IClassicDeviceAnimation;
   screenContent?: ReactNode;
+  transparent: boolean;
 }) {
   // The panel glow and the content share the one presence opacity: "lit"
   // is nothing but content shown.
@@ -329,9 +381,20 @@ const DeviceBody = memo(function DeviceBody({
   );
   return (
     <>
-      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
-      <View style={styles.screenHole}>
-        <View style={styles.screen}>
+      {transparent ? (
+        <Image
+          source={TRANSPARENT_SOURCE}
+          style={styles.transparentChrome}
+          resizeMode="stretch"
+          fadeDuration={0}
+        />
+      ) : (
+        <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
+      )}
+      <View
+        style={transparent ? TRANSPARENT_SCREEN_HOLE_STYLE : styles.screenHole}
+      >
+        <View style={transparent ? TRANSPARENT_SCREEN_STYLE : styles.screen}>
           <Animated.View pointerEvents="none" style={glowLayerStyle} />
           {screenContent ? (
             <Animated.View pointerEvents="none" style={slotLayerStyle}>
@@ -349,16 +412,28 @@ const DeviceBody = memo(function DeviceBody({
       </View>
 
       <View style={styles.buttons}>
-        <DeviceButton press={animation.press?.power ?? PRESS_RELEASED}>
+        <DeviceButton
+          press={animation.press?.power ?? PRESS_RELEASED}
+          transparent={transparent}
+        >
           {POWER_ICON}
         </DeviceButton>
-        <DeviceButton press={animation.press?.up ?? PRESS_RELEASED}>
+        <DeviceButton
+          press={animation.press?.up ?? PRESS_RELEASED}
+          transparent={transparent}
+        >
           {UP_ICON}
         </DeviceButton>
-        <DeviceButton press={animation.press?.down ?? PRESS_RELEASED}>
+        <DeviceButton
+          press={animation.press?.down ?? PRESS_RELEASED}
+          transparent={transparent}
+        >
           {DOWN_ICON}
         </DeviceButton>
-        <DeviceButton press={animation.press?.ok ?? PRESS_RELEASED}>
+        <DeviceButton
+          press={animation.press?.ok ?? PRESS_RELEASED}
+          transparent={transparent}
+        >
           {OK_ICON}
         </DeviceButton>
       </View>
@@ -367,6 +442,8 @@ const DeviceBody = memo(function DeviceBody({
 });
 
 export interface IClassicDeviceShellProps {
+  /** Transparent Classic 1s / Pure finish; omitted, the original Classic shell. */
+  color?: IHardwareDeviceColor;
   /**
    * Rendered width in points. Height follows the fixed 327:539 aspect ratio.
    */
@@ -388,7 +465,9 @@ export function ClassicDeviceShell({
   width = DEVICE_W,
   screenContent,
   animation,
+  color,
 }: IClassicDeviceShellProps) {
+  const transparent = color === 'Transparent';
   const scale = width / DEVICE_W;
   const resolvedAnimation =
     animation ??
@@ -404,8 +483,12 @@ export function ClassicDeviceShell({
   // transformOrigin resolves against layoutMetrics.frame.size, and the default
   // alignItems: 'stretch' would otherwise skew the origin.
   const bodyStyle = useMemo(
-    () => [styles.device, { transform: [{ scale }] }],
-    [scale],
+    () => [
+      styles.device,
+      transparent && styles.transparentDevice,
+      { transform: [{ scale }] },
+    ],
+    [scale, transparent],
   );
   return (
     <View style={frameStyle}>
@@ -413,6 +496,7 @@ export function ClassicDeviceShell({
         <DeviceBody
           animation={resolvedAnimation}
           screenContent={screenContent}
+          transparent={transparent}
         />
       </View>
     </View>

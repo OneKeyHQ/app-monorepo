@@ -19,7 +19,7 @@ import { PERP_USER_FUNDING_HISTORY_LIMIT } from '@onekeyhq/shared/src/consts/per
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
@@ -196,10 +196,10 @@ function FundingHistoryExportAction({
         px="$2"
         py="$1"
         borderRadius="$4"
-        bg="$bgActive"
+        bg="$bgSubdued"
         opacity={!accountAddress ? 0.5 : 1}
-        hoverStyle={isDisabled ? undefined : { bg: '$bgStrongHover' }}
-        pressStyle={isDisabled ? undefined : { bg: '$bgStrongActive' }}
+        hoverStyle={isDisabled ? undefined : { bg: '$bgHover' }}
+        pressStyle={isDisabled ? undefined : { bg: '$bgActive' }}
         accessibilityLabel={actionLabel}
         onPress={isDisabled ? undefined : handleExport}
       >
@@ -288,7 +288,7 @@ function FundingHistoryRow({
   const { delta } = record;
   const date = new Date(record.time);
   const dateInfo = {
-    date: formatTime(date, { formatTemplate: 'yyyy-LL-dd' }),
+    date: formatDate(date, { hideTimeForever: true }),
     time: formatTime(date, { formatTemplate: 'HH:mm:ss' }),
   };
   const market = parseDexCoin(delta.coin).displayName;
@@ -441,7 +441,6 @@ function FundingHistoryRow({
 interface IPerpFundingHistoryListProps {
   isActive?: boolean;
   isMobile?: boolean;
-  useTabsList?: boolean;
   sideFilter?: IFundingHistorySideFilter;
   marketFilter?: string;
   onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
@@ -451,7 +450,6 @@ interface IPerpFundingHistoryListProps {
 function PerpFundingHistoryList({
   isActive = true,
   isMobile,
-  useTabsList,
   sideFilter = 'all',
   marketFilter,
   onMarketOptionsChange,
@@ -590,19 +588,9 @@ function PerpFundingHistoryList({
     </YStack>
   ) : undefined;
 
-  const historyLimitNotice =
-    records.length >= PERP_USER_FUNDING_HISTORY_LIMIT ? (
-      <SizableText size="$bodySm" color="$textSubdued" px="$3" py="$2">
-        {intl.formatMessage({ id: ETranslations.recent })}
-        {` · ${intl.formatNumber(PERP_USER_FUNDING_HISTORY_LIMIT)}`}
-      </SizableText>
-    ) : undefined;
-
   return (
     <YStack flex={1}>
-      {!isMobile ? historyLimitNotice : null}
       <CommonTableListView
-        onPullToRefresh={refresh}
         listViewDebugRenderTrackerProps={useMemo(
           (): IDebugRenderTrackerProps => ({
             name: 'PerpFundingHistoryList',
@@ -610,7 +598,6 @@ function PerpFundingHistoryList({
           }),
           [],
         )}
-        useTabsList={useTabsList}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}
         enablePagination
@@ -619,7 +606,6 @@ function PerpFundingHistoryList({
         columns={columnsConfig}
         minTableWidth={totalMinWidth}
         data={sortedRecords}
-        ListHeaderComponent={isMobile ? historyLimitNotice : undefined}
         isMobile={isMobile}
         renderRow={renderFundingHistoryRow}
         keyExtractor={(record) =>

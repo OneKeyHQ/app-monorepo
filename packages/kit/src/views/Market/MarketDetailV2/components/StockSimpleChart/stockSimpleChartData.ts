@@ -9,7 +9,14 @@ import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marke
 
 import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
 
-export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
+export type IStockSimpleChartRange =
+  | '1H'
+  | '1D'
+  | '1W'
+  | '1M'
+  | '1Y'
+  | '5Y'
+  | 'All';
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
   '1H',
@@ -20,10 +27,40 @@ export const TOKEN_SIMPLE_CHART_RANGES = [
   'All',
 ] as const satisfies readonly IStockSimpleChartRange[];
 
-export const STOCK_SHARE_SIMPLE_CHART_RANGES =
-  TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
+// The share chart's longest period (`all`) serves five years, so it is
+// labelled for what it draws rather than as the full history.
+export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
+  '5Y',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+/**
+ * Keeps a range picked in one price mode valid in the other. Each mode ends on
+ * its own longest window (share 5Y, token All), so switching from one carries
+ * over to the other instead of leaving no button selected.
+ */
+export function resolveStockSimpleChartRangeForPriceMode({
+  priceMode,
+  range,
+}: {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IStockSimpleChartRange {
+  if (priceMode === 'share' && range === 'All') {
+    return '5Y';
+  }
+  if (priceMode === 'token' && range === '5Y') {
+    return 'All';
+  }
+  return range;
+}
 
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+const STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 // The previous session close frames the within-day ranges. On longer ranges
 // it is one of the many closes already on the line, so it stays off.
@@ -69,6 +106,178 @@ export function resolveStockSimpleChartPulseLastPoint({
   return (
     stockDetail?.marketStatus?.isOpen === true || tokenStock?.isOpen === true
   );
+}
+
+export type IStockSimpleChartRangeChange = {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  baseline: number;
+  latest: number;
+};
+
+/**
+ * The range move shown beside the title quote. A share uses that quote even
+ * when newer extended-hours candles keep it off the line's tail.
+ * A share's 1D starts at the previous session close, as broker quotes do: the
+ * feed opens in pre-market, so its first point is not "today's" reference.
+ * Every other range, and every tokenized price, starts at its first point.
+ */
+export function resolveStockSimpleChartRangeChange({
+  points,
+  previousClose,
+  priceMode,
+  range,
+  sharePrice,
+}: {
+  points: IMarketTokenChart;
+  previousClose?: number;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  sharePrice?: string;
+}): IStockSimpleChartRangeChange | undefined {
+  const latest =
+    priceMode === 'share' ? Number(sharePrice) : points.at(-1)?.[1];
+  const baseline =
+    priceMode === 'share' && range === '1D' && previousClose !== undefined
+      ? previousClose
+      : points[0]?.[1];
+  if (
+    latest === undefined ||
+    baseline === undefined ||
+    !Number.isFinite(latest) ||
+    (priceMode === 'share' && latest <= 0) ||
+    !Number.isFinite(baseline) ||
+    baseline <= 0
+  ) {
+    return undefined;
+  }
+  return { priceMode, range, baseline, latest };
+}
+
+// Ties read as up, so a flat range keeps the chart's default green.
+export function isStockSimpleChartRangeUp(
+  change: IStockSimpleChartRangeChange,
+): boolean {
+  return change.latest >= change.baseline;
+}
+
+/**
+ * One interval for every range, on purpose. `usePromiseResult` treats a changed
+ * `pollingInterval` as a timer retune: it withholds the dependency-triggered run
+ * for the full new duration, so a range switch would sit on the previous
+ * range's line for minutes. Per-range pacing is applied inside the request
+ * instead, via `resolveStockSimpleChartMinRefreshMs`.
+ */
+export const STOCK_SIMPLE_CHART_POLLING_MS = 30_000;
+
+// The line only gains a point when a bucket closes, so each range reloads at
+// roughly its own bucket rate: reloading a year of daily buckets every 30s would
+// redraw the same line. The quote pinned to the tail is kept live separately, so
+// these floors only pace how the drawn history catches up.
+const STOCK_SIMPLE_CHART_MIN_REFRESH_MS: Record<
+  IStockSimpleChartRange,
+  number
+> = {
+  '1H': 30_000,
+  '1D': 60_000,
+  '1W': 300_000,
+  '1M': 300_000,
+  '1Y': 600_000,
+  '5Y': 600_000,
+  All: 600_000,
+};
+
+/**
+ * Whether a finished request may publish its series as the fallback that the
+ * paced polls and the failure path read back. Refreshes of one scope can overlap
+ * and answer out of order, so an older response must not restore an older line
+ * over a newer one; a response whose scope the user has already left must not
+ * write at all.
+ */
+export function shouldStoreStockSimpleChartSeries({
+  currentScopeKey,
+  requestScopeKey,
+  requestSeq,
+  storedSeq,
+}: {
+  currentScopeKey: string;
+  requestScopeKey: string;
+  requestSeq: number;
+  storedSeq: number | undefined;
+}): boolean {
+  return currentScopeKey === requestScopeKey && requestSeq > (storedSeq ?? 0);
+}
+
+export function resolveStockSimpleChartMinRefreshMs({
+  range,
+}: {
+  range: IStockSimpleChartRange;
+}): number {
+  return STOCK_SIMPLE_CHART_MIN_REFRESH_MS[range];
+}
+
+/**
+ * Identifies which asset and window a fetched series belongs to, so a refresh
+ * that fails can be told apart from one whose scope changed underneath it.
+ */
+export function buildStockSimpleChartScopeKey({
+  coinGeckoId,
+  marketAssetId,
+  networkId,
+  priceMode,
+  range,
+  stockId,
+  tokenAddress,
+}: {
+  coinGeckoId?: string;
+  marketAssetId?: string;
+  networkId: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockId?: string;
+  tokenAddress: string;
+}): string {
+  return [
+    priceMode,
+    range,
+    networkId,
+    tokenAddress,
+    stockId ?? '',
+    marketAssetId ?? '',
+    coinGeckoId ?? '',
+  ].join('|');
+}
+
+export function buildStockSimpleChartAssetKey({
+  coinGeckoId,
+  marketAssetId,
+  networkId,
+  priceMode,
+  stockId,
+  tokenAddress,
+}: Omit<Parameters<typeof buildStockSimpleChartScopeKey>[0], 'range'>): string {
+  return [
+    priceMode,
+    networkId,
+    tokenAddress,
+    stockId ?? '',
+    marketAssetId ?? '',
+    coinGeckoId ?? '',
+  ].join('|');
+}
+
+export function resolveStockSimpleChartLivePrice({
+  priceMode,
+  stockDetail,
+  tokenDetail,
+}: {
+  priceMode: 'share' | 'token';
+  stockDetail?: { price?: string } | null;
+  tokenDetail?: { price?: string } | null;
+}): string | undefined {
+  const rawPrice =
+    priceMode === 'share' ? stockDetail?.price : tokenDetail?.price;
+  return rawPrice?.trim() || undefined;
 }
 
 type IStockSimpleChartRequestParams = {
@@ -125,7 +334,8 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   '1D': 24 * 60 * 60,
   '1W': 7 * 24 * 60 * 60,
   '1M': STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS,
-  '1Y': 365 * 24 * 60 * 60,
+  '1Y': STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS,
+  '5Y': 5 * STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS,
   All: undefined,
 };
 
@@ -138,6 +348,7 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1W': '1H',
   '1M': '4H',
   '1Y': '1D',
+  '5Y': '1W',
   All: '1W',
 };
 
@@ -154,6 +365,150 @@ const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1D': '5m',
 };
 
+export function resolveStockSimpleChartBucketSeconds({
+  coinGeckoId,
+  marketAssetId,
+  priceMode,
+  range,
+}: {
+  coinGeckoId?: string;
+  marketAssetId?: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): number | undefined {
+  if (priceMode === 'share') {
+    return undefined;
+  }
+  if (marketAssetId) {
+    return getMarketApiKLineIntervalSeconds(
+      MARKET_ASSET_CHART_INTERVALS[range],
+    );
+  }
+  if (coinGeckoId || range === 'All') {
+    return undefined;
+  }
+  return getMarketApiKLineIntervalSeconds(STOCK_TOKEN_CHART_INTERVALS[range]);
+}
+
+/**
+ * A regular-session quote may be older than extended-hours candles. Compare
+ * against the raw last bucket's start before any live-tail clipping.
+ */
+export function shouldMergeStockSimpleChartLivePrice({
+  points,
+  priceMode,
+  priceUpdatedAt,
+}: {
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+  priceUpdatedAt?: string;
+}): boolean {
+  if (priceMode === 'token') {
+    return true;
+  }
+  const lastTimestamp = points.at(-1)?.[0];
+  return (
+    lastTimestamp !== undefined &&
+    Date.parse(priceUpdatedAt ?? '') / 1000 >= lastTimestamp
+  );
+}
+
+function shouldDropLiveMergeTailPoint({
+  intervalSeconds,
+  nowSeconds,
+  timestamp,
+}: {
+  intervalSeconds?: number;
+  nowSeconds: number;
+  timestamp: number;
+}): boolean {
+  if (timestamp > nowSeconds) {
+    return true;
+  }
+  return Boolean(
+    intervalSeconds &&
+    intervalSeconds > 0 &&
+    timestamp + intervalSeconds > nowSeconds,
+  );
+}
+
+/**
+ * Pins the line's last displayed price to the title quote without rewriting a
+ * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
+ * clock-ahead) bucket is dropped and replaced by a single `[now, livePrice]`
+ * point. The live tail is always appended so the last label matches the title,
+ * including pre-market / stale 1H windows.
+ */
+export function mergeStockSimpleChartLivePrice({
+  intervalSeconds,
+  livePrice,
+  nowSeconds,
+  points,
+}: {
+  intervalSeconds?: number;
+  livePrice?: string | number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+}): IMarketTokenChart {
+  const price = Number(livePrice);
+  if (
+    points.length === 0 ||
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    !Number.isFinite(nowSeconds)
+  ) {
+    return points;
+  }
+
+  let keptLength = points.length;
+  while (
+    keptLength > 0 &&
+    shouldDropLiveMergeTailPoint({
+      intervalSeconds,
+      nowSeconds,
+      timestamp: points[keptLength - 1][0],
+    })
+  ) {
+    keptLength -= 1;
+  }
+  if (keptLength === 0) {
+    return [[nowSeconds, price]];
+  }
+  const historical =
+    keptLength === points.length ? points : points.slice(0, keptLength);
+
+  const lastClosedTimestamp = historical[historical.length - 1][0];
+  if (nowSeconds === lastClosedTimestamp) {
+    return [...historical.slice(0, -1), [nowSeconds, price]];
+  }
+
+  return [...historical, [nowSeconds, price]];
+}
+
+/**
+ * The backend owns the share chart's period and last-session fallback. Do not
+ * clip it against the client clock: overnight isOpen can be true without new
+ * share prices, so a second time filter would discard valid history.
+ */
+export function resolveStockSimpleChartDisplayPoints({
+  intervalSeconds,
+  livePrice,
+  nowSeconds,
+  points,
+}: {
+  intervalSeconds?: number;
+  livePrice?: string | number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+}): IMarketTokenChart {
+  return mergeStockSimpleChartLivePrice({
+    intervalSeconds,
+    livePrice,
+    nowSeconds,
+    points,
+  });
+}
+
 // Five minutes short of a day, to stay on the 5m series. The chart loses its
 // oldest bucket, which reads the same at this scale as a full day.
 const MARKET_ASSET_SUB_DAY_WINDOW_SECONDS = 24 * 60 * 60 - 5 * 60;
@@ -164,6 +519,7 @@ const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
   '1W': '7',
   '1M': '30',
   '1Y': '365',
+  '5Y': '1825',
   All: 'max',
 };
 
@@ -176,6 +532,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1W': '1w',
   '1M': '1m',
   '1Y': '1y',
+  '5Y': 'all',
   All: 'all',
 };
 

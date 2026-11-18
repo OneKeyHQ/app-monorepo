@@ -1,13 +1,18 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
+import { MarketTestIDs } from '../../testIDs';
 
-import { MarketBannerList, MarketBannerProvider } from './MarketBannerList';
+import {
+  MarketBannerLayout,
+  MarketBannerList,
+  MarketBannerProvider,
+} from './MarketBannerList';
 
 import type { useMarketBannerList } from './useMarketBannerList';
 
@@ -20,8 +25,26 @@ jest.mock('./useToMarketBannerDetail', () => ({
   useToMarketBannerDetail: () => jest.fn(),
 }));
 jest.mock('./MarketBannerItem', () => ({
-  MarketBannerItem: ({ item }: { item: { _id: string } }) => (
-    <div data-testid="banner">{item._id}</div>
+  MarketBannerItem: ({
+    item,
+    divided,
+  }: {
+    item: { _id: string };
+    divided?: boolean;
+  }) => (
+    <div data-testid="banner" data-divided={String(divided)}>
+      {item._id}
+    </div>
+  ),
+}));
+jest.mock('./MarketBannerDesktopScroller', () => ({
+  MarketBannerDesktopScroller: ({
+    children,
+    divided,
+  }: PropsWithChildren<{ divided: boolean }>) => (
+    <div data-testid="desktop-web-scroller" data-divided={String(divided)}>
+      <div data-testid="market-banner-scroll-view">{children}</div>
+    </div>
   ),
 }));
 jest.mock('./MarketBannerItemSkeleton', () => ({
@@ -31,28 +54,44 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true },
 }));
-jest.mock('@onekeyhq/components', () => ({
-  ScrollGuard: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  ScrollView: ({
-    children,
-    opacity,
-    h,
-  }: PropsWithChildren<{ opacity?: number; h?: number }>) => (
-    <div
-      data-testid="mobile-banner-container"
-      data-height={h}
-      aria-hidden={opacity === 0 ? true : undefined}
-    >
-      {children}
-    </div>
-  ),
-  XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
-    <div data-testid="reserved-space" data-padding-top={pt}>
-      {children}
-    </div>
-  ),
-  useMedia: () => ({ md: mockIsSmallScreen }),
-}));
+jest.mock('@onekeyhq/components', () => {
+  const { forwardRef } = jest.requireActual<typeof import('react')>('react');
+  return {
+    s: (value: number) => value,
+    ScrollGuard: ({ children }: PropsWithChildren) => <div>{children}</div>,
+    ScrollView: ({
+      children,
+      opacity,
+      h,
+    }: PropsWithChildren<{ opacity?: number; h?: number }>) => (
+      <div
+        data-testid="mobile-banner-container"
+        data-height={h}
+        aria-hidden={opacity === 0 ? true : undefined}
+      >
+        {children}
+      </div>
+    ),
+    XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
+      <div data-testid="reserved-space" data-padding-top={pt}>
+        {children}
+      </div>
+    ),
+    YStack: forwardRef<
+      HTMLDivElement,
+      PropsWithChildren<{
+        opacity?: number;
+        top?: number;
+        'aria-hidden'?: boolean;
+      }>
+    >(({ children, opacity, top, 'aria-hidden': ariaHidden }, ref) => (
+      <div ref={ref} style={{ opacity, top }} aria-hidden={ariaHidden}>
+        {children}
+      </div>
+    )),
+    useMedia: () => ({ md: mockIsSmallScreen }),
+  };
+});
 
 function Page() {
   return (
@@ -75,12 +114,204 @@ beforeEach(() => {
   platformEnv.isNative = true;
 });
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 it('keeps native tablet banner padding aligned with the fixed header height', () => {
   mockIsSmallScreen = false;
   mockState = populated();
   render(<Page />);
-  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$2');
+  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$4');
 });
+
+it('divides desktop web banners only when every card has token previews', () => {
+  platformEnv.isNative = false;
+  mockIsSmallScreen = false;
+  mockState = populated('legacy');
+  const { rerender } = render(<Page />);
+  const scroller = () => screen.getByTestId('desktop-web-scroller');
+  expect(scroller().dataset.divided).toBe('false');
+  mockState = {
+    ...populated(),
+    bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
+  };
+  rerender(<Page />);
+  expect(scroller().dataset.divided).toBe('true');
+  mockState = {
+    ...mockState,
+    bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
+  };
+  rerender(<Page />);
+  expect(scroller().dataset.divided).toBe('false');
+  // The cards follow the same decision, so a mixed row never mixes layouts.
+  expect(
+    screen.getAllByTestId('banner').map((node) => node.dataset.divided),
+  ).toEqual(['false', 'false']);
+});
+
+it('keeps the desktop scroll host when initial placeholders become cards', () => {
+  platformEnv.isNative = false;
+  mockIsSmallScreen = false;
+  mockState = {
+    bannerList: [],
+    isLoading: true,
+    isFetched: false,
+    scope: 'en-US:false',
+  };
+  const { rerender } = render(<Page />);
+  const host = screen.getByTestId('desktop-web-scroller');
+  expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+
+  mockState = populated();
+  rerender(<Page />);
+
+  expect(screen.getByTestId('desktop-web-scroller')).toBe(host);
+  expect(screen.queryByTestId('skeleton')).toBeNull();
+  expect(screen.getByTestId('banner')).toBeTruthy();
+});
+
+it.each([0, 690])(
+  'keeps the banner aligned until pager insets are ready on entry and refocus (scrollLeft=%s)',
+  async (scrollLeft) => {
+    const frameApi: {
+      requestAnimationFrame: (callback: FrameRequestCallback) => number;
+      cancelAnimationFrame: (id: number) => void;
+    } = globalThis;
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    jest
+      .spyOn(frameApi, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        frameId += 1;
+        frames.set(frameId, callback);
+        return frameId;
+      });
+    jest
+      .spyOn(frameApi, 'cancelAnimationFrame')
+      .mockImplementation((id: number) => {
+        frames.delete(id);
+      });
+    const paintFrame = () => {
+      const pending = [...frames.values()];
+      frames.clear();
+      act(() => pending.forEach((callback) => callback(0)));
+    };
+    platformEnv.isNative = false;
+    mockIsSmallScreen = false;
+    mockState = {
+      ...populated(),
+      bannerList: [],
+      isLoading: true,
+      isFetched: false,
+    };
+    const stackMethods = {
+      measure: jest.fn(),
+      measureInWindow: jest.fn(),
+      measureLayout: jest.fn(),
+    };
+    const header = Object.assign(document.createElement('div'), stackMethods);
+    const stickyHeader = Object.assign(
+      document.createElement('div'),
+      stackMethods,
+    );
+    const headerRect = {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 400,
+      bottom: 224,
+      width: 400,
+      height: 224,
+      toJSON: jest.fn(),
+    };
+    const measureHeader = jest
+      .spyOn(header, 'getBoundingClientRect')
+      .mockReturnValue(headerRect);
+    jest
+      .spyOn(stickyHeader, 'getBoundingClientRect')
+      .mockReturnValue({ ...headerRect, height: 108, bottom: 108 });
+    const page = (active: boolean) => (
+      <MarketBannerProvider>
+        <MarketBannerLayout
+          headerRef={{ current: header }}
+          stickyHeaderRef={{ current: stickyHeader }}
+          active={active}
+        >
+          <div data-testid="pager" data-collapsible-pager-active="true">
+            <div data-testid={MarketTestIDs.bannerScrollView} />
+            Table
+          </div>
+        </MarketBannerLayout>
+      </MarketBannerProvider>
+    );
+    const { rerender } = render(page(true));
+    const pager = screen.getByTestId('pager');
+    expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+    expect(pager.closest('[aria-hidden="true"]')).toBeTruthy();
+
+    await act(async () => {
+      pager.style.setProperty('--ok-collapsible-pager-header-inset', '224px');
+      pager.style.setProperty('--ok-collapsible-pager-sticky-inset', '0px');
+    });
+    expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+    expect(pager.closest('[aria-hidden="true"]')).toBeTruthy();
+
+    await act(async () => {
+      pager.style.setProperty('--ok-collapsible-pager-sticky-inset', '108px');
+    });
+    expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+    expect(pager.closest('[aria-hidden="true"]')).toBeNull();
+    paintFrame();
+    expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+    paintFrame();
+    expect(screen.queryByTestId('skeleton')).toBeNull();
+
+    mockState = populated();
+    const scrollHost = within(pager).getByTestId(
+      MarketTestIDs.bannerScrollView,
+    );
+    scrollHost.scrollLeft = scrollLeft;
+    const expectAlignedCover = () => {
+      const cover = screen
+        .getAllByTestId(MarketTestIDs.bannerScrollView)
+        .find((element) => element !== scrollHost);
+      expect(cover?.scrollLeft).toBe(scrollLeft);
+      expect(scrollHost.scrollLeft).toBe(scrollLeft);
+    };
+    measureHeader.mockReturnValue({ ...headerRect, top: -224 });
+    rerender(page(false));
+    expectAlignedCover();
+    pager.style.removeProperty('--ok-collapsible-pager-header-inset');
+    pager.style.removeProperty('--ok-collapsible-pager-sticky-inset');
+    rerender(page(true));
+    expectAlignedCover();
+    expect(screen.queryByTestId('skeleton')).toBeNull();
+    expect(screen.getByTestId('banner')).toBeTruthy();
+    expect(
+      screen
+        .getByTestId('banner')
+        .closest('[aria-hidden="true"]')
+        ?.getAttribute('style'),
+    ).toContain('top: -224px');
+    expect(pager.closest('[aria-hidden="true"]')).toBeTruthy();
+
+    await act(async () => {
+      pager.style.setProperty('--ok-collapsible-pager-header-inset', '224px');
+      pager.style.setProperty('--ok-collapsible-pager-sticky-inset', '108px');
+    });
+    expect(pager.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByTestId('banner')).toBeTruthy();
+    expectAlignedCover();
+    paintFrame();
+    expect(screen.getByTestId('banner')).toBeTruthy();
+    expectAlignedCover();
+    paintFrame();
+    expect(screen.queryByTestId('banner')).toBeNull();
+    expect(scrollHost.scrollLeft).toBe(scrollLeft);
+  },
+);
 
 it('does not insert a banner after the native page has started without one', () => {
   mockState = {
@@ -170,28 +401,28 @@ it.each([true, false])(
         String(height),
       );
     };
-    expectHeight(134);
+    expectHeight(150);
     mockState = {
       ...populated(),
       bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(212);
     mockState = {
       ...mockState,
       bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(212);
     if (native) {
       mockState = { ...mockState, bannerList: [] };
       rerender(<Page />);
       expect(screen.getByTestId('mobile-banner-container').dataset.height).toBe(
-        '204',
+        '212',
       );
     }
     mockState = populated('legacy');
     rerender(<Page />);
-    expectHeight(134);
+    expectHeight(150);
   },
 );

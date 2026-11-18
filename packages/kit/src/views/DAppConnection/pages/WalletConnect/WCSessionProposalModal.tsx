@@ -8,6 +8,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
@@ -26,6 +27,7 @@ import type {
   IHandleAccountChangedParams,
 } from '../../hooks/useHandleAccountChanged';
 import type { WalletKitTypes } from '@reown/walletkit';
+import type { Verify } from '@walletconnect/types';
 
 function SessionProposalModal() {
   const { serviceWalletConnect } = backgroundApiProxy;
@@ -38,7 +40,24 @@ function SessionProposalModal() {
     closeWindowAfterResolved: true,
   });
   const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
-  const favicon = proposal.params.proposer.metadata.icons[0];
+  const verifiedOrigin = uriUtils.safeGetWalletConnectVerifiedOrigin({
+    verifyContext: proposal.verifyContext,
+    claimedOrigin: origin,
+  });
+  const verifyContext = useMemo<Verify.Context>(() => {
+    let validation = proposal.verifyContext?.verified?.validation ?? 'UNKNOWN';
+    if (!verifiedOrigin && validation !== 'INVALID') {
+      validation = 'UNKNOWN';
+    }
+    return {
+      verified: {
+        ...proposal.verifyContext?.verified,
+        verifyUrl: proposal.verifyContext?.verified?.verifyUrl ?? '',
+        origin: verifiedOrigin ?? '',
+        validation,
+      },
+    };
+  }, [proposal.verifyContext, verifiedOrigin]);
   const {
     showContinueOperate,
     continueOperate,
@@ -46,8 +65,8 @@ function SessionProposalModal() {
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({
-    origin: origin ?? '',
-    walletConnectVerifyContext: proposal.verifyContext,
+    origin: verifiedOrigin ?? origin ?? '',
+    walletConnectVerifyContext: verifyContext,
   });
 
   const { result: sessionAccountsInfo } = usePromiseResult(
@@ -88,6 +107,25 @@ function SessionProposalModal() {
           title: 'Please select all accounts',
         });
         return;
+      }
+      // Same gate as the injected-provider ConnectionModal: never attach a
+      // WalletConnect session to an HD wallet that has not been backed up
+      // (OK-63750). Check each distinct wallet once; the first un-backed-up
+      // wallet shows the backup dialog and keeps the proposal pending.
+      const walletIdsToCheck = new Set<string>();
+      for (const { activeAccount } of accountChangedParamsValues) {
+        if (activeAccount.wallet?.id) {
+          walletIdsToCheck.add(activeAccount.wallet.id);
+        }
+      }
+      for (const walletId of walletIdsToCheck) {
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+            walletId,
+          })
+        ) {
+          return;
+        }
       }
       const accountsInfo = [];
       for (const accountChangedParams of accountChangedParamsValues) {
@@ -172,13 +210,25 @@ function SessionProposalModal() {
               id: ETranslations.dapp_connect_connection_request,
             })}
             subtitleShown={false}
-            origin={origin ?? ''}
-            urlSecurityInfo={urlSecurityInfo}
-            favicon={favicon}
+            origin={verifiedOrigin ?? ''}
+            urlSecurityInfo={
+              urlSecurityInfo &&
+              (verifyContext.verified.validation === 'INVALID' ||
+                verifyContext.verified.isScam)
+                ? {
+                    ...urlSecurityInfo,
+                    alert: intl.formatMessage({
+                      id: ETranslations.dapp_connect_suspected_malicious_behavior,
+                    }),
+                  }
+                : urlSecurityInfo
+            }
           >
             {Array.isArray(sessionAccountsInfo) ? (
               <WalletConnectAccountTriggerList
-                sceneUrl={origin ?? ''}
+                sceneUrl={accountSelectorUtils.buildWalletConnectSceneUrl({
+                  proposalId: proposal.id,
+                })}
                 sessionAccountsInfo={sessionAccountsInfo}
                 handleAccountChanged={handleAccountChanged}
               />

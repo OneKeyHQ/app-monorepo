@@ -35,6 +35,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { PerpTestIDs } from '../../../testIDs';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
+import { PerpsPartialAccountValueWarning } from '../../TradingPanel/components/PerpsAccountNumberValue';
 import { BalanceRow } from '../Components/BalanceRow';
 import { HideSmallSpotHoldingsCheckbox } from '../Components/HideSmallSpotHoldingsCheckbox';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
@@ -86,7 +87,6 @@ const ZERO_USDC_BALANCES = [ZERO_USDC_BALANCE];
 
 interface ISpotBalanceListProps {
   isMobile?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
   ListHeaderComponent?: ReactElement | null;
 }
@@ -101,7 +101,6 @@ function getBalanceSortPriority(item: IBalanceDisplayItem): number {
 
 function SpotBalanceList({
   isMobile,
-  useTabsList,
   disableListScroll,
   ListHeaderComponent,
 }: ISpotBalanceListProps) {
@@ -388,14 +387,19 @@ function SpotBalanceList({
             <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
             </SizableText>
-            <NumberSizeableText
-              size="$heading2xl"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-              numberOfLines={1}
-            >
-              {accountValue}
-            </NumberSizeableText>
+            <XStack alignItems="center" gap="$2">
+              <NumberSizeableText
+                size="$heading2xl"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+                numberOfLines={1}
+              >
+                {accountValue}
+              </NumberSizeableText>
+              {computedValue.isAccountValuePartial ? (
+                <PerpsPartialAccountValueWarning />
+              ) : null}
+            </XStack>
             <XStack gap="$1" alignItems="center">
               <SizableText size="$bodyXs" color="$textSubdued">
                 {intl.formatMessage({
@@ -448,6 +452,7 @@ function SpotBalanceList({
     ListHeaderComponent,
     canDeposit,
     computedValue.accountValue,
+    computedValue.isAccountValuePartial,
     computedValue.withdrawable,
     intl,
     isMobile,
@@ -474,9 +479,6 @@ function SpotBalanceList({
 
   return (
     <CommonTableListView
-      onPullToRefresh={async () => {
-        await actions.current.refreshAllPerpsData();
-      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'SpotBalanceList',
@@ -484,7 +486,6 @@ function SpotBalanceList({
         }),
         [],
       )}
-      useTabsList={useTabsList}
       disableListScroll={disableListScroll}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

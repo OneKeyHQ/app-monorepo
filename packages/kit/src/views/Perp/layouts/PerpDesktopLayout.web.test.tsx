@@ -140,6 +140,7 @@ jest.mock('../components/TickerBar/PerpTickerBar', () => ({
 jest.mock('../components/TradingPanel/panels/PerpAccountPanel', () => ({
   PerpAccountDebugInfo: () => null,
   PerpAccountPanel: () => <div>Account</div>,
+  PerpAccountPanelTitle: () => <div>Account Overview</div>,
 }));
 jest.mock('../components/TradingPanel/PerpTradingPanel', () => ({
   PerpTradingPanel: () => <div>Trading</div>,

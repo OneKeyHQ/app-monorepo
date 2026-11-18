@@ -97,8 +97,32 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
+const DEFAULT_PLATFORM_NAME = 'Unknown';
+// Android displayName is the user-editable device name. OkHttp (expo/fetch,
+// SNI, expo-file-system uploads) throws on header values outside tab and
+// printable ASCII.
+const UNSAFE_HEADER_VALUE_RE = /[^\t\x20-\x7E]/;
+let platformNameHeaderValuePromise: Promise<string> | undefined;
+
+function getPlatformNameHeaderValue(): Promise<string> {
+  platformNameHeaderValuePromise ??= Promise.resolve()
+    .then(() => appDeviceInfo.getDeviceInfo())
+    .then((deviceInfo) => {
+      const name = deviceInfo.displayName || DEFAULT_PLATFORM_NAME;
+      if (!platformEnv.isNativeAndroid || !UNSAFE_HEADER_VALUE_RE.test(name)) {
+        return name;
+      }
+      const model = deviceInfo.device.model || DEFAULT_PLATFORM_NAME;
+      return UNSAFE_HEADER_VALUE_RE.test(model)
+        ? encodeURIComponent(model)
+        : model;
+    })
+    .catch(() => DEFAULT_PLATFORM_NAME);
+  return platformNameHeaderValuePromise;
+}
+
 export async function getRequestHeaders() {
-  const appDeviceInfoData = await appDeviceInfo.getDeviceInfo();
+  const platformNameHeaderValue = await getPlatformNameHeaderValue();
   const settings: ISettingsPersistAtom =
     await requestHelper.getSettingsPersistAtom();
   const valueSettings: ISettingsValuePersistAtom =
@@ -122,7 +146,7 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:
-      appDeviceInfoData.displayName || 'Unknown',
+      platformNameHeaderValue,
     [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:
       platformEnv.appFullName,
     [normalizeHeaderKey('X-Onekey-Request-Version')]:

@@ -15,6 +15,7 @@ import {
   PixelRatio,
   Platform,
   Image as ReactNativeImage,
+  type StyleProp,
   StyleSheet,
   View,
   type ViewProps,
@@ -181,7 +182,11 @@ function normalizeSource(
   return (candidate as ImageURISource | undefined) ?? null;
 }
 
-export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+export function ImageV2({
+  style: defaultStyle,
+  round,
+  ...props
+}: IImageV2Props) {
   const theme = useTheme();
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
@@ -206,7 +211,10 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const style = useMemo(() => {
     return defaultStyle
-      ? (StyleSheet.flatten([defaultStyle, restStyle]) as typeof restStyle)
+      ? (StyleSheet.flatten([
+          defaultStyle,
+          restStyle,
+        ] as StyleProp<ImageStyle>) as typeof restStyle)
       : restStyle;
   }, [defaultStyle, restStyle]);
 
@@ -224,7 +232,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     resizeMode,
     contentFit,
     cachePolicy,
-    loadingStrategy = 'static',
+    loadingStrategy = 'none',
     recyclingKey,
     retryTimes = 1,
     canRetry = true,
@@ -345,6 +353,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       placeholderColor={theme.bgStrong.val}
       recyclingKey={effectiveRecyclingKey}
       autoplay={autoplay}
+      round={round}
       optimizeTos={!hasCustomSourceIdentity(rawSource)}
       loadingStrategy={LOADING_STRATEGIES[loadingStrategy]}
       onError={handleError}

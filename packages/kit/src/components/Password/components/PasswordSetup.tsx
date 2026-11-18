@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
@@ -51,10 +51,25 @@ const useHandleEnterKey = platformEnv.isNative
   : (onSubmitCallback: () => void) => {
       const handleKeyPress = useCallback(
         (event: KeyboardEvent) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmitCallback();
+          if (event.key !== 'Enter' || event.isComposing) {
+            return;
           }
+          // A focused button or link already turns Enter into its own click.
+          // Handling the key here as well ran the submit twice, which set the
+          // password (or advanced the passcode step) twice for one key press.
+          // Guard the DOM check itself: React Native has no HTMLElement global,
+          // and evaluating `instanceof HTMLElement` there throws a ReferenceError
+          // instead of returning false.
+          const target = event.target;
+          if (
+            typeof HTMLElement !== 'undefined' &&
+            target instanceof HTMLElement &&
+            target.closest('button, a, [role="button"], [role="link"]')
+          ) {
+            return;
+          }
+          event.preventDefault();
+          onSubmitCallback();
         },
         [onSubmitCallback],
       );
@@ -111,12 +126,15 @@ const PasswordSetup = ({
   }, [confirmBtnText, intl, passCodeFirstStep]);
   const onPassCodeNext = useCallback(async () => {
     setPassCodeConfirm(true);
+    // Report the step before any awaits so a page-level heading switches in the
+    // same frame as the in-form one, instead of trailing the Android keyboard
+    // dismissal by 150ms.
+    onStepChange?.('confirm');
     // Fix Android keyboard not appearing: dismiss keyboard before switching to confirm step,
     // then manually setFocus after a delay to ensure the keyboard pops up correctly.
     if (platformEnv.isNativeAndroid) {
       await dismissKeyboardWithDelay(150);
     }
-    onStepChange?.('confirm');
     await timerUtils.wait(150);
     form.setFocus('confirmPassCode');
   }, [form, onStepChange]);
@@ -129,10 +147,22 @@ const PasswordSetup = ({
     }, 200);
   }, [form]);
 
-  const handleSubmit = useCallback(() => {
-    void form.handleSubmit(
-      passCodeFirstStep ? onPassCodeNext : onSetupPassword,
-    )();
+  // The Enter shortcut and the primary button share this handler, and one key
+  // press can reach both (keypress + the button's own activation). Keep a
+  // synchronous lock so the gesture runs the submit once.
+  const submitLockRef = useRef(false);
+  const handleSubmit = useCallback(async () => {
+    if (submitLockRef.current) {
+      return;
+    }
+    submitLockRef.current = true;
+    try {
+      await form.handleSubmit(
+        passCodeFirstStep ? onPassCodeNext : onSetupPassword,
+      )();
+    } finally {
+      submitLockRef.current = false;
+    }
   }, [form, passCodeFirstStep, onPassCodeNext, onSetupPassword]);
 
   useHandleEnterKey(handleSubmit);

@@ -92,13 +92,37 @@ jest.mock('@onekeyhq/components', () => {
     );
   }
 
+  function MockIconButton({
+    testID,
+    accessibilityLabel,
+    onPress,
+  }: {
+    testID?: string;
+    accessibilityLabel?: string;
+    onPress?: () => void;
+  }) {
+    return React.createElement('button', {
+      type: 'button',
+      'data-testid': testID,
+      'aria-label': accessibilityLabel,
+      onClick: onPress,
+    });
+  }
+
   return {
+    IconButton: MockIconButton,
     ScrollView: MockScrollView,
     SizableText: MockText,
     Stack: MockStack,
     XStack: MockStack,
   };
 });
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
 
 jest.mock(
   '../../../TradingViewChartControls/indicatorSelector/NativeIndicatorSelector',
@@ -160,6 +184,36 @@ describe('TradingView native indicator quick bar', () => {
     expect(subSection.getAttribute('data-scrollable')).toBe('true');
     expect(divider.parentElement).toBe(mainSection.parentElement);
     expect(divider.parentElement).toBe(subSection.parentElement);
+  });
+
+  it('opens the indicators dialog from the trailing quick bar trigger', () => {
+    const onIndicatorsDialogPress = jest.fn();
+    const { rerender } = render(
+      <TradingViewNativeIndicatorQuickBar
+        nativeChartControlsConfig={nativeChartControlsConfig}
+        nativeIndicatorState={createNativeIndicatorState()}
+        splitSections
+        onIndicatorSelect={jest.fn()}
+        onIndicatorsDialogPress={onIndicatorsDialogPress}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByTestId('trading-view-native-indicators-quick-bar-trigger'),
+    );
+    expect(onIndicatorsDialogPress).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <TradingViewNativeIndicatorQuickBar
+        nativeChartControlsConfig={nativeChartControlsConfig}
+        nativeIndicatorState={createNativeIndicatorState()}
+        splitSections
+        onIndicatorSelect={jest.fn()}
+      />,
+    );
+    expect(
+      screen.queryByTestId('trading-view-native-indicators-quick-bar-trigger'),
+    ).toBeNull();
   });
 
   it('bridges vertical movement without rerouting a horizontal gesture', () => {

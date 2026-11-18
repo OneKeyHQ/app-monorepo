@@ -1,10 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Anchor,
+  Icon,
   Image,
   Page,
   ScrollView,
@@ -32,6 +35,7 @@ import {
   LayoutHeaderBack,
   LayoutHeaderLanguageSelector,
   LayoutHeaderTitle,
+  OnboardingNativeHeaderBack,
 } from '../components/Layout';
 import { showLegacyDevicesDialog } from '../components/LegacyDevicesDialog';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
@@ -48,7 +52,7 @@ export default function PickYourDevice() {
   const DEVICES = useMemo<
     Array<{
       name: string;
-      tags?: string[];
+      tags?: Array<{ label: string; icon?: IKeyOfIcons }>;
       deviceType: EDeviceType[];
       image: ReturnType<typeof require>;
       colors?: string[];
@@ -57,22 +61,21 @@ export default function PickYourDevice() {
   >(
     () => [
       {
-        name: 'OneKey Pro series',
-        // Pro 2 launch art must stay out of the repo until release; the
-        // release ticket (OK-59937) swaps in the real series key visual.
+        name: intl.formatMessage({
+          id: ETranslations.onekey_pro_series__title,
+        }),
+        tags: [{ label: 'Pro' }, { label: 'Pro 2' }],
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
-        image: require('@onekeyhq/kit/assets/pick-pro.png'),
+        image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
       },
       {
         name: 'OneKey Neo',
-        // Same launch embargo: reuse Pro art until the Neo assets land
-        // (OK-59935).
         deviceType: [EDeviceType.Neo],
-        image: require('@onekeyhq/kit/assets/pick-pro.png'),
+        image: require('@onekeyhq/kit/assets/pick-neo.png'),
       },
       {
         name: 'OneKey Classic',
-        tags: ['1S', '1S Pure'],
+        tags: [{ label: '1S' }, { label: '1S Pure' }],
         deviceType: [EDeviceType.Classic1s, EDeviceType.ClassicPure],
         image: require('@onekeyhq/kit/assets/pick-classic.png'),
       },
@@ -85,18 +88,22 @@ export default function PickYourDevice() {
             image: require('@onekeyhq/kit/assets/pick-touch.png'),
           }
         : {
-            name: 'Legacy',
-            tags: ['Mini', 'Touch'],
+            name: intl.formatMessage({
+              id: ETranslations.legacy_devices__title,
+            }),
+            tags: [{ label: 'Mini' }, { label: 'Touch' }],
             deviceType: [],
-            // Touch art stands in until a dedicated Legacy visual is
-            // designed.
-            image: require('@onekeyhq/kit/assets/pick-touch.png'),
+            image: require('@onekeyhq/kit/assets/pick-legacy.png'),
             colors: SHIMMER_NEUTRAL,
             dialog: 'legacy',
           },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
-        tags: ['Ledger', 'Trezor'],
+        tags: [
+          { label: 'Ledger', icon: 'LedgerBrand' },
+          { label: 'Trezor', icon: 'TrezorBrand' },
+          { label: 'Keystone', icon: 'KeystoneBrand' },
+        ],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
         colors: SHIMMER_NEUTRAL,
@@ -118,6 +125,11 @@ export default function PickYourDevice() {
   const bodyTopInset = useNativeHeader ? glassTopInset : undefined;
   const renderHeaderLanguage = useCallback(
     () => <LayoutHeaderLanguageSelector />,
+    [],
+  );
+  const isFirstScreen = useNavigationState((state) => state.index) === 0;
+  const renderHeaderBack = useCallback(
+    () => <OnboardingNativeHeaderBack exit />,
     [],
   );
   const pickTitle = intl.formatMessage({ id: ETranslations.pick_your_device });
@@ -142,6 +154,7 @@ export default function PickYourDevice() {
         {DEVICES.map(({ name, tags, image, deviceType, colors, dialog }) => (
           <YStack
             key={name}
+            testID={`onboarding-device-card-${dialog ?? deviceType.join('-')}`}
             group="card"
             userSelect="none"
             $gtMd={{ flex: 1 }}
@@ -244,17 +257,36 @@ export default function PickYourDevice() {
                   resizeMode="contain"
                 />
               </YStack>
-              <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
+              {/* Wide cards center their content, so the text block keeps the
+                  height of one title line and one tag row: a wrapped title or
+                  tag row grows downward without shifting the image and title. */}
+              <YStack
+                gap="$3"
+                $gtMd={{ gap: '$5', alignItems: 'center', height: 78 }}
+              >
                 <SizableText
                   size="$headingXl"
                   $gtMd={{ size: '$heading2xl', textAlign: 'center' }}
                 >
                   {name}
                 </SizableText>
-                <XStack gap="$2" $gtMd={{ minHeight: '$6' }}>
-                  {tags?.map((tag) => (
-                    <YStack
-                      key={tag}
+                {/* The narrow card's image fills its right half: the tags
+                    wrap before reaching it. */}
+                <XStack
+                  gap="$2"
+                  flexWrap="wrap"
+                  maxWidth="50%"
+                  $gtMd={{
+                    minHeight: '$6',
+                    maxWidth: '100%',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {tags?.map(({ label, icon }) => (
+                    <XStack
+                      key={label}
+                      gap="$1"
+                      alignItems="center"
                       px="$2"
                       py="$1"
                       borderRadius="$1"
@@ -262,8 +294,11 @@ export default function PickYourDevice() {
                       borderWidth={1}
                       borderColor="$borderActive"
                     >
-                      <SizableText size="$bodySmMedium">{tag}</SizableText>
-                    </YStack>
+                      {icon ? (
+                        <Icon name={icon} size="$4" color="$text" />
+                      ) : null}
+                      <SizableText size="$bodySmMedium">{label}</SizableText>
+                    </XStack>
                   ))}
                 </XStack>
               </YStack>
@@ -324,10 +359,14 @@ export default function PickYourDevice() {
       {useNativeHeader ? (
         // Deeper onboarding screen: the navigator supplies the native system
         // back (chevron); we only host the centered title + glass language
-        // switcher in the native bar.
+        // switcher in the native bar. Opened on its own (Device Management's
+        // "add device" resets straight to this screen), the stack has no
+        // history and so no system back — the shell supplies the exit cross,
+        // as on the first onboarding screen: leaving here leaves onboarding.
         <Page.Header
           headerTitleAlign="center"
           headerTitle={pickTitle}
+          headerLeft={isFirstScreen ? renderHeaderBack : undefined}
           headerRight={renderHeaderLanguage}
         />
       ) : (

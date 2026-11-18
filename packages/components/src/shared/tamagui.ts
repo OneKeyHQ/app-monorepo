@@ -139,22 +139,11 @@ export type {
   AccordionTriggerProps,
 } from '@tamagui/accordion';
 
-// Dialog
-export { Dialog as TMDialog } from '@tamagui/dialog';
-export type { DialogContentProps, DialogProps } from '@tamagui/dialog';
-
-// Sheet
-export { Sheet } from '@tamagui/sheet';
-export type { SheetProps } from '@tamagui/sheet';
-
 // Portal
 export { PortalProvider } from '@tamagui/portal';
 
-// Toast
-export { Toast, ToastViewport, ToastProvider } from '@tamagui/toast';
-
 // Switch
-export { Switch as TMSwitch } from '@tamagui/switch';
+export { Switch as TMSwitch, SwitchStyledContext } from '@tamagui/switch';
 
 // Slider
 export { Slider as TMSlider } from '@tamagui/slider';

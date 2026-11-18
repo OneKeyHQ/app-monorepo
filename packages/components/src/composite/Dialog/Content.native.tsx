@@ -8,7 +8,7 @@ import { Spinner, Stack, YStack } from '../../primitives';
 import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 import type { IDialogContentProps } from './type';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const exitStyleConst = { opacity: 0 } as const;
 const MAX_ANIMATION_DURATION = 550;
@@ -17,8 +17,9 @@ export function Content({
   estimatedContentHeight,
   testID,
   isAsync = false,
+  nativeSheetPresentation = false,
   ...others
-}: IDialogContentProps) {
+}: IDialogContentProps & { nativeSheetPresentation?: boolean }) {
   const isOptimization = isAsync || !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
   const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
@@ -38,7 +39,7 @@ export function Content({
   );
 
   const checkMeasureY = useCallback(() => {
-    (ref.current as View)?.measure(
+    (ref.current as ViewInstance)?.measure(
       (
         x: number,
         y: number,
@@ -52,7 +53,7 @@ export function Content({
             pageYRef.current = pageY;
             checkMeasureY();
           } else {
-            if (platformEnv.isDev) {
+            if (platformEnv.isDev && !nativeSheetPresentation) {
               const diffTime = Date.now() - timeRef.current;
               if (diffTime > MAX_ANIMATION_DURATION) {
                 console.error(
@@ -67,7 +68,7 @@ export function Content({
         }, 5);
       },
     );
-  }, []);
+  }, [nativeSheetPresentation]);
 
   const handleChildrenLayout = useCallback((e: LayoutChangeEvent) => {
     const { height } = e.nativeEvent.layout;
@@ -77,12 +78,15 @@ export function Content({
   }, []);
 
   useEffect(() => {
-    if ((platformEnv.isDev || isOptimization) && children) {
+    if (
+      ((platformEnv.isDev && !nativeSheetPresentation) || isOptimization) &&
+      children
+    ) {
       setTimeout(() => {
         checkMeasureY();
       }, 10);
     }
-  }, [checkMeasureY, children, isOptimization]);
+  }, [checkMeasureY, children, isOptimization, nativeSheetPresentation]);
 
   const height = useMemo(() => {
     if (estimatedContentHeight) {

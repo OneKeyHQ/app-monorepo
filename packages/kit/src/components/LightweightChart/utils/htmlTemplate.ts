@@ -1,3 +1,7 @@
+// cspell:ignore tickmarks
+import { DateLocaleMap } from '@onekeyhq/shared/src/locale/dateLocaleMap';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
+
 import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
@@ -10,16 +14,55 @@ function getStyles(): string {
     body { position: relative; }
     #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
     .tv-lightweight-charts table tr:last-child { pointer-events: none !important; }
+    /* Mirrors LightweightChartPulseDot on web/desktop. */
+    #pulse { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; pointer-events: none; display: none; z-index: 5; }
+    #pulse > div { position: absolute; inset: 0; border-radius: 50%; }
+    #scrub-tooltip { position: absolute; display: none; pointer-events: none; z-index: 5; width: 120px; padding: 6px 8px; border: 1px solid; border-radius: 8px; font-family: sans-serif; }
+    #scrub-time { font-size: 12px; line-height: 16px; white-space: nowrap; }
+    #scrub-price { font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; }
+    #pulse .ring { animation: okChartPulseRing 1.4s ease-out infinite; }
+    #pulse .dot { animation: okChartPulseDot 1.4s ease-in-out infinite; }
+    @keyframes okChartPulseRing { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(2.4); opacity: 0; } }
+    @keyframes okChartPulseDot { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
   `.trim();
 }
 
 function getChartInitScript(): string {
+  const monthDayFormats = Object.fromEntries(
+    Object.keys(DateLocaleMap).map((locale) => [
+      locale,
+      getDateFormatTemplate(locale, { hideYear: true }),
+    ]),
+  );
   return `
-      var compactPriceFormatter = ${formatChartPriceSource};
+      var monthDayFormats = ${JSON.stringify(monthDayFormats)};
+      window.__onekeyFormatChartPrice = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat === 'full') {
+          return function(price) {
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(
+              price,
+              nextConfig.compactPriceMaxCharacters || 10,
+              false,
+              'cents',
+            );
+          };
+        }
+        if (nextConfig.priceScaleFormat === 'stock') {
+          return function(price) {
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(
+              price,
+              nextConfig.compactPriceMaxCharacters || 10,
+              true,
+            );
+          };
+        }
         if (nextConfig.compactPriceMaxCharacters) {
           return function(price) {
-            return compactPriceFormatter(price, nextConfig.compactPriceMaxCharacters);
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(price, nextConfig.compactPriceMaxCharacters);
           };
         }
         if (nextConfig.priceFormatterType === 'usd') return usdPriceFormatter;
@@ -31,6 +74,44 @@ function getChartInitScript(): string {
         return function(price) {
           return pctPriceFormatter(price, nextConfig);
         };
+      }
+      // Mirrors formatChartPriceFullTicks: whole-dollar steps drop the decimals
+      // on every tick, any fractional step keeps two on every tick.
+      function getTickPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat !== 'full') return undefined;
+        return function(prices) {
+          var formatChartPrice = window.__onekeyFormatChartPrice;
+          var maxCharacters = nextConfig.compactPriceMaxCharacters || 10;
+          var values = prices.map(function(price) {
+            return Number.isFinite(price) ? Number(price.toPrecision(15)) : price;
+          });
+          var wholeDollarTicks =
+            values.some(function(value) { return Math.abs(value) >= 1; }) &&
+            values.every(function(value) {
+              return Number.isInteger(value) && Math.abs(value) < 1e6;
+            });
+          return values.map(function(value) {
+            return formatChartPrice(
+              value,
+              maxCharacters,
+              false,
+              wholeDollarTicks ? 'whole' : 'cents',
+            );
+          });
+        };
+      }
+      // Without a base the axis never steps below 0.01, which leaves a
+      // sub-cent token with a single $0 tick.
+      function getCustomPriceFormat(nextConfig, priceFormatter) {
+        var priceFormat = { type: 'custom', formatter: priceFormatter };
+        var tickmarksFormatter = getTickPriceFormatter(nextConfig);
+        if (tickmarksFormatter) {
+          priceFormat.tickmarksFormatter = tickmarksFormatter;
+        }
+        if (Number.isFinite(nextConfig.priceFormatBase) && nextConfig.priceFormatBase > 0) {
+          priceFormat.base = nextConfig.priceFormatBase;
+        }
+        return priceFormat;
       }
       function getNormalizedLineWidth(lineWidth, fallback) {
         return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
@@ -55,42 +136,40 @@ function getChartInitScript(): string {
         );
       }
       var timeScaleFormatterCache = new Map();
-      function getTimeScaleFormatOptions(tickMarkType) {
-        if (tickMarkType === 0) return { year: 'numeric' };
-        if (tickMarkType === 1) return { month: 'short' };
-        if (tickMarkType === 2) return { day: 'numeric' };
-        if (tickMarkType === 3) {
-          return { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
-        }
-        if (tickMarkType === 4) {
-          return {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hourCycle: 'h23',
-          };
-        }
-        return { month: 'short', day: 'numeric' };
-      }
       function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
         var date = new Date(time * 1000);
-        var formatterKey = [
-          nextConfig.locale || '',
-          nextConfig.timeZone,
-          tickMarkType,
-        ].join('|');
+        if (tickMarkType === 1) {
+          var monthKey = 'month:' + (nextConfig.locale || 'en') + ':' + (nextConfig.timeZone || '');
+          var monthFormatter = timeScaleFormatterCache.get(monthKey);
+          if (!monthFormatter) {
+            monthFormatter = new Intl.DateTimeFormat(nextConfig.locale || 'en', {
+              month: 'short', calendar: 'gregory', numberingSystem: 'latn',
+              timeZone: nextConfig.timeZone,
+            });
+            timeScaleFormatterCache.set(monthKey, monthFormatter);
+          }
+          return monthFormatter.format(date);
+        }
+        var formatterKey = nextConfig.timeZone || '';
         var formatter = timeScaleFormatterCache.get(formatterKey);
         if (!formatter) {
-          formatter = new Intl.DateTimeFormat(
-            nextConfig.locale || undefined,
-            Object.assign(
-              { timeZone: nextConfig.timeZone },
-              getTimeScaleFormatOptions(tickMarkType)
-            )
-          );
+          formatter = new Intl.DateTimeFormat('en-US', {
+            calendar: 'gregory', numberingSystem: 'latn',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hourCycle: 'h23', timeZone: nextConfig.timeZone,
+          });
           timeScaleFormatterCache.set(formatterKey, formatter);
         }
-        return formatter.format(date);
+        var parts = {};
+        formatter.formatToParts(date).forEach(function(part) { parts[part.type] = part.value; });
+        if (tickMarkType === 0) return parts.year;
+        if (tickMarkType === 2) return parts.day;
+        if (tickMarkType === 3) return parts.hour + ':' + parts.minute;
+        if (tickMarkType === 4) return parts.hour + ':' + parts.minute + ':' + parts.second;
+        var template = monthDayFormats[nextConfig.locale] || monthDayFormats.en;
+        var values = { yyyy: parts.year, MM: parts.month, dd: parts.day };
+        return template.replace(/yyyy|MM|dd/g, function(token) { return values[token]; });
       }
       function getTimeScaleOptions(nextConfig) {
         // fixRightEdge clamps any right offset back to zero. Scrolling and
@@ -116,7 +195,7 @@ function getChartInitScript(): string {
         return options;
       }
       function getChartOptions(nextConfig) {
-        return {
+        var options = {
           layout: {
             background: { color: nextConfig.theme.bgColor },
             textColor: nextConfig.theme.textSubduedColor,
@@ -137,6 +216,18 @@ function getChartInitScript(): string {
           rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
           leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
+        // Desktop installs formatChartPrice on the series, and the price scale
+        // uses that for both ticks and the last-value badge. A function cannot
+        // cross into the WebView, so the same formatter is installed on the
+        // scale itself. Otherwise the badge keeps the series' raw precision
+        // ("$0.184056...") while ticks stay compact ("$0.19").
+        if (nextConfig.compactPriceMaxCharacters) {
+          options.localization = {
+            priceFormatter: getPriceFormatter(nextConfig),
+            tickmarksPriceFormatter: getTickPriceFormatter(nextConfig),
+          };
+        }
+        return options;
       }
       function getPrimarySeriesType(nextConfig) {
         if (nextConfig.seriesType === 'baseline') return 'baseline';
@@ -277,7 +368,7 @@ function getChartInitScript(): string {
           priceScaleId: getPriceScalePosition(nextConfig),
           lastValueVisible: showLast,
           priceLineVisible: showLast,
-          priceFormat: { type: 'custom', formatter: priceFormatter },
+          priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
         };
       }
       function createHistogramSeriesPaneView() {
@@ -410,7 +501,7 @@ function getChartInitScript(): string {
           baseLineVisible: false,
           lastValueVisible: showLast,
           priceLineVisible: showLast,
-          priceFormat: { type: 'custom', formatter: priceFormatter },
+          priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
         };
       }
       function createPrimarySeries(nextConfig) {
@@ -431,7 +522,7 @@ function getChartInitScript(): string {
             lastValueVisible: showLast,
             priceLineVisible: showLast,
             crosshairMarkerRadius: 5,
-            priceFormat: { type: 'custom', formatter: priceFormatter },
+            priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
           }));
         }
         if (getPrimarySeriesType(nextConfig) === 'histogram') {
@@ -451,62 +542,8 @@ function getChartInitScript(): string {
           crosshairMarkerRadius: 5,
           crosshairMarkerBorderColor: nextConfig.theme.lineColor,
           crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
+          priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
         });
-      }
-      function applyPrimarySeriesOptions(nextConfig) {
-        if (!window.series) return;
-        var priceFormatter = getPriceFormatter(nextConfig);
-        var showLast = Boolean(nextConfig.showLastValue);
-        var normalizedLineWidth = getNormalizedLineWidth(nextConfig.lineWidth, 3);
-        if (window.seriesType === 'dotted-area') {
-          window.series.applyOptions(getDottedAreaSeriesOptions(nextConfig));
-          return;
-        }
-        if (window.seriesType === 'baseline') {
-          window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
-            priceScaleId: getPriceScalePosition(nextConfig),
-            lineType: getLineType(nextConfig),
-            lineWidth: normalizedLineWidth,
-            lastValueVisible: showLast,
-            priceLineVisible: showLast,
-            crosshairMarkerRadius: 5,
-            priceFormat: { type: 'custom', formatter: priceFormatter },
-          }));
-          return;
-        }
-        if (window.seriesType === 'histogram') {
-          window.series.applyOptions(getHistogramSeriesOptions(nextConfig));
-          return;
-        }
-        window.series.applyOptions({
-          priceScaleId: getPriceScalePosition(nextConfig),
-          topColor: nextConfig.theme.topColor,
-          bottomColor: nextConfig.theme.bottomColor,
-          lineColor: nextConfig.theme.lineColor,
-          lineWidth: normalizedLineWidth,
-          lastValueVisible: showLast,
-          priceLineVisible: showLast,
-          crosshairMarkerRadius: 5,
-          crosshairMarkerBorderColor: nextConfig.theme.lineColor,
-          crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
-        });
-      }
-      function syncPrimarySeries(nextConfig) {
-        var nextSeriesType = getPrimarySeriesType(nextConfig);
-        if (!window.series || window.seriesType !== nextSeriesType) {
-          if (window.series) {
-            chart.removeSeries(window.series);
-          }
-          window.referencePriceLine = null;
-          window.series = createPrimarySeries(nextConfig);
-          window.seriesType = nextSeriesType;
-        } else {
-          applyPrimarySeriesOptions(nextConfig);
-        }
-        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
-        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
       }
       function syncReferenceLine(nextConfig) {
         if (!window.series) return;
@@ -545,38 +582,124 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
-      function syncSecondarySeries(nextConfig) {
-        var hasSecondaryData =
-          Array.isArray(nextConfig.secondaryLineData) &&
-          nextConfig.secondaryLineData.length > 0;
-        if (!hasSecondaryData) {
-          if (window.secondarySeries) {
-            window.secondarySeries.setData([]);
-            window.secondarySeries.applyOptions({ visible: false });
-            // Taking a series' points away (emptying it, and removing it
-            // alike) can leave the time scale with no visible range once the
-            // line has been shown before: the whole chart goes blank, axes
-            // included, and fitContent / autoscale do not bring it back
-            // (Pendle's "show underlying APY" off, OK-62390). Re-issuing the
-            // primary data is the one call that rebuilds the range — it is
-            // what a date-range switch does, which is why that "repaired" it.
-            if (window.series) {
-              window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-            }
-          }
-          return;
+      // Overlay points with gaps on both sides draw no segment; this dot-only
+      // series in the same color keeps them visible.
+      function getSecondaryPointSeriesOptions(nextConfig) {
+        return {
+          priceScaleId: getPriceScalePosition(nextConfig),
+          color: nextConfig.secondaryLineColor || '#0177E5',
+          lineVisible: false,
+          pointMarkersVisible: true,
+          pointMarkersRadius: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2) + 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        };
+      }
+      function createNativeScrubLine(nextConfig) {
+        var renderer = {
+          draw: function(target) {
+            target.useMediaCoordinateSpace(function(scope) {
+              var ctx = scope.context;
+              var points = nextConfig.secondaryLineData || [];
+              var time = window.nativeScrubTime;
+              var started = false;
+              ctx.save();
+              ctx.strokeStyle = nextConfig.secondaryLineColor;
+              ctx.lineWidth = getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2);
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.beginPath();
+              for (var i = 0; i < points.length; i += 1) {
+                var point = points[i];
+                if (time !== undefined && point.time > Number(time)) break;
+                var x = window.chart.timeScale().timeToCoordinate(point.time);
+                var y = window.series.priceToCoordinate(point.value);
+                if (x === null || y === null) continue;
+                if (started) ctx.lineTo(x, y);
+                else ctx.moveTo(x, y);
+                started = true;
+              }
+              ctx.stroke();
+              ctx.fillStyle = nextConfig.secondaryLineColor;
+              var isolatedPoints = nextConfig.secondaryPointData || [];
+              for (var j = 0; j < isolatedPoints.length; j += 1) {
+                var isolated = isolatedPoints[j];
+                if (time !== undefined && isolated.time > Number(time)) break;
+                var pointX = window.chart.timeScale().timeToCoordinate(isolated.time);
+                var pointY = window.series.priceToCoordinate(isolated.value);
+                if (pointX === null || pointY === null) continue;
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2) + 1, 0, Math.PI * 2);
+                ctx.fill();
+              }
+              ctx.restore();
+            });
+          },
+        };
+        var views = [{
+          zOrder: function() { return 'top'; },
+          renderer: function() { return renderer; },
+        }];
+        return { paneViews: function() { return views; } };
+      }
+      // Rebuilds both series from scratch on every apply.
+      //
+      // lightweight-charts 5.2 keeps a stale copy of its time points after a
+      // single-series setData whose times did not change: the fast path swaps
+      // the point objects, but _replaceTimeScalePoints returns early and keeps
+      // the old list. Once a second series exists, the next setData on the
+      // first one deletes its rows through that stale list, the cleanup pass
+      // then treats those points as empty and drops the shared keys from the
+      // map, the time scale ends up with no points and the chart goes blank,
+      // axes included. Both lines get identical timestamps from the 1D / 1W
+      // buckets, which is exactly the trigger (OK-62390, OK-63666). Removing
+      // every series resets that state, and rebuilding is cheap at these
+      // sizes. The primary goes first so the overlay keeps drawing on top of
+      // it; everything runs before the next frame, so nothing flickers.
+      function rebuildSeries(nextConfig) {
+        if (window.secondaryPointSeries) {
+          window.chart.removeSeries(window.secondaryPointSeries);
+          window.secondaryPointSeries = null;
         }
-        if (!window.secondarySeries) {
-          window.secondarySeries = chart.addSeries(
+        if (window.secondarySeries) {
+          window.chart.removeSeries(window.secondarySeries);
+          window.secondarySeries = null;
+        }
+        if (window.series) {
+          window.chart.removeSeries(window.series);
+          window.series = null;
+          window.referencePriceLine = null;
+        }
+        window.series = createPrimarySeries(nextConfig);
+        window.seriesType = getPrimarySeriesType(nextConfig);
+        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
+        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        syncReferenceLine(nextConfig);
+        // Cursor-layer primitives repaint with the crosshair, without making
+        // setData invalidate and redraw the expensive static dotted area.
+        if (nextConfig.nativeScrubOptions) {
+          window.series.attachPrimitive(createNativeScrubLine(nextConfig));
+        } else if (
+          Array.isArray(nextConfig.secondaryLineData) &&
+          nextConfig.secondaryLineData.length > 0
+        ) {
+          window.secondarySeries = window.chart.addSeries(
             LightweightCharts.LineSeries,
             getSecondarySeriesOptions(nextConfig)
           );
-        } else {
-          window.secondarySeries.applyOptions(
-            Object.assign({ visible: true }, getSecondarySeriesOptions(nextConfig))
-          );
+          window.secondarySeries.setData(nextConfig.secondaryLineData);
+          if (
+            Array.isArray(nextConfig.secondaryPointData) &&
+            nextConfig.secondaryPointData.length > 0
+          ) {
+            window.secondaryPointSeries = window.chart.addSeries(
+              LightweightCharts.LineSeries,
+              getSecondaryPointSeriesOptions(nextConfig)
+            );
+            window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
+          }
         }
-        window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -663,13 +786,62 @@ function getChartInitScript(): string {
       window.seriesType = null;
       window.referencePriceLine = null;
       window.secondarySeries = null;
+      var pulseElement = document.getElementById('pulse');
+      var pulseFrameId = 0;
+      // Time of the point under the crosshair. While set, the pulse rides that
+      // point instead of the tail, like the web and native charts.
+      window.pulseHoverTime = undefined;
+      // Placed on the next frame: autoscale and axis width settle after
+      // setData, so reading coordinates right away lands on the old layout.
+      window.updatePulseDot = function() {
+        if (pulseFrameId) cancelAnimationFrame(pulseFrameId);
+        pulseFrameId = requestAnimationFrame(function() {
+          pulseFrameId = 0;
+          var nextConfig = window.latestChartConfig;
+          var data = nextConfig && Array.isArray(nextConfig.data) ? nextConfig.data : [];
+          var hoverTime = window.pulseHoverTime;
+          var hoverPoint = hoverTime === undefined
+            ? undefined
+            : data.find(function(point) { return Number(point.time) === hoverTime; });
+          var lastPoint = hoverPoint || data[data.length - 1];
+          var x = lastPoint && window.chart
+            ? window.chart.timeScale().timeToCoordinate(lastPoint.time)
+            : null;
+          var y = lastPoint && window.series
+            ? window.series.priceToCoordinate(lastPoint.value)
+            : null;
+          if (!nextConfig || !nextConfig.pulseLastPoint || x === null || y === null) {
+            pulseElement.style.display = 'none';
+            return;
+          }
+          var color = nextConfig.pulseLastPointColor || nextConfig.theme.lineColor;
+          for (var i = 0; i < pulseElement.children.length; i += 1) {
+            pulseElement.children[i].style.backgroundColor = color;
+          }
+          pulseElement.style.left = x + 'px';
+          pulseElement.style.top = y + 'px';
+          pulseElement.style.display = 'block';
+        });
+      };
+      chart.timeScale().subscribeVisibleTimeRangeChange(function() {
+        window.updatePulseDot();
+      });
+      window.secondaryPointSeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
+        if (!nextConfig.nativeScrubOptions) window.nativeScrubActive = false;
+        if (!nextConfig.nativeScrubOptions || !nextConfig.nativeScrubOptions.labels[window.nativeScrubTime]) {
+          window.nativeScrubTime = undefined;
+          var tooltip = document.getElementById('scrub-tooltip');
+          if (tooltip) tooltip.style.display = 'none';
+        }
+        window.applyingChartConfig = true;
+        window.latestChartConfig = nextConfig;
         window.chart.applyOptions(getChartOptions(nextConfig));
-        syncPrimarySeries(nextConfig);
-        syncReferenceLine(nextConfig);
-        syncSecondarySeries(nextConfig);
+        rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
+        window.updatePulseDot();
+        window.applyingChartConfig = false;
       };
       window.applyChartConfig(config);
   `.trim();
@@ -680,7 +852,40 @@ function getEventHandlers(): string {
       var _isTouch = 'ontouchstart' in window;
       var _lastDataTime = 0;
 
+      function updateNativeScrub(message) {
+        var nextConfig = window.latestChartConfig;
+        var options = nextConfig.nativeScrubOptions;
+        if (!options) return;
+        var time = message.time;
+        window.nativeScrubTime = time;
+        var tooltip = document.getElementById('scrub-tooltip');
+        var label = options.labels[time];
+        if (!label || message.x === undefined || message.y === undefined) {
+          tooltip.style.display = 'none';
+          return;
+        }
+        document.getElementById('scrub-time').textContent = label.time;
+        var price = document.getElementById('scrub-price');
+        price.textContent = label.price || '';
+        price.style.display = label.price === undefined ? 'none' : 'block';
+        price.style.fontSize = options.largePrice ? '16px' : '14px';
+        price.style.marginTop = options.largePrice ? '2px' : '0';
+        price.style.color = options.textColor;
+        document.getElementById('scrub-time').style.color = options.timeColor;
+        tooltip.style.backgroundColor = options.backgroundColor;
+        tooltip.style.borderColor = options.borderColor;
+        var left = message.x < container.clientWidth / 2 ? message.x + 10 : message.x - 130;
+        tooltip.style.left = Math.min(Math.max(left, 8), container.clientWidth - 128) + 'px';
+        tooltip.style.top = Math.max(8, message.y - 56) + 'px';
+        tooltip.style.display = 'block';
+      }
+
       chart.subscribeCrosshairMove((param) => {
+        // Series updates recalculate the crosshair without a touch. Sending
+        // those back to React creates a second round trip for every step.
+        var nativeScrub = window.latestChartConfig.nativeScrubOptions;
+        var syntheticHover = nativeScrub && param.time !== undefined && !param.sourceEvent;
+        if (syntheticHover && !window.nativeScrubActive) return;
         let message;
         var primarySeries = window.series;
         var extraSeries = window.secondarySeries;
@@ -690,6 +895,7 @@ function getEventHandlers(): string {
           return undefined;
         }
         if (param.time && param.seriesData?.size > 0 && param.point && primarySeries) {
+          if (nativeScrub && !syntheticHover) window.nativeScrubActive = true;
           _lastDataTime = Date.now();
           const primaryPrice = getSeriesValue(param.seriesData.get(primarySeries));
           const rawSecondary = extraSeries ? getSeriesValue(param.seriesData.get(extraSeries)) : undefined;
@@ -701,20 +907,39 @@ function getEventHandlers(): string {
             x: param.point.x,
             y: param.point.y,
           };
-          window.ReactNativeWebView.postMessage(JSON.stringify(message));
         } else {
-          if (_isTouch && (Date.now() - _lastDataTime < 300)) { return; }
+          // Removing series during a refresh is not an exit from tracking.
+          if (nativeScrub && window.applyingChartConfig) return;
+          if (_isTouch && !nativeScrub && (Date.now() - _lastDataTime < 300)) { return; }
+          if (nativeScrub) window.nativeScrubActive = false;
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
+        }
+        updateNativeScrub(message);
+        var nextPulseTime = message.time === undefined ? undefined : Number(message.time);
+        if (nextPulseTime !== window.pulseHoverTime) {
+          window.pulseHoverTime = nextPulseTime;
+          window.updatePulseDot();
+        }
+        if (!syntheticHover && window.latestChartConfig.notifyOnHover !== false) {
           window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }
       });
 
-      new ResizeObserver(entries => {
-        if (entries.length) {
-          const { width, height } = entries[0].contentRect;
-          chart.applyOptions({ width, height });
+      window.repaintChart = function() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width > 0 && height > 0) {
+          // A translated native header can return with the same DOM dimensions.
+          // Force a repaint even when ResizeObserver has nothing new to report.
+          chart.resize(width, height, true);
         }
-      }).observe(container);
+        if (typeof window.updatePulseDot === 'function') window.updatePulseDot();
+      };
+      new ResizeObserver(() => window.repaintChart()).observe(container);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) window.repaintChart();
+      });
+      window.addEventListener('pageshow', () => window.repaintChart());
 
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
   `.trim();
@@ -748,6 +973,8 @@ export function generateChartHTML(config: ILightweightChartConfig): string {
 </head>
 <body>
   <div id="chart"></div>
+  <div id="pulse"><div class="ring"></div><div class="dot"></div></div>
+  <div id="scrub-tooltip"><div id="scrub-time"></div><div id="scrub-price"></div></div>
   <script>${getChartScript(config)}</script>
 </body>
 </html>`;

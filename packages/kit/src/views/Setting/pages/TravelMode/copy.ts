@@ -44,6 +44,9 @@ export function getTravelModeCopy(intl: Pick<IntlShape, 'formatMessage'>) {
     enableConfirmationDetails: intl.formatMessage({
       id: ETranslations.travel_mode__confirmation_details__desc,
     }),
+    enableConfirmationAppIconDescription: intl.formatMessage({
+      id: ETranslations.travel_mode__app_icon_change__desc,
+    }),
     enableConfirmationCancel: intl.formatMessage({
       id: ETranslations.global_not_now,
     }),

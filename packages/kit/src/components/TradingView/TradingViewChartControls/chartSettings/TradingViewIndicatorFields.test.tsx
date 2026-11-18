@@ -13,7 +13,6 @@ import {
 import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
 
 type IMockProps = { children?: ReactNode; testID?: string };
-type IMockAddOn = { onPress?: () => void; testID?: string };
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -27,14 +26,16 @@ jest.mock('@onekeyhq/components', () => {
   return {
     ColorPicker: () => null,
     Icon: () => null,
-    Input: ({
-      addOns,
+    NumberInput: ({
+      showControls,
+      onStep,
       onBlur,
       onChangeText,
       testID,
       value,
     }: {
-      addOns?: IMockAddOn[];
+      showControls?: boolean;
+      onStep?: (direction: -1 | 1) => void;
       onBlur?: () => void;
       onChangeText?: (text: string) => void;
       testID?: string;
@@ -47,15 +48,24 @@ jest.mock('@onekeyhq/components', () => {
           onBlur={() => onBlur?.()}
           onChange={(event) => onChangeText?.(event.target.value)}
         />
-        {addOns?.map((addOn) => (
-          <button
-            key={addOn.testID}
-            aria-label={addOn.testID}
-            data-testid={addOn.testID}
-            onClick={() => addOn.onPress?.()}
-            type="button"
-          />
-        ))}
+        {showControls ? (
+          <>
+            <button
+              data-testid={`${testID}-decrement`}
+              onClick={() => onStep?.(-1)}
+              type="button"
+            >
+              −
+            </button>
+            <button
+              data-testid={`${testID}-increment`}
+              onClick={() => onStep?.(1)}
+              type="button"
+            >
+              +
+            </button>
+          </>
+        ) : null}
       </div>
     ),
     SizableText: View,
@@ -95,8 +105,31 @@ jest.mock('./TradingViewSettingsPrimitives', () => {
     SettingsCheckboxRow: Row,
     SettingsColorField: () => null,
     SettingsColorPicker: () => null,
+    SettingsLineStylePreview: () => null,
     SettingsRow: Row,
-    SettingsSelect: () => null,
+    SettingsSelect: ({
+      testID,
+      value,
+      options,
+      onChange,
+    }: {
+      testID: string;
+      value: string;
+      options: readonly string[];
+      onChange: (value: string) => void;
+    }) => (
+      <select
+        data-testid={testID}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    ),
   };
 });
 
@@ -118,6 +151,39 @@ function getFirstLine() {
 }
 
 describe('TradingViewIndicatorLineRow', () => {
+  it.each([
+    ['solid-1', 'solid', 'solid'],
+    ['solid-2', 'medium', 'solid'],
+    ['solid-3', 'bold', 'solid'],
+    ['solid-4', 'extraBold', 'solid'],
+    ['dashed-1', 'solid', 'dashed'],
+    ['dashed-2', 'medium', 'dashed'],
+    ['dashed-3', 'bold', 'dashed'],
+    ['dashed-4', 'extraBold', 'dashed'],
+  ])(
+    'applies both width and pattern when selecting %s',
+    (value, width, pattern) => {
+      const line = { ...getFirstLine(), showSecondaryStyle: true };
+      const onStyleChange = jest.fn();
+      const onSecondaryStyleChange = jest.fn();
+      render(
+        <TradingViewIndicatorLineRow
+          line={line}
+          onToggleLine={jest.fn()}
+          onPeriodChange={jest.fn()}
+          onStyleChange={onStyleChange}
+          onSecondaryStyleChange={onSecondaryStyleChange}
+          onColorChange={jest.fn()}
+        />,
+      );
+      expect(screen.getAllByRole('combobox')).toHaveLength(1);
+      expect(screen.getAllByRole('option')).toHaveLength(8);
+      fireEvent.change(screen.getByRole('combobox'), { target: { value } });
+      expect(onStyleChange).toHaveBeenCalledWith(line.id, width);
+      expect(onSecondaryStyleChange).toHaveBeenCalledWith(line.id, pattern);
+    },
+  );
+
   it('commits a normalized period on blur', () => {
     const line = getFirstLine();
     const handlePeriodChange = jest.fn();
@@ -140,7 +206,7 @@ describe('TradingViewIndicatorLineRow', () => {
     expect(handlePeriodChange).toHaveBeenCalledWith(line.id, line.period + 3);
   });
 
-  it('steps the period with the add-on buttons', () => {
+  it('steps the period with the NumberInput controls', () => {
     const line = getFirstLine();
     const handlePeriodChange = jest.fn();
 

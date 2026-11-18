@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,12 +13,14 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { UseFormReturn } from '@onekeyhq/components/src/hooks/useForm';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import useScanQrCodeLazy from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCodeLazy';
 import type { IAccountDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -127,6 +131,28 @@ function ImportAddressCore({
   const { onPasteClearText } = useClipboard();
   const { start } = useScanQrCodeLazy();
 
+  // The address field accepts any send recipient; some chains watch fewer address forms.
+  const validateWatchingAddressRule = useMemo(() => {
+    const invalidMessage = intl.formatMessage({
+      id: ETranslations.form_address_error_invalid,
+    });
+    const validateAddressInput = createValidateAddressRule({
+      defaultErrorMessage: invalidMessage,
+    });
+    return async (value: IAddressInputValue) => {
+      const error = validateAddressInput(value);
+      if (error || !value.resolved || !networkIdText) {
+        return error;
+      }
+      const { isValid } =
+        await backgroundApiProxy.serviceValidator.localValidateWatchingAddress({
+          networkId: networkIdText,
+          address: value.resolved,
+        });
+      return isValid ? undefined : invalidMessage;
+    };
+  }, [intl, networkIdText]);
+
   return (
     <Stack flex={1} gap="$4">
       <Form form={form}>
@@ -219,13 +245,7 @@ function ImportAddressCore({
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.global_address })}
               name="addressValue"
-              rules={{
-                validate: createValidateAddressRule({
-                  defaultErrorMessage: intl.formatMessage({
-                    id: ETranslations.form_address_error_invalid,
-                  }),
-                }),
-              }}
+              rules={{ validate: validateWatchingAddressRule }}
             >
               <AddressInput
                 placeholder={intl.formatMessage({

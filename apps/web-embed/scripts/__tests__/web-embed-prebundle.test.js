@@ -37,6 +37,7 @@ const {
   getCanonicalBuildEnvironment,
   getInputKey,
   getReleaseTag,
+  getWebEmbedInputDescriptor,
   hashFiles,
   restoreRelease,
 } = require('../web-embed-prebundle');
@@ -231,6 +232,47 @@ describe('web-embed-prebundle', () => {
     expect(getInputKey(options)).not.toBe(inputKey);
   });
 
+  it('hashes canonical icons and the compiler without requiring generated output or host bindings', () => {
+    const canonical = path.join(
+      temporaryDirectory,
+      'packages/components/svg/outline/probe.svg',
+    );
+    const compiler = path.join(
+      temporaryDirectory,
+      'development/onekey-icons/generate-icons.mjs',
+    );
+    fs.mkdirSync(path.dirname(canonical), { recursive: true });
+    fs.mkdirSync(path.dirname(compiler), { recursive: true });
+    fs.writeFileSync(canonical, '<svg/>');
+    fs.writeFileSync(compiler, "import './missing-host-binding.node';\n");
+    fs.writeFileSync(
+      path.join(temporaryDirectory, 'entry.js'),
+      "import '#onekey-icon-assets';\n",
+    );
+    fs.writeFileSync(path.join(temporaryDirectory, 'yarn.lock'), '');
+    const options = {
+      inputPaths: [
+        'entry.js',
+        'packages/components/svg',
+        'development/onekey-icons',
+      ],
+      resolveOptions: {
+        alias: {},
+        extensions: ['.js', '.mjs'],
+        mainFields: ['main'],
+      },
+      root: temporaryDirectory,
+      traceDependencies: true,
+      inputCache: false,
+    };
+    const first = getInputKey(options);
+    fs.appendFileSync(canonical, '\n');
+    const second = getInputKey(options);
+    expect(second).not.toBe(first);
+    fs.appendFileSync(compiler, '// compiler change\n');
+    expect(getInputKey(options)).not.toBe(second);
+  });
+
   it('hashes browser fallbacks that replace imported Node built-ins', () => {
     const inputPath = path.join(temporaryDirectory, 'input.js');
     const fallbackPath = path.join(temporaryDirectory, 'crypto-fallback.js');
@@ -256,6 +298,164 @@ describe('web-embed-prebundle', () => {
     fs.writeFileSync(fallbackPath, 'module.exports = "second";\n');
     expect(getInputKey(options)).not.toBe(inputKey);
   });
+
+  it.each(['build-tool', '@scope/build-tool'])(
+    'attributes bundled dependencies to %s while tracking nested installations',
+    (packageName) => {
+      const packageRoot = path.join(
+        temporaryDirectory,
+        'node_modules',
+        packageName,
+      );
+      const bundledRoot = path.join(packageRoot, 'compiled/worker');
+      const nestedRoot = path.join(packageRoot, 'node_modules/helper');
+      for (const directory of [bundledRoot, nestedRoot]) {
+        fs.mkdirSync(directory, { recursive: true });
+      }
+      fs.writeFileSync(
+        path.join(temporaryDirectory, 'input.js'),
+        `require('${packageName}/compiled/worker');\n`,
+      );
+      for (const [directory, name, version, source] of [
+        [packageRoot, packageName, '1.0.0', 'module.exports = {};'],
+        [bundledRoot, 'worker', '2.1.0', "require('helper');"],
+        [nestedRoot, 'helper', '3.0.0', 'module.exports = {};'],
+      ]) {
+        fs.writeFileSync(
+          path.join(directory, 'package.json'),
+          JSON.stringify({ name, version, main: 'index.js' }),
+        );
+        fs.writeFileSync(path.join(directory, 'index.js'), source);
+      }
+      const ownerRecord = `"${packageName}@npm:1.0.0":\n  version: 1.0.0\n  resolution: "${packageName}@npm:1.0.0"\n  checksum: original\n`;
+      const helperRecord =
+        '"helper@npm:3.0.0":\n  version: 3.0.0\n  resolution: "helper@npm:3.0.0"\n';
+      const lockPath = path.join(temporaryDirectory, 'yarn.lock');
+      fs.writeFileSync(lockPath, ownerRecord + helperRecord);
+      const options = {
+        inputPaths: ['input.js'],
+        resolveOptions: {
+          alias: {},
+          extensions: ['.js'],
+          fallback: {},
+          fullySpecified: false,
+          mainFields: ['main'],
+          symlinks: true,
+        },
+        root: fs.realpathSync(temporaryDirectory),
+        traceDependencies: true,
+        inputCache: false,
+      };
+
+      expect(
+        getWebEmbedInputDescriptor(options).packages.map(({ name }) => name),
+      ).toEqual([packageName, 'helper']);
+      const inputKey = getInputKey(options);
+      fs.writeFileSync(
+        lockPath,
+        ownerRecord.replace('checksum: original', 'checksum: changed') +
+          helperRecord,
+      );
+      expect(getInputKey(options)).not.toBe(inputKey);
+
+      fs.writeFileSync(lockPath, ownerRecord);
+      expect(() => getInputKey(options)).toThrow(
+        'Installed dependency is missing from yarn.lock: helper@3.0.0',
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'prefers the importing package nested dependency when the root exports the same subpath: %s',
+    (rootExportsSubpath) => {
+      const ownerRoot = path.join(temporaryDirectory, 'node_modules/owner');
+      const rootHash = path.join(temporaryDirectory, 'node_modules/hash');
+      const nestedHash = path.join(ownerRoot, 'node_modules/hash');
+      for (const directory of [ownerRoot, rootHash, nestedHash])
+        fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(
+        path.join(temporaryDirectory, 'input.js'),
+        "require('owner');\n",
+      );
+      fs.writeFileSync(
+        path.join(ownerRoot, 'package.json'),
+        JSON.stringify({ name: 'owner', version: '1.0.0', main: 'index.js' }),
+      );
+      fs.writeFileSync(
+        path.join(ownerRoot, 'index.js'),
+        "require('hash/sha2.js');\n",
+      );
+      for (const [directory, version, exports] of [
+        [
+          rootHash,
+          '1.0.0',
+          rootExportsSubpath
+            ? { './sha2.js': './sha2.js' }
+            : { '.': './index.js' },
+        ],
+        [nestedHash, '2.0.0', { './sha2.js': './sha2.js' }],
+      ]) {
+        fs.writeFileSync(
+          path.join(directory, 'package.json'),
+          JSON.stringify({ name: 'hash', version, exports }),
+        );
+        fs.writeFileSync(
+          path.join(directory, 'sha2.js'),
+          'module.exports = {};',
+        );
+        fs.writeFileSync(
+          path.join(directory, 'index.js'),
+          'module.exports = {};',
+        );
+      }
+      const records = ['owner@1.0.0', 'hash@1.0.0', 'hash@2.0.0'].map(
+        (identity) => {
+          const [name, version] = identity.split('@');
+          return `"${name}@npm:${version}":\n  version: ${version}\n  resolution: "${name}@npm:${version}"\n`;
+        },
+      );
+      const lockPath = path.join(temporaryDirectory, 'yarn.lock');
+      fs.writeFileSync(lockPath, records.join(''));
+      const options = {
+        inputPaths: ['input.js'],
+        resolveOptions: {
+          alias: {},
+          extensions: ['.js'],
+          mainFields: ['main'],
+        },
+        root: fs.realpathSync(temporaryDirectory),
+        traceDependencies: true,
+        inputCache: false,
+      };
+      expect(
+        getWebEmbedInputDescriptor(options).packages.map(
+          ({ name, version }) => `${name}@${version}`,
+        ),
+      ).toEqual(['hash@2.0.0', 'owner@1.0.0']);
+      if (rootExportsSubpath) {
+        expect(
+          getWebEmbedInputDescriptor({
+            ...options,
+            resolveOptions: {
+              ...options.resolveOptions,
+              modules: [path.join(temporaryDirectory, 'node_modules')],
+            },
+          }).packages.map(({ name, version }) => `${name}@${version}`),
+        ).toEqual(['hash@1.0.0', 'owner@1.0.0']);
+      }
+      const firstKey = getInputKey(options);
+      fs.writeFileSync(
+        lockPath,
+        records
+          .join('')
+          .replace(
+            'hash@npm:2.0.0"\n',
+            'hash@npm:2.0.0"\n  checksum: changed\n',
+          ),
+      );
+      expect(getInputKey(options)).not.toBe(firstKey);
+    },
+  );
 
   it('uses one canonical environment for every prebundle build', async () => {
     const inputKey = 'c'.repeat(64);

@@ -25,6 +25,8 @@ jest.mock('@onekeyhq/components', () => ({
 let mockIsFocused = true;
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockIsFocused,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    !enabled || mockIsFocused,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',
@@ -61,7 +63,7 @@ const response: IMarketStockPublicListResponse = {
 function seed(category?: string) {
   const queryKey = JSON.stringify({
     category,
-    sortBy: 'volume24h',
+    sortBy: 'marketCap',
     sortType: 'desc',
     locale: 'en-US',
   });
@@ -165,7 +167,7 @@ it('ends loading on failure and does not persist a failed page', async () => {
   await waitFor(() => expect(result.current.isError).toBe(true));
   expect(result.current.isLoading).toBe(false);
   const queryKey = JSON.stringify({
-    sortBy: 'volume24h',
+    sortBy: 'marketCap',
     sortType: 'desc',
     locale: 'en-US',
   });
@@ -379,14 +381,14 @@ it('drops obsolete loaded rows when a refresh has no next page', async () => {
   expect(result.current.canLoadMore).toBe(false);
 });
 
-it('starts with volume descending and restores it after clearing another column', async () => {
+it('starts with market cap descending and restores it after clearing another column', async () => {
   fetchList.mockResolvedValue(response);
   const { result } = renderHook(() => useMarketStockList({ category: 'tech' }));
   await waitFor(() =>
     expect(fetchList).toHaveBeenCalledWith({
       limit: 20,
       category: 'tech',
-      sortBy: 'volume24h',
+      sortBy: 'marketCap',
       sortType: 'desc',
     }),
   );
@@ -400,7 +402,7 @@ it('starts with volume descending and restores it after clearing another column'
     }),
   );
   act(() => result.current.setSorting('marketCap', undefined));
-  expect(result.current.sortBy).toBe('volume24h');
+  expect(result.current.sortBy).toBe('marketCap');
   expect(result.current.sortType).toBe('desc');
   await waitFor(() => expect(result.current.canLoadMore).toBe(true));
   await act(async () => result.current.loadMore());
@@ -408,7 +410,7 @@ it('starts with volume descending and restores it after clearing another column'
     cursor: 'next',
     limit: 20,
     category: 'tech',
-    sortBy: 'volume24h',
+    sortBy: 'marketCap',
     sortType: 'desc',
   });
 });
@@ -579,7 +581,7 @@ it('preserves all rows and exposes retry after a later refresh page fails', asyn
 
 it('does not replay deep persisted pagination on cold start', async () => {
   const queryKey = JSON.stringify({
-    sortBy: 'volume24h',
+    sortBy: 'marketCap',
     sortType: 'desc',
     locale: 'en-US',
   });
@@ -593,6 +595,21 @@ it('does not replay deep persisted pagination on cold start', async () => {
   const { result } = renderHook(() => useMarketStockList({}));
   await waitFor(() => expect(result.current.canLoadMore).toBe(true));
   expect(fetchList).toHaveBeenCalledTimes(1);
+});
+
+it('persists the first page on desktop so the selector can hydrate', async () => {
+  platformEnv.isNative = false;
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.items).toEqual(response.items));
+  const queryKey = JSON.stringify({
+    sortBy: 'marketCap',
+    sortType: 'desc',
+    locale: 'en-US',
+  });
+  expect(swrCacheUtils.get(swrKeys.marketHomeStocks(queryKey))).toMatchObject({
+    response,
+  });
 });
 
 it.each([

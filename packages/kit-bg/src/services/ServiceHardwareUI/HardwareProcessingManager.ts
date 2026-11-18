@@ -1,6 +1,7 @@
 import { E_ALREADY_LOCKED, Semaphore, tryAcquire } from 'async-mutex';
 
 import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 export type IOneKeyHardwareOperationLease = {
   readonly deviceKey: string | undefined;
@@ -27,6 +28,32 @@ export class HardwareProcessingManager {
   private activeAbortController: AbortController | undefined;
 
   private activeCleanup: Promise<void> | undefined;
+
+  private oneKeyOperationGeneration = 0;
+
+  private activeOneKeyOperationTransport: EHardwareTransportType | undefined;
+
+  getOneKeyOperationGeneration() {
+    return this.activeOneKeyOperationLease
+      ? this.oneKeyOperationGeneration
+      : undefined;
+  }
+
+  getOneKeyOperationTransport() {
+    return this.activeOneKeyOperationTransport;
+  }
+
+  rememberOneKeyOperationTransport(
+    transport: EHardwareTransportType,
+    lease: IOneKeyHardwareOperationLease | undefined,
+  ) {
+    if (
+      lease &&
+      lease === this.activeOneKeyOperationLease &&
+      !lease.signal?.aborted
+    )
+      this.activeOneKeyOperationTransport = transport;
+  }
 
   getActiveOneKeyOperationLease() {
     return this.activeOneKeyOperationLease;
@@ -61,6 +88,7 @@ export class HardwareProcessingManager {
       signal: controller.signal,
     });
     this.activeOneKeyOperationLease = acquiredLease;
+    this.oneKeyOperationGeneration += 1;
     this.activeAbortController = controller;
     try {
       return await operation(acquiredLease);
@@ -74,6 +102,7 @@ export class HardwareProcessingManager {
           this.activeOneKeyOperationLease = undefined;
           this.activeAbortController = undefined;
           this.activeCleanup = undefined;
+          this.activeOneKeyOperationTransport = undefined;
         }
       }
     }

@@ -84,6 +84,34 @@ describe('TradingViewNative sub-indicator calculation cache', () => {
     );
   });
 
+  it('recalculates when zero volume changes meaning', () => {
+    const cache = createTradingViewNativeSubIndicatorCalculationCache();
+    const instance = resolveTradingViewNativeSubIndicatorInstance({
+      id: 'obv',
+      indicator: 'OBV',
+    });
+    const points = POINTS.map((point, index) =>
+      index >= 30 ? { ...point, v: 0 } : point,
+    );
+
+    const [tradedEntry] = calculateTradingViewNativeSubIndicatorsWithCache({
+      cache,
+      instances: [instance],
+      points,
+    });
+    const [missingEntry] = calculateTradingViewNativeSubIndicatorsWithCache({
+      cache,
+      instances: [instance],
+      points,
+      zeroVolumeIsMissing: true,
+    });
+
+    expect(tradedEntry?.calculation.plots.obv?.[35]).toBe(
+      tradedEntry?.calculation.plots.obv?.[29],
+    );
+    expect(missingEntry?.calculation.plots.obv?.[35]).toBeNull();
+  });
+
   it('releases cache entries for hidden instances', () => {
     const cache = createTradingViewNativeSubIndicatorCalculationCache();
     const instance = resolveTradingViewNativeSubIndicatorInstance({

@@ -91,4 +91,21 @@ describe('getVerticalOrderBookLayout', () => {
     expect(layout.extraBidLevels).toBe(0);
     expect(layout.rowHeight).toBeCloseTo(36.52, 5);
   });
+
+  it.each([
+    [640, 18, 12],
+    [660, 18, 12],
+    [682, 18, 12],
+    [683, 18, 13],
+    [1000, 12, 12],
+  ])(
+    'keeps fixed row geometry and symmetric sides at height %i',
+    (height, cap, levels) => {
+      expect(getVerticalOrderBookLayout(height, cap, true)).toEqual({
+        levelsPerSide: levels,
+        extraBidLevels: 0,
+        rowHeight: 22,
+      });
+    },
+  );
 });

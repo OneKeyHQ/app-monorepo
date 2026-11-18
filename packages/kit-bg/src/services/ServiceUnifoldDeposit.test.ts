@@ -71,6 +71,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     PerpsUnifoldDepositTerminalDelivery: 'PerpsUnifoldDepositTerminalDelivery',
   },
   appEventBus: {
+    on: jest.fn(),
     emit: (...args: unknown[]) => {
       mockEventEmit(...args);
     },

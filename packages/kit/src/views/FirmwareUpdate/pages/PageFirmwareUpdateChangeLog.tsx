@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
+
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
@@ -8,6 +10,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
   type IModalFirmwareUpdateParamList,
@@ -44,11 +47,13 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
+  const usbSuggestionAcknowledged = route?.params?.usbSuggestionAcknowledged;
   const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
   const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
@@ -67,15 +72,20 @@ function PageFirmwareUpdateChangeLog() {
 
   const { result, run, isLoading } = usePromiseResult(
     async () => {
+      // A re-check (Retry on a workflow error) supersedes the release the
+      // user confirmed earlier; the fresh result must drive the next start.
+      confirmUpdateResult.current = undefined;
       try {
-        const resolvedTransport =
-          await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
-            connectId,
-            // Preserve anonymous USB/bootloader discovery from the legacy flow.
-            hardwareCallContext: connectId
-              ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
-              : EHardwareCallContext.UPDATE_FIRMWARE,
-          });
+        const resolvedTransport = platformEnv.isDesktop
+          ? await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+              { connectId: connectId ?? '' },
+            )
+          : await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
+              connectId,
+              hardwareCallContext: connectId
+                ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+                : EHardwareCallContext.UPDATE_FIRMWARE,
+            });
         const compatibleConnectId = resolvedTransport.connectId;
         setActiveConnectId(compatibleConnectId);
 
@@ -120,6 +130,13 @@ function PageFirmwareUpdateChangeLog() {
   const isWorkflowError =
     stepInfo.step === EFirmwareUpdateSteps.error ||
     stepInfo.step === EFirmwareUpdateSteps.checkReleaseError;
+  // While the install page is on top it renders workflow errors in place, so
+  // this page stays on the changelog and its exit guard does not fire when
+  // the install page closes the modal. Once this page is focused again (Back
+  // from the error, or Mini's legacy page popping) the error is shown here
+  // with Retry re-checking the release, as before the unified page.
+  const installPageOwnsErrors =
+    Boolean(confirmUpdateResult.current) && !isFocused;
 
   useFirmwareUpdateWorkflowLifetime({
     onReallyLeave: () =>
@@ -149,7 +166,7 @@ function PageFirmwareUpdateChangeLog() {
   }, [navigation, result, retryInfo, setStepInfo]);
 
   const content = useMemo(() => {
-    if (isLoading) {
+    if (isLoading !== false) {
       return (
         <>
           <FirmwareUpdateExitPrevent />
@@ -157,10 +174,7 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    if (
-      stepInfo.step === EFirmwareUpdateSteps.error ||
-      stepInfo.step === EFirmwareUpdateSteps.checkReleaseError
-    ) {
+    if (isWorkflowError && !installPageOwnsErrors) {
       return (
         <>
           <FirmwareUpdateWarningMessage />
@@ -173,12 +187,14 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    // keep change log modal content when install modal back
+    // Keep the changelog behind the install page, and after a cancelled
+    // attempt popped back here, with Retry resuming the task.
     if (confirmUpdateResult.current) {
       return (
         <FirmwareChangeLogView
           result={confirmUpdateResult.current}
           onRetryClick={retryInfo ? retryUpdate : undefined}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
@@ -189,20 +205,23 @@ function PageFirmwareUpdateChangeLog() {
           onConfirmClick={() => {
             confirmUpdateResult.current = result;
           }}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
     return <FirmwareLatestVersionInstalled />;
   }, [
     activeConnectId,
+    installPageOwnsErrors,
     isLoading,
+    isWorkflowError,
     result,
     retryInfo,
     retryUpdate,
     run,
     shouldShowChangeLog,
     stepInfo.payload,
-    stepInfo.step,
+    usbSuggestionAcknowledged,
   ]);
 
   return (
@@ -214,7 +233,7 @@ function PageFirmwareUpdateChangeLog() {
           ) : undefined
         }
         containerStyle={{
-          p: isWorkflowError ? '$5' : 0,
+          p: isWorkflowError && !installPageOwnsErrors ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />

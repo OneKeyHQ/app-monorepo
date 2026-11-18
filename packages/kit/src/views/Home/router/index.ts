@@ -2,7 +2,9 @@ import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabHomeRoutes,
+  PRIME_PURCHASE_COMPLETE_PATH,
   PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
@@ -36,6 +38,18 @@ const RedeemBitcoinVoucherLanding = LazyLoadPage(async () => {
   return { default: RedeemBitcoinVoucherLandingPage };
 });
 
+const PrimeSubscriptionLanding = LazyLoadPage(async () => {
+  const { PrimeSubscriptionLandingPage } =
+    await import('../pages/primeSubscription/PrimeSubscriptionLandingPage');
+  return { default: PrimeSubscriptionLandingPage };
+});
+
+const PrimePurchaseCompleteLanding = LazyLoadPage(async () => {
+  const { PrimePurchaseCompleteLandingPage } =
+    await import('../pages/primePurchaseComplete/PrimePurchaseCompleteLandingPage');
+  return { default: PrimePurchaseCompleteLandingPage };
+});
+
 const PrimeRedeemLanding = LazyLoadPage(async () => {
   const { PrimeRedeemLandingPage } =
     await import('../../Prime/pages/PrimeRedeemLanding/PrimeRedeemLandingPage');
@@ -58,6 +72,10 @@ const ApprovalListPage = LazyLoadPage(
   () => import('../pages/ApprovalListPage'),
 );
 
+const DustSweepPage = LazyLoadPage(
+  () => import('../../DustSweep/DustSweepPage'),
+);
+
 export const urlAccountRoutes = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
@@ -72,6 +90,8 @@ export const referralLandingRewriteWithoutPage = '/r/:code/app';
 // Rewrite pattern for referral landing with code only: /r/:code
 export const referralLandingRewriteCodeOnly = '/r/:code';
 export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
+export const primeSubscriptionLandingRewrite = PRIME_SUBSCRIPTION_LANDING_PATH;
+export const primePurchaseCompleteLandingRewrite = PRIME_PURCHASE_COMPLETE_PATH;
 export const primeRedeemLandingRewrite = PRIME_REDEEM_LANDING_PATH;
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
@@ -129,6 +149,20 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: false,
   },
   {
+    name: ETabHomeRoutes.TabHomePrimeSubscription,
+    component: PrimeSubscriptionLanding,
+    rewrite: primeSubscriptionLandingRewrite,
+    exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomePrimePurchaseComplete,
+    component: PrimePurchaseCompleteLanding,
+    rewrite: primePurchaseCompleteLandingRewrite,
+    exact: true,
+    headerShown: false,
+  },
+  {
     name: ETabHomeRoutes.TabHomePrimeRedeem,
     component: PrimeRedeemLanding,
     rewrite: primeRedeemLandingRewrite,
@@ -156,5 +190,11 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ApprovalListPage,
     exact: true,
     rewrite: '/approval-list',
+  },
+  {
+    name: ETabHomeRoutes.TabHomeDustSweep,
+    component: DustSweepPage,
+    exact: true,
+    rewrite: '/dust-sweep',
   },
 ];

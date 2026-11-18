@@ -2,7 +2,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   isPrimeInfiniPaymentCacheIdentityForKey,
-  isPrimeInfiniPaymentExplicitlySuccessfulSnapshot,
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniNetworkAddress,
   isSamePrimeInfiniPaymentTransferSnapshot,
@@ -20,7 +19,6 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
-  getPrimeInfiniPaymentOutcome,
   hasPrimeInfiniPaymentProgress,
   isPrimeInfiniPaymentClosedUnpaid,
   isPrimeInfiniPaymentForAsset,
@@ -69,10 +67,6 @@ export type IPrimeInfiniPaymentAccountRebindResult =
 export type IPrimeInfiniPaymentForcedReplacementResult =
   | {
       type: 'replace';
-      payment: IPrimeInfiniPayment;
-    }
-  | {
-      type: 'track';
       payment: IPrimeInfiniPayment;
     }
   | {
@@ -265,7 +259,6 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   fetchLatestPayment,
   fetchPurchaseStatusSnapshot,
   archivePaymentSession,
-  persistTrackedPayment,
   onLatestPaymentUnavailable,
   shouldContinue,
 }: {
@@ -275,18 +268,13 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   archivePaymentSession: (
     payment: IPrimeInfiniPayment,
   ) => Promise<IPrimeInfiniPendingPaymentSession | undefined>;
-  persistTrackedPayment: (
-    payment: IPrimeInfiniPayment,
-  ) => Promise<IPrimeInfiniPendingPaymentSession>;
   onLatestPaymentUnavailable?: (error: unknown) => void;
   shouldContinue: () => boolean;
 }): Promise<IPrimeInfiniPaymentForcedReplacementResult> {
   // The invoice endpoint can stay broken for a specific paymentId, which used
   // to abort this whole path and leave the user with no way out at all. Degrade
-  // instead: the check that actually matters here is whether the subscription
-  // was already granted, and that comes from a different endpoint. Losing the
-  // invoice snapshot only costs the secondary "is this invoice itself already
-  // confirmed" check, which is unavailable in this state anyway.
+  // instead: subscription activation comes from a separate endpoint, and the
+  // stored invoice still preserves the order the user agreed to replace.
   const [latestPayment, purchaseStatusSnapshot] = await Promise.all([
     fetchLatestPayment(currentSession.payment.paymentId).then(
       (payment) => payment,
@@ -339,21 +327,8 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
         latest: latestPayment,
       })
     : currentSession.payment;
-  if (
-    getPrimeInfiniPaymentOutcome({
-      payment: paymentWithDurableProgress,
-    }) === 'confirmed' ||
-    isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(paymentWithDurableProgress)
-  ) {
-    const persistedSession = await persistTrackedPayment(
-      paymentWithDurableProgress,
-    );
-    return {
-      type: 'track',
-      payment: persistedSession.payment,
-    };
-  }
-
+  // This path follows the user's explicit duplicate-payment warning. Invoice
+  // progress alone must not trap a user whose subscription never activated.
   const archivedSession = await archivePaymentSession(
     paymentWithDurableProgress,
   );

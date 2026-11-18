@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Keyboard, useWindowDimensions } from 'react-native';
 
+import { Toast } from '@onekeyhq/components/src/actions/Toast';
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type {
   IAuthChecklistItem,
@@ -14,10 +15,10 @@ import {
   useDeviceStageEscapeOwner,
   useDeviceStageExitPolicy,
 } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
-import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks/useLayout';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
+import { ImperativeOverlayMountBody } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 
 /**
  * The stage stories' shared scaffolding: one demo state machine (the
@@ -240,6 +241,7 @@ export function useStageDriver(
     stageProps: {
       step,
       onClose: closable ? close : undefined,
+      onErrorNoticeExpire: () => go('off'),
       waitStalled: stalled,
       inputError,
       authChecklist: authRows,
@@ -296,13 +298,21 @@ export function StepButton({
   );
 }
 
+// A flow's own news landing while the stage is up (an approval's toast
+// under the next signature's capsule): the toasters rest under the shell
+// instead of covering it — see Toast's topObstruction.
+function showDemoToast() {
+  Toast.success({ title: 'Approved', message: 'Approve 1 USDC' });
+}
+
 /** The demo host: the stage portals to the shell's canvas-wide mount
  * (the hardware-dialog level) on every platform, and its minHeight
  * (window minus a workbench-chrome allowance) keeps the canvas — and so
- * that mount — tall enough for the stage to anchor to the bottom. The
- * stage is modal — its wall takes every touch on the canvas — so the
- * driver's buttons ride the same portal, mounted after the stage and
- * therefore above it: a bar floating along the canvas top. */
+ * that mount — tall enough for a card hung from its top. The stage is
+ * modal — its wall takes every touch on the canvas — so the driver's
+ * buttons ride the same portal, mounted after the stage and therefore
+ * above it: a bar floating along the canvas bottom, clear of the
+ * stage's own edge. */
 export function StageHost({
   driver,
   props,
@@ -314,14 +324,14 @@ export function StageHost({
 }) {
   const { height } = useWindowDimensions();
   // The portal is the full window on device (the preview mounts the stage
-  // on the overlay window), so the bar clears the status bar band by the
+  // on the overlay window), so the bar clears the home indicator by the
   // window's own inset; the web canvas reports none.
-  const { top: barTop } = useSafeAreaInsets();
+  const { bottom: barBottom } = useSafeAreaInsets();
   const bar = useMemo(
     () => (
       <XStack
         position="absolute"
-        top={barTop}
+        bottom={barBottom}
         left={0}
         right={0}
         p="$2"
@@ -330,16 +340,19 @@ export function StageHost({
         pointerEvents="box-none"
       >
         {children}
+        <Button testID="device-stage-demo-toast" onPress={showDemoToast}>
+          Toast
+        </Button>
       </XStack>
     ),
-    [barTop, children],
+    [barBottom, children],
   );
   return (
     <Stack minHeight={height - 190}>
       <DeviceStage {...props} {...driver.stageProps} />
-      <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
+      <ImperativeOverlayMountBody target="hardware-stage">
         {bar}
-      </Portal.Body>
+      </ImperativeOverlayMountBody>
     </Stack>
   );
 }
@@ -365,7 +378,12 @@ export const ARG_TYPES = {
   step: { table: { disable: true } },
   deviceType: {
     control: 'inline-radio',
-    options: ['classic', 'mini', 'pro', 'touch', 'pro2'],
+    options: ['classic', 'mini', 'pro', 'touch', 'pro2', 'neo'],
+  },
+  // Only pro2 and neo listen; unset is each model's default finish.
+  deviceColor: {
+    control: 'inline-radio',
+    options: ['Black', 'Silver', 'Orange', 'White', 'Green', 'Pink'],
   },
   // 'usb' is the original look — the replica in the capsule seat; only
   // 'bluetooth' wears the badge.

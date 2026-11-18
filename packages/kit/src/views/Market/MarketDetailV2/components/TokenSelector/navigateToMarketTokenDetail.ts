@@ -2,15 +2,22 @@ import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  openOrReplaceMarketDetailRoute,
+  prepareMarketDetailTabBarTransition,
+  replaceFocusedMarketDetailRoute,
+} from '../../../utils/marketDetailNavigation';
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
@@ -20,6 +27,11 @@ export async function navigateToMarketTokenDetail(
     networkId: string;
     isNative?: boolean;
     assetId?: string;
+    symbol?: string;
+    name?: string;
+    logoUrl?: string;
+    price?: number;
+    change24h?: number;
     stockId?: string;
   },
   opts: {
@@ -37,22 +49,32 @@ export async function navigateToMarketTokenDetail(
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
   const isCurrentRequest = opts.isCurrentRequest ?? (() => true);
   let token = selectedToken;
   let marketVariantId: string | undefined;
-  if (token.assetId) {
+  const stockId = resolveMarketStockId({ stockId: token.stockId });
+  const pendingMarketAssetId =
+    platformEnv.isNative && !stockId ? token.assetId : undefined;
+  if (token.assetId && !pendingMarketAssetId && !stockId) {
+    let assetDetailFetched = false;
     try {
-      const { selectedVariant } =
+      const detail =
         await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
           assetId: token.assetId,
           currency: 'usd',
           autoHandleError: false,
         });
+      assetDetailFetched = true;
       if (!isCurrentRequest()) return;
+      const selectedVariant = requireMarketAssetVariant({
+        detail,
+        networkId: token.networkId,
+        tokenAddress: token.address,
+        isNative: token.isNative,
+      });
       token = {
         ...token,
         address: selectedVariant.tokenAddress,
@@ -61,8 +83,14 @@ export async function navigateToMarketTokenDetail(
       };
       marketVariantId = selectedVariant.variantId;
     } catch {
-      if (isCurrentRequest()) opts.onError?.();
-      return;
+      if (!isCurrentRequest()) return;
+      if (!assetDetailFetched && token.networkId) {
+        // Preserve the searched chain when the optional asset lookup is offline.
+        token = { ...token, assetId: undefined };
+      } else {
+        opts.onError?.();
+        return;
+      }
     }
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
@@ -71,30 +99,14 @@ export async function navigateToMarketTokenDetail(
     networkId: token.networkId,
   });
 
-  const stockId = resolveMarketStockId({
-    stockId: token.stockId,
-    stock: opts.tokenDetailPreview?.stock,
-    name: opts.tokenDetailPreview?.name,
-    symbol: opts.tokenDetailPreview?.symbol,
-  });
-  const shouldResolveMarketAsset = Boolean(
-    opts.resolveMarketAsset && !token.assetId && !stockId,
-  );
-
   if (stockId) {
     opts.tokenDetailActions.current.prepareStockTokenDetail({
       tokenAddress: token.address,
       networkId: token.networkId,
       isNative: token.isNative,
     });
-  } else if (shouldResolveMarketAsset) {
-    if (opts.tokenDetailPreview) {
-      opts.tokenDetailActions.current.prepareTokenDetailPreview(
-        opts.tokenDetailPreview,
-      );
-    } else {
-      opts.tokenDetailActions.current.clearTokenDetail();
-    }
+  } else if (pendingMarketAssetId) {
+    opts.tokenDetailActions.current.clearTokenDetail();
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -104,28 +116,41 @@ export async function navigateToMarketTokenDetail(
     });
   }
 
-  opts.beforeNavigate?.();
-
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const targetTab = ETabRoutes.Market;
   const tokenParams = {
-    ...(token.assetId
+    ...(token.assetId && !stockId
       ? {
           marketTokenId: token.assetId,
           marketVariantId,
+          ...(pendingMarketAssetId
+            ? {
+                pendingMarketAsset: {
+                  symbol:
+                    token.symbol ||
+                    opts.tokenDetailPreview?.symbol ||
+                    pendingMarketAssetId,
+                  logoUrl:
+                    token.logoUrl ?? opts.tokenDetailPreview?.tokenImageUri,
+                  name: token.name ?? opts.tokenDetailPreview?.name,
+                  price: token.price ?? opts.tokenDetailPreview?.price,
+                  change24h:
+                    token.change24h ?? opts.tokenDetailPreview?.change24h,
+                },
+              }
+            : undefined),
           marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
         }
       : undefined),
     tokenAddress: token.address,
-    network: shortCode || token.networkId,
+    network: pendingMarketAssetId
+      ? token.networkId
+      : shortCode || token.networkId,
     isNative: token.isNative,
-    ...(shouldResolveMarketAsset
-      ? {
-          resolveMarketAsset: true,
-          marketTokenSymbol: opts.tokenDetailPreview?.symbol,
-          legacyTokenPreview: opts.tokenDetailPreview,
-        }
+    from: EEnterWay.DetailSwitch,
+    ...(!stockId &&
+    opts.tokenDetailPreview &&
+    (platformEnv.isDesktop || platformEnv.isWeb)
+      ? { legacyTokenPreview: opts.tokenDetailPreview }
       : undefined),
     ...(!token.assetId && opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
@@ -143,8 +168,34 @@ export async function navigateToMarketTokenDetail(
   const routeName = stockId
     ? ETabMarketRoutes.MarketStockDetail
     : ETabMarketRoutes.MarketDetailV2;
+  if (!isCurrentRequest()) {
+    return;
+  }
+  // Update the already-open detail first, while a selector overlay still
+  // leaves the tab stack visible in getRootState(). Root-navigating
+  // Discovery/Market otherwise stacks another detail page.
+  const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
+    routeName,
+    params: params as Record<string, unknown>,
+  });
+  opts.beforeNavigate?.();
+  if (replacedCurrentDetail) {
+    return;
+  }
   setTimeout(() => {
     if (!isCurrentRequest()) return;
+    // After the selector overlay closes, nested tab state is often missing
+    // from getRootState(). Updating the focused detail avoids pushing another
+    // page onto Discovery/Market.
+    if (
+      replaceFocusedMarketDetailRoute({
+        routeName,
+        params: params as Record<string, unknown>,
+      })
+    ) {
+      return;
+    }
+    prepareMarketDetailTabBarTransition();
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: targetTab,
       params: {

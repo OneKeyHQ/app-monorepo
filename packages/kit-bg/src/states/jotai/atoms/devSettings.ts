@@ -33,6 +33,8 @@ export interface ITestAccount {
 }
 
 export interface IDevSettings {
+  // Resume the isolated storage recovery scenario from Home after a restart.
+  nativeStorageRecoveryTestOnHome?: boolean;
   // enable test endpoint
   enableTestEndpoint?: boolean;
   // enable dev overlay window
@@ -62,6 +64,12 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // Skip the embedded Stripe card form and open the RevenueCat Purchase Link
+  // directly (web / desktop / extension). Needs a restart.
+  usePrimeHostedCardCheckout?: boolean;
+  // Load the pre-#13914 Stripe.js to reproduce its retired iframe resources.
+  // Web / desktop / extension only; needs a restart.
+  useFaultyPrimeStripeJs?: boolean;
   showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
@@ -82,6 +90,8 @@ export interface IDevSettings {
   useLocalTradingViewUrl?: boolean;
   // show the TradingViewNative event log panel
   showTradingViewNativeDebugPanel?: boolean;
+  // Show the Web-only Account Selector React Context inspector.
+  showAccountSelectorMirrorInspector?: boolean;
   showPerpsRenderStats?: boolean;
   // Route Unifold deposits to the Arbitrum USDC destination instead of
   // HyperCore, so the whole deposit pipeline can be exercised for source-chain
@@ -129,6 +139,16 @@ export interface IDevSettings {
   networkThrottleEnabled?: boolean;
   // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
   mockKaspaRefTxFetchFailed?: boolean;
+  // Override the remote visibility flag so the entries it gates keep rendering
+  // regardless of its value. Default off; only honored while dev mode is
+  // enabled.
+  ignoreReviewControl?: boolean;
+  // Dev builds only: turning on hardware Cloud sync signs with a fixed test
+  // key instead of a device, so end-to-end runs need no hardware.
+  hardwareCloudSyncSoftwareKey?: boolean;
+  // Optional public fixture profile, persisted so isolated E2E runs can restart
+  // without sharing the default software key's old Cloud data.
+  hardwareCloudSyncSoftwareKeyProfile?: string;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -146,6 +166,15 @@ export function getDevSettingsNetworkThrottleEnabled(
     return false;
   }
   return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
+
+export function getDevSettingsIgnoreReviewControl(
+  devSettings: IDevSettingsPersistAtom,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return Boolean(devSettings.settings?.ignoreReviewControl);
 }
 export const {
   target: devSettingsPersistAtom,
@@ -168,6 +197,8 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
+      usePrimeHostedCardCheckout: false,
+      useFaultyPrimeStripeJs: false,
       showPerformanceMonitor: false,
       showPerformanceMonitorV2: false,
       autoNavigation: {

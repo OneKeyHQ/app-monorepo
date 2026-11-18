@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,6 +11,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -21,7 +23,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -188,9 +189,12 @@ export function getErrorAction({
     return <NeedFirmwareUpgradeFromWebButton />;
   }
 
-  // Generic hardware fallback: advises staying up to date, so send the user to
-  // the in-app firmware update flow rather than the web tool.
-  if (errorCode === ECustomOneKeyHardwareError.UnknownHardwareError) {
+  // Firmware compatibility errors and the generic hardware fallback both offer
+  // the existing in-app firmware update flow.
+  if (
+    errorCode === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+    errorCode === ECustomOneKeyHardwareError.UnknownHardwareError
+  ) {
     return <CheckFirmwareUpdateButton connectId={connectId} />;
   }
 

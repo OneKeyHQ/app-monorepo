@@ -1,7 +1,11 @@
+/* cspell:ignore Infini */
 import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+
+// The companion SDK defines this wire code; the pinned 1.2.7 types omit it.
+export const ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE = 903;
 
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
@@ -12,6 +16,8 @@ export enum ECustomOneKeyHardwareError {
   UnknownHardwareError = 4033,
   DeviceMethodCallTimeout = 4080,
   FirmwareUpdateBatteryTooLow = 4081,
+  FirmwareUpdateRequiresUsbTransport = 4082,
+  FirmwareUpdateUnsupportedDevice = 4083,
 }
 
 export enum ECustomCloudSyncError {
@@ -47,6 +53,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorOneKeyIdLegacyBindStateChanged = 'OneKeyErrorOneKeyIdLegacyBindStateChanged',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
+  OneKeyErrorPrimeUserBanned = 'OneKeyErrorPrimeUserBanned',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
@@ -65,6 +72,8 @@ export enum EOneKeyErrorClassNames {
   LocalSecretEnvelopeUnavailable = 'LocalSecretEnvelopeUnavailable',
   WrongPassword = 'WrongPassword',
   ReplaceTxNonceConsumed = 'ReplaceTxNonceConsumed',
+  InfiniReplacementUnavailable = 'InfiniReplacementUnavailable',
+  InfiniReplacementExpired = 'InfiniReplacementExpired',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;
@@ -115,8 +124,22 @@ export type IOneKeyHardwareErrorPayload = {
   error?: string;
   message?: string;
   params?: any;
+  appName?: string;
   connectId?: string;
   deviceId?: string;
+  recovery?: IHardwareErrorRecoveryHint;
+};
+
+// Wire-compatible mirror of the optional HWK SDK recovery payload. Keep this
+// structural until the first SDK version exporting HwkRecoveryHint is consumed.
+export type IHardwareErrorRecoveryHint = {
+  scope:
+    | 'call'
+    | 'operation'
+    | 'search-target'
+    | 'transport'
+    | 'not-recoverable'
+    | 'unknown';
 };
 
 export type IOneKeyHardwareErrorData = {

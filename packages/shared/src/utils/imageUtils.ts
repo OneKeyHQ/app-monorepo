@@ -32,7 +32,7 @@ import type {
   Action as ExpoImageManipulatorAction,
   ImageResult,
 } from 'expo-image-manipulator';
-import type { ImageSourcePropType } from 'react-native';
+import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
 type ICommonImageLogFn = (...args: string[]) => void;
 
@@ -1248,6 +1248,14 @@ async function getBase64FromImageUri({
   return getBase64FromImageUriWeb(uri);
 }
 
+// lodash `isArray` does not narrow readonly arrays, which RN's strict
+// `ImageSourcePropType` now uses.
+function isImageSourceArray(
+  source: ImageSourcePropType | undefined,
+): source is readonly ImageURISource[] {
+  return isArray(source);
+}
+
 async function getUriFromRequiredImageSource(
   source: ImageSourcePropType | string | undefined,
   logFn?: ICommonImageLogFn,
@@ -1273,7 +1281,8 @@ async function getUriFromRequiredImageSource(
         // ignore
       }
     }
-    const resolvedAssetSource = RNImage.resolveAssetSource(source);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const resolvedAssetSource = RNImage.resolveAssetSource(source)!;
     const uri = resolvedAssetSource.uri;
     logFn?.(
       '(native) ImageSource resolved to local uri',
@@ -1286,7 +1295,7 @@ async function getUriFromRequiredImageSource(
     logFn?.('ImageSource is string', source);
     return source;
   }
-  if (isArray(source)) {
+  if (isImageSourceArray(source)) {
     logFn?.('ImageSource is array');
     return undefined;
   }

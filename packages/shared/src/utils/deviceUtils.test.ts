@@ -74,6 +74,28 @@ describe('isSamePhysicalDevice', () => {
   });
 });
 
+describe('getDeviceSerialNoFromFeatures', () => {
+  it('skips loader placeholders before selecting a real serial alias', () => {
+    expect(
+      deviceUtils.getDeviceSerialNoFromFeatures({
+        serialNo: '000000000000000000000000',
+        onekey_serial_no: 'PHYSICAL_SERIAL',
+      } as IOneKeyDeviceFeatures),
+    ).toBe('PHYSICAL_SERIAL');
+  });
+
+  it.each(['', '  ', '000000000000000000000000', ' 000000 '])(
+    'does not expose %j as a device identity',
+    (serialNo) => {
+      expect(
+        deviceUtils.getDeviceSerialNoFromFeatures({
+          serialNo,
+        } as IOneKeyDeviceFeatures),
+      ).toBeUndefined();
+    },
+  );
+});
+
 describe('getFixedUpdatingConnectId', () => {
   const device = {
     connectId: 'USB_SERIAL',
@@ -342,6 +364,24 @@ describe('buildDeviceStageName', () => {
         } as never,
       }),
     ).resolves.toBe('Renamed Pro 2');
+  });
+
+  it('does not use the BLE connection name when the user label is missing', async () => {
+    await expect(
+      deviceUtils.buildDeviceName({
+        device: {
+          connectId: 'connect-id',
+          uuid: 'uuid',
+          deviceId: 'device-id',
+          deviceType: EDeviceType.Pro2,
+          name: 'Pro2 6136',
+        },
+        features: {
+          bleName: 'Pro2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).resolves.toBe('OneKey Pro 2');
   });
 
   it.each([

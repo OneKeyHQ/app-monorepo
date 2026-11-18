@@ -582,7 +582,9 @@ describe('TradingViewNative data providers', () => {
     };
     const provider = createTradingViewNativeDataProvider(source);
 
+    expect(provider.getCandleTimeMode?.()).toBe('calendar');
     const fallbackResult = await provider.fetchHistory(request);
+    expect(provider.getCandleTimeMode?.()).toBe('fixed');
     expect(fallbackResult).toEqual({
       historySource: 'fallback',
       pointType: 'single',
@@ -605,6 +607,7 @@ describe('TradingViewNative data providers', () => {
       ...request,
       interval: getInterval('1D'),
     });
+    expect(provider.getCandleTimeMode?.()).toBe('fixed');
     expect(mocks?.marketFetchHistory).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -748,7 +751,7 @@ describe('TradingViewNative data providers', () => {
       symbol: 'TOKEN',
       realtime: 'websocket',
     });
-    const interval = getInterval('60');
+    const interval = getInterval('15');
     const abortController = new AbortController();
     const onPoint = jest.fn();
     const subscription = await provider.subscribeRealtime({
@@ -762,7 +765,7 @@ describe('TradingViewNative data providers', () => {
       networkId: 'evm--1',
       tokenAddress: '0xabc',
       symbol: 'TOKEN',
-      chartType: '1H',
+      chartType: '15m',
       currency: 'usd',
     };
     expect(mocks?.marketService.subscribeOHLCV).toHaveBeenCalledWith(
@@ -777,7 +780,7 @@ describe('TradingViewNative data providers', () => {
         address: '0xabc',
         symbol: 'TOKEN',
         eventType: 'ohlcv',
-        type: '1H',
+        type: '15m',
         unixTime: 3600,
         o: 100,
         h: 110,
@@ -806,6 +809,100 @@ describe('TradingViewNative data providers', () => {
     );
     expect(mocks?.eventOff).toHaveBeenCalled();
   });
+
+  it.each(['1', '5', '30', '60', '240', '1D', '1W', '1M'])(
+    'uses live 15m closes as price ticks for the %s chart',
+    async (selectedInterval) => {
+      const now = jest.spyOn(Date, 'now').mockReturnValue(3_720_000);
+      try {
+        const provider = createTradingViewNativeDataProvider({
+          kind: 'market',
+          networkId: 'sol--101',
+          tokenAddress: 'TokenAddress',
+          symbol: 'TOKEN',
+          realtime: 'websocket',
+        });
+        const onPoint = jest.fn();
+        const getActiveInterval = jest.fn(() => getInterval(selectedInterval));
+        const subscription = await provider.subscribeRealtime({
+          interval: getInterval('15'),
+          getActiveInterval,
+          onPoint,
+          signal: new AbortController().signal,
+          subscriberId: 'chart',
+        });
+        const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+        const expectedSubscription = {
+          networkId: 'sol--101',
+          tokenAddress: 'TokenAddress',
+          symbol: 'TOKEN',
+          chartType: '15m',
+          currency: 'usd',
+        };
+        expect(mocks?.marketService.subscribeOHLCV).toHaveBeenCalledWith(
+          expectedSubscription,
+        );
+        const payload = {
+          channel: 'ohlcv',
+          networkId: 'sol--101',
+          tokenAddress: 'TokenAddress',
+          data: {
+            address: 'TokenAddress',
+            symbol: 'TOKEN',
+            eventType: 'ohlcv',
+            type: '15m',
+            unixTime: 3600,
+            o: 100,
+            h: 200,
+            l: 50,
+            c: 105,
+            v: 1000,
+          },
+        } satisfies IMarketWsDataUpdatePayload;
+        const handler = getMarketUpdateHandler();
+        handler?.({ ...payload, data: { ...payload.data, type: '1m' } });
+        handler?.({ ...payload, networkId: 'evm--1' });
+        handler?.({ ...payload, tokenAddress: 'OtherToken' });
+        handler?.({ ...payload, data: { ...payload.data, unixTime: 2700 } });
+        expect(onPoint).not.toHaveBeenCalled();
+
+        handler?.(payload);
+        expect(onPoint).toHaveBeenCalledWith({ price: 105, t: 3720 });
+        expect(mocks?.marketService.clearDataCount).toHaveBeenCalledWith({
+          address: 'TokenAddress',
+          type: 'ohlcv',
+          networkId: 'sol--101',
+          chartType: '15m',
+          currency: 'usd',
+        });
+        getActiveInterval.mockReturnValue(getInterval('15'));
+        handler?.(payload);
+        expect(onPoint).toHaveBeenLastCalledWith({
+          o: 100,
+          h: 200,
+          l: 50,
+          c: 105,
+          v: 1000,
+          t: 3600,
+        });
+        expect(mocks?.marketService.subscribeOHLCV).toHaveBeenCalledTimes(1);
+        expect(mocks?.marketService.unsubscribeOHLCV).not.toHaveBeenCalled();
+        await subscription?.ensure();
+        expect(mocks?.marketService.ensureSubscription).toHaveBeenCalledWith({
+          ...expectedSubscription,
+          channel: 'ohlcv',
+        });
+        await subscription?.unsubscribe();
+        expect(mocks?.marketService.unsubscribeOHLCV).toHaveBeenCalledWith(
+          expectedSubscription,
+        );
+        handler?.(payload);
+        expect(onPoint).toHaveBeenCalledTimes(2);
+      } finally {
+        now.mockRestore();
+      }
+    },
+  );
 
   it('does not create a background subscription after the request is aborted', async () => {
     let resolveConnect: () => void = () => undefined;
@@ -876,20 +973,20 @@ describe('TradingViewNative data providers', () => {
   it('keeps Hyperliquid transport details behind its adapter', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
     mocks?.hyperliquidFetchCandles.mockResolvedValue({ points: [], total: 0 });
-    mocks?.hyperliquidSubscribeCandle.mockResolvedValue({
-      ensure: jest.fn(),
-      unsubscribe: jest.fn(),
-    });
     const provider = createTradingViewNativeDataProvider({
       kind: 'hyperliquid',
       coin: 'BTC',
       environment: 'testnet',
     });
-    const interval = getInterval('1M');
+    const interval = getInterval('60');
     expect(provider.getHistoryRequestCandleCount(interval)).toBe(5000);
+    expect(provider.getInitialHistoryRequestCandleCount?.(interval)).toBe(500);
     expect(
       provider.hasMoreHistory({ interval, receivedPointCount: 5000 }),
     ).toBe(true);
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 499 })).toBe(
+      false,
+    );
     const abortController = new AbortController();
 
     await provider.fetchHistory({
@@ -901,10 +998,55 @@ describe('TradingViewNative data providers', () => {
     expect(mocks?.hyperliquidFetchCandles).toHaveBeenCalledWith({
       coin: 'BTC',
       environment: 'testnet',
-      interval: '1M',
+      interval: '1h',
       signal: abortController.signal,
       timeFrom: 100,
       timeTo: 200,
+    });
+  });
+
+  it('builds Hyperliquid monthly history from complete daily calendar windows', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    const firstDay = Date.parse('2025-02-01') / 1000;
+    const lastDay = Date.parse('2025-02-28') / 1000;
+    mocks?.hyperliquidFetchCandles.mockResolvedValue({
+      points: [
+        { t: firstDay, o: 100, h: 120, l: 90, c: 110, v: 10 },
+        { t: lastDay, o: 110, h: 130, l: 100, c: 125, v: 20 },
+      ],
+      total: 2,
+    });
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'hyperliquid',
+      coin: 'BTC',
+      environment: 'testnet',
+    });
+    const interval = getInterval('1M');
+    expect(provider.getHistoryRequestCandleCount(interval)).toBe(100);
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 1 })).toBe(
+      true,
+    );
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 0 })).toBe(
+      false,
+    );
+    const signal = new AbortController().signal;
+    const result = await provider.fetchHistory({
+      interval,
+      signal,
+      timeFrom: Date.parse('2025-02-10') / 1000,
+      timeTo: Date.parse('2025-02-20') / 1000,
+    });
+    expect(mocks?.hyperliquidFetchCandles).toHaveBeenCalledWith({
+      coin: 'BTC',
+      environment: 'testnet',
+      interval: '1d',
+      signal,
+      timeFrom: firstDay,
+      timeTo: Date.parse('2025-03-01') / 1000 - 1,
+    });
+    expect(result).toEqual({
+      points: [{ t: firstDay, o: 100, h: 130, l: 90, c: 125, v: 30 }],
+      total: 1,
     });
   });
 

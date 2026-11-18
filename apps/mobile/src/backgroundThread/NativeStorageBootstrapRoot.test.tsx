@@ -38,13 +38,6 @@ const mockRunJotaiMainHydration = jest.fn(
     initializeFromBackground(),
 );
 const mockHydrateColdStartSnapshotAfterRuntimeLaunch = jest.fn();
-const mockWaitForColdStartCriticalImagesResolvers: Array<() => void> = [];
-const mockWaitForColdStartCriticalImagesBeforeMount = jest.fn(
-  () =>
-    new Promise<void>((resolve) => {
-      mockWaitForColdStartCriticalImagesResolvers.push(resolve);
-    }),
-);
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
   appRestart: (options: unknown) => mockAppRestart(options),
@@ -83,7 +76,18 @@ jest.mock('./jotaiMainHydrationGate', () => ({
     mockRunJotaiMainHydration(initializeFromBackground),
 }));
 
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  OverlayView: ({ children }: { children?: import('react').ReactNode }) =>
+    children,
+}));
+
 jest.mock('react-native', () => ({
+  Modal: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
+  ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ActivityIndicator: ({ testID }: { testID?: string }) => (
     <div data-testid={testID} />
   ),
@@ -116,8 +120,6 @@ jest.mock('./bootstrapNativeStorage', () => ({
   hydrateColdStartSnapshotAfterRuntimeLaunch: () => {
     mockHydrateColdStartSnapshotAfterRuntimeLaunch();
   },
-  waitForColdStartCriticalImagesBeforeMount: () =>
-    mockWaitForColdStartCriticalImagesBeforeMount(),
 }));
 
 jest.mock('./nativeStorageBootstrapSplash', () => ({
@@ -216,33 +218,14 @@ describe('NativeStorageBootstrapRoot', () => {
     expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
 
     await act(async () => {
-      mockBootstrapRejectors[1]?.(
-        new Error(
-          'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed',
-        ),
-      );
+      mockBootstrapRejectors[1]?.(new Error('Initial storage RPC failed'));
       await Promise.resolve();
     });
-    expect(screen.getByText('Local storage needs repair')).toBeTruthy();
-    expect(screen.queryByTestId('native-storage-migration-retry')).toBeNull();
-    expect(
-      screen.queryByTestId('native-storage-bootstrap-restart-app'),
-    ).toBeNull();
-
-    fireEvent.click(screen.getByTestId('native-storage-migration-repair'));
-    expect(
-      screen.getByTestId('native-storage-migration-repair-confirm'),
-    ).toBeTruthy();
-    fireEvent.click(
-      screen.getByTestId('native-storage-migration-repair-confirm'),
-    );
+    expect(screen.getByText('Storage initialization failed')).toBeTruthy();
+    expect(screen.getByText('Initial storage RPC failed')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
     await act(async () => {
       await Promise.resolve();
-    });
-    expect(mockCallNativeStorage).toHaveBeenCalledWith({
-      scope: 'recovery',
-      operation: 'resetMigrationTarget',
-      target: 'appStorage',
     });
     expect(mockBootstrapNativeStorage.mock.calls).toEqual([
       [{ force: false }],
@@ -290,16 +273,6 @@ describe('NativeStorageBootstrapRoot', () => {
         await Promise.resolve();
       }
     });
-    // First-paint images get their bounded head start after jotai hydration
-    // and before the business app mounts (OK-61505).
-    expect(mockWaitForColdStartCriticalImagesBeforeMount).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(
-      mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
-    ).toBeLessThan(
-      mockWaitForColdStartCriticalImagesBeforeMount.mock.invocationCallOrder[0],
-    );
     // The snapshot is readable only after the runtime launch is acknowledged,
     // and it must be hydrated before the jotai init that precedes the mount.
     expect(mockHydrateColdStartSnapshotAfterRuntimeLaunch).toHaveBeenCalled();
@@ -317,14 +290,6 @@ describe('NativeStorageBootstrapRoot', () => {
     ).toBeLessThan(
       mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
     );
-    expect(screen.queryByTestId('business-app')).toBeNull();
-
-    await act(async () => {
-      mockWaitForColdStartCriticalImagesResolvers[0]?.();
-      for (let index = 0; index < 5; index += 1) {
-        await Promise.resolve();
-      }
-    });
     expect(screen.getByTestId('business-app')).toBeTruthy();
   });
 });

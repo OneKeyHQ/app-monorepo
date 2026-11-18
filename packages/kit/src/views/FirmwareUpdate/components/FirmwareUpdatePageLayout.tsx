@@ -81,9 +81,12 @@ export function FirmwareUpdatePageHeaderTitle(props: {
 export function FirmwareUpdatePageHeader({
   headerTitle,
   headerRight,
+  title,
 }: {
   headerTitle?: React.ReactNode;
   headerRight?: IStackNavigationOptions['headerRight'];
+  /** Plain-text title override; defaults to "Hardware update". */
+  title?: string;
 }) {
   const intl = useIntl();
 
@@ -93,9 +96,10 @@ export function FirmwareUpdatePageHeader({
       title={
         headerTitle
           ? undefined
-          : intl.formatMessage({
+          : (title ??
+            intl.formatMessage({
               id: ETranslations.update_hardware_update,
-            })
+            }))
       }
       headerTitle={headerTitle ? () => headerTitle : undefined}
       headerRight={headerRight}
@@ -110,11 +114,13 @@ export function FirmwareUpdatePageLayout({
   children,
   headerTitle,
   headerRight,
+  title,
   containerStyle,
 }: {
   children: React.ReactNode;
   headerTitle?: React.ReactNode;
   headerRight?: IStackNavigationOptions['headerRight'];
+  title?: string;
   containerStyle?: IStackProps;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -122,10 +128,11 @@ export function FirmwareUpdatePageLayout({
   // () => navigation.popStack()
 
   return (
-    <Stack>
+    <Stack flex={1}>
       <FirmwareUpdatePageHeader
         headerTitle={headerTitle}
         headerRight={headerRight}
+        title={title}
       />
       <Page.Body>
         <Stack p="$5" {...containerStyle}>

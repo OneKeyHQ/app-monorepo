@@ -249,6 +249,11 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
           this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
         ),
+        timedDeferred(
+          'serviceKeylessCloudSync.startHardwareCloudKeySweep',
+          async () =>
+            this.backgroundApi.serviceKeylessCloudSync.startHardwareCloudKeySweep(),
+        ),
         timedDeferred('serviceSetting.fetchReviewControl', () =>
           this.backgroundApi.serviceSetting.fetchReviewControl(),
         ),
@@ -262,6 +267,9 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('serviceNotification.init', () =>
           this.backgroundApi.serviceNotification.init(),
+        ),
+        timedDeferred('servicePrivacyChain.init', () =>
+          this.backgroundApi.servicePrivacyChain.init(),
         ),
         timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),

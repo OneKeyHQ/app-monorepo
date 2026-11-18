@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -292,6 +293,7 @@ function RepayWithCollateralForm({
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
   const [amountValue, setAmountValue] = useState('');
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const [submitting, setSubmitting] = useState(false);
   const [storedQuote, setQuote] = useState<
     IRepayWithCollateralQuote | undefined
@@ -1018,6 +1020,8 @@ function RepayWithCollateralForm({
               maxAmountText={intl.formatMessage({
                 id: ETranslations.global_max,
               })}
+              usePercentageKeyboardAccessory
+              onAmountFocusChange={onAmountFocusChange}
               onSelectPercentageStage={onSelectPercentageStage}
             />
             <Stack mt="$2">
@@ -1322,9 +1326,12 @@ function RepayWithCollateralForm({
               }}
             />
           )}
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
+          {platformEnv.isNativeIOSPhone ? null : (
+            <PercentageStageOnKeyboard
+              isAmountFocused={isAmountFocused && !isDisabled}
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          )}
         </Page.Footer>
       ) : (
         <YStack bg="$bgApp" gap="$5">

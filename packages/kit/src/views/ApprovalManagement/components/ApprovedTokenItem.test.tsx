@@ -67,10 +67,10 @@ jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
   formatDate: (
     _date: Date,
     options?: {
-      formatTemplate?: string;
+      hideTimeForever?: boolean;
     },
   ) => {
-    if (options?.formatTemplate === 'PP') {
+    if (options?.hideTimeForever) {
       return 'Jul 17, 2026';
     }
     return 'Aug 16, 2026, 12:27';

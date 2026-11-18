@@ -2,6 +2,7 @@ package so.onekey.app.wallet.travelmode;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 
@@ -56,6 +57,14 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
 
     @ReactMethod
     public void prepareRestart(String profile, Promise promise) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getReactApplicationContext().runOnUiQueueThread(() -> prepareRestartWithSplashScreen(profile, promise));
+        } else {
+            prepareRestartWithSplashScreen(profile, promise);
+        }
+    }
+
+    private void prepareRestartWithSplashScreen(String profile, Promise promise) {
         synchronized (LOCK) {
             try {
                 requireSupported(VALID_PROFILES.contains(profile), "Unsupported profile");
@@ -72,6 +81,13 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                 if (!committed) {
                     throw new IllegalStateException("Launch epoch commit failed");
                 }
+                // Appearance updates must not reject a committed restart.
+                OneKeyTravelModeSplashScreen.synchronizeBestEffort(
+                    getReactApplicationContext().getCurrentActivity(), "travel-mode".equals(profile)
+                );
+                OneKeyTravelModeAppIcon.synchronizeBestEffort(
+                    getReactApplicationContext(), "travel-mode".equals(profile)
+                );
                 promise.resolve((double) epoch);
             } catch (Exception error) {
                 promise.reject("TRAVEL_MODE_LAUNCH_PREPARE_FAILED", error.getMessage(), error);
@@ -81,8 +97,21 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
 
     @ReactMethod
     public void forceDisableForRecovery(Promise promise) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getReactApplicationContext().runOnUiQueueThread(() -> forceDisableWithSplashScreen(promise));
+        } else {
+            forceDisableWithSplashScreen(promise);
+        }
+    }
+
+    private void forceDisableWithSplashScreen(Promise promise) {
         try {
             boolean didChange = forceDisableTravelModeForRecovery(getReactApplicationContext());
+            if (didChange) {
+                OneKeyTravelModeSplashScreen.synchronizeBestEffort(
+                    getReactApplicationContext().getCurrentActivity(), false
+                );
+            }
             promise.resolve(didChange);
         } catch (Exception error) {
             promise.reject("TRAVEL_MODE_RECOVERY_FAILED", error.getMessage(), error);
@@ -152,6 +181,9 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                 .commit();
             if (!committed || preferences.contains(PENDING_EPOCH_KEY)) {
                 throw new IllegalStateException("Launch recovery commit failed");
+            }
+            if (didChange) {
+                OneKeyTravelModeAppIcon.synchronizeBestEffort(context, false);
             }
             return didChange;
         }

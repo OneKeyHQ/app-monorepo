@@ -132,6 +132,9 @@ describe('ServiceTravelMode authentication boundary', () => {
     const promptPasswordVerify = jest.fn(async () => ({
       password: 'encoded-password',
     }));
+    const haltLocalWalletForTravelMode = jest.fn(async () => {
+      throw new OneKeyLocalError('privacy runtime unavailable');
+    });
     const service = new ServiceTravelMode({
       backgroundApi: {
         serviceApp: {
@@ -140,6 +143,7 @@ describe('ServiceTravelMode authentication boundary', () => {
           }),
         },
         servicePassword: { promptPasswordVerify },
+        servicePrivacyChain: { haltLocalWalletForTravelMode },
       },
     });
     const { admissionId } = await service.requestPageAdmission();
@@ -159,5 +163,6 @@ describe('ServiceTravelMode authentication boundary', () => {
       skipLazyUpgrade: true,
     });
     expect(timerUtils.wait).toHaveBeenCalledWith(3000);
+    expect(haltLocalWalletForTravelMode).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,7 @@
 import type { ComponentProps, ForwardedRef } from 'react';
 import {
   cloneElement,
+  createContext,
   createRef,
   forwardRef,
   useCallback,
@@ -13,22 +14,23 @@ import {
   useState,
 } from 'react';
 
+import {
+  useNestedOverlayLevel,
+  useOverlayPageScope,
+} from '@onekeyfe/react-native-native-overlay';
+import { NavigationRouteContext } from '@react-navigation/native';
 import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Dimensions, Keyboard as NativeKeyboard } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import {
-  AnimatePresence,
-  Sheet,
-  TMDialog,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   createLazyModuleComponent,
@@ -45,32 +47,32 @@ import { SheetGrabber } from '../../content/SheetGrabber';
 import {
   EPageType,
   EPortalContainerConstantName,
-  Portal,
   usePageType,
 } from '../../hocs';
 import {
-  useBackHandler,
   useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
-  useOverlayZIndex,
   useSafeAreaInsets,
 } from '../../hooks';
+import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
+import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '../../utils/animationConstants';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 
+import { getDialogKeyboardPaddingBottom } from './boundedDialogLayout';
+import { BoundedDialogScrollLayout } from './BoundedDialogScrollLayout';
 import { Content } from './Content';
-import { DialogContext, DialogSheetContext } from './context';
+import { DialogContext } from './context';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { DialogScrollView } from './DialogScrollView';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
   DialogHeader,
+  DialogHeaderCloseButton,
   DialogHeaderContext,
   DialogHyperlinkTextDescription,
   DialogIcon,
@@ -79,8 +81,10 @@ import {
   SetDialogHeader,
 } from './Header';
 import { HeaderDragZone } from './HeaderDragZone';
+import { OverlayDialogPresentation } from './OverlayDialogPresentation';
 import { renderToContainer } from './renderToContainer';
 
+import type { IOverlayDialogCardProps } from './OverlayDialogPresentation';
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
@@ -96,7 +100,7 @@ import type { IPortalManager } from '../../hocs';
 import type { UseFormReturn } from '../../hooks';
 import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
-import type { GestureResponderEvent } from 'react-native';
+import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 
 type IDialogFormModule = typeof import('./DialogForm');
 type IDialogFormFieldProps = ComponentProps<
@@ -152,34 +156,22 @@ export type {
   IDialogShowProps,
 } from './type';
 
+// Still used by the Tamagui Popover sheet until Popover migrates (P5).
 export const FIX_SHEET_PROPS = {
   display: 'block',
 } satisfies IYStackProps;
 
-const MAX_CONTENT_WIDTH = 400;
-
-const DIALOG_ENTER_STYLE_OPACITY = { opacity: 0 } as any;
-const DIALOG_EXIT_STYLE_OPACITY = { opacity: 0 } as any;
-const DIALOG_CONTENT_ANIMATION: [
-  'quick',
-  { opacity: { overshootClamping: boolean } },
-] = ['quick', { opacity: { overshootClamping: true } }];
-const DIALOG_CONTENT_ENTER_EXIT_STYLE = { opacity: 0, scale: 0.85 };
-const DIALOG_THEME_DARK = { outlineColor: '$neutral5' } as const;
-const DIALOG_OUTLINE_STYLE = { outlineStyle: 'solid' } as const;
-const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
-  outlineStyle: 'solid',
-  contentVisibility: 'hidden',
-} as any;
-const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
-const EMPTY_DIALOG_STYLE = {} as const;
 const INITIAL_BOTTOM_INSET = initialWindowMetrics?.insets.bottom || 0;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = ({
   useInitialSafeAreaBottomInsetFallback = false,
+  trackKeyboardPadding = false,
+  trackKeyboardFrames = false,
 }: {
   useInitialSafeAreaBottomInsetFallback?: boolean;
+  trackKeyboardPadding?: boolean;
+  trackKeyboardFrames?: boolean;
 }) => {
   const { bottom } = useSafeAreaInsets();
   // Root-sibling portals can report zero before safe-area context propagates.
@@ -188,29 +180,74 @@ const useSafeKeyboardAnimationStyle = ({
     useInitialSafeAreaBottomInsetFallback && bottom === 0
       ? INITIAL_BOTTOM_INSET
       : bottom;
-  const androidBottomInset = platformEnv.isNativeAndroid ? safeAreaBottom : 0;
-  const keyboardHeightValue = useSharedValue(0);
+  const isNativeAndroid = Boolean(platformEnv.isNativeAndroid);
+  const { height: keyboardHeight } = useKeyboardAnimation();
+  const [trackedKeyboardHeight, setTrackedKeyboardHeight] = useState(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
   //   - bottom safe-area inset: always required (static)
   //   - keyboard height: only while the keyboard is shown (dynamic)
   // Android keyboard events exclude the bottom system-bar inset, while iOS
   // keyboard events already include it. Only restore the inset on Android.
+  // Read the keyboard-controller animation on every native frame. A portal-
+  // mounted fit Sheet can miss or defer a one-shot keyboardWillShow layout
+  // update, leaving its input behind the iOS keyboard until a later render.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(
-      keyboardHeightValue.value + androidBottomInset,
+    paddingBottom: getDialogKeyboardPaddingBottom({
+      keyboardHeight: Math.abs(keyboardHeight.value),
       safeAreaBottom,
-    ),
+      isNativeAndroid,
+    }),
   }));
 
   useKeyboardEventWithoutNavigation({
     keyboardWillShow: (e) => {
-      const height = e.endCoordinates.height;
-      keyboardHeightValue.value = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
+      const height =
+        e.endCoordinates.height < 0
+          ? DEFAULT_KEYBOARD_HEIGHT
+          : e.endCoordinates.height;
+      if (trackKeyboardPadding) {
+        setTrackedKeyboardHeight(height);
+      }
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = 0;
+      if (trackKeyboardPadding) {
+        setTrackedKeyboardHeight(0);
+      }
     },
+  });
+  useEffect(() => {
+    if (!platformEnv.isNative || !trackKeyboardFrames) return;
+    // A visible keyboard can change height without another show event. Match
+    // the native overlay's viewport without adding a second movement animation.
+    const subscription = NativeKeyboard.addListener(
+      platformEnv.isNativeIOS
+        ? 'keyboardWillChangeFrame'
+        : 'keyboardDidChangeFrame',
+      ({ endCoordinates }) => {
+        const height =
+          endCoordinates.height < 0
+            ? DEFAULT_KEYBOARD_HEIGHT
+            : endCoordinates.height;
+        // Hide frame notifications can retain the old keyboard height while
+        // moving its origin below the screen.
+        setTrackedKeyboardHeight(
+          Math.max(
+            0,
+            Math.min(
+              height,
+              Dimensions.get('screen').height - endCoordinates.screenY,
+            ),
+          ),
+        );
+      },
+    );
+    return () => subscription.remove();
+  }, [trackKeyboardFrames]);
+  const keyboardPaddingBottom = getDialogKeyboardPaddingBottom({
+    keyboardHeight: trackKeyboardPadding ? trackedKeyboardHeight : 0,
+    safeAreaBottom,
+    isNativeAndroid,
   });
   // On web there is no reanimated keyboard tracking, but notched iOS
   // Safari/PWA still reports a bottom inset via env(safe-area-inset-bottom).
@@ -218,9 +255,17 @@ const useSafeKeyboardAnimationStyle = ({
   // clear the home indicator there too — footers only carry their design
   // padding now, and rely on the frame for the inset on every platform.
   if (!platformEnv.isNative) {
-    return safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined;
+    return {
+      style: safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined,
+      keyboardPaddingBottom: safeAreaBottom,
+      keyboardOffset: 0,
+    };
   }
-  return animatedStyles;
+  return {
+    style: animatedStyles,
+    keyboardPaddingBottom,
+    keyboardOffset: trackedKeyboardHeight > 0 ? keyboardPaddingBottom : 0,
+  };
 };
 
 // Without a title the header drag zone is only the grabber strip; keep it
@@ -234,15 +279,29 @@ const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
  *
  * @returns The rendered dialog UI as a React element.
  */
+// Folding or resizing a window across the expanded width while a dialog is
+// open would swap sheet and card and remount its content, dropping input and
+// focus, so the presentation chosen when it opened holds until it closes.
+function useValueLatchedWhileOpen<T>(open: boolean, value: T): T {
+  const latchedRef = useRef(value);
+  const wasOpenRef = useRef(false);
+  if (open && !wasOpenRef.current) {
+    latchedRef.current = value;
+  }
+  wasOpenRef.current = open;
+  // Closing still renders the exit animation with the original presentation.
+  // Refresh only when the next open cycle starts.
+  return latchedRef.current;
+}
+
 function DialogFrame({
-  title,
   open,
   onHeaderCloseButtonPress,
   onClose,
-  modal,
   renderContent,
   showFooter = true,
   footerProps,
+  leadingContent,
   contentContainerProps,
   onConfirm,
   onConfirmText,
@@ -256,7 +315,6 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
-  sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
   sheetDragArea = 'sheet',
@@ -267,21 +325,21 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  nativeCentered = false,
+  overlayLevel: overlayLevelProp,
+  overlayPage,
+  onExited,
   trackID,
-  forceMount,
   useInitialSafeAreaBottomInsetFallback = false,
+  boundedSheetLayout = false,
+  fixedHeaderFooterHeight,
 }: IDialogProps) {
   const intl = useIntl();
+  // A dialog declared inside another overlay opens above it.
+  const nestedOverlayLevel = useNestedOverlayLevel();
+  const overlayLevel = overlayLevelProp ?? nestedOverlayLevel;
   const { footerRef } = useContext(DialogContext);
-  const [position, setPosition] = useState(0);
   const effectiveTrapFocus = trapFocus ?? !platformEnv.isNative;
-  const onBackdropPress = useMemo(
-    () => (dismissOnOverlayPress ? onClose : undefined),
-    [dismissOnOverlayPress, onClose],
-  );
-  const handleBackdropPress = useCallback(() => {
-    void onBackdropPress?.();
-  }, [onBackdropPress]);
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
@@ -300,26 +358,8 @@ function DialogFrame({
     onOpen?.();
   }, [trackID, onOpen]);
 
-  const handleBackPress = useCallback(() => {
-    if (!open) {
-      return false;
-    }
-    if (disableSystemClose) {
-      // Consume the event without dismissing — keep the dialog mounted as a
-      // blocker (e.g. pending force-update).
-      return true;
-    }
-    handleOpenChange(false);
-    return true;
-  }, [disableSystemClose, handleOpenChange, open]);
-
-  useBackHandler(handleBackPress);
-
-  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
-    // preventDefault stops Tamagui's built-in Escape-to-close. Always called
-    // here so unblocking is opt-in only via the close button / overlay.
-    event.preventDefault();
-  }, []);
+  // Android back and Escape reach the overlay first: it closes the dialog
+  // unless `disableSystemClose`, and swallows the key either way.
 
   const handleCancelButtonPress = useCallback(async () => {
     if (trackID) {
@@ -339,14 +379,37 @@ function DialogFrame({
     await onClose?.();
   }, [onClose, onHeaderCloseButtonPress]);
 
-  const media = useMedia();
+  useDeferredGuideBlocker(Boolean(open));
+  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
+  const isNativeCentered = nativeCentered && platformEnv.isNative;
+  // Expanded windows center the dialog; narrower ones use a sheet, capped in
+  // width on medium windows (see useOverlayWidthClass).
+  const overlayWidthClass = useOverlayWidthClass();
+  const useSheetPresentation = useValueLatchedWhileOpen(
+    Boolean(open),
+    overlayWidthClass !== 'expanded' && !isNativeCentered,
+  );
+  const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
+  // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay
+  // sheet.
+  const isBoundedDialogLayout =
+    (boundedSheetLayout || isNativeCentered) && platformEnv.isNative;
+  const hasFixedHeaderFooter =
+    isBoundedDialogLayout &&
+    fixedHeaderFooterHeight !== undefined &&
+    Number.isFinite(fixedHeaderFooterHeight) &&
+    fixedHeaderFooterHeight > 0;
   // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
   // the grabber + title row (HeaderDragZone) carry a pan of their own that
   // moves the sheet body and lets go of it past its thresholds.
+  const isSheetDragDisabled =
+    disableDrag ||
+    Boolean(sheetProps?.disableDrag) ||
+    sheetProps?.dismissOnSnapToBottom === false;
   const isHeaderDragOnly =
-    media.md && sheetDragArea === 'header' && !disableDrag;
+    useSheetPresentation && sheetDragArea === 'header' && !isSheetDragDisabled;
   const headerDragY = useSharedValue(0);
   useEffect(() => {
     if (open) {
@@ -357,238 +420,272 @@ function DialogFrame({
     handleOpenChange(false);
   }, [handleOpenChange]);
   const headerDragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: headerDragY.value }],
+    transform: [
+      {
+        // A bounded dialog may already be at the top safe-area limit.
+        translateY: isBoundedDialogLayout
+          ? Math.max(0, headerDragY.value)
+          : headerDragY.value,
+      },
+    ],
   }));
 
-  const zIndex = useOverlayZIndex(open, title);
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
+  const {
+    style: safeKeyboardAnimationStyle,
+    keyboardPaddingBottom,
+    keyboardOffset,
+  } = useSafeKeyboardAnimationStyle({
     useInitialSafeAreaBottomInsetFallback,
+    trackKeyboardPadding: isBoundedDialogLayout,
+    trackKeyboardFrames: hasFixedHeaderFooter,
   });
+  // The Tamagui floating panel's styling now lands on the centered card;
+  // stacking and focus props are the overlay's business.
+  const { cardProps, panelOpenAutoFocus } = useMemo(() => {
+    const {
+      zIndex: _zIndex,
+      onOpenAutoFocus: openFocus,
+      onCloseAutoFocus: _closeFocus,
+      trapFocus: _trapFocus,
+      ...rest
+    } = (floatingPanelProps ?? {}) as NonNullable<
+      IDialogProps['floatingPanelProps']
+    > & { trapFocus?: boolean };
+    return {
+      cardProps: (isNativeCentered
+        ? { maxWidth: '90%', ...rest }
+        : rest) as IOverlayDialogCardProps,
+      panelOpenAutoFocus: openFocus,
+    };
+  }, [floatingPanelProps, isNativeCentered]);
+  const openAutoFocus = onOpenAutoFocus ?? panelOpenAutoFocus;
   const dialogHeader = showHeader ? (
-    <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
+    <DialogHeader
+      trackID={trackID}
+      onClose={handleHeaderCloseButtonPress}
+      hideCloseButton={isBoundedDialogLayout}
+    />
   ) : null;
-  const renderDialogContent = (
-    <Animated.View style={safeKeyboardAnimationStyle}>
-      {isHeaderDragOnly ? (
+  const boundedCloseButton = useMemo(
+    () =>
+      isBoundedDialogLayout && showHeader ? (
+        <DialogHeaderCloseButton
+          testID="dialog-bounded-close"
+          trackID={trackID}
+          onClose={handleHeaderCloseButtonPress}
+        />
+      ) : null,
+    [handleHeaderCloseButtonPress, isBoundedDialogLayout, showHeader, trackID],
+  );
+  const boundedHeaderDragChrome = useMemo(
+    () =>
+      isBoundedDialogLayout && isHeaderDragOnly ? (
         <HeaderDragZone
           dragY={headerDragY}
           onDismiss={dismissFromHeaderDrag}
-          minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+          minHeight={HEADER_DRAG_ZONE_MIN_HEIGHT}
         >
           <SheetGrabber />
-          {dialogHeader}
         </HeaderDragZone>
+      ) : undefined,
+    [
+      dismissFromHeaderDrag,
+      headerDragY,
+      isBoundedDialogLayout,
+      isHeaderDragOnly,
+    ],
+  );
+  const dialogContent = (
+    <Content
+      testID={testID}
+      isAsync={isAsync}
+      estimatedContentHeight={estimatedContentHeight}
+      nativeSheetPresentation
+      {...(contentContainerProps as any)}
+    >
+      {renderContent}
+    </Content>
+  );
+  const dialogFooter = (
+    <Footer
+      trackID={trackID}
+      tone={tone}
+      showFooter={showFooter}
+      footerProps={footerProps}
+      leadingContent={leadingContent}
+      showCancelButton={showCancelButton}
+      showConfirmButton={showConfirmButton}
+      cancelButtonProps={cancelButtonProps}
+      onConfirm={onConfirm}
+      onCancel={handleCancelButtonPress}
+      onConfirmText={
+        onConfirmText ||
+        intl.formatMessage({
+          id: ETranslations.global_confirm,
+        })
+      }
+      confirmButtonProps={confirmButtonProps}
+      onCancelText={
+        onCancelText ||
+        intl.formatMessage({
+          id: ETranslations.global_cancel,
+        })
+      }
+    />
+  );
+  const dialogMain = (
+    <>
+      {dialogContent}
+      {dialogFooter}
+    </>
+  );
+  const fixedDialogHeader = isHeaderDragOnly ? (
+    <HeaderDragZone
+      dragY={headerDragY}
+      onDismiss={dismissFromHeaderDrag}
+      minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+    >
+      <SheetGrabber />
+      {dialogHeader}
+    </HeaderDragZone>
+  ) : (
+    dialogHeader
+  );
+  const renderDialogContent = (
+    // Native overlays keep sheets clear of the home indicator / navigation
+    // bar and lift them above the keyboard; web still needs the static
+    // safe-area padding.
+    <Animated.View
+      style={platformEnv.isNative ? undefined : safeKeyboardAnimationStyle}
+    >
+      {isBoundedDialogLayout ? (
+        <BoundedDialogScrollLayout
+          keyboardPaddingBottom={
+            isNativeCentered ? keyboardOffset : keyboardPaddingBottom
+          }
+          isCentered={!useSheetPresentation}
+          centeredInset={isNativeCentered ? centeredInset : undefined}
+          chrome={hasFixedHeaderFooter ? undefined : boundedHeaderDragChrome}
+          closeButton={boundedCloseButton}
+          fixedHeaderFooterHeight={
+            hasFixedHeaderFooter ? fixedHeaderFooterHeight : undefined
+          }
+          header={hasFixedHeaderFooter ? fixedDialogHeader : undefined}
+          footer={hasFixedHeaderFooter ? dialogFooter : undefined}
+        >
+          {hasFixedHeaderFooter ? (
+            dialogContent
+          ) : (
+            <>
+              {dialogHeader}
+              {dialogMain}
+            </>
+          )}
+        </BoundedDialogScrollLayout>
       ) : (
-        dialogHeader
+        <>
+          {isHeaderDragOnly ? (
+            <HeaderDragZone
+              dragY={headerDragY}
+              onDismiss={dismissFromHeaderDrag}
+              minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+            >
+              <SheetGrabber />
+              {dialogHeader}
+            </HeaderDragZone>
+          ) : (
+            dialogHeader
+          )}
+          {dialogMain}
+        </>
       )}
-      {/* extra children */}
-      <Content
-        testID={testID}
-        isAsync={isAsync}
-        estimatedContentHeight={estimatedContentHeight}
-        {...(contentContainerProps as any)}
-      >
-        {renderContent}
-      </Content>
-      <Footer
-        trackID={trackID}
-        tone={tone}
-        showFooter={showFooter}
-        footerProps={footerProps}
-        showCancelButton={showCancelButton}
-        showConfirmButton={showConfirmButton}
-        cancelButtonProps={cancelButtonProps}
-        onConfirm={onConfirm}
-        onCancel={handleCancelButtonPress}
-        onConfirmText={
-          onConfirmText ||
-          intl.formatMessage({
-            id: ETranslations.global_confirm,
-          })
-        }
-        confirmButtonProps={confirmButtonProps}
-        onCancelText={
-          onCancelText ||
-          intl.formatMessage({
-            id: ETranslations.global_cancel,
-          })
-        }
-      />
     </Animated.View>
   );
 
-  if (media.md) {
-    return (
-      <Sheet
-        disableDrag={disableDrag || isHeaderDragOnly}
-        open={open}
-        position={position}
-        onPositionChange={setPosition}
-        dismissOnSnapToBottom
-        // the native dismissOnOverlayPress used on native side,
-        //  so it needs to assign a value to onOpenChange.
-        dismissOnOverlayPress={dismissOnOverlayPress}
-        onOpenChange={handleOpenChange}
-        snapPointsMode="fit"
-        transition="quick"
-        zIndex={zIndex}
-        // OK-36893 OK-38624
-        // When modal is false, multiple Tamagui sheets may collapse into position:relative
-        // which causes z-index stacking issues
-        modal={!platformEnv.isNative && modal === undefined ? true : modal}
-        {...sheetProps}
-      >
-        <Sheet.Overlay
-          {...FIX_SHEET_PROPS}
-          transition="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-          enterStyle={DIALOG_ENTER_STYLE_OPACITY}
-          exitStyle={DIALOG_EXIT_STYLE_OPACITY}
-          backgroundColor="$bgBackdrop"
-          zIndex={sheetProps?.zIndex || zIndex}
-          {...sheetOverlayProps}
-        />
-        <Sheet.Frame
-          unstyled
-          testID={testID}
-          borderTopLeftRadius="$6"
-          borderTopRightRadius="$6"
-          // Match the sheet frame to the content surface so the bottom
-          // safe-area inset region (applied as paddingBottom on the wrapper,
-          // below the footer) doesn't reveal the default `$bg` as a seam when a
-          // dialog overrides its content background (e.g. Prime feature intro).
-          // In header-drag mode the frame stays put and transparent while the
-          // body below carries the surface and moves with the drag, so the
-          // pull reads as the sheet moving rather than content sliding in it.
-          bg={
-            isHeaderDragOnly
-              ? 'transparent'
-              : ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
-          }
-          borderCurve="continuous"
-          disableHideBottomOverflow
-          // Fix width issue for portrait iPad mini - ensure proper dialog width
-          mx={platformEnv.isNativeIOSPad ? 'auto' : undefined}
-          width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
-          maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
-        >
-          <DialogSheetContext.Provider value>
-            <FocusScope
-              enabled={open}
-              trapped={open ? effectiveTrapFocus : undefined}
-              onMountAutoFocus={onOpenAutoFocus}
-              loop
-            >
-              {isHeaderDragOnly ? (
-                <Animated.View style={headerDragStyle}>
-                  <Stack
-                    bg={
-                      (contentContainerProps as { bg?: IColorTokens })?.bg ??
-                      '$bg'
-                    }
-                    borderTopLeftRadius="$6"
-                    borderTopRightRadius="$6"
-                    borderCurve="continuous"
-                  >
-                    {renderDialogContent}
-                  </Stack>
-                </Animated.View>
-              ) : (
-                <Stack>
-                  {!disableDrag ? <SheetGrabber /> : null}
-                  {renderDialogContent}
-                </Stack>
-              )}
-            </FocusScope>
-          </DialogSheetContext.Provider>
-        </Sheet.Frame>
-      </Sheet>
-    );
-  }
+  // The overlay paints the sheet surface (and the safe-area tail below the
+  // sheet content) with the content container's background, so keep the raw
+  // value — a theme token or a literal color such as a branded panel.
+  const contentContainerBg =
+    typeof contentContainerProps?.bg === 'string'
+      ? contentContainerProps.bg
+      : undefined;
+  // Keep the content in the same child slot when the grabber disappears.
+  // Moving it from [grabber, content] to [content] remounts forms and loses
+  // drafts before submission (OK-50653).
+  const dialogContentStack = (
+    <Stack
+      bg={isHeaderDragOnly ? (contentContainerBg ?? '$bg') : undefined}
+      borderTopLeftRadius={isHeaderDragOnly ? '$6' : undefined}
+      borderTopRightRadius={isHeaderDragOnly ? '$6' : undefined}
+      borderCurve={isHeaderDragOnly ? 'continuous' : undefined}
+    >
+      {useSheetPresentation && !disableDrag && !isHeaderDragOnly ? (
+        <SheetGrabber />
+      ) : null}
+      {renderDialogContent}
+    </Stack>
+  );
+  const dialogBody = (
+    <FocusScope
+      enabled={open}
+      trapped={open ? effectiveTrapFocus : undefined}
+      onMountAutoFocus={openAutoFocus}
+      loop
+    >
+      {/* This wrapper depends on the drag configuration, not the breakpoint.
+          FocusScope needs a host element in both presentations. */}
+      {sheetDragArea === 'header' && !disableDrag ? (
+        <Animated.View style={isHeaderDragOnly ? headerDragStyle : undefined}>
+          {dialogContentStack}
+        </Animated.View>
+      ) : (
+        dialogContentStack
+      )}
+    </FocusScope>
+  );
 
   return (
-    <TMDialog
-      open={open}
-      modal={modal}
-      // the native dismissOnOverlayPress used on native side,
-      //  so it needs to assign a value to onOpenChange.
-      onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
+    <OverlayDialogPresentation
+      open={Boolean(open)}
+      level={overlayLevel}
+      isSheet={useSheetPresentation}
+      bg={contentContainerBg}
+      dismissOnOverlayPress={dismissOnOverlayPress}
+      dismissOnBackPress={!disableSystemClose}
+      disableDrag={isSheetDragDisabled || isHeaderDragOnly}
+      onRequestClose={dismissFromHeaderDrag}
+      onExited={onExited}
+      onAnimationComplete={sheetProps?.onAnimationComplete}
+      page={overlayPage}
+      cardProps={cardProps}
+      testID={testID}
     >
-      <AnimatePresence>
-        {open ? (
-          <Stack
-            position={
-              platformEnv.isNative ? 'absolute' : ('fixed' as unknown as any)
-            }
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            alignItems="center"
-            justifyContent="center"
-            zIndex={floatingPanelProps?.zIndex || zIndex}
-          >
-            <TMDialog.Overlay
-              key="overlay"
-              backgroundColor="$bgBackdrop"
-              animateOnly={ANIMATE_ONLY_OPACITY}
-              transition="quick"
-              forceMount={forceMount || undefined}
-              enterStyle={DIALOG_ENTER_STYLE_OPACITY}
-              exitStyle={DIALOG_EXIT_STYLE_OPACITY}
-              onPress={handleBackdropPress}
-              zIndex={floatingPanelProps?.zIndex || zIndex}
-              style={
-                !platformEnv.isNative && !open && forceMount
-                  ? DIALOG_HIDDEN_STYLE
-                  : EMPTY_DIALOG_STYLE
-              }
-            />
-            {/* /* fix missing title warnings in html dialog element on Web */}
-            <TMDialog.Title display="none" />
-            <TMDialog.Content
-              elevate
-              {...({ trapFocus: effectiveTrapFocus } as any)}
-              onEscapeKeyDown={handleEscapeKeyDown as any}
-              key="content"
-              testID={testID}
-              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-              transition={DIALOG_CONTENT_ANIMATION}
-              enterStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
-              exitStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
-              borderRadius="$4"
-              borderWidth="$0"
-              $theme-dark={DIALOG_THEME_DARK}
-              outlineWidth={1}
-              outlineOffset={0}
-              outlineColor="$neutral3"
-              style={
-                !platformEnv.isNative && !open && forceMount
-                  ? DIALOG_CONTENT_VISIBILITY_HIDDEN
-                  : DIALOG_OUTLINE_STYLE
-              }
-              bg="$bg"
-              width={MAX_CONTENT_WIDTH}
-              p="$0"
-              {...floatingPanelProps}
-              onOpenAutoFocus={
-                onOpenAutoFocus ?? floatingPanelProps?.onOpenAutoFocus
-              }
-              zIndex={floatingPanelProps?.zIndex || zIndex}
-            >
-              {renderDialogContent}
-            </TMDialog.Content>
-          </Stack>
-        ) : null}
-      </AnimatePresence>
-    </TMDialog>
+      {dialogBody}
+    </OverlayDialogPresentation>
   );
 }
+
+type ICustomDialogMount = Pick<
+  IDialogContainerProps,
+  | 'overlayLevel'
+  | 'overlayPage'
+  | 'onExited'
+  | 'onClose'
+  | 'onBeforeClose'
+  | 'isExist'
+> & {
+  sourceBeforeClose?: IDialogContainerProps['onBeforeClose'];
+};
+
+const CustomDialogMountContext = createContext<ICustomDialogMount | undefined>(
+  undefined,
+);
 
 function BaseDialogContainer(
   {
     onOpen,
     onClose,
+    onBeforeClose,
     renderContent,
     title,
     tone,
@@ -599,10 +696,53 @@ function BaseDialogContainer(
     open,
     isExist,
     onOpenChange,
+    onCloseRequested,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
+  const customMount = useContext(CustomDialogMountContext);
+  const ownOnExited = props.onExited;
+  const effectiveOnBeforeClose =
+    customMount && onBeforeClose === customMount.sourceBeforeClose
+      ? customMount.onBeforeClose
+      : (onBeforeClose ?? customMount?.onBeforeClose);
+  const effectiveIsExist = isExist ?? customMount?.isExist;
+  const forwardOnClose = useCallback(
+    async (extra?: { flag?: string }) => {
+      if (customMount && onClose && onClose !== customMount.onClose) {
+        const mountClose = customMount.onClose(extra);
+        try {
+          await onClose(extra);
+        } finally {
+          await mountClose;
+        }
+      } else {
+        await (onClose ?? customMount?.onClose)?.(extra);
+      }
+    },
+    [customMount, onClose],
+  );
+  const forwardOnExited = useCallback(() => {
+    if (customMount && ownOnExited !== customMount.onExited) {
+      try {
+        ownOnExited?.();
+      } finally {
+        customMount.onExited?.();
+      }
+    } else {
+      ownOnExited?.();
+    }
+  }, [customMount, ownOnExited]);
+  const presentationProps = customMount
+    ? {
+        ...props,
+        overlayLevel: customMount.overlayLevel,
+        overlayPage: customMount.overlayPage,
+        onExited: forwardOnExited,
+      }
+    : props;
+  assertOverlayProps('Dialog', presentationProps);
   const [isOpenState, changeIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
@@ -616,28 +756,48 @@ function BaseDialogContainer(
     [isControlled, onOpenChange],
   );
   const formRef = useRef<UseFormReturn<any, any, any> | undefined>(undefined);
+  const pendingCloseRef = useRef<Promise<void> | undefined>(undefined);
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
-      if (
-        props.trackID &&
-        extra?.flag !== 'confirm' &&
-        extra?.flag !== 'cancel'
-      ) {
-        defaultLogger.ui.dialog.dialogClose({
-          trackId: props.trackID,
-        });
+      if (pendingCloseRef.current) {
+        return pendingCloseRef.current;
       }
-      changeIsOpen(false);
-      void Keyboard.dismissWithDelay(50);
-      return onClose(extra);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const close = async () => {
+        if (effectiveOnBeforeClose && !(await effectiveOnBeforeClose(extra))) {
+          return;
+        }
+        if (
+          props.trackID &&
+          extra?.flag !== 'confirm' &&
+          extra?.flag !== 'cancel'
+        ) {
+          defaultLogger.ui.dialog.dialogClose({ trackId: props.trackID });
+        }
+        onCloseRequested?.();
+        changeIsOpen(false);
+        // iOS tears down this entry's input without blurring another window.
+        if (!platformEnv.isNativeIOS) {
+          void Keyboard.dismissWithDelay(50);
+        }
+        await forwardOnClose(extra);
+      };
+      pendingCloseRef.current = close().finally(() => {
+        pendingCloseRef.current = undefined;
+      });
+      return pendingCloseRef.current;
     },
-    [changeIsOpen, onClose, props.trackID],
+    [
+      changeIsOpen,
+      forwardOnClose,
+      props.trackID,
+      effectiveOnBeforeClose,
+      onCloseRequested,
+    ],
   );
 
   const handleIsExist = useCallback(
-    () => (isExist ? isExist() : false),
-    [isExist],
+    () => (effectiveIsExist ? effectiveIsExist() : false),
+    [effectiveIsExist],
   );
 
   // `Dialog.Form` registers itself onto `formRef` from a lazily loaded module,
@@ -722,19 +882,21 @@ function BaseDialogContainer(
     [headerProps],
   );
   return (
-    <DialogContext.Provider value={contextValue}>
-      <DialogHeaderContext.Provider value={headerContextValue}>
-        <DialogFrame
-          contextValue={contextValue}
-          open={isOpen}
-          onOpen={handleOpen}
-          renderContent={renderContent}
-          onClose={handleClose}
-          title={title}
-          {...props}
-        />
-      </DialogHeaderContext.Provider>
-    </DialogContext.Provider>
+    <CustomDialogMountContext.Provider value={undefined}>
+      <DialogContext.Provider value={contextValue}>
+        <DialogHeaderContext.Provider value={headerContextValue}>
+          <DialogFrame
+            contextValue={contextValue}
+            open={isOpen}
+            onOpen={handleOpen}
+            renderContent={renderContent}
+            onClose={handleClose}
+            title={title}
+            {...presentationProps}
+          />
+        </DialogHeaderContext.Provider>
+      </DialogContext.Provider>
+    </CustomDialogMountContext.Provider>
   );
 }
 
@@ -743,6 +905,24 @@ export const DialogContainer = forwardRef<
   IDialogContainerProps
 >(BaseDialogContainer);
 
+// Longest overlay exit (spring settle) plus slack; only a safety net.
+const DIALOG_EXIT_FALLBACK_MS = 1500;
+
+// The container a dialog was opened into tells where it belongs: the lock
+// screen's dialogs sit with the lock screen, password prompts at `secure`.
+function overlayLevelForContainer(
+  container: EPortalContainerConstantName | undefined,
+): IOverlayLevel {
+  switch (container) {
+    case EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY:
+      return 'lock';
+    case EPortalContainerConstantName.PASSWORD_VERIFY_CONTAINER_PORTAL:
+      return 'secure';
+    default:
+      return 'modal';
+  }
+}
+
 type IDialogShowFunctionProps = IDialogShowProps & {
   dialogContainer?: (o: {
     ref: React.RefObject<IDialogInstance | null>;
@@ -750,33 +930,12 @@ type IDialogShowFunctionProps = IDialogShowProps & {
 };
 function dialogShow({
   onClose,
+  onCloseStart,
   dialogContainer,
   portalContainer,
-  isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
-  if (
-    platformEnv.isDev &&
-    platformEnv.isNativeIOS &&
-    portalContainer &&
-    isOverTopAllViews === true
-  ) {
-    // iOS only, because only `renderToContainer.ios` fails on this shape: it
-    // mounts `element` twice — once wrapped in a fresh `OverlayContainer`,
-    // once into `portalContainer` — and returns only the second manager, so
-    // the first window is never torn down. That stray window is also created
-    // at dialog-open time, and iOS stacks window overlays in the order they
-    // were added, so once the app-state lock screen has added its own (at lock
-    // time, not app start) a dialog opened afterwards lands on top of the
-    // passcode screen. Elsewhere the pair is fine and documented: web renders
-    // once and portals to `document.body` (the only shape in which that
-    // feature exists, and what `useInPageDialog` relies on), and Android
-    // ignores the flag outright. (OK-62416)
-    console.error(
-      '[Dialog.show] on iOS, `portalContainer` and `isOverTopAllViews: true` must not be combined: it mounts the dialog twice, leaks the first window overlay, and can stack it above the app-state lock screen. Pass one or the other.',
-      { portalContainer },
-    );
-  }
+  assertOverlayProps('Dialog.show', props);
   void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
@@ -788,70 +947,176 @@ function dialogShow({
     | undefined;
 
   let dialogInstance: IDialogInstance | undefined;
+  let closeStarted = false;
+  let finalized = false;
+  let pendingBeforeMountClose: Promise<void> | undefined;
+  let pendingBeforeMountGuard: Promise<boolean> | undefined;
+  const sourceBeforeClose = props.onBeforeClose;
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one stable guard per imperative dialog mount
+  const sharedBeforeClose = sourceBeforeClose
+    ? (extra?: { flag?: string }) =>
+        pendingBeforeMountGuard ?? sourceBeforeClose(extra)
+    : undefined;
 
-  const buildForwardOnClose =
-    (options: {
-      onClose?: (extra?: { flag?: string }) => void | Promise<void>;
-    }) =>
-    (extra?: { flag?: string }) =>
-      new Promise<void>((resolve) => {
-        // Remove the React node after the animation has finished.
-        setTimeout(() => {
-          if (instanceRef) {
-            instanceRef = undefined;
-          }
-          if (portalRef) {
-            portalRef.current.destroy();
-            portalRef = undefined;
-          }
-          if (dialogInstance) {
-            removeDialogInstance(dialogInstance);
-            dialogInstance = undefined;
-          }
-          void Keyboard.dismissWithDelay(50);
-          void options.onClose?.(extra);
-          resolve();
-        }, 300);
-      });
+  const overlayPage =
+    portalContainer ===
+      EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY ||
+    portalContainer ===
+      EPortalContainerConstantName.PASSWORD_VERIFY_CONTAINER_PORTAL
+      ? undefined
+      : props.overlayPage;
+
+  const finalize = (extra?: { flag?: string }) => {
+    if (finalized) {
+      return;
+    }
+    finalized = true;
+    instanceRef = undefined;
+    portalRef?.current.destroy();
+    portalRef = undefined;
+    if (dialogInstance) {
+      removeDialogInstance(dialogInstance);
+      dialogInstance = undefined;
+    }
+    if (!platformEnv.isNativeIOS) {
+      void Keyboard.dismissWithDelay(50);
+    }
+    void onClose?.(extra);
+  };
+
+  // The overlay reports the end of its exit animation; the portal is
+  // unmounted then instead of after a fixed delay. The fallback covers a
+  // dialog closed before it ever presented.
+  let exited = false;
+  let exitWaiters: Array<() => void> = [];
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+  const handleExited = () => {
+    exited = true;
+    exitWaiters.forEach((resolve) => resolve());
+    exitWaiters = [];
+    if (!closeStarted) {
+      finalize();
+    }
+  };
+  const waitForExit = () =>
+    exited
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          exitWaiters.push(resolve);
+          setTimeout(resolve, DIALOG_EXIT_FALLBACK_MS);
+        });
+
+  const buildForwardOnClose = () => async (extra?: { flag?: string }) => {
+    if (finalized) {
+      return;
+    }
+    if (!closeStarted) {
+      closeStarted = true;
+      onCloseStart?.();
+    }
+    await waitForExit();
+    finalize(extra);
+  };
+  const overlayLevel =
+    props.overlayLevel ?? overlayLevelForContainer(portalContainer);
   // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const isExist = () => !!instanceRef?.current;
   const element = (() => {
     if (dialogContainer) {
       const e = dialogContainer({ ref: instanceRef });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      // const newOnClose = buildForwardOnClose({ onClose: e.props.onClose });
-      const newOnClose = buildForwardOnClose({ onClose });
-      const newProps = {
-        ...props,
-        ...e.props,
+      const newOnClose = buildForwardOnClose();
+      // oxlint-disable-next-line react-perf/jsx-no-new-object-as-prop -- this imperative call creates one stable mount value
+      const mount = {
+        overlayLevel,
+        overlayPage,
+        onExited: handleExited,
         onClose: newOnClose,
+        onBeforeClose: sharedBeforeClose,
+        sourceBeforeClose,
+        isExist,
       };
-      return cloneElement(e, newProps);
+      const customDialog =
+        e.type === DialogContainer
+          ? cloneElement(e, {
+              ...props,
+              ...e.props,
+              overlayLevel,
+              overlayPage,
+              onExited: e.props.onExited ?? handleExited,
+              onClose: e.props.onClose ?? newOnClose,
+              onBeforeClose: e.props.onBeforeClose ?? sharedBeforeClose,
+              isExist,
+            })
+          : e;
+      return (
+        // oxlint-disable-next-line react/jsx-no-constructed-context-values -- the imperative mount value is stable for this dialog lifetime
+        <CustomDialogMountContext.Provider value={mount}>
+          {customDialog}
+        </CustomDialogMountContext.Provider>
+      );
     }
     return (
       <DialogContainer
         ref={instanceRef}
         {...props}
-        onClose={buildForwardOnClose({ onClose })}
+        overlayLevel={overlayLevel}
+        overlayPage={overlayPage}
+        onExited={handleExited}
+        onClose={buildForwardOnClose()}
+        onBeforeClose={sharedBeforeClose}
         isExist={isExist}
       />
     );
   })();
 
   portalRef = {
-    current: portalContainer
-      ? renderToContainer(portalContainer, element, isOverTopAllViews)
-      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
+    current: renderToContainer(
+      portalContainer ??
+        EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL,
+      element,
+      overlayPage,
+      () => {
+        if (
+          portalContainer ===
+            EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY ||
+          !instanceRef?.current
+        ) {
+          finalize();
+        }
+      },
+    ),
   };
-  const close = async (extra?: { flag?: string }, times = 0) => {
-    if (times > 10) {
-      return;
+  const close = (extra?: { flag?: string }) => {
+    if (pendingBeforeMountClose) {
+      return pendingBeforeMountClose;
+    }
+    if (finalized) {
+      return Promise.resolve();
     }
     if (!instanceRef?.current) {
-      setTimeout(() => {
-        void close(extra, times + 1);
-      }, 10);
-      return Promise.resolve();
+      const closeBeforeMount = async () => {
+        if (sharedBeforeClose) {
+          pendingBeforeMountGuard = Promise.resolve(sharedBeforeClose(extra));
+          if (!(await pendingBeforeMountGuard)) {
+            return;
+          }
+        }
+        if (finalized) {
+          return;
+        }
+        if (instanceRef?.current) {
+          await instanceRef.current.close(extra);
+          return;
+        }
+        closeStarted = true;
+        onCloseStart?.();
+        finalize(extra);
+      };
+      pendingBeforeMountClose = closeBeforeMount().finally(() => {
+        pendingBeforeMountGuard = undefined;
+        pendingBeforeMountClose = undefined;
+      });
+      return pendingBeforeMountClose;
     }
     return instanceRef?.current?.close(extra);
   };
@@ -949,6 +1214,7 @@ export type IDialogLoadingProps = {
   title?: string;
   description?: string;
   showExitButton?: boolean;
+  overlayPage?: IDialogShowProps['overlayPage'];
 };
 function dialogLoading(props: IDialogLoadingProps) {
   return dialogShow({
@@ -994,6 +1260,7 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
   const pageType = usePageType();
+  const route = useContext(NavigationRouteContext);
   const type = useMemo(() => {
     if (dialogType) {
       return dialogType;
@@ -1018,43 +1285,57 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
       : navigatorPortalId;
   }, [navigatorPortalId, pagePortalId, type]);
 
+  // The page's overlay host and owner: the dialog renders as a page overlay
+  // (hidden while the page is covered) wherever its portal lives.
+  const { hostKey, ownerKey: scopedOwnerKey } = useOverlayPageScope();
+  const ownerKey = scopedOwnerKey ?? route?.key;
   const basicDialogProps = useMemo(
     () => ({
       testID: portalId,
-      modal: false,
-      forceMount: platformEnv.isNative ? undefined : true,
-      portalContainer: portalId,
+      overlayPage: hostKey && ownerKey ? { hostKey, ownerKey } : undefined,
     }),
-    [portalId],
+    [hostKey, ownerKey, portalId],
   );
+  const requirePage = useCallback(() => {
+    if (!basicDialogProps.overlayPage) {
+      throw new OneKeyLocalError(
+        'Page dialog requires a source host and owner',
+      );
+    }
+    return basicDialogProps.overlayPage;
+  }, [basicDialogProps.overlayPage]);
   return useMemo(
     () => ({
       show: (props: IDialogShowFunctionProps) => {
         return dialogShow({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
       confirm: (props: IDialogConfirmProps) => {
         return dialogConfirm({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
       cancel: (props: IDialogCancelProps) => {
         return dialogConfirm({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
       loading: (props: IDialogLoadingProps) => {
         return dialogLoading({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
     }),
-    [basicDialogProps],
+    [basicDialogProps, requirePage],
   );
 };
 

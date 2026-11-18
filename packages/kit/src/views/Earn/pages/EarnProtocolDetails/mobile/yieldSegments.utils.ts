@@ -114,7 +114,9 @@ export function buildHeadlineApyParts(
     ...(bonus > 0
       ? {
           bonus: `+${bonus.toFixed(2)}%`,
-          bonusColor: bonusColor || '$textCaution',
+          // The design's Orange/10, as the server colors the campaign segment
+          // (OK-64551).
+          bonusColor: bonusColor || '$orange10',
         }
       : {}),
     ...(unit ? { unit: unit.toUpperCase() } : {}),

@@ -1309,7 +1309,7 @@ function SwapKLineModalContent() {
     : undefined;
 
   return (
-    <Page lazyLoad testID={SwapTestIDs.kLineModal}>
+    <Page testID={SwapTestIDs.kLineModal}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.market_chart })}
       />

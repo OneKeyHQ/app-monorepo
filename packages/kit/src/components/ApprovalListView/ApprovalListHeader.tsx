@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Alert, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
@@ -13,7 +14,10 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useApprovalListAtom } from '../../states/jotai/contexts/approvalList';
+import {
+  useApprovalListAtom,
+  useIsBulkRevokeModeAtom,
+} from '../../states/jotai/contexts/approvalList';
 import { ListItem } from '../ListItem';
 
 import { useApprovalListViewContext } from './ApprovalListViewContext';
@@ -27,12 +31,10 @@ function HeaderItem({ label }: { label: string }) {
 }
 
 function ApprovalListHeader({
-  recomputeLayout,
   hideRiskOverview,
   tokenMap,
   contractMap,
 }: {
-  recomputeLayout: () => void;
   hideRiskOverview?: boolean;
   tokenMap: Record<
     string,
@@ -48,8 +50,14 @@ function ApprovalListHeader({
 
   const navigation = useAppNavigation();
 
-  const { tableLayout, accountId, networkId, indexedAccountId } =
-    useApprovalListViewContext();
+  const {
+    tableLayout,
+    accountId,
+    networkId,
+    indexedAccountId,
+    selectDisabled,
+  } = useApprovalListViewContext();
+  const [isBulkRevokeMode] = useIsBulkRevokeModeAtom();
 
   // isReady: async result has returned
   // isVisible: layout has been computed, safe to show
@@ -109,6 +117,11 @@ function ApprovalListHeader({
       <ListItem
         testID="Wallet-Approval-List-Header"
         opacity={isVisible ? 1 : 0}
+        childrenBefore={
+          platformEnv.isNative && isBulkRevokeMode && !selectDisabled ? (
+            <Stack width="$8" />
+          ) : undefined
+        }
       >
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
           <HeaderItem
@@ -138,7 +151,15 @@ function ApprovalListHeader({
         </Stack>
       </ListItem>
     );
-  }, [intl, tableLayout, approvals?.length, isReady, isVisible]);
+  }, [
+    intl,
+    tableLayout,
+    approvals?.length,
+    isReady,
+    isVisible,
+    isBulkRevokeMode,
+    selectDisabled,
+  ]);
 
   const handleViewRiskApprovals = useCallback(
     ({ approvals: _approvals }: { approvals: IContractApproval[] }) => {
@@ -181,16 +202,7 @@ function ApprovalListHeader({
     await Promise.all(tasks);
 
     setShowApprovalsAlert(false);
-    setTimeout(() => {
-      recomputeLayout();
-    }, 350);
-  }, [
-    accountId,
-    networkId,
-    recomputeLayout,
-    riskApprovals.length,
-    warningApprovals.length,
-  ]);
+  }, [accountId, networkId, riskApprovals.length, warningApprovals.length]);
 
   const renderRiskOverview = useCallback(() => {
     if (hideRiskOverview || !isReady) {
@@ -306,18 +318,13 @@ function ApprovalListHeader({
     setIsReady(true);
 
     // Use requestAnimationFrame to wait for the next paint,
-    // then recompute layout and show content
+    // then show content after the layout has settled
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        recomputeLayout();
         setIsVisible(true);
       });
     });
-  }, [
-    shouldShowInactiveApprovalsAlert,
-    shouldShowRiskApprovalsAlert,
-    recomputeLayout,
-  ]);
+  }, [shouldShowInactiveApprovalsAlert, shouldShowRiskApprovalsAlert]);
 
   return (
     <YStack>

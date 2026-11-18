@@ -746,7 +746,11 @@ async function clearPbkdf2CacheAsync(): Promise<void> {
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    await ensureWebembedApiProxyAvailable().secret.clearPbkdf2Cache();
+    const webembedProxy = ensureWebembedApiProxyAvailable();
+    if (!(await webembedProxy.isSDKReady())) {
+      return;
+    }
+    await webembedProxy.secret.clearPbkdf2Cache();
   }
 }
 
@@ -769,11 +773,13 @@ async function clearHdCredentialDecryptCache({
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    await ensureWebembedApiProxyAvailable().secret.clearHdCredentialDecryptCache(
-      {
-        hdCredentialCacheScopeId,
-      },
-    );
+    const webembedProxy = ensureWebembedApiProxyAvailable();
+    if (!(await webembedProxy.isSDKReady())) {
+      return;
+    }
+    await webembedProxy.secret.clearHdCredentialDecryptCache({
+      hdCredentialCacheScopeId,
+    });
   }
 }
 

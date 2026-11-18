@@ -18,6 +18,7 @@ import type {
   IExportHistoryDownloadEntryPoint,
   IExportHistoryRangeType,
   IPrimeAddressRiskCheckEntryPoint,
+  IPrimeEntitlementSource,
 } from '../types';
 
 type IReceiveKytFeatureName = EPrimeFeatures.ReceiveRiskMonitoring;
@@ -105,6 +106,8 @@ export class PrimeUsageScene extends BaseScene {
     riskLevel: EKytRiskLevel;
     riskFactorsCount: number;
     cached: boolean;
+    featureName?: EPrimeFeatures.AddressRiskCheck;
+    entitlementSource?: IPrimeEntitlementSource;
   }) {
     return params;
   }
@@ -130,17 +133,24 @@ export class PrimeUsageScene extends BaseScene {
     targetLang,
     displayMode,
     dappDomain,
+    featureName,
+    entitlementSource,
   }: {
     engine: ETranslateEngine;
     targetLang: string;
     displayMode: ETranslateDisplayMode;
+    // Host name only, never the full URL.
     dappDomain: string;
+    featureName?: EPrimeFeatures.DAppTranslate;
+    entitlementSource?: IPrimeEntitlementSource;
   }) {
     return {
       engine,
       targetLang,
       displayMode,
       dappDomain,
+      featureName,
+      entitlementSource,
     };
   }
 

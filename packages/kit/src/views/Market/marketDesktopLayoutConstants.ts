@@ -14,6 +14,31 @@ export const MARKET_DESKTOP_CONTENT_FRAME_PROPS = {
   mx: 'auto',
 } as const;
 
+// Detail pages' trade column: 28% of the content row with a 368px floor, which
+// holds up to a ~1354px window (a ~1314px content row). Wider rows scale it in
+// proportion, so no breakpoint is needed; the frame's 1440px cap bounds it at
+// about 403px. The desktop detail layouts are web-only and scroll inside an
+// `overflow-y: auto` container, so the column sticks 16px below its top once
+// the page header scrolls away; the row's `alignItems="flex-start"` keeps it
+// from stretching, which sticky needs. Space above the column must be margin,
+// not padding, or it adds to that 16px once pinned.
+export const MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH = 368;
+const MARKET_DETAIL_TRADE_COLUMN_SHARE_PERCENT = 28;
+
+export const MARKET_DETAIL_TRADE_COLUMN_PROPS = {
+  width: `${MARKET_DETAIL_TRADE_COLUMN_SHARE_PERCENT}%`,
+  minWidth: MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH,
+  flexShrink: 0,
+  position: 'sticky',
+  top: 16,
+} as const;
+
+// This top margin on the trade column centers its first row, the panel's
+// settings and history icons (centered 18px below the panel top), on the price
+// row (20px down, 40px tall, so a center line at 40). A margin, so it drops out
+// once the column is pinned.
+export const MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET = 22;
+
 // The desktop list-page tab region is 60px tall in the design: a 44px tab
 // item with 8px above and below it.
 export const MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE = {
@@ -62,6 +87,16 @@ export const MARKET_LIST_FIRST_COLUMN_MAX_WIDTH = 320;
 export const MARKET_LIST_FIRST_COLUMN_MIN_WIDTH = 256;
 export const MARKET_LIST_METRIC_COLUMN_MIN_WIDTH = 104;
 
+// Metric columns share the row's remaining width evenly, on the same 8px
+// padding every list page uses. `flexBasis: 0` keeps the split independent of
+// each column's own content width.
+export const MARKET_LIST_METRIC_COLUMN_PROPS = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+} as const;
+
 // Keep the maximum-width alias for compact surfaces that do not participate in
 // the responsive list layout.
 export const MARKET_LIST_FIRST_COLUMN_WIDTH =
@@ -97,3 +132,10 @@ export const MARKET_LIST_HEADER_ROW_HEIGHT = 36;
 
 // The design's 72px `TBody` row, shared by every desktop list page.
 export const MARKET_LIST_ROW_HEIGHT = 72;
+
+// Floor for a detail page's lower tab region (token information tabs, a
+// stock's My position, and their lazy-load fallback). Switching to a short tab
+// keeps the page tall enough that the scroll position does not jump, and a
+// short position table still leaves room below it: the tab bar, a table
+// header, about three rows, and some breathing space.
+export const MARKET_DETAIL_TABS_MIN_HEIGHT = 320;

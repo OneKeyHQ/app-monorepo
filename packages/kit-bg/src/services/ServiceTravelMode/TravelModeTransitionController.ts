@@ -12,6 +12,7 @@ export type ITravelModeTransitionControllerDependencies = {
   getPortableVerifyString: () => Promise<string>;
   getRuntimeState: () => Promise<ITravelModeRuntimeState>;
   markRestartFailed: () => void;
+  maskWidgetsForTransition: () => Promise<void>;
   persistTransition: (params: {
     enabled: boolean;
     verifyString?: string;
@@ -39,8 +40,8 @@ export class TravelModeTransitionController {
   }): Promise<never> {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      await this.dependencies.waitBeforeRestart();
       const epoch = await this.dependencies.prepareRestart(profile);
+      await this.dependencies.waitBeforeRestart();
       await Promise.race([
         this.dependencies.restart(`${reason}-epoch-${epoch}`),
         new Promise<never>((_resolve, reject) => {
@@ -79,7 +80,13 @@ export class TravelModeTransitionController {
       if (enabled) {
         verifyString = await this.dependencies.getPortableVerifyString();
       }
-      await this.dependencies.persistTransition({ enabled, verifyString });
+      await this.dependencies.maskWidgetsForTransition();
+      try {
+        await this.dependencies.persistTransition({ enabled, verifyString });
+      } catch (error) {
+        this.dependencies.markRestartFailed();
+        throw error;
+      }
 
       await this.restartOrEnterRecovery({
         profile: enabled ? 'travel-mode' : 'standard',
@@ -96,6 +103,7 @@ export class TravelModeTransitionController {
         await rejectTravelModeUnknownError();
       }
       const enabled = await this.dependencies.getPersistedEnabled();
+      await this.dependencies.maskWidgetsForTransition();
       await this.restartOrEnterRecovery({
         profile: enabled ? 'travel-mode' : 'standard',
         reason: 'travel-mode-transition-recovery',

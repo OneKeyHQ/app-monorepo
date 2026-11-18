@@ -1,6 +1,10 @@
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
 
@@ -24,13 +28,20 @@ const stockMarketToken: ISwapToken = {
   ...marketToken,
   isStock: true,
 };
+const btc: ISwapToken = {
+  contractAddress: '',
+  decimals: 8,
+  isNative: true,
+  networkId: 'btc--0',
+  symbol: 'BTC',
+};
 
 describe('buildMarketEmbeddedSwapInitParams', () => {
-  it('does not initialize shared Swap before a complete pair exists', () => {
+  it('keeps stock initialization waiting for its payment candidates', () => {
     expect(
       buildMarketEmbeddedSwapInitParams({
-        defaultTokens: [marketToken],
-        swapToken: marketToken,
+        defaultTokens: [stockMarketToken],
+        swapToken: stockMarketToken,
       }),
     ).toBeUndefined();
   });
@@ -38,11 +49,15 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
   it('seeds both sides before shared Swap mounts', () => {
     expect(
       buildMarketEmbeddedSwapInitParams({
-        defaultTokens: [bnb, marketToken],
+        defaultTokens: [
+          bnb,
+          swapDefaultSetTokens[marketToken.networkId].toToken as ISwapToken,
+          marketToken,
+        ],
         swapToken: marketToken,
       }),
     ).toMatchObject({
-      importFromToken: bnb,
+      importFromToken: swapDefaultSetTokens[marketToken.networkId].toToken,
       importNetworkId: bnb.networkId,
       importToToken: marketToken,
       swapSource: ESwapSource.MARKET,
@@ -66,6 +81,51 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
     ).toMatchObject({
       importFromToken: marketToken,
       importToToken: bnb,
+    });
+  });
+
+  it('restores a saved BTC to USDC bridge pair without applying Market defaults', () => {
+    const usdc = swapDefaultSetTokens['evm--1'].toToken;
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: btc,
+      fromTokenAmount: { isInput: true, value: '0.1' },
+      toToken: usdc,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+
+    expect(
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens: [],
+        inputDraft,
+        swapToken: btc,
+      }),
+    ).toMatchObject({
+      importFromToken: btc,
+      importNetworkId: btc.networkId,
+      importToToken: usdc,
+      marketSwapDirection: undefined,
+      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+    });
+  });
+
+  it('still rejects a cross-chain draft payment token for Stock', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: btc,
+      fromTokenAmount: { isInput: true, value: '0.1' },
+      toToken: stockMarketToken,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+
+    expect(
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens: [bnb, stockMarketToken],
+        inputDraft,
+        swapToken: stockMarketToken,
+      }),
+    ).toMatchObject({
+      importFromToken: bnb,
+      importToToken: stockMarketToken,
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
     });
   });
 

@@ -28,6 +28,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getMarketWatchListV2: () => mockGetWatchList(),
       addMarketWatchListV2: (params: unknown) => mockAddWatchList(params),
       removeMarketWatchListV2: (params: unknown) => mockRemoveWatchList(params),
+      syncToPerpsAtom: jest.fn(async () => undefined),
     },
     serviceRookieGuide: {
       recordTaskCompleted: jest.fn(async () => undefined),
@@ -317,5 +318,38 @@ describe('marketV2 watchlist actions', () => {
       await expect(mutation).rejects.toThrow('write failed');
     });
     expect(result.current.watchList.data).toEqual([]);
+  });
+
+  it('adds a perps favorite above the existing favorites', async () => {
+    const existing = [
+      { ...btc, sortIndex: 5 },
+      { ...eth, sortIndex: 6 },
+    ];
+    mockGetWatchList.mockResolvedValue({ data: existing });
+    mockAddWatchList.mockResolvedValue(undefined);
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(useWatchListTestHook, { wrapper: Wrapper });
+    await waitFor(() =>
+      expect(result.current.watchList.data).toEqual(existing),
+    );
+
+    let mutation!: Promise<void>;
+    act(() => {
+      mutation = result.current.actions.addPerpsIntoWatchListV2('SOL');
+    });
+
+    expect(result.current.watchList.data[0]).toEqual(
+      expect.objectContaining({ perpsCoin: 'SOL', sortIndex: 4 }),
+    );
+    expect(mockAddWatchList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        watchList: [
+          expect.objectContaining({ perpsCoin: 'SOL', sortIndex: 4 }),
+        ],
+      }),
+    );
+    await act(async () => {
+      await mutation;
+    });
   });
 });

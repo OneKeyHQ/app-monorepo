@@ -1,18 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
+import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  ETranslations,
-  isKnownTranslationKey,
-} from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PRIME_USER_BANNED_CODE } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
+import {
+  getNativeAppStorageEmergencyStatus,
+  subscribeNativeAppStorageEmergencyStatus,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -43,6 +48,13 @@ const getDeduplicationId = (
   return { id: undefined, forceDeduplicate: false };
 };
 
+// This container is on the web startup graph. isKnownTranslationKey imports
+// the translations enum, so a hardware key counts only when the active catalog
+// already contains it.
+function hasLoadedTranslation(messages: object | undefined, key: string) {
+  return !!messages && Object.prototype.hasOwnProperty.call(messages, key);
+}
+
 // These errors may cross from a runtime without loaded locale messages.
 const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
   ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
@@ -59,6 +71,33 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 
 export function ErrorToastContainer() {
   const intl = useIntl();
+  const bannedDialogVisible = useRef(false);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    let warnedEpoch: string | undefined;
+    const showEmergencyWarning = () => {
+      const status = getNativeAppStorageEmergencyStatus();
+      if (!status) {
+        warnedEpoch = undefined;
+        return;
+      }
+      if (warnedEpoch === status.epoch) return;
+      warnedEpoch = status.epoch;
+      Toast.warning({
+        title: 'Emergency storage mode',
+        duration: 10_000,
+        message:
+          'Using current MMKV data, which may be incomplete. Legacy data and old transaction evidence are retained. Migration is not complete. Back up your wallets; future recovery must explicitly choose which snapshot to keep.',
+      });
+    };
+    // Locale/provider startup may mount this consumer after the bg snapshot.
+    // Subscribe before reading, and repeat the warning on a new app mount.
+    const unsubscribe =
+      subscribeNativeAppStorageEmergencyStatus(showEmergencyWarning);
+    showEmergencyWarning();
+    return unsubscribe;
+  }, []);
 
   useEffect(
     () =>
@@ -75,7 +114,8 @@ export function ErrorToastContainer() {
 
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      if (!p.title) {
+      const isPrimeUserBanned = Number(p.errorCode) === PRIME_USER_BANNED_CODE;
+      if (!p.title && !isPrimeUserBanned) {
         return;
       }
       const isInternetReachable =
@@ -87,6 +127,49 @@ export function ErrorToastContainer() {
       const shouldSuppress = suppressReason !== null;
       const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
       if (shouldSuppress) {
+        return;
+      }
+
+      // A banned OneKey ID is signed out, so the notice is always a blocking
+      // dialog rather than a toast with account actions.
+      if (isPrimeUserBanned) {
+        if (bannedDialogVisible.current) return;
+        bannedDialogVisible.current = true;
+        void (async () => {
+          try {
+            await closeOneKeyIdLoginDialogs();
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__desc,
+              }),
+              icon: 'ErrorOutline',
+              tone: 'warning',
+              showCancelButton: false,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+              confirmButtonProps: {
+                testID: 'prime-banned-login-error-confirm-btn',
+              },
+              dismissOnOverlayPress: false,
+              disableDrag: true,
+              onClose: () => {
+                bannedDialogVisible.current = false;
+              },
+            });
+          } catch {
+            bannedDialogVisible.current = false;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              toastId: String(PRIME_USER_BANNED_CODE),
+            });
+          }
+        })();
         return;
       }
 
@@ -110,8 +193,13 @@ export function ErrorToastContainer() {
       });
 
       const canLocalizeError =
+        !(
+          platformEnv.isNative &&
+          getNativeStorageRecoveryToastTarget(p.title, p.message)
+        ) &&
         p.i18nKey &&
-        ((p.isHardwareError && isKnownTranslationKey(p.i18nKey)) ||
+        ((p.isHardwareError &&
+          hasLoadedTranslation(intl.messages, p.i18nKey)) ||
           MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
           (p.i18nKey === ETranslations.wallet_action_failed &&
             typeof p.i18nInfo?.message === 'string'));
@@ -130,6 +218,8 @@ export function ErrorToastContainer() {
         toastId,
         actions,
         duration: p.duration,
+        nativeStorageRecoveryTestSessionId:
+          p.nativeStorageRecoveryTestSessionId,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);

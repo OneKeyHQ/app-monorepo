@@ -5,10 +5,11 @@ import {
   Icon,
   ScrollView,
   SizableText,
-  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type {
@@ -60,7 +61,7 @@ export function TradingViewIndicatorScopeTabs({
       mb="$2"
     >
       {tabs.map((tab, index) => (
-        <Tabs.TabBarItem
+        <TabBarItem
           key={tab.value}
           testID={`trading-view-indicator-scope-${tab.value}`}
           name={tab.value}
@@ -94,8 +95,9 @@ export function TradingViewIndicatorSidebar({
     <ScrollView
       testID="trading-view-indicator-sidebar"
       flex={1}
+      height="100%"
       minHeight={0}
-      contentContainerStyle={{ px: '$3', py: '$4', gap: '$1' }}
+      contentContainerStyle={{ flexGrow: 1, px: '$3', py: '$4', gap: '$1' }}
     >
       {indicators.map((indicator, index) => {
         const selected = indicator.id === selectedIndicatorId;
@@ -116,20 +118,11 @@ export function TradingViewIndicatorSidebar({
                 {indicator.groupLabel}
               </SizableText>
             ) : null}
-            {/* Mirrors DesktopTabItem, which the chart settings navigation
-                column is built from, with the checkbox in the icon slot. */}
-            <XStack
+            <DesktopTabItem
               testID={`trading-view-indicator-sidebar-${indicator.id}`}
-              px="$2"
-              py="$2"
+              size="small"
+              selected={selected}
               gap="$2"
-              alignItems="center"
-              borderRadius="$2"
-              bg={selected ? '$bgActive' : undefined}
-              hoverStyle={{ bg: selected ? '$bgActive' : '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              cursor="pointer"
-              userSelect="none"
               onPress={() => onSelect(indicator.id)}
             >
               <Checkbox
@@ -152,7 +145,7 @@ export function TradingViewIndicatorSidebar({
                 color="$iconSubdued"
                 flexShrink={0}
               />
-            </XStack>
+            </DesktopTabItem>
           </YStack>
         );
       })}

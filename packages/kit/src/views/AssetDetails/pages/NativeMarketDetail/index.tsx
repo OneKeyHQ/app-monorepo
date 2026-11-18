@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
+  NumberSizeableText,
   Page,
   ScrollView,
   SizableText,
@@ -14,7 +15,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,10 +29,18 @@ import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { PriceChangePercentage } from '../../../Market/components/PriceChangePercentage';
 import { TokenPriceChart } from '../../../Market/components/TokenPriceChart';
 
+const USD_PRICE_FORMATTER_OPTIONS = { currency: '$' };
+
 export function NativeMarketDetailContent({
   coinGeckoId,
+  networkId,
+  tokenImageUri,
+  tokenSymbol,
 }: {
   coinGeckoId: string;
+  networkId?: string;
+  tokenImageUri?: string;
+  tokenSymbol?: string;
 }) {
   const intl = useIntl();
   const lastTokenRef = useRef<IMarketTokenDetail | undefined>(undefined);
@@ -46,6 +54,8 @@ export function NativeMarketDetailContent({
         const response =
           await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
             coinGeckoId,
+            true,
+            USD_CURRENCY_ID,
           );
         lastTokenRef.current = response;
         return response;
@@ -63,11 +73,22 @@ export function NativeMarketDetailContent({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack gap="$2" alignItems="center">
-        <MarketTokenIcon uri={token?.image ?? ''} size="sm" />
-        <SizableText>{token?.symbol.toUpperCase()}</SizableText>
+        <MarketTokenIcon
+          uri={tokenImageUri || token?.image || ''}
+          uris={
+            tokenImageUri && token?.image
+              ? [tokenImageUri, token.image]
+              : undefined
+          }
+          size="sm"
+          networkId={networkId}
+        />
+        <SizableText size="$headingLg" numberOfLines={1}>
+          {tokenSymbol ?? token?.symbol}
+        </SizableText>
       </XStack>
     ),
-    [token?.image, token?.symbol],
+    [networkId, token?.image, token?.symbol, tokenImageUri, tokenSymbol],
   );
 
   return (
@@ -80,9 +101,13 @@ export function NativeMarketDetailContent({
               <SizableText size="$headingMd" color="$textSubdued">
                 {token.name}
               </SizableText>
-              <Currency sourceCurrency={USD_CURRENCY_ID} size="$heading3xl">
+              <NumberSizeableText
+                size="$heading3xl"
+                formatter="price"
+                formatterOptions={USD_PRICE_FORMATTER_OPTIONS}
+              >
                 {token.stats.currentPrice}
-              </Currency>
+              </NumberSizeableText>
               <PriceChangePercentage>
                 {token.stats.performance.priceChangePercentage24h}
               </PriceChangePercentage>
@@ -126,6 +151,9 @@ export default function NativeMarketDetail({
     <NativeMarketDetailContent
       key={route.params.token}
       coinGeckoId={route.params.token}
+      networkId={route.params.preferredToken?.networkId}
+      tokenImageUri={route.params.tokenImageUri}
+      tokenSymbol={route.params.tokenSymbol}
     />
   );
 }

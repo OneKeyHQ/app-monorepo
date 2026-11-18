@@ -60,6 +60,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -97,6 +98,7 @@ import { settingsPersistAtom } from '../../../states/jotai/atoms';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
@@ -113,7 +115,9 @@ import {
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
+  ESignedTxBroadcastStatus,
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -576,18 +580,16 @@ export default class VaultBtc extends VaultBase {
       throw new OneKeyLocalError('transfersInfo is required');
     }
 
-    const MAX_OUTPUTS_PER_TX = 200;
+    const { bulkSendMaxTransfersPerTx } = await this.getVaultSettings();
+    const transfersInfoChunks = bulkSendUtils.chunkBulkSendTransfers(
+      transfersInfo,
+      bulkSendMaxTransfersPerTx,
+    );
     const encodedTxs: IEncodedTxBtc[] = [];
-    const transfersInfoChunks: ITransferInfo[][] = [];
-
-    for (let i = 0; i < transfersInfo.length; i += MAX_OUTPUTS_PER_TX) {
-      const chunk = transfersInfo.slice(i, i + MAX_OUTPUTS_PER_TX);
-      transfersInfoChunks.push(chunk);
-
-      const encodedTx = await this._buildEncodedTxFromBatchTransfer({
-        transfersInfo: chunk,
-      });
-      encodedTxs.push(encodedTx);
+    for (const chunk of transfersInfoChunks) {
+      encodedTxs.push(
+        await this._buildEncodedTxFromBatchTransfer({ transfersInfo: chunk }),
+      );
     }
 
     return { encodedTxs, transfersInfoChunks };
@@ -613,8 +615,7 @@ export default class VaultBtc extends VaultBase {
         .toFixed();
     }
     // Clear the UTXO cache to ensure fresh UTXOs are fetched
-    this._collectUTXOsInfoByApiWithCache.clear();
-    this._collectClaimedUtxosWithCache.clear();
+    this.clearUtxoCaches();
     const encodedTx = await this._buildEncodedTxFromBatchTransfer({
       transfersInfo: unsignedTx.transfersInfo,
       specifiedFeeRate,
@@ -629,6 +630,45 @@ export default class VaultBtc extends VaultBase {
       ...unsignedTx,
       ...newUnsignedTx,
     };
+  }
+
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return this.checkSignedTxBroadcastStatusByTxDetails({
+      signedTx,
+      isAcceptedByNode,
+    });
+  }
+
+  // Two txs that spend the same output cannot both confirm. Coin selection
+  // that ran after the earlier payload reached the mempool picks other
+  // outputs (its change included), and that tx would pay the same
+  // recipients a second time. A payload whose inputs are not on record
+  // proves nothing, so it is sent again rather than replaced.
+  override async isUnsignedTxConflictingWithSignedTx({
+    unsignedTx,
+    signedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const signedInputs = (signedTx.encodedTx as IEncodedTxBtc | null)?.inputs;
+    const inputs = (unsignedTx.encodedTx as IEncodedTxBtc | null)?.inputs;
+    if (!Array.isArray(signedInputs) || !Array.isArray(inputs)) {
+      return false;
+    }
+    const signedOutpoints = new Set(
+      signedInputs.map((input) => `${input.txid}:${input.vout}`),
+    );
+    return inputs.some((input) =>
+      signedOutpoints.has(`${input.txid}:${input.vout}`),
+    );
   }
 
   override async buildUnsignedTx(
@@ -815,6 +855,7 @@ export default class VaultBtc extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringWatching,
@@ -1681,7 +1722,9 @@ export default class VaultBtc extends VaultBase {
     return account.xpubSegwit || account.xpub;
   }
 
-  override async buildEstimateFeeParams() {
+  override buildEstimateFeeParams(): ReturnType<
+    VaultBase['buildEstimateFeeParams']
+  > {
     return Promise.resolve({
       encodedTx: undefined,
     });
@@ -1728,6 +1771,24 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  // The UTXO pool is memoized for 30s. A broadcast attempt (successful or not)
+  // means part of that pool can no longer be trusted, so the next build must
+  // refetch instead of reusing the snapshot and signing an already spent input.
+  clearUtxoCaches() {
+    this._collectUTXOsInfoByApiWithCache.clear();
+    this._collectClaimedUtxosWithCache.clear();
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      return await super.broadcastTransaction(params);
+    } finally {
+      this.clearUtxoCaches();
+    }
+  }
+
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -1737,12 +1798,18 @@ export default class VaultBtc extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     const client = new ClientBtc(rpcUrl);
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
-    return {
-      ...signedTx,
-      txid,
-      encodedTx: signedTx.encodedTx,
-    };
+    try {
+      const txid = await client.broadcastTransaction(signedTx.rawTx);
+      return {
+        ...signedTx,
+        txid,
+        encodedTx: signedTx.encodedTx,
+      };
+    } finally {
+      // Custom RPC sends bypass broadcastTransaction(), so the spent inputs
+      // must leave the memoized UTXO pool here as well.
+      this.clearUtxoCaches();
+    }
   }
 
   override async getAddressType({ address }: { address: string }) {

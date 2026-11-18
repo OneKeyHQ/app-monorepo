@@ -41,12 +41,16 @@ export function TokenActivityOverview({
   pl,
   pr,
   px = '$5',
+  pt = '$3',
   desktopRedesign = false,
+  summaryLayout = 'inline',
 }: {
   pl?: string;
   pr?: string;
   px?: string;
+  pt?: string;
   desktopRedesign?: boolean;
+  summaryLayout?: 'inline' | 'stacked';
 }) {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
@@ -101,6 +105,7 @@ export function TokenActivityOverview({
         sellVolume={sellVolume}
         totalVolume={totalVolume}
         isLoading={needShowLoading}
+        stacked={summaryLayout === 'stacked'}
       />
     ) : (
       <>
@@ -134,7 +139,7 @@ export function TokenActivityOverview({
       gap={desktopRedesign ? '$6' : '$3'}
       pl={pl ?? px}
       pr={pr ?? px}
-      pt="$3"
+      pt={pt}
       pb={desktopRedesign ? '$6' : '$4'}
     >
       <TimeRangeSelector

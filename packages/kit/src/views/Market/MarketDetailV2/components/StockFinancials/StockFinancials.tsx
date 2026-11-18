@@ -7,15 +7,26 @@ import {
   Button,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
+  getTokenValue,
 } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStockFinancialPeriod } from '@onekeyhq/shared/types/marketStockFinancials';
 
 import { FinancialChart } from './FinancialChart';
-import { buildFinancialChart } from './financialChartData';
-import { isFinancialNumber } from './financialsUtils';
+import {
+  FINANCIAL_CHART_KINDS,
+  buildFinancialChart,
+  shouldHideStockFinancials,
+} from './financialChartData';
+import {
+  getUpcomingEarningsTimestamp,
+  isFinancialNumber,
+} from './financialsUtils';
+import { useStockFinancialLabels } from './stockFinancialLabels';
 import { useStockFinancials } from './useStockFinancials';
 
 import type {
@@ -40,9 +51,17 @@ function FinancialCard({
   isLoading: boolean;
 }) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const [selectedPeriod, setSelectedPeriod] =
     useState<IStockFinancialPeriod>('annual');
-  const quarterly = buildFinancialChart(quarter?.data, kind, labels);
+  const [width, setWidth] = useState(640);
+  const compactConversion = width < 560;
+  const quarterly = buildFinancialChart(
+    quarter?.data,
+    kind,
+    labels,
+    compactConversion,
+  );
   const supportsQuarter = quarterly.rows.some((row) =>
     row.values.some(isFinancialNumber),
   );
@@ -52,47 +71,71 @@ function FinancialCard({
   const chart =
     period === 'quarter'
       ? quarterly
-      : buildFinancialChart(annual?.data, kind, labels);
+      : buildFinancialChart(annual?.data, kind, labels, compactConversion);
   const hasData = chart.rows.some((row) => row.values.some(isFinancialNumber));
-  const nextDate = result?.data?.earnings.nextEarningsDate;
   const nextTimestamp =
-    nextDate && /^\d{4}-\d{2}-\d{2}$/.test(nextDate)
-      ? Date.parse(`${nextDate}T00:00:00Z`)
-      : NaN;
-  const today = new Date().toISOString().slice(0, 10);
-  const showNextDate = Boolean(
-    nextDate && nextDate >= today && Number.isFinite(nextTimestamp),
-  );
+    getUpcomingEarningsTimestamp(result?.data?.earnings.nextEarningsDate) ??
+    getUpcomingEarningsTimestamp(
+      (period === 'annual' ? quarter : annual)?.data?.earnings.nextEarningsDate,
+    );
   const hasPartial = result?.data?.partial || quarter?.failed || annual?.failed;
   return (
-    <YStack gap="$3" py="$5" testID={`stock-financials-${kind}`}>
+    <YStack
+      gap="$4"
+      flex={1}
+      testID={`stock-financials-${kind}`}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
+      {/* The period switch keeps its place at the right; when the title and
+          next-earnings date do not fit beside it (the narrow mobile overview,
+          long translations), the date wraps under the title in its own
+          column instead. */}
       <XStack
         alignItems="center"
         justifyContent="space-between"
         gap="$2"
-        flexWrap="wrap"
+        minHeight="$10"
       >
-        <YStack gap="$1" flexShrink={1}>
-          <SizableText size="$headingSm">{labels[kind]}</SizableText>
-          {kind === 'earnings' && showNextDate ? (
+        <XStack
+          alignItems="baseline"
+          flexWrap="wrap"
+          columnGap="$3"
+          flex={1}
+          minWidth={0}
+        >
+          <SizableText size="$headingMd" flexShrink={1}>
+            {labels[kind]}
+          </SizableText>
+          {kind === 'earnings' && nextTimestamp !== undefined ? (
             <SizableText
               size="$bodyXs"
-              color="$textSubdued"
-            >{`${labels.next}: ${intl.formatDate(nextTimestamp, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}`}</SizableText>
+              color="$textDisabled"
+              numberOfLines={1}
+              flexShrink={1}
+              minWidth={0}
+            >{`${labels.next}: ${formatDate(new Date(nextTimestamp), { hideTimeForever: true, timeZone: 'UTC' })}`}</SizableText>
           ) : null}
-        </YStack>
-        <XStack gap="$1" alignItems="center">
-          {chart.currency ? (
-            <SizableText size="$bodyXs" color="$textSubdued" mr="$2">
-              {chart.currency}
-            </SizableText>
-          ) : null}
+        </XStack>
+        <XStack
+          height={38}
+          py="$1"
+          gap="$0.5"
+          alignItems="center"
+          flexShrink={0}
+        >
           {(['annual', 'quarter'] as const)
             .filter((item) => item === 'annual' || supportsQuarter)
             .map((item) => (
               <Button
                 key={item}
                 size="small"
+                height={30}
+                m="$0"
+                px="$2.5"
+                borderWidth={0}
+                flexShrink={0}
+                textEllipsis
+                borderRadius="$full"
                 variant={period === item ? 'secondary' : 'tertiary'}
                 testID={`stock-financials-${kind}-${item}`}
                 aria-pressed={period === item}
@@ -106,9 +149,10 @@ function FinancialCard({
       {!annual && isLoading ? <Skeleton height={300} width="100%" /> : null}
       {annual && hasData ? (
         <FinancialChart
-          key={`${kind}-${period}`}
+          period={period}
           rows={chart.rows}
           series={chart.series}
+          currency={chart.currency}
           testID={`stock-financials-${kind}-chart`}
         />
       ) : null}
@@ -162,38 +206,75 @@ function FinancialCard({
   );
 }
 
-export function StockFinancials({
-  stockId,
-  labels,
-  withHorizontalPadding = true,
-}: {
+// Gap between the two card columns; also feeds the card width calculation.
+const CARD_COLUMN_GAP = '$10';
+
+type IStockFinancialsProps = {
   stockId: string;
   withHorizontalPadding?: boolean;
-  labels: IStockFinancialLabels;
+  labels?: IStockFinancialLabels;
+  /** Off where a tab already names the section. */
+  showTitle?: boolean;
+};
+
+export function StockFinancialsContent({
+  stockId,
+  labels: labelsOverride,
+  withHorizontalPadding = true,
+  showTitle = true,
+  financials,
+}: IStockFinancialsProps & {
+  financials: ReturnType<typeof useStockFinancials>;
 }) {
-  const { result, isLoading, retry } = useStockFinancials(stockId);
+  const translatedLabels = useStockFinancialLabels();
+  const labels = labelsOverride ?? translatedLabels;
+  const { result, isLoading, retry } = financials;
+  const [contentWidth, setContentWidth] = useState(0);
+  const columnGap = getTokenValue(CARD_COLUMN_GAP, 'space');
+  // Measure the content column: the desktop trade panel also consumes width.
+  const cardWidth =
+    contentWidth >= 800 ? (contentWidth - columnGap) / 2 : '100%';
+  if (shouldHideStockFinancials(financials, labels)) {
+    return null;
+  }
   return (
     <YStack
       testID="stock-financials"
       px={withHorizontalPadding ? '$5' : '$0'}
-      py="$2"
+      // Without the title, cards start 32pt below the tabs like Overview.
+      pt={showTitle ? '$2' : '$8'}
+      pb="$2"
     >
-      <SizableText size="$headingXl" pt="$6">
-        {labels.financials}
-      </SizableText>
-      {(['performance', 'conversion', 'debt', 'earnings'] as const).map(
-        (kind) => (
-          <FinancialCard
-            key={`${stockId}-${kind}`}
-            kind={kind}
-            annual={result?.annual}
-            quarter={result?.quarter}
-            labels={labels}
-            retry={retry}
-            isLoading={isLoading}
-          />
-        ),
-      )}
+      {showTitle ? (
+        <SizableText size="$headingXl" pt="$6" pb="$6">
+          {labels.financials}
+        </SizableText>
+      ) : null}
+      <XStack
+        flexWrap="wrap"
+        columnGap={CARD_COLUMN_GAP}
+        rowGap="$10"
+        pb="$6"
+        onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
+      >
+        {FINANCIAL_CHART_KINDS.map((kind) => (
+          <Stack key={`${stockId}-${kind}`} width={cardWidth} minWidth={0}>
+            <FinancialCard
+              kind={kind}
+              annual={result?.annual}
+              quarter={result?.quarter}
+              labels={labels}
+              retry={retry}
+              isLoading={isLoading}
+            />
+          </Stack>
+        ))}
+      </XStack>
     </YStack>
   );
+}
+
+export function StockFinancials(props: IStockFinancialsProps) {
+  const financials = useStockFinancials(props.stockId);
+  return <StockFinancialsContent {...props} financials={financials} />;
 }

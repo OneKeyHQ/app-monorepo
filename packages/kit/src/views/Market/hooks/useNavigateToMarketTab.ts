@@ -5,15 +5,15 @@ import {
   type IMarketSelectedTab,
   useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import type { IMarketNavigationTrigger } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
-  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -29,14 +29,35 @@ interface INavigateToMarketTabOptions {
   spotCategoryToSelect?: string;
   perpsCategoryToSelect?: string;
   onNavigationComplete?: () => void;
+  // Reported as the Market home entry source once the tab gains focus.
+  entrySource?: EMarketHomeEntrySource;
 }
 
-interface IPendingMarketNavigation {
-  target: IMarketNavigationTarget;
+interface IMarketNavigationRequest {
+  // Correlates the async steps of one request in the local logs.
+  navigationId: number;
+  target?: IMarketNavigationTarget;
   onNavigationComplete?: () => void;
 }
 
+interface IPendingMarketNavigation extends IMarketNavigationRequest {
+  target: IMarketNavigationTarget;
+}
+
 const MARKET_NAVIGATION_SELECTION_TIMEOUT_MS = 500;
+
+let lastMarketNavigationId = 0;
+
+function getNavigationPlatform() {
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    return 'extension';
+  }
+  return platformEnv.isNative ? 'native' : 'web';
+}
+
+function getCurrentRouteName() {
+  return rootNavigationRef.current?.getCurrentRoute?.()?.name;
+}
 
 export function useNavigateToMarketTab() {
   const [marketSelectedTab, setMarketSelectedTab] = useMarketSelectedTabAtom();
@@ -49,13 +70,23 @@ export function useNavigateToMarketTab() {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
 
-  const clearPendingNavigation = useCallback(() => {
-    if (pendingNavigationTimeoutRef.current !== undefined) {
-      clearTimeout(pendingNavigationTimeoutRef.current);
-      pendingNavigationTimeoutRef.current = undefined;
-    }
-    pendingNavigationRef.current = undefined;
-  }, []);
+  const clearPendingNavigation = useCallback(
+    (cancelReason?: 'superseded' | 'unmount') => {
+      const pendingNavigation = pendingNavigationRef.current;
+      if (cancelReason && pendingNavigation) {
+        defaultLogger.market.navigation.pendingNavigationCancelled({
+          navigationId: pendingNavigation.navigationId,
+          reason: cancelReason,
+        });
+      }
+      if (pendingNavigationTimeoutRef.current !== undefined) {
+        clearTimeout(pendingNavigationTimeoutRef.current);
+        pendingNavigationTimeoutRef.current = undefined;
+      }
+      pendingNavigationRef.current = undefined;
+    },
+    [],
+  );
 
   const applyNavigationTarget = useCallback(
     (target: IMarketNavigationTarget) => {
@@ -78,9 +109,17 @@ export function useNavigateToMarketTab() {
 
   const performNavigation = useCallback(
     async (
-      target?: IMarketNavigationTarget,
-      onNavigationComplete?: () => void,
+      request: IMarketNavigationRequest,
+      trigger: IMarketNavigationTrigger,
     ) => {
+      const { navigationId, target, onNavigationComplete } = request;
+      defaultLogger.market.navigation.performNavigationStart({
+        navigationId,
+        trigger,
+        platform: getNavigationPlatform(),
+        routeName: getCurrentRouteName(),
+      });
+
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
@@ -91,13 +130,8 @@ export function useNavigateToMarketTab() {
         return;
       }
 
-      // Market tab differs by platform
-      const marketTab = platformEnv.isNative
-        ? ETabRoutes.Discovery
-        : ETabRoutes.Market;
-      const marketTabScreen = platformEnv.isNative
-        ? ETabDiscoveryRoutes.TabDiscovery
-        : ETabMarketRoutes.TabMarket;
+      const marketTab = ETabRoutes.Market;
+      const marketTabScreen = ETabMarketRoutes.TabMarket;
 
       if (platformEnv.isNative) {
         // Keep the primary and detail navigation containers aligned in split view.
@@ -108,24 +142,28 @@ export function useNavigateToMarketTab() {
         screen: marketTab,
         params: {
           screen: marketTabScreen,
-          params: platformEnv.isNative
-            ? {
-                defaultTab: ETranslations.global_market,
-              }
-            : undefined,
         },
       });
+      defaultLogger.market.navigation.performNavigationDispatched({
+        navigationId,
+        hasRootNavigationRef: Boolean(rootNavigationRef.current),
+        routeName: getCurrentRouteName(),
+      });
 
-      // On native, need to switch to Market sub-tab inside Discovery
+      const logNavigationComplete = () => {
+        defaultLogger.market.navigation.performNavigationComplete({
+          navigationId,
+          routeName: getCurrentRouteName(),
+        });
+      };
+
       if (platformEnv.isNative) {
         setTimeout(() => {
-          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-            tab: ETranslations.global_market,
-          });
           if (target) {
             applyNavigationTarget(target);
           }
           onNavigationComplete?.();
+          logNavigationComplete();
         }, 150);
       } else if (target || onNavigationComplete) {
         requestAnimationFrame(() => {
@@ -133,43 +171,62 @@ export function useNavigateToMarketTab() {
             applyNavigationTarget(target);
           }
           onNavigationComplete?.();
+          logNavigationComplete();
         });
       }
     },
     [applyNavigationTarget],
   );
 
+  const startNavigation = useCallback(
+    (request: IMarketNavigationRequest, trigger: IMarketNavigationTrigger) => {
+      clearPendingNavigation();
+      void performNavigation(request, trigger).catch((error: unknown) => {
+        defaultLogger.market.navigation.performNavigationFailed({
+          navigationId: request.navigationId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Only add the local log; keep the original unhandled rejection.
+        throw error;
+      });
+    },
+    [clearPendingNavigation, performNavigation],
+  );
+
   useEffect(() => {
     const pendingNavigation = pendingNavigationRef.current;
-    const target = pendingNavigation?.target;
     if (
-      !target ||
-      !isMarketNavigationTargetApplied(marketSelectedTab, target)
+      !pendingNavigation ||
+      !isMarketNavigationTargetApplied(
+        marketSelectedTab,
+        pendingNavigation.target,
+      )
     ) {
       return;
     }
 
-    clearPendingNavigation();
-    void performNavigation(target, pendingNavigation?.onNavigationComplete);
-  }, [clearPendingNavigation, marketSelectedTab, performNavigation]);
+    startNavigation(pendingNavigation, 'selectionApplied');
+  }, [marketSelectedTab, startNavigation]);
 
   useEffect(
     () => () => {
-      clearPendingNavigation();
+      clearPendingNavigation('unmount');
     },
     [clearPendingNavigation],
   );
 
   const navigateToMarketTab = useCallback(
     (options?: INavigateToMarketTabOptions) => {
-      clearPendingNavigation();
+      clearPendingNavigation('superseded');
 
       const {
         tabToSelect,
         spotCategoryToSelect,
         perpsCategoryToSelect,
         onNavigationComplete,
+        entrySource,
       } = options ?? {};
+      markMarketHomeEntry(entrySource ?? EMarketHomeEntrySource.Other);
       let targetTab = tabToSelect;
       if (spotCategoryToSelect) {
         targetTab = 'trending';
@@ -189,19 +246,30 @@ export function useNavigateToMarketTab() {
         navigationTarget.perpsCategory,
       );
 
+      lastMarketNavigationId += 1;
+      const request: IMarketNavigationRequest = {
+        navigationId: lastMarketNavigationId,
+        onNavigationComplete,
+      };
+      defaultLogger.market.navigation.navigateToMarketTab({
+        navigationId: request.navigationId,
+        target: navigationTarget,
+        selection: marketSelectedTabRef.current,
+        waitForSelection: shouldWaitForSelection,
+      });
+
       // Switch to specific tab inside Market (watchlist or trending)
       if (shouldWaitForSelection) {
         const pendingNavigation: IPendingMarketNavigation = {
+          ...request,
           target: navigationTarget,
-          onNavigationComplete,
         };
         pendingNavigationRef.current = pendingNavigation;
         pendingNavigationTimeoutRef.current = setTimeout(() => {
           if (pendingNavigationRef.current !== pendingNavigation) {
             return;
           }
-          clearPendingNavigation();
-          void performNavigation(navigationTarget, onNavigationComplete);
+          startNavigation(pendingNavigation, 'timeout');
         }, MARKET_NAVIGATION_SELECTION_TIMEOUT_MS);
         applyNavigationTarget(navigationTarget);
 
@@ -211,15 +279,14 @@ export function useNavigateToMarketTab() {
             navigationTarget,
           )
         ) {
-          clearPendingNavigation();
-          void performNavigation(navigationTarget, onNavigationComplete);
+          startNavigation(pendingNavigation, 'alreadyApplied');
         }
         return;
       }
 
-      void performNavigation(undefined, onNavigationComplete);
+      startNavigation(request, 'immediate');
     },
-    [applyNavigationTarget, clearPendingNavigation, performNavigation],
+    [applyNavigationTarget, clearPendingNavigation, startNavigation],
   );
 
   return navigateToMarketTab;

@@ -1,8 +1,12 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
-import type { IMarketStockAnalystRatings } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockAnalystRatings,
+  IMarketStockPublicDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
+  buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
   getStockAnalystConsensus,
 } from './stockPublicDataUtils';
@@ -30,5 +34,38 @@ describe('stockPublicDataUtils', () => {
     ];
     expect(label).toBe('IPO date');
     expect(label).not.toBe('Founded');
+  });
+
+  describe('buildStockInfoFromPublicDetail', () => {
+    const detail = (tags?: string[]): IMarketStockPublicDetail => ({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      tags,
+      categories: [],
+      aliases: [],
+      marketStatus: { isOpen: true, session: 'OVERNIGHT' },
+    });
+
+    it('marks the listing market from tags', () => {
+      expect(
+        buildStockInfoFromPublicDetail(detail(['US']), { source: 'bstock' })
+          .isUSListing,
+      ).toBe(true);
+      expect(
+        buildStockInfoFromPublicDetail(detail(['HK']), { source: 'xstock' })
+          .isUSListing,
+      ).toBe(false);
+    });
+
+    it('leaves the listing unknown without tags', () => {
+      expect(
+        buildStockInfoFromPublicDetail(detail(), { source: 'bstock' })
+          .isUSListing,
+      ).toBeUndefined();
+    });
   });
 });

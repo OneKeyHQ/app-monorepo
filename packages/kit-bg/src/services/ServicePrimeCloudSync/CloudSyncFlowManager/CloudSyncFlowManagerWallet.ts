@@ -1,5 +1,6 @@
+import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   ICloudSyncPayloadWallet,
@@ -10,7 +11,11 @@ import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
-import type { IDBDevice, IDBWallet } from '../../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../../dbs/local/types';
 
 export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   EPrimeCloudSyncDataType.Wallet,
@@ -24,6 +29,14 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     target: ICloudSyncTargetWallet,
   ): Promise<boolean> {
     const { wallet, dbDevice } = target;
+
+    // The reserved QA device must stay local, including during full sync.
+    if (
+      accountUtils.isQrWallet({ walletId: wallet.id }) &&
+      dbDevice?.deviceId === DEV_UNKNOWN_AVATAR_DEVICE_ID
+    ) {
+      return false;
+    }
 
     // Third-party HW vendors (Ledger, ...) don't participate in cloud sync.
     // Without this gate, buildSyncRawKey falls through to '' and every
@@ -79,6 +92,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     return {
       name: wallet.name,
       avatar: wallet.avatarInfo,
+      firstEvmAddress: wallet.firstEvmAddress,
       //
       walletType,
       walletHash: hdWalletHash,
@@ -88,14 +102,17 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   }
 
   override async syncToSceneEachItem(params: {
+    item?: IDBCloudSyncItem;
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
   }): Promise<boolean> {
     const { target, payload } = params;
     await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
       walletId: target.wallet.id,
+      cloudSyncSource: params.item,
       name: payload.name,
       avatar: payload.avatar,
+      firstEvmAddress: payload.firstEvmAddress,
       // avoid infinite loop sync
       skipSaveLocalSyncItem: true,
       skipEmitEvent: true,

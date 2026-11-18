@@ -97,7 +97,6 @@ RCT_EXPORT_MODULE(OneKeyNativeStorageMigration)
 {
   return [mmapID isEqualToString:@"onekey-app-storage-v1"] ||
          [mmapID isEqualToString:@"onekey-app-setting"] ||
-         [mmapID isEqualToString:@"onekey-cold-start-cache"] ||
          [mmapID isEqualToString:@"onekey-app-dev-setting"] ||
          [mmapID isEqualToString:@"onekey-jotai-states"];
 }
@@ -210,12 +209,15 @@ RCT_REMAP_METHOD(syncMMKV,
     reject(@"MMKV_SYNC_FAILED", @"Unsupported MMKV instance", nil);
     return;
   }
-  MMKV *mmkv = [MMKV mmkvWithID:mmapID];
-  if (mmkv == nil) {
-    reject(@"MMKV_SYNC_FAILED", @"MMKV instance is unavailable", nil);
+  // Core pins the existing instance and holds its write locks through both
+  // checked flushes. This call never creates a store.
+  int failure = [MMKV syncExisting:mmapID];
+  if (failure != 0) {
+    reject(@"MMKV_SYNC_FAILED",
+           [NSString stringWithFormat:@"MMKV durability check failed; errno=%d", failure],
+           nil);
     return;
   }
-  [mmkv sync];
   resolve(nil);
 }
 

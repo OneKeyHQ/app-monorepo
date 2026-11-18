@@ -1,6 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -118,7 +118,7 @@ async function buildDeviceMetaStatic(
     ? thirdPartyDeviceUtils.getDeviceName({
         device,
         features,
-        defaultDeviceName: vendorProfile.defaultDeviceName,
+        defaultDeviceName: vendorProfile.presentation.defaultName,
       })
     : await deviceUtils.buildDeviceName({
         device,

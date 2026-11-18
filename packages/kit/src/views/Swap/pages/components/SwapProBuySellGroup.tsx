@@ -6,6 +6,7 @@ import {
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { formatTokenActivityData } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenActivityOverview/utils/formatTokenActivityData';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   type ESwapProTimeRange,
@@ -26,6 +27,12 @@ const SwapProBuySellGroup = ({
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTimeRange, setSwapProTimeRange] = useSwapProTimeRangeAtom();
   const isHyperliquidBtc = isSwapProHyperliquidBtcToken(swapProSelectToken);
+  const { buyVolume, sellVolume } = formatTokenActivityData(
+    swapProTokenMarketDetailInfo,
+    swapProTimeRange.value,
+  );
+  const showBuySellInfo =
+    !isHyperliquidBtc && buyVolume !== undefined && sellVolume !== undefined;
   const handleTimeRangeChange = useCallback(
     (value: ESwapProTimeRange) => {
       if (value === swapProTimeRange.value) {
@@ -47,13 +54,13 @@ const SwapProBuySellGroup = ({
   );
   return (
     <YStack testID={SwapTestIDs.proBuySellGroup} gap="$2">
-      {isHyperliquidBtc ? null : (
+      {showBuySellInfo ? (
         <SwapProBuySellInfo
           supportSpeedSwap={supportSpeedSwap}
           tokenDetailInfo={swapProTokenMarketDetailInfo}
           timeRange={swapProTimeRange.value}
         />
-      )}
+      ) : null}
       <SwapProTimeRangeSelector
         disabled={!supportSpeedSwap && !isHyperliquidBtc}
         items={swapProTimeRangeItems}

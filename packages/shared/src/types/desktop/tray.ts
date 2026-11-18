@@ -22,11 +22,15 @@ export interface ITrayWatchlistItem {
   iconUrls?: string[];
   networkIcon?: string;
   price: string;
-  change24h: number;
+  // Undefined when the quote carries no 24h change; UI hides the line.
+  change24h?: number;
   type: 'spot' | 'perps';
   tokenAddress?: string;
   networkId?: string;
   isNative?: boolean;
+  // Market listing favorites (top coins / stocks) carry no chain identity.
+  assetId?: string;
+  stockId?: string;
   perpsCoin?: string;
   maxLeverage?: number;
   // Perp dex venue label parsed from the prefixed coin name
@@ -68,6 +72,9 @@ export interface ITrayData {
   // Tray renderer can't call backgroundApiProxy, so locale is assembled
   // on the main window side and pushed through TRAY_UPDATE.
   locale?: string;
+  // Mirrors the client's hide-value setting; the tray renderer has no jotai
+  // store of its own, so it can only learn the setting from the payload.
+  hideValue?: boolean;
   // Used by trayIpc to detect account switches and forward updates even to
   // hidden tray windows so the next open isn't stale.
   accountId?: string;
@@ -112,6 +119,8 @@ export interface ITrayAction {
   tokenAddress?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  assetId?: string;
+  stockId?: string;
 }
 
 // Mirror of ipcMessageKeys.TRAY_* in apps/desktop/app/config.ts.

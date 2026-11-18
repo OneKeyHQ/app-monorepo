@@ -4,8 +4,8 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   useAppExitPrevent,
@@ -18,31 +18,30 @@ export function PrimeTransferExitPrevent({
   shouldPreventRemove?: boolean;
 }) {
   const intl = useIntl();
+  const [{ importProgress, exitGeneration = 0 }] = usePrimeTransferAtom();
   const title = intl.formatMessage({
     id: ETranslations.confirm_exit_dialog_title,
   });
   const message = intl.formatMessage({
-    id: ETranslations.confirm_exit_dialog_desc,
+    id: importProgress?.isImporting
+      ? ETranslations.transfer_exit_import__desc
+      : ETranslations.confirm_exit_dialog_desc,
   });
 
-  const onConfirmCallback = useCallback(async () => {
-    try {
-      await backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
-    } catch (error) {
-      console.error('onConfirmCallback clearSensitiveData error', error);
-    }
-    try {
-      await backgroundApiProxy.servicePrimeTransfer.handleLeaveRoom();
-    } catch (error) {
-      console.error('onConfirmCallback handleLeaveRoom error', error);
-    }
-    try {
-      await timerUtils.wait(600);
-      await backgroundApiProxy.servicePrimeTransfer.refreshQrcodeHook();
-    } catch (error) {
-      console.error('onConfirmCallback refreshQrcodeHook error', error);
-    }
-  }, []);
+  const onConfirmCallback = useCallback(
+    () =>
+      backgroundApiProxy.servicePrimeTransfer.exitTransfer({
+        generation: exitGeneration,
+      }),
+    [exitGeneration],
+  );
+  const isExitCurrent = useCallback(
+    () =>
+      backgroundApiProxy.servicePrimeTransfer.isTransferExitCurrent(
+        exitGeneration,
+      ),
+    [exitGeneration],
+  );
 
   // Prevents screen locking during transfer
   useKeepAwake();
@@ -53,6 +52,7 @@ export function PrimeTransferExitPrevent({
     title,
     message,
     onConfirm: onConfirmCallback,
+    isExitCurrent,
   });
 
   // Prevent App exit
@@ -61,6 +61,7 @@ export function PrimeTransferExitPrevent({
     message,
     shouldPreventExitOnAndroid: true,
     onConfirm: onConfirmCallback,
+    isExitCurrent,
   });
 
   return null;

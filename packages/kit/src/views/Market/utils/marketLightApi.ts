@@ -2,7 +2,9 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EServiceEndpointEnum,
@@ -88,8 +90,8 @@ const shouldUseMarketHomeTokenListSeed = ({
 }: INormalizedMarketTokenListRequestParams) =>
   shouldUseMarketHomeTokenListBootstrapSeed() &&
   networkId === '' &&
-  sortBy === 'v24hUSD' &&
-  sortType === 'desc' &&
+  sortBy === undefined &&
+  sortType === undefined &&
   page === 1 &&
   limit === 20 &&
   minLiquidity === 5000 &&
@@ -160,10 +162,11 @@ const fetchMarketTokenListLight = async (
   options?: IFetchMarketTokenListLightOptions,
 ): Promise<IMarketTokenListResponseWithSource> => {
   const normalizedParams = normalizeMarketTokenListParams(params);
-  if (
-    options?.forceRemote ||
-    !shouldUseMarketHomeTokenListSeed(normalizedParams)
-  ) {
+  if (options?.forceRemote) {
+    void fetchMarketTokenListRemoteLight.delete(normalizedParams);
+    return fetchMarketTokenListFromApi(normalizedParams);
+  }
+  if (!shouldUseMarketHomeTokenListSeed(normalizedParams)) {
     return fetchMarketTokenListRemoteLight(normalizedParams);
   }
 
@@ -174,28 +177,27 @@ const fetchMarketTokenListLight = async (
   return seedPromise.catch(() => remotePromise);
 };
 
+type IMarketAssetListLightParams = {
+  currency?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+};
+
+const normalizeMarketAssetListLightParams = ({
+  currency = 'usd',
+  type = 'top_coins',
+  page = 1,
+  limit = 100,
+}: IMarketAssetListLightParams = {}) => ({ currency, type, page, limit });
+
 const fetchMarketAssetListLight = memoizee(
-  async ({
-    currency = 'usd',
-    type = 'top_coins',
-    page = 1,
-    limit = 100,
-  }: {
-    currency?: string;
-    type?: string;
-    page?: number;
-    limit?: number;
-  } = {}) => {
+  async (params: IMarketAssetListLightParams = {}) => {
     const client = await getUtilityClient();
     const response = await client.get<IApiClientResponse<IMarketAssetListData>>(
       '/utility/v1/market/asset/list',
       {
-        params: {
-          currency,
-          type,
-          page,
-          limit,
-        },
+        params: normalizeMarketAssetListLightParams(params),
       },
     );
     return response.data.data;
@@ -203,6 +205,13 @@ const fetchMarketAssetListLight = memoizee(
   {
     maxAge: timerUtils.getTimeDurationMs({ seconds: 20 }),
     promise: true,
+    // The optional parameter gives the function a length of 0, so without a
+    // normalizer memoizee would share one entry across every `type`.
+    normalizer: ([params]) => {
+      const { currency, type, page, limit } =
+        normalizeMarketAssetListLightParams(params);
+      return `${currency}:${type}:${page}:${limit}`;
+    },
   },
 );
 
@@ -222,7 +231,7 @@ const fetchMarketTokenListBatchFromApi = async ({
   >(
     '/utility/v2/market/token/list/batch',
     {
-      tokenAddressList,
+      tokenAddressList: toMarketTokenBatchRequestItems(tokenAddressList),
       currency: 'usd',
     },
     {
@@ -478,8 +487,10 @@ const fetchMarketTokenListBatchLight = async (
   return { list: cachedResults };
 };
 
-const fetchMarketBasicConfigLight = memoizee(
-  async () => {
+// Keyed by locale: category names are localized and onboarding switches the
+// language without reloading the page.
+const memoizedFetchMarketBasicConfigLight = memoizee(
+  async (locale: string) => {
     markMarketPerf('market-light-api-basic-config-start');
     const client = await getUtilityClient();
     const response = (
@@ -489,6 +500,7 @@ const fetchMarketBasicConfigLight = memoizee(
           params: {
             configVersion: 2,
           },
+          headers: { 'x-onekey-request-locale': locale },
         },
       )
     ).data;
@@ -500,6 +512,26 @@ const fetchMarketBasicConfigLight = memoizee(
     promise: true,
   },
 );
+
+// Use the settings locale, like the request interceptor that overwrites the
+// locale header. A language change requests the config again as soon as
+// settings update, while appLocale still holds the old locale until the new
+// messages finish loading.
+const resolveMarketBasicConfigLocale = async () => {
+  const { locale } = await requestHelper.getSettingsPersistAtom();
+  return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+};
+
+const fetchMarketBasicConfigLight = async () => {
+  const locale = await resolveMarketBasicConfigLocale();
+  try {
+    return await memoizedFetchMarketBasicConfigLight(locale);
+  } catch (error) {
+    // Drop only the failed locale so other cached locales stay usable offline.
+    void memoizedFetchMarketBasicConfigLight.delete(locale);
+    throw error;
+  }
+};
 
 const fetchMarketBannerListCached = memoizee(
   async (locale: string): Promise<IMarketBannerItem[]> => {

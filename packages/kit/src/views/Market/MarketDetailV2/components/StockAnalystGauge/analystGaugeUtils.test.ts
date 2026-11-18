@@ -3,6 +3,7 @@ import {
   getStockAnalystGaugeAngle,
   getStockAnalystGaugeScore,
   getStockAnalystGaugeZoneIndex,
+  hasStockAnalystRatingsData,
   parseStockAnalystRatingCounts,
   polarToCartesian,
 } from './analystGaugeUtils';
@@ -152,5 +153,41 @@ describe('analystGaugeUtils', () => {
         endAngle: 0,
       }),
     ).toBe('');
+  });
+});
+
+describe('hasStockAnalystRatingsData', () => {
+  const emptyCounts = {
+    strongSell: 0,
+    sell: 0,
+    hold: 0,
+    buy: 0,
+    strongBuy: 0,
+    total: 0,
+  };
+
+  it('reports data when the provider returns rating counts', () => {
+    expect(
+      hasStockAnalystRatingsData({
+        counts: { ...emptyCounts, buy: 3, total: 3 },
+      }),
+    ).toBe(true);
+  });
+
+  it('reports data when only the percentages are known', () => {
+    expect(
+      hasStockAnalystRatingsData({ ratings: { buy: 0, hold: 0, sell: 13.33 } }),
+    ).toBe(true);
+  });
+
+  it('reports no data for an uncovered stock', () => {
+    expect(hasStockAnalystRatingsData({})).toBe(false);
+    expect(hasStockAnalystRatingsData({ counts: emptyCounts })).toBe(false);
+    expect(
+      hasStockAnalystRatingsData({
+        ratings: { buy: 0, hold: 0, sell: 0 },
+        counts: emptyCounts,
+      }),
+    ).toBe(false);
   });
 });

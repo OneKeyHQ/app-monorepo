@@ -233,6 +233,34 @@ export class FirmwareUpdateBatteryTooLow extends OneKeyHardwareError {
   override code = ECustomOneKeyHardwareError.FirmwareUpdateBatteryTooLow;
 }
 
+// Thrown by the update workflow when desktop resolved a Bluetooth transport
+// for a device that must be updated over USB.
+export class FirmwareUpdateRequiresUsbTransport extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateRequiresUsbTransport',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport;
+}
+
+// Thrown by the update workflow when the device type has no supported
+// update strategy in this app.
+export class FirmwareUpdateUnsupportedDevice extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateUnsupportedDevice',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.FirmwareUpdateUnsupportedDevice;
+}
+
 export class BridgeNetworkError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -340,31 +368,6 @@ export class BleDeviceBondedCanceled extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.BleDeviceNotBonded;
-}
-
-// 设备配对失败
-export class DeviceBondError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'DeviceBondError',
-        defaultKey: ETranslations.bluetooth_pairing_invalid__desc,
-        defaultAutoToast: false,
-      }),
-    );
-
-    if (!props?.silentMode) {
-      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
-        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode: props?.payload?.code || HardwareErrorCode.BleDeviceBondError,
-        errorMessage:
-          props?.payload?.message || props?.message || 'DeviceBondError',
-        payload: props?.payload,
-      });
-    }
-  }
-
-  override code = HardwareErrorCode.BleDeviceBondError;
 }
 
 // 设备没有打开蓝牙
@@ -510,7 +513,7 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
     );
   }
 
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.ForbiddenKeyPath;
 }
 
 export class FirmwareDowngradeNotAllowedError extends OneKeyHardwareError {
@@ -576,6 +579,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
+          payload: props?.payload,
           info: { 'version': get(props, 'payload.params.require', '') },
         },
         {
@@ -976,7 +980,7 @@ export class UnsupportedAddressTypeError extends OneKeyHardwareError {
     );
   }
 
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.DeviceNotSupportPath;
 }
 
 // Communication exception 通信异常

@@ -7,7 +7,6 @@ import { cloneDeep } from 'lodash';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { settingsAtom } from '../../states/jotai/atoms';
@@ -132,8 +131,7 @@ export async function fixOthersWalletAccountNetworkPair({
     !walletId ||
     !networkId ||
     !othersWalletAccountId ||
-    !accountUtils.isOthersWallet({ walletId }) ||
-    networkUtils.isAllNetwork({ networkId })
+    !accountSelectorUtils.hasOthersWalletAccountNetworkPair({ selectedAccount })
   ) {
     return selectedAccount;
   }

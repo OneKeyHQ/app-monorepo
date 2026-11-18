@@ -13,7 +13,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSwapLimitOrdersLoadingAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -57,9 +60,9 @@ const LimitOrderList = ({
     {},
   );
   const { cancelLimitOrder } = useSwapBuildTx();
-  const [
-    { swapLimitOrders, swapLimitOrdersAccountIdKey, swapLimitOrdersLoading },
-  ] = useInAppNotificationAtom();
+  const [{ swapLimitOrders, swapLimitOrdersAccountIdKey }] =
+    useInAppNotificationAtom();
+  const [swapLimitOrdersLoading] = useSwapLimitOrdersLoadingAtom();
   const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
     useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
 

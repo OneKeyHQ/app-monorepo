@@ -22,10 +22,15 @@ import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
 import {
+  getHardwareDeviceColor,
+  getHardwareDeviceColorFromCode,
+} from './hardwareDeviceColors';
+import {
   NEO_DEVICE_TYPE,
   isProtocolV2ProductType,
 } from './hardwareDeviceTypes';
 
+import type { IHardwareDeviceColor } from './hardwareDeviceColors';
 import type {
   IAllDeviceVerifyVersions,
   IDeviceVerifyRawVersions,
@@ -81,16 +86,24 @@ function canonicalizeBleNameForDevice(name: string, deviceType?: IDeviceType) {
     : name;
 }
 
-function getDeviceDisplayName({ state }: { state: DeviceState }): string {
+function getDeviceDisplayName({
+  state,
+  preferBleName = false,
+}: {
+  state: DeviceState;
+  preferBleName?: boolean;
+}): string {
   const { identity } = state;
+  const bleName = identity.bleName
+    ? canonicalizeBleNameForDevice(identity.bleName, identity.deviceType)
+    : undefined;
   const defaultName = identity.deviceType
     ? getDefaultDeviceLabel(identity.deviceType)
     : undefined;
   return (
+    (preferBleName ? bleName : undefined) ||
     identity.label ||
-    (identity.bleName
-      ? canonicalizeBleNameForDevice(identity.bleName, identity.deviceType)
-      : undefined) ||
+    bleName ||
     defaultName ||
     identity.model ||
     'OneKey'
@@ -138,7 +151,10 @@ function getDeviceSerialNoFromFeatures(
     compatibleFeatures.onekey_serial,
     compatibleFeatures.serial_no,
   ].find(
-    (value): value is string => typeof value === 'string' && value.length > 0,
+    (value): value is string =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      !/^0+$/.test(value.trim()),
   );
 }
 
@@ -178,6 +194,43 @@ function isSamePhysicalDevice(
   );
   return [other.connectId, other.usbConnectId, other.bleConnectId].some(
     (value) => Boolean(value && connectIds.has(value.toLowerCase())),
+  );
+}
+
+/** The finish the serial number names. */
+function getDeviceColorFromFeatures({
+  deviceType,
+  features,
+}: {
+  deviceType: IDeviceType | undefined;
+  features: IOneKeyDeviceFeatures | undefined;
+}): IHardwareDeviceColor | undefined {
+  return getHardwareDeviceColor({
+    deviceType,
+    serialNo: getDeviceSerialNoFromFeatures(features),
+  });
+}
+
+/**
+ * The finish a scanned device names before it connects: its serial number
+ * where the transport reports one (USB), else the color letter it
+ * advertised over Bluetooth.
+ */
+function getDeviceColorFromSearchDevice(
+  device: SearchDevice | KnownDevice | undefined,
+): IHardwareDeviceColor | undefined {
+  if (!device) {
+    return undefined;
+  }
+  return (
+    getHardwareDeviceColor({
+      deviceType: device.deviceType,
+      serialNo: device.serialNo ?? undefined,
+    }) ??
+    getHardwareDeviceColorFromCode({
+      deviceType: device.deviceType,
+      colorCode: 'bleColorCode' in device ? device.bleColorCode : undefined,
+    })
   );
 }
 
@@ -471,10 +524,8 @@ async function buildDeviceLabel({
   features: IOneKeyDeviceFeatures;
   buildModelName?: boolean;
 }): Promise<string | ''> {
-  const { getDeviceLabel } = await CoreSDKLoader();
-  const label = getDeviceLabel(features);
-  if (label && !buildModelName) {
-    return label;
+  if (features.label && !buildModelName) {
+    return features.label;
   }
   const deviceType = await getDeviceTypeFromFeatures({
     features,
@@ -1098,6 +1149,8 @@ export default {
   getDeviceVersion,
   getDeviceSerialNoFromFeatures,
   getDeviceSerialNoFromDbDevice,
+  getDeviceColorFromFeatures,
+  getDeviceColorFromSearchDevice,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,

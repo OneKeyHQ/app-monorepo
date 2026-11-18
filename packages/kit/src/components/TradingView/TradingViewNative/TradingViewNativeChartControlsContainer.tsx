@@ -28,19 +28,27 @@ import {
   getTradingViewNativeChartTypeValue,
 } from './utils/chartType';
 
-import type { ITradingViewNativeChartType } from './types';
+import type {
+  ITradingViewNativeChartType,
+  ITradingViewNativeStorageNamespace,
+} from './types';
 
 interface ITradingViewNativeChartControlsContainerProps {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   activeChartType: ITradingViewNativeChartType;
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
+  mobileSettingsControl?: ReactNode;
   enableNativeChartSettings?: boolean;
   enablePreviousClose?: boolean;
+  enableNavigationButtons?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   flushDesktopControls?: ITradingViewChartControlsProps['flushDesktopControls'];
+  leadingControl?: ITradingViewChartControlsProps['leadingControl'];
+  trailingControl?: ITradingViewChartControlsProps['trailingControl'];
   showChartCloseControl?: boolean;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -64,16 +72,21 @@ interface ITradingViewNativeChartControlsContainerProps {
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    storageNamespace,
     activeChartType,
     activeIndicatorValues,
     calendarAvailableTimeRange,
     compactMobileLayout = false,
+    mobileSettingsControl,
     enableNativeChartSettings = false,
     enablePreviousClose = false,
+    enableNavigationButtons = false,
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
     flushDesktopControls,
+    leadingControl,
+    trailingControl,
     showChartCloseControl = true,
     isFullscreen = false,
     fullscreenHeader,
@@ -97,9 +110,15 @@ export const TradingViewNativeChartControlsContainer = memo(
       getTradingViewNativeChartTypeValue(activeChartType);
     const settingsEnabled =
       enableNativeChartSettings && layoutMode === 'desktop';
+    const mobileSettingsButton =
+      layoutMode === 'mobile' && !onChartClose ? mobileSettingsControl : null;
     const handleSettingsPress = useCallback(() => {
-      showMarketChartSettingsDialog({ showPreviousClose: enablePreviousClose });
-    }, [enablePreviousClose]);
+      showMarketChartSettingsDialog({
+        showPreviousClose: enablePreviousClose,
+        showNavigationButtons: enableNavigationButtons,
+        ...(storageNamespace ? { storageNamespace } : {}),
+      });
+    }, [enableNavigationButtons, enablePreviousClose, storageNamespace]);
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
@@ -201,7 +220,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTypeToggleIcon="TradingViewCandlesOutline"
         chartTypes={TRADING_VIEW_NATIVE_CHART_TYPE_OPTIONS}
         hasVisibleControls
-        hasVisibleIndicators={!compactMobileLayout && !onChartClose}
+        hasVisibleIndicators={
+          !compactMobileLayout && !onChartClose && !mobileSettingsButton
+        }
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
@@ -209,7 +230,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
-        showChartTypeSelect={!compactMobileLayout}
+        showChartTypeSelect={!compactMobileLayout && !mobileSettingsButton}
         showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
@@ -217,13 +238,15 @@ export const TradingViewNativeChartControlsContainer = memo(
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
         flushDesktopControls={flushDesktopControls}
+        leadingControl={leadingControl}
+        trailingControl={trailingControl}
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
         chartMode={layoutMode === 'desktop' ? 'native' : undefined}
         isChartSwitchDisabled={isChartSwitchDisabled}
         onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
-        rightControl={closeControl}
+        rightControl={closeControl ?? mobileSettingsButton}
         rightControlLabel={shouldShowChartCloseControl ? closeLabel : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}

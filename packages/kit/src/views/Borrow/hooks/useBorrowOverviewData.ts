@@ -83,6 +83,12 @@ export const useBorrowOverviewData = ({
     isRewardsInitialLoading ||
     (Boolean(isRewardsRequestLoading) && !borrowRewards && !isRewardsError);
 
+  // The metric hooks may return the last successful payload alongside a
+  // terminal error. Keep it during an in-flight poll, but never present it as
+  // the current value after that poll fails.
+  const visibleHealthFactorData = isHealthFactorError ? null : healthFactorData;
+  const visibleBorrowRewards = isRewardsError ? null : borrowRewards;
+
   const refreshReserves = reserves.refresh;
   const requestRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
@@ -111,10 +117,12 @@ export const useBorrowOverviewData = ({
   }, [requestRefresh, setRefreshAllBorrowData]);
 
   return {
-    healthFactorData,
+    healthFactorData: visibleHealthFactorData,
     isHealthFactorLoading,
-    borrowRewards,
+    isHealthFactorError,
+    borrowRewards: visibleBorrowRewards,
     isRewardsLoading,
+    isRewardsError,
     isManualRefreshing,
     requestRefresh,
   };

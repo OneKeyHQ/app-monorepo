@@ -8,6 +8,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -188,7 +189,7 @@ export function TokenList({
         tokensWithDetails.result?.accountId !== networkAccount.result?.id));
 
   return (
-    <YStack gap="$1">
+    <YStack gap="$1" testID={MarketTestIDs.swapPanelTokenSelectorList}>
       <YStack px="$1" py="$1">
         {sortTokensByValue && isTokenDetailsLoading
           ? Array.from({ length: tokens.length || 3 }, (_, index) => (

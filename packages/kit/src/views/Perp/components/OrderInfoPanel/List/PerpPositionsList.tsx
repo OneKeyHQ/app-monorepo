@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActivePositionAtom,
   usePositionFilterByCurrentTokenAtom,
@@ -38,6 +37,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
@@ -52,7 +52,6 @@ import type { LayoutChangeEvent } from 'react-native';
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
 }
 
@@ -63,7 +62,6 @@ type IPositionSymbolMetaMap = Awaited<
 function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
-  useTabsList,
   disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
@@ -75,6 +73,7 @@ function PerpPositionsList({
     actionMeasurement.locale === intl.locale ? actionMeasurement.width : 160;
   const actionLabels = [
     ETranslations.add_position__action,
+    ETranslations.perp_reverse_position__action,
     ETranslations.perp_position_market,
     ETranslations.perp_position_limit,
   ].map((id) => intl.formatMessage({ id }));
@@ -238,6 +237,7 @@ function PerpPositionsList({
         fixed: positionsLength > 0,
         ...(positionsLength > 0 &&
           canMutateScopedPositions && {
+            headerHoverStyle: PERP_TEXT_ACTION_HOVER_STYLE,
             onPress: () =>
               showCloseAllPositionsDialog(undefined, accountScopedAddress),
           }),
@@ -299,7 +299,6 @@ function PerpPositionsList({
           filterByCurrentToken,
           activeCoin: activeAsset?.coin,
           hasAccountAddress: Boolean(accountScopedAddress),
-          useTabsList,
           disableListScroll,
           positionsReady,
         });
@@ -315,7 +314,6 @@ function PerpPositionsList({
       mockedPositions.length,
       positionsReady,
       scopedActivePositions.length,
-      useTabsList,
     ],
   );
 
@@ -330,7 +328,6 @@ function PerpPositionsList({
       filterByCurrentToken,
       activeCoin: activeAsset?.coin,
       hasAccountAddress: Boolean(accountScopedAddress),
-      useTabsList,
       disableListScroll,
       positionsReady,
     });
@@ -344,7 +341,6 @@ function PerpPositionsList({
     positionsReady,
     positionsLength,
     scopedActivePositions.length,
-    useTabsList,
   ]);
 
   const renderPositionRow = (
@@ -371,7 +367,6 @@ function PerpPositionsList({
   const keyExtractor = useCallback((item: IPositionRowItem) => {
     return item.activePosition.position.coin;
   }, []);
-  const actions = useHyperliquidActions();
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
       name: 'PerpPositionsList',
@@ -435,7 +430,7 @@ function PerpPositionsList({
         >
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator
+            showsHorizontalScrollIndicator={false}
             nestedScrollEnabled
             style={{ flex: 1 }}
             contentContainerStyle={{
@@ -490,15 +485,10 @@ function PerpPositionsList({
             }
           }}
         >
-          {/* Measure the widest hover weight so actions never outgrow the fixed column. */}
+          {/* Hover scaling does not change the action labels' layout widths. */}
           <XStack gap="$2">
             {actionLabels.map((label, index) => (
-              <SizableText
-                key={index}
-                size="$bodySmMedium"
-                fontWeight={600}
-                flexShrink={0}
-              >
+              <SizableText key={index} size="$bodySmMedium" flexShrink={0}>
                 {label}
               </SizableText>
             ))}
@@ -509,11 +499,7 @@ function PerpPositionsList({
         </YStack>
       ) : null}
       <CommonTableListView
-        onPullToRefresh={async () => {
-          await actions.current.refreshAllPerpsData();
-        }}
         listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-        useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}

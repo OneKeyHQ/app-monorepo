@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -8,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { privateSendHelpCenterUrl } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -33,6 +35,56 @@ function PrivateSendGuideFeature({
   );
 }
 
+function PrivateSendGuideDialogContent({ intl }: { intl: IntlShape }) {
+  const dialogInstance = useDialogInstance();
+  const handleReadMore = useCallback(async () => {
+    await dialogInstance.close();
+    openUrlExternal(privateSendHelpCenterUrl);
+  }, [dialogInstance]);
+
+  return (
+    <YStack testID="private-send-guide-content" gap="$3">
+      <Image
+        w="100%"
+        h={160}
+        borderRadius="$3"
+        source={require('@onekeyhq/kit/assets/private_send_guide.webp')}
+        resizeMode="cover"
+        // Image defaults autoplay to false on Android (OOM guard for lists);
+        // this single animated webp in a dialog is safe to play everywhere.
+        autoplay
+      />
+      <PrivateSendGuideFeature icon="BrokenLink2Outline">
+        {intl.formatMessage({
+          id: ETranslations.private_send_breaks_on_chain_link,
+        })}
+      </PrivateSendGuideFeature>
+      <PrivateSendGuideFeature icon="EyeOffSolid">
+        {intl.formatMessage({
+          id: ETranslations.private_send_third_parties_cant_trace,
+        })}
+      </PrivateSendGuideFeature>
+      <PrivateSendGuideFeature icon="ClockTimeHistoryOutline">
+        {`${intl.formatMessage({
+          id: ETranslations.private_send_funds_arrive_slower,
+        })} `}
+        <SizableText
+          size="$bodyMd"
+          color="$textInfo"
+          textDecorationLine="underline"
+          onPress={() => {
+            void handleReadMore();
+          }}
+        >
+          {intl.formatMessage({
+            id: ETranslations.private_send_read_more,
+          })}
+        </SizableText>
+      </PrivateSendGuideFeature>
+    </YStack>
+  );
+}
+
 export function showPrivateSendGuideDialog({ intl }: { intl: IntlShape }) {
   return Dialog.show({
     title: intl.formatMessage({
@@ -42,44 +94,6 @@ export function showPrivateSendGuideDialog({ intl }: { intl: IntlShape }) {
     onConfirmText: intl.formatMessage({
       id: ETranslations.global_got_it,
     }),
-    renderContent: (
-      <YStack testID="private-send-guide-content" gap="$3">
-        <Image
-          w="100%"
-          h={160}
-          borderRadius="$3"
-          source={require('@onekeyhq/kit/assets/private_send_guide.webp')}
-          resizeMode="cover"
-          // Image defaults autoplay to false on Android (OOM guard for lists);
-          // this single animated webp in a dialog is safe to play everywhere.
-          autoplay
-        />
-        <PrivateSendGuideFeature icon="BrokenLink2Outline">
-          {intl.formatMessage({
-            id: ETranslations.private_send_breaks_on_chain_link,
-          })}
-        </PrivateSendGuideFeature>
-        <PrivateSendGuideFeature icon="EyeOffSolid">
-          {intl.formatMessage({
-            id: ETranslations.private_send_third_parties_cant_trace,
-          })}
-        </PrivateSendGuideFeature>
-        <PrivateSendGuideFeature icon="ClockTimeHistoryOutline">
-          {`${intl.formatMessage({
-            id: ETranslations.private_send_funds_arrive_slower,
-          })} `}
-          <SizableText
-            size="$bodyMd"
-            color="$textInfo"
-            textDecorationLine="underline"
-            onPress={() => openUrlExternal(privateSendHelpCenterUrl)}
-          >
-            {intl.formatMessage({
-              id: ETranslations.private_send_read_more,
-            })}
-          </SizableText>
-        </PrivateSendGuideFeature>
-      </YStack>
-    ),
+    renderContent: <PrivateSendGuideDialogContent intl={intl} />,
   });
 }

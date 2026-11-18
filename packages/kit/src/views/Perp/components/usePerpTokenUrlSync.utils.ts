@@ -8,6 +8,7 @@ import {
 import type { IPerpDexPrefix } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 export const SPOT_PAIR_SEPARATOR = '_';
+const SPOT_DEFAULT_QUOTE = 'USDC';
 
 // Longest prefix first so a shorter one cannot shadow it. Bare-prefix matching
 // has to stay: legacy links omit the separator (`xyzNVDA`).
@@ -88,4 +89,26 @@ export function decodeCoinFromUrl(urlToken: string): {
     isAmbiguousLegacyGuess: false,
     unverifiedFallbackCoin: literalCoin,
   };
+}
+
+export function findSpotUniverseByUrlToken(
+  universes: ISpotUniverse[],
+  urlToken: string,
+): ISpotUniverse | undefined {
+  // Legacy URLs ship asset.name verbatim ("@151", "PURR/USDC"); accept them so
+  // existing bookmarks keep working alongside the BASE_QUOTE form.
+  const direct = universes.find((u) => u.name === urlToken);
+  if (direct) return direct;
+
+  // Every spot market is a pair, so a bare base can only mean its USDC market.
+  const pairToken = urlToken.includes(SPOT_PAIR_SEPARATOR)
+    ? urlToken
+    : `${urlToken}${SPOT_PAIR_SEPARATOR}${SPOT_DEFAULT_QUOTE}`;
+  const idx = pairToken.lastIndexOf(SPOT_PAIR_SEPARATOR);
+  const base = pairToken.slice(0, idx);
+  const quote = pairToken.slice(idx + SPOT_PAIR_SEPARATOR.length);
+  return universes.find(
+    (u) =>
+      getSpotTokenDisplayName(u.baseName) === base && u.quoteName === quote,
+  );
 }

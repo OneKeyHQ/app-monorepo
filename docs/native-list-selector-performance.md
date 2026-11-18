@@ -141,6 +141,8 @@ The 224.894 ms preparation long task contains 22 sampling hits, all on the SWR f
 
 This confirms repeated full-store work during optimistic writes and background acknowledgements as an observed hotspot. It does not retroactively assign every millisecond of the earlier unprofiled 213 ms sample, or the iOS 70 ms interval, to this cause. Both fixture runtimes were restored. The proposed shared-storage fix is under scope confirmation and has not been implemented or performance-accepted.
 
+Update (2026-09-18): the main-runtime mirror now keeps the SWR store as one serialized entry per key, so flushes, acknowledgements and broadcasts touch only the keys they name, and the bootstrap snapshot ships entries instead of one joined string. The `applyNativeSWRCachePatchToSerializedStore` / `applyNativeSWRCacheCanonicalEntries` chain profiled above no longer exists. On-device performance re-acceptance is still pending.
+
 Sources: `evidence/perf-fixes/android-first-scroll-attribution.json`, `android-first-scroll-attribution.hermes.json`, `android-first-scroll-attribution-audit.md`, and `android-first-scroll-profile-audit.json` (input hashes and time-aligned stacks).
 
 ### iOS: latest steady sample separates preparation

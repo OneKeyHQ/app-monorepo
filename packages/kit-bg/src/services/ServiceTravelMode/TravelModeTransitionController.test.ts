@@ -22,6 +22,9 @@ function buildDependencies() {
       runtimeState = 'transition-recovery';
       calls.push('mark-recovery');
     }),
+    maskWidgetsForTransition: jest.fn(async () => {
+      calls.push('mask-widgets');
+    }),
     persistTransition: jest.fn(async ({ enabled }) => {
       runtimeState = 'transition-recovery';
       calls.push(`persist-${enabled ? 'enabled' : 'disabled'}`);
@@ -57,6 +60,16 @@ function buildDependencies() {
 }
 
 describe('TravelModeTransitionController', () => {
+  it('does not commit a transition or restart when widget masking fails', async () => {
+    const { dependencies } = buildDependencies();
+    jest
+      .mocked(dependencies.maskWidgetsForTransition)
+      .mockRejectedValueOnce(new Error('mask failed'));
+    const controller = new TravelModeTransitionController(dependencies);
+    await expect(controller.setEnabled(true)).rejects.toThrow('mask failed');
+    expect(dependencies.persistTransition).not.toHaveBeenCalled();
+    expect(dependencies.restart).not.toHaveBeenCalled();
+  });
   it('owns the complete activation sequence and fails closed if restart returns', async () => {
     const { calls, dependencies } = buildDependencies();
     const controller = new TravelModeTransitionController(dependencies);
@@ -71,15 +84,16 @@ describe('TravelModeTransitionController', () => {
       'authenticate',
       'verify',
       'get-verifier',
+      'mask-widgets',
       'persist-enabled',
-      'wait-before-restart',
       'prepare-restart-travel-mode',
+      'wait-before-restart',
       'restart-travel-mode-enabled-epoch-7',
       'mark-recovery',
     ]);
   });
 
-  it('does not prepare or dispatch restart before the loading window ends', async () => {
+  it('prepares the icon change before the loading window but defers restart until it ends', async () => {
     const { dependencies } = buildDependencies();
     let releaseLoadingWindow: (() => void) | undefined;
     let signalLoadingWindowStarted: (() => void) | undefined;
@@ -98,7 +112,7 @@ describe('TravelModeTransitionController', () => {
     const transition = controller.setEnabled(true);
     await loadingWindowStarted;
 
-    expect(dependencies.prepareRestart).not.toHaveBeenCalled();
+    expect(dependencies.prepareRestart).toHaveBeenCalledWith('travel-mode');
     expect(dependencies.restart).not.toHaveBeenCalled();
 
     releaseLoadingWindow?.();
@@ -148,7 +162,9 @@ describe('TravelModeTransitionController', () => {
     await expect(controller.setEnabled(true)).rejects.toThrow('persist failed');
 
     expect(dependencies.prepareRestart).not.toHaveBeenCalled();
+    expect(dependencies.waitBeforeRestart).not.toHaveBeenCalled();
     expect(dependencies.restart).not.toHaveBeenCalled();
+    expect(dependencies.markRestartFailed).toHaveBeenCalledTimes(1);
   });
 
   it('marks recovery when restart rejects', async () => {
@@ -181,6 +197,7 @@ describe('TravelModeTransitionController', () => {
       verifyString: undefined,
     });
     expect(dependencies.markRestartFailed).toHaveBeenCalledTimes(1);
+    expect(dependencies.waitBeforeRestart).not.toHaveBeenCalled();
     expect(dependencies.restart).not.toHaveBeenCalled();
   });
 
@@ -263,6 +280,7 @@ describe('TravelModeTransitionController', () => {
         .mockRejectedValueOnce(new Error('retry failed'));
       await expect(controller.retryRestart()).rejects.toThrow('retry failed');
       expect(dependencies.restart).toHaveBeenCalledTimes(2);
+      expect(dependencies.maskWidgetsForTransition).toHaveBeenCalledTimes(2);
       expect(jest.mocked(dependencies.prepareRestart).mock.calls).toEqual([
         ['travel-mode'],
         ['travel-mode'],

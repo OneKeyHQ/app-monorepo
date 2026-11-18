@@ -31,6 +31,7 @@ import org.json.JSONTokener;
 
 import io.sentry.ISerializer;
 import io.sentry.JsonSerializer;
+import io.sentry.Sentry;
 import io.sentry.SentryEvent;
 import io.sentry.SentryOptions;
 import io.sentry.SentryOptions.BeforeSendCallback;
@@ -118,6 +119,15 @@ public final class OneKeyNativeCrashDiagnostics {
       }
       return preparedEvent;
     });
+  }
+
+  public static void flush(long timeoutMillis) {
+    if (Sentry.isEnabled()) {
+      Sentry.flush(timeoutMillis);
+    }
+    synchronized (FILE_LOCK) {
+      // Wait for an in-flight diagnostic write before Recovery reads the files.
+    }
   }
 
   private static boolean isNativeCrash(SentryEvent event) {

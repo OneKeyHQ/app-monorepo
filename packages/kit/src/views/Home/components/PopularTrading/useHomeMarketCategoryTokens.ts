@@ -1,8 +1,13 @@
+import { useEffect, useRef } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { isMarketStockCategoryById } from '../../../Market/MarketHomeV2/utils';
 
 import {
   HOME_MARKET_CATEGORY_REQUEST_LIMIT,
@@ -13,11 +18,17 @@ import {
   EMPTY_DISPLAY_TOKENS,
   mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
 } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
-import type { IMarketApiTimeFrame } from '../../../Market/MarketHomeV2/types';
+import type {
+  IMarketApiTimeFrame,
+  IMarketCategoryItem,
+} from '../../../Market/MarketHomeV2/types';
+
+const EMPTY_HOME_MARKET_CATEGORIES: IMarketCategoryItem[] = [];
 
 const HOME_MARKET_CATEGORY_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 30,
@@ -32,23 +43,30 @@ type ICategoryTokensResult = {
 function getMarketCategoryTokensRequestKey({
   minLiquidity,
   selectedMarketCategoryId,
+  locale,
 }: {
   minLiquidity: number;
   selectedMarketCategoryId?: string;
+  locale: string;
 }) {
-  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}`;
+  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}:${locale}`;
 }
 
 function useHomeMarketCategoryTokens({
   minLiquidity,
   selectedMarketCategoryId,
+  marketCategories = EMPTY_HOME_MARKET_CATEGORIES,
 }: {
   minLiquidity: number;
   selectedMarketCategoryId?: string;
+  marketCategories?: IMarketCategoryItem[];
 }) {
+  const locale = useLocaleVariant();
+  const categoryCacheRef = useRef(new Map<string, ICategoryTokensResult>());
   const requestKey = getMarketCategoryTokensRequestKey({
     minLiquidity,
     selectedMarketCategoryId,
+    locale,
   });
 
   const { result: categoryTokensResult } =
@@ -57,6 +75,7 @@ function useHomeMarketCategoryTokens({
         const currentRequestKey = getMarketCategoryTokensRequestKey({
           minLiquidity,
           selectedMarketCategoryId,
+          locale,
         });
 
         if (!selectedMarketCategoryId) {
@@ -102,6 +121,22 @@ function useHomeMarketCategoryTokens({
           };
         }
 
+        if (
+          isMarketStockCategoryById(marketCategories, selectedMarketCategoryId)
+        ) {
+          const response =
+            await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
+              limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+            });
+
+          return {
+            requestKey: currentRequestKey,
+            tokens: response.items
+              .map(mapMarketStockToDisplay)
+              .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
+          };
+        }
+
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
             networkId: '',
@@ -122,25 +157,38 @@ function useHomeMarketCategoryTokens({
             .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
         };
       },
-      [minLiquidity, selectedMarketCategoryId],
+      [marketCategories, minLiquidity, selectedMarketCategoryId, locale],
       {
         pollingInterval: HOME_MARKET_CATEGORY_POLLING_INTERVAL,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         undefinedResultIfReRun: false,
+        // Home keeps its state when React reconnects effects after an update.
+        resumeOnEffectReconnect: true,
       },
     );
 
-  const hasCurrentCategoryTokens =
-    categoryTokensResult?.requestKey === requestKey;
+  useEffect(() => {
+    if (categoryTokensResult) {
+      categoryCacheRef.current.set(
+        categoryTokensResult.requestKey,
+        categoryTokensResult,
+      );
+    }
+  }, [categoryTokensResult]);
+
+  // Returning to a category keeps its rows visible while the next request runs.
+  const currentCategoryResult =
+    categoryTokensResult?.requestKey === requestKey
+      ? categoryTokensResult
+      : categoryCacheRef.current.get(requestKey);
   const hasSelectedMarketCategory = Boolean(selectedMarketCategoryId);
 
   return {
-    categoryTokens:
-      hasCurrentCategoryTokens && categoryTokensResult
-        ? categoryTokensResult.tokens
-        : EMPTY_DISPLAY_TOKENS,
-    isCategoryLoading: hasSelectedMarketCategory && !hasCurrentCategoryTokens,
+    categoryTokens: currentCategoryResult
+      ? currentCategoryResult.tokens
+      : EMPTY_DISPLAY_TOKENS,
+    isCategoryLoading: hasSelectedMarketCategory && !currentCategoryResult,
   };
 }
 

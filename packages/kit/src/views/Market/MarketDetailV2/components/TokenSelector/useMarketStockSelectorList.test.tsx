@@ -12,10 +12,18 @@ import {
 } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IMarketStockPublicListResponse } from '@onekeyhq/shared/types/marketV2';
+
+import { buildMarketStockListQueryKey } from '../../../MarketHomeV2/components/MarketStockList/utils';
 
 import { MarketStockSelectorList } from './MarketStockSelectorList';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
+
+const mockPreloadImages = jest.fn(async () => true);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -26,6 +34,7 @@ jest.mock(
 );
 
 jest.mock('@onekeyhq/components', () => ({
+  preloadImages: () => mockPreloadImages(),
   YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Spinner: () => <div data-testid="loading" />,
@@ -49,6 +58,7 @@ jest.mock('@onekeyhq/components', () => ({
   ),
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
+  s: (value: number) => value,
   useDeferredPromise: () => ({
     promise: Promise.resolve(null),
     reset: jest.fn(),
@@ -58,6 +68,10 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -101,9 +115,116 @@ const secondPage: IMarketStockPublicListResponse = {
   total: 2,
 };
 
+function seedHomeStockList(response: IMarketStockPublicListResponse) {
+  const queryKey = buildMarketStockListQueryKey({ locale: 'en-US' });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    response,
+  });
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
+  mockPreloadImages.mockReset().mockResolvedValue(true);
   fetchList.mockReset();
   searchStocks.mockReset();
+  swrCacheUtils.clearAll();
+});
+
+it('prewarms cold first-page logos before publishing the stock rows', async () => {
+  const images = deferred<boolean>();
+  mockPreloadImages.mockReturnValue(images.promise);
+  const response = {
+    items: [
+      { ...createStock('COLD'), logoUrl: 'https://example.com/cold.png' },
+    ],
+    total: 1,
+  };
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockSelectorList({}));
+
+  await waitFor(() => expect(mockPreloadImages).toHaveBeenCalled());
+  expect(result.current.items).toEqual([]);
+
+  await act(async () => images.resolve(true));
+  await waitFor(() => expect(result.current.items).toEqual(response.items));
+});
+
+it('publishes the first page when image prewarming times out', async () => {
+  mockPreloadImages.mockReturnValue(new Promise(() => {}));
+  const response = {
+    items: [
+      { ...createStock('SLOW'), logoUrl: 'https://example.com/slow.png' },
+    ],
+    total: 1,
+  };
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockSelectorList({}));
+
+  await waitFor(() => expect(result.current.items).toEqual(response.items));
+  expect(result.current.isError).toBe(false);
+});
+
+it('reuses the pending image request after the first-page prewarm times out', async () => {
+  const images = deferred<boolean>();
+  mockPreloadImages.mockReturnValue(images.promise);
+  const response = {
+    items: [
+      { ...createStock('PENDING'), logoUrl: 'https://example.com/pending.png' },
+    ],
+    total: 1,
+  };
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockSelectorList({}));
+
+  await waitFor(() => expect(result.current.items).toEqual(response.items));
+  expect(mockPreloadImages).toHaveBeenCalledTimes(1);
+
+  await act(async () => images.resolve(true));
+  await waitFor(() => expect(result.current.isImagePrewarming).toBe(false));
+  expect(mockPreloadImages).toHaveBeenCalledTimes(1);
+});
+
+it('retries an expired prewarm without letting its late completion clear the replacement', async () => {
+  const oldImages = deferred<boolean>();
+  const newImages = deferred<boolean>();
+  mockPreloadImages
+    .mockReturnValueOnce(oldImages.promise)
+    .mockReturnValue(newImages.promise);
+  const response = {
+    items: [
+      { ...createStock('STALLED'), logoUrl: 'https://example.com/stalled.png' },
+    ],
+    total: 1,
+  };
+  fetchList.mockResolvedValue(response);
+  const first = renderHook(() => useMarketStockSelectorList({}));
+  await waitFor(() =>
+    expect(first.result.current.items).toEqual(response.items),
+  );
+  first.unmount();
+  const now = Date.now();
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(now + 30_001);
+  try {
+    const second = renderHook(() => useMarketStockSelectorList({}));
+    await waitFor(() => expect(mockPreloadImages).toHaveBeenCalledTimes(2));
+    await act(async () => oldImages.resolve(false));
+    second.unmount();
+    const third = renderHook(() => useMarketStockSelectorList({}));
+    await waitFor(() => expect(fetchList).toHaveBeenCalledTimes(3));
+    expect(mockPreloadImages).toHaveBeenCalledTimes(2);
+    await act(async () => newImages.resolve(true));
+    third.unmount();
+  } finally {
+    clock.mockRestore();
+  }
 });
 
 it('loads selector pages and appends unique stocks', async () => {
@@ -131,6 +252,17 @@ it('loads selector pages and appends unique stocks', async () => {
     limit: 20,
   });
   expect(result.current.canLoadMore).toBe(false);
+});
+
+it('does not load the default stock list for whitespace search-only queries', async () => {
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '  ', searchOnly: true }),
+  );
+
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.items).toEqual([]);
+  expect(fetchList).not.toHaveBeenCalled();
+  expect(searchStocks).not.toHaveBeenCalled();
 });
 
 it('passes the normalized query and cursor to search pages', async () => {
@@ -232,6 +364,258 @@ it.each([
   },
 );
 
+it('shows cached home stocks immediately instead of replacing the table with loading', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+  const onItemPress = jest.fn();
+  render(<MarketStockSelectorList query="" onItemPress={onItemPress} />);
+
+  expect(screen.getByTestId('stock-table').textContent).toContain('AAPL');
+  expect(screen.queryByTestId('loading')).toBeNull();
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+});
+
+it('replays the selector cache on remount without a loading flash', async () => {
+  fetchList.mockResolvedValue(firstPage);
+  const onItemPress = jest.fn();
+  const { unmount } = render(
+    <MarketStockSelectorList query="" onItemPress={onItemPress} />,
+  );
+  await screen.findByTestId('stock-table');
+  unmount();
+
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+  render(<MarketStockSelectorList query="" onItemPress={onItemPress} />);
+
+  expect(screen.getByTestId('stock-table').textContent).toContain('AAPL');
+  expect(screen.queryByTestId('loading')).toBeNull();
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+});
+
+it('hydrates the default list from the home stocks cache before the request resolves', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isLoading).toBe(false);
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+});
+
+it('hydrates only the home first page when the cached response has extra pages', () => {
+  const queryKey = buildMarketStockListQueryKey({ locale: 'en-US' });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    firstPage,
+    response: {
+      items: [...firstPage.items, createStock('MSFT')],
+      total: 2,
+    },
+    loadedPageCount: 2,
+  });
+  fetchList.mockReturnValue(new Promise(() => undefined));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+
+  expect(result.current.items.map((item) => item.stockId)).toEqual(['AAPL']);
+  expect(result.current.isLoading).toBe(false);
+});
+
+it('rejects an expired stock snapshot on entry', () => {
+  const now = Date.now();
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(now - 6 * 60 * 1000);
+  seedHomeStockList(firstPage);
+  clock.mockRestore();
+  fetchList.mockReturnValue(new Promise(() => undefined));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+
+  expect(result.current.items).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+});
+
+it('keeps cached rows when remote revalidation fails', async () => {
+  seedHomeStockList(firstPage);
+  fetchList.mockRejectedValue(new Error('offline'));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+
+  await waitFor(() =>
+    expect(result.current.isRevalidatingFirstPage).toBe(false),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isError).toBe(false);
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.canLoadMore).toBe(true);
+});
+
+it('replays cached rows immediately but waits for remote page one before pagination', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.canLoadMore).toBe(false);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+
+  await act(async () => result.current.loadMore());
+  expect(fetchList.mock.calls.every(([params]) => !params?.cursor)).toBe(true);
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  expect(result.current.isRevalidatingFirstPage).toBe(false);
+});
+
+it('queues end-reached during first-page revalidation', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  await act(async () => result.current.loadMore());
+
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor ? secondPage : firstPage,
+  );
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+  await waitFor(() =>
+    expect(result.current.items.map((item) => item.stockId)).toEqual([
+      'AAPL',
+      'MSFT',
+    ]),
+  );
+});
+
+it('loads the next page when revalidation preserves all 20 cached rows', async () => {
+  const cachedPage: IMarketStockPublicListResponse = {
+    items: Array.from({ length: 20 }, (_, index) => createStock(`S${index}`)),
+    total: 21,
+    nextCursor: 'cached-next',
+  };
+  const remotePage = { ...cachedPage, nextCursor: 'remote-next' };
+  seedHomeStockList(cachedPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor
+      ? { items: [createStock('LAST')], total: 21 }
+      : pending.promise,
+  );
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items).toHaveLength(20);
+  expect(result.current.canLoadMore).toBe(false);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  await act(async () => result.current.loadMore());
+  expect(fetchList).toHaveBeenCalledTimes(1);
+
+  await act(async () => pending.resolve(remotePage));
+
+  await waitFor(() => expect(result.current.items).toHaveLength(21));
+  expect(fetchList).toHaveBeenCalledTimes(2);
+  expect(fetchList).toHaveBeenLastCalledWith({
+    cursor: 'remote-next',
+    limit: 20,
+  });
+  expect(result.current.items[20]?.stockId).toBe('LAST');
+});
+
+it('uses the remote first-page cursor when a queued load-more flushes', async () => {
+  const cachedPage: IMarketStockPublicListResponse = {
+    items: [createStock('AAPL')],
+    total: 2,
+    nextCursor: 'cached-next',
+  };
+  const remotePage: IMarketStockPublicListResponse = {
+    items: [createStock('NVDA')],
+    total: 2,
+    nextCursor: 'remote-next',
+  };
+  const remoteSecondPage: IMarketStockPublicListResponse = {
+    items: [createStock('NVDA'), createStock('MSFT')],
+    total: 2,
+  };
+  seedHomeStockList(cachedPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items.map((item) => item.stockId)).toEqual(['AAPL']);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  await act(async () => result.current.loadMore());
+
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor === 'remote-next') {
+      return remoteSecondPage;
+    }
+    if (params?.cursor === 'cached-next') {
+      return {
+        items: [createStock('CACHED')],
+        total: 2,
+      };
+    }
+    return remotePage;
+  });
+  await act(async () => {
+    pending.resolve(remotePage);
+    await pending.promise;
+  });
+  await waitFor(() =>
+    expect(result.current.items.map((item) => item.stockId)).toEqual([
+      'NVDA',
+      'MSFT',
+    ]),
+  );
+  expect(fetchList).toHaveBeenCalledWith({
+    cursor: 'remote-next',
+    limit: 20,
+  });
+  expect(
+    fetchList.mock.calls.some(([params]) => params?.cursor === 'cached-next'),
+  ).toBe(false);
+});
+
 it('keeps the same table during pagination with the real selector hook', async () => {
   let resolvePage: (response: IMarketStockPublicListResponse) => void = () =>
     undefined;
@@ -260,4 +644,29 @@ it('keeps the same table during pagination with the real selector hook', async (
   });
   await waitFor(() => expect(table.textContent).toContain('MSFT'));
   expect(screen.getByTestId('stock-table')).toBe(table);
+});
+
+it('keeps home category cache rows when the selector first request fails', async () => {
+  const queryKey = buildMarketStockListQueryKey({
+    locale: 'en-US',
+    category: 'ai-tech',
+  });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    response: firstPage,
+  });
+  fetchList.mockRejectedValue(new Error('offline'));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ category: 'ai-tech' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  await waitFor(() =>
+    expect(fetchList).toHaveBeenCalledWith({ limit: 20, category: 'ai-tech' }),
+  );
+  await waitFor(() =>
+    expect(result.current.isRevalidatingFirstPage).toBe(false),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isError).toBe(false);
 });

@@ -69,6 +69,7 @@ import {
   settingsAtomInitialValue,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import { updateJotaiContextStoreRegistration as updateJotaiContextStoreRegistrationInBackground } from '../states/jotai/atoms/jotaiContextStoreMap';
 import {
   type IPasswordAtom,
   passwordAtomInitialValue,
@@ -79,10 +80,9 @@ import { jotaiInit } from '../states/jotai/jotaiInit';
 import {
   isBackgroundApiAtomWritable,
   isExtensionInternalCall,
-  isProviderApiPrivateAllowedKeylessOrigin,
-  isProviderApiPrivateAllowedMethod,
   isProviderApiPrivateAllowedOrigin,
-  isProviderApiPrivateKeylessMethod,
+  isProviderApiPrivateOriginDenied,
+  stripWalletConnectContextFromPageRequest,
 } from './backgroundApiPermissions';
 import { travelModeCommandDispatcher } from './TravelModeCommandDispatcher';
 import { travelModeDappRequestIngress } from './TravelModeDappRequestIngress';
@@ -771,6 +771,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
   }
 
+  @bindThis()
+  @backgroundMethod()
+  async updateJotaiContextStoreRegistration(
+    update: Parameters<
+      typeof updateJotaiContextStoreRegistrationInBackground
+    >[0],
+  ) {
+    return updateJotaiContextStoreRegistrationInBackground(update);
+  }
+
   @backgroundMethod()
   async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
@@ -804,6 +814,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
     await travelModeManager.ready;
     if (travelModeManager.isMaskingDataSync() && request.scope === 'recovery') {
+      if (request.operation === 'inspectAppStorageMigration') {
+        return { errorMessage: null };
+      }
       return undefined;
     }
     if (
@@ -976,7 +989,36 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
   }
 
-  connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+  private webEmbedBridgeMountId: string | undefined;
+
+  private webEmbedBridgeMountSequence = 0;
+
+  isWebEmbedBridgeOwnedBy(mountId: string | undefined): boolean {
+    return Boolean(
+      mountId && this.webEmbedBridgeMountId === mountId && this.webEmbedBridge,
+    );
+  }
+
+  connectWebEmbedBridge(
+    bridge: JsBridgeBase | null,
+    mountId?: string,
+    mountSequence?: number,
+  ) {
+    if (!mountId && this.webEmbedBridgeMountId) {
+      return;
+    }
+    if (
+      mountId &&
+      (mountSequence === undefined ||
+        mountSequence < this.webEmbedBridgeMountSequence ||
+        (!bridge && mountId !== this.webEmbedBridgeMountId))
+    ) {
+      return;
+    }
+    if (mountId && mountSequence !== undefined) {
+      this.webEmbedBridgeMountSequence = mountSequence;
+      this.webEmbedBridgeMountId = bridge ? mountId : undefined;
+    }
     defaultLogger.app.webembed.webEmbedBgConnectWebEmbedBridge({
       hasBridge: !!bridge,
     });
@@ -1007,19 +1049,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       operation: async () => {
         const { scope, origin } = payload;
         const payloadData = payload?.data as IJsonRpcRequest;
-        const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
-          payloadData?.method,
-        );
         const provider: ProviderApiBase = await this.getProviderApi(
           scope as IInjectedProviderNames,
         );
         if (
           scope === IInjectedProviderNames.$private &&
-          ((isKeylessPrivateMethod &&
-            !isProviderApiPrivateAllowedKeylessOrigin(origin)) ||
-            (!isKeylessPrivateMethod &&
-              !isProviderApiPrivateAllowedOrigin(origin) &&
-              !isProviderApiPrivateAllowedMethod(payloadData?.method)))
+          isProviderApiPrivateOriginDenied({
+            method: payloadData?.method,
+            origin,
+            payload,
+          })
         ) {
           const error = new Error(
             `[${origin as string}] is not allowed to call $private methods: ${
@@ -1059,7 +1098,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
 
     if (scope) {
-      return this.handleProviderMethods(payload);
+      return this.handleProviderMethods(
+        stripWalletConnectContextFromPageRequest(payload),
+      );
     }
 
     // call background global methods (backgroundDappTest.ts)
@@ -1068,7 +1109,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return this.handleInternalMethods(payload);
     }
 
-    if (isProviderApiPrivateAllowedOrigin(origin)) {
+    if (isProviderApiPrivateAllowedOrigin(origin, payload)) {
       return this.handleSelfOriginMethods(payload);
     }
 

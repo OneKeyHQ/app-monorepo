@@ -168,8 +168,7 @@ export const BorrowedCard = () => {
           <AssetWithAmountField
             token={item.token}
             amountLabel={{ text: labels.borrowedWithColon }}
-            amount={item.borrowedAmount.title}
-            amountDescription={item.borrowedAmount.description}
+            balance={item.borrowedAmount}
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -206,10 +205,7 @@ export const BorrowedCard = () => {
         align: 'flex-end' as const,
         key: 'borrowed',
         render: (item: IBorrowedAsset) => (
-          <AmountField
-            title={item.borrowedAmount.title}
-            description={item.borrowedAmount.description}
-          />
+          <AmountField balance={item.borrowedAmount} />
         ),
         flex: 1,
         minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,

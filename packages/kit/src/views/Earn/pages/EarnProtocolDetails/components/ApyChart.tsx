@@ -19,20 +19,25 @@ import {
   APY_PRICE_SCALE_MARGINS,
   LightweightChart,
 } from '@onekeyhq/kit/src/components/LightweightChart';
+import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  buildChartHistory,
+  buildChartHistoryWithGaps,
+  getLatestTimestamp,
+} from './ApyChart.utils';
+
+import type {
+  IApyChartHistoryItem,
+  IApyChartTimePeriod,
+} from './ApyChart.utils';
 import type { UTCTimestamp } from 'lightweight-charts';
 
-type IApyHistoryItem = {
-  timestamp: number;
-  apy: string;
-};
-
-type IChartTimePeriod = '1h' | '1d' | '1w' | 'max';
-
 interface IApyChartProps {
-  apyHistory?: IApyHistoryItem[] | null;
-  underlyingApyHistory?: IApyHistoryItem[] | null;
+  apyHistory?: IApyChartHistoryItem[] | null;
+  underlyingApyHistory?: IApyChartHistoryItem[] | null;
   showChartControls?: boolean;
   showUnderlyingApyToggle?: boolean;
   primaryApyLabel?: string;
@@ -47,103 +52,7 @@ interface IApyChartProps {
   secondaryLineColor?: string;
 }
 
-const ONE_HOUR_MS = 60 * 60 * 1000;
-const ONE_DAY_MS = 24 * ONE_HOUR_MS;
-const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
-const THIRTY_DAYS_MS = 30 * ONE_DAY_MS;
-const ONE_YEAR_MS = 365 * ONE_DAY_MS;
 const APY_CHART_HEIGHT = 200;
-
-function normalizeHistory(history?: IApyHistoryItem[] | null) {
-  if (!history?.length) {
-    return [];
-  }
-
-  return history
-    .map((item) => ({
-      timestamp: Number(item.timestamp),
-      apy: Number(item.apy),
-    }))
-    .filter(
-      (item) => Number.isFinite(item.timestamp) && Number.isFinite(item.apy),
-    )
-    .toSorted((a, b) => a.timestamp - b.timestamp);
-}
-
-function toUtcDateKey(timestamp: number) {
-  const date = new Date(timestamp);
-  return `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
-}
-
-function toUtcWeekKey(timestamp: number) {
-  const date = new Date(timestamp);
-  const utcDate = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  const day = utcDate.getUTCDay() || 7;
-  utcDate.setUTCDate(utcDate.getUTCDate() - day + 1);
-  return utcDate.getTime().toString();
-}
-
-function aggregateByPeriod(
-  history: Array<{ timestamp: number; apy: number }>,
-  period: '1d' | '1w',
-) {
-  const bucket = new Map<string, { timestamp: number; apy: number }>();
-
-  history.forEach((item) => {
-    const key =
-      period === '1d'
-        ? toUtcDateKey(item.timestamp)
-        : toUtcWeekKey(item.timestamp);
-    bucket.set(key, item);
-  });
-
-  return Array.from(bucket.values()).toSorted(
-    (a, b) => a.timestamp - b.timestamp,
-  );
-}
-
-function filterByTimeWindow(
-  history: Array<{ timestamp: number; apy: number }>,
-  windowMs: number,
-) {
-  if (!history.length) {
-    return [];
-  }
-
-  const latestTimestamp = history[history.length - 1].timestamp;
-  const minTimestamp = latestTimestamp - windowMs;
-  return history.filter((item) => item.timestamp >= minTimestamp);
-}
-
-function buildChartHistory(
-  history: IApyHistoryItem[] | null | undefined,
-  period: IChartTimePeriod,
-) {
-  const normalized = normalizeHistory(history);
-
-  if (!normalized.length) {
-    return [];
-  }
-
-  if (period === '1h') {
-    return filterByTimeWindow(normalized, SEVEN_DAYS_MS);
-  }
-
-  if (period === '1d') {
-    return filterByTimeWindow(
-      aggregateByPeriod(normalized, '1d'),
-      THIRTY_DAYS_MS,
-    );
-  }
-
-  if (period === '1w') {
-    return filterByTimeWindow(aggregateByPeriod(normalized, '1w'), ONE_YEAR_MS);
-  }
-
-  return normalized;
-}
 
 const ApyChartComponent = ({
   apyHistory,
@@ -156,13 +65,15 @@ const ApyChartComponent = ({
   controlsPlacement = 'top',
 }: IApyChartProps) => {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
+  const timeZone = useDeviceTimeZone();
 
   const resolvedPrimaryLabel =
     primaryApyLabel || intl.formatMessage({ id: ETranslations.global_apy });
   const resolvedSecondaryLabel =
     secondaryApyLabel || intl.formatMessage({ id: ETranslations.global_apy });
 
-  const [timePeriod, setTimePeriod] = useState<IChartTimePeriod>(
+  const [timePeriod, setTimePeriod] = useState<IApyChartTimePeriod>(
     showChartControls ? '1h' : 'max',
   );
   const [showUnderlyingApy, setShowUnderlyingApy] = useState(false);
@@ -244,19 +155,9 @@ const ApyChartComponent = ({
   const formatPopoverDate = useCallback(
     (timestamp: number) => {
       const date = new Date(timestamp * 1000);
-      const dateString = intl.formatDate(date, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-      const timeString = intl.formatTime(date, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-      return `${dateString} ${timeString}`;
+      return formatDate(date, { hideSeconds: true });
     },
-    [intl],
+    [formatDate],
   );
 
   const filteredApyHistory = useMemo(
@@ -264,9 +165,23 @@ const ApyChartComponent = ({
     [apyHistory, timePeriod],
   );
 
+  // The second line is cut from the primary line's newest point so both lines
+  // cover the same days; see buildChartHistory.
+  const primaryLatestTimestamp = useMemo(
+    () => getLatestTimestamp(apyHistory),
+    [apyHistory],
+  );
+
+  // Gaps are kept so a campaign that stopped and resumed breaks the line
+  // instead of being joined straight across the weeks without it (OK-64549).
   const filteredUnderlyingApyHistory = useMemo(
-    () => buildChartHistory(underlyingApyHistory, timePeriod),
-    [underlyingApyHistory, timePeriod],
+    () =>
+      buildChartHistoryWithGaps(
+        underlyingApyHistory,
+        timePeriod,
+        primaryLatestTimestamp,
+      ),
+    [underlyingApyHistory, timePeriod, primaryLatestTimestamp],
   );
 
   const chartData = useMemo(() => {
@@ -278,7 +193,7 @@ const ApyChartComponent = ({
       (item) => [Math.floor(item.timestamp / 1000) as UTCTimestamp, item.apy],
     );
 
-    const secondaryLineData: [UTCTimestamp, number][] =
+    const secondaryLineData: [UTCTimestamp, number | null][] =
       filteredUnderlyingApyHistory.map((item) => [
         Math.floor(item.timestamp / 1000) as UTCTimestamp,
         item.apy,
@@ -292,8 +207,10 @@ const ApyChartComponent = ({
 
   // Pendle puts the second line behind a checkbox; every other provider draws
   // it whenever the server sent one, so the campaign / reward line needs no
-  // extra interaction.
-  const hasSecondaryData = Boolean(chartData?.secondaryLineData.length);
+  // extra interaction. A window holding only gaps has nothing to draw.
+  const hasSecondaryData = Boolean(
+    chartData?.secondaryLineData.some(([, apy]) => apy !== null),
+  );
   const isSecondaryVisible = showUnderlyingApyToggle
     ? showUnderlyingApy && hasSecondaryData
     : hasSecondaryData;
@@ -304,19 +221,19 @@ const ApyChartComponent = ({
     () => [
       {
         label: intl.formatMessage({ id: ETranslations.market_1h }),
-        value: '1h' as IChartTimePeriod,
+        value: '1h' as IApyChartTimePeriod,
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_1d }),
-        value: '1d' as IChartTimePeriod,
+        value: '1d' as IApyChartTimePeriod,
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_1w }),
-        value: '1w' as IChartTimePeriod,
+        value: '1w' as IApyChartTimePeriod,
       },
       {
         label: intl.formatMessage({ id: ETranslations.dexmarket_max }),
-        value: 'max' as IChartTimePeriod,
+        value: 'max' as IApyChartTimePeriod,
       },
     ],
     [intl],
@@ -335,7 +252,9 @@ const ApyChartComponent = ({
           fullWidth={isControlsAtBottom}
           value={timePeriod}
           options={timePeriodOptions}
-          onChange={(nextValue) => setTimePeriod(nextValue as IChartTimePeriod)}
+          onChange={(nextValue) =>
+            setTimePeriod(nextValue as IApyChartTimePeriod)
+          }
           slotBackgroundColor="$bg"
           activeBackgroundColor="$bgActive"
           activeTextColor="$text"
@@ -475,6 +394,11 @@ const ApyChartComponent = ({
             priceScaleEntireTextOnly
             priceScaleMargins={APY_PRICE_SCALE_MARGINS}
             showHorzGridLines
+            // The wrapper only localizes the time axis when both are given;
+            // otherwise lightweight-charts labels it in the system language,
+            // not the app language (OK-63219).
+            timeZone={timeZone}
+            locale={intl.locale}
           />
         </YStack>
       ) : null}

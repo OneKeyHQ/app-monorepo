@@ -16,7 +16,10 @@ import {
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import {
+  ELogUploadStage,
+  LOG_UPLOAD_TIMEOUT_ERROR_CODE,
+} from '@onekeyhq/shared/src/logger/types';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import type {
   IDesktopMainProcessDevOnlyApiParams,
@@ -25,7 +28,21 @@ import type {
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
+export const LOGGER_UPLOAD_ORIGINS = Object.freeze([
+  'https://wallet.onekeycn.com',
+  'https://wallet.onekeytest.com',
+]);
+
+// Covers connect, body upload and response read, so a stalled route fails
+// over to manual export instead of hanging.
+export const LOGGER_UPLOAD_TIMEOUT_MS = 90_000;
+
 class DesktopApiDev {
+  private loggerArchives = new Map<
+    string,
+    { sizeBytes: number; sha256: string }
+  >();
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
   }
@@ -54,7 +71,8 @@ class DesktopApiDev {
     fileBaseName: string;
   }): Promise<{ filePath: string }> {
     const digest = await this.collectLoggerDigest(params);
-    const mainWindow = this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    const mainWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
     if (!mainWindow || mainWindow.isDestroyed()) {
       throw new OneKeyLocalError('No active window for download');
     }
@@ -71,8 +89,11 @@ class DesktopApiDev {
     sizeBytes: number;
     sha256: string;
   }> {
-    if (!params.fileBaseName) {
-      throw new OneKeyLocalError('fileBaseName is required');
+    if (
+      typeof params.fileBaseName !== 'string' ||
+      !/^[A-Za-z0-9_-]+$/.test(params.fileBaseName)
+    ) {
+      throw new OneKeyLocalError('Invalid log archive name');
     }
     const baseName = params.fileBaseName;
     // Flush pending dedup state (including pendingRepeatPrefix) so nothing is lost on export
@@ -87,7 +108,7 @@ class DesktopApiDev {
     const zipDir = path.join(path.dirname(logDir), 'logs_zip');
     await fsPromises.mkdir(zipDir, { recursive: true });
 
-    const zipPath = path.join(zipDir, zipName);
+    const zipPath = path.resolve(zipDir, zipName);
 
     // Clean up stale zip files (older than 1 hour) to avoid removing
     // archives that a concurrent upload/download flow may still be using
@@ -122,6 +143,13 @@ class DesktopApiDev {
     const sizeBytes = fileBuffer.length;
     const sha256Hex = createHash('sha256').update(fileBuffer).digest('hex');
 
+    this.loggerArchives.set(zipPath, { sizeBytes, sha256: sha256Hex });
+    try {
+      const realZipPath = await fsPromises.realpath(zipPath);
+      this.loggerArchives.set(realZipPath, { sizeBytes, sha256: sha256Hex });
+    } catch {
+      // ignore realpath lookup errors
+    }
     return {
       filePath: zipPath,
       fileName: zipName,
@@ -131,17 +159,81 @@ class DesktopApiDev {
     };
   }
 
+  _isCollectedLoggerArchive(filePath: string, sizeBytes: number): boolean {
+    const archiveInfo = this.loggerArchives.get(filePath);
+    return Boolean(archiveInfo && archiveInfo.sizeBytes === sizeBytes);
+  }
+
   async uploadLoggerBundle(params: {
     uploadUrl: string;
     filePath: string;
     headers: Record<string, string>;
     sizeBytes?: number;
+    timeoutMs?: number;
   }): Promise<any> {
-    const { uploadUrl, filePath, headers, sizeBytes } = params;
+    const { uploadUrl, headers } = params;
+    const timeoutMs =
+      typeof params.timeoutMs === 'number' &&
+      Number.isFinite(params.timeoutMs) &&
+      params.timeoutMs > 0
+        ? Math.min(params.timeoutMs, LOGGER_UPLOAD_TIMEOUT_MS)
+        : LOGGER_UPLOAD_TIMEOUT_MS;
+    let parsedUploadUrl: URL;
+    try {
+      parsedUploadUrl = new URL(uploadUrl);
+    } catch {
+      throw new OneKeyLocalError('Invalid log upload URL');
+    }
+    if (
+      parsedUploadUrl.protocol !== 'https:' ||
+      parsedUploadUrl.username ||
+      parsedUploadUrl.password ||
+      !LOGGER_UPLOAD_ORIGINS.includes(parsedUploadUrl.origin) ||
+      parsedUploadUrl.pathname !== '/wallet/v1/client/log'
+    ) {
+      throw new OneKeyLocalError('Log upload URL is not allowed');
+    }
+    if (typeof params.filePath !== 'string') {
+      throw new OneKeyLocalError('Invalid log archive path');
+    }
+    const filePath = path.resolve(params.filePath);
+    const archiveInfo = this.loggerArchives.get(filePath);
+    if (!archiveInfo || filePath !== params.filePath) {
+      throw new OneKeyLocalError(
+        'Log archive was not collected by the main process',
+      );
+    }
+    const zipDir = path.resolve(
+      path.dirname(this.getLogDirectory()),
+      'logs_zip',
+    );
+    const relative = path.relative(zipDir, filePath);
+    if (
+      path.dirname(filePath) !== zipDir ||
+      !relative.endsWith('.zip') ||
+      path.isAbsolute(relative)
+    ) {
+      throw new OneKeyLocalError('Invalid log archive path');
+    }
+    const stat = await fsPromises.lstat(filePath);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.size !== archiveInfo.sizeBytes
+    ) {
+      throw new OneKeyLocalError('Log archive changed after collection');
+    }
+    const sizeBytes = archiveInfo.sizeBytes;
     if (!uploadUrl || !filePath) {
       throw new OneKeyLocalError('uploadUrl and filePath are required');
     }
-    const reqHeaders: Record<string, string> = { ...headers };
+    const reqHeaders: Record<string, string> = Object.fromEntries(
+      Object.entries(headers).filter(
+        ([key]) =>
+          !['content-length', 'content-type'].includes(key.toLowerCase()),
+      ),
+    );
+    reqHeaders['content-type'] = 'application/zip';
     if (sizeBytes !== undefined && !('content-length' in reqHeaders)) {
       reqHeaders['content-length'] = String(sizeBytes);
     }
@@ -167,7 +259,7 @@ class DesktopApiDev {
     }) => {
       try {
         const mainWindow =
-          this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+          globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(
             ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
@@ -185,30 +277,40 @@ class DesktopApiDev {
 
     sendProgress({ stage: ELogUploadStage.Uploading, progressPercent: 0 });
 
+    // Node's built-in fetch (undici) pulls a streaming body lazily, only once
+    // the connection is up. Listening for 'data' on the file stream before
+    // fetch() would switch it to flowing mode and drain the whole archive in
+    // the meantime, so fetch would send an empty body and reject with
+    // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH (OK-64070). Hand fetch a pull-based
+    // generator instead: the archive is opened and counted only as fetch
+    // consumes it, so progress never runs ahead of the connection and a
+    // failed connect never touches the file.
     let uploadedBytes = 0;
-    const fileStream = fs.createReadStream(filePath);
-    if (totalBytes > 0) {
-      fileStream.on('data', (chunk) => {
+    const archive: { stream?: fs.ReadStream } = {};
+    const readArchive = async function* (): AsyncGenerator<Buffer> {
+      archive.stream = fs.createReadStream(filePath);
+      for await (const chunk of archive.stream as AsyncIterable<Buffer>) {
         uploadedBytes += chunk.length;
-        const percent = Math.min(
-          100,
-          Math.round((uploadedBytes / totalBytes) * 100),
-        );
-        sendProgress({
-          stage: ELogUploadStage.Uploading,
-          progressPercent: percent,
-        });
-      });
-    }
-    fileStream.on('error', (streamError) => {
-      sendProgress({
-        stage: ELogUploadStage.Error,
-        message:
-          streamError instanceof Error
-            ? streamError.message
-            : String(streamError),
-      });
-    });
+        if (totalBytes > 0) {
+          sendProgress({
+            stage: ELogUploadStage.Uploading,
+            progressPercent: Math.min(
+              100,
+              Math.round((uploadedBytes / totalBytes) * 100),
+            ),
+          });
+        }
+        yield chunk;
+      }
+    };
+    const body = readArchive();
+    const abortController = new AbortController();
+    const startedAt = Date.now();
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      abortController.abort();
+    }, timeoutMs);
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
@@ -237,9 +339,11 @@ class DesktopApiDev {
       const requestInit: RequestInit & { duplex: 'half' } = {
         method: 'POST',
         headers: finalHeaders,
-        body: fileStream as unknown as BodyInit,
+        body: body as unknown as BodyInit,
         // Node's native fetch requires duplex for a streaming request body.
         duplex: 'half',
+        signal: abortController.signal,
+        redirect: 'error',
       };
       const response = await fetch(uploadUrl, requestInit);
       const text = await response.text();
@@ -252,6 +356,8 @@ class DesktopApiDev {
       logger.info(
         '[client-log-upload] response status:',
         response.status,
+        'elapsedMs:',
+        Date.now() - startedAt,
         'cf-ray:',
         response.headers.get('cf-ray') ?? 'n/a',
         'cf-mitigated:',
@@ -261,8 +367,11 @@ class DesktopApiDev {
       );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new OneKeyLocalError('Invalid JSON response');
+        }
         if (typeof parsed.code === 'number') {
-          if (parsed.code === 0) {
+          if (parsed.code === 0 && response.ok) {
             sendProgress({
               stage: ELogUploadStage.Success,
               progressPercent: 100,
@@ -272,14 +381,32 @@ class DesktopApiDev {
               stage: ELogUploadStage.Error,
               message:
                 (parsed?.data as { message?: string } | undefined)?.message ||
-                parsed.message,
+                parsed.message ||
+                `Upload failed (HTTP ${response.status})`,
             });
           }
-        } else {
+        } else if (response.ok && parsed.data) {
           sendProgress({
             stage: ELogUploadStage.Success,
             progressPercent: 100,
           });
+        } else {
+          const safeMessage =
+            typeof parsed.message === 'string' && parsed.message
+              ? parsed.message
+              : `Upload failed (HTTP ${response.status}, cf-ray=${
+                  response.headers.get('cf-ray') ?? 'n/a'
+                })`;
+          sendProgress({
+            stage: ELogUploadStage.Error,
+            message: safeMessage,
+          });
+        }
+        if (!response.ok) {
+          return {
+            ...parsed,
+            httpStatus: response.status,
+          };
         }
         return parsed;
       } catch (_error) {
@@ -298,12 +425,37 @@ class DesktopApiDev {
           message: safeMessage,
         };
       }
-    } catch (error) {
+    } catch (rawError) {
+      const error = timedOut
+        ? new OneKeyLocalError(
+            `${LOG_UPLOAD_TIMEOUT_ERROR_CODE}: Log upload timed out after ${timeoutMs}ms`,
+          )
+        : rawError;
+      // undici reports every transport failure as a bare "fetch failed";
+      // the actual reason only lives in `cause`, so log it for triage.
+      const cause = (error as { cause?: { code?: unknown; message?: unknown } })
+        ?.cause;
+      logger.error(
+        '[client-log-upload] request failed:',
+        error instanceof Error ? error.message : String(error),
+        cause
+          ? `cause=${String(cause.code ?? '')} ${String(cause.message ?? '')}`
+          : '',
+        `elapsedMs=${Date.now() - startedAt}`,
+      );
       sendProgress({
         stage: ELogUploadStage.Error,
         message: error instanceof Error ? error.message : String(error),
       });
       throw error;
+    } finally {
+      // The request can end before the body is consumed (connect failure,
+      // server replied before reading the body, error thrown before fetch).
+      // Release the transport and the archive ourselves instead of leaving
+      // an open fd and a stalled socket behind until the process exits.
+      clearTimeout(timeoutId);
+      abortController.abort();
+      archive.stream?.destroy();
     }
   }
 

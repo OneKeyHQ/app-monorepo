@@ -53,7 +53,7 @@ export type IPerpPortfolioFillsStats = {
   feesPaid: number;
   volumeUsd: number;
   mostTraded: string | null;
-  profitFactor: number | null;
+  payoffRatio: number | null;
   realizedPnl: number;
   spotRealizedPnl: number;
   totalTrades: number;
@@ -439,21 +439,18 @@ export function buildPerpPortfolioFillsStats({
       ? (winFills.length / closedFills.length) * 100
       : null;
 
-  const avgWin =
-    winFills.length > 0
-      ? winFills
-          .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
-          .div(winFills.length)
-          .toNumber()
-      : null;
-
-  const avgLoss =
-    lossFills.length > 0
-      ? lossFills
-          .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
-          .div(lossFills.length)
-          .toNumber()
-      : null;
+  const totalGain = winFills.reduce(
+    (sum, f) => sum.plus(f.closedPnl),
+    new BigNumber(0),
+  );
+  const totalLoss = lossFills.reduce(
+    (sum, f) => sum.plus(f.closedPnl),
+    new BigNumber(0),
+  );
+  const avgWin = winFills.length ? totalGain.div(winFills.length) : null;
+  const avgLoss = lossFills.length ? totalLoss.div(lossFills.length) : null;
+  const payoffRatio =
+    avgWin && avgLoss ? avgWin.div(avgLoss.abs()).toNumber() : null;
 
   // Base-token fees (spot buys) are token units, not USD; convert them at the
   // fill's own price (the same px volumeUsd trusts). A fill without a usable
@@ -495,18 +492,7 @@ export function buildPerpPortfolioFillsStats({
     }
   });
 
-  const totalGain = winFills.reduce(
-    (sum, f) => sum.plus(f.closedPnl),
-    new BigNumber(0),
-  );
-  const totalLoss = lossFills
-    .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
-    .abs();
-  const profitFactor = totalLoss.gt(0)
-    ? totalGain.div(totalLoss).toNumber()
-    : null;
-
-  const realizedPnl = totalGain.minus(totalLoss).toNumber();
+  const realizedPnl = totalGain.plus(totalLoss).toNumber();
   const spotRealizedPnl = closedFills
     .filter((fill) => isSpotInstrument(fill.coin))
     .reduce((sum, fill) => sum.plus(fill.closedPnl), new BigNumber(0))
@@ -514,12 +500,12 @@ export function buildPerpPortfolioFillsStats({
 
   return {
     winRate,
-    avgWin,
-    avgLoss,
+    avgWin: avgWin?.toNumber() ?? null,
+    avgLoss: avgLoss?.toNumber() ?? null,
     feesPaid,
     volumeUsd,
     mostTraded,
-    profitFactor,
+    payoffRatio,
     realizedPnl,
     spotRealizedPnl,
     totalTrades: filteredFills.length,
@@ -562,4 +548,32 @@ export function sumPerpsNetDeposits(
       return sum;
     }, new BigNumber(0))
     .toNumber();
+}
+
+export function computeAccountHealthRisk(
+  mmrPct: number | null,
+  leverageX: number,
+  marginUsedPct: number,
+): { level: 'safe' | 'caution' | 'danger' } {
+  let levScore = 2;
+  if (leverageX <= 5) levScore = 0;
+  else if (leverageX <= 15) levScore = 1;
+
+  let marginScore = 2;
+  if (marginUsedPct <= 60) marginScore = 0;
+  else if (marginUsedPct <= 85) marginScore = 1;
+
+  // An unknown ratio must not vote "safe"; it follows the worse known signal.
+  let mmrScore = Math.max(levScore, marginScore);
+  if (mmrPct !== null) {
+    mmrScore = 2;
+    if (mmrPct <= 30) mmrScore = 0;
+    else if (mmrPct <= 60) mmrScore = 1;
+  }
+
+  const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
+
+  if (total >= 6) return { level: 'danger' };
+  if (total >= 3) return { level: 'caution' };
+  return { level: 'safe' };
 }

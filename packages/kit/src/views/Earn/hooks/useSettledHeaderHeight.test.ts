@@ -144,6 +144,174 @@ describe('useSettledHeaderHeight', () => {
     expect(second.result.current.paddingTop).toBe(113);
   });
 
+  it('keeps the known height on re-entry while the measurement is late', () => {
+    const first = renderHook(() => useSettledHeaderHeight(113, opts));
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    first.unmount();
+
+    // A heavy first render can delay the native measurement past the settle
+    // window; the estimate must not replace the known height meanwhile.
+    const second = renderHook(
+      ({ height }) =>
+        useSettledHeaderHeight(height, {
+          ...opts,
+          estimatedHeaderHeight: 97.67,
+        }),
+      { initialProps: { height: 97.67 } },
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 4);
+    });
+    expect(second.result.current.paddingTop).toBe(113);
+
+    second.rerender({ height: 113 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(second.result.current.paddingTop).toBe(113);
+  });
+
+  it('waits for the measured height instead of settling a placeholder', () => {
+    const { result, rerender } = renderHook(
+      ({ height }) =>
+        useSettledHeaderHeight(height, {
+          ...opts,
+          estimatedHeaderHeight: 97.67,
+        }),
+      { initialProps: { height: 0 } },
+    );
+
+    // Header still hidden, then react-navigation's estimate: neither is a
+    // measurement, so the settle window alone must not reveal the body.
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 2);
+    });
+    rerender({ height: 97.67 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(result.current.isSettled).toBe(false);
+
+    rerender({ height: 113 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(result.current.isSettled).toBe(true);
+    expect(result.current.paddingTop).toBe(113);
+  });
+
+  it('reveals a placeholder at the cap without remembering it', () => {
+    const first = renderHook(() =>
+      useSettledHeaderHeight(97.67, {
+        ...opts,
+        estimatedHeaderHeight: 97.67,
+      }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(MAX_HOLD_MS);
+    });
+    expect(first.result.current.isSettled).toBe(true);
+    first.unmount();
+
+    // The next mount has nothing trustworthy to start from yet.
+    const second = renderHook(() =>
+      useSettledHeaderHeight(97.67, {
+        ...opts,
+        estimatedHeaderHeight: 97.67,
+      }),
+    );
+    expect(second.result.current.isSettled).toBe(false);
+  });
+
+  it('keeps the known height on re-entry through a hidden header and the estimate', () => {
+    const first = renderHook(() => useSettledHeaderHeight(113, opts));
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    first.unmount();
+
+    const second = renderHook(
+      ({ height }) =>
+        useSettledHeaderHeight(height, {
+          ...opts,
+          estimatedHeaderHeight: 97.67,
+        }),
+      { initialProps: { height: 0 } },
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 2);
+    });
+    second.rerender({ height: 97.67 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 4);
+    });
+    expect(second.result.current.isSettled).toBe(true);
+    expect(second.result.current.paddingTop).toBe(113);
+  });
+
+  // PR 13609 review: a remount after
+  // rotation reports its final height on the very first render and never
+  // changes it, which is indistinguishable from the pre-measurement value by
+  // equality alone. Both guards against that are covered here.
+  it('adopts the new window shape instead of the height remembered for the old one', () => {
+    const portrait = renderHook(() =>
+      useSettledHeaderHeight(116, { ...opts, cacheKey: '390x844' }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(portrait.result.current.paddingTop).toBe(116);
+    portrait.unmount();
+
+    // Landscape: a shape nobody has measured, so nothing is inherited. The
+    // height is final from the first render and never moves again.
+    const landscape = renderHook(() =>
+      useSettledHeaderHeight(76, { ...opts, cacheKey: '844x390' }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS + MAX_HOLD_MS);
+    });
+    expect(landscape.result.current.isSettled).toBe(true);
+    expect(landscape.result.current.paddingTop).toBe(76);
+
+    // And the portrait answer survives for portrait.
+    landscape.unmount();
+    const back = renderHook(() =>
+      useSettledHeaderHeight(116, { ...opts, cacheKey: '390x844' }),
+    );
+    expect(back.result.current.paddingTop).toBe(116);
+  });
+
+  it('never remembers the estimate, however late the measurement is', () => {
+    const first = renderHook(() =>
+      useSettledHeaderHeight(113, { ...opts, estimatedHeaderHeight: 97.67 }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    first.unmount();
+
+    // A mount whose native measurement never arrives: the estimate is revealed
+    // at the cap so the page is not blank, but it must not become the height
+    // every later mount of this shape inherits.
+    const stalled = renderHook(() =>
+      useSettledHeaderHeight(97.67, { ...opts, estimatedHeaderHeight: 97.67 }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(MAX_HOLD_MS + SETTLE_MS * 4);
+    });
+    expect(stalled.result.current.isSettled).toBe(true);
+    stalled.unmount();
+
+    // Still the measured height, not the estimate.
+    const third = renderHook(() =>
+      useSettledHeaderHeight(113, { ...opts, estimatedHeaderHeight: 97.67 }),
+    );
+    expect(third.result.current.paddingTop).toBe(113);
+  });
+
   it('settles immediately when disabled, so other platforms never hide', () => {
     const { result } = renderHook(() =>
       useSettledHeaderHeight(44, { ...opts, enabled: false }),

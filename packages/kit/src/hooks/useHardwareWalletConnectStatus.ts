@@ -28,16 +28,26 @@ async function fetchConnectedDevices(): Promise<Set<string>> {
   const usb = platformEnv.isSupportWebUSB
     ? globalThis?.navigator?.usb
     : undefined;
-  const [webUsbDevices, backgroundIdentityKeys] = await Promise.all([
+  const [
+    webUsbDevices,
+    oneKeyBackgroundIdentityKeys,
+    thirdPartyBackgroundIdentityKeys,
+  ] = await Promise.all([
     usb && typeof usb.getDevices === 'function'
       ? usb.getDevices()
       : Promise.resolve<USBDevice[]>([]),
     backgroundApiProxy.serviceHardware
       .getConnectedHardwareDeviceIdentityKeys()
       .catch((): string[] => []),
+    backgroundApiProxy.serviceThirdPartyHardware
+      .getConnectedHardwareDeviceIdentityKeys()
+      .catch((): string[] => []),
   ]);
   const deviceIds = buildHardwareConnectedDeviceKeys({
-    backgroundIdentityKeys,
+    backgroundIdentityKeys: [
+      ...oneKeyBackgroundIdentityKeys,
+      ...thirdPartyBackgroundIdentityKeys,
+    ],
     webUsbDevices,
   });
 

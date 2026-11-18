@@ -110,6 +110,42 @@ describe('Analytics tier', () => {
     expect(mockGetDeviceCpuTier).toHaveBeenCalledTimes(1);
   });
 
+  it('sends dedupe fields in the body and keeps other events unchanged', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('availabilitySnapshot', {
+      $insertId: 'snapshot-1',
+      $timestamp: 1_700_000_000_000,
+      api_wallet_ok: 3,
+    });
+
+    const [, body] = mockPost.mock.calls[0] as unknown as [
+      string,
+      {
+        insertId?: string;
+        timestamp?: number;
+        eventProps: Record<string, unknown>;
+      },
+    ];
+    expect(body.insertId).toBe('snapshot-1');
+    expect(body.timestamp).toBe(1_700_000_000_000);
+    expect(body.eventProps).toMatchObject({ api_wallet_ok: 3 });
+    expect(body.eventProps).not.toHaveProperty('$insertId');
+    expect(body.eventProps).not.toHaveProperty('$timestamp');
+
+    await analytics.trackEventAsync('testEvent', { foo: 'bar' });
+
+    const [, plainBody] = mockPost.mock.calls[1] as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(Object.keys(plainBody).toSorted()).toEqual([
+      'eventName',
+      'eventProps',
+    ]);
+  });
+
   it('shares complete device info across concurrent first requests', async () => {
     let resolveDeviceInfo:
       | ((deviceInfo: { deviceId: string }) => void)

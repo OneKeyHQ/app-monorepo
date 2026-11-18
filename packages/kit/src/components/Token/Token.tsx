@@ -25,6 +25,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -66,9 +67,12 @@ export function Token({
   bg: bgProp,
   ...rest
 }: ITokenProps) {
-  const { tokenImageSize, chainImageSize, fallbackIconSize } = size
-    ? TOKEN_SIZE_MAP[size]
-    : TOKEN_SIZE_MAP.lg;
+  const {
+    tokenImageSize,
+    chainImageSize,
+    fallbackIconSize,
+    tokenImageResizeWidth,
+  } = size ? TOKEN_SIZE_MAP[size] : TOKEN_SIZE_MAP.lg;
 
   const themeVariant = useThemeVariant();
 
@@ -127,11 +131,23 @@ export function Token({
   const sharedImageProps = {
     size: tokenImageSize,
     borderRadius: borderRadius as IImageProps['borderRadius'],
+    ...(platformEnv.isNativeAndroid && !isNFT ? { round: true } : undefined),
     bg: resolvedBg,
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
     fallback: fallbackElement,
-    placeholder: placeholderElement,
+    // Native: let the image view own its loading placeholder. A JS
+    // `placeholder` overlay is removed only after the native onDisplay event
+    // round-trips through React (3-4 frames), so even a memory-cached logo
+    // showed a skeleton on every mount; the native skeleton indicator stops
+    // synchronously the moment a cached image is displayed (OK-63873).
+    ...(platformEnv.isNative
+      ? { loadingStrategy: 'skeleton' as const }
+      : { placeholder: placeholderElement }),
+    // Explicit display-size hint so the rendition + memory-cache key are fixed
+    // by the token size, not by the (initially empty) native view bounds, and
+    // match what the prewarm paths request for this size (OK-63873).
+    resizeWidth: tokenImageResizeWidth,
     ...rest,
   };
 

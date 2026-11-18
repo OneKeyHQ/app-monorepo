@@ -1,3 +1,5 @@
+import type { IEarnSummaryV2 } from '../../types/staking';
+
 export interface IRewardToken {
   networkId: string;
   address: string;
@@ -38,6 +40,19 @@ export interface IWithdrawAddress {
   address: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Server-owned, already localized. The app shows `description` as-is and
+// never keeps its own channel or token list.
+export interface IInviteRewardScope {
+  subject: string;
+  description: string;
+}
+
+// `GET /rebate/v1/invite/reward-scopes`. A product without server config is
+// left out.
+export interface IInviteRewardScopesResponse {
+  rewardScopes?: IInviteRewardScope[];
 }
 
 export interface IInviteSummary {
@@ -689,8 +704,21 @@ export interface IPerpsInviteeRewardHistoryItem {
 export interface IPerpsInviteeRewardsResponse {
   history: IPerpsInviteeRewardHistoryItem[];
   token: IPerpsInviteeRewardToken;
+  /** Distributed amount. Unlike Swap, this does not include `undistributed`. */
   totalBonus: string;
+  /** Confirmed reward amount that has not been distributed yet. */
   undistributed: string;
+}
+
+// Invitee rewards aggregated by a single EVM address
+export type IInviteeRewardsModuleResult<T> =
+  | { status: 'success'; data: T }
+  | { status: 'error' };
+
+export interface IInviteeRewardsOverview {
+  perps: IInviteeRewardsModuleResult<IPerpsInviteeRewardsResponse>;
+  swap: IInviteeRewardsModuleResult<ISwapInviteeRewardsResponse>;
+  earn: IInviteeRewardsModuleResult<IEarnSummaryV2>;
 }
 
 // Batch check wallet bound referral code types

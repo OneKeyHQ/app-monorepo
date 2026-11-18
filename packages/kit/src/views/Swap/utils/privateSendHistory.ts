@@ -239,10 +239,12 @@ function mergePrivateSendHistoryReplayFields({
   item,
   replayItem,
   shouldMergeReplayBaseInfo,
+  isReplayFeeConfirmed,
 }: {
   item: ISwapTxHistory;
   replayItem: ISwapTxHistory;
   shouldMergeReplayBaseInfo?: boolean;
+  isReplayFeeConfirmed: boolean;
 }) {
   const replayRocketXOrderId = getPrivateSendRocketXOrderIdFromCtx(
     replayItem.ctx,
@@ -263,11 +265,15 @@ function mergePrivateSendHistoryReplayFields({
   const shouldMergeGasFeeInNative = shouldUsePrivateSendReplayFeeValue({
     currentValue: item.txInfo.gasFeeInNative,
     replayValue: replayItem.txInfo.gasFeeInNative,
+    isReplayFeeConfirmed,
   });
-  const shouldMergeGasFeeFiatValue = shouldUsePrivateSendReplayFeeValue({
-    currentValue: item.txInfo.gasFeeFiatValue,
-    replayValue: replayItem.txInfo.gasFeeFiatValue,
-  });
+  const shouldMergeGasFeeFiatValue =
+    item.currency === replayItem.currency &&
+    shouldUsePrivateSendReplayFeeValue({
+      currentValue: item.txInfo.gasFeeFiatValue,
+      replayValue: replayItem.txInfo.gasFeeFiatValue,
+      isReplayFeeConfirmed,
+    });
 
   let updated = false;
   let nextItem = item;
@@ -405,16 +411,14 @@ function isSamePrivateSendAmount(a?: string, b?: string) {
 function shouldUsePrivateSendReplayFeeValue({
   currentValue,
   replayValue,
+  isReplayFeeConfirmed,
 }: {
   currentValue?: string;
   replayValue?: string;
+  isReplayFeeConfirmed: boolean;
 }) {
   const replayValueBN = new BigNumber(replayValue ?? '');
-  if (
-    replayValueBN.isNaN() ||
-    !replayValueBN.isFinite() ||
-    !replayValueBN.isGreaterThan(0)
-  ) {
+  if (replayValueBN.isNaN() || !replayValueBN.isFinite()) {
     return false;
   }
 
@@ -422,7 +426,7 @@ function shouldUsePrivateSendReplayFeeValue({
   return (
     currentValueBN.isNaN() ||
     !currentValueBN.isFinite() ||
-    !currentValueBN.isGreaterThan(0)
+    (isReplayFeeConfirmed && !currentValueBN.isEqualTo(replayValueBN))
   );
 }
 
@@ -962,6 +966,9 @@ export async function maybeOpenPrivateSendHistoryDetail({
           item: txHistoryItem,
           replayItem: replayTxHistoryItem,
           shouldMergeReplayBaseInfo: !!resolvedTokenInfo,
+          isReplayFeeConfirmed:
+            historyTx.decodedTx.status === EDecodedTxStatus.Confirmed ||
+            historyTx.decodedTx.status === EDecodedTxStatus.Failed,
         })
       : { item: replayTxHistoryItem, updated: false };
   const resolvedTxHistoryItem = baseTxHistoryItem;

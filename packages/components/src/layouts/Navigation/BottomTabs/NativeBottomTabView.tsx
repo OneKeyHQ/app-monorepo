@@ -1,23 +1,31 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import TabView from '@onekeyfe/react-native-tab-view';
+import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
+  NavigationMetaContext,
   type ParamListBase,
   type Route,
+  StackActions,
   type TabNavigationState,
 } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { Spinner, Stack } from '../../../primitives';
+import { BottomTabBarVerticalContext } from '../../Page/BottomTabBarVisibilityContext';
+
+import { TabSceneContext } from './TabSceneContext';
 
 import type {
   NativeBottomTabDescriptorMap,
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
+import type { TabBarPlacement } from '@onekeyfe/react-native-bottom-tabs';
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
@@ -25,9 +33,18 @@ type Props = NativeBottomTabNavigationConfig & {
   descriptors: NativeBottomTabDescriptorMap;
 };
 
+// Native stacks pop to their root on every press of the focused tab unless they
+// sit in native tabs. Here a single press does nothing and a double press is
+// resolved in `onTabDoublePress`.
+const NATIVE_TABS_NAVIGATION_META = { type: 'native-tabs' };
+
 const styles = StyleSheet.create({
   scene: {
     flex: 1,
+  },
+  hiddenTabBarScene: {
+    width: '100%',
+    height: '100%',
   },
   activationSignal: {
     position: 'absolute',
@@ -58,25 +75,44 @@ function SceneLoadingView() {
 
 function SceneWithActivationPlaceholder({
   routeKey,
+  routeName,
   focused,
+  preloaded,
   activated,
   onActivated,
   children,
 }: {
   routeKey: string;
+  routeName: string;
   focused: boolean;
+  preloaded: boolean;
   activated: boolean;
   onActivated: (routeKey: string) => void;
   children: ReactNode;
 }) {
+  const sceneInfo = useMemo(
+    () => ({ tabName: routeName, preloaded }),
+    [routeName, preloaded],
+  );
   const handleLayout = useCallback(() => {
+    defaultLogger.app.perf.tabPreloadStage({
+      stage: 'sceneRevealed',
+      tab: routeName,
+      aheadOfFocus: !focused,
+    });
     onActivated(routeKey);
-  }, [onActivated, routeKey]);
+  }, [focused, onActivated, routeKey, routeName]);
 
   return (
     <View style={styles.scene}>
-      {children}
-      {focused && !activated ? (
+      <TabSceneContext.Provider value={sceneInfo}>
+        {children}
+      </TabSceneContext.Provider>
+      {/* A preloaded scene is laid out while still blurred, so let every
+          scene that has not been activated yet raise the signal. Gating this
+          on `focused` kept each preloaded tab behind SceneLoadingView until
+          its first tap, which hid the whole benefit of preloading. */}
+      {!activated ? (
         <View
           collapsable={false}
           pointerEvents="none"
@@ -94,8 +130,19 @@ export function NativeBottomTabView({
   navigation,
   descriptors,
   tabBar,
+  tabBarHidden,
+  sideAccessoryIcon,
+  onTabBarPlacementChange,
   ...rest
 }: Props) {
+  const [isVerticalTabBar, setIsVerticalTabBar] = useState(false);
+  const handleTabBarPlacementChange = useCallback(
+    (placement: TabBarPlacement) => {
+      setIsVerticalTabBar(placement !== 'bottom');
+      onTabBarPlacementChange?.(placement);
+    },
+    [onTabBarPlacementChange],
+  );
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
     const focusedRouteKey = state.routes[state.index]?.key;
     return focusedRouteKey ? [focusedRouteKey] : [];
@@ -111,11 +158,15 @@ export function NativeBottomTabView({
     ({ route }: { route: Route<string> }) => (
       <SceneWithActivationPlaceholder
         routeKey={route.key}
+        routeName={route.name}
         focused={state.routes[state.index]?.key === route.key}
+        preloaded={Boolean(state.preloadedRouteKeys?.includes(route.key))}
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
-        {descriptors[route.key]?.render()}
+        <NavigationMetaContext.Provider value={NATIVE_TABS_NAVIGATION_META}>
+          {descriptors[route.key]?.render()}
+        </NavigationMetaContext.Provider>
       </SceneWithActivationPlaceholder>
     ),
     [
@@ -123,6 +174,7 @@ export function NativeBottomTabView({
       descriptors,
       handleSceneActivated,
       state.index,
+      state.preloadedRouteKeys,
       state.routes,
     ],
   );
@@ -214,21 +266,40 @@ export function NativeBottomTabView({
     [descriptors, state.preloadedRouteKeys],
   );
   const getSceneStyle = useCallback(
-    ({ route }: { route: Route<string> }) =>
+    ({ route }: { route: Route<string> }) => [
       descriptors[route.key]?.options.sceneStyle,
-    [descriptors],
+      // Hidden-tab scenes follow the native holder through bar changes and
+      // rotation without waiting for JS to receive its new dimensions.
+      tabBarHidden ? styles.hiddenTabBarScene : undefined,
+    ],
+    [descriptors, tabBarHidden],
   );
-  const onTabLongPress = useCallback(
-    (index: number) => {
+  const onTabDoublePress = useCallback(
+    (index: number, didScrollToTop?: boolean) => {
       const route = state.routes[index];
       if (!route) {
-        return false;
+        return;
       }
 
       navigation.emit({
-        type: 'tabLongPress',
+        type: 'tabDoublePress',
         target: route.key,
       });
+
+      // The native side already scrolled the visible page when it was not at
+      // the top, so only a page sitting at the top leaves for the tab root.
+      // Native builds without the flag report nothing and must not pop.
+      const stackState = route.state;
+      if (
+        didScrollToTop === false &&
+        stackState?.key &&
+        (stackState.index ?? 0) > 0
+      ) {
+        navigation.dispatch({
+          ...StackActions.popToTop(),
+          target: stackState.key,
+        });
+      }
     },
     [state.routes, navigation],
   );
@@ -273,27 +344,32 @@ export function NativeBottomTabView({
   );
 
   return (
-    <TabView
-      {...rest}
-      navigationState={state}
-      renderScene={renderScene}
-      renderLazyPlaceholder={renderLazyPlaceholder}
-      getActiveTintColor={getActiveTintColor}
-      getLabelText={getLabelText}
-      getBadge={getBadge}
-      getBadgeBackgroundColor={getBadgeBackgroundColor}
-      getBadgeTextColor={getBadgeTextColor}
-      getHidden={getHidden}
-      getTestID={getTestID}
-      getRole={getRole}
-      tabBar={tabBar ? tabBarCallback : undefined}
-      getIcon={getIcon}
-      getLazy={getLazy}
-      getFreezeOnBlur={getFreezeOnBlur}
-      getSceneStyle={getSceneStyle}
-      onTabLongPress={onTabLongPress}
-      getPreventsDefault={getPreventsDefault}
-      onIndexChange={onIndexChange}
-    />
+    <BottomTabBarVerticalContext.Provider value={isVerticalTabBar}>
+      <BottomTabs
+        {...rest}
+        sideAccessoryIcon={sideAccessoryIcon}
+        tabBarHidden={tabBarHidden}
+        navigationState={state}
+        renderScene={renderScene}
+        renderLazyPlaceholder={renderLazyPlaceholder}
+        getActiveTintColor={getActiveTintColor}
+        getLabelText={getLabelText}
+        getBadge={getBadge}
+        getBadgeBackgroundColor={getBadgeBackgroundColor}
+        getBadgeTextColor={getBadgeTextColor}
+        getHidden={getHidden}
+        getTestID={getTestID}
+        getRole={getRole}
+        tabBar={tabBar ? tabBarCallback : undefined}
+        getIcon={getIcon}
+        getLazy={getLazy}
+        getFreezeOnBlur={getFreezeOnBlur}
+        getSceneStyle={getSceneStyle}
+        onTabDoublePress={onTabDoublePress}
+        getPreventsDefault={getPreventsDefault}
+        onIndexChange={onIndexChange}
+        onTabBarPlacementChange={handleTabBarPlacementChange}
+      />
+    </BottomTabBarVerticalContext.Provider>
   );
 }

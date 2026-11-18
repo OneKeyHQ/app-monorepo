@@ -11,9 +11,42 @@ import resetUtils from '../../utils/resetUtils';
 import type { ISyncStorage } from './syncStorageInstance';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
-function ipc(id: string, method: string, key?: string, value?: unknown): any {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-  return (globalThis as any).$mmkvSync({ method, id, key, value });
+type IMmkvSyncBridge = (args: {
+  method: string;
+  id: string;
+  key?: string;
+  value?: unknown;
+}) => unknown;
+
+function getMmkvSyncBridge(): IMmkvSyncBridge | undefined {
+  const bridge = (globalThis as { $mmkvSync?: unknown }).$mmkvSync;
+  return typeof bridge === 'function' ? (bridge as IMmkvSyncBridge) : undefined;
+}
+
+let hasWarnedMissingBridge = false;
+
+function ipc(
+  id: string,
+  method: string,
+  key?: string,
+  value?: unknown,
+): unknown {
+  const bridge = getMmkvSyncBridge();
+  if (!bridge) {
+    // The tray window shares this bundle, but preload deliberately does not
+    // expose $mmkvSync to it. Module-level readers (e.g. dbPerfMonitor) run
+    // before React mounts, so throwing here blanks the whole panel
+    // (OK-65749). Degrade to an empty store: reads yield undefined, writes
+    // are dropped.
+    if (!hasWarnedMissingBridge) {
+      hasWarnedMissingBridge = true;
+      console.warn(
+        `[syncStorage] $mmkvSync bridge unavailable; "${id}" reads return undefined and writes are dropped`,
+      );
+    }
+    return undefined;
+  }
+  return bridge({ method, id, key, value });
 }
 
 function createDesktopSyncStorage({
@@ -83,21 +116,3 @@ const syncStorageDesktop = createDesktopSyncStorage({
 
 export { syncStorageDesktop as syncStorage };
 export type { ISyncStorage };
-
-// Cold-start cache storage on desktop renderer: backed by the same IDB +
-// in-memory map pipeline as web (see webColdStartStorage). Desktop renderer
-// is Chromium, so the IDB layer that hydrate.ts pre-warms at boot works
-// identically. Mirrors the export shape of syncStorageInstance.ts.
-//
-// Do NOT replace this with a sync-IPC electron-store implementation: every
-// .getString / .setObject would synchronously block the renderer waiting on
-// the main process. Under boot-time contention (many concurrent IPC
-// callers, main process busy with own init), that path freezes the
-// renderer thread. The IDB+Map approach below is fully synchronous for
-// reads (Map is pre-warmed by hydrate.ts) and asynchronous for IDB
-// persistence (debounced flush on writes).
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { createWebColdStartStorage } =
-  require('./webColdStartStorage') as typeof import('./webColdStartStorage');
-
-export const coldStartCacheStorage = createWebColdStartStorage();

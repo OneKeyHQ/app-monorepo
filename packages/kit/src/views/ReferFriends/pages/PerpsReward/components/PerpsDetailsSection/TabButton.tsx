@@ -1,4 +1,5 @@
 import { SizableText, XStack } from '@onekeyhq/components';
+import { NATIVE_VERTICAL_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 
 interface ITabButtonProps {
   label: string;
@@ -20,6 +21,7 @@ export function TabButton({
       borderRadius="$2"
       bg={isActive ? '$bgApp' : 'transparent'}
       onPress={onPress}
+      hitSlop={NATIVE_VERTICAL_HIT_SLOP}
       cursor="pointer"
       ai="center"
       gap="$1"

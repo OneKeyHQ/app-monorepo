@@ -83,6 +83,7 @@ function WalletActionSwap({
   if (inList) {
     return (
       <ActionList.Item
+        testID={HomeTestIDs.swapButton}
         trackID="wallet-trade"
         icon={customization?.icon ?? 'SwitchHorOutline'}
         label={intl.formatMessage({

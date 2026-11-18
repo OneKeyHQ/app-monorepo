@@ -1,12 +1,25 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
+  STOCK_SIMPLE_CHART_POLLING_MS,
   TOKEN_SIMPLE_CHART_RANGES,
+  buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  isStockSimpleChartRangeUp,
+  mergeStockSimpleChartLivePrice,
+  resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartDisplayPoints,
+  resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
+  resolveStockSimpleChartRangeChange,
+  resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
+  shouldMergeStockSimpleChartLivePrice,
+  shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -53,9 +66,54 @@ describe('fetchStockSimpleChartPoints', () => {
   it.each([
     ['1H', '1h'],
     ['1D', '1d'],
+  ] as const)(
+    'preserves backend-filtered %s history during Sunday overnight',
+    async (range, period) => {
+      // Monday in Beijing is still Sunday overnight in New York.
+      const overnightNow = Date.parse('2026-09-28T03:23:09Z') / 1000;
+      const fridayClose = Date.parse('2026-09-26T00:00:00Z') / 1000;
+      jest.spyOn(Date, 'now').mockReturnValue(overnightNow * 1000);
+      const points = Array.from({ length: 60 }, (_, index) => ({
+        t: fridayClose - (59 - index) * 60,
+        o: 100,
+        h: 102,
+        l: 99,
+        c: 101,
+        v: 1,
+      }));
+      serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+        stockId: 'AAPL',
+        period,
+        currency: 'USD',
+        points,
+      });
+      const history = await fetchStockSimpleChartPoints({
+        isNative: false,
+        networkId: '',
+        priceMode: 'share',
+        range,
+        stockId: 'AAPL',
+        tokenAddress: '',
+      });
+      const displayed = resolveStockSimpleChartDisplayPoints({
+        livePrice: '101',
+        nowSeconds: overnightNow,
+        points: history,
+      });
+      expect(displayed).toEqual([
+        ...points.map((point) => [point.t, point.c]),
+        [overnightNow, 101],
+      ]);
+    },
+  );
+
+  it.each([
+    ['1H', '1h'],
+    ['1D', '1d'],
     ['1W', '1w'],
     ['1M', '1m'],
     ['1Y', '1y'],
+    ['5Y', 'all'],
     ['All', 'all'],
   ] as const)(
     'requests %s without limiting or truncating points',
@@ -516,10 +574,26 @@ describe('fetchStockSimpleChartPoints', () => {
 });
 
 describe('stock simple chart request identity', () => {
-  it('exposes All for both token and share data sources', () => {
+  it('ends token ranges on All and share ranges on 5Y', () => {
     expect(TOKEN_SIMPLE_CHART_RANGES).toContain('All');
-    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('All');
+    expect(TOKEN_SIMPLE_CHART_RANGES).not.toContain('5Y');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('5Y');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).not.toContain('All');
   });
+
+  it.each([
+    ['share', 'All', '5Y'],
+    ['token', '5Y', 'All'],
+    ['share', '1Y', '1Y'],
+    ['token', 'All', 'All'],
+  ] as const)(
+    'resolves a %s-mode %s selection to %s',
+    (priceMode, range, expected) => {
+      expect(
+        resolveStockSimpleChartRangeForPriceMode({ priceMode, range }),
+      ).toBe(expected);
+    },
+  );
 
   it('ignores token variants while showing share prices', () => {
     const firstVariant = resolveStockSimpleChartRequestScope({
@@ -622,6 +696,106 @@ describe('resolveStockSimpleChartPreviousClose', () => {
   });
 });
 
+describe('resolveStockSimpleChartRangeChange', () => {
+  const points: IMarketTokenChart = [
+    [100, 10],
+    [200, 12],
+    [300, 9],
+  ];
+
+  it('measures from the first point of the range', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        priceMode: 'token',
+        range: '1W',
+      }),
+    ).toEqual({ priceMode: 'token', range: '1W', baseline: 10, latest: 9 });
+  });
+
+  it('measures a share 1D from the previous close', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'share',
+        range: '1D',
+        sharePrice: '11',
+      }),
+    ).toEqual({ priceMode: 'share', range: '1D', baseline: 8, latest: 11 });
+  });
+
+  it('keeps the first point for share 1H and for token 1D', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'share',
+        range: '1H',
+        sharePrice: '9',
+      })?.baseline,
+    ).toBe(10);
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'token',
+        range: '1D',
+      })?.baseline,
+    ).toBe(10);
+  });
+
+  it('falls back to the first point when the share has no previous close', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        priceMode: 'share',
+        range: '1D',
+        sharePrice: '9',
+      })?.baseline,
+    ).toBe(10);
+  });
+
+  it('reports nothing without a usable series', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points: [],
+        priceMode: 'token',
+        range: '1D',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points: [
+          [100, 0],
+          [200, 1],
+        ],
+        priceMode: 'token',
+        range: '1D',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('reads a flat range as up', () => {
+    expect(
+      isStockSimpleChartRangeUp({
+        priceMode: 'token',
+        range: '1D',
+        baseline: 5,
+        latest: 5,
+      }),
+    ).toBe(true);
+    expect(
+      isStockSimpleChartRangeUp({
+        priceMode: 'token',
+        range: '1D',
+        baseline: 5,
+        latest: 4,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('resolveStockSimpleChartPulseLastPoint', () => {
   it('always pulses crypto, which trades around the clock', () => {
     expect(resolveStockSimpleChartPulseLastPoint({})).toBe(true);
@@ -655,5 +829,361 @@ describe('resolveStockSimpleChartPulseLastPoint', () => {
     expect(
       resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: false } }),
     ).toBe(false);
+  });
+});
+
+describe('resolveStockSimpleChartLivePrice', () => {
+  it('uses the same quote the title reads in each price mode', () => {
+    expect(
+      resolveStockSimpleChartLivePrice({
+        priceMode: 'token',
+        stockDetail: { price: '334.76' },
+        tokenDetail: { price: '332.41' },
+      }),
+    ).toBe('332.41');
+    expect(
+      resolveStockSimpleChartLivePrice({
+        priceMode: 'share',
+        stockDetail: { price: '334.76' },
+        tokenDetail: { price: '332.41' },
+      }),
+    ).toBe('334.76');
+  });
+});
+
+describe('resolveStockSimpleChartBucketSeconds', () => {
+  it('uses the 5m asset buckets shown on an AAPL 1H simple chart', () => {
+    expect(
+      resolveStockSimpleChartBucketSeconds({
+        marketAssetId: 'aapl',
+        priceMode: 'token',
+        range: '1H',
+      }),
+    ).toBe(5 * 60);
+  });
+
+  it('leaves share and All-range CoinGecko series without a fixed bucket', () => {
+    expect(
+      resolveStockSimpleChartBucketSeconds({
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartBucketSeconds({
+        priceMode: 'token',
+        range: 'All',
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('shouldMergeStockSimpleChartLivePrice', () => {
+  const points: IMarketTokenChart = [
+    [Date.parse('2026-11-12T00:59:00Z') / 1000, 158.8],
+  ];
+
+  it.each([
+    ['2026-11-11T21:00:00Z', false],
+    ['2026-11-12T00:58:59Z', false],
+    ['2026-11-12T00:59:00Z', true],
+    ['2026-11-12T00:59:30Z', true],
+    [undefined, false],
+    ['invalid', false],
+  ] as const)(
+    'only merges a Share quote at or after the last bucket start (%s)',
+    (priceUpdatedAt, expected) => {
+      expect(
+        shouldMergeStockSimpleChartLivePrice({
+          points,
+          priceMode: 'share',
+          priceUpdatedAt,
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('keeps Token live merging independent of the share quote timestamp', () => {
+    expect(
+      shouldMergeStockSimpleChartLivePrice({
+        points,
+        priceMode: 'token',
+        priceUpdatedAt: '2026-11-11T21:00:00Z',
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('mergeStockSimpleChartLivePrice', () => {
+  const fiveMinutes = 5 * 60;
+  const closedBucket = 1_725_000_000;
+  const openBucket = closedBucket + fiveMinutes;
+  const nowSeconds = openBucket + 120;
+  const points: IMarketTokenChart = [
+    [closedBucket, 331.2],
+    [openBucket, 334.76],
+  ];
+
+  it('drops the open 5m cutoff and appends one live point at now', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: fiveMinutes,
+        livePrice: '332.41',
+        nowSeconds,
+        points,
+      }),
+    ).toEqual([
+      [closedBucket, 331.2],
+      [nowSeconds, 332.41],
+    ]);
+  });
+
+  it('does not rewrite a closed 5m cutoff', () => {
+    const closedPoints: IMarketTokenChart = [
+      [closedBucket - fiveMinutes, 330],
+      [closedBucket, 334.76],
+    ];
+    const now = closedBucket + fiveMinutes + 30;
+
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: fiveMinutes,
+        livePrice: '332.41',
+        nowSeconds: now,
+        points: closedPoints,
+      }),
+    ).toEqual([
+      [closedBucket - fiveMinutes, 330],
+      [closedBucket, 334.76],
+      [now, 332.41],
+    ]);
+  });
+
+  it('still pins a stale last-session 1H series to the title quote', () => {
+    const now = closedBucket + 8 * 60 * 60;
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: fiveMinutes,
+        livePrice: '332.41',
+        nowSeconds: now,
+        points: [[closedBucket, 334.76]],
+      }),
+    ).toEqual([
+      [closedBucket, 334.76],
+      [now, 332.41],
+    ]);
+  });
+
+  it('drops a clock-ahead last bar and appends the live point at now', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: 60,
+        livePrice: '0.0000653',
+        nowSeconds: closedBucket,
+        points: [
+          [closedBucket - 60, 0.000_064_5],
+          [closedBucket + 60, 0.000_064_59],
+        ],
+      }),
+    ).toEqual([
+      [closedBucket - 60, 0.000_064_5],
+      [closedBucket, 0.000_065_3],
+    ]);
+  });
+
+  it('drops every clock-ahead tail bar, not just the last one', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: 60,
+        livePrice: '0.0000653',
+        nowSeconds: closedBucket,
+        points: [
+          [closedBucket - 120, 0.000_064_4],
+          [closedBucket - 60, 0.000_064_5],
+          [closedBucket + 60, 0.000_064_59],
+          [closedBucket + 120, 0.000_064_6],
+          [closedBucket + 180, 0.000_064_7],
+        ],
+      }),
+    ).toEqual([
+      [closedBucket - 120, 0.000_064_4],
+      [closedBucket - 60, 0.000_064_5],
+      [closedBucket, 0.000_065_3],
+    ]);
+  });
+
+  it('appends a live point on All-range series without a bucket width', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        livePrice: '332.41',
+        nowSeconds: closedBucket + 60,
+        points: [[closedBucket, 334.76]],
+      }),
+    ).toEqual([
+      [closedBucket, 334.76],
+      [closedBucket + 60, 332.41],
+    ]);
+  });
+
+  it('leaves empty or invalid live quotes untouched', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        livePrice: '332.41',
+        nowSeconds,
+        points: [],
+      }),
+    ).toEqual([]);
+    expect(
+      mergeStockSimpleChartLivePrice({
+        livePrice: 'n/a',
+        nowSeconds,
+        points,
+      }),
+    ).toBe(points);
+  });
+});
+
+describe('resolveStockSimpleChartDisplayPoints', () => {
+  const mondayPreMarketNow = Date.parse('2026-09-21T08:18:00Z') / 1000;
+  const mondayPreMarketOpen = Date.parse('2026-09-21T08:05:00Z') / 1000;
+
+  it('pins the live quote to the history already filtered by the backend', () => {
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        livePrice: '223.58',
+        nowSeconds: mondayPreMarketNow,
+        points: [[mondayPreMarketOpen, 223.1]],
+      }),
+    ).toEqual([
+      [mondayPreMarketOpen, 223.1],
+      [mondayPreMarketNow, 223.58],
+    ]);
+  });
+
+  it('keeps last-session history until a live quote exists', () => {
+    const points: IMarketTokenChart = [
+      [Date.parse('2026-09-18T20:00:00Z') / 1000, 222],
+    ];
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        livePrice: undefined,
+        nowSeconds: mondayPreMarketNow,
+        points,
+      }),
+    ).toBe(points);
+  });
+});
+
+describe('shouldStoreStockSimpleChartSeries', () => {
+  const baseParams = {
+    currentScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestSeq: 2,
+    storedSeq: 1,
+  };
+
+  it('stores a newer response for the current scope', () => {
+    expect(shouldStoreStockSimpleChartSeries(baseParams)).toBe(true);
+  });
+
+  it('stores the first response of a session', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 1,
+        storedSeq: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  // Two refreshes of one scope can overlap and answer out of order; the older
+  // one must not restore its series over the newer one.
+  it('drops a response overtaken by a later request', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 2,
+        storedSeq: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('drops a response whose scope the user has left', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        currentScopeKey: 'token|1W|evm--1|0xabc|||',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveStockSimpleChartMinRefreshMs', () => {
+  it('refetches fine-bucket ranges more often than coarse ones', () => {
+    const oneHour = resolveStockSimpleChartMinRefreshMs({ range: '1H' });
+    const oneYear = resolveStockSimpleChartMinRefreshMs({ range: '1Y' });
+    expect(oneHour).toBeLessThan(oneYear);
+  });
+
+  it('keeps every range on a positive floor', () => {
+    for (const range of TOKEN_SIMPLE_CHART_RANGES) {
+      expect(resolveStockSimpleChartMinRefreshMs({ range })).toBeGreaterThan(0);
+    }
+  });
+
+  // A per-range pollingInterval would make usePromiseResult withhold the
+  // dependency-triggered run for the full new duration on every range switch.
+  it('paces ranges without varying the polling interval', () => {
+    expect(STOCK_SIMPLE_CHART_POLLING_MS).toBeGreaterThan(0);
+    const floors = TOKEN_SIMPLE_CHART_RANGES.map((range) =>
+      resolveStockSimpleChartMinRefreshMs({ range }),
+    );
+    expect(Math.min(...floors)).toBeGreaterThanOrEqual(
+      STOCK_SIMPLE_CHART_POLLING_MS,
+    );
+  });
+});
+
+describe('buildStockSimpleChartScopeKey', () => {
+  const baseScope = {
+    networkId: 'evm--4663',
+    priceMode: 'token' as const,
+    range: '1D' as const,
+    tokenAddress: '0xabc',
+  };
+
+  it('matches itself for an unchanged scope', () => {
+    expect(buildStockSimpleChartScopeKey(baseScope)).toBe(
+      buildStockSimpleChartScopeKey(baseScope),
+    );
+  });
+
+  it('separates a different range, token, network or price mode', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, range: '1W' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, tokenAddress: '0xdef' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, networkId: 'evm--56' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, priceMode: 'share' }),
+    ).not.toBe(key);
+  });
+
+  it('separates series that only differ by their upstream id', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, stockId: 'AAPL' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, marketAssetId: 'bitcoin' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, coinGeckoId: 'bitcoin' }),
+    ).not.toBe(key);
   });
 });

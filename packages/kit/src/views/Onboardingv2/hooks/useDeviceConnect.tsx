@@ -10,6 +10,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Button, Dialog, Stack, Toast, XStack } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EHardwareUiStateAction,
@@ -19,7 +20,10 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  isDesktopBlePairingCanceledError,
+  isOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -29,7 +33,6 @@ import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceSt
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -249,6 +252,9 @@ export function useDeviceConnect({
         setCurrentDevice?.(connectedDevice);
         return features;
       } catch (error: any) {
+        if (isDesktopBlePairingCanceledError(error)) {
+          throw error;
+        }
         if (isOneKeyHardwareError(error)) {
           const { code, message } = error;
           if (
@@ -351,6 +357,7 @@ export function useDeviceConnect({
     async (
       previousDevice: SearchDevice,
       onConnectId?: (connectId: string) => void,
+      options?: { allowBootloaderRecovery: boolean },
     ) => {
       wasInBootloaderModeRef.current = true;
       await ensureStopScan();
@@ -374,11 +381,14 @@ export function useDeviceConnect({
             },
           }),
         onConnectId,
+        allowBootloaderRecovery: options?.allowBootloaderRecovery,
       });
       activeDeviceRef.current = { ...result.device };
       activeFeaturesRef.current = result.features;
-      wasInBootloaderModeRef.current = false;
-      await bootloaderModeDialogManager.close();
+      wasInBootloaderModeRef.current = Boolean(result.features.bootloader_mode);
+      if (!wasInBootloaderModeRef.current) {
+        await bootloaderModeDialogManager.close();
+      }
       setCurrentDevice?.(result.device);
       defaultLogger.hardware.sdkLog.log(
         'Firmware reconnect succeeded',
@@ -489,7 +499,10 @@ export function useDeviceConnect({
                         flex={1}
                         size="large"
                         $gtMd={{ size: 'medium' } as any}
-                        onPress={() => showIntercom()}
+                        onPress={async () => {
+                          await packageAlertDialog.close();
+                          await showIntercom();
+                        }}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
@@ -578,6 +591,7 @@ export function useDeviceConnect({
             connectId: device.connectId ?? '',
             deviceType: device.deviceType ?? undefined,
             deviceName: device.name ?? undefined,
+            deviceColor: deviceUtils.getDeviceColorFromSearchDevice(device),
           });
         // The iOS wait is for the legacy Sheet's mount acknowledgement —
         // with the stage owning the surface no Sheet mounts, so waiting
@@ -958,9 +972,12 @@ export function useDeviceConnect({
       isFirmwareVerified?: boolean,
       deviceState?: IOneKeyDeviceState,
       connectProtocol?: HardwareConnectProtocol,
+      skipFinalizeNavigation?: boolean,
     ) => {
       try {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        if (!skipFinalizeNavigation) {
+          navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        }
 
         const params: IDBCreateHwWalletParamsBase = {
           device,
@@ -996,7 +1013,9 @@ export function useDeviceConnect({
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
-        navigation.pop();
+        if (!skipFinalizeNavigation) {
+          navigation.pop();
+        }
         await trackHardwareWalletConnection({
           status: 'failure',
           deviceType: device.deviceType,
@@ -1024,11 +1043,13 @@ export function useDeviceConnect({
       isFirmwareVerified,
       vendor,
       connectProtocol,
+      skipFinalizeNavigation,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
       vendor?: EHardwareVendor;
       connectProtocol?: HardwareConnectProtocol;
+      skipFinalizeNavigation?: boolean;
     }) => {
       // For third-party vendor devices (Ledger), skip OneKey SDK
       // connection/features flow and create wallet directly.
@@ -1102,6 +1123,7 @@ export function useDeviceConnect({
         isFirmwareVerified,
         deviceState,
         resolvedConnectProtocol,
+        skipFinalizeNavigation,
       );
     },
     [

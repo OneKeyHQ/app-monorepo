@@ -3,7 +3,10 @@ import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { mergePrimeInfiniPaymentProgressSnapshot } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  hasPrimeInfiniPaymentProgressSnapshot,
+  mergePrimeInfiniPaymentProgressSnapshot,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
   createPrimeInfiniPaymentValidationError,
   getPrimeInfiniPaymentValidationFailure,
@@ -11,6 +14,7 @@ import {
 import type {
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentAsset,
+  IPrimeInfiniPaymentCacheKey,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
@@ -59,6 +63,7 @@ function getProcessingFailureReason(reason: string) {
 export function usePrimeInfiniPaymentPolling({
   flowId,
   payment,
+  paymentCacheKey,
   asset,
   baseline,
   enabled,
@@ -69,6 +74,7 @@ export function usePrimeInfiniPaymentPolling({
 }: {
   flowId?: string;
   payment: IPrimeInfiniPayment | undefined;
+  paymentCacheKey: IPrimeInfiniPaymentCacheKey;
   asset: IPrimeInfiniPaymentAsset;
   baseline: IPrimeInfiniPurchaseBaseline;
   enabled: boolean;
@@ -170,10 +176,31 @@ export function usePrimeInfiniPaymentPolling({
         };
       }
 
-      const currentPayment = mergePrimeInfiniPaymentProgressSnapshot({
+      let currentPayment = mergePrimeInfiniPaymentProgressSnapshot({
         previous: frozenPayment,
         latest: paymentResult.value,
       });
+      if (
+        hasPrimeInfiniPaymentProgressSnapshot(currentPayment) &&
+        (currentPayment.amountConfirmed !== frozenPayment.amountConfirmed ||
+          currentPayment.amountConfirming !== frozenPayment.amountConfirming)
+      ) {
+        const persistedSession =
+          await backgroundApiProxy.simpleDb.prime.latchInfiniPendingPaymentSessionProgress(
+            {
+              onekeyUserId: baseline.onekeyUserId ?? '',
+              paymentCacheKey,
+              latestPayment: paymentResult.value,
+            },
+          );
+        if (!persistedSession) {
+          throw new OneKeyLocalError('Infini payment session changed');
+        }
+        currentPayment = mergePrimeInfiniPaymentProgressSnapshot({
+          previous: persistedSession.payment,
+          latest: currentPayment,
+        });
+      }
       const currentOutcome = getPrimeInfiniPaymentOutcome({
         payment: currentPayment,
       });
@@ -223,7 +250,7 @@ export function usePrimeInfiniPaymentPolling({
         issue,
       };
     },
-    [asset, baseline, payment],
+    [asset, baseline, payment, paymentCacheKey],
   );
 
   const handleSuccess = useCallback(
@@ -307,6 +334,7 @@ export function usePrimeInfiniPaymentPolling({
   );
 
   const sessionKey = [
+    paymentCacheKey.bindingId,
     payment?.paymentId ?? '',
     asset.key,
     asset.networkId,

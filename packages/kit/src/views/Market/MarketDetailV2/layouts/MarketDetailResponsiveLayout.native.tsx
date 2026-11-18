@@ -3,6 +3,10 @@ import { MobileLayout } from './MobileLayout';
 import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiveLayout.types';
 
 export function MarketDetailResponsiveLayout({
+  active,
+  isLayoutPending,
+  pendingMarketAsset,
+  retryMarketAsset,
   isInitialContentPending,
   disablePerpsBanner,
   disableTrade,
@@ -14,10 +18,16 @@ export function MarketDetailResponsiveLayout({
   networkId,
   tokenAddress,
   marketTokenId,
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
   marketTokenCategory,
 }: IMarketDetailResponsiveLayoutProps) {
   return (
     <MobileLayout
+      active={active}
+      isLayoutPending={isLayoutPending}
+      pendingMarketAsset={pendingMarketAsset}
+      retryMarketAsset={retryMarketAsset}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
       disableTrade={disableTrade}
@@ -29,6 +39,8 @@ export function MarketDetailResponsiveLayout({
       networkId={networkId}
       tokenAddress={tokenAddress}
       marketTokenId={marketTokenId}
+      marketAssetDetail={marketAssetDetail}
+      isMarketAssetDetailLoading={isMarketAssetDetailLoading}
       marketTokenCategory={marketTokenCategory}
     />
   );

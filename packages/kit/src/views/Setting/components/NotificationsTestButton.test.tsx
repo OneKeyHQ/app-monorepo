@@ -27,8 +27,31 @@ let mockPermission:
 let mockIsLoading: boolean | undefined = false;
 
 const mockPlatformEnv = {
+  isNative: true,
   isNativeIOS: true,
+  isNativeAndroid: false,
 };
+
+const nativePlatformCases = [
+  {
+    name: 'iOS',
+    isNative: true,
+    isNativeIOS: true,
+    isNativeAndroid: false,
+  },
+  {
+    name: 'Android',
+    isNative: true,
+    isNativeIOS: false,
+    isNativeAndroid: true,
+  },
+] as const;
+
+function applyNativePlatform(platform: (typeof nativePlatformCases)[number]) {
+  mockPlatformEnv.isNative = platform.isNative;
+  mockPlatformEnv.isNativeIOS = platform.isNativeIOS;
+  mockPlatformEnv.isNativeAndroid = platform.isNativeAndroid;
+}
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -76,8 +99,14 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    get isNative() {
+      return mockPlatformEnv.isNative;
+    },
     get isNativeIOS() {
       return mockPlatformEnv.isNativeIOS;
+    },
+    get isNativeAndroid() {
+      return mockPlatformEnv.isNativeAndroid;
     },
   },
 }));
@@ -111,7 +140,187 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-describe('NotificationsTestButton', () => {
+describe.each(nativePlatformCases)(
+  'NotificationsTestButton ($name)',
+  (platform) => {
+    beforeEach(() => {
+      mockShowNotification.mockReset();
+      mockRecover.mockReset();
+      mockCanSend.mockReset();
+      mockReload.mockReset();
+      mockReload.mockResolvedValue(undefined);
+      mockUseHandleAppStateActive.mockReset();
+      mockRouteIsFocused = true;
+      applyNativePlatform(platform);
+      mockPermission = {
+        isSupported: true,
+        permission: ENotificationPermission.granted,
+      };
+      mockIsLoading = false;
+    });
+
+    it('does not flash Test while the OS permission is still loading', () => {
+      mockPermission = undefined;
+      mockIsLoading = undefined;
+      const { queryByText, getByTestId } = render(<NotificationsTestButton />);
+
+      expect(queryByText(ETranslations.global_test)).toBeNull();
+      expect(queryByText(ETranslations.global_enable)).toBeNull();
+      expect(queryByText(ETranslations.global_go_to_settings)).toBeNull();
+      fireEvent.click(getByTestId('setting-notification-permission-btn'));
+      expect(mockCanSend).not.toHaveBeenCalled();
+      expect(mockRecover).not.toHaveBeenCalled();
+    });
+
+    it('falls back to Test after the permission read finishes without a payload', () => {
+      mockPermission = undefined;
+      mockIsLoading = false;
+      const { getByTestId } = render(<NotificationsTestButton />);
+
+      expect(getByTestId('setting-intl-btn').textContent).toBe(
+        ETranslations.global_test,
+      );
+    });
+
+    it('shows only Test when the OS permission is already granted', () => {
+      const { queryByTestId, getByTestId } = render(
+        <NotificationsTestButton />,
+      );
+
+      expect(queryByTestId('setting-notification-permission-btn')).toBeNull();
+      expect(getByTestId('setting-intl-btn').textContent).toBe(
+        ETranslations.global_test,
+      );
+    });
+
+    it('shows only Enable while authorization is still undetermined', () => {
+      mockPermission = {
+        isSupported: true,
+        permission: ENotificationPermission.default,
+      };
+      const { getByTestId, queryByTestId } = render(
+        <NotificationsTestButton />,
+      );
+
+      expect(
+        getByTestId('setting-notification-permission-btn').textContent,
+      ).toBe(ETranslations.global_enable);
+      expect(queryByTestId('setting-intl-btn')).toBeNull();
+    });
+
+    it('shows Go to Settings after the system prompt has already been denied', () => {
+      mockPermission = {
+        isSupported: true,
+        permission: ENotificationPermission.denied,
+      };
+      const { getByTestId, queryByTestId } = render(
+        <NotificationsTestButton />,
+      );
+
+      expect(
+        getByTestId('setting-notification-permission-btn').textContent,
+      ).toBe(ETranslations.global_go_to_settings);
+      expect(queryByTestId('setting-intl-btn')).toBeNull();
+    });
+
+    it('reloads permission after the route regains focus', async () => {
+      const { rerender } = render(<NotificationsTestButton />);
+
+      expect(mockReload).not.toHaveBeenCalled();
+      mockRouteIsFocused = false;
+      rerender(<NotificationsTestButton />);
+      mockRouteIsFocused = true;
+      rerender(<NotificationsTestButton />);
+
+      await waitFor(() => expect(mockReload).toHaveBeenCalledTimes(1));
+    });
+
+    it('reloads permission when the app returns from background', () => {
+      render(<NotificationsTestButton />);
+
+      const onActive = mockUseHandleAppStateActive.mock.calls.at(-1)?.[0] as
+        | (() => void)
+        | undefined;
+      onActive?.();
+
+      expect(mockReload).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends the preview automatically after Enable is granted', async () => {
+      mockPermission = {
+        isSupported: true,
+        permission: ENotificationPermission.default,
+      };
+      mockRecover.mockResolvedValue({
+        isSupported: true,
+        permission: ENotificationPermission.granted,
+      });
+      mockShowNotification.mockResolvedValue({ notificationId: '1' });
+      const { getByTestId } = render(<NotificationsTestButton />);
+
+      fireEvent.click(getByTestId('setting-notification-permission-btn'));
+
+      await waitFor(() => {
+        expect(mockRecover).toHaveBeenCalledTimes(1);
+        expect(mockReload).toHaveBeenCalledTimes(1);
+        expect(mockShowNotification).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('does not send a preview if Enable is denied', async () => {
+      mockPermission = {
+        isSupported: true,
+        permission: ENotificationPermission.default,
+      };
+      mockRecover.mockResolvedValue({
+        isSupported: true,
+        permission: ENotificationPermission.denied,
+      });
+      const { getByTestId } = render(<NotificationsTestButton />);
+
+      fireEvent.click(getByTestId('setting-notification-permission-btn'));
+
+      await waitFor(() => {
+        expect(mockRecover).toHaveBeenCalledTimes(1);
+      });
+      expect(mockShowNotification).not.toHaveBeenCalled();
+    });
+
+    it('opens Settings from the denied CTA without sending a preview', async () => {
+      mockPermission = {
+        isSupported: true,
+        permission: ENotificationPermission.denied,
+      };
+      mockRecover.mockResolvedValue({
+        isSupported: true,
+        permission: ENotificationPermission.denied,
+      });
+      const { getByTestId } = render(<NotificationsTestButton />);
+
+      fireEvent.click(getByTestId('setting-notification-permission-btn'));
+
+      await waitFor(() => {
+        expect(mockRecover).toHaveBeenCalledTimes(1);
+      });
+      expect(mockShowNotification).not.toHaveBeenCalled();
+      expect(mockCanSend).not.toHaveBeenCalled();
+    });
+
+    it('sends the test notification from Test after permission is confirmed', async () => {
+      mockCanSend.mockResolvedValue(true);
+      mockShowNotification.mockResolvedValue({ notificationId: '1' });
+      const { getByTestId } = render(<NotificationsTestButton />);
+
+      fireEvent.click(getByTestId('setting-intl-btn'));
+
+      await waitFor(() => {
+        expect(mockShowNotification).toHaveBeenCalledTimes(1);
+      });
+    });
+  },
+);
+
+describe('NotificationsTestButton non-native', () => {
   beforeEach(() => {
     mockShowNotification.mockReset();
     mockRecover.mockReset();
@@ -120,78 +329,17 @@ describe('NotificationsTestButton', () => {
     mockReload.mockResolvedValue(undefined);
     mockUseHandleAppStateActive.mockReset();
     mockRouteIsFocused = true;
-    mockPlatformEnv.isNativeIOS = true;
-    mockPermission = {
-      isSupported: true,
-      permission: ENotificationPermission.granted,
-    };
-    mockIsLoading = false;
-  });
-
-  it('does not flash Test while the OS permission is still loading', () => {
-    mockPermission = undefined;
-    mockIsLoading = undefined;
-    const { queryByText, getByTestId } = render(<NotificationsTestButton />);
-
-    expect(queryByText(ETranslations.global_test)).toBeNull();
-    expect(queryByText(ETranslations.global_enable)).toBeNull();
-    expect(queryByText(ETranslations.global_go_to_settings)).toBeNull();
-    fireEvent.click(getByTestId('setting-notification-permission-btn'));
-    expect(mockCanSend).not.toHaveBeenCalled();
-    expect(mockRecover).not.toHaveBeenCalled();
-  });
-
-  it('falls back to Test after the permission read finishes without a payload', () => {
-    mockPermission = undefined;
-    mockIsLoading = false;
-    const { getByTestId } = render(<NotificationsTestButton />);
-
-    expect(getByTestId('setting-intl-btn').textContent).toBe(
-      ETranslations.global_test,
-    );
-  });
-
-  it('shows only Test when the OS permission is already granted', () => {
-    const { queryByTestId, getByTestId } = render(<NotificationsTestButton />);
-
-    expect(queryByTestId('setting-notification-permission-btn')).toBeNull();
-    expect(getByTestId('setting-intl-btn').textContent).toBe(
-      ETranslations.global_test,
-    );
-  });
-
-  it('shows only Enable while authorization is still undetermined', () => {
-    mockPermission = {
-      isSupported: true,
-      permission: ENotificationPermission.default,
-    };
-    const { getByTestId, queryByTestId } = render(<NotificationsTestButton />);
-
-    expect(getByTestId('setting-notification-permission-btn').textContent).toBe(
-      ETranslations.global_enable,
-    );
-    expect(queryByTestId('setting-intl-btn')).toBeNull();
-  });
-
-  it('shows Go to Settings after the system prompt has already been denied', () => {
-    mockPermission = {
-      isSupported: true,
-      permission: ENotificationPermission.denied,
-    };
-    const { getByTestId, queryByTestId } = render(<NotificationsTestButton />);
-
-    expect(getByTestId('setting-notification-permission-btn').textContent).toBe(
-      ETranslations.global_go_to_settings,
-    );
-    expect(queryByTestId('setting-intl-btn')).toBeNull();
-  });
-
-  it('keeps the existing Test action on Android', () => {
+    mockPlatformEnv.isNative = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isNativeAndroid = false;
     mockPermission = {
       isSupported: true,
       permission: ENotificationPermission.denied,
     };
+    mockIsLoading = false;
+  });
+
+  it('keeps the existing Test action on non-native platforms', () => {
     const { queryByTestId, getByTestId } = render(<NotificationsTestButton />);
 
     expect(queryByTestId('setting-notification-permission-btn')).toBeNull();
@@ -200,97 +348,9 @@ describe('NotificationsTestButton', () => {
     );
   });
 
-  it('reloads permission after the route regains focus', async () => {
-    const { rerender } = render(<NotificationsTestButton />);
-
-    expect(mockReload).not.toHaveBeenCalled();
-    mockRouteIsFocused = false;
-    rerender(<NotificationsTestButton />);
-    mockRouteIsFocused = true;
-    rerender(<NotificationsTestButton />);
-
-    await waitFor(() => expect(mockReload).toHaveBeenCalledTimes(1));
-  });
-
-  it('reloads permission when the app returns from background', () => {
+  it('does not subscribe to app-active reloads outside native', () => {
     render(<NotificationsTestButton />);
 
-    const onActive = mockUseHandleAppStateActive.mock.calls.at(-1)?.[0] as
-      | (() => void)
-      | undefined;
-    onActive?.();
-
-    expect(mockReload).toHaveBeenCalledTimes(1);
-  });
-
-  it('sends the preview automatically after Enable is granted', async () => {
-    mockPermission = {
-      isSupported: true,
-      permission: ENotificationPermission.default,
-    };
-    mockRecover.mockResolvedValue({
-      isSupported: true,
-      permission: ENotificationPermission.granted,
-    });
-    mockShowNotification.mockResolvedValue({ notificationId: '1' });
-    const { getByTestId } = render(<NotificationsTestButton />);
-
-    fireEvent.click(getByTestId('setting-notification-permission-btn'));
-
-    await waitFor(() => {
-      expect(mockRecover).toHaveBeenCalledTimes(1);
-      expect(mockReload).toHaveBeenCalledTimes(1);
-      expect(mockShowNotification).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('does not send a preview if Enable is denied', async () => {
-    mockPermission = {
-      isSupported: true,
-      permission: ENotificationPermission.default,
-    };
-    mockRecover.mockResolvedValue({
-      isSupported: true,
-      permission: ENotificationPermission.denied,
-    });
-    const { getByTestId } = render(<NotificationsTestButton />);
-
-    fireEvent.click(getByTestId('setting-notification-permission-btn'));
-
-    await waitFor(() => {
-      expect(mockRecover).toHaveBeenCalledTimes(1);
-    });
-    expect(mockShowNotification).not.toHaveBeenCalled();
-  });
-
-  it('opens Settings from the denied CTA without sending a preview', async () => {
-    mockPermission = {
-      isSupported: true,
-      permission: ENotificationPermission.denied,
-    };
-    mockRecover.mockResolvedValue({
-      isSupported: true,
-      permission: ENotificationPermission.denied,
-    });
-    const { getByTestId } = render(<NotificationsTestButton />);
-
-    fireEvent.click(getByTestId('setting-notification-permission-btn'));
-
-    await waitFor(() => {
-      expect(mockRecover).toHaveBeenCalledTimes(1);
-    });
-    expect(mockShowNotification).not.toHaveBeenCalled();
-  });
-
-  it('sends the test notification from Test after permission is confirmed', async () => {
-    mockCanSend.mockResolvedValue(true);
-    mockShowNotification.mockResolvedValue({ notificationId: '1' });
-    const { getByTestId } = render(<NotificationsTestButton />);
-
-    fireEvent.click(getByTestId('setting-intl-btn'));
-
-    await waitFor(() => {
-      expect(mockShowNotification).toHaveBeenCalledTimes(1);
-    });
+    expect(mockUseHandleAppStateActive.mock.calls.at(-1)?.[0]).toBeUndefined();
   });
 });

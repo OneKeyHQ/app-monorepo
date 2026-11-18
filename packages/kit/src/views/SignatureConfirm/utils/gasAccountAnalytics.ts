@@ -52,6 +52,21 @@ export function getGasAccountFiatBucket(
   return 'gte_5';
 }
 
+// Backend-side reason a sponsored quote was not offered. The L3 scenario gate
+// reason wins because OnChain reports it with the policy outcome; otherwise
+// the open-string skip reason (member_* / eligibility_*) explains the
+// self-pay fallback, and 'backend_unknown' marks a silent one.
+export function getBackendGasAccountUnavailableReason(params: {
+  gasAccountScenarioReason: string | undefined;
+  gasAccountSkipReason: string | undefined;
+}): string {
+  return (
+    params.gasAccountScenarioReason ??
+    params.gasAccountSkipReason ??
+    'backend_unknown'
+  );
+}
+
 export function buildGasAccountAnalyticsContext(params: {
   entryPoint: IGasAccountAnalyticsContext['entryPoint'];
   network: string;
@@ -62,6 +77,8 @@ export function buildGasAccountAnalyticsContext(params: {
   selectedPayer: 'user' | 'gasAccount';
   effectiveFeePayer: IGasPayer;
   unavailableReason: string | undefined;
+  gasAccountSkipReason?: string;
+  quoteOwnerType?: string;
   estimatedGasNative: string | undefined;
   nativeBalance: string | undefined;
   nativePrincipal: string | undefined;
@@ -135,6 +152,8 @@ export function buildGasAccountAnalyticsContext(params: {
     selectedPayer: params.selectedPayer,
     effectiveFeePayer: params.effectiveFeePayer,
     unavailableReason: params.unavailableReason,
+    gasAccountSkipReason: params.gasAccountSkipReason,
+    quoteOwnerType: params.quoteOwnerType,
     nativeBalanceAvailable: Boolean(nativeBalance),
     selfPayGasSufficient: nativeBalance
       ? nativeBalance.gte(requiredWithGas)

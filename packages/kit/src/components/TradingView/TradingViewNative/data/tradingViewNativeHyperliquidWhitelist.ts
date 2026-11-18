@@ -54,6 +54,13 @@ export const TRADING_VIEW_NATIVE_HYPERLIQUID_WHITELIST = {
     networkId: networkIdsMap.hyperevm,
     swap: { coin: '@107', type: 'hyperliquid' },
   },
+  sol: {
+    isNative: true,
+    market: { coin: 'SOL', type: 'hyperliquid' },
+    networkId: networkIdsMap.sol,
+    swap: { coin: 'SOL', type: 'hyperliquid' },
+    wallet: { coin: 'SOL', type: 'hyperliquid' },
+  },
 } as const satisfies Record<string, ITradingViewNativeHyperliquidWhitelistItem>;
 
 export function getTradingViewNativeWhitelistedHyperliquidSource({

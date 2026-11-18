@@ -15,6 +15,7 @@ import {
   activeAccountTokenListStateAtom,
   contextAtomMethod,
   createAccountStateAtom,
+  portfolioSyncUiStateAtom,
   processingTokenStateAtom,
   searchKeyAtom,
   searchTokenListAtom,
@@ -80,6 +81,24 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     ) => {
       set(tokenListStateAtom(), (v) => ({
         ...v,
+        ...payload,
+      }));
+    },
+  );
+
+  updatePortfolioSyncUiState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        disabled?: boolean;
+        visible?: boolean;
+        loading?: boolean;
+        request?: () => void;
+      },
+    ) => {
+      set(portfolioSyncUiStateAtom(), (value) => ({
+        ...value,
         ...payload,
       }));
     },
@@ -174,6 +193,8 @@ export function useTokenListActions() {
 
   const updateTokenListState = actions.updateTokenListState.use();
 
+  const updatePortfolioSyncUiState = actions.updatePortfolioSyncUiState.use();
+
   const updateSearchTokenState = actions.updateSearchTokenState.use();
 
   const updateCreateAccountState = actions.updateCreateAccountState.use();
@@ -192,6 +213,7 @@ export function useTokenListActions() {
     refreshSearchTokenList,
     updateSearchKey,
     updateTokenListState,
+    updatePortfolioSyncUiState,
     updateSearchTokenState,
     updateCreateAccountState,
     updateProcessingTokenState,

@@ -22,6 +22,7 @@ export const CARD_ARRANGEMENTS = [
   'pairingCode',
   'deviceNotFound',
   'btcHighIndex',
+  'qrFallback',
   'installConfirm',
   'installing',
   'installBatch',

@@ -22,6 +22,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { queryAddressWithFallback } from '@onekeyhq/kit/src/components/AddressInput/utils';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -30,10 +31,13 @@ import {
   EModalAddressRiskCheckRoutes,
   type IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAddressRiskCheckRecentItem } from '@onekeyhq/shared/types/addressRiskCheck';
 
 import useConfigurableChainSelector from '../../ChainSelector/hooks/useChainSelector';
+import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
@@ -46,8 +50,13 @@ function AddressRiskCheckInput() {
   const navigation = useAppNavigation();
   const openChainSelector = useConfigurableChainSelector();
   const { getClipboard } = useClipboard();
-  const { isChecking, checkRisk } = useCheckAddressRisk();
+  const { checkRisk } = useCheckAddressRisk();
   const { items: recentChecks, networkNameMap } = useRecentChecks({ limit: 3 });
+  // Check history (incl. the recent list here) is open to any logged-in user,
+  // Prime or free trial.
+  const { isLoggedIn, isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  const canViewHistory = Boolean(isLoggedIn);
 
   const route =
     useRoute<
@@ -187,9 +196,21 @@ function AddressRiskCheckInput() {
     }
   }, [getClipboard]);
 
-  const handleOpenHistory = useCallback(() => {
+  const handleOpenHistory = useCallback(async () => {
+    if (!canViewHistory) {
+      // Logged out (e.g. signed out while on this page): log in first, the
+      // same as the feature entry.
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        networkId: activeNetworkId,
+        loginOnly: true,
+      });
+      if (!access.granted) {
+        return;
+      }
+    }
     navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckHistory);
-  }, [navigation]);
+  }, [activeNetworkId, canViewHistory, ensureFeatureAccess, navigation]);
 
   const handleRecentPress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
@@ -245,7 +266,6 @@ function AddressRiskCheckInput() {
                 id: ETranslations.address_risk_check_intro__desc,
               })}
             </SizableText>
-
             <YStack gap="$1.5">
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({ id: ETranslations.global_network })}
@@ -387,7 +407,7 @@ function AddressRiskCheckInput() {
             </YStack>
           </YStack>
 
-          {recentChecks.length ? (
+          {canViewHistory && recentChecks.length ? (
             <YStack pb="$4">
               <XStack px="$5" py="$2" ai="center" jc="space-between">
                 <SizableText size="$headingSm" color="$textSubdued">
@@ -417,13 +437,26 @@ function AddressRiskCheckInput() {
           ) : null}
         </ScrollView>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.address_risk_check_check_risk__action,
-        })}
-        confirmButtonProps={{ loading: isChecking, disabled: !canCheck }}
-        onConfirm={handleCheck}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          gap="$3"
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.address_risk_check_check_risk__action,
+          })}
+          confirmButtonProps={{
+            disabled: !canCheck,
+            iconAfter: isPrimeSubscriptionActive ? undefined : 'PrimeOutline',
+          }}
+          onConfirm={handleCheck}
+        >
+          {/* Left of the button on wide screens, above it on narrow ones. */}
+          <PrimeFreeTrialRemainingHint
+            featureId={EPrimeFeatures.AddressRiskCheck}
+            $md={{ alignSelf: 'center', textAlign: 'center' }}
+            $gtMd={{ flex: 1 }}
+          />
+        </Page.FooterActions>
+      </Page.Footer>
     </Page>
   );
 }

@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -215,10 +215,12 @@ function ContractAddressValue({
 }
 
 export function SwapStockTokenDetails({
+  summary = false,
   loading,
   networkId,
   tokenDetail,
 }: {
+  summary?: boolean;
   loading?: boolean;
   networkId?: string;
   tokenDetail?: IMarketTokenDetail;
@@ -260,7 +262,11 @@ export function SwapStockTokenDetails({
       : undefined;
 
   return (
-    <YStack mt="$6" gap="$2.5" testID={SwapTestIDs.stockTokenDetails}>
+    <YStack
+      mt={summary ? '$0' : '$6'}
+      gap="$2.5"
+      testID={SwapTestIDs.stockTokenDetails}
+    >
       <SizableText size="$bodyMdMedium" color="$text">
         {intl.formatMessage({ id: ETranslations.trade_stocks_token_details })}
       </SizableText>
@@ -268,19 +274,21 @@ export function SwapStockTokenDetails({
         gap="$2"
         testID={loading ? SwapTestIDs.stockTokenDetailsLoading : undefined}
       >
-        <TokenDetailRow
-          label={intl.formatMessage({
-            id: ETranslations.trade_stocks_underlying_asset,
-          })}
-        >
-          {loading ? (
-            <Skeleton h="$5" w="$12" />
-          ) : (
-            <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-              {stock?.underlyingAssetTicker ?? '--'}
-            </SizableText>
-          )}
-        </TokenDetailRow>
+        {summary ? null : (
+          <TokenDetailRow
+            label={intl.formatMessage({
+              id: ETranslations.trade_stocks_underlying_asset,
+            })}
+          >
+            {loading ? (
+              <Skeleton h="$5" w="$12" />
+            ) : (
+              <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+                {stock?.underlyingAssetTicker ?? '--'}
+              </SizableText>
+            )}
+          </TokenDetailRow>
+        )}
         <TokenDetailRow
           label={intl.formatMessage({
             id: ETranslations.trade_stocks_token_issuer,
@@ -304,7 +312,7 @@ export function SwapStockTokenDetails({
             </XStack>
           )}
         </TokenDetailRow>
-        {ratioValue ? (
+        {!summary && ratioValue ? (
           <TokenDetailRow
             label={intl.formatMessage({
               id: ETranslations.trade_stocks_token_to_share_ratio,

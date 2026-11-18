@@ -28,6 +28,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EProtocolOfExchange,
@@ -39,6 +40,7 @@ import {
   resolveSwapBalanceDisplayCacheEntry,
   updateSwapBalanceDisplayCache,
 } from '../utils/swapBalanceDisplayCacheUtils';
+import { isSwapBalanceLoadedZero } from '../utils/swapDepositActionUtils';
 import { calcSwapProSliderAvailableBalance } from '../utils/swapProAmountSliderUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
@@ -55,10 +57,12 @@ import {
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
 import {
+  type IStockResolvedTokenPrice,
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
   markStockUsdPriceCurrency,
   resolveStockTokenPrice,
+  resolveStockTradeTokenPrice,
 } from './swapStockFiatValueUtils';
 import {
   buildStockTokenDetailsRequestScope,
@@ -222,15 +226,16 @@ function useStockInputTokenBalance({
   const { result: detailState, isLoading: detailLoading } = usePromiseResult(
     async () => {
       const requestScope = balanceScope;
+      // An explicit refresh (manual, or a settled swap on the sell side)
+      // always revalidates, even where pay-token details own the refreshes.
       const shouldExplicitlyRevalidate =
-        !refreshOwnedByPayTokenDetails &&
         explicitRevalidationOwnerScopeRef.current === balanceOwnerScope;
       if (shouldExplicitlyRevalidate) {
         explicitRevalidationOwnerScopeRef.current = '';
       }
       const requestMode =
-        !refreshOwnedByPayTokenDetails &&
-        (shouldExplicitlyRevalidate ||
+        shouldExplicitlyRevalidate ||
+        (!refreshOwnedByPayTokenDetails &&
           completedBalanceScopeRef.current === requestScope)
           ? 'revalidate'
           : 'dedupe';
@@ -256,18 +261,10 @@ function useStockInputTokenBalance({
           tokenDetail: token,
         });
       }
-      const details = await runStockPayTokenDetailsRequest({
-        mode: requestMode,
-        scope: buildStockTokenDetailsRequestScope({
-          protocol: EProtocolOfExchange.STOCK,
-          networkId: token.networkId,
-          contractAddress: token.contractAddress,
-          accountId: networkAccount.id,
-          accountAddress: networkAccount.address,
-          currency: 'usd',
-        }),
-        request: () =>
-          backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+      try {
+        const details = await runStockPayTokenDetailsRequest({
+          mode: requestMode,
+          scope: buildStockTokenDetailsRequestScope({
             protocol: EProtocolOfExchange.STOCK,
             networkId: token.networkId,
             contractAddress: token.contractAddress,
@@ -275,14 +272,33 @@ function useStockInputTokenBalance({
             accountAddress: networkAccount.address,
             currency: 'usd',
           }),
-      });
-      const authoritativeBalance = details?.[0]?.balanceParsed;
-      return completeRequestScope({
-        scope: balanceScope,
-        balance: authoritativeBalance,
-        hasAuthoritativeBalance: authoritativeBalance !== undefined,
-        tokenDetail: markStockUsdPriceCurrency(details?.[0]),
-      });
+          request: () =>
+            backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              protocol: EProtocolOfExchange.STOCK,
+              networkId: token.networkId,
+              contractAddress: token.contractAddress,
+              accountId: networkAccount.id,
+              accountAddress: networkAccount.address,
+              currency: 'usd',
+            }),
+        });
+        const authoritativeBalance = details?.[0]?.balanceParsed;
+        return completeRequestScope({
+          scope: balanceScope,
+          balance: authoritativeBalance,
+          hasAuthoritativeBalance: authoritativeBalance !== undefined,
+          tokenDetail: markStockUsdPriceCurrency(details?.[0]),
+        });
+      } catch {
+        // Publish a settled failure for this scope instead of letting the
+        // promise hook retain a previous successful result as authoritative.
+        return completeRequestScope({
+          scope: balanceScope,
+          balance: undefined as string | undefined,
+          hasAuthoritativeBalance: false,
+          tokenDetail: undefined as ISwapToken | undefined,
+        });
+      }
     },
     [
       balanceScope,
@@ -305,6 +321,14 @@ function useStockInputTokenBalance({
     },
   );
 
+  // Explicit revalidation of the current token + account: manual refresh, or a
+  // settled swap on the sell side. The snapshot below keeps the last figure on
+  // screen until the new one lands.
+  const refresh = useCallback(() => {
+    explicitRevalidationOwnerScopeRef.current = balanceOwnerScope;
+    setRefreshKey((value) => value + 1);
+  }, [balanceOwnerScope]);
+
   useEffect(() => {
     if (!enabled || !token?.networkId || refreshOwnedByPayTokenDetails) {
       return;
@@ -320,8 +344,7 @@ function useStockInputTokenBalance({
         equalTokenNoCaseSensitive({ token1: fromToken, token2: token }) ||
         equalTokenNoCaseSensitive({ token1: toToken, token2: token })
       ) {
-        explicitRevalidationOwnerScopeRef.current = balanceOwnerScope;
-        setRefreshKey((value) => value + 1);
+        refresh();
       }
     };
     appEventBus.on(
@@ -334,7 +357,7 @@ function useStockInputTokenBalance({
         handleSwapHistoryStatusUpdate,
       );
     };
-  }, [balanceOwnerScope, enabled, refreshOwnedByPayTokenDetails, token]);
+  }, [enabled, refresh, refreshOwnedByPayTokenDetails, token]);
 
   const detailResolved = detailState.scope === balanceScope;
   const authoritativeBalance =
@@ -343,11 +366,23 @@ function useStockInputTokenBalance({
       : undefined;
   const authoritativeTokenDetail =
     authoritativeBalance !== undefined ? detailState.tokenDetail : undefined;
+  // A request for the current scope is in flight (including a manual refresh);
+  // `settledBalance` keeps the last figure on screen meanwhile.
+  const requestPending = Boolean(
+    enabled &&
+    token &&
+    (!detailResolved ||
+      networkAccountLoading ||
+      shouldWaitForNetworkAccount ||
+      detailLoading),
+  );
+  const requestSettled = Boolean(enabled && token && !requestPending);
   const balanceState = resolveStockBalanceSnapshot({
     authoritativeBalance,
     authoritativeTokenDetail,
     ownerScope: balanceOwnerScope,
     previousSnapshot: lastValidBalanceStateRef.current,
+    requestSettled,
     seededBalance: enabled ? seededBalance : undefined,
     seededTokenDetail: enabled ? token : undefined,
   });
@@ -400,30 +435,30 @@ function useStockInputTokenBalance({
     balance: balanceViewState.balance,
     displayBalance: balanceViewState.displayBalance,
     ownerScope: balanceOwnerScope,
+    refresh,
+    refreshing: requestPending,
+    // Authoritative when resolved, otherwise the figure carried over from the
+    // previous snapshot (same token + account) or seeded from the token.
+    settledBalance: balanceState?.balance,
+    settledBalanceUnverified: balanceState?.unverified ?? false,
     tokenDetail: balanceViewState.tokenDetail,
     loading: isStockBalanceInitializing({
       balance: balanceViewState.displayBalance,
-      requestPending:
-        enabled &&
-        Boolean(
-          token &&
-          (!detailResolved ||
-            networkAccountLoading ||
-            shouldWaitForNetworkAccount ||
-            detailLoading),
-        ),
+      requestPending,
     }),
   };
 }
 
 export function useSwapStockEstimatedReceiveState({
   forceHideQuote,
+  inputTokenPrice,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
   stockChannel,
 }: {
   forceHideQuote?: boolean;
+  inputTokenPrice?: IStockResolvedTokenPrice;
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
@@ -479,72 +514,53 @@ export function useSwapStockEstimatedReceiveState({
     currencyMap[settingsPersistAtom.currencyInfo.id]?.unit ??
     currencyMap[STOCK_PRICE_SOURCE_CURRENCY]?.unit ??
     settingsPersistAtom.currencyInfo.symbol;
+  const receiveTokenPrice = resolveStockTradeTokenPrice({
+    token: receiveToken,
+    quoteToken: quoteMatchesStockTrade ? quoteResult?.toTokenInfo : undefined,
+    stockTokenDetail: stockChannel.activeStockTokenDetail,
+  });
   const receiveFiatValue = useMemo(() => {
-    const targetCurrency = settingsPersistAtom.currencyInfo.id;
-    const quoteTokenPrice = quoteMatchesStockTrade
-      ? resolveStockTokenPrice({
-          token: quoteResult?.toTokenInfo,
-          fallbackCurrency: targetCurrency,
-        })
-      : undefined;
-    const receiveTokenPrice = resolveStockTokenPrice({
-      token: receiveToken,
-      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
-    });
     return getStockTokenFiatValue({
       amount: receiveAmount,
-      tokenPrice: quoteTokenPrice ?? receiveTokenPrice,
-      targetCurrency,
+      tokenPrice: receiveTokenPrice,
+      targetCurrency: settingsPersistAtom.currencyInfo.id,
       currencyMap,
     });
   }, [
     currencyMap,
     receiveAmount,
-    quoteMatchesStockTrade,
-    quoteResult?.toTokenInfo,
-    receiveToken,
+    receiveTokenPrice,
     settingsPersistAtom.currencyInfo.id,
   ]);
   const rateDifference = useMemo(() => {
     if (!quoteMatchesStockTrade) {
       return undefined;
     }
-    const targetCurrency = settingsPersistAtom.currencyInfo.id;
     const fromTokenPrice =
-      resolveStockTokenPrice({
-        token: quoteResult?.fromTokenInfo,
-        fallbackCurrency: targetCurrency,
-      }) ??
-      resolveStockTokenPrice({
+      inputTokenPrice ??
+      resolveStockTradeTokenPrice({
         token: sendToken,
-        fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
-      });
-    const toTokenPrice =
-      resolveStockTokenPrice({
-        token: quoteResult?.toTokenInfo,
-        fallbackCurrency: targetCurrency,
-      }) ??
-      resolveStockTokenPrice({
-        token: receiveToken,
-        fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+        quoteToken: quoteResult?.fromTokenInfo,
+        stockTokenDetail: stockChannel.activeStockTokenDetail,
       });
     return buildSwapRateDifference({
       fromTokenPrice: fromTokenPrice?.price,
-      toTokenPrice: toTokenPrice?.price,
+      toTokenPrice: receiveTokenPrice?.price,
       fromTokenCurrency: fromTokenPrice?.currency,
-      toTokenCurrency: toTokenPrice?.currency,
+      toTokenCurrency: receiveTokenPrice?.currency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
+      strictCurrencyConversion: true,
     });
   }, [
     currencyMap,
+    inputTokenPrice,
     quoteMatchesStockTrade,
     quoteResult?.fromTokenInfo,
     quoteResult?.instantRate,
-    quoteResult?.toTokenInfo,
-    receiveToken,
+    receiveTokenPrice,
     sendToken,
-    settingsPersistAtom.currencyInfo.id,
+    stockChannel.activeStockTokenDetail,
   ]);
   const onReceiveTokenPress = useCallback(
     (token: IToken) => {
@@ -586,6 +602,7 @@ export function useSwapStockEstimatedReceiveState({
     receiveAmount,
     receiveFiatValue,
     receiveToken,
+    receiveTokenPrice,
     setIsReceiveTokenPopoverOpen,
   };
 }
@@ -636,7 +653,6 @@ export function useSwapStockAmountInputState({
   const isStockTradeChannelInitializing =
     stockChannel.isStockTokenChanging ||
     stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
-    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
     stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
   const stockInputTokenBalance = useStockInputTokenBalance({
     enabled: inputTokenReady,
@@ -656,14 +672,23 @@ export function useSwapStockAmountInputState({
   });
   const amountInputToken = authoritativeStockInputToken ?? inputToken;
   const resolvedInputTokenBalance = stockInputTokenBalance.balance ?? '0';
+  // The settled figure (kept while a refresh is in flight) decides the zero
+  // verdict, so the refresh control never flips back to Max mid-refresh; it
+  // turns Max into a balance refresh exactly like the Swap page (OK-63470).
+  const isBalanceLoadedZero =
+    Boolean(inputToken) &&
+    isSwapBalanceLoadedZero(stockInputTokenBalance.settledBalance);
+  const balanceRefreshing = stockInputTokenBalance.refreshing;
+  const onBalanceRefreshPress = stockInputTokenBalance.refresh;
+  const shouldReserveInputGas = shouldReserveSwapGas(inputToken);
   const reserveGas = useMemo(() => {
-    if (!inputToken?.isNative) {
+    if (!inputToken?.networkId || !shouldReserveInputGas) {
       return undefined;
     }
     return swapNativeTokenReserveGas.find(
       (item) => item.networkId === inputToken.networkId,
     )?.reserveGas;
-  }, [inputToken?.isNative, inputToken?.networkId, swapNativeTokenReserveGas]);
+  }, [shouldReserveInputGas, inputToken?.networkId, swapNativeTokenReserveGas]);
   const displayBalance = stockInputTokenBalance.displayBalance ?? '--';
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
@@ -672,9 +697,9 @@ export function useSwapStockAmountInputState({
       token: stockInputTokenBalance.tokenDetail,
       fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
     }) ??
-    resolveStockTokenPrice({
+    resolveStockTradeTokenPrice({
       token: inputToken,
-      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+      stockTokenDetail: stockChannel.activeStockTokenDetail,
     });
   const amountFiatValue = useMemo(() => {
     return getStockTokenFiatValue({
@@ -745,7 +770,7 @@ export function useSwapStockAmountInputState({
     }
     const balanceBN = new BigNumber(resolvedInputTokenBalance);
     let maxAmount = balanceBN;
-    if (inputToken?.isNative) {
+    if (shouldReserveInputGas) {
       const reserveGasBN = new BigNumber(reserveGas ?? '');
       if (reserveGasBN.isFinite() && reserveGasBN.gt(0)) {
         maxAmount = BigNumber.max(0, balanceBN.minus(reserveGasBN));
@@ -753,7 +778,7 @@ export function useSwapStockAmountInputState({
       const reserveGasFormatted = reserveGas
         ? numberFormat(reserveGas.toString(), {
             formatter: 'balance',
-            formatterOptions: { tokenSymbol: inputToken.symbol },
+            formatterOptions: { tokenSymbol: inputToken?.symbol },
           })
         : undefined;
       Toast.message({
@@ -771,7 +796,7 @@ export function useSwapStockAmountInputState({
   }, [
     authoritativeStockInputToken,
     balanceActionsReady,
-    inputToken?.isNative,
+    shouldReserveInputGas,
     inputToken?.symbol,
     intl,
     reserveGas,
@@ -789,7 +814,7 @@ export function useSwapStockAmountInputState({
       }
       const amount = calcSwapStockPercentageAmount({
         balanceParsed: resolvedInputTokenBalance,
-        isNative: inputToken?.isNative,
+        isNative: shouldReserveInputGas,
         reserveGas,
         stage,
       });
@@ -798,7 +823,7 @@ export function useSwapStockAmountInputState({
     [
       authoritativeStockInputToken,
       balanceActionsReady,
-      inputToken?.isNative,
+      shouldReserveInputGas,
       reserveGas,
       resolvedInputTokenBalance,
       setInputAmount,
@@ -809,10 +834,10 @@ export function useSwapStockAmountInputState({
     if (!isBuySide || !inputToken) {
       return false;
     }
-    if (stockInputTokenBalance.balance === undefined) {
+    if (stockInputTokenBalance.settledBalance === undefined) {
       return false;
     }
-    const balanceBN = new BigNumber(resolvedInputTokenBalance);
+    const balanceBN = new BigNumber(stockInputTokenBalance.settledBalance);
     const amountBN = new BigNumber(fromTokenAmount.value ?? '0');
     if (
       balanceBN.isNaN() ||
@@ -827,20 +852,28 @@ export function useSwapStockAmountInputState({
     fromTokenAmount.value,
     inputToken,
     isBuySide,
-    resolvedInputTokenBalance,
-    stockInputTokenBalance.balance,
+    stockInputTokenBalance.settledBalance,
   ]);
 
+  // Keep the retained figure visible during refresh, but publish it to the
+  // action state only while it remains verified for the current owner.
   useSwapStockSelectedBalanceSync({
-    balance: stockInputTokenBalance.balance,
+    balance: stockInputTokenBalance.settledBalance,
+    balanceVerified: !stockInputTokenBalance.settledBalanceUnverified,
     enabled: inputTokenReady,
     ownerScope: stockInputTokenBalance.ownerScope,
   });
 
   return {
     amountFiatValue,
+    inputTokenPrice,
+    reviewFromToken:
+      amountInputToken && inputTokenPrice
+        ? { ...amountInputToken, ...inputTokenPrice }
+        : undefined,
     balanceActionsReady,
     balanceLoading: stockInputTokenBalance.loading,
+    balanceRefreshing,
     currencySymbol,
     disableNativePayToken,
     displayBalance,
@@ -848,8 +881,10 @@ export function useSwapStockAmountInputState({
     inputToken: amountInputToken,
     inputTokenNetworkLogoURI,
     inputValue: fromTokenAmount.value,
+    isBalanceLoadedZero,
     isBuySide,
     onBalanceMaxPress,
+    onBalanceRefreshPress,
     onAmountChange,
     onSelectPercentageStage,
     payToken,

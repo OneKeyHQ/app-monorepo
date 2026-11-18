@@ -46,6 +46,8 @@ function RawCheckbox({
   labelProps,
   onChange,
   onChangeForDisabled,
+  onFocus,
+  onBlur,
   value,
   containerProps,
   labelContainerProps,
@@ -108,6 +110,9 @@ function RawCheckbox({
         hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
         {...(checkboxProps as IYStackProps)}
+        // Form.Field injects focus events. On native they make this decorative
+        // square claim the responder and swallow the outer toggle press.
+        {...(!platformEnv.isNative ? { onFocus, onBlur } : {})}
       >
         <Icon
           name={

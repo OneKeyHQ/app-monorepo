@@ -12,7 +12,6 @@ import {
   useSwapProTokenSearch,
 } from './useSwapPro';
 import {
-  handleSwapQuoteTabVisibilityChange,
   isSwapQuoteTabEffectivelyVisible,
   shouldKeepSwapQuoteAliveOnFocusLoss,
 } from './useSwapQuote';
@@ -31,6 +30,10 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => {
     },
   };
 });
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  useAppIsLockedAtom: () => [false],
+}));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',
@@ -101,6 +104,45 @@ const swapProSearchMock = (
 ).__swapProSearchMock;
 
 describe('Swap quote lifecycle visibility', () => {
+  it('keeps quotes alive while a lazy provider picker is still a nested navigation target', () => {
+    expect(
+      shouldKeepSwapQuoteAliveOnFocusLoss('SwapModal', {
+        index: 1,
+        routes: [
+          { name: 'main' },
+          {
+            name: 'modal',
+            params: {
+              screen: 'SwapModal',
+              params: { screen: EModalSwapRoutes.SwapProviderSelect },
+            },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it('uses the active nested route over an older provider picker target', () => {
+    expect(
+      shouldKeepSwapQuoteAliveOnFocusLoss('SwapHistoryList', {
+        index: 0,
+        routes: [
+          {
+            name: 'SwapModal',
+            params: { screen: EModalSwapRoutes.SwapProviderSelect },
+            state: {
+              index: 1,
+              routes: [
+                { name: EModalSwapRoutes.SwapProviderSelect },
+                { name: 'SwapHistoryList' },
+              ],
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it('keeps modal quoting alive while the provider picker is active', () => {
     expect(
       shouldKeepSwapQuoteAliveOnFocusLoss(EModalSwapRoutes.SwapProviderSelect),
@@ -143,54 +185,6 @@ describe('Swap quote lifecycle visibility', () => {
       ).toBe(expected);
     },
   );
-
-  it('pauses and unsubscribes while the focused tab is hidden by an overlay', () => {
-    const setQuoteVisible = jest.fn();
-    const subscribeQuoteEvents = jest.fn();
-    const refreshPreservedInputQuote = jest.fn();
-    const pauseQuote = jest.fn();
-    const unsubscribeQuoteEvents = jest.fn();
-
-    handleSwapQuoteTabVisibilityChange({
-      isFocus: true,
-      isHiddenModel: true,
-      setQuoteVisible,
-      subscribeQuoteEvents,
-      refreshPreservedInputQuote,
-      pauseQuote,
-      unsubscribeQuoteEvents,
-    });
-
-    expect(setQuoteVisible).toHaveBeenCalledWith(false);
-    expect(pauseQuote).toHaveBeenCalledTimes(1);
-    expect(unsubscribeQuoteEvents).toHaveBeenCalledTimes(1);
-    expect(subscribeQuoteEvents).not.toHaveBeenCalled();
-    expect(refreshPreservedInputQuote).not.toHaveBeenCalled();
-  });
-
-  it('subscribes and consumes the refresh marker once the tab is visible', () => {
-    const setQuoteVisible = jest.fn();
-    const subscribeQuoteEvents = jest.fn();
-    const refreshPreservedInputQuote = jest.fn();
-    const pauseQuote = jest.fn();
-    const unsubscribeQuoteEvents = jest.fn();
-
-    handleSwapQuoteTabVisibilityChange({
-      isFocus: true,
-      isHiddenModel: false,
-      setQuoteVisible,
-      subscribeQuoteEvents,
-      refreshPreservedInputQuote,
-      pauseQuote,
-      unsubscribeQuoteEvents,
-    });
-
-    expect(setQuoteVisible).toHaveBeenCalledWith(true);
-    expect(subscribeQuoteEvents).toHaveBeenCalledTimes(1);
-    expect(refreshPreservedInputQuote).toHaveBeenCalledTimes(1);
-    expect(pauseQuote).not.toHaveBeenCalled();
-    expect(unsubscribeQuoteEvents).not.toHaveBeenCalled();
-  });
 });
 
 describe('Swap Pro trade state ownership', () => {

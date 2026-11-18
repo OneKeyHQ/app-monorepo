@@ -3,14 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  SizableText,
-  Spinner,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, YStack, useMedia } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -24,6 +17,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useKeylessWalletFeatureIsEnabled } from '../../../components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -31,6 +25,7 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
 import {
   OnboardingHeading,
+  OnboardingIconButton,
   OnboardingOrDivider,
   OnboardingPage,
   OnboardingSidebar,
@@ -62,6 +57,7 @@ function CreateOrImportWallet() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const [isResetMode, setIsResetMode] = useState(false);
 
@@ -166,28 +162,32 @@ function CreateOrImportWallet() {
       enableKeylessWalletLoading || loadingProvider !== null;
 
     return [
-      {
-        key: 'google',
-        icon: 'GoogleIllus',
-        title: intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: 'Google' },
-        ),
-        onPress: handleGoogleLogin,
-        isLoading: isGoogleLoading,
-        disabled: isKeylessLoginInProgress,
-      },
-      {
-        key: 'apple',
-        icon: 'AppleBrand',
-        title: intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: 'Apple' },
-        ),
-        onPress: handleAppleLogin,
-        isLoading: isAppleLoading,
-        disabled: isKeylessLoginInProgress,
-      },
+      isKeylessWalletEnabled
+        ? {
+            key: 'google',
+            icon: 'GoogleIllus',
+            title: intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Google' },
+            ),
+            onPress: handleGoogleLogin,
+            isLoading: isGoogleLoading,
+            disabled: isKeylessLoginInProgress,
+          }
+        : null,
+      isKeylessWalletEnabled
+        ? {
+            key: 'apple',
+            icon: 'AppleBrand',
+            title: intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Apple' },
+            ),
+            onPress: handleAppleLogin,
+            isLoading: isAppleLoading,
+            disabled: isKeylessLoginInProgress,
+          }
+        : null,
       {
         key: 'phraseOrPrivateKey',
         icon: 'SecretPhraseOutline',
@@ -219,7 +219,7 @@ function CreateOrImportWallet() {
             isLoading: cloudBackupCheckLoading,
           }
         : null,
-      platformEnv.isNative
+      platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
         ? {
             key: 'lite',
             icon: 'OnekeyLiteOutline',
@@ -244,6 +244,7 @@ function CreateOrImportWallet() {
     ].filter(Boolean) as IImportOption[];
   }, [
     intl,
+    isKeylessWalletEnabled,
     enableKeylessWalletLoading,
     loadingProvider,
     handleGoogleLogin,
@@ -278,37 +279,19 @@ function CreateOrImportWallet() {
     disabled,
   }: IImportOption) => {
     const isPrimary = HIGHEST_PRIORITY_KEYS.has(key);
-    const iconColor = isPrimary ? '$iconInverse' : '$icon';
-    const textColor = isPrimary ? '$textInverse' : '$text';
     return (
-      <Button
+      <OnboardingIconButton
         key={key}
         testID={OnboardingTestIDs.createOrImportWalletOptionBtn(key)}
         variant={isPrimary ? 'primary' : 'secondary'}
-        size="large"
-        alignSelf="stretch"
-        childrenAsText={false}
+        icon={icon}
+        iconSize={gtMd ? '$5' : '$6'}
+        isLoading={isLoading}
         disabled={disabled}
         onPress={onPress}
       >
-        <YStack position="absolute" left="$5">
-          {isLoading ? (
-            <Spinner size="small" color={iconColor} />
-          ) : (
-            <Icon
-              name={icon}
-              size="$6"
-              color={iconColor}
-              $gtMd={{
-                size: '$5',
-              }}
-            />
-          )}
-        </YStack>
-        <SizableText size="$bodyLgMedium" color={textColor}>
-          {title}
-        </SizableText>
-      </Button>
+        {title}
+      </OnboardingIconButton>
     );
   };
 
@@ -323,7 +306,7 @@ function CreateOrImportWallet() {
     <ListItem
       key={key}
       testID={
-        key === 'watch'
+        key === 'external' || key === 'watch'
           ? OnboardingTestIDs.createOrImportWalletOptionBtn(key)
           : undefined
       }

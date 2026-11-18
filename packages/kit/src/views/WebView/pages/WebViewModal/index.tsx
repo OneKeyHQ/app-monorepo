@@ -11,8 +11,10 @@ import {
   Dialog,
   Page,
   Toast,
+  YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebViewWithFeatures';
@@ -20,17 +22,23 @@ import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRedirect';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
+import { handlePrimeHostedCardCheckoutFallbackRequest } from '@onekeyhq/kit/src/views/Prime/hooks/primeHostedCardCheckout';
 import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
-import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  EWebEmbedPrivateRequestMethod,
+  EWebEmbedRoutePath,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStoreOnlyPayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type {
   EModalWebViewRoutes,
   IModalWebViewParamList,
 } from '@onekeyhq/shared/src/routes/webView';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { WebViewTestIDs } from '../../testIDs';
@@ -38,12 +46,18 @@ import {
   EDappWebViewNavigationDecision,
   resolveDappWebViewNavigation,
 } from '../../utils/dappWebViewNavigationPolicy';
+import { shouldHideWebViewHeaderRight } from '../../utils/displayPolicy';
 
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { RouteProp } from '@react-navigation/core';
+const PRIME_CHECKOUT_MENU_CONTENT_PROPS = {
+  p: '$1',
+  $md: { p: '$3', pt: '$0' },
+} as const;
+const PRIME_CHECKOUT_MENU_PANEL_PROPS = { width: '$56' } as const;
 
 export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -58,19 +72,43 @@ export default function WebViewModal() {
     redirectExternalNavigation,
     hideHeaderRight,
     enableDappBridge,
+    disableBridge,
   } = route.params;
   const navigation = useAppNavigation();
-
   const { copyText } = useClipboard();
   const intl = useIntl();
+  const isPrimeCheckout = Boolean(
+    platformEnv.isNativeAndroid &&
+    !isPrimeStoreOnlyPayment() &&
+    isWebEmbed &&
+    hashRoutePath === EWebEmbedRoutePath.primePurchase,
+  );
   const [{ fiatPaySiteWhitelist }] =
     useSettingsFiatPaySiteWhitelistPersistAtom();
 
   // Track if component is unmounting to prevent race conditions
   const isUnmounting = useRef(false);
+  const [primeCheckoutMenuOpen, setPrimeCheckoutMenuOpen] = useState(false);
+  const closePrimeCheckoutMenu = useCallback(() => {
+    if (!isUnmounting.current) {
+      setPrimeCheckoutMenuOpen(false);
+    }
+  }, []);
+  const onPrimeCheckoutMenuOpenChange = useCallback((open: boolean) => {
+    if (!isUnmounting.current) {
+      setPrimeCheckoutMenuOpen(open);
+    }
+  }, []);
+  const popWebView = useCallback(() => {
+    closePrimeCheckoutMenu();
+    // Header callbacks become stale as soon as this route starts closing.
+    isUnmounting.current = true;
+    navigation.pop();
+  }, [closePrimeCheckoutMenu, navigation]);
 
   // Cleanup WebView before unmount to prevent native crashes
   useEffect(() => {
+    isUnmounting.current = false;
     // Capture webview ref in effect scope to satisfy exhaustive-deps
     const webview = webviewRef?.current;
 
@@ -213,6 +251,23 @@ export default function WebViewModal() {
     },
     [enableDappBridge, currentUrl, url, title, setNavigationTitle],
   );
+  const openPrimeHostedCheckout = useCallback(
+    async (params: unknown) => {
+      if (isUnmounting.current) return;
+      popWebView();
+      // Let the WebView modal close before the checkout dialogs show.
+      await timerUtils.wait(350);
+      await handlePrimeHostedCardCheckoutFallbackRequest({
+        params,
+        routePrimeUserId: hashRouteQueryParams?.primeUserId,
+        routePrimeUserEmail: hashRouteQueryParams?.primeUserEmail,
+        routeSubscriptionPeriod: hashRouteQueryParams?.subscriptionPeriod,
+        routeCurrency: hashRouteQueryParams?.currency,
+        intl,
+      });
+    },
+    [popWebView, hashRouteQueryParams, intl],
+  );
   const webembedCustomReceiveHandler = useCallback(
     (payload: IJsBridgeMessagePayload) => {
       // Guard against events after unmount started
@@ -220,7 +275,7 @@ export default function WebViewModal() {
 
       const data = payload.data as IJsonRpcRequest;
       if (data.method === EWebEmbedPrivateRequestMethod.closeWebViewModal) {
-        navigation.pop();
+        popWebView();
       }
       if (
         data.method ===
@@ -231,8 +286,16 @@ export default function WebViewModal() {
           hashRoutePath,
           routePrimeUserId: hashRouteQueryParams?.primeUserId,
           isWebEmbed,
-          pop: () => navigation.pop(),
+          pop: popWebView,
         });
+      }
+      if (
+        data.method ===
+          EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout &&
+        isWebEmbed &&
+        hashRoutePath === EWebEmbedRoutePath.primePurchase
+      ) {
+        void openPrimeHostedCheckout(data.params);
       }
       if (data.method === EWebEmbedPrivateRequestMethod.showToast) {
         const toastParams = data.params as
@@ -256,7 +319,64 @@ export default function WebViewModal() {
         });
       }
     },
-    [hashRoutePath, hashRouteQueryParams?.primeUserId, isWebEmbed, navigation],
+    [
+      hashRoutePath,
+      hashRouteQueryParams?.primeUserId,
+      isWebEmbed,
+      openPrimeHostedCheckout,
+      popWebView,
+    ],
+  );
+
+  const openPrimeHostedCheckoutFromMenu = useCallback(() => {
+    void openPrimeHostedCheckout({
+      trigger: 'userRequestedHostedCheckout',
+      onekeyUserId: hashRouteQueryParams?.primeUserId,
+      subscriptionPeriod: hashRouteQueryParams?.subscriptionPeriod,
+      featureName: hashRouteQueryParams?.featureName,
+    });
+  }, [openPrimeHostedCheckout, hashRouteQueryParams]);
+  const renderPrimeCheckoutMenu = useCallback(
+    () => (
+      <YStack {...PRIME_CHECKOUT_MENU_CONTENT_PROPS}>
+        <ActionList.Item
+          label={intl.formatMessage({
+            id: ETranslations.explore_open_in_browser,
+          })}
+          icon="GlobusOutline"
+          testID={WebViewTestIDs.openInBrowserBtn}
+          onPress={openPrimeHostedCheckoutFromMenu}
+          onClose={closePrimeCheckoutMenu}
+        />
+      </YStack>
+    ),
+    [intl, openPrimeHostedCheckoutFromMenu, closePrimeCheckoutMenu],
+  );
+  const primeCheckoutHeaderRight = useCallback(
+    () => (
+      <LazyPopover
+        title={intl.formatMessage({ id: ETranslations.explore_options })}
+        open={primeCheckoutMenuOpen}
+        onOpenChange={onPrimeCheckoutMenuOpenChange}
+        renderContent={renderPrimeCheckoutMenu}
+        floatingPanelProps={PRIME_CHECKOUT_MENU_PANEL_PROPS}
+        renderTrigger={
+          <HeaderIconButton
+            icon="DotHorOutline"
+            testID={WebViewTestIDs.optionsMenuBtn}
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.explore_options,
+            })}
+          />
+        }
+      />
+    ),
+    [
+      intl,
+      primeCheckoutMenuOpen,
+      onPrimeCheckoutMenuOpenChange,
+      renderPrimeCheckoutMenu,
+    ],
   );
 
   const { onShouldStartLoadWithRequest, onOpenWindow } = useCrossDomainRedirect(
@@ -303,11 +423,22 @@ export default function WebViewModal() {
   // Same inpage provider either way; the wrapper only adds the account/network
   // change notifications a live dApp session needs.
   const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
+  const defaultHeaderRight = shouldHideWebViewHeaderRight({
+    url: currentUrl,
+    isWebEmbed,
+    hideHeaderRight,
+  })
+    ? undefined
+    : headerRight;
 
   return (
     <Page>
       <Page.Header
-        headerRight={hideHeaderRight ? undefined : headerRight}
+        headerRight={
+          isPrimeCheckout && !hideHeaderRight
+            ? primeCheckoutHeaderRight
+            : defaultHeaderRight
+        }
         title={navigationTitle}
       />
       <Page.Body>
@@ -319,6 +450,7 @@ export default function WebViewModal() {
           />
         ) : (
           <WebViewComponent
+            disableBridge={disableBridge}
             onWebViewRef={(ref) => ref && setWebViewRef(ref)}
             src={url}
             mediaPermissionWhitelist={fiatPaySiteWhitelist}

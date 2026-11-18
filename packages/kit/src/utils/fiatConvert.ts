@@ -3,6 +3,26 @@ import BigNumber from 'bignumber.js';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
+export function canConvertFiat({
+  sourceCurrency,
+  targetCurrency,
+  currencyMap,
+}: {
+  sourceCurrency: string;
+  targetCurrency: string;
+  currencyMap: Record<string, ICurrencyItem>;
+}) {
+  if (sourceCurrency === targetCurrency) return true;
+  const sourceRate = new BigNumber(currencyMap[sourceCurrency]?.value ?? '');
+  const targetRate = new BigNumber(currencyMap[targetCurrency]?.value ?? '');
+  return (
+    sourceRate.isFinite() &&
+    sourceRate.gt(0) &&
+    targetRate.isFinite() &&
+    targetRate.gt(0)
+  );
+}
+
 // Convert a fiat amount between two currencies using the shared exchange
 // rate map (`currencyPersistAtom.currencyMap`, sourced from
 // `/utility/v1/currency/exchange-rates/map`). Use this in non-React contexts

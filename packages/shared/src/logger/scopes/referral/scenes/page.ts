@@ -27,6 +27,20 @@ export type IReferralPageOpenParams = {
   pageVariant: string;
 };
 
+export type IReferralBindSource =
+  | 'onboarding_dialog'
+  | 'home_block'
+  | 'settings'
+  | 'invite_home'
+  // The empty Perks breakdown, not the invite home.
+  | 'perks_empty';
+
+export type IReferralBindErrorType =
+  | 'invalid_format'
+  | 'bind_window_expired'
+  | 'server_rejected'
+  | 'client_error';
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
@@ -90,7 +104,9 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public shareReferralLink(shareMethod: 'copy' | 'share') {
+  public shareReferralLink(
+    shareMethod: 'copy' | 'share' | 'save' | 'x' | 'telegram',
+  ) {
     return { shareMethod };
   }
 
@@ -107,6 +123,16 @@ export class PageScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public toggleReceivingAddressVisibility(isVisible: boolean) {
     return { isVisible };
+  }
+
+  /**
+   * The user changed whether invite links may show their nickname and avatar.
+   * Fires only after the server accepts the new value.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public toggleInviteProfilePublic(enabled: boolean) {
+    return { enabled };
   }
 
   @LogToServer()
@@ -150,7 +176,78 @@ export class PageScene extends BaseScene {
     referralCode: string;
     address: string;
     networkId: string;
-    source?: 'onboarding_dialog' | 'home_block' | 'settings';
+    source?: IReferralBindSource;
+  }) {
+    return params;
+  }
+
+  // How often people move between the invite and Perks tabs, and whether
+  // through the tabs or the cross-link at the end of each tab.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public referralTabSwitched(params: {
+    from: string;
+    to: string;
+    source: 'tabs' | 'cross_link';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public inviteHomeShown(params: { hasEarnings: boolean }) {
+    return params;
+  }
+
+  // One Perks visit, after the page knows which state it is in. `entry` is
+  // how this visit was opened; tab switches are also on referralTabSwitched.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksHomeShown(params: {
+    status:
+      | 'no_wallet'
+      | 'no_evm'
+      | 'empty'
+      | 'has_rewards'
+      | 'partial'
+      | 'error';
+    entry: 'tabs' | 'cross_link' | 'activity_hub' | 'route';
+  }) {
+    return params;
+  }
+
+  // Error rows reload and do not emit this.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksProductOpened(params: { product: 'perps' | 'swap' | 'earn' }) {
+    return params;
+  }
+
+  // Once per banner per session. Autoplay would otherwise emit on every loop.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksBannerShown(params: { linkId: string }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksBannerPressed(params: { linkId: string }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksAddressCopied() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public referralBindFailed(params: {
+    source?: IReferralBindSource;
+    errorType: IReferralBindErrorType;
+    serverMessageId?: string;
   }) {
     return params;
   }
@@ -179,6 +276,44 @@ export class PageScene extends BaseScene {
     walletId: string;
     walletType: string;
     codeLength: number;
+    /** True when the submitted code is the one we pre-filled untouched. */
+    isAutoFilled?: boolean;
+  }) {
+    return params;
+  }
+
+  /**
+   * Fires once per install when the store referrer is resolved. Carries no
+   * referrer content — only whether a usable code was present — so campaign
+   * strings never reach the analytics payload.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralCaptured(params: { source: string; hasCode: boolean }) {
+    return params;
+  }
+
+  /**
+   * The stored invite code was presented to the user. `surface` separates the
+   * onboarding dialog, which pre-fills the field outright, from the bind
+   * dialog, which only shows it as a hint — their conversion rates are not
+   * comparable without it.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralOffered(params: {
+    surface: 'onboarding_dialog' | 'bind_dialog';
+    walletId?: string;
+    walletType?: string;
+  }) {
+    return params;
+  }
+
+  /** The user bound the offered code rather than one of their own. */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralAccepted(params: {
+    surface: 'onboarding_dialog' | 'bind_dialog';
   }) {
     return params;
   }

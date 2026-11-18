@@ -19,10 +19,12 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { ISegmentControlLabelState } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
   usePerpsActiveAccountAtom,
@@ -49,11 +51,13 @@ import { usePerpUserFundingHistory } from '../../hooks/usePerpOrderInfoPanel';
 import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
+import { PerpsPartialAccountValueWarning } from '../TradingPanel/components/PerpsAccountNumberValue';
 
 import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
   buildFundingHistogramChartData,
   buildFundingNetSummary,
+  computeAccountHealthRisk,
   resolveFundingHistogramStyle,
 } from './portfolioStats';
 import {
@@ -153,30 +157,6 @@ function marginUsedGaugeColor(pct: number, palette: IPortfolioPalette): string {
 }
 
 // Composite risk score: MMR×3 + Leverage×2 + MarginUsed×1
-function computeAccountHealthRisk(
-  mmrPct: number,
-  leverageX: number,
-  marginUsedPct: number,
-): { level: 'safe' | 'caution' | 'danger' } {
-  let mmrScore = 2;
-  if (mmrPct <= 30) mmrScore = 0;
-  else if (mmrPct <= 60) mmrScore = 1;
-
-  let levScore = 2;
-  if (leverageX <= 5) levScore = 0;
-  else if (leverageX <= 15) levScore = 1;
-
-  let marginScore = 2;
-  if (marginUsedPct <= 60) marginScore = 0;
-  else if (marginUsedPct <= 85) marginScore = 1;
-
-  const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
-
-  if (total >= 6) return { level: 'danger' };
-  if (total >= 3) return { level: 'caution' };
-  return { level: 'safe' };
-}
-
 function getAccountHealthColor(
   level: 'safe' | 'caution' | 'danger',
   palette: IPortfolioPalette,
@@ -282,6 +262,7 @@ function PerpPortfolioContentComponent({
   initialChartType = 'accountValue',
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const theme = useTheme();
   const timeZone = useDeviceTimeZone();
   const { showDepositWithdrawModal, isDepositDisabled } =
@@ -421,11 +402,11 @@ function PerpPortfolioContentComponent({
     () =>
       chartTypeOptions.map((option) => ({
         ...option,
-        label: (
+        label: ({ color }: ISegmentControlLabelState) => (
           <XStack height={20} alignItems="center" justifyContent="center">
             <SizableText
               size="$bodySmMedium"
-              color={chartType === option.value ? '$textInverse' : '$text'}
+              color={color}
               textAlign="center"
               numberOfLines={1}
             >
@@ -434,7 +415,7 @@ function PerpPortfolioContentComponent({
           </XStack>
         ),
       })),
-    [chartType, chartTypeOptions],
+    [chartTypeOptions],
   );
   const mobileTimePeriodOptions = useMemo(
     () =>
@@ -650,11 +631,11 @@ function PerpPortfolioContentComponent({
   const accountHealthRisk = useMemo(
     () =>
       computeAccountHealthRisk(
-        marginPercentRaw,
+        mmrData?.mmrPercent ? marginPercentRaw : null,
         leverageRaw,
         marginUsedGaugePct,
       ),
-    [marginPercentRaw, leverageRaw, marginUsedGaugePct],
+    [mmrData?.mmrPercent, marginPercentRaw, leverageRaw, marginUsedGaugePct],
   );
   const accountHealthColor = getAccountHealthColor(
     accountHealthRisk.level,
@@ -742,15 +723,12 @@ function PerpPortfolioContentComponent({
 
   const formatHoverDate = useCallback(
     (ts: number) =>
-      intl.formatDate(new Date(ts * 1000), {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
+      formatDate(new Date(ts * 1000), {
+        hideYear: true,
+        hideSeconds: true,
         timeZone,
       }),
-    [intl, timeZone],
+    [formatDate, timeZone],
   );
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
@@ -890,7 +868,7 @@ function PerpPortfolioContentComponent({
             options={mobileChartTypeOptions}
             segmentControlItemStyleProps={{
               px: '$2.5',
-              py: '$1',
+              py: '$0.5',
             }}
           />
           {pnlTypeSelector}
@@ -1303,9 +1281,14 @@ function PerpPortfolioContentComponent({
         <SectionLabel>
           {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
         </SectionLabel>
-        <SizableText size="$heading4xl" color="$text">
-          {accountValue}
-        </SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText size="$heading4xl" color="$text">
+            {accountValue}
+          </SizableText>
+          {computedValue?.isAccountValuePartial ? (
+            <PerpsPartialAccountValueWarning />
+          ) : null}
+        </XStack>
         <XStack gap="$1.5" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_portfolio_available })}
@@ -1327,9 +1310,14 @@ function PerpPortfolioContentComponent({
           <SectionLabel>
             {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
           </SectionLabel>
-          <SizableText size="$heading2xl" color="$text">
-            {accountValue}
-          </SizableText>
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$heading2xl" color="$text">
+              {accountValue}
+            </SizableText>
+            {computedValue?.isAccountValuePartial ? (
+              <PerpsPartialAccountValueWarning />
+            ) : null}
+          </XStack>
         </YStack>
         <YStack gap="$0.5" alignItems="flex-end">
           <SectionLabel>
@@ -1549,16 +1537,16 @@ function PerpPortfolioContentComponent({
                 color="$textDisabled"
                 dashThickness={0.5}
                 tooltip={intl.formatMessage({
-                  id: ETranslations.perp_portfolio_profit_factor_tooltip,
+                  id: ETranslations.perp_portfolio_payoff_ratio_tooltip,
                 })}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_profit_factor,
+                  id: ETranslations.perp_portfolio_payoff_ratio,
                 })}
               </DashText>
               <SizableText size="$headingSm" color="$text">
-                {fillsStats.profitFactor !== null
-                  ? new BigNumber(fillsStats.profitFactor).toFixed(2)
+                {fillsStats.payoffRatio !== null
+                  ? new BigNumber(fillsStats.payoffRatio).toFixed(2)
                   : '--'}
               </SizableText>
             </YStack>

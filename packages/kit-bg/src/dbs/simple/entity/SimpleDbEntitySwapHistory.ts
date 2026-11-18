@@ -1,16 +1,15 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
 import { markUnreadTerminalAsRead } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
-  isStockSwapHistoryItem,
-  isSwapHistoryProtocolExcluded,
   isSwapHistoryTerminalStatus,
+  shouldDeleteSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
-  EProtocolOfExchange,
   ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -79,6 +78,48 @@ function findSwapHistoryItemIndex(
     );
   }
   return histories.findIndex((history) => isSameSwapHistoryItem(history, item));
+}
+
+type ISwapHistoryFeeUpdate = Pick<
+  ISwapTxHistory['txInfo'],
+  'gasFeeInNative' | 'gasFeeFiatValue'
+>;
+
+function mergePrivateSendHistoryFees(
+  existing: ISwapTxHistory,
+  incoming: ISwapTxHistory,
+  feeUpdate?: ISwapHistoryFeeUpdate,
+): ISwapTxHistory {
+  if (
+    !isPrivateSendSwapHistoryItem(existing) ||
+    !isPrivateSendSwapHistoryItem(incoming) ||
+    !incoming.txInfo.txId ||
+    incoming.txInfo.txId !== existing.txInfo.txId ||
+    incoming.baseInfo.fromToken.networkId !==
+      existing.baseInfo.fromToken.networkId
+  ) {
+    return incoming;
+  }
+  const sameCurrency =
+    (incoming.currencyId ?? incoming.currency) ===
+    (existing.currencyId ?? existing.currency);
+  // A poll owns only the fees returned by its response, not those captured
+  // in its old request snapshot. Merge against the current row atomically.
+  const incomingFees = feeUpdate ?? incoming.txInfo;
+  return {
+    ...incoming,
+    txInfo: {
+      ...incoming.txInfo,
+      gasFeeInNative:
+        incomingFees.gasFeeInNative ??
+        existing.txInfo.gasFeeInNative ??
+        incoming.txInfo.gasFeeInNative,
+      gasFeeFiatValue:
+        incomingFees.gasFeeFiatValue ??
+        (sameCurrency ? existing.txInfo.gasFeeFiatValue : undefined) ??
+        incoming.txInfo.gasFeeFiatValue,
+    },
+  };
 }
 
 function addSwapHistoryToList(
@@ -174,7 +215,11 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
+  async updateSwapHistoryItem(
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+  ): Promise<ISwapTxHistory | undefined> {
     const snapshot = await this.getRawData();
     const snapshotHistories = snapshot?.histories ?? [];
     const snapshotPendingWrites = snapshot?.pendingWrites ?? [];
@@ -185,6 +230,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       return;
     }
 
+    let updatedItem: ISwapTxHistory | undefined;
     await this.setRawData((currentData) => {
       let histories = [...(currentData?.histories ?? [])];
       const pendingWrites = [...(currentData?.pendingWrites ?? [])];
@@ -195,9 +241,19 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         oldTxId,
       );
       if (historyIndex !== -1) {
-        histories[historyIndex] = item;
+        updatedItem = mergePrivateSendHistoryFees(
+          histories[historyIndex],
+          item,
+          feeUpdate,
+        );
+        histories[historyIndex] = updatedItem;
       } else if (pendingIndex !== -1) {
-        histories = addSwapHistoryToList(histories, item);
+        updatedItem = mergePrivateSendHistoryFees(
+          pendingWrites[pendingIndex],
+          item,
+          feeUpdate,
+        );
+        histories = addSwapHistoryToList(histories, updatedItem);
       }
       if (pendingIndex !== -1) {
         pendingWrites.splice(pendingIndex, 1);
@@ -208,39 +264,16 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         pendingWrites,
       };
     });
+    return updatedItem;
   }
 
   @backgroundMethod()
   async deleteSwapHistoryItem(
     statuses?: ESwapTxHistoryStatus[],
-    options?: {
-      excludeProtocols?: EProtocolOfExchange[];
-      // Keep stock trades. The Swap/Bridge list hides stock via the token-level
-      // isStock flag, so clearing it must use the same rule (protocol exclusion
-      // alone would delete stock orders the user can't see on that tab).
-      excludeStock?: boolean;
-      // Mirror of excludeStock for the Stock history surface: only clear stock
-      // trades, keeping everything the Swap/Bridge list owns.
-      onlyStock?: boolean;
-    },
+    options?: ISwapHistoryClearOptions,
   ) {
-    const shouldKeepHistory = (history: ISwapTxHistory) => {
-      if (
-        isSwapHistoryProtocolExcluded({
-          item: history,
-          excludeProtocols: options?.excludeProtocols,
-        })
-      ) {
-        return true;
-      }
-      if (options?.excludeStock && isStockSwapHistoryItem(history)) {
-        return true;
-      }
-      if (options?.onlyStock && !isStockSwapHistoryItem(history)) {
-        return true;
-      }
-      return statuses ? !statuses.includes(history.status) : false;
-    };
+    const shouldKeepHistory = (history: ISwapTxHistory) =>
+      !shouldDeleteSwapHistoryItem(history, statuses, options);
     await this.setRawData((currentData) => ({
       ...currentData,
       histories: (currentData?.histories ?? []).filter(shouldKeepHistory),

@@ -1,13 +1,46 @@
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
 } from '../ServiceHardwareUI/HardwareProcessingManager';
+import { isPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import ServiceAccount from './ServiceAccount';
 
+describe('explicit account creation capability entry', () => {
+  test('only the user entry mints a live background capability', async () => {
+    const service = Object.create(ServiceAccount.prototype) as ServiceAccount;
+    let captured: object | undefined;
+    const active: boolean[] = [];
+    const inner = jest
+      .spyOn(service, 'addHDOrHWAccountsFn')
+      .mockImplementation(async (params) => {
+        captured = params.publicAccountCreationContext;
+        active.push(isPublicAccountCreationContext(captured));
+        return undefined;
+      });
+    const params = {
+      walletId: 'hd-1',
+      networkId: 'evm--1',
+      indexedAccountId: undefined,
+      indexes: [0],
+      deriveType: 'default' as const,
+    };
+    await service.addHDOrHWAccountsForUserCreation(params);
+    expect(active).toEqual([true]);
+    expect(isPublicAccountCreationContext(captured)).toBe(false);
+    await service.addHDOrHWAccounts(params);
+    expect(active).toEqual([true, false]);
+    inner.mockRestore();
+  });
+});
+
 const mockPrepareAccounts = jest.fn(async () => []);
-const mockBatchGetAddresses = jest.fn(async () => []);
+const mockBatchGetAddresses = jest.fn(
+  async (): Promise<{ address: string }[]> => [],
+);
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -60,6 +93,53 @@ jest.mock('../../vaults/factory', () => ({
 describe('ServiceAccount hardware operation lease', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBatchGetAddresses.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('passes the displayed local-wallet address to the hardware keyring', async () => {
+    jest.spyOn(appLocale.intl, 'formatMessage').mockReturnValue('Address');
+    const expectedAddress = 'u1-on-screen';
+    mockBatchGetAddresses.mockResolvedValue([{ address: expectedAddress }]);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: async (operation: () => Promise<unknown>) =>
+            operation(),
+        },
+        serviceNetwork: {
+          getVaultSettings: async () => ({ accountType: 'simple' }),
+        },
+      },
+    });
+    service.getPrepareHDOrHWAccountsParams = jest.fn().mockResolvedValue({
+      prepareParams: { indexes: [0], deviceParams: {} },
+      deviceParams: { dbDevice: { id: 'device-1' } },
+      networkId: 'zec--0',
+      walletId: 'hw-1',
+    });
+
+    await expect(
+      service.verifyHWAccountAddresses({
+        walletId: 'hw-1',
+        networkId: 'zec--0',
+        indexedAccountId: undefined,
+        deriveType: 'default',
+        expectedAddress,
+        localWalletAddressForm: 'private',
+      }),
+    ).resolves.toEqual([expectedAddress]);
+    expect(mockBatchGetAddresses).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chainExtraParams: expect.objectContaining({
+          localWalletAddressForm: 'private',
+          expectedAddress,
+        }),
+      }),
+    );
   });
 
   it('复用真实外层 lease，避免 prepareAccounts 重入时等待自己持有的硬件锁', async () => {

@@ -18,6 +18,7 @@ const mockTradingViewDisplayModes: Array<string | undefined> = [];
 
 let mockWindowDimensions = { height: 852, width: 393 };
 let mockActiveCoin = 'BTC';
+let mockChartPriceDecimalPlaces: number | undefined = 1;
 const mockDeferredTasks: Array<() => void> = [];
 
 jest.mock('react-native', () => ({
@@ -39,6 +40,22 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
+  LottieView: () => null,
+  Stack: ({
+    children,
+    position,
+    testID,
+    zIndex,
+  }: {
+    children?: ReactNode;
+    position?: string;
+    testID?: string;
+    zIndex?: number;
+  }) => (
+    <div data-position={position} data-testid={testID} data-z-index={zIndex}>
+      {children}
+    </div>
+  ),
   HeaderScrollGestureWrapper: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
@@ -155,15 +172,23 @@ jest.mock('../hooks/useActiveTradeDisplay', () => ({
   }),
 }));
 
+jest.mock('../hooks/usePerpsNativeChartMetadata', () => ({
+  usePerpsNativeChartMetadata: () => ({
+    priceDecimalPlaces: mockChartPriceDecimalPlaces,
+  }),
+}));
+
 jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   TradingViewNative: ({
     nativeChartDisplayMode,
     onNativeChartClose,
+    priceDecimalPlaces,
     showNativeChartCloseControl,
     source,
   }: {
     nativeChartDisplayMode?: string;
     onNativeChartClose?: () => void;
+    priceDecimalPlaces?: number;
     showNativeChartCloseControl?: boolean;
     source: { coin: string; environment: string; kind: string };
   }) => {
@@ -176,6 +201,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
           data-display-mode={nativeChartDisplayMode}
           data-environment={source.environment}
           data-kind={source.kind}
+          data-precision={priceDecimalPlaces}
         >
           Native chart
         </span>
@@ -200,7 +226,42 @@ describe('PerpMobileChartPanel', () => {
     mockDeferredTasks.length = 0;
     mockWindowDimensions = { height: 852, width: 393 };
     mockActiveCoin = 'BTC';
+    mockChartPriceDecimalPlaces = 1;
   });
+
+  it.each([false, true])(
+    'covers unknown metadata until ready without delaying or remounting the chart (top=%s)',
+    (top) => {
+      mockActiveCoin = 'xyz:SOXL';
+      mockChartPriceDecimalPlaces = undefined;
+      const onClose = jest.fn();
+      const chart = () =>
+        top ? (
+          <PerpMobileTopChartPanel isExpanded onClose={onClose} />
+        ) : (
+          <PerpMobileChartPanel />
+        );
+      const view = render(chart());
+      if (!top) {
+        fireEvent.click(view.getByTestId('perp-mobile-chart-toggle'));
+      }
+
+      const loading = view.getByTestId('perp-mobile-chart-metadata-loading');
+      expect(loading.getAttribute('data-position')).toBe('absolute');
+      expect(loading.getAttribute('data-z-index')).toBe('2');
+      const chartElement = view.getByText('Native chart');
+      expect(chartElement.getAttribute('data-precision')).toBeNull();
+
+      mockChartPriceDecimalPlaces = 4;
+      view.rerender(chart());
+
+      expect(chartElement.getAttribute('data-precision')).toBe('4');
+      expect(
+        view.queryByTestId('perp-mobile-chart-metadata-loading'),
+      ).toBeNull();
+      expect(view.getByText('Native chart')).toBe(chartElement);
+    },
+  );
 
   it('lazy mounts the chart and keeps it mounted after collapse', () => {
     const { getByTestId, getByText, queryByTestId, queryByText } = render(

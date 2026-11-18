@@ -23,6 +23,7 @@ const meta = {
   argTypes: {
     step: ARG_TYPES.step,
     deviceType: ARG_TYPES.deviceType,
+    deviceColor: ARG_TYPES.deviceColor,
     authFailureReason: ARG_TYPES.authFailureReason,
   },
 } satisfies Meta<typeof DeviceStage>;

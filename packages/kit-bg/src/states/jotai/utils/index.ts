@@ -446,16 +446,15 @@ function getRecentAccountSelectorColdStartValue({
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const {
+      ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+      accountSelectorSnapshotCache,
+    } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
 
-    const cache =
-      coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-      );
+    const cache = accountSelectorSnapshotCache.get(
+      ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+    )?.data as IAccountSelectorRecentSelectionCache | undefined;
     const item = cache?.[sceneId];
     const now = Date.now();
     if (
@@ -499,18 +498,13 @@ function flushColdStartCache() {
   );
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const { readContextAtomSnapshotRaw, writeContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
 
     // Read-modify-write: patch only dirty keys into existing snapshot.
     // This preserves cached values for scopes not rendered this session.
     // Safe because all callers (debounce timer + AppState) are on main thread.
-    const raw = coldStartCacheStorage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
+    const raw = readContextAtomSnapshotRaw();
     const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
 
     for (const name of coldStartDirtyKeys) {
@@ -524,10 +518,7 @@ function flushColdStartCache() {
       );
     }
 
-    void coldStartCacheStorage.set(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-      preparedSnapshot.serialized,
-    );
+    writeContextAtomSnapshotRaw(preparedSnapshot.serialized);
     coldStartDirtyKeys.clear();
   } catch {
     /* best-effort */
@@ -576,12 +567,51 @@ async function flushWebColdStartCacheNowIfNeeded() {
   }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { flushColdStartCacheNow } =
-      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-    await flushColdStartCacheNow();
+    const { flushUiSnapshotStoreNow } =
+      require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    await flushUiSnapshotStoreNow();
   } catch {
-    /* webColdStartStorage may not be loaded on extension UI */
+    /* The snapshot store may not be loaded on extension UI */
   }
+}
+
+/** Read one consistent batch, including runtime deletion tombstones. */
+export function readContextAtomColdStartCacheValues(
+  entries: {
+    coldStartScopeKey: string;
+    coldStartCacheKey: IContextAtomColdStartCacheKey;
+  }[],
+) {
+  const boot = (
+    globalThis as {
+      __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+    }
+  ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  let stored: Record<string, unknown> | undefined;
+  let storageRead = false;
+  return entries.map((entry) => {
+    const key = buildColdStartScopedKey(entry);
+    if (
+      coldStartValuesMap.has(key) &&
+      coldStartValuesMap.get(key) === undefined
+    ) {
+      return { exists: true, value: coldStartValuesMap.get(key) };
+    }
+    if (boot && Object.hasOwn(boot, key)) {
+      return { exists: true, value: boot[key] };
+    }
+    if (coldStartValuesMap.has(key)) {
+      return { exists: true, value: coldStartValuesMap.get(key) };
+    }
+    if (!storageRead) {
+      stored = readColdStartSnapshotFromStorage();
+      storageRead = true;
+    }
+    return {
+      exists: Boolean(stored && Object.hasOwn(stored, key)),
+      value: stored?.[key],
+    };
+  });
 }
 
 export async function writeContextAtomColdStartCacheValues({
@@ -643,11 +673,11 @@ function ensureColdStartAppStateListener() {
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { flushColdStartCacheNow } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        void flushColdStartCacheNow();
+        const { flushUiSnapshotStoreNow } =
+          require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+        void flushUiSnapshotStoreNow();
       } catch {
-        /* webColdStartStorage may not be loaded on extension UI */
+        /* The snapshot store may not be loaded on extension UI */
       }
     }
   });
@@ -657,19 +687,12 @@ function ensureColdStartAppStateListener() {
 // TokenList cells — slim cold-start snapshot slot (spec §7).
 //
 // The cells owns its slim bundle slot inside the SAME physical
-// `onekey_jotai_context_atoms_snapshot` blob the generic flusher uses, BUT it
+// context-atom snapshot record the generic flusher uses, BUT it
 // is intentionally kept OFF `coldStartValuesMap` / `coldStartDirtyKeys` so the
 // generic flusher never re-derives or revives it. The cells drives both write
 // (debounced RMW) and T0 read explicitly so it controls the fan-out-via-apply
 // hydrate (spec §7 design decision).
 // ============================================================
-
-function getColdStartCacheStorage() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { coldStartCacheStorage } =
-    require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-  return coldStartCacheStorage;
-}
 
 /**
  * Synchronously read a single scoped key out of the shared cold-start snapshot
@@ -679,14 +702,10 @@ function getColdStartCacheStorage() {
  */
 function readColdStartSnapshotFromStorage() {
   try {
-    const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-    const raw = storage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
-    return parseColdStartSnapshotRaw(raw);
+    const { readContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
+    return parseColdStartSnapshotRaw(readContextAtomSnapshotRaw());
   } catch {
     return undefined;
   }
@@ -710,24 +729,18 @@ let cellsSlimFlushTriggerRegistered = false;
 function flushCellsSlimColdStartWrites() {
   if (cellsSlimPendingWrites.size === 0) return;
   try {
-    const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { EAppSyncStorageKeys } =
-      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
-    // Read-modify-write the shared blob so we co-exist with the generic flusher
+    const { readContextAtomSnapshotRaw, writeContextAtomSnapshotRaw } =
+      require('@onekeyhq/shared/src/storage/uiSnapshotCaches') as typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches');
+    // Read-modify-write the record so we co-exist with the generic flusher
     // (main thread only; safe per the same single-thread assumption flushColdStartCache relies on).
-    const raw = storage.getString(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-    );
+    const raw = readContextAtomSnapshotRaw();
     const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
     for (const [scopedKey, value] of cellsSlimPendingWrites) {
       snapshot[scopedKey] = value;
     }
     const prepared = prepareColdStartSnapshotForWrite(snapshot);
-    void storage.set(
-      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-      prepared.serialized,
-    );
+    writeContextAtomSnapshotRaw(prepared.serialized);
     cellsSlimPendingWrites.clear();
   } catch {
     /* best-effort */
@@ -821,10 +834,57 @@ export function hydrateContextColdStartCacheForProvider({
   scopeSet.add(scope);
 
   try {
-    const snapshot =
-      ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
-        | Record<string, unknown>
-        | undefined) ?? readColdStartSnapshotFromStorage();
+    const globalSnapshot = (
+      globalThis as { __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown> }
+    ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    let storageSnapshot: Record<string, unknown> | undefined;
+    let hasReadStorageSnapshot = false;
+    const readStorageSnapshot = () => {
+      if (!hasReadStorageSnapshot) {
+        storageSnapshot = readColdStartSnapshotFromStorage();
+        hasReadStorageSnapshot = true;
+      }
+      return storageSnapshot;
+    };
+    const getCachedSnapshotValue = (
+      coldStartCacheKey: IContextAtomColdStartCacheKey,
+    ) => {
+      const scopedKey = buildColdStartScopedKey({
+        coldStartScopeKey: scope,
+        coldStartCacheKey,
+      });
+      if (
+        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        coldStartCacheKey ===
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom
+      ) {
+        // Home cleanup removes the boot snapshot; later tracked writes can
+        // recreate only part of it. Only this display cache may restore a
+        // missing key: normalization deliberately removes execution state.
+        if (globalSnapshot && Object.hasOwn(globalSnapshot, scopedKey)) {
+          return globalSnapshot[scopedKey];
+        }
+        if (coldStartValuesMap.has(scopedKey)) {
+          return coldStartValuesMap.get(scopedKey);
+        }
+        const storedSnapshot = readStorageSnapshot();
+        return storedSnapshot
+          ? getScopedColdStartSnapshotValue({
+              snapshot: storedSnapshot,
+              coldStartScopeKey: scope,
+              coldStartCacheKey,
+            })
+          : undefined;
+      }
+      const snapshot = globalSnapshot ?? readStorageSnapshot();
+      return snapshot
+        ? getScopedColdStartSnapshotValue({
+            snapshot,
+            coldStartScopeKey: scope,
+            coldStartCacheKey,
+          })
+        : undefined;
+    };
     for (const [
       cacheKey,
       { atom: atomBuilder, transform },
@@ -839,12 +899,8 @@ export function hydrateContextColdStartCacheForProvider({
         isDappConnectionBackedAccountSelectorColdStartScope(scope);
       const cached =
         recentAccountSelectorCached ??
-        (!shouldSkipScopedSnapshot && snapshot
-          ? getScopedColdStartSnapshotValue({
-              snapshot,
-              coldStartScopeKey: scope,
-              coldStartCacheKey: typedCacheKey,
-            })
+        (!shouldSkipScopedSnapshot
+          ? getCachedSnapshotValue(typedCacheKey)
           : undefined);
       if (cached !== undefined && cached !== null) {
         const scopedCacheKey = buildColdStartScopedKey({

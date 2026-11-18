@@ -56,7 +56,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  isDesktopBlePairingCanceledError,
+  isOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
@@ -69,7 +72,7 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import {
   HwWalletAvatarImages,
-  getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -498,7 +501,7 @@ function useDeviceConnection({
     () =>
       searchedDevices.map((item) => ({
         title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
+        src: HwWalletAvatarImages[getSearchDeviceAvatarImage(item)],
         device: item,
         onPress: async () => {
           // Ensure device scanning is completely stopped before connecting
@@ -1265,6 +1268,9 @@ export function ConnectYourDevicePage() {
         forceProtocolDetection: true,
       });
     } catch (error: any) {
+      if (isDesktopBlePairingCanceledError(error)) {
+        throw error;
+      }
       if (isOneKeyHardwareError(error)) {
         const { code, message } = error;
         if (
@@ -1356,6 +1362,12 @@ export function ConnectYourDevicePage() {
         } else {
           await actions.current.createHWWalletWithHidden(params);
         }
+        if (platformEnv.isWebDappMode) {
+          // Connecting is the web's consent, as its connect page states.
+          void backgroundApiProxy.serviceSetting
+            .acceptTermsConsent({ source: 'web_connect' })
+            .catch(() => undefined);
+        }
 
         await trackHardwareWalletConnection({
           status: 'success',
@@ -1423,6 +1435,11 @@ export function ConnectYourDevicePage() {
           features: connectedFeatures,
           fallbackName: device.name,
         }),
+        deviceColor:
+          deviceUtils.getDeviceColorFromFeatures({
+            deviceType: device.deviceType,
+            features: connectedFeatures,
+          }) ?? deviceUtils.getDeviceColorFromSearchDevice(device),
       });
       try {
         const showDeviceProcessLoadingDialog = () =>
@@ -1526,6 +1543,7 @@ export function ConnectYourDevicePage() {
           connectId: device.connectId ?? '',
           deviceType: device.deviceType ?? undefined,
           deviceName: device.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(device),
         });
 
         const handleBootloaderMode = async (existsFirmware: boolean) => {
@@ -1662,6 +1680,9 @@ export function ConnectYourDevicePage() {
         // land its exit, so it would stand over the update dialog.
         void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
         console.error('handleDeviceConnect error:', error);
+        if (isDesktopBlePairingCanceledError(error)) {
+          return;
+        }
         throw error;
       }
     },

@@ -88,6 +88,21 @@ const perp: IMarketPerpsToken = {
 };
 
 describe('market native list rows', () => {
+  it('keeps token identity independent of whitespace in display metadata', () => {
+    const row = buildTokenMarketRow({
+      item: { ...token, id: 'token-id ', symbol: 'TINY ' },
+      presentation,
+    });
+    const original = buildTokenMarketRow({ item: token, presentation });
+    const otherNetwork = buildTokenMarketRow({
+      item: { ...token, networkId: 'evm--56' },
+      presentation,
+    });
+    expect(row.key).toBe(original.key);
+    expect(row.key.trim()).toBe(row.key);
+    expect(row.key).not.toBe(otherNetwork.key);
+  });
+
   it('keeps listing favorites distinct when their chain addresses are empty', () => {
     const items = [
       { assetId: 'bitcoin' },
@@ -258,6 +273,28 @@ describe('market native list rows', () => {
     expect(row.pressInActionKey).toBe('prewarm-detail');
   });
 
+  it('opens the favorite menu on long press outside the watchlist', () => {
+    expect(
+      buildTokenMarketRow({ item: token, presentation, favoriteMenu: true })
+        .longPressActionKey,
+    ).toBe('favorite-menu');
+    expect(
+      buildPerpsMarketRow({ item: perp, presentation, favoriteMenu: true })
+        .longPressActionKey,
+    ).toBe('favorite-menu');
+    expect(
+      buildTokenMarketRow({
+        item: token,
+        presentation,
+        watchlist: true,
+        favoriteMenu: true,
+      }).longPressActionKey,
+    ).toBe('watchlist-menu');
+    expect(
+      buildTokenMarketRow({ item: token, presentation }).longPressActionKey,
+    ).toBeUndefined();
+  });
+
   it('serializes leverage and interactive DEX badges for perps', () => {
     const row = buildPerpsMarketRow({ item: perp, presentation });
 
@@ -327,7 +364,76 @@ describe('market native list rows', () => {
     expect(withoutName.subtitlePrefix).toBeUndefined();
   });
 
-  it('preserves the distinct standalone and watchlist perpetual row layouts', () => {
+  it('names a favorited stock listing by its company alone, without a volume', () => {
+    const listing: IMarketToken = {
+      ...token,
+      id: 'stock:AAPL',
+      stockId: 'AAPL',
+      name: 'Apple',
+      symbol: 'AAPL',
+      address: '',
+      networkId: '',
+      networkLogoUri: '',
+      stock: undefined,
+    };
+    const stockRow = buildTokenMarketRow({
+      item: listing,
+      presentation,
+      watchlist: true,
+    });
+    expect(stockRow.subtitle).toBe('Apple');
+    expect(stockRow.subtitlePrefix).toBeUndefined();
+    const assetRow = buildTokenMarketRow({
+      item: {
+        ...listing,
+        id: 'asset:bitcoin',
+        stockId: undefined,
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+      },
+      presentation,
+      watchlist: true,
+    });
+    expect(assetRow.subtitle).toBe('$123.46K');
+    expect(assetRow.subtitlePrefix).toBeUndefined();
+  });
+
+  it('shows only the volume on every other favorited row', () => {
+    const perpItem: IMarketToken = {
+      ...token,
+      stock: undefined,
+      name: 'BTC',
+      symbol: 'BTC',
+      address: '',
+      networkId: '',
+      perpsCoin: 'BTC',
+      perpsSubtitle: 'Bitcoin',
+      maxLeverage: 40,
+    };
+    const rows = [
+      // Spot token
+      { ...token, stock: undefined },
+      // Tokenized stock
+      token,
+      perpItem,
+    ].map((item) =>
+      buildTokenMarketRow({ item, presentation, watchlist: true }),
+    );
+    for (const row of rows) {
+      expect(row.subtitle).toBe('$123.46K');
+      expect(row.subtitlePrefix).toBeUndefined();
+    }
+    // Outside Favorites, a tokenized stock and a perp still lead with a name.
+    expect(
+      buildTokenMarketRow({ item: token, presentation }).subtitlePrefix?.text,
+    ).toBe('Tiny Corp');
+    expect(
+      buildTokenMarketRow({ item: perpItem, presentation }).subtitlePrefix
+        ?.text,
+    ).toBe('Bitcoin');
+  });
+
+  it('gives standalone and watchlist perpetual rows the same row frame', () => {
     const standalone = buildPerpsMarketRow({ item: perp, presentation });
     const watchlist = buildTokenMarketRow({
       item: { ...token, perpsCoin: perp.name, maxLeverage: 40 },
@@ -335,20 +441,23 @@ describe('market native list rows', () => {
       watchlist: true,
     });
 
-    expect(standalone.height).toBe(64);
-    expect(standalone.style).toMatchObject({
-      horizontalPadding: 16,
-      leadingGap: 8,
-      lineGap: 0,
-      subtitle: { fontSize: 12, lineHeight: 16 },
-    });
-    expect(watchlist.height).toBe(72);
-    expect(watchlist.style).toMatchObject({
-      horizontalPadding: 20,
-      leadingGap: 14,
-      lineGap: 4,
-      subtitle: { fontSize: 14, lineHeight: 20 },
-    });
+    for (const row of [standalone, watchlist]) {
+      expect(row.height).toBe(72);
+      expect(row.style).toMatchObject({
+        horizontalPadding: 20,
+        verticalPadding: 12,
+        leadingGap: 14,
+        lineGap: 4,
+        trailingGap: 8,
+        subtitle: { fontSize: 12, lineHeight: 16 },
+      });
+      expect(row.style?.contentTrailingGap).toBeUndefined();
+      expect(row.style?.subtitleTrailingPadding).toBeUndefined();
+    }
+    // The Perps list keeps its compact badges.
+    expect(
+      standalone.badges?.map((badge) => badge.style?.horizontalPadding),
+    ).toEqual([4, 4]);
     expect(
       watchlist.badges?.map((badge) => badge.style?.horizontalPadding),
     ).toEqual([6, 6]);
@@ -384,13 +493,78 @@ describe('market native list rows', () => {
     ]);
   });
 
+  it('gives stock rows the token row frame', () => {
+    const stock = buildStockMarketRow({
+      item: {
+        stockId: 'SPY',
+        symbol: 'SPY',
+        name: 'SPDR S&P 500 ETF Trust',
+        logoUrl: 'https://example.com/spy.png',
+        assetType: 'etf',
+        currency: 'USD',
+        price: '762',
+        priceChange24hPercent: '-0.24',
+        volume24h: '45000000000',
+      },
+      presentation,
+    });
+    const tokenRow = buildTokenMarketRow({ item: token, presentation });
+
+    // The second line is the watchlist stock row's: the capped name, then the
+    // volume.
+    expect(stock.subtitlePrefix).toEqual({
+      text: 'SPDR S&P 500 ETF Trust',
+      gap: 6,
+      maxWidth: 66,
+      style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+    });
+    expect(stock.subtitle).toBe('$45B');
+
+    expect(stock.leading).toMatchObject({
+      kind: 'token',
+      image: { width: 32, height: 32 },
+    });
+    expect(stock.style).toMatchObject({
+      lineGap: tokenRow.style?.lineGap,
+      leadingGap: tokenRow.style?.leadingGap,
+      trailingGap: tokenRow.style?.trailingGap,
+      image: tokenRow.style?.image,
+      subtitle: tokenRow.style?.subtitle,
+    });
+  });
+
+  it('fits a token row into 72dp on Android without fractional edges', () => {
+    const row = buildTokenMarketRow({ item: token, presentation });
+    const snapshot = buildMarketNativeSnapshot({
+      rows: [row, row, row],
+      generation: 1,
+      presentation: { ...presentation, androidPixelRatio: 2.625 },
+      loading: false,
+      canLoadMore: true,
+      noDataMessage: 'No data',
+      retryMessage: 'Retry',
+      contentPaddingBottom: 20,
+    });
+
+    expect(snapshot.rows.map((item) => item.height)).toEqual([72, 72, 72]);
+  });
+
   it('preserves Android fractional token row edges across appended pages', () => {
-    const rows = Array.from({ length: 20 }, (_, index) =>
-      buildTokenMarketRow({
+    // The 12/16 subtitle fits a token row into 72dp exactly, so a taller 20px
+    // subtitle line stands in for any row whose text rounds past its height.
+    const rows = Array.from({ length: 20 }, (_, index) => {
+      const row = buildTokenMarketRow({
         item: { ...token, address: `0x${index}` },
         presentation,
-      }),
-    );
+      });
+      return {
+        ...row,
+        style: {
+          ...row.style,
+          subtitle: { ...row.style?.subtitle, lineHeight: 20 },
+        },
+      };
+    });
     const androidPresentation = { ...presentation, androidPixelRatio: 2.625 };
     const snapshot = (
       count: number,
@@ -646,5 +820,99 @@ describe('market native list rows', () => {
         }),
       ).toBeUndefined();
     }
+  });
+
+  it('includes visible table cells when only the unrounded quote changes', () => {
+    const row = buildTokenMarketRow({ item: token, presentation });
+    const webTable = {
+      columns: [{ key: 'change24h', flex: 1 }],
+      cells: [
+        {
+          key: 'change24h',
+          kind: 'text' as const,
+          primary: [{ text: '+1.23%' }],
+        },
+      ],
+    };
+    const previous = buildMarketNativeSnapshot({
+      rows: [
+        { ...row, change: { text: '1.2341', tone: 'positive' }, webTable },
+      ],
+      generation: 1,
+      presentation,
+      loading: false,
+      canLoadMore: false,
+      noDataMessage: 'No data',
+      retryMessage: 'Retry',
+      contentPaddingBottom: 20,
+    });
+    const next = {
+      ...previous,
+      rows: previous.rows.map((item) =>
+        item.type === 'market'
+          ? { ...item, change: { text: '1.2342', tone: 'positive' as const } }
+          : item,
+      ),
+    };
+    expect(buildMarketNativeRowPatches(previous, next)).toEqual([
+      {
+        type: 'market',
+        key: row.key,
+        changes: { change: { text: '1.2342', tone: 'positive' }, webTable },
+      },
+    ]);
+  });
+
+  it('patches quote metrics but uses a full snapshot when visible columns change', () => {
+    const row = buildTokenMarketRow({
+      item: token,
+      presentation,
+      responsive: true,
+    });
+    const snapshot = (metrics?: typeof row.metrics) =>
+      buildMarketNativeSnapshot({
+        rows: [Object.assign({}, row, { metrics })],
+        generation: 1,
+        presentation,
+        loading: false,
+        noDataMessage: 'No data',
+        retryMessage: 'Retry',
+        contentPaddingBottom: 20,
+      });
+    const two = snapshot(row.metrics?.slice(0, 2));
+    const quoteTick = snapshot(
+      row.metrics
+        ?.slice(0, 2)
+        .map((metric) =>
+          metric.key === 'price' ? { ...metric, text: '$2' } : metric,
+        ),
+    );
+    expect(buildMarketNativeRowPatches(two, quoteTick)).toEqual([
+      expect.objectContaining({
+        type: 'market',
+        key: row.key,
+        changes: expect.objectContaining({
+          metrics: (quoteTick.rows[0] as typeof row).metrics,
+        }),
+      }),
+    ]);
+    expect(
+      buildMarketNativeRowPatches(two, snapshot(row.metrics)),
+    ).toBeUndefined();
+    expect(buildMarketNativeRowPatches(two, snapshot())).toBeUndefined();
+    expect(row.pressActionKey).toBe('open-detail');
+    expect(row.pressInActionKey).toBe('prewarm-detail');
+    expect(row.volumeSubtitle).toBe(true);
+    const webRow = buildTokenMarketRow({ item: token, presentation });
+    expect(webRow.metrics).toBeUndefined();
+    expect(webRow.volumeSubtitle).toBeUndefined();
+    expect(
+      buildTokenMarketRow({
+        item: { ...token, stockId: 'AAPL', address: '', networkId: '' },
+        presentation,
+        watchlist: true,
+        responsive: true,
+      }).volumeSubtitle,
+    ).toBe(false);
   });
 });

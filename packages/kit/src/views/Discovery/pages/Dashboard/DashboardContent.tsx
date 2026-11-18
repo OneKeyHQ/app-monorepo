@@ -4,11 +4,11 @@ import pRetry from 'p-retry';
 import { View } from 'react-native';
 
 import {
-  DelayedFreeze,
   Page,
   RefreshControl,
   ScrollView,
   Stack,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -42,6 +42,7 @@ function DashboardContent({
   tabId?: string;
 }) {
   const isFocused = useIsFocused();
+  const tabBarOffset = useScrollContentTabBarOffset() ?? 0;
   const isContentActive = isFocused && isActive;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -199,11 +200,16 @@ function DashboardContent({
         height="100%"
         onScroll={isContentActive ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
+        // Keep the last row clear of the tab bar floating over the content.
+        contentContainerStyle={{ paddingBottom: tabBarOffset + 16 }}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        <DelayedFreeze freeze={!isContentActive}>{content}</DelayedFreeze>
+        {/* Deliberately not frozen while inactive: the content is light, and
+            a frozen dashboard is blank whenever a modal sheet, a tab switch
+            or a back swipe reveals it (OK-63713). */}
+        {content}
       </ScrollView>
     );
   }

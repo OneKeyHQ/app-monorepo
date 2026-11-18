@@ -1,4 +1,9 @@
 export { ActivityHubAction } from './ActivityHubAction';
 export { ActivityHubContent } from './ActivityHubContent';
 export { useShowActivityHub } from './useShowActivityHub';
-export type { IActivityHubCampaign, IActivityHubSource } from './types';
+export { shouldShowActivityHubInvitePanel } from './layout';
+export type {
+  IActivityHubCampaign,
+  IActivityHubOpenReferral,
+  IActivityHubSource,
+} from './types';

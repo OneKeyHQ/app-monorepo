@@ -133,4 +133,65 @@ describe('createChartOptions', () => {
       }),
     ).toBe(expected);
   });
+
+  it.each(['en', 'zh-CN', 'bn', 'id', 'th-TH', 'ko-KR'])(
+    'uses Latin digits and colon-separated midnight for %s',
+    (locale) => {
+      expect(
+        formatChartTickMarkInTimeZone({
+          time: (Date.UTC(2026, 9, 14, 0, 5) / 1000) as UTCTimestamp,
+          tickMarkType: 3,
+          timeZone: 'UTC',
+          locale,
+        }),
+      ).toBe('00:05');
+      expect(
+        formatChartTickMarkInTimeZone({
+          time: (Date.UTC(2026, 9, 14) / 1000) as UTCTimestamp,
+          tickMarkType: 0,
+          timeZone: 'UTC',
+          locale,
+        }),
+      ).toBe('2026');
+    },
+  );
+
+  it.each([
+    ['en', 'Nov'],
+    ['zh-CN', '11月'],
+    ['fr-FR', 'nov.'],
+    ['de', 'Nov'],
+    ['ko-KR', '11월'],
+  ])('distinguishes month boundaries from day ticks in %s', (locale, month) => {
+    const options = {
+      time: (Date.UTC(2026, 10, 1) / 1000) as UTCTimestamp,
+      timeZone: 'UTC',
+      locale,
+    };
+    expect(formatChartTickMarkInTimeZone({ ...options, tickMarkType: 1 })).toBe(
+      month,
+    );
+    expect(formatChartTickMarkInTimeZone({ ...options, tickMarkType: 2 })).toBe(
+      '01',
+    );
+  });
+
+  it('uses the month in the chart timezone and preserves business-day values', () => {
+    expect(
+      formatChartTickMarkInTimeZone({
+        time: (Date.UTC(2026, 9, 31, 16) / 1000) as UTCTimestamp,
+        tickMarkType: 1,
+        timeZone: 'Asia/Shanghai',
+        locale: 'en',
+      }),
+    ).toBe('Nov');
+    expect(
+      formatChartTickMarkInTimeZone({
+        time: '2026-11-01',
+        tickMarkType: 1,
+        timeZone: 'America/New_York',
+        locale: 'en',
+      }),
+    ).toBe('Nov');
+  });
 });

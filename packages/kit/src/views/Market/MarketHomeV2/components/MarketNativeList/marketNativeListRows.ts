@@ -9,11 +9,16 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { parseMarketStockNumber } from '../MarketStockList/utils';
+import {
+  getMarketWatchlistRowKind,
+  getStockListingName,
+} from '../MarketTokenList/utils/marketWatchlistRowKind';
 import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import type { IMarketPerpsToken } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type {
+  DataColumn,
   ImageSource,
   MarketBadgeModel,
   MarketChangeModel,
@@ -25,6 +30,24 @@ import type {
   RowPatch,
   ValueTextSegment,
 } from '@onekeyfe/react-native-native-list';
+
+type IMarketMetric = Pick<
+  DataColumn,
+  | 'key'
+  | 'text'
+  | 'textSegments'
+  | 'secondaryText'
+  | 'secondaryTextSegments'
+  | 'weight'
+  | 'alignment'
+  | 'tone'
+  | 'secondaryTone'
+>;
+
+export type IResponsiveMarketRow = MarketRow & {
+  metrics?: readonly IMarketMetric[];
+  volumeSubtitle?: boolean;
+};
 
 export type IMarketNativeListPresentation = Readonly<{
   theme: NativeListTheme;
@@ -39,6 +62,7 @@ export type IMarketNativeListPresentation = Readonly<{
   tokenBackground: string;
   tokenBorderColor?: string;
   androidPixelRatio?: number;
+  webImageSources?: boolean;
 }>;
 
 const TOKEN_ROW_STYLE: MarketRowStyle = {
@@ -63,10 +87,12 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
     lines: 1,
     alignment: 'start',
   },
+  // Every mobile Market row runs its subtitle at 12/16 (the web `$bodySm`),
+  // whatever the line holds: a volume, a company name, or both.
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'regular',
-    lineHeight: 20,
+    lineHeight: 16,
     lines: 1,
     alignment: 'start',
   },
@@ -87,32 +113,6 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
   changeWidth: 80,
   changeHeight: 32,
   changeCornerRadius: 8,
-};
-
-const STOCK_ROW_STYLE: MarketRowStyle = {
-  ...TOKEN_ROW_STYLE,
-  lineGap: 0,
-  image: {
-    width: 40,
-    height: 40,
-    shape: 'circle',
-    cornerRadius: 20,
-    contentFit: 'cover',
-  },
-};
-
-const PERP_ROW_STYLE: MarketRowStyle = {
-  ...TOKEN_ROW_STYLE,
-  horizontalPadding: 16,
-  leadingGap: 8,
-  lineGap: 0,
-  contentTrailingGap: 12,
-  subtitleTrailingPadding: 12,
-  subtitle: {
-    ...TOKEN_ROW_STYLE.subtitle,
-    fontSize: 12,
-    lineHeight: 16,
-  },
 };
 
 function toTextSegments(rendered: ReturnType<typeof numberFormatAsRenderText>):
@@ -155,10 +155,28 @@ function formatNumber(
   return toTextSegments(rendered) ?? ({ text: '--' } as const);
 }
 
+// The second line of a token or stock row: a capped localized name before the
+// volume, matching the web identity cell.
+function buildNameSubtitlePrefix(
+  text: string | undefined,
+): MarketRow['subtitlePrefix'] {
+  return text
+    ? {
+        text,
+        gap: 6,
+        maxWidth: 66,
+        style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+      }
+    : undefined;
+}
+
 function formatVolume(
   volume: string | number | undefined,
   includeZero = false,
 ) {
+  if (volume === undefined || volume === null || volume === '') {
+    return undefined;
+  }
   const numericVolume = Number(volume);
   return Number.isFinite(numericVolume) && (includeZero || numericVolume !== 0)
     ? numberFormat(String(volume), {
@@ -168,18 +186,42 @@ function formatVolume(
     : undefined;
 }
 
+function buildQuoteMetrics(
+  price: ReturnType<typeof formatNumber>,
+  change: MarketChangeModel,
+  volume: string | undefined,
+): readonly IMarketMetric[] {
+  return [
+    { key: 'price', ...price, alignment: 'end' },
+    {
+      key: 'change',
+      text: change.text,
+      textSegments: change.textSegments,
+      alignment: 'end',
+      tone: change.tone === 'neutral' ? 'secondary' : change.tone,
+    },
+    { key: 'volume', text: volume ?? '--', alignment: 'end' },
+  ];
+}
+
 function marketImage(
   uri: string | undefined,
   size: number,
+  webImageSources = false,
+  fallbackUris?: readonly string[],
 ): ImageSource | undefined {
-  if (!uri || uri.toLowerCase().includes('svg')) return undefined;
+  if (!uri || (!webImageSources && uri.toLowerCase().includes('svg')))
+    return undefined;
   return {
     uri,
     width: size,
     height: size,
     contentFit: 'cover' as const,
     cachePolicy: 'memory-disk' as const,
-    retryTimes: 2,
+    ...(webImageSources
+      ? { loadingStrategy: 'static' as const, fallbackUris: fallbackUris ?? [] }
+      : {}),
+    retryTimes: webImageSources ? 1 : 2,
   };
 }
 
@@ -197,7 +239,11 @@ function tokenBadges(
   if (item.stock?.sourceLogoUri) {
     badges.push({
       key: `${marketTokenKey(item)}:stock-source`,
-      icon: marketImage(item.stock.sourceLogoUri, 14),
+      icon: marketImage(
+        item.stock.sourceLogoUri,
+        14,
+        presentation.webImageSources,
+      ),
       style: { height: 14 },
       tone: 'neutral',
       actionKey: 'token-tags',
@@ -312,15 +358,56 @@ function rowStyleForChange(
   };
 }
 
+// The second line of a token-shaped row. Favorites rows show only the 24h
+// volume, as the detail page's favorites sidebar does, except a stock listing:
+// its volume is the shares' own trading, not the tokenized variants traded
+// here, so it reads by company name alone. Other lists lead the volume with a
+// tokenized stock's company or a perp's alias.
+function resolveTokenRowSubtitle(
+  item: IMarketToken,
+  watchlist: boolean,
+): Pick<MarketRow, 'subtitle' | 'subtitlePrefix'> {
+  if (!watchlist) {
+    return {
+      subtitle: formatVolume(item.turnover),
+      subtitlePrefix: buildNameSubtitlePrefix(
+        item.stock?.subtitle ?? item.perpsSubtitle ?? getStockListingName(item),
+      ),
+    };
+  }
+  if (getMarketWatchlistRowKind(item) === 'stock') {
+    return { subtitle: getStockListingName(item) };
+  }
+  return { subtitle: formatVolume(item.turnover) };
+}
+
+// Long press opens the Favorites menu (move to top / remove) on watchlist
+// rows, and the add/remove favorite menu on every other list.
+function resolveLongPressActionKey({
+  watchlist,
+  favoriteMenu,
+}: {
+  watchlist?: boolean;
+  favoriteMenu?: boolean;
+}) {
+  if (watchlist) return 'watchlist-menu';
+  if (favoriteMenu) return 'favorite-menu';
+  return undefined;
+}
+
 export function buildTokenMarketRow({
   item,
   presentation,
   watchlist = false,
+  favoriteMenu = false,
+  responsive = false,
 }: {
   item: IMarketToken;
   presentation: IMarketNativeListPresentation;
   watchlist?: boolean;
-}): MarketRow {
+  favoriteMenu?: boolean;
+  responsive?: boolean;
+}): IResponsiveMarketRow {
   const key = marketTokenKey(item);
   const isPerp = Boolean(item.perpsCoin);
   const price = formatNumber(item.price, 'price', { currency: '$' });
@@ -329,7 +416,14 @@ export function buildTokenMarketRow({
   const dexLabel = item.perpsCoin
     ? parseDexCoin(item.perpsCoin).dexLabel
     : undefined;
-  const subtitlePrefix = item.stock?.subtitle ?? item.perpsSubtitle;
+  let imageUri: string | undefined;
+  if (presentation.webImageSources) {
+    imageUri = item.tokenImageUris?.length
+      ? item.tokenImageUris[0]
+      : item.tokenImageUri;
+  } else {
+    imageUri = firstNativeImageUri(item);
+  }
   return {
     key,
     type: 'market',
@@ -339,26 +433,41 @@ export function buildTokenMarketRow({
     accessibilityLabel: `${item.symbol}, ${price.text}, ${change.text}`,
     leading: {
       kind: 'token',
-      image: marketImage(firstNativeImageUri(item), 32),
-      networkImage: isPerp ? undefined : marketImage(item.networkLogoUri, 16),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(
+        imageUri,
+        32,
+        presentation.webImageSources,
+        item.tokenImageUris?.slice(1),
+      ),
+      networkImage: isPerp
+        ? undefined
+        : marketImage(item.networkLogoUri, 16, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
-    subtitle: formatVolume(item.turnover),
-    subtitlePrefix: subtitlePrefix
-      ? {
-          text: subtitlePrefix,
-          gap: 6,
-          maxWidth: 66,
-          style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
-        }
-      : undefined,
+    ...resolveTokenRowSubtitle(item, watchlist),
     price: price.text,
     priceSegments: price.textSegments,
     change,
+    ...(responsive
+      ? {
+          metrics: buildQuoteMetrics(
+            price,
+            change,
+            formatVolume(item.turnover),
+          ),
+          volumeSubtitle:
+            !watchlist || getMarketWatchlistRowKind(item) !== 'stock',
+        }
+      : {}),
     badges: isPerp
       ? perpsBadges({
           key,
@@ -369,7 +478,7 @@ export function buildTokenMarketRow({
       : tokenBadges(item, presentation),
     pressActionKey: 'open-detail',
     pressInActionKey: isPerp ? undefined : 'prewarm-detail',
-    longPressActionKey: watchlist ? 'watchlist-menu' : undefined,
+    longPressActionKey: resolveLongPressActionKey({ watchlist, favoriteMenu }),
     style: rowStyleForChange(TOKEN_ROW_STYLE, Number(rawChange)),
   };
 }
@@ -378,16 +487,20 @@ export function buildStockMarketRow({
   item,
   presentation,
   favorite,
+  favoriteMenu = false,
+  responsive = false,
 }: {
   item: IMarketStockPublicItem;
   presentation: IMarketNativeListPresentation;
+  favoriteMenu?: boolean;
+  responsive?: boolean;
   favorite?: {
     checked: boolean;
     disabled: boolean;
     accessibilityLabel: string;
     testID: string;
   };
-}): MarketRow {
+}): IResponsiveMarketRow {
   const priceValue = parseMarketStockNumber(item.price);
   const changeValue = parseMarketStockNumber(item.priceChange24hPercent);
   const price = formatNumber(priceValue, 'price', { currency: '$' });
@@ -414,43 +527,70 @@ export function buildStockMarketRow({
       : undefined,
     leading: {
       kind: 'token',
-      image: marketImage(item.logoUrl, 40),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(item.logoUrl, 32, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
-    subtitle: item.name,
+    subtitle: formatVolume(item.volume24h),
+    subtitlePrefix: buildNameSubtitlePrefix(item.name),
     price: price.text,
     priceSegments: price.textSegments,
     change,
+    ...(responsive
+      ? {
+          metrics: buildQuoteMetrics(
+            price,
+            change,
+            formatVolume(item.volume24h),
+          ),
+          volumeSubtitle: true,
+        }
+      : {}),
     pressActionKey: 'open-detail',
     pressInActionKey: 'prewarm-stock-detail',
-    style: rowStyleForChange(STOCK_ROW_STYLE, changeValue),
+    longPressActionKey: resolveLongPressActionKey({ favoriteMenu }),
+    // Stock rows share the token row frame (32px logo, 4px line gap).
+    style: rowStyleForChange(TOKEN_ROW_STYLE, changeValue),
   };
 }
 
 export function buildPerpsMarketRow({
   item,
   presentation,
+  favoriteMenu = false,
+  responsive = false,
 }: {
   item: IMarketPerpsToken;
   presentation: IMarketNativeListPresentation;
-}): MarketRow {
+  favoriteMenu?: boolean;
+  responsive?: boolean;
+}): IResponsiveMarketRow {
   const price = formatNumber(item.markPrice, 'price', { currency: '$' });
   const change = buildChange(item.change24hPercent, presentation);
   return {
     key: item.name,
     type: 'market',
     variant: 'perp',
-    height: 64,
+    height: 72,
     testID: `market-perps-row-${item.name}`,
     accessibilityLabel: `${item.displayName}, ${price.text}, ${change.text}`,
     leading: {
       kind: 'token',
-      image: marketImage(item.tokenImageUrl, 32),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(item.tokenImageUrl, 32, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -467,6 +607,16 @@ export function buildPerpsMarketRow({
     price: price.text,
     priceSegments: price.textSegments,
     change,
+    ...(responsive
+      ? {
+          metrics: buildQuoteMetrics(
+            price,
+            change,
+            formatVolume(item.volume24h, true),
+          ),
+          volumeSubtitle: true,
+        }
+      : {}),
     badges: perpsBadges({
       key: item.name,
       maxLeverage: item.maxLeverage,
@@ -475,7 +625,9 @@ export function buildPerpsMarketRow({
       compact: true,
     }),
     pressActionKey: 'open-detail',
-    style: rowStyleForChange(PERP_ROW_STYLE, item.change24hPercent),
+    longPressActionKey: resolveLongPressActionKey({ favoriteMenu }),
+    // Perps rows share the token row frame (72dp, 20dp padding, 4dp line gap).
+    style: rowStyleForChange(TOKEN_ROW_STYLE, item.change24hPercent),
   };
 }
 
@@ -483,16 +635,20 @@ export function buildTopCoinMarketRow({
   item,
   presentation,
   favorite,
+  favoriteMenu = false,
+  responsive = false,
 }: {
   item: IMarketAssetListItem;
   presentation: IMarketNativeListPresentation;
+  favoriteMenu?: boolean;
+  responsive?: boolean;
   favorite?: {
     checked: boolean;
     disabled: boolean;
     accessibilityLabel: string;
     testID: string;
   };
-}): MarketRow {
+}): IResponsiveMarketRow {
   const price = formatNumber(item.price, 'price', { currency: '$' });
   const change = buildChange(item.priceChange24hPercent, presentation);
   const symbol = item.symbol.toUpperCase();
@@ -518,8 +674,13 @@ export function buildTopCoinMarketRow({
       : undefined,
     leading: {
       kind: 'token',
-      image: marketImage(item.logoUrl, 32),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(item.logoUrl, 32, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -529,7 +690,18 @@ export function buildTopCoinMarketRow({
     price: price.text,
     priceSegments: price.textSegments,
     change,
+    ...(responsive
+      ? {
+          metrics: buildQuoteMetrics(
+            price,
+            change,
+            formatVolume(item.volume24h),
+          ),
+          volumeSubtitle: true,
+        }
+      : {}),
     pressActionKey: 'open-detail',
+    longPressActionKey: resolveLongPressActionKey({ favoriteMenu }),
     style: rowStyleForChange(
       TOKEN_ROW_STYLE,
       Number(item.priceChange24hPercent),
@@ -695,10 +867,12 @@ export function buildMarketNativeSnapshot({
   };
 }
 
-const MARKET_PATCH_FIELDS = new Set<keyof MarketRow>([
+const MARKET_PATCH_FIELDS = new Set<keyof IResponsiveMarketRow>([
+  'webTable',
   'price',
   'priceSegments',
   'change',
+  'metrics',
   'style',
   'accessibilityLabel',
 ]);
@@ -729,13 +903,23 @@ export function buildMarketNativeRowPatches(
       ) {
         return undefined;
       }
+      const nextMarketRow = row as IResponsiveMarketRow;
+      const previousMarketRow = previousRow as IResponsiveMarketRow;
+      if (
+        !isEqual(
+          nextMarketRow.metrics?.map((metric) => metric.key),
+          previousMarketRow.metrics?.map((metric) => metric.key),
+        )
+      ) {
+        return undefined;
+      }
       const fields = new Set([
-        ...Object.keys(previousRow),
-        ...Object.keys(row),
-      ] as (keyof MarketRow)[]);
+        ...Object.keys(previousMarketRow),
+        ...Object.keys(nextMarketRow),
+      ] as (keyof IResponsiveMarketRow)[]);
       const changes: Record<string, unknown> = {};
       for (const field of fields) {
-        if (!isEqual(row[field], previousRow[field])) {
+        if (!isEqual(nextMarketRow[field], previousMarketRow[field])) {
           if (field === 'style') {
             const quoteStyleFields = new Set([
               'price',
@@ -756,13 +940,24 @@ export function buildMarketNativeRowPatches(
               return undefined;
             }
           }
-          if (!MARKET_PATCH_FIELDS.has(field) || row[field] === undefined) {
+          if (
+            !MARKET_PATCH_FIELDS.has(field) ||
+            nextMarketRow[field] === undefined
+          ) {
             return undefined;
           }
-          changes[field] = row[field];
+          changes[field] = nextMarketRow[field];
         }
       }
       if (Object.keys(changes).length) {
+        if (
+          row.webTable &&
+          (changes.price !== undefined ||
+            changes.priceSegments !== undefined ||
+            changes.change !== undefined)
+        ) {
+          changes.webTable = row.webTable;
+        }
         patches.push({
           type: 'market',
           key: row.key,

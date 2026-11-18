@@ -14,6 +14,12 @@ import type {
   UiResponseEvent,
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
+import type { SdkEvent } from '@onekeyfe/hwk-ledger-adapter';
+
+// A stable listener lets the SDK's Set deduplicate connector recreations.
+const forwardLedgerSdkEvent = (event: SdkEvent) => {
+  emitOffscreenEventToBackground('hwkSdkEvent', event);
+};
 
 type ITrezorDebugLogEntry = {
   level?: 'debug' | 'info' | 'warn' | 'error';
@@ -44,7 +50,11 @@ const formatTrezorDebugLog = (entry: ITrezorDebugLogEntry): string =>
  * `offscreenApiProxy.thirdPartyHardware`; connector events flow back
  * through `offscreenEventBus`. New vendor = one `case` in `createConnector()`.
  */
-export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
+// Event handlers stay in the background client; the offscreen RPC only accepts data.
+export default class OffscreenApiThirdPartyHardware implements Omit<
+  IHardwareBridge,
+  'onEvent' | 'offEvent'
+> {
   private connectors = new Map<VendorType, IConnector>();
 
   private connectorInitPromises = new Map<VendorType, Promise<IConnector>>();
@@ -85,13 +95,16 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
    */
   private async createConnector(vendor: VendorType): Promise<IConnector> {
     switch (vendor) {
+      case 'keystone': {
+        const { createKeystoneWebUsbConnector } =
+          await import('@onekeyfe/hwk-keystone-connector-usb/webusb');
+        return createKeystoneWebUsbConnector();
+      }
       case 'ledger': {
         // Forward the whole SdkEvent union to SW; new variants ride this
         // same channel without a new IPC route.
         const { onSdkEvent } = await import('@onekeyfe/hwk-ledger-adapter');
-        onSdkEvent((event) => {
-          emitOffscreenEventToBackground('hwkSdkEvent', event);
-        });
+        onSdkEvent(forwardLedgerSdkEvent);
         const { createLedgerWebHidConnector } =
           await import('@onekeyfe/hwk-ledger-connector-webhid');
         return createLedgerWebHidConnector();
@@ -167,26 +180,18 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   // IHardwareBridge — SW calls these via offscreenApiProxy.thirdPartyHardware
   // ---------------------------------------------------------------------------
 
-  async searchDevices(params: {
-    vendor: VendorType;
-    options?: { waitForAll?: boolean };
-  }): Promise<ConnectorDevice[]> {
+  async searchDevices(
+    params: Parameters<IHardwareBridge['searchDevices']>[0],
+  ): Promise<ConnectorDevice[]> {
     const connector = await this.getConnector(params.vendor);
-    return (
-      connector as IConnector & {
-        searchDevices(options?: {
-          waitForAll?: boolean;
-        }): Promise<ConnectorDevice[]>;
-      }
-    ).searchDevices(params.options);
+    return connector.searchDevices(params.options);
   }
 
-  async connect(params: {
-    vendor: VendorType;
-    deviceId?: string;
-  }): Promise<ConnectorSession> {
+  async connect(
+    params: Parameters<IHardwareBridge['connect']>[0],
+  ): Promise<ConnectorSession> {
     const connector = await this.getConnector(params.vendor);
-    return connector.connect(params.deviceId);
+    return connector.connect(params.deviceId, params.options);
   }
 
   async disconnect(params: {
@@ -224,7 +229,12 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
 
   reset(params: { vendor: VendorType }): void {
     const connector = this.getConnectorSync(params.vendor);
-    connector?.reset();
+    if (!connector) return;
+    // Drop the cached connector too: reset() clears the connector's own event
+    // handlers and this is the only runtime that keeps one alive across adapter
+    // lifetimes, so the next call would reuse a connector nobody listens to.
+    this.connectors.delete(params.vendor);
+    connector.reset();
   }
 
   /**
@@ -243,25 +253,5 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   }): Promise<void> {
     const connector = await this.getConnector(params.vendor);
     await connector.setKnownCredentials?.(params.credentials);
-  }
-
-  /**
-   * `onEvent` / `offEvent` on this side are intentionally no-ops: the SW
-   * subscribes to `offscreenEventBus` directly (see `OffscreenHardwareBridgeClient`),
-   * not by calling into offscreen. Including them satisfies the
-   * `IHardwareBridge` interface and documents the choice.
-   */
-  onEvent(
-    _params: { vendor: VendorType },
-    _handler: (event: { type: ConnectorEventType; data: unknown }) => void,
-  ): void {
-    // no-op — event delivery happens via offscreenEventBus instead.
-  }
-
-  offEvent(
-    _params: { vendor: VendorType },
-    _handler: (event: { type: ConnectorEventType; data: unknown }) => void,
-  ): void {
-    // no-op — matches onEvent.
   }
 }

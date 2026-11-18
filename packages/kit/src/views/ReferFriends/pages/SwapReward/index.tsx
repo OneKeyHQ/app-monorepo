@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DatePicker,
   Page,
   RefreshControl,
   ScrollView,
@@ -36,8 +35,12 @@ import {
   FilterButton,
   ReferFriendsDetailHeader,
   ReferFriendsPageContainer,
+  RewardDateRangeField,
 } from '../../components';
-import { useDatePresets } from '../../hooks/useDatePresets';
+import {
+  REFERRAL_ALL_TIME_START,
+  useDatePresets,
+} from '../../hooks/useDatePresets';
 import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { SwapDetailsSection } from './components/SwapDetailsSection';
@@ -93,7 +96,6 @@ function SwapRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<ISwapInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<ISwapInvitesSortOrder>('desc');
-  const [hasUserSorted, setHasUserSorted] = useState(false);
   const [cursor, setCursor] = useState<string>();
 
   const refreshRequestIdRef = useRef(0);
@@ -117,7 +119,7 @@ function SwapRewardPageWrapper() {
     clearCustomDateRange,
     datePickerValue,
   } = useRewardFilter({
-    startTime: new Date('2024-01-01T00:00:00.000').getTime(),
+    startTime: REFERRAL_ALL_TIME_START.getTime(),
     endTime: (() => {
       const d = new Date();
       d.setHours(23, 59, 59, 999);
@@ -639,7 +641,6 @@ function SwapRewardPageWrapper() {
 
   const handleSort = useCallback(
     (field: ISwapInvitesSortBy) => {
-      setHasUserSorted(true);
       if (sortBy === field) {
         setSortOrder((order) => (order === 'desc' ? 'asc' : 'desc'));
       } else {
@@ -657,15 +658,12 @@ function SwapRewardPageWrapper() {
   const toolbar = useMemo(
     () => (
       <>
-        <YStack width={240}>
-          <DatePicker.Range
-            value={currentDatePickerValue}
-            onChange={handleDateRangeChange}
-            maxDate={maxDate}
-            showPreviousMonth
-            presets={presets}
-          />
-        </YStack>
+        <RewardDateRangeField
+          value={currentDatePickerValue}
+          onChange={handleDateRangeChange}
+          maxDate={maxDate}
+          presets={presets}
+        />
         <XStack gap="$3">
           <FilterButton
             filterState={filterState}
@@ -702,7 +700,7 @@ function SwapRewardPageWrapper() {
     <Page>
       <ReferFriendsDetailHeader
         title={intl.formatMessage({
-          id: ETranslations.swap_referral_link__title,
+          id: ETranslations.global_swap,
         })}
         toolbar={toolbar}
       />
@@ -751,7 +749,6 @@ function SwapRewardPageWrapper() {
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 onSort={handleSort}
-                hasUserSorted={hasUserSorted}
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
                 hasError={hasListError}

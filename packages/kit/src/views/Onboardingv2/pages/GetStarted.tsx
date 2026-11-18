@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
@@ -18,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { HeroAtmosphere } from '../components/HeroAtmosphere';
@@ -55,6 +57,12 @@ const HERO_WORD_DISPLAY_MS = 2600;
 // 20 × 45ms stagger covers words up to 20 graphemes).
 const HERO_EXIT_CLEANUP_MS = HERO_CHAR_ANIMATION_MS + 20 * HERO_CHAR_STAGGER_MS;
 
+// A phone-class window shorter than this (iPhone SE class) steps the hero
+// down one size: long locales wrap to five lines at 5xl and run into the
+// terms below the hero.
+const HERO_COMPACT_WINDOW_HEIGHT = 700;
+type IHeroTextSize = '$heading4xl' | '$heading5xl';
+
 // Unicode-safe grapheme split: handles CJK, combining marks, emoji ZWJ
 // sequences. Falls back to codepoint split where Intl.Segmenter is missing
 // (Hermes without intl polyfill).
@@ -78,9 +86,11 @@ function splitGraphemes(str: string): string[] {
 function HeroCharLayer({
   word,
   mode,
+  size,
 }: {
   word: string;
   mode: 'enter' | 'exit';
+  size: IHeroTextSize;
 }) {
   const chars = splitGraphemes(word);
   const [activated, setActivated] = useState(false);
@@ -131,11 +141,7 @@ function HeroCharLayer({
                 } as any
               }
             >
-              <SizableText
-                size="$heading5xl"
-                fontWeight={600}
-                accessible={false}
-              >
+              <SizableText size={size} fontWeight={600} accessible={false}>
                 {char === ' ' ? '\u00A0' : char}
               </SizableText>
             </MotiView>
@@ -155,7 +161,7 @@ function HeroCharLayer({
               } as any
             }
           >
-            <SizableText size="$heading5xl" fontWeight={600} accessible={false}>
+            <SizableText size={size} fontWeight={600} accessible={false}>
               {char === ' ' ? '\u00A0' : char}
             </SizableText>
           </YStack>
@@ -165,7 +171,13 @@ function HeroCharLayer({
   );
 }
 
-function HeroRotatingWord({ words }: { words: string[] }) {
+function HeroRotatingWord({
+  words,
+  size,
+}: {
+  words: string[];
+  size: IHeroTextSize;
+}) {
   const [wordIndex, setWordIndex] = useState(0);
   const [exitingIndex, setExitingIndex] = useState<number | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -212,12 +224,7 @@ function HeroRotatingWord({ words }: { words: string[] }) {
 
   return (
     <YStack position="relative" accessible accessibilityLabel={currentWord}>
-      <SizableText
-        size="$heading5xl"
-        fontWeight={600}
-        opacity={0}
-        accessible={false}
-      >
+      <SizableText size={size} fontWeight={600} opacity={0} accessible={false}>
         {longestWord || '\u00A0'}
       </SizableText>
       {exitingWord !== null && exitingIndex !== null ? (
@@ -225,12 +232,14 @@ function HeroRotatingWord({ words }: { words: string[] }) {
           key={`exit-${exitingIndex}`}
           word={exitingWord}
           mode="exit"
+          size={size}
         />
       ) : null}
       <HeroCharLayer
         key={`enter-${wordIndex}`}
         word={currentWord}
         mode="enter"
+        size={size}
       />
     </YStack>
   );
@@ -254,10 +263,12 @@ function HeroSentenceNative({
   prefix,
   suffix,
   rotating,
+  size,
 }: {
   prefix: string;
   suffix: string;
   rotating: React.ReactElement;
+  size: IHeroTextSize;
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [prefixLines, setPrefixLines] = useState<IHeroLineMetric[]>([]);
@@ -303,7 +314,7 @@ function HeroSentenceNative({
     >
       {hasPrefix ? (
         <SizableText
-          size="$heading5xl"
+          size={size}
           fontWeight={400}
           onTextLayout={(e) => {
             const next = e.nativeEvent.lines.map((line) => ({
@@ -359,7 +370,7 @@ function HeroSentenceNative({
             setSuffixWidth(e.nativeEvent.layout.width);
           }}
         >
-          <SizableText size="$heading5xl" fontWeight={400}>
+          <SizableText size={size} fontWeight={400}>
             {suffix}
           </SizableText>
         </YStack>
@@ -372,16 +383,32 @@ function GetStarted() {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const { height: windowHeight } = useWindowDimensions();
+  const heroSize: IHeroTextSize =
+    !gtMd && windowHeight < HERO_COMPACT_WINDOW_HEIGHT
+      ? '$heading4xl'
+      : '$heading5xl';
+
+  // The notice sits right above these options, so choosing any of them is the
+  // new user's acceptance of the current terms.
+  const acceptTerms = () => {
+    void backgroundApiProxy.serviceSetting
+      .acceptTermsConsent({ source: 'onboarding' })
+      .catch(() => undefined);
+  };
 
   const handleCreateNewWallet = () => {
+    acceptTerms();
     navigation.push(EOnboardingPagesV2.CreateNewWallet);
   };
 
   const handleMoreOptions = () => {
+    acceptTerms();
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
   const handleConnectHardwareWallet = () => {
+    acceptTerms();
     navigation.push(EOnboardingPagesV2.PickYourDevice);
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
@@ -459,18 +486,21 @@ function GetStarted() {
           <HeroSentenceNative
             prefix={heroPrefix}
             suffix={heroSuffix}
-            rotating={<HeroRotatingWord words={heroActionWords} />}
+            rotating={
+              <HeroRotatingWord words={heroActionWords} size={heroSize} />
+            }
+            size={heroSize}
           />
         ) : (
           <XStack flexWrap="wrap" alignItems="baseline">
             {heroPrefix ? (
-              <SizableText size="$heading5xl" fontWeight={400}>
+              <SizableText size={heroSize} fontWeight={400}>
                 {heroPrefix}
               </SizableText>
             ) : null}
-            <HeroRotatingWord words={heroActionWords} />
+            <HeroRotatingWord words={heroActionWords} size={heroSize} />
             {heroSuffix ? (
-              <SizableText size="$heading5xl" fontWeight={400}>
+              <SizableText size={heroSize} fontWeight={400}>
                 {heroSuffix}
               </SizableText>
             ) : null}
@@ -484,6 +514,7 @@ function GetStarted() {
         }}
       >
         <TermsAndPrivacy
+          messageId={ETranslations.onboarding_terms_consent__desc}
           contentContainerProps={{
             $md: {
               px: '$5',

@@ -1021,7 +1021,9 @@ function TokenLiquidityPoolsDesktop({ pools }: { pools: IDisplayPool[] }) {
   return (
     <ScrollView
       horizontal
-      showsHorizontalScrollIndicator
+      // The table still scrolls when columns overflow; the bar itself is
+      // noise under the tab content (OK-63856).
+      showsHorizontalScrollIndicator={false}
       width="100%"
       contentContainerStyle={{
         flexGrow: 1,

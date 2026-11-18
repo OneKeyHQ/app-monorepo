@@ -1,9 +1,9 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Divider,
   Icon,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -33,7 +33,7 @@ function TokenSecurityAlertDialogContent({
   const formattedData = formatSecurityData(securityData);
 
   return (
-    <ScrollView maxHeight="$96">
+    <Dialog.ScrollView maxHeight="$96">
       <Stack gap="$4">
         {/* Overview section with warning count */}
         <TokenSecurityAlertDialogContentOverview
@@ -71,7 +71,7 @@ function TokenSecurityAlertDialogContent({
         {/* Disclaimer */}
         <TokenSecurityDisclaimer />
       </Stack>
-    </ScrollView>
+    </Dialog.ScrollView>
   );
 }
 

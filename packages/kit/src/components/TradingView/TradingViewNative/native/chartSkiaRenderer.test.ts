@@ -1,18 +1,30 @@
 // cspell:ignore Alphaf Skia XYWH
 
 import {
+  formatTradingViewNativePriceTick,
+  getTradingViewNativeCurrentPriceAxisLabel,
+} from '../utils/chartLayout';
+
+import {
   createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
   getTradingViewNativeSkiaLegendText,
   getTradingViewNativeSkiaPaintStyleSignature,
 } from './chartSkiaRenderer';
+import {
+  getTradingViewNativeSkiaDigitMetrics,
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+  getTradingViewNativeSkiaTextFont,
+} from './chartSkiaText';
 
 import type {
+  IBuildTradingViewNativeChartSceneOptions,
   ITradingViewNativeChartScene,
   ITradingViewNativeChartScenePaintStyle,
 } from '../utils/chartScene';
-import type { SkFont } from '@shopify/react-native-skia';
+import type { SkFont, SkTypeface } from '@shopify/react-native-skia';
 
 const mockBuildTradingViewNativeChartScene = jest.fn<
   ITradingViewNativeChartScene,
@@ -32,11 +44,31 @@ const mockCreatePaint = jest.fn(() => ({
   setStyle: jest.fn(),
 }));
 const mockPath = {
+  dispose: jest.fn(),
+};
+const mockPathBuilder = {
+  build: jest.fn(() => mockPath),
   close: jest.fn(),
   dispose: jest.fn(),
   lineTo: jest.fn(),
   moveTo: jest.fn(),
 };
+const mockMakeFromSVGString = jest.fn((svg: string) => ({
+  svg,
+  computeTightBounds: jest.fn(() => ({ x: 2, y: 3, width: 6, height: 10 })),
+  dispose: jest.fn(),
+}));
+const mockMakeBuilderFromPath = jest.fn((source: { svg: string }) => {
+  const builtPath = { svg: source.svg };
+  return {
+    builtPath,
+    build: jest.fn(() => builtPath),
+    dispose: jest.fn(),
+    offset: jest.fn(),
+    transform: jest.fn(),
+  };
+});
+const mockScaleMatrix = jest.fn((x: number, y: number) => ({ x, y }));
 const mockGradientShader = { dispose: jest.fn() };
 let mockFontGlyphsByFamily: Record<string, string> = {};
 let mockFontDisposeByFamily: Record<string, jest.Mock> = {};
@@ -75,6 +107,9 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
       dispose,
       fontFamily: typeface.fontFamily,
       fontSize,
+      setEmbolden: jest.fn(),
+      getSize: () => fontSize,
+      getTypeface: () => typeface,
       getGlyphIDs: (text: string) =>
         Array.from(text).map((character) =>
           character.charCodeAt(0) <= 127 ||
@@ -82,7 +117,9 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
             ? 1
             : 0,
         ),
-      measureText: (text: string) => ({ width: text.length }),
+      measureText: (text: string) => ({
+        width: text.length * (typeface.fontFamily === 'Inter' ? 2 : 1),
+      }),
     } as unknown as SkFont;
   },
 );
@@ -119,6 +156,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   PaintStyle: { Stroke: 1 },
   Skia: {
     Color: (color: string) => color,
+    Matrix: () => ({ scale: mockScaleMatrix }),
     Font: (typeface: { fontFamily: string }, fontSize: number) =>
       mockSkiaFont(typeface, fontSize),
     FontMgr: {
@@ -148,7 +186,14 @@ jest.mock('@shopify/react-native-skia', () => ({
       },
     },
     Paint: () => mockCreatePaint(),
-    Path: { Make: () => mockPath },
+    Path: {
+      MakeFromSVGString: (svg: string) => mockMakeFromSVGString(svg),
+    },
+    PathBuilder: {
+      Make: () => mockPathBuilder,
+      MakeFromPath: (source: { svg: string }) =>
+        mockMakeBuilderFromPath(source),
+    },
     PathEffect: { MakeDash: jest.fn() },
     Shader: { MakeLinearGradient: jest.fn(() => mockGradientShader) },
     XYWHRect: (x: number, y: number, width: number, height: number) => ({
@@ -182,6 +227,7 @@ function createScene(
     autoPriceRange: null,
     commands: [],
     crosshairPointIndex: null,
+    crosshairPosition: null,
     customPaintStyles: {},
     priceAxisWidth: 40,
     subIndicatorLegendHitRegions: [],
@@ -193,8 +239,10 @@ function createScene(
 
 function createResources({
   legendFont = mockSkiaFont({ fontFamily: 'System' }, 11),
+  priceAxisTypeface = null,
 }: {
   legendFont?: ReturnType<typeof mockSkiaFont>;
+  priceAxisTypeface?: SkTypeface | null;
 } = {}) {
   return createTradingViewNativeSkiaResources({
     colors: {
@@ -205,9 +253,10 @@ function createResources({
     },
     fontFamily: 'System',
     legendFont,
-    priceAxisFont: null,
+    priceAxisTypeface,
     priceAxisFontSize: 12,
     timeAxisFontSize: 12,
+    tradingLineLabelFont: mockSkiaFont({ fontFamily: 'System' }, 12),
     watermarkSvg: null,
   });
 }
@@ -249,6 +298,190 @@ describe('TradingViewNative Skia scene renderer', () => {
     mockSystemFontFamilies = [];
   });
 
+  it('reserves rounded-out digit ink once instead of per digit', () => {
+    // Skia returns single-glyph ink bounds rounded out to whole points.
+    const font = {
+      getGlyphIDs: (text: string) =>
+        Array.from(text, (character) => character.charCodeAt(0)),
+      getGlyphWidths: (glyphs: number[]) =>
+        glyphs.map((glyph) => {
+          if (glyph === 52) return 8;
+          if (glyph === 46) return 3;
+          return 7;
+        }),
+      measureText: (text: string) =>
+        text === '888.888'
+          ? { x: -1, y: -10, height: 12, width: 46 }
+          : { x: -1, y: -10, height: 12, width: 10 },
+    };
+    const digitMetrics = getTradingViewNativeSkiaDigitMetrics(font);
+
+    expect(digitMetrics).toEqual({ advance: 8, inkRight: 9 });
+    // Six 8pt digit slots and the dot, plus 1pt of ink past the last slot.
+    expect(
+      getTradingViewNativeSkiaPriceAxisLabelWidth(
+        '888.888',
+        font,
+        digitMetrics,
+      ),
+    ).toBe(52);
+    // A single digit width keeps reserving it for every digit slot.
+    expect(
+      getTradingViewNativeSkiaPriceAxisLabelWidth(
+        '888.888',
+        font,
+        getTradingViewNativeSkiaDigitWidth(font),
+      ),
+    ).toBe(57);
+  });
+
+  it.each([
+    { fourAdvance: 8, fourRight: 8, eightAdvance: 8, expectedWidth: 59 },
+    { fourAdvance: 8, fourRight: 8, eightAdvance: 7, expectedWidth: 59 },
+    { fourAdvance: 8, fourRight: 9, eightAdvance: 8, expectedWidth: 60 },
+  ])(
+    'reserves numeric label width for proportional advances and ink: %j',
+    ({ fourAdvance, fourRight, eightAdvance, expectedWidth }) => {
+      const font = {
+        getGlyphIDs: (text: string) =>
+          Array.from(text, (character) => character.charCodeAt(0)),
+        getGlyphWidths: (glyphs: number[]) =>
+          glyphs.map((glyph) => {
+            if (glyph === 52) return fourAdvance;
+            if (glyph === 46) return 3;
+            return eightAdvance;
+          }),
+        measureText: (text: string) => {
+          let width = eightAdvance - 1;
+          if (text === '88888.88') width = eightAdvance * 7 + 2;
+          if (text === '4') width = fourRight;
+          return { x: 0, y: -8, height: 8, width };
+        },
+      };
+      const digitMetrics = getTradingViewNativeSkiaDigitMetrics(font);
+      const reservedWidth = getTradingViewNativeSkiaPriceAxisLabelWidth(
+        '88888.88',
+        font,
+        digitMetrics,
+      );
+
+      for (const [price, decimals] of [
+        [80_311, 1],
+        [3012.5, 2],
+      ]) {
+        const widthFor = (value: number) =>
+          getTradingViewNativeSkiaPriceAxisLabelWidth(
+            getTradingViewNativeCurrentPriceAxisLabel(
+              formatTradingViewNativePriceTick(value, 4, decimals),
+              decimals,
+            ),
+            font,
+            digitMetrics,
+          );
+        expect(widthFor(price)).toBe(widthFor(price + 10 ** -decimals));
+      }
+      expect(reservedWidth).toBe(expectedWidth);
+      expect(reservedWidth).toBeGreaterThanOrEqual(
+        fourAdvance * 6 + 3 + fourRight,
+      );
+    },
+  );
+
+  it('preserves signs, subscript digits, suffix overhangs, and empty labels when reserving digit width', () => {
+    const font = {
+      getGlyphIDs: (text: string) =>
+        Array.from(text, (character) => character.charCodeAt(0)),
+      getGlyphWidths: (glyphs: number[]) => glyphs.map(() => 3),
+      measureText: (text: string) => ({
+        x: 0,
+        y: 0,
+        height: 8,
+        width: text ? 16 : 0,
+      }),
+    };
+
+    expect(getTradingViewNativeSkiaPriceAxisLabelWidth('-8.₆K', font, 8)).toBe(
+      21,
+    );
+    expect(getTradingViewNativeSkiaPriceAxisLabelWidth('', font, 8)).toBe(0);
+  });
+
+  it.each(['B', 'S'] as const)(
+    'draws %s as a centered vector without font metrics or reparsing on redraw',
+    (label) => {
+      const resources = createResources();
+      mockBuildTradingViewNativeChartScene.mockReturnValue(
+        createScene({
+          commands: [
+            {
+              kind: 'tradeMarkLabel',
+              label,
+              cx: 50,
+              cy: 30,
+              customPaintId: 'chart.tradeMarks.text',
+              paint: 'currentPriceLabelText',
+            },
+          ],
+          customPaintStyles: {
+            'chart.tradeMarks.text': { color: '#FFFFFF', opacity: 1 },
+          },
+        }),
+      );
+      const builders = mockMakeBuilderFromPath.mock.results.map(
+        (result) => result.value as ReturnType<typeof mockMakeBuilderFromPath>,
+      );
+      for (const builder of builders) {
+        expect(builder.offset).toHaveBeenCalledWith(-5, -8);
+        expect(builder.transform).not.toHaveBeenCalled();
+        expect(builder.dispose).toHaveBeenCalledTimes(1);
+      }
+      for (const result of mockMakeFromSVGString.mock.results) {
+        const source = result.value as ReturnType<typeof mockMakeFromSVGString>;
+        expect(source.dispose).toHaveBeenCalledTimes(1);
+      }
+      mockMakeFromSVGString.mockClear();
+
+      createPicture(resources);
+      createPicture(resources);
+
+      expect(mockCanvas.translate).toHaveBeenCalledWith(50, 30);
+      expect(mockCanvas.drawPath).toHaveBeenCalledWith(
+        resources.tradeMarkLabelPaths[label],
+        resources.customPaints['chart.tradeMarks.text'],
+      );
+      expect(mockCanvas.drawText).not.toHaveBeenCalled();
+      expect(mockMakeFromSVGString).not.toHaveBeenCalled();
+      expect(mockCanvas.save).toHaveBeenCalledTimes(2);
+      expect(mockCanvas.restore).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
+    { fontSize: 5.5, scale: 0.5 },
+    { fontSize: 22, scale: 2 },
+  ])(
+    'scales both labels to the $fontSize px legend font around their visible centers',
+    ({ fontSize, scale }) => {
+      createResources({
+        legendFont: mockSkiaFont({ fontFamily: 'System' }, fontSize),
+      });
+
+      expect(mockMakeFromSVGString).toHaveBeenCalledTimes(2);
+      expect(mockScaleMatrix).toHaveBeenCalledTimes(2);
+      expect(mockScaleMatrix).toHaveBeenCalledWith(scale, scale);
+      for (const result of mockMakeBuilderFromPath.mock.results) {
+        const builder = result.value as ReturnType<
+          typeof mockMakeBuilderFromPath
+        >;
+        expect(builder.offset).toHaveBeenCalledWith(-5, -8);
+        expect(builder.transform).toHaveBeenCalledWith({ x: scale, y: scale });
+        expect(builder.offset.mock.invocationCallOrder[0]).toBeLessThan(
+          builder.transform.mock.invocationCallOrder[0],
+        );
+      }
+    },
+  );
+
   it('keeps the primary font without requesting a fallback when it has every glyph', () => {
     const legendText = '开高低收';
     mockFontGlyphsByFamily.System = legendText;
@@ -275,6 +508,7 @@ describe('TradingViewNative Skia scene renderer', () => {
 
     expect(font).toEqual(expect.objectContaining({ fontFamily: 'System' }));
     expect(mockMatchFamilyStyleCharacter).toHaveBeenCalledTimes(4);
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
     expect(mockFontDisposeByFamily.System).not.toHaveBeenCalled();
   });
 
@@ -419,6 +653,7 @@ describe('TradingViewNative Skia scene renderer', () => {
       expect(
         mockFallbackTypefaceDisposeByFamily[expectedFontFamily],
       ).toHaveBeenCalledTimes(1);
+      expect(mockCountFontFamilies).not.toHaveBeenCalled();
     },
   );
 
@@ -447,6 +682,49 @@ describe('TradingViewNative Skia scene renderer', () => {
     );
   });
 
+  it('scans system fonts when native character matches cannot cover mixed text', () => {
+    const requiredText = 'O开क';
+    mockFallbackFontFamilyByRequest['zh-CN:开'] = 'NativeCJK';
+    mockFallbackFontFamilyByRequest['zh-CN:क'] = 'NativeDevanagari';
+    mockFontGlyphsByFamily.NativeCJK = '开';
+    mockFontGlyphsByFamily.NativeDevanagari = 'क';
+    mockSystemFontFamilies = [
+      'System',
+      'PartialSystem',
+      'CompleteSystem',
+      'Later',
+    ];
+    mockFontGlyphsByFamily.PartialSystem = '开';
+    mockFontGlyphsByFamily.CompleteSystem = '开क';
+    mockFontGlyphsByFamily.Later = '开क';
+
+    const font = createTradingViewNativeSkiaFontForText({
+      fontFamily: 'System',
+      fontSize: 11,
+      locale: 'zh-CN',
+      requiredText,
+    });
+
+    expect(font).toEqual(
+      expect.objectContaining({ fontFamily: 'CompleteSystem' }),
+    );
+    expect(font.getGlyphIDs(requiredText)).not.toContain(0);
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
+    expect(mockGetFontFamilyName).not.toHaveBeenCalledWith(3);
+    expect(mockFontDisposeByFamily.System).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.NativeCJK).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.NativeDevanagari).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.PartialSystem).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.CompleteSystem).not.toHaveBeenCalled();
+    expect(mockFontDisposeByFamily.Later).toBeUndefined();
+    expect(mockFallbackTypefaceDisposeByFamily.NativeCJK).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      mockFallbackTypefaceDisposeByFamily.NativeDevanagari,
+    ).toHaveBeenCalledTimes(1);
+  });
+
   it('builds resources with the resolved legend font without another lookup', () => {
     const legendFont = mockSkiaFont(
       { fontFamily: 'Anonymous Android fallback' },
@@ -458,6 +736,160 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(mockMatchFamilyStyleCharacter).not.toHaveBeenCalled();
     expect(mockCountFontFamilies).not.toHaveBeenCalled();
     expect(mockGetFontFamilyName).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { family: 'System', text: 'Prev close' },
+    { family: 'PingFang SC', text: '昨收' },
+    { family: 'Noto Sans CJK SC', text: '昨收' },
+  ])(
+    'measures and draws reference labels with the existing $family system font at the price-axis size',
+    ({ family, text }) => {
+      mockFontGlyphsByFamily[family] = text;
+      const resources = createResources({
+        legendFont: mockSkiaFont({ fontFamily: family }, 11),
+        priceAxisTypeface: {
+          fontFamily: 'Inter',
+        } as unknown as SkTypeface,
+      });
+      mockBuildTradingViewNativeChartScene.mockImplementation((options) => {
+        const { measureTextWidth } =
+          options as IBuildTradingViewNativeChartSceneOptions;
+        expect(measureTextWidth(text, 'referenceLineLabel')).toBe(text.length);
+        expect(measureTextWidth('104.00', 'priceAxis')).toBe(12);
+        return createScene({
+          commands: [
+            {
+              font: 'referenceLineLabel',
+              kind: 'text',
+              paint: 'background',
+              text,
+              x: 10,
+              y: 20,
+            },
+            {
+              font: 'priceAxis',
+              kind: 'text',
+              paint: 'background',
+              text: '104.00',
+              x: 30,
+              y: 20,
+            },
+          ],
+        });
+      });
+
+      createPicture(resources);
+
+      expect(resources.fonts.referenceLineLabel).toEqual(
+        expect.objectContaining({ fontFamily: family, fontSize: 12 }),
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        text,
+        10,
+        20,
+        resources.paints.background,
+        resources.fonts.referenceLineLabel,
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        '104.00',
+        30,
+        20,
+        resources.paints.background,
+        resources.fonts.priceAxis,
+      );
+      expect(mockMatchFamilyStyleCharacter).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'measures and draws compact indicator values with Inter when system coverage is %s',
+    (supported) => {
+      mockFontGlyphsByFamily.System = supported ? '₀₁₂₃₄₅₆₇₈₉' : '';
+      mockFontGlyphsByFamily.Inter = '₀₁₂₃₄₅₆₇₈₉';
+      const priceAxisTypeface = {
+        fontFamily: 'Inter',
+      } as unknown as SkTypeface;
+      const resources = createResources({
+        priceAxisTypeface,
+      });
+      const text = '-0.0₁₀1234';
+      mockBuildTradingViewNativeChartScene.mockImplementation((options) => {
+        const { measureTextWidth } =
+          options as IBuildTradingViewNativeChartSceneOptions;
+        expect(measureTextWidth(text, 'legend')).toBe(text.length * 2);
+        expect(measureTextWidth('MACD', 'legend')).toBe(4);
+        return createScene({
+          commands: [
+            {
+              font: 'legend',
+              kind: 'text',
+              paint: 'background',
+              text,
+              x: 10,
+              y: 20,
+            },
+          ],
+        });
+      });
+
+      createPicture(resources);
+
+      expect(resources.legendSubscriptFont).toEqual(
+        expect.objectContaining({ fontFamily: 'Inter', fontSize: 11 }),
+      );
+      expect(resources.fonts.priceAxis).toEqual(
+        expect.objectContaining({ fontFamily: 'Inter', fontSize: 12 }),
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        text,
+        10,
+        20,
+        resources.paints.background,
+        resources.legendSubscriptFont,
+      );
+    },
+  );
+
+  it('keeps the existing legend font while the bundled typeface loads', () => {
+    const resources = createResources();
+    expect(resources.legendSubscriptFont).toBeNull();
+    expect(
+      getTradingViewNativeSkiaTextFont(
+        '0.0₆1234',
+        resources.fonts.legend,
+        resources.legendSubscriptFont,
+      ),
+    ).toBe(resources.fonts.legend);
+  });
+
+  it('uses Inter for compact values and preserves plain values and localized labels', () => {
+    mockFontGlyphsByFamily.System = '指标₆';
+    mockFontGlyphsByFamily.Inter = '₀₁₂₃₄₅₆₇₈₉';
+    const resources = createResources({
+      priceAxisTypeface: {
+        fontFamily: 'Inter',
+      } as unknown as SkTypeface,
+    });
+
+    for (const text of ['12.3456', 'MACD', '指标', '指标 0.0₁₀1234']) {
+      expect(
+        getTradingViewNativeSkiaTextFont(
+          text,
+          resources.fonts.legend,
+          resources.legendSubscriptFont,
+        ),
+      ).toBe(resources.fonts.legend);
+    }
+    for (const text of ['0.0₆1234', '-0.0₇1234', '0.0₁₀1234']) {
+      expect(
+        getTradingViewNativeSkiaTextFont(
+          text,
+          resources.fonts.legend,
+          resources.legendSubscriptFont,
+        ),
+      ).toBe(resources.legendSubscriptFont);
+    }
   });
 
   it('creates one cached SkPaint per stable custom style', () => {
@@ -571,10 +1003,11 @@ describe('TradingViewNative Skia scene renderer', () => {
 
     createPicture(resources);
 
-    expect(mockPath.moveTo).toHaveBeenCalledWith(1, 2);
-    expect(mockPath.lineTo).toHaveBeenNthCalledWith(1, 3, 4);
-    expect(mockPath.lineTo).toHaveBeenNthCalledWith(2, 5, 2);
-    expect(mockPath.close).toHaveBeenCalledTimes(1);
+    expect(mockPathBuilder.moveTo).toHaveBeenCalledWith(1, 2);
+    expect(mockPathBuilder.lineTo).toHaveBeenNthCalledWith(1, 3, 4);
+    expect(mockPathBuilder.lineTo).toHaveBeenNthCalledWith(2, 5, 2);
+    expect(mockPathBuilder.close).toHaveBeenCalledTimes(1);
+    expect(mockPathBuilder.dispose).toHaveBeenCalledTimes(1);
     expect(mockCanvas.drawPath).toHaveBeenCalledWith(
       mockPath,
       resources.customPaints['pane.fill'],

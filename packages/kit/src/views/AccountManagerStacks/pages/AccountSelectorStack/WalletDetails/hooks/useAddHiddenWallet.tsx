@@ -213,12 +213,17 @@ export function useAddHiddenWallet() {
           features: device?.featuresInfo,
           fallbackName: device?.name,
         });
-        stageToken =
+        const stageDeviceColor = deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device?.deviceType,
+          features: device?.featuresInfo,
+        });
+        ({ token: stageToken } =
           await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
             connectId: device?.connectId,
             deviceType: device?.deviceType,
+            deviceColor: stageDeviceColor,
             deviceName: stageDeviceName,
-          });
+          }));
         // Listening starts before the card is asked for: the paint is an
         // RPC, and an exit the background announces while it is in flight
         // would otherwise reach a main runtime that is not listening yet.
@@ -233,6 +238,7 @@ export function useAddHiddenWallet() {
               {
                 connectId: device?.connectId,
                 deviceType: device?.deviceType,
+                deviceColor: stageDeviceColor,
                 deviceName: stageDeviceName,
               },
             );

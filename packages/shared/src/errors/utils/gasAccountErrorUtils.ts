@@ -52,15 +52,24 @@ export function abortableWait(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+// Prime's generic error wrapper (HTTP 200 body, code = err.status ?? 400,
+// no messageId); the Wallet BFF fills the missing messageId with
+// `error__common_unknown`. On a Gas Account send this is result-unknown
+// (OK-64746 / OK-64758): the tx may already be broadcast.
+export const GAS_ACCOUNT_UNCLASSIFIED_SERVER_ERROR_CODE = 400;
+export const GAS_ACCOUNT_UNKNOWN_ERROR_MESSAGE_ID = 'error__common_unknown';
+
 type IGasAccountErrorShape = {
   code?: unknown;
   retryAfterSec?: unknown;
   data?: {
     code?: unknown;
+    messageId?: unknown;
     retryAfterSec?: unknown;
     args?: { retryAfterSec?: unknown };
     data?: {
       code?: unknown;
+      messageId?: unknown;
       retryAfterSec?: unknown;
       args?: { retryAfterSec?: unknown };
       res?: { error?: { code?: unknown } };
@@ -90,6 +99,129 @@ export function getGasAccountErrorCode(error: unknown): number | undefined {
     }
   }
   return undefined;
+}
+
+// The server body is kept verbatim under `data` on OneKeyServerApiError (and
+// survives background-bridge serialization), so the BFF messageId lives at
+// `data.messageId`; `data.data.messageId` covers one extra wrapping layer.
+export function getGasAccountErrorMessageId(
+  error: unknown,
+): string | undefined {
+  const e = error as IGasAccountErrorShape | undefined;
+  const candidates = [e?.data?.messageId, e?.data?.data?.messageId];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+// A generic 400 whose messageId is the BFF's unknown-error filler. Only this
+// exact shape is narrowed; any other 400 keeps its ordinary handling.
+export function isGasAccountUnclassifiedServerError(error: unknown): boolean {
+  return (
+    getGasAccountErrorCode(error) ===
+      GAS_ACCOUNT_UNCLASSIFIED_SERVER_ERROR_CODE &&
+    getGasAccountErrorMessageId(error) === GAS_ACCOUNT_UNKNOWN_ERROR_MESSAGE_ID
+  );
+}
+
+// send-transaction codes the backend answers at quote admission, before the
+// execute step: the request was refused and the signed tx was handed to no
+// node. These are the codes the confirm page re-estimates on (Refresh) or
+// falls back to a user-paid send on (Fallback), so a retry may sign a new tx.
+// Execute and transport failures (40203 / 90200 / 90205 / 90219, and the
+// unclassified 400 above) are deliberately absent: their tx may be on chain.
+export const GAS_ACCOUNT_SUBMIT_REJECTED_CODES: readonly number[] = [
+  // Quote or its locked nonce is no longer valid.
+  40_201,
+  40_202,
+  40_209,
+  90_201,
+  GAS_ACCOUNT_ADMISSION_OVERLOADED_CODE,
+  // Sponsor path unavailable for this send.
+  40_212,
+  40_213,
+  40_216,
+  40_218,
+  40_219,
+  90_208,
+];
+
+export function isGasAccountSubmitRejectedCode(code: unknown): boolean {
+  return (
+    typeof code === 'number' && GAS_ACCOUNT_SUBMIT_REJECTED_CODES.includes(code)
+  );
+}
+
+// Which Gas Account request an error came from. estimate-fee and
+// send-transaction share the strategy table, but the same code means
+// different things per stage: at estimate time nothing was signed or
+// broadcast, so result-unknown codes keep their estimate copy and the
+// unclassified 400 above is not narrowed to "may already be submitted".
+export enum EGasAccountRequestStage {
+  Estimate = 'estimate',
+  Send = 'send',
+}
+
+type IGasAccountStagedError = {
+  $$gasAccountRequestStage?: EGasAccountRequestStage;
+};
+
+// Tags an error with the request stage it was thrown from, so a catch block
+// that wraps both the pre-send estimate and the send (e.g. Market direct send)
+// can tell them apart. The innermost tag wins; the same error object is
+// returned, and non-object throwables pass through untouched.
+export function markGasAccountRequestStage<T>(
+  error: T,
+  stage: EGasAccountRequestStage,
+): T {
+  if (typeof error === 'object' && error !== null) {
+    const staged = error as IGasAccountStagedError;
+    if (!staged.$$gasAccountRequestStage) {
+      staged.$$gasAccountRequestStage = stage;
+    }
+  }
+  return error;
+}
+
+export function getGasAccountRequestStage(
+  error: unknown,
+): EGasAccountRequestStage | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+  const stage = (error as IGasAccountStagedError).$$gasAccountRequestStage;
+  return stage === EGasAccountRequestStage.Estimate ||
+    stage === EGasAccountRequestStage.Send
+    ? stage
+    : undefined;
+}
+
+type IGasAccountResultUnknownError = {
+  $$gasAccountSubmitResultUnknown?: true;
+};
+
+// Tags an error from a sponsored send whose outcome is unknown (OK-64746):
+// the tx may already be on chain. Review surfaces that only display errors
+// (Swap / Market direct send) read this to keep the attempt terminal — no
+// retry, no second confirm — instead of letting a later tap resend.
+export function markGasAccountSubmitResultUnknown<T>(error: T): T {
+  if (typeof error === 'object' && error !== null) {
+    (error as IGasAccountResultUnknownError).$$gasAccountSubmitResultUnknown =
+      true;
+  }
+  return error;
+}
+
+export function isGasAccountSubmitResultUnknownError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as IGasAccountResultUnknownError).$$gasAccountSubmitResultUnknown ===
+      true
+  );
 }
 
 function toIntegerSecond(value: unknown): number | undefined {

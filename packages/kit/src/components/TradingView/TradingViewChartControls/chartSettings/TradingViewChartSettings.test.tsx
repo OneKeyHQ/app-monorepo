@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewChartSettings } from './TradingViewChartSettings';
 import { createTradingViewChartSettingsValue } from './TradingViewSettingsMockState';
@@ -19,18 +19,46 @@ jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ height: 800, width: 1200 }),
 }));
 
+jest.mock('./TradingViewSettingsDialog', () => ({
+  TradingViewSettingsDialog: ({
+    children,
+    onReset,
+    testIDPrefix,
+  }: {
+    children: (footer: ReactNode) => ReactNode;
+    onReset: () => void;
+    testIDPrefix: string;
+  }) =>
+    children(
+      <button
+        data-testid={`${testIDPrefix}-mock-reset`}
+        onClick={onReset}
+        type="button"
+      >
+        Reset
+      </button>,
+    ),
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const View = ({
     children,
+    disabled,
     onPress,
     testID,
   }: {
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
     testID?: string;
   }) =>
     onPress ? (
-      <button data-testid={testID} onClick={onPress} type="button">
+      <button
+        data-testid={testID}
+        disabled={disabled}
+        onClick={onPress}
+        type="button"
+      >
         {children}
       </button>
     ) : (
@@ -40,17 +68,20 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button: View,
     Checkbox: ({
+      description,
       label,
       onChange,
       testID,
       value,
     }: {
+      description?: string;
       label?: ReactNode;
       onChange?: (value: boolean) => void;
       testID?: string;
       value?: boolean;
     }) => (
       <button
+        data-description={description}
         data-testid={testID}
         data-value={String(value)}
         onClick={() => onChange?.(!value)}
@@ -92,7 +123,9 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: View,
     Page: {
       Footer: View,
-      FooterActions: View,
+      FooterActions: ({ cancelButton }: { cancelButton?: ReactNode }) => (
+        <>{cancelButton}</>
+      ),
     },
     Popover: ({
       renderContent,
@@ -107,6 +140,40 @@ jest.mock('@onekeyhq/components', () => {
       </>
     ),
     ScrollView: View,
+    Select: ({
+      defaultTriggerInputProps,
+      items,
+      onChange,
+      testID,
+      value,
+    }: {
+      defaultTriggerInputProps?: { leftIconName?: string };
+      items: {
+        label: string;
+        value: string;
+        leading?: { props: { name?: string } };
+      }[];
+      onChange: (value: string) => void;
+      testID: string;
+      value: string;
+    }) => (
+      <select
+        data-testid={testID}
+        data-left-icon={defaultTriggerInputProps?.leftIconName}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {items.map((item) => (
+          <option
+            key={item.value}
+            value={item.value}
+            data-icon={item.leading?.props.name}
+          >
+            {item.label}
+          </option>
+        ))}
+      </select>
+    ),
     SizableText: View,
     XStack: View,
     YStack: View,
@@ -174,13 +241,99 @@ describe('TradingViewChartSettings', () => {
     const previousCloseCheckbox = screen.getByTestId(
       'trading-view-settings-checkbox-previous-close',
     );
-    expect(previousCloseCheckbox.textContent).toBe('Prev close');
+    expect(previousCloseCheckbox.textContent).toBe('market.prev_close');
     expect(previousCloseCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(previousCloseCheckbox);
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
     expect(nextValue?.options.previousClose).toBe(true);
+  });
+
+  it('shows the navigation buttons option disabled by default and updates it', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        onChange={onChange}
+      />,
+    );
+
+    const navigationButtonsCheckbox = screen.getByTestId(
+      'trading-view-settings-checkbox-navigation-buttons',
+    );
+    expect(navigationButtonsCheckbox.textContent).toBe(
+      'chart_navigation_buttons__title',
+    );
+    expect(navigationButtonsCheckbox.getAttribute('data-description')).toBe(
+      'chart_navigation_buttons__desc',
+    );
+    expect(
+      screen
+        .getByTestId('trading-view-settings-checkbox-click-interaction')
+        .getAttribute('data-description'),
+    ).toBe('chart_interaction__desc');
+    expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('false');
+
+    fireEvent.click(navigationButtonsCheckbox);
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.options.navigationButtons).toBe(true);
+  });
+
+  it('keeps the chart interface group when only navigation buttons are offered', () => {
+    render(
+      <TradingViewChartSettings
+        defaultValue={createTradingViewChartSettingsValue()}
+        mobileLayout
+        hiddenOptionIds={['clickInteraction']}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId('trading-view-settings-checkbox-click-interaction'),
+    ).toBeNull();
+    expect(
+      screen.getByTestId('trading-view-settings-checkbox-navigation-buttons'),
+    ).toBeTruthy();
+  });
+
+  it('lets the chart display leading row confirm pending edits', async () => {
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.resolve(),
+    );
+    let confirmDraft: (() => Promise<boolean>) | undefined;
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={createTradingViewChartSettingsValue()}
+        mobileLayout
+        showChartType
+        onConfirm={onConfirm}
+        renderChartDisplayLeadingRow={(helpers) => {
+          confirmDraft = helpers.confirmDraft;
+          return null;
+        }}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
+    );
+
+    let confirmed = false;
+    await act(async () => {
+      confirmed = (await confirmDraft?.()) ?? false;
+    });
+
+    expect(confirmed).toBe(true);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ chartType: 'line' }),
+    );
   });
 
   it('shows native chart types in settings and updates the preference', () => {
@@ -196,15 +349,220 @@ describe('TradingViewChartSettings', () => {
       />,
     );
 
+    const chartTypeSelect = screen.getByTestId(
+      'trading-view-settings-select-chart-type',
+    );
+    expect(chartTypeSelect.textContent).toContain('global.auto');
+    expect(chartTypeSelect.getAttribute('data-left-icon')).toBe(
+      'MagicStickOutline',
+    );
     expect(
-      screen.getByTestId('trading-view-settings-select-chart-type').textContent,
-    ).toContain('global.auto');
+      Array.from(chartTypeSelect.querySelectorAll('option')).map((option) => [
+        option.value,
+        option.getAttribute('data-icon'),
+      ]),
+    ).toEqual([
+      ['auto', 'MagicStickOutline'],
+      ['candlestick', 'TradingViewCandlesOutline'],
+      ['heikinAshi', 'TradingViewBarsOutline'],
+      ['bars', 'TradingViewCandlesHlcOutline'],
+      ['line', 'TradingViewLineOutline'],
+      ['area', 'ChartTrending2Outline'],
+    ]);
 
-    fireEvent.click(
-      screen.getByTestId('trading-view-settings-select-chart-type-line'),
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
     );
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
     expect(nextValue?.chartType).toBe('line');
+  });
+
+  it.each([true, false])('saves on Reset (page footer: %s)', async (page) => {
+    const committedValue: ITradingViewChartSettingsValue = {
+      ...createTradingViewChartSettingsValue(),
+      chartType: 'line',
+    };
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.resolve(),
+    );
+    const onConfirmSuccess = jest.fn();
+
+    render(
+      <TradingViewChartSettings
+        value={committedValue}
+        usePageFooter={page}
+        showChartType
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+      />,
+    );
+
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('line');
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      createTradingViewChartSettingsValue(),
+    );
+    expect(onConfirmSuccess).toHaveBeenCalledTimes(page ? 0 : 1);
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
+  });
+
+  it('keeps controls enabled and ignores repeat presses while reset persists', async () => {
+    let resolveConfirm: () => void = () => {};
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={{
+          ...createTradingViewChartSettingsValue(),
+          chartType: 'line',
+        }}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+      />,
+    );
+
+    const resetButton = screen.getByTestId(
+      'trading-view-settings-mock-reset',
+    ) as HTMLButtonElement;
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+
+    // Reset resolves almost instantly, so flipping the dialog into its
+    // submitting state for that window reads as a flash.
+    expect(resetButton.disabled).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveConfirm();
+    });
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the dialog open with edits made while reset persists', async () => {
+    let resolveConfirm: () => void = () => {};
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+    const onConfirmSuccess = jest.fn();
+    const renderSettings = (value: ITradingViewChartSettingsValue) => (
+      <TradingViewChartSettings
+        value={value}
+        showChartType
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+      />
+    );
+    const getChartTypeSelect = () =>
+      screen.getByTestId(
+        'trading-view-settings-select-chart-type',
+      ) as HTMLSelectElement;
+
+    const { rerender } = render(
+      renderSettings({
+        ...createTradingViewChartSettingsValue(),
+        chartType: 'line',
+      }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+    expect(getChartTypeSelect().value).toBe('auto');
+
+    fireEvent.change(getChartTypeSelect(), { target: { value: 'area' } });
+    expect(getChartTypeSelect().value).toBe('area');
+
+    // The persisted reset reaches the controlled value as a fresh object
+    // before onConfirm resolves, like a store-backed settings atom.
+    rerender(renderSettings(createTradingViewChartSettingsValue()));
+    await act(async () => {
+      resolveConfirm();
+    });
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      createTradingViewChartSettingsValue(),
+    );
+    expect(getChartTypeSelect().value).toBe('area');
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
+  });
+
+  it('keeps the reset draft and reports the error when applying it fails', async () => {
+    const error = new Error('persist failed');
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.reject(error),
+    );
+    const onConfirmError = jest.fn();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={{
+          ...createTradingViewChartSettingsValue(),
+          chartType: 'line',
+        }}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+        onConfirmError={onConfirmError}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+
+    expect(onConfirmError).toHaveBeenCalledWith(error);
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
   });
 });

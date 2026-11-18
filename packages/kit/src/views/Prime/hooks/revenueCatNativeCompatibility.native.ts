@@ -4,9 +4,25 @@ import PurchasesReactNative from 'react-native-purchases';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IRevenueCatNativeModule = {
+  getStorefront?: (...args: unknown[]) => unknown;
   getVirtualCurrencies?: (...args: unknown[]) => unknown;
   setupPurchases?: (...args: unknown[]) => void;
 };
+
+async function getRevenueCatStorefront() {
+  if (
+    !platformEnv.isNativeIOS ||
+    typeof getRevenueCatNativeModule()?.getStorefront !== 'function' ||
+    typeof PurchasesReactNative.getStorefront !== 'function'
+  ) {
+    return null;
+  }
+  try {
+    return await PurchasesReactNative.getStorefront();
+  } catch {
+    return null;
+  }
+}
 
 function getRevenueCatNativeModule(): IRevenueCatNativeModule | undefined {
   return NativeModules.RNPurchases as IRevenueCatNativeModule | undefined;
@@ -52,4 +68,8 @@ function getRevenueCatRecurringPriceUnit(): 'major' | 'micros' {
     : 'major';
 }
 
-export { configureRevenueCat, getRevenueCatRecurringPriceUnit };
+export {
+  configureRevenueCat,
+  getRevenueCatRecurringPriceUnit,
+  getRevenueCatStorefront,
+};

@@ -68,6 +68,7 @@ export interface IPerpsAccountDisplayCacheSummary {
   totalMarginUsed: string | undefined;
   crossAccountValue: string | undefined;
   crossMaintenanceMarginUsed: string | undefined;
+  isolatedMarginUsed: string | undefined;
   totalNtlPos: string | undefined;
   totalRawUsd: string | undefined;
   withdrawable: string | undefined;
@@ -86,6 +87,7 @@ export interface IPerpsAccountDisplayCacheSpotBalances {
   accountAddress: string;
   balances: IPerpsAccountDisplayCacheSpotBalanceItem[];
   spotTotalUsd: string | undefined;
+  hasUnsupportedBalances?: boolean;
 }
 
 export interface IPerpsAccountDisplayCacheEntry {

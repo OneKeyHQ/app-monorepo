@@ -461,6 +461,26 @@ describe('isNeedUpdate', () => {
 // getUpdateFileType
 // ---------------------------------------------------------------------------
 describe('getUpdateFileType', () => {
+  test('progress stays on app-shell when a newer shell also advertises a bundle', () => {
+    const { getAppUpdateProgressScope } = loadAppUpdate('1.0.0', '1');
+    expect(
+      getAppUpdateProgressScope({
+        latestVersion: '2.0.0',
+        jsBundleVersion: '5',
+      }),
+    ).toBeUndefined();
+  });
+
+  test('progress selects the exact bundle destination for a same-shell update', () => {
+    const { getAppUpdateProgressScope } = loadAppUpdate('1.0.0', '1');
+    expect(
+      getAppUpdateProgressScope({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+      }),
+    ).toEqual({ latestVersion: '1.0.0', bundleVersion: '5' });
+  });
+
   test('returns appShell when no jsBundleVersion', () => {
     const { getUpdateFileType } = loadAppUpdate('1.0.0', '1');
     expect(getUpdateFileType({ latestVersion: '2.0.0' })).toBe(

@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, IconButton, Toast, useMedia } from '@onekeyhq/components';
+import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EExportSubject,
@@ -86,6 +87,7 @@ export function ExportButton({
       testID={ReferFriendsTestIDs.exportBtn}
       icon="DownloadOutline"
       variant="tertiary"
+      hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
       loading={isExporting}
       onPress={handleExport}
       title={intl.formatMessage({

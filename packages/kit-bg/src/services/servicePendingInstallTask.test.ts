@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
-import { EUpdateStrategy } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  EUpdateStrategy,
+} from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 let appUpdateState: IAppUpdateInfo = {
   latestVersion: '0.0.0',
@@ -84,6 +91,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     isBundleExists: jest.fn(async () => true),
     verifyExtractedBundle: jest.fn(async () => undefined),
     clearBundle: jest.fn(async () => undefined),
+    clearDownload: jest.fn(async () => undefined),
     resetToBuiltInBundle: jest.fn(async () => undefined),
     restart: jest.fn(),
     getBuiltinBundleVersion: jest.fn(async () => ''),
@@ -128,10 +136,22 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
   memoFn: (fn: any) => fn,
 }));
 
+function createBackgroundApiMock() {
+  return {
+    serviceAppUpdate: {
+      // Desktop app-install execution is gated by canRestartForUpdate.
+      canRestartForUpdate: jest.fn(async () => true),
+    },
+  };
+}
+
 function createService(refreshUpdateStatus = jest.fn(async () => undefined)) {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ServicePendingInstallTask } = require('./servicePendingInstallTask');
-  return new ServicePendingInstallTask({ refreshUpdateStatus });
+  return new ServicePendingInstallTask({
+    backgroundApi: createBackgroundApiMock(),
+    refreshUpdateStatus,
+  });
 }
 
 function setState(overrides: Partial<IAppUpdateInfo>) {
@@ -140,6 +160,9 @@ function setState(overrides: Partial<IAppUpdateInfo>) {
     updateAt: 0,
     status: 'done' as any,
     updateStrategy: EUpdateStrategy.manual,
+    ...(overrides.status === EAppUpdateStatus.ready
+      ? { readyAt: Date.now() - 1000 }
+      : undefined),
     ...overrides,
   };
 }
@@ -194,6 +217,10 @@ function makeAppShellInstallTask(overrides: Record<string, any> = {}) {
 }
 
 describe('servicePendingInstallTask', () => {
+  const originalDesktopApi = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'desktopApi',
+  );
   beforeEach(() => {
     jest.clearAllMocks();
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
@@ -201,6 +228,16 @@ describe('servicePendingInstallTask', () => {
     platformEnvMock.bundleVersion = '1';
     pendingTaskValue = undefined;
     setState({});
+    Object.defineProperty(globalThis, 'desktopApi', {
+      configurable: true,
+      value: { processStartAt: Date.now() },
+    });
+  });
+
+  afterEach(() => {
+    if (originalDesktopApi)
+      Object.defineProperty(globalThis, 'desktopApi', originalDesktopApi);
+    else Reflect.deleteProperty(globalThis, 'desktopApi');
   });
 
   test('emits process finished event when there is no pending task', async () => {
@@ -214,8 +251,377 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
+  test.each(['isDesktopMac', 'isDesktopWin', 'isDesktopLinux'])(
+    'recovers a verified manual app update without a pending task on %s startup',
+    async (platformFlag) => {
+      const env = require('@onekeyhq/shared/src/platformEnv').default;
+      const previous = env[platformFlag];
+      env[platformFlag] = true;
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'feedUrl',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      const service = createService();
+      try {
+        await service.processPendingInstallTask();
+
+        expect(AppUpdate.installPackage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            latestVersion: '2.0.0',
+            installSource: 'startup',
+            downloadedEvent: expect.objectContaining({
+              downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+            }),
+          }),
+        );
+        expect(pendingTaskValue).toMatchObject({
+          type: 'app-install',
+          status: 'applied_waiting_verify',
+        });
+        await service.processPendingInstallTask();
+        expect(AppUpdate.installPackage).toHaveBeenCalledTimes(1);
+      } finally {
+        env[platformFlag] = previous;
+      }
+    },
+  );
+
+  test.each([
+    { isDesktop: false },
+    { isDesktopStore: true },
+    { storeUrl: 'https://store.onekey.test/app' },
+    { updateStrategy: EUpdateStrategy.force },
+    { status: EAppUpdateStatus.verifyPackage },
+    { latestVersion: '1.0.0', jsBundleVersion: '2' },
+  ])(
+    'does not recover a manual app update outside the desktop ready flow: %j',
+    async (override) => {
+      const env = require('@onekeyhq/shared/src/platformEnv').default;
+      const previous = {
+        isDesktop: env.isDesktop,
+        isDesktopStore: env.isDesktopStore,
+      };
+      const { isDesktop, isDesktopStore, ...stateOverride } = override;
+      Object.assign(env, {
+        isDesktop: isDesktop ?? true,
+        isDesktopStore: isDesktopStore ?? false,
+      });
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+        ...stateOverride,
+      });
+      try {
+        await createService().processPendingInstallTask();
+        expect(pendingTaskValue).toBeUndefined();
+        expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      } finally {
+        Object.assign(env, previous);
+      }
+    },
+  );
+
+  test('renderer reload leaves a manual ready update pending until the next native process starts', async () => {
+    const readyAt = Date.now() - 1000;
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'desktopApi',
+    );
+    const {
+      AppUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      readyAt,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    Object.defineProperty(globalThis, 'desktopApi', {
+      configurable: true,
+      value: { processStartAt: readyAt - 1000 },
+    });
+    try {
+      await createService().processPendingInstallTask();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      expect(pendingTaskValue.status).toBe('pending');
+
+      Object.defineProperty(globalThis, 'desktopApi', {
+        configurable: true,
+        value: { processStartAt: readyAt + 1000 },
+      });
+      await createService().processPendingInstallTask();
+      expect(AppUpdate.installPackage).toHaveBeenCalledTimes(1);
+      expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+    } finally {
+      if (descriptor)
+        Object.defineProperty(globalThis, 'desktopApi', descriptor);
+      else Reflect.deleteProperty(globalThis, 'desktopApi');
+    }
+  });
+
+  test.each(['cancelled', 'busy', 'not_started'] as const)(
+    'a %s manual startup attempt survives rescheduling and renderer reload without retrying',
+    async (result) => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const now = Date.now();
+      const processStartAt = now - 1000;
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        readyAt: now - 2000,
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      pendingTaskValue = makeAppShellInstallTask({
+        payload: {
+          ...makeAppShellInstallTask().payload,
+          updateStrategy: EUpdateStrategy.manual,
+        },
+      });
+      Object.defineProperty(globalThis, 'desktopApi', {
+        configurable: true,
+        value: { processStartAt },
+      });
+      const service = createService();
+      if (result === 'busy') {
+        jest
+          .spyOn(service.backgroundApi.serviceAppUpdate, 'canRestartForUpdate')
+          .mockResolvedValueOnce(false);
+      } else if (result === 'cancelled') {
+        AppUpdate.installPackage.mockRejectedValueOnce(
+          createUpdateError({
+            code: EUpdateErrorCode.cancelled,
+            step: 'install',
+          }),
+        );
+      } else {
+        AppUpdate.installPackage.mockResolvedValueOnce(false);
+      }
+
+      await service.processPendingInstallTask();
+      expect(pendingTaskValue).toMatchObject({
+        status: 'pending',
+        retryCount: 0,
+        startupProcessStartAt: processStartAt,
+      });
+      expect(appUpdateState.installSource).not.toBe('startup');
+      await service.syncPendingInstallTaskWithReleaseInfo({
+        releaseInfo: {
+          version: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+        },
+        requestSeq: await service.nextRequestSeq(),
+        traceId: 'reschedule-same-native-process',
+        stage: 'ready_to_install',
+        appInfo: appUpdateState,
+      });
+      await createService().processPendingInstallTask();
+      expect(AppUpdate.installPackage).toHaveBeenCalledTimes(
+        result === 'busy' ? 0 : 1,
+      );
+      expect(pendingTaskValue.status).toBe('pending');
+
+      Object.defineProperty(globalThis, 'desktopApi', {
+        configurable: true,
+        value: { processStartAt: now },
+      });
+      await createService().processPendingInstallTask();
+      expect(AppUpdate.installPackage).toHaveBeenCalledTimes(
+        result === 'busy' ? 1 : 2,
+      );
+      expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+    },
+  );
+
+  test('manual startup without a stable native process identifier leaves the update pending', async () => {
+    const {
+      AppUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    Object.defineProperty(globalThis, 'desktopApi', {
+      configurable: true,
+      value: {},
+    });
+
+    await createService().processPendingInstallTask();
+    await createService().processPendingInstallTask();
+
+    expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(pendingTaskValue.status).toBe('pending');
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+  });
+
+  test('a cleared eight-day-old manual task cannot be recovered on a later launch', async () => {
+    const {
+      AppUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const day = 24 * 60 * 60 * 1000;
+    const readyAt = Date.now() - 8 * day;
+    setState({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      readyAt,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      createdAt: readyAt,
+      expiresAt: readyAt + 7 * day,
+      payload: {
+        ...makeAppShellInstallTask().payload,
+        updateStrategy: EUpdateStrategy.manual,
+      },
+    });
+
+    await createService().processPendingInstallTask();
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    const service = createService();
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: { version: '2.0.0', updateStrategy: EUpdateStrategy.manual },
+      requestSeq: await service.nextRequestSeq(),
+      traceId: 'expired-ready-reschedule',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+    expect(pendingTaskValue).toBeUndefined();
+    await createService().processPendingInstallTask();
+    expect(pendingTaskValue).toBeUndefined();
+    expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
+  test.each([undefined, Number.NaN, Date.now() + 60_000])(
+    'legacy ready without a trustworthy age (%s) is left for explicit installation',
+    async (readyAt) => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        readyAt,
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      await createService().processPendingInstallTask();
+      expect(pendingTaskValue).toBeUndefined();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    },
+  );
+
+  test('recovering and rescheduling a six-day-old manual update keeps its original expiry', async () => {
+    const {
+      AppUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const day = 24 * 60 * 60 * 1000;
+    const readyAt = Date.now() - 6 * day;
+    setState({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      readyAt,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    AppUpdate.installPackage.mockResolvedValueOnce(false);
+    const service = createService();
+    await service.processPendingInstallTask();
+    const expiresAt = readyAt + 7 * day;
+    expect(pendingTaskValue).toMatchObject({
+      createdAt: readyAt,
+      expiresAt,
+      status: 'pending',
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: { version: '2.0.0', updateStrategy: EUpdateStrategy.manual },
+      requestSeq: await service.nextRequestSeq(),
+      traceId: 'preserve-ready-age',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+    expect(pendingTaskValue).toMatchObject({ createdAt: readyAt, expiresAt });
+  });
+
+  test.each([
+    { freezeUntil: Date.now() + 60_000 },
+    {
+      ignoredTargets: {
+        '2.0.0:1': {
+          reason: 'RETRY_EXHAUSTED',
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+    },
+    {
+      downloadedEvent: {
+        latestVersion: '3.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-3.0.0.pkg',
+      },
+    },
+  ])(
+    'startup recovery preserves the target and retry controls: %j',
+    async (override) => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+        ...override,
+      });
+
+      await createService().processPendingInstallTask();
+
+      expect(pendingTaskValue).toBeUndefined();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+    },
+  );
+
   test('does not emit process finished event when bundle switch succeeds and restart is expected', async () => {
     const service = createService();
+    const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
     pendingTaskValue = makeSwitchTask();
 
     await service.processPendingInstallTask();
@@ -223,6 +629,14 @@ describe('servicePendingInstallTask', () => {
     expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.PendingInstallTaskProcessFinished,
       undefined,
+    );
+    expect(
+      defaultLogger.app.appUpdate.pendingSwitchResult,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      defaultLogger.app.appUpdate.pendingSwitchResult,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'restart_requested' }),
     );
   });
 
@@ -232,10 +646,137 @@ describe('servicePendingInstallTask', () => {
       BundleUpdate,
     } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     pendingTaskValue = makeSwitchTask();
-    BundleUpdate.switchBundle.mockRejectedValueOnce(new Error('switch failed'));
+    BundleUpdate.switchBundle.mockRejectedValueOnce(
+      createUpdateError({ code: EUpdateErrorCode.unknown, step: 'install' }),
+    );
 
     await service.processPendingInstallTask();
 
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
+  });
+
+  test.each(['bundle', 'builtin'])(
+    '%s restart records the request before returning and retries a delayed failure',
+    async (restartTarget) => {
+      jest.useFakeTimers();
+      try {
+        const service = createService();
+        const {
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
+        const isBuiltinFallback = restartTarget === 'builtin';
+        pendingTaskValue = makeSwitchTask(
+          isBuiltinFallback
+            ? {
+                targetBundleVersion: '0',
+                payload: {
+                  appVersion: '1.0.0',
+                  bundleVersion: '0',
+                  signature: 'signature',
+                },
+              }
+            : {},
+        );
+        if (isBuiltinFallback) {
+          BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+        }
+        const restart = isBuiltinFallback
+          ? BundleUpdate.restart
+          : BundleUpdate.switchBundle;
+        restart.mockImplementationOnce(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              setTimeout(
+                () =>
+                  reject(
+                    createUpdateError({
+                      code: EUpdateErrorCode.installFailed,
+                      step: 'install',
+                    }),
+                  ),
+                2500,
+              );
+            }),
+        );
+        const processing = service.processPendingInstallTask();
+        await jest.advanceTimersByTimeAsync(0);
+        if (isBuiltinFallback) {
+          expect(pendingTaskValue).toBeUndefined();
+        } else {
+          expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+        }
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            result: isBuiltinFallback
+              ? 'builtin_fallback_restart_requested'
+              : 'restart_requested',
+          }),
+        );
+
+        await jest.advanceTimersByTimeAsync(2500);
+        await processing;
+        expect(pendingTaskValue).toMatchObject({
+          status: 'pending',
+          retryCount: 1,
+          lastError: EUpdateErrorCode.installFailed,
+        });
+        expect(appEventBus.emit).toHaveBeenCalledWith(
+          EAppEventBusNames.PendingInstallTaskProcessFinished,
+          undefined,
+        );
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            result: 'fail',
+            errorCode: EUpdateErrorCode.installFailed,
+          }),
+          'error',
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test('builtin fallback restart failure is retried instead of discarded', async () => {
+    const service = createService();
+    const {
+      BundleUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    pendingTaskValue = makeSwitchTask({
+      targetBundleVersion: '0',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '0',
+        signature: 'signature',
+      },
+    });
+    BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    BundleUpdate.restart.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'install',
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: EUpdateErrorCode.installFailed,
+    });
+    expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalledTimes(1);
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.PendingInstallTaskProcessFinished,
       undefined,
@@ -249,7 +790,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.seamless,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 1,
       traceId: 'trace-fetch',
@@ -261,15 +806,21 @@ describe('servicePendingInstallTask', () => {
   test('ready_to_install stage creates pending jsbundle task', async () => {
     const service = createService();
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
-      jsBundle: { signature: 'sig-2' },
+      jsBundle: {
+        signature: 'sig-2',
+        sha256: 'a'.repeat(64),
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -278,7 +829,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.seamless,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 2,
       traceId: 'trace-ready',
@@ -294,18 +849,104 @@ describe('servicePendingInstallTask', () => {
     });
   });
 
+  test.each(['new target', 'incomplete status'])(
+    'does not persist an old target after native-version lookup overlaps %s',
+    async (change) => {
+      const service = createService();
+      const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      let lookupStarted!: () => void;
+      let finishLookup!: (version: string) => void;
+      const started = new Promise<void>((resolve) => {
+        lookupStarted = resolve;
+      });
+      autoUpdate.BundleUpdate.getNativeAppVersion.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            finishLookup = resolve;
+            lookupStarted();
+          }),
+      );
+      setState({
+        status: 'verifyPackage' as any,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+        },
+        downloadedEvent: {
+          latestVersion: '1.0.0',
+          bundleVersion: '2',
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+        },
+      });
+      const scheduling = service.syncPendingInstallTaskWithReleaseInfo({
+        releaseInfo: {
+          version: '1.0.0',
+          jsBundleVersion: '2',
+          updateStrategy: EUpdateStrategy.seamless,
+          jsBundle: {
+            downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+            signature: 'sig-2',
+            sha256: 'a'.repeat(64),
+          },
+        },
+        requestSeq: 2,
+        traceId: 'trace-old-ready',
+        stage: 'ready_to_install',
+        appInfo: appUpdateState,
+      });
+      await started;
+      setState({
+        status:
+          change === 'incomplete status'
+            ? ('updateIncomplete' as any)
+            : ('verifyPackage' as any),
+        latestVersion: '1.0.0',
+        jsBundleVersion: change === 'new target' ? '3' : '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: {
+          downloadUrl: `https://cdn.onekey.so/bundle-v${change === 'new target' ? '3' : '2'}.zip`,
+          signature: change === 'new target' ? 'sig-3' : 'sig-2',
+          sha256: (change === 'new target' ? 'b' : 'a').repeat(64),
+        },
+        downloadedEvent:
+          change === 'new target'
+            ? undefined
+            : {
+                latestVersion: '1.0.0',
+                bundleVersion: '2',
+                downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+                signature: 'sig-2',
+                sha256: 'a'.repeat(64),
+              },
+      });
+      finishLookup('1.0.0');
+      await scheduling;
+
+      expect(pendingTaskValue).toBeUndefined();
+    },
+  );
+
   test('ready_to_install stage creates rollback jsbundle task when remote bundle is lower than local', async () => {
     const service = createService();
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.bundleVersion = '3';
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -314,7 +955,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.seamless,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 3,
       traceId: 'trace-rollback',
@@ -339,7 +984,8 @@ describe('servicePendingInstallTask', () => {
       jsBundleVersion: '1',
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v1.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '1',
         downloadUrl: 'https://cdn.onekey.so/bundle-v1.zip',
       },
     });
@@ -366,9 +1012,11 @@ describe('servicePendingInstallTask', () => {
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.manual,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -377,7 +1025,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.manual,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 5,
       traceId: 'trace-manual',
@@ -401,13 +1053,16 @@ describe('servicePendingInstallTask', () => {
       },
     });
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '0',
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v0.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '0',
         downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
         signature: 'sig-0',
+        sha256: 'b'.repeat(64),
       },
     });
 
@@ -416,7 +1071,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '0',
         updateStrategy: EUpdateStrategy.seamless,
-        jsBundle: { signature: 'sig-0' },
+        jsBundle: {
+          signature: 'sig-0',
+          sha256: 'b'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
+        },
       },
       requestSeq: 6,
       traceId: 'trace-replace-lower',
@@ -469,7 +1128,7 @@ describe('servicePendingInstallTask', () => {
 
     expect(pendingTaskValue.status).toBe('pending');
     expect(pendingTaskValue.retryCount).toBe(1);
-    expect(pendingTaskValue.lastError).toBe('INTERRUPTED');
+    expect(pendingTaskValue.lastError).toBe(EUpdateErrorCode.unknown);
   });
 
   test('running app install is cleared immediately after the target app starts', async () => {
@@ -491,11 +1150,16 @@ describe('servicePendingInstallTask', () => {
   test('executes app shell install task when package is ready', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    let statusDuringInstall: string | undefined;
+    autoUpdate.AppUpdate.installPackage.mockImplementationOnce(async () => {
+      statusDuringInstall = pendingTaskValue?.status;
+      return true;
+    });
     setState({
       latestVersion: '2.0.0',
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -504,6 +1168,7 @@ describe('servicePendingInstallTask', () => {
     await service.processPendingInstallTask();
 
     expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalled();
+    expect(statusDuringInstall).toBe('applied_waiting_verify');
     expect(pendingTaskValue.status).toBe('applied_waiting_verify');
   });
 
@@ -516,7 +1181,7 @@ describe('servicePendingInstallTask', () => {
       status: 'ready' as any,
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -547,7 +1212,7 @@ describe('servicePendingInstallTask', () => {
       status: 'ready' as any,
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -565,7 +1230,7 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
-  test('unavailable app shell package triggers full-flow re-download', async () => {
+  test('unavailable app shell package is terminal without full-flow re-download', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
@@ -577,7 +1242,7 @@ describe('servicePendingInstallTask', () => {
       status: 'ready' as any,
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -587,11 +1252,15 @@ describe('servicePendingInstallTask', () => {
 
     expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
     expect(pendingTaskValue).toBeUndefined();
-    expect(appUpdateState.status).toBe('notify');
-    expect(appUpdateState.downloadedEvent).toBeUndefined();
-    expect(appEventBus.emit).toHaveBeenCalledWith(
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.verifyPackageFailed);
+    expect(appUpdateState.updateError).toMatchObject({
+      code: EUpdateErrorCode.storageError,
+      step: 'install',
+    });
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.StartAutoDownloadUpdate,
-      { decision: 'appShellPackageRecovery' },
+      expect.anything(),
     );
   });
 
@@ -631,7 +1300,7 @@ describe('servicePendingInstallTask', () => {
       status: 'ready' as any,
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
       fullFlowRetryByTarget: {
@@ -667,7 +1336,7 @@ describe('servicePendingInstallTask', () => {
       status: 'ready' as any,
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
       fullFlowRetryByTarget: {
@@ -691,7 +1360,7 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
-  test('unprepared macOS package triggers rehydrate without consuming failure budget', async () => {
+  test('unverified app package enters bounded full-flow recovery', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
@@ -702,7 +1371,7 @@ describe('servicePendingInstallTask', () => {
       status: 'ready' as any,
       updateStrategy: EUpdateStrategy.silent,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -721,11 +1390,11 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.status).toBe('notify');
     expect(appUpdateState.downloadedEvent).toBeUndefined();
-    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
     expect(appUpdateState.freezeUntil).toBeUndefined();
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.StartAutoDownloadUpdate,
-      { decision: 'appShellPackageRehydrate' },
+      { decision: 'appShellPackageRecovery' },
     );
   });
 
@@ -756,13 +1425,16 @@ describe('servicePendingInstallTask', () => {
   test('ignored target with expired expiresAt allows task creation', async () => {
     const service = createService();
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
       ignoredTargets: {
         '1.0.0:2': {
@@ -778,7 +1450,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.seamless,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 10,
       traceId: 'trace-expired-ignored',
@@ -800,9 +1476,11 @@ describe('servicePendingInstallTask', () => {
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -811,7 +1489,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.seamless,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 10,
       traceId: 'trace-same-rev',
@@ -856,7 +1538,7 @@ describe('servicePendingInstallTask', () => {
       updateStrategy: EUpdateStrategy.seamless,
       freezeUntil: Date.now() + 60_000,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -897,7 +1579,7 @@ describe('servicePendingInstallTask', () => {
         },
       },
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -932,11 +1614,14 @@ describe('servicePendingInstallTask', () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.AppUpdate.installPackage.mockRejectedValueOnce(
-      new Error('install failed'),
+      createUpdateError({
+        code: EUpdateErrorCode.networkError,
+        step: 'install',
+      }),
     );
     setState({
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -951,22 +1636,20 @@ describe('servicePendingInstallTask', () => {
     });
   });
 
-  test('jsbundle-switch in applied_waiting_verify within grace period is skipped', async () => {
+  test('jsbundle-switch restart mismatch is terminal without a retry', async () => {
     const service = createService();
     pendingTaskValue = makeSwitchTask({
       status: 'applied_waiting_verify',
-      runningStartedAt: Date.now() - 60_000, // 1 minute ago, within 10min grace
+      runningStartedAt: Date.now() - 60_000,
     });
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toMatchObject({
-      status: 'applied_waiting_verify',
-      type: 'jsbundle-switch',
-    });
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 
-  test('applied_waiting_verify with runningStartedAt=undefined skips grace period and checks alignment', async () => {
+  test('applied_waiting_verify without a start time still terminates on mismatch', async () => {
     const service = createService();
     // Target doesn't match current env (bundleVersion 2 vs current 1)
     pendingTaskValue = makeSwitchTask({
@@ -976,11 +1659,134 @@ describe('servicePendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    // Should immediately check alignment (not wait for grace period)
-    // Target is 1.0.0:2, current is 1.0.0:1 → mismatch → retry
-    expect(pendingTaskValue.status).toBe('pending');
-    expect(pendingTaskValue.retryCount).toBe(1);
-    expect(pendingTaskValue.lastError).toBe('VERIFY_AFTER_RESTART_MISMATCH');
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
+  });
+
+  test('unconfirmed app install stays in its verification grace period', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: undefined,
+      createdAt: Date.now() - 60_000,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'applied_waiting_verify',
+      retryCount: 0,
+    });
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    expect(appUpdateState.downloadedEvent?.downloadUrl).toBe(
+      'https://cdn.onekey.so/app-2.0.0.pkg',
+    );
+  });
+
+  test('unconfirmed app install retries after grace without reopening the installer immediately', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 11 * 60_000,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: EUpdateErrorCode.unknown,
+    });
+    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    expect(appUpdateState.downloadedEvent?.downloadUrl).toBe(
+      'https://cdn.onekey.so/app-2.0.0.pkg',
+    );
+
+    await service.processPendingInstallTask();
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
+  test('unconfirmed app install exhausts its retry budget without looping', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 11 * 60_000,
+      retryCount: 2,
+    });
+
+    await service.processPendingInstallTask();
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.ignoredTargets?.['2.0.0:1']).toMatchObject({
+      reason: 'RETRY_EXHAUSTED',
+    });
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
+  test('aligned app install clears without waiting for its grace period', async () => {
+    const service = createService();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.version = '2.0.0';
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now(),
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('unconfirmed old app install cannot overwrite a replacement task', async () => {
+    const service = createService();
+    const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
+    const replacement = makeAppShellInstallTask({
+      taskId: 'appShell:3.0.0:direct',
+      revision: 2,
+      targetAppVersion: '3.0.0',
+      payload: {
+        latestVersion: '3.0.0',
+        updateStrategy: EUpdateStrategy.seamless,
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-3.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 11 * 60_000,
+    });
+    defaultLogger.app.appUpdate.pendingVerifyAfterRestart.mockImplementationOnce(
+      () => {
+        pendingTaskValue = replacement;
+      },
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toEqual(replacement);
   });
 
   test('rollback with non-seamless strategy still creates pending task', async () => {
@@ -988,13 +1794,16 @@ describe('servicePendingInstallTask', () => {
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.bundleVersion = '3';
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.manual,
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -1003,7 +1812,11 @@ describe('servicePendingInstallTask', () => {
         version: '1.0.0',
         jsBundleVersion: '2',
         updateStrategy: EUpdateStrategy.manual,
-        jsBundle: { signature: 'sig-2' },
+        jsBundle: {
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        },
       },
       requestSeq: 30,
       traceId: 'trace-rollback-manual',
@@ -1045,5 +1858,283 @@ describe('servicePendingInstallTask', () => {
 
     // When lastRequestSeq is 0, fallback uses Date.now() * 1000 + counter
     expect(seq).toBeGreaterThan(Date.now() * 999);
+  });
+
+  test('bundle integrity failure is terminal without clearing or full-flow retry', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockResolvedValue(undefined);
+    autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      }),
+    );
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.BundleUpdate.clearBundle).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
+  });
+
+  test('missing extracted OTA bundle on startup invalidates ready atom, cleans staging download, and triggers auto recovery', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+    appEventBus.emit.mockClear();
+
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+      readyAt: 12_345,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).toHaveBeenCalledTimes(1);
+    expect(autoUpdate.BundleUpdate.clearBundle).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.readyAt).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'jsBundlePackageRecovery' },
+    );
+  });
+
+  test('missing extracted OTA bundle on startup transitions manual ready atom to updateIncomplete', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.updateIncomplete);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+  });
+
+  test('tampered extracted OTA bundle (SHA mismatch) on startup transitions manual ready atom to verifyPackageFailed and clears staging download', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+    autoUpdate.BundleUpdate.clearBundle.mockClear();
+
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).toHaveBeenCalledTimes(1);
+    expect(autoUpdate.BundleUpdate.clearBundle).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.verifyPackageFailed);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.updateError).toMatchObject({
+      code: EUpdateErrorCode.integrityFailed,
+    });
+  });
+
+  test('tampered extracted OTA bundle on startup silently resets silent strategy to notify and triggers background re-download within retry budget', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValue(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+    appEventBus.emit.mockClear();
+
+    // First corrupt startup: silently resets ready -> notify and emits StartAutoDownloadUpdate
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.silent,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).toHaveBeenCalledTimes(1);
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.updateError).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'jsBundlePackageRecovery' },
+    );
+
+    // Exhaust MAX_FULL_FLOW_RETRY (2): third failure stops looping and freezes target
+    appUpdateState = {
+      ...appUpdateState,
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    };
+    pendingTaskValue = makeSwitchTask({ revision: 2 });
+    await service.processPendingInstallTask();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+
+    appEventBus.emit.mockClear();
+    appUpdateState = {
+      ...appUpdateState,
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    };
+    pendingTaskValue = makeSwitchTask({ revision: 3 });
+    await service.processPendingInstallTask();
+
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.verifyPackageFailed);
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      expect.anything(),
+    );
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
+  });
+
+  test('shouldSkipTargetByControl allows mandatory force updates through freezeUntil while keeping BOOT_FAILED blocked', async () => {
+    const service = createService();
+    const now = Date.now();
+    setState({
+      freezeUntil: now + 60_000,
+      ignoredTargets: {
+        '2.0.0:1': {
+          reason: 'DOWNLOAD_RETRY_EXHAUSTED',
+          createdAt: now,
+          expiresAt: now + 60_000,
+        },
+        '1.0.0:9': {
+          reason: 'BOOT_FAILED',
+          createdAt: now,
+          expiresAt: now + 60_000,
+        },
+      },
+    });
+
+    // Non-force update is blocked by freezeUntil / DOWNLOAD_RETRY_EXHAUSTED
+    expect(
+      await service.shouldSkipTargetByControl('2.0.0:1', 't1', 1, false),
+    ).toBe(true);
+    // Mandatory force update bypasses freezeUntil and non-BOOT_FAILED ignore
+    expect(
+      await service.shouldSkipTargetByControl('2.0.0:1', 't2', 2, false, {
+        isForceUpdate: true,
+      }),
+    ).toBe(false);
+    // Native-boot-crashing OTA bundle remains blocked even if marked force
+    expect(
+      await service.shouldSkipTargetByControl('1.0.0:9', 't3', 3, false, {
+        isForceUpdate: true,
+      }),
+    ).toBe(true);
+  });
+
+  test('stale pending task failure does not clear artifacts when persisted update has advanced to a newer target', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+
+    // Case A: packageMissing on stale v2 while v3 is downloading
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      status: EAppUpdateStatus.downloadPackage,
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    pendingTaskValue = makeSwitchTask({ targetBundleVersion: '2' });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).not.toHaveBeenCalled();
+    expect(appUpdateState.jsBundleVersion).toBe('3');
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.downloadPackage);
+
+    // Case B: integrityFailed on stale v2 while v3 is ready
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    pendingTaskValue = makeSwitchTask({
+      targetBundleVersion: '2',
+      revision: 2,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).not.toHaveBeenCalled();
+    expect(appUpdateState.jsBundleVersion).toBe('3');
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
   });
 });

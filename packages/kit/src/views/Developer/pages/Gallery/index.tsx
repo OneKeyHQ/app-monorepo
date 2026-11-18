@@ -6,6 +6,14 @@ import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
+const SesHardenRuntimeCheckGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
+);
+const PrivacyTokenDetailsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyTokenDetails'),
+);
 const AccountModelGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'),
@@ -42,6 +50,10 @@ const DeviceStageDriverGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DeviceStageDriverGallery'),
 );
+const FirmwareUpdateInstallGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateInstallGallery'),
+);
 const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
@@ -65,6 +77,10 @@ const NetworkDoctorGallery = LazyLoadPage(
 const JotaiContextGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery'),
+);
+const ZcashWasmGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
 );
 const JotaiGlobalGallery = LazyLoadPage(
   () =>
@@ -142,6 +158,11 @@ const WebViewOverlayGallery = LazyLoadPage(
 const AddressInputGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'),
+);
+
+const NativeOverlayGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NativeOverlay'),
 );
 
 const PortalGallery = LazyLoadPage(
@@ -324,14 +345,31 @@ const PlaygroundGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'),
 );
 
+const HeadlessBuyGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HeadlessBuyGallery'),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
+    name: EGalleryRoutes.ComponentSesHardenRuntimeCheck,
+    component: SesHardenRuntimeCheckGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPrivacyTokenDetails,
+    component: PrivacyTokenDetailsGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNativeOverlay,
+    component: NativeOverlayGallery,
   },
   {
     name: EGalleryRoutes.ComponentPortal,
@@ -444,6 +482,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentDeviceStageDriver,
     component: DeviceStageDriverGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentFirmwareUpdateInstall,
+    component: FirmwareUpdateInstallGallery,
   },
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,
@@ -566,6 +608,10 @@ export const galleryScreenList: {
     component: CryptoGallery,
   },
   {
+    name: EGalleryRoutes.ComponentZcashWasm,
+    component: ZcashWasmGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentPlayground,
     component: PlaygroundGallery,
   },
@@ -580,5 +626,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentStorage,
     component: StorageGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentHeadlessBuy,
+    component: HeadlessBuyGallery,
   },
 ];

@@ -31,6 +31,42 @@ function createDetail(
 }
 
 describe('legacyMarketNetwork', () => {
+  it('carries the source asset into V2 when CoinGecko has only another chain', () => {
+    const detail = createDetail({
+      symbol: 'vbUSDC',
+      stats: {
+        currentPrice: '1',
+        marketCap: 1_000_000,
+        volume24h: 100_000,
+        performance: { priceChangePercentage24h: 0 },
+      } as IMarketTokenDetail['stats'],
+      platforms: { ethereum: '0xEthereum' },
+      detailPlatforms: {
+        ethereum: {
+          contract_address: '0xEthereum',
+          tokenAddress: '0xEthereum',
+          onekeyNetworkId: 'evm--1',
+        },
+      },
+    });
+    const params = getLegacyMarketDetailV2RouteParams({
+      marketTokenId: 'vault-bridge-usdc',
+      token: detail,
+      preferredToken: { networkId: 'evm--747474', tokenAddress: '0xKatana' },
+    });
+    expect(params).toMatchObject({
+      network: 'evm--747474',
+      tokenAddress: '0xKatana',
+      isNative: false,
+      disableTrade: false,
+      legacyTokenPreview: {
+        networkId: 'evm--747474',
+        address: '0xKatana',
+        symbol: 'vbUSDC',
+      },
+    });
+  });
+
   it('prefers a native platform for native legacy tokens', () => {
     const detail = createDetail({
       symbol: 'ETH',

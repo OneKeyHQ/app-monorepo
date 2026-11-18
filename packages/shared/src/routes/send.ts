@@ -2,6 +2,7 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  ITransferInfo,
   ITransferPayload,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -14,6 +15,7 @@ import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type { IZcashMemoEncoding } from '../utils/zcashMemo';
 
 export enum EModalSendRoutes {
   SendDataInput = 'SendDataInput',
@@ -44,6 +46,7 @@ export type IModalSendParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     isAllNetworks?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSendRoutes.SendAmountInput]: {
     networkId: string;
@@ -53,6 +56,7 @@ export type IModalSendParamList = {
     nfts?: IAccountNFT[];
     recipientAddress: string;
     recipientMemo?: string;
+    recipientMemoEncoding?: IZcashMemoEncoding;
     recipientPaymentId?: string;
     recipientNote?: string;
     recipientIsContract?: boolean;
@@ -60,6 +64,7 @@ export type IModalSendParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

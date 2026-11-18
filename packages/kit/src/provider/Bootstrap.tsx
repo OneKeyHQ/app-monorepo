@@ -3,7 +3,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
-import { debounce, isEqual, noop, upperFirst } from 'lodash';
+import { debounce, isEqual, noop } from 'lodash';
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
@@ -17,18 +17,24 @@ import {
   rootNavigationRef,
   useShortcuts,
   useSplitSubView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  initIntercom,
+  startIntercomBackgroundPolling,
+} from '@onekeyhq/kit/src/views/Intercom/client';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   getDevSettingsNetworkThrottleEnabled,
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
-  EUpdateStrategy,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -43,14 +49,23 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
+import {
+  createDistinctChangeCounter,
+  startRuntimeHealthCensus,
+  stopRuntimeHealthCensus,
+} from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -60,6 +75,7 @@ import {
   EMultiTabBrowserRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
+  ETabDeveloperRoutes,
   ETabEarnRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -72,23 +88,27 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector/AccountSelectorProvider';
-import {
-  AppUpdateForeground,
-  isAutoUpdateStrategy,
-  useAppUpdateInfo,
-} from '../components/AppUpdate';
+import { AppUpdateForeground } from '../components/AppUpdate';
+import { useDesktopUpdateMenu } from '../components/AppUpdate/useDesktopUpdateMenu';
 import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
+import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
+import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
+import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
+import { showAboutDialog } from './showAboutDialog';
+import { useIPadMainMenu } from './useIPadMainMenu';
 
 import type { IntlShape } from 'react-intl';
 
@@ -96,9 +116,13 @@ const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
   : () => () => undefined;
 
-const useAppUpdateInfoCallback = platformEnv.isDesktop
-  ? useAppUpdateInfo
-  : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
+function PrivacyChainForeground() {
+  const wakeSync = useCallback(() => {
+    void backgroundApiProxy.servicePrivacyChain.wakeLocalWalletSync();
+  }, []);
+  useHandleAppStateActive(wakeSync);
+  return null;
+}
 
 const LazyExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
@@ -109,12 +133,14 @@ const LazyExtensionMarketTokenDetailHashNavigation =
       })
     : null;
 
-// useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
-// and AppState 'active' resume listener now live in <AppUpdateForeground />,
-// mounted once below in Bootstrap's render output. Existing callers in
-// Bootstrap (Desktop only) pulled `useAppUpdateInfo(false, false)` for the
-// data side; that signature is preserved by treating the second arg as
-// ignored.
+const LazyExtPrimeSubscriptionHandoffOnMount =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtPrimeSubscriptionHandoffOnMount } =
+          await import('../routes/config/deeplink/ExtPrimeSubscriptionHandoffOnMount');
+        return { default: ExtPrimeSubscriptionHandoffOnMount };
+      })
+    : null;
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
@@ -126,58 +152,7 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, downloadPackage, onUpdateAction } =
-        useAppUpdateInfoCallback(false);
-      const isCheckingUpdate = useRef(false);
-
-      const onCheckUpdate = useCallback(async () => {
-        defaultLogger.update.app.log('checkForUpdates');
-        if (isCheckingUpdate.current) {
-          return;
-        }
-        isCheckingUpdate.current = true;
-        const { isNeedUpdate, response } = await checkForUpdates();
-        // OTA (silent/seamless) updates download/install transparently in
-        // the background. The desktop menu "Check for updates" must not open
-        // the download/verify UI for these strategies — that breaks the
-        // silent/seamless contract. Instead, kick off the background
-        // download silently (the auto useEffect only runs once at startup,
-        // so mid-session OTA discovery would otherwise stall) and show the
-        // "up to date" dialog as user feedback. The auto useEffect still
-        // drives any user-visible install dialog when status === ready.
-        const isOtaStrategy =
-          response &&
-          isAutoUpdateStrategy(
-            response.updateStrategy ?? EUpdateStrategy.manual,
-          );
-        if (isNeedUpdate && isOtaStrategy) {
-          // serviceAppUpdate.downloadPackage() inside this hook gates on
-          // DOWNLOAD_ENTRY_STATUSES, so calling it while already in-flight
-          // is a safe no-op. Fire-and-forget — we don't await the download.
-          void downloadPackage?.();
-        }
-        if ((isNeedUpdate && !isOtaStrategy) || response === undefined) {
-          onUpdateAction();
-          isCheckingUpdate.current = false;
-        } else {
-          Dialog.confirm({
-            title: intl.formatMessage({
-              id: ETranslations.update_app_update_latest_version,
-            }),
-            tone: 'success',
-            icon: 'Ai3StarSolid',
-            description: intl.formatMessage({
-              id: ETranslations.update_app_up_to_date,
-            }),
-            onClose: () => {
-              isCheckingUpdate.current = false;
-            },
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_ok,
-            }),
-          });
-        }
-      }, [checkForUpdates, downloadPackage, intl, onUpdateAction]);
+      const onCheckUpdate = useDesktopUpdateMenu();
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
@@ -305,9 +280,12 @@ const useDesktopEvents = platformEnv.isDesktop
       );
 
       useEffect(() => {
-        globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
-          void onCheckUpdateRef.current();
-        });
+        const unsubscribeCheckUpdate = globalThis.desktopApi.on(
+          ipcMessageKeys.CHECK_FOR_UPDATES,
+          () => {
+            void onCheckUpdateRef.current();
+          },
+        );
 
         const debounceOpenSettings = debounce(
           (isVisible: boolean) => {
@@ -327,6 +305,9 @@ const useDesktopEvents = platformEnv.isDesktop
         globalThis.desktopApi.on(ipcMessageKeys.APP_LOCK_NOW, () => {
           void useOnLockRef.current();
         });
+        return () => {
+          unsubscribeCheckUpdate?.();
+        };
       }, []);
 
       useShortcuts(undefined, (eventName) => {
@@ -346,11 +327,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Swap);
             });
             break;
-          case EShortcutEvents.TabMarket:
+          case EShortcutEvents.TabMarket: {
+            // Checked before closing modals: pressing it while already on
+            // Market is not an entry, and an unconsumed marker would mislabel
+            // a later return from a detail page.
+            const isMarketEntry = willTabFocusTransition(ETabRoutes.Market);
             ensureModalClosedAndNavigate(() => {
+              if (isMarketEntry) {
+                markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              }
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
@@ -373,8 +362,13 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabDeveloper:
+            if (!platformEnv.isDev) {
+              break;
+            }
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Developer);
+              navigation.pushModal(EModalRoutes.DeveloperModal, {
+                screen: ETabDeveloperRoutes.TabDeveloper,
+              });
             });
             break;
           case EShortcutEvents.NewTab2:
@@ -405,40 +399,11 @@ const useAboutVersion =
         const intl = useIntl();
         useEffect(() => {
           desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
-            const versionString = intl.formatMessage(
-              {
-                id: ETranslations.settings_version_versionnum,
-              },
-              {
-                'versionNum': ` ${process.env.VERSION || 1}(${
-                  platformEnv.buildNumber || 1
-                })`,
-              },
-            );
-            Dialog.show({
-              showFooter: false,
-              renderContent: (
-                <YStack gap={4} alignItems="center" pt="$4">
-                  <Image
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    source={require('../../assets/logo.png')}
-                    size={72}
-                    borderRadius="$full"
-                  />
-                  <YStack gap="$2" pt="$4" alignItems="center">
-                    <SizableText size="$heading2xl">OneKey</SizableText>
-                    <SizableText size="$bodySm">
-                      {`${globalThis.desktopApi.platform}-${
-                        globalThis.desktopApi.arch || 'unknown'
-                      }`}
-                    </SizableText>
-                    <SizableText size="$bodySm">
-                      {upperFirst(versionString)}
-                    </SizableText>
-                    <SizableText size="$bodySm">Copyright © OneKey</SizableText>
-                  </YStack>
-                </YStack>
-              ),
+            showAboutDialog({
+              intl,
+              platformLabel: `${globalThis.desktopApi.platform}-${
+                globalThis.desktopApi.arch || 'unknown'
+              }`,
             });
           });
           // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -457,7 +422,10 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     const fetchMarketBasicConfig = () => {
-      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      // This only warms a cache; the page owns fallback and reconnect retries.
+      void backgroundApiProxy.serviceMarketV2
+        .fetchMarketBasicConfig()
+        .catch(noop);
     };
     if (platformEnv.isWeb) {
       const timer = setTimeout(fetchMarketBasicConfig, 6000);
@@ -575,22 +543,41 @@ const useLogVersionInfo = () => {
 };
 
 export const useIntercomInit = () => {
-  const isInitializedRef = useRef(false);
+  const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
+  const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
+  useEffect(() => {
+    const previousIdentity = previousIdentityRef.current;
+    const identityChanged =
+      previousIdentity.onekeyUserId !== onekeyUserId ||
+      previousIdentity.isLoggedIn !== isLoggedIn;
+    previousIdentityRef.current = { onekeyUserId, isLoggedIn };
+    // Retire an explicitly opened session immediately without enabling passive
+    // network traffic before the startup delay has elapsed.
+    if (identityChanged) {
+      void initIntercom().catch(() => {
+        console.warn('Failed to synchronize Intercom identity');
+      });
+    }
+  }, [onekeyUserId, isLoggedIn]);
   useEffect(() => {
     const timer = setTimeout(
       () => {
-        if (isInitializedRef.current) {
-          return;
-        }
-        void initIntercom();
-        isInitializedRef.current = true;
+        void startIntercomBackgroundPolling().catch(() => {
+          console.warn('Failed to initialize Intercom');
+        });
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),
     );
     return () => clearTimeout(timer);
   }, []);
 };
+
+// Leaf component so prime-atom and theme updates skip the rest of Bootstrap.
+function IntercomSessionSync() {
+  useIntercomInit();
+  return null;
+}
 
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
@@ -820,6 +807,15 @@ function DesktopTrayDataProvider() {
   );
 }
 
+// Registered at module load rather than from an effect: the mutation events it
+// listens for can arrive before this component mounts, and a dropped one
+// leaves a renamed or deleted entity in the snapshot store.
+registerSwrCacheMutationInvalidation();
+// Same for the home token list's per-owner caches: a removal made before the
+// home token list first runs must still drop them.
+registerHomeTokenListOwnerCacheInvalidation();
+registerSwapTokenSelectorCacheInvalidation();
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -885,6 +881,17 @@ export function Bootstrap() {
         Choose which page to open when launching the app
       */
       const timer = setTimeout(() => {
+        if (
+          (platformEnv.isNative ||
+            platformEnv.isDesktop ||
+            platformEnv.isExtension) &&
+          autoNavigation.selectedTab === ETabRoutes.Developer
+        ) {
+          navigation.pushModal(EModalRoutes.DeveloperModal, {
+            screen: ETabDeveloperRoutes.TabDeveloper,
+          });
+          return;
+        }
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // ----------------------------------------------
         // navigate to auth gallery
@@ -929,6 +936,54 @@ export function Bootstrap() {
     // telemetry) for all users. Process-global on the native side, so
     // start once on mount — don't re-start when dev settings toggle.
     performance.start(1000);
+  }, []);
+
+  // Opt-in regression diagnostics: one line every 30 s about event-loop blocks,
+  // JS heap and GC, process CPU/memory, account switches and cached data.
+  useEffect(() => {
+    if (!platformEnv.isNative || !isAccountSwitchDiagnosticsEnabled()) {
+      return undefined;
+    }
+    const homeAccountSwitches = createDistinctChangeCounter();
+    const onSelectedAccountUpdate = (payload: {
+      selectedAccount: IAccountSelectorSelectedAccount;
+      sceneName: EAccountSelectorSceneName;
+      num: number;
+    }) => {
+      if (
+        payload.sceneName !== EAccountSelectorSceneName.home ||
+        payload.num !== 0
+      ) {
+        return;
+      }
+      const { walletId, indexedAccountId, othersWalletAccountId } =
+        payload.selectedAccount;
+      homeAccountSwitches.observe(
+        [walletId, indexedAccountId, othersWalletAccountId].join('|'),
+      );
+    };
+    appEventBus.on(
+      EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+      onSelectedAccountUpdate,
+    );
+    startRuntimeHealthCensus({
+      sampleProcess: () => performance.sample(),
+      getExtra: () => {
+        const swrCache = swrCacheUtils.getSizeStats();
+        return {
+          accountSwitches: homeAccountSwitches.getCount(),
+          swrEntries: swrCache.entryCount,
+          swrKB: Math.round(swrCache.serializedChars / 1024),
+        };
+      },
+    });
+    return () => {
+      stopRuntimeHealthCensus();
+      appEventBus.off(
+        EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+        onSelectedAccountUpdate,
+      );
+    };
   }, []);
 
   useEffect(() => {
@@ -1035,9 +1090,9 @@ export function Bootstrap() {
   useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
+  useIPadMainMenu();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
-  useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
@@ -1048,10 +1103,17 @@ export function Bootstrap() {
           per-mount useEffect that previously lived in
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
+      <PrivacyChainForeground />
+      <IntercomSessionSync />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>
           <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
+      {LazyExtPrimeSubscriptionHandoffOnMount ? (
+        <Suspense fallback={null}>
+          <LazyExtPrimeSubscriptionHandoffOnMount />
         </Suspense>
       ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}

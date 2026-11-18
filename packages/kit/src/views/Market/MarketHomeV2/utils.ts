@@ -218,6 +218,23 @@ export const isMarketStockCategoryById = (
   );
 };
 
+export const getMarketHomeFallbackSpotCategories = (
+  formatMessage: (descriptor: { id: ETranslations }) => string,
+): IMarketCategoryItem[] => [
+  {
+    id: 'trending',
+    name: formatMessage({ id: ETranslations.dexmarket_trending }),
+  },
+  {
+    id: 'stocks',
+    name: formatMessage({ id: ETranslations.perps_token_selector_stocks }),
+  },
+  {
+    id: MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID,
+    name: 'Robinhood',
+  },
+];
+
 export const ensureMarketTopCoinsCategory = (
   categories: IMarketCategoryItem[],
   fallbackName: string,

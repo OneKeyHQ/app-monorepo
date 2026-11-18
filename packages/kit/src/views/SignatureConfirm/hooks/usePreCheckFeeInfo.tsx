@@ -9,6 +9,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import { markTxFeeOverflowConfirmOpen } from './txFeeOverflowConfirmPresence';
+
 function ExtremelyHighFeeDialogContent({
   onConfirm,
   onCancel,
@@ -86,7 +88,17 @@ function usePreCheckFeeInfo() {
 
   const showFeeInfoOverflowConfirm = useCallback(
     () =>
-      new Promise((resolve) => {
+      new Promise<boolean>((resolve) => {
+        // Published for flows that keep their own sheet up during a
+        // transaction (the WalletConnect Pay sheet steps aside for it on
+        // native, see txFeeOverflowConfirmPresence). Cleared on every way
+        // the dialog can settle; the mark tolerates the button and onClose
+        // both firing.
+        const markClosed = markTxFeeOverflowConfirmOpen();
+        const settle = (isConfirmed: boolean) => {
+          markClosed();
+          resolve(isConfirmed);
+        };
         Dialog.show({
           tone: 'destructive',
           icon: 'ErrorOutline',
@@ -96,11 +108,11 @@ function usePreCheckFeeInfo() {
           description: intl.formatMessage({
             id: ETranslations.fee_alert_dialog_description,
           }),
-          onClose: () => resolve(false),
+          onClose: () => settle(false),
           renderContent: (
             <ExtremelyHighFeeDialogContent
-              onConfirm={() => resolve(true)}
-              onCancel={() => resolve(false)}
+              onConfirm={() => settle(true)}
+              onCancel={() => settle(false)}
             />
           ),
         });

@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
-index d4ef9c5..7ff8477 100644
+index d4ef9c5..bd010e2 100644
 --- a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
 +++ b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/BlePlxModule.java
 @@ -46,6 +46,7 @@ import java.util.List;
@@ -19,3 +19,724 @@ index d4ef9c5..7ff8477 100644
          RxBleLog.e("Handle all unhandled exceptions from RxJava: " + throwable.getMessage());
        } else {
          Thread currentThread = Thread.currentThread();
+@@ -686,6 +687,31 @@ public class BlePlxModule extends ReactContextBaseJavaModule {
+       });
+   }
+ 
++  @ReactMethod
++  public void writeCharacteristicWithoutResponseFrame(final int characteristicIdentifier,
++                                                      final String valueBase64,
++                                                      final int packetSize,
++                                                      final String transactionId,
++                                                      final Promise promise) {
++    if (!this.isRequestPossibleHandler("writeCharacteristicWithoutResponseFrame", promise)) {
++      return;
++    }
++    final SafePromise safePromise = new SafePromise(promise);
++
++    bleAdapter.writeCharacteristicWithoutResponseFrame(characteristicIdentifier, valueBase64, packetSize, transactionId,
++      new OnSuccessCallback<Void>() {
++        @Override
++        public void onSuccess(Void data) {
++          safePromise.resolve(null);
++        }
++      }, new OnErrorCallback() {
++        @Override
++        public void onError(BleError error) {
++          safePromise.reject(getErrorCode(error), errorConverter.toJs(error));
++        }
++      });
++  }
++
+   @ReactMethod
+   public void readCharacteristicForDevice(final String deviceId,
+                                           final String serviceUUID,
+diff --git a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleAdapter.java b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleAdapter.java
+index 07f0995..4de10b7 100644
+--- a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleAdapter.java
++++ b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleAdapter.java
+@@ -158,6 +158,14 @@ public interface BleAdapter {
+     OnSuccessCallback<Characteristic> onSuccessCallback,
+     OnErrorCallback onErrorCallback);
+ 
++  void writeCharacteristicWithoutResponseFrame(
++    int characteristicIdentifier,
++    String valueBase64,
++    int packetSize,
++    String transactionId,
++    OnSuccessCallback<Void> onSuccessCallback,
++    OnErrorCallback onErrorCallback);
++
+   void monitorCharacteristicForDevice(
+     String deviceIdentifier,
+     String serviceUUID,
+diff --git a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleModule.java b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleModule.java
+index 44392b6..d1dbe7f 100755
+--- a/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleModule.java
++++ b/node_modules/react-native-ble-plx/android/src/main/java/com/bleplx/adapter/BleModule.java
+@@ -684,6 +684,70 @@ public class BleModule extends ReactContextBaseJavaModule implements BleAdapter
+     );
+   }
+ 
++  @Override
++  public void writeCharacteristicWithoutResponseFrame(int characteristicIdentifier,
++                                                      String valueBase64,
++                                                      int packetSize,
++                                                      String transactionId,
++                                                      OnSuccessCallback<Void> onSuccessCallback,
++                                                      OnErrorCallback onErrorCallback) {
++    final Characteristic characteristic = getCharacteristicOrEmitError(characteristicIdentifier, onErrorCallback);
++    if (characteristic == null) {
++      return;
++    }
++
++    if (!characteristic.isWritableWithoutResponse()) {
++      onErrorCallback.onError(frameWriteError(
++        characteristic,
++        BleErrorCode.CharacteristicWriteFailed,
++        "Characteristic does not support write without response"));
++      return;
++    }
++
++    byte[] frame;
++    try {
++      frame = Base64Converter.decode(valueBase64);
++    } catch (Throwable error) {
++      frame = null;
++    }
++    if (frame == null || frame.length == 0) {
++      // The frame is not echoed into the error because it carries device protocol payload.
++      onErrorCallback.onError(frameWriteError(
++        characteristic,
++        BleErrorCode.CharacteristicInvalidDataFormat,
++        "Frame is empty or not valid Base64"));
++      return;
++    }
++
++    final RxBleConnection connection = getConnectionOrEmitError(characteristic.getDeviceId(), onErrorCallback);
++    if (connection == null) {
++      return;
++    }
++
++    // Android rejects attribute values over 512 bytes even when the MTU would allow more.
++    final int maxPacketSize = Math.min(
++      connection.getMtu() - RxBleConnection.GATT_WRITE_MTU_OVERHEAD,
++      RxBleConnection.GATT_MTU_MAXIMUM - RxBleConnection.GATT_WRITE_MTU_OVERHEAD);
++    if (packetSize < 1 || packetSize > maxPacketSize) {
++      final BleError bleError = frameWriteError(
++        characteristic,
++        BleErrorCode.CharacteristicInvalidDataFormat,
++        "Invalid frame packet size");
++      bleError.internalMessage = "packetSize: " + packetSize + ", maxPacketSize: " + maxPacketSize;
++      onErrorCallback.onError(bleError);
++      return;
++    }
++
++    safeWriteCharacteristicWithoutResponseFrame(
++      characteristic,
++      connection,
++      frame,
++      packetSize,
++      transactionId,
++      onSuccessCallback,
++      onErrorCallback);
++  }
++
+   @Override
+   public void monitorCharacteristicForDevice(String deviceIdentifier,
+                                              String serviceUUID,
+@@ -1439,6 +1503,55 @@ public class BleModule extends ReactContextBaseJavaModule implements BleAdapter
+     pendingTransactions.replaceSubscription(transactionId, subscription);
+   }
+ 
++  private void safeWriteCharacteristicWithoutResponseFrame(final Characteristic characteristic,
++                                                           final RxBleConnection connection,
++                                                           final byte[] frame,
++                                                           final int packetSize,
++                                                           final String transactionId,
++                                                           final OnSuccessCallback<Void> onSuccessCallback,
++                                                           final OnErrorCallback onErrorCallback) {
++    final SafeExecutor<Void> safeExecutor = new SafeExecutor<>(onSuccessCallback, onErrorCallback);
++
++    // The long write operation writes batches with the characteristic's current write type.
++    characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
++
++    // One queued GATT operation for the whole frame. The default ack strategy waits for
++    // onCharacteristicWrite of each batch before writing the next one, so at most one packet is
++    // outstanding. No retry strategy is set on purpose: re-sending a batch after a failure could
++    // duplicate bytes the device already received. Disposing the subscription (cancelTransaction)
++    // stops further batches after the in-flight one is acknowledged.
++    final Disposable subscription = connection
++      .createNewLongWriteBuilder()
++      .setCharacteristic(characteristic.gattCharacteristic)
++      .setBytes(frame)
++      .setMaxBatchSize(packetSize)
++      .build()
++      .doOnDispose(() -> {
++        safeExecutor.error(BleErrorUtils.cancelled());
++        pendingTransactions.removeSubscription(transactionId);
++      })
++      .subscribe(bytes -> {
++        safeExecutor.success(null);
++        pendingTransactions.removeSubscription(transactionId);
++      }, throwable -> {
++        safeExecutor.error(errorConverter.toError(throwable));
++        pendingTransactions.removeSubscription(transactionId);
++      });
++
++    pendingTransactions.replaceSubscription(transactionId, subscription);
++  }
++
++  @NonNull
++  private BleError frameWriteError(@NonNull final Characteristic characteristic,
++                                   @NonNull final BleErrorCode errorCode,
++                                   @NonNull final String reason) {
++    final BleError bleError = new BleError(errorCode, reason, null);
++    bleError.deviceID = characteristic.getDeviceId();
++    bleError.serviceUUID = UUIDConverter.fromUUID(characteristic.getServiceUUID());
++    bleError.characteristicUUID = UUIDConverter.fromUUID(characteristic.getUuid());
++    return bleError;
++  }
++
+   private void safeMonitorCharacteristicForDevice(final Characteristic characteristic,
+                                                   final String transactionId,
+                                                   final String subscriptionType,
+diff --git a/node_modules/react-native-ble-plx/ios/BlePlx.m b/node_modules/react-native-ble-plx/ios/BlePlx.m
+index 8e0da36..b8d0ada 100644
+--- a/node_modules/react-native-ble-plx/ios/BlePlx.m
++++ b/node_modules/react-native-ble-plx/ios/BlePlx.m
+@@ -9,6 +9,59 @@
+ #import "BlePlx.h"
+ #import "BlePlx-Swift.h"
+ 
++// Error codes mirrored from MultiplatformBleAdapter's BleErrorCode.
++static const NSInteger BlePlxErrorBluetoothManagerDestroyed = 1;
++static const NSInteger BlePlxErrorOperationCancelled = 2;
++static const NSInteger BlePlxErrorCharacteristicWriteFailed = 401;
++static const NSInteger BlePlxErrorCharacteristicInvalidDataFormat = 406;
++static const NSUInteger BlePlxFrameMaxPacketSize = 512;
++
++// Builds the same JSON object shape as BleError.toJS so JS parseBleError() handles it.
++static NSString* BlePlxBleErrorJSON(NSInteger errorCode,
++                                    NSString* _Nullable reason,
++                                    NSString* _Nullable deviceID,
++                                    NSString* _Nullable serviceUUID,
++                                    NSString* _Nullable characteristicUUID) {
++    NSDictionary* body = @{
++        @"errorCode": @(errorCode),
++        @"attErrorCode": [NSNull null],
++        @"iosErrorCode": [NSNull null],
++        @"androidErrorCode": [NSNull null],
++        @"reason": reason ?: [NSNull null],
++        @"deviceID": deviceID ?: [NSNull null],
++        @"serviceUUID": serviceUUID ?: [NSNull null],
++        @"characteristicUUID": characteristicUUID ?: [NSNull null],
++        @"descriptorUUID": [NSNull null],
++        @"internalMessage": [NSNull null]
++    };
++    NSData* data = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
++    NSString* json = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
++    return json ?: [NSString stringWithFormat:@"{\"errorCode\": %ld}", (long)errorCode];
++}
++
++static NSString* _Nullable BlePlxStringOrNil(id _Nullable value) {
++    return [value isKindOfClass:[NSString class]] ? value : nil;
++}
++
++// State of one writeCharacteristicWithoutResponseFrame call. Only touched on the module's methodQueue,
++// which is also the queue the BLE adapter delivers its callbacks on.
++@interface BlePlxFrameWrite : NSObject
++@property(nonatomic, copy) NSString* transactionId;
++@property(nonatomic, strong) BleClientManager* manager;
++@property(nonatomic) double characteristicIdentifier;
++@property(nonatomic, strong) NSData* frame;
++@property(nonatomic) NSUInteger packetSize;
++@property(nonatomic) NSUInteger nextOffset;
++@property(nonatomic, copy, nullable) NSString* currentPacketTransactionId;
++@property(nonatomic) BOOL cancelled;
++@property(nonatomic) BOOL settled;
++@property(nonatomic, copy, nullable) RCTPromiseResolveBlock resolve;
++@property(nonatomic, copy, nullable) RCTPromiseRejectBlock reject;
++@end
++
++@implementation BlePlxFrameWrite
++@end
++
+ 
+ @interface BlePlx () <BleClientManagerDelegate>
+ @property(nonatomic) BleClientManager* manager;
+@@ -17,6 +70,9 @@ @interface BlePlx () <BleClientManagerDelegate>
+ @implementation BlePlx
+ {
+     bool hasListeners;
++    NSMutableDictionary<NSString*, BlePlxFrameWrite*>* _frameWrites;
++    // Module-wide so packet ids stay unique even when a frame transactionId is reused.
++    NSUInteger _framePacketSequence;
+ }
+ 
+ @synthesize methodQueue = _methodQueue;
+@@ -55,12 +111,14 @@ + (BOOL)requiresMainQueueSetup {
+ }
+ 
+ RCT_EXPORT_METHOD(createClient:(NSString*)restoreIdentifierKey) {
++    [self abortAllFrameWritesWithErrorJSON:BlePlxBleErrorJSON(BlePlxErrorBluetoothManagerDestroyed, nil, nil, nil, nil)];
+     _manager = [BleAdapterFactory getNewAdapterWithQueue:self.methodQueue
+                                     restoreIdentifierKey:restoreIdentifierKey];
+     _manager.delegate = self;
+ }
+ 
+ RCT_EXPORT_METHOD(destroyClient) {
++    [self abortAllFrameWritesWithErrorJSON:BlePlxBleErrorJSON(BlePlxErrorBluetoothManagerDestroyed, nil, nil, nil, nil)];
+     [_manager invalidate];
+     _manager = nil;
+ }
+@@ -340,6 +398,309 @@ - (void)invalidate {
+                            reject:reject];
+ }
+ 
++// Writes a whole frame as consecutive write-without-response packets with one JS<->native round trip.
++// Packets go out strictly in order, one at a time, and are never retried.
++RCT_EXPORT_METHOD(writeCharacteristicWithoutResponseFrame:(nonnull NSNumber*)characteristicIdentifier
++                                              valueBase64:(NSString*)valueBase64
++                                               packetSize:(nonnull NSNumber*)packetSize
++                                            transactionId:(NSString*)transactionId
++                                                 resolver:(RCTPromiseResolveBlock)resolve
++                                                 rejecter:(RCTPromiseRejectBlock)reject) {
++    NSString* characteristicDescription = characteristicIdentifier.stringValue;
++
++    if (_manager == nil || self.methodQueue == nil) {
++        reject(nil, BlePlxBleErrorJSON(BlePlxErrorBluetoothManagerDestroyed, nil, nil, nil, nil), nil);
++        return;
++    }
++
++    if (transactionId.length == 0) {
++        reject(nil, BlePlxBleErrorJSON(BlePlxErrorCharacteristicInvalidDataFormat,
++                                       @"Frame write requires a transactionId",
++                                       nil, nil, characteristicDescription), nil);
++        return;
++    }
++
++    NSData* frame = valueBase64.length > 0
++        ? [[NSData alloc] initWithBase64EncodedString:valueBase64
++                                              options:NSDataBase64DecodingIgnoreUnknownCharacters]
++        : nil;
++    if (frame.length == 0) {
++        reject(nil, BlePlxBleErrorJSON(BlePlxErrorCharacteristicInvalidDataFormat,
++                                       @"Frame value is not valid non-empty base64",
++                                       nil, nil, characteristicDescription), nil);
++        return;
++    }
++
++    // packetSize is also checked against the link's write-without-response limit once the first packet
++    // names the device (checkFramePacketSize).
++    double requestedPacketSize = packetSize.doubleValue;
++    if (!(requestedPacketSize >= 1) ||
++        requestedPacketSize > BlePlxFrameMaxPacketSize ||
++        requestedPacketSize != floor(requestedPacketSize)) {
++        reject(nil, BlePlxBleErrorJSON(BlePlxErrorCharacteristicInvalidDataFormat,
++                                       @"Frame packetSize must be an integer between 1 and 512",
++                                       nil, nil, characteristicDescription), nil);
++        return;
++    }
++
++    if (_frameWrites == nil) {
++        _frameWrites = [NSMutableDictionary new];
++    }
++    // Same semantics as the adapter's transaction map: a new transaction with an active id cancels the old one.
++    BlePlxFrameWrite* previous = _frameWrites[transactionId];
++    if (previous != nil) {
++        [self abortFrameWrite:previous
++                    errorJSON:BlePlxBleErrorJSON(BlePlxErrorOperationCancelled, nil, nil, nil, nil)];
++    }
++
++    BlePlxFrameWrite* frameWrite = [BlePlxFrameWrite new];
++    frameWrite.transactionId = transactionId;
++    frameWrite.manager = _manager;
++    frameWrite.characteristicIdentifier = characteristicIdentifier.doubleValue;
++    frameWrite.frame = frame;
++    frameWrite.packetSize = (NSUInteger)requestedPacketSize;
++    frameWrite.resolve = resolve;
++    frameWrite.reject = reject;
++    _frameWrites[transactionId] = frameWrite;
++
++    [self writeNextFramePacket:frameWrite];
++}
++
++- (void)writeNextFramePacket:(BlePlxFrameWrite*)frameWrite {
++    if (frameWrite.settled) {
++        return;
++    }
++    if (frameWrite.cancelled) {
++        [self abortFrameWrite:frameWrite
++                    errorJSON:BlePlxBleErrorJSON(BlePlxErrorOperationCancelled, nil, nil, nil, nil)];
++        return;
++    }
++    if (frameWrite.manager != _manager) {
++        [self abortFrameWrite:frameWrite
++                    errorJSON:BlePlxBleErrorJSON(BlePlxErrorBluetoothManagerDestroyed, nil, nil, nil, nil)];
++        return;
++    }
++
++    NSUInteger offset = frameWrite.nextOffset;
++    NSUInteger length = MIN(frameWrite.packetSize, frameWrite.frame.length - offset);
++    NSString* packetBase64 = [[frameWrite.frame subdataWithRange:NSMakeRange(offset, length)]
++                              base64EncodedStringWithOptions:0];
++    _framePacketSequence += 1;
++    NSString* packetTransactionId = [NSString stringWithFormat:@"%@#%lu",
++                                     frameWrite.transactionId, (unsigned long)_framePacketSequence];
++    BOOL isFirstPacket = offset == 0;
++
++    frameWrite.nextOffset = offset + length;
++    frameWrite.currentPacketTransactionId = packetTransactionId;
++
++    // The adapter (RxBluetoothKit Peripheral.writeValue) waits for canSendWriteWithoutResponse before
++    // handing each response-less packet to CoreBluetooth and resolves right after, so packets are paced
++    // by CoreBluetooth exactly as on the per-packet JS path. The frame resolves once its last packet is
++    // queued; the device response to the frame confirms delivery.
++    __weak BlePlx* weakSelf = self;
++    [frameWrite.manager writeCharacteristic:frameWrite.characteristicIdentifier
++                                valueBase64:packetBase64
++                                   response:NO
++                              transactionId:packetTransactionId
++                                    resolve:^(id value) {
++        [weakSelf frameWrite:frameWrite didWritePacket:packetTransactionId value:value isFirstPacket:isFirstPacket];
++    }
++                                     reject:^(NSString* code, NSString* message, NSError* error) {
++        [weakSelf frameWrite:frameWrite didFailPacket:packetTransactionId code:code message:message error:error];
++    }];
++}
++
++- (void)frameWrite:(BlePlxFrameWrite*)frameWrite
++    didWritePacket:(NSString*)packetTransactionId
++             value:(id)value
++     isFirstPacket:(BOOL)isFirstPacket {
++    if (frameWrite.settled || ![packetTransactionId isEqualToString:frameWrite.currentPacketTransactionId]) {
++        [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++        return;
++    }
++    frameWrite.currentPacketTransactionId = nil;
++
++    // The adapter only exposes characteristic properties in the write result. CoreBluetooth ignores a
++    // response-less write to a characteristic without that property, so nothing reached the device yet.
++    if (isFirstPacket && [value isKindOfClass:[NSDictionary class]]) {
++        NSDictionary* characteristic = value;
++        id writableWithoutResponse = characteristic[@"isWritableWithoutResponse"];
++        if ([writableWithoutResponse isKindOfClass:[NSNumber class]] && ![writableWithoutResponse boolValue]) {
++            [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++            [self settleFrameWrite:frameWrite
++                        rejectCode:nil
++                           message:BlePlxBleErrorJSON(BlePlxErrorCharacteristicWriteFailed,
++                                                      @"Characteristic does not support write without response",
++                                                      BlePlxStringOrNil(characteristic[@"deviceID"]),
++                                                      BlePlxStringOrNil(characteristic[@"serviceUUID"]),
++                                                      BlePlxStringOrNil(characteristic[@"uuid"]))
++                             error:nil];
++            return;
++        }
++        NSString* deviceID = BlePlxStringOrNil(characteristic[@"deviceID"]);
++        if (deviceID != nil) {
++            [self checkFramePacketSize:frameWrite
++                        characteristic:characteristic
++                              deviceID:deviceID
++                           afterPacket:packetTransactionId];
++            return;
++        }
++    }
++
++    [self continueFrameWrite:frameWrite afterPacket:packetTransactionId];
++}
++
++// The adapter does not expose a characteristic's write-without-response limit, but the first packet's result
++// names the device, whose live MTU it does expose. CoreBluetooth does not report an oversized response-less
++// write, so reject the frame before its remaining packets go out instead of resolving a frame the device never
++// received intact. An unavailable limit keeps the previous behaviour.
++- (void)checkFramePacketSize:(BlePlxFrameWrite*)frameWrite
++              characteristic:(NSDictionary*)characteristic
++                    deviceID:(NSString*)deviceID
++                 afterPacket:(NSString*)packetTransactionId {
++    __weak BlePlx* weakSelf = self;
++    dispatch_queue_t methodQueue = self.methodQueue;
++    [frameWrite.manager devices:@[deviceID]
++                        resolve:^(id value) {
++        NSArray* devices = [value isKindOfClass:[NSArray class]] ? value : nil;
++        NSDictionary* device = [devices.firstObject isKindOfClass:[NSDictionary class]] ? devices.firstObject : nil;
++        id mtu = device[@"mtu"];
++        NSInteger limit = [mtu isKindOfClass:[NSNumber class]] ? [mtu integerValue] - 3 : 0;
++        dispatch_async(methodQueue, ^{
++            BlePlx* strongSelf = weakSelf;
++            if (strongSelf == nil) {
++                return;
++            }
++            // The first packet is the longest one the frame produces.
++            NSUInteger firstPacketLength = MIN(frameWrite.packetSize, frameWrite.frame.length);
++            if (!frameWrite.settled && limit > 0 && firstPacketLength > (NSUInteger)limit) {
++                [strongSelf releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++                NSString* reason = [NSString stringWithFormat:
++                                    @"Frame packet of %lu bytes exceeds the write-without-response limit %ld",
++                                    (unsigned long)firstPacketLength, (long)limit];
++                [strongSelf settleFrameWrite:frameWrite
++                                  rejectCode:nil
++                                     message:BlePlxBleErrorJSON(BlePlxErrorCharacteristicInvalidDataFormat,
++                                                                reason,
++                                                                deviceID,
++                                                                BlePlxStringOrNil(characteristic[@"serviceUUID"]),
++                                                                BlePlxStringOrNil(characteristic[@"uuid"]))
++                                       error:nil];
++                return;
++            }
++            [strongSelf continueFrameWrite:frameWrite afterPacket:packetTransactionId];
++        });
++    }
++                         reject:^(NSString* code, NSString* message, NSError* error) {
++        dispatch_async(methodQueue, ^{
++            [weakSelf continueFrameWrite:frameWrite afterPacket:packetTransactionId];
++        });
++    }];
++}
++
++- (void)continueFrameWrite:(BlePlxFrameWrite*)frameWrite afterPacket:(NSString*)packetTransactionId {
++    if (frameWrite.settled) {
++        [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++        return;
++    }
++    if (frameWrite.nextOffset >= frameWrite.frame.length) {
++        [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++        [self settleFrameWrite:frameWrite resolveValue:nil];
++        return;
++    }
++
++    // The adapter may resolve synchronously inside writeCharacteristic, so the next packet must start
++    // from a fresh methodQueue turn instead of recursing into the adapter from this callback.
++    __weak BlePlx* weakSelf = self;
++    BleClientManager* manager = frameWrite.manager;
++    dispatch_async(self.methodQueue, ^{
++        [manager cancelTransaction:packetTransactionId];
++        [weakSelf writeNextFramePacket:frameWrite];
++    });
++}
++
++- (void)frameWrite:(BlePlxFrameWrite*)frameWrite
++     didFailPacket:(NSString*)packetTransactionId
++              code:(NSString*)code
++           message:(NSString*)message
++             error:(NSError*)error {
++    [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++    if (frameWrite.settled || ![packetTransactionId isEqualToString:frameWrite.currentPacketTransactionId]) {
++        return;
++    }
++    frameWrite.currentPacketTransactionId = nil;
++    [self settleFrameWrite:frameWrite rejectCode:code message:message error:error];
++}
++
++// A write that completes synchronously leaves its finished disposable in the adapter's transaction map
++// under the packet id. Cancelling that id on a later methodQueue turn only drops the stale entry.
++- (void)releaseFramePacketTransaction:(NSString*)packetTransactionId manager:(BleClientManager*)manager {
++    if (manager == nil || self.methodQueue == nil) {
++        return;
++    }
++    dispatch_async(self.methodQueue, ^{
++        [manager cancelTransaction:packetTransactionId];
++    });
++}
++
++- (void)abortFrameWrite:(BlePlxFrameWrite*)frameWrite errorJSON:(NSString*)errorJSON {
++    if (frameWrite.settled) {
++        return;
++    }
++    frameWrite.cancelled = YES;
++    NSString* inFlightPacketTransactionId = frameWrite.currentPacketTransactionId;
++    frameWrite.currentPacketTransactionId = nil;
++    [self settleFrameWrite:frameWrite rejectCode:nil message:errorJSON error:nil];
++    if (inFlightPacketTransactionId != nil) {
++        // Its cancellation callback arrives after the frame settled and is ignored.
++        [frameWrite.manager cancelTransaction:inFlightPacketTransactionId];
++    }
++}
++
++- (void)abortAllFrameWritesWithErrorJSON:(NSString*)errorJSON {
++    NSArray<BlePlxFrameWrite*>* frameWrites = [_frameWrites allValues];
++    for (BlePlxFrameWrite* frameWrite in frameWrites) {
++        [self abortFrameWrite:frameWrite errorJSON:errorJSON];
++    }
++    [_frameWrites removeAllObjects];
++}
++
++- (void)removeSettledFrameWrite:(BlePlxFrameWrite*)frameWrite {
++    frameWrite.settled = YES;
++    if (_frameWrites[frameWrite.transactionId] == frameWrite) {
++        [_frameWrites removeObjectForKey:frameWrite.transactionId];
++    }
++}
++
++- (void)settleFrameWrite:(BlePlxFrameWrite*)frameWrite resolveValue:(id)value {
++    if (frameWrite.settled) {
++        return;
++    }
++    RCTPromiseResolveBlock resolve = frameWrite.resolve;
++    frameWrite.resolve = nil;
++    frameWrite.reject = nil;
++    [self removeSettledFrameWrite:frameWrite];
++    if (resolve) {
++        resolve(value);
++    }
++}
++
++- (void)settleFrameWrite:(BlePlxFrameWrite*)frameWrite
++              rejectCode:(NSString*)code
++                 message:(NSString*)message
++                   error:(NSError*)error {
++    if (frameWrite.settled) {
++        return;
++    }
++    RCTPromiseRejectBlock reject = frameWrite.reject;
++    frameWrite.resolve = nil;
++    frameWrite.reject = nil;
++    [self removeSettledFrameWrite:frameWrite];
++    if (reject) {
++        reject(code, message, error);
++    }
++}
++
+ RCT_EXPORT_METHOD(monitorCharacteristicForDevice:(NSString*)deviceIdentifier
+                                      serviceUUID:(NSString*)serviceUUID
+                               characteristicUUID:(NSString*)characteristicUUID
+@@ -494,6 +855,11 @@ - (void)invalidate {
+ // Mark: Other operations ----------------------------------------------------------------------------------------------
+ 
+ RCT_EXPORT_METHOD(cancelTransaction:(NSString*)transactionId) {
++    BlePlxFrameWrite* frameWrite = transactionId != nil ? _frameWrites[transactionId] : nil;
++    if (frameWrite != nil) {
++        [self abortFrameWrite:frameWrite
++                    errorJSON:BlePlxBleErrorJSON(BlePlxErrorOperationCancelled, nil, nil, nil, nil)];
++    }
+     [_manager cancelTransaction:transactionId];
+ }
+ 
+diff --git a/node_modules/react-native-ble-plx/src/BleManager.js b/node_modules/react-native-ble-plx/src/BleManager.js
+index 933dcdd..5aa4d2c 100644
+--- a/node_modules/react-native-ble-plx/src/BleManager.js
++++ b/node_modules/react-native-ble-plx/src/BleManager.js
+@@ -942,6 +942,54 @@ export class BleManager {
+     return new Characteristic(nativeCharacteristic, this)
+   }
+ 
++  /**
++   * Checks whether the native module can write a whole frame without response in a single call.
++   * The check looks at the native module because a newer JS bundle can run on an older native binary.
++   *
++   * @returns {boolean} True if {@link #blemanagerwritecharacteristicwithoutresponseframe|writeCharacteristicWithoutResponseFrame()}
++   * is available.
++   */
++  isWriteCharacteristicWithoutResponseFrameSupported(): boolean {
++    return typeof BleModule.writeCharacteristicWithoutResponseFrame === 'function'
++  }
++
++  /**
++   * Write a frame to a {@link Characteristic} without response with one native call. The native side splits
++   * the frame into packets of `packetSize` bytes and writes them strictly in order, with at most one packet
++   * outstanding and without retrying any packet. Cancelling `transactionId` cancels the whole frame.
++   *
++   * @param {Identifier} characteristicIdentifier {@link Characteristic} ID.
++   * @param {Base64} base64Frame Whole frame in Base64 format.
++   * @param {number} packetSize Maximum number of bytes per written packet.
++   * @param {?TransactionId} transactionId optional `transactionId` which can be used in
++   * {@link #blemanagercanceltransaction|cancelTransaction()} function.
++   * @returns {Promise<void>} Promise which resolves after the last packet was written.
++   */
++  async writeCharacteristicWithoutResponseFrame(
++    characteristicIdentifier: Identifier,
++    base64Frame: Base64,
++    packetSize: number,
++    transactionId: ?TransactionId
++  ): Promise<void> {
++    if (!transactionId) {
++      transactionId = this._nextUniqueID()
++    }
++    const writeFrame = BleModule.writeCharacteristicWithoutResponseFrame
++    if (typeof writeFrame !== 'function') {
++      throw new BleError(
++        {
++          errorCode: BleErrorCode.OperationStartFailed,
++          attErrorCode: (null: ?$Values<typeof BleATTErrorCode>),
++          iosErrorCode: (null: ?$Values<typeof BleIOSErrorCode>),
++          androidErrorCode: (null: ?$Values<typeof BleAndroidErrorCode>),
++          reason: 'writeCharacteristicWithoutResponseFrame is not supported by the native module'
++        },
++        this._errorCodesToMessagesMapping
++      )
++    }
++    await this._callPromise(writeFrame.call(BleModule, characteristicIdentifier, base64Frame, packetSize, transactionId))
++  }
++
+   /**
+    * Monitor value changes of a {@link Characteristic}. If notifications are enabled they will be used
+    * in favour of indications.
+diff --git a/node_modules/react-native-ble-plx/src/BleModule.js b/node_modules/react-native-ble-plx/src/BleModule.js
+index c9c5ea0..acd9b6c 100644
+--- a/node_modules/react-native-ble-plx/src/BleModule.js
++++ b/node_modules/react-native-ble-plx/src/BleModule.js
+@@ -601,6 +601,25 @@ export interface BleModuleInterface {
+     transactionId: TransactionId
+   ): Promise<NativeCharacteristic>;
+ 
++  /**
++   * Write a frame to characteristic without response. The native side splits the frame into packets of
++   * `packetSize` bytes and writes them in order with at most one packet outstanding. Optional because an
++   * older native binary may not export it.
++   *
++   * @param {Identifier} characteristicIdentifier Characteristic ID
++   * @param {Base64} valueBase64 Whole frame coded in Base64
++   * @param {number} packetSize Maximum number of bytes per written packet
++   * @param {TransactionId} transactionId Transaction handle used to cancel the whole frame
++   * @returns {Promise<null>} Resolves after the last packet was written
++   * @private
++   */
++  writeCharacteristicWithoutResponseFrame?: (
++    characteristicIdentifier: Identifier,
++    valueBase64: Base64,
++    packetSize: number,
++    transactionId: TransactionId
++  ) => Promise<null>;
++
+   /**
+    * Setup monitoring of characteristic value.
+    *
+diff --git a/node_modules/react-native-ble-plx/src/index.d.ts b/node_modules/react-native-ble-plx/src/index.d.ts
+index d1ef75c..fae2046 100644
+--- a/node_modules/react-native-ble-plx/src/index.d.ts
++++ b/node_modules/react-native-ble-plx/src/index.d.ts
+@@ -1350,6 +1350,34 @@ declare module 'react-native-ble-plx' {
+       transactionId?: TransactionId
+     ): Promise<Characteristic>
+ 
++    /**
++     * Checks whether the native module can write a whole frame without response in a single call.
++     * The check looks at the native module because a newer JS bundle can run on an older native binary.
++     *
++     * @returns {boolean} True if {@link #blemanagerwritecharacteristicwithoutresponseframe|writeCharacteristicWithoutResponseFrame()}
++     * is available.
++     */
++    isWriteCharacteristicWithoutResponseFrameSupported(): boolean
++
++    /**
++     * Write a frame to a {@link Characteristic} without response with one native call. The native side splits
++     * the frame into packets of `packetSize` bytes and writes them strictly in order, with at most one packet
++     * outstanding and without retrying any packet. Cancelling `transactionId` cancels the whole frame.
++     *
++     * @param {Identifier} characteristicIdentifier {@link Characteristic} ID.
++     * @param {Base64} base64Frame Whole frame in Base64 format.
++     * @param {number} packetSize Maximum number of bytes per written packet.
++     * @param {?TransactionId} transactionId optional `transactionId` which can be used in
++     * {@link #blemanagercanceltransaction|cancelTransaction()} function.
++     * @returns {Promise<void>} Promise which resolves after the last packet was written.
++     */
++    writeCharacteristicWithoutResponseFrame(
++      characteristicIdentifier: Identifier,
++      base64Frame: Base64,
++      packetSize: number,
++      transactionId?: TransactionId
++    ): Promise<void>
++
+     /**
+      * Monitor value changes of a {@link Characteristic}. If notifications are enabled they will be used
+      * in favour of indications.

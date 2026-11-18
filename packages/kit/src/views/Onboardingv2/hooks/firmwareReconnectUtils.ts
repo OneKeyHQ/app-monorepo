@@ -38,9 +38,11 @@ function findUniqueDevice(
 export function selectFirmwareReconnectDevice({
   previousDevice,
   devices,
+  allowBootloaderRecovery = false,
 }: {
   previousDevice: SearchDevice;
   devices: SearchDevice[];
+  allowBootloaderRecovery?: boolean;
 }) {
   const availableDevices = (devices as IFirmwareSearchDevice[]).filter(
     (device) => Boolean(device.connectId),
@@ -54,21 +56,21 @@ export function selectFirmwareReconnectDevice({
     device.commType === previousDevice.commType;
   const hasSameDeviceType = (device: SearchDevice) =>
     device.deviceType === previousDevice.deviceType;
-  const normalDevices = availableDevices.filter(
-    (device) => !isBootloaderDevice(device),
+  const preferredDevices = availableDevices.filter(
+    (device) => allowBootloaderRecovery || !isBootloaderDevice(device),
   );
 
   return (
     findUniqueDevice(
-      normalDevices,
+      preferredDevices,
       (device) => hasMatchingIdentifier(device) && hasSameTransport(device),
     ) ||
-    findUniqueDevice(normalDevices, hasMatchingIdentifier) ||
+    findUniqueDevice(preferredDevices, hasMatchingIdentifier) ||
     findUniqueDevice(
-      normalDevices,
+      preferredDevices,
       (device) => hasSameDeviceType(device) && hasSameTransport(device),
     ) ||
-    findUniqueDevice(normalDevices, hasSameDeviceType) ||
+    findUniqueDevice(preferredDevices, hasSameDeviceType) ||
     findUniqueDevice(
       availableDevices,
       (device) => hasMatchingIdentifier(device) && hasSameTransport(device),
@@ -86,23 +88,25 @@ export async function resolveFirmwareReconnectDevice({
   devices,
   getFeatures,
   onConnectId,
+  allowBootloaderRecovery = false,
 }: {
   previousDevice: SearchDevice;
   devices: SearchDevice[];
   getFeatures: (connectId: string) => Promise<IOneKeyDeviceFeatures>;
   onConnectId?: (connectId: string) => void;
+  allowBootloaderRecovery?: boolean;
 }) {
-  const device = selectFirmwareReconnectDevice({ previousDevice, devices });
+  const device = selectFirmwareReconnectDevice({
+    previousDevice,
+    devices,
+    allowBootloaderRecovery,
+  });
   if (!device?.connectId) {
     throw new OneKeyLocalError('Firmware device was not uniquely identified');
   }
 
   onConnectId?.(device.connectId);
   const features = await getFeatures(device.connectId);
-  if (features.bootloader_mode) {
-    throw new OneKeyLocalError('Firmware device is still in bootloader mode');
-  }
-
   if (
     isMeaningfulIdentifier(previousDevice.deviceId) &&
     isMeaningfulIdentifier(features.device_id) &&
@@ -111,6 +115,32 @@ export async function resolveFirmwareReconnectDevice({
     throw new OneKeyLocalError(
       'Firmware device identity changed after reconnect',
     );
+  }
+
+  if (features.bootloader_mode) {
+    if (!allowBootloaderRecovery) {
+      throw new OneKeyLocalError('Firmware device is still in bootloader mode');
+    }
+    // A bootloader may expose only zero-filled placeholders. Keep the unique
+    // model/transport fallback for those, but reject conflicting real identities.
+    const previousIdentifiers = new Set(getDeviceIdentifiers(previousDevice));
+    const deviceIdentifiers = getDeviceIdentifiers(device);
+    const matchesSearchIdentity = deviceIdentifiers.some((identifier) =>
+      previousIdentifiers.has(identifier),
+    );
+    const matchesFeatureIdentity =
+      isMeaningfulIdentifier(previousDevice.deviceId) &&
+      previousDevice.deviceId === features.device_id;
+    if (
+      previousIdentifiers.size &&
+      deviceIdentifiers.length &&
+      !matchesSearchIdentity &&
+      !matchesFeatureIdentity
+    ) {
+      throw new OneKeyLocalError(
+        'Firmware bootloader identity was not confirmed',
+      );
+    }
   }
 
   return { device, features };

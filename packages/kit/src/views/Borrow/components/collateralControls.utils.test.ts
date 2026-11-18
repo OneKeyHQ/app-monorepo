@@ -2,6 +2,7 @@ import {
   COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
   COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
   collateralBadgeVariant,
+  getCollateralCellState,
   getCollateralSettlementRefreshDecision,
   getCollateralSwitchState,
   hasPendingSetCollateral,
@@ -313,5 +314,53 @@ describe('getCollateralSettlementRefreshDecision', () => {
         completedRefreshAttempts: COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
       }),
     ).toBe('exhausted');
+  });
+});
+
+describe('getCollateralCellState', () => {
+  it('hides the cell when the provider has no collateral control', () => {
+    expect(getCollateralCellState({ canBeCollateral: true })).toBe('hidden');
+  });
+
+  it('keeps the switch for an active collateral position', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: true,
+        canBeCollateral: true,
+      }),
+    ).toBe('switch');
+  });
+
+  // An active position can always be turned off, whatever the server says
+  // about turning it back on.
+  it('keeps the switch for an active position the server calls ineligible', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: true,
+        canBeCollateral: false,
+      }),
+    ).toBe('switch');
+  });
+
+  it('keeps the switch for an inactive but eligible position', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: false,
+        canBeCollateral: true,
+      }),
+    ).toBe('switch');
+  });
+
+  it('reports unavailable for an inactive position the market never accepts', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: false,
+        canBeCollateral: false,
+      }),
+    ).toBe('unavailable');
+  });
+
+  it('keeps the switch when eligibility is unknown (missing flag is not a verdict)', () => {
+    expect(getCollateralCellState({ usageAsCollateral: false })).toBe('switch');
   });
 });

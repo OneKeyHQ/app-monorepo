@@ -2,7 +2,9 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { map, max } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import type { IDasAsset, IDasAssetProof } from '../types';
 import type { AccountInfo, PublicKey } from '@solana/web3.js';
 
 export enum EParamsEncodings {
@@ -24,9 +26,21 @@ export enum ERpcMethods {
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
   GET_MULTIPLE_ACCOUNTS_INFO = 'getMultipleAccounts',
   GET_SIGNATURE_STATUSES = 'getSignatureStatuses',
+  GET_ASSET = 'getAsset',
+  GET_ASSET_PROOF = 'getAssetProof',
+  IS_BLOCKHASH_VALID = 'isBlockhashValid',
 }
 
 export const MIN_PRIORITY_FEE = 1_000_000;
+
+// Rent is a chain parameter that only changes when a feature gate activates at
+// an epoch boundary (SIMD-0437 lowers it in steps), so a short shared cache
+// keeps repeated lookups off the RPC without pinning a stale value for long.
+const RENT_EXEMPTION_CACHE_TTL = 10 * 60 * 1000;
+const rentExemptionCache = new Map<
+  string,
+  { rent: Promise<number>; expiresAt: number }
+>();
 
 class ClientSol {
   private networkId: string;
@@ -45,6 +59,29 @@ class ClientSol {
   }
 
   async getMinimumBalanceForRentExemption(dataLength: number): Promise<number> {
+    const key = `${this.networkId}:${dataLength}`;
+    const cached = rentExemptionCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.rent;
+    }
+
+    const rent = this.fetchMinimumBalanceForRentExemption(dataLength);
+    rentExemptionCache.set(key, {
+      rent,
+      expiresAt: Date.now() + RENT_EXEMPTION_CACHE_TTL,
+    });
+    // A failed or malformed lookup must not be served for the whole TTL.
+    void rent.catch(() => {
+      if (rentExemptionCache.get(key)?.rent === rent) {
+        rentExemptionCache.delete(key);
+      }
+    });
+    return rent;
+  }
+
+  private async fetchMinimumBalanceForRentExemption(
+    dataLength: number,
+  ): Promise<number> {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<number>({
         networkId: this.networkId,
@@ -59,13 +96,24 @@ class ClientSol {
         ],
       });
 
+    // Reject a malformed rent here so callers take their failed-lookup path
+    // instead of computing with NaN.
+    if (!Number.isFinite(response) || response < 0) {
+      throw new OneKeyLocalError('Invalid Solana rent exemption response');
+    }
     return response;
   }
 
-  async getLatestBlockHash() {
+  async getLatestBlockHash(): Promise<{
+    recentBlockhash: string;
+    lastValidBlockHeight: number;
+    contextSlot?: number;
+    commitment?: 'confirmed';
+  }> {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         value: { blockhash: string; lastValidBlockHeight: number };
+        context?: { slot?: number };
       }>({
         networkId: this.networkId,
         body: [
@@ -86,6 +134,8 @@ class ClientSol {
     return {
       recentBlockhash: response.value.blockhash,
       lastValidBlockHeight: response.value.lastValidBlockHeight,
+      contextSlot: response.context?.slot,
+      commitment: 'confirmed' as const,
     };
   }
 
@@ -190,6 +240,46 @@ class ClientSol {
     return response.value;
   }
 
+  // DAS methods are only served by DAS-capable upstreams; on other backends
+  // the proxy rejects with "Method not found" and the vault degrades.
+  async getAsset(assetId: string): Promise<IDasAsset> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IDasAsset>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: ERpcMethods.GET_ASSET,
+                params: { id: assetId },
+              },
+            },
+          ],
+        },
+      );
+    return response;
+  }
+
+  async getAssetProof(assetId: string): Promise<IDasAssetProof> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IDasAssetProof>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: ERpcMethods.GET_ASSET_PROOF,
+                params: { id: assetId },
+              },
+            },
+          ],
+        },
+      );
+    return response;
+  }
+
   async getRecentPrioritizationFees(accountAddresses: string[]) {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
@@ -240,6 +330,28 @@ class ClientSol {
       });
 
     return response.value;
+  }
+
+  // `processed` is the most permissive commitment: a blockhash still valid
+  // there can still be picked up by a leader, so only a `false` answer
+  // proves a signed payload can never land.
+  async isBlockhashValid(blockhash: string): Promise<boolean> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        value: boolean;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.IS_BLOCKHASH_VALID,
+              params: [blockhash, { commitment: 'processed' }],
+            },
+          },
+        ],
+      });
+    return Boolean(response.value);
   }
 
   async getRecentMaxPrioritizationFees(accountAddress: string[]) {

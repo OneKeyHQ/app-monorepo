@@ -77,6 +77,7 @@ export function useEModeNeedActionFlow({
   accountId,
   provider,
   marketAddress,
+  providerLogoURI,
   targetEModeId,
   onAllDone,
 }: {
@@ -84,6 +85,7 @@ export function useEModeNeedActionFlow({
   accountId: string;
   provider: string;
   marketAddress: string;
+  providerLogoURI?: string;
   targetEModeId: number;
   onAllDone: () => void;
 }) {
@@ -328,9 +330,10 @@ export function useEModeNeedActionFlow({
     (action: 'repay' | 'setCollateral' | 'setEMode'): IStakingInfo => ({
       label: EEarnLabels.Borrow,
       protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+      protocolLogoURI: providerLogoURI,
       tags: [EEarnLabels.Borrow, buildBorrowTag({ provider, action })],
     }),
-    [provider],
+    [provider, providerLogoURI],
   );
 
   // Chain intent + re-entrancy — refs only, never drive the UI:

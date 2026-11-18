@@ -1,3 +1,7 @@
+import BigNumber from 'bignumber.js';
+
+import { calcSwapProSliderAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
+
 import {
   calculateMarketTokenLivePriceChange,
   getStockMarketCapValue,
@@ -13,6 +17,63 @@ import {
 function buildSortableToken(id: string, price: number) {
   return { id, price };
 }
+
+describe('market token decimals', () => {
+  test.each([
+    [18, 18],
+    ['18', 18],
+    [0, 0],
+    ['0', 0],
+    ['', undefined],
+    ['  ', undefined],
+    [null, undefined],
+    [undefined, undefined],
+    [-1, undefined],
+    ['18.5', undefined],
+    ['invalid', undefined],
+    [Infinity, undefined],
+    [true, undefined],
+    [false, undefined],
+  ])('normalizes API decimals %p for detail previews', (decimals, expected) => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x4a220e6096b25eadb88358cb44068a3248254675',
+        name: 'Quant',
+        symbol: 'QNT',
+        // The API can return numeric strings despite declaring a number.
+        decimals: decimals as number,
+      },
+      { chainId: 'evm--1', networkLogoUri: '' },
+    );
+
+    expect(token.decimals).toBe(expected);
+  });
+
+  test.each([
+    [50, '6.1728'],
+    [100, '12.345678'],
+  ])(
+    'supports a %p%% Swap Pro slider selection with missing precision',
+    (percent, expected) => {
+      const token = transformApiItemToToken(
+        {
+          address: '0xtoken',
+          name: 'Token',
+          symbol: 'TOKEN',
+          decimals: null as unknown as number,
+        },
+        { chainId: 'evm--1', networkLogoUri: '' },
+      );
+      expect(
+        calcSwapProSliderAmount({
+          percent,
+          availableBalance: new BigNumber('12.3456789'),
+          decimals: token.decimals,
+        }),
+      ).toBe(expected);
+    },
+  );
+});
 
 describe('market token list sorting', () => {
   test('sorts the latest token values without mutating the source list', () => {
@@ -548,10 +609,7 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
   });
 });
 
-test.each([
-  { stockId: ' aapl ', underlyingAssetTicker: 'OTHER' },
-  { underlyingAssetTicker: 'aapl' },
-])('preserves one stock identity across chain variants: %j', (stock) => {
+test('preserves one stock identity across chain variants', () => {
   const tokens = ['evm--1', 'evm--42161'].map((chainId) =>
     transformApiItemToToken(
       {
@@ -559,10 +617,33 @@ test.each([
         name: 'Apple',
         symbol: 'AAPLon',
         decimals: 18,
-        stock: { subtitle: 'Apple', sourceLogoUri: '', ...stock },
+        stock: {
+          subtitle: 'Apple',
+          sourceLogoUri: '',
+          stockId: ' aapl ',
+          underlyingAssetTicker: 'OTHER',
+        },
       },
       { chainId, networkLogoUri: '' },
     ),
   );
   expect(tokens.map((token) => token.stockId)).toEqual(['AAPL', 'AAPL']);
+});
+
+test('does not treat an underlying ticker as a stock id', () => {
+  const token = transformApiItemToToken(
+    {
+      address: '0xaapl',
+      name: 'Apple',
+      symbol: 'AAPLon',
+      decimals: 18,
+      stock: {
+        subtitle: 'Apple',
+        sourceLogoUri: '',
+        underlyingAssetTicker: 'aapl',
+      },
+    },
+    { chainId: 'evm--1', networkLogoUri: '' },
+  );
+  expect(token.stockId).toBeUndefined();
 });

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   type IDebugRenderTrackerProps,
   SizableText,
-  Spinner,
   Toast,
   XStack,
   YStack,
@@ -17,11 +16,13 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useGetBboForOrderPrice,
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  perpsWebSocketConnectedAtom,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
@@ -29,6 +30,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getActiveTwapRuntimeStatus } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
@@ -36,12 +38,14 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
@@ -58,7 +62,6 @@ import { shouldRenderMobileOpenOrdersNativeTree } from './mobileOpenOrdersVisibi
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
   isPanelActive?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
 }
 
@@ -179,6 +182,7 @@ function useOpenOrdersColumnsConfig({
         fixed: true,
         ...(enableCancelAll &&
           openOrdersLength > 0 && {
+            headerHoverStyle: PERP_TEXT_ACTION_HOVER_STYLE,
             onPress: () =>
               showCancelAllOrdersDialog(undefined, scopedAccountAddress),
           }),
@@ -197,7 +201,6 @@ function useOpenOrdersColumnsConfig({
 function PerpOpenOrdersList({
   isMobile,
   isPanelActive,
-  useTabsList,
   disableListScroll,
 }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
@@ -212,6 +215,7 @@ function PerpOpenOrdersList({
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
+  const getBbo = useGetBboForOrderPrice();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const [currentListPage, setCurrentListPage] = useState(1);
   const { chasingOrderIds, isChasingOrder, runChasingOrderTask } =
@@ -250,19 +254,10 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
-  const scopedTwapOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: twapOrdersState.accountAddress,
-        data: twapOrdersState.twapOrders,
-      }),
-    [
-      accountScopedAddress,
-      twapOrdersState.accountAddress,
-      twapOrdersState.twapOrders,
-    ],
-  );
+  const {
+    twapOrders: scopedTwapOrders,
+    activeRuntimeInfoById: activeTwapRuntimeInfoByKey,
+  } = usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
@@ -387,18 +382,19 @@ function PerpOpenOrdersList({
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
 
+  const pageSize = isMobile ? 20 : 40;
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  useEffect(() => {
+    setCurrentListPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   const hasChaseAction = displayRows.some(
     (row) =>
       row.type === 'single' &&
       canMutateScopedOrders &&
       canChasePerpsOrder(row.order),
   );
-  const hasChasingAction =
-    hasChaseAction &&
-    displayRows.some(
-      (row) => row.type === 'single' && chasingOrderIds.has(row.order.oid),
-    );
-  const actionMeasurementKey = `${intl.locale}:${hasChaseAction}:${hasChasingAction}`;
+  const actionMeasurementKey = `${intl.locale}:${hasChaseAction}`;
   const [actionMeasurement, setActionMeasurement] = useState({
     key: '',
     width: 80,
@@ -503,19 +499,24 @@ function PerpOpenOrdersList({
         );
       }
 
-      const book =
-        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
-          coin: order.coin,
-        });
-      const bid = book?.levels[0]?.[0]?.px;
-      const ask = book?.levels[1]?.[0]?.px;
+      const bbo = (await perpsWebSocketConnectedAtom.get()) ? getBbo() : null;
+      let bid = bbo?.coin === order.coin ? bbo.bbo[0]?.px : undefined;
+      let ask = bbo?.coin === order.coin ? bbo.bbo[1]?.px : undefined;
+      if (!bid || !ask) {
+        const book =
+          await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+            coin: order.coin,
+          });
+        bid = book?.levels[0]?.[0]?.px;
+        ask = book?.levels[1]?.[0]?.px;
+      }
       const nextPrice =
         bid && ask
           ? resolveBboOrderPrice({
               bid,
               ask,
               side: order.side === 'B' ? 'long' : 'short',
-              type: 'counterparty',
+              type: 'queue',
               offsetTicks: 0,
               szDecimals,
             })
@@ -533,11 +534,11 @@ function PerpOpenOrdersList({
         szDecimals,
       };
     },
-    [intl],
+    [getBbo, intl],
   );
 
   const handleChaseOrder = useCallback(
-    async (order: IPerpsFrontendOrder, preparedTargetPrice?: string) => {
+    async (order: IPerpsFrontendOrder) => {
       if (
         !canMutateScopedOrders ||
         !canChasePerpsOrder(order) ||
@@ -561,8 +562,7 @@ function PerpOpenOrdersList({
       await runChasingOrderTask(order.oid, async () => {
         try {
           await ensureTradingEnabled();
-          const targetPrice =
-            preparedTargetPrice ?? (await resolveChaseTargetPrice(order)).price;
+          const { price: targetPrice } = await resolveChaseTargetPrice(order);
 
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
@@ -587,6 +587,7 @@ function PerpOpenOrdersList({
               coin: order.coin,
               oid: order.oid,
               newPrice: targetPrice,
+              expectedAccountAddress: requestAccountAddress,
             })
             .catch(() => undefined);
         } catch (error) {
@@ -666,7 +667,7 @@ function PerpOpenOrdersList({
             targetPrice: price,
             szDecimals,
             intl,
-            onConfirm: () => handleChaseOrder(order, price),
+            onConfirm: () => handleChaseOrder(order),
           });
         } catch (error) {
           Toast.error({
@@ -709,9 +710,19 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(item.order.twapId);
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.order.state.trigger?.px,
+        executedSize: item.order.state.executedSz,
+      });
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );
@@ -804,19 +815,14 @@ function PerpOpenOrdersList({
             }
           }}
         >
-          {/* Include hover weight and active chase indicators in the fixed column width. */}
+          {/* Measure the actions independently of transient request state. */}
           <XStack gap="$3" alignItems="center">
             {hasChaseAction ? (
-              <XStack gap="$1" alignItems="center">
-                {hasChasingAction ? (
-                  <Spinner size="small" scale={0.65} />
-                ) : null}
-                <SizableText size="$bodySmMedium" fontWeight={600}>
-                  {intl.formatMessage({ id: ETranslations.chase__action })}
-                </SizableText>
-              </XStack>
+              <SizableText size="$bodySmMedium">
+                {intl.formatMessage({ id: ETranslations.chase__action })}
+              </SizableText>
             ) : null}
-            <SizableText size="$bodySmMedium" fontWeight={600}>
+            <SizableText size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_open_orders_cancel,
               })}
@@ -830,17 +836,10 @@ function PerpOpenOrdersList({
         </YStack>
       ) : null}
       <CommonTableListView
-        onPullToRefresh={async () => {
-          await actions.current.refreshAllPerpsData();
-          if (isMobile) {
-            await actions.current.loadTwapData();
-          }
-        }}
         listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-        useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         enablePagination
-        pageSize={isMobile ? 20 : 40}
+        pageSize={pageSize}
         paginationToBottom={isMobile}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}

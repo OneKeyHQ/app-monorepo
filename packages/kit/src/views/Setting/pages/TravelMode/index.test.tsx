@@ -87,6 +87,7 @@ jest.mock('@onekeyhq/components', () => {
         String(value),
       ),
     Toast: { error: jest.fn() },
+    usePreventRemove: jest.fn(),
     XStack: Stack,
     YStack: Stack,
   };
@@ -178,7 +179,7 @@ describe('TravelMode', () => {
         description:
           'Your wallet will appear empty while Travel Mode is on. Don’t worry—nothing will be deleted. Everything will return after you turn it off.',
         onCancelText: 'Not now',
-        onConfirmText: 'Turn on Travel Mode',
+        onConfirmText: 'Turn on',
       }),
     );
 
@@ -256,7 +257,7 @@ describe('TravelMode', () => {
       expect.objectContaining({
         title: '开启旅行模式？',
         onCancelText: '以后再说',
-        onConfirmText: '开启旅行模式',
+        onConfirmText: '开启',
       }),
     );
     const dialogOptions = mockDialogShow.mock.calls.at(-1)?.[0] as {

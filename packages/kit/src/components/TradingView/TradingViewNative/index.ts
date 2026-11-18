@@ -1,4 +1,9 @@
 export { TradingViewNative } from './TradingViewNative';
+export { TradingViewNativeMultiChart } from './multiChart/TradingViewNativeMultiChart';
+export type {
+  ITradingViewNativeMultiChartPanel,
+  ITradingViewNativeMultiChartProps,
+} from './multiChart/TradingViewNativeMultiChart.types';
 export {
   getTradingViewNativeSource,
   getTradingViewNativeSourceKey,
@@ -13,5 +18,7 @@ export type {
   ITradingViewNativePriceUpdateData,
   ITradingViewNativeProps,
   ITradingViewNativeReferenceLineComponent,
+  ITradingViewNativeReferenceLineAction,
+  ITradingViewNativeTradeMarksComponent,
   ITradingViewNativeSource,
 } from './types';

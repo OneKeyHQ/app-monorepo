@@ -7,16 +7,24 @@ export function buildStockPositionTokens({
 }: {
   marketItems: (IMarketTokenListItem | null | undefined)[];
   tokens: ISwapToken[];
-}): ISwapToken[] | undefined {
-  if (
-    marketItems.length !== tokens.length ||
-    tokens.some((_, index) => !marketItems[index])
-  ) {
-    return undefined;
-  }
-
+}): ISwapToken[] {
   return tokens.flatMap((token, index) => {
-    const stock = marketItems[index]?.stock;
-    return stock ? [{ ...token, isStock: true, stock }] : [];
+    const marketItem = marketItems[index];
+    const stock = marketItem?.stock;
+    const resolvedStockId = stock?.stockId || marketItem?.stockId;
+    return stock
+      ? [
+          {
+            ...token,
+            isStock: true,
+            stock: {
+              ...stock,
+              // The batch endpoint keeps the stable market identity on the
+              // list item, while the nested metadata may omit it.
+              ...(resolvedStockId ? { stockId: resolvedStockId } : {}),
+            },
+          },
+        ]
+      : [];
   });
 }

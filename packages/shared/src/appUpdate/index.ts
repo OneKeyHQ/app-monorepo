@@ -7,6 +7,7 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 
 import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
+import type { IDownloadProgressScope } from '../modules3rdParty/auto-update/type';
 
 export * from './utils';
 export * from './type';
@@ -198,6 +199,43 @@ export const getUpdateFileType: (
   }
   return EUpdateFileType.appShell;
 };
+
+// `/utility/v1/app-update` mirrors this placeholder into `downloadUrl` for
+// desktop app-shell releases. The desktop client never downloads from that
+// field — the Electron main process resolves the installer from the signed
+// electron feed — and the value exists only to keep the API response shape
+// identical across platforms.
+export const DESKTOP_APP_SHELL_PLACEHOLDER_DOWNLOAD_URL = 'feedUrl';
+
+export function isPlaceholderUpdateDownloadUrl(url?: string): boolean {
+  // The placeholder is only meaningful for the desktop client, which resolves
+  // the installer from the signed electron feed. Native builds download from
+  // this field directly and must never accept it.
+  return (
+    !!platformEnv.isDesktop &&
+    url === DESKTOP_APP_SHELL_PLACEHOLDER_DOWNLOAD_URL
+  );
+}
+
+/**
+ * Whether the `/app-update` `downloadUrl` is a usable download source: a real
+ * HTTPS URL, or the known desktop placeholder (desktop resolves the installer
+ * from the signed electron feed, so the mirrored placeholder is a valid
+ * marker there). Any other value is not usable.
+ */
+export function isUsableUpdateDownloadUrl(url?: string): boolean {
+  return !!url?.startsWith('https://') || isPlaceholderUpdateDownloadUrl(url);
+}
+
+export function getAppUpdateProgressScope(
+  info: Pick<IAppUpdateInfo, 'latestVersion' | 'jsBundleVersion'>,
+): IDownloadProgressScope | undefined {
+  if (getUpdateFileType(info) !== EUpdateFileType.jsBundle) return undefined;
+  return {
+    latestVersion: info.latestVersion,
+    bundleVersion: info.jsBundleVersion,
+  };
+}
 
 export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
   const decision = resolveUpdateDecision({

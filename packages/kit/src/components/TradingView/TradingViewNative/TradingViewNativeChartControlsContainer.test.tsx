@@ -133,6 +133,29 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
+  it('replaces mobile chart type and indicator actions with the supplied settings control', () => {
+    const mobileSettingsControl = <button type="button">Settings</button>;
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        mobileSettingsControl={mobileSettingsControl}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        hasVisibleIntervalSelector: true,
+        showChartTypeSelect: false,
+        rightControl: mobileSettingsControl,
+        onRightControlPress: undefined,
+      }),
+    );
+  });
+
   it('maps shared menu values back to native chart types', () => {
     const handleChartTypeChange = jest.fn();
     render(
@@ -285,6 +308,7 @@ describe('TradingViewNative chart controls', () => {
 
       expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledTimes(1);
       expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledWith({
+        showNavigationButtons: false,
         showPreviousClose: false,
       });
       expect(mockPushModal).not.toHaveBeenCalled();

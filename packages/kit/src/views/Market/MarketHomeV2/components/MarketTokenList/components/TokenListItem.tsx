@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 
 import {
   NumberSizeableText,
+  SizableText,
   XStack,
   useMedia,
   useThemeName,
@@ -15,6 +16,7 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
+import { getStockListingName } from '../utils/marketWatchlistRowKind';
 
 import { TokenIdentityItem } from './TokenIdentityItem';
 
@@ -25,6 +27,7 @@ interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
   leading?: ReactNode;
+  showVolume?: boolean;
   onLongPress?: (event: GestureResponderEvent) => void;
   onPressIn?: (event: GestureResponderEvent) => void;
   onTouchMove?: (event: GestureResponderEvent) => void;
@@ -33,7 +36,14 @@ interface ITokenListItemProps {
   onLayout?: (event: LayoutChangeEvent) => void;
   isPrimed?: boolean;
   isDragging?: boolean;
+  bannerColumnMode?: 'compact' | 'two' | 'three';
 }
+
+// Fixed like the desktop table rows: 12px padding around the two-line identity
+// block. A row's content can change after its first render (a listing's volume
+// line appears once its quote loads), and the web virtualized lists cache the
+// height they measure first, so a content-driven height left stale gaps.
+const TOKEN_LIST_ITEM_HEIGHT = 72;
 
 const IOS_DRAGGING_SHADOW_STYLE = {
   shadowColor: '#000',
@@ -61,6 +71,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   item,
   onPress,
   leading,
+  showVolume = true,
   onLongPress,
   onPressIn,
   onTouchMove,
@@ -69,6 +80,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   onLayout,
   isPrimed,
   isDragging,
+  bannerColumnMode = 'compact',
 }) => {
   const themeName = useThemeName();
   const media = useMedia();
@@ -97,6 +109,51 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
     [onPressIn, prewarmTokenDetail],
   );
 
+  const volumeColumn = !Number.isFinite(item.turnover) ? (
+    <SizableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyMd"
+      color="$textSubdued"
+    >
+      --
+    </SizableText>
+  ) : (
+    <NumberSizeableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyMd"
+      formatter="marketCap"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.turnover}
+    </NumberSizeableText>
+  );
+  const widePriceColumn = Number.isFinite(item.price) ? (
+    <NumberSizeableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyLgMedium"
+      formatter="price"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.price}
+    </NumberSizeableText>
+  ) : (
+    <SizableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyLgMedium"
+      color="$textSubdued"
+    >
+      --
+    </SizableText>
+  );
+
   return (
     <XStack
       testID={MarketTestIDs.tokenListItem(item.symbol)}
@@ -111,12 +168,20 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       onLayout={onLayout}
       px="$5"
       py="$3"
+      height={TOKEN_LIST_ITEM_HEIGHT}
+      // Keeps a long name or subtitle from running into the price.
+      gap="$2"
       alignItems="center"
       borderRadius="$3"
       bg={isHighlighted ? '$bgActive' : '$bgApp'}
       style={isDragging ? DRAGGING_STYLE : undefined}
     >
-      <XStack flex={1} alignItems="center" minWidth={0} gap="$2">
+      <XStack
+        flex={bannerColumnMode === 'compact' ? 1 : 2}
+        alignItems="center"
+        minWidth={0}
+        gap="$2"
+      >
         {leading}
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
@@ -125,31 +190,42 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           networkId={item.networkId}
           symbol={item.symbol}
           address={item.address}
-          showVolume
-          volume={item.turnover}
+          showVolume={showVolume}
+          volume={bannerColumnMode === 'three' ? undefined : item.turnover}
           communityRecognized={item.communityRecognized}
           stock={item.stock}
           maxLeverage={item.maxLeverage}
           perpsSubtitle={item.perpsSubtitle}
+          stockListingName={getStockListingName(item)}
           perpsDexLabel={
             item.perpsCoin ? parseDexCoin(item.perpsCoin).dexLabel : undefined
           }
         />
       </XStack>
 
-      <XStack alignItems="center" gap="$2">
-        <NumberSizeableText
-          userSelect="none"
-          flexShrink={1}
-          numberOfLines={1}
-          size="$bodyLgMedium"
-          formatter="price"
-          formatterOptions={{ currency: '$' }}
-        >
-          {Number.isFinite(item.price) ? item.price : '--'}
-        </NumberSizeableText>
-        <PriceChangeBadge change={priceChange} />
-      </XStack>
+      {bannerColumnMode === 'compact' ? (
+        <XStack alignItems="center" gap="$2">
+          <NumberSizeableText
+            userSelect="none"
+            flexShrink={1}
+            numberOfLines={1}
+            size="$bodyLgMedium"
+            formatter="price"
+            formatterOptions={{ currency: '$' }}
+          >
+            {Number.isFinite(item.price) ? item.price : '--'}
+          </NumberSizeableText>
+          <PriceChangeBadge change={priceChange} />
+        </XStack>
+      ) : (
+        <>
+          {widePriceColumn}
+          <XStack flex={1} jc="flex-end" minWidth={0}>
+            <PriceChangeBadge change={priceChange} />
+          </XStack>
+          {bannerColumnMode === 'three' ? volumeColumn : null}
+        </>
+      )}
     </XStack>
   );
 };

@@ -29,12 +29,14 @@ import {
 } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import type { IBulkSendFeeState } from '../components/Context';
+import {
+  getBulkSendSolanaAccountReserve,
+  getBulkSendSolanaAtaRent,
+  getBulkSendSolanaBalance,
+  normalizeGasEIP1559Presets,
+} from '../../../utils';
 
-// Rent cost per ATA creation on Solana (from kit-bg/src/vaults/impls/sol/utils.ts)
-const SOL_CREATE_TOKEN_ACCOUNT_RENT = '0.00203928';
-// Rent-exempt minimum for a basic system account (0 data bytes) = 890880 lamports
-const SOL_ACCOUNT_RENT_EXEMPT_MIN = '0.00089088';
+import type { IBulkSendFeeState } from '../components/Context';
 
 type IUseBulkSendFeeEstimationParams = {
   networkId: string;
@@ -49,9 +51,39 @@ type IUseBulkSendFeeEstimationParams = {
   isSubmitting?: boolean;
 };
 
-// Scale gasLimit for bulk transfer txs when batch estimation is not available.
-// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 1)
-// to account for the higher gas consumption of multi-call contracts.
+type IPerTxGasInfo = { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] };
+
+// Fresh price presets with a tx's previously estimated gas limits
+function withCachedGasLimits(
+  fresh: IPerTxGasInfo,
+  cached: IPerTxGasInfo,
+): IPerTxGasInfo {
+  return {
+    gas: fresh.gas?.map((preset, index) => {
+      const limits = cached.gas?.[index];
+      return limits
+        ? {
+            ...preset,
+            gasLimit: limits.gasLimit,
+            gasLimitForDisplay: limits.gasLimitForDisplay,
+          }
+        : preset;
+    }),
+    gasEIP1559: fresh.gasEIP1559?.map((preset, index) => {
+      const limits = cached.gasEIP1559?.[index];
+      return limits
+        ? {
+            ...preset,
+            gasLimit: limits.gasLimit,
+            gasLimitForDisplay: limits.gasLimitForDisplay,
+          }
+        : preset;
+    }),
+  };
+}
+
+// Without batch or per-tx estimation only unsignedTxs[0] (an approve tx) is
+// estimated; it stands in for one transfer, so scale by the transfer count.
 function scaleGasLimitForBulkTransfer(
   feeInfo: IFeeInfoUnit,
   multiplier: number,
@@ -97,6 +129,16 @@ export function useBulkSendFeeEstimation({
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
+  // A forced estimate requested mid-estimate re-runs afterwards with the
+  // latest txs instead of being dropped.
+  const isForcedRerunPendingRef = useRef(false);
+  const latestEstimateFeeRef = useRef<
+    ((options?: { forceLoading?: boolean }) => Promise<unknown>) | undefined
+  >(undefined);
+  // Per-tx gas limits of split transfers; polling refreshes only prices.
+  const perTxGasCacheRef = useRef<
+    { txs: IUnsignedTxPro[]; infos: IPerTxGasInfo[] } | undefined
+  >(undefined);
   const isFocused = useIsFocused();
   const shouldPollFeeRef = useRef(isFocused && !isSubmitting);
 
@@ -126,6 +168,7 @@ export function useBulkSendFeeEstimation({
       }
 
       if (isEstimating.current) {
+        if (forceLoading) isForcedRerunPendingRef.current = true;
         return null;
       }
 
@@ -146,16 +189,16 @@ export function useBulkSendFeeEstimation({
         const isMultiTxs = unsignedTxs.length > 1;
         const isManyToManyOrManyToOne =
           bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
+        // OneToMany multi-tx sends price every tx separately
+        const isPerTxFee = isMultiTxs && !isManyToManyOrManyToOne;
 
         let txFee: IFeesInfoUnit | undefined;
         let estimateFeeParams: IEstimateFeeParams | undefined;
-        // Store per-tx fee info for batch estimation
-        let perTxFeeInfos:
-          | { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[]
-          | undefined;
+        // Per-tx gas info from batch or per-tx estimation
+        let perTxFeeInfos: IPerTxGasInfo[] | undefined;
 
         // Try batch estimate for multi-txs
-        if (isMultiTxs && !isManyToManyOrManyToOne) {
+        if (isPerTxFee) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
@@ -185,7 +228,7 @@ export function useBulkSendFeeEstimation({
           }
         }
 
-        // Fallback to single tx estimate
+        // No batch estimate: estimate the first tx, plus each split transfer
         if (!txFee) {
           const accountAddress =
             await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
@@ -193,32 +236,57 @@ export function useBulkSendFeeEstimation({
               accountId,
             });
 
-          const { encodedTx, estimateFeeParams: e } =
-            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+          const estimateTxFee = async (unsignedTx: IUnsignedTxPro) => {
+            const { encodedTx, estimateFeeParams: e } =
+              await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+                accountId,
+                networkId,
+                encodedTx: unsignedTx.encodedTx,
+              });
+            const r = await backgroundApiProxy.serviceGas.estimateFee({
               accountId,
               networkId,
-              encodedTx: unsignedTxs[0].encodedTx,
+              encodedTx,
+              accountAddress,
+              transfersInfo: unsignedTx.transfersInfo,
+              scenario: 'send',
             });
+            r.gasEIP1559 = normalizeGasEIP1559Presets(r.gasEIP1559);
+            return { fee: r, estimateFeeParams: e };
+          };
 
-          estimateFeeParams = e;
+          const first = await estimateTxFee(unsignedTxs[0]);
+          estimateFeeParams = first.estimateFeeParams;
+          txFee = first.fee;
 
-          const r = await backgroundApiProxy.serviceGas.estimateFee({
-            accountId,
-            networkId,
-            encodedTx,
-            accountAddress,
-            transfersInfo: unsignedTxs[0].transfersInfo,
-            scenario: 'send',
-          });
-
-          // Handle 5-level EIP1559 fees
-          if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
-            r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
-          } else if (r.gasEIP1559) {
-            r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
+          // Split transfers without approvals can each be estimated now;
+          // their gas differs per chunk (e.g. recipients without a token
+          // balance cost more), so do not derive it from the first chunk.
+          if (
+            isPerTxFee &&
+            (txFee.gas || txFee.gasEIP1559) &&
+            !unsignedTxs.some((tx) => tx.approveInfo)
+          ) {
+            const cached = perTxGasCacheRef.current;
+            if (!forceLoading && cached?.txs === unsignedTxs) {
+              const freshFee = first.fee;
+              perTxFeeInfos = cached.infos.map((info) =>
+                withCachedGasLimits(freshFee, info),
+              );
+            } else {
+              const restFees = await Promise.all(
+                unsignedTxs.slice(1).map(estimateTxFee),
+              );
+              perTxFeeInfos = [first, ...restFees].map(({ fee }) => ({
+                gas: fee.gas,
+                gasEIP1559: fee.gasEIP1559,
+              }));
+              perTxGasCacheRef.current = {
+                txs: unsignedTxs,
+                infos: perTxFeeInfos,
+              };
+            }
           }
-
-          txFee = r;
         }
 
         if (!txFee) {
@@ -318,7 +386,7 @@ export function useBulkSendFeeEstimation({
 
         for (let i = 0; i < txCountForLoop; i += 1) {
           const unsignedTx = unsignedTxs[i];
-          // Use per-tx fee info if available (from batch estimation)
+          // Use per-tx fee info if available (batch or per-tx estimation)
           // Otherwise use the shared selectedFeeInfo
           let txFeeInfo = selectedFeeInfo;
           if (perTxFeeInfos && perTxFeeInfos[i]) {
@@ -330,11 +398,9 @@ export function useBulkSendFeeEstimation({
             };
           } else if (isMultiTxs && !unsignedTx.approveInfo) {
             // Fallback mode: scale gasLimit for transfer txs
-            // Gas scales with the number of transfers in this tx, not the number of txs
-            const transferCount = unsignedTx.transfersInfo?.length ?? 1;
             txFeeInfo = scaleGasLimitForBulkTransfer(
               txFeeInfo,
-              transferCount + 1,
+              (unsignedTx.transfersInfo?.length ?? 1) + 1,
             );
           }
           const feeResult = calculateFeeForSend({
@@ -375,44 +441,51 @@ export function useBulkSendFeeEstimation({
         let solBalanceNeeded: string | undefined;
 
         if (networkUtils.isSolanaNetworkByNetworkId(networkId)) {
-          if (ataCount && ataCount > 0) {
-            ataRentFeeNative = new BigNumber(SOL_CREATE_TOKEN_ACCOUNT_RENT)
-              .times(ataCount)
-              .toFixed();
-          }
+          ataRentFeeNative = getBulkSendSolanaAtaRent({
+            unsignedTxs,
+            ataCount,
+          });
 
           // Skip SOL balance check for ManyToOne/ManyToMany.
           // Those transactions are handled one by one in BulkSendProcess.
           if (!isManyToManyOrManyToOne) {
-            const nativeTransferAmount = tokenInfo?.isNative
-              ? new BigNumber(totalTokenAmount ?? '0')
-              : new BigNumber(0);
-            const totalSolNeeded = totalNative
-              .plus(ataRentFeeNative ?? '0')
-              .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
-              .plus(nativeTransferAmount)
-              .toFixed();
-            solBalanceNeeded = totalSolNeeded;
-
+            // The reserve the sender must keep comes with its balance; until
+            // that arrives the legacy reserve stands in.
+            let solBalance: string | undefined;
+            let solAccountReserve = getBulkSendSolanaAccountReserve(undefined);
             try {
-              const accountDetails =
+              ({ solBalance, solAccountReserve } = getBulkSendSolanaBalance(
                 await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
                   {
                     accountId: accountId ?? '',
                     networkId,
                     withNetWorth: false,
+                    withFrozenBalance: true,
                   },
-                );
-              const solBalance = accountDetails?.balanceParsed ?? '0';
-              insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
-
-              setFeeState((prev) => ({
-                ...prev,
-                solBalance,
-              }));
+                ),
+              ));
             } catch {
               // If balance fetch fails, don't block the user
-              insufficientSol = undefined;
+            }
+
+            const nativeTransferAmount = tokenInfo?.isNative
+              ? new BigNumber(totalTokenAmount ?? '0')
+              : new BigNumber(0);
+            const totalSolNeeded = totalNative
+              .plus(ataRentFeeNative ?? '0')
+              .plus(solAccountReserve)
+              .plus(nativeTransferAmount)
+              .toFixed();
+            solBalanceNeeded = totalSolNeeded;
+
+            if (solBalance !== undefined) {
+              const fetchedSolBalance = solBalance;
+              insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
+              setFeeState((prev) => ({
+                ...prev,
+                solBalance: fetchedSolBalance,
+                solAccountReserve,
+              }));
             }
           }
         }
@@ -435,6 +508,7 @@ export function useBulkSendFeeEstimation({
           totalFeeFiat: totalFiat.toFixed(),
           nativeSymbol: txFee.common?.nativeSymbol ?? '',
           feeInfos,
+          estimatedTxs: unsignedTxs,
           perTxFeeInfos,
           ataRentFeeNative,
           insufficientSol,
@@ -477,6 +551,10 @@ export function useBulkSendFeeEstimation({
         return null;
       } finally {
         isEstimating.current = false;
+        if (isForcedRerunPendingRef.current) {
+          isForcedRerunPendingRef.current = false;
+          void latestEstimateFeeRef.current?.({ forceLoading: true });
+        }
       }
     },
     [
@@ -494,11 +572,14 @@ export function useBulkSendFeeEstimation({
     ],
   );
 
-  // Initial fee estimation (with loading state)
+  latestEstimateFeeRef.current = estimateFee;
+
+  // Initial fee estimation, and again whenever the txs change (e.g. after a
+  // partial failure prunes sent txs or an approval recheck rebuilds them)
   useEffect(() => {
     void estimateFee({ forceLoading: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [unsignedTxs]);
 
   // Polling for fee updates (silent, no loading state)
   useEffect(() => {
@@ -549,7 +630,7 @@ export function useBulkSendFeeEstimation({
 
       for (let i = 0; i < txCountForLoop; i += 1) {
         const unsignedTx = unsignedTxs[i];
-        // Use per-tx fee info if available (from batch estimation)
+        // Use per-tx fee info if available (batch or per-tx estimation)
         let txFeeInfo = selectedFeeInfo;
         if (perTxFeeInfos && perTxFeeInfos[i]) {
           const perTxFee = perTxFeeInfos[i];
@@ -560,11 +641,9 @@ export function useBulkSendFeeEstimation({
           };
         } else if (isMultiTxs && !unsignedTx.approveInfo) {
           // Fallback mode: scale gasLimit for transfer txs
-          // Gas scales with the number of transfers in this tx, not the number of txs
-          const transferCount = unsignedTx.transfersInfo?.length ?? 1;
           txFeeInfo = scaleGasLimitForBulkTransfer(
             txFeeInfo,
-            transferCount + 1,
+            (unsignedTx.transfersInfo?.length ?? 1) + 1,
           );
         }
         const feeResult = calculateFeeForSend({
@@ -622,7 +701,7 @@ export function useBulkSendFeeEstimation({
             : new BigNumber(0);
           const newTotalSolNeeded = totalNative
             .plus(prev.ataRentFeeNative ?? '0')
-            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+            .plus(getBulkSendSolanaAccountReserve(prev.solAccountReserve))
             .plus(nativeTransferAmount)
             .toFixed();
           updated.insufficientSol = new BigNumber(newTotalSolNeeded).gt(

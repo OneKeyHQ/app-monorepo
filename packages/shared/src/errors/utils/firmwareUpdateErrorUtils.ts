@@ -31,10 +31,7 @@ const FIRMWARE_ARTIFACT_DOWNLOAD_ERROR_CODES = new Set([
 const FIRMWARE_DISCONNECT_ERROR_CODES = [
   HardwareErrorCode.DeviceNotFound,
   HardwareErrorCode.BridgeDeviceDisconnected,
-  HardwareErrorCode.BleDeviceBondError,
   HardwareErrorCode.BleDeviceDisconnected,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
 ];
 
 function getErrorText(error: IOneKeyError | undefined): string {

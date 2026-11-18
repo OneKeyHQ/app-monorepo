@@ -1,0 +1,42 @@
+diff --git a/node_modules/expo-glass-effect/ios/GlassView.swift b/node_modules/expo-glass-effect/ios/GlassView.swift
+index 1130937..0fec7db 100644
+--- a/node_modules/expo-glass-effect/ios/GlassView.swift
++++ b/node_modules/expo-glass-effect/ios/GlassView.swift
+@@ -91,6 +91,15 @@ public final class GlassView: ExpoView {
+     // the old UIGlassEffect, otherwise re-assigning does not render GlassView correctly.
+     // https://github.com/expo/expo/issues/43732
+     glassEffectView.effect = UIVisualEffect()
++    // OneKey patch: recreate UIGlassEffect on install so UIKit does not retain
++    // stale light/dark material state across colorScheme changes (OK-67217).
++    if #available(iOS 26.0, tvOS 26.0, macOS 26.0, *) {
++      #if compiler(>=6.2) // Xcode 26
++      if let uiStyle = glassStyle?.toUIGlassEffectStyle() {
++        glassEffect = UIGlassEffect(style: uiStyle)
++      }
++      #endif
++    }
+     updateEffect()
+   }
+ 
+@@ -287,7 +296,20 @@ public final class GlassView: ExpoView {
+   func setColorScheme(_ colorScheme: GlassColorScheme) {
+     if glassColorScheme != colorScheme {
+       glassColorScheme = colorScheme
+-      updateEffect()
++      // OneKey patch: changing colorScheme requires tearing down the previous
++      // UIGlassEffect and re-installing during layoutSubviews after ancestor
++      // trait/scroll-edge updates settle (OK-67217).
++      // updateEffect()
++      if isMounted {
++        if #available(iOS 26.0, tvOS 26.0, macOS 26.0, *) {
++          glassEffectView.overrideUserInterfaceStyle = colorScheme.toUIUserInterfaceStyle()
++        }
++        glassEffectView.effect = UIVisualEffect()
++        isMounted = false
++        setNeedsLayout()
++      } else {
++        updateEffect()
++      }
+     }
+   }
+   

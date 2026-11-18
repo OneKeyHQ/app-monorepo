@@ -2,12 +2,12 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import {
   NumberSizeableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
-import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
@@ -20,31 +20,42 @@ import type { IFavoriteTokenDisplay } from './types';
 import type { IntlShape } from 'react-intl';
 
 const POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH = 260;
+// Table rows default to 60px. Address + copy tokens measure 68px, so one-line
+// stock / top-coin rows must use the same minHeight or switching tabs jumps.
+const HOME_MARKET_TABLE_ROW_MIN_HEIGHT = 68;
+// TableHeaderRow spreads rowProps before headerRowProps, so the data-row
+// minHeight would stretch the header unless it is cancelled here.
+const HOME_MARKET_TABLE_HEADER_MIN_HEIGHT = 0;
 const EMPTY_MARKET_VALUE = '--';
 
 type ITextSize = ComponentProps<typeof NumberSizeableText>['size'];
 
-// Name cell shared with the Market list so the home widget matches the Market
-// page exactly:
-// - desktop (table): localized name (stock/perps) prefix + contract address,
-//   or just the address; native tokens (e.g. BTC) with no address show nothing.
-// - mobile (list): localized name + 24h volume
+// Desktop names reveal the copyable address on hover. Mobile keeps the
+// localized subtitle and volume, while perps retain their leverage/DEX labels.
 function renderPopularTradingTokenIdentity(
   record: IFavoriteTokenDisplay,
   { showVolume }: { showVolume: boolean },
 ) {
+  const name = record.perpsCoin ? record.perpsSubtitle : record.name;
+
   return (
     <TokenIdentityItem
       tokenLogoURI={record.logoUrl}
       tokenLogoURIs={record.logoUrls}
-      networkId={record.perpsCoin ? undefined : record.chainId}
+      networkId={
+        record.perpsCoin || record.stockListingName || !record.chainId
+          ? undefined
+          : record.chainId
+      }
       symbol={record.symbol}
+      name={!showVolume ? name : undefined}
       address={record.contractAddress}
       showVolume={showVolume}
       volume={record.volume24h}
       showCopyButton={!showVolume}
       communityRecognized={record.communityRecognized}
       stock={record.stock}
+      stockListingName={record.stockListingName}
       maxLeverage={record.maxLeverage}
       perpsSubtitle={record.perpsSubtitle}
       perpsDexLabel={record.perpsDexLabel}
@@ -65,10 +76,6 @@ function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
       ) : null}
     </>
   );
-}
-
-function renderPopularTradingCommunityBadge(record: IFavoriteTokenDisplay) {
-  return record.communityRecognized ? <CommunityRecognizedBadge /> : null;
 }
 
 // 24h change as colored text, shared by the mobile price cell and the desktop
@@ -118,6 +125,7 @@ function getPopularTradingDesktopMetricColumns(
   return [
     {
       dataIndex: 'price',
+      renderSkeleton: () => <Skeleton h="$4" w="$20" />,
       title: intl.formatMessage({ id: ETranslations.global_price }),
       render: (_: unknown, record: IFavoriteTokenDisplay) => (
         <NumberSizeableText
@@ -131,12 +139,14 @@ function getPopularTradingDesktopMetricColumns(
     },
     {
       dataIndex: 'priceChange24h',
+      renderSkeleton: () => <Skeleton h="$4" w="$16" />,
       title: intl.formatMessage({ id: ETranslations.market_change_24h }),
       render: (_: unknown, record: IFavoriteTokenDisplay) =>
         renderPopularTradingChangeText(record, '$bodyLgMedium'),
     },
     {
       dataIndex: 'volume24h',
+      renderSkeleton: () => <Skeleton h="$4" w="$16" />,
       title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
       render: (_: unknown, record: IFavoriteTokenDisplay) => (
         <NumberSizeableText
@@ -165,6 +175,15 @@ function getPopularTradingColumns({
 }): NonNullable<ITableProps<IFavoriteTokenDisplay>['columns']> {
   const nameColumn = {
     dataIndex: 'symbol',
+    renderSkeleton: () => (
+      <XStack alignItems="center" gap="$2">
+        <Stack width="$7" />
+        <XStack alignItems="center" gap="$3">
+          <Skeleton w="$8" h="$8" radius="round" />
+          <Skeleton w="$20" h="$4" />
+        </XStack>
+      </XStack>
+    ),
     title: intl.formatMessage({ id: ETranslations.global_name }),
     columnProps: shouldUseTableLayout
       ? { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH }
@@ -189,6 +208,7 @@ function getPopularTradingColumns({
     nameColumn,
     {
       dataIndex: 'price',
+      renderSkeleton: () => <Skeleton h="$4" w="$20" />,
       title: intl.formatMessage({ id: ETranslations.global_price }),
       columnProps: { flex: 0.85, flexBasis: 0, minWidth: 0 },
       render: (_: unknown, record: IFavoriteTokenDisplay) =>
@@ -198,7 +218,8 @@ function getPopularTradingColumns({
 }
 
 export {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
-  renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
 };

@@ -7,40 +7,88 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-export function createTrezorBleBindingDialogCallbacks({
-  promiseId,
+export function createThirdPartyDeviceSelectionDialogCallbacks({
+  vendor,
+  requestId,
+  operationId,
   dialogInstanceRef,
   settledRef,
-  resolveCallback,
+  uiResponse,
+  cancel,
   clearState,
 }: {
-  promiseId: number;
+  vendor: EHardwareVendor;
+  requestId?: string;
+  operationId?: string;
   dialogInstanceRef: { current: unknown | null };
   settledRef: { current: boolean };
-  resolveCallback: (params: {
-    id: number;
-    data: string | null;
+  uiResponse: (params: {
+    vendor: EHardwareVendor;
+    response: IAdapterUiResponse;
+  }) => Promise<void>;
+  cancel: (params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
   }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   return {
-    onBound: (connectId: string) => {
+    onSelected: async (searchTargetId: string) => {
+      if (settledRef.current) return;
       settledRef.current = true;
-      void resolveCallback({
-        id: promiseId,
-        data: connectId,
-      });
-      void clearState();
+      try {
+        await uiResponse({
+          vendor,
+          response: {
+            type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+            payload: {
+              sdkConnectId: searchTargetId,
+              ...(requestId ? { requestId } : {}),
+            },
+          },
+        });
+      } catch {
+        if (requestId) {
+          await uiResponse({
+            vendor,
+            response: {
+              type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+              payload: { requestId, cancelled: true },
+            },
+          });
+        } else
+          await cancel({
+            vendor,
+            ...(operationId ? { connectId: operationId } : {}),
+          });
+      } finally {
+        await clearState();
+      }
     },
     onClose: async () => {
       dialogInstanceRef.current = null;
-      if (!settledRef.current) {
-        await resolveCallback({
-          id: promiseId,
-          data: null,
-        });
+      // Already settled: a selection cleared the state itself, or the host
+      // closed the dialog and may reopen it for the same request (e.g. after a
+      // language change), so clearing here would drop a live request.
+      if (settledRef.current) return;
+      settledRef.current = true;
+      try {
+        if (requestId) {
+          await uiResponse({
+            vendor,
+            response: {
+              type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+              payload: { requestId, cancelled: true },
+            },
+          });
+        } else
+          await cancel({
+            vendor,
+            ...(operationId ? { connectId: operationId } : {}),
+          });
+      } finally {
+        await clearState();
       }
-      await clearState();
     },
   };
 }
@@ -49,11 +97,15 @@ export function buildThirdPartyHardwareUiResponse(
   action: EThirdPartyHardwareUiAction | undefined,
   confirmed: boolean,
   extras?: {
+    requestId?: string;
     tag?: string;
     passphrase?: string;
     passphraseOnDevice?: boolean;
     save?: boolean;
     pin?: string;
+    qrResponse?: { urType: string; urData: string; accountExport?: boolean };
+    /** QR fallback: look for the USB device again instead of answering. */
+    retry?: boolean;
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -66,6 +118,15 @@ export function buildThirdPartyHardwareUiResponse(
       return {
         type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
         payload: { confirmed },
+      };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
+      return {
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: {
+          confirmed,
+          ...(extras?.retry ? { retry: true } : {}),
+          ...(extras?.requestId ? { requestId: extras.requestId } : {}),
+        },
       };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       // No confirm/deny — the response IS the pairing tag the user typed
@@ -93,6 +154,15 @@ export function buildThirdPartyHardwareUiResponse(
         type: UI_RESPONSE.RECEIVE_PIN,
         payload: extras?.pin ?? '',
       };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrDisplay:
+    case EThirdPartyHardwareUiAction.requestKeystoneQrScan:
+      // No confirm/deny: the response is the UR the app scanned off the
+      // device's screen. `confirmed=false` (camera/user cancel) drops it.
+      if (!confirmed || !extras?.qrResponse) return null;
+      return {
+        type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+        payload: extras.qrResponse,
+      };
     default:
       return null;
   }
@@ -100,22 +170,15 @@ export function buildThirdPartyHardwareUiResponse(
 
 export async function clearThirdPartyHardwareUiStateIfCurrent({
   expectedState,
-  getState,
-  setState,
+  clearInBackground,
 }: {
   expectedState: IThirdPartyHardwareUiState | undefined;
-  getState: () =>
-    | IThirdPartyHardwareUiState
-    | undefined
-    | Promise<IThirdPartyHardwareUiState | undefined>;
-  setState: (state: IThirdPartyHardwareUiState | undefined) => Promise<void>;
+  clearInBackground: (params: {
+    expectedRequestId: string;
+  }) => Promise<boolean>;
 }): Promise<boolean> {
-  const currentState = await getState();
-  if (currentState !== expectedState) {
-    return false;
-  }
-  await setState(undefined);
-  return true;
+  if (!expectedState?.uiRequestId) return false;
+  return clearInBackground({ expectedRequestId: expectedState.uiRequestId });
 }
 
 export async function cancelThirdPartyHardwareUiRequest({
@@ -129,18 +192,26 @@ export async function cancelThirdPartyHardwareUiRequest({
     vendor: EHardwareVendor;
     response: IAdapterUiResponse;
   }) => Promise<void>;
-  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
+  cancel: (params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   const vendor = state?.vendor;
   const action = state?.action;
   try {
     if (vendor) {
-      const response = buildThirdPartyHardwareUiResponse(action, false);
+      const response = buildThirdPartyHardwareUiResponse(action, false, {
+        requestId: state?.payload?.requestId,
+      });
       if (response) {
         await uiResponse({ vendor, response });
       } else {
-        await cancel({ vendor });
+        await cancel({
+          vendor,
+          ...(state?.operationId ? { connectId: state.operationId } : {}),
+        });
       }
     }
   } finally {

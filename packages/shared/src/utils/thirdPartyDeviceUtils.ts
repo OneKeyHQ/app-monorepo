@@ -1,6 +1,11 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
-import type { EHardwareVendor } from '../../types/device';
+import { EHardwareVendor } from '../../types/device';
+import {
+  TREZOR_BLE_SUPPORTED_MODEL_NAMES,
+  TREZOR_BRIGHTNESS_SUPPORTED_MODEL_NAMES,
+  TREZOR_USB_ONLY_MODEL_NAMES,
+} from '../hardware/config/trezor';
 
 type IThirdPartyDeviceSettingsLike = {
   vendor?: EHardwareVendor;
@@ -54,16 +59,6 @@ const PERSISTED_FEATURE_FIELD_ALLOWLIST = [
   'led',
   'usb_connected',
   'wireless_connected',
-] as const;
-
-// Local mirror of @onekeyfe/hwk-trezor-adapter's isTrezorBleSupportedModel:
-// this file lands in every platform's main bundle, and a runtime import of
-// the adapter drags in hwk-trezor-core (~620KB). The unit test compares this
-// against the SDK original and fails if the two drift.
-const TREZOR_BLE_SUPPORTED_MODEL_NAMES = [
-  't3w1',
-  'safe 7',
-  'trezor safe 7',
 ] as const;
 
 function normalizeThirdPartyModelName(model?: string): string {
@@ -295,21 +290,95 @@ function isBtcOnlyFirmware({
   return getFirmwareType({ features }) === EFirmwareType.BitcoinOnly;
 }
 
+function isLedgerBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
+  const settings = getDeviceSettings(device);
+  const model = normalizeThirdPartyModelName(
+    settings?.vendorModel || settings?.vendorModelName,
+  );
+  // Mirror Ledger model identifiers without loading the vendor SDK in the UI.
+  return [
+    'nanox',
+    'nano x',
+    'ledger nano x',
+    'stax',
+    'ledger stax',
+    'europa',
+    'flex',
+    'ledger flex',
+    'apex',
+    'ledger apex',
+    // Nano Gen5: DMK and @ledgerhq/devices use different ids for it.
+    'apexp',
+    'ledger nano gen5',
+  ].includes(model);
+}
+
+// Ledger models known to have no Bluetooth (DMK ids and product names).
+const LEDGER_USB_ONLY_MODEL_NAMES = new Set([
+  'nanos',
+  'nano s',
+  'ledger nano s',
+  'nanosp',
+  'nano s plus',
+  'ledger nano s plus',
+  'blue',
+]);
+
 function isTrezorBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
   return isTrezorBleSupportedModel(getDeviceSettings(device)?.vendorModel);
 }
 
-function isTrezorBleBindingSupportedPlatform({
-  isDesktop,
-  isSupportDesktopBle,
-}: {
-  isDesktop?: boolean;
-  isSupportDesktopBle?: boolean;
-}): boolean {
-  if (typeof isSupportDesktopBle === 'boolean') {
-    return isSupportDesktopBle;
-  }
-  return isDesktop === true;
+type IThirdPartyTransport = 'usb' | 'ble';
+
+// One entry per vendor. A resolver answers only for models known to lack
+// Bluetooth; anything else, including a model newer than these tables,
+// returns undefined and never constrains discovery.
+const SUPPORTED_TRANSPORTS_BY_VENDOR: Partial<
+  Record<
+    EHardwareVendor,
+    (
+      device?: IThirdPartyDeviceLike,
+    ) => readonly IThirdPartyTransport[] | undefined
+  >
+> = {
+  [EHardwareVendor.trezor]: (device) => {
+    const model = normalizeThirdPartyModelName(
+      getDeviceSettings(device)?.vendorModel,
+    );
+    return (TREZOR_USB_ONLY_MODEL_NAMES as readonly string[]).includes(model)
+      ? ['usb']
+      : undefined;
+  },
+  [EHardwareVendor.ledger]: (device) => {
+    const settings = getDeviceSettings(device);
+    const model = normalizeThirdPartyModelName(
+      settings?.vendorModel || settings?.vendorModelName,
+    );
+    return LEDGER_USB_ONLY_MODEL_NAMES.has(model) ? ['usb'] : undefined;
+  },
+};
+
+/** Transports the wallet's hardware can use, or undefined when unknown. */
+function getSupportedTransports(
+  vendor?: string,
+  device?: IThirdPartyDeviceLike,
+): readonly IThirdPartyTransport[] | undefined {
+  const resolve = vendor
+    ? SUPPORTED_TRANSPORTS_BY_VENDOR[vendor as EHardwareVendor]
+    : undefined;
+  return resolve?.(device);
+}
+
+function isTrezorBrightnessSupportedDevice(
+  device?: IThirdPartyDeviceLike,
+): boolean {
+  const settings = getDeviceSettings(device);
+  const model = normalizeThirdPartyModelName(
+    settings?.vendorModel || settings?.vendorModelName,
+  );
+  return (
+    TREZOR_BRIGHTNESS_SUPPORTED_MODEL_NAMES as readonly string[]
+  ).includes(model);
 }
 
 function getDeviceModelName({
@@ -360,9 +429,11 @@ export default {
   getDeviceVersion,
   getFirmwareType,
   getSerialNo,
+  getSupportedTransports,
   isBtcOnlyFirmware,
-  isTrezorBleBindingSupportedPlatform,
+  isLedgerBleSupportedDevice,
   isTrezorBleSupportedDevice,
+  isTrezorBrightnessSupportedDevice,
   isTrezorBleSupportedModel,
   normalizeThirdPartyModelName,
 };

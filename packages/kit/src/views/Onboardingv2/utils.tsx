@@ -6,6 +6,7 @@ import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type {
   IConnectYourDeviceItem,
   IOneKeyDeviceFeatures,
+  IThirdPartyHardwareSearchTarget,
 } from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -105,6 +106,35 @@ export const sortDevicesData = (
   }
   return [...prioritizedDevices, ...otherDevices];
 };
+
+export function getThirdPartySearchTarget(
+  device: IConnectYourDeviceItem['device'],
+): IThirdPartyHardwareSearchTarget | undefined {
+  const raw = (
+    device as
+      | (IConnectYourDeviceItem['device'] & {
+          raw?: {
+            searchTarget?: unknown;
+          };
+        })
+      | undefined
+  )?.raw;
+  const target = raw?.searchTarget as
+    | Partial<IThirdPartyHardwareSearchTarget>
+    | undefined;
+  if (
+    !target ||
+    typeof target.searchTargetId !== 'string' ||
+    !target.vendor ||
+    !['usb', 'ble', 'qr'].includes(target.connectionType ?? '') ||
+    !['physical', 'interactive'].includes(target.kind ?? '')
+  ) {
+    return undefined;
+  }
+  return {
+    ...target,
+  } as IThirdPartyHardwareSearchTarget;
+}
 
 export const trackHardwareWalletConnection = async ({
   status,

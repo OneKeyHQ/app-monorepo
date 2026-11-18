@@ -31,6 +31,7 @@ interface ITpSlFormInputProps {
   disabled?: boolean;
   error?: string;
   isMobile?: boolean;
+  ifOnDialog?: boolean;
 }
 
 export const TpSlFormInput = memo(
@@ -46,6 +47,7 @@ export const TpSlFormInput = memo(
     disabled = false,
     error,
     isMobile = false,
+    ifOnDialog = false,
   }: ITpSlFormInputProps) => {
     const intl = useIntl();
 
@@ -102,6 +104,7 @@ export const TpSlFormInput = memo(
       [inputType, hasValidPrice, onTypeChange, onChange],
     );
 
+    const suffixTextSize = isMobile ? '$bodySmMedium' : '$bodyMdMedium';
     const customSuffix = useMemo(
       () => (
         <Select
@@ -116,18 +119,26 @@ export const TpSlFormInput = memo(
             width: 120,
           }}
           renderTrigger={({ label: triggerLabel }) => (
-            <XStack alignItems="center" gap="$2" cursor="default">
+            <XStack
+              alignItems="center"
+              gap={ifOnDialog ? '$1' : '$2'}
+              cursor="default"
+            >
               {isMobile ? <Divider vertical h={24} /> : null}
               <SizableText
-                size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+                size={ifOnDialog ? '$bodyMdMedium' : suffixTextSize}
                 color={disabled ? '$textDisabled' : '$textSubdued'}
                 userSelect="none"
               >
                 {triggerLabel}
               </SizableText>
               <Icon
-                name="ChevronDownSmallOutline"
-                ml="$-2"
+                name={
+                  ifOnDialog
+                    ? 'ChevronTriangleDownSmallSolid'
+                    : 'ChevronDownSmallOutline'
+                }
+                ml={ifOnDialog ? undefined : '$-2'}
                 size="$4"
                 color={disabled ? '$iconDisabled' : '$iconSubdued'}
               />
@@ -135,7 +146,16 @@ export const TpSlFormInput = memo(
           )}
         />
       ),
-      [selectItems, inputType, handleModeChange, intl, disabled, isMobile],
+      [
+        selectItems,
+        inputType,
+        handleModeChange,
+        intl,
+        disabled,
+        isMobile,
+        ifOnDialog,
+        suffixTextSize,
+      ],
     );
 
     if (isMobile) {
@@ -158,6 +178,7 @@ export const TpSlFormInput = memo(
           disabled={disabled}
           customSuffix={customSuffix}
           keyboardType="decimal-pad"
+          ifOnDialog={ifOnDialog}
           isMobile={isMobile}
         />
       );
@@ -173,6 +194,7 @@ export const TpSlFormInput = memo(
         disabled={disabled}
         customSuffix={customSuffix}
         keyboardType="decimal-pad"
+        ifOnDialog={ifOnDialog}
       />
     );
   },

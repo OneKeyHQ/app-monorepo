@@ -14,6 +14,10 @@ import createWebViewNavigator from '../Modal/createWebViewNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig';
+import {
+  renderModalHorizontalSafeAreaScreen,
+  shouldApplyHorizontalSafeArea,
+} from './ModalHorizontalSafeArea';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { IModalNavigationOptions } from '../ScreenProps';
@@ -51,6 +55,23 @@ interface IModalFlowNavigatorProps<
   name?: string;
   onMounted?: () => void;
   onUnmounted?: () => void;
+}
+
+type IModalFlowScreenOptions<RouteName extends string> =
+  | IModalNavigationOptions
+  | ((props: IScreenOptionsInfo<RouteName>) => IModalNavigationOptions);
+
+function mergeModalFlowScreenOptions<RouteName extends string>(
+  staticOptions: IModalNavigationOptions,
+  options?: IModalFlowScreenOptions<RouteName>,
+): IModalFlowScreenOptions<RouteName> {
+  if (typeof options !== 'function') {
+    return staticOptions;
+  }
+  return (optionsInfo) => ({
+    ...staticOptions,
+    ...options(optionsInfo),
+  });
 }
 
 const ModalStack = hasStackNavigatorModal
@@ -125,7 +146,14 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   );
   return (
     <PageTypeContext.Provider value={contextValue}>
-      <ModalStackComponent.Navigator screenOptions={makeScreenOptions}>
+      <ModalStackComponent.Navigator
+        screenOptions={makeScreenOptions}
+        screenLayout={
+          shouldApplyHorizontalSafeArea
+            ? renderModalHorizontalSafeAreaScreen
+            : undefined
+        }
+      >
         {config.map(
           ({
             name,
@@ -138,8 +166,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             modalContentMaxWidth,
             disableEnterScaleAnimation,
           }) => {
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
-            const customOptions: IModalNavigationOptions = {
+            const staticOptions: IModalNavigationOptions = {
               ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
@@ -152,12 +179,16 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
                   })
                 : '',
             };
+            const screenOptions = mergeModalFlowScreenOptions(
+              staticOptions,
+              options,
+            );
             return (
               <ModalStack.Screen
                 key={`Modal-Flow-${name as string}`}
                 name={name}
                 component={component}
-                options={customOptions}
+                options={screenOptions}
               />
             );
           },

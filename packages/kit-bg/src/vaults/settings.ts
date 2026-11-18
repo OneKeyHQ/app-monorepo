@@ -32,7 +32,9 @@ import {
   IMPL_TBTC,
   IMPL_TON,
   IMPL_TRON,
+  IMPL_XMR,
   IMPL_XRP,
+  IMPL_ZCASH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -55,6 +57,8 @@ const settingsLoader: Record<
   [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
   [IMPL_DOGE]: () => import('./impls/doge/settings'),
   [IMPL_BCH]: () => import('./impls/bch/settings'),
+  [IMPL_ZCASH]: () => import('./impls/zcash/settings'),
+  [IMPL_XMR]: () => import('./impls/xmr/settings'),
   [IMPL_LTC]: () => import('./impls/ltc/settings'),
   [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
   [IMPL_ALGO]: () => import('./impls/algo/settings'),
@@ -124,6 +128,12 @@ const loadVaultSettingsByImpl = cacheUtils.memoizee(
   },
 );
 
+// Lets the registration test check every impl with settings also has a
+// preset network; otherwise the chain silently never appears in the app.
+export function getVaultSettingsImpls(): string[] {
+  return Object.keys(settingsLoader);
+}
+
 export async function getVaultSettings({ networkId }: { networkId: string }) {
   if (!networkId) {
     throw new OneKeyLocalError('networkId is not defined');
@@ -132,8 +142,12 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
   return loadVaultSettingsByImpl(impl);
 }
 
+export function getRegisteredVaultSettingsImpls(): string[] {
+  return Object.keys(settingsLoader);
+}
+
 export async function preloadAllVaultSettings() {
-  const impls = Object.keys(settingsLoader);
+  const impls = getRegisteredVaultSettingsImpls();
   await Promise.all(impls.map((impl) => loadVaultSettingsByImpl(impl)));
 }
 

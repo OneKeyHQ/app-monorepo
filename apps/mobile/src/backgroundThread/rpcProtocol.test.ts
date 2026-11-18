@@ -1,10 +1,18 @@
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import {
+  getBroadcastTxContext,
+  withBroadcastTxContext,
+} from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import {
+  buildBackgroundThreadErrorResponse,
   buildSafeBackgroundThreadErrorData,
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadMainCapabilitiesPayload,
@@ -15,6 +23,49 @@ import {
 } from './rpcProtocol';
 
 describe('background thread RPC protocol', () => {
+  it('preserves Zcash runtime payloads across response serialization', () => {
+    const error = Object.assign(new Error('INSUFFICIENT_FUNDS'), {
+      code: 'INSUFFICIENT_FUNDS',
+      payload: {
+        code: 'INSUFFICIENT_FUNDS',
+        params: { shortfallZat: 20_000 },
+        detail: 'proposal failed',
+      },
+    });
+
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error).toMatchObject({
+      message: 'INSUFFICIENT_FUNDS',
+      code: 'INSUFFICIENT_FUNDS',
+      payload: error.payload,
+    });
+  });
+
+  it('preserves flat keys-runtime diagnostics without a payload wrapper', () => {
+    const error = Object.assign(new Error('PCZT_SIGN_FAILED'), {
+      code: 'PCZT_SIGN_FAILED',
+      params: { missingSignatures: 1 },
+      detail: 'one action was not signed',
+    });
+
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error).toMatchObject({
+      code: 'PCZT_SIGN_FAILED',
+      params: error.params,
+      detail: error.detail,
+    });
+  });
+
   it('preserves hardware error identity across response serialization', () => {
     const payload = {
       connectId: 'CE:1F:0C:F1:CA:A9',
@@ -65,6 +116,68 @@ describe('background thread RPC protocol', () => {
     });
   });
 
+  it('round-trips only the broadcast identity from background error data', () => {
+    const context = { networkId: 'evm--46630', txId: `0x${'a'.repeat(64)}` };
+    const error = withBroadcastTxContext(
+      new OneKeyServerApiError({
+        message: 'Nonce already used',
+        code: 40_024,
+        requestId: 'request-1',
+        data: { rawTx: 'must-not-cross', request: { headers: 'private' } },
+      }),
+      context,
+    );
+    const plain = toPlainErrorObject(error);
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse({
+        ok: false,
+        error: {
+          ...plain,
+          name: error.name,
+          message: error.message,
+          data: buildSafeBackgroundThreadErrorData(plain.data),
+        },
+      }),
+    );
+
+    expect(response?.error?.data).toEqual({ $$broadcastTxContext: context });
+    expect(response?.error).toMatchObject({
+      message: error.message,
+      code: 40_024,
+      requestId: 'request-1',
+      className: error.className,
+    });
+    expect(getBroadcastTxContext(response?.error, context.networkId)).toEqual(
+      context,
+    );
+  });
+
+  it('drops invalid broadcast identities and arbitrary nested context fields', () => {
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        $$broadcastTxContext: { networkId: 'evm--1', txId: '0xshort' },
+      }),
+    ).toBeUndefined();
+    const context = { networkId: 'evm--1', txId: `0x${'a'.repeat(64)}` };
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        $$broadcastTxContext: { ...context, rawTx: 'must-not-cross' },
+      }),
+    ).toEqual({ $$broadcastTxContext: context });
+  });
+
+  it('keeps the privacy runtime failure marker from background error data', () => {
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        privacyChainRuntimeFailure: 'handshake',
+        detail: 'must-not-cross',
+      }),
+    ).toEqual({ privacyChainRuntimeFailure: 'handshake' });
+    expect(
+      buildSafeBackgroundThreadErrorData({ privacyChainRuntimeFailure: 1 }),
+    ).toBeUndefined();
+  });
+
   it('drops non-LSE background error data before serialization', () => {
     const circular: Record<string, unknown> = {};
     circular.self = circular;
@@ -73,6 +186,75 @@ describe('background thread RPC protocol', () => {
     expect(
       buildSafeBackgroundThreadErrorData({ reason: 'network' }),
     ).toBeUndefined();
+  });
+
+  describe('isolated storage Home test error data', () => {
+    const context = {
+      request: {
+        type: 'service-call' as const,
+        method: 'serviceDevSetting.nativeStorageRecoveryTest',
+        params: [{ action: 'homeRead' }],
+        sync: false,
+      },
+      message:
+        createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+    };
+    const id = 'storage-repair-test-123456789-abc123';
+    it('preserves a bounded test identifier and discards every other field', () => {
+      expect(
+        buildSafeBackgroundThreadErrorData(
+          { nativeStorageRecoveryTestSessionId: id, privateDetails: {} },
+          context,
+        ),
+      ).toEqual({ nativeStorageRecoveryTestSessionId: id });
+    });
+    it.each([
+      null,
+      {},
+      ['test'],
+      'real-wallet-id',
+      `storage-repair-test-${'a'.repeat(500)}`,
+      'storage-repair-test-1234-ABC',
+    ])('rejects an invalid test identifier: %p', (idValue) => {
+      expect(
+        buildSafeBackgroundThreadErrorData(
+          { nativeStorageRecoveryTestSessionId: idValue },
+          context,
+        ),
+      ).toBeUndefined();
+    });
+    it('requires the exact test method, Home action and AppStorage mismatch', () => {
+      const data = { nativeStorageRecoveryTestSessionId: id };
+      expect(buildSafeBackgroundThreadErrorData(data)).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          message: 'network failed',
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          message:
+            createNativeStorageMigrationInconsistentErrorMessage('jotai'),
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          request: {
+            ...context.request,
+            method: 'serviceAccount.getHDAccountMnemonic',
+          },
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          request: { ...context.request, params: [{ action: 'inspect' }] },
+        }),
+      ).toBeUndefined();
+    });
   });
 
   describe('jotai batch broadcast payload', () => {

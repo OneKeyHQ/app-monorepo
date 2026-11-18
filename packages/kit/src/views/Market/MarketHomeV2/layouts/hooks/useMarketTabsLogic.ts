@@ -9,7 +9,11 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { getIsMarketTabSelectionInFlight } from '../marketTabSelectionGuards';
 
-import type { IMarketCategoryItem, IMarketHomeTabValue } from '../../types';
+import type {
+  IMarketCategoryItem,
+  IMarketHomeTabChangeHandler,
+  IMarketHomeTabValue,
+} from '../../types';
 import type { IMarketTabWrittenSelection } from '../marketTabSelectionGuards';
 
 export interface IMarketSpotTabItem {
@@ -43,7 +47,7 @@ interface IUseMarketTabsLogicOptions {
 }
 
 export function useMarketTabsLogic(
-  onTabChange: (tabId: IMarketHomeTabValue) => void,
+  onTabChange: IMarketHomeTabChangeHandler,
   options?: IUseMarketTabsLogicOptions,
 ): IMarketTabsLogicReturn {
   const intl = useIntl();
@@ -136,9 +140,14 @@ export function useMarketTabsLogic(
         tabValue = 'perps';
       }
 
+      const pendingSelection = isTabSelectionInFlight()
+        ? lastWrittenSelectionRef.current
+        : undefined;
       const isSelectionUnchanged =
-        tabValue === selectedTab &&
-        (!categoryId || categoryId === selectedSpotCategory);
+        tabValue === (pendingSelection?.tab ?? selectedTab) &&
+        (!categoryId ||
+          categoryId ===
+            (pendingSelection?.categoryId ?? selectedSpotCategory));
 
       if (isSelectionUnchanged) {
         return;
@@ -155,9 +164,14 @@ export function useMarketTabsLogic(
         selectedSpotCategory: categoryId ?? prev.selectedSpotCategory,
         spotCategoryToSelect: undefined,
       }));
-      onTabChange(tabValue);
+      if (categoryId) {
+        onTabChange(tabValue, { categoryId });
+      } else {
+        onTabChange(tabValue);
+      }
     },
     [
+      isTabSelectionInFlight,
       onSpotCategoryChange,
       onTabChange,
       perpsTabName,

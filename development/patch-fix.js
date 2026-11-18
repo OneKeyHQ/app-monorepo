@@ -7,27 +7,16 @@ function getPatchTargets(patchesDir) {
   // Read all files in the patches directory
   try {
     const files = fs.readdirSync(patchesDir);
-    // Filter out non-patch files if needed, here we assume all files are valid
-    return files.map((file) => {
-      // Patch files are usually named like 'package+version.patch'
-      // Extract the package name before the first '+'
-      // If the file name contains '+', convert it to a '/' path for scoped packages
-      const patchName = file.replace(/\.patch$/, '');
-      if (patchName.includes('+')) {
-        // Only keep the part before the last '+' (remove version info)
-        const lastPlusIndex = patchName.lastIndexOf('+');
-        const namePart = patchName.substring(0, lastPlusIndex);
-        // Replace the first '+' with '/' to form the package path for scoped packages
-        const firstPlusIndex = namePart.indexOf('+');
-        if (firstPlusIndex !== -1) {
-          return `${namePart.substring(0, firstPlusIndex)}/${namePart.substring(
-            firstPlusIndex + 1,
-          )}`;
-        }
-        return namePart;
-      }
-      return patchName;
-    });
+    const targets = files
+      .filter((file) => file.endsWith('.patch'))
+      .map((file) => {
+        // Version, sequence number and label follow the package name.
+        const [nameOrScope, scopedName] = file.split('+');
+        return nameOrScope.startsWith('@')
+          ? `${nameOrScope}/${scopedName}`
+          : nameOrScope;
+      });
+    return [...new Set(targets)];
   } catch (err) {
     console.error(`Failed to read patches directory: ${err.message}`);
     process.exit(1);

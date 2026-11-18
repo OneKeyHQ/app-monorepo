@@ -59,13 +59,20 @@ export function buildPortfolioClaimSymbolMap(assets: IEarnAvailableAssetV2[]) {
 export function resolveUniquePortfolioClaimSourceIdentity({
   networkId,
   providerName,
+  vault,
   candidates,
 }: {
   networkId: string;
   providerName: string;
+  /** the vault the reward names, when it does: narrows a provider with several (Morpho) to the one */
+  vault?: string;
   candidates: IPortfolioClaimSourceCandidate[];
 }): IPortfolioClaimProtocolIdentity | null {
   const identities = new Map<string, IPortfolioClaimProtocolIdentity>();
+  const isEvm = networkUtils.isEvmNetwork({ networkId });
+  const normalizeVault = (value?: string) =>
+    isEvm ? value?.toLowerCase() : value;
+  const wantedVault = vault ? normalizeVault(vault) : undefined;
 
   candidates.forEach((candidate) => {
     if (
@@ -76,11 +83,10 @@ export function resolveUniquePortfolioClaimSourceIdentity({
       return;
     }
 
-    const normalizedVault = networkUtils.isEvmNetwork({
-      networkId: candidate.networkId,
-    })
-      ? candidate.vault?.toLowerCase()
-      : candidate.vault;
+    const normalizedVault = normalizeVault(candidate.vault);
+    if (wantedVault && normalizedVault !== wantedVault) {
+      return;
+    }
     const identityKey = `${candidate.symbol}_${getPortfolioProtocolIdentityKey({
       networkId: candidate.networkId,
       provider: candidate.providerName,
@@ -95,10 +101,27 @@ export function resolveUniquePortfolioClaimSourceIdentity({
   return identities.size === 1 ? Array.from(identities.values())[0] : null;
 }
 
+export function resolvePortfolioActionSymbol({
+  providerName,
+  assetSymbol,
+  protocolSymbol,
+}: {
+  providerName: string;
+  assetSymbol: string;
+  protocolSymbol?: string;
+}) {
+  if (earnUtils.isEtherFiProvider({ providerName })) {
+    return protocolSymbol?.trim() ? protocolSymbol : undefined;
+  }
+  return assetSymbol;
+}
+
+/** Resolve protocol and airdrop source identities; missing or conflicting identities fail closed. */
 export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop,
   providerName,
   assetSymbol,
+  protocolSymbol,
   assetVault,
   claimSymbol,
   claimSymbolStatus,
@@ -107,16 +130,19 @@ export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop: boolean;
   providerName: string;
   assetSymbol: string;
+  protocolSymbol?: string;
   assetVault?: string;
   claimSymbol?: string;
   claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
   sourceIdentity?: IPortfolioClaimProtocolIdentity | null;
 }): IPortfolioClaimProtocolIdentity | null {
   if (!isAirdrop) {
-    return {
-      symbol: assetSymbol,
-      vault: assetVault,
-    };
+    const symbol = resolvePortfolioActionSymbol({
+      providerName,
+      assetSymbol,
+      protocolSymbol,
+    });
+    return symbol === undefined ? null : { symbol, vault: assetVault };
   }
 
   if (earnUtils.isPendleProvider({ providerName })) {

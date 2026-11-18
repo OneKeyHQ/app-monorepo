@@ -183,6 +183,46 @@ function containsImmediateCall(value: unknown, calleeName: string): boolean {
   );
 }
 
+function containsImmediateAssignmentTo(
+  value: unknown,
+  propertyName: string,
+): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) =>
+      containsImmediateAssignmentTo(item, propertyName),
+    );
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const node = value as {
+    left?: { property?: { name?: string; type?: string }; type?: string };
+    type?: string;
+    [key: string]: unknown;
+  };
+  if (
+    node.type === 'FunctionDeclaration' ||
+    node.type === 'FunctionExpression' ||
+    node.type === 'ArrowFunctionExpression' ||
+    node.type === 'ClassDeclaration' ||
+    node.type === 'ClassExpression'
+  ) {
+    return false;
+  }
+  if (
+    node.type === 'AssignmentExpression' &&
+    node.left?.type === 'MemberExpression' &&
+    node.left.property?.type === 'Identifier' &&
+    node.left.property.name === propertyName
+  ) {
+    return true;
+  }
+  return Object.values(node).some((child) =>
+    containsImmediateAssignmentTo(child, propertyName),
+  );
+}
+
 function collectTopLevelBootstrapEvents(source: string): string[] {
   const ast = parse(source, {
     plugins: ['jsx', 'typescript'],
@@ -190,28 +230,60 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
   });
 
   return ast.program.body.flatMap((statement) => {
+    if (containsImmediateAssignmentTo(statement, '$$debugT0')) {
+      return ['assign:$$debugT0'];
+    }
     const dependency = findImmediateRequire(statement);
     if (dependency) {
       return [`require:${dependency}`];
     }
-    if (containsImmediateCall(statement, 'markRuntimePolyfillsReady')) {
-      return ['call:markRuntimePolyfillsReady'];
+    for (const name of [
+      'prepareNativePromiseRejectionTracker',
+      'finishMobileLockdown',
+      'markRuntimePolyfillsReady',
+    ]) {
+      if (containsImmediateCall(statement, name)) {
+        return [`call:${name}`];
+      }
     }
     return [];
   });
 }
 
 describe('runtime polyfill bootstrap contract', () => {
+  // The stamp has to land before the first polyfill is installed, or every
+  // timing measured against it is short by the polyfill cost. Ordering is read
+  // off the AST event list rather than character offsets: `$$debugT0` also
+  // appears as a type-only field above the assignment, so `indexOf` on the text
+  // would match the annotation and stay green with the stamp moved below.
   it('captures the startup baseline before installing polyfills', () => {
     const source = readFileSync(
       path.join(repoRoot, 'packages/shared/src/polyfills/index.ts'),
       'utf8',
     );
+    const events = collectTopLevelBootstrapEvents(source);
 
-    expect(source.indexOf('$$debugT0')).toBeGreaterThanOrEqual(0);
-    expect(source.indexOf('$$debugT0')).toBeLessThan(
-      source.indexOf("require('./polyfillsPlatform')"),
+    expect(events).toContain('assign:$$debugT0');
+    expect(events.indexOf('assign:$$debugT0')).toBeLessThan(
+      events.indexOf('require:./polyfillsPlatform'),
     );
+  });
+
+  // The npm `process` polyfill drives nextTick through a setTimeout captured
+  // at load time, which never fires on the Android background runtime. Modules
+  // that capture `process.nextTick` by reference while loading (memoizee via
+  // `next-tick`) keep whatever is installed at that moment, so the working
+  // replacement must be the very next dependency after the process polyfill.
+  it('polyfillsPlatform installs the background nextTick shim right after the process polyfill', () => {
+    const source = readFileSync(
+      path.join(repoRoot, 'packages/shared/src/polyfills/polyfillsPlatform.js'),
+      'utf8',
+    );
+    const events = collectTopLevelBootstrapEvents(source);
+    const processIndex = events.indexOf('require:process');
+
+    expect(processIndex).toBeGreaterThan(-1);
+    expect(events[processIndex + 1]).toBe('require:./processNextTickShim');
   });
 
   it.each(fullRuntimeEntries)(
@@ -235,12 +307,20 @@ describe('runtime polyfill bootstrap contract', () => {
   );
 
   it.each(nativeRuntimeEntries)(
-    '%s marks polyfills ready before loading any other runtime dependency',
+    '%s prepares and hardens intrinsics before marking runtime ready',
     (relativePath) => {
       const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-      expect(collectTopLevelBootstrapEvents(source).slice(0, 3)).toEqual([
+      const trackerPath =
+        relativePath === 'apps/mobile/index.ts'
+          ? '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native'
+          : '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker';
+      expect(collectTopLevelBootstrapEvents(source).slice(0, 7)).toEqual([
         'require:@onekeyhq/shared/src/polyfills',
+        `require:${trackerPath}`,
+        'call:prepareNativePromiseRejectionTracker',
+        'require:./src/security/finishMobileLockdown',
+        'call:finishMobileLockdown',
         'require:@onekeyhq/shared/src/polyfills/runtimeCapabilities',
         'call:markRuntimePolyfillsReady',
       ]);

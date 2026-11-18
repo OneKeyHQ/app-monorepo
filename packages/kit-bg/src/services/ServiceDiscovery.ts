@@ -29,11 +29,6 @@ import {
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
-import {
-  prefixOf,
-  swrCacheNamespaces,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -53,6 +48,11 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
+  /**
+   * Announce a bookmark change. The snapshot entry itself is dropped by the UI
+   * runtime, which owns the hook that writes it and receives both events —
+   * see `kit/src/utils/swrCacheMutationInvalidation.ts`.
+   */
   _clearDiscoveryHomeBookmarksSwr({
     invalidatePrefetch = false,
     refreshMountedViews = false,
@@ -60,10 +60,6 @@ class ServiceDiscovery extends ServiceBase {
     invalidatePrefetch?: boolean;
     refreshMountedViews?: boolean;
   } = {}) {
-    swrCacheUtils.removeByPrefix(
-      prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
-    );
-    swrCacheUtils.flushNow();
     if (refreshMountedViews) {
       appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
     } else if (invalidatePrefetch) {

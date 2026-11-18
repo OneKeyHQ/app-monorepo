@@ -18,6 +18,7 @@ export enum EUniversalSearchType {
   Address = 'Address',
   MarketToken = 'MarketToken',
   V2MarketToken = 'V2MarketToken',
+  MarketStock = 'MarketStock',
   AccountAssets = 'AccountAssets',
   Dapp = 'Dapp',
   Perp = 'Perp',
@@ -93,6 +94,11 @@ export type IUniversalSearchV2MarketToken = {
   payload: IMarketSearchV2Token;
 };
 
+export type IUniversalSearchMarketStock = {
+  type: EUniversalSearchType.MarketStock;
+  payload: IMarketSearchV2Token;
+};
+
 export type IUniversalSearchAccountAssets = {
   type: EUniversalSearchType.AccountAssets;
   payload: {
@@ -142,6 +148,7 @@ export type IUniversalSearchResultItem =
   | IUniversalSearchAddress
   | IUniversalSearchMarketToken
   | IUniversalSearchV2MarketToken
+  | IUniversalSearchMarketStock
   | IUniversalSearchAccountAssets
   | IUniversalSearchDapp
   | IUniversalSearchPerp
@@ -153,6 +160,10 @@ export type IUniversalSearchMarketTokenResult = {
 
 export type IUniversalSearchV2MarketTokenResult = {
   items: IUniversalSearchV2MarketToken[];
+};
+
+export type IUniversalSearchMarketStockResult = {
+  items: IUniversalSearchMarketStock[];
 };
 
 export type IUniversalSearchAccountAssetsResult = {
@@ -175,6 +186,7 @@ export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Address]?: IUniversalSearchSingleResult;
   [EUniversalSearchType.MarketToken]?: IUniversalSearchMarketTokenResult;
   [EUniversalSearchType.V2MarketToken]?: IUniversalSearchV2MarketTokenResult;
+  [EUniversalSearchType.MarketStock]?: IUniversalSearchMarketStockResult;
   [EUniversalSearchType.AccountAssets]?: IUniversalSearchAccountAssetsResult;
   [EUniversalSearchType.Dapp]?: IUniversalSearchDappResult;
   [EUniversalSearchType.Perp]?: IUniversalSearchPerpResult;

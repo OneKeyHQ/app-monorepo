@@ -366,7 +366,14 @@ function runWorktreeLintChecks(logDir) {
         logDir,
         'lint-worktree-js',
         npx,
-        ['oxlint', '--fix', '--deny-warnings'],
+        // A batch may contain only files excluded by oxlint ignorePatterns
+        // (e.g. vendored third-party code); that must not fail the check.
+        [
+          'oxlint',
+          '--fix',
+          '--deny-warnings',
+          '--no-error-on-unmatched-pattern',
+        ],
         js,
       ),
     );
@@ -385,6 +392,7 @@ function runWorktreeLintChecks(logDir) {
           '--type-aware',
           '--fix',
           '--deny-warnings',
+          '--no-error-on-unmatched-pattern',
         ],
         ts,
       ),
@@ -680,6 +688,9 @@ function runLocalChecks(logDir) {
     runCommand(logDir, 'background-api-contract', 'yarn', [
       'lint:background-api-contract',
     ]),
+    runCommand(logDir, 'test-integrity', 'yarn', ['lint:test-integrity']),
+    runCommand(logDir, 'onekeyfe-patches', 'yarn', ['lint:onekeyfe-patches']),
+    runCommand(logDir, 'external-sdk', 'yarn', ['lint:external-sdk']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];

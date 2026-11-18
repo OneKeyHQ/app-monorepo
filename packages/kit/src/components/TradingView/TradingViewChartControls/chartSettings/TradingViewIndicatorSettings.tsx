@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Button, Dialog } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import {
   TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
@@ -21,12 +26,14 @@ import {
 } from './TradingViewSettingsMockState';
 import { useSettingsDraftValue } from './TradingViewSettingsShared';
 
+import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 import type {
   ITradingViewIndicatorSettingsValue,
   ITradingViewSettingsMockIndicatorScope,
 } from './TradingViewSettingsMockState';
 
 export type ITradingViewIndicatorSettingsProps = {
+  dialogRef?: ITradingViewSettingsDialogRef;
   /** Use value for controlled committed state, or defaultValue for local state. */
   value?: ITradingViewIndicatorSettingsValue;
   defaultValue?: ITradingViewIndicatorSettingsValue;
@@ -40,11 +47,11 @@ export type ITradingViewIndicatorSettingsProps = {
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
-  /** Receives the complete value after the user confirms the draft. */
+  /** Saves the confirmed draft or the defaults from a full reset. */
   onConfirm?: (
     value: ITradingViewIndicatorSettingsValue,
   ) => void | Promise<void>;
-  /** Called after the confirmed draft has been committed locally. */
+  /** Called after a confirmation or full reset has been committed locally. */
   onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
@@ -73,6 +80,7 @@ function reconcileActiveSubIndicatorOrder(
 }
 
 export function TradingViewIndicatorSettings({
+  dialogRef,
   value,
   defaultValue,
   createDefaultValue = createTradingViewIndicatorSettingsValue,
@@ -146,6 +154,7 @@ export function TradingViewIndicatorSettings({
       ),
   );
   const [isConfirming, setIsConfirming] = useState(false);
+  const isResettingRef = useRef(false);
   const submitInProgress = isSubmitting || isConfirming;
 
   useEffect(() => {
@@ -175,7 +184,18 @@ export function TradingViewIndicatorSettings({
   );
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
-  const handleReset = useCallback(() => {
+  const persistValue = async (
+    nextValue: ITradingViewIndicatorSettingsValue,
+  ) => {
+    await onConfirm?.(nextValue);
+    return commitSettingsValue(nextValue);
+  };
+
+  const handleReset = async () => {
+    if (submitInProgress || isResettingRef.current) {
+      return;
+    }
+
     if (displayMode === 'focused') {
       const defaultSettingsValue = createDefaultValue();
       updateSettingsValue((currentValue) =>
@@ -208,15 +228,18 @@ export function TradingViewIndicatorSettings({
         ),
       );
     }
-  }, [
-    createDefaultValue,
-    displayMode,
-    effectiveSelectedIndicatorId,
-    normalizedMaxActiveSubIndicatorCount,
-    selectedIndicatorId,
-    selectedIndicatorScope,
-    updateSettingsValue,
-  ]);
+
+    isResettingRef.current = true;
+    try {
+      if (await persistValue(nextValue)) {
+        await onConfirmSuccess?.();
+      }
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      isResettingRef.current = false;
+    }
+  };
 
   const handleToggleIndicator = useCallback(
     (indicatorId: string, active: boolean) => {
@@ -263,8 +286,8 @@ export function TradingViewIndicatorSettings({
   };
 
   const handleConfirm = async () => {
-    if (submitInProgress) {
-      return;
+    if (submitInProgress || isResettingRef.current) {
+      return false;
     }
 
     let didConfirm = false;
@@ -273,8 +296,7 @@ export function TradingViewIndicatorSettings({
       if (normalizedSettingsValue !== settingsValue) {
         updateSettingsValue(() => normalizedSettingsValue);
       }
-      await onConfirm?.(normalizedSettingsValue);
-      commitSettingsValue();
+      await persistValue(normalizedSettingsValue);
       didConfirm = true;
     } catch (error) {
       onConfirmError?.(error);
@@ -287,12 +309,15 @@ export function TradingViewIndicatorSettings({
         await onConfirmSuccess?.();
       } catch (error) {
         onConfirmError?.(error);
+        return false;
       }
     }
+    return didConfirm;
   };
 
   return (
     <TradingViewIndicatorSettingsDialog
+      dialogRef={dialogRef}
       displayMode={displayMode}
       mobileLayout={mobileLayout}
       value={normalizedSettingsValue}
@@ -404,8 +429,8 @@ export function TradingViewIndicatorSettings({
           ),
         );
       }}
-      onReset={handleReset}
-      onConfirm={() => void handleConfirm()}
+      onReset={() => void handleReset()}
+      onConfirm={handleConfirm}
       onClose={handleClose}
       isSubmitting={submitInProgress}
     />
@@ -413,5 +438,19 @@ export function TradingViewIndicatorSettings({
 }
 
 export function TradingViewIndicatorSettingsMockGallery() {
-  return <TradingViewIndicatorSettings />;
+  const intl = useIntl();
+  return (
+    <Button
+      testID="trading-view-indicator-settings-gallery-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewIndicatorSettings dialogRef={ref} />
+          ),
+        })
+      }
+    >
+      {intl.formatMessage({ id: ETranslations.market_indicators })}
+    </Button>
+  );
 }

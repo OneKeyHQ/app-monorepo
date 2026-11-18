@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, max-classes-per-file */
 
+import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
+import type { IZcashSdkApi } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+
 import { OffscreenApiProxyBase } from '../OffscreenApiProxyBase';
 
 import type { IOffscreenApi } from './IOffscreenApi';
@@ -29,6 +32,18 @@ class OffscreenApiProxy extends OffscreenApiProxyBase implements IOffscreenApi {
 
   kaspaSdk: OffscreenApiKaspaSdk = this._createProxyModule(
     'kaspaSdk',
+    undefined,
+    {
+      asyncThenSupport: true,
+    },
+  );
+
+  zcashSdk: IZcashSdkApi = this._createProxyModule('zcashSdk', undefined, {
+    asyncThenSupport: true,
+  });
+
+  xmrRuntime: IXmrRuntimeApi = this._createProxyModule(
+    'xmrRuntime',
     undefined,
     {
       asyncThenSupport: true,

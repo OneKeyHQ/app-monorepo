@@ -4,8 +4,17 @@ import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes/discovery';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import {
+  type IImeKeyboardEventLike,
+  getKeyboardEventKey,
+  useImeCompositionLock,
+} from '@onekeyhq/shared/src/utils/imeUtils';
 
 import { useSearchPopoverUIFeatureFlag } from './useSearchPopoverFeatureFlag';
+
+type ISearchPopoverKeyEvent = IImeKeyboardEventLike & {
+  preventDefault?: () => void;
+};
 
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
@@ -34,6 +43,7 @@ export function useSearchPopover({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const navigation = useAppNavigation();
+  const imeCompositionLock = useImeCompositionLock();
 
   // Scroll to selected item
   useEffect(() => {
@@ -52,30 +62,38 @@ export function useSearchPopover({
   }, [selectedIndex, scrollViewRef]);
 
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
+    (e: ISearchPopoverKeyEvent) => {
+      // Chinese/Japanese IMEs use Enter to commit Latin text. Chrome also
+      // fires a follow-up Enter after compositionend with isComposing=false.
+      if (imeCompositionLock.shouldIgnoreKeyboardEvent(e)) {
+        return;
+      }
+
+      const key = getKeyboardEventKey(e);
+
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        e.preventDefault?.();
 
         if (totalItems === 0) return;
 
-        if (e.key === 'ArrowDown') {
+        if (key === 'ArrowDown') {
           setSelectedIndex((prev) => (prev + 2 > totalItems ? prev : prev + 1));
-        } else if (e.key === 'ArrowUp') {
+        } else if (key === 'ArrowUp') {
           setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
         }
       }
 
-      if (e.key === 'Enter') {
-        e.preventDefault();
+      if (key === 'Enter') {
+        e.preventDefault?.();
         onEnterPress?.();
       }
 
-      if (e.key === 'Escape') {
+      if (key === 'Escape') {
         onEscape?.();
         setIsPopoverOpen(false);
       }
     },
-    [totalItems, onEnterPress, onEscape],
+    [imeCompositionLock, totalItems, onEnterPress, onEscape],
   );
 
   const isPopoverVisible = useMemo(
@@ -127,6 +145,8 @@ export function useSearchPopover({
     handleSearchBarPress,
     selectedIndex,
     handleKeyDown,
+    handleCompositionStart: imeCompositionLock.start,
+    handleCompositionEnd: imeCompositionLock.end,
     resetSelectedIndex,
     isPopoverVisible,
     isPopoverOpen,

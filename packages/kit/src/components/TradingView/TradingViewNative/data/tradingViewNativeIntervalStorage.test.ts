@@ -2,7 +2,9 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import {
   getTradingViewNativeIntervalStorageNamespace,
+  readStoredTradingViewActiveInterval,
   readTradingViewNativeActiveInterval,
+  saveTradingViewActiveInterval,
   saveTradingViewNativeActiveInterval,
 } from './tradingViewNativeIntervalStorage';
 
@@ -165,4 +167,44 @@ describe('TradingViewNative active interval storage', () => {
       },
     );
   });
+
+  it('keeps TradingView-only intervals safe for Original and accepts its next selection', async () => {
+    const storage = new Map<string, unknown>();
+    mockSyncStorage.getObject.mockImplementation((key: string) =>
+      storage.get(key),
+    );
+    mockSyncStorage.setObject.mockImplementation(
+      (key: string, value: unknown) => storage.set(key, value),
+    );
+    await saveTradingViewActiveInterval({ interval: '2H', namespace: 'perps' });
+    expect(readStoredTradingViewActiveInterval('perps')).toBe('120');
+    expect(readTradingViewNativeActiveInterval('perps')).toBe('60');
+    await saveTradingViewNativeActiveInterval({
+      interval: '240',
+      namespace: 'perps',
+    });
+    expect(readStoredTradingViewActiveInterval('perps')).toBe('240');
+    await saveTradingViewActiveInterval({
+      interval: 'unsupported',
+      namespace: 'perps',
+    });
+    expect(readStoredTradingViewActiveInterval('perps')).toBe('240');
+  });
+
+  it.each(['token', 'perps', 'swap'] as const)(
+    'ignores legacy panel intervals when restoring the %s chart',
+    (namespace) => {
+      const legacyPanelIntervals = {
+        [`${namespace}:panel:panel-2`]: { interval: '240' },
+      };
+      mockSyncStorage.getObject.mockReturnValue(legacyPanelIntervals);
+      expect(readTradingViewNativeActiveInterval(namespace)).toBe('60');
+
+      mockSyncStorage.getObject.mockReturnValue({
+        ...legacyPanelIntervals,
+        [namespace]: { interval: '15' },
+      });
+      expect(readTradingViewNativeActiveInterval(namespace)).toBe('15');
+    },
+  );
 });

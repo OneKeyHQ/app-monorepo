@@ -22,7 +22,6 @@ import {
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { Divider } from '../../content/Divider';
-import { Portal } from '../../hocs';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
@@ -36,6 +35,8 @@ import {
   YStack,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
+import { mountImperativeOverlay } from '../../shared/imperativeOverlayMount';
 import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
@@ -59,6 +60,7 @@ export type {
   IActionListTriggerPosition,
   IActionListTriggerRect,
 } from './imperativeShowUtils';
+export { runAfterActionListClose } from './runAfterClose';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -104,17 +106,16 @@ const ACTION_LIST_MD_HEADING = {
   paddingVertical: '$2.5',
 } as const;
 
+// Mirrors ActionListItem's box: same padding, an icon-sized block, and a label
+// bar whose line height matches the label text, so loading causes no shift.
 export function ActionListSkeletonItem() {
+  const { md } = useMedia();
+  const iconSize = md ? ACTION_LIST_ICON_MD.size : '$5';
+  const LabelSkeleton = md ? Skeleton.BodyLg : Skeleton.BodyMd;
   return (
-    <XStack
-      flex={1}
-      mx="$2"
-      height="$8"
-      position="relative"
-      borderRadius="$2"
-      overflow="hidden"
-    >
-      <Skeleton height="100%" width="100%" />
+    <XStack alignItems="center" px="$2" py="$1.5" $md={ACTION_LIST_ITEM_MD}>
+      <Skeleton w={iconSize} h={iconSize} mr="$3" />
+      <LabelSkeleton />
     </XStack>
   );
 }
@@ -347,11 +348,12 @@ function BasicActionList({
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
-      if (!openStatus) {
+      // Keep resolved items visible through the Popover's exit animation.
+      if (openStatus && !isOpen) {
         setAsyncItems(null);
       }
     },
-    [onOpenChange, setOpenStatus, trackActionListToggle],
+    [isOpen, onOpenChange, setOpenStatus, trackActionListToggle],
   );
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
@@ -494,6 +496,7 @@ const showActionList = (
       }
     | undefined,
 ): IActionListShowHandle & { closeImmediately: () => void } => {
+  assertOverlayProps('ActionList.show', props);
   const { modalNavigatorContext, pageContextValue } = contexts || {};
   const { onClose, triggerPosition, triggerRect, ...restProps } = props;
   dismissKeyboard();
@@ -590,22 +593,25 @@ const showActionList = (
   const modalCtxValue =
     modalNavigatorContext || FALLBACK_MODAL_NAVIGATOR_CONTEXT;
   const pageCtxValue = pageContextValue || FALLBACK_PAGE_CONTEXT;
-  ref = Portal.Render(
-    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    // oxlint-disable-next-line react/jsx-no-constructed-context-values -- imperative Portal.Render, not a component render
-    <ModalNavigatorContext.Provider value={modalCtxValue}>
-      {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
-      <PageContext.Provider value={pageCtxValue}>
-        {content}
-      </PageContext.Provider>
-    </ModalNavigatorContext.Provider>,
-  );
+  ref = mountImperativeOverlay({
+    target: 'global',
+    node: (
+      // oxlint-disable-next-line react/jsx-no-constructed-context-values -- imperative mount, not a component render
+      <ModalNavigatorContext.Provider value={modalCtxValue}>
+        {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
+        <PageContext.Provider value={pageCtxValue}>
+          {content}
+        </PageContext.Provider>
+      </ModalNavigatorContext.Provider>
+    ),
+  });
   return {
     close: lifecycle.close,
     closeImmediately: lifecycle.closeImmediately,
   };
 };
 function ActionListFrame(props: IActionListProps) {
+  assertOverlayProps('ActionList', props);
   const isProcessing = useRef(false);
 
   const { gtMd } = useMedia();

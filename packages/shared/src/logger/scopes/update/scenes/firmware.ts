@@ -8,9 +8,42 @@ import type { IFirmwareVersions } from './firmwareVersions';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
+export type IFirmwareArtifactDownloadTelemetry = {
+  deviceType: string;
+  firmwareType: string;
+  releaseChannel: 'stable' | 'pre-release';
+  source: 'prefetch' | 'upgrade' | 'self-test';
+  artifactRole: string;
+  targetVersion?: string;
+  sha256?: string;
+  phase: 'started' | 'finished';
+  status?: 'success' | 'failed' | 'cancelled';
+  cacheHit?: boolean;
+  durationMs?: number;
+  bytes?: number;
+  errorCode?: string;
+  platform: string;
+};
+
 export { parseFirmwareVersions } from './firmwareVersions';
 
 export class FirmwareScene extends BaseScene {
+  @LogToServer({ level: 'info', waitForServer: true })
+  private firmwareArtifactDownload(params: IFirmwareArtifactDownloadTelemetry) {
+    return params;
+  }
+
+  public reportArtifactDownload(
+    params: IFirmwareArtifactDownloadTelemetry,
+  ): Promise<void> {
+    return this.firmwareArtifactDownload(params) as unknown as Promise<void>;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public artifactDownloadRecorded(params: IFirmwareArtifactDownloadTelemetry) {
+    return params;
+  }
+
   @LogToLocal({ level: 'info' })
   public firmwareArtifactSelfTest(params: {
     runId: string;

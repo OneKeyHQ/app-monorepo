@@ -1,0 +1,693 @@
+/** @jest-environment jsdom */
+import type { ReactNode } from 'react';
+
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from '@testing-library/react';
+
+import type {
+  IButtonProps,
+  IDialogInstance,
+  IDialogShowProps,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { getPerpsMarketDataFreshness } from '../../utils/perpsMarketDataFreshness';
+
+import {
+  ReversePositionContent,
+  showReversePositionDialog,
+} from './ReversePositionModal';
+
+const mockSnapshot = {
+  coin: 'ETH',
+  accountAddress: '0x1111',
+  positionSize: '1',
+};
+let mockMid: string | undefined = '2000';
+let mockRealBookPolling = false;
+let mockMarketDataReady = true;
+let mockMarkPrice = '2000';
+let mockBookLoader: () => Promise<unknown>;
+let mockBookPending = false;
+let mockBookPrice: string | undefined;
+const mockFetchBook = jest.fn<Promise<unknown>, unknown[]>();
+const mockGetBookCache = jest.fn<Promise<unknown>, unknown[]>();
+let mockPreviewLoader: () => Promise<unknown>;
+let mockPreviewMeta = {
+  coin: 'ETH',
+  assetId: 1,
+  isSpot: false,
+  universe: { szDecimals: 3, maxLeverage: 20 },
+};
+let mockAccount = { accountAddress: mockSnapshot.accountAddress };
+let mockPosition = {
+  coin: 'ETH',
+  szi: '1',
+  leverage: { type: 'cross', value: 10, rawUsd: '-1800' },
+};
+const mockAssetData = {
+  coin: 'ETH',
+  user: mockSnapshot.accountAddress,
+  markPx: '2000',
+  maxTradeSzs: ['5', '5'],
+  leverage: { type: 'cross', value: 10, rawUsd: '-1800' },
+};
+const mockTarget = {
+  assetData: mockAssetData,
+  symbolMeta: {
+    coin: 'ETH',
+    assetId: 1,
+    isSpot: false,
+    universe: { szDecimals: 3, maxLeverage: 20 },
+  },
+  price: '2000',
+};
+const mockPlaceOrder = jest.fn();
+const mockCancelOrder = jest.fn();
+const mockEnsureTrading = jest.fn();
+const mockFetchAsset = jest.fn<Promise<typeof mockAssetData>, unknown[]>();
+const mockToastError = jest.fn<void, unknown[]>();
+const mockClose = jest.fn();
+const mockDialogShow = jest.fn<
+  Pick<IDialogInstance, 'close'>,
+  [IDialogShowProps]
+>();
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('@onekeyhq/components', () => {
+  const Stack = ({
+    children,
+    testID,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+  }) => <div data-testid={testID}>{children}</div>;
+  return {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useDeferredPromise: jest.requireActual<
+      typeof import('../../../../../../components/src/hooks/useDeferredPromise')
+    >('../../../../../../components/src/hooks/useDeferredPromise')
+      .useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
+    Button: ({
+      children,
+      onPress,
+      disabled,
+      loading,
+      testID,
+      variant,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
+      loading?: boolean;
+      testID?: string;
+      variant?: IButtonProps['variant'];
+    }) => (
+      <button
+        type="button"
+        onClick={onPress}
+        disabled={disabled}
+        aria-busy={loading ?? false}
+        data-testid={testID}
+        data-variant={variant}
+      >
+        {children}
+      </button>
+    ),
+    Dialog: { show: (props: IDialogShowProps) => mockDialogShow(props) },
+    Divider: () => <hr />,
+    Icon: () => null,
+    SizableText: Stack,
+    XStack: Stack,
+    YStack: Stack,
+    Toast: { error: (...args: unknown[]) => mockToastError(...args) },
+  };
+});
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceHyperliquid: {
+      getL2BookSnapshotCache: (...args: unknown[]) => mockGetBookCache(...args),
+      fetchL2BookByCoin: (...args: unknown[]) => mockFetchBook(...args),
+      getActiveAssetDataByCoin: (...args: unknown[]) => mockFetchAsset(...args),
+      getSymbolMeta: async () => mockTarget.symbolMeta,
+      getMarketOrderReferencePrice: async () => mockTarget.price,
+    },
+  },
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
+}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: (
+    callback: () => Promise<unknown>,
+    _deps: unknown[],
+    options: { pollingInterval?: number },
+  ) => {
+    if (options.pollingInterval) {
+      mockBookLoader = callback;
+      if (mockRealBookPolling) {
+        return jest
+          .requireActual<
+            typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+          >('@onekeyhq/kit/src/hooks/usePromiseResult')
+          .usePromiseResult(callback, _deps, options);
+      }
+      if (mockBookPending) return { result: undefined };
+      return {
+        result: {
+          receivedAt: Date.now(),
+          book: {
+            coin: mockPreviewMeta.coin,
+            time: Date.now(),
+            levels: [[{ px: mockBookPrice ?? mockMid, sz: '100', n: 1 }], []],
+          },
+        },
+      };
+    }
+    mockPreviewLoader = callback;
+    return { result: mockPreviewMeta, isLoading: false, run: jest.fn() };
+  },
+}));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
+  useHyperliquidActions: () => ({
+    current: { placeOrderByCoin: mockPlaceOrder, cancelOrder: mockCancelOrder },
+  }),
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpsActiveAccountAtom: () => [mockAccount],
+}));
+jest.mock('../../hooks/usePerpsMarketDataFreshness', () => ({
+  usePerpsMarketDataFreshness: () => ({ isReady: mockMarketDataReady }),
+}));
+jest.mock('../../hooks/usePerpsMidPrice', () => ({
+  usePerpsMidPrice: () => ({ mid: mockMid }),
+}));
+jest.mock('../../hooks/usePerpsAssetCtx', () => ({
+  usePerpsAssetCtx: () => ({ assetCtx: { markPrice: mockMarkPrice } }),
+}));
+jest.mock('../../hooks/useEnableTradingWithDepositFallback', () => ({
+  useEnsureTradingEnabled: () => mockEnsureTrading,
+}));
+jest.mock('../../hooks/usePerpsAccountScopedActivePositions', () => ({
+  usePerpsAccountScopedActivePositions: () => [{ position: mockPosition }],
+}));
+jest.mock('../../hooks/usePerpsCrossAvailableAfterMaintenance', () => ({
+  usePerpsCrossAvailableAfterMaintenance: () => undefined,
+}));
+jest.mock('../../PerpsAccountSelectorProviderMirror', () => ({
+  PerpsAccountSelectorProviderMirror: ({
+    children,
+  }: {
+    children?: ReactNode;
+  }) => children,
+}));
+jest.mock('../../PerpsProviderMirror', () => ({
+  PerpsProviderMirror: ({ children }: { children?: ReactNode }) => children,
+}));
+jest.mock('../../utils/styleUtils', () => ({
+  getTradingSideTextColor: () => '$text',
+}));
+jest.mock('../TradingGuardWrapper', () => ({
+  TradingGuardWrapper: ({ children }: { children?: ReactNode }) => children,
+}));
+
+function deferred() {
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+describe('reverse position confirmation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockBookPending = false;
+    mockRealBookPolling = false;
+    mockMarketDataReady = true;
+    mockTarget.price = '2000';
+    mockBookPrice = undefined;
+    mockGetBookCache.mockResolvedValue(undefined);
+    mockFetchBook.mockResolvedValue(null);
+    mockMid = '2000';
+    mockMarkPrice = '2000';
+    mockPreviewMeta = mockTarget.symbolMeta;
+    mockAccount = { accountAddress: mockSnapshot.accountAddress };
+    mockPosition = {
+      coin: 'ETH',
+      szi: '1',
+      leverage: { type: 'cross', value: 10, rawUsd: '-1800' },
+    };
+    mockFetchAsset.mockResolvedValue(mockAssetData);
+    mockPlaceOrder.mockResolvedValue({ status: 'ok' });
+    mockEnsureTrading.mockResolvedValue(undefined);
+    mockDialogShow.mockImplementation((props) => ({
+      close: async () => {
+        if (props.onBeforeClose && !(await props.onBeforeClose())) return;
+        mockClose();
+      },
+    }));
+  });
+  afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
+  });
+  it('loads preview without account-limit requests and updates with streamed prices', async () => {
+    mockPosition.leverage.type = 'isolated';
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    await act(async () => {
+      await mockPreviewLoader();
+    });
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
+    expect(view.getByText('$2,146.3')).toBeTruthy();
+    mockMid = '2100';
+    mockMarkPrice = '2100';
+    view.rerender(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,100')).toBeNull();
+    expect(view.getByText('$2,253.6')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
+  it('shows the market price label before the book request completes', () => {
+    mockBookPending = true;
+    mockPosition.leverage.type = 'isolated';
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
+    expect(view.getByText('global.price')).toBeTruthy();
+    expect(view.queryByText('perp_spot_reference_price__title')).toBeNull();
+    expect(view.getByText('--')).toBeTruthy();
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
+  it('loads a target-coin book independently and reuses only fresh cached depth', async () => {
+    render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    const fresh = {
+      coin: 'ETH',
+      time: Date.now(),
+      nSigFigs: null,
+      mantissa: null,
+      levels: [[], []],
+    };
+    mockGetBookCache.mockResolvedValue(fresh);
+    expect(await mockBookLoader()).toEqual({
+      book: fresh,
+      receivedAt: fresh.time,
+    });
+    expect(mockGetBookCache).toHaveBeenCalledWith({
+      coin: 'ETH',
+      nSigFigs: null,
+      mantissa: null,
+    });
+    expect(mockFetchBook).not.toHaveBeenCalled();
+    mockGetBookCache.mockResolvedValue({ ...fresh, coin: 'BTC' });
+    await mockBookLoader();
+    expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+    mockFetchBook.mockClear();
+    mockGetBookCache.mockResolvedValue({ ...fresh, time: Date.now() - 31_000 });
+    await mockBookLoader();
+    expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { nSigFigs: 5, mantissa: null },
+    { nSigFigs: 2, mantissa: 5 },
+    { nSigFigs: undefined, mantissa: undefined },
+  ])(
+    'fetches raw depth instead of accepting aggregated or untagged cache %s',
+    async (precision) => {
+      render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      mockGetBookCache.mockResolvedValue({
+        coin: 'ETH',
+        time: Date.now(),
+        levels: [[], []],
+        ...precision,
+      });
+      await mockBookLoader();
+      expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+    },
+  );
+
+  it('refreshes an aging cache instead of waiting until its expiry', async () => {
+    render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    mockGetBookCache.mockResolvedValue({
+      coin: 'ETH',
+      time: Date.now() - 25_000,
+      nSigFigs: null,
+      mantissa: null,
+      levels: [[], []],
+    });
+    await mockBookLoader();
+    expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+  });
+
+  it.each(['pending', 'failed'] as const)(
+    'retains fresh depth during a %s refresh, expires, and recovers',
+    async (refreshState) => {
+      jest.useFakeTimers();
+      mockRealBookPolling = true;
+      mockPosition.leverage.type = 'isolated';
+      const initialBook = {
+        coin: 'ETH',
+        time: Date.now() - 60_000,
+        levels: [[{ px: '2000', sz: '100', n: 1 }], []],
+      };
+      let resolveRefresh: (book: typeof initialBook) => void = () => {};
+      mockFetchBook.mockResolvedValueOnce(initialBook);
+      if (refreshState === 'failed') {
+        mockFetchBook.mockRejectedValueOnce(
+          new Error('Network request failed'),
+        );
+      }
+      mockFetchBook.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRefresh = resolve;
+          }),
+      );
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      // A fresh REST response is valid despite a skewed server clock.
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockFetchBook).toHaveBeenCalledTimes(2);
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(20_001);
+      });
+      expect(mockFetchBook).toHaveBeenCalledTimes(
+        refreshState === 'failed' ? 3 : 2,
+      );
+      expect(view.queryByText('$2,146.3')).toBeNull();
+      expect(view.getByText('--')).toBeTruthy();
+      await act(async () => {
+        resolveRefresh(initialBook);
+      });
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+    },
+  );
+
+  it.each(['socket', 'network', 'stale'] as const)(
+    'hides retained prices when market data is %s and restores the fresh preview',
+    (reason) => {
+      mockPosition.leverage.type = 'isolated';
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+      mockMarketDataReady = getPerpsMarketDataFreshness({
+        isWebSocketConnected: reason !== 'socket',
+        networkConnected: reason !== 'network',
+        lastMessageAt: reason === 'stale' ? Date.now() - 6000 : Date.now(),
+      }).isReady;
+      view.rerender(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      expect(view.queryByText('$2,146.3')).toBeNull();
+      expect(view.getByText('--')).toBeTruthy();
+      // Preview availability must not bypass or prevent submit-time validation.
+      expect(
+        (
+          view.getByTestId(
+            'perp-reverse-position-confirm-button',
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+      mockMarketDataReady = true;
+      mockMid = '2100';
+      mockMarkPrice = '2100';
+      view.rerender(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      expect(view.getByText('$2,253.6')).toBeTruthy();
+    },
+  );
+
+  it.each(['2000', ''])(
+    'validates the submit-time price when live mid is absent: %s',
+    async (submitPrice) => {
+      mockMid = undefined;
+      mockTarget.price = submitPrice;
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      const confirm = view.getByTestId(
+        'perp-reverse-position-confirm-button',
+      ) as HTMLButtonElement;
+      expect(confirm.disabled).toBe(false);
+      fireEvent.click(confirm);
+      if (submitPrice) {
+        await waitFor(() => expect(mockPlaceOrder).toHaveBeenCalledTimes(1));
+        expect(mockPlaceOrder).toHaveBeenCalledWith(
+          expect.objectContaining({ price: '2000', coin: 'ETH' }),
+        );
+      } else {
+        await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
+        expect(mockPlaceOrder).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('updates liquidation notional from the execution boundary while keeping the mark unchanged', () => {
+    mockPosition.leverage.type = 'isolated';
+    mockBookPrice = '1900';
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText('$2,148.7')).toBeTruthy();
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
+  });
+
+  it('formats WLD API noise at the coin size precision before doubling', () => {
+    const snapshot = {
+      ...mockSnapshot,
+      coin: 'WLD',
+      positionSize: '-3965060.8999999999',
+    };
+    mockPosition = { ...mockPosition, coin: 'WLD', szi: snapshot.positionSize };
+    mockPreviewMeta = {
+      ...mockPreviewMeta,
+      coin: 'WLD',
+      universe: { szDecimals: 1, maxLeverage: 10 },
+    };
+    const view = render(
+      <ReversePositionContent snapshot={snapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText(/7,930,121.8 WLD/)).toBeTruthy();
+    expect(view.container.textContent).not.toContain('999999');
+  });
+
+  it.each([
+    {
+      positionSize: '1',
+      expectedVariant: 'destructive',
+      expectedLabel: ETranslations.perp_trade_short,
+    },
+    {
+      positionSize: '-1',
+      expectedVariant: 'accent',
+      expectedLabel: ETranslations.perp_trade_long,
+    },
+  ])(
+    'shows the target direction and color for position size $positionSize',
+    ({ positionSize, expectedVariant, expectedLabel }) => {
+      mockPosition = { ...mockPosition, szi: positionSize };
+      const view = render(
+        <ReversePositionContent
+          snapshot={{ ...mockSnapshot, positionSize }}
+          onClose={mockClose}
+        />,
+      );
+      const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+
+      expect(confirm.textContent).toBe(expectedLabel);
+      expect(confirm.getAttribute('data-variant')).toBe(expectedVariant);
+    },
+  );
+  it('submits one market order, never cancels orders, and prevents duplicate submission', async () => {
+    const pending = deferred();
+    mockPlaceOrder.mockReturnValueOnce(pending.promise);
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mockPlaceOrder).toHaveBeenCalledTimes(1));
+    expect(mockPlaceOrder).toHaveBeenCalledWith({
+      coin: 'ETH',
+      expectedAccountAddress: '0x1111',
+      isBuy: false,
+      size: '2',
+      price: '2000',
+      orderType: 'market',
+      slippage: 0.08,
+    });
+    expect(mockCancelOrder).not.toHaveBeenCalled();
+    await act(async () => {
+      pending.resolve();
+      await pending.promise;
+    });
+    expect(mockClose).toHaveBeenCalledTimes(1);
+  });
+  it('blocks dismissal throughout preparation and submission, then closes on success', async () => {
+    const preparation = deferred();
+    const submission = deferred();
+    mockEnsureTrading.mockReturnValueOnce(preparation.promise);
+    mockPlaceOrder.mockReturnValueOnce(submission.promise);
+    const dialog = showReversePositionDialog(mockSnapshot, '反向开仓');
+    const options = mockDialogShow.mock.calls[0][0];
+    const view = render(<>{options.renderContent}</>);
+    const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+
+    expect(options.onBeforeClose?.()).toBe(true);
+    fireEvent.click(confirm);
+    expect(confirm.getAttribute('aria-busy')).toBe('true');
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(options.onBeforeClose?.()).toBe(false);
+    await act(async () => {
+      await dialog.close();
+    });
+    expect(mockClose).not.toHaveBeenCalled();
+    expect(mockPlaceOrder).not.toHaveBeenCalled();
+
+    await act(async () => {
+      preparation.resolve();
+      await preparation.promise;
+    });
+    await waitFor(() => expect(mockPlaceOrder).toHaveBeenCalledTimes(1));
+    expect(confirm.getAttribute('aria-busy')).toBe('true');
+    expect(options.onBeforeClose?.()).toBe(false);
+    fireEvent.click(confirm);
+    await act(async () => {
+      await dialog.close();
+    });
+    expect(mockClose).not.toHaveBeenCalled();
+    expect(mockPlaceOrder).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      submission.resolve();
+      await submission.promise;
+    });
+    expect(options.onBeforeClose?.()).toBe(true);
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    // Closing starts before the exit animation unmounts the content.
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(mockPlaceOrder).toHaveBeenCalledTimes(1);
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(confirm.getAttribute('aria-busy')).toBe('true');
+  });
+  it.each(['preparation', 'submission'])(
+    'restores dismissal and clears loading after %s fails',
+    async (phase) => {
+      const error = new Error('Request failed');
+      if (phase === 'preparation') mockFetchAsset.mockRejectedValueOnce(error);
+      else mockPlaceOrder.mockRejectedValueOnce(error);
+      const dialog = showReversePositionDialog(mockSnapshot, '反向开仓');
+      const options = mockDialogShow.mock.calls[0][0];
+      const view = render(<>{options.renderContent}</>);
+      const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+
+      fireEvent.click(confirm);
+      await waitFor(() =>
+        expect(confirm.getAttribute('aria-busy')).toBe('false'),
+      );
+      expect(options.onBeforeClose?.()).toBe(true);
+      expect((confirm as HTMLButtonElement).disabled).toBe(false);
+      expect(mockClose).not.toHaveBeenCalled();
+      await act(async () => {
+        await dialog.close();
+      });
+      expect(mockClose).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(['account', 'size', 'direction', 'closed'])(
+    'stops after %s changes during enable trading',
+    async (change) => {
+      const pending = deferred();
+      mockEnsureTrading.mockReturnValueOnce(pending.promise);
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      fireEvent.click(view.getByTestId('perp-reverse-position-confirm-button'));
+      if (change === 'account') mockAccount = { accountAddress: '0x2222' };
+      else {
+        const sizes = { size: '2', direction: '-1', closed: '0' };
+        mockPosition = {
+          ...mockPosition,
+          szi: sizes[change as keyof typeof sizes],
+        };
+      }
+      view.rerender(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      await act(async () => {
+        pending.resolve();
+        await pending.promise;
+      });
+      expect(mockPlaceOrder).not.toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalled();
+    },
+  );
+  it('does not submit if the confirmation is closed during preparation', async () => {
+    const pending = deferred();
+    mockEnsureTrading.mockReturnValueOnce(pending.promise);
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    fireEvent.click(view.getByTestId('perp-reverse-position-confirm-button'));
+    view.unmount();
+    await act(async () => {
+      pending.resolve();
+      await pending.promise;
+    });
+    expect(mockPlaceOrder).not.toHaveBeenCalled();
+  });
+  it('keeps the confirmation open on exchange failure without a duplicate error toast', async () => {
+    mockPlaceOrder.mockRejectedValueOnce(new Error('Exchange failure'));
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    fireEvent.click(view.getByTestId('perp-reverse-position-confirm-button'));
+    await waitFor(() => expect(mockPlaceOrder).toHaveBeenCalledTimes(1));
+    expect(mockClose).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockCancelOrder).not.toHaveBeenCalled();
+  });
+});

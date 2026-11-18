@@ -13,7 +13,7 @@ import TextInput from '../Input/TextInput';
 
 import { inputSizeVariant } from './sizeVariant';
 
-import type { TextInput as RNTextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 const isWeb = !platformEnv.isNative;
 
@@ -88,7 +88,7 @@ export const InputFrame = styled(
 
 // const x = <InputFrame selectionColor="" />
 
-export type IInput = RNTextInput;
+export type IInput = TextInputInstance;
 
 export type IInputFrameProps = GetProps<typeof InputFrame>;
 

@@ -73,7 +73,7 @@ describe('coldStartImagePreload wallet banner images (OK-61505)', () => {
   it('collects remote banner images ahead of token logos, sized to the banner card', () => {
     expect(getColdStartImageUrisFromSnapshot(snapshot)).toEqual([
       { uri: bannerUri, resizeWidth: WALLET_BANNER_IMAGE_SIZE },
-      tokenUri,
+      { uri: tokenUri, resizeWidth: 32 },
     ]);
   });
 
@@ -124,11 +124,10 @@ describe('coldStartImagePreload header network logos (OK-61505)', () => {
   });
 
   it('collects the first two All Networks compat logos from the trigger swr snapshot', () => {
+    // The trigger's avatars come from its wallet-scoped query (no account).
     const compatKey = swrKeys.allNetworksCompatible({
       walletId: HD_WALLET_ID,
       networkId: 'onekeyall--0',
-      filterNetworksWithoutAccount: true,
-      indexedAccountId: INDEXED_ACCOUNT_ID,
       withNetworksInfo: false,
       enabledNetworkIdsKey: '',
     });
@@ -225,7 +224,7 @@ describe('coldStartImagePreload header network logos (OK-61505)', () => {
     expect(items).toEqual([
       { uri: bannerUri, resizeWidth: WALLET_BANNER_IMAGE_SIZE },
       { uri: ethNetworkLogoUri, resizeWidth: HEADER_NETWORK_LOGO_SIZE },
-      tokenUri,
+      { uri: tokenUri, resizeWidth: 32 },
     ]);
   });
 });

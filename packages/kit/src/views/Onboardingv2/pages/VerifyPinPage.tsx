@@ -10,7 +10,10 @@ import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts
 import type { IIncorrectPinErrorInfo } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
+import {
+  EKeylessFinalizeAction,
+  KEYLESS_PIN_LENGTH,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -72,14 +75,18 @@ function VerifyPinPage() {
   const { title, description } = useMemo(() => {
     if (isVerifyPinOnly) {
       return {
-        title: intl.formatMessage({ id: ETranslations.remember_your_pin }),
+        title: intl.formatMessage({
+          id: ETranslations.verify_recovery_pin__title,
+        }),
         description: intl.formatMessage({
           id: ETranslations.remember_your_pin_desc,
         }),
       };
     }
     return {
-      title: intl.formatMessage({ id: ETranslations.enter_your_pin }),
+      title: intl.formatMessage({
+        id: ETranslations.enter_recovery_pin__title,
+      }),
       description: intl.formatMessage({
         id: ETranslations.enter_your_pin_desc,
       }),
@@ -385,7 +392,7 @@ function VerifyPinPage() {
   })();
 
   const handleAutoInputPin = useCallback(async () => {
-    const debugPin = '1234';
+    const debugPin = '1234567890'.slice(0, KEYLESS_PIN_LENGTH);
     setPin(debugPin);
     try {
       setIsLoading(true);
@@ -428,21 +435,19 @@ function VerifyPinPage() {
         void handleCancelVerifyPin();
       }}
       title={title}
-      placeholder=""
       description={description}
       buttonText={intl.formatMessage({ id: ETranslations.global_continue })}
-      secondaryButtonText={
-        isVerifyPinOnly
-          ? intl.formatMessage({ id: ETranslations.forgot_pin })
-          : intl.formatMessage({ id: ETranslations.reset_pin })
-      }
+      // Both modes run the same handleForgotPin flow, so they share the short
+      // label. The heading already says "Recovery PIN", and the long
+      // reset_pin copy overflows this button in several languages.
+      secondaryButtonText={intl.formatMessage({ id: ETranslations.forgot_pin })}
       onSecondaryButtonPress={() =>
         handleForgotPin({ shouldVerifyPasswordFirst: true })
       }
       value={pin}
       onChange={handlePinChange}
       onSubmit={handleVerify}
-      isSubmitDisabled={pin.length !== 4 || isInputDisabled}
+      isSubmitDisabled={pin.length !== KEYLESS_PIN_LENGTH || isInputDisabled}
       isInputDisabled={isInputDisabled}
       onEnableInput={handleEnableInput}
       errorMessage={displayErrorMessage}

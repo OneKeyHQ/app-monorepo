@@ -36,6 +36,10 @@ const BACKGROUND_THREAD_BOOT_ID = `${Date.now()}-${Math.random()
   .toString(36)
   .slice(2, 10)}`;
 
+export function getBackgroundThreadBootId() {
+  return BACKGROUND_THREAD_BOOT_ID;
+}
+
 export function buildBackgroundThreadReadyPayload(): IBackgroundThreadReadyPayload {
   return {
     runtime: 'background',

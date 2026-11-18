@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,15 +10,16 @@ import {
 } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components/src/actions/IconButton';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { useShowGuide } from '../hooks/useShowGuide';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { PerpTestIDs } from '../testIDs';
 
 import { PerpFeatureDot } from './PerpFeatureDot';
-import { PerpsActivityCenterAction } from './PerpsActivityCenterAction';
 import {
   PerpSettingsPopover,
   showPerpSettingsDialog,
@@ -49,10 +50,9 @@ export function PerpSettingsButton({
     tourVisited: markSettingsFeatureVisited,
   } = useSpotlight(ESpotlightTour.perpLayoutSettingsMenu);
   const { showGuide } = useShowGuide({ forceModal: isMobileLayout });
-  const [isActivityCenterOpen, setIsActivityCenterOpen] = useState(false);
-  const handleOpenActivityCenter = useCallback(() => {
-    setIsActivityCenterOpen(true);
-  }, []);
+  const { showPortfolio } = useShowPortfolio();
+  // Owned here, not by the menu: see PerpsActivityCenterContent.
+  const openReferralPage = useOpenReferralPage();
   const handleOpenDialog = useCallback(() => {
     if (isMobileLayout && isSettingsFeatureFirstVisit) {
       void markSettingsFeatureVisited();
@@ -61,22 +61,24 @@ export function PerpSettingsButton({
       title: intl.formatMessage({
         id: ETranslations.address_book_menu_title,
       }),
-      onOpenActivityCenter: handleOpenActivityCenter,
       onOpenGuide: showGuide,
+      onOpenPortfolio: showPortfolio,
+      onOpenReferral: openReferralPage,
       showActivityCenterEntry,
       showChartPositionSetting: shouldShowChartPositionSetting,
       showGuideEntry,
     });
   }, [
-    handleOpenActivityCenter,
     intl,
     isMobileLayout,
     isSettingsFeatureFirstVisit,
     markSettingsFeatureVisited,
+    openReferralPage,
     showActivityCenterEntry,
     shouldShowChartPositionSetting,
     showGuide,
     showGuideEntry,
+    showPortfolio,
   ]);
 
   if (isMobileLayout) {
@@ -115,14 +117,6 @@ export function PerpSettingsButton({
               </Stack>
             ) : null}
           </Stack>
-          {showActivityCenterEntry ? (
-            <PerpsActivityCenterAction
-              copyAsUrl
-              open={isActivityCenterOpen}
-              onOpenChange={setIsActivityCenterOpen}
-              renderTrigger={<Stack display="none" />}
-            />
-          ) : null}
         </>
       </DebugRenderTracker>
     );
@@ -133,6 +127,7 @@ export function PerpSettingsButton({
       showActivityCenterEntry={showActivityCenterEntry}
       showChartPositionSetting={shouldShowChartPositionSetting}
       showGuideEntry={showGuideEntry}
+      onOpenReferral={openReferralPage}
       renderTrigger={
         <IconButton
           testID="perp-content-icon-btn"

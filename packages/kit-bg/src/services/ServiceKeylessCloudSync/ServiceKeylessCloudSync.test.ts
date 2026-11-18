@@ -4,9 +4,11 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
+  ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../../dbs/local/localDb';
+import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
@@ -62,14 +64,71 @@ jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
   },
 }));
 
+const serviceInstances = new Set<ServiceKeylessCloudSync>();
+function createService(
+  params: ConstructorParameters<typeof ServiceKeylessCloudSync>[0],
+) {
+  const service = new ServiceKeylessCloudSync(params);
+  serviceInstances.add(service);
+  return service;
+}
+
 describe('ServiceKeylessCloudSync', () => {
+  beforeEach(() => {
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: false,
+    });
+  });
   afterEach(() => {
+    serviceInstances.forEach((service) =>
+      service.clearKeylessCloudSyncCredentialCache(),
+    );
+    serviceInstances.clear();
     jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
+  test('does not report a transient unconfirmed time check as a clock error', async () => {
+    const showToast = jest.fn();
+    const service = createService({
+      backgroundApi: {
+        serviceApp: { showToast },
+      },
+    });
+    const now = Date.now();
+
+    systemTimeUtils.updateServerTime({
+      serverTime: now,
+      localTime: now,
+    });
+    systemTimeUtils.updateServerTime({
+      serverTime: now,
+      localTime: now + 20 * 60 * 1000,
+    });
+
+    expect(systemTimeUtils.systemTimeStatus).toBe(
+      ELocalSystemTimeStatus.INVALID,
+    );
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
+
+    jest.spyOn(service, 'getKeylessWallet').mockResolvedValue(null);
+
+    try {
+      await expect(
+        service.prepareCloudSyncKeyless({ silentEnable: true }),
+      ).resolves.toEqual({ success: false });
+      expect(showToast).toHaveBeenCalled();
+    } finally {
+      systemTimeUtils.updateServerTime({
+        serverTime: Date.now(),
+        localTime: Date.now(),
+      });
+    }
+  });
+
   test('toggle keyless sync surfaces local secret envelope recovery dialog', async () => {
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrime: {
           apiFetchPrimeUserInfo: jest.fn(),
@@ -97,7 +156,7 @@ describe('ServiceKeylessCloudSync', () => {
   });
 
   test('silent keyless sync enable does not surface local secret envelope recovery dialog', async () => {
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrime: {
           apiFetchPrimeUserInfo: jest.fn(),
@@ -127,7 +186,7 @@ describe('ServiceKeylessCloudSync', () => {
   });
 
   test('explicit keyless migration surfaces local secret envelope recovery without force-enabling', async () => {
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrime: {
           apiFetchPrimeUserInfo: jest.fn(),
@@ -164,7 +223,7 @@ describe('ServiceKeylessCloudSync', () => {
   });
 
   test('prepare keyless sync does not swallow local secret envelope repair errors', async () => {
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePassword: {
           promptPasswordVerify: jest.fn(async () => ({ password: 'pwd' })),
@@ -189,7 +248,7 @@ describe('ServiceKeylessCloudSync', () => {
   });
 
   test('keyless credential repair detects local secret envelope errors by className', async () => {
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {},
     });
     const error = {
@@ -214,7 +273,7 @@ describe('ServiceKeylessCloudSync', () => {
   });
 
   test('repairs a missing keyless credential with the non-transaction KDF backend', async () => {
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {},
     });
     const credential = {
@@ -258,7 +317,7 @@ describe('ServiceKeylessCloudSync', () => {
 
   test('silent keyless sync enable replays scene sync items', async () => {
     const startServerSyncFlow = jest.fn(async () => undefined);
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrimeCloudSync: {
           startServerSyncFlow,
@@ -302,7 +361,7 @@ describe('ServiceKeylessCloudSync', () => {
       .spyOn(keylessCloudSyncUtils, 'buildKeylessSignatureHeader')
       .mockReturnValue('signature-header');
 
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrimeCloudSync: {
           getSyncCredentialSafe: jest.fn(async () => ({
@@ -333,6 +392,34 @@ describe('ServiceKeylessCloudSync', () => {
     expect(auth?.signatureHeader).toBe('signature-header');
   });
 
+  test('a hardware Cloud key has no Keyless signature to build', async () => {
+    const buildKeylessSignatureHeader = jest.spyOn(
+      keylessCloudSyncUtils,
+      'buildKeylessSignatureHeader',
+    );
+    const service = createService({
+      backgroundApi: {
+        servicePrimeCloudSync: {
+          getSyncCredentialSafe: jest.fn(async () => ({
+            keylessCredential: {
+              keylessWalletId: 'hardware-cloud-v1-test',
+              signingPrivateKey: '',
+              signingPublicKey: '',
+              encryptionKey: 'data-key',
+              pwdHash: 'hw-dek-test',
+            },
+          })),
+        },
+      },
+    });
+
+    // Signing with the empty key threw and stopped push registration.
+    await expect(
+      service.getKeylessSyncAuth({ postData: { foo: 'bar' } }),
+    ).resolves.toBeNull();
+    expect(buildKeylessSignatureHeader).not.toHaveBeenCalled();
+  });
+
   test('keyless signature header ensures fresh server time before signing', async () => {
     const refreshedTimestamp = 1_800_000_000_000;
     jest.spyOn(systemTimeUtils, 'getCorrectedCloudSyncNow').mockReturnValue({
@@ -349,7 +436,7 @@ describe('ServiceKeylessCloudSync', () => {
       .spyOn(keylessCloudSyncUtils, 'buildKeylessSignatureHeader')
       .mockReturnValue('signature-header');
 
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrimeCloudSync: {
           getSyncCredentialSafe: jest.fn(async () => ({
@@ -397,7 +484,7 @@ describe('ServiceKeylessCloudSync', () => {
       .spyOn(keylessCloudSyncUtils, 'buildKeylessSignatureHeader')
       .mockReturnValue('signature-header');
 
-    const service = new ServiceKeylessCloudSync({
+    const service = createService({
       backgroundApi: {
         servicePrimeCloudSync: {
           getSyncCredentialSafe: jest.fn(async () => ({

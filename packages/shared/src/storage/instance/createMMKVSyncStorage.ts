@@ -4,10 +4,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import resetUtils from '../../utils/resetUtils';
 
-import type {
-  INativeSWRCachePatchIntent,
-  INativeSyncStorageLocalMutation,
-} from '../nativeStorageTypes';
+import type { INativeSyncStorageLocalMutation } from '../nativeStorageTypes';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
 // ---- MMKV instance interface (subset used by wrapper) ---- cspell:ignore IMMKV
@@ -20,8 +17,12 @@ export type IMMKVInstance = {
   remove(key: string): unknown;
   clearAll(): unknown;
   getAllKeys(): string[];
-  applySWRCachePatch?: (patch: INativeSWRCachePatchIntent) => unknown;
 };
+
+const normalizedAcknowledgements = new WeakMap<
+  PromiseLike<unknown>,
+  Promise<void>
+>();
 
 function normalizeMutationAcknowledgement(
   value: unknown,
@@ -31,7 +32,15 @@ function normalizeMutationAcknowledgement(
     (typeof value === 'object' || typeof value === 'function') &&
     typeof (value as { then?: unknown }).then === 'function'
   ) {
-    return Promise.resolve(value as PromiseLike<unknown>).then(() => undefined);
+    const thenable = value as PromiseLike<unknown>;
+    let acknowledgement = normalizedAcknowledgements.get(thenable);
+    if (!acknowledgement) {
+      // The native mirror shares confirmation for superseded writes. Keep
+      // that sharing here instead of retaining a new reaction per overwrite.
+      acknowledgement = Promise.resolve(thenable).then(() => undefined);
+      normalizedAcknowledgements.set(thenable, acknowledgement);
+    }
+    return acknowledgement;
   }
   return undefined;
 }
@@ -110,16 +119,7 @@ export function createMMKVSyncStorage<TKey extends string = string>(
       return mmkv.getAllKeys();
     },
   };
-  return {
-    ...storage,
-    ...(mmkv.applySWRCachePatch
-      ? { applySWRCachePatch: mmkv.applySWRCachePatch }
-      : {}),
-  } as typeof storage & {
-    applySWRCachePatch?: (
-      patch: INativeSWRCachePatchIntent,
-    ) => void | Promise<void>;
-  };
+  return storage;
 }
 
 export type ISyncStorage<TKey extends string = EAppSyncStorageKeys> =

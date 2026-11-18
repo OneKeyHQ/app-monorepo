@@ -1,3 +1,4 @@
+import type { ContextType } from 'react';
 import {
   useCallback,
   useEffect,
@@ -8,29 +9,52 @@ import {
 } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigationState,
+} from '@react-navigation/native';
+import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Button,
+  HeaderScrollGestureContext,
   Page,
+  SizableText,
+  Stack,
+  rootNavigationRef,
   useIsModalPage,
+  useIsOverlayPage,
   useMedia,
   usePreventRemove,
+  useSafeAreaInsets,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useTokenDetailActions,
+  useTokenDetailPreviewAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -38,24 +62,41 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
+import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
+import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
+import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
+import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
   BtcMetadataProvider,
   StockDetailProvider,
   useAutoRefreshTokenDetail,
-  useResolvedMarketAssetRouteIdentity,
   useStockDetail,
 } from './hooks';
+import { MarketSimpleChartRangeChangeProvider } from './hooks/MarketSimpleChartRangeChangeContext';
+import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
+import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
+import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
+import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
+import { usePendingMarketAsset } from './hooks/usePendingMarketAsset';
+import { useSyncMarketWidgetQuote } from './hooks/useSyncMarketWidgetQuote';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
-import { buildMarketStockDetailPreview } from './utils/marketDetailPreview';
+import {
+  buildMarketStockDetailPreview,
+  hasValidMarketDetailPreview,
+} from './utils/marketDetailPreview';
 
+import type { IMarketWidgetQuoteTarget } from './hooks/marketWidgetQuote';
 import type { NavigationAction } from '@react-navigation/routers';
+
+const MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH = 32;
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,
@@ -68,10 +109,18 @@ function normalizeRouteBooleanParam(
 }
 
 function LegacyTokenPreviewInitializer({
+  active,
   preview,
   stockTarget,
+  retainedTokenTarget,
 }: {
+  active: boolean;
   preview?: IMarketTokenDetailPreview;
+  retainedTokenTarget?: {
+    tokenAddress: string;
+    networkId: string;
+    isNative: boolean;
+  };
   stockTarget?: {
     tokenAddress: string;
     networkId: string;
@@ -81,17 +130,29 @@ function LegacyTokenPreviewInitializer({
   const tokenDetailActions = useTokenDetailActions();
 
   useLayoutEffect(() => {
+    if (!active) {
+      return;
+    }
     if (stockTarget) {
       // Stock navigation may intentionally retain an existing detail/request
       // for the same variant. The action clears only when the identity changes.
       tokenDetailActions.current.prepareStockTokenDetail(stockTarget);
-    } else if (preview) {
-      tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    } else if (retainedTokenTarget || preview) {
+      tokenDetailActions.current.prepareTokenDetailPreview(
+        preview,
+        retainedTokenTarget,
+      );
     } else if (!platformEnv.isNative) {
       tokenDetailActions.current.clearTokenDetail();
     }
-  }, [preview, stockTarget, tokenDetailActions]);
+  }, [active, preview, stockTarget, retainedTokenTarget, tokenDetailActions]);
 
+  return null;
+}
+
+function MarketCurrentTokenLiveDataSync(target: IMarketWidgetQuoteTarget) {
+  useSyncMarketCurrentTokenLiveData();
+  useSyncMarketWidgetQuote(target);
   return null;
 }
 
@@ -101,6 +162,7 @@ function MarketDetail({
   onChartSwitch,
   onChartFullscreenChange,
   route,
+  navigation,
 }: IPageScreenProps<
   ITabMarketParamList,
   | ETabMarketRoutes.MarketDetailV2
@@ -112,125 +174,23 @@ function MarketDetail({
   onChartSwitch: () => void;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
 }) {
+  const intl = useIntl();
   const params = route.params as
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const { isStockRoute, selectedTokenVariant, isTokenVariantPending } =
-    useStockDetail();
-  const isRouteFocused = useIsFocused();
-  const routeNetwork = ('network' in params ? params.network : '') ?? '';
-  const routeNetworkId =
-    networkUtils.getNetworkIdFromShortCode({ shortCode: routeNetwork }) ||
-    routeNetwork;
-  const routeTokenAddress =
-    ('tokenAddress' in params ? params.tokenAddress : '') ?? '';
-  const routeIsNative = normalizeRouteBooleanParam(
-    'isNative' in params ? params.isNative : false,
-    false,
-  );
-  const shouldResolveMarketAsset = normalizeRouteBooleanParam(
-    'resolveMarketAsset' in params ? params.resolveMarketAsset : false,
-    false,
-  );
-  const marketTokenSymbol =
-    'marketTokenSymbol' in params ? params.marketTokenSymbol : undefined;
-  const { identity: resolvedMarketAssetIdentity, shouldSkipMarketDataFetch } =
-    useResolvedMarketAssetRouteIdentity({
-      enabled: shouldResolveMarketAsset,
-      active: isRouteFocused,
-      tokenAddress: routeTokenAddress,
-      networkId: routeNetworkId,
-      symbol: marketTokenSymbol,
-      isNative: routeIsNative,
-    });
-  const networkId =
-    resolvedMarketAssetIdentity?.networkId ??
-    selectedTokenVariant?.networkId ??
-    routeNetworkId;
-  const tokenAddress =
-    resolvedMarketAssetIdentity?.tokenAddress ??
-    selectedTokenVariant?.contractAddress ??
-    routeTokenAddress;
-  const isNativeBoolean =
-    resolvedMarketAssetIdentity?.isNative ?? routeIsNative;
-  const disableTrade = params.disableTrade;
-  const marketTokenId =
-    resolvedMarketAssetIdentity?.marketTokenId ??
-    ('marketTokenId' in params ? params.marketTokenId : undefined);
-  const marketVariantId =
-    resolvedMarketAssetIdentity?.marketVariantId ??
-    ('marketVariantId' in params ? params.marketVariantId : undefined);
-  const routeMarketTokenCategory =
-    'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
-  const marketTokenCategory = resolvedMarketAssetIdentity
-    ? MARKET_TOP_COINS_CATEGORY_ID
-    : (routeMarketTokenCategory ??
-      (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
-  const skipMarketDataFetch = normalizeRouteBooleanParam(
-    'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
-    false,
-  );
-  const showFavoriteButton = normalizeRouteBooleanParam(
-    params.showFavoriteButton,
-    true,
-  );
-  const routeTokenDetailPreview =
-    'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
-  const tokenDetailPreview = useMemo(
-    () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
-    [routeTokenDetailPreview],
-  );
-  const resolvedTokenDetailPreview = useMemo(
-    () =>
-      resolvedMarketAssetIdentity && tokenDetailPreview
-        ? {
-            ...tokenDetailPreview,
-            address: resolvedMarketAssetIdentity.tokenAddress,
-            networkId: resolvedMarketAssetIdentity.networkId,
-            isNative: resolvedMarketAssetIdentity.isNative,
-          }
-        : tokenDetailPreview,
-    [resolvedMarketAssetIdentity, tokenDetailPreview],
-  );
-  const hasValidTokenDetailPreview = Boolean(
-    resolvedTokenDetailPreview &&
-    resolvedTokenDetailPreview.address === tokenAddress &&
-    resolvedTokenDetailPreview.networkId === networkId,
-  );
-  const stockTokenDetailTarget = useMemo(
-    () =>
-      isStockRoute
-        ? {
-            tokenAddress,
-            networkId,
-            isNative: isNativeBoolean,
-          }
-        : undefined,
-    [isNativeBoolean, isStockRoute, networkId, tokenAddress],
-  );
-
-  // Track market entry analytics
-  useMarketEnterAnalytics();
-
-  // Start auto-refresh for token details every 5 seconds
-  // Use actualNetworkId (converted from shortcode if needed) for API calls
   const {
-    marketAssetDetail,
-    isMarketAssetDetailLoading,
-    isInitialTokenDetailPending,
-  } = useAutoRefreshTokenDetail({
-    tokenAddress,
-    networkId,
-    isNative: isNativeBoolean,
-    skipMarketDataFetch: skipMarketDataFetch || shouldSkipMarketDataFetch,
-    marketTokenId,
-    marketVariantId,
-    marketTokenCategory,
-  });
-
+    isStockRoute,
+    selectedTokenVariant,
+    isTokenVariantPending,
+    stockPreview,
+  } = useStockDetail();
+  const [currentTokenDetailPreview] = useTokenDetailPreviewAtom();
+  const isRouteFocused = useIsFocused();
   const media = useMedia();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { top: safeAreaTop } = useSafeAreaInsets();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
   const rootRoutersLength = getRootRoutersLength();
   const ownsEmbeddedSwapRef = useRef(isRouteFocused);
@@ -245,13 +205,192 @@ function MarketDetail({
     !isRouteFocused &&
     rootRoutersLength > focusedRootRoutersLengthRef.current &&
     ownsEmbeddedSwapRef.current;
-  // Desktop detail screens stay mounted in the navigation stack. Only the
+  const usesRetainedMarketDetailRoutes = Boolean(
+    platformEnv.isDesktop || platformEnv.isWeb,
+  );
+  const shouldOwnSharedMarketDetailState =
+    !usesRetainedMarketDetailRoutes ||
+    isRouteFocused ||
+    shouldKeepEmbeddedSwapMounted;
+  const routeNetwork = ('network' in params ? params.network : '') ?? '';
+  const routeNetworkId =
+    networkUtils.getNetworkIdFromShortCode({ shortCode: routeNetwork }) ||
+    routeNetwork;
+  const routeTokenAddress =
+    ('tokenAddress' in params ? params.tokenAddress : '') ?? '';
+  const routeIsNative = normalizeRouteBooleanParam(
+    'isNative' in params ? params.isNative : false,
+    false,
+  );
+  const swapTokenSymbol =
+    'swapTokenSymbol' in params ? params.swapTokenSymbol : undefined;
+  const lookupScope = useMemo(
+    () => ({
+      networkId: routeNetworkId,
+      tokenAddress: routeTokenAddress,
+      isNative: routeIsNative,
+      symbol: swapTokenSymbol,
+      isRouteFocused,
+    }),
+    [
+      routeNetworkId,
+      routeTokenAddress,
+      routeIsNative,
+      swapTokenSymbol,
+      isRouteFocused,
+    ],
+  );
+  const currentLookup = useRef(lookupScope);
+  currentLookup.current = lookupScope;
+  const [lookupError, setLookupError] = useState<typeof lookupScope>();
+  const [lookupAttempt, setLookupAttempt] = useState(0);
+  useEffect(() => {
+    if (lookupScope.symbol === undefined || !lookupScope.isRouteFocused) return;
+    const controller = new AbortController();
+    void resolveSwapMarketAsset(
+      { ...lookupScope, symbol: lookupScope.symbol },
+      controller.signal,
+    ).then(
+      (identity) => {
+        if (
+          !controller.signal.aborted &&
+          currentLookup.current === lookupScope
+        ) {
+          navigation.setParams({ ...identity, swapTokenSymbol: undefined });
+        }
+      },
+      () => {
+        if (!controller.signal.aborted && currentLookup.current === lookupScope)
+          setLookupError(lookupScope);
+      },
+    );
+    return () => controller.abort();
+  }, [lookupScope, lookupAttempt, navigation]);
+  const isResolvingSwapAsset = swapTokenSymbol !== undefined;
+  const networkId = selectedTokenVariant?.networkId ?? routeNetworkId;
+  const tokenAddress =
+    selectedTokenVariant?.contractAddress ?? routeTokenAddress;
+  const isNativeBoolean = routeIsNative;
+  const disableTrade = params.disableTrade;
+  const marketTokenId =
+    'marketTokenId' in params ? params.marketTokenId : undefined;
+  const marketVariantId =
+    'marketVariantId' in params ? params.marketVariantId : undefined;
+  const marketTokenCategory =
+    'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  const pendingMarketAsset =
+    'pendingMarketAsset' in params ? params.pendingMarketAsset : undefined;
+  const lastAssetPreview = useRef({
+    marketTokenId,
+    preview: pendingMarketAsset,
+  });
+  if (
+    pendingMarketAsset ||
+    lastAssetPreview.current.marketTokenId !== marketTokenId
+  ) {
+    lastAssetPreview.current = { marketTokenId, preview: pendingMarketAsset };
+  }
+  const setMarketAssetParams = useCallback(
+    (nextParams: Parameters<typeof navigation.setParams>[0]) => {
+      navigation.setParams(nextParams);
+    },
+    [navigation],
+  );
+  const { isResolving: isMarketAssetResolving, retry: retryMarketAsset } =
+    usePendingMarketAsset({
+      params: {
+        pendingMarketAsset,
+        marketTokenId,
+        network: routeNetworkId,
+        tokenAddress: routeTokenAddress,
+        isNative: routeIsNative,
+      },
+      setParams: setMarketAssetParams,
+    });
+  const skipMarketDataFetch = normalizeRouteBooleanParam(
+    'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
+    false,
+  );
+  const showFavoriteButton = normalizeRouteBooleanParam(
+    params.showFavoriteButton,
+    true,
+  );
+  const initialSection =
+    'initialSection' in params ? params.initialSection : undefined;
+  // One-shot: once shown, going back or switching stocks keeps the user's
+  // own scroll position instead of jumping again.
+  const handleInitialSectionShown = useCallback(() => {
+    navigation.setParams({ initialSection: undefined });
+  }, [navigation]);
+  // Back from Swap's "view full data" returns to Swap (not in the tablet
+  // split view, which keeps its own back behavior).
+  const isTabletDetailView = useSplitSubView();
+  useSwapStockBackTrip({
+    navigation,
+    params,
+    routeKey: route.key,
+    isFromSwapStock:
+      !isTabletDetailView &&
+      'from' in params &&
+      params.from === EEnterWay.SwapStock,
+    isChartFullscreen,
+  });
+  const routeTokenDetailPreview =
+    'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
+  const tokenDetailPreview = useMemo(
+    () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
+    [routeTokenDetailPreview],
+  );
+  // Stock navigation carries a separate stock preview instead of the token
+  // preview atom. It already provides enough content for the native shell to
+  // render while the stock variant and token detail requests settle.
+  const hasValidInitialContentPreview = hasValidMarketDetailPreview({
+    isStockRoute,
+    stockPreview,
+    previews: [tokenDetailPreview, currentTokenDetailPreview],
+    tokenAddress,
+    networkId,
+  });
+  const tokenDetailTarget = useMemo(
+    () =>
+      isMarketAssetResolving
+        ? { tokenAddress: '', networkId: '', isNative: false }
+        : { tokenAddress, networkId, isNative: isNativeBoolean },
+    [isMarketAssetResolving, isNativeBoolean, networkId, tokenAddress],
+  );
+
+  // Track market entry analytics
+  useMarketEnterAnalytics();
+
+  // Refresh metadata, initialize the quote, and recover it when chart updates stop.
+  // Use actualNetworkId (converted from shortcode if needed) for API calls
+  const {
+    marketAssetDetail,
+    isMarketAssetDetailLoading,
+    isInitialTokenDetailPending,
+  } = useAutoRefreshTokenDetail({
+    active: shouldOwnSharedMarketDetailState && !isMarketAssetResolving,
+    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
+    tokenAddress,
+    networkId,
+    isNative: isNativeBoolean,
+    skipMarketDataFetch: skipMarketDataFetch || isResolvingSwapAsset,
+    marketTokenId,
+    marketVariantId,
+    marketTokenCategory,
+  });
+  // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
   // owner mounted while a child modal is open so quote listeners remain
   // attached to the same Swap instance.
   const shouldDisableTrade =
     disableTrade ||
     (isDesktopLayout && !isRouteFocused && !shouldKeepEmbeddedSwapMounted);
+  const marketAssetLoadingPreview =
+    pendingMarketAsset ??
+    (!hasValidInitialContentPreview && isInitialTokenDetailPending
+      ? lastAssetPreview.current.preview
+      : undefined);
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -260,9 +399,48 @@ function MarketDetail({
   // content out below the bar; adding headerHeight there would push the
   // body down twice and leave a blank band at the top.
   const isModalPage = useIsModalPage();
+  const isOverlayPage = useIsOverlayPage();
   const headerHeight = useHeaderHeight();
+  const usesTranslucentHeader = platformEnv.isNativeIOS26Plus && !isModalPage;
+  const inPageHeaderEligible =
+    platformEnv.isNativeIOS26Plus &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone() &&
+    !isOverlayPage;
+  const inPageHeaderRef = useRef(false);
+  if (
+    inPageHeaderEligible &&
+    isRouteFocused &&
+    media.md &&
+    windowWidth <= windowHeight &&
+    safeAreaTop > 0
+  ) {
+    inPageHeaderRef.current = true;
+  }
+  const usesInPageHeader = inPageHeaderEligible && inPageHeaderRef.current;
+  // useHeaderHeight() starts from react-navigation's pre-iOS 26 estimate and
+  // reports the Liquid Glass bar ~15pt taller a beat later, which dropped the
+  // whole body mid-push. Reuse the height this device already settled on.
+  const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const inlineHeaderHeightRef = useRef(headerHeight);
+  const preserveInlineHeader =
+    platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSPad &&
+    (isChartFullscreen || !isRouteFocused);
+  if (!preserveInlineHeader) {
+    inlineHeaderHeightRef.current = headerHeight;
+  }
+  // Keep the portrait header until the detail regains focus. The fullscreen
+  // flag clears before UIKit has finished restoring the portrait geometry.
+  const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
+    useSettledHeaderHeight(inlineHeaderHeightRef.current, {
+      enabled: usesTranslucentHeader && !usesInPageHeader,
+      estimatedHeaderHeight,
+      cacheKey: headerHeightCacheKey,
+    });
   const bodyPaddingTop =
-    platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
+    usesTranslucentHeader && !usesInPageHeader ? settledHeaderHeight : 0;
 
   useEffect(() => {
     preloadMarketDetailV2BodyModules({
@@ -274,44 +452,97 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
+      {isMarketAssetResolving ? null : (
+        <MarketCurrentTokenLiveDataSync
+          active={shouldOwnSharedMarketDetailState}
+          assetId={
+            marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
+              ? marketTokenId
+              : undefined
+          }
+          networkId={networkId}
+          tokenAddress={tokenAddress}
+          isNative={isNativeBoolean}
+        />
+      )}
       <LegacyTokenPreviewInitializer
-        preview={resolvedTokenDetailPreview}
-        stockTarget={stockTokenDetailTarget}
+        active={shouldOwnSharedMarketDetailState}
+        preview={isMarketAssetResolving ? undefined : tokenDetailPreview}
+        stockTarget={isStockRoute ? tokenDetailTarget : undefined}
+        retainedTokenTarget={tokenDetailTarget}
       />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
         ) : (
-          <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
+          <MarketDetailHeader
+            showFavoriteButton={showFavoriteButton}
+            marketTokenCategory={marketTokenCategory}
+            pendingMarketAsset={marketAssetLoadingPreview}
+            routeTokenPreview={tokenDetailPreview}
+          />
         )}
 
         <Page.Body
           pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
+          // Hidden only while the session's first header measurement settles.
+          opacity={usesInPageHeader || isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
-          <MarketDetailResponsiveLayout
-            isLayoutPending={shouldSkipMarketDataFetch}
-            disablePerpsBanner={skipMarketDataFetch}
-            isInitialContentPending={
-              !hasValidTokenDetailPreview &&
-              (isTokenVariantPending || isInitialTokenDetailPending)
-            }
-            isDesktopLayout={isDesktopLayout}
-            isChartFullscreen={isChartFullscreen}
-            isTradingViewNative={isTradingViewNative}
-            onChartSwitch={onChartSwitch}
-            onChartFullscreenChange={onChartFullscreenChange}
-            isNative={isNativeBoolean}
-            networkId={networkId}
-            tokenAddress={tokenAddress}
-            isTokenDetailRequestPending={isInitialTokenDetailPending}
-            marketTokenId={marketTokenId}
-            marketAssetDetail={marketAssetDetail}
-            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-            marketTokenCategory={marketTokenCategory}
-            showFavoriteButton={showFavoriteButton}
-            disableTrade={shouldDisableTrade}
-          />
+          {isResolvingSwapAsset && lookupError === lookupScope ? (
+            <Stack
+              flex={1}
+              alignItems="center"
+              justifyContent="center"
+              gap="$3"
+            >
+              <SizableText>
+                {intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+              </SizableText>
+              <Button
+                testID="market-asset-lookup-retry"
+                onPress={() => {
+                  setLookupError(undefined);
+                  setLookupAttempt((attempt) => attempt + 1);
+                }}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            </Stack>
+          ) : (
+            <MarketDetailResponsiveLayout
+              active={
+                shouldOwnSharedMarketDetailState && !isMarketAssetResolving
+              }
+              isLayoutPending={isResolvingSwapAsset}
+              pendingMarketAsset={marketAssetLoadingPreview}
+              retryMarketAsset={retryMarketAsset}
+              disablePerpsBanner={skipMarketDataFetch}
+              isInitialContentPending={
+                !hasValidInitialContentPreview &&
+                (isTokenVariantPending || isInitialTokenDetailPending)
+              }
+              isDesktopLayout={isDesktopLayout}
+              isChartFullscreen={isChartFullscreen}
+              isTradingViewNative={isTradingViewNative}
+              onChartSwitch={onChartSwitch}
+              onChartFullscreenChange={onChartFullscreenChange}
+              isNative={isNativeBoolean}
+              networkId={networkId}
+              tokenAddress={tokenAddress}
+              isTokenDetailRequestPending={isInitialTokenDetailPending}
+              marketTokenId={marketTokenId}
+              marketAssetDetail={marketAssetDetail}
+              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+              marketTokenCategory={marketTokenCategory}
+              showFavoriteButton={showFavoriteButton}
+              disableTrade={shouldDisableTrade}
+              initialSection={initialSection}
+              onInitialSectionShown={handleInitialSectionShown}
+            />
+          )}
         </Page.Body>
       </Page>
     </BtcMetadataProvider>
@@ -327,6 +558,24 @@ function MarketDetailV2(
   >,
 ) {
   const { navigation } = props;
+  const routeName = props.route.name;
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    defaultLogger.market.navigation.homeTokenNavigation({
+      stage: 'detailMounted',
+      routeName,
+    });
+  }, [routeName]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!platformEnv.isNative) return;
+      defaultLogger.market.navigation.homeTokenNavigation({
+        stage: 'detailFocused',
+        routeName,
+      });
+    }, [routeName]),
+  );
+  const hasPreviousScreen = useNavigationState((state) => state.index > 0);
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
   const stockPreview = buildMarketStockDetailPreview({
@@ -338,6 +587,10 @@ function MarketDetailV2(
     name:
       'stockPreviewName' in props.route.params
         ? props.route.params.stockPreviewName
+        : undefined,
+    quote:
+      'stockPreviewQuote' in props.route.params
+        ? props.route.params.stockPreviewQuote
         : undefined,
     logoUrl:
       'stockPreviewLogoUrl' in props.route.params
@@ -357,13 +610,30 @@ function MarketDetailV2(
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
+  const { isTradingViewNative, toggleChartMode } = useMarketDetailChartMode();
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
+  // Mobile layouts can show the native chart while TradingView is preferred,
+  // e.g. for a stock's share price, so they leave fullscreen themselves when
+  // TradingView takes over instead of following the preference here.
   const supportsChartFullscreen = Boolean(
-    isDesktopChartLayout || (platformEnv.isNative && isTradingViewNative),
+    isDesktopChartLayout || platformEnv.isNative || platformEnv.isWeb,
   );
   const effectiveIsChartFullscreen =
     supportsChartFullscreen && isChartFullscreen;
+  const headerScrollGestureContext = useMemo<
+    ContextType<typeof HeaderScrollGestureContext>
+  >(
+    () => ({
+      gestures: [],
+      excludeStartEdgeWidth:
+        platformEnv.isNativeIOS &&
+        hasPreviousScreen &&
+        !effectiveIsChartFullscreen
+          ? MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH
+          : 0,
+    }),
+    [effectiveIsChartFullscreen, hasPreviousScreen],
+  );
   const handleChartFullscreenChange = useCallback(
     (isFullscreen: boolean) => {
       setIsChartFullscreen(isFullscreen);
@@ -375,8 +645,8 @@ function MarketDetailV2(
     if (!isDesktopChartLayout) {
       handleChartFullscreenChange(false);
     }
-    setIsTradingViewNative((currentValue) => !currentValue);
-  }, [handleChartFullscreenChange, isDesktopChartLayout]);
+    toggleChartMode();
+  }, [handleChartFullscreenChange, isDesktopChartLayout, toggleChartMode]);
   const handleFullscreenRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       handleChartFullscreenChange(false);
@@ -407,43 +677,51 @@ function MarketDetailV2(
       return;
     }
     navigation.setOptions({
+      orientation: platformEnv.isNativeIOSPad ? 'default' : 'portrait',
       gestureEnabled: true,
-      fullScreenGestureEnabled: false,
+      fullScreenGestureEnabled: true,
+      // Native stack checks the touch position after activation. Leave room
+      // for the initial movement beyond the 32-point edge reserved by children.
       gestureResponseDistance: {
-        start: 20,
+        end: MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH * 2,
       },
     });
   }, [navigation]);
 
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeIOS || !effectiveIsChartFullscreen) return;
+    // Keep the underlying detail intact while its native fullscreen page opens.
+    const ownerId = createHideTabBarOwnerId('market-chart-fullscreen');
+    requestHideTabBar(ownerId);
+    return () => releaseHideTabBar(ownerId);
+  }, [effectiveIsChartFullscreen]);
+
   useFocusEffect(
     useCallback(() => {
       return () => {
+        const routes = rootNavigationRef.current?.getState().routes;
+        if (
+          platformEnv.isNativeIOS &&
+          routes?.some(
+            (route) => route.name === ERootRoutes.TradingViewNativeFullscreen,
+          )
+        ) {
+          return;
+        }
         handleChartFullscreenChange(false);
       };
     }, [handleChartFullscreenChange]),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      const shouldHideTabBar =
-        effectiveIsChartFullscreen ||
-        platformEnv.isNative ||
-        (!platformEnv.isExtension && media.md);
-
-      if (!shouldHideTabBar) {
-        return;
-      }
-
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
-
-      return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
-      };
-    }, [effectiveIsChartFullscreen, media.md]),
+  useMarketDetailTabBarVisibility(
+    effectiveIsChartFullscreen ||
+      platformEnv.isNative ||
+      (!platformEnv.isExtension && media.md),
+    finishMarketDetailTabBarTransition,
   );
 
   return (
-    <>
+    <HeaderScrollGestureContext.Provider value={headerScrollGestureContext}>
       <TradingViewEmbedGlobalPreload />
       <AccountSelectorProviderMirror
         config={{
@@ -461,17 +739,19 @@ function MarketDetailV2(
             initialNetworkId={initialNetworkId}
             initialTokenAddress={initialTokenAddress}
           >
-            <MarketDetail
-              {...props}
-              isChartFullscreen={effectiveIsChartFullscreen}
-              isTradingViewNative={isTradingViewNative}
-              onChartSwitch={handleChartSwitch}
-              onChartFullscreenChange={handleChartFullscreenChange}
-            />
+            <MarketSimpleChartRangeChangeProvider>
+              <MarketDetail
+                {...props}
+                isChartFullscreen={effectiveIsChartFullscreen}
+                isTradingViewNative={isTradingViewNative}
+                onChartSwitch={handleChartSwitch}
+                onChartFullscreenChange={handleChartFullscreenChange}
+              />
+            </MarketSimpleChartRangeChangeProvider>
           </StockDetailProvider>
         </MarketWatchListProviderMirrorV2>
       </AccountSelectorProviderMirror>
-    </>
+    </HeaderScrollGestureContext.Provider>
   );
 }
 

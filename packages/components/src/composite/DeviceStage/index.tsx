@@ -9,7 +9,13 @@ import {
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, PixelRatio, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  PixelRatio,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -19,19 +25,17 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IThirdPartyWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
-import {
-  restoreAndroidSoftInputMode,
-  suspendAndroidSoftInputPan,
-} from '../../hooks/useKeyboardController';
 import {
   Button,
   Haptics,
@@ -56,6 +60,7 @@ import {
   useMorphOverlay,
 } from '../MorphOverlay';
 
+import { getCapsuleAccessibilityProps } from './accessibility';
 import { PassphraseForm, PinPad } from './AppInputs';
 import {
   CARD_ARRANGEMENTS,
@@ -92,8 +97,10 @@ import {
   resolveInstallText,
   resolvePairingCodeText,
   resolvePassphrasePanelText,
+  resolveQrFallbackText,
   resolveStageText,
   resolveStepSub,
+  resolveWalletMatchOpenAppText,
 } from './stepCopy';
 import { StepText, TEXT_OUT_MS } from './StepText';
 import {
@@ -104,7 +111,11 @@ import {
 import { WalletTypeOptions } from './WalletTypeOptions';
 
 import type { ICardArrangement } from './arrangements';
-import type { IDeviceStageProps, IDeviceStageStep } from './type';
+import type {
+  IDeviceStageProps,
+  IDeviceStageStep,
+  IDeviceStageVendor,
+} from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
 import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
@@ -140,10 +151,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * The stage is modal, and undimmed for asks and waits: while it is there
  * the app behind takes no touch — the person stays with the device — and
  * nothing dims (the design leaves the overlay layer off here). The
- * terminal failure cards are the exception (OK-62072): a bright app
- * under an unnoticed error card read as "still tappable", so those
- * three arrangements wear the scrim. Dismissal is the
- * container's (close button, drag, tap outside) behind one grant —
+ * terminal failure cards add the scrim (OK-62072): a bright app under an
+ * unnoticed error card read as "still tappable", so those three
+ * arrangements dim it. The error notice is the one surface that leaves
+ * the app live (OK-64696): the device is off duty by then, and the
+ * page's own next step (retry, support) must answer the first tap.
+ * Dismissal is the container's (close button, drag) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
  * Still out of scope until ratified: presence in/out for real
@@ -155,6 +168,15 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * device's name. The row is the capsule's content, inside the
  * container's own capsule padding (PILL.pad); the row plus that padding
  * is the capsule's measured size. */
+const STAGE_VENDOR_AVATAR: Record<
+  IDeviceStageVendor,
+  { vendor: EHardwareVendor; fallback: IThirdPartyWalletAvatarImageNames }
+> = {
+  ledger: { vendor: EHardwareVendor.ledger, fallback: 'LedgerNanoX' },
+  trezor: { vendor: EHardwareVendor.trezor, fallback: 'TrezorSafe7' },
+  keystone: { vendor: EHardwareVendor.keystone, fallback: 'keystone' },
+};
+
 const CAPSULE_ROW = {
   /** The content's own inset inside the capsule padding. */
   paddingX: 8,
@@ -200,10 +222,8 @@ const WORDS_ESTIMATED_HEIGHT = 72;
 const PANEL_WARM_MS = 475;
 
 /** The actionless error is a notice — it informs, holds long enough to
- * read, then leaves on its own. The exit is a request through the same
- * close grant the ✕ fires, so the driver keeps the last word (and
- * answers with `off`, as ever). Measured from the words landing on
- * show, not from the step change. */
+ * read, then leaves on its own through `onErrorNoticeExpire`. Measured
+ * from the words landing on show, not from the step change. */
 const ERROR_NOTICE_EXIT_MS = 3000;
 
 /** The replica's exit and return around the notice's capsule seat — its
@@ -280,6 +300,27 @@ const PIXEL_GRID = PixelRatio.get();
  * foot and all. */
 const FOG_COLORS = [stageBgAlpha(0), stageBgAlpha(0.5), STAGE_BG];
 const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
+/**
+ * Whether the fog stands beside the port rather than inside it. Inside,
+ * the port's clip cuts the fog along with the device, and on Android
+ * that leaves the port's floor row bare of fog: the keypad under it
+ * shows through as a full-strength line one pixel tall (OK-63384, and
+ * OK-64010 once the bleed below alone proved not to cure it). Seated
+ * after the port as its sibling, the fog escapes the clip: its solid
+ * foot covers the floor row from outside, and the height it keeps past
+ * the floor lands on the face, which wears the same STAGE_BG. Android
+ * only — iOS and the web keep the fog inside the port, as verified.
+ */
+const FOG_OUTSIDE_PORT = platformEnv.isNativeAndroid;
+/**
+ * How far the fog runs on past the port's floor. Beside the port, the
+ * run-on keeps the fog's own anti-aliased edge (expo's Android
+ * LinearGradientView paints a path of exactly its bounds) off the
+ * floor row, down on the face where STAGE_BG meets STAGE_BG; the
+ * fade's stops are rescaled so they stay put over the port. Elsewhere
+ * the fog keeps the port's own height and the stops as authored.
+ */
+const FOG_BLEED = FOG_OUTSIDE_PORT ? 2 : 0;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
@@ -318,8 +359,19 @@ const REPLICA_TOP = CARD.padTop + STAGE_ROW.top;
  */
 function replicaMetricsFor(replicaWidth: number) {
   const scale = replicaWidth / STAGE_DESIGN_WIDTH;
+  const fullPort = Math.round(PORT_HEIGHT * scale);
+  const fogHeight = fullPort + FOG_BLEED;
+  const fogStop = fullPort / fogHeight;
   return {
-    fullPort: Math.round(PORT_HEIGHT * scale),
+    fullPort,
+    /** The fog's own box: the port plus its bleed under the floor, the
+     * stops landing where they would on the port alone. */
+    fogHeight,
+    fogLocations: [
+      FOG_LOCATIONS[0] * fogStop,
+      FOG_LOCATIONS[1] * fogStop,
+      FOG_LOCATIONS[2] * fogStop,
+    ] as const,
     /** The words' margin over the spacer, per arrangement: the full
      * stage tucks them into the foot, the miniature clears them. */
     wordsMarginByKind: {
@@ -357,7 +409,7 @@ const styles = StyleSheet.create({
     transformOrigin: 'top',
   },
   // Full-port geometry (sized per instance), so the fade stays put while
-  // the window above animates.
+  // the window animates — inside it, or on Android beside it.
   fog: {
     position: 'absolute',
     left: 0,
@@ -487,10 +539,13 @@ export function DeviceStage({
   step,
   deviceType,
   replicaWidth = REPLICA_WIDTH,
+  deviceColor,
   deviceName,
   connectionType,
   waitStalled,
   onClose,
+  onErrorNoticeExpire,
+  errorNoticeKey,
   confirmDetails,
   confirmMessage,
   confirmDescription,
@@ -498,12 +553,17 @@ export function DeviceStage({
   confirmCount,
   qrValue,
   qrValueUr,
+  qrNoticeI18n,
+  qrSessionId,
+  qrRenderKey,
   qrScannerView,
   onQrNext,
+  onQrRenderReady,
   onQrBack,
   errorReason,
   errorMessage,
   errorI18n,
+  doneI18n,
   authChecklist,
   authFailureReason,
   onAuthSupport,
@@ -518,6 +578,7 @@ export function DeviceStage({
   passphraseIntroKeepShortcut,
   passphraseMode,
   passphraseKeepAccessible,
+  passphraseAsciiCreationFeedback,
   passphraseAllowUtf8,
   onPassphraseSubmit,
   onPassphraseAttachPin,
@@ -527,32 +588,41 @@ export function DeviceStage({
   vendorModel,
   vendorModelName,
   appName,
+  transferProgress,
   installProgress,
   installQueue,
   installActiveIndex,
   btcHighIndexPath,
   btcHighIndexAccountIndex,
+  qrFallbackReason,
+  openAppReason,
   onPairingSubmit,
   onDeviceNotFoundRetry,
   onDeviceNotFoundTroubleshoot,
   onDeviceNotFoundSupport,
   onBtcHighIndexConfirm,
+  onQrFallbackConfirm,
+  onQrFallbackRetry,
   onInstallConfirm,
 }: IDeviceStageProps) {
   const intl = useIntl();
   const {
     fullPort,
+    fogHeight,
+    fogLocations,
     wordsMarginByKind,
     compactScale,
     thumbScale,
     estimatedHeight,
-  } = replicaMetricsFor(replicaWidth);
+  } = useMemo(() => replicaMetricsFor(replicaWidth), [replicaWidth]);
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
   const localizedErrorMessage = resolveErrorMessage(
     intl,
     errorMessage,
     errorI18n,
   );
+  const localizedDoneTitle = resolveErrorMessage(intl, undefined, doneI18n);
+  const localizedQrNotice = resolveErrorMessage(intl, undefined, qrNoticeI18n);
   // The failure's own words, where no reason claims it — the message the
   // live flow's toast used to speak. A reason's considered wording wins.
   const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
@@ -612,25 +682,6 @@ export function DeviceStage({
     }
     fireStepHaptic(step);
   }, [step]);
-  // The system-keyboard steps own their lift: the shell already rides the
-  // keyboard (MorphOverlay), so the Android window must not pan on top of
-  // it. The manifest's adjustPan did exactly that for the passphrase field
-  // — it sits low on the screen, so the OS shoved the whole window up by
-  // the overlap while the shell rose by the keyboard's height, and the card
-  // ended a keyboard's worth above the keys with its title in the status
-  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
-  // back the moment it leaves. No-op off Android.
-  const systemKeyboardStep =
-    step === 'passphraseOnApp' || step === 'pairingCode';
-  useEffect(() => {
-    if (!systemKeyboardStep) {
-      return undefined;
-    }
-    suspendAndroidSoftInputPan();
-    return () => {
-      restoreAndroidSoftInputMode();
-    };
-  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
@@ -645,6 +696,7 @@ export function DeviceStage({
     swapFade,
     progress,
     width: morphWidth,
+    reveal,
     pillSize,
     reducedMotion,
   } = morph;
@@ -958,21 +1010,23 @@ export function DeviceStage({
   });
 
   // The notice's exit: after a readable hold — counted from the words
-  // landing on show — the stage requests close. Ref-called so a driver
-  // re-creating its handler never restarts the hold; gated on the grant
-  // existing at all — a driver that means the error to auto-leave grants
-  // close with it (the notice is terminal, nothing to protect).
+  // landing on show, and again for each new outcome (errorNoticeKey) —
+  // the stage asks the driver to retire the outcome the hold was armed
+  // for, never one that replaced it as the timer ran out. Ref-called so
+  // a driver re-creating its handler never restarts the hold.
   const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const closeGranted = Boolean(onClose);
+  const onErrorNoticeExpireRef = useRef(onErrorNoticeExpire);
+  onErrorNoticeExpireRef.current = onErrorNoticeExpire;
   useEffect(() => {
-    if (!errorNoticeShown || !closeGranted) {
+    if (!errorNoticeShown) {
       return undefined;
     }
-    const id = setTimeout(() => onCloseRef.current?.(), ERROR_NOTICE_EXIT_MS);
+    const id = setTimeout(
+      () => onErrorNoticeExpireRef.current?.(errorNoticeKey),
+      ERROR_NOTICE_EXIT_MS,
+    );
     return () => clearTimeout(id);
-  }, [closeGranted, errorNoticeShown]);
+  }, [errorNoticeShown, errorNoticeKey]);
 
   // The capsule seat is the standing replica's — except under the
   // notice, whose seat is the failure glyph instead. The gate fades the
@@ -1073,6 +1127,8 @@ export function DeviceStage({
   // fade gated by the card's arrival window, so a reveal racing the
   // teleport can never show the device at the wrong seat.
   const pillHeight = pillSize.height;
+  // Both windows also wear the island morph's reveal (see MorphOverlay),
+  // under the warm floor: the layer stays rasterized through the grow.
   const replicaLayerStyle = useAnimatedStyle(() => {
     // Layout-free centering: the box's live width in a transform,
     // snapped to the physical pixel grid — Yoga rounds layout but a
@@ -1095,7 +1151,7 @@ export function DeviceStage({
               [0, PILL_OUT_END],
               [1, 0],
               Extrapolation.CLAMP,
-            ),
+            ) * reveal.value,
             REPLICA_HOLD_ALPHA,
           ) * capsuleSeatShown.value,
         transform: [{ translateX: centerX }, { translateY: -REPLICA_TOP }],
@@ -1104,6 +1160,7 @@ export function DeviceStage({
     const staged =
       replicaShown.value *
       swapFade.value *
+      reveal.value *
       interpolate(
         progress.value,
         [CARD_IN_START, 1],
@@ -1125,6 +1182,7 @@ export function DeviceStage({
     progress,
     replicaShown,
     replicaWidth,
+    reveal,
     swapFade,
   ]);
   // At the thumbnail seat the window opens to the capsule's own height —
@@ -1135,20 +1193,35 @@ export function DeviceStage({
     }),
     [pillHeight, portHeight, progress],
   );
+  // The window itself rides to the thumbnail box at the row's start. The
+  // port stays replica-wide and clips, so shifting the device inside it
+  // instead pushed the thumbnail past the port's edge once the capsule
+  // outgrew the port (a two-line title widened it to the 288 cap and the
+  // seat vanished, OK-63523). Its own style: reading morphWidth beside the
+  // height would re-lay out the port on every frame of a width spring.
+  const portSeatStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        {
+          translateX:
+            progress.value < SEAT_SWAP_AT
+              ? PILL.pad +
+                CAPSULE_ROW.paddingX +
+                CAPSULE_ROW.thumbBox / 2 -
+                morphWidth.value / 2
+              : 0,
+        },
+      ],
+    }),
+    [morphWidth, progress],
+  );
   const deviceSeatStyle = useAnimatedStyle(() => {
     if (progress.value < SEAT_SWAP_AT) {
-      // Centered in the thumbnail box at the row's start, in port
-      // coordinates (the layer shift above pins the port to the face
-      // top): translate in parent units, then shrink about top-center.
+      // Centered in the thumbnail box, in port coordinates (the port sits
+      // at the seat and the layer shift above pins it to the face top):
+      // shrink about top-center.
       return {
         transform: [
-          {
-            translateX:
-              PILL.pad +
-              CAPSULE_ROW.paddingX +
-              CAPSULE_ROW.thumbBox / 2 -
-              morphWidth.value / 2,
-          },
           {
             translateY: pillHeight / 2 - (deviceHeight * thumbScale) / 2,
           },
@@ -1157,13 +1230,9 @@ export function DeviceStage({
       };
     }
     return {
-      transform: [
-        { translateX: 0 },
-        { translateY: 0 },
-        { scale: deviceScale.value },
-      ],
+      transform: [{ translateY: 0 }, { scale: deviceScale.value }],
     };
-  }, [deviceHeight, deviceScale, morphWidth, pillHeight, progress, thumbScale]);
+  }, [deviceHeight, deviceScale, pillHeight, progress, thumbScale]);
   // The fog belongs to the stage seats only: the capsule wears the whole
   // device, foot and all.
   const fogMotionStyle = useAnimatedStyle(
@@ -1186,8 +1255,13 @@ export function DeviceStage({
     [replicaLayerStyle, replicaWidth],
   );
   const portStyle = useMemo(
-    () => [styles.portWindow, { width: replicaWidth }, portWindowStyle],
-    [portWindowStyle, replicaWidth],
+    () => [
+      styles.portWindow,
+      { width: replicaWidth },
+      portWindowStyle,
+      portSeatStyle,
+    ],
+    [portSeatStyle, portWindowStyle, replicaWidth],
   );
   const deviceStyle = useMemo(
     () => [styles.miniature, deviceSeatStyle],
@@ -1196,10 +1270,10 @@ export function DeviceStage({
   const fogStyle = useMemo(
     () => [
       styles.fog,
-      { width: replicaWidth, height: fullPort },
+      { width: replicaWidth, height: fogHeight },
       fogMotionStyle,
     ],
-    [fogMotionStyle, fullPort, replicaWidth],
+    [fogMotionStyle, fogHeight, replicaWidth],
   );
   const wordsStyle = useMemo(
     () => [styles.wordsBlock, wordsFlowStyle],
@@ -1296,6 +1370,10 @@ export function DeviceStage({
       resolveBtcHighIndexSub(intl, btcHighIndexPath, btcHighIndexAccountIndex),
     [btcHighIndexAccountIndex, btcHighIndexPath, intl],
   );
+  const qrFallbackText = useMemo(
+    () => resolveQrFallbackText(intl, qrFallbackReason),
+    [intl, qrFallbackReason],
+  );
   const installConfirmText = useMemo(
     () => resolveInstallText(intl, 'installConfirm', appName),
     [appName, intl],
@@ -1313,11 +1391,10 @@ export function DeviceStage({
       return undefined;
     }
     const key = getThirdPartyDeviceAvatarImage({
-      vendor:
-        vendor === 'ledger' ? EHardwareVendor.ledger : EHardwareVendor.trezor,
+      vendor: STAGE_VENDOR_AVATAR[vendor].vendor,
       vendorModel,
       vendorModelName,
-      fallback: vendor === 'ledger' ? 'LedgerNanoX' : 'TrezorSafe7',
+      fallback: STAGE_VENDOR_AVATAR[vendor].fallback,
     });
     // The avatar table's values are bare require() results (untyped).
     return ThirdPartyWalletAvatarImages[key] as ImageSourcePropType;
@@ -1348,23 +1425,30 @@ export function DeviceStage({
     resolveCapsuleText(intl, 'connecting', deviceName, vendor),
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
-  // vendor's product shot for the device beats, the ✓ for `done`, the ✗
-  // for the notice, the Bluetooth badge for the wireless waits.
+  // vendor's product shot for the device beats, the ✓ for either track's
+  // `done`, the ✗ for the notice, the Bluetooth badge for the wireless waits.
   const capsuleGlyphRef = useRef<'device' | 'done' | 'error' | 'bluetooth'>(
     'device',
   );
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    const nextCapsuleText = resolveCapsuleText(
-      intl,
-      step,
-      deviceName,
-      vendor,
-      errorReason,
-      localizedErrorMessage,
-      waitStalled ? (connectionType ?? 'usb') : undefined,
-    );
+    const walletMatchText =
+      step === 'openApp'
+        ? resolveWalletMatchOpenAppText(intl, openAppReason, appName, vendor)
+        : undefined;
+    const nextCapsuleText =
+      walletMatchText ??
+      resolveCapsuleText(
+        intl,
+        step,
+        deviceName,
+        vendor,
+        errorReason,
+        localizedErrorMessage,
+        waitStalled ? (connectionType ?? 'usb') : undefined,
+        localizedDoneTitle,
+      );
     // Same words, same object: the capsule row's memo then bails on
     // every render that changed nothing it shows.
     if (
@@ -1375,8 +1459,10 @@ export function DeviceStage({
     }
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
+    } else if (step === 'done') {
+      capsuleGlyphRef.current = 'done';
     } else if (vendor) {
-      capsuleGlyphRef.current = step === 'done' ? 'done' : 'device';
+      capsuleGlyphRef.current = 'device';
     } else {
       // The wireless waits — connecting and processing alike — wear the
       // Bluetooth badge in the device seat: the replica steps aside
@@ -1393,11 +1479,23 @@ export function DeviceStage({
   const capsuleText = capsuleTextRef.current;
   const capsuleGlyph = capsuleGlyphRef.current;
 
+  const lastAnnouncedStepRef = useRef<IDeviceStageStep | undefined>(undefined);
+  useEffect(() => {
+    const previousStep = lastAnnouncedStepRef.current;
+    lastAnnouncedStepRef.current = step;
+    // iOS does not support live regions; announce each success once.
+    if (platformEnv.isNativeIOS && step === 'done' && previousStep !== 'done') {
+      AccessibilityInfo.announceForAccessibility(capsuleText.title);
+    }
+  }, [capsuleText.title, step]);
+
   // The seat gate's aim (declared with the notice logic above): the
   // frozen glyph decides the seat on the capsule's own clock, so the
   // exit keeps whatever the capsule last showed.
   const capsuleSeatCleared =
-    capsuleGlyph === 'error' || capsuleGlyph === 'bluetooth';
+    capsuleGlyph === 'done' ||
+    capsuleGlyph === 'error' ||
+    capsuleGlyph === 'bluetooth';
   useEffect(() => {
     const target = capsuleSeatCleared ? 0 : 1;
     if (reducedMotion || sceneEntryInstant) {
@@ -1688,6 +1786,7 @@ export function DeviceStage({
           <PassphraseForm
             mode={passphraseMode}
             initialKeepAccessible={passphraseKeepAccessible}
+            asciiCreationFeedback={passphraseAsciiCreationFeedback}
             allowProtocolV2Utf8={passphraseAllowUtf8}
             activationSignal={passphraseEntryEpoch}
             onSubmit={onPassphraseSubmit}
@@ -1706,6 +1805,7 @@ export function DeviceStage({
       onSwitchToDevice,
       panelMeasureHandlers,
       passphraseAnimated,
+      passphraseAsciiCreationFeedback,
       passphraseAllowUtf8,
       passphraseEntryEpoch,
       passphraseEpoch,
@@ -1726,17 +1826,28 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.showQr.tail}>
-          <QrPresent value={qrValue} valueUr={qrValueUr} onNext={onQrNext} />
+          <QrPresent
+            key={qrRenderKey ?? qrSessionId}
+            value={qrValue}
+            valueUr={qrValueUr}
+            notice={localizedQrNotice}
+            onNext={onQrNext}
+            onRenderReady={onQrRenderReady}
+          />
         </View>
       </YStack>
     ),
     [
       appStepSub.showQr,
       intl,
+      localizedQrNotice,
       onQrNext,
+      onQrRenderReady,
       panelMeasureHandlers,
       qrValue,
       qrValueUr,
+      qrSessionId,
+      qrRenderKey,
     ],
   );
   const scanQrPanel = useMemo(
@@ -1953,6 +2064,66 @@ export function DeviceStage({
     ),
     [btcHighIndexSub, intl, onBtcHighIndexConfirm, panelMeasureHandlers],
   );
+  // Only a connected device the wallet cannot use can be fixed and
+  // retried; an oversized request stays oversized.
+  const isQrFallbackRetryable =
+    !!qrFallbackReason && qrFallbackReason !== 'payload-too-large';
+  const qrFallbackPanel = useMemo(
+    () => (
+      <YStack>
+        <View onLayout={panelMeasureHandlers.qrFallback.words}>
+          <StepText
+            title={qrFallbackText.title}
+            sub={qrFallbackText.sub}
+            animated={false}
+          />
+        </View>
+        <View onLayout={panelMeasureHandlers.qrFallback.tail}>
+          {isQrFallbackRetryable ? (
+            <YStack gap="$2">
+              {onQrFallbackRetry ? (
+                <Button
+                  testID="device-stage-qr-fallback-retry"
+                  variant="primary"
+                  size="large"
+                  onPress={onQrFallbackRetry}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              ) : null}
+              {onQrFallbackConfirm ? (
+                <Button
+                  testID="device-stage-qr-fallback-confirm"
+                  size="large"
+                  onPress={onQrFallbackConfirm}
+                >
+                  {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
+                </Button>
+              ) : null}
+            </YStack>
+          ) : null}
+          {!isQrFallbackRetryable && onQrFallbackConfirm ? (
+            <Button
+              testID="device-stage-qr-fallback-confirm"
+              variant="primary"
+              size="large"
+              onPress={onQrFallbackConfirm}
+            >
+              {intl.formatMessage({ id: ETranslations.global_continue })}
+            </Button>
+          ) : null}
+        </View>
+      </YStack>
+    ),
+    [
+      intl,
+      isQrFallbackRetryable,
+      onQrFallbackConfirm,
+      onQrFallbackRetry,
+      panelMeasureHandlers,
+      qrFallbackText,
+    ],
+  );
   const installConfirmPanel = useMemo(
     () => (
       <YStack>
@@ -2039,6 +2210,7 @@ export function DeviceStage({
       pairingCode: pairingCodePanel,
       deviceNotFound: deviceNotFoundPanel,
       btcHighIndex: btcHighIndexPanel,
+      qrFallback: qrFallbackPanel,
       installConfirm: installConfirmPanel,
       installing: installingPanel,
       installBatch: installBatchPanel,
@@ -2055,6 +2227,7 @@ export function DeviceStage({
       passphraseIntroPanel,
       passphrasePanel,
       pinPanel,
+      qrFallbackPanel,
       scanQrPanel,
       selectWalletTypePanel,
       showQrPanel,
@@ -2080,6 +2253,7 @@ export function DeviceStage({
       <View onLayout={handleDeviceLayout}>
         <HardwareDevice
           deviceType={deviceType ?? 'unknown'}
+          color={deviceColor}
           animation={activeScene}
           warmScenes={builtScenes}
           width={replicaWidth}
@@ -2096,6 +2270,7 @@ export function DeviceStage({
     [
       activeScene,
       builtScenes,
+      deviceColor,
       deviceType,
       handleDeviceLayout,
       hidden,
@@ -2111,24 +2286,37 @@ export function DeviceStage({
   // on its one glass (the troupe grant): a crossing flips which is lit
   // and nothing ever builds; only the visible scene's clock runs, from
   // 0. The fog paints the port fade over the opaque face, and rests
-  // while the capsule wears the whole device.
-  const stageLayer = useMemo(
-    () => (
+  // while the capsule wears the whole device — inside the port, or on
+  // Android after it as its sibling, out of the port's clip (see
+  // FOG_OUTSIDE_PORT); the port sits at the layer's origin, so the
+  // fog's own geometry serves both seats.
+  const stageLayer = useMemo(() => {
+    const fog = (
+      <Animated.View style={fogStyle}>
+        <LinearGradient
+          colors={FOG_COLORS}
+          locations={fogLocations}
+          style={styles.fogFill}
+        />
+      </Animated.View>
+    );
+    return (
       <Animated.View style={replicaStyle} pointerEvents="none">
         <Animated.View style={portStyle}>
           <Animated.View style={deviceStyle}>{deviceLayer}</Animated.View>
-          <Animated.View style={fogStyle}>
-            <LinearGradient
-              colors={FOG_COLORS}
-              locations={FOG_LOCATIONS}
-              style={styles.fogFill}
-            />
-          </Animated.View>
+          {FOG_OUTSIDE_PORT ? null : fog}
         </Animated.View>
+        {FOG_OUTSIDE_PORT ? fog : null}
       </Animated.View>
-    ),
-    [deviceLayer, deviceStyle, fogStyle, portStyle, replicaStyle],
-  );
+    );
+  }, [
+    deviceLayer,
+    deviceStyle,
+    fogLocations,
+    fogStyle,
+    portStyle,
+    replicaStyle,
+  ]);
 
   // The ripple rests through pose flights too: the capsule pose stands
   // from a return flight's first frame, and an infinite loop has no
@@ -2137,21 +2325,45 @@ export function DeviceStage({
   // — never for a flight settling over the other glyphs.
   const bluetoothBadgePaused =
     capsuleGlyph !== 'bluetooth' || pose !== 'capsule' || poseInFlight;
+  const transferPercent =
+    step === 'processing' &&
+    typeof transferProgress === 'number' &&
+    Number.isFinite(transferProgress)
+      ? Math.max(0, Math.min(100, Math.round(transferProgress)))
+      : undefined;
+  const transferAccessibilityValue = useMemo(
+    () => ({ min: 0, max: 100, now: transferPercent }),
+    [transferPercent],
+  );
+  const transferTitle =
+    transferPercent !== undefined
+      ? intl.formatMessage({ id: ETranslations.communication_communicating })
+      : capsuleText.title;
+  const transferCapsuleKeyRef = useRef<string | undefined>(undefined);
+  if (transferPercent !== undefined) {
+    transferCapsuleKeyRef.current = capsuleText.title;
+  } else if (step !== 'done') {
+    transferCapsuleKeyRef.current = undefined;
+  }
+  // Replace a completed transfer in place: an exiting keyed row would retain
+  // its full-width bar while the success capsule shrinks to its new words.
+  const capsuleKey = transferCapsuleKeyRef.current ?? capsuleText.title;
   const capsule = useMemo(
     () => (
       <XStack
         px={CAPSULE_ROW.paddingX}
         gap={CAPSULE_ROW.gap}
         alignItems="center"
+        {...getCapsuleAccessibilityProps(capsuleGlyph, capsuleText.title)}
       >
         {/* The device's capsule seat, held open: the one standing replica
           wears the thumbnail arrangement over this box — the
           connecting-state device itself, never a second instance.
           Living outside the keyed row, it also never rebuilds when the
           capsule's words swap. The vendor track fills the same box
-          itself — a product shot, or the ✓ on `done` — since those
-          devices have no replica to seat here. The notice fills it with
-          the failure ✗ on both tracks, and the wireless waits
+          itself with a product shot since those devices have no replica
+          to seat here. The ✓ on `done` and the failure ✗ clear either
+          track's device seat, as do the wireless waits
           (connecting and processing) with the Bluetooth badge — the
           seat gate clears the replica for both (the wired waits keep
           the replica: the plugged-in device itself). */}
@@ -2184,17 +2396,41 @@ export function DeviceStage({
             the notice too — the sweep is a waiting affordance, and the
             notice waits for nothing. */}
           <ShimmerTitle paused={pose !== 'capsule' || capsuleGlyph === 'error'}>
-            {capsuleText.title}
+            {transferTitle}
           </ShimmerTitle>
-          {capsuleText.sub ? (
+          {capsuleText.sub && transferPercent === undefined ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {capsuleText.sub}
             </SizableText>
           ) : null}
+          {transferPercent !== undefined ? (
+            <YStack gap="$1" mt="$1" minWidth={120}>
+              <Stack
+                testID="device-stage-transfer-progress"
+                accessibilityRole="progressbar"
+                accessibilityValue={transferAccessibilityValue}
+                h="$1"
+                borderRadius="$full"
+                bg="$neutral5"
+                overflow="hidden"
+              >
+                <Stack h="100%" width={`${transferPercent}%`} bg="$bgPrimary" />
+              </Stack>
+            </YStack>
+          ) : null}
         </YStack>
       </XStack>
     ),
-    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [
+      bluetoothBadgePaused,
+      capsuleGlyph,
+      capsuleText,
+      transferTitle,
+      pose,
+      transferAccessibilityValue,
+      transferPercent,
+      vendorImageSource,
+    ],
   );
 
   const dismissLabel = useMemo(
@@ -2221,9 +2457,9 @@ export function DeviceStage({
       onDismiss={onClose}
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
-      modal
+      modal={!errorNotice}
       scrim={scrim}
-      capsuleKey={capsuleText.title}
+      capsuleKey={capsuleKey}
       capsule={capsule}
       stageLayer={stageLayer}
       seats={seats}

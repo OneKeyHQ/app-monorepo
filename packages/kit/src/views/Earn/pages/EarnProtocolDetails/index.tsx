@@ -4,11 +4,13 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
-import Svg, { Line } from 'react-native-svg';
+import { View } from 'react-native';
 
 import {
   Badge,
@@ -26,15 +28,14 @@ import {
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
+  useScrollView,
   useShare,
-  useTheme,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -72,6 +73,7 @@ import type {
   IEarnText,
   IEarnTextTooltip,
   IEarnTokenInfo,
+  IEarnUtmParams,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -79,9 +81,12 @@ import type {
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   PageFrame,
-  isErrorState,
   isLoadingState,
 } from '../../../Staking/components/PageFrame';
+import {
+  DOTTED_UNDERLINE_PROPS,
+  DottedRule,
+} from '../../../Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
@@ -99,6 +104,12 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useEarnServerOrderRefresh } from '../../hooks/useEarnServerOrderRefresh';
+import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
+import {
+  getEtherFiManagedRedeem,
+  positionMatured,
+} from '../EarnPositions/mobile/myPortfolio.utils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -108,6 +119,8 @@ import {
 } from './components/ProtocolIntroSection';
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { YieldBreakdownSheet } from './components/YieldBreakdownSheet';
+import { useDetailHoldingPosition } from './hooks/useDetailHoldingPosition';
+import { useEarnApyHistory } from './hooks/useEarnApyHistory';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 import { MobileDetailTabs } from './mobile/MobileDetailTabs';
@@ -116,14 +129,22 @@ import {
   pickProtocolInfoDisplayName,
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
+import {
+  DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+  scheduleSettleRefreshes,
+} from './mobile/settleRefresh.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
 import {
   buildHeadlineApyParts,
   isYieldSheetAvailable,
 } from './mobile/yieldSegments.utils';
 
+import type { IEarnApyHistory } from './hooks/useEarnApyHistory';
+import type { IEarnHoldingRedeem } from '../EarnPositions/mobile/EarnHoldingSections';
+import type { IEarnPositionView } from '../EarnPositions/mobile/earnPositionModel';
 import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 function ManagersSection({
   managers,
@@ -152,44 +173,10 @@ function ManagersSection({
   ) : null;
 }
 
-// Android's Text ignores textDecorationStyle, so the dotted rule under the
-// APY figure came out as a solid underline there (OK-62943). Android draws
-// the rule as an SVG line under the figure instead; iOS and web keep the text
-// decoration that already matches the design.
-const APY_UNDERLINE_PROPS = platformEnv.isNativeAndroid
-  ? {}
-  : ({
-      textDecorationLine: 'underline',
-      textDecorationStyle: 'dotted',
-      textDecorationColor: '$borderStrong',
-    } as const);
-
-function ApyDottedRule() {
-  const theme = useTheme();
-  const [width, setWidth] = useState(0);
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width),
-    [],
-  );
-  return (
-    <Stack w="100%" h={3} onLayout={handleLayout}>
-      {width > 0 ? (
-        <Svg width={width} height={3}>
-          <Line
-            x1={1}
-            y1={1.5}
-            x2={width - 1}
-            y2={1.5}
-            stroke={theme.borderStrong.val}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeDasharray="0.1 4"
-          />
-        </Svg>
-      ) : null}
-    </Stack>
-  );
-}
+// The dotted rule under the APY figure: text decoration on iOS and web, an
+// SVG line on Android (OK-62943), shared with the other tooltip triggers.
+const APY_UNDERLINE_PROPS = DOTTED_UNDERLINE_PROPS;
+const ApyDottedRule = DottedRule;
 
 const ProtocolHeader = ({
   symbol,
@@ -215,6 +202,7 @@ const ProtocolHeader = ({
   yieldSheetData?: IEarnPopupActionIcon['data'];
 }) => {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
@@ -233,15 +221,11 @@ const ProtocolHeader = ({
     try {
       const date = new Date(maturity.date);
       if (Number.isNaN(date.getTime())) return maturity.date;
-      return intl.formatDate(date, {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
+      return formatDate(date, { hideTimeForever: true });
     } catch {
       return maturity.date;
     }
-  }, [maturity?.date, maturityText?.text, intl]);
+  }, [maturity?.date, maturityText?.text, formatDate]);
 
   // Green base + bonus in the campaign color, split from the same kind/rate
   // fields the Yield sheet's bar uses so the two can never disagree. Falls back
@@ -272,7 +256,7 @@ const ProtocolHeader = ({
                   numberOfLines={1}
                   flexShrink={1}
                 >
-                  {tokenInfo?.token.symbol || symbol}
+                  {earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
                 </SizableText>
                 {/* The provider name is the second line of the header, not a
                     caption: the design sets it in the body weight and default
@@ -292,7 +276,7 @@ const ProtocolHeader = ({
                 numberOfLines={1}
                 flexShrink={1}
               >
-                {tokenInfo?.token.symbol || symbol}
+                {earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
               </SizableText>
             )}
           </XStack>
@@ -335,9 +319,11 @@ const ProtocolHeader = ({
                   <>
                     <YStack>
                       <XStack ai="baseline">
+                        {/* The design's success/10 green, the base segment's
+                            color in the Yield sheet (OK-64551). */}
                         <SizableText
                           size="$heading2xl"
-                          color="$textSuccess"
+                          color="$success10"
                           {...APY_UNDERLINE_PROPS}
                         >
                           {headlineApyParts.base}
@@ -355,7 +341,7 @@ const ProtocolHeader = ({
                       {platformEnv.isNativeAndroid ? <ApyDottedRule /> : null}
                     </YStack>
                     {headlineApyParts.unit ? (
-                      <SizableText size="$heading2xl" color="$textSuccess">
+                      <SizableText size="$heading2xl" color="$success10">
                         {` ${headlineApyParts.unit}`}
                       </SizableText>
                     ) : null}
@@ -429,17 +415,16 @@ const ProtocolHeader = ({
 };
 
 function ChartSection({
-  networkId,
-  symbol,
   provider,
-  vault,
+  chartData,
+  isChartLoading,
   showTimeRangeControls,
   apyBreakdownItems,
 }: {
-  networkId: string;
-  symbol: string;
   provider: string;
-  vault?: string;
+  // Loaded once for the page: the Pendle rules chart draws the same history.
+  chartData: IEarnApyHistory['chartData'];
+  isChartLoading: IEarnApyHistory['isChartLoading'];
   // Phone layout shows 1H/1D/1W/Max for every provider. ApyChart already
   // filters to whatever data falls in the window, so a sparse history simply
   // draws fewer points rather than needing its own guard.
@@ -455,77 +440,6 @@ function ChartSection({
     () => earnUtils.isPendleProvider({ providerName: provider }),
     [provider],
   );
-
-  // Fetch chart data to get high/low values
-  const { result: chartData, isLoading: isChartLoading } =
-    usePromiseResult(async () => {
-      if (isPendleProvider) {
-        // underlying-history returns both impliedApy and underlyingApy, single request suffices
-        const underlyingApyHistoryData =
-          await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
-            networkId,
-            symbol,
-            provider,
-            vault,
-          });
-
-        const impliedApyHistory = underlyingApyHistoryData.results.map(
-          (item) => ({
-            timestamp: item.timestamp,
-            apy: item.impliedApy,
-          }),
-        );
-
-        const underlyingApyHistory = underlyingApyHistoryData.results.map(
-          (item) => ({
-            timestamp: item.timestamp,
-            apy: item.underlyingApy,
-          }),
-        );
-
-        return {
-          impliedApyHistory,
-          underlyingApyHistory,
-          hasNonZeroUnderlyingApy:
-            underlyingApyHistoryData.hasNonZeroUnderlyingApy,
-        };
-      }
-
-      const impliedApyHistory =
-        await backgroundApiProxy.serviceStaking.getApyHistory({
-          networkId,
-          symbol,
-          provider,
-          vault,
-        });
-
-      // Second line = campaign boost + protocol reward APYs, summed by the
-      // server. Only points that actually carry one are kept, so a history that
-      // predates the campaign simply starts the line later instead of dropping
-      // to zero.
-      const extraApyHistory = impliedApyHistory
-        .filter((item) => item.extraApy !== undefined)
-        .map((item) => ({
-          timestamp: item.timestamp,
-          apy: item.extraApy as string,
-        }));
-      // Campaign wins over reward, matching the rule the server applies per
-      // point ("a campaign present at all makes the line orange") and the
-      // headline's split. Taking the first point that happens to carry a kind
-      // would paint a window that starts with plain rewards and later gains a
-      // campaign entirely blue, and label it Rewards.
-      const extraApyKind = impliedApyHistory.some(
-        (item) => item.extraApyKind === 'campaign',
-      )
-        ? ('campaign' as const)
-        : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
-
-      return {
-        impliedApyHistory,
-        extraApyHistory,
-        extraApyKind,
-      };
-    }, [networkId, symbol, provider, vault, isPendleProvider]);
 
   const {
     impliedApyHistory,
@@ -543,8 +457,8 @@ function ChartSection({
   const secondaryLineColor = isPendleProvider
     ? undefined
     : // Campaign orange vs protocol-reward blue, matching the Yield sheet's
-      // segment colors. TODO(design): confirm the exact orange against Figma.
-      (extraApyKind === 'reward' && '#0177E5') || '#DD7B22';
+      // segment colors: the design's Orange/10 (OK-64551).
+      (extraApyKind === 'reward' && '#0177E5') || '#ED5F00';
 
   // Both lines used to read "APY" in the tooltip, which left the reader with no
   // way to tell the vault's own yield from the bonus on top of it.
@@ -868,6 +782,7 @@ const DetailsPartComponent = ({
   tokenInfo,
   protocolInfo,
   isLoading,
+  isError,
   keepSkeletonVisible,
   onRefresh,
   networkId,
@@ -878,12 +793,19 @@ const DetailsPartComponent = ({
   isMobileLayout,
   providerSubtitle,
   hasPortfolio,
+  canRedeem,
+  scrollToPortfolio,
   onRedeem,
+  onActionSuccess,
+  holding,
+  holdingRedeem,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isLoading: boolean;
+  // the detail fetch for the current inputs ran and failed
+  isError: boolean;
   keepSkeletonVisible: boolean;
   onRefresh: () => void;
   networkId: string;
@@ -894,9 +816,76 @@ const DetailsPartComponent = ({
   isMobileLayout?: boolean;
   providerSubtitle?: string;
   hasPortfolio?: boolean;
+  // phone: whether the Portfolio rows may offer Redeem (page-level rule)
+  canRedeem?: boolean;
+  // phone: scroll the tabs into view once the page has loaded (OK-61377)
+  scrollToPortfolio?: boolean;
   onRedeem?: () => void;
+  // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
+  // to onRefresh for callers that only have the plain reload.
+  onActionSuccess?: () => void;
+  // phone: the holding as the My portfolio card shows it (product 10-14),
+  // and the footer's Redeem for its deposit row (product 10-15)
+  holding?: IEarnPositionView;
+  holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
+  const { chartData, isChartLoading } = useEarnApyHistory({
+    networkId,
+    symbol,
+    provider,
+    vault,
+    // After the details, as when the APY chart fetched its own: a page that
+    // failed to load requests the history once Refresh brings them in.
+    enabled: detailInfo !== undefined,
+  });
+  // The rules chart waits for the history once, then draws with or without it.
+  const isApyHistoryLoading = isChartLoading !== false && !chartData;
+
+  // The positions page's Manage lands on the position: once the page has
+  // loaded with a Portfolio tab, scroll the tabs to the top of the view, once.
+  // On iOS 26 the content runs under the translucent header, so the target
+  // sits below it by the header's height.
+  const { scrollViewRef, pageOffsetRef } = useScrollView();
+  const headerHeight = useHeaderHeight();
+  const tabsAnchorRef = useRef<ViewInstance>(null);
+  const portfolioScrolledRef = useRef(false);
+  const handleTabsLayout = useCallback(() => {
+    if (
+      !scrollToPortfolio ||
+      !hasPortfolio ||
+      !detailInfo ||
+      portfolioScrolledRef.current
+    ) {
+      return;
+    }
+    const scroller = scrollViewRef.current;
+    const anchor = tabsAnchorRef.current;
+    const scrollHost = scroller?.getNativeScrollRef?.();
+    if (!scroller || !anchor || !scrollHost) {
+      return;
+    }
+    portfolioScrolledRef.current = true;
+    const topInset = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
+    // Measured against the viewport, so the current offset is added back.
+    anchor.measureLayout(
+      scrollHost,
+      (_x, y) => {
+        scroller.scrollTo({
+          y: Math.max(y + pageOffsetRef.current.y - topInset, 0),
+          animated: true,
+        });
+      },
+      () => {},
+    );
+  }, [
+    scrollToPortfolio,
+    hasPortfolio,
+    detailInfo,
+    scrollViewRef,
+    pageOffsetRef,
+    headerHeight,
+  ]);
 
   // The sheet replaces the icon-button popup only when the server sent a
   // complete breakdown; otherwise the existing popup renders untouched.
@@ -933,7 +922,7 @@ const DetailsPartComponent = ({
             isLoadingState({ result: detailInfo, isLoading }) ||
             keepSkeletonVisible
           }
-          error={isErrorState({ result: detailInfo, isLoading })}
+          error={isError}
           onRefresh={onRefresh}
         >
           {detailInfo ? (
@@ -958,10 +947,9 @@ const DetailsPartComponent = ({
                   yieldSheetData={yieldSheetData}
                 />
                 <ChartSection
-                  networkId={networkId}
-                  symbol={symbol}
                   provider={provider}
-                  vault={vault}
+                  chartData={chartData}
+                  isChartLoading={isChartLoading}
                   showTimeRangeControls
                   apyBreakdownItems={popupData?.items}
                 />
@@ -969,53 +957,66 @@ const DetailsPartComponent = ({
               </YStack>
               {countDownAlert}
               <AlertSection alerts={detailInfo.alertsV2} />
-              <MobileDetailTabs
-                hasPortfolio={Boolean(hasPortfolio)}
-                portfolioContent={
-                  detailInfo.mobilePortfolio?.groups?.length ? (
-                    <PortfolioTab
-                      portfolio={detailInfo.mobilePortfolio}
-                      networkId={networkId}
-                      symbol={symbol}
-                      provider={provider}
-                      vault={detailInfo.protocol?.vault ?? vault}
-                      onActionSuccess={onRefresh}
-                      onRedeem={onRedeem}
-                      protocolInfo={protocolInfo}
-                      tokenInfo={tokenInfo}
-                    />
-                  ) : null
-                }
-                infoContent={
-                  <YStack gap="$8">
-                    {/* mobileInfo is the phone-only copy of intro (Vault cell
+              <View ref={tabsAnchorRef} onLayout={handleTabsLayout}>
+                <MobileDetailTabs
+                  hasPortfolio={Boolean(hasPortfolio)}
+                  portfolioContent={
+                    detailInfo.mobilePortfolio &&
+                    (detailInfo.mobilePortfolio.groups?.length || holding) ? (
+                      <PortfolioTab
+                        portfolio={detailInfo.mobilePortfolio}
+                        networkId={networkId}
+                        symbol={symbol}
+                        provider={provider}
+                        vault={detailInfo.protocol?.vault ?? vault}
+                        onActionSuccess={onActionSuccess ?? onRefresh}
+                        onRedeem={onRedeem}
+                        canRedeem={canRedeem}
+                        protocolInfo={protocolInfo}
+                        tokenInfo={tokenInfo}
+                        holding={holding}
+                        holdingRedeem={holdingRedeem}
+                      />
+                    ) : null
+                  }
+                  infoContent={
+                    <YStack gap="$8">
+                      {/* mobileInfo is the phone-only copy of intro (Vault cell
                         swapped for Protocol) plus the new Token info block.
                         Falls back to intro when the server predates it. */}
-                    <GridSection
-                      data={
-                        detailInfo.mobileInfo?.productInfo ?? detailInfo.intro
-                      }
-                    />
-                    <GridSection data={detailInfo.mobileInfo?.tokenInfo} />
-                    {earnUtils.isPendleProvider({ providerName: provider }) ? (
-                      <PendleRulesSection data={detailInfo.rules} />
-                    ) : (
-                      <GridSection data={detailInfo.rules} />
-                    )}
-                    <PeriodSection timeline={detailInfo.timeline} />
-                    <GridSection data={detailInfo.performance} />
-                    <ProtectionSection protection={detailInfo.protection} />
-                    <RiskSection risk={detailInfo.risk} />
-                  </YStack>
-                }
-                protocolContent={
-                  hasProtocolIntroContent(detailInfo.protocolInfo) ? (
-                    <ProtocolIntroSection
-                      protocolInfo={detailInfo.protocolInfo}
-                    />
-                  ) : undefined
-                }
-              />
+                      <GridSection
+                        data={
+                          detailInfo.mobileInfo?.productInfo ?? detailInfo.intro
+                        }
+                      />
+                      <GridSection data={detailInfo.mobileInfo?.tokenInfo} />
+                      {earnUtils.isPendleProvider({
+                        providerName: provider,
+                      }) ? (
+                        <PendleRulesSection
+                          data={detailInfo.rules}
+                          impliedApyHistory={chartData?.impliedApyHistory}
+                          isHistoryLoading={isApyHistoryLoading}
+                          maturityDate={detailInfo.maturity?.date}
+                        />
+                      ) : (
+                        <GridSection data={detailInfo.rules} />
+                      )}
+                      <PeriodSection timeline={detailInfo.timeline} />
+                      <GridSection data={detailInfo.performance} />
+                      <ProtectionSection protection={detailInfo.protection} />
+                      <RiskSection risk={detailInfo.risk} />
+                    </YStack>
+                  }
+                  protocolContent={
+                    hasProtocolIntroContent(detailInfo.protocolInfo) ? (
+                      <ProtocolIntroSection
+                        protocolInfo={detailInfo.protocolInfo}
+                      />
+                    ) : undefined
+                  }
+                />
+              </View>
               <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
             </YStack>
           ) : null}
@@ -1032,7 +1033,7 @@ const DetailsPartComponent = ({
           isLoadingState({ result: detailInfo, isLoading }) ||
           keepSkeletonVisible
         }
-        error={isErrorState({ result: detailInfo, isLoading })}
+        error={isError}
         onRefresh={onRefresh}
       >
         {detailInfo ? (
@@ -1047,10 +1048,9 @@ const DetailsPartComponent = ({
                 onShare={onShare}
               />
               <ChartSection
-                networkId={networkId}
-                symbol={symbol}
                 provider={provider}
-                vault={vault}
+                chartData={chartData}
+                isChartLoading={isChartLoading}
                 apyBreakdownItems={popupData?.items}
               />
               {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
@@ -1067,7 +1067,12 @@ const DetailsPartComponent = ({
             {earnUtils.isPendleProvider({
               providerName: provider,
             }) ? (
-              <PendleRulesSection data={detailInfo.rules} />
+              <PendleRulesSection
+                data={detailInfo.rules}
+                impliedApyHistory={chartData?.impliedApyHistory}
+                isHistoryLoading={isApyHistoryLoading}
+                maturityDate={detailInfo.maturity?.date}
+              />
             ) : (
               <GridSection data={detailInfo.rules} />
             )}
@@ -1098,6 +1103,7 @@ const ManagePositionPart = ({
   suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  utm,
 }: {
   networkId: string;
   symbol: string;
@@ -1109,6 +1115,7 @@ const ManagePositionPart = ({
   suppressPlatformBonus?: boolean;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  utm?: IEarnUtmParams;
 }) => {
   return (
     <YStack flex={4}>
@@ -1125,6 +1132,7 @@ const ManagePositionPart = ({
           suppressPlatformBonus={suppressPlatformBonus}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+          utm={utm}
         />
       </YStack>
     </YStack>
@@ -1150,6 +1158,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     provider: string;
     vault: string | undefined;
     logoURI?: string;
+    scrollToPortfolio?: boolean;
+    utm?: IEarnUtmParams;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -1181,11 +1191,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         symbol,
         provider: normalizedProvider.toLowerCase(), // Keep lowercase for API consistency
         vault,
+        utm: earnUtils.normalizeEarnUtmParams(routeParams),
       };
     }
 
     // Old format: normal navigation
-    const { networkId, symbol, provider, vault, logoURI } = routeParams;
+    const { networkId, symbol, provider, vault, logoURI, scrollToPortfolio } =
+      routeParams;
 
     return {
       networkId,
@@ -1193,6 +1205,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       provider,
       vault,
       logoURI,
+      scrollToPortfolio,
+      utm: earnUtils.normalizeEarnUtmParams(routeParams),
     };
   }, [route.params]);
 
@@ -1201,13 +1215,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const accountId = selectedAccount.othersWalletAccountId || '';
   const indexedAccountId =
     selectedAccount.indexedAccountId || indexedAccount?.id;
-  const { networkId, symbol, provider, vault, logoURI } = resolvedParams;
+  const { networkId, symbol, provider, vault, logoURI, utm } = resolvedParams;
 
   const {
     detailInfo,
     tokenInfo,
     protocolInfo,
     isLoading,
+    isError,
     refreshData,
     refreshAccount,
   } = useProtocolDetailData({
@@ -1242,16 +1257,63 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     ],
   );
 
+  // The Portfolio tab's Balance and Rewards are the My portfolio card of
+  // this holding (product 10-14): read from the card's cache, then the
+  // holding's own positions scope each time the page itself reloads.
+  const holdingIdentity = useMemo(
+    () => ({
+      networkId,
+      provider,
+      symbol,
+      vault: detailInfo?.protocol?.vault ?? vault,
+    }),
+    [networkId, provider, symbol, detailInfo?.protocol?.vault, vault],
+  );
+  const {
+    holding,
+    actionableHolding,
+    refresh: refreshHolding,
+  } = useDetailHoldingPosition({
+    identity: holdingIdentity,
+    earnAccount: protocolInfo?.earnAccount,
+    enabled: Boolean(isMobileLayout),
+  });
+  useEffect(() => {
+    if (detailInfo) {
+      void refreshHolding();
+    }
+  }, [detailInfo, refreshHolding]);
+
   // The portfolio tab needs the account-scoped response, so it stays hidden
   // until the server says there is something to show. Falls back to the balance
   // when the server predates the mobile read model.
   const hasPortfolio = useMemo(() => {
+    if (holding) {
+      return true;
+    }
     if (detailInfo?.mobilePortfolio) {
       return detailInfo.mobilePortfolio.hasPosition;
     }
     const balance = Number(tokenInfo?.balanceParsed ?? '0');
     return Number.isFinite(balance) && balance > 0;
-  }, [detailInfo?.mobilePortfolio, tokenInfo?.balanceParsed]);
+  }, [holding, detailInfo?.mobilePortfolio, tokenInfo?.balanceParsed]);
+
+  // A position, for the footer's Redeem, is principal in the protocol
+  // (OK-64550): the Portfolio tab's Balance group, which holds the active
+  // principal, redemptions in flight and matured principal to collect.
+  // Rewards alone do not make one. A server without the read model falls back
+  // to hasPortfolio's balance check.
+  const hasDeposit = useMemo(() => {
+    if (holding) {
+      return holding.hasDeposit;
+    }
+    if (detailInfo?.mobilePortfolio) {
+      return detailInfo.mobilePortfolio.groups.some(
+        (group) => group.key === 'balance' && group.items.length > 0,
+      );
+    }
+    return hasPortfolio;
+  }, [holding, detailInfo?.mobilePortfolio, hasPortfolio]);
 
   useUnsupportedProtocol({
     detailInfo,
@@ -1269,9 +1331,70 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     await refreshData();
   }, [refreshAccount, refreshData]);
 
-  const handleStakeWithdrawSuccess = useCallback(() => {
+  // A refresh at broadcast reads the numbers before the chain has the
+  // transaction, and nothing on this page polled history to refresh again
+  // once it landed: a principal claim picked from the claim list (SOL, ETH,
+  // Polygon) changes nothing server-side until then, so the claimable total
+  // stayed stale (OK-63229). Track the position's pending transactions the
+  // way the positions page does and reload once they clear. The wide layout
+  // has its own activity indicator, so this stays phone-only.
+  // One read after the clear is not always enough: a provider that answers
+  // from its own index can still report the pre-transaction state. An
+  // existing position gets one more read as a fallback. A vault with no
+  // position keeps re-reading, since the Portfolio tab appearing is the only
+  // sign the deposit has landed, and the timers go the moment it does.
+  const hasPortfolioRef = useRef(hasPortfolio);
+  hasPortfolioRef.current = hasPortfolio;
+  const cancelSettleRefreshesRef = useRef<(() => void) | undefined>(undefined);
+  const awaitingPortfolioRef = useRef(false);
+  const cancelSettleRefreshes = useCallback(() => {
+    cancelSettleRefreshesRef.current?.();
+    cancelSettleRefreshesRef.current = undefined;
+    awaitingPortfolioRef.current = false;
+  }, []);
+  const refreshUntilSettled = useCallback(() => {
+    cancelSettleRefreshes();
+    const hadPortfolio = hasPortfolioRef.current;
+    awaitingPortfolioRef.current = !hadPortfolio;
+    cancelSettleRefreshesRef.current = scheduleSettleRefreshes({
+      refresh: () => {
+        void refreshData();
+      },
+      offsetsMs: hadPortfolio
+        ? DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS
+        : DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+    });
+  }, [cancelSettleRefreshes, refreshData]);
+  useEffect(() => {
+    if (hasPortfolio && awaitingPortfolioRef.current) {
+      cancelSettleRefreshes();
+    }
+  }, [hasPortfolio, cancelSettleRefreshes]);
+  useEffect(() => cancelSettleRefreshes, [cancelSettleRefreshes]);
+  const { refreshPending } = useStakingPendingTxs({
+    accountId: isMobileLayout
+      ? protocolInfo?.earnAccount?.accountId
+      : undefined,
+    networkId,
+    stakeTag: protocolInfo?.stakeTag,
+    onRefresh: refreshUntilSettled,
+  });
+  useEarnServerOrderRefresh({
+    accountId: protocolInfo?.earnAccount?.accountId,
+    networkId,
+    provider,
+    vault: detailInfo?.protocol?.vault ?? vault,
+    onRefresh: () => {
+      void refreshData();
+    },
+  });
+
+  // Every broadcast reloads the page at once and re-reads the local pending
+  // list, so the poller picks the transaction up without waiting for focus.
+  const handleActionSuccess = useCallback(() => {
     void refreshData();
-  }, [refreshData]);
+    void refreshPending();
+  }, [refreshData, refreshPending]);
 
   // Claim, stake and withdraw refresh the page the moment their transaction
   // is broadcast, before the chain or the provider has seen it, so the numbers
@@ -1348,11 +1471,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           <Token size="md" tokenImageUri={headerTokenLogoURI} />
         )}
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {symbol}
+          {/* The relabel only lands once the detail request resolves; until
+              then the route's symbol stands in, which is what it renders for
+              every token without a relabel anyway. */}
+          {earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol, headerTokenLogoURI, isHeaderTokenLogoPending],
+    [symbol, tokenInfo?.token, headerTokenLogoURI, isHeaderTokenLogoPending],
   );
 
   const handleOpenManageModal = useCallback(
@@ -1366,22 +1492,24 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           provider,
           vault: protocolVault,
           tab,
+          utm,
           tokenImageUri: tokenInfo?.token?.logoURI,
           // Redeem leaves this page for the modal; without this the balances
           // and rewards below would still show the pre-redeem numbers when it
           // pops back.
-          onStakeWithdrawSuccess: refreshData,
+          onStakeWithdrawSuccess: handleActionSuccess,
         },
       });
     },
     [
       appNavigation,
-      refreshData,
+      handleActionSuccess,
       detailInfo?.protocol?.vault,
       networkId,
       symbol,
       provider,
       vault,
+      utm,
       tokenInfo?.token?.logoURI,
     ],
   );
@@ -1471,7 +1599,101 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     return false;
   }, [symbol]);
 
+  // A provider that hides its wide-layout actions (Native, Stakefish ATOM and
+  // POL: meta.showActions false) sends none, which read as hold-to-earn here
+  // and left the phone page with no way to redeem (OK-61377). With a position,
+  // Redeem opens the manage page's withdraw tab, where the wide layout's
+  // Manage goes; the Portfolio rows follow the same rule.
+  const redeemWithoutActions = useMemo(
+    () =>
+      isMobileLayout &&
+      !detailInfo?.actions &&
+      !isCustomProtocol &&
+      !earnUtils.isPendleProvider({ providerName: provider }) &&
+      hasPortfolio,
+    [
+      isMobileLayout,
+      detailInfo?.actions,
+      isCustomProtocol,
+      provider,
+      hasPortfolio,
+    ],
+  );
+  const canRedeem =
+    Boolean(detailInfo?.mobilePortfolio?.capabilities.redeem) ||
+    redeemWithoutActions;
+
   const tabBarHeight = useScrollContentTabBarOffset();
+
+  // Whether a Pendle market has passed its maturity, which turns Sell early
+  // into Redeem and closes Buy. The detail response carries the flag on
+  // servers that send `maturity`; before that it only had the date text,
+  // and the positions read, which the card already keys on, says it.
+  const isMatured =
+    detailInfo?.maturity?.isMatured ??
+    (holding ? positionMatured(holding.source) : undefined) ??
+    false;
+
+  // Per the design, Redeem shows once the user has a position and Deposit
+  // stands alone before that (OK-64550): a Redeem with nothing to redeem
+  // only ever sat there disabled. With a position, Redeem follows the
+  // server's withdraw action, disabled when it cannot be used right now
+  // (OK-62406), and Pendle's Sell early / Redeem follows the same rule. A
+  // protocol whose actions carry no deposit/withdraw at all (hold-to-earn)
+  // keeps the single primary button it always had. The footer and the
+  // principal row of the Portfolio tab share this one Redeem (product 10-14:
+  // both stay).
+  const redeemControl = useMemo<IEarnHoldingRedeem | undefined>(() => {
+    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const etherFiManagedRedeem = getEtherFiManagedRedeem({
+      provider,
+      position:
+        selectedAccount.othersWalletAccountId ||
+        selectedAccount.indexedAccountId
+          ? actionableHolding
+          : undefined,
+      actions: detailInfo?.actions,
+    });
+    const showRedeem =
+      isMobileLayout &&
+      hasDeposit &&
+      (Boolean(redeemAction) ||
+        isPendle ||
+        redeemWithoutActions ||
+        Boolean(etherFiManagedRedeem));
+    if (!showRedeem) {
+      return undefined;
+    }
+    return {
+      label: intl.formatMessage({
+        id:
+          isPendle && !isMatured
+            ? ETranslations.defi_sell_early
+            : ETranslations.earn_redeem,
+      }),
+      // Pendle sends no actions: its Redeem follows the holding's flag from
+      // the positions read, the same the card greys on.
+      disabled: isPendle
+        ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
+        : Boolean(redeemAction?.disabled ?? etherFiManagedRedeem?.disabled),
+      onPress: handleOpenRedeem,
+    };
+  }, [
+    intl,
+    provider,
+    isMobileLayout,
+    hasDeposit,
+    hasPortfolio,
+    holding,
+    actionableHolding,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.indexedAccountId,
+    detailInfo?.actions,
+    redeemAction,
+    redeemWithoutActions,
+    isMatured,
+    handleOpenRedeem,
+  ]);
 
   const pageFooter = useMemo(() => {
     if (gtMd) {
@@ -1485,26 +1707,26 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     const isManageOnly = isCustomProtocol;
+    // Pendle sells PT rather than redeeming it, so the footer reads Buy and
+    // Sell early (Redeem once the market has matured). The server sends no
+    // actions for Pendle (its wide layout has its own swap pair), so the rules
+    // mirror the manage page's pair: no buying after maturity, no selling
+    // without a position.
+    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
     const buttonText = isManageOnly
       ? intl.formatMessage({ id: ETranslations.global_manage })
-      : intl.formatMessage({ id: ETranslations.earn_deposit });
+      : intl.formatMessage({
+          id: isPendle ? ETranslations.global_buy : ETranslations.earn_deposit,
+        });
     const onPress = isManageOnly
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
 
-    // The phone footer is driven by the server's actions, which already model
-    // what the design asks for: both buttons stay put, and one that cannot be
-    // used right now is disabled rather than removed (OK-62410, OK-62406).
-    // Deriving it from capabilities.redeem meant "no ability, no button", so a
-    // token with no position lost its Redeem entirely. A protocol whose
-    // actions carry no deposit/withdraw at all (hold-to-earn) keeps the single
-    // primary button it always had.
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const showRedeem = isMobileLayout && Boolean(redeemAction);
-    const depositDisabled = Boolean(depositAction?.disabled);
-    const withdrawDisabled = Boolean(redeemAction?.disabled);
+    const depositDisabled =
+      Boolean(depositAction?.disabled) || (isPendle && isMatured);
 
     return (
       <Page.Footer
@@ -1515,15 +1737,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           disabled: depositDisabled,
           mb: tabBarHeight,
         }}
-        {...(showRedeem
+        {...(redeemControl
           ? {
-              onCancelText: intl.formatMessage({
-                id: ETranslations.earn_redeem,
-              }),
+              onCancelText: redeemControl.label,
               cancelButtonProps: {
                 variant: 'secondary',
-                disabled: withdrawDisabled,
-                onPress: handleOpenRedeem,
+                disabled: redeemControl.disabled,
+                onPress: redeemControl.onPress,
                 mb: tabBarHeight,
               },
             }
@@ -1534,12 +1754,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     gtMd,
     intl,
     handleOpenManageModal,
-    handleOpenRedeem,
-    redeemAction,
+    redeemControl,
     tabBarHeight,
     isCustomProtocol,
     isMobileLayout,
     detailInfo,
+    provider,
+    isMatured,
   ]);
 
   return (
@@ -1570,8 +1791,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             tokenInfo={tokenInfo}
             protocolInfo={protocolInfo}
             isLoading={isLoading ?? false}
+            isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
             onRefresh={refreshData}
+            onActionSuccess={handleActionSuccess}
             networkId={networkId}
             symbol={symbol}
             provider={provider}
@@ -1580,7 +1803,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isMobileLayout={isMobileLayout}
             providerSubtitle={providerSubtitle}
             hasPortfolio={hasPortfolio}
+            canRedeem={canRedeem}
+            scrollToPortfolio={resolvedParams.scrollToPortfolio}
             onRedeem={handleOpenRedeem}
+            holding={holding}
+            holdingRedeem={redeemControl}
           />
         </Stack>
         {gtMd ? (
@@ -1595,7 +1822,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
               onCreateAddress={onCreateAddress}
-              onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
+              onStakeWithdrawSuccess={handleActionSuccess}
+              utm={utm}
             />
           </Stack>
         ) : null}

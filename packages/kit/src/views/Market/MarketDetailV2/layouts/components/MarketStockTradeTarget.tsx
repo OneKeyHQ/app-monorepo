@@ -1,5 +1,6 @@
-import { XStack } from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -15,6 +16,17 @@ export function MarketStockTradeTarget({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   resolvedVariantKeys?: string[];
 }) {
+  const { gtLg } = useMedia();
+  const showPrice = platformEnv.isNative || !gtLg;
+  const priceLabel = (
+    <BaseMarketTokenPrice
+      price={token.price || '--'}
+      tokenName={token.name || ''}
+      tokenSymbol={token.symbol || ''}
+      currency="$"
+      size="$bodyLgMedium"
+    />
+  );
   return (
     <XStack
       testID="stock-trade-target"
@@ -28,17 +40,8 @@ export function MarketStockTradeTarget({
         portfolioData={portfolioData}
         resolvedVariantKeys={resolvedVariantKeys}
       />
-      <StockTokenInfoPopover
-        label={
-          <BaseMarketTokenPrice
-            price={token.price || '--'}
-            tokenName={token.name || ''}
-            tokenSymbol={token.symbol || ''}
-            currency="$"
-            size="$bodyLgMedium"
-          />
-        }
-      />
+      {showPrice &&
+        (gtLg ? priceLabel : <StockTokenInfoPopover label={priceLabel} />)}
     </XStack>
   );
 }

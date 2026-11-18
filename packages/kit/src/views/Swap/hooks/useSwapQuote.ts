@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { rootNavigationRef, useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
+  EJotaiContextStoreNames,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -16,6 +18,7 @@ import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -24,6 +27,7 @@ import {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -41,6 +45,8 @@ import {
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
+  useSwapProInputAmountAtom,
+  useSwapProTradeTypeAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
@@ -76,40 +82,59 @@ export function isSwapQuoteTabEffectivelyVisible({
   return isFocus && !isHiddenModel;
 }
 
-export function shouldKeepSwapQuoteAliveOnFocusLoss(routeName?: string) {
-  return routeName === EModalSwapRoutes.SwapProviderSelect;
+function getActiveQuoteRoute(
+  route: unknown,
+): { name: string; params?: unknown } | undefined {
+  if (!route || typeof route !== 'object') {
+    return undefined;
+  }
+  if ('routes' in route && Array.isArray(route.routes)) {
+    const index =
+      'index' in route && typeof route.index === 'number'
+        ? route.index
+        : route.routes.length - 1;
+    return getActiveQuoteRoute(route.routes[index]);
+  }
+  if ('state' in route && route.state) {
+    return getActiveQuoteRoute(route.state);
+  }
+  if ('params' in route) {
+    const destination = getActiveQuoteRoute(route.params);
+    if (destination) {
+      return destination;
+    }
+  }
+  if ('screen' in route && typeof route.screen === 'string') {
+    return {
+      name: route.screen,
+      params: 'params' in route ? route.params : undefined,
+    };
+  }
+  return 'name' in route && typeof route.name === 'string'
+    ? { name: route.name, params: 'params' in route ? route.params : undefined }
+    : undefined;
 }
 
-export function handleSwapQuoteTabVisibilityChange({
-  isFocus,
-  isHiddenModel,
-  setQuoteVisible,
-  subscribeQuoteEvents,
-  refreshPreservedInputQuote,
-  pauseQuote,
-  unsubscribeQuoteEvents,
-}: {
-  isFocus: boolean;
-  isHiddenModel: boolean;
-  setQuoteVisible: (isVisible: boolean) => void;
-  subscribeQuoteEvents: () => void;
-  refreshPreservedInputQuote: () => void;
-  pauseQuote: () => void;
-  unsubscribeQuoteEvents: () => void;
-}) {
-  const isQuoteVisible = isSwapQuoteTabEffectivelyVisible({
-    isFocus,
-    isHiddenModel,
-  });
-  setQuoteVisible(isQuoteVisible);
-  if (isQuoteVisible) {
-    subscribeQuoteEvents();
-    refreshPreservedInputQuote();
-  } else {
-    pauseQuote();
-    unsubscribeQuoteEvents();
+export function shouldKeepSwapQuoteAliveOnFocusLoss(
+  routeName?: string,
+  rootState?: unknown,
+  storeName?: EJotaiContextStoreNames,
+) {
+  const route = getActiveQuoteRoute(rootState);
+  if (storeName !== undefined) {
+    return (
+      route?.name === EModalSwapRoutes.SwapProviderSelect &&
+      !!route.params &&
+      typeof route.params === 'object' &&
+      'storeName' in route.params &&
+      route.params.storeName === storeName &&
+      !('providerSelect' in route.params && route.params.providerSelect)
+    );
   }
-  return isQuoteVisible;
+  return (
+    routeName === EModalSwapRoutes.SwapProviderSelect ||
+    route?.name === EModalSwapRoutes.SwapProviderSelect
+  );
 }
 
 /**
@@ -119,11 +144,14 @@ export function handleSwapQuoteTabVisibilityChange({
  */
 export function useSwapQuote({
   isMarketEmbeddedSwap = false,
+  storeName = EJotaiContextStoreNames.swap,
 }: {
   isMarketEmbeddedSwap?: boolean;
+  storeName?: EJotaiContextStoreNames;
 } = {}) {
   const {
     quoteAction,
+    resumeQuoteAction,
     cleanQuoteInterval,
     quoteEventHandler,
     syncNetworksSort,
@@ -135,6 +163,8 @@ export function useSwapQuote({
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [swapStockExecutionTokenSyncId] =
     useSwapStockExecutionTokenSyncIdAtom();
   const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
@@ -149,6 +179,12 @@ export function useSwapQuote({
       platformEnv.isNative && swapTabSwitchType === ESwapTabSwitchType.LIMIT
     );
   }, [swapTabSwitchType]);
+  const proMarketInputRef = useRef({ enabled: false, amount: '' });
+  proMarketInputRef.current = {
+    enabled:
+      Boolean(focusSwapPro) && swapProTradeType === ESwapProTradeType.MARKET,
+    amount: swapProInputAmount,
+  };
   const fromToken = useMemo(() => {
     if (focusSwapPro) {
       return swapProInputToken;
@@ -205,11 +241,15 @@ export function useSwapQuote({
   );
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
-  const shouldRefreshPreservedInputQuoteOnFocusRef = useRef(false);
-  if (
-    fromTokenAmountRef.current?.value !== fromTokenAmount.value ||
-    fromTokenAmountRef.current?.isInput !== fromTokenAmount.isInput
-  ) {
+  const pendingQuoteResumeRef = useRef<
+    | {
+        reason: 'lock' | 'route';
+        quoteRequestId?: string;
+        wasPaused: boolean;
+      }
+    | undefined
+  >(undefined);
+  if (fromTokenAmountRef.current !== fromTokenAmount) {
     fromTokenAmountRef.current = fromTokenAmount;
   }
   if (
@@ -255,27 +295,49 @@ export function useSwapQuote({
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
-  const isFocused = useIsFocused();
+  const isRouteFocused = useIsFocused({ disableLockScreenCheck: true });
+  const [appIsLocked] = useAppIsLockedAtom();
+  const isFocused = isRouteFocused && !appIsLocked;
   const isModalPage = useIsOverlayPage();
   const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
-  const isQuoteVisibleRef = useRef(isFocused);
-  if (shouldUseRouteQuoteLifecycle || !isFocused) {
-    isQuoteVisibleRef.current = isFocused;
-  }
+  const isTabVisibleRef = useRef(isRouteFocused);
+  const isProviderSelectRouteActive = useCallback(
+    () =>
+      shouldKeepSwapQuoteAliveOnFocusLoss(
+        rootNavigationRef.current?.getCurrentRoute()?.name,
+        rootNavigationRef.current?.getRootState?.() ??
+          rootNavigationRef.current?.getCurrentRoute(),
+        storeName,
+      ),
+    [storeName],
+  );
+  const isQuoteVisibleRef = useRef(false);
+  isQuoteVisibleRef.current =
+    !appIsLocked &&
+    ((isFocused && (shouldUseRouteQuoteLifecycle || isTabVisibleRef.current)) ||
+      isProviderSelectRouteActive());
 
   // Automatic quote effects are paused while this route is hidden. Remember
   // quote identity changes so the visible Swap surface refreshes once on return.
   useEffect(() => {
     if (
       !isQuoteVisibleRef.current &&
-      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+      (shouldPreserveSwapUserInputAmountOnAccountSwitch({
         fromTokenAmount,
         toTokenAmount,
-      })
+      }) ||
+        (proMarketInputRef.current.enabled &&
+          Number(proMarketInputRef.current.amount) > 0))
     ) {
-      shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
+      pendingQuoteResumeRef.current ??= {
+        reason: appIsLocked ? 'lock' : 'route',
+        wasPaused: false,
+        quoteRequestId: swapQuoteActionLockRef.current.quoteRequestId,
+      };
     }
   }, [
+    appIsLocked,
+    swapProInputAmount,
     fromToken?.contractAddress,
     fromToken?.networkId,
     fromTokenAmount,
@@ -346,19 +408,6 @@ export function useSwapQuote({
     swapQuoteFetching,
     swapTabSwitchType,
   ]);
-
-  useEffect(() => {
-    if (swapTabSwitchType !== ESwapTabSwitchType.STOCK) {
-      return;
-    }
-    if (!isFocused || !isQuoteVisibleRef.current) {
-      setSwapQuoteFetching(false);
-      return;
-    }
-    return () => {
-      setSwapQuoteFetching(false);
-    };
-  }, [isFocused, setSwapQuoteFetching, swapTabSwitchType]);
 
   const toAmountDebounceRef = useRef(toAmountDebounce);
   if (toAmountDebounceRef.current !== toAmountDebounce) {
@@ -521,6 +570,12 @@ export function useSwapQuote({
       return;
     }
     if (
+      swapTabSwitchTypeRef.current === ESwapTabSwitchType.STOCK &&
+      pendingQuoteResumeRef.current
+    ) {
+      return;
+    }
+    if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
         token1: {
@@ -622,13 +677,6 @@ export function useSwapQuote({
       swapToAddressInfoRef.current.address,
     );
   }, [quoteAction, swapTabSwitchType, shouldPauseQuote]);
-
-  useEffect(
-    () => () => {
-      cleanQuoteInterval();
-    },
-    [cleanQuoteInterval],
-  );
 
   useEffect(() => {
     if (!isQuoteVisibleRef.current) {
@@ -868,13 +916,15 @@ export function useSwapQuote({
     [swapAddressInfo.address, swapToAddressInfo.address],
   );
 
+  const swapQuoteMixEventActionRef = useRef(swapQuoteMixEventAction);
+  swapQuoteMixEventActionRef.current = swapQuoteMixEventAction;
   const swapQuoteMixEvent = useCallback(
     async (event: ISwapQuoteEventPayload) => {
       if (event?.type === 'error') {
-        swapQuoteMixEventAction(JSON.stringify(event.event));
+        swapQuoteMixEventActionRef.current(JSON.stringify(event.event));
       }
     },
-    [swapQuoteMixEventAction],
+    [],
   );
 
   useEffect(() => {
@@ -923,21 +973,42 @@ export function useSwapQuote({
   }, [quoteEventHandler, swapApprovingSuccessAction, swapQuoteMixEvent]);
 
   const refreshPreservedInputQuoteOnFocus = useCallback(() => {
-    if (shouldPauseQuote) {
-      shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+    const pendingResume = pendingQuoteResumeRef.current;
+    if (
+      shouldPauseQuote ||
+      !pendingResume ||
+      (swapTabSwitchTypeRef.current === ESwapTabSwitchType.STOCK &&
+        fromAmountDebounce !== fromTokenAmountRef.current)
+    ) {
       return;
     }
-    if (!shouldRefreshPreservedInputQuoteOnFocusRef.current) {
-      return;
-    }
-
-    shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+    pendingQuoteResumeRef.current = undefined;
     const quoteKind =
+      !proMarketInputRef.current.enabled &&
       swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
       toTokenAmountRef.current.isInput &&
       toTokenAmountRef.current.value
         ? ESwapQuoteKind.BUY
         : ESwapQuoteKind.SELL;
+    if (
+      pendingResume.reason === 'lock' ||
+      proMarketInputRef.current.enabled ||
+      !pendingResume.wasPaused ||
+      isProviderSelectRouteActive()
+    ) {
+      void resumeQuoteAction({
+        slippageItem: swapSlippageRef.current,
+        address: activeAccountRef.current?.address,
+        accountId: activeAccountRef.current?.accountInfo?.account?.id,
+        kind: quoteKind,
+        receivingAddress: proMarketInputRef.current.enabled
+          ? activeAccountRef.current?.address
+          : swapToAddressInfoRef.current.address,
+        incognito: settingsAtomRef.current.swapIncognitoMode,
+        pausedQuoteRequestId: pendingResume.quoteRequestId,
+      });
+      return;
+    }
     void quoteAction(
       swapSlippageRef.current,
       activeAccountRef.current?.address,
@@ -948,93 +1019,136 @@ export function useSwapQuote({
       undefined,
       swapToAddressInfoRef.current.address,
     );
-  }, [quoteAction, shouldPauseQuote]);
-
-  const pauseQuoteOnFocusLoss = useCallback(() => {
-    cleanQuoteInterval();
-    const shouldPreserveUserInputAmount =
-      shouldPreserveSwapUserInputAmountOnAccountSwitch({
-        fromTokenAmount: fromTokenAmountRef.current,
-        toTokenAmount: toTokenAmountRef.current,
-      });
-    shouldRefreshPreservedInputQuoteOnFocusRef.current =
-      shouldPreserveUserInputAmount;
-    const quoteRequestId = swapQuoteActionLockRef.current.quoteRequestId;
-    if (quoteRequestId) {
-      closeQuoteEvent(quoteRequestId);
-    }
-    setSwapQuoteActionLock((value) => ({
-      ...value,
-      actionLock: false,
-    }));
-    setSwapQuoteFetching(false);
-
-    if (
-      swapQuoteFetchingRef.current ||
-      (swapQuoteEventTotalCountRef.current.count > 0 &&
-        swapQuoteResultListRef.current.length <
-          swapQuoteEventTotalCountRef.current.count)
-    ) {
-      setSwapQuoteEventTotalCount({
-        count: 0,
-      });
-      setSwapQuoteResultList([]);
-      if (!shouldPreserveUserInputAmount) {
-        setFromTokenAmount({ value: '', isInput: true });
-      }
-    }
   }, [
-    cleanQuoteInterval,
-    closeQuoteEvent,
-    setFromTokenAmount,
-    setSwapQuoteActionLock,
-    setSwapQuoteEventTotalCount,
-    setSwapQuoteFetching,
-    setSwapQuoteResultList,
+    fromAmountDebounce,
+    isProviderSelectRouteActive,
+    quoteAction,
+    resumeQuoteAction,
+    shouldPauseQuote,
   ]);
 
-  const isProviderSelectRouteActive = useCallback(
-    () =>
-      shouldKeepSwapQuoteAliveOnFocusLoss(
-        rootNavigationRef.current?.getCurrentRoute()?.name,
-      ),
-    [],
-  );
+  const pauseQuoteOnFocusLoss = useCallback(
+    (reason: 'lock' | 'route' = 'route') => {
+      cleanQuoteInterval();
+      const shouldPreserveUserInputAmount =
+        shouldPreserveSwapUserInputAmountOnAccountSwitch({
+          fromTokenAmount: fromTokenAmountRef.current,
+          toTokenAmount: toTokenAmountRef.current,
+        }) ||
+        (proMarketInputRef.current.enabled &&
+          Number(proMarketInputRef.current.amount) > 0);
+      if (shouldPreserveUserInputAmount) {
+        pendingQuoteResumeRef.current = {
+          reason:
+            reason === 'lock' ||
+            pendingQuoteResumeRef.current?.reason === 'lock'
+              ? 'lock'
+              : 'route',
+          quoteRequestId: swapQuoteActionLockRef.current.quoteRequestId,
+          wasPaused: true,
+        };
+      } else {
+        pendingQuoteResumeRef.current = undefined;
+      }
+      const quoteRequestId = swapQuoteActionLockRef.current.quoteRequestId;
+      if (quoteRequestId) {
+        closeQuoteEvent(quoteRequestId);
+      }
+      setSwapQuoteActionLock((value) => ({
+        ...value,
+        actionLock: false,
+      }));
+      setSwapQuoteFetching(false);
 
-  useListenTabFocusState(
-    ETabRoutes.Swap,
-    (isFocus: boolean, isHiddenModel: boolean) => {
-      if (!shouldUseRouteQuoteLifecycle) {
-        handleSwapQuoteTabVisibilityChange({
-          isFocus,
-          isHiddenModel,
-          setQuoteVisible: (isVisible) => {
-            isQuoteVisibleRef.current = isVisible;
-          },
-          subscribeQuoteEvents,
-          refreshPreservedInputQuote: refreshPreservedInputQuoteOnFocus,
-          pauseQuote: pauseQuoteOnFocusLoss,
-          unsubscribeQuoteEvents,
+      if (
+        swapQuoteFetchingRef.current ||
+        (swapQuoteEventTotalCountRef.current.count > 0 &&
+          swapQuoteResultListRef.current.length <
+            swapQuoteEventTotalCountRef.current.count)
+      ) {
+        setSwapQuoteEventTotalCount({
+          count: 0,
         });
+        setSwapQuoteResultList([]);
+        if (!shouldPreserveUserInputAmount) {
+          setFromTokenAmount({ value: '', isInput: true });
+        }
       }
     },
+    [
+      cleanQuoteInterval,
+      closeQuoteEvent,
+      setFromTokenAmount,
+      setSwapQuoteActionLock,
+      setSwapQuoteEventTotalCount,
+      setSwapQuoteFetching,
+      setSwapQuoteResultList,
+    ],
   );
 
-  useEffect(() => {
-    if (shouldUseRouteQuoteLifecycle) {
-      if (isFocused) {
+  const deferQuoteLifecycleAction = useCallback((action: () => void) => {
+    // Let navigation publish its destination before classifying a focus loss.
+    void timerUtils.setTimeoutPromised(action, platformEnv.isNative ? 250 : 0);
+  }, []);
+
+  const visibilityGenerationRef = useRef(0);
+  const isRouteMountedRef = useRef(false);
+  const quoteLifecycleStateRef = useRef<
+    'visible' | 'hidden' | 'locked' | undefined
+  >(undefined);
+  const pauseQuoteOnFocusLossRef = useRef(pauseQuoteOnFocusLoss);
+  pauseQuoteOnFocusLossRef.current = pauseQuoteOnFocusLoss;
+  const unsubscribeQuoteEventsRef = useRef(unsubscribeQuoteEvents);
+  unsubscribeQuoteEventsRef.current = unsubscribeQuoteEvents;
+
+  const updateQuoteLifecycle = useCallback(() => {
+    visibilityGenerationRef.current += 1;
+    const generation = visibilityGenerationRef.current;
+    if (appIsLocked) {
+      isQuoteVisibleRef.current = false;
+      if (quoteLifecycleStateRef.current !== 'locked') {
+        pauseQuoteOnFocusLoss('lock');
+      }
+      quoteLifecycleStateRef.current = 'locked';
+      unsubscribeQuoteEvents();
+      return;
+    }
+    const isProviderPicker = isProviderSelectRouteActive();
+    const isVisible =
+      (isFocused &&
+        (shouldUseRouteQuoteLifecycle || isTabVisibleRef.current)) ||
+      isProviderPicker;
+    isQuoteVisibleRef.current = isVisible;
+    if (isVisible) {
+      quoteLifecycleStateRef.current = 'visible';
+      subscribeQuoteEvents();
+      refreshPreservedInputQuoteOnFocus();
+      return;
+    }
+    const wasLocked = quoteLifecycleStateRef.current === 'locked';
+    quoteLifecycleStateRef.current = 'hidden';
+    if (wasLocked) {
+      return;
+    }
+    deferQuoteLifecycleAction(() => {
+      if (
+        !isRouteMountedRef.current ||
+        visibilityGenerationRef.current !== generation
+      ) {
+        return;
+      }
+      if (isProviderSelectRouteActive()) {
+        isQuoteVisibleRef.current = true;
         subscribeQuoteEvents();
         refreshPreservedInputQuoteOnFocus();
-      } else if (!isProviderSelectRouteActive()) {
-        pauseQuoteOnFocusLoss();
+        return;
       }
-    }
-    return () => {
-      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
-        unsubscribeQuoteEvents();
-      }
-    };
+      pauseQuoteOnFocusLoss();
+      unsubscribeQuoteEvents();
+    });
   }, [
+    appIsLocked,
+    deferQuoteLifecycleAction,
     isFocused,
     isProviderSelectRouteActive,
     pauseQuoteOnFocusLoss,
@@ -1043,4 +1157,34 @@ export function useSwapQuote({
     subscribeQuoteEvents,
     unsubscribeQuoteEvents,
   ]);
+  // Router subscriptions retain their first callback, so read the latest state.
+  const updateQuoteLifecycleRef = useRef(updateQuoteLifecycle);
+  updateQuoteLifecycleRef.current = updateQuoteLifecycle;
+  useListenTabFocusState(
+    ETabRoutes.Swap,
+    (isFocus: boolean, isHiddenModel: boolean) => {
+      if (!shouldUseRouteQuoteLifecycle) {
+        isTabVisibleRef.current = isSwapQuoteTabEffectivelyVisible({
+          isFocus,
+          isHiddenModel,
+        });
+        updateQuoteLifecycleRef.current();
+      }
+    },
+  );
+
+  useEffect(() => {
+    isRouteMountedRef.current = true;
+    return () => {
+      isRouteMountedRef.current = false;
+      visibilityGenerationRef.current += 1;
+      pauseQuoteOnFocusLossRef.current();
+      unsubscribeQuoteEventsRef.current();
+    };
+  }, []);
+
+  useEffect(() => unsubscribeQuoteEvents, [unsubscribeQuoteEvents]);
+  useEffect(() => {
+    updateQuoteLifecycle();
+  }, [updateQuoteLifecycle]);
 }

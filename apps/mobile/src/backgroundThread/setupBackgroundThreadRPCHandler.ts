@@ -4,6 +4,8 @@ import {
   getSharedStore,
 } from '@onekeyfe/react-native-background-thread';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { XMR_SYNC_WATCHDOG_MS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -62,6 +64,7 @@ import {
   BACKGROUND_THREAD_READY_KEY,
   BACKGROUND_THREAD_READY_WAKE_KEY,
   buildBackgroundThreadFailedPayload,
+  getBackgroundThreadBootId,
   serializeBackgroundThreadRuntimePayload,
 } from './runtimeReady';
 
@@ -234,9 +237,9 @@ let handleWebEmbedBridgeResponse: (
   value: string | number | boolean,
 ) => void = () => {};
 
-function buildErrorPayload(error: unknown) {
+function buildErrorPayload(error: unknown, request: IBackgroundThreadRequest) {
   const runtimeError = error as
-    | { $isHardwareError?: unknown }
+    | { $isHardwareError?: unknown; params?: unknown; detail?: unknown }
     | null
     | undefined;
   const {
@@ -253,9 +256,23 @@ function buildErrorPayload(error: unknown) {
   if (runtimeError?.$isHardwareError === true) {
     errorPayload.$isHardwareError = true;
   }
-  const safeData = buildSafeBackgroundThreadErrorData(data);
+  const safeData = buildSafeBackgroundThreadErrorData(data, {
+    request,
+    message: errorPayload.message,
+  });
   if (safeData) {
     errorPayload.data = safeData;
+  }
+  // Structured runtime errors (zcash wasm) keep params/detail for the UI.
+  if (
+    runtimeError?.params &&
+    typeof runtimeError.params === 'object' &&
+    !Array.isArray(runtimeError.params)
+  ) {
+    errorPayload.params = runtimeError.params as Record<string, unknown>;
+  }
+  if (typeof runtimeError?.detail === 'string') {
+    errorPayload.detail = runtimeError.detail;
   }
   return {
     ok: false,
@@ -467,7 +484,76 @@ function sendBridgeMessageFromBgToUi(
   return true;
 }
 
+let webEmbedRuntimeProbeSequence = 0;
+let pendingWebEmbedRuntimeProbe: string | undefined;
+
+function adoptWebEmbedMainRuntime(mainRuntimeId: string | undefined) {
+  if (!mainRuntimeId) return;
+  const state = (appGlobals.$$webEmbedMainRuntime ??= {
+    retiredRuntimeIds: new Set<string>(),
+  });
+  if (state.retiredRuntimeIds.has(mainRuntimeId)) return;
+  // A native capability confirmation also invalidates proofs for the same current epoch.
+  pendingWebEmbedRuntimeProbe = undefined;
+  if (state.currentRuntimeId === mainRuntimeId) return;
+  if (state.currentRuntimeId) {
+    state.retiredRuntimeIds.add(state.currentRuntimeId);
+    state.pendingMountRuntimeIds?.delete(state.currentRuntimeId);
+  }
+  state.currentRuntimeId = mainRuntimeId;
+  if (state.pendingMountRuntimeIds?.delete(mainRuntimeId)) {
+    // The first host cached a rejected activation. Replace it only after its epoch is trusted.
+    void appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+  }
+}
+
 function handleAppEventRequest(request: IBackgroundThreadAppEventRequest) {
+  if (request.eventName === EAppEventBusNames.WebEmbedWebViewProviderReady) {
+    const payload = request.payload as
+      | { mainRuntimeId?: unknown; probeId?: unknown }
+      | undefined;
+    const runtimeId = payload?.mainRuntimeId;
+    const state = appGlobals.$$webEmbedMainRuntime;
+    const isEligibleRuntime =
+      request.originNodeId &&
+      typeof runtimeId === 'string' &&
+      runtimeId &&
+      !state?.retiredRuntimeIds.has(runtimeId);
+    if (payload?.probeId !== undefined) {
+      if (
+        isEligibleRuntime &&
+        typeof payload.probeId === 'string' &&
+        payload.probeId === pendingWebEmbedRuntimeProbe
+      ) {
+        adoptWebEmbedMainRuntime(runtimeId);
+      }
+      // Proof is not a new subscription: do not replay pending bootstrap requests.
+      return true;
+    }
+    if (isEligibleRuntime && runtimeId !== state?.currentRuntimeId) {
+      let advertisedRuntimeId: string | undefined;
+      try {
+        const advertised = parseBackgroundThreadMainCapabilitiesPayload(
+          getSharedStore()?.get(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY),
+        )?.mainRuntimeId;
+        if (typeof advertised === 'string') advertisedRuntimeId = advertised;
+      } catch {
+        // The live provider can prove its identity when no advertisement is readable.
+      }
+      if (
+        advertisedRuntimeId === runtimeId ||
+        (!advertisedRuntimeId && !state?.currentRuntimeId)
+      ) {
+        adoptWebEmbedMainRuntime(runtimeId);
+      } else if (!advertisedRuntimeId) {
+        webEmbedRuntimeProbeSequence += 1;
+        pendingWebEmbedRuntimeProbe = `${getBackgroundThreadBootId()}-${webEmbedRuntimeProbeSequence}`;
+        void appEventBus.emit(EAppEventBusNames.WebEmbedWebViewRuntimeProbe, {
+          probeId: pendingWebEmbedRuntimeProbe,
+        });
+      }
+    }
+  }
   if (!request.originNodeId) {
     // Symmetric with BackgroundApi.emitEvent: warn loudly so a bridge
     // regression that drops originNodeId surfaces here too. Routing keeps
@@ -623,7 +709,7 @@ async function handleRequest(callId: string, value: string | number | boolean) {
     writeBackgroundThreadResponse({
       sharedRPC,
       responseKey,
-      buildResponse: () => buildErrorPayload(error),
+      buildResponse: () => buildErrorPayload(error, request),
       callId,
       requestLabel,
     });
@@ -644,6 +730,9 @@ function applyMainCapabilities() {
     // BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY. Re-reading is idempotent.
     const raw = sharedStore.get(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
     const payload = parseBackgroundThreadMainCapabilitiesPayload(raw);
+    if (typeof payload?.mainRuntimeId === 'string') {
+      adoptWebEmbedMainRuntime(payload.mainRuntimeId);
+    }
     // Reflect main's currently advertised capability (bidirectional). Don't
     // latch — an OTA rollback can drop batch support and we must follow it
     // back down to the legacy path on the very next capability read.
@@ -775,6 +864,34 @@ export function reportBackgroundThreadInitializationFailure(error: unknown) {
 // --- WebEmbed bridge reverse RPC (background → main thread) ---
 
 const WEBEMBED_BRIDGE_CALL_TIMEOUT_MS = 30_000;
+
+// Local-wallet runtimes serialize calls behind one carrier lease, so any method can wait out a sync turn (5-minute watchdog).
+const WEBEMBED_MODULE_TIMEOUTS_MS: Record<
+  string,
+  { default: number; methods?: Record<string, number> }
+> = {
+  chainZcash: { default: 360_000, methods: { provePczt: 540_000 } },
+  // One scan step covers up to 1000 blocks; a send fetches decoys over several requests.
+  chainXmr: {
+    default: 120_000,
+    methods: { syncStep: XMR_SYNC_WATCHDOG_MS },
+  },
+};
+
+export function getWebEmbedBridgeCallTimeoutMs(data: unknown): number {
+  const request = data as { module?: unknown; method?: unknown } | null;
+  const moduleTimeouts =
+    typeof request?.module === 'string'
+      ? WEBEMBED_MODULE_TIMEOUTS_MS[request.module]
+      : undefined;
+  if (!moduleTimeouts) {
+    return WEBEMBED_BRIDGE_CALL_TIMEOUT_MS;
+  }
+  if (typeof request?.method === 'string') {
+    return moduleTimeouts.methods?.[request.method] ?? moduleTimeouts.default;
+  }
+  return WEBEMBED_BRIDGE_CALL_TIMEOUT_MS;
+}
 let webEmbedBridgeCallSequence = 0;
 const pendingWebEmbedBridgeCalls = new Map<
   string,
@@ -782,8 +899,25 @@ const pendingWebEmbedBridgeCalls = new Map<
     resolve: (value: unknown) => void;
     reject: (reason: unknown) => void;
     timer: ReturnType<typeof setTimeout>;
+    module?: string;
   }
 >();
+
+// Local-wallet runtimes throw structured errors; other modules surface the message only.
+const STRUCTURED_ERROR_WEBEMBED_MODULES = new Set(['chainZcash', 'chainXmr']);
+
+export function rehydrateWebEmbedBridgeError(
+  errorInfo?: IBackgroundThreadResponseErrorPayload,
+  module?: string,
+): OneKeyLocalError {
+  const error = new OneKeyLocalError(
+    errorInfo?.message || 'WebEmbed bridge call failed',
+  );
+  if (!module || !STRUCTURED_ERROR_WEBEMBED_MODULES.has(module)) {
+    return error;
+  }
+  return Object.assign(error, errorInfo);
+}
 
 handleWebEmbedBridgeResponse = (
   key: string,
@@ -803,9 +937,7 @@ handleWebEmbedBridgeResponse = (
       pending.resolve(response.result);
     } else {
       pending.reject(
-        new OneKeyLocalError(
-          response?.error?.message || 'WebEmbed bridge call failed',
-        ),
+        rehydrateWebEmbedBridgeError(response?.error, pending.module),
       );
     }
   } catch (error) {
@@ -824,21 +956,42 @@ export function callWebEmbedBridgeViaMainThread(
   }
 
   webEmbedBridgeCallSequence += 1;
-  const callId = `${webEmbedBridgeCallSequence}`;
+  const callId = `${getBackgroundThreadBootId()}:${webEmbedBridgeCallSequence}`;
+  const timeoutMs = getWebEmbedBridgeCallTimeoutMs(data);
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingWebEmbedBridgeCalls.delete(callId);
-      reject(new OneKeyLocalError('WebEmbed bridge call timeout (30s)'));
-    }, WEBEMBED_BRIDGE_CALL_TIMEOUT_MS);
+      reject(
+        new OneKeyLocalError(
+          `WebEmbed bridge call timeout (${timeoutMs / 1000}s)`,
+        ),
+      );
+    }, timeoutMs);
 
-    pendingWebEmbedBridgeCalls.set(callId, { resolve, reject, timer });
+    const module = (data as { module?: unknown } | null)?.module;
+    pendingWebEmbedBridgeCalls.set(callId, {
+      resolve,
+      reject,
+      timer,
+      module: typeof module === 'string' ? module : undefined,
+    });
 
     sharedRPC.write(
       buildWebEmbedBridgeRequestKey(callId),
       JSON.stringify(data),
     );
   });
+}
+
+// A remounted WebView never answers the old one's calls; fail them now, not at their timeouts.
+export function rejectPendingWebEmbedBridgeCalls(reason: string) {
+  const pending = [...pendingWebEmbedBridgeCalls.values()];
+  pendingWebEmbedBridgeCalls.clear();
+  for (const call of pending) {
+    clearTimeout(call.timer);
+    call.reject(new OneKeyLocalError(reason));
+  }
 }
 
 // --- end WebEmbed bridge reverse RPC ---
@@ -872,6 +1025,8 @@ export function setupBackgroundThreadRPCHandler() {
   // Expose reverse RPC for webEmbed bridge calls from background thread
   (globalThis as any).__onekeyCallWebEmbedBridgeViaMainThread =
     callWebEmbedBridgeViaMainThread;
+  (globalThis as any).__onekeyRejectPendingWebEmbedBridgeCalls =
+    rejectPendingWebEmbedBridgeCalls;
 
   ensureBackgroundRequestHandlerInstalled();
   startBackgroundRuntimeHeartbeat();

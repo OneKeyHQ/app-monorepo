@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
@@ -21,6 +22,9 @@ import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
+import { useMarketWidgetCopy } from '@onekeyhq/kit/src/views/Market/MarketWidget/useMarketWidgetCopy';
+import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
   useDevSettingsPersistAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -35,7 +39,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
@@ -44,6 +48,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ESettingsTabNames,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -57,9 +62,11 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
+  AutoDownloadAppUpdateListItem,
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
@@ -80,8 +87,9 @@ import {
   TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
-import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { ExportDiagnosticLogsListItem } from './exportLogs/ExportDiagnosticLogsListItem';
 import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { RestoreInfiniPendingTransactionsListItem } from './RestoreInfiniPendingTransactionsListItem';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
@@ -214,6 +222,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
+  const languageSearchKeywords = useLanguageSearchKeywords();
+  const marketWidgetCopy = useMarketWidgetCopy();
   const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -245,6 +255,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         id: ETranslations.settings_clear_pending_transactions,
       }),
       renderElement: <ClearPendingTransactionsListItem />,
+    };
+    const restoreInfiniPendingTransactionsItem: ISubSettingConfig = {
+      id: 'restore-infini-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: `Infini: ${intl.formatMessage({ id: ETranslations.global_restore })} ${intl.formatMessage({ id: ETranslations.tray_pending_transactions_title })}`,
+      renderElement: <RestoreInfiniPendingTransactionsListItem />,
     };
     const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
@@ -337,7 +353,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : undefined,
-                platformEnv.isNative
+                platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
                   ? {
                       id: 'onekey-lite',
                       icon: 'OnekeyLiteOutline',
@@ -401,6 +417,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_language,
               }),
+              keywords: languageSearchKeywords,
               renderElement: <LanguageListItem />,
             },
             {
@@ -427,6 +444,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_vibration_haptic,
                   }),
                   renderElement: <HapticFeedbackListItem />,
+                }
+              : undefined,
+            platformEnv.isNativeIOS && marketWidget.supportsSettingsEditing()
+              ? {
+                  id: 'market-widgets',
+                  icon: 'LayoutDashboardOutline',
+                  title: marketWidgetCopy.marketWidgets,
+                  testID: 'settings-market-widgets',
+                  onPress: (
+                    navigation?: ReturnType<typeof useAppNavigation>,
+                  ) => {
+                    navigation?.pushModal(EModalRoutes.MarketModal, {
+                      screen: EModalMarketRoutes.MarketWidgetList,
+                    });
+                  },
                 }
               : undefined,
           ],
@@ -523,6 +555,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             platformEnv.isWebDappMode
               ? clearPendingTransactionsItem
               : undefined,
+            platformEnv.isWebDappMode
+              ? restoreInfiniPendingTransactionsItem
+              : undefined,
           ],
           [
             {
@@ -547,6 +582,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             }),
             configs: [
               [
+                // Lists the privacy chains, which Web does not offer.
+                !platformEnv.isWeb
+                  ? {
+                      id: 'privacy',
+                      icon: 'ShieldOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.trade_privacy_mode,
+                      }),
+                      testID: 'settings-wallet-privacy',
+                      settingRoute: EModalSettingRoutes.SettingPrivacy,
+                      onPress: (navigation) => {
+                        navigation?.push(EModalSettingRoutes.SettingPrivacy);
+                      },
+                    }
+                  : undefined,
                 {
                   id: 'address-book',
                   icon: 'ContactsOutline',
@@ -618,6 +668,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
                   }),
+                  // The only place to change the Bitcoin address type once
+                  // an account shows a single one, so it must be findable by
+                  // the words users know it by.
+                  keywords: [
+                    intl.formatMessage({ id: ETranslations.address_type }),
+                    'Taproot',
+                    'SegWit',
+                    'Legacy',
+                    'Nested',
+                    'bc1q',
+                    'bc1p',
+                  ],
                   settingRoute:
                     EModalSettingRoutes.SettingAccountDerivationModal,
                   onPress: (navigation) => {
@@ -638,7 +700,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
-              [clearPendingTransactionsItem],
+              [
+                clearPendingTransactionsItem,
+                restoreInfiniPendingTransactionsItem,
+              ],
             ],
           },
       platformEnv.isWebDappMode
@@ -915,6 +980,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ListVersionItem />,
             },
+            platformEnv.isDesktop && !platformEnv.isDesktopStore
+              ? {
+                  id: 'auto-download-app-update',
+                  icon: 'FileDownloadOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__desc,
+                  }),
+                  renderElement: <AutoDownloadAppUpdateListItem />,
+                }
+              : undefined,
           ],
           [
             {
@@ -1025,18 +1103,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: () => {
-                showExportLogsDialog({
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_upload_state_logs,
-                  }),
-                });
-              },
+              keywords: [
+                'diagnostic logs',
+                'state logs',
+                '导出诊断日志',
+                '导出状态日志',
+              ],
+              testID: SettingTestIDs.exportDiagnosticLogsItem,
+              renderElement: <ExportDiagnosticLogsListItem />,
             },
           ],
         ],
       },
-      devSettings.enabled
+      devSettings.enabled ||
+      (platformEnv.isDev && (platformEnv.isDesktop || platformEnv.isExtension))
         ? {
             icon: 'CodeSolid',
             mobileIcon: 'CodeOutline',
@@ -1056,14 +1136,32 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             configs: [
               [
-                {
-                  id: 'dev-mode',
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
+                platformEnv.isDev &&
+                (platformEnv.isDesktop || platformEnv.isExtension)
+                  ? {
+                      id: 'developer-pages',
+                      icon: 'CodeBracketsOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      testID: 'setting-developer-pages',
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.DeveloperModal, {
+                          screen: ETabDeveloperRoutes.TabDeveloper,
+                        });
+                      },
+                    }
+                  : undefined,
+                devSettings.enabled
+                  ? {
+                      id: 'dev-mode',
+                      icon: 'CodeOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      renderElement: <DevSettingsSection />,
+                    }
+                  : undefined,
               ],
             ],
           }
@@ -1080,6 +1178,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       },
     ];
     const hiddenTravelModeItemIds = new Set([
+      'market-widgets',
       'notifications',
       'onekey-transfer',
       'manual-backup',
@@ -1155,6 +1254,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     });
   }, [
     intl,
+    marketWidgetCopy.marketWidgets,
     cloudBackupFeatureInfo?.supportCloudBackup,
     cloudBackupFeatureInfo?.icon,
     cloudBackupFeatureInfo?.title,
@@ -1174,5 +1274,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     privacyPolicyUrl,
     isPrimeActive,
     isMobileLayout,
+    languageSearchKeywords,
   ]);
 };

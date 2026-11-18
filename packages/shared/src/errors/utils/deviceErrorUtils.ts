@@ -2,12 +2,19 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as HwkHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { isArray, isNil } from 'lodash';
 
+import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
-import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '../errors/thirdPartyHardwareErrors';
+import {
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+} from '../errors/thirdPartyHardwareErrors';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
@@ -42,6 +49,9 @@ const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>([
   // Codes the installed SDK build predates. Without this the routing gate reads
   // them as unknown and they never reach the third-party mapper.
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
 ]);
 
 const REMOTE_CONFIG_REFRESH_ERROR_MESSAGE =
@@ -51,6 +61,8 @@ function isHwkErrorCode(code: unknown): code is number {
   const n = typeof code === 'string' ? Number(code) : code;
   return typeof n === 'number' && Number.isFinite(n) && HWK_ERROR_CODES.has(n);
 }
+
+const UNKNOWN_MESSAGE_ERRORS = ['Unknown message', 'Handler not found'];
 
 export function captureSpecialError(
   code: string | number | undefined,
@@ -136,6 +148,13 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DeviceInitializeFailed:
       return new HardwareErrors.DeviceInitializeFailed({ payload });
+    case HardwareErrorCode.TransportProtocolProbeFailed:
+    case HardwareErrorCode.TransportProtocolMismatch:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_communication_error,
+      });
     case HardwareErrorCode.DeviceDetectInBootloaderMode:
       return new HardwareErrors.DeviceDetectInBootloaderMode({ payload });
     case HardwareErrorCode.DeviceInterruptedFromOutside:
@@ -169,25 +188,43 @@ export function convertDeviceError(
       return new HardwareErrors.NewFirmwareForceUpdate({ payload });
     case HardwareErrorCode.DeviceNotSupportMethod:
       return new HardwareErrors.UnknownMethod({ payload });
+    case HardwareErrorCode.ForbiddenKeyPath:
+      return new HardwareErrors.ForbiddenKeyPathError({ payload });
+    // The raw firmware text stays in the payload for logs and reports.
+    case HardwareErrorCode.DeviceNotSupportPath:
+      return new HardwareErrors.UnsupportedAddressTypeError({ payload });
     case HardwareErrorCode.NetworkError:
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
       return new HardwareErrors.NeedBluetoothTurnedOn({ payload });
+    case HardwareErrorCode.BlePoweredOff:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_bluetooth_need_turned_on_error,
+      });
+    case HardwareErrorCode.BleUnsupported:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_third_party_transport_not_available,
+      });
     case HardwareErrorCode.BleLocationError:
       return new HardwareErrors.NeedBluetoothPermissions({ payload });
     case HardwareErrorCode.BleLocationServicesDisabled:
       return new HardwareErrors.BleLocationServiceError({ payload });
     case HardwareErrorCode.BleDeviceNotBonded:
-      return new HardwareErrors.DeviceNotBonded({ payload });
-    case HardwareErrorCode.BleDeviceBondedCanceled:
-      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
-    case HardwareErrorCode.BleDeviceBondError:
-    case HardwareErrorCode.BlePeerRemovedPairingInformation:
-    case HardwareErrorCode.BleBondInvalid:
-      return new HardwareErrors.DeviceBondError({
+      return new HardwareErrors.DeviceNotBonded({
         payload,
-        silentMode: options?.silentMode,
+        key: platformEnv.isDesktop
+          ? ETranslations.feedback_bluetooth_pairing_failed
+          : undefined,
       });
+    case HardwareErrorCode.BleDeviceBondedCanceled:
+      if (platformEnv.isDesktop) {
+        return new HardwareErrors.UserCancel({ payload, autoToast: false });
+      }
+      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new HardwareErrors.BleWriteCharacteristicError({ payload });
     case HardwareErrorCode.BleScanError:
@@ -202,11 +239,9 @@ export function convertDeviceError(
       if (message.indexOf('EIP712 blind sign is disabled') !== -1) {
         return new HardwareErrors.OpenBlindSign({ payload });
       }
-      if (message.indexOf('Unknown message') !== -1) {
+      // Pro 2 answers a message type it lacks with "Handler not found" instead of "Unknown message".
+      if (UNKNOWN_MESSAGE_ERRORS.some((text) => message.indexOf(text) !== -1)) {
         return new HardwareErrors.UnknownMethod({ payload });
-      }
-      if (message.indexOf('Forbidden key path') !== -1) {
-        return new HardwareErrors.ForbiddenKeyPathError({ payload });
       }
       if (
         message.toLowerCase().includes('string overflow') ||
@@ -271,6 +306,18 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceDataOverload({ payload });
     case HardwareErrorCode.BridgeDeviceDisconnected:
       return new HardwareErrors.DeviceDisconnectedError({ payload });
+    case ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.global_connection_failed_usb_help_text,
+      });
+    case HardwareErrorCode.BridgeNeedsPermission:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.device_grant_usb_access,
+      });
     case HardwareErrorCode.BTCPsbtTooManyUtxos:
       return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
     case HardwareErrorCode.ResponseUnexpectTypeError:
@@ -306,6 +353,8 @@ export function convertDeviceError(
             code: Number(code),
             error: payload.error ?? message ?? '',
             params: payload.params,
+            appName: payload.appName,
+            recovery: payload.recovery,
           },
           {
             silentMode: options?.silentMode,
@@ -343,7 +392,11 @@ export async function convertDeviceResponse<T>(
       ?.errorCode;
     if (typeof sdkErrorCode === 'number') {
       throw convertDeviceError(
-        { code: sdkErrorCode, error: error?.message },
+        {
+          code: sdkErrorCode,
+          error: error?.message,
+          params: (error as { params?: unknown } | undefined)?.params,
+        },
         options,
       );
     }
@@ -363,6 +416,17 @@ export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
     oneKeyError?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
     oneKeyError?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
     oneKeyError?.$isHardwareError === true,
+  );
+}
+
+export function isDesktopBlePairingCanceledError(
+  error: unknown,
+): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    platformEnv.isDesktop &&
+    isOneKeyHardwareError(error) &&
+    oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
   );
 }
 

@@ -42,6 +42,7 @@ jest.mock('@onekeyhq/components', () => {
     );
 
   return {
+    DesktopTabItem: View,
     Checkbox: ({
       onChange,
       testID,
@@ -71,30 +72,28 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     ScrollView: View,
     SizableText: View,
-    Tabs: {
-      TabBarItem: ({
-        isFocused,
-        label,
-        name,
-        onPress,
-        testID,
-      }: {
-        isFocused?: boolean;
-        label?: string;
-        name: string;
-        onPress: (name: string) => void;
-        testID?: string;
-      }) => (
-        <button
-          data-testid={testID}
-          data-focused={String(Boolean(isFocused))}
-          onClick={() => onPress(name)}
-          type="button"
-        >
-          {label}
-        </button>
-      ),
-    },
+    TabBarItem: ({
+      isFocused,
+      label,
+      name,
+      onPress,
+      testID,
+    }: {
+      isFocused?: boolean;
+      label?: string;
+      name: string;
+      onPress: (name: string) => void;
+      testID?: string;
+    }) => (
+      <button
+        data-testid={testID}
+        data-focused={String(Boolean(isFocused))}
+        onClick={() => onPress(name)}
+        type="button"
+      >
+        {label}
+      </button>
+    ),
     XStack: View,
     YStack: View,
   };

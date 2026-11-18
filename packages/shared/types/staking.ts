@@ -111,6 +111,8 @@ export type IEarnStakeType = 'wrap' | 'normal';
 
 export type IEarnWithdrawType = 'instant' | 'queued' | 'cancel';
 
+export type IEarnAmountUnit = 'shares';
+
 export type IEarnClaimType = 'normal' | 'airdrop';
 
 export type IEarnWithdrawApproveInfo = {
@@ -119,6 +121,8 @@ export type IEarnWithdrawApproveInfo = {
   tokenAddress?: string;
   allowance?: string;
   receiptTokenRate?: string;
+  amountUnit?: IEarnAmountUnit;
+  inputToken?: { symbol: string; logoURI?: string; price: string };
 };
 
 export type IStakeProviderInfo = {
@@ -196,7 +200,18 @@ export type IStakeProviderInfo = {
   eventEndTime?: number;
 };
 
-export type IStakeBaseParams = {
+/**
+ * Campaign attribution carried from an Earn link into the stake / unstake
+ * request. The server forwards it to partners that report by campaign
+ * (Unitas) and fills in a default source / medium when the link had none.
+ */
+export type IEarnUtmParams = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+export type IStakeBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -231,7 +246,7 @@ export type IStakeBaseParams = {
   stakeType?: IEarnStakeType;
 };
 
-export type IWithdrawBaseParams = {
+export type IWithdrawBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -242,7 +257,7 @@ export type IWithdrawBaseParams = {
   slippage?: number;
   effectiveApy?: string | number;
 
-  identity?: string; // sol pubkey
+  identity?: string;
   signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
@@ -358,9 +373,57 @@ export type IStakeTxStakefishExitBroadcast = {
 };
 
 export type IStakeTxResponse = {
-  tx: IStakeTx;
+  /**
+   * null when the protocol executes the order itself (Unitas Booster): the
+   * client polls the order with orderId instead of signing a transaction.
+   */
+  tx: IStakeTx | null;
   orderId?: string;
 };
+
+// Server-executed order (OK-61790): GET /earn/v1/orders/detail
+export type IEarnServerOrderStatus =
+  | 'created'
+  | 'pending'
+  | 'success'
+  | 'failed';
+
+export type IEarnServerOrderDetail = {
+  orderId: string;
+  provider: string;
+  networkId: string;
+  action: string;
+  status: IEarnServerOrderStatus;
+  txId?: string;
+  extStatus?: string;
+  extRequestId?: string;
+  extClaimableAt?: number;
+  /** The order's input asset: what the result prompt names (OK-61790). */
+  amount?: string;
+  symbol?: string;
+  /** Failed orders: the reason to show the user, worded by the server. */
+  errorMessage?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type IEarnServerOrderWaitResult = {
+  status: 'success' | 'failed' | 'submitted' | 'timeout';
+  order?: IEarnServerOrderDetail;
+};
+
+/**
+ * Outcome of asking the server to run a claim step itself (OK-61790). A
+ * timeout means the claim transaction was not mined in time; it is not a
+ * failure, because the server runs the step on its own once it is. A
+ * rejection carries the server's own wording when it sent one (redeem limit,
+ * vault paused): the caller shows it in its own dialog, so the request never
+ * throws and the global error toast stays out of the way.
+ */
+export type IEarnServerClaimRequestResult =
+  | { status: 'accepted'; orderId: string }
+  | { status: 'timeout' }
+  | { status: 'rejected'; message?: string };
 
 // Babylon
 export type IStakeTxBtcBabylon = {
@@ -585,6 +648,13 @@ export interface IEarnToken {
   logoURI: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   totalSupply: string;
   riskLevel: number;
   coingeckoId: string;
@@ -890,6 +960,13 @@ export interface IEarnDepositActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnManageActionIcon {
+  type: 'manage';
+  disabled: boolean;
+  text: IEarnText;
+  data?: { vault?: string };
+}
+
 export interface IEarnHistoryActionIcon {
   type: 'history';
   disabled: boolean;
@@ -958,6 +1035,8 @@ export interface IEarnTextTooltip {
     title?: IEarnText;
     description?: IEarnText;
     items?: IEarnTooltipComparisonItem[];
+    /** what the items add up to, under a divider, with how (Spark effective APY: base + bonus × share) */
+    total?: { title: IEarnText; description: IEarnText; subtitle?: IEarnText };
   };
 }
 
@@ -1483,6 +1562,7 @@ export interface IEarnManagePageResponse {
 
 export type IEarnDetailActions =
   | IEarnDepositActionIcon
+  | IEarnManageActionIcon
   | IEarnWithdrawActionIcon
   | IEarnHistoryActionIcon
   | IEarnWithdrawOrderActionIcon
@@ -1884,6 +1964,13 @@ export enum EBorrowProviderEnum {
 export type IStakeProtocolListItem = {
   // In the full-list (no symbol) case the server tags each row with its symbol (6.6.0+)
   symbol?: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;
@@ -1960,10 +2047,37 @@ export type IClaimableListItemExtra = {
 export type IClaimableListItem = {
   id: string;
   amount: string;
+  /** Request submission time, in Unix seconds. */
+  timestamp?: number;
   fiatValue?: string;
   isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
   extra?: IClaimableListItemExtra;
+};
+
+/**
+ * Approval a claim needs before its transaction (OK-61790, Unitas USDu): the
+ * claimed USDu is converted back to USDT by the protocol afterwards, so the
+ * server asks for an allowance of the claimed amount up front.
+ */
+export type IClaimApproveInfo = {
+  approveType: EApproveType;
+  approveTarget: string;
+  tokenAddress: string;
+  symbol: string;
+  decimals: number;
+};
+
+/**
+ * Server-executed step that follows a claim (OK-61790, Unitas USDu). Once the
+ * claim transaction is mined the client asks for the claim again with this
+ * identity; the server converts the claimed USDu back to USDT itself and
+ * answers with an order to poll instead of a transaction to sign. The list
+ * item whose id equals this identity is that step on its own, offered when an
+ * earlier conversion did not go through.
+ */
+export type IClaimFollowUpInfo = {
+  identity: string;
 };
 
 export type IClaimableListResponse = {
@@ -1977,6 +2091,8 @@ export type IClaimableListResponse = {
   description?: {
     text: string;
   };
+  claimApprove?: IClaimApproveInfo;
+  claimFollowUp?: IClaimFollowUpInfo;
 };
 
 export interface IEarnAccountToken {
@@ -1984,6 +2100,12 @@ export interface IEarnAccountToken {
   networkId: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   aprWithoutFee: string;
   profit: string;
@@ -2031,6 +2153,12 @@ export type IAvailableAsset = IEarnAvailableAsset & {
 export type IRecommendAsset = {
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   protocols: Array<{
     networkId: string;
@@ -2112,10 +2240,50 @@ export interface IEarnInvestmentItem {
   investment: IInvestment[];
 }
 
+/**
+ * Server-classified meaning of a status / reward row on the investment
+ * detail (6.6.x+ earn service, OK-61377). Absent on older servers and on the
+ * rows the server does not classify (Pendle PT, Babylon overflow, ...).
+ */
+export type IEarnInvestmentRowKind =
+  | 'active'
+  | 'pendingActivation'
+  | 'unstaking'
+  | 'claimablePrincipal'
+  | 'reward'
+  /** a reward the user cannot claim by itself yet: accruing, or settled with the principal */
+  | 'pendingReward'
+  /** the part of the principal deposited through OneKey, the only part a campaign bonus is paid on */
+  | 'effectiveDeposit';
+
+export type IEarnInvestmentRowFacts = {
+  kind?: IEarnInvestmentRowKind;
+  /** token units */
+  amount?: string;
+  /** request currency */
+  fiatValue?: string;
+  /** ms; unstaking rows whose provider knows when the funds free up */
+  unlockAt?: number;
+};
+
+/** Dashboard-set protocol classification; both optional on legacy docs. */
+export type IEarnProtocolCategory =
+  | 'simpleEarn'
+  | 'fixedRate'
+  | 'staking'
+  | 'lending';
+export type IEarnProtocolType = 'native' | 'liquid' | 'lending';
+
 export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  /**
+   * Fiat of the reward rows that are yield and claimable now (6.6.x+ earn
+   * service). Only present when such a row exists; principal-only protocols
+   * never send it.
+   */
+  rewardsFiatValue?: string;
   netPnl?: IEarnText;
   netPnlFiatValue?: IEarnText;
   protocol: {
@@ -2124,6 +2292,13 @@ export interface IEarnInvestmentItemV2 {
     symbol?: string;
     vault?: string;
     vaultName?: string;
+    /**
+     * Server passes these through as stored (6.6.x+ earn service). The phone
+     * positions page groups rows by category; absent on older servers and on
+     * legacy protocol docs, in which case the row renders without a badge.
+     */
+    category?: IEarnProtocolCategory;
+    type?: IEarnProtocolType;
     providerDetail: {
       code: string;
       name: string;
@@ -2149,7 +2324,7 @@ export interface IEarnInvestmentItemV2 {
       title: IEarnText;
       description: IEarnText;
     };
-    rewardAssets: {
+    rewardAssets: ({
       title: IEarnText;
       tooltip?: IEarnTooltip;
       button:
@@ -2160,8 +2335,8 @@ export interface IEarnInvestmentItemV2 {
       badge?: IEarnBadge;
       key?: string;
       description: IEarnText;
-    }[];
-    assetsStatus: {
+    } & IEarnInvestmentRowFacts)[];
+    assetsStatus: ({
       title: IEarnText;
       description: IEarnText;
       tooltip?: IEarnTooltip;
@@ -2169,7 +2344,7 @@ export interface IEarnInvestmentItemV2 {
       swapButton?: IEarnManagePageSwapActions;
       badge?: IEarnBadge;
       key?: string;
-    }[];
+    } & IEarnInvestmentRowFacts)[];
     buttons: {
       type: string;
       text: IEarnText;
@@ -2253,6 +2428,61 @@ export type IEarnPortfolioAirdropAsset =
 export type IEarnPortfolioInvestment = Omit<IEarnInvestmentItemV2, 'assets'> & {
   assets: IEarnPortfolioAsset[]; // Only normal type assets
   airdropAssets: IEarnPortfolioAirdropAsset[]; // Only airdrop type assets
+  /**
+   * Fiat value of the airdrop rows, kept apart from totalFiatValue (which
+   * stays principal-only for the DeFi Assets figure). Summed on merge.
+   */
+  airdropFiatValue?: string;
+};
+
+/**
+ * POST /earn/v1/rewards/portfolio — the phone positions page's Rewards tab.
+ * Ledger rewards of the wallet's earn accounts across every protocol, one
+ * stage per call. Mirrors server-service-earn rewards-portfolio.ts.
+ */
+export type IEarnRewardsPortfolioStage =
+  | 'claimable'
+  | 'pending'
+  | 'distributed';
+
+export type IEarnRewardsPortfolioItem = Omit<
+  NonNullable<
+    IStakeEarnDetail['mobilePortfolio']
+  >['groups'][number]['items'][number],
+  'status'
+> & {
+  status?: IEarnRewardsPortfolioStage | 'claiming';
+  stage: IEarnRewardsPortfolioStage;
+  /** the vault that earned it, when the provider funds pools separately */
+  vault?: string;
+};
+
+export type IEarnRewardsPortfolioGroup = {
+  provider: string;
+  providerName: string;
+  providerLogoURI?: string;
+  networkId: string;
+  total: {
+    fiatValue: string;
+    /** present only when every row of the group is the same token */
+    amount?: string;
+    symbol?: string;
+  };
+  items: IEarnRewardsPortfolioItem[];
+};
+
+export type IEarnRewardsPortfolioResponse = {
+  asOf: number;
+  stage: IEarnRewardsPortfolioStage;
+  /**
+   * Ledger-only fiat totals over the full account set, regardless of stage
+   * or paging. `rewards` = claimable + pending; the page adds the protocol
+   * rewards it already holds from the investment detail.
+   */
+  totals: { claimable: string; pending: string; rewards: string };
+  groups: IEarnRewardsPortfolioGroup[];
+  /** present when more groups follow; pass back as-is */
+  cursor?: string;
 };
 
 export interface IEarnFAQListItem {
@@ -2368,6 +2598,7 @@ export type IApproveConfirmFnParams = {
   // Stakefish ETH validator
   validatorPubkey?: string;
   stakeType?: IEarnStakeType;
+  onWrapStateChange?: (state: 'submitted' | 'failed' | 'unknown') => void;
   onStepChange?: (
     step: number,
     options?: { shouldShowPostWrapApproveStep?: boolean },
@@ -2393,11 +2624,19 @@ export interface IEarnSummaryV2 {
     title: IEarnText;
     token: IEarnToken;
     button: IEarnHistoryActionIcon;
+    /** Token quantity at full precision. Absent on older responses. */
+    amount?: string | null;
+    /** USD value. Null when the server has no price. Absent on older responses. */
+    usdValue?: string | null;
   }[];
   undistributed: {
     title: IEarnText;
     description: IEarnText;
     token: IEarnToken;
+    /** Token quantity at full precision. Absent on older responses. */
+    amount?: string | null;
+    /** USD value. Null when the server has no price. Absent on older responses. */
+    usdValue?: string | null;
   }[];
 }
 
@@ -2513,10 +2752,7 @@ export interface IBorrowAsset {
     logoURI: string;
   };
   canBeCollateral?: boolean;
-  balance?: {
-    title: IEarnText;
-    description: IEarnText;
-  };
+  balance?: IBorrowBalance;
   walletBalance?: IBorrowBalance;
   available?: IBorrowBalance;
   borrowed?: IBorrowBalance;

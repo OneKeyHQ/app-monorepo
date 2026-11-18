@@ -32,6 +32,8 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockIsFocused,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    !enabled || mockIsFocused,
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({

@@ -23,6 +23,7 @@ export type IDeviceListDialogItem = {
   testID?: string;
   /** Doubles as the pickYourDevice analytics label. */
   logKey: string;
+  routeName?: EOnboardingPagesV2.ConnectKeystoneDevice;
   routeParams: {
     deviceType: EDeviceType[];
     vendor?: EHardwareVendor;
@@ -46,25 +47,31 @@ function DeviceListDialogContent({
         </Dialog.Title>
       </Dialog.Header>
       <YStack pb="$2" mx="$-5">
-        {items.map(({ title, image, testID, logKey, routeParams }) => (
-          <ListItem
-            key={logKey}
-            testID={testID}
-            renderAvatar={
-              <Image w="$10" h="$10" borderRadius="$2" source={image} />
-            }
-            title={title}
-            drillIn
-            onPress={async () => {
-              await dialog.close();
-              defaultLogger.onboarding.page.pickYourDevice(logKey);
-              navigation.push(
-                EOnboardingPagesV2.ConnectYourDevice,
-                routeParams,
-              );
-            }}
-          />
-        ))}
+        {items.map(
+          ({ title, image, testID, logKey, routeName, routeParams }) => (
+            <ListItem
+              key={logKey}
+              testID={testID ?? `onboarding-device-option-${logKey}`}
+              renderAvatar={
+                <Image w="$10" h="$10" borderRadius="$2" source={image} />
+              }
+              title={title}
+              drillIn
+              onPress={async () => {
+                await dialog.close();
+                defaultLogger.onboarding.page.pickYourDevice(logKey);
+                if (routeName === EOnboardingPagesV2.ConnectKeystoneDevice) {
+                  navigation.push(routeName);
+                } else {
+                  navigation.push(
+                    EOnboardingPagesV2.ConnectYourDevice,
+                    routeParams,
+                  );
+                }
+              }}
+            />
+          ),
+        )}
       </YStack>
     </YStack>
   );

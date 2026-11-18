@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -27,6 +28,10 @@ function ImportAddress() {
 
   const handleWalletAdded = () => {
     if (platformEnv.isWebDappMode) {
+      // Connecting is the web's consent, as its connect page states.
+      void backgroundApiProxy.serviceSetting
+        .acceptTermsConsent({ source: 'web_connect' })
+        .catch(() => undefined);
       navigation.navigate(ERootRoutes.Main, undefined, {
         pop: true,
       });

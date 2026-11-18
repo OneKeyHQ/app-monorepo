@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  SwitchStyledContext,
+  TMSwitch,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -45,6 +49,38 @@ export type ISwitchProps = IFormFieldProps<
 > & {
   isUncontrolled?: boolean;
 };
+
+const DESKTOP_THUMB_ANIMATION: ('left' | 'transform')[] = ['left', 'transform'];
+
+function DesktopSwitchThumb({
+  thumbSize,
+  thumbProps,
+}: {
+  thumbSize: (typeof SWITCH_SIZE_CONFIG)[ISwitchSize]['thumbSize'];
+  thumbProps?: ISwitchProps['thumbProps'];
+}) {
+  const { active } = SwitchStyledContext.useStyledContext();
+
+  // Percentages use the track and thumb widths directly, so hiding a retained
+  // desktop tab cannot reset the measured position and replay the animation.
+  return (
+    <TMSwitch.Thumb
+      unstyled
+      w={thumbSize}
+      h={thumbSize}
+      borderRadius="$full"
+      bg="$bg"
+      position="absolute"
+      left={active ? '100%' : 0}
+      top="50%"
+      x={active ? '-100%' : 0}
+      y="-50%"
+      transition="switch"
+      animateOnly={DESKTOP_THUMB_ANIMATION}
+      {...thumbProps}
+    />
+  );
+}
 
 export function Switch({
   value,
@@ -142,16 +178,23 @@ export function Switch({
       testID={testID}
       {...restProps}
     >
-      <TMSwitch.Thumb
-        unstyled
-        w={sizeConfig.thumbSize}
-        h={sizeConfig.thumbSize}
-        borderRadius="$full"
-        bg="$bg"
-        transition="switch"
-        animateOnly={ANIMATE_ONLY_TRANSFORM}
-        {...thumbProps}
-      />
+      {platformEnv.isDesktop ? (
+        <DesktopSwitchThumb
+          thumbSize={sizeConfig.thumbSize}
+          thumbProps={thumbProps}
+        />
+      ) : (
+        <TMSwitch.Thumb
+          unstyled
+          w={sizeConfig.thumbSize}
+          h={sizeConfig.thumbSize}
+          borderRadius="$full"
+          bg="$bg"
+          transition="switch"
+          animateOnly={ANIMATE_ONLY_TRANSFORM}
+          {...thumbProps}
+        />
+      )}
     </TMSwitch>
   );
 }

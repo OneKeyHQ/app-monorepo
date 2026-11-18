@@ -12,6 +12,21 @@ export function isFinancialNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+export function getUpcomingEarningsTimestamp(
+  date?: string,
+): number | undefined {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const timestamp = Date.parse(`${date}T00:00:00Z`);
+  if (
+    !Number.isFinite(timestamp) ||
+    date < new Date().toISOString().slice(0, 10) ||
+    new Date(timestamp).toISOString().slice(0, 10) !== date
+  ) {
+    return undefined;
+  }
+  return timestamp;
+}
+
 export function matchesFinancialPeriod(
   row: IStockFinancialReportingPeriod,
   period: IStockFinancialPeriod,
@@ -47,7 +62,7 @@ export function getFinancialRows<T extends IStockFinancialReportingPeriod>(
 export function getFinancialPeriodLabel(row: IStockFinancialReportingPeriod) {
   return /^Q[1-4]$/.test(row.fiscalPeriod ?? '')
     ? `${row.fiscalPeriod} '${row.fiscalYear.slice(-2)}`
-    : `FY${row.fiscalYear}`;
+    : row.fiscalYear;
 }
 
 export function getFinancialEarningsRows(

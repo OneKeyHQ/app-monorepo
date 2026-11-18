@@ -3,9 +3,8 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
-const mockToOnBoardingPage = jest.fn();
 let mockPromiseResult: {
   result?: {
     totalBonus: string;
@@ -20,7 +19,7 @@ let mockPromiseResult: {
       amount: string;
     }[];
   };
-  isLoading: boolean;
+  isLoading?: boolean;
 };
 
 jest.mock('react-intl', () => ({
@@ -33,44 +32,17 @@ jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Primitive = ({ children }: { children?: ReactNode }) =>
     React.createElement('div', null, children);
-  const Button = ({
-    children,
-    onPress,
-    testID,
-  }: {
-    children?: ReactNode;
-    onPress?: () => void;
-    testID?: string;
-  }) =>
-    React.createElement(
-      'button',
-      { 'data-testid': testID, onClick: onPress },
-      children,
-    );
-  const Empty = ({
-    title,
-    description,
-  }: {
-    title?: ReactNode;
-    description?: ReactNode;
-  }) =>
-    React.createElement(
-      'div',
-      null,
-      React.createElement('span', null, title),
-      React.createElement('span', null, description),
-    );
 
   return {
-    Button,
-    Empty,
-    Icon: Primitive,
-    NumberSizeableText: Primitive,
+    Button: ({ children, testID }: { children?: ReactNode; testID?: string }) =>
+      React.createElement('button', { 'data-testid': testID }, children),
+    Divider: Primitive,
+    Empty: ({ title }: { title?: ReactNode }) =>
+      React.createElement('div', null, title),
+    ScrollView: ({ children }: { children?: ReactNode }) =>
+      React.createElement('div', { 'data-testid': 'scroll-view' }, children),
     SizableText: Primitive,
-    Skeleton: Primitive,
-    XStack: Primitive,
     YStack: Primitive,
-    useInTabDialog: jest.fn(),
   };
 });
 
@@ -87,55 +59,47 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  perpsActiveAccountAtom: {
-    get: jest.fn(),
-  },
-}));
-
-jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
-  appLocale: {
-    intl: {
-      formatMessage: ({ id }: { id: string }) => id,
-    },
-  },
-}));
-
-jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
-  __esModule: true,
-  default: {
-    openUrlExternal: jest.fn(),
-  },
-}));
-
 jest.mock(
   '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage',
   () => ({
-    useToOnBoardingPage: () => mockToOnBoardingPage,
+    useToOnBoardingPage: jest.fn(),
   }),
 );
 
-jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => <div />,
-}));
-
-jest.mock('../../PerpsProviderMirror', () => ({
-  PerpsProviderMirror: ({ children }: { children?: ReactNode }) => children,
-}));
-
 jest.mock('./components/RewardSummaryCard', () => ({
   RewardSummaryCard: ({
+    isLoading,
     totalBonus,
     undistributed,
     tokenSymbol,
   }: {
+    isLoading?: boolean;
     totalBonus?: string;
     undistributed?: string;
     tokenSymbol?: string;
   }) => (
-    <div data-testid="reward-summary">
+    <div
+      data-testid="reward-summary"
+      data-loading={isLoading ? 'true' : 'false'}
+    >
       {totalBonus}:{undistributed}:{tokenSymbol}
     </div>
+  ),
+}));
+
+jest.mock('./components/RewardHistoryList', () => ({
+  RewardHistoryList: ({
+    isLoading,
+    history,
+  }: {
+    isLoading?: boolean;
+    history?: unknown[];
+  }) => (
+    <div
+      data-testid="reward-history-list"
+      data-loading={isLoading ? 'true' : 'false'}
+      data-count={String(history?.length ?? 0)}
+    />
   ),
 }));
 
@@ -143,7 +107,6 @@ import { InviteeRewardContent } from './InviteeRewardContent';
 
 describe('InviteeRewardContent', () => {
   beforeEach(() => {
-    mockToOnBoardingPage.mockReset();
     mockPromiseResult = {
       result: {
         totalBonus: '12',
@@ -158,27 +121,73 @@ describe('InviteeRewardContent', () => {
     };
   });
 
-  it('renders only the aggregate reward summary', () => {
-    render(<InviteeRewardContent walletAddress="0xwallet" />);
+  it('keeps loading until the first request settles without data', () => {
+    mockPromiseResult = {
+      result: undefined,
+      isLoading: undefined,
+    };
+
+    const { rerender } = render(
+      <InviteeRewardContent walletAddress="0xwallet" />,
+    );
+
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(
+      screen.getByTestId('reward-summary').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-loading'),
+    ).toBe('true');
+
+    mockPromiseResult = {
+      result: undefined,
+      isLoading: false,
+    };
+    rerender(<InviteeRewardContent walletAddress="0xwallet" />);
+
+    expect(
+      screen.getByTestId('reward-summary').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-count'),
+    ).toBe('0');
+  });
+
+  it('renders the reward summary and desktop payout history host', () => {
+    const { rerender } = render(
+      <InviteeRewardContent walletAddress="0xwallet" />,
+    );
 
     expect(screen.getByTestId('reward-summary').textContent).toBe('12:3:USDC');
-    expect(screen.queryByText('referral.reward_history')).toBeNull();
-    expect(screen.queryByText('0xtransa...action')).toBeNull();
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-count'),
+    ).toBe('0');
+    expect(screen.getByTestId('scroll-view')).toBeTruthy();
+
+    mockPromiseResult.result = {
+      totalBonus: '12',
+      undistributed: '3',
+      token: {
+        symbol: 'USDC',
+        logoURI: '',
+      },
+      history: [{ date: '2026-09-08', tx: '0xtx', amount: '0.17' }],
+    };
+    rerender(<InviteeRewardContent walletAddress="0xwallet" isMobile />);
+
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-count'),
+    ).toBe('1');
     expect(screen.queryByTestId('scroll-view')).toBeNull();
   });
 
   it('keeps the no-wallet state', () => {
-    const onBeforeNavigate = jest.fn();
-
-    render(
-      <InviteeRewardContent
-        walletAddress=""
-        onBeforeNavigate={onBeforeNavigate}
-      />,
-    );
+    render(<InviteeRewardContent walletAddress="" />);
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('perp-to-on-boarding-page-btn'));
-    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
   });
 });

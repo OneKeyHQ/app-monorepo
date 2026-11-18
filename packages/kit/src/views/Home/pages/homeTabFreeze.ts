@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 
 // How long an inactive home tab pane stays rendered after it loses focus.
-// The collapsible tab pager slides for ~300 ms and keeps re-syncing the new
-// tab's scroll offset for ~250 ms after the index flips (which happens at the
-// half-way point of the slide). Freezing before that leaves the pane the user
-// is sliding away from blank mid-animation.
+// Keep the outgoing pane rendered through the pager transition so freezing
+// cannot blank it while it is still visible.
 export const HOME_TAB_FREEZE_DELAY_MS = 500;
 
 export function isHomeTabActive({
@@ -39,4 +37,20 @@ export function useHomeTabFreeze(isActive: boolean) {
     return () => clearTimeout(timer);
   }, [isActive]);
   return isActive ? false : frozen;
+}
+
+// A frozen pane never re-renders, so a pane that feeds always-visible state
+// (the wallet pane feeds the header worth and WalletActions) would keep
+// serving the previous owner after an account switch made while another tab
+// is focused: no fetch starts, no replay lands, and the header stays stale
+// until the user returns to that tab. Report `true` for the render cycle in
+// which the owner changed so the pane thaws for one commit, lets its hooks
+// observe the new owner and start the refresh; the freeze delay then
+// re-freezes it. A same-owner network switch keeps its own refresh path.
+export function useHomeTabOwnerThaw(ownerKey: string | undefined) {
+  const [renderedOwnerKey, setRenderedOwnerKey] = useState(ownerKey);
+  useEffect(() => {
+    setRenderedOwnerKey(ownerKey);
+  }, [ownerKey]);
+  return renderedOwnerKey !== ownerKey;
 }

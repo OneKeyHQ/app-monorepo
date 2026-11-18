@@ -6,28 +6,32 @@ import type {
 
 type IMarketStockIdentity = {
   stockId?: string;
-  name?: string;
-  symbol?: string;
-  stock?: Pick<IMarketStockInfo, 'stockId' | 'underlyingAssetTicker'>;
+  stock?: Pick<IMarketStockInfo, 'stockId'>;
 };
 
 export function resolveMarketStockId(item: IMarketStockIdentity) {
-  const explicitStockId = [
-    item.stockId,
-    item.stock?.stockId,
-    item.stock?.underlyingAssetTicker,
-  ].find((stockId) => stockId?.trim());
+  const explicitStockId = [item.stockId, item.stock?.stockId].find((stockId) =>
+    stockId?.trim(),
+  );
   if (explicitStockId) {
     return explicitStockId.trim().toUpperCase();
   }
 
-  const name = item.name?.trim().toLowerCase();
-  const symbol = item.symbol?.trim();
-  if (name?.endsWith(' xstock') && symbol?.endsWith('x')) {
-    return symbol.slice(0, -1).trim().toUpperCase() || undefined;
-  }
-
   return undefined;
+}
+
+export function buildMarketStockTokenMetadata(
+  stock: IMarketStockInfo | undefined,
+  stockId: string | undefined,
+): IMarketStockInfo | undefined {
+  const resolvedStockId = resolveMarketStockId({ stockId, stock });
+  if (!resolvedStockId || resolvedStockId === stock?.stockId) return stock;
+  return {
+    subtitle: '',
+    sourceLogoUri: '',
+    ...stock,
+    stockId: resolvedStockId,
+  };
 }
 
 export function resolveIsStockToken(

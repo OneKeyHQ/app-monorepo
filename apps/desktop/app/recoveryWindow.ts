@@ -3,13 +3,15 @@ import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
 
 import { BrowserWindow, app, ipcMain, session } from 'electron';
-import isDev from 'electron-is-dev';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from './config';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import * as store from './libs/store';
 import { getAppStaticResourcesPath } from './resoucePath';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -67,6 +69,9 @@ export function createRecoveryWindow(): BrowserWindow {
   // registered inside did-finish-load — which never runs when the recovery
   // path is taken — so there is no conflict.
   const PROTOCOL = 'file';
+  if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
+    session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+  }
   session.defaultSession.protocol.interceptFileProtocol(
     PROTOCOL,
     (request, callback) => {

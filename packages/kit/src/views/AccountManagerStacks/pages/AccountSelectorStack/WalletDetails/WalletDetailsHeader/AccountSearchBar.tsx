@@ -56,8 +56,8 @@ export function AccountSearchBar({
   const { config } = useAccountSelectorContextData();
   const { activeAccount } = useActiveAccount({ num });
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
-  const { handleAddAccount } = useAddAccount({
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { handleAddAccount, canAddAccount } = useAddAccount({
     num,
     isOthersUniversal,
     focusedWalletInfo,
@@ -68,7 +68,9 @@ export function AccountSearchBar({
   }, 300);
 
   const wallet = focusedWalletInfo?.wallet;
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Only drives the Prime badge; access (incl. free trial) is checked by the
+  // button itself.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
 
   const showBulkCopyAddressesButton = Boolean(
     isPrimeAvailable &&
@@ -121,7 +123,7 @@ export function AccountSearchBar({
         onChangeText={handleSearch}
       />
 
-      {editable ? (
+      {editable && canAddAccount ? (
         <ActionList
           title={intl.formatMessage({ id: ETranslations.global_add_account })}
           floatingPanelProps={{

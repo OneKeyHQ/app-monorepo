@@ -1,18 +1,30 @@
+import type { ComponentType } from 'react';
+
+import { StyleSheet, View } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
+import { NeoDevice } from '../NeoDevice';
+import { Pro2Device } from '../Pro2Device';
 import { ProDevice } from '../ProDevice';
 import { TouchDevice } from '../TouchDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IMiniDeviceScene } from '../MiniDevice';
+import type { IPro2DeviceScene } from '../Pro2Device';
 import type { IProDeviceScene } from '../ProDevice';
 import type { ITouchDeviceScene } from '../TouchDevice';
 
+export type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../MiniDevice, ../ProDevice and ../TouchDevice are the per-model drawings
- * behind it, not a second way in. Call sites hold the model at runtime and
- * fix the scenario at build time:
+ * ../MiniDevice, ../ProDevice, ../TouchDevice, ../Pro2Device and ../NeoDevice
+ * are the per-model drawings behind it, not a second way in. Call sites hold
+ * the model at runtime and fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -26,9 +38,11 @@ import type { ITouchDeviceScene } from '../TouchDevice';
  * four engraved membrane keys (its screens are the Classic's, re-laid);
  * the Pro has none of that and a 288x484 touchscreen; the Touch is a
  * slab with a wide bezel whose screen window runs the Pro's screens,
- * scaled - and what they genuinely have in common already lives in
- * ../deviceScene. Live screen content, when something needs it, attaches
- * per model at that layer, where the canvas and the key presses are known.
+ * scaled; the
+ * Pro 2 is an edge-to-edge glass slab in a blurred-stroke metal frame -
+ * and what they genuinely have in common already lives in ../deviceScene.
+ * Live screen content, when something needs it, attaches per model at
+ * that layer, where the canvas and the key presses are known.
  */
 
 /**
@@ -58,7 +72,8 @@ export type IHardwareDeviceType =
 export type IHardwareDeviceScene = IClassicDeviceScene &
   IMiniDeviceScene &
   IProDeviceScene &
-  ITouchDeviceScene;
+  ITouchDeviceScene &
+  IPro2DeviceScene;
 
 export interface IHardwareDeviceProps {
   /**
@@ -90,7 +105,42 @@ export interface IHardwareDeviceProps {
    * replaces the single-scene swap grammar (see ../deviceSceneHost).
    */
   warmScenes?: readonly IHardwareDeviceScene[];
+  /**
+   * Soft drop shadow under the replica. It follows the drawn silhouette
+   * rather than the frame: the frame is wider than the body (the side
+   * button sits inside it and each model's chrome differs), so a box
+   * shadow would spill past the shell.
+   */
+  shadow?: boolean;
+  /**
+   * The device's finish, as its serial number names it (see
+   * shared/utils/hardwareDeviceColors). Classic 1s / Pure support transparent
+   * shells, and the Pro 2 and the Neo their colored shells; the other models
+   * take it and ignore it. Omitted or unknown: the model's default — the
+   * Pro 2 in black, the Neo in white.
+   */
+  color?: IHardwareDeviceColor;
 }
+
+/** What the router hands every replica: its own props minus the model. */
+type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType'>;
+
+const SHADOW_OPACITY = 0.35;
+const SHADOW_BLUR = 10;
+const SHADOW_DROP = 8;
+
+const styles = StyleSheet.create({
+  shadow: platformEnv.isNative
+    ? {
+        shadowColor: '#000000',
+        shadowOpacity: SHADOW_OPACITY,
+        shadowRadius: SHADOW_BLUR,
+        shadowOffset: { width: 0, height: SHADOW_DROP },
+      }
+    : {
+        filter: `drop-shadow(0 ${SHADOW_DROP}px ${SHADOW_BLUR}px rgba(0,0,0,${SHADOW_OPACITY}))`,
+      },
+});
 
 /**
  * The routing table: which models draw which replica. The Classic family
@@ -98,13 +148,7 @@ export interface IHardwareDeviceProps {
  * and renders nothing, so "has a replica" is stated exactly once.
  */
 const REPLICAS: Partial<
-  Record<
-    IHardwareDeviceType,
-    | typeof ClassicDevice
-    | typeof MiniDevice
-    | typeof ProDevice
-    | typeof TouchDevice
-  >
+  Record<IHardwareDeviceType, ComponentType<IReplicaProps>>
 > = {
   classic: ClassicDevice,
   classic1s: ClassicDevice,
@@ -112,11 +156,8 @@ const REPLICAS: Partial<
   mini: MiniDevice,
   pro: ProDevice,
   touch: TouchDevice,
-  // The Pro 2 and the Neo stand on the Pro replica until their own shells
-  // and screens ship; those live on claude/pro2-neo-device-assets and land
-  // with the hardware release (OK-59934).
-  pro2: ProDevice,
-  neo: ProDevice,
+  pro2: Pro2Device,
+  neo: NeoDevice,
 };
 
 export function HardwareDevice({
@@ -126,16 +167,26 @@ export function HardwareDevice({
   instantEntry,
   paused,
   warmScenes,
+  shadow,
+  color,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
-  return (
+  const replicaColor =
+    color === 'Transparent' &&
+    deviceType !== 'classic1s' &&
+    deviceType !== 'classicpure'
+      ? undefined
+      : color;
+  const replica = (
     <Replica
       width={width}
       animation={animation}
       instantEntry={instantEntry}
       paused={paused}
       warmScenes={warmScenes}
+      color={replicaColor}
     />
   );
+  return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
 }

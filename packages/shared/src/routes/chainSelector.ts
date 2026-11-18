@@ -46,6 +46,17 @@ export type IChainSelectorParams = {
   hideLowValueNetworkValue?: boolean;
   indexedAccountId?: string;
   accountId?: string;
+  // Per-network values the caller already holds (e.g. Dust sweep's balances),
+  // shown and sorted like account values without reading the account cache.
+  networkValues?: Record<string, string>;
+  networkValueCurrency?: string;
+  // Grouped list only: lift valued networks into a top "Networks with assets"
+  // section like the wallet network selector, instead of A-Z only.
+  groupByNetworkValue?: boolean;
+  recentNetworksEnabled?: boolean;
+  // Grouped list only: mark the current network with a row background, like
+  // the wallet network selector, instead of a check mark.
+  highlightSelected?: boolean;
   featuredNetwork?: {
     networkId: string;
     badgeText: string;
