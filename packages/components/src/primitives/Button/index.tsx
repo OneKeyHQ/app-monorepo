@@ -40,6 +40,11 @@ export interface IButtonProps extends ThemeableStackProps {
    */
   iconProps?: Omit<IIconProps, 'name' | 'size'>;
   iconAfter?: IKeyOfIcons;
+  /**
+   * Extra props for the trailing `iconAfter`, e.g. `{ ml: '$0' }` to pull a
+   * chevron up to the label.
+   */
+  iconAfterProps?: Omit<IIconProps, 'name' | 'size'>;
   disabled?: boolean;
   loading?: boolean;
   onPressLoadingEnabled?: boolean;
@@ -242,6 +247,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       icon,
       iconProps,
       iconAfter,
+      iconAfterProps,
       disabled,
       loading,
       onPressLoadingEnabled,
@@ -402,6 +408,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
             size={size}
             ml={labelGap}
             color={outerIconColor || iconColor}
+            {...iconAfterProps}
           />
         ) : null}
       </ButtonFrame>

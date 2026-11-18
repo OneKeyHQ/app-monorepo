@@ -142,16 +142,29 @@ const AllNetworkAccountSelector = ({
     );
   }
 
+  const copyLabel = intl.formatMessage({
+    id: ETranslations.global_copy_address,
+  });
   return showCopyButton ? (
     <Tooltip
       shortcutKey={EShortcutEvents.CopyAddressOrUrl}
-      renderContent={intl.formatMessage({
-        id: ETranslations.global_copy_address,
-      })}
+      renderContent={copyLabel}
       placement="bottom"
       renderTrigger={
         <XStack
           testID={AccountSelectorTestIDs.copyAddressButton}
+          role="button"
+          aria-label={copyLabel}
+          aria-disabled={isCopyDisabled || undefined}
+          // `focusable` gives no tab stop on web, so the button takes one and
+          // presses on Enter or Space.
+          {...(!platformEnv.isNative && {
+            tabIndex: 0,
+            onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+              handleDesktopHeaderKeyDown(event, () => {
+                void handleCopyAddress();
+              }),
+          })}
           gap="$2"
           p="$1"
           m="$-1"
@@ -218,17 +231,21 @@ function CopyButton({
   disabled?: boolean;
 }) {
   const intl = useIntl();
+  const label = intl.formatMessage({ id: ETranslations.global_copy_address });
   return visible ? (
     <IconButton
       testID={AccountSelectorTestIDs.copyAddressButton}
-      title={intl.formatMessage({
-        id: ETranslations.global_copy_address,
-      })}
+      title={label}
+      // The tooltip only shows on hover; screen readers need the name.
+      aria-label={label}
       icon="Copy3Outline"
       size="small"
       variant="tertiary"
       disabled={disabled}
       allowPressWhenDisabled={disabled}
+      // Without it IconButton swallows every key on web, Tab included, and
+      // keyboard focus stops here.
+      hotKey
       onPress={onPress}
     />
   ) : null;
