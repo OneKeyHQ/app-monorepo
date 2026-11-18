@@ -108,11 +108,13 @@ export const {
   atom: portfolioSyncUiStateAtom,
   use: usePortfolioSyncUiStateAtom,
 } = contextAtom<{
+  canShowGuide: boolean;
   disabled: boolean;
   visible: boolean;
   loading?: boolean;
   request?: () => void;
 }>({
+  canShowGuide: false,
   disabled: false,
   visible: false,
 });
