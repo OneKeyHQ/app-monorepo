@@ -820,4 +820,137 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
 
     expect(unreportedHealthyEarnTab.reloadMock).not.toHaveBeenCalled();
   });
+
+  test('does NOT auto-activate a readyVersion when concurrent CHECK_VERSION rolls it back to activeVersion', async () => {
+    const bundleV664 = await createVersionBundle({
+      version: V_OLD,
+      buildTime: 1_700_000_000_000,
+      html: '<!doctype html><html><body>v6.6.4</body></html>',
+      scriptUrl: `${ORIGIN}/main.v664.js`,
+      scriptContent: 'console.log("v6.6.4");',
+    });
+    const bundleV670 = await createVersionBundle({
+      version: V_NEW,
+      buildTime: 1_700_000_100_000,
+      html: '<!doctype html><html><body>v6.7.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v670.js`,
+      scriptContent: 'console.log("v6.7.0");',
+    });
+
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundleV664 });
+    await testBed.navigate(`${ORIGIN}/`);
+
+    // Prefetch V_NEW into readyVersion while on a normal route
+    testBed.setServerBundle(bundleV670);
+    const normalClient = createLegacyV664Client({
+      id: 'client-normal',
+      url: `${ORIGIN}/swap`,
+      version: V_OLD,
+    });
+    testBed.controlledClients.set(normalClient.id, normalClient);
+    await testBed.sendFromClient(normalClient, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_OLD },
+    });
+
+    // Server rolls back manifest to V_OLD
+    testBed.setServerBundle(bundleV664);
+
+    // Now an error client sends GET_VERSION_STATE and CHECK_VERSION concurrently
+    const errorClient = createLegacyV664Client({
+      id: 'client-rollback-race',
+      url: UNITAS_EMAIL_URL,
+      version: V_OLD,
+    });
+    testBed.controlledClients.set(errorClient.id, errorClient);
+
+    await Promise.all([
+      testBed.sendFromClient(errorClient, {
+        type: 'GET_VERSION_STATE',
+        payload: { clientVersion: V_OLD },
+      }),
+      testBed.sendFromClient(errorClient, {
+        type: 'CHECK_VERSION',
+        payload: { clientVersion: V_OLD },
+      }),
+    ]);
+
+    expect(errorClient.reloadMock).not.toHaveBeenCalled();
+    const stateCache = await testBed.cacheStorage.open(
+      'onekey-web-version-state',
+    );
+    const stateResponse = await stateCache.match(
+      `${ORIGIN}/__onekey_web_version_state__`,
+    );
+    const persistedState = await stateResponse.json();
+    expect(persistedState.activeVersion).toBe(V_OLD);
+    expect(persistedState.readyVersion).toBe('');
+  });
+
+  test('withdrawn readyVersion in VERSION_STATE is cleared and does not consume sessionStorage auto-reload quota', async () => {
+    const bundleV670 = await createVersionBundle({
+      version: V_NEW,
+      buildTime: 1_700_000_100_000,
+      html: '<!doctype html><html><body>v6.7.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v670.js`,
+      scriptContent: 'console.log("v6.7.0");',
+    });
+    const bundleV680 = await createVersionBundle({
+      version: V_NEXT,
+      buildTime: 1_700_000_200_000,
+      html: '<!doctype html><html><body>v6.8.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v680.js`,
+      scriptContent: 'console.log("v6.8.0");',
+    });
+
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundleV670 });
+    await testBed.navigate(`${ORIGIN}/`);
+    testBed.setServerBundle(bundleV680);
+
+    const client = createModernWebClientWithRealIndexJs({
+      id: 'client-withdrawn-ready',
+      testBed,
+      url: `${ORIGIN}/earn/bsc/TOKEN/provider`,
+      version: V_NEW,
+    });
+
+    // 1. First, V_NEXT becomes ready while page has no error -> banner shown
+    await client.bootServiceWorkerProtocol();
+    expect(client.clientHandle.getBannerElement()).not.toBeNull();
+    expect(client.reloadMock).not.toHaveBeenCalled();
+
+    // 2. Server rolls back to V_NEW and client receives VERSION_STATE with empty readyVersion
+    testBed.setServerBundle(bundleV670);
+    await testBed.sendFromClient(client.clientHandle, {
+      type: 'CHECK_VERSION',
+      payload: {
+        clientVersion: V_NEW,
+        clientAutoReloadCapable: true,
+        hasPageError: false,
+      },
+    });
+    expect(client.clientHandle.getBannerElement()).toBeNull();
+
+    // 3. Page hits WebRootErrorBoundary while V_NEXT is withdrawn
+    await client.triggerRootErrorBoundary(new Error('Render error'));
+    expect(client.reloadMock).not.toHaveBeenCalled();
+    expect(
+      client.storageMap.get('__onekey_sw_error_auto_reload__'),
+    ).toBeUndefined();
+
+    // 4. V_NEXT is re-deployed and checked again -> auto-reload succeeds!
+    testBed.setServerBundle(bundleV680);
+    await testBed.sendFromClient(client.clientHandle, {
+      type: 'CHECK_VERSION',
+      payload: {
+        clientVersion: V_NEW,
+        clientAutoReloadCapable: true,
+        hasPageError: true,
+      },
+    });
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    expect(client.storageMap.get('__onekey_sw_error_auto_reload__')).toBe(
+      `${V_NEXT}:/earn/bsc/TOKEN/provider`,
+    );
+  });
 });

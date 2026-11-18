@@ -1717,25 +1717,29 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
     await getControlledClientsWithRequestingClient(requestingClient);
 
   if (state.readyVersion && (await isReadyVersionCacheValid(state))) {
+    const candidateReadyVersion = state.readyVersion;
     const clientsToReload = allClients.filter((item) =>
-      shouldClientAutoReload(item, state.readyVersion),
+      shouldClientAutoReload(item, candidateReadyVersion),
     );
     if (clientsToReload.length > 0) {
       const promotedState = await promoteReadyVersionState(state, {
         shouldBroadcast: false,
       });
-      const reloadSet = new Set(clientsToReload);
-      clientsToReload.forEach((item) => {
-        sendAutoReloadToClient(item, promotedState.activeVersion);
-      });
-      allClients.forEach((item) => {
-        if (!reloadSet.has(item)) {
-          sendMessageToClient(item, MESSAGE_TYPES.VERSION_ACTIVATED, {
-            version: promotedState.activeVersion,
-          });
-        }
-      });
-      return { autoActivated: true, state: promotedState };
+      if (promotedState.activeVersion === candidateReadyVersion) {
+        const reloadSet = new Set(clientsToReload);
+        clientsToReload.forEach((item) => {
+          sendAutoReloadToClient(item, promotedState.activeVersion);
+        });
+        allClients.forEach((item) => {
+          if (!reloadSet.has(item)) {
+            sendMessageToClient(item, MESSAGE_TYPES.VERSION_ACTIVATED, {
+              version: promotedState.activeVersion,
+            });
+          }
+        });
+        return { autoActivated: true, state: promotedState };
+      }
+      return { autoActivated: false, state: promotedState };
     }
   }
 
@@ -1912,25 +1916,46 @@ async function promoteReadyVersionState(
   state,
   { shouldBroadcast = true } = {},
 ) {
-  if (!state.readyVersion) {
+  const targetReadyVersion = state?.readyVersion;
+  if (!targetReadyVersion) {
     return state;
   }
 
-  if (!(await isReadyVersionCacheValid(state))) {
-    return clearReadyVersionState(state);
+  const latestState = await readVersionState();
+  if (
+    !latestState.readyVersion ||
+    latestState.readyVersion !== targetReadyVersion
+  ) {
+    return latestState;
+  }
+
+  if (!(await isReadyVersionCacheValid(latestState))) {
+    const stateBeforeClear = await readVersionState();
+    if (stateBeforeClear.readyVersion !== targetReadyVersion) {
+      return stateBeforeClear;
+    }
+    return clearReadyVersionState(stateBeforeClear);
+  }
+
+  const confirmedState = await readVersionState();
+  if (
+    !confirmedState.readyVersion ||
+    confirmedState.readyVersion !== targetReadyVersion
+  ) {
+    return confirmedState;
   }
 
   const previousVersions = [
-    state.activeVersion,
-    ...(state.previousVersions || []),
+    confirmedState.activeVersion,
+    ...(confirmedState.previousVersions || []),
   ]
-    .filter((version) => version && version !== state.readyVersion)
+    .filter((version) => version && version !== targetReadyVersion)
     .slice(0, PREVIOUS_VERSION_LIMIT);
 
   const nextState = {
-    ...state,
-    activeVersion: state.readyVersion,
-    activeManifest: state.readyManifest,
+    ...confirmedState,
+    activeVersion: confirmedState.readyVersion,
+    activeManifest: confirmedState.readyManifest,
     readyVersion: '',
     readyManifest: undefined,
     previousVersions,
@@ -2170,7 +2195,14 @@ self.addEventListener('message', (event) => {
   if (type === MESSAGE_TYPES.GET_VERSION_STATE) {
     updateClientRuntimeState(client, payload);
     event.waitUntil(
-      readVersionState().then(async (state) => {
+      (async () => {
+        // Yield a microtask so a paired CHECK_VERSION message queued in the
+        // same turn starts versionCheckPromise before we read version state.
+        await Promise.resolve();
+        if (versionCheckPromise) {
+          await versionCheckPromise.catch(() => undefined);
+        }
+        const state = await readVersionState();
         const { autoActivated, state: resolvedState } =
           await maybeAutoActivateAndReloadClients(state, client);
         if (!autoActivated) {
@@ -2180,7 +2212,7 @@ self.addEventListener('message', (event) => {
             resolvedState,
           );
         }
-      }),
+      })(),
     );
     return;
   }
@@ -2193,7 +2225,15 @@ self.addEventListener('message', (event) => {
 
   if (type === MESSAGE_TYPES.ACTIVATE_VERSION) {
     updateClientRuntimeState(client, payload);
-    event.waitUntil(activateReadyVersion(payload.version, { client }));
+    event.waitUntil(
+      (async () => {
+        await Promise.resolve();
+        if (versionCheckPromise) {
+          await versionCheckPromise.catch(() => undefined);
+        }
+        await activateReadyVersion(payload.version, { client });
+      })(),
+    );
     return;
   }
 

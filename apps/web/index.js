@@ -40,6 +40,7 @@ const SERVICE_WORKER_MESSAGE_TYPES = {
   ACTIVATE_VERSION: 'ACTIVATE_VERSION',
   VERSION_STATE: 'VERSION_STATE',
   UPDATE_READY: 'UPDATE_READY',
+  UPDATE_FAILED: 'UPDATE_FAILED',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
 };
 const AUTO_RELOAD_STORAGE_KEY = '__onekey_sw_error_auto_reload__';
@@ -341,13 +342,13 @@ function activateReadyVersion(version) {
 
 function triggerAutoReloadForVersion(version, shouldActivateReady = false) {
   isAutoReloading = true;
-  if (version) {
-    markAutoReloadedForVersion(version);
-  }
   document.getElementById('sw-update-banner')?.remove();
   if (shouldActivateReady && version) {
     activateReadyVersion(version);
     return;
+  }
+  if (version) {
+    markAutoReloadedForVersion(version);
   }
   window.location.reload();
 }
@@ -429,6 +430,18 @@ function setupServiceWorkerVersionProtocol() {
     }
 
     if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_STATE) {
+      latestActiveVersion =
+        typeof payload.activeVersion === 'string' ? payload.activeVersion : '';
+      latestReadyVersion =
+        typeof payload.readyVersion === 'string' ? payload.readyVersion : '';
+      if (
+        pendingVersionActivation &&
+        latestReadyVersion !== pendingVersionActivation &&
+        latestActiveVersion !== pendingVersionActivation
+      ) {
+        pendingVersionActivation = '';
+        isAutoReloading = false;
+      }
       if (
         payload.activeVersion &&
         showActivatedVersionBanner(payload.activeVersion)
@@ -437,6 +450,15 @@ function setupServiceWorkerVersionProtocol() {
       }
       if (payload.readyVersion) {
         showReadyVersionBanner(payload.readyVersion);
+        return;
+      }
+      document.getElementById('sw-update-banner')?.remove();
+    }
+
+    if (type === SERVICE_WORKER_MESSAGE_TYPES.UPDATE_FAILED) {
+      if (pendingVersionActivation) {
+        pendingVersionActivation = '';
+        isAutoReloading = false;
       }
     }
 
