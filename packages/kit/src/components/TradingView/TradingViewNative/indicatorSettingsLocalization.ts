@@ -1,4 +1,4 @@
-// cspell:ignore MACD Stoch TRIX
+// cspell:ignore BRAR KDJ MACD SKDJ Stoch TRIX VWAP
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
@@ -16,9 +16,72 @@ type IIndicatorSettingsTranslationConfig = {
   name?: ETranslations;
 };
 
+// Labels shared by the indicators that have no name translation yet: they keep
+// their English name and only localize the settings that already have a text.
+const LENGTH_LABEL = ETranslations.market_chart_indicator_length__label;
+const MA_LENGTH_LABEL = ETranslations.market_chart_indicator_ma_length__label;
+const SIGNAL_LABEL = ETranslations.market_chart_indicator_signal__label;
+const SIGNAL_LENGTH_LABEL =
+  ETranslations.market_chart_indicator_signal_length__label;
+const SMOOTHING_LENGTH_LABEL =
+  ETranslations.market_chart_indicator_smoothing_length__label;
+const ZERO_LABEL = ETranslations.market_chart_indicator_zero__label;
+const BACKGROUND_LABEL = ETranslations.market_chart_settings__background;
+
 const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
   Record<ITradingViewNativeAnyIndicator, IIndicatorSettingsTranslationConfig>
 > = {
+  ENV: { labels: { background: BACKGROUND_LABEL } },
+  VWAP: { labels: { period: LENGTH_LABEL } },
+  DC: { labels: { background: BACKGROUND_LABEL, period: LENGTH_LABEL } },
+  KDJ: { labels: { period: LENGTH_LABEL } },
+  SKDJ: {
+    labels: { period: LENGTH_LABEL, smoothingPeriod: SMOOTHING_LENGTH_LABEL },
+  },
+  DMA: {
+    labels: { 'band:zero': ZERO_LABEL, movingAveragePeriod: MA_LENGTH_LABEL },
+  },
+  VR: {
+    labels: { movingAveragePeriod: MA_LENGTH_LABEL, period: LENGTH_LABEL },
+  },
+  BRAR: { labels: { period: LENGTH_LABEL } },
+  PSY: {
+    labels: { movingAveragePeriod: MA_LENGTH_LABEL, period: LENGTH_LABEL },
+  },
+  ATR: { labels: { period: LENGTH_LABEL } },
+  TSI: { labels: { 'band:zero': ZERO_LABEL, period: LENGTH_LABEL } },
+  RVI: {
+    labels: {
+      period: LENGTH_LABEL,
+      'plot:signal': SIGNAL_LABEL,
+      signalPeriod: SIGNAL_LENGTH_LABEL,
+    },
+  },
+  QQE: {
+    labels: {
+      rsiPeriod: ETranslations.market_chart_indicator_rsi_length__label,
+      smoothingPeriod: SMOOTHING_LENGTH_LABEL,
+    },
+  },
+  MASS: { labels: { period: LENGTH_LABEL } },
+  KST: {
+    labels: {
+      'band:zero': ZERO_LABEL,
+      'plot:signal': SIGNAL_LABEL,
+      signalPeriod: SIGNAL_LENGTH_LABEL,
+    },
+  },
+  BBP: { labels: { period: LENGTH_LABEL } },
+  NVI: { labels: { movingAveragePeriod: MA_LENGTH_LABEL } },
+  PMO: {
+    labels: {
+      'band:zero': ZERO_LABEL,
+      'plot:signal': SIGNAL_LABEL,
+      signalPeriod: SIGNAL_LENGTH_LABEL,
+    },
+  },
+  RCI: { labels: { 'band:zero': ZERO_LABEL } },
+  SLOPE: { labels: { 'band:zero': ZERO_LABEL, period: MA_LENGTH_LABEL } },
   BOLL: {
     labels: {
       background: ETranslations.market_chart_settings__background,
