@@ -39,6 +39,8 @@ const BATCH_SIZE = 50;
 export type IPublicAccountSnapshotApplyResult =
   ICloudPublicAccountSnapshotResult & {
     deleted: number;
+    indexedAccountsChanged: boolean;
+    skippedSnapshotIds: string[];
     issuesBySnapshotId: Record<string, 'pending' | 'conflicts' | 'rejected'>;
   };
 
@@ -46,6 +48,7 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
   return {
     added: 0,
     deleted: 0,
+    indexedAccountsChanged: false,
     issuesBySnapshotId: {},
     unchanged: 0,
     pending: 0,
@@ -53,6 +56,7 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
     rejected: 0,
     cancelled: false,
     appliedSnapshotIds: [],
+    skippedSnapshotIds: [],
   };
 }
 
@@ -256,6 +260,10 @@ export async function importPublicAccountSnapshots({
           walletsByIdentity.get(
             `${snapshot.wallet.kind}__${snapshot.wallet.xfp}__${snapshot.wallet.hidden}`,
           ) || [];
+        if (matches.length === 0) {
+          result.skippedSnapshotIds.push(getPublicAccountSnapshotId(snapshot));
+          return;
+        }
         if (matches.length !== 1) {
           result.pending += 1;
           recordIssue(snapshot, 'pending');
@@ -440,6 +448,7 @@ export async function importPublicAccountSnapshots({
               : await localDb.importPublicCloudAccounts(params);
           result.added += imported.added;
           result.deleted += imported.deleted ?? 0;
+          result.indexedAccountsChanged ||= imported.indexedAccountsChanged;
           result.unchanged += imported.unchanged;
           result.pending += imported.pending;
           result.conflicts += imported.conflicts;
