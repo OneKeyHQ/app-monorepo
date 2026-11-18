@@ -173,7 +173,10 @@ test('a failed pull after delete reports the PR, and rerunning the deletion name
   ]);
   const finalized = [];
   const run = async (pullAfterDelete, target = {}) => {
-    const client = Object.assign(fakeClient([{ ref: 'old', name: 'old' }]), target);
+    const client = Object.assign(
+      fakeClient([{ ref: 'old', name: 'old' }]),
+      target,
+    );
     client.finalize = async (request) => {
       finalized.push(request);
       return {
