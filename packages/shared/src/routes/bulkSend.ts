@@ -8,6 +8,7 @@ import type { EBulkSendMode, IIntervalSettings } from '../../types/bulkSend';
 import type { ISendSelectedFeeInfo } from '../../types/fee';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { ISendTxOnSuccessData } from '../../types/tx';
+import type { IPrimeEntitlementSource } from '../logger/scopes/prime/types';
 
 export enum EModalBulkSendRoutes {
   BulkSendAddressesInput = 'bulkSendAddressesInput',
@@ -40,6 +41,9 @@ export type IModalBulkSendParamList = {
     bulkSendMode: EBulkSendMode;
     isInModal?: boolean;
     hasDuplicateSenders?: boolean;
+    // Analytics only: the access the addresses page granted (Prime or a free
+    // trial); unset when none was decided.
+    entitlementSource?: IPrimeEntitlementSource;
   };
   [EModalBulkSendRoutes.BulkSendIntervalInput]: {
     networkId: string;
@@ -56,6 +60,7 @@ export type IModalBulkSendParamList = {
     ataCount?: number;
     intervalSettings?: IIntervalSettings;
     onConfirmIntervalSettings?: (settings: IIntervalSettings) => void;
+    entitlementSource?: IPrimeEntitlementSource;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };
@@ -73,6 +78,7 @@ export type IModalBulkSendParamList = {
     isMaxMode?: boolean;
     ataCount?: number;
     intervalSettings?: IIntervalSettings;
+    entitlementSource?: IPrimeEntitlementSource;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };
