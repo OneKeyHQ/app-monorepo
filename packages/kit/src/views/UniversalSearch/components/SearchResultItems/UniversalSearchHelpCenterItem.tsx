@@ -7,7 +7,10 @@ import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlInDiscoveryOrExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EUniversalSearchSource,
@@ -50,10 +53,13 @@ export function UniversalSearchHelpCenterItem({
         webSite: { url, title, logo: undefined, sortIndex: undefined },
         enterMethod: EEnterMethod.search,
       });
-    } else {
+    } else if (platformEnv.isNative) {
       navigation.pop();
       await timerUtils.wait(300);
-      openUrlInDiscoveryOrExternal({ url, title });
+      openUrlInDiscovery({ url, title });
+    } else {
+      // Web and extension have no in-app browser.
+      openUrlExternal(url);
     }
 
     await timerUtils.wait(10);

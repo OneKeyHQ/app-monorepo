@@ -145,8 +145,8 @@ interface IUniversalSection {
 const SEARCH_DEBOUNCE_MS = 500;
 // The longest the other results wait for the stock search's first page.
 const STOCK_FIRST_PAGE_WAIT_MS = 3000;
-// How long, from the start of a search, the help center request may hold the
-// done state and query analytics. Articles that land later are appended.
+// How long, from the start of a search, the results wait for help center
+// articles. A slower response is left out of that search.
 const HELP_CENTER_RESULT_WAIT_MS = 1500;
 // The modal width every other modal opens at.
 const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
@@ -200,9 +200,6 @@ const MARKET_TAB_INDEX = getUniversalSearchTabIndex(
 );
 const PRIORITIZED_SECONDARY_TAB_INDEX = getUniversalSearchTabIndex(
   EUniversalSearchType.Perp,
-);
-const HELP_CENTER_TAB_INDEX = getUniversalSearchTabIndex(
-  EUniversalSearchType.HelpCenter,
 );
 
 const SkeletonItem = () => (
@@ -374,10 +371,6 @@ export function UniversalSearch({
   );
   // The query of the paged stock search; empty when stocks are out of scope.
   const [stockQuery, setStockQuery] = useState('');
-  // Set when help center articles land after a lone stock list is on screen:
-  // the articles are shown below it, and the stock list keeps its full rows
-  // and paging instead of turning into a preview while the user browses it.
-  const [keepsLoneStockList, setKeepsLoneStockList] = useState(false);
   const isStockSearchInScope = allowedSearchTypeSet.has(
     EUniversalSearchType.MarketStock,
   );
@@ -409,23 +402,13 @@ export function UniversalSearch({
     const merged = stockSection
       ? [...sections, stockSection].toSorted((a, b) => a.tabIndex - b.tabIndex)
       : sections;
-    const previewOptions = {
+    return applyMarketSectionPreview(merged, {
       stockTabIndex: STOCK_TAB_INDEX,
       tokenTabIndex: MARKET_TAB_INDEX,
       previewLimit: MARKET_PREVIEW_LIMIT,
       stockCanLoadMore: stockResult.canLoadMore,
-    };
-    if (!keepsLoneStockList) {
-      return applyMarketSectionPreview(merged, previewOptions);
-    }
-    return [
-      ...applyMarketSectionPreview(
-        merged.filter((section) => section.tabIndex !== HELP_CENTER_TAB_INDEX),
-        previewOptions,
-      ),
-      ...merged.filter((section) => section.tabIndex === HELP_CENTER_TAB_INDEX),
-    ];
-  }, [keepsLoneStockList, sections, stockResult.canLoadMore, stockSection]);
+    });
+  }, [sections, stockResult.canLoadMore, stockSection]);
   const tokenSectionItems = useMemo(
     () =>
       displaySections.find((section) => section.tabIndex === MARKET_TAB_INDEX)
@@ -578,8 +561,6 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const searchInputRef = useRef<string>('');
-  // Mirrors `isLoneStockSection` for late help center results.
-  const isLoneStockSectionRef = useRef(false);
   const getSearchInput = useCallback(() => searchInputRef.current, []);
 
   const effectivePrimaryTypes = useMemo(
@@ -596,8 +577,7 @@ export function UniversalSearch({
         (type) =>
           isBackgroundSearchType(type) &&
           // Help center comes from a separate, slower endpoint; it is
-          // requested alongside these rounds and appended when it lands, so
-          // it never holds back the rest of the results.
+          // requested alongside these rounds with its own wait budget.
           type !== EUniversalSearchType.HelpCenter &&
           !PRIMARY_SEARCH_TYPES.includes(type) &&
           allowedSearchTypeSet.has(type),
@@ -902,7 +882,6 @@ export function UniversalSearch({
         currentInput: searchInputRef.current,
       });
     setStockQuery(isStockSearchInScope ? input : '');
-    setKeepsLoneStockList(false);
     if (input) {
       let primarySections: IUniversalSection[] = [];
       const searchParams = {
@@ -924,25 +903,24 @@ export function UniversalSearch({
         // aggregate sub-token (contract-address) matching is preserved.
         aggregateTokenListCacheMap: undefined,
       };
+      // Requested alongside the other rounds. The budget starts with the
+      // request, so it only adds a wait when the other rounds finish first.
       const helpCenterPromise = shouldIncludeHelpCenter
-        ? backgroundApiProxy.serviceUniversalSearch
-            .universalSearchOfHelpCenter({ input })
-            .then(
-              (helpCenter): IUniversalSearchBatchResult => ({
-                [EUniversalSearchType.HelpCenter]: helpCenter,
-              }),
-            )
-            .catch((error): IUniversalSearchBatchResult => {
-              console.error('[universalSearch] help center failed', error);
-              return {};
-            })
-        : undefined;
-      // The budget starts with the request, so it only delays the done state
-      // when the other rounds finish first.
-      const helpCenterWithinBudget = helpCenterPromise
         ? Promise.race([
-            helpCenterPromise,
-            timerUtils.wait(HELP_CENTER_RESULT_WAIT_MS).then(() => undefined),
+            backgroundApiProxy.serviceUniversalSearch
+              .universalSearchOfHelpCenter({ input })
+              .then(
+                (helpCenter): IUniversalSearchBatchResult => ({
+                  [EUniversalSearchType.HelpCenter]: helpCenter,
+                }),
+              )
+              .catch((error): IUniversalSearchBatchResult => {
+                console.error('[universalSearch] help center failed', error);
+                return {};
+              }),
+            timerUtils
+              .wait(HELP_CENTER_RESULT_WAIT_MS)
+              .then((): IUniversalSearchBatchResult => ({})),
           ])
         : undefined;
       let paintedSections: IUniversalSection[] = [];
@@ -1008,63 +986,24 @@ export function UniversalSearch({
         searchFailed = true;
         paintedSections = primarySections;
       }
-      // Within the help center wait budget, an empty result set keeps the
-      // skeleton instead of flashing "No results".
-      if (paintedSections.length > 0 || !helpCenterWithinBudget) {
-        setSections(paintedSections);
-        setSearchStatus(ESearchStatus.done);
-      }
-
-      if (helpCenterPromise && helpCenterWithinBudget) {
-        const appendHelpCenterSections = (
-          helpCenterResult: IUniversalSearchBatchResult,
-        ) => {
-          const helpCenterSections = buildSearchResultSections({
-            result: helpCenterResult,
-            input,
-          });
-          if (helpCenterSections.length === 0) {
-            return false;
-          }
-          paintedSections = mergeSearchResultSections(
-            paintedSections,
-            helpCenterSections,
-          );
-          return true;
-        };
-        const helpCenterResult = await helpCenterWithinBudget;
-        if (isResponseStale()) {
-          return;
-        }
-        const appended = helpCenterResult
-          ? appendHelpCenterSections(helpCenterResult)
-          : false;
-        // Skip the repaint when nothing new arrived and results are already
-        // on screen.
-        if (appended || paintedSections.length === 0) {
+      if (helpCenterPromise) {
+        // Show what is ready; an empty set keeps the skeleton rather than
+        // flashing "No results" before the articles arrive.
+        if (paintedSections.length > 0) {
           setSections(paintedSections);
           setSearchStatus(ESearchStatus.done);
         }
-        if (!helpCenterResult) {
-          void helpCenterPromise.then((lateResult) => {
-            if (isResponseStale() || !appendHelpCenterSections(lateResult)) {
-              return;
-            }
-            if (isLoneStockSectionRef.current) {
-              setKeepsLoneStockList(true);
-            }
-            setSections(paintedSections);
-            // Count the articles in this run's query event if it is still
-            // waiting to be logged.
-            const sectionsWithHelpCenter = paintedSections;
-            setPendingAnalytics((pending) =>
-              pending?.run === run
-                ? { ...pending, sections: sectionsWithHelpCenter }
-                : pending,
-            );
-          });
+        const helpCenterResult = await helpCenterPromise;
+        if (isResponseStale()) {
+          return;
         }
+        paintedSections = mergeSearchResultSections(
+          paintedSections,
+          buildSearchResultSections({ result: helpCenterResult, input }),
+        );
       }
+      setSections(paintedSections);
+      setSearchStatus(ESearchStatus.done);
 
       // A failed search with nothing to show is not logged as a query.
       if (!searchFailed || paintedSections.length > 0) {
@@ -1201,11 +1140,8 @@ export function UniversalSearch({
     stockResult.items.length > 0 &&
     displaySections.every(
       (section) =>
-        section.tabIndex === STOCK_TAB_INDEX ||
-        section.data.length === 0 ||
-        (keepsLoneStockList && section.tabIndex === HELP_CENTER_TAB_INDEX),
+        section.tabIndex === STOCK_TAB_INDEX || section.data.length === 0,
     );
-  isLoneStockSectionRef.current = isLoneStockSection;
   // All pages through the selector's scroll hook when stocks stand alone.
   const handleMarketAllScroll = useStockLoadMoreOnScrollEnd(
     stockResult,

@@ -1,6 +1,10 @@
 import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlInDiscoveryOrExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export type IPerpGuideArticle = {
   titleId: ETranslations;
@@ -14,7 +18,11 @@ export type IPerpGuideCategory = {
 };
 
 export function openGuideUrl(url: string): void {
-  openUrlInDiscoveryOrExternal({ url });
+  if (platformEnv.isNative || platformEnv.isDesktop) {
+    openUrlInDiscovery({ url });
+  } else {
+    openUrlExternal(url);
+  }
 }
 
 export function buildHelpUrl(path: string): string {

@@ -1542,7 +1542,7 @@ class ServiceUniversalSearch extends ServiceBase {
   );
 
   // Called on its own rather than through `universalSearch`: the endpoint is
-  // slow, so the page appends its results after the other rounds.
+  // slow, so the page waits for it with its own budget.
   @backgroundMethod()
   async universalSearchOfHelpCenter({
     input,

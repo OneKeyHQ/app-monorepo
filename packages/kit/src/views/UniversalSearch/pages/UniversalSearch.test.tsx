@@ -333,21 +333,12 @@ jest.mock(
     ),
     MobileMarketSearchStockRows: ({
       tableLayout,
-      items,
-      showMore,
-      loadMore,
     }: {
       tableLayout?: boolean;
-      items?: unknown[];
-      showMore?: boolean;
-      loadMore?: unknown;
     }) => (
       <div
         data-testid="mobile-stock-rows"
         data-table-layout={String(tableLayout)}
-        data-row-count={items?.length}
-        data-show-more={String(Boolean(showMore))}
-        data-load-more={String(Boolean(loadMore))}
       />
     ),
     MobileMarketSearchTokenRows: ({
@@ -591,64 +582,41 @@ describe.each([
   });
 });
 
-it('does not hold an empty search on a slow help center request', async () => {
-  mockHelpCenterSearch.mockImplementation(() => new Promise(() => {}));
-  render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
-    target: { value: 'match' },
-  });
-  await waitFor(
-    () =>
-      expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy(),
-    { timeout: 4000 },
-  );
-  await waitFor(() =>
-    expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
-  );
-});
+const helpCenterArticle = {
+  type: EUniversalSearchType.HelpCenter,
+  payload: {
+    id: '1',
+    title: 'Backup article',
+    summary: '',
+    url: 'https://help.onekey.so/articles/1',
+  },
+} as const;
 
-function resolveHelpCenterLate() {
+function resolveHelpCenterAfter(delayMs: number) {
   const state = { settled: false };
   mockHelpCenterSearch.mockImplementation(
     () =>
       new Promise((resolve) => {
         setTimeout(() => {
           state.settled = true;
-          resolve({
-            items: [
-              {
-                type: EUniversalSearchType.HelpCenter,
-                payload: {
-                  id: '1',
-                  title: 'Late article',
-                  summary: '',
-                  url: 'https://help.onekey.so/articles/1',
-                },
-              },
-            ],
-          });
-        }, 1700);
+          resolve({ items: [helpCenterArticle] });
+        }, delayMs);
       }),
   );
   return state;
 }
 
-it('counts late help center articles in a query event still waiting for stocks', async () => {
-  const helpCenter = resolveHelpCenterLate();
-  mockStockResult.isLoading = true;
-  const view = render(
-    <UniversalSearch source={EUniversalSearchSource.Unknown} />,
-  );
+function typeQuery() {
+  render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
   fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
     target: { value: 'match' },
   });
-  await waitFor(() => expect(helpCenter.settled).toBe(true), {
-    timeout: 4000,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  expect(mockUniversalSearchQuery).not.toHaveBeenCalled();
-  mockStockResult.isLoading = false;
-  view.rerender(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
+}
+
+it('shows help center articles within the wait budget and counts them once', async () => {
+  resolveHelpCenterAfter(200);
+  typeQuery();
+  await waitFor(() => expect(screen.getByText('Backup article')).toBeTruthy());
   await waitFor(() =>
     expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
   );
@@ -657,33 +625,23 @@ it('counts late help center articles in a query event still waiting for stocks',
   );
 });
 
-it('shows late help center articles below a lone stock list without previewing it', async () => {
-  const helpCenter = resolveHelpCenterLate();
-  mockIsNative = true;
-  mockStocks = Array.from({ length: 8 }, (_, index) => ({
-    stockId: `S${index}`,
-    symbol: `S${index}`,
-    name: `Stock ${index}`,
-    logoUrl: '',
-    assetType: 'stock',
-    currency: 'USD',
-  }));
-  mockStockResult.canLoadMore = true;
-  render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
-    target: { value: 'match' },
-  });
+it('ends the search without help center articles slower than the budget', async () => {
+  const helpCenter = resolveHelpCenterAfter(1700);
+  typeQuery();
+  await waitFor(
+    () =>
+      expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy(),
+    { timeout: 4000 },
+  );
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
+  );
   await waitFor(() => expect(helpCenter.settled).toBe(true), {
     timeout: 4000,
   });
-  await waitFor(() => expect(screen.getByText('Late article')).toBeTruthy());
-  const stockRows = screen.getByTestId('mobile-stock-rows');
-  expect(stockRows.dataset.rowCount).toBe('8');
-  expect(stockRows.dataset.showMore).toBe('false');
-  expect(stockRows.dataset.loadMore).toBe('true');
-  expect(
-    screen.getByRole('button', { name: ETranslations.settings_help_center }),
-  ).toBeTruthy();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(screen.queryByText('Backup article')).toBeNull();
+  expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1);
 });
 
 it('keeps Watchlist hidden for DApp-only searches', async () => {
