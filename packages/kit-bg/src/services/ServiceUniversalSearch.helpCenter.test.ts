@@ -115,10 +115,13 @@ describe('ServiceUniversalSearch help center search', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  test('rejects so a failed request is not cached', async () => {
+  test('rejects without a global toast so a failed request is not cached', async () => {
+    const networkError = Object.assign(new Error('network'), {
+      autoToast: true,
+    });
     const get = jest
       .fn()
-      .mockRejectedValueOnce(new Error('network'))
+      .mockRejectedValueOnce(networkError)
       .mockResolvedValueOnce({ data: { code: 0, data: { items: [] } } });
     const service = createService(get);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -126,6 +129,7 @@ describe('ServiceUniversalSearch help center search', () => {
     await expect(
       service.universalSearchOfHelpCenter({ input: 'backup' }),
     ).rejects.toThrow('network');
+    expect(networkError.autoToast).toBe(false);
     // memoizee drops a rejected entry on a later tick.
     await new Promise((resolve) => setTimeout(resolve, 0));
     await expect(

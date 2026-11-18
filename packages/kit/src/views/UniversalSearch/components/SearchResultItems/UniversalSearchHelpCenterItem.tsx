@@ -5,12 +5,16 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlInDiscoveryOrExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EUniversalSearchSource,
   IUniversalSearchHelpCenter,
 } from '@onekeyhq/shared/types/search';
+
+import { useWebSiteHandler } from '../../../Discovery/hooks/useWebSiteHandler';
 
 interface IUniversalSearchHelpCenterItemProps {
   item: IUniversalSearchHelpCenter;
@@ -25,6 +29,7 @@ export function UniversalSearchHelpCenterItem({
 }: IUniversalSearchHelpCenterItemProps) {
   const navigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
+  const handleWebSite = useWebSiteHandler();
   const { id, title, summary, url } = item.payload;
 
   const handlePress = useCallback(async () => {
@@ -37,10 +42,19 @@ export function UniversalSearchHelpCenterItem({
       itemTitle: title,
     });
 
-    navigation.pop();
-    await timerUtils.wait(300);
-
-    openUrlInDiscoveryOrExternal({ url, title });
+    if (platformEnv.isDesktop) {
+      // Open like DApp results: the browser action dismisses this modal and
+      // reveals MultiTabBrowser itself. The pending Discovery URL is only read
+      // on focus, so it can be missed when Discovery home is already focused.
+      handleWebSite({
+        webSite: { url, title, logo: undefined, sortIndex: undefined },
+        enterMethod: EEnterMethod.search,
+      });
+    } else {
+      navigation.pop();
+      await timerUtils.wait(300);
+      openUrlInDiscoveryOrExternal({ url, title });
+    }
 
     await timerUtils.wait(10);
     universalSearchActions.current.addIntoRecentSearchList({
@@ -55,6 +69,7 @@ export function UniversalSearchHelpCenterItem({
     });
   }, [
     getSearchInput,
+    handleWebSite,
     id,
     item.type,
     navigation,

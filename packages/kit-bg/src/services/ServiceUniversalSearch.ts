@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/consts/discovery';
 import { IMPL_EVM, IMPL_NEAR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -1528,6 +1529,8 @@ class ServiceUniversalSearch extends ServiceBase {
         return { items };
       } catch (error) {
         console.error('[universalSearchOfHelpCenter] error:', error);
+        // Optional section: the page degrades silently, never a global toast.
+        errorToastUtils.toastIfErrorDisable(error);
         throw error; // Re-throw to prevent caching failed results
       }
     },
