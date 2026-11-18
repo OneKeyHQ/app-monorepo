@@ -4,16 +4,7 @@ import BigNumber from 'bignumber.js';
 import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  IconButton,
-  Popover,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useCurrencyPersistAtom,
@@ -479,7 +470,6 @@ function TokenListFooter(props: IProps) {
                   count: filteredSmallBalanceTokens.length,
                   total: displayedSmallBalanceFiatValue,
                   showTotal: showSmallBalanceTotal,
-                  help: helpText,
                   onPress: handleOnPressLowValueTokens,
                 }
               : undefined
@@ -525,48 +515,15 @@ function TokenListFooter(props: IProps) {
             <ListItem.Text
               flexShrink={1}
               minWidth={0}
-              primary={`${
-                filteredSmallBalanceTokens.length
-              } ${intl.formatMessage({
-                id: ETranslations.low_value_assets,
-              })}`}
+              primary={intl.formatMessage(
+                { id: ETranslations.low_value_assets_count__title },
+                { number: filteredSmallBalanceTokens.length },
+              )}
               primaryTextProps={{
                 numberOfLines: 1,
                 ...(tableLayout && { size: '$bodyMdMedium' }),
               }}
             />
-            {tableLayout ? (
-              <Popover
-                placement="top-start"
-                title={intl.formatMessage({
-                  id: ETranslations.low_value_assets,
-                })}
-                renderTrigger={
-                  <IconButton
-                    testID="token-list-footer-help-btn"
-                    size="small"
-                    variant="tertiary"
-                    icon="QuestionmarkOutline"
-                  />
-                }
-                renderContent={
-                  <YStack p="$5" gap="$2">
-                    {helpText.map((text, index) => (
-                      <XStack key={index} gap="$2">
-                        <Stack
-                          w="$1.5"
-                          h="$1.5"
-                          bg="$textSubdued"
-                          borderRadius="$full"
-                          mt="$2"
-                        />
-                        <SizableText size="$bodyMd">{text}</SizableText>
-                      </XStack>
-                    ))}
-                  </YStack>
-                }
-              />
-            ) : null}
           </XStack>
           <XStack
             flexGrow={1}
@@ -598,9 +555,7 @@ function TokenListFooter(props: IProps) {
             </Stack>
             <ListItem.Text
               primary={intl.formatMessage(
-                {
-                  id: ETranslations.wallet_collapsed_risk_assets_number,
-                },
+                { id: ETranslations.risk_assets_count__title },
                 { number: blockedTokensLength },
               )}
               {...(tableLayout && {

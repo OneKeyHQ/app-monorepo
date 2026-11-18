@@ -6,10 +6,10 @@ import { debounce, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   LazyTooltip,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
@@ -17,7 +17,6 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -579,36 +578,14 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
   const { updateTokenListState, updateSearchKey } =
     useTokenListActions().current;
 
-  const headerRight = useCallback(() => {
-    if (!helpText) return null;
-
-    return (
-      <Popover
-        title={intl.formatMessage({ id: ETranslations.low_value_assets })}
-        renderTrigger={<HeaderIconButton icon="QuestionmarkOutline" />}
-        renderContent={
-          <YStack p="$5" gap="$2">
-            {isString(helpText) ? (
-              <SizableText>{helpText}</SizableText>
-            ) : (
-              helpText.map((text, index) => (
-                <XStack key={index} gap="$2">
-                  <Stack
-                    w="$1.5"
-                    h="$1.5"
-                    bg="$textSubdued"
-                    borderRadius="$full"
-                    mt="$2"
-                  />
-                  <SizableText size="$bodyMd">{text}</SizableText>
-                </XStack>
-              ))
-            )}
-          </YStack>
-        }
-      />
-    );
-  }, [helpText, intl]);
+  // What puts a token on this page (the low-value rules), read up front as
+  // on the risk assets page rather than behind a "?".
+  const helpLines = useMemo(() => {
+    if (!helpText) {
+      return [];
+    }
+    return isString(helpText) ? [helpText] : helpText;
+  }, [helpText]);
 
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
@@ -726,7 +703,6 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
     <Page>
       <Page.Header
         title={title}
-        headerRight={headerRight}
         headerSearchBarOptions={
           tokens.length >= ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH
             ? {
@@ -743,6 +719,31 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
         }
       />
       <Page.Body>
+        {helpLines.length ? (
+          <Alert
+            fullBleed
+            descriptionComponent={
+              <YStack gap="$1">
+                {helpLines.map((text, index) => (
+                  <XStack key={index} gap="$2">
+                    {helpLines.length > 1 ? (
+                      <Stack
+                        w="$1.5"
+                        h="$1.5"
+                        bg="$textSubdued"
+                        borderRadius="$full"
+                        mt="$2"
+                      />
+                    ) : null}
+                    <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+                      {text}
+                    </SizableText>
+                  </XStack>
+                ))}
+              </YStack>
+            }
+          />
+        ) : null}
         <Stack ref={containerRef} flex={1} minHeight={0} position="relative">
           <NativeList
             ref={listRef}

@@ -41,48 +41,13 @@ function MockBox({
 
 jest.mock('@onekeyhq/components', () => ({
   Icon: ({ name }: { name: string }) => <i data-icon={name} />,
-  IconButton: ({
-    testID,
-    icon,
-    'aria-label': label,
-  }: {
-    testID?: string;
-    icon?: string;
-    'aria-label'?: string;
-  }) => (
-    <button
-      type="button"
-      data-testid={testID}
-      data-icon={icon}
-      aria-label={label}
-    />
-  ),
   Image: ({ source }: { source?: { uri?: string } }) => (
     <img alt="" src={source?.uri} />
-  ),
-  Popover: ({
-    title,
-    renderTrigger,
-    renderContent,
-  }: {
-    title?: ReactNode;
-    renderTrigger?: ReactNode;
-    renderContent?: ReactNode;
-  }) => (
-    <div data-testid="low-value-help">
-      {title}
-      {renderTrigger}
-      {renderContent}
-    </div>
   ),
   SizableText: MockBox,
   Stack: MockBox,
   XStack: MockBox,
   YStack: MockBox,
-  useTheme: () => ({
-    bgCautionSubdued: { val: '#fff7e0' },
-    borderCautionSubdued: { val: '#f5d680' },
-  }),
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -137,7 +102,9 @@ describe('TokenListFooterRows', () => {
       'https://logo/c.png',
       'https://logo/d.png',
     ]);
-    expect(row.textContent).toContain('6 low_value_assets');
+    expect(row.textContent).toContain(
+      'low_value_assets_count__title:{"number":6}',
+    );
     expect(screen.getByTestId('low-value-total').textContent).toBe('0.16');
   });
 
@@ -160,30 +127,7 @@ describe('TokenListFooterRows', () => {
     ).toEqual(['https://logo/a.png', undefined, undefined, undefined]);
   });
 
-  it('explains low-value assets behind a "?" whose press stays its own', () => {
-    const onPress = jest.fn();
-    render(
-      <TokenListFooterRows
-        lowValue={{
-          tokens: [],
-          count: 2,
-          showTotal: false,
-          help: ['first rule', 'second rule'],
-          onPress,
-        }}
-      />,
-    );
-    const help = screen.getByTestId('low-value-help');
-    expect(help.textContent).toContain('low_value_assets');
-    expect(help.textContent).toContain('first rule');
-    expect(help.textContent).toContain('second rule');
-    const button = screen.getByTestId('token-list-footer-help-btn');
-    fireEvent.click(button);
-    fireEvent.keyDown(button, { key: 'Enter' });
-    expect(onPress).not.toHaveBeenCalled();
-  });
-
-  it('leaves the "?" out without help lines', () => {
+  it('keeps the low-value row a single control (its rule is on the page)', () => {
     render(
       <TokenListFooterRows
         lowValue={{
@@ -194,7 +138,11 @@ describe('TokenListFooterRows', () => {
         }}
       />,
     );
-    expect(screen.queryByTestId('token-list-footer-help-btn')).toBeNull();
+    expect(
+      screen
+        .getByTestId('token-list-footer-low-value-btn')
+        .querySelectorAll('[role="button"]'),
+    ).toHaveLength(1);
   });
 
   it('leaves the low-value total out under one cent', () => {
@@ -218,7 +166,7 @@ describe('TokenListFooterRows', () => {
     expect(screen.queryByTestId('token-list-footer-add-token-btn')).toBeNull();
     const risky = screen.getByTestId('token-list-footer-risky-btn');
     expect(risky.textContent).toContain(
-      'wallet.collapsed_risk_assets_number:{"number":347}',
+      'risk_assets_count__title:{"number":347}',
     );
     expect(risky.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe(
       'ShieldExclamationSolid',
