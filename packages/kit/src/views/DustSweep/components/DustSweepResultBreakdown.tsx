@@ -39,7 +39,7 @@ function DustSweepReasonRow({
   return (
     <XStack
       testID={testID}
-      height={20}
+      minHeight={20}
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
@@ -47,8 +47,9 @@ function DustSweepReasonRow({
       <SizableText
         size="$bodySm"
         color="$textSubdued"
-        flexShrink={1}
-        numberOfLines={1}
+        flex={1}
+        minWidth={0}
+        wordWrap="break-word"
       >
         {group.label ?? intl.formatMessage({ id: ETranslations.global_others })}
       </SizableText>

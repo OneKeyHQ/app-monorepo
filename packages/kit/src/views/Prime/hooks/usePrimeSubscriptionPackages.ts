@@ -1,30 +1,60 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Dialog } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  isPrimeAppleStorePayment,
+  isPrimeCryptoPaymentSupported,
   isPrimeStorePayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
+import { getPrimePurchaseErrorAnalytics } from '@onekeyhq/shared/src/utils/primePurchaseErrorAnalytics';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { shouldShowPrimeChinaStorefrontHint } from './primeChinaStorefront';
+import {
+  getPrimePackagesFailureKind,
+  getPrimeStorefrontCountryCode,
+  isPrimeTransientPackagesFailure,
+} from './primePackagesFetchFailure';
+import { getPrimeSimulatedPackagesFault } from './primePackagesFetchFault';
 import { usePrimePayment } from './usePrimePayment';
 import { usePrimePaymentMethodsWeb } from './usePrimePaymentMethodsWeb';
+
+import type { IPrimePackagesFetchFailure } from './primePackagesFetchFailure';
+import type { IPackage } from './usePrimePaymentTypes';
+
+const EMPTY_OFFERING_MESSAGE = 'Prime subscription packages unavailable';
+const TRANSIENT_RETRY_DELAY_MS = 1000;
+const EMPTY_PACKAGES: IPackage[] = [];
+
+type ISdkPackagesResult = {
+  packages: IPackage[];
+  failure?: IPrimePackagesFetchFailure;
+  // DevSettings simulated this load. Card prices must not replace it.
+  simulatedFaultActive?: boolean;
+};
+
+const EMPTY_SDK_RESULT: ISdkPackagesResult = { packages: EMPTY_PACKAGES };
+
+function classifyPackagesError(error: unknown) {
+  const errorAnalytics = getPrimePurchaseErrorAnalytics(error);
+  const errorMessage = (error as { message?: unknown } | null | undefined)
+    ?.message;
+  const failureKind = getPrimePackagesFailureKind({
+    ...errorAnalytics,
+    isEmptyOffering: errorMessage === EMPTY_OFFERING_MESSAGE,
+    errorMessage: typeof errorMessage === 'string' ? errorMessage : undefined,
+  });
+  return { errorAnalytics, failureKind };
+}
 
 export function usePrimeSubscriptionPackages({
   enabled,
 }: {
   enabled: boolean;
 }) {
-  const intl = useIntl();
   const {
     isReady: isPurchaseReady,
     initializationError,
@@ -36,144 +66,162 @@ export function usePrimeSubscriptionPackages({
   const { getPackagesWeb: getPackagesWebFallback } =
     usePrimePaymentMethodsWeb();
 
-  const { result: webPackages } = usePromiseResult(
+  const { result: webPackages, run: reloadWebPackages } = usePromiseResult(
     async () => {
-      if (!enabled || !isPurchaseReady || !platformEnv.isNativeAndroid) {
-        return [];
+      // Card prices are only a fallback where card checkout is offered (APK).
+      // Play builds are store-only and must not show prices they cannot sell.
+      if (
+        !enabled ||
+        !isPurchaseReady ||
+        !platformEnv.isNativeAndroid ||
+        !isPrimeCryptoPaymentSupported()
+      ) {
+        return EMPTY_PACKAGES;
       }
 
-      const pkgList = await getPackagesWebFallback?.();
-      return pkgList ?? [];
+      // The fault switch is otherwise read only by the SDK loader. On an APK
+      // this fallback runs in parallel and would replace the empty result
+      // with real card prices, so the fail state never appears.
+      if (await getPrimeSimulatedPackagesFault()) {
+        return EMPTY_PACKAGES;
+      }
+
+      // Optional fallback: its failure must not reject Retry or the store
+      // plans loaded beside it.
+      try {
+        const pkgList = await getPackagesWebFallback?.();
+        return pkgList ?? EMPTY_PACKAGES;
+      } catch {
+        return EMPTY_PACKAGES;
+      }
     },
     [enabled, getPackagesWebFallback, isPurchaseReady],
     {
-      initResult: [],
+      initResult: EMPTY_PACKAGES,
     },
   );
 
-  const { result: sdkPackages, isLoading: isPackagesLoading } =
-    usePromiseResult(
-      async () => {
-        if (!enabled || !isPurchaseReady) {
-          return [];
+  const {
+    result: sdkResult,
+    isLoading: isPackagesLoading,
+    run: reloadSdkPackages,
+  } = usePromiseResult(
+    async () => {
+      if (!enabled || !isPurchaseReady) {
+        return EMPTY_SDK_RESULT;
+      }
+
+      return errorToastUtils.withErrorAutoToast(async () => {
+        const simulatedFault = await getPrimeSimulatedPackagesFault();
+        const loadOnce = async () => {
+          if (simulatedFault?.error) {
+            throw simulatedFault.error;
+          }
+          const pkgList = simulatedFault
+            ? []
+            : await (isPrimeStorePayment()
+                ? getPackagesNative?.()
+                : getPackagesWeb?.());
+          // An empty list blocks purchase as much as an error does.
+          if (!pkgList?.length) {
+            throw new OneKeyLocalError(EMPTY_OFFERING_MESSAGE);
+          }
+          return pkgList;
+        };
+        const isInitializationError = (error: unknown) =>
+          Boolean(initializationError && error === initializationError);
+
+        let error: unknown;
+        try {
+          return { packages: await loadOnce() };
+        } catch (firstError) {
+          error = firstError;
+        }
+        let { errorAnalytics, failureKind } = classifyPackagesError(error);
+        // Play Billing documents SERVICE_UNAVAILABLE, SERVICE_DISCONNECTED and
+        // NETWORK_ERROR as transient and asks apps to retry them; RevenueCat
+        // maps those to codes 2 and 10. Retry once silently.
+        if (
+          !isInitializationError(error) &&
+          isPrimeTransientPackagesFailure(failureKind)
+        ) {
+          await timerUtils.wait(TRANSIENT_RETRY_DELAY_MS);
+          try {
+            return { packages: await loadOnce() };
+          } catch (retryError) {
+            error = retryError;
+            ({ errorAnalytics, failureKind } = classifyPackagesError(error));
+          }
         }
 
-        return errorToastUtils.withErrorAutoToast(async () => {
-          try {
-            const pkgList = await (isPrimeStorePayment()
-              ? getPackagesNative?.()
-              : getPackagesWeb?.());
-            if (isPrimeAppleStorePayment() && !pkgList?.length) {
-              throw new OneKeyLocalError(
-                'Prime subscription packages unavailable',
-              );
-            }
-            return pkgList ?? [];
-          } catch (error) {
-            const e = error as IOneKeyError | undefined;
+        // Initialization failures need a newer native shell, not Storefront.
+        const storefrontCountryCode = isInitializationError(error)
+          ? undefined
+          : (simulatedFault?.storefrontCountryCode ??
+            (await getPrimeStorefrontCountryCode(getStorefront)));
 
-            defaultLogger.prime.subscription.fetchPackagesFailed({
-              errorMessage: e?.message || 'Unknown error',
-            });
-
-            if (initializationError && error === initializationError) {
-              // Initialization failures can require a newer native shell; keep
-              // their actionable message outside the product-loading fallback.
-              throw error;
-            }
-
-            if (isPrimeAppleStorePayment()) {
-              const showChinaHint = await shouldShowPrimeChinaStorefrontHint(
-                error,
-                getStorefront,
-              );
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                }),
-                description: intl.formatMessage({
-                  id: showChinaHint
-                    ? ETranslations.prime_subscription_china_storefront__msg
-                    : ETranslations.prime_unable_to_retrieve_subscription_list,
-                }),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.global_got_it,
-                }),
-              });
-              return [];
-            }
-
-            let shouldThrow = true;
-            if (
-              platformEnv.isNativeAndroid &&
-              e &&
-              e?.code === ('3' as unknown as number) &&
-              e?.message ===
-                'The device or user is not allowed to make the purchase.'
-            ) {
-              // SDK errors:
-              // - There was a problem with the store. (maybe network issue, or not login GooglePlayStore\AppStore)
-              // - The device or user is not allowed to make the purchase.
-              //    (GooglePlay Service not available on this device, so we should not throw error)
-              shouldThrow = false;
-            }
-            /*
-            None of the products registered in the RevenueCat dashboard could be fetched
-            There's a problem with your configuration. None of the products registered in the RevenueCat dashboard could be fetched from the [Play Store/App Store].
-            */
-            if (
-              e?.message?.includes(
-                'None of the products registered in the RevenueCat dashboard could be fetched',
-              )
-            ) {
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                }),
-                description: intl.formatMessage({
-                  id: platformEnv.isNativeAndroid
-                    ? ETranslations.prime_unable_to_retrieve_subscription_list_google_play
-                    : ETranslations.prime_unable_to_retrieve_subscription_list,
-                }),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.global_got_it,
-                }),
-              });
-              shouldThrow = false;
-            }
-            if (shouldThrow) {
-              throw error;
-            }
-            return [];
-          }
+        defaultLogger.prime.subscription.fetchPackagesFailed({
+          errorMessage:
+            (error as IOneKeyError | undefined)?.message || 'Unknown error',
+          ...errorAnalytics,
+          failureKind,
+          storefrontCountryCode,
         });
-      },
-      [
-        enabled,
-        intl,
-        getPackagesNative,
-        getPackagesWeb,
-        getStorefront,
-        isPurchaseReady,
-        initializationError,
-      ],
-      {
-        initResult: [],
-        watchLoading: true,
-      },
-    );
 
+        if (initializationError && isInitializationError(error)) {
+          // Keep the actionable update message outside the fail state.
+          throw initializationError;
+        }
+        return {
+          packages: EMPTY_PACKAGES,
+          failure: { kind: failureKind, storefrontCountryCode },
+          simulatedFaultActive: Boolean(simulatedFault),
+        };
+      });
+    },
+    [
+      enabled,
+      getPackagesNative,
+      getPackagesWeb,
+      getStorefront,
+      isPurchaseReady,
+      initializationError,
+    ],
+    {
+      initResult: EMPTY_SDK_RESULT,
+      watchLoading: true,
+    },
+  );
+
+  const sdkPackages = sdkResult?.packages;
   const packages = useMemo(() => {
     if (sdkPackages?.length) {
       return sdkPackages;
     }
-    return webPackages || [];
-  }, [sdkPackages, webPackages]);
+    // A real SDK failure can still sell the card prices. A simulated fault
+    // cannot, even if those prices were already loaded.
+    if (sdkResult?.simulatedFaultActive) {
+      return EMPTY_PACKAGES;
+    }
+    return webPackages || EMPTY_PACKAGES;
+  }, [sdkPackages, sdkResult?.simulatedFaultActive, webPackages]);
+
+  // Android APKs fall back to card prices; only an empty list blocks purchase.
+  const packagesFailure =
+    enabled && !isPackagesLoading && !packages.length
+      ? sdkResult?.failure
+      : undefined;
+
+  const reloadPackages = useCallback(async () => {
+    await Promise.all([reloadSdkPackages(), reloadWebPackages()]);
+  }, [reloadSdkPackages, reloadWebPackages]);
 
   return {
     packages,
     isPackagesLoading,
     isPurchaseReady,
     restorePurchases,
+    packagesFailure,
+    reloadPackages,
   };
 }

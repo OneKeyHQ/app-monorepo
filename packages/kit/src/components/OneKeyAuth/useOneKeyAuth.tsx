@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -137,12 +138,15 @@ export function useOneKeyAuth() {
     async ({
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
+      freeTrialFeatureId,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       // Extension popup only: the caller just saved the free-trial action
       // the expand tab should continue after this login.
       keepFreeTrialPendingAction?: boolean;
+      // Analytics only, carried to the expand tab on the popup hand-off.
+      freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
@@ -180,6 +184,7 @@ export function useOneKeyAuth() {
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
+          freeTrialFeatureId,
         });
         throw new PrimeLoginHandedOffToExtExpandTabError();
       }
@@ -259,9 +264,12 @@ export function useOneKeyAuth() {
     async ({
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
+      freeTrialFeatureId,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       keepFreeTrialPendingAction?: boolean;
+      // Analytics only: the Prime free trial that asked for this login.
+      freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
     } = {}) => {
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
@@ -294,6 +302,7 @@ export function useOneKeyAuth() {
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
         keepFreeTrialPendingAction,
+        freeTrialFeatureId,
         renderContent: ({
           onComplete,
           onLoginSuccess,
@@ -312,6 +321,7 @@ export function useOneKeyAuth() {
               localKeylessLoginPrepareErrorMessage
             }
             toOneKeyIdPageOnLoginSuccess={toOneKeyIdPageOnLoginSuccess}
+            freeTrialFeatureId={freeTrialFeatureId}
           />
         ),
       });
