@@ -6,6 +6,7 @@ import { overlayToastStore } from '@onekeyfe/react-native-native-overlay';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
@@ -225,6 +226,7 @@ interface IActiveToast {
   onPress?: () => void;
   /** False while it waits for the style context to draw with. */
   shown: boolean;
+  closed: boolean;
 }
 
 // The toasts this module has on screen or waiting, so a theme or layout
@@ -232,11 +234,47 @@ interface IActiveToast {
 // appear once it has.
 const activeToasts = new Map<string, IActiveToast>();
 
+function finishToast(id: string, toast: IActiveToast) {
+  if (toast.closed) {
+    return;
+  }
+  toast.closed = true;
+  // Shown again under the same id: that toast owns the entry now.
+  if (activeToasts.get(id) === toast) {
+    activeToasts.delete(id);
+  }
+  toast.onClose();
+}
+
+function reconcileActiveToasts() {
+  const snapshot = overlayToastStore.getSnapshot?.();
+  if (!snapshot?.items) {
+    return;
+  }
+  const liveIds = new Set(snapshot.items.map((item) => item.spec.id));
+  activeToasts.forEach((toast, id) => {
+    if (toast.shown && !liveIds.has(id)) {
+      finishToast(id, toast);
+    }
+  });
+}
+
+let subscribedToToastStore = false;
+
+function ensureToastStoreSubscription() {
+  if (subscribedToToastStore) {
+    return;
+  }
+  subscribedToToastStore = true;
+  overlayToastStore.subscribe?.(reconcileActiveToasts);
+}
+
 function presentToast(id: string, toast: IActiveToast) {
   const context = getToastStyleContext();
   if (!context) {
     return;
   }
+  ensureToastStoreSubscription();
   const spec = toast.build(context);
   if (toast.shown) {
     overlayToastStore.update(spec);
@@ -245,21 +283,23 @@ function presentToast(id: string, toast: IActiveToast) {
   toast.shown = true;
   overlayToastStore.show(spec, {
     onClose: () => {
-      // Shown again under the same id: that toast owns the entry now.
-      if (activeToasts.get(id) === toast) {
-        activeToasts.delete(id);
-      }
-      toast.onClose();
+      finishToast(id, toast);
     },
     onAction: (actionId) => {
       const action = toast
         .actions()
         .find((_, index) => toastActionId(index) === actionId);
+      if (action?.testID) {
+        defaultLogger.ui.button.click({
+          trackId: action.testID,
+        });
+      }
       void action?.onPress?.();
     },
     onLink: openToastLink,
     onPress: () => toast.onPress?.(),
   });
+  reconcileActiveToasts();
 }
 
 subscribeToastStyleContext(() => {
@@ -271,8 +311,7 @@ function closeToast(id: string, toast: IActiveToast) {
     return;
   }
   if (!toast.shown) {
-    activeToasts.delete(id);
-    toast.onClose();
+    finishToast(id, toast);
     return;
   }
   overlayToastStore.dismiss(id);
@@ -280,8 +319,8 @@ function closeToast(id: string, toast: IActiveToast) {
 
 function showToast(id: string, toast: IActiveToast) {
   const previous = activeToasts.get(id);
-  if (previous && !previous.shown) {
-    previous.onClose();
+  if (previous) {
+    finishToast(id, previous);
   }
   activeToasts.set(id, toast);
   presentToast(id, toast);
@@ -338,6 +377,7 @@ function toastMessage({
     actions: () => resolvedActions ?? callerActions,
     onClose: handleClose,
     shown: false,
+    closed: false,
   });
   close = instance.close;
   return instance;
@@ -403,6 +443,7 @@ function toastNotification({
     onClose: handleClose,
     onPress,
     shown: false,
+    closed: false,
   });
   close = instance.close;
   return instance;

@@ -6,6 +6,7 @@ import { Toast, ToastContent } from '.';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   dismissNativeStorageRecovery,
@@ -38,10 +39,18 @@ const mockMount = jest.fn<
 >(() => ({
   destroy: jest.fn(),
 }));
+const { OverlayToastStore: ActualOverlayToastStore } = jest.requireActual<
+  typeof import('@onekeyfe/react-native-native-overlay')
+>('@onekeyfe/react-native-native-overlay');
+const realToastStore = new ActualOverlayToastStore();
 const mockShow = jest.fn(
-  (_spec: IOverlayToastSpec, _handlers: IOverlayToastHandlers) => undefined,
+  (spec: IOverlayToastSpec, handlers: IOverlayToastHandlers) =>
+    realToastStore.show(spec, handlers),
 );
-const mockDismiss = jest.fn((_id: string) => undefined);
+const mockUpdate = jest.fn((spec: IOverlayToastSpec) =>
+  realToastStore.update(spec),
+);
+const mockDismiss = jest.fn((id: string) => realToastStore.dismiss(id));
 let mockNextId = 0;
 function mockView({
   children,
@@ -59,10 +68,13 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
       mockNextId += 1;
       return `toast-${mockNextId}`;
     },
+    getSnapshot: () => realToastStore.getSnapshot(),
+    subscribe: (listener: () => void) => realToastStore.subscribe(listener),
     show: (spec: IOverlayToastSpec, handlers: IOverlayToastHandlers) =>
       mockShow(spec, handlers),
-    update: jest.fn(),
+    update: (spec: IOverlayToastSpec) => mockUpdate(spec),
     dismiss: (id: string) => mockDismiss(id),
+    dismissAll: () => realToastStore.dismissAll(),
     configure: jest.fn(),
   },
 }));
@@ -198,6 +210,7 @@ function recoveryActions() {
 }
 
 beforeEach(() => {
+  realToastStore.dismissAll();
   jest.clearAllMocks();
   jest.replaceProperty(platformEnv, 'isNative', true);
   dismissNativeStorageRecovery();
@@ -385,4 +398,76 @@ it('covers Toast.show when custom content uses ToastContent', async () => {
   await waitFor(() =>
     expect(getRequestedNativeStorageRecovery()).toBe('appStorage'),
   );
+});
+
+it('logs button click analytics with testID when pressing a toast action', () => {
+  const clickSpy = jest.spyOn(defaultLogger.ui.button, 'click');
+  const onPress = jest.fn();
+  Toast.message({
+    title: 'Action analytics',
+    actions: {
+      label: 'Track me',
+      testID: 'tracked-toast-action',
+      onPress,
+    },
+  });
+  pressAction('tracked-toast-action');
+  expect(clickSpy).toHaveBeenCalledWith({
+    trackId: 'tracked-toast-action',
+  });
+  expect(onPress).toHaveBeenCalledTimes(1);
+});
+
+it('evicts the oldest toast past 20 items, fires its onClose once, and stops rebuilding it', () => {
+  const closeCallbacks = Array.from({ length: 21 }, () => jest.fn());
+  const instances = closeCallbacks.map((onClose, index) =>
+    Toast.message({
+      toastId: `queue-toast-${index + 1}`,
+      title: `Toast ${index + 1}`,
+      onClose,
+    }),
+  );
+
+  expect(realToastStore.getSnapshot().items).toHaveLength(20);
+  expect(
+    realToastStore.getSnapshot().items.map((item) => item.spec.id),
+  ).not.toContain('queue-toast-1');
+  expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
+  closeCallbacks.slice(1).forEach((callback) => {
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  mockUpdate.mockClear();
+  setToastStyleContext(createContext());
+  expect(mockUpdate).toHaveBeenCalledTimes(20);
+  expect(mockUpdate.mock.calls.map(([spec]) => spec.id)).not.toContain(
+    'queue-toast-1',
+  );
+
+  instances[0]?.close();
+  expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
+});
+
+it('resizes notification badge and thumbnail TOS image URIs to their target display size tier', () => {
+  const rawUri = 'https://uni.onekey-asset.com/push/banner.png';
+  Toast.notification({
+    title: 'Push with image',
+    message: 'Check resize URL',
+    iconImageUri: rawUri,
+    imageUri: rawUri,
+  });
+  const { spec } = latest();
+  expect(spec.layout).toBe('notification');
+  if (spec.layout === 'notification') {
+    expect(spec.icon).toEqual({
+      kind: 'image',
+      uri: 'https://uni.onekey-asset.com/push/banner.png?x-tos-process=image%2Fresize%2Cw_96',
+      size: 18,
+    });
+    expect(spec.image).toEqual({
+      uri: 'https://uni.onekey-asset.com/push/banner.png?x-tos-process=image%2Fresize%2Cw_96',
+      size: 48,
+      borderRadius: 4,
+    });
+  }
 });

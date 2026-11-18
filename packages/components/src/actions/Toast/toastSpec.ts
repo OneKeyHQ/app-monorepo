@@ -1,6 +1,8 @@
 import { getRgba } from '@tamagui/web';
+import { PixelRatio } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 import { resolveIconName } from '../../primitives/Icon/Icons';
 
@@ -368,6 +370,18 @@ export function buildMessageToastSpec(
   };
 }
 
+function notificationImageUri(uri: string, size: number): string {
+  const pixelRatio =
+    (PixelRatio as { get?: () => number } | undefined)?.get?.() ?? 1;
+  const resized = buildTosImageResizeUrl({
+    uri,
+    displayWidth: size,
+    displayHeight: size,
+    pixelRatio,
+  });
+  return resized.optimized && resized.uri ? resized.uri : uri;
+}
+
 export function buildNotificationToastSpec(
   context: IToastStyleContext,
   input: IToastNotificationSpecInput,
@@ -381,7 +395,10 @@ export function buildNotificationToastSpec(
     icon: input.iconImageUri
       ? {
           kind: 'image',
-          uri: input.iconImageUri,
+          uri: notificationImageUri(
+            input.iconImageUri,
+            NOTIFICATION_ICON_IMAGE_SIZE,
+          ),
           size: NOTIFICATION_ICON_IMAGE_SIZE,
         }
       : namedIcon(
@@ -396,7 +413,7 @@ export function buildNotificationToastSpec(
     message: plainText(context, input.message, 'bodyMd', colors.textSubdued, 3),
     image: input.imageUri
       ? {
-          uri: input.imageUri,
+          uri: notificationImageUri(input.imageUri, NOTIFICATION_IMAGE_SIZE),
           size: NOTIFICATION_IMAGE_SIZE,
           borderRadius: NOTIFICATION_IMAGE_RADIUS,
         }
