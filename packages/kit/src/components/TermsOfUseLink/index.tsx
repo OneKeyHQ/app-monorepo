@@ -1,6 +1,8 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { useWindowDimensions } from 'react-native';
+
+import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { useTermsAndPrivacyLinks } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -8,6 +10,41 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IntlShape } from 'react-intl';
+
+// Space the dialog keeps for its title, footer button and paddings around the
+// body, and the share of the window height the dialog sheet may take.
+const EXPLAINER_DIALOG_CHROME_HEIGHT = 200;
+const EXPLAINER_DIALOG_MAX_WINDOW_RATIO = 0.92;
+const EXPLAINER_DIALOG_BODY_MIN_HEIGHT = 120;
+
+// Body of an explainer dialog. On web the dialog sheet is capped to a share of
+// the window and clips what overflows it, so in a short window (a small
+// browser window, the extension popup) the body scrolls and the footer button
+// stays reachable. A body that fits keeps its natural height. Native sheets
+// size themselves and are left as they are.
+export function ExplainerDialogScrollView({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { height: windowHeight } = useWindowDimensions();
+  if (platformEnv.isNative) {
+    return children;
+  }
+  return (
+    <Dialog.ScrollView
+      maxHeight={Math.max(
+        EXPLAINER_DIALOG_BODY_MIN_HEIGHT,
+        windowHeight * EXPLAINER_DIALOG_MAX_WINDOW_RATIO -
+          EXPLAINER_DIALOG_CHROME_HEIGHT,
+      )}
+      mx="$-5"
+      px="$5"
+    >
+      {children}
+    </Dialog.ScrollView>
+  );
+}
 
 // Small centered "OneKey Terms of Use" link for the bottom of an explainer
 // dialog. It closes the dialog so the dialog is not left open behind the page

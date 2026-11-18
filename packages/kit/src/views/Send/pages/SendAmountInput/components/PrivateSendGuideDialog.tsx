@@ -11,7 +11,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
-import { DialogTermsOfUseLink } from '@onekeyhq/kit/src/components/TermsOfUseLink';
+import {
+  DialogTermsOfUseLink,
+  ExplainerDialogScrollView,
+} from '@onekeyhq/kit/src/components/TermsOfUseLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { privateSendHelpCenterUrl } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -130,6 +133,10 @@ export function showPrivateSendGuideDialog({ intl }: { intl: IntlShape }) {
     onConfirmText: intl.formatMessage({
       id: ETranslations.global_got_it,
     }),
-    renderContent: <PrivateSendGuideDialogContent intl={intl} />,
+    renderContent: (
+      <ExplainerDialogScrollView>
+        <PrivateSendGuideDialogContent intl={intl} />
+      </ExplainerDialogScrollView>
+    ),
   });
 }

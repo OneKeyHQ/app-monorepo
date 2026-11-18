@@ -11,7 +11,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { DialogTermsOfUseLink } from '@onekeyhq/kit/src/components/TermsOfUseLink';
+import {
+  DialogTermsOfUseLink,
+  ExplainerDialogScrollView,
+} from '@onekeyhq/kit/src/components/TermsOfUseLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -83,7 +86,11 @@ function showSwapHowTradingWorksDialog({ intl }: { intl: IntlShape }) {
     onConfirmText: intl.formatMessage({
       id: ETranslations.global_got_it,
     }),
-    renderContent: <SwapHowTradingWorksDialogContent intl={intl} />,
+    renderContent: (
+      <ExplainerDialogScrollView>
+        <SwapHowTradingWorksDialogContent intl={intl} />
+      </ExplainerDialogScrollView>
+    ),
   });
 }
 
