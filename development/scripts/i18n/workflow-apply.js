@@ -191,6 +191,7 @@ async function applyPlan({
       // A finished apply opened an onekey-i18n PR whose content main may not
       // have yet; the pulled local files are what can still be checked.
       if (previous.status === 'complete') {
+        assertTarget(plan, client, previous.proposal);
         verifyLocal(plan, root);
         return previous;
       }

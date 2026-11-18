@@ -203,7 +203,7 @@ test('a failed pull after delete reports the PR, and rerunning the deletion name
   assert.match(failed.note, /pull\/7/);
   assert.match(
     failed.note,
-    /node development\/scripts\/i18n\/i18n-pull\.js --pr 7 --commit c7 --wait/,
+    /node "\/[^"]*\/development\/scripts\/i18n\/i18n-pull\.js" --pr 7 --commit c7 --wait/,
   );
 
   const retried = await run(() => {});
