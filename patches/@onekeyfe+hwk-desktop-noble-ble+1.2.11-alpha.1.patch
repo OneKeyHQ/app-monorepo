@@ -191,19 +191,21 @@ index 7efe993..9eec52a 100644
 -export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 +export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, type WindowsBlePairingDecision, type WindowsBlePairingOptions, type WindowsBlePairingRequest, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
-index 9170842..32ddb19 100644
+index 9170842..927fa01 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
-@@ -37,7 +37,7 @@ __export(index_exports, {
+@@ -37,7 +37,9 @@ __export(index_exports, {
  module.exports = __toCommonJS(index_exports);
  
  // src/NobleBleHandler.ts
 -var import_hwk_adapter_core = require("@onekeyfe/hwk-adapter-core");
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var import_hwk_adapter_core = require("@onekeyfe/hwk-adapter-core");
 +var import_hwk_adapter_core3 = require("@onekeyfe/hwk-adapter-core");
  
  // src/debugLog.ts
  var REDACTED_KEYS = /* @__PURE__ */ new Set([
-@@ -174,6 +174,367 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
+@@ -174,6 +176,367 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
    trezor: trezorProfile
  });
  
@@ -571,31 +573,38 @@ index 9170842..32ddb19 100644
  // src/NobleBleHandler.ts
  var DEFAULT_NOBLE_FACTORY = () => {
    const noble = require("@stoprocent/noble");
-@@ -198,7 +559,7 @@ var requestedServiceUuids = (options) => {
+@@ -198,7 +561,9 @@ var requestedServiceUuids = (options) => {
    const uuids = requested.filter((uuid) => typeof uuid === "string");
    return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
  };
 -var peripheralToInfo = (p) => {
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var peripheralToInfo = (p) => {
 +var peripheralToInfo = (p, remembered) => {
    const adv = p.advertisement ?? {};
    return {
      id: p.id,
-@@ -206,7 +567,8 @@ var peripheralToInfo = (p) => {
+@@ -206,7 +571,10 @@ var peripheralToInfo = (p) => {
      localName: adv.localName,
      rssi: p.rssi,
      isConnectable: p.connectable ?? null,
 -    advertisedServiceUuids: adv.serviceUuids,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     advertisedServiceUuids: adv.serviceUuids,
 +    // A name-only packet must not erase previously advertised services.
 +    advertisedServiceUuids: [.../* @__PURE__ */ new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
      serviceSolicitationUuids: adv.serviceSolicitationUuids,
      txPowerLevel: adv.txPowerLevel,
      manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
-@@ -224,48 +586,49 @@ var nativeErrorFields = (error) => {
+@@ -224,48 +592,73 @@ var nativeErrorFields = (error) => {
    const { nativeErrorDomain, nativeErrorCode } = error ?? {};
    return { nativeErrorDomain, nativeErrorCode };
  };
 -var shuttingDownError = () => (0, import_hwk_adapter_core.createHwkError)({
 -  code: import_hwk_adapter_core.HardwareErrorCode.UnknownError,
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var shuttingDownError = () => (0, import_hwk_adapter_core.createHwkError)({
++//   code: import_hwk_adapter_core.HardwareErrorCode.UnknownError,
 +var shuttingDownError = () => (0, import_hwk_adapter_core3.createHwkError)({
 +  code: import_hwk_adapter_core3.HardwareErrorCode.UnknownError,
    message: "Desktop BLE is shutting down"
@@ -603,12 +612,18 @@ index 9170842..32ddb19 100644
 -var invariantError = (message) => (0, import_hwk_adapter_core.createHwkError)({ code: import_hwk_adapter_core.HardwareErrorCode.UnknownError, message });
 -var bluetoothUnavailableError = (state) => (0, import_hwk_adapter_core.createHwkError)({
 -  code: import_hwk_adapter_core.HardwareErrorCode.DevicePermissionDenied,
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var invariantError = (message) => (0, import_hwk_adapter_core.createHwkError)({ code: import_hwk_adapter_core.HardwareErrorCode.UnknownError, message });
++// var bluetoothUnavailableError = (state) => (0, import_hwk_adapter_core.createHwkError)({
++//   code: import_hwk_adapter_core.HardwareErrorCode.DevicePermissionDenied,
 +var invariantError = (message) => (0, import_hwk_adapter_core3.createHwkError)({ code: import_hwk_adapter_core3.HardwareErrorCode.UnknownError, message });
 +var bluetoothUnavailableError = (state) => (0, import_hwk_adapter_core3.createHwkError)({
 +  code: state === "unsupported" ? import_hwk_adapter_core3.HardwareErrorCode.TransportNotAvailable : import_hwk_adapter_core3.HardwareErrorCode.DevicePermissionDenied,
    message: `Bluetooth is unavailable (state: ${state})`,
    params: {
 -    permissionDeniedReason: state === "unauthorized" ? "permissionDenied" : "bluetoothTurnedOff",
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     permissionDeniedReason: state === "unauthorized" ? "permissionDenied" : "bluetoothTurnedOff",
 +    ...state === "unauthorized" ? { permissionDeniedReason: "permissionDenied" } : {},
 +    ...state === "poweredOff" ? { permissionDeniedReason: "bluetoothTurnedOff" } : {},
      bluetoothState: state
@@ -617,12 +632,17 @@ index 9170842..32ddb19 100644
  var BLE_UNUSABLE_STATES = /* @__PURE__ */ new Set(["poweredOff", "unauthorized", "unsupported"]);
  var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
 -  if ((0, import_hwk_adapter_core.isHardwareErrorCode)(error?.code)) return error;
++  // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++  //   if ((0, import_hwk_adapter_core.isHardwareErrorCode)(error?.code)) return error;
 +  if ((0, import_hwk_adapter_core3.isHardwareErrorCode)(error?.code)) return error;
    const native = nativeErrorFields(error);
    const params = { phase, ...native, ...facts };
    if (native.nativeErrorDomain === "CBErrorDomain" && native.nativeErrorCode === 14) {
 -    return (0, import_hwk_adapter_core.createHwkError)({
 -      code: import_hwk_adapter_core.HardwareErrorCode.BleBondInvalid,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return (0, import_hwk_adapter_core.createHwkError)({
++    //       code: import_hwk_adapter_core.HardwareErrorCode.BleBondInvalid,
 +    return (0, import_hwk_adapter_core3.createHwkError)({
 +      code: import_hwk_adapter_core3.HardwareErrorCode.BleBondInvalid,
        message: "The device removed its Bluetooth pairing with this computer",
@@ -632,6 +652,9 @@ index 9170842..32ddb19 100644
    if (native.nativeErrorDomain === "CBATTErrorDomain" && native.nativeErrorCode === 15) {
 -    return (0, import_hwk_adapter_core.createHwkError)({
 -      code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return (0, import_hwk_adapter_core.createHwkError)({
++    //       code: import_hwk_adapter_core.HardwareErrorCode.BlePairingTimeout,
 +    return (0, import_hwk_adapter_core3.createHwkError)({
 +      code: import_hwk_adapter_core3.HardwareErrorCode.BlePairingTimeout,
        message: "Bluetooth pairing did not complete",
@@ -641,6 +664,9 @@ index 9170842..32ddb19 100644
    if (linkLost || phase === "write") {
 -    return (0, import_hwk_adapter_core.createHwkError)({
 -      code: import_hwk_adapter_core.HardwareErrorCode.DeviceDisconnected,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return (0, import_hwk_adapter_core.createHwkError)({
++    //       code: import_hwk_adapter_core.HardwareErrorCode.DeviceDisconnected,
 +    return (0, import_hwk_adapter_core3.createHwkError)({
 +      code: import_hwk_adapter_core3.HardwareErrorCode.DeviceDisconnected,
        message: `BLE link dropped during ${phase}`,
@@ -650,13 +676,17 @@ index 9170842..32ddb19 100644
 -  return (0, import_hwk_adapter_core.createHwkError)({
 -    code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
 -    message: `BLE ${phase} failed`,
++  // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++  //   return (0, import_hwk_adapter_core.createHwkError)({
++  //     code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++  //     message: `BLE ${phase} failed`,
 +  return (0, import_hwk_adapter_core3.createHwkError)({
 +    code: import_hwk_adapter_core3.HardwareErrorCode.BleConnectFailed,
 +    message: error instanceof Error ? error.message : `BLE ${phase} failed`,
      params
    });
  };
-@@ -318,6 +681,7 @@ var NobleBleHandler = class {
+@@ -318,6 +711,7 @@ var NobleBleHandler = class {
      this._scanning = false;
      this._scanOwners = /* @__PURE__ */ new Set();
      this._scanTransition = Promise.resolve();
@@ -664,7 +694,7 @@ index 9170842..32ddb19 100644
      this._initialized = false;
      this._disposed = false;
      this._nobleInstances = /* @__PURE__ */ new Set();
-@@ -328,6 +692,9 @@ var NobleBleHandler = class {
+@@ -328,6 +722,9 @@ var NobleBleHandler = class {
      this._connectTimeoutMs = options.connectTimeoutMs ?? BLE_CONNECT_TIMEOUT_MS;
      this._subscribeTimeoutMs = options.subscribeTimeoutMs ?? BLE_SUBSCRIBE_TIMEOUT_MS;
      this._logger = options.logger;
@@ -674,49 +704,59 @@ index 9170842..32ddb19 100644
      this._vendors = new Map(Object.entries(options.vendors ?? DEFAULT_THIRD_PARTY_BLE_VENDORS));
    }
    _resolveVendor(vendor) {
-@@ -436,7 +803,7 @@ var NobleBleHandler = class {
+@@ -436,7 +833,9 @@ var NobleBleHandler = class {
      const now = Date.now();
      const result = [];
      for (const [id, peripheral] of this._discovered) {
 -      if (now - (this._lastSeen.get(id) ?? 0) > THIRD_PARTY_BLE_DEVICE_TTL_MS) {
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       if (now - (this._lastSeen.get(id) ?? 0) > THIRD_PARTY_BLE_DEVICE_TTL_MS) {
 +      if (this._pairingScanPauses === 0 && now - (this._lastSeen.get(id) ?? 0) > THIRD_PARTY_BLE_DEVICE_TTL_MS) {
          this._discovered.delete(id);
          this._lastSeen.delete(id);
          this._advertisedUuids.delete(id);
-@@ -450,12 +817,12 @@ var NobleBleHandler = class {
+@@ -450,12 +849,16 @@ var NobleBleHandler = class {
          this._keptByMemory.add(id);
          this._log("info", "scan.keptByMemory", { id });
        }
 -      result.push(peripheralToInfo(peripheral));
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       result.push(peripheralToInfo(peripheral));
 +      result.push(peripheralToInfo(peripheral, this._advertisedUuids.get(id)));
      }
      for (const [id, entry] of this._connected) {
        if (entry.vendor !== vendor) continue;
        if (result.some((info) => info.id === id)) continue;
 -      result.push(peripheralToInfo(entry.peripheral));
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       result.push(peripheralToInfo(entry.peripheral));
 +      result.push(peripheralToInfo(entry.peripheral, this._advertisedUuids.get(id)));
      }
      return result;
    }
-@@ -509,7 +876,7 @@ var NobleBleHandler = class {
+@@ -509,7 +912,9 @@ var NobleBleHandler = class {
      }
    }
    _armIdleStop() {
 -    if (this._disposed) return;
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     if (this._disposed) return;
 +    if (this._disposed || this._pairingScanPauses > 0) return;
      this._clearIdleStop();
      this._idleStopTimer = setTimeout(() => {
        void this._stopContinuousScan();
-@@ -527,7 +894,7 @@ var NobleBleHandler = class {
+@@ -527,7 +932,9 @@ var NobleBleHandler = class {
      const transition = this._scanTransition.then(async () => {
        if (scanning) {
          this._assertActive();
 -        if (this._scanOwners.size === 0) return;
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         if (this._scanOwners.size === 0) return;
 +        if (this._scanOwners.size === 0 || this._pairingScanPauses > 0) return;
        }
        if (this._scanning === scanning) return;
        this._scanning = scanning;
-@@ -551,6 +918,19 @@ var NobleBleHandler = class {
+@@ -551,6 +958,19 @@ var NobleBleHandler = class {
      this._clearIdleStop();
      await this._setScanning(false);
    }
@@ -736,7 +776,7 @@ index 9170842..32ddb19 100644
    /** Stop scanning and forget discovered devices (idle timeout / teardown). */
    async _stopContinuousScan() {
      this._scanOwners.clear();
-@@ -566,6 +946,11 @@ var NobleBleHandler = class {
+@@ -566,6 +986,11 @@ var NobleBleHandler = class {
        this._scanOwners.delete(vendor);
        if (this._scanOwners.size > 0) return;
      }
@@ -748,16 +788,18 @@ index 9170842..32ddb19 100644
      await this._stopContinuousScan();
    }
    /**
-@@ -580,7 +965,7 @@ var NobleBleHandler = class {
+@@ -580,7 +1005,9 @@ var NobleBleHandler = class {
      )) {
        return null;
      }
 -    return peripheralToInfo(p);
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return peripheralToInfo(p);
 +    return peripheralToInfo(p, remembered);
    }
    /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
    async readRssi(id) {
-@@ -592,12 +977,13 @@ var NobleBleHandler = class {
+@@ -592,12 +1019,16 @@ var NobleBleHandler = class {
    }
    /** Abandon matching pairing attempts without touching another owner's links. */
    async cancelPairing(options) {
@@ -768,12 +810,15 @@ index 9170842..32ddb19 100644
        attempt.abandon(
 -        (0, import_hwk_adapter_core.createHwkError)({
 -          code: import_hwk_adapter_core.HardwareErrorCode.BlePairingCancelled,
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         (0, import_hwk_adapter_core.createHwkError)({
++        //           code: import_hwk_adapter_core.HardwareErrorCode.BlePairingCancelled,
 +        (0, import_hwk_adapter_core3.createHwkError)({
 +          code: import_hwk_adapter_core3.HardwareErrorCode.BlePairingCancelled,
            message: `connect cancelled: ${attempt.id}`,
            params: { phase: "connect" }
          })
-@@ -708,6 +1094,34 @@ var NobleBleHandler = class {
+@@ -708,6 +1139,34 @@ var NobleBleHandler = class {
      if (!this._resolveVendor(options.vendor).profile.acceptsConnect(options)) {
        throw invariantError(`BLE GATT profile not allowed for ${options.vendor}`);
      }
@@ -808,40 +853,49 @@ index 9170842..32ddb19 100644
      this._assertActive();
      const claim = { abandoned: false };
      let abandon;
-@@ -720,8 +1134,8 @@ var NobleBleHandler = class {
+@@ -720,8 +1179,11 @@ var NobleBleHandler = class {
      });
      const timer = setTimeout(() => {
        abandon(
 -        (0, import_hwk_adapter_core.createHwkError)({
 -          code: import_hwk_adapter_core.HardwareErrorCode.DeviceNotFound,
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         (0, import_hwk_adapter_core.createHwkError)({
++        //           code: import_hwk_adapter_core.HardwareErrorCode.DeviceNotFound,
 +        (0, import_hwk_adapter_core3.createHwkError)({
 +          code: import_hwk_adapter_core3.HardwareErrorCode.DeviceNotFound,
            message: `connect timed out after ${this._connectTimeoutMs}ms`,
            // A device no scan surfaced is not advertising; the Ledger adapter retries that one.
            params: {
-@@ -812,8 +1226,8 @@ var NobleBleHandler = class {
+@@ -812,8 +1274,11 @@ var NobleBleHandler = class {
          route: "none",
          discoveredCount: this._discovered.size
        });
 -      throw (0, import_hwk_adapter_core.createHwkError)({
 -        code: import_hwk_adapter_core.HardwareErrorCode.DeviceNotFound,
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       throw (0, import_hwk_adapter_core.createHwkError)({
++      //         code: import_hwk_adapter_core.HardwareErrorCode.DeviceNotFound,
 +      throw (0, import_hwk_adapter_core3.createHwkError)({
 +        code: import_hwk_adapter_core3.HardwareErrorCode.DeviceNotFound,
          message: `BLE device not found: ${id}`,
          params: { phase: "connect", notAdvertising: true }
        });
-@@ -856,8 +1270,8 @@ var NobleBleHandler = class {
+@@ -856,8 +1321,11 @@ var NobleBleHandler = class {
        const writeChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === writeUuid);
        const notifyChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === notifyUuid);
        if (!writeChar || !notifyChar) {
 -        throw (0, import_hwk_adapter_core.createHwkError)({
 -          code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         throw (0, import_hwk_adapter_core.createHwkError)({
++        //           code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
 +        throw (0, import_hwk_adapter_core3.createHwkError)({
 +          code: import_hwk_adapter_core3.HardwareErrorCode.BleConnectFailed,
            message: `BLE device ${id} lacks the expected characteristics`,
            params: { phase: "connect" }
          });
-@@ -892,11 +1306,12 @@ var NobleBleHandler = class {
+@@ -892,11 +1360,14 @@ var NobleBleHandler = class {
        });
        return { id, name: peripheral.advertisement.localName };
      } catch (error) {
@@ -851,11 +905,13 @@ index 9170842..32ddb19 100644
        const unreachable = error instanceof Error && /\bunreachable\b/i.test(error.message);
        throw toCanonicalBleError(error, "connect", {
 -        facts: unreachable ? { gattUnreachable: true, msSinceLink: Date.now() - linkedAt } : void 0
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         facts: unreachable ? { gattUnreachable: true, msSinceLink: Date.now() - linkedAt } : void 0
 +        facts: unreachable ? { gattUnreachable: true, msSinceLink } : void 0
        });
      }
    }
-@@ -921,26 +1336,37 @@ var NobleBleHandler = class {
+@@ -921,26 +1392,50 @@ var NobleBleHandler = class {
    async subscribe(id) {
      const entry = this._requireEntry(id);
      if (!entry.notifyChar) throw invariantError(`BLE notify characteristic missing for ${id}`);
@@ -864,6 +920,8 @@ index 9170842..32ddb19 100644
 +    const characteristic = entry.notifyChar;
      const handler = (data) => {
 -      this._onNotification?.(id, data.toString("hex"));
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       this._onNotification?.(id, data.toString("hex"));
 +      if (this._connected.get(id) === entry) this._onNotification?.(id, data.toString("hex"));
      };
      entry.notifyHandler = handler;
@@ -875,6 +933,14 @@ index 9170842..32ddb19 100644
 -        "subscribe"
 -      );
 -    } catch (error) {
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     try {
++    //       await failOnNativeLinkLoss(
++    //         entry.peripheral,
++    //         this._withSubscribeTimeout(entry.notifyChar.subscribeAsync()),
++    //         "subscribe"
++    //       );
++    //     } catch (error) {
 +    const subscribing = failOnNativeLinkLoss(
 +      entry.peripheral,
 +      this._withSubscribeTimeout(Promise.resolve().then(() => characteristic.subscribeAsync())),
@@ -887,6 +953,9 @@ index 9170842..32ddb19 100644
        });
 -      throw this._toSubscribeError(error, entry.peripheral);
 -    }
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       throw this._toSubscribeError(error, entry.peripheral);
++      //     }
 +      const canonical = toCanonicalBleError(error, "subscribe", {
 +        linkLost: entry.peripheral.state !== "connected"
 +      });
@@ -903,18 +972,21 @@ index 9170842..32ddb19 100644
    }
    async _withSubscribeTimeout(subscribing) {
      let timer;
-@@ -948,8 +1374,8 @@ var NobleBleHandler = class {
+@@ -948,8 +1443,11 @@ var NobleBleHandler = class {
      const expired = new Promise((_, reject) => {
        timer = setTimeout(() => {
          reject(
 -          (0, import_hwk_adapter_core.createHwkError)({
 -            code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
++          // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++          //           (0, import_hwk_adapter_core.createHwkError)({
++          //             code: import_hwk_adapter_core.HardwareErrorCode.BleConnectFailed,
 +          (0, import_hwk_adapter_core3.createHwkError)({
 +            code: import_hwk_adapter_core3.HardwareErrorCode.BleConnectFailed,
              message: `subscribe timed out after ${this._subscribeTimeoutMs}ms`,
              params: { phase: "subscribe" }
            })
-@@ -965,26 +1391,11 @@ var NobleBleHandler = class {
+@@ -965,26 +1463,29 @@ var NobleBleHandler = class {
        if (cancel) this._pendingCancellations.delete(cancel);
      }
    }
@@ -935,6 +1007,24 @@ index 9170842..32ddb19 100644
 -      params: { phase: "subscribe", asyncStatus: 3 }
 -    });
 -  }
++  // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++  //   /**
++  //    * noble-win reports a failed subscribe only as `status: <AsyncStatus>`. Error (3) on a live
++  //    * link is a device refusing the bond Windows holds; a link already gone fails it the same way.
++  //    */
++  //   _toSubscribeError(error, peripheral) {
++  //     if (!(error instanceof Error) || error.message !== "status: 3") {
++  //       return toCanonicalBleError(error, "subscribe");
++  //     }
++  //     if (peripheral.state !== "connected") {
++  //       return toCanonicalBleError(error, "subscribe", { linkLost: true });
++  //     }
++  //     return (0, import_hwk_adapter_core.createHwkError)({
++  //       code: import_hwk_adapter_core.HardwareErrorCode.BleBondInvalid,
++  //       message: "The device refused the Bluetooth pairing this computer holds",
++  //       params: { phase: "subscribe", asyncStatus: 3 }
++  //     });
++  //   }
    async unsubscribe(id) {
      const entry = this._connected.get(id);
      if (!entry?.notifyChar) return;
@@ -943,7 +1033,7 @@ index 9170842..32ddb19 100644
      if (entry.notifyHandler) {
        entry.notifyChar.removeListener("data", entry.notifyHandler);
        entry.notifyHandler = void 0;
-@@ -1035,6 +1446,7 @@ var NobleBleHandler = class {
+@@ -1035,6 +1536,7 @@ var NobleBleHandler = class {
    dispose() {
      if (this._disposePromise) return this._disposePromise;
      this._disposed = true;
@@ -951,22 +1041,27 @@ index 9170842..32ddb19 100644
      this._clearIdleStop();
      this._scanning = false;
      this._onNotification = void 0;
-@@ -1130,8 +1542,8 @@ var NobleBleHandler = class {
+@@ -1130,8 +1632,11 @@ var NobleBleHandler = class {
      this._assertActive();
      const entry = this._connected.get(id);
      if (!entry) {
 -      throw (0, import_hwk_adapter_core.createHwkError)({
 -        code: import_hwk_adapter_core.HardwareErrorCode.DeviceDisconnected,
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       throw (0, import_hwk_adapter_core.createHwkError)({
++      //         code: import_hwk_adapter_core.HardwareErrorCode.DeviceDisconnected,
 +      throw (0, import_hwk_adapter_core3.createHwkError)({
 +        code: import_hwk_adapter_core3.HardwareErrorCode.DeviceDisconnected,
          message: `BLE device is not connected: ${id}`
        });
      }
-@@ -1200,13 +1612,13 @@ var NobleBleHandler = class {
+@@ -1200,13 +1705,17 @@ var NobleBleHandler = class {
  };
  
  // src/main.ts
 -var import_hwk_adapter_core2 = require("@onekeyfe/hwk-adapter-core");
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var import_hwk_adapter_core2 = require("@onekeyfe/hwk-adapter-core");
 +var import_hwk_adapter_core4 = require("@onekeyfe/hwk-adapter-core");
  function createThirdPartyBleIpcErrorResponse(error) {
    const { message, code, params } = error ?? {};
@@ -974,24 +1069,28 @@ index 9170842..32ddb19 100644
      message: typeof message === "string" ? message : "Unknown error",
      // A host error's own code (the app's -99999) must not read as a HardwareErrorCode.
 -    ...(0, import_hwk_adapter_core2.isHardwareErrorCode)(code) ? { code } : {}
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     ...(0, import_hwk_adapter_core2.isHardwareErrorCode)(code) ? { code } : {}
 +    ...(0, import_hwk_adapter_core4.isHardwareErrorCode)(code) ? { code } : {}
    };
    if (params && typeof params === "object") {
      try {
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
-index 499f5a7..e4e3495 100644
+index 499f5a7..6797e0c 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
-@@ -11,7 +11,7 @@ import {
+@@ -11,7 +11,9 @@ import {
  } from "./chunk-O6YS25TV.mjs";
  
  // src/NobleBleHandler.ts
 -import { HardwareErrorCode, createHwkError, isHardwareErrorCode } from "@onekeyfe/hwk-adapter-core";
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// import { HardwareErrorCode, createHwkError, isHardwareErrorCode } from "@onekeyfe/hwk-adapter-core";
 +import { HardwareErrorCode as HardwareErrorCode3, createHwkError as createHwkError3, isHardwareErrorCode } from "@onekeyfe/hwk-adapter-core";
  
  // src/debugLog.ts
  var REDACTED_KEYS = /* @__PURE__ */ new Set([
-@@ -118,6 +118,367 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
+@@ -118,6 +120,367 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
    trezor: trezorProfile
  });
  
@@ -1359,31 +1458,38 @@ index 499f5a7..e4e3495 100644
  // src/NobleBleHandler.ts
  var DEFAULT_NOBLE_FACTORY = () => {
    const noble = __require("@stoprocent/noble");
-@@ -142,7 +503,7 @@ var requestedServiceUuids = (options) => {
+@@ -142,7 +505,9 @@ var requestedServiceUuids = (options) => {
    const uuids = requested.filter((uuid) => typeof uuid === "string");
    return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
  };
 -var peripheralToInfo = (p) => {
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var peripheralToInfo = (p) => {
 +var peripheralToInfo = (p, remembered) => {
    const adv = p.advertisement ?? {};
    return {
      id: p.id,
-@@ -150,7 +511,8 @@ var peripheralToInfo = (p) => {
+@@ -150,7 +515,10 @@ var peripheralToInfo = (p) => {
      localName: adv.localName,
      rssi: p.rssi,
      isConnectable: p.connectable ?? null,
 -    advertisedServiceUuids: adv.serviceUuids,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     advertisedServiceUuids: adv.serviceUuids,
 +    // A name-only packet must not erase previously advertised services.
 +    advertisedServiceUuids: [.../* @__PURE__ */ new Set([...adv.serviceUuids ?? [], ...remembered ?? []])],
      serviceSolicitationUuids: adv.serviceSolicitationUuids,
      txPowerLevel: adv.txPowerLevel,
      manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
-@@ -168,16 +530,17 @@ var nativeErrorFields = (error) => {
+@@ -168,16 +536,26 @@ var nativeErrorFields = (error) => {
    const { nativeErrorDomain, nativeErrorCode } = error ?? {};
    return { nativeErrorDomain, nativeErrorCode };
  };
 -var shuttingDownError = () => createHwkError({
 -  code: HardwareErrorCode.UnknownError,
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var shuttingDownError = () => createHwkError({
++//   code: HardwareErrorCode.UnknownError,
 +var shuttingDownError = () => createHwkError3({
 +  code: HardwareErrorCode3.UnknownError,
    message: "Desktop BLE is shutting down"
@@ -1391,23 +1497,32 @@ index 499f5a7..e4e3495 100644
 -var invariantError = (message) => createHwkError({ code: HardwareErrorCode.UnknownError, message });
 -var bluetoothUnavailableError = (state) => createHwkError({
 -  code: HardwareErrorCode.DevicePermissionDenied,
++// OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++// var invariantError = (message) => createHwkError({ code: HardwareErrorCode.UnknownError, message });
++// var bluetoothUnavailableError = (state) => createHwkError({
++//   code: HardwareErrorCode.DevicePermissionDenied,
 +var invariantError = (message) => createHwkError3({ code: HardwareErrorCode3.UnknownError, message });
 +var bluetoothUnavailableError = (state) => createHwkError3({
 +  code: state === "unsupported" ? HardwareErrorCode3.TransportNotAvailable : HardwareErrorCode3.DevicePermissionDenied,
    message: `Bluetooth is unavailable (state: ${state})`,
    params: {
 -    permissionDeniedReason: state === "unauthorized" ? "permissionDenied" : "bluetoothTurnedOff",
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     permissionDeniedReason: state === "unauthorized" ? "permissionDenied" : "bluetoothTurnedOff",
 +    ...state === "unauthorized" ? { permissionDeniedReason: "permissionDenied" } : {},
 +    ...state === "poweredOff" ? { permissionDeniedReason: "bluetoothTurnedOff" } : {},
      bluetoothState: state
    }
  });
-@@ -187,29 +550,29 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+@@ -187,29 +565,42 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
    const native = nativeErrorFields(error);
    const params = { phase, ...native, ...facts };
    if (native.nativeErrorDomain === "CBErrorDomain" && native.nativeErrorCode === 14) {
 -    return createHwkError({
 -      code: HardwareErrorCode.BleBondInvalid,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return createHwkError({
++    //       code: HardwareErrorCode.BleBondInvalid,
 +    return createHwkError3({
 +      code: HardwareErrorCode3.BleBondInvalid,
        message: "The device removed its Bluetooth pairing with this computer",
@@ -1417,6 +1532,9 @@ index 499f5a7..e4e3495 100644
    if (native.nativeErrorDomain === "CBATTErrorDomain" && native.nativeErrorCode === 15) {
 -    return createHwkError({
 -      code: HardwareErrorCode.BlePairingTimeout,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return createHwkError({
++    //       code: HardwareErrorCode.BlePairingTimeout,
 +    return createHwkError3({
 +      code: HardwareErrorCode3.BlePairingTimeout,
        message: "Bluetooth pairing did not complete",
@@ -1426,6 +1544,9 @@ index 499f5a7..e4e3495 100644
    if (linkLost || phase === "write") {
 -    return createHwkError({
 -      code: HardwareErrorCode.DeviceDisconnected,
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return createHwkError({
++    //       code: HardwareErrorCode.DeviceDisconnected,
 +    return createHwkError3({
 +      code: HardwareErrorCode3.DeviceDisconnected,
        message: `BLE link dropped during ${phase}`,
@@ -1435,13 +1556,17 @@ index 499f5a7..e4e3495 100644
 -  return createHwkError({
 -    code: HardwareErrorCode.BleConnectFailed,
 -    message: `BLE ${phase} failed`,
++  // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++  //   return createHwkError({
++  //     code: HardwareErrorCode.BleConnectFailed,
++  //     message: `BLE ${phase} failed`,
 +  return createHwkError3({
 +    code: HardwareErrorCode3.BleConnectFailed,
 +    message: error instanceof Error ? error.message : `BLE ${phase} failed`,
      params
    });
  };
-@@ -262,6 +625,7 @@ var NobleBleHandler = class {
+@@ -262,6 +653,7 @@ var NobleBleHandler = class {
      this._scanning = false;
      this._scanOwners = /* @__PURE__ */ new Set();
      this._scanTransition = Promise.resolve();
@@ -1449,7 +1574,7 @@ index 499f5a7..e4e3495 100644
      this._initialized = false;
      this._disposed = false;
      this._nobleInstances = /* @__PURE__ */ new Set();
-@@ -272,6 +636,9 @@ var NobleBleHandler = class {
+@@ -272,6 +664,9 @@ var NobleBleHandler = class {
      this._connectTimeoutMs = options.connectTimeoutMs ?? BLE_CONNECT_TIMEOUT_MS;
      this._subscribeTimeoutMs = options.subscribeTimeoutMs ?? BLE_SUBSCRIBE_TIMEOUT_MS;
      this._logger = options.logger;
@@ -1459,49 +1584,59 @@ index 499f5a7..e4e3495 100644
      this._vendors = new Map(Object.entries(options.vendors ?? DEFAULT_THIRD_PARTY_BLE_VENDORS));
    }
    _resolveVendor(vendor) {
-@@ -380,7 +747,7 @@ var NobleBleHandler = class {
+@@ -380,7 +775,9 @@ var NobleBleHandler = class {
      const now = Date.now();
      const result = [];
      for (const [id, peripheral] of this._discovered) {
 -      if (now - (this._lastSeen.get(id) ?? 0) > THIRD_PARTY_BLE_DEVICE_TTL_MS) {
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       if (now - (this._lastSeen.get(id) ?? 0) > THIRD_PARTY_BLE_DEVICE_TTL_MS) {
 +      if (this._pairingScanPauses === 0 && now - (this._lastSeen.get(id) ?? 0) > THIRD_PARTY_BLE_DEVICE_TTL_MS) {
          this._discovered.delete(id);
          this._lastSeen.delete(id);
          this._advertisedUuids.delete(id);
-@@ -394,12 +761,12 @@ var NobleBleHandler = class {
+@@ -394,12 +791,16 @@ var NobleBleHandler = class {
          this._keptByMemory.add(id);
          this._log("info", "scan.keptByMemory", { id });
        }
 -      result.push(peripheralToInfo(peripheral));
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       result.push(peripheralToInfo(peripheral));
 +      result.push(peripheralToInfo(peripheral, this._advertisedUuids.get(id)));
      }
      for (const [id, entry] of this._connected) {
        if (entry.vendor !== vendor) continue;
        if (result.some((info) => info.id === id)) continue;
 -      result.push(peripheralToInfo(entry.peripheral));
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       result.push(peripheralToInfo(entry.peripheral));
 +      result.push(peripheralToInfo(entry.peripheral, this._advertisedUuids.get(id)));
      }
      return result;
    }
-@@ -453,7 +820,7 @@ var NobleBleHandler = class {
+@@ -453,7 +854,9 @@ var NobleBleHandler = class {
      }
    }
    _armIdleStop() {
 -    if (this._disposed) return;
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     if (this._disposed) return;
 +    if (this._disposed || this._pairingScanPauses > 0) return;
      this._clearIdleStop();
      this._idleStopTimer = setTimeout(() => {
        void this._stopContinuousScan();
-@@ -471,7 +838,7 @@ var NobleBleHandler = class {
+@@ -471,7 +874,9 @@ var NobleBleHandler = class {
      const transition = this._scanTransition.then(async () => {
        if (scanning) {
          this._assertActive();
 -        if (this._scanOwners.size === 0) return;
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         if (this._scanOwners.size === 0) return;
 +        if (this._scanOwners.size === 0 || this._pairingScanPauses > 0) return;
        }
        if (this._scanning === scanning) return;
        this._scanning = scanning;
-@@ -495,6 +862,19 @@ var NobleBleHandler = class {
+@@ -495,6 +900,19 @@ var NobleBleHandler = class {
      this._clearIdleStop();
      await this._setScanning(false);
    }
@@ -1521,7 +1656,7 @@ index 499f5a7..e4e3495 100644
    /** Stop scanning and forget discovered devices (idle timeout / teardown). */
    async _stopContinuousScan() {
      this._scanOwners.clear();
-@@ -510,6 +890,11 @@ var NobleBleHandler = class {
+@@ -510,6 +928,11 @@ var NobleBleHandler = class {
        this._scanOwners.delete(vendor);
        if (this._scanOwners.size > 0) return;
      }
@@ -1533,16 +1668,18 @@ index 499f5a7..e4e3495 100644
      await this._stopContinuousScan();
    }
    /**
-@@ -524,7 +909,7 @@ var NobleBleHandler = class {
+@@ -524,7 +947,9 @@ var NobleBleHandler = class {
      )) {
        return null;
      }
 -    return peripheralToInfo(p);
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     return peripheralToInfo(p);
 +    return peripheralToInfo(p, remembered);
    }
    /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
    async readRssi(id) {
-@@ -536,12 +921,13 @@ var NobleBleHandler = class {
+@@ -536,12 +961,16 @@ var NobleBleHandler = class {
    }
    /** Abandon matching pairing attempts without touching another owner's links. */
    async cancelPairing(options) {
@@ -1553,12 +1690,15 @@ index 499f5a7..e4e3495 100644
        attempt.abandon(
 -        createHwkError({
 -          code: HardwareErrorCode.BlePairingCancelled,
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         createHwkError({
++        //           code: HardwareErrorCode.BlePairingCancelled,
 +        createHwkError3({
 +          code: HardwareErrorCode3.BlePairingCancelled,
            message: `connect cancelled: ${attempt.id}`,
            params: { phase: "connect" }
          })
-@@ -652,6 +1038,34 @@ var NobleBleHandler = class {
+@@ -652,6 +1081,34 @@ var NobleBleHandler = class {
      if (!this._resolveVendor(options.vendor).profile.acceptsConnect(options)) {
        throw invariantError(`BLE GATT profile not allowed for ${options.vendor}`);
      }
@@ -1593,40 +1733,49 @@ index 499f5a7..e4e3495 100644
      this._assertActive();
      const claim = { abandoned: false };
      let abandon;
-@@ -664,8 +1078,8 @@ var NobleBleHandler = class {
+@@ -664,8 +1121,11 @@ var NobleBleHandler = class {
      });
      const timer = setTimeout(() => {
        abandon(
 -        createHwkError({
 -          code: HardwareErrorCode.DeviceNotFound,
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         createHwkError({
++        //           code: HardwareErrorCode.DeviceNotFound,
 +        createHwkError3({
 +          code: HardwareErrorCode3.DeviceNotFound,
            message: `connect timed out after ${this._connectTimeoutMs}ms`,
            // A device no scan surfaced is not advertising; the Ledger adapter retries that one.
            params: {
-@@ -756,8 +1170,8 @@ var NobleBleHandler = class {
+@@ -756,8 +1216,11 @@ var NobleBleHandler = class {
          route: "none",
          discoveredCount: this._discovered.size
        });
 -      throw createHwkError({
 -        code: HardwareErrorCode.DeviceNotFound,
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       throw createHwkError({
++      //         code: HardwareErrorCode.DeviceNotFound,
 +      throw createHwkError3({
 +        code: HardwareErrorCode3.DeviceNotFound,
          message: `BLE device not found: ${id}`,
          params: { phase: "connect", notAdvertising: true }
        });
-@@ -800,8 +1214,8 @@ var NobleBleHandler = class {
+@@ -800,8 +1263,11 @@ var NobleBleHandler = class {
        const writeChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === writeUuid);
        const notifyChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === notifyUuid);
        if (!writeChar || !notifyChar) {
 -        throw createHwkError({
 -          code: HardwareErrorCode.BleConnectFailed,
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         throw createHwkError({
++        //           code: HardwareErrorCode.BleConnectFailed,
 +        throw createHwkError3({
 +          code: HardwareErrorCode3.BleConnectFailed,
            message: `BLE device ${id} lacks the expected characteristics`,
            params: { phase: "connect" }
          });
-@@ -836,11 +1250,12 @@ var NobleBleHandler = class {
+@@ -836,11 +1302,14 @@ var NobleBleHandler = class {
        });
        return { id, name: peripheral.advertisement.localName };
      } catch (error) {
@@ -1636,11 +1785,13 @@ index 499f5a7..e4e3495 100644
        const unreachable = error instanceof Error && /\bunreachable\b/i.test(error.message);
        throw toCanonicalBleError(error, "connect", {
 -        facts: unreachable ? { gattUnreachable: true, msSinceLink: Date.now() - linkedAt } : void 0
++        // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++        //         facts: unreachable ? { gattUnreachable: true, msSinceLink: Date.now() - linkedAt } : void 0
 +        facts: unreachable ? { gattUnreachable: true, msSinceLink } : void 0
        });
      }
    }
-@@ -865,26 +1280,37 @@ var NobleBleHandler = class {
+@@ -865,26 +1334,50 @@ var NobleBleHandler = class {
    async subscribe(id) {
      const entry = this._requireEntry(id);
      if (!entry.notifyChar) throw invariantError(`BLE notify characteristic missing for ${id}`);
@@ -1649,6 +1800,8 @@ index 499f5a7..e4e3495 100644
 +    const characteristic = entry.notifyChar;
      const handler = (data) => {
 -      this._onNotification?.(id, data.toString("hex"));
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       this._onNotification?.(id, data.toString("hex"));
 +      if (this._connected.get(id) === entry) this._onNotification?.(id, data.toString("hex"));
      };
      entry.notifyHandler = handler;
@@ -1660,6 +1813,14 @@ index 499f5a7..e4e3495 100644
 -        "subscribe"
 -      );
 -    } catch (error) {
++    // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++    //     try {
++    //       await failOnNativeLinkLoss(
++    //         entry.peripheral,
++    //         this._withSubscribeTimeout(entry.notifyChar.subscribeAsync()),
++    //         "subscribe"
++    //       );
++    //     } catch (error) {
 +    const subscribing = failOnNativeLinkLoss(
 +      entry.peripheral,
 +      this._withSubscribeTimeout(Promise.resolve().then(() => characteristic.subscribeAsync())),
@@ -1672,6 +1833,9 @@ index 499f5a7..e4e3495 100644
        });
 -      throw this._toSubscribeError(error, entry.peripheral);
 -    }
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       throw this._toSubscribeError(error, entry.peripheral);
++      //     }
 +      const canonical = toCanonicalBleError(error, "subscribe", {
 +        linkLost: entry.peripheral.state !== "connected"
 +      });
@@ -1688,18 +1852,21 @@ index 499f5a7..e4e3495 100644
    }
    async _withSubscribeTimeout(subscribing) {
      let timer;
-@@ -892,8 +1318,8 @@ var NobleBleHandler = class {
+@@ -892,8 +1385,11 @@ var NobleBleHandler = class {
      const expired = new Promise((_, reject) => {
        timer = setTimeout(() => {
          reject(
 -          createHwkError({
 -            code: HardwareErrorCode.BleConnectFailed,
++          // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++          //           createHwkError({
++          //             code: HardwareErrorCode.BleConnectFailed,
 +          createHwkError3({
 +            code: HardwareErrorCode3.BleConnectFailed,
              message: `subscribe timed out after ${this._subscribeTimeoutMs}ms`,
              params: { phase: "subscribe" }
            })
-@@ -909,26 +1335,11 @@ var NobleBleHandler = class {
+@@ -909,26 +1405,29 @@ var NobleBleHandler = class {
        if (cancel) this._pendingCancellations.delete(cancel);
      }
    }
@@ -1720,6 +1887,24 @@ index 499f5a7..e4e3495 100644
 -      params: { phase: "subscribe", asyncStatus: 3 }
 -    });
 -  }
++  // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++  //   /**
++  //    * noble-win reports a failed subscribe only as `status: <AsyncStatus>`. Error (3) on a live
++  //    * link is a device refusing the bond Windows holds; a link already gone fails it the same way.
++  //    */
++  //   _toSubscribeError(error, peripheral) {
++  //     if (!(error instanceof Error) || error.message !== "status: 3") {
++  //       return toCanonicalBleError(error, "subscribe");
++  //     }
++  //     if (peripheral.state !== "connected") {
++  //       return toCanonicalBleError(error, "subscribe", { linkLost: true });
++  //     }
++  //     return createHwkError({
++  //       code: HardwareErrorCode.BleBondInvalid,
++  //       message: "The device refused the Bluetooth pairing this computer holds",
++  //       params: { phase: "subscribe", asyncStatus: 3 }
++  //     });
++  //   }
    async unsubscribe(id) {
      const entry = this._connected.get(id);
      if (!entry?.notifyChar) return;
@@ -1728,7 +1913,7 @@ index 499f5a7..e4e3495 100644
      if (entry.notifyHandler) {
        entry.notifyChar.removeListener("data", entry.notifyHandler);
        entry.notifyHandler = void 0;
-@@ -979,6 +1390,7 @@ var NobleBleHandler = class {
+@@ -979,6 +1478,7 @@ var NobleBleHandler = class {
    dispose() {
      if (this._disposePromise) return this._disposePromise;
      this._disposed = true;
@@ -1736,12 +1921,15 @@ index 499f5a7..e4e3495 100644
      this._clearIdleStop();
      this._scanning = false;
      this._onNotification = void 0;
-@@ -1074,8 +1486,8 @@ var NobleBleHandler = class {
+@@ -1074,8 +1574,11 @@ var NobleBleHandler = class {
      this._assertActive();
      const entry = this._connected.get(id);
      if (!entry) {
 -      throw createHwkError({
 -        code: HardwareErrorCode.DeviceDisconnected,
++      // OneKey patch: Apply the SDK BLE lifecycle and error-recovery build; retain the upstream implementation for review.
++      //       throw createHwkError({
++      //         code: HardwareErrorCode.DeviceDisconnected,
 +      throw createHwkError3({
 +        code: HardwareErrorCode3.DeviceDisconnected,
          message: `BLE device is not connected: ${id}`
