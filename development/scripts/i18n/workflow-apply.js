@@ -25,6 +25,44 @@ function desired(entry, records, locales) {
   );
 }
 
+// The approval covers one onekey-i18n branch and release channel.
+function assertTarget(plan, client) {
+  const approved = plan.central;
+  const current = {
+    base: client.base ?? 'main',
+    channel: client.channel ?? 'latest',
+  };
+  if (approved.base !== current.base || approved.channel !== current.channel)
+    throw new Error(
+      `The plan was approved for onekey-i18n ${approved.base} (${approved.channel} release), but this shell targets ${current.base} (${current.channel} release). Set ONEKEY_I18N_BASE and ONEKEY_I18N_CHANNEL as they were for the preview, or prepare another preview.`,
+    );
+}
+
+// The client that checks the project before apply writes or pulls. A plan
+// prepared before targets were recorded has an unknown target, so apply only
+// continues it when an earlier apply opened its PR, and checks it against that
+// PR's pinned commit instead of the shell's release.
+function projectClient(plan, client, proposal, clientAt) {
+  if (plan.central) {
+    assertTarget(plan, client);
+    return client;
+  }
+  if (proposal?.commit && clientAt) return clientAt(proposal.commit);
+  throw new Error(
+    'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
+  );
+}
+
+// verifyLocal reads only the plan's languages. A pull that brought another one
+// (or a language added since) means the plan no longer covers the catalog, on
+// the first apply and on a rerun alike.
+function assertPlanLocales(plan, root) {
+  if (digest(loadCatalog(root).locales) !== digest(plan.locales))
+    throw new Error(
+      "Language coverage changed: the local catalog no longer has exactly the plan's languages. Prepare another preview.",
+    );
+}
+
 async function verifyProject(plan, client, root) {
   const project = await client.project();
   const locales = loadCatalog(root).locales;
@@ -121,6 +159,8 @@ async function applyPlan({
   client,
   root = ROOT,
   pullImpl = pull,
+  // Client reading an onekey-i18n commit; resumes plans that predate targets.
+  clientAt,
 }) {
   if (!approval)
     throw new Error(
@@ -148,8 +188,10 @@ async function applyPlan({
     status: 'preflight',
     operations: [],
   };
+  // Set once the receipt file is known to be this plan's and not finished;
+  // until then a failure must leave the file as it is (it may record an open PR).
+  let owned = false;
   try {
-    await verifyProject(plan, client, root);
     if (fs.existsSync(receiptFile)) {
       const previous = readJson(receiptFile);
       if (previous.approval !== approval)
@@ -168,11 +210,18 @@ async function applyPlan({
       // A finished apply opened an onekey-i18n PR whose content main may not
       // have yet; the pulled local files are what can still be checked.
       if (previous.status === 'complete') {
+        // Only re-verifies local files. A plan without a recorded target (which
+        // may have finished without a PR) can't be checked and is left as before.
+        if (plan.central) assertTarget(plan, client);
+        assertPlanLocales(plan, root);
         verifyLocal(plan, root);
         return previous;
       }
       if (previous.proposal) receipt.proposal = previous.proposal;
     }
+    const checked = projectClient(plan, client, receipt.proposal, clientAt);
+    owned = true;
+    await verifyProject(plan, checked, root);
     if (workspace(root).branch !== plan.workspace.branch)
       throw new Error('Current branch differs from the preview.');
     assertHashes(root, plan.sourceFiles, 'Source');
@@ -193,16 +242,19 @@ async function applyPlan({
         commit: receipt.proposal?.commit,
       }),
     );
+    assertPlanLocales(plan, root);
     receipt.verification = verifyLocal(plan, root, before);
     receipt.status = 'complete';
     receipt.finishedAt = new Date().toISOString();
     writeJson(receiptFile, receipt);
     return receipt;
   } catch (error) {
-    receipt.failedStage = receipt.status;
-    receipt.status = 'failed';
-    receipt.error = error.message;
-    writeJson(receiptFile, receipt);
+    if (owned) {
+      receipt.failedStage = receipt.status;
+      receipt.status = 'failed';
+      receipt.error = error.message;
+      writeJson(receiptFile, receipt);
+    }
     throw error;
   } finally {
     fs.closeSync(lock);

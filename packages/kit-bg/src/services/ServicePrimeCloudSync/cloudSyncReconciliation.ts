@@ -442,8 +442,24 @@ export async function runCloudSyncReconciliation({
         summaryInfo = nextSummaryInfo;
         state.rounds += 1;
         consecutiveFailures = 0;
-        if (!verified || !contract || !contract.hasMore)
+        if (!verified || !contract || !contract.hasMore) {
+          // A final check can still be followed by an incomplete upload. Verify
+          // the remaining keys with a fresh check after the retry delay.
+          if (uploaded < response.obsoleted.length) {
+            return progress
+              ? finish(
+                  'waiting',
+                  'upload-incomplete',
+                  limits.continuationDelayMs,
+                )
+              : finish(
+                  'blocked',
+                  'upload-incomplete',
+                  limits.blockedRetryDelayMs,
+                );
+          }
           return finish('complete', 'finished');
+        }
         if (!progress)
           return finish('blocked', 'no-progress', limits.blockedRetryDelayMs);
         seen.add(info.fingerprint);
