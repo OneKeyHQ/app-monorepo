@@ -448,11 +448,95 @@ it('evicts the oldest toast past 20 items, fires its onClose once, and stops reb
   expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
 });
 
-it('resizes notification badge and thumbnail TOS image URIs to their target display size tier', () => {
+it('preserves deduplication record when replacing an unclosed toast with the same toastId', () => {
+  let now = 1_000_000;
+  jest.spyOn(Date, 'now').mockImplementation(() => now);
+  const firstClose = jest.fn();
+  const secondClose = jest.fn();
+  const thirdClose = jest.fn();
+
+  Toast.error({
+    toastId: 'rate-limit-429',
+    title: 'First 429',
+    duration: 1000,
+    onClose: firstClose,
+  });
+  const firstHandlers = latest().handlers;
+  expect(mockShow).toHaveBeenCalledTimes(1);
+
+  // Advance past the first deduplication window (duration + 500ms) while the
+  // first card is still active (e.g. paused or in exit animation).
+  now += 1600;
+  Toast.error({
+    toastId: 'rate-limit-429',
+    title: 'Second 429',
+    duration: 1000,
+    onClose: secondClose,
+  });
+  expect(firstClose).toHaveBeenCalledTimes(1);
+  expect(mockShow).toHaveBeenCalledTimes(2);
+
+  // Even if the first card's SDK onClose fires late, the second card's
+  // deduplication window must remain intact.
+  firstHandlers.onClose?.('timeout');
+  now += 100;
+  const duplicateResult = Toast.error({
+    toastId: 'rate-limit-429',
+    title: 'Duplicate 429 within window',
+    duration: 1000,
+    onClose: thirdClose,
+  });
+  expect(duplicateResult).toBeUndefined();
+  expect(mockShow).toHaveBeenCalledTimes(2);
+  expect(secondClose).not.toHaveBeenCalled();
+  expect(thirdClose).not.toHaveBeenCalled();
+});
+
+it('does not prematurely finish a follow-up toast created inside an evicted onClose callback', () => {
+  const followUpOnClose = jest.fn();
+  let followUpInstance: { close: () => void } | undefined;
+
+  Toast.message({
+    toastId: 'evict-trigger-1',
+    title: 'Toast 1',
+    onClose: () => {
+      followUpInstance = Toast.message({
+        toastId: 'follow-up-toast',
+        title: 'Follow-up toast',
+        onClose: followUpOnClose,
+      });
+    },
+  });
+
+  for (let i = 2; i <= 21; i += 1) {
+    Toast.message({
+      toastId: `evict-trigger-${i}`,
+      title: `Toast ${i}`,
+    });
+  }
+
+  expect(followUpInstance).toBeDefined();
+  expect(followUpOnClose).not.toHaveBeenCalled();
+  expect(
+    realToastStore.getSnapshot().items.map((item) => item.spec.id),
+  ).toContain('follow-up-toast');
+
+  mockUpdate.mockClear();
+  setToastStyleContext(createContext());
+  expect(mockUpdate.mock.calls.map(([spec]) => spec.id)).toContain(
+    'follow-up-toast',
+  );
+
+  followUpInstance?.close();
+  expect(mockDismiss).toHaveBeenCalledWith('follow-up-toast');
+  expect(followUpOnClose).toHaveBeenCalledTimes(1);
+});
+
+it('passes raw notification badge and thumbnail image URIs to the overlay spec', () => {
   const rawUri = 'https://uni.onekey-asset.com/push/banner.png';
   Toast.notification({
     title: 'Push with image',
-    message: 'Check resize URL',
+    message: 'Preserve original URL',
     iconImageUri: rawUri,
     imageUri: rawUri,
   });
@@ -461,11 +545,11 @@ it('resizes notification badge and thumbnail TOS image URIs to their target disp
   if (spec.layout === 'notification') {
     expect(spec.icon).toEqual({
       kind: 'image',
-      uri: 'https://uni.onekey-asset.com/push/banner.png?x-tos-process=image%2Fresize%2Cw_96',
+      uri: rawUri,
       size: 18,
     });
     expect(spec.image).toEqual({
-      uri: 'https://uni.onekey-asset.com/push/banner.png?x-tos-process=image%2Fresize%2Cw_96',
+      uri: rawUri,
       size: 48,
       borderRadius: 4,
     });

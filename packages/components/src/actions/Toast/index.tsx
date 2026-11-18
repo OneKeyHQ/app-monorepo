@@ -189,8 +189,9 @@ const handleToastId = ({
   duration?: number;
   onClose?: () => void;
 }) => {
+  let entry: [number, number] | undefined;
   const handleClose = () => {
-    if (toastId) {
+    if (toastId && entry && toastIdMap.get(toastId) === entry) {
       toastIdMap.delete(toastId);
     }
     onClose?.();
@@ -203,17 +204,16 @@ const handleToastId = ({
     }
   }
   if (toastId) {
-    if (toastIdMap.has(toastId)) {
-      const [createdAt, toastDuration] = toastIdMap.get(toastId) as [
-        number,
-        number,
-      ];
+    const existing = toastIdMap.get(toastId);
+    if (existing) {
+      const [createdAt, toastDuration] = existing;
       if (Date.now() - createdAt < toastDuration) {
         return;
       }
       toastIdMap.delete(toastId);
     }
-    toastIdMap.set(toastId, [Date.now(), duration + 500]);
+    entry = [Date.now(), duration + 500];
+    toastIdMap.set(toastId, entry);
   }
   return handleClose;
 };
@@ -246,14 +246,29 @@ function finishToast(id: string, toast: IActiveToast) {
   toast.onClose();
 }
 
+function isToastLiveInStore(id: string): boolean {
+  const snapshot = overlayToastStore.getSnapshot?.();
+  if (!snapshot?.items) {
+    return true;
+  }
+  return snapshot.items.some((item) => item.spec.id === id);
+}
+
 function reconcileActiveToasts() {
   const snapshot = overlayToastStore.getSnapshot?.();
   if (!snapshot?.items) {
     return;
   }
   const liveIds = new Set(snapshot.items.map((item) => item.spec.id));
-  activeToasts.forEach((toast, id) => {
-    if (toast.shown && !liveIds.has(id)) {
+  const evicted = [...activeToasts.entries()].filter(
+    ([id, toast]) => toast.shown && !liveIds.has(id),
+  );
+  evicted.forEach(([id, toast]) => {
+    if (
+      !toast.closed &&
+      activeToasts.get(id) === toast &&
+      !isToastLiveInStore(id)
+    ) {
       finishToast(id, toast);
     }
   });
