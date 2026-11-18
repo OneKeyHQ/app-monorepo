@@ -85,11 +85,14 @@ class CentralClient {
     // Branch that copy PRs target. Another branch only to try unmerged
     // onekey-i18n changes end to end; its CI must build the PR preview.
     base = process.env.ONEKEY_I18N_BASE || 'main',
+    // Release channel the copy is read from: app-latest, or app-test.
+    channel = process.env.ONEKEY_I18N_CHANNEL || 'latest',
     // An onekey-i18n commit to read instead of the release, e.g. a copy PR's.
     ref,
   } = {}) {
     this.api = api;
     this.base = base;
+    this.channel = channel;
     this.ref = ref;
     // { tag, commit, files } of app.source.zip; injected by tests.
     this.source = source;
@@ -103,7 +106,7 @@ class CentralClient {
         this.source ||
         (this.ref
           ? await sourceFromCommit({ commit: this.ref, api: this.api })
-          : await sourceFromRelease({ api: this.api }));
+          : await sourceFromRelease({ api: this.api, channel: this.channel }));
       const parse = (name) => JSON.parse(this.source.files[name]);
       const project = parse('project.json');
       this.state = {
@@ -177,16 +180,6 @@ class CentralClient {
     };
   }
 
-  updateKeyCount(state) {
-    const keyCount = Object.values(state.keyMeta).filter(
-      (meta) => !meta.archived,
-    ).length;
-    if (state.project.keyCount !== keyCount) {
-      state.project.keyCount = keyCount;
-      this.changed.add('project.json');
-    }
-  }
-
   /** Set text per language; "" or null removes that language's text. */
   async setValues(name, values) {
     const state = await this.load();
@@ -221,7 +214,6 @@ class CentralClient {
         this.changed.add(`locales/${iso}.json`);
       }
     }
-    this.updateKeyCount(state);
   }
 
   async create(entry, localeMap) {
@@ -266,7 +258,6 @@ class CentralClient {
         }
       }
     }
-    this.updateKeyCount(state);
   }
 
   // Only the read that apply uses to detect concurrent edits.
@@ -302,8 +293,13 @@ class CentralClient {
    * overwritten. With a key (apply passes its approval) the branch is named
    * after it, so a rerun reuses the PR an earlier run opened even if GitHub's
    * answer was lost, or opens it from the branch that run created, but only
-   * while that branch holds exactly this change. An existing branch is never
-   * moved. Returns null without changes.
+   * while that branch holds exactly this change (or nothing yet). A branch
+   * holding commits of its own is never moved. Returns null without changes.
+   *
+   * main requires signed commits. GitHub signs commits made through GraphQL
+   * createCommitOnBranch with the developer's own token, but not commits made
+   * through the REST git/commits endpoint, so the branch is created first and
+   * the commit is added to it.
    */
   async finalize({ title, body, branchHint = PROJECT_SLUG, key }) {
     if (this.changed.size === 0) return null;
@@ -349,49 +345,42 @@ class CentralClient {
           `onekey-i18n ${this.base} changed ${moved.join(', ')} after ${this.source.tag} ${this.source.version}. Wait for its release, then sync and preview again.`,
         );
     }
-    const baseTree = (await this.api.get(`${repo}/git/commits/${head}`)).tree
-      .sha;
-    const tree = [];
-    for (const file of files) {
-      const blob = await this.api.request('POST', `${repo}/git/blobs`, {
-        content: this.fileText(file),
-        encoding: 'utf-8',
-      });
-      tree.push({
-        path: `${PROJECT_PATH}/${file}`,
-        mode: '100644',
-        type: 'blob',
-        sha: blob.sha,
-      });
-    }
-    const newTree = await this.api.request('POST', `${repo}/git/trees`, {
-      base_tree: baseTree,
-      tree,
-    });
-    const commit = await this.api.request('POST', `${repo}/git/commits`, {
-      message: title,
-      tree: newTree.sha,
-      parents: [head],
-    });
-    const branch = named ?? `i18n/${branchHint}-${commit.sha.slice(0, 7)}`;
-    let proposed = commit.sha;
+    const branch = named ?? `i18n/${branchHint}-${this.changeId(files)}`;
+    let proposed = null;
     try {
       await this.api.request('POST', `${repo}/git/refs`, {
         ref: `refs/heads/${branch}`,
-        sha: commit.sha,
+        sha: head,
       });
     } catch (error) {
       if (!named || error.status !== 422) throw error;
       // The branch exists without an open PR (an earlier run that did not
-      // open it). Use it as is; moving it would drop whatever was pushed there.
-      const held = await this.commitHoldingChange(repo, branch, files);
-      if (!held)
+      // open it, or did not get to commit). Use it as is; moving it would drop
+      // whatever was pushed there.
+      const compared = await this.api.get(
+        `${repo}/compare/${this.base}...${branch}`,
+      );
+      proposed = this.commitHoldingChangeIn(compared, files);
+      if (!proposed && compared.ahead_by !== 0)
         throw new Error(
           `onekey-i18n branch ${branch} already exists without an open PR and holds other content. Inspect it and any PR it had, delete it if it is stale, then rerun apply.`,
           { cause: error },
         );
-      proposed = held;
+      // Nothing on it yet: its tip is an older commit of the base. Bring it to
+      // the base checked above (a fast-forward, refused if anything was pushed).
+      if (!proposed && compared.merge_base_commit.sha !== head)
+        await this.api.request('PATCH', `${repo}/git/refs/heads/${branch}`, {
+          sha: head,
+          force: false,
+        });
     }
+    if (!proposed)
+      proposed = await this.commitOnBranch({
+        branch,
+        parent: head,
+        title,
+        files,
+      });
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,
       head: branch,
@@ -409,9 +398,13 @@ class CentralClient {
    * branch holds anything else.
    */
   async commitHoldingChange(repo, branch, files) {
-    const compared = await this.api.get(
-      `${repo}/compare/${this.base}...${branch}`,
+    return this.commitHoldingChangeIn(
+      await this.api.get(`${repo}/compare/${this.base}...${branch}`),
+      files,
     );
+  }
+
+  commitHoldingChangeIn(compared, files) {
     const onBranch = Object.fromEntries(
       compared.files.map((item) => [item.filename, item.sha]),
     );
@@ -423,6 +416,47 @@ class CentralClient {
           onBranch[`${PROJECT_PATH}/${file}`] === blobSha(this.fileText(file)),
       );
     return exact ? compared.commits.at(-1).sha : null;
+  }
+
+  /** Short id of this change (paths and contents), for branch names without a plan key. */
+  changeId(files) {
+    const hash = crypto.createHash('sha256');
+    for (const file of files) hash.update(`${file}\0${this.fileText(file)}\0`);
+    return hash.digest('hex').slice(0, 7);
+  }
+
+  /**
+   * Add one commit holding the changed files on top of `parent`, the current
+   * tip of `branch`, through GraphQL so that GitHub signs it.
+   */
+  async commitOnBranch({ branch, parent, title, files }) {
+    const { data, errors } = await this.api.request('POST', '/graphql', {
+      query:
+        'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }',
+      variables: {
+        input: {
+          branch: { repositoryNameWithOwner: CENTRAL_REPO, branchName: branch },
+          expectedHeadOid: parent,
+          message: { headline: title },
+          fileChanges: {
+            additions: files.map((file) => ({
+              path: `${PROJECT_PATH}/${file}`,
+              contents: Buffer.from(this.fileText(file), 'utf8').toString(
+                'base64',
+              ),
+            })),
+          },
+        },
+      },
+    });
+    const oid = data?.createCommitOnBranch?.commit?.oid;
+    if (errors?.length || !oid)
+      throw new Error(
+        `onekey-i18n commit on ${branch} failed: ${
+          errors?.map((item) => item.message).join('; ') || 'no commit returned'
+        }. Rerun apply; it continues on the same branch.`,
+      );
+    return oid;
   }
 }
 

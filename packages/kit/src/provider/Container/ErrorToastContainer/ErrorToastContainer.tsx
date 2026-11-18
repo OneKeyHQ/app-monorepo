@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
+import {
+  Dialog,
+  Toast,
+  globalNetInfo,
+  useClipboard,
+} from '@onekeyhq/components';
 import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -18,6 +23,8 @@ import {
   subscribeNativeAppStorageEmergencyStatus,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+
+import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -72,6 +79,11 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 export function ErrorToastContainer() {
   const intl = useIntl();
   const bannedDialogVisible = useRef(false);
+  // The toast actions are data, so the hooks their handlers need run here.
+  const { copyText } = useClipboard();
+  const { openChangeLogModal } = useFirmwareUpdateActions();
+  const actionDeps = useRef({ copyText, openChangeLogModal });
+  actionDeps.current = { copyText, openChangeLogModal };
 
   useEffect(() => {
     if (!platformEnv.isNative) return;
@@ -184,13 +196,21 @@ export function ErrorToastContainer() {
           p.title ||
           p.requestId;
 
-      const actions = getErrorAction({
-        errorCode: p.errorCode,
-        connectId: p.connectId,
-        requestId: p.requestId,
-        diagnosticText: p.diagnosticText,
-        i18nKey: p.i18nKey,
-      });
+      const actions = getErrorAction(
+        {
+          errorCode: p.errorCode,
+          connectId: p.connectId,
+          requestId: p.requestId,
+          diagnosticText: p.diagnosticText,
+          i18nKey: p.i18nKey,
+        },
+        {
+          intl,
+          copyText: (text) => actionDeps.current.copyText(text),
+          openChangeLogModal: (params) =>
+            actionDeps.current.openChangeLogModal(params),
+        },
+      );
 
       const canLocalizeError =
         !(

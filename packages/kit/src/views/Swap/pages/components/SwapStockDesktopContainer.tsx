@@ -80,6 +80,7 @@ import {
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { getStockTokenFiatValue } from '../../hooks/swapStockFiatValueUtils';
 import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
@@ -153,6 +154,7 @@ interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
   hasExternalHeader?: boolean;
   hideSwapTips?: boolean;
+  showThirdPartyNotice?: boolean;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
@@ -1051,6 +1053,7 @@ function StockTradeTicket({
   stockTradeConfig,
   stockTradeHeader,
   stockTradeIdentityLoading,
+  showThirdPartyNotice,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1309,6 +1312,7 @@ function StockTradeTicket({
             visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
           />
         ) : null}
+        {showThirdPartyNotice ? <SwapThirdPartyNotice /> : null}
       </YStack>
       {renderActionGateOutsideTicket ? stockActionGate : null}
     </>
@@ -1363,6 +1367,7 @@ function SwapStockDesktopContent({
   headerContent,
   hasExternalHeader,
   hideSwapTips,
+  showThirdPartyNotice,
   storeName,
   onSelectToken,
   fetchLoading,
@@ -1451,6 +1456,7 @@ function SwapStockDesktopContent({
         <SwapStockHeaderRightActionContainer storeName={storeName} />
       </XStack>
       <StockTradeTicket
+        showThirdPartyNotice={showThirdPartyNotice}
         onSelectToken={onSelectToken}
         fetchLoading={fetchLoading}
         storeName={storeName}
@@ -1560,6 +1566,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     supportNetworksList,
     stockTradeConfig,
     stockTradeHeader,
+    showThirdPartyNotice,
   } = props;
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -1614,6 +1621,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       >
         {embedded ? null : <SwapStockMobileHeader />}
         <StockTradeTicket
+          showThirdPartyNotice={showThirdPartyNotice}
           onSelectToken={onSelectToken}
           fetchLoading={fetchLoading}
           storeName={storeName}

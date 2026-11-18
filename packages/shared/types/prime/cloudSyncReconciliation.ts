@@ -48,6 +48,7 @@ export type ICloudSyncReconciliationResult = {
     | 'summary-budget'
     | 'invalid-summary'
     | 'no-progress'
+    | 'upload-incomplete'
     | 'repeated-response'
     | 'retry-exhausted'
     | 'cancelled'
