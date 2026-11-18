@@ -138,12 +138,15 @@ export function useOneKeyAuth() {
     async ({
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
+      freeTrialFeatureId,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       // Extension popup only: the caller just saved the free-trial action
       // the expand tab should continue after this login.
       keepFreeTrialPendingAction?: boolean;
+      // Analytics only, carried to the expand tab on the popup hand-off.
+      freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
@@ -181,6 +184,7 @@ export function useOneKeyAuth() {
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
+          freeTrialFeatureId,
         });
         throw new PrimeLoginHandedOffToExtExpandTabError();
       }
@@ -298,6 +302,7 @@ export function useOneKeyAuth() {
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
         keepFreeTrialPendingAction,
+        freeTrialFeatureId,
         renderContent: ({
           onComplete,
           onLoginSuccess,

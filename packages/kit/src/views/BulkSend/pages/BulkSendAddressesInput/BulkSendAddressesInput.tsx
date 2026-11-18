@@ -518,152 +518,154 @@ function BaseBulkSendAddressesInput({
     ],
   );
 
-  // Analytics only: the access the last "Next" check granted, for the funnel
-  // events of the following pages.
-  const grantedEntitlementSourceRef = useRef<
-    IPrimeEntitlementSource | undefined
-  >(undefined);
-  const navigateToNextStep = useCallback(async () => {
-    if (!selectedNetworkId || !selectedToken) {
-      return;
-    }
+  // `source`: analytics only, the access this "Next" press was granted.
+  const navigateToNextStep = useCallback(
+    async (source: IPrimeEntitlementSource | undefined) => {
+      if (!selectedNetworkId || !selectedToken) {
+        return;
+      }
 
-    // For OneToMany, require selectedAccountId and selectedTokenDetail
-    if (isOneToMany && (!selectedAccountId || !selectedTokenDetail)) {
-      return;
-    }
+      // For OneToMany, require selectedAccountId and selectedTokenDetail
+      if (isOneToMany && (!selectedAccountId || !selectedTokenDetail)) {
+        return;
+      }
 
-    // For non-OneToMany, selectedAccountId is not from single-line wallet lookup
-    if (!isOneToMany && !selectedAccountId) {
-      return;
-    }
+      // For non-OneToMany, selectedAccountId is not from single-line wallet lookup
+      if (!isOneToMany && !selectedAccountId) {
+        return;
+      }
 
-    const formValues = form.getValues();
+      const formValues = form.getValues();
 
-    const senders = parseBulkSendAddressLines(formValues.senderAddresses).map(
-      ({ address, amount }, index) => {
+      const senders = parseBulkSendAddressLines(formValues.senderAddresses).map(
+        ({ address, amount }, index) => {
+          return {
+            address,
+            amount:
+              !isOneToMany && amount !== undefined
+                ? new BigNumber(amount).toFixed()
+                : undefined,
+            accountId: resolvedSenderAccountIds[index]?.accountId,
+          };
+        },
+      );
+
+      const receivers = parseBulkSendAddressLines(
+        formValues.receiverAddresses,
+      ).map(({ address, amount }) => {
         return {
           address,
           amount:
-            !isOneToMany && amount !== undefined
-              ? new BigNumber(amount).toFixed()
-              : undefined,
-          accountId: resolvedSenderAccountIds[index]?.accountId,
+            amount === undefined ? amount : new BigNumber(amount).toFixed(),
         };
-      },
-    );
-
-    const receivers = parseBulkSendAddressLines(
-      formValues.receiverAddresses,
-    ).map(({ address, amount }) => {
-      return {
-        address,
-        amount: amount === undefined ? amount : new BigNumber(amount).toFixed(),
-      };
-    });
-
-    // ManyToMany: defensive count check
-    if (
-      bulkSendMode === EBulkSendMode.ManyToMany &&
-      senders.length !== receivers.length
-    ) {
-      Toast.error({
-        title: intl.formatMessage(
-          {
-            id: ETranslations.wallet_bulk_send_error_sender_receiver_count_mismatch,
-          },
-          { senders: senders.length, receivers: receivers.length },
-        ),
       });
-      return;
-    }
 
-    let resolvedTokenDetails = selectedTokenDetail;
-
-    if (
-      !resolvedTokenDetails &&
-      selectedAccountId &&
-      selectedNetworkId &&
-      selectedToken
-    ) {
-      try {
-        const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-          accountId: selectedAccountId,
-          networkId: selectedNetworkId,
-          contractList: [selectedToken.address],
-          withFrozenBalance: false,
-          withCheckInscription: false,
-        });
-
-        if (
-          resp[0] &&
-          isBulkSendTokenDetailsMatched(
+      // ManyToMany: defensive count check
+      if (
+        bulkSendMode === EBulkSendMode.ManyToMany &&
+        senders.length !== receivers.length
+      ) {
+        Toast.error({
+          title: intl.formatMessage(
             {
-              networkId: selectedNetworkId,
-              tokenInfo: selectedToken,
+              id: ETranslations.wallet_bulk_send_error_sender_receiver_count_mismatch,
             },
-            resp[0],
-          )
-        ) {
-          resolvedTokenDetails = resp[0];
-          setSelectedTokenDetail(resp[0]);
-        }
-      } catch (_) {
-        resolvedTokenDetails = undefined;
+            { senders: senders.length, receivers: receivers.length },
+          ),
+        });
+        return;
       }
-    }
 
-    // For non-OneToMany, construct minimal tokenDetails if not available
-    const effectiveTokenDetails =
-      resolvedTokenDetails ??
-      ({
-        info: selectedToken,
-        balance: '0',
-        balanceParsed: '0',
-        fiatValue: '0',
-        price: 0,
-        price24h: 0,
-        value: '0',
-        value24h: '0',
-      } as { info: IToken } & ITokenFiat);
+      let resolvedTokenDetails = selectedTokenDetail;
 
-    const navParams = {
-      networkId: selectedNetworkId,
-      accountId: selectedAccountId ?? '',
-      senders,
-      receivers,
-      tokenInfo: selectedToken,
-      tokenDetails: effectiveTokenDetails,
+      if (
+        !resolvedTokenDetails &&
+        selectedAccountId &&
+        selectedNetworkId &&
+        selectedToken
+      ) {
+        try {
+          const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
+            {
+              accountId: selectedAccountId,
+              networkId: selectedNetworkId,
+              contractList: [selectedToken.address],
+              withFrozenBalance: false,
+              withCheckInscription: false,
+            },
+          );
+
+          if (
+            resp[0] &&
+            isBulkSendTokenDetailsMatched(
+              {
+                networkId: selectedNetworkId,
+                tokenInfo: selectedToken,
+              },
+              resp[0],
+            )
+          ) {
+            resolvedTokenDetails = resp[0];
+            setSelectedTokenDetail(resp[0]);
+          }
+        } catch (_) {
+          resolvedTokenDetails = undefined;
+        }
+      }
+
+      // For non-OneToMany, construct minimal tokenDetails if not available
+      const effectiveTokenDetails =
+        resolvedTokenDetails ??
+        ({
+          info: selectedToken,
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          price: 0,
+          price24h: 0,
+          value: '0',
+          value24h: '0',
+        } as { info: IToken } & ITokenFiat);
+
+      const navParams = {
+        networkId: selectedNetworkId,
+        accountId: selectedAccountId ?? '',
+        senders,
+        receivers,
+        tokenInfo: selectedToken,
+        tokenDetails: effectiveTokenDetails,
+        bulkSendMode,
+        hasDuplicateSenders: duplicateSenderAddressCount > 0,
+        entitlementSource: source,
+      };
+
+      if (isInModal) {
+        navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
+          ...navParams,
+          isInModal,
+        });
+      } else {
+        navigation.switchTab(ETabRoutes.Home);
+        await timerUtils.wait(50);
+        navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, navParams);
+      }
+    },
+    [
+      form,
+      selectedNetworkId,
+      selectedAccountId,
+      selectedToken,
+      selectedTokenDetail,
+      navigation,
       bulkSendMode,
-      hasDuplicateSenders: duplicateSenderAddressCount > 0,
-      entitlementSource: grantedEntitlementSourceRef.current,
-    };
-
-    if (isInModal) {
-      navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
-        ...navParams,
-        isInModal,
-      });
-    } else {
-      navigation.switchTab(ETabRoutes.Home);
-      await timerUtils.wait(50);
-      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, navParams);
-    }
-  }, [
-    form,
-    selectedNetworkId,
-    selectedAccountId,
-    selectedToken,
-    selectedTokenDetail,
-    navigation,
-    bulkSendMode,
-    isOneToMany,
-    isInModal,
-    setSelectedTokenDetail,
-    resolvedSenderAccountIds,
-    duplicateSenderAddressCount,
-    intl,
-  ]);
+      isOneToMany,
+      isInModal,
+      setSelectedTokenDetail,
+      resolvedSenderAccountIds,
+      duplicateSenderAddressCount,
+      intl,
+    ],
+  );
 
   const { ensureFeatureAccess } = usePrimeFeatureAccess();
   const [isCheckingAccess, setIsCheckingAccess] = useState(false);
@@ -702,13 +704,15 @@ function BaseBulkSendAddressesInput({
   // after a login), so "Next" checks it again: a user without uses left gets
   // the exhausted feedback before filling in the amounts. Start on the
   // Review page stays the final judge.
-  const checkBulkSendAccess = useCallback(async () => {
-    grantedEntitlementSourceRef.current = undefined;
+  const checkBulkSendAccess = useCallback(async (): Promise<{
+    granted: boolean;
+    entitlementSource?: IPrimeEntitlementSource;
+  }> => {
     if (platformEnv.isE2E) {
-      return true;
+      return { granted: true };
     }
     if (isCheckingAccessRef.current) {
-      return false;
+      return { granted: false };
     }
     isCheckingAccessRef.current = true;
     setIsCheckingAccess(true);
@@ -724,9 +728,7 @@ function BaseBulkSendAddressesInput({
         isContextValid: () =>
           !isUnmountedRef.current && getNextContextKey() === contextKeyAtPress,
       });
-      if (access.granted)
-        grantedEntitlementSourceRef.current = access.entitlementSource;
-      return access.granted;
+      return access;
     } finally {
       isCheckingAccessRef.current = false;
       setIsCheckingAccess(false);
@@ -734,7 +736,8 @@ function BaseBulkSendAddressesInput({
   }, [ensureFeatureAccess, getNextContextKey, selectedNetworkId]);
 
   const handleSubmit = useCallback(async () => {
-    if (!(await checkBulkSendAccess())) {
+    const access = await checkBulkSendAccess();
+    if (!access.granted) {
       return;
     }
     if (duplicateAddressCount > 0) {
@@ -754,12 +757,12 @@ function BaseBulkSendAddressesInput({
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
-          void navigateToNextStep();
+          void navigateToNextStep(access.entitlementSource);
         },
       });
       return;
     }
-    await navigateToNextStep();
+    await navigateToNextStep(access.entitlementSource);
   }, [checkBulkSendAccess, duplicateAddressCount, intl, navigateToNextStep]);
 
   const formSkeleton = useMemo(
