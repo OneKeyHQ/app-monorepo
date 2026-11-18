@@ -31,10 +31,9 @@ function desired(entry, records, locales) {
 // commit and running verify, which checks that same commit.
 function assertTarget(plan, client, proposal) {
   if (!plan.central) {
-    const script = path.join(ROOT, 'development/scripts/i18n/i18n-pull.js');
     throw new Error(
       proposal?.commit
-        ? `The plan predates recording its onekey-i18n branch and release channel, so apply does not continue it. To finish onekey-i18n PR #${proposal.number}, run \`node "${script}" --pr ${proposal.number} --commit ${proposal.commit} --wait\`, then \`yarn i18n:workflow verify --file <plan.json>\`. For anything else, prepare another preview.`
+        ? `The plan predates recording its onekey-i18n branch and release channel, so apply does not continue it. To finish onekey-i18n PR #${proposal.number}, run \`node development/scripts/i18n/i18n-pull.js --pr ${proposal.number} --commit ${proposal.commit} --wait\` from the repository root, then \`yarn i18n:workflow verify --file <plan.json>\`. For anything else, prepare another preview.`
         : 'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
     );
   }

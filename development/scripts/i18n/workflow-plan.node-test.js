@@ -343,9 +343,10 @@ test('apply does not continue a plan that predates recorded targets, but re-veri
     proposal: { number: 9, commit: 'c2' },
   };
   writeJson(receiptFile, opened);
-  await assert.rejects(
-    apply,
-    /To finish onekey-i18n PR #9, run `node "[^"]*i18n-pull\.js" --pr 9 --commit c2 --wait`, then `yarn i18n:workflow verify/,
+  await assert.rejects(apply, (error) =>
+    error.message.includes(
+      'To finish onekey-i18n PR #9, run `node development/scripts/i18n/i18n-pull.js --pr 9 --commit c2 --wait` from the repository root, then `yarn i18n:workflow verify',
+    ),
   );
   assert.deepEqual(readJson(receiptFile), opened);
 

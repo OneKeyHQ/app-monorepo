@@ -201,9 +201,10 @@ test('a failed pull after delete reports the PR, and rerunning the deletion name
   assert.deepEqual(pulls, [[7, 'c7']]);
   assert.equal(failed.pullError, 'preview not ready');
   assert.match(failed.note, /pull\/7/);
-  assert.match(
-    failed.note,
-    /node "\/[^"]*\/development\/scripts\/i18n\/i18n-pull\.js" --pr 7 --commit c7 --wait/,
+  assert(
+    failed.note.includes(
+      'Retry from the repository root with `node development/scripts/i18n/i18n-pull.js --pr 7 --commit c7 --wait`',
+    ),
   );
 
   const retried = await run(() => {});
