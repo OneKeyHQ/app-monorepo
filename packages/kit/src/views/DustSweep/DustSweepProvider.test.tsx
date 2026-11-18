@@ -550,29 +550,31 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     { accountId: 'other-account' },
     { address: 'other-address' },
     { deriveAddressEncoding: 'other' as typeof ethereum.deriveAddressEncoding },
-  ])(
-    'does not authorize cached data for a changed network context %o',
-    (change) => {
-      const fresh = deferredLoad();
-      mockLoadNetworks.mockReturnValueOnce(fresh.promise);
-      setDustSweepNetworksCache(routeParams, {
-        networks: [ethereum],
-        partialError: false,
-      });
-      const { result } = renderController();
-      act(() =>
-        mockLoadNetworks.mock.calls[0][2]?.onContexts?.([
-          { ...ethereum, ...change },
-        ]),
-      );
-      expect(result.current.current).toEqual(ethereum);
-      expect(result.current.canStart).toBe(false);
-      act(() => {
-        result.current.start();
-      });
-      expect(result.current.session.state.snapshot).toBeUndefined();
-    },
-  );
+  ])('removes cached data for a changed network context %o', (change) => {
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    setDustSweepNetworksCache(routeParams, {
+      networks: [ethereum],
+      partialError: false,
+    });
+    const { result } = renderController();
+    expect(result.current.current).toEqual(ethereum);
+    expect(result.current.canStart).toBe(false);
+    act(() =>
+      mockLoadNetworks.mock.calls[0][2]?.onContexts?.([
+        { ...ethereum, ...change },
+      ]),
+    );
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.networks).toEqual([]);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.selected).toEqual([]);
+    expect(result.current.canStart).toBe(false);
+    act(() => {
+      result.current.start();
+    });
+    expect(result.current.session.state.snapshot).toBeUndefined();
+  });
 
   it('keeps cached data blocked after a failed check until retry succeeds', async () => {
     const first = deferredLoad();
