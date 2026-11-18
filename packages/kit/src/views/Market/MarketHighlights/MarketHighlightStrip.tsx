@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import Animated, {
   Easing,
   Extrapolation,
+  cancelAnimation,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -24,6 +25,7 @@ import type { IElement, IXStackProps } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -214,6 +216,7 @@ function HighlightCarousel({
   quotes,
   compact,
   paused,
+  isFocused,
   height,
   itemProps,
   onItemPress,
@@ -222,6 +225,7 @@ function HighlightCarousel({
   quotes: Map<string, IMarketHighlightQuote> | undefined;
   compact: boolean;
   paused: boolean;
+  isFocused: boolean;
   height: number;
   itemProps: IXStackProps;
   onItemPress: (highlight: IMarketHighlight) => void;
@@ -245,6 +249,14 @@ function HighlightCarousel({
   const wasPausedRef = useRef(false);
 
   useEffect(() => {
+    if (!isFocused) {
+      // Settle the current headline while hidden so it cannot resume mid-slide.
+      cancelAnimation(position);
+      position.value = stepRef.current;
+      setActiveIndex(stepRef.current);
+      wasPausedRef.current = false;
+      return;
+    }
     if (paused) {
       wasPausedRef.current = true;
       return;
@@ -281,7 +293,9 @@ function HighlightCarousel({
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [count, paused, position, reducedMotion]);
+  }, [count, isFocused, paused, position, reducedMotion]);
+
+  useEffect(() => () => cancelAnimation(position), [position]);
 
   // On web, Tab focus into a row mid-slide makes the browser scroll this
   // `overflow: hidden` box, and that offset would outlive the animation.
@@ -343,6 +357,7 @@ export function MarketHighlightStrip({
 }) {
   const navigation = useAppNavigation();
   const locale = useLocaleVariant();
+  const isFocused = useRouteIsFocused();
   const [hovered, setHovered] = useState(false);
   const [pressing, setPressing] = useState(false);
   // Keyboard focus also pauses rotation, otherwise the focused item would
@@ -440,6 +455,7 @@ export function MarketHighlightStrip({
           quotes={quotes}
           compact={compact}
           paused={hovered || pressing || focused}
+          isFocused={isFocused}
           height={CAROUSEL_ROW_HEIGHT}
           itemProps={itemProps}
           onItemPress={onItemPress}

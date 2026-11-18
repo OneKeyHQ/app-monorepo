@@ -8,6 +8,7 @@ import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketHighlightStrip } from './MarketHighlightStrip';
 
+let mockRouteFocused = true;
 const mockPushModal = jest.fn();
 const mockQuote = { price: '123', logoUrl: 'https://example.com/token.png' };
 
@@ -62,8 +63,10 @@ jest.mock('react-native-reanimated', () => {
   const { YStack } = jest.requireMock<{ YStack: unknown }>(
     '@onekeyhq/components',
   );
+  let animation: ReturnType<typeof setTimeout> | undefined;
   return {
     __esModule: true,
+    cancelAnimation: () => clearTimeout(animation),
     default: { View: YStack },
     Easing: { inOut: (value: unknown) => value, cubic: jest.fn() },
     Extrapolation: { CLAMP: 'clamp' },
@@ -77,7 +80,7 @@ jest.mock('react-native-reanimated', () => {
       config: { duration: number },
       complete?: (finished: boolean) => void,
     ) => {
-      setTimeout(() => complete?.(true), config.duration);
+      animation = setTimeout(() => complete?.(true), config.duration);
       return value;
     },
   };
@@ -87,6 +90,14 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pushModal: mockPushModal }),
 }));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => mockRouteFocused,
+}));
+
+beforeEach(() => {
+  mockRouteFocused = true;
+});
+
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',
 }));
@@ -208,6 +219,68 @@ it('passes the clicked headline for initial modal positioning', () => {
         initialQuotes: [],
       },
     });
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('keeps the current headline while away and waits a full interval on return', () => {
+  jest.useFakeTimers();
+  const items: IMarketHighlight[] = ['First', 'Later'].map((title) => ({
+    highlightId: title,
+    title,
+    description: '',
+    publishedAt: '2026-11-16T00:00:00Z',
+    assets: [],
+    links: [],
+  }));
+  const strip = () => (
+    <MarketHighlightStrip highlight={items[0]} highlights={items} compact />
+  );
+  const view = render(strip());
+  try {
+    act(() => jest.advanceTimersByTime(4200));
+    mockRouteFocused = false;
+    view.rerender(strip());
+    act(() => jest.advanceTimersByTime(20_000));
+    expect(view.getByRole('button', { name: 'Later' }).tabIndex).toBe(0);
+    mockRouteFocused = true;
+    view.rerender(strip());
+    act(() => jest.advanceTimersByTime(3999));
+    expect(view.getByRole('button', { name: 'Later' }).tabIndex).toBe(0);
+    act(() => jest.advanceTimersByTime(1));
+    expect(view.getByRole('button', { name: 'First' }).tabIndex).toBe(0);
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('does not rotate a preloaded Market tab before it becomes visible', () => {
+  jest.useFakeTimers();
+  mockRouteFocused = false;
+  const items: IMarketHighlight[] = ['First', 'Later'].map((title) => ({
+    highlightId: title,
+    title,
+    description: '',
+    publishedAt: '2026-11-16T00:00:00Z',
+    assets: [],
+    links: [],
+  }));
+  const strip = () => (
+    <MarketHighlightStrip highlight={items[0]} highlights={items} compact />
+  );
+  const view = render(strip());
+  try {
+    act(() => jest.advanceTimersByTime(4600));
+    expect(view.getByRole('button', { name: 'First' }).tabIndex).toBe(0);
+    mockRouteFocused = true;
+    view.rerender(strip());
+    act(() => jest.advanceTimersByTime(3999));
+    expect(view.getByRole('button', { name: 'First' }).tabIndex).toBe(0);
+    act(() => jest.advanceTimersByTime(1));
+    expect(view.getByRole('button', { name: 'Later' }).tabIndex).toBe(0);
   } finally {
     view.unmount();
     jest.useRealTimers();
