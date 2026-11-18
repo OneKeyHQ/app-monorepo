@@ -414,7 +414,9 @@ function HighlightCard({
   onDescriptionMeasured: (id: string) => void;
 }) {
   const publishedAt = new Date(item.publishedAt);
-  const time = formatRelativeTimeAbbr(publishedAt);
+  const time = Number.isNaN(publishedAt.getTime())
+    ? undefined
+    : formatRelativeTimeAbbr(publishedAt);
   // Details only lists sources, so it is hidden when there are none.
   const validLinks = getValidLinks(item.links);
   const hasSources = validLinks.length > 0;
@@ -437,14 +439,14 @@ function HighlightCard({
           <SizableText size="$headingMd" flexShrink={1}>
             {item.title}
           </SizableText>
-          {wide ? (
+          {wide && time ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {time.toUpperCase()}
             </SizableText>
           ) : null}
         </XStack>
         <XStack alignItems="center" gap="$2" flexShrink={0}>
-          {wide ? null : (
+          {wide || !time ? null : (
             <>
               <SizableText size="$bodySmMedium" color="$textSubdued">
                 {time.toUpperCase()}

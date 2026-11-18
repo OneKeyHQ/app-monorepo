@@ -865,7 +865,12 @@ it('merges a partial native cache with the quotes passed by the strip', async ()
   const assets = [btcHighlightAsset, btcPerpHighlightAsset];
   swrCacheUtils.set(
     swrKeys.marketHighlightQuotes('en-US', ['asset:btc', 'perps:BTC']),
-    [['asset:btc', { price: '65000', logoUrl: 'btc-logo' }]],
+    [
+      [
+        'asset:btc',
+        { price: '65000', logoUrl: 'btc-logo', updatedAt: Date.now() },
+      ],
+    ],
   );
   const pending =
     buildDeferredPromise<
@@ -874,7 +879,10 @@ it('merges a partial native cache with the quotes passed by the strip', async ()
   service.fetchMarketPerpsTokenList.mockReturnValue(pending.promise);
   service.fetchMarketListingWatchlistQuote.mockResolvedValue(btcHighlightQuote);
   const initial = new Map([
-    ['perps:BTC', { price: '65100', logoUrl: 'perp-logo' }],
+    [
+      'perps:BTC',
+      { price: '65100', logoUrl: 'perp-logo', updatedAt: Date.now() },
+    ],
   ]);
   const view = renderHook(() => useMarketHighlightQuotes(assets, initial));
   const preview = view.result.current;
@@ -888,8 +896,52 @@ it('merges a partial native cache with the quotes passed by the strip', async ()
 it('does not display a native quote preview older than five minutes', () => {
   jest.replaceProperty(platformEnv, 'isNative', true);
   const key = swrKeys.marketHighlightQuotes('en-US', ['asset:btc']);
-  swrCacheUtils.set(key, [['asset:btc', { price: '65000' }]]);
+  swrCacheUtils.set(key, [
+    ['asset:btc', { price: '65000', updatedAt: Date.now() }],
+  ]);
   jest.setSystemTime(Date.now() + 5 * 60_000 + 1);
   const view = renderHook(() => useMarketHighlightQuotes([btcHighlightAsset]));
   expect(view.result.current).toBeUndefined();
 });
+
+it.each([false, true])(
+  'does not renew a failed stock quote when another source keeps refreshing (route preview=%s)',
+  async (routePreview) => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    const stock: IMarketHighlightAsset = {
+      type: 'stock',
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      favorite: { chainId: '', contractAddress: '', stockId: 'AAPL' },
+    };
+    const assets = [btcHighlightAsset, stock];
+    service.fetchMarketStockBatch.mockResolvedValue([
+      {
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+        price: '100',
+      },
+    ]);
+    service.fetchMarketListingWatchlistQuote.mockResolvedValue(
+      btcHighlightQuote,
+    );
+    const first = renderHook(() => useMarketHighlightQuotes(assets));
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    service.fetchMarketStockBatch.mockRejectedValue(
+      new Error('Stock source unavailable'),
+    );
+    await act(async () => jest.advanceTimersByTimeAsync(6 * 60_000));
+    expect(first.result.current?.get('stock:AAPL')?.price).toBe('100');
+    const initial = routePreview ? first.result.current : undefined;
+    first.unmount();
+    const reopened = renderHook(() =>
+      useMarketHighlightQuotes(assets, initial),
+    );
+    expect(reopened.result.current?.get('asset:btc')?.price).toBe('65000');
+    expect(reopened.result.current?.has('stock:AAPL')).toBe(false);
+  },
+);

@@ -164,3 +164,24 @@ it('stops pending positioning on native touch', () => {
   fireEvent.touchStart(view.getByTestId('market-highlights-list'));
   expect(mockFinish).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  [true, ''],
+  [false, ''],
+  [true, 'not-a-date'],
+  [false, 'not-a-date'],
+])(
+  'keeps every card usable with an invalid date (wide=%s, date=%s)',
+  (wide, date) => {
+    mockWide = wide;
+    const previous = mockItems[0].publishedAt;
+    mockItems[0].publishedAt = date;
+    try {
+      const view = render(<MarketHighlightsPage />);
+      expect(view.getAllByTestId('market-highlights-card')).toHaveLength(3);
+      expect(view.getAllByText('selected').length).toBeGreaterThan(0);
+    } finally {
+      mockItems[0].publishedAt = previous;
+    }
+  },
+);

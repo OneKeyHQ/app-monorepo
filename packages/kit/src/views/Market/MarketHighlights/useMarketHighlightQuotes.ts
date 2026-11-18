@@ -20,6 +20,7 @@ import { fetchMarketTokenListBatchForPlatform } from '../MarketHomeV2/components
 import { getNativeTokenInfo } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 export type IMarketHighlightQuote = {
+  updatedAt?: number;
   logoUrl?: string;
   isUSStock?: boolean;
   maxLeverage?: number;
@@ -43,14 +44,32 @@ function fetchSharedQuoteSource<T>(key: string, fetch: () => Promise<T>) {
   return request;
 }
 
-function compactQuote({
-  logoUrl,
-  isUSStock,
-  maxLeverage,
-  price,
-  priceChange24hPercent,
-}: IMarketHighlightQuote): IMarketHighlightQuote {
-  return { logoUrl, isUSStock, maxLeverage, price, priceChange24hPercent };
+function isQuotePreviewFresh(quote: IMarketHighlightQuote) {
+  return (
+    quote.updatedAt !== undefined &&
+    Date.now() - quote.updatedAt < PREVIEW_MAX_AGE_MS
+  );
+}
+
+function compactQuote(
+  {
+    logoUrl,
+    isUSStock,
+    maxLeverage,
+    price,
+    priceChange24hPercent,
+    updatedAt,
+  }: IMarketHighlightQuote,
+  refreshedAt = updatedAt,
+): IMarketHighlightQuote {
+  return {
+    logoUrl,
+    isUSStock,
+    maxLeverage,
+    price,
+    priceChange24hPercent,
+    updatedAt: refreshedAt,
+  };
 }
 
 async function fetchHighlightQuotes(
@@ -115,7 +134,7 @@ async function fetchHighlightQuotes(
               chainId,
               contractAddress: isNative ? '' : token.address,
             });
-            tokenQuotes.set(key, compactQuote(token));
+            tokenQuotes.set(key, compactQuote(token, Date.now()));
           });
           for (const asset of tokens) {
             const { isNative } = getNativeTokenInfo(
@@ -156,10 +175,13 @@ async function fetchHighlightQuotes(
             if (quote) {
               quotes.set(
                 getMarketWatchlistKey(asset.favorite),
-                compactQuote({
-                  ...quote,
-                  isUSStock: quote.tags?.includes('US'),
-                }),
+                compactQuote(
+                  {
+                    ...quote,
+                    isUSStock: quote.tags?.includes('US'),
+                  },
+                  Date.now(),
+                ),
               );
             }
           }
@@ -176,6 +198,7 @@ async function fetchHighlightQuotes(
             quotes.delete(getMarketWatchlistKey(asset.favorite));
             if (quote) {
               quotes.set(getMarketWatchlistKey(asset.favorite), {
+                updatedAt: Date.now(),
                 logoUrl: quote.tokenImageUrl,
                 maxLeverage: quote.maxLeverage,
                 price: quote.markPrice,
@@ -195,7 +218,7 @@ async function fetchHighlightQuotes(
         if (quote)
           quotes.set(
             getMarketWatchlistKey(asset.favorite),
-            compactQuote(quote),
+            compactQuote(quote, Date.now()),
           );
       }),
     ),
@@ -241,15 +264,20 @@ export function useMarketHighlightQuotes(
   );
   const cachedPreview = useMemo(() => {
     if (!platformEnv.isNative || !queryKey) return undefined;
-    const cached = swrCacheUtils.getWithTimestamp<IQuoteEntries>(queryKey);
-    if (!cached || Date.now() - cached.updatedAt >= PREVIEW_MAX_AGE_MS)
-      return undefined;
-    return new Map(cached.data);
+    const cached = swrCacheUtils.get<IQuoteEntries>(queryKey);
+    if (!cached) return undefined;
+    const eligible = cached.filter(([, quote]) => isQuotePreviewFresh(quote));
+    return eligible.length ? new Map(eligible) : undefined;
   }, [queryKey]);
   const preview = useMemo(
     () =>
       cachedPreview || initialQuotes
-        ? new Map([...(cachedPreview ?? []), ...(initialQuotes ?? [])])
+        ? new Map(
+            [...(cachedPreview ?? []), ...(initialQuotes ?? [])].filter(
+              ([, quote]) =>
+                !platformEnv.isNative || isQuotePreviewFresh(quote),
+            ),
+          )
         : undefined,
     [cachedPreview, initialQuotes],
   );

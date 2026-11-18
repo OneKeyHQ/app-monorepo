@@ -1313,7 +1313,7 @@ export const swrKeys = {
   marketHighlightQuotes: (locale: string, identities: string[]) =>
     [
       NS.marketHighlightQuotes,
-      'v1',
+      'v2',
       locale,
       'usd',
       JSON.stringify([...new Set(identities)].toSorted()),
