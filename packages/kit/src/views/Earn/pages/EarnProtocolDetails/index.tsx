@@ -105,7 +105,10 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
 import { getEarnProtocol } from '../../protocols';
-import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
+import {
+  getEtherFiManagedRedeem,
+  positionMatured,
+} from '../EarnPositions/mobile/myPortfolio.utils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -1265,7 +1268,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }),
     [networkId, provider, symbol, detailInfo?.protocol?.vault, vault],
   );
-  const { holding, refresh: refreshHolding } = useDetailHoldingPosition({
+  const {
+    holding,
+    actionableHolding,
+    refresh: refreshHolding,
+  } = useDetailHoldingPosition({
     identity: holdingIdentity,
     earnAccount: protocolInfo?.earnAccount,
     enabled: Boolean(isMobileLayout),
@@ -1624,12 +1631,22 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // principal row of the Portfolio tab share this one Redeem (product 10-14:
   // both stay).
   const redeemControl = useMemo<IEarnHoldingRedeem | undefined>(() => {
+    const etherFiManagedRedeem = getEtherFiManagedRedeem({
+      provider,
+      position:
+        selectedAccount.othersWalletAccountId ||
+        selectedAccount.indexedAccountId
+          ? actionableHolding
+          : undefined,
+      actions: detailInfo?.actions,
+    });
     const showRedeem =
       isMobileLayout &&
       hasDeposit &&
       (Boolean(redeemAction) ||
         detailRedeemPolicy === 'holding' ||
-        redeemWithoutActions);
+        redeemWithoutActions ||
+        Boolean(etherFiManagedRedeem));
     if (!showRedeem) {
       return undefined;
     }
@@ -1646,7 +1663,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       disabled:
         detailRedeemPolicy === 'holding'
           ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
-          : Boolean(redeemAction?.disabled),
+          : Boolean(redeemAction?.disabled ?? etherFiManagedRedeem?.disabled),
       onPress: handleOpenRedeem,
     };
   }, [
@@ -1657,6 +1674,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     hasPortfolio,
     detailRedeemPolicy,
     holding?.source.earn.redeem?.disabled,
+    actionableHolding,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.indexedAccountId,
+    detailInfo?.actions,
     redeemAction,
     redeemWithoutActions,
     isMatured,

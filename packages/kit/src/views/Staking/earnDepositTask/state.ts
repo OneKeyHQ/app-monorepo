@@ -82,7 +82,12 @@ export type IDepositTaskStepStatus = IEarnTransactionStepStatus;
 export type IDepositTaskStep = IEarnTaskStep<
   IDepositTaskStepKind,
   IDepositTaskStepStatus
->;
+> & {
+  resetRequired?: true;
+  resetSendStarted?: true;
+  resetPriorAttempt?: true;
+  resetPreparationFailed?: true;
+};
 
 export type IDepositRecordingStatus =
   | 'pending'
@@ -114,6 +119,7 @@ export type IDepositTaskRecordingBinding = {
 
 export type IDepositTaskAction =
   | IEarnTransactionStepAction
+  | { type: 'resetRequired' }
   | { type: 'insertReset'; resetStepId: string }
   | {
       type: 'insertApproval';
@@ -194,6 +200,17 @@ export function reduceDepositTask(
   if (!step || event.taskId !== task.taskId || event.stepId !== step.id) {
     return task;
   }
+  if (event.type === 'resetRequired') {
+    if (
+      step.kind !== 'resetApproval' ||
+      step.status.type !== 'preparing' ||
+      step.attemptId !== event.attemptId
+    )
+      return task;
+    const steps = task.steps.slice();
+    steps[task.currentStepIndex] = { ...step, resetRequired: true };
+    return { ...task, steps };
+  }
   if (event.type === 'handoff' && step.kind !== 'deposit') return task;
   if (
     event.type === 'skip' &&
@@ -255,6 +272,30 @@ export function reduceDepositTask(
       confirmationCallback: _callback,
       ...value
     } = item;
+    if (item.id === step.id && step.kind === 'resetApproval') {
+      if (event.type === 'retry') {
+        const {
+          resetRequired: _resetRequired,
+          resetPreparationFailed: _failed,
+          ...rest
+        } = value;
+        const retainPriorAttempt =
+          !step.resetRequired &&
+          !step.resetSendStarted &&
+          (step.status.type === 'cancelled' ||
+            (step.status.type === 'failed' && !step.resetPreparationFailed));
+        return {
+          ...rest,
+          ...(retainPriorAttempt ? { resetPriorAttempt: true as const } : {}),
+        };
+      }
+      if (event.type === 'sendStarted') {
+        return { ...value, resetSendStarted: true as const };
+      }
+      if (event.type === 'fail' && step.status.type === 'preparing') {
+        return { ...value, resetPreparationFailed: true as const };
+      }
+    }
     return value;
   });
   return { ...task, steps, currentStepIndex: next.currentStepIndex };

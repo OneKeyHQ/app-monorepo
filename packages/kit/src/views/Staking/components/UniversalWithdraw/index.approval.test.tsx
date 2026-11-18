@@ -45,6 +45,9 @@ const mockWorkflowCreation = jest.fn<
 const mockFetchAllowance = jest.fn<Promise<{ allowanceParsed: string }>, []>();
 const mockTrackAllowance = jest.fn();
 const mockRetryAllowance = jest.fn();
+const mockAllowanceValue = { current: '0' };
+const mockRouteFocus = { current: true };
+const mockShowTransactionSection = { current: false };
 const mockVerify = jest.fn<Promise<boolean>, []>();
 const mockFooterAction = jest.fn<void, [() => void]>();
 type IConfirmParams = Parameters<NonNullable<IProps['onConfirm']>>[0] & {
@@ -57,6 +60,7 @@ const mockQuote = jest.fn<Promise<unknown>, unknown[]>();
 const mockClaimStart = jest.fn<void, [(() => void) | undefined]>();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 let mockEstimateRequest: (() => Promise<unknown>) | undefined;
+let mockEstimateResult: unknown;
 let mockRunEstimateOnDepsChange = false;
 const mockRiskAccepted = jest.fn();
 const mockSignMessage = jest.fn();
@@ -184,6 +188,7 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: Container,
     Image: Container,
     SizableText: Container,
+    Skeleton: Container,
     Stack: Container,
     XStack: Container,
     YStack: Container,
@@ -245,11 +250,13 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
       if (mockRunEstimateOnDepsChange && shouldRun) void methodRef.current();
     }, [depsKey, shouldRun]);
     if (options?.undefinedResultIfReRun) mockEstimateRequest = method;
-    return { result: undefined };
+    return {
+      result: options?.undefinedResultIfReRun ? mockEstimateResult : undefined,
+    };
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockRouteFocus.current,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
@@ -284,7 +291,9 @@ jest.mock('../../hooks/useEarnSignMessageWithoutVerify', () => ({
   useEarnSignMessageWithoutVerify: () => mockSignMessage,
 }));
 jest.mock('../../hooks/usePendleLayoutState', () => ({
-  usePendleLayoutState: () => ({}),
+  usePendleLayoutState: () => ({
+    showPendleTransactionSection: mockShowTransactionSection.current,
+  }),
 }));
 jest.mock('../../hooks/useQuoteRefresh', () => ({
   useQuoteRefresh: () => ({
@@ -294,7 +303,7 @@ jest.mock('../../hooks/useQuoteRefresh', () => ({
 }));
 jest.mock('../../hooks/useUtilsHooks', () => ({
   useTrackTokenAllowance: () => ({
-    allowance: '0',
+    allowance: mockAllowanceValue.current,
     allowanceAvailable: true,
     allowanceError: false,
     loading: false,
@@ -307,9 +316,35 @@ jest.mock('../../pages/ProtocolDetails/useHandleActions', () => ({
   useHandleWithdraw: () => jest.fn(),
 }));
 jest.mock('../CalculationList', () => ({ CalculationListItem: () => null }));
-jest.mock('../EstimateNetworkFee', () => ({ EstimateNetworkFee: () => null }));
+jest.mock('../EstimateNetworkFee', () => ({
+  EstimateNetworkFee: ({
+    loading,
+    estimateFeeResp,
+  }: {
+    loading?: boolean;
+    estimateFeeResp?: { feeFiatValue?: string };
+  }) => (
+    <div
+      data-testid="estimate-fee"
+      data-loading={Boolean(loading)}
+      data-value={estimateFeeResp?.feeFiatValue ?? ''}
+    />
+  ),
+}));
 jest.mock('../ManagePageV2ReceiveInput', () => ({
-  ManagePageV2ReceiveInput: () => null,
+  ManagePageV2ReceiveInput: ({
+    loading,
+    receive,
+  }: {
+    loading?: boolean;
+    receive?: { description?: { text?: string } };
+  }) => (
+    <div
+      data-testid="receive-preview"
+      data-loading={Boolean(loading)}
+      data-value={receive?.description?.text ?? ''}
+    />
+  ),
 }));
 jest.mock('../ProtocolDetails/EarnActionIcon', () => ({
   ActionPopupContent: () => null,
@@ -343,7 +378,9 @@ jest.mock('../showHighPriceImpactDialog', () => ({
 }));
 jest.mock('../StakeProgress', () => ({
   EStakeProgressStep: { approve: 0, deposit: 1, unstake: 2 },
-  StakeProgress: () => null,
+  StakeProgress: ({ currentStep }: { currentStep: number }) => (
+    <div data-testid="withdraw-progress" data-step={currentStep} />
+  ),
 }));
 jest.mock('../StakingAmountInput', () => ({
   StakingAmountInput: ({
@@ -591,6 +628,10 @@ function FormWithRealSingleWithdraw({
 describe('UniversalWithdraw share approval continuation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAllowanceValue.current = '0';
+    mockRouteFocus.current = true;
+    mockShowTransactionSection.current = false;
+    mockEstimateResult = undefined;
     mockFetchAllowance.mockReset();
     mockSignMessage.mockReset();
     mockPriceImpact.mockReset();
@@ -628,6 +669,376 @@ describe('UniversalWithdraw share approval continuation', () => {
         },
       },
     });
+  });
+
+  it('shows only the current receive quote and does not reload it during amount validation', async () => {
+    const makeQuote = (amount: string) => ({
+      receive: { title: { text: 'Receive' }, description: { text: amount } },
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    });
+    mockQuote.mockResolvedValue(makeQuote('old'));
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    await waitFor(
+      () => expect(preview.getAttribute('data-value')).toBe('old'),
+      { timeout: 5000 },
+    );
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole('button', { name: 'global.approve' })
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      { timeout: 5000 },
+    );
+    const quote = deferred<unknown>();
+    const check = deferred<unknown>();
+    mockQuote.mockReturnValueOnce(quote.promise);
+    mockCheckAmount.mockReturnValueOnce(check.promise);
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    expect(preview.getAttribute('data-loading')).toBe('true');
+    expect(preview.getAttribute('data-value')).toBe('');
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    await act(async () => quote.resolve(makeQuote('new')));
+    await waitFor(
+      () =>
+        expect(mockCheckAmount).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    expect(preview.getAttribute('data-loading')).toBe('false');
+    expect(preview.getAttribute('data-value')).toBe('new');
+    await act(async () => check.resolve({ code: 0, data: { alerts: [] } }));
+    expect(preview.getAttribute('data-loading')).toBe('false');
+  });
+
+  it('keeps approval loading across quote and amount checks after changing the output token', async () => {
+    const screen = render(<UniversalWithdraw {...props} />);
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    const quote = deferred<unknown>();
+    const check = deferred<unknown>();
+    mockQuote.mockReturnValueOnce(quote.promise);
+    mockCheckAmount.mockReturnValueOnce(check.promise);
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(button.getAttribute('data-loading')).toBe('true');
+    await act(async () =>
+      quote.resolve({
+        withdrawPath: {
+          data: {
+            confirmBoxes: [
+              {
+                withdrawType: 'queued',
+                title: { text: 'Queued' },
+                description: { text: '1' },
+              },
+            ],
+          },
+        },
+      }),
+    );
+    await waitFor(
+      () =>
+        expect(mockCheckAmount).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(button.getAttribute('data-loading')).toBe('true');
+    await act(async () => check.resolve({ code: 0, data: { alerts: [] } }));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    expect(button.getAttribute('data-loading')).toBe('false');
+  });
+
+  it('does not revive an old quote when switching back and the new request fails', async () => {
+    const oldQuote = {
+      receive: { title: { text: 'Receive' }, description: { text: 'old' } },
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    };
+    mockQuote.mockResolvedValue(oldQuote);
+    const screen = render(<UniversalWithdraw {...props} />);
+    const preview = screen.getByTestId('receive-preview');
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    expect(preview.getAttribute('data-value')).toBe('old');
+
+    const otherQuote = deferred<unknown>();
+    mockQuote.mockReturnValueOnce(otherQuote.promise);
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    await waitFor(
+      () =>
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ outputTokenAddress: '0xother' }),
+        ),
+      { timeout: 5000 },
+    );
+    const quoteCount = mockQuote.mock.calls.length;
+    mockQuote.mockRejectedValueOnce(new Error('quote unavailable'));
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await waitFor(
+      () => expect(mockQuote).toHaveBeenCalledTimes(quoteCount + 1),
+      {
+        timeout: 5000,
+      },
+    );
+    await waitFor(() =>
+      expect(preview.getAttribute('data-loading')).toBe('false'),
+    );
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+
+    await act(async () => otherQuote.resolve({}));
+    expect(preview.getAttribute('data-value')).toBe('');
+    expect(button.hasAttribute('disabled')).toBe(true);
+
+    mockQuote.mockResolvedValue({
+      ...oldQuote,
+      receive: { title: { text: 'Receive' }, description: { text: 'fresh' } },
+    });
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    expect(preview.getAttribute('data-value')).toBe('fresh');
+  });
+
+  it('keeps the fee placeholder for the latest request and supports retry after failure', async () => {
+    mockShowTransactionSection.current = true;
+    mockEstimateFee.mockResolvedValueOnce({ feeFiatValue: '1' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    await act(async () => {
+      mockEstimateResult = await mockEstimateRequest?.();
+    });
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '1',
+    );
+
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    expect(
+      screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '',
+    );
+
+    const older = deferred<unknown>();
+    const newer = deferred<unknown>();
+    mockEstimateFee
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    const olderRequest = mockEstimateRequest?.();
+    const newerRequest = mockEstimateRequest?.();
+    await waitFor(() => expect(mockEstimateFee).toHaveBeenCalledTimes(3));
+    await act(async () => {
+      older.resolve(Promise.reject(new Error('old fee failure')));
+      await expect(olderRequest).rejects.toThrow('old fee failure');
+    });
+    expect(
+      screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+    ).toBe('true');
+    await act(async () => {
+      newer.resolve(Promise.reject(new Error('fee failure')));
+      await expect(newerRequest).rejects.toThrow('fee failure');
+    });
+    expect(screen.queryByTestId('estimate-fee')).toBeNull();
+
+    const retry = deferred<unknown>();
+    mockEstimateFee.mockReturnValueOnce(retry.promise);
+    let retryRequest: Promise<unknown> | undefined;
+    act(() => {
+      retryRequest = mockEstimateRequest?.();
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+      ).toBe('true'),
+    );
+    await act(async () => {
+      retry.resolve({ feeFiatValue: '2' });
+      mockEstimateResult = await retryRequest;
+    });
+    screen.rerender(
+      <UniversalWithdraw {...props} transactionOutputTokenAddress="0xother" />,
+    );
+    expect(
+      screen.getByTestId('estimate-fee').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(screen.getByTestId('estimate-fee').getAttribute('data-value')).toBe(
+      '2',
+    );
+  });
+
+  it('keeps the approval and withdrawal steps visible through confirmation and cancellation', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    const withdrawal = deferred<boolean>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '2' });
+    mockConfirm.mockReturnValue(withdrawal.promise);
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Success));
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('1');
+    await act(async () => withdrawal.resolve(false));
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('1');
+    mockRouteFocus.current = false;
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('1');
+    mockRouteFocus.current = true;
+    mockAllowanceValue.current = '0';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '0.5' },
+    });
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+  });
+
+  it('does not carry approval progress across an account switch and return', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    screen.rerender(
+      <UniversalWithdraw
+        {...props}
+        accountId="account-b"
+        accountAddress="0xother"
+        approveTarget={{ ...approveTarget, accountId: 'account-b' }}
+      />,
+    );
+    screen.rerender(<UniversalWithdraw {...props} />);
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Success));
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('clears pending progress after a confirmed failed approval', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Failed));
+    expect(screen.queryByTestId('withdraw-progress')).toBeNull();
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('does not mark an unknown approval as completed', async () => {
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitForStatus.mockReturnValue(receipt.promise);
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(<UniversalWithdraw {...props} />);
+    const params = await openApproval(screen);
+    act(() => params.onSuccess([{ decodedTx: { txid: 'synthetic' } }]));
+    mockAllowanceValue.current = '2';
+    screen.rerender(<UniversalWithdraw {...props} />);
+    await act(async () => receipt.resolve(undefined));
+    expect(
+      screen.getByTestId('withdraw-progress').getAttribute('data-step'),
+    ).toBe('0');
+    expect(mockConfirm).not.toHaveBeenCalled();
   });
 
   it('does not repeat a legacy fee estimate when the quote finishes without changing the request', async () => {
@@ -1419,7 +1830,9 @@ describe('UniversalWithdraw share approval continuation', () => {
     const button = await screen.findByRole('button', {
       name: 'global.withdraw',
     });
-    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
     fireEvent.click(button);
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
     const resultCurrent = mockConfirm.mock.calls[0][0].isResultCurrent;
@@ -1527,7 +1940,9 @@ describe('UniversalWithdraw share approval continuation', () => {
     const button = await screen.findByRole('button', {
       name: 'global.withdraw',
     });
-    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
     fireEvent.click(button);
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(1));
     const resultCurrent = mockConfirm.mock.calls[0][0].isResultCurrent;
@@ -2829,11 +3244,17 @@ describe('UniversalWithdraw share approval continuation', () => {
     );
     expect(mockTrackAllowance).not.toHaveBeenCalled();
     expect(mockConfirm).not.toHaveBeenCalled();
-    expect(
-      screen
-        .getByRole('button', { name: 'global.approve' })
-        .getAttribute('data-loading'),
-    ).toBe('false');
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole('button', { name: 'global.approve' })
+            .getAttribute('data-loading'),
+        ).toBe('false'),
+      { timeout: 5000 },
+    );
+    expect(mockTrackAllowance).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
   });
 
   it('does not continue an approval after the amount changes', async () => {

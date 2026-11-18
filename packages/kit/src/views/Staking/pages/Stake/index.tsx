@@ -43,10 +43,12 @@ import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/Di
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { RetainedTaskFallback } from '../../components/EarnProtocolForms/RetainedTaskFallback';
 import { EarnStakeForm } from '../../components/EarnProtocolForms/Stake';
+import { depositTaskRegistry } from '../../earnDepositTask/registry';
 import {
   findRetainedDepositAsset,
   isRetainedDepositToken,
 } from '../../earnDepositTask/retainedAsset';
+import { hasUncertainTransaction } from '../../earnDepositTask/useDepositTask';
 import {
   getDepositTaskOwnerKey,
   useRetainedDepositTask,
@@ -85,7 +87,12 @@ function BasicStakePage() {
     vault: protocolInfo?.vault,
   });
   const retained = useRetainedDepositTask(retainedOwnerKey);
-  const retainedTask = retained.status === 'ready' ? retained.value : null;
+  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
+  const retainedTask =
+    retained.status === 'ready' &&
+    (!isEtherFiProvider || hasUncertainTransaction(retained.value.task))
+      ? retained.value
+      : null;
   const appNavigation = useAppNavigation();
   const onTaskRecoveryComplete = useCallback(
     (reason?: 'remoteUnknown') => {
@@ -680,9 +687,15 @@ function BasicStakePage() {
     0;
 
   let retainedView: ReactElement | undefined;
-  if (retained.status === 'checking') {
+  const retainedEntry = depositTaskRegistry.find(retainedOwnerKey);
+  const needsRetainedValidation =
+    !isEtherFiProvider ||
+    Boolean(
+      retainedEntry && hasUncertainTransaction(retainedEntry.state.getTask()),
+    );
+  if (needsRetainedValidation && retained.status === 'checking') {
     retainedView = <Spinner />;
-  } else if (retained.status === 'unavailable') {
+  } else if (needsRetainedValidation && retained.status === 'unavailable') {
     retainedView = (
       <Alert
         type="critical"

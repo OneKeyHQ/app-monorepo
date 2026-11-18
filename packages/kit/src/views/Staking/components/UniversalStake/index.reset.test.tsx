@@ -77,6 +77,7 @@ const mockRealPreview = { enabled: false };
 const mockPreviewFocus = { focused: true };
 const mockPreviewOptions = jest.fn();
 const mockStakeProgress = jest.fn();
+const mockStakeTaskProgress = jest.fn();
 const mockPendleLayout = jest.fn();
 const mockShowEstimate = { value: false };
 const mockAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
@@ -404,7 +405,10 @@ jest.mock('../StakeProgress', () => ({
     mockStakeProgress(props);
     return <div data-testid="legacy-stake-progress" />;
   },
-  StakeTaskProgress: () => <div data-testid="task-progress" />,
+  StakeTaskProgress: (progress: unknown) => {
+    mockStakeTaskProgress(progress);
+    return <div data-testid="task-progress" />;
+  },
 }));
 jest.mock('../StakingAmountInput', () => ({
   StakingAmountInput: ({
@@ -2228,7 +2232,7 @@ describe('EtherFi USDT approval reset', () => {
     second.unmount();
   });
 
-  it('resumes after a real unmount without wrapping again', async () => {
+  it('starts a fresh EtherFi form after cancelling and unmounting', async () => {
     const nativeToken = {
       ...token,
       uniqueKey: 'eth',
@@ -2280,15 +2284,12 @@ describe('EtherFi USDT approval reset', () => {
 
     const second = render(<RetainedStakeHarness {...wrapProps} />);
     await waitFor(() =>
-      expect(second.getByLabelText('amount').getAttribute('value')).toBe('2'),
+      expect(second.getByLabelText('amount').getAttribute('value')).toBe(''),
     );
-    const retry = await second.findByRole('button', { name: 'global.retry' });
+    expect(second.queryByRole('button', { name: 'global.retry' })).toBeNull();
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    fireEvent.click(retry);
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
     expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
     expect(mockBuildStake).not.toHaveBeenCalled();
-    expect(mockNavigate.mock.calls[2][0].approvesInfo).toHaveLength(1);
     second.unmount();
   });
 
@@ -4252,6 +4253,92 @@ describe('EtherFi USDT approval reset', () => {
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
+  async function beginDirectUSDTWithPendingAllowance() {
+    const screen = render(<StakeTaskHarness {...props} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(mockCheck).toHaveBeenCalled(), {
+      timeout: 5000,
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    const pendingAllowance = deferred<{ allowanceParsed: string }>();
+    mockAllowance.mockReturnValueOnce(pendingAllowance.promise);
+    mockStakeTaskProgress.mockClear();
+    fireEvent.click(button);
+    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
+    await screen.findByTestId('task-progress');
+    return { screen, pendingAllowance };
+  }
+
+  it('does not show a revoke step while checking USDT allowance or after a zero allowance', async () => {
+    const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockStakeTaskProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        steps: [
+          expect.objectContaining({ id: 'approve', status: 'current' }),
+          expect.objectContaining({ id: 'deposit', status: 'waiting' }),
+        ],
+      }),
+    );
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+  });
+
+  it('shows the revoke step only after a nonzero insufficient allowance is confirmed', async () => {
+    const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '1' }));
+    await waitFor(() => expect(mockDialog).toHaveBeenCalledTimes(1));
+    expect(mockStakeTaskProgress).toHaveBeenLastCalledWith(revokeStep);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () =>
+      mockDialog.mock.calls[0][0].onConfirm({ close: async () => undefined }),
+    );
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('0');
+  });
+
+  it('does not show a revoke step or send when the USDT allowance check fails', async () => {
+    const { screen, pendingAllowance } =
+      await beginDirectUSDTWithPendingAllowance();
+    const revokeStep = expect.objectContaining({
+      steps: expect.arrayContaining([
+        expect.objectContaining({ id: 'resetApproval' }),
+      ]),
+    });
+    await act(async () =>
+      pendingAllowance.reject(new OneKeyLocalError('Allowance unavailable')),
+    );
+    await screen.findByRole('button', { name: 'global.approve' });
+    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('does not start a new approval while the reset transaction is pending', async () => {
     const pending = deferred<EOnChainHistoryTxStatus | undefined>();
     mockWaitStatus.mockReturnValue(pending.promise);

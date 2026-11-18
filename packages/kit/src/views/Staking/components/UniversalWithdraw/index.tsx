@@ -24,6 +24,7 @@ import {
   Image,
   Page,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   XStack,
@@ -571,6 +572,7 @@ export function UniversalWithdraw({
     useState<IStakeTransactionConfirmation | undefined>();
   const [resolvedTransactionConfirmationRequestKey, setResolvedRequestKey] =
     useState<string>();
+  const [resolvedQuoteScope, setResolvedQuoteScope] = useState<string>();
   const checkAmountRequestIdRef = useRef(0);
   const checkAmountRequestKeyRef = useRef('');
   const transactionConfirmationRequestIdRef = useRef(0);
@@ -665,6 +667,7 @@ export function UniversalWithdraw({
   const transactionConfirmationRequestKey = useMemo(
     () =>
       JSON.stringify({
+        accountId,
         accountAddress,
         actionSymbol: requestSymbol || tokenSymbol || '',
         amount: amountForRequest,
@@ -682,6 +685,7 @@ export function UniversalWithdraw({
         withdrawType: selectedWithdrawType,
       }),
     [
+      accountId,
       accountAddress,
       amountForRequest,
       amountUnit,
@@ -706,15 +710,44 @@ export function UniversalWithdraw({
       transactionConfirmationRequestKey;
   }, [transactionConfirmationRequestKey]);
 
+  const isEtherFiShareWithdrawal =
+    amountUnit === 'shares' &&
+    earnUtils.isEtherFiProvider({ providerName: providerName ?? '' });
+  const quoteScope = JSON.stringify([
+    accountId,
+    accountAddress,
+    networkId,
+    providerName,
+    requestSymbol || tokenSymbol || '',
+    protocolVault,
+    identity,
+    transactionInputTokenAddress,
+  ]);
+  const [quoteSettlement, setQuoteSettlement] = useState<{
+    key: string;
+    status: 'pending' | 'succeeded' | 'failed';
+  }>({ key: transactionConfirmationRequestKey, status: 'pending' });
+  if (quoteSettlement.key !== transactionConfirmationRequestKey) {
+    setQuoteSettlement({
+      key: transactionConfirmationRequestKey,
+      status: 'pending',
+    });
+  }
   const isTransactionConfirmationCurrent =
     resolvedTransactionConfirmationRequestKey ===
-    transactionConfirmationRequestKey;
+      transactionConfirmationRequestKey &&
+    (!isEtherFiShareWithdrawal ||
+      (quoteSettlement.key === transactionConfirmationRequestKey &&
+        quoteSettlement.status === 'succeeded'));
   // Preserve the last response only to retain the selected path while loading.
   // Stale data is never rendered or submitted for providers that require it.
   const transactionConfirmation = selectCurrentTransactionConfirmation({
     snapshot: transactionConfirmationSnapshot,
     currentRequestKey: transactionConfirmationRequestKey,
-    resolvedRequestKey: resolvedTransactionConfirmationRequestKey,
+    resolvedRequestKey:
+      isEtherFiShareWithdrawal && !isTransactionConfirmationCurrent
+        ? undefined
+        : resolvedTransactionConfirmationRequestKey,
     requiresCurrentRequest: requiresEarnWithdrawPath,
   });
 
@@ -878,6 +911,13 @@ export function UniversalWithdraw({
     approveType,
   ]);
   const approvalScopeGuard = useCommittedEarnScopeGuard(approvalScope);
+  const [approvalProgress, setApprovalProgress] = useState<{
+    scope: string;
+    status: 'pending' | 'confirmed';
+  }>();
+  useLayoutEffect(() => {
+    setApprovalProgress(undefined);
+  }, [approvalScope]);
   const approvalTargetScope = JSON.stringify([
     accountId,
     accountAddress,
@@ -1281,7 +1321,15 @@ export function UniversalWithdraw({
                 !callbacks.onLateBroadcastAccepted(fact.txid)
               )
                 return;
-              if (isApprovalCurrent()) trackAllowance(fact.txid);
+              if (isApprovalCurrent()) {
+                if (requiresConfirmedWithdrawal) {
+                  setApprovalProgress({
+                    scope: approvalScope,
+                    status: 'pending',
+                  });
+                }
+                trackAllowance(fact.txid);
+              }
             },
             onFail: callbacks.onFail,
             onSafePreSendFail: (error) => {
@@ -1301,6 +1349,9 @@ export function UniversalWithdraw({
               title: intl.formatMessage({ id: ETranslations.global_pending }),
             });
             return;
+          }
+          if (requiresConfirmedWithdrawal && txid) {
+            setApprovalProgress({ scope: approvalScope, status: 'pending' });
           }
           trackAllowance(txid || data[0]?.decodedTx?.txid || '');
         },
@@ -1347,7 +1398,10 @@ export function UniversalWithdraw({
                 signal,
               });
               if (status === EOnChainHistoryTxStatus.Success) return 'success';
-              if (status === EOnChainHistoryTxStatus.Failed) return 'failed';
+              if (status === EOnChainHistoryTxStatus.Failed) {
+                if (isApprovalCurrent()) setApprovalProgress(undefined);
+                return 'failed';
+              }
               return 'unknown';
             },
             verify: async () => true,
@@ -1373,11 +1427,23 @@ export function UniversalWithdraw({
             latestApprovalSnapshotRef.current === snapshot &&
             !signal.aborted;
           const canContinue = await canContinueWithdrawalAfterApproval({
-            waitForAllowance: () =>
-              waitForAllowanceAfterApprove({
+            waitForAllowance: async () => {
+              const allowanceReady = await waitForAllowanceAfterApprove({
                 requiredAmount: snapshot.approveAmountValue,
                 signal,
-              }),
+              });
+              if (
+                requiresConfirmedWithdrawal &&
+                allowanceReady &&
+                isSnapshotCurrent()
+              ) {
+                setApprovalProgress({
+                  scope: approvalScope,
+                  status: 'confirmed',
+                });
+              }
+              return allowanceReady;
+            },
             isCurrent: isSnapshotCurrent,
             verifyBeforeAction: requiresConfirmedWithdrawal
               ? actionGuardRef.current?.verifyBeforeAction
@@ -1436,6 +1502,7 @@ export function UniversalWithdraw({
     accountId,
     actionSymbol,
     allowance,
+    approvalScope,
     approvalScopeGuard,
     approvalSendScopeGuard,
     approvalTargetScopeGuard,
@@ -1480,8 +1547,61 @@ export function UniversalWithdraw({
     amount: approveAmountValue,
   })?.action;
   const estimateWithdrawAll = isWithdrawAll && shouldUseLiveBalanceForMax;
-  const { result: estimateFeeResp } = usePromiseResult(
+  const estimateFeeScopeKey = isEtherFiShareWithdrawal
+    ? JSON.stringify([
+        amountValue,
+        amountForRequest,
+        estimateAction,
+        estimateWithdrawAll,
+        skipWithdrawFeeEstimate,
+        includeTransactionIdentity,
+        isDisabled,
+        accountId,
+        accountAddress,
+        networkId,
+        providerName,
+        actionSymbol,
+        identity,
+        protocolVault,
+        shouldSendProtocolVault,
+        balance,
+        transactionInputTokenAddress,
+        transactionOutputTokenAddress,
+        selectedWithdrawType,
+        isCancelWithdrawal,
+        isTransactionConfirmationCurrent,
+        areWithdrawAssetsReady,
+        allowanceAvailable,
+        loadingAllowance,
+        allowance,
+      ])
+    : 'other-provider';
+  const estimateFeeScope = useCommittedEarnScopeGuard(estimateFeeScopeKey);
+  const committedEstimateFeeScope = useRef<typeof estimateFeeScope | undefined>(
+    undefined,
+  );
+  const estimateFeeMounted = useRef(false);
+  const estimateFeeRequestId = useRef(0);
+  useLayoutEffect(() => {
+    committedEstimateFeeScope.current = estimateFeeScope;
+  }, [estimateFeeScope]);
+  useEffect(() => {
+    estimateFeeMounted.current = true;
+    return () => {
+      estimateFeeMounted.current = false;
+    };
+  }, []);
+  const [failedEstimateFeeScope, setFailedEstimateFeeScope] =
+    useState<typeof estimateFeeScope>();
+  const { result: estimateFeeResult } = usePromiseResult(
     async () => {
+      estimateFeeRequestId.current += 1;
+      const requestId = estimateFeeRequestId.current;
+      if (isEtherFiShareWithdrawal) {
+        setFailedEstimateFeeScope((previous) =>
+          previous === estimateFeeScope ? undefined : previous,
+        );
+      }
       if (
         !accountId ||
         !networkId ||
@@ -1489,41 +1609,57 @@ export function UniversalWithdraw({
         !actionSymbol ||
         (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
       ) {
-        return undefined;
+        return { scope: estimateFeeScope, value: undefined };
       }
 
       if (skipWithdrawFeeEstimate) {
-        return undefined;
+        return { scope: estimateFeeScope, value: undefined };
       }
 
-      if (!estimateAction || isDisabled) return undefined;
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
+      if (!estimateAction || isDisabled)
+        return { scope: estimateFeeScope, value: undefined };
+      const markFeeFailure = (error: unknown): never => {
+        if (
+          isEtherFiShareWithdrawal &&
+          estimateFeeMounted.current &&
+          committedEstimateFeeScope.current === estimateFeeScope &&
+          estimateFeeRequestId.current === requestId
+        ) {
+          setFailedEstimateFeeScope(estimateFeeScope);
+        }
+        throw error;
+      };
+      const account = await backgroundApiProxy.serviceAccount
+        .getAccount({
+          accountId,
+          networkId,
+        })
+        .catch(markFeeFailure);
       if (
         accountAddress &&
         normalizeTaskAccountAddress(networkId, account.address) !==
           normalizeTaskAccountAddress(networkId, accountAddress)
       )
-        return undefined;
+        return { scope: estimateFeeScope, value: undefined };
 
-      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-        networkId,
-        provider: providerName,
-        symbol: actionSymbol,
-        action: estimateAction,
-        amount: isCancelWithdrawal ? '0' : amountForRequest || balance || '1',
-        txId: includeTransactionIdentity ? identity : undefined,
-        protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
-        identity,
-        accountAddress: account.address,
-        withdrawAll: estimateWithdrawAll,
-        inputTokenAddress: transactionInputTokenAddress,
-        outputTokenAddress: transactionOutputTokenAddress,
-        withdrawType: selectedWithdrawType,
-      });
-      return resp;
+      const resp = await backgroundApiProxy.serviceStaking
+        .estimateFee({
+          networkId,
+          provider: providerName,
+          symbol: actionSymbol,
+          action: estimateAction,
+          amount: isCancelWithdrawal ? '0' : amountForRequest || balance || '1',
+          txId: includeTransactionIdentity ? identity : undefined,
+          protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+          identity,
+          accountAddress: account.address,
+          withdrawAll: estimateWithdrawAll,
+          inputTokenAddress: transactionInputTokenAddress,
+          outputTokenAddress: transactionOutputTokenAddress,
+          withdrawType: selectedWithdrawType,
+        })
+        .catch(markFeeFailure);
+      return { scope: estimateFeeScope, value: resp };
     },
     [
       amountValue,
@@ -1546,9 +1682,29 @@ export function UniversalWithdraw({
       transactionOutputTokenAddress,
       selectedWithdrawType,
       isCancelWithdrawal,
+      estimateFeeScope,
+      isEtherFiShareWithdrawal,
     ],
-    { undefinedResultIfReRun: true },
+    {
+      undefinedResultIfReRun: true,
+      resumeOnEffectReconnect: isEtherFiShareWithdrawal,
+    },
   );
+  const estimateFeeResp =
+    estimateFeeResult?.scope === estimateFeeScope
+      ? estimateFeeResult.value
+      : undefined;
+  const isEstimatingFee =
+    estimateFeeResult?.scope !== estimateFeeScope &&
+    failedEstimateFeeScope !== estimateFeeScope;
+  const [lastFeeScope, setLastFeeScope] = useState<string>();
+  if (
+    isTransactionConfirmationCurrent &&
+    estimateFeeResp &&
+    Number(estimateFeeResp.feeFiatValue) > 0 &&
+    lastFeeScope !== quoteScope
+  )
+    setLastFeeScope(quoteScope);
 
   const [
     {
@@ -1802,7 +1958,19 @@ export function UniversalWithdraw({
       isTransactionConfirmationCurrent &&
       !!selectedWithdrawType);
 
-  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
+  const receiveQuoteLoading = Boolean(
+    isEtherFiShareWithdrawal &&
+    !isDisabled &&
+    areWithdrawAssetsReady &&
+    !isCancelWithdrawal &&
+    !isInvalidAmount(amountForRequest) &&
+    new BigNumber(amountForRequest).isGreaterThan(0) &&
+    (transactionConfirmationLoading ||
+      quoteSettlement.key !== transactionConfirmationRequestKey ||
+      quoteSettlement.status === 'pending'),
+  );
+  const quoteLoading =
+    checkAmountLoading || transactionConfirmationLoading || receiveQuoteLoading;
 
   const checkAmountRequestParams = useMemo(
     () => ({
@@ -1845,6 +2013,20 @@ export function UniversalWithdraw({
       ]),
     [accountAddress, requiresConfirmedWithdrawal, checkAmountRequestParams],
   );
+  const checkAmountLifecycleKey = JSON.stringify([
+    checkAmountRequestKey,
+    checkAmountRetrySequence,
+    isWithdrawPathReady,
+    areWithdrawAssetsReady,
+    isDisabled,
+  ]);
+  const [checkAmountSettlement, setCheckAmountSettlement] = useState({
+    key: checkAmountLifecycleKey,
+    settled: false,
+  });
+  if (checkAmountSettlement.key !== checkAmountLifecycleKey) {
+    setCheckAmountSettlement({ key: checkAmountLifecycleKey, settled: false });
+  }
   useLayoutEffect(() => {
     checkAmountRequestKeyRef.current = checkAmountRequestKey;
   }, [checkAmountRequestKey]);
@@ -1853,10 +2035,12 @@ export function UniversalWithdraw({
     async ({
       requestId,
       requestKey,
+      settlementKey,
       params,
     }: {
       requestId: number;
       requestKey: string;
+      settlementKey: string;
       params: typeof checkAmountRequestParams;
     }) => {
       try {
@@ -1917,6 +2101,7 @@ export function UniversalWithdraw({
           })
         ) {
           setCheckAmountLoading(false);
+          setCheckAmountSettlement({ key: settlementKey, settled: true });
         }
       }
     },
@@ -1949,6 +2134,7 @@ export function UniversalWithdraw({
       params: checkAmountRequestParams,
       requestId,
       requestKey,
+      settlementKey: checkAmountLifecycleKey,
     });
 
     return () => {
@@ -1964,6 +2150,7 @@ export function UniversalWithdraw({
     isWithdrawPathReady,
     isDisabled,
     checkAmountRequestKey,
+    checkAmountLifecycleKey,
     checkAmountRetrySequence,
     checkAmountRequestParams,
     debouncedCheckAmount,
@@ -2019,11 +2206,13 @@ export function UniversalWithdraw({
       amount,
       requestId,
       requestKey,
+      requestScope,
       withdrawType,
     }: {
       amount?: string;
       requestId: number;
       requestKey: string;
+      requestScope: string;
       withdrawType?: IEarnWithdrawType;
     }) => {
       try {
@@ -2043,11 +2232,26 @@ export function UniversalWithdraw({
         }
         setTransactionConfirmation(resp);
         setResolvedRequestKey(requestKey);
+        if (isEtherFiShareWithdrawal)
+          setResolvedQuoteScope(resp ? requestScope : undefined);
+        setQuoteSettlement({
+          key: requestKey,
+          status: resp ? 'succeeded' : 'failed',
+        });
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
       } catch {
         // The previous snapshot remains internal and cannot enable submission.
+        if (
+          isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        )
+          setQuoteSettlement({ key: requestKey, status: 'failed' });
       } finally {
         if (
           isLatestTransactionConfirmationRequest({
@@ -2088,10 +2292,15 @@ export function UniversalWithdraw({
     }
 
     setTransactionConfirmationLoading(true);
+    setQuoteSettlement({
+      key: transactionConfirmationRequestKey,
+      status: 'pending',
+    });
     void debouncedFetchTransactionConfirmation({
       amount: amountForRequest,
       requestId,
       requestKey: transactionConfirmationRequestKey,
+      requestScope: quoteScope,
       withdrawType: selectedWithdrawType,
     });
     return () => {
@@ -2108,6 +2317,7 @@ export function UniversalWithdraw({
     isCancelWithdrawal,
     selectedWithdrawType,
     transactionConfirmationRequestKey,
+    quoteScope,
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
@@ -2210,8 +2420,26 @@ export function UniversalWithdraw({
     [balance, decimals, onChangeAmountValue],
   );
 
+  const hasCurrentCheckAmountResult =
+    !requiresConfirmedWithdrawal ||
+    (checkAmountSettlement.key === checkAmountLifecycleKey &&
+      checkAmountSettlement.settled);
+  const isCurrentCheckAmountPending = Boolean(
+    requiresConfirmedWithdrawal &&
+    !isDisabled &&
+    areWithdrawAssetsReady &&
+    !isCancelWithdrawal &&
+    isWithdrawPathReady &&
+    !isInvalidAmount(amountForRequest) &&
+    new BigNumber(amountForRequest).isGreaterThan(0) &&
+    !hasCurrentCheckAmountResult,
+  );
   const isCheckAmountMessageError =
-    amountValue?.length > 0 && !!checkAmountMessage;
+    hasCurrentCheckAmountResult &&
+    amountValue?.length > 0 &&
+    !!checkAmountMessage;
+  const hasCurrentCheckAmountAlerts =
+    hasCurrentCheckAmountResult && checkAmountAlerts.length > 0;
 
   const isDisable = useMemo<boolean>(
     () =>
@@ -2226,8 +2454,9 @@ export function UniversalWithdraw({
         (isInvalidAmount(amountValue) ||
           BigNumber(amountValue).isLessThanOrEqualTo(0))) ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0 ||
+      hasCurrentCheckAmountAlerts ||
       checkAmountLoading ||
+      isCurrentCheckAmountPending ||
       !isWithdrawPathReady,
     [
       isDisabled,
@@ -2237,8 +2466,9 @@ export function UniversalWithdraw({
       loadingAllowance,
       amountValue,
       isCheckAmountMessageError,
-      checkAmountAlerts.length,
+      hasCurrentCheckAmountAlerts,
       checkAmountLoading,
+      isCurrentCheckAmountPending,
       isCancelWithdrawal,
       isQueuedWithdraw,
       isWithdrawPathReady,
@@ -2255,8 +2485,9 @@ export function UniversalWithdraw({
       (!isInvalidAmount(amountValue) &&
         new BigNumber(amountValue).isGreaterThan(0))) &&
     !isCheckAmountMessageError &&
-    checkAmountAlerts.length === 0 &&
+    !hasCurrentCheckAmountAlerts &&
     !checkAmountLoading &&
+    !isCurrentCheckAmountPending &&
     isWithdrawPathReady,
   );
   useLayoutEffect(() => {
@@ -2310,32 +2541,59 @@ export function UniversalWithdraw({
       return pendleAccordionItems;
     }
 
-    if (transactionConfirmation?.receive) {
+    const showReceivePlaceholder =
+      receiveQuoteLoading &&
+      resolvedQuoteScope === quoteScope &&
+      !!transactionConfirmationSnapshot?.receive;
+    if (transactionConfirmation?.receive || showReceivePlaceholder) {
       items.push(
         <CalculationListItem key="receive">
-          <CalculationListItem.Label
-            size={transactionConfirmation.receive.title.size || '$bodyMd'}
-            color={transactionConfirmation.receive.title.color}
-            tooltip={
-              transactionConfirmation.receive.tooltip?.type === 'text'
-                ? transactionConfirmation.receive.tooltip.data?.title?.text
-                : undefined
-            }
-          >
-            {transactionConfirmation.receive.title.text}
-          </CalculationListItem.Label>
-          <EarnText
-            text={transactionConfirmation.receive.description}
-            size="$bodyMdMedium"
-          />
+          {showReceivePlaceholder ? (
+            <>
+              <XStack h="$5" ai="center">
+                <Skeleton h="$3.5" w="$20" />
+              </XStack>
+              <XStack h="$5" ai="center">
+                <Skeleton h="$3.5" w="$16" />
+              </XStack>
+            </>
+          ) : null}
+          {!showReceivePlaceholder && transactionConfirmation?.receive ? (
+            <>
+              <CalculationListItem.Label
+                size={transactionConfirmation.receive.title.size || '$bodyMd'}
+                color={transactionConfirmation.receive.title.color}
+                tooltip={
+                  transactionConfirmation.receive.tooltip?.type === 'text'
+                    ? transactionConfirmation.receive.tooltip.data?.title?.text
+                    : undefined
+                }
+              >
+                {transactionConfirmation.receive.title.text}
+              </CalculationListItem.Label>
+              <EarnText
+                text={transactionConfirmation.receive.description}
+                size="$bodyMdMedium"
+              />
+            </>
+          ) : null}
         </CalculationListItem>,
       );
     }
-    if (estimateFeeResp) {
+    const showFeePlaceholder =
+      isEtherFiShareWithdrawal &&
+      lastFeeScope === quoteScope &&
+      (receiveQuoteLoading || isEstimatingFee);
+    if (
+      showFeePlaceholder ||
+      (estimateFeeResp &&
+        (!isEtherFiShareWithdrawal || isTransactionConfirmationCurrent))
+    ) {
       items.push(
         <EstimateNetworkFee
           key="network-fee"
           estimateFeeResp={estimateFeeResp}
+          loading={showFeePlaceholder}
           isVisible={isCancelWithdrawal || Number(amountValue) > 0}
         />,
       );
@@ -2344,24 +2602,43 @@ export function UniversalWithdraw({
   }, [
     amountValue,
     estimateFeeResp,
+    isEtherFiShareWithdrawal,
+    isTransactionConfirmationCurrent,
+    isEstimatingFee,
+    lastFeeScope,
+    quoteScope,
+    receiveQuoteLoading,
     isCancelWithdrawal,
     isPendleLikeLayout,
     pendleAccordionItems,
     transactionConfirmation?.receive,
+    transactionConfirmationSnapshot?.receive,
+    resolvedQuoteScope,
   ]);
   const isAccordionTriggerDisabled = !amountValue;
 
+  const showWithdrawPathPlaceholder =
+    receiveQuoteLoading && resolvedQuoteScope === quoteScope;
   const showWithdrawPathSummary =
-    (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
+    (!requiresEarnWithdrawPath ||
+      isTransactionConfirmationCurrent ||
+      showWithdrawPathPlaceholder) &&
     (withdrawPathConfirmBoxes.length > 1 ||
       (showSingleWithdrawPath && withdrawPathConfirmBoxes.length === 1)) &&
     !!selectedWithdrawPath;
-  const canSelectWithdrawPath = withdrawPathConfirmBoxes.length > 1;
+  const canSelectWithdrawPath =
+    !showWithdrawPathPlaceholder && withdrawPathConfirmBoxes.length > 1;
+  const currentApprovalProgress =
+    approvalProgress?.scope === approvalScope
+      ? approvalProgress.status
+      : undefined;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
     !isInvalidAmount(amountValue) &&
-    (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
+    (shouldApprove ||
+      !!currentApprovalProgress ||
+      withdrawProgressStep > EStakeProgressStep.approve);
   const isEthenaCooldownWithdrawPath =
     shouldShowPendleWithdrawProgress &&
     withdrawPathConfirmBoxes.length > 1 &&
@@ -2465,11 +2742,21 @@ export function UniversalWithdraw({
     approveType,
   ].join('|');
   const confirmLoading = useMemo(() => {
-    if (shouldApprove) return loadingAllowance || approving;
+    if (shouldApprove)
+      return (
+        loadingAllowance ||
+        approving ||
+        (isEtherFiShareWithdrawal &&
+          (receiveQuoteLoading ||
+            checkAmountLoading ||
+            isCurrentCheckAmountPending))
+      );
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
     return (
       loading ||
       checkAmountLoading ||
+      receiveQuoteLoading ||
+      isCurrentCheckAmountPending ||
       (requiresEarnWithdrawPath && transactionConfirmationLoading)
     );
   }, [
@@ -2477,6 +2764,9 @@ export function UniversalWithdraw({
     effectiveShowExpiredRefresh,
     loadingAllowance,
     approving,
+    isEtherFiShareWithdrawal,
+    receiveQuoteLoading,
+    isCurrentCheckAmountPending,
     quoteRefreshing,
     loading,
     checkAmountLoading,
@@ -2563,7 +2853,9 @@ export function UniversalWithdraw({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
-            loading={quoteLoading}
+            loading={
+              isEtherFiShareWithdrawal ? receiveQuoteLoading : quoteLoading
+            }
           />
         </YStack>
         {showReceiveInput ? (
@@ -2607,35 +2899,53 @@ export function UniversalWithdraw({
           onPress={canSelectWithdrawPath ? showWithdrawPathDialog : undefined}
         >
           <YStack flex={1} gap="$1">
-            <SizableText size="$bodyMdMedium" color="$text">
-              {selectedWithdrawPath.title.text}
-            </SizableText>
-            {selectedWithdrawPath.subtitle?.text ? (
-              <SizableText
-                size="$bodySm"
-                color={selectedWithdrawPath.subtitle?.color || '$textSubdued'}
-              >
-                {selectedWithdrawPath.subtitle.text}
-              </SizableText>
-            ) : null}
+            {showWithdrawPathPlaceholder ? (
+              <XStack h="$5" ai="center">
+                <Skeleton h="$3.5" w="$20" />
+              </XStack>
+            ) : (
+              <>
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {selectedWithdrawPath.title.text}
+                </SizableText>
+                {selectedWithdrawPath.subtitle?.text ? (
+                  <SizableText
+                    size="$bodySm"
+                    color={
+                      selectedWithdrawPath.subtitle?.color || '$textSubdued'
+                    }
+                  >
+                    {selectedWithdrawPath.subtitle.text}
+                  </SizableText>
+                ) : null}
+              </>
+            )}
           </YStack>
           <YStack gap="$1" ai="flex-end">
-            <EarnAmountText size="$bodyMdMedium" color="$text">
-              {selectedWithdrawPath.description.text}
-            </EarnAmountText>
-            {selectedWithdrawPath.subtitleDescription?.text ? (
-              <XStack ai="center">
-                <SizableText
-                  size="$bodySmMedium"
-                  color={
-                    selectedWithdrawPath.subtitleDescription?.color ||
-                    '$textSubdued'
-                  }
-                >
-                  {selectedWithdrawPath.subtitleDescription.text}
-                </SizableText>
+            {showWithdrawPathPlaceholder ? (
+              <XStack h="$5" ai="center">
+                <Skeleton h="$3.5" w="$16" />
               </XStack>
-            ) : null}
+            ) : (
+              <>
+                <EarnAmountText size="$bodyMdMedium" color="$text">
+                  {selectedWithdrawPath.description.text}
+                </EarnAmountText>
+                {selectedWithdrawPath.subtitleDescription?.text ? (
+                  <XStack ai="center">
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={
+                        selectedWithdrawPath.subtitleDescription?.color ||
+                        '$textSubdued'
+                      }
+                    >
+                      {selectedWithdrawPath.subtitleDescription.text}
+                    </SizableText>
+                  </XStack>
+                ) : null}
+              </>
+            )}
           </YStack>
           {canSelectWithdrawPath ? (
             <Icon
@@ -2695,7 +3005,7 @@ export function UniversalWithdraw({
           }
         />
       ) : null}
-      {checkAmountAlerts.length > 0 ? (
+      {hasCurrentCheckAmountAlerts ? (
         <>
           {checkAmountAlerts.map((alert, index) => (
             <Alert
@@ -2997,7 +3307,9 @@ export function UniversalWithdraw({
         <StakeProgress
           approveType={approveType}
           currentStep={
-            shouldApprove
+            currentApprovalProgress === 'pending' ||
+            (shouldApprove &&
+              (isFocus || currentApprovalProgress !== 'confirmed'))
               ? EStakeProgressStep.approve
               : (Math.max(
                   withdrawProgressStep,

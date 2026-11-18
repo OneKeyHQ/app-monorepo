@@ -76,6 +76,7 @@ function EtherFiWithdrawForm({
     vault: props.protocolVault,
     onCleared: onLegacyApprovalCleared,
     skip: props.initialWithdrawType === 'cancel' || isLegacyApprovalBlocked,
+    refreshInBackgroundOnFocus: true,
   });
   return (
     <UniversalWithdraw

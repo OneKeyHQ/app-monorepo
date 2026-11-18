@@ -20,6 +20,7 @@ import {
   reduceDepositTask,
 } from './state';
 import { useDepositTask } from './useDepositTask';
+import { useRetainedDepositTask } from './useRetainedDepositTask';
 
 import type { IDepositTaskHandle } from './types';
 
@@ -71,6 +72,322 @@ describe('useDepositTask', () => {
   beforeEach(() => {
     mockRecoveryAddress.mockReset().mockResolvedValue('owner');
     mockFinalStatus.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('releases an abandoned EtherFi setup on unmount', () => {
+    const task = createDepositTask({
+      taskId: 'etherfi-abandoned',
+      identity: makeTask('identity').identity,
+      steps: [
+        { id: 'approve', kind: 'approve' },
+        { id: 'deposit', kind: 'deposit' },
+      ],
+    });
+    const state = createDepositTaskState(task);
+    const event = { taskId: task.taskId, stepId: 'approve', attemptId: 'a' };
+    state.dispatch({ ...event, type: 'start' });
+    state.dispatch({ ...event, type: 'confirmationOpened' });
+    state.dispatch({ ...event, type: 'sendStarted' });
+    state.dispatch({ ...event, type: 'submitted', txid: 'approval-tx' });
+    state.dispatch({ ...event, type: 'confirmed' });
+    state.dispatch({ ...event, type: 'verified' });
+    const handle = {
+      ...makeHandle(task),
+      taskState: state,
+      getTask: state.getTask,
+    };
+    const ownerKey = 'etherfi-abandoned-owner';
+    const view = renderHook(() =>
+      useDepositTask('scope', ownerKey, null, true),
+    );
+    act(() => {
+      view.result.current.onTaskReady(handle);
+    });
+    expect(depositTaskRegistry.find(ownerKey)).toBeDefined();
+    view.unmount();
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+  });
+
+  it('retains the reservation for an EtherFi transaction with an unknown outcome', () => {
+    const task = makeTask('etherfi-unknown');
+    const state = createDepositTaskState(task);
+    const event = { taskId: task.taskId, stepId: 'deposit', attemptId: 'a' };
+    state.dispatch({ ...event, type: 'start' });
+    state.dispatch({ ...event, type: 'confirmationOpened' });
+    state.dispatch({ ...event, type: 'sendStarted' });
+    state.dispatch({ ...event, type: 'cancel' });
+    const handle = {
+      ...makeHandle(task),
+      taskState: state,
+      getTask: state.getTask,
+    };
+    const ownerKey = 'etherfi-unknown-owner';
+    const view = renderHook(() =>
+      useDepositTask('scope', ownerKey, null, true),
+    );
+    act(() => {
+      view.result.current.onTaskReady(handle);
+    });
+    view.unmount();
+    const entry = depositTaskRegistry.find(ownerKey);
+    expect(entry?.state).toBe(state);
+    if (entry) depositTaskRegistry.release(ownerKey, entry.token);
+  });
+
+  it('releases a successfully recorded deposit when the original account reopens', async () => {
+    const baseTask = makeTask('recorded-after-exit');
+    const task = {
+      ...baseTask,
+      identity: { ...baseTask.identity, provider: 'etherfi' },
+    };
+    const state = createDepositTaskState(task);
+    const event = { taskId: task.taskId, stepId: 'deposit', attemptId: 'a' };
+    state.dispatch({ ...event, type: 'start' });
+    state.dispatch({ ...event, type: 'confirmationOpened' });
+    state.dispatch({ ...event, type: 'sendStarted' });
+    state.dispatch({ ...event, type: 'submitted', txid: 'tx' });
+    state.dispatch({ ...event, type: 'handoff' });
+    state.setRecording(Symbol('recorder'), event, {
+      txid: 'tx',
+      status: 'succeeded',
+    });
+    const ownerKey = 'recorded-after-exit-owner';
+    const token = depositTaskRegistry.reserve(ownerKey, state);
+    expect(token).toBeDefined();
+    const onFinished = jest.fn();
+    const view = renderHook(() => useRetainedDepositTask(ownerKey, onFinished));
+    await waitFor(() =>
+      expect(depositTaskRegistry.find(ownerKey)).toBeUndefined(),
+    );
+    expect(onFinished).toHaveBeenCalledTimes(1);
+    expect(view.result.current.status).toBe('none');
+    view.unmount();
+  });
+
+  it('does not finish an EtherFi recording after the committed owner changes', async () => {
+    const baseTask = makeTask('recorded-before-switch');
+    const task = {
+      ...baseTask,
+      identity: { ...baseTask.identity, provider: 'etherfi' },
+    };
+    const state = createDepositTaskState(task);
+    const event = { taskId: task.taskId, stepId: 'deposit', attemptId: 'a' };
+    state.dispatch({ ...event, type: 'start' });
+    state.dispatch({ ...event, type: 'confirmationOpened' });
+    state.dispatch({ ...event, type: 'sendStarted' });
+    state.dispatch({ ...event, type: 'submitted', txid: 'tx' });
+    state.dispatch({ ...event, type: 'handoff' });
+    state.setRecording(Symbol('recorder'), event, {
+      txid: 'tx',
+      status: 'succeeded',
+    });
+    const ownerKey = 'recording-owner-before-switch';
+    const token = depositTaskRegistry.reserve(ownerKey, state);
+    expect(token).toBeDefined();
+    let resolveAccount: (address: string) => void = () => undefined;
+    mockRecoveryAddress.mockResolvedValueOnce('owner').mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveAccount = resolve;
+      }),
+    );
+    const onFinished = jest.fn();
+    const view = renderHook(
+      ({ owner }: { owner: string }) =>
+        useRetainedDepositTask(owner, onFinished),
+      {
+        initialProps: { owner: ownerKey },
+      },
+    );
+    await waitFor(() => expect(mockRecoveryAddress).toHaveBeenCalledTimes(2));
+    view.rerender({ owner: 'different-owner' });
+    await act(async () => resolveAccount('owner'));
+    expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
+    expect(onFinished).not.toHaveBeenCalled();
+    view.unmount();
+    if (token) depositTaskRegistry.release(ownerKey, token);
+  });
+
+  it('preserves recorded tasks for other providers', async () => {
+    const task = makeTask('other-provider-recording');
+    const state = createDepositTaskState(task);
+    const event = { taskId: task.taskId, stepId: 'deposit', attemptId: 'a' };
+    state.dispatch({ ...event, type: 'start' });
+    state.dispatch({ ...event, type: 'confirmationOpened' });
+    state.dispatch({ ...event, type: 'sendStarted' });
+    state.dispatch({ ...event, type: 'submitted', txid: 'tx' });
+    state.dispatch({ ...event, type: 'handoff' });
+    state.setRecording(Symbol('recorder'), event, {
+      txid: 'tx',
+      status: 'succeeded',
+    });
+    const ownerKey = 'other-provider-recording-owner';
+    const token = depositTaskRegistry.reserve(ownerKey, state);
+    expect(token).toBeDefined();
+    const onFinished = jest.fn();
+    const view = renderHook(() => useRetainedDepositTask(ownerKey, onFinished));
+    await waitFor(() => expect(view.result.current.status).toBe('ready'));
+    expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
+    expect(onFinished).not.toHaveBeenCalled();
+    view.unmount();
+    if (token) depositTaskRegistry.release(ownerKey, token);
+  });
+
+  it('clears a cancelled EtherFi task after a completed setup step', () => {
+    const task = createDepositTask({
+      taskId: 'etherfi-cancelled',
+      identity: makeTask('identity').identity,
+      steps: [
+        { id: 'approve', kind: 'approve' },
+        { id: 'deposit', kind: 'deposit' },
+      ],
+    });
+    const state = createDepositTaskState(task);
+    const approve = { taskId: task.taskId, stepId: 'approve', attemptId: 'a' };
+    state.dispatch({ ...approve, type: 'start' });
+    state.dispatch({ ...approve, type: 'confirmationOpened' });
+    state.dispatch({ ...approve, type: 'sendStarted' });
+    state.dispatch({ ...approve, type: 'submitted', txid: 'approval-tx' });
+    state.dispatch({ ...approve, type: 'confirmed' });
+    state.dispatch({ ...approve, type: 'verified' });
+    const deposit = { taskId: task.taskId, stepId: 'deposit', attemptId: 'b' };
+    state.dispatch({ ...deposit, type: 'start' });
+    state.dispatch({ ...deposit, type: 'confirmationOpened' });
+    state.dispatch({ ...deposit, type: 'cancel' });
+    const handle = {
+      ...makeHandle(task),
+      taskState: state,
+      getTask: state.getTask,
+      wasCancelled: () => true,
+    };
+    const ownerKey = 'etherfi-cancelled-owner';
+    const view = renderHook(() =>
+      useDepositTask('scope', ownerKey, null, true),
+    );
+    act(() => {
+      view.result.current.onTaskReady(handle);
+    });
+    act(() => {
+      expect(view.result.current.clearTaskAfterCancel()).toBe(true);
+    });
+    expect(depositTaskRegistry.find(ownerKey)).toBeUndefined();
+    expect(view.result.current.task).toBeUndefined();
+    view.unmount();
+  });
+
+  it('records a late deposit submission without changing a different account task', async () => {
+    const baseTask = makeTask('cancelled-late-deposit');
+    const task = {
+      ...baseTask,
+      identity: { ...baseTask.identity, provider: 'etherfi' },
+    };
+    const state = createDepositTaskState(task);
+    const saveOrder = jest.fn(async () => undefined);
+    const recording = createDepositRecording({
+      isCurrent: () => true,
+      onError: jest.fn(),
+    });
+    let publishLateSubmission: (() => Promise<void>) | undefined;
+    let executionCurrent = true;
+    const first = renderHook(() =>
+      useDepositTask('scope', 'late-recording-owner', null, true),
+    );
+    let run: Promise<boolean> = Promise.resolve(false);
+    await act(async () => {
+      run = runDepositTask({
+        task,
+        taskState: state,
+        recording,
+        adapter: {
+          prepare: async () => ({ type: 'confirm', prepared: undefined }),
+          confirm: async ({
+            taskId,
+            step,
+            attemptId,
+            onBeforeSend,
+            onSubmitted,
+            signal,
+          }) => {
+            onBeforeSend();
+            publishLateSubmission = async () => {
+              if (onSubmitted('late-deposit-tx')) {
+                await recording.start(
+                  'late-deposit-tx',
+                  saveOrder,
+                  () => undefined,
+                  {
+                    taskId,
+                    stepId: step.id,
+                    attemptId,
+                  },
+                );
+              }
+            };
+            return new Promise((resolve) => {
+              signal.addEventListener(
+                'abort',
+                () => resolve({ type: 'cancelled' }),
+                {
+                  once: true,
+                },
+              );
+            });
+          },
+          waitForFinalStatus: async () => 'unknown',
+          verify: async () => false,
+        },
+        signal: new AbortController().signal,
+        isCurrent: () => executionCurrent,
+        onTaskReady: first.result.current.onTaskReady,
+        onTaskChange: first.result.current.onTaskChange,
+        formatMessage: (id) => id,
+      });
+      await Promise.resolve();
+    });
+    expect(publishLateSubmission).toBeDefined();
+    executionCurrent = false;
+    first.unmount();
+    await run;
+    const second = renderHook(() =>
+      useDepositTask('scope', 'late-recording-other-owner', null, true),
+    );
+    const originalNewTask = makeTask('next-deposit');
+    const newTask = {
+      ...originalNewTask,
+      identity: {
+        ...originalNewTask.identity,
+        accountId: 'other',
+        accountAddress: 'other',
+      },
+    };
+    const newHandle = {
+      ...makeHandle(newTask),
+      taskState: createDepositTaskState(newTask),
+    };
+    act(() => {
+      expect(second.result.current.onTaskReady(newHandle)).toBe(true);
+    });
+    await act(async () => publishLateSubmission?.());
+    expect(saveOrder).toHaveBeenCalledTimes(1);
+    expect(state.getTask().recording?.txid).toBe('late-deposit-tx');
+    expect(second.result.current.task?.taskId).toBe(newTask.taskId);
+    expect(depositTaskRegistry.find('late-recording-other-owner')?.state).toBe(
+      newHandle.taskState,
+    );
+    const onFinished = jest.fn();
+    const reopened = renderHook(() =>
+      useRetainedDepositTask('late-recording-owner', onFinished),
+    );
+    await waitFor(() =>
+      expect(depositTaskRegistry.find('late-recording-owner')).toBeUndefined(),
+    );
+    expect(onFinished).toHaveBeenCalledTimes(1);
+    expect(second.result.current.task?.taskId).toBe(newTask.taskId);
+    reopened.unmount();
+    second.unmount();
+    const oldEntry = depositTaskRegistry.find('late-recording-owner');
+    if (oldEntry)
+      depositTaskRegistry.release('late-recording-owner', oldEntry.token);
   });
 
   it('only dismisses an uncertain remote recording after explicit action and a final transaction status', async () => {

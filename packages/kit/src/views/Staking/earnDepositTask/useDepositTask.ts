@@ -88,10 +88,22 @@ function hasUnresolvedTask(task: IDepositTask | undefined) {
   );
 }
 
+export function hasUncertainTransaction(task: IDepositTask) {
+  return Boolean(
+    task.recording ||
+    task.steps.some((step) =>
+      ['sending', 'confirming', 'verifying', 'unknown', 'handedOff'].includes(
+        step.status.type,
+      ),
+    ),
+  );
+}
+
 export function useDepositTask(
   scopeKey: string,
   ownerKey = scopeKey,
   externalRecovery?: IRetainedDepositTask | null,
+  cancelOnExit = false,
 ) {
   const [task, setTask] = useState<IDepositTask | undefined>();
   const [restored, setRestored] = useState<
@@ -222,6 +234,7 @@ export function useDepositTask(
     return () => {
       const latest = activeHandleRef.current?.getTask();
       if (
+        !cancelOnExit &&
         handleOwnerRef.current === owner &&
         latest &&
         hasUnresolvedTask(latest)
@@ -236,7 +249,45 @@ export function useDepositTask(
       if (committedOwnerRef.current === owner)
         committedOwnerRef.current = undefined;
     };
-  }, [owner]);
+  }, [cancelOnExit, owner]);
+
+  useEffect(() => {
+    if (!cancelOnExit) return undefined;
+    const detachedBlockers = detachedBlockersRef.current;
+    const trackedTasks = trackedTasksRef.current;
+    return () => {
+      const handle =
+        handleOwnerRef.current === owner ? handleRef.current : undefined;
+      if (handle) {
+        handleRef.current = undefined;
+        handleOwnerRef.current = undefined;
+        handleScopeRef.current = undefined;
+        taskSnapshotRef.current = undefined;
+      }
+      detachedBlockers.delete(owner.ownerKey);
+      trackedTasks.forEach((tracked, trackedHandle) => {
+        if (
+          trackedHandle !== handle &&
+          tracked.reservation?.ownerKey !== owner.ownerKey
+        )
+          return;
+        tracked.unsubscribe?.();
+        trackedTasks.delete(trackedHandle);
+        trackedHandle.dispose();
+        const { reservation } = tracked;
+        const entry = reservation
+          ? depositTaskRegistry.find(reservation.ownerKey)
+          : undefined;
+        if (
+          reservation &&
+          !hasUncertainTransaction(trackedHandle.getTask()) &&
+          (!entry?.recordingHandle || entry.recordingHandle === trackedHandle)
+        ) {
+          depositTaskRegistry.release(reservation.ownerKey, reservation.token);
+        }
+      });
+    };
+  }, [cancelOnExit, owner]);
 
   const getCurrentHandle = useCallback(() => {
     if (
@@ -449,23 +500,64 @@ export function useDepositTask(
     [owner, scope],
   );
 
-  const clearTask = useCallback(() => {
-    const handle = getCurrentHandle();
-    if (!handle) return;
-    handleRef.current = undefined;
-    taskSnapshotRef.current = undefined;
-    const tracked = trackedTasksRef.current.get(handle);
-    tracked?.unsubscribe?.();
-    trackedTasksRef.current.delete(handle);
-    handle.dispose();
-    if (tracked?.reservation && !hasUnresolvedTask(handle.getTask())) {
-      depositTaskRegistry.release(
-        tracked.reservation.ownerKey,
-        tracked.reservation.token,
-      );
-    }
-    if (eventsActiveRef.current) setTask(undefined);
-  }, [getCurrentHandle]);
+  const clearTask = useCallback(
+    (expectedHandle?: IDepositTaskHandle) => {
+      const handle = getCurrentHandle();
+      if (!handle || (expectedHandle && expectedHandle !== handle)) return;
+      handleRef.current = undefined;
+      taskSnapshotRef.current = undefined;
+      const tracked = trackedTasksRef.current.get(handle);
+      tracked?.unsubscribe?.();
+      trackedTasksRef.current.delete(handle);
+      handle.dispose();
+      const entry = tracked?.reservation
+        ? depositTaskRegistry.find(tracked.reservation.ownerKey)
+        : undefined;
+      if (
+        tracked?.reservation &&
+        (!cancelOnExit ||
+          !entry?.recordingHandle ||
+          entry.recordingHandle === handle) &&
+        (cancelOnExit || !hasUnresolvedTask(handle.getTask()))
+      ) {
+        depositTaskRegistry.release(
+          tracked.reservation.ownerKey,
+          tracked.reservation.token,
+        );
+      }
+      if (eventsActiveRef.current) setTask(undefined);
+    },
+    [cancelOnExit, getCurrentHandle],
+  );
+
+  const clearTaskAfterCancel = useCallback(
+    (expectedHandle?: IDepositTaskHandle) => {
+      const handle = getCurrentHandle();
+      const currentTask = handle?.getTask();
+      const current = currentTask?.steps[currentTask.currentStepIndex];
+      if (
+        !cancelOnExit ||
+        !handle ||
+        (expectedHandle && expectedHandle !== handle) ||
+        !handle.wasCancelled?.() ||
+        current?.status.type !== 'cancelled' ||
+        currentTask?.recording ||
+        currentTask?.steps.some((step) =>
+          [
+            'sending',
+            'confirming',
+            'verifying',
+            'unknown',
+            'handedOff',
+          ].includes(step.status.type),
+        )
+      )
+        return false;
+      clearTask(handle);
+      return true;
+    },
+    [cancelOnExit, clearTask, getCurrentHandle],
+  );
 
   const clearRecordingTask = useCallback(
     (taskId: string, txid: string) => {
@@ -700,6 +792,7 @@ export function useDepositTask(
     onTaskReady,
     onTaskChange,
     clearTask,
+    clearTaskAfterCancel,
     clearRecordingTask,
     finishRecordingTask,
     clearTaskBeforeAnySend,

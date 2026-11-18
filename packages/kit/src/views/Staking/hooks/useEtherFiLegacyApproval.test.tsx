@@ -17,6 +17,7 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import { useEtherFiLegacyApproval } from './useEtherFiLegacyApproval';
 
 const allowance = jest.fn<Promise<{ allowanceParsed: string }>, [unknown]>();
+let mockIsFocused = true;
 const getAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
 const getAccountAddress = jest.fn<Promise<string>, [unknown]>();
 const getXpub = jest.fn<Promise<string>, [unknown]>();
@@ -121,7 +122,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: confirm }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocusedWhenEnabled: () => true,
+  useRouteIsFocusedWhenEnabled: () => mockIsFocused,
 }));
 jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
   waitForTxFinalStatus: (arg: unknown) => finalStatus(arg),
@@ -150,6 +151,7 @@ describe('EtherFi legacy allowance', () => {
   afterEach(() => jest.restoreAllMocks());
   beforeEach(() => {
     jest.resetAllMocks();
+    mockIsFocused = true;
     allowance.mockResolvedValue({ allowanceParsed: '1' });
     getAccount.mockResolvedValue({ address: '0xowner' });
     getAccountAddress.mockResolvedValue('0xowner');
@@ -164,6 +166,86 @@ describe('EtherFi legacy allowance', () => {
     });
     confirm.mockResolvedValue(undefined);
     pendingTxs.mockResolvedValue([]);
+  });
+
+  it('keeps the clear button stable during focus refresh but rechecks before action', async () => {
+    allowance.mockResolvedValueOnce({ allowanceParsed: '0' });
+    let finishBackground: (value: { allowanceParsed: string }) => void = () =>
+      undefined;
+    allowance.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishBackground = resolve;
+      }),
+    );
+    allowance.mockResolvedValueOnce({ allowanceParsed: '1' });
+    const { result, rerender } = renderHook(() =>
+      useEtherFiLegacyApproval({ ...params, refreshInBackgroundOnFocus: true }),
+    );
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    mockIsFocused = false;
+    rerender();
+    mockIsFocused = true;
+    rerender();
+    await waitFor(() => expect(allowance).toHaveBeenCalledTimes(2));
+    expect(result.current.status).toBe('clear');
+    expect(result.current.isActionAllowed()).toBe(false);
+    let verified = true;
+    await act(async () => {
+      verified = await result.current.verifyBeforeAction({
+        allowRevoke: false,
+      });
+    });
+    expect(verified).toBe(false);
+    expect(result.current.status).toBe('required');
+    await act(async () => finishBackground({ allowanceParsed: '0' }));
+    expect(result.current.status).toBe('required');
+  });
+
+  it('fails closed when a background focus check fails', async () => {
+    allowance.mockResolvedValueOnce({ allowanceParsed: '0' });
+    allowance.mockRejectedValueOnce(new Error('unavailable'));
+    const { result, rerender } = renderHook(() =>
+      useEtherFiLegacyApproval({ ...params, refreshInBackgroundOnFocus: true }),
+    );
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    mockIsFocused = false;
+    rerender();
+    mockIsFocused = true;
+    rerender();
+    await waitFor(() => expect(result.current.status).toBe('unknown'));
+    expect(result.current.blocked).toBe(true);
+    expect(result.current.isActionAllowed()).toBe(false);
+  });
+
+  it('allows a verified action while an older background read is pending', async () => {
+    allowance.mockResolvedValueOnce({ allowanceParsed: '0' });
+    let finishBackground: (value: { allowanceParsed: string }) => void = () =>
+      undefined;
+    allowance.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishBackground = resolve;
+      }),
+    );
+    allowance.mockResolvedValueOnce({ allowanceParsed: '0' });
+    const { result, rerender } = renderHook(() =>
+      useEtherFiLegacyApproval({ ...params, refreshInBackgroundOnFocus: true }),
+    );
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    mockIsFocused = false;
+    rerender();
+    mockIsFocused = true;
+    rerender();
+    await waitFor(() => expect(allowance).toHaveBeenCalledTimes(2));
+    let verified = false;
+    await act(async () => {
+      verified = await result.current.verifyBeforeAction({
+        allowRevoke: false,
+      });
+    });
+    expect(verified).toBe(true);
+    expect(result.current.isActionAllowed()).toBe(true);
+    await act(async () => finishBackground({ allowanceParsed: '1' }));
+    expect(result.current.status).toBe('clear');
   });
 
   it('does not apply an old allowance after the same account changes address', async () => {

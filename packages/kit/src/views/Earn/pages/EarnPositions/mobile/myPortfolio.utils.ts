@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { IProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
   IEarnActionIcon,
@@ -10,6 +11,7 @@ import type {
   IEarnPortfolioAsset,
   IEarnRewardsPortfolioGroup,
   IEarnRewardsPortfolioItem,
+  IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
 import type {
@@ -373,6 +375,32 @@ export function canRedeemFromCard(position: IEarnPositionView): boolean {
       symbol: manage.symbol,
     })
   );
+}
+
+export function getEtherFiManagedRedeem({
+  provider,
+  position,
+  actions,
+}: {
+  provider: string;
+  position: IEarnPositionView | undefined;
+  actions: IStakeEarnDetail['actions'];
+}): { disabled: boolean } | undefined {
+  const manage = actions?.find((action) => action.type === 'manage');
+  if (
+    !manage ||
+    !position ||
+    !earnUtils.isEtherFiProvider({ providerName: provider }) ||
+    !earnUtils.isEtherFiProvider({
+      providerName: position.source.earn.manage.provider,
+    }) ||
+    !canRedeemFromCard(position)
+  ) {
+    return undefined;
+  }
+  return {
+    disabled: Boolean(manage.disabled || position.source.earn.redeem?.disabled),
+  };
 }
 
 /**

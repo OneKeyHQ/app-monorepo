@@ -87,6 +87,35 @@ function dispatch(
   });
 }
 
+it('marks a reset as required only for the current preparing attempt', () => {
+  let task = createDepositTask({
+    taskId: 'task-1',
+    identity,
+    steps: [
+      { id: 'reset', kind: 'resetApproval' },
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  task = dispatch(task, { type: 'start', stepId: 'reset' });
+  expect(
+    dispatch(task, {
+      type: 'resetRequired',
+      stepId: 'reset',
+      attemptId: 'stale',
+    }),
+  ).toBe(task);
+  task = dispatch(task, { type: 'resetRequired', stepId: 'reset' });
+  expect(task.steps[0].resetRequired).toBe(true);
+  task = dispatch(task, { type: 'cancel', stepId: 'reset' });
+  task = dispatch(task, {
+    type: 'retry',
+    stepId: 'reset',
+    attemptId: 'attempt-2',
+  });
+  expect(task.steps[0].resetRequired).toBeUndefined();
+});
+
 function createRetryingApprovalWithConfirmedReset(): IDepositTask {
   let task = createDepositTask({
     taskId: 'task-1',
@@ -303,6 +332,7 @@ describe('Earn deposit task state', () => {
         id: 'reset-original',
         kind: 'resetApproval',
         attemptId: 'attempt-1',
+        resetSendStarted: true,
         status: { type: 'succeeded', txid: 'reset-tx-1' },
       },
       { id: 'reset-new', kind: 'resetApproval', status: { type: 'ready' } },

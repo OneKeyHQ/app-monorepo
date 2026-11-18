@@ -58,6 +58,7 @@ export type IDepositTaskHandle = {
   taskState?: IDepositTaskState;
   getTask: () => IDepositTask;
   isExecutionCurrent?: () => boolean;
+  wasCancelled?: () => boolean;
   run: () => Promise<void>;
   retry: () => Promise<void>;
   retryStatus: () => Promise<void>;

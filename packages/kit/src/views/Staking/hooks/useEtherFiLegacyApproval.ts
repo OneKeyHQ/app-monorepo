@@ -45,6 +45,7 @@ export function useEtherFiLegacyApproval({
   vault,
   onCleared,
   skip,
+  refreshInBackgroundOnFocus = false,
 }: {
   accountId: string;
   accountAddress?: string;
@@ -53,6 +54,7 @@ export function useEtherFiLegacyApproval({
   vault?: string;
   onCleared?: () => void;
   skip?: boolean;
+  refreshInBackgroundOnFocus?: boolean;
 }) {
   const isEtherFi =
     !skip &&
@@ -74,6 +76,8 @@ export function useEtherFiLegacyApproval({
   const generation = useRef(0);
   const refreshSequence = useRef(0);
   const refreshDiscoveryRef = useRef<number | undefined>(undefined);
+  const backgroundRefreshRef = useRef<number | undefined>(undefined);
+  const backgroundFocusRefreshRef = useRef(false);
   const abortRef = useRef<AbortController | undefined>(undefined);
   const pendingTxIdRef = useRef<string | undefined>(undefined);
   const pendingIsCancelRef = useRef(false);
@@ -565,6 +569,8 @@ export function useEtherFiLegacyApproval({
   );
 
   const refresh = useCallback(async () => {
+    const preserveClear = backgroundFocusRefreshRef.current;
+    backgroundFocusRefreshRef.current = false;
     if (!mountedRef.current || scopeRef.current !== scope) return;
     const wasPending = statusRef.current.status === 'pending';
     const previousTxId = pendingTxIdRef.current;
@@ -573,6 +579,10 @@ export function useEtherFiLegacyApproval({
     refreshSequence.current += 1;
     const refreshId = refreshSequence.current;
     refreshDiscoveryRef.current = refreshId;
+    backgroundRefreshRef.current =
+      preserveClear && statusRef.current.status === 'clear'
+        ? refreshId
+        : undefined;
     const finishDiscovery = () => {
       if (refreshDiscoveryRef.current === refreshId)
         refreshDiscoveryRef.current = undefined;
@@ -581,7 +591,9 @@ export function useEtherFiLegacyApproval({
       id === generation.current &&
       refreshId === refreshSequence.current &&
       scopeRef.current === scope;
-    setStatus({ scope, status: wasPending ? 'pending' : 'checking' });
+    if (!(preserveClear && statusRef.current.status === 'clear')) {
+      setStatus({ scope, status: wasPending ? 'pending' : 'checking' });
+    }
     try {
       let clear = await read();
       if (current()) {
@@ -766,6 +778,9 @@ export function useEtherFiLegacyApproval({
       }
     } finally {
       finishDiscovery();
+      if (backgroundRefreshRef.current === refreshId) {
+        backgroundRefreshRef.current = undefined;
+      }
     }
   }, [
     accountId,
@@ -784,6 +799,7 @@ export function useEtherFiLegacyApproval({
     return () => {
       generation.current += 1;
       refreshDiscoveryRef.current = undefined;
+      backgroundRefreshRef.current = undefined;
       abortRef.current?.abort();
       pendingTxIdRef.current = undefined;
       pendingIsCancelRef.current = false;
@@ -801,9 +817,11 @@ export function useEtherFiLegacyApproval({
       isFocused &&
       statusRef.current.status !== 'pending' &&
       statusRef.current.status !== 'submitting'
-    )
+    ) {
+      backgroundFocusRefreshRef.current = refreshInBackgroundOnFocus;
       void refresh();
-  }, [accountId, applicable, isFocused, refresh]);
+    }
+  }, [accountId, applicable, isFocused, refresh, refreshInBackgroundOnFocus]);
 
   const revoke = useCallback(async () => {
     if (
@@ -1026,6 +1044,14 @@ export function useEtherFiLegacyApproval({
       if (!applicable || !accountId || statusRef.current.status !== 'clear')
         return false;
       generation.current += 1;
+      // A direct action performs its own complete check and supersedes any
+      // background discovery for this scope.
+      if (backgroundRefreshRef.current !== undefined) {
+        if (refreshDiscoveryRef.current === backgroundRefreshRef.current) {
+          refreshDiscoveryRef.current = undefined;
+        }
+        backgroundRefreshRef.current = undefined;
+      }
       const id = generation.current;
       const visibilityGeneration = visibilityRef.current.generation;
       const isCurrent = () =>
@@ -1105,6 +1131,7 @@ export function useEtherFiLegacyApproval({
       applicable &&
       accountId &&
       statusRef.current.scope === scope &&
+      backgroundRefreshRef.current === undefined &&
       statusRef.current.status === 'clear',
     );
   }, [accountId, applicable, isEtherFi, scope, vault]);

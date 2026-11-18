@@ -464,7 +464,7 @@ it.each([true, false])(
   },
 );
 
-it('restores the original asset before mounting the manage form', async () => {
+it('does not restore an abandoned EtherFi task in the manage form', async () => {
   const provider = { ...nativeProtocol, provider: 'etherfi' };
   const ownerKey = getDepositTaskOwnerKey({
     accountId: 'account-1',
@@ -501,13 +501,14 @@ it('restores the original asset before mounting the manage form', async () => {
     });
     const view = renderStake(provider);
     await waitFor(() =>
-      expect(screen.getByTestId('stake-form').textContent).toBe('ETH'),
+      expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
     );
     expect(
       mockStakeRender.mock.calls.every(
-        ([rendered]) => rendered.tokenSymbol === 'ETH',
+        ([rendered]) => rendered.tokenSymbol === 'WETH',
       ),
     ).toBe(true);
+    expect(mockRetainedStakeForm).toHaveBeenLastCalledWith(null);
     view.unmount();
   } finally {
     depositTaskRegistry.release(ownerKey, reservation);

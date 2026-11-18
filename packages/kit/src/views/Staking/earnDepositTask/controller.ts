@@ -34,7 +34,11 @@ export type IDepositTaskPreparation<TPrepared> =
 
 export type IDepositTaskAdapter<TPrepared = unknown> = {
   prepare: (
-    context: IStepContext & { isRetry: boolean },
+    context: IStepContext & {
+      isRetry: boolean;
+      onResetRequired: () => boolean;
+      onUserCancel: () => void;
+    },
   ) => Promise<IDepositTaskPreparation<TPrepared>>;
   beforeConfirm?: (context: IStepContext) => Promise<boolean>;
   confirm: (
@@ -78,7 +82,8 @@ export function createDepositTaskController<TPrepared>({
   ) {
     throw new OneKeyLocalError('Deposit task state identity mismatch');
   }
-  return createEarnTransactionTaskController<
+  let cancelledByUser = false;
+  const controller = createEarnTransactionTaskController<
     IDepositTaskIdentity,
     IDepositTaskStep,
     IDepositTask,
@@ -115,7 +120,32 @@ export function createDepositTaskController<TPrepared>({
           attemptId,
         }),
     },
-    adapter,
+    adapter: {
+      ...adapter,
+      confirm: async (context) => {
+        const result = await adapter.confirm(context);
+        if (result.type === 'cancelled') cancelledByUser = true;
+        return result;
+      },
+      prepare: (context) =>
+        adapter.prepare({
+          ...context,
+          onUserCancel: () => {
+            if (isCurrent() && !context.signal.aborted) cancelledByUser = true;
+          },
+          onResetRequired: () => {
+            if (!isCurrent() || context.signal.aborted) return false;
+            const changed = state.dispatch({
+              type: 'resetRequired',
+              taskId: context.taskId,
+              stepId: context.step.id,
+              attemptId: context.attemptId,
+            });
+            if (changed) onChange(state.getTask());
+            return changed;
+          },
+        }),
+    },
     normalizePreparation: (preparation) => {
       if (
         preparation.type === 'insertReset' ||
@@ -132,4 +162,16 @@ export function createDepositTaskController<TPrepared>({
     onError,
     expiredMessage: 'Deposit task confirmation expired',
   });
+  return {
+    ...controller,
+    wasCancelled: () => cancelledByUser,
+    run: () => {
+      cancelledByUser = false;
+      return controller.run();
+    },
+    retry: () => {
+      cancelledByUser = false;
+      return controller.retry();
+    },
+  };
 }

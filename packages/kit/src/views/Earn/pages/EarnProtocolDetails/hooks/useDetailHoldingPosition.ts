@@ -71,7 +71,10 @@ export function useDetailHoldingPosition({
   const accountAddress = earnAccount?.accountAddress;
   const publicKey = earnAccount?.account?.pub?.trim() || undefined;
   const scopeKey =
-    enabled && accountId && accountAddress
+    enabled &&
+    accountId &&
+    accountAddress &&
+    earnAccount?.networkId === networkId
       ? positionsScopeKey({ networkId, provider, accountAddress, publicKey })
       : undefined;
   // The account or the page can change while a read is in flight, and two
@@ -182,5 +185,6 @@ export function useDetailHoldingPosition({
     intl,
   ]);
 
-  return { holding, refresh };
+  const actionableHolding = scopeKey ? holding : undefined;
+  return { holding, actionableHolding, refresh };
 }

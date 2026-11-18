@@ -414,7 +414,7 @@ it.each([true, false])(
   },
 );
 
-it('restores the original asset before mounting the standalone form', async () => {
+it('does not restore an abandoned EtherFi task in the standalone form', async () => {
   mockRoute.params.protocolInfo = {
     provider: 'etherfi',
     providerDetail: { name: 'EtherFi', logoURI: '' },
@@ -458,8 +458,9 @@ it('restores the original asset before mounting the standalone form', async () =
     });
     const view = render(<StakePage />);
     await waitFor(() =>
-      expect(screen.getByTestId('stake-token').textContent).toBe('ETH'),
+      expect(screen.getByTestId('stake-token').textContent).toBe('WETH'),
     );
+    expect(mockRetainedStakeForm).toHaveBeenLastCalledWith(null);
     view.unmount();
   } finally {
     depositTaskRegistry.release(ownerKey, reservation);

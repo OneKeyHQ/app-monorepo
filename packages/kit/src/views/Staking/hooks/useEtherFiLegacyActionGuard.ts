@@ -14,6 +14,7 @@ export function useEtherFiLegacyActionGuard({
   vault,
   onCleared,
   skip,
+  refreshInBackgroundOnFocus,
 }: {
   accountId: string;
   accountAddress?: string;
@@ -21,6 +22,7 @@ export function useEtherFiLegacyActionGuard({
   vault?: string;
   onCleared?: () => void;
   skip?: boolean;
+  refreshInBackgroundOnFocus?: boolean;
 }): IEarnActionGuard {
   const intl = useIntl();
   const approval = useEtherFiLegacyApproval({
@@ -31,6 +33,7 @@ export function useEtherFiLegacyActionGuard({
     vault,
     onCleared,
     skip,
+    refreshInBackgroundOnFocus,
   });
 
   let action: IEarnActionGuard['action'];

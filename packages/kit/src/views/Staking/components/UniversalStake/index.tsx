@@ -707,8 +707,14 @@ export function UniversalStake({
     onTaskReady: onDepositTaskReady,
     onTaskChange: onDepositTaskChange,
     finishRecordingTask,
+    clearTaskAfterCancel,
     clearTaskBeforeAnySend,
-  } = useDepositTask(approvalScopeKey, recordingOwnerKey, retainedTask);
+  } = useDepositTask(
+    approvalScopeKey,
+    recordingOwnerKey,
+    retainedTask,
+    earnUtils.isEtherFiProvider({ providerName }),
+  );
   const approvalScopeGuard = useCommittedEarnScopeGuard(approvalScopeKey);
   const permitWorkflowRef = useRef<
     { scope: string; cancel: () => void } | undefined
@@ -786,7 +792,13 @@ export function UniversalStake({
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token?.address || '',
     spenderAddress: approveTarget.spenderAddress,
-    initialValue: currentAllowance ?? '0',
+    enabled: Boolean(
+      useApprove && approveTarget.token && !approveTarget.token.isNative,
+    ),
+    initialValue: preparationPolicy
+      ? currentAllowance
+      : (currentAllowance ?? '0'),
+    refreshOnMount: Boolean(preparationPolicy),
     retryTrackingOnError: Boolean(preparationPolicy),
     approveType,
   });
@@ -2375,7 +2387,9 @@ export function UniversalStake({
             isCurrent,
           );
           if (started === false) {
-            if (!clearTaskBeforeAnySend()) handleInterruptedWrap();
+            if (isCurrent() && clearTaskAfterCancel()) {
+              handleInterruptedWrap();
+            } else if (!clearTaskBeforeAnySend()) handleInterruptedWrap();
             return;
           }
           if (!isCurrent()) return;
@@ -2492,6 +2506,7 @@ export function UniversalStake({
       handleStakeProgressChange,
       onDepositTaskReady,
       onDepositTaskChange,
+      clearTaskAfterCancel,
       clearTaskBeforeAnySend,
       finishRecordingTask,
       recordingOwnerGuard,
@@ -2635,7 +2650,9 @@ export function UniversalStake({
           },
           isCurrent,
         );
-        if (!started) clearTaskBeforeAnySend();
+        if (!started && isCurrent() && !clearTaskAfterCancel()) {
+          clearTaskBeforeAnySend();
+        }
       } catch (error) {
         clearTaskBeforeAnySend();
         if (isCurrent()) {
@@ -2665,6 +2682,7 @@ export function UniversalStake({
       onQuoteReset,
       intl,
       prepareDepositTask,
+      clearTaskAfterCancel,
       clearTaskBeforeAnySend,
       preparationPolicy,
       updateAmountValidation,
@@ -3761,8 +3779,29 @@ export function UniversalStake({
     stakeProgressStep,
   ]);
 
+  const isUnresolvedReset = (
+    step: NonNullable<typeof activeDepositTask>['steps'][number],
+  ) =>
+    step.kind === 'resetApproval' &&
+    !step.resetRequired &&
+    !step.resetSendStarted &&
+    !step.resetPriorAttempt &&
+    (step.status.type === 'waiting' ||
+      step.status.type === 'ready' ||
+      step.status.type === 'preparing' ||
+      (step.status.type === 'failed' &&
+        step.status.stage === 'beforeSend' &&
+        step.resetPreparationFailed));
+  const currentResetIsUnresolved = Boolean(
+    currentDepositTaskStep &&
+    isUnresolvedReset(currentDepositTaskStep) &&
+    (currentDepositTaskStep.status.type === 'ready' ||
+      currentDepositTaskStep.status.type === 'preparing'),
+  );
   const taskProgressSteps = activeDepositTask?.steps
-    .filter((step) => step.status.type !== 'skipped')
+    .filter(
+      (step) => step.status.type !== 'skipped' && !isUnresolvedReset(step),
+    )
     .map((step) => {
       let label = intl.formatMessage({ id: ETranslations.earn_deposit });
       if (step.kind === 'wrap') label = wrapStakeLabel;
@@ -3782,7 +3821,11 @@ export function UniversalStake({
       else if (step.status.type === 'handedOff') status = 'submitted';
       else if (
         activeDepositTask.steps.indexOf(step) ===
-        activeDepositTask.currentStepIndex
+          activeDepositTask.currentStepIndex ||
+        (currentResetIsUnresolved &&
+          step.kind === 'approve' &&
+          activeDepositTask.steps.indexOf(step) ===
+            activeDepositTask.currentStepIndex + 1)
       )
         status = 'current';
       return { id: step.id, label, status };
@@ -3953,7 +3996,13 @@ export function UniversalStake({
           depositTaskStatus?.type === 'cancelled' ||
           depositTaskStatus?.type === 'failed'
         ) {
-          void handle.retry().then(() => clearTaskBeforeAnySend());
+          void handle.retry().then(() => {
+            if (
+              !clearTaskAfterCancel(handle) &&
+              getCurrentDepositTaskHandle() === handle
+            )
+              clearTaskBeforeAnySend();
+          });
         } else if (depositTaskStatus?.type === 'ready') void handle.run();
       };
     }
@@ -3989,6 +4038,7 @@ export function UniversalStake({
     allowance,
     isWrapStake,
     startDirectDepositTask,
+    clearTaskAfterCancel,
     clearTaskBeforeAnySend,
     getCurrentDepositTaskHandle,
     getRecordingHandle,

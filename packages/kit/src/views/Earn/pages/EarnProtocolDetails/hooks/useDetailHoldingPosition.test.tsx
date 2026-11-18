@@ -166,5 +166,36 @@ describe('useDetailHoldingPosition account scope', () => {
     expect(result.current.holding).toEqual(
       expect.objectContaining({ id: 'from-list' }),
     );
+    expect(result.current.actionableHolding).toEqual(
+      expect.objectContaining({ id: 'from-list' }),
+    );
+  });
+
+  it('does not make cached holdings actionable while the account network is unresolved', async () => {
+    mockCache = {
+      'wallet-key': {
+        accountScope: JSON.stringify([
+          'external-account',
+          '',
+          '',
+          '',
+          [{ evm: '0xaaa,0xbbb' }, { evm: 0 }],
+        ]),
+        scopes: { 'evm--1_morpho_0xaaa_': response('placeholder') },
+      },
+    };
+    const { result } = renderHook(() =>
+      useDetailHoldingPosition({
+        identity,
+        earnAccount: { ...account('0xaaa'), networkId: 'evm--2' },
+        enabled: true,
+      }),
+    );
+    expect(result.current.holding).toEqual(
+      expect.objectContaining({ id: 'placeholder' }),
+    );
+    expect(result.current.actionableHolding).toBeUndefined();
+    await act(async () => result.current.refresh());
+    expect(mockReads).toHaveLength(0);
   });
 });

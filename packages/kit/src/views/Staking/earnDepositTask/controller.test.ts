@@ -39,6 +39,27 @@ function deferred<T>() {
 }
 
 describe('Earn deposit task controller', () => {
+  it.each([true, false])(
+    'only identifies an explicit preparation cancellation as user cancellation: %s',
+    async (userCancelled) => {
+      const controller = createDepositTaskController({
+        task: makeTask(),
+        adapter: {
+          prepare: async ({ onUserCancel }) => {
+            if (userCancelled) onUserCancel();
+            return { type: 'cancelled' };
+          },
+          confirm: async () => ({ type: 'cancelled' }),
+          waitForFinalStatus: async () => 'unknown',
+          verify: async () => false,
+        },
+        isCurrent: () => true,
+        onChange: () => undefined,
+      });
+      await controller.run();
+      expect(controller.wasCancelled()).toBe(userCancelled);
+    },
+  );
   it('shares one execution lease across controllers for the same task', async () => {
     const state = createDepositTaskState(makeTask());
     const pending = deferred<IDepositTaskPreparation<unknown>>();

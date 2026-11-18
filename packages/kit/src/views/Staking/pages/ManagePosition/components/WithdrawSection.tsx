@@ -465,6 +465,9 @@ export const WithdrawSection = ({
     useBorrowApi,
   ]);
 
+  const hasApprovalToken = Boolean(approvalToken);
+  const approvalTokenAddress = approvalToken?.address;
+  const approvalTokenIsNative = approvalToken?.isNative;
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
       if (
@@ -472,8 +475,8 @@ export const WithdrawSection = ({
         !approveSpenderAddress ||
         !accountId ||
         !networkId ||
-        !approvalToken ||
-        approvalToken?.isNative
+        !hasApprovalToken ||
+        approvalTokenIsNative
       ) {
         return undefined;
       }
@@ -495,7 +498,7 @@ export const WithdrawSection = ({
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
-          tokenAddress: approvalToken?.address || '',
+          tokenAddress: approvalTokenAddress || '',
         });
       return { allowanceParsed };
     },
@@ -505,7 +508,9 @@ export const WithdrawSection = ({
       accountId,
       networkId,
       providerName,
-      approvalToken,
+      hasApprovalToken,
+      approvalTokenAddress,
+      approvalTokenIsNative,
       footerActionOverride?.loading,
     ],
     { watchLoading: true, undefinedResultIfReRun: true },
