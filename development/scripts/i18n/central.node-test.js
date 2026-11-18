@@ -889,6 +889,24 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
     moved.calls.map(([kind, endpoint]) => `${kind} ${endpoint}`),
     [`GET ${REPO}/pulls/12`],
   );
+
+  // A PR closed without merging is refused before anything is downloaded.
+  const closed = fakeApi({
+    ...routes,
+    [`GET ${REPO}/pulls/12`]: {
+      state: 'closed',
+      merged_at: null,
+      head: { sha: 'h1' },
+    },
+  });
+  await assert.rejects(
+    fromPullRequest({ pr: 12, commit: 'h1', wait: true, api: closed }),
+    /onekey-i18n PR #12 was closed without merging/,
+  );
+  assert.deepEqual(
+    closed.calls.map(([kind, endpoint]) => `${kind} ${endpoint}`),
+    [`GET ${REPO}/pulls/12`],
+  );
   polls = 0;
   const pinned = await fromPullRequest({
     pr: 12,

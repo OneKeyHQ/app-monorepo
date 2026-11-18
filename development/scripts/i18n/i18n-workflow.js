@@ -220,7 +220,12 @@ async function run(args = process.argv.slice(2)) {
     );
   }
   if (command === 'apply') {
-    const receipt = await applyPlan({ file, approval: values.approve, client });
+    const receipt = await applyPlan({
+      file,
+      approval: values.approve,
+      client,
+      clientAt: (commit) => new CentralClient({ ref: commit }),
+    });
     return {
       status: receipt.status,
       onekeyI18nPr: receipt.proposal?.url,

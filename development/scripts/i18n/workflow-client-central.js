@@ -85,11 +85,14 @@ class CentralClient {
     // Branch that copy PRs target. Another branch only to try unmerged
     // onekey-i18n changes end to end; its CI must build the PR preview.
     base = process.env.ONEKEY_I18N_BASE || 'main',
+    // Release channel the copy is read from: app-latest, or app-test.
+    channel = process.env.ONEKEY_I18N_CHANNEL || 'latest',
     // An onekey-i18n commit to read instead of the release, e.g. a copy PR's.
     ref,
   } = {}) {
     this.api = api;
     this.base = base;
+    this.channel = channel;
     this.ref = ref;
     // { tag, commit, files } of app.source.zip; injected by tests.
     this.source = source;
@@ -103,7 +106,7 @@ class CentralClient {
         this.source ||
         (this.ref
           ? await sourceFromCommit({ commit: this.ref, api: this.api })
-          : await sourceFromRelease({ api: this.api }));
+          : await sourceFromRelease({ api: this.api, channel: this.channel }));
       const parse = (name) => JSON.parse(this.source.files[name]);
       const project = parse('project.json');
       this.state = {
