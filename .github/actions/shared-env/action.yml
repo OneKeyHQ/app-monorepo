@@ -203,16 +203,39 @@ runs:
           echo "BUILD_NUMBER=$WORKFLOW_BUILD_NUMBER" >> $GITHUB_ENV
         else
           # Generate build number ------- start
-          DATE=`date "+%Y%m%d"`
-          run_number=$(($workflow_run_number % 100))
-          run_number=$(printf "%02d" $run_number)
+          TODAY=$(date -u "+%Y-%m-%d")
+          DATE=$(date -u "+%Y%m%d")
+          CREATED_SINCE="${TODAY}T00:00:00Z"
+          MIN_RUN_FLOOR=0
+          if [ "$DATE" = "20261118" ] || [ "$DATE" = "20261119" ]; then
+            DATE="20261119"
+            CREATED_SINCE="2026-11-18T00:00:00Z"
+            MIN_RUN_FLOOR=4501
+          fi
+          min_run_today=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_id}/runs?created=>=${CREATED_SINCE}&per_page=100" \
+            --jq "([.workflow_runs[] | select(.run_number > ${MIN_RUN_FLOOR} and .run_number <= ${workflow_run_number}) | .run_number] + [${workflow_run_number}]) | min" \
+            2>/dev/null || echo "${workflow_run_number}")
+          if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+            min_run_today="${workflow_run_number}"
+          fi
+          daily_seq=$(( workflow_run_number - min_run_today + 1 ))
+          if [ "$daily_seq" -lt 1 ]; then
+            daily_seq=1
+          elif [ "$daily_seq" -gt 99 ]; then
+            echo "::error::Daily build sequence (${daily_seq}) exceeded 99 for ${DATE}"
+            exit 1
+          fi
+          run_number=$(printf "%02d" "$daily_seq")
           build_number="${DATE}${run_number}"
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
           # Generate build number ------- end
         fi
       env:
-        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+        GH_TOKEN: ${{ github.token }}
+        workflow_id: ${{ github.event.workflow_run.workflow_id }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number }}
 
     - name: Inject Environment Variables
       shell: bash

@@ -23,11 +23,27 @@ jobs:
 
     steps:
       - name: 'Setup ENV'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
-          DATE=`date "+%m%d"`
-          run_number=$(($GITHUB_RUN_NUMBER % 100))
-          run_number=$(printf "%02d" $run_number)
+          echo "Executed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          TODAY=$(date -u "+%Y-%m-%d")
+          DATE=$(date -u "+%m%d")
+          min_run_today=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-build-dev.yml/runs?created=>=${TODAY}T00:00:00Z&per_page=100" \
+            --jq "([.workflow_runs[] | select(.run_number <= ${GITHUB_RUN_NUMBER}) | .run_number] + [${GITHUB_RUN_NUMBER}]) | min" \
+            2>/dev/null || echo "${GITHUB_RUN_NUMBER}")
+          if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+            min_run_today="${GITHUB_RUN_NUMBER}"
+          fi
+          daily_seq=$(( GITHUB_RUN_NUMBER - min_run_today + 1 ))
+          if [ "$daily_seq" -lt 1 ]; then
+            daily_seq=1
+          elif [ "$daily_seq" -gt 99 ]; then
+            echo "::error::Daily build sequence (${daily_seq}) exceeded 99 for ${TODAY}"
+            exit 1
+          fi
+          run_number=$(printf "%02d" "$daily_seq")
           build_number="1000${DATE}${run_number}"
           echo '$build_number='$build_number
 
