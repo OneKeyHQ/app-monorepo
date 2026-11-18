@@ -22,6 +22,9 @@ function buildDependencies() {
       runtimeState = 'transition-recovery';
       calls.push('mark-recovery');
     }),
+    maskWidgetsForTransition: jest.fn(async () => {
+      calls.push('mask-widgets');
+    }),
     persistTransition: jest.fn(async ({ enabled }) => {
       runtimeState = 'transition-recovery';
       calls.push(`persist-${enabled ? 'enabled' : 'disabled'}`);
@@ -57,6 +60,16 @@ function buildDependencies() {
 }
 
 describe('TravelModeTransitionController', () => {
+  it('does not commit a transition or restart when widget masking fails', async () => {
+    const { dependencies } = buildDependencies();
+    jest
+      .mocked(dependencies.maskWidgetsForTransition)
+      .mockRejectedValueOnce(new Error('mask failed'));
+    const controller = new TravelModeTransitionController(dependencies);
+    await expect(controller.setEnabled(true)).rejects.toThrow('mask failed');
+    expect(dependencies.persistTransition).not.toHaveBeenCalled();
+    expect(dependencies.restart).not.toHaveBeenCalled();
+  });
   it('owns the complete activation sequence and fails closed if restart returns', async () => {
     const { calls, dependencies } = buildDependencies();
     const controller = new TravelModeTransitionController(dependencies);
@@ -71,6 +84,7 @@ describe('TravelModeTransitionController', () => {
       'authenticate',
       'verify',
       'get-verifier',
+      'mask-widgets',
       'persist-enabled',
       'prepare-restart-travel-mode',
       'wait-before-restart',
@@ -150,6 +164,7 @@ describe('TravelModeTransitionController', () => {
     expect(dependencies.prepareRestart).not.toHaveBeenCalled();
     expect(dependencies.waitBeforeRestart).not.toHaveBeenCalled();
     expect(dependencies.restart).not.toHaveBeenCalled();
+    expect(dependencies.markRestartFailed).toHaveBeenCalledTimes(1);
   });
 
   it('marks recovery when restart rejects', async () => {
@@ -265,6 +280,7 @@ describe('TravelModeTransitionController', () => {
         .mockRejectedValueOnce(new Error('retry failed'));
       await expect(controller.retryRestart()).rejects.toThrow('retry failed');
       expect(dependencies.restart).toHaveBeenCalledTimes(2);
+      expect(dependencies.maskWidgetsForTransition).toHaveBeenCalledTimes(2);
       expect(jest.mocked(dependencies.prepareRestart).mock.calls).toEqual([
         ['travel-mode'],
         ['travel-mode'],

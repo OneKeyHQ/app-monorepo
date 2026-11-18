@@ -30,7 +30,6 @@ import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 interface IPerpAccountListProps {
   isActive?: boolean;
   isMobile?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
   ListHeaderComponent?: ReactElement | null;
 }
@@ -69,7 +68,6 @@ function MobileAccountHistoryLoadingSkeleton() {
 function PerpAccountList({
   isActive = true,
   isMobile,
-  useTabsList,
   disableListScroll,
   ListHeaderComponent,
 }: IPerpAccountListProps) {
@@ -189,10 +187,6 @@ function PerpAccountList({
 
   return (
     <CommonTableListView
-      onPullToRefresh={async () => {
-        await actions.current.refreshAllPerpsData();
-        await actions.current.loadLedgerUpdatesByRest({ force: true });
-      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'PerpAccountList',
@@ -200,7 +194,6 @@ function PerpAccountList({
         }),
         [],
       )}
-      useTabsList={useTabsList}
       disableListScroll={disableListScroll}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

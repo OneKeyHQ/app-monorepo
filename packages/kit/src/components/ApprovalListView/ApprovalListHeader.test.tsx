@@ -14,7 +14,6 @@ type IAlertConfigParams = {
   networkId: string;
 };
 
-const mockRecomputeLayout = jest.fn();
 const mockUpdateRiskApprovalsAlertConfig: jest.MockedFunction<
   (params: IAlertConfigParams) => Promise<void>
 > = jest.fn();
@@ -190,18 +189,11 @@ describe('ApprovalListHeader', () => {
   });
 
   it('renders a closable risk banner and persists its dismissal', async () => {
-    render(
-      <ApprovalListHeader
-        contractMap={{}}
-        recomputeLayout={mockRecomputeLayout}
-        tokenMap={{}}
-      />,
-    );
+    render(<ApprovalListHeader contractMap={{}} tokenMap={{}} />);
 
     await waitFor(() => {
       expect(mockAlertProps?.closable).toBe(true);
     });
-    mockRecomputeLayout.mockClear();
 
     await act(async () => {
       await mockAlertProps?.onClose?.();
@@ -212,11 +204,6 @@ describe('ApprovalListHeader', () => {
       networkId: 'evm--1',
     });
     expect(mockUpdateInactiveApprovalsAlertConfig).not.toHaveBeenCalled();
-
-    act(() => {
-      jest.advanceTimersByTime(350);
-    });
-    expect(mockRecomputeLayout).toHaveBeenCalledTimes(1);
   });
 
   it('reserves the native wide bulk checkbox slot only while selection is enabled', async () => {
@@ -225,7 +212,6 @@ describe('ApprovalListHeader', () => {
     mockTableLayout = true;
     const props = {
       contractMap: {},
-      recomputeLayout: mockRecomputeLayout,
       tokenMap: {},
     };
     const { rerender } = render(<ApprovalListHeader {...props} />);

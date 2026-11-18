@@ -5,6 +5,7 @@ import { RealmObjectBase } from '../base/RealmObjectBase';
 import type {
   IDBAccount,
   IDBExternalAccount,
+  IDBSimpleAccount,
   IDBUtxoAccount,
   IDBVariantAccount,
 } from '../../types';
@@ -123,6 +124,12 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
     };
     if (this.type === EDBAccountType.SIMPLE) {
       ret.pub = this.pub || '';
+      if (this.addresses) {
+        (ret as IDBSimpleAccount).addresses = this.addresses.toJSON() as Record<
+          string,
+          string
+        >;
+      }
     }
     if (this.type === EDBAccountType.VARIANT) {
       (ret as IDBVariantAccount).pub = this.pub || '';

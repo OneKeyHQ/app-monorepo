@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -58,6 +59,7 @@ export default class ServiceTravelMode extends ServiceBase {
     },
     getRuntimeState: () => travelModeManager.getRuntimeState(),
     markRestartFailed: () => travelModeManager.markRestartFailed(),
+    maskWidgetsForTransition: () => marketWidget.maskForTravelMode(),
     persistTransition: (params) => travelModeManager.transition(params),
     prepareRestart: (profile) => prepareTravelModeRuntimeRestart(profile),
     restart: (reason) =>

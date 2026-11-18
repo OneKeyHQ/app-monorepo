@@ -1,4 +1,5 @@
 import type { IAdaBatchGetShelleyAddressByRootKeyHexParams } from '@onekeyhq/core/src/chains/ada/sdkAda';
+import type { IAdaPublicAccountAddressesParams } from '@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses';
 import type { IAdaSdkApi } from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/types';
 import type { IHdCredentialDecryptCacheParams } from '@onekeyhq/core/src/secret';
 import type { ICoreHdCredentialEncryptHex } from '@onekeyhq/core/src/types';
@@ -67,6 +68,12 @@ const getCardanoApi = memoizee(
 );
 
 class WebEmbedApiChainAdaLegacy implements IAdaSdkApi {
+  async derivePublicAccountAddresses(params: IAdaPublicAccountAddressesParams) {
+    const { derivePublicAccountAddresses } =
+      await import('@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses');
+    return derivePublicAccountAddresses(params);
+  }
+
   async composeTxPlan(...args: Parameters<IAdaComposeTxPlan>) {
     const cardanoApi = await getCardanoApi();
     return cardanoApi.composeTxPlan(...args);

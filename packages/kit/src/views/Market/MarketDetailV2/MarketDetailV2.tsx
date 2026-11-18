@@ -39,6 +39,7 @@ import {
   useTokenDetailPreviewAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -83,6 +84,7 @@ import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
 import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { usePendingMarketAsset } from './hooks/usePendingMarketAsset';
+import { useSyncMarketWidgetQuote } from './hooks/useSyncMarketWidgetQuote';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
@@ -91,6 +93,7 @@ import {
   hasValidMarketDetailPreview,
 } from './utils/marketDetailPreview';
 
+import type { IMarketWidgetQuoteTarget } from './hooks/marketWidgetQuote';
 import type { NavigationAction } from '@react-navigation/routers';
 
 const MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH = 32;
@@ -147,8 +150,9 @@ function LegacyTokenPreviewInitializer({
   return null;
 }
 
-function MarketCurrentTokenLiveDataSync() {
+function MarketCurrentTokenLiveDataSync(target: IMarketWidgetQuoteTarget) {
   useSyncMarketCurrentTokenLiveData();
+  useSyncMarketWidgetQuote(target);
   return null;
 }
 
@@ -448,7 +452,19 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
-      {isMarketAssetResolving ? null : <MarketCurrentTokenLiveDataSync />}
+      {isMarketAssetResolving ? null : (
+        <MarketCurrentTokenLiveDataSync
+          active={shouldOwnSharedMarketDetailState}
+          assetId={
+            marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
+              ? marketTokenId
+              : undefined
+          }
+          networkId={networkId}
+          tokenAddress={tokenAddress}
+          isNative={isNativeBoolean}
+        />
+      )}
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
         preview={isMarketAssetResolving ? undefined : tokenDetailPreview}

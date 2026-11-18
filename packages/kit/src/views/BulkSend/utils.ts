@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   ITransferInfo,
   IVaultSettings,
@@ -8,6 +9,7 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 import {
   EAmountInputMode,
   EIntervalMode,
@@ -739,4 +741,74 @@ export function normalizeGasEIP1559Presets(
     return [presets[0], presets[2], presets[4]];
   }
   return presets.length > 3 ? presets.slice(0, 3) : presets;
+}
+
+// Solana rents at the pre-SIMD-0437 rate (6960 lamports/byte): a token account
+// and a bare system account. Rent is read from the chain; these only cover a
+// failed lookup, where the old, higher rate errs on the safe side. The size of
+// a Token-2022 account is unknown by then, so the token account is priced at
+// the largest one a known mint can require (195 bytes; a legacy one is 165).
+const SOL_FALLBACK_TOKEN_ACCOUNT_RENT = '0.00224808';
+const SOL_FALLBACK_ACCOUNT_RESERVE = '0.00089088';
+
+function isPositiveAmount(value: string | undefined): value is string {
+  const amount = new BigNumber(value ?? '');
+  return amount.isFinite() && amount.gt(0);
+}
+
+// Total rent for the token accounts a Solana bulk send creates. Each transaction
+// carries the rent read from the chain when it was built; if any of them could
+// not be read, the whole batch is priced at the legacy rent per new account.
+export function getBulkSendSolanaAtaRent({
+  unsignedTxs,
+  ataCount,
+}: {
+  unsignedTxs: Pick<IUnsignedTxPro, 'solanaCreateTokenAccountRent'>[];
+  ataCount?: number;
+}): string | undefined {
+  if (!ataCount || ataCount <= 0) return undefined;
+
+  const rents = unsignedTxs.map(
+    (tx) => new BigNumber(tx.solanaCreateTokenAccountRent ?? ''),
+  );
+  if (rents.length && rents.every((rent) => rent.isFinite() && rent.gte(0))) {
+    return BigNumber.sum(...rents).toFixed();
+  }
+  return new BigNumber(SOL_FALLBACK_TOKEN_ACCOUNT_RENT)
+    .times(ataCount)
+    .toFixed();
+}
+
+// SOL the sender must keep after a bulk send so its account stays rent exempt.
+export function getBulkSendSolanaAccountReserve(
+  accountReserve: string | undefined,
+): string {
+  return isPositiveAmount(accountReserve)
+    ? accountReserve
+    : SOL_FALLBACK_ACCOUNT_RESERVE;
+}
+
+// The sender's SOL balance and the reserve it must keep, from account details
+// fetched with withFrozenBalance: the API reports the rent-exempt reserve as
+// frozen, `balance` net of it, and the total alongside.
+export function getBulkSendSolanaBalance(
+  accountDetails:
+    | Pick<
+        IFetchAccountDetailsResp,
+        'balanceParsed' | 'frozenBalanceParsed' | 'totalBalanceParsed'
+      >
+    | undefined,
+): { solBalance: string; solAccountReserve: string } {
+  const frozen = accountDetails?.frozenBalanceParsed;
+  const total = new BigNumber(accountDetails?.totalBalanceParsed ?? '');
+  let balance = new BigNumber(accountDetails?.balanceParsed ?? 0);
+  if (total.isFinite()) {
+    balance = total;
+  } else if (isPositiveAmount(frozen)) {
+    balance = balance.plus(frozen);
+  }
+  return {
+    solBalance: balance.isFinite() ? balance.toFixed() : '0',
+    solAccountReserve: getBulkSendSolanaAccountReserve(frozen),
+  };
 }

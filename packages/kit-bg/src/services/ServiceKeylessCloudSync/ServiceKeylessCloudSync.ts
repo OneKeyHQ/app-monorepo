@@ -67,6 +67,11 @@ import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSync
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import {
+  PUBLIC_ACCOUNT_SNAPSHOT_PREFIX,
+  PublicAccountSnapshotUnsupportedError,
+  normalizePublicAccountSnapshotRecord,
+} from '../ServicePrimeCloudSync/publicAccountSnapshot';
 
 import {
   logHardwareCloudSyncDiagnostic,
@@ -247,6 +252,22 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   private cloudSyncKeyMutex = new Semaphore(1);
 
+  private cloudAccountImportMutex = new Semaphore(1);
+
+  runWithCloudAccountImportLock<T>(operation: () => Promise<T>): Promise<T> {
+    return this.cloudAccountImportMutex.runExclusive(operation);
+  }
+
+  private cloudAccountImportGeneration = 0;
+
+  getCloudAccountImportGeneration(): number {
+    return this.hardwareCloudKeyGeneration + this.cloudAccountImportGeneration;
+  }
+
+  getKeylessWalletSelectionGeneration(): number {
+    return this.cloudAccountImportGeneration;
+  }
+
   private hardwareCloudKeyGeneration = 0;
 
   private hardwareCloudKeyPending = false;
@@ -316,6 +337,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
   }
 
+  // Scene replay takes only the import gate. Key-changing commits take the key
+  // lock first, then this gate; never use this around a scene replay itself.
+  private runWithCloudSyncSourceLock<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return this.runWithCloudSyncKeyLock(() =>
+      this.runWithCloudAccountImportLock(operation),
+    );
+  }
+
   private assertUnknownSyncItemsCanMigrate(
     items: IDBCloudSyncItem[],
     availablePwdHashes: string[],
@@ -357,6 +388,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         !(
           resignsSelectedSource &&
           !(await keylessSyncCredentialStorage.getCredential(targetId))
+            ?.hardwareSession
         ))
     ) {
       throw new HardwareCloudSyncError(
@@ -626,7 +658,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const { source, credential } = derived;
     const dataKey = { previousPwdHashes };
 
-    await this.runWithCloudSyncKeyLock(() =>
+    await this.backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets({
+      password,
+      askPasswordOnlyIfHdXfpMissing: true,
+    });
+    assertCurrent();
+    await this.runWithCloudSyncSourceLock(() =>
       this.repairCredentialMutex.runExclusive(async () => {
         assertCurrent();
         this.hardwareCloudKeyPending = true;
@@ -777,6 +814,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
             password,
             askPasswordOnlyIfHdXfpMissing: true,
             onlyAddMissing: restoresRotatedHardwareKey,
+            skipWalletPreparation: true,
           });
           await primeCloudSyncPersistAtom.set((value) => ({
             ...value,
@@ -837,7 +875,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async selectKeylessCloudSyncKey() {
-    await this.runWithCloudSyncKeyLock(async () => {
+    await this.runWithCloudSyncSourceLock(async () => {
       const selected = (await primeCloudSyncPersistAtom.get())
         .hardwareCloudSyncKeySource;
       if (!selected) return;
@@ -865,6 +903,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         currentCloudSyncKeylessWalletId: wallet.id,
         lastSyncTimeKeyless: undefined,
       }));
+      this.cloudAccountImportGeneration += 1;
       this.currentCloudSyncKeylessWalletIdCache = wallet.id;
     });
   }
@@ -876,7 +915,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   // Fallback for any path that left a hardware key behind while sync is off:
   // a turned-off hardware key must not stay on this device.
   async sweepHardwareCloudKeyIfSyncOff(): Promise<boolean> {
-    return this.runWithCloudSyncKeyLock(() =>
+    return this.runWithCloudSyncSourceLock(() =>
       this.repairCredentialMutex.runExclusive(async () => {
         const config = await primeCloudSyncPersistAtom.get();
         const source = config.hardwareCloudSyncKeySource;
@@ -929,9 +968,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const source = (await primeCloudSyncPersistAtom.get())
       .hardwareCloudSyncKeySource;
     if (!source) return false;
-    return !(await keylessSyncCredentialStorage.getCredential(
+    const credential = await keylessSyncCredentialStorage.getCredential(
       source.credentialId,
-    ));
+    );
+    return !credential?.hardwareSession;
   }
 
   @backgroundMethod()
@@ -1396,7 +1436,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     next: IHardwareCloudSyncDataKey,
   ): Promise<IKeylessCloudSyncCredential> {
-    return this.runWithCloudSyncKeyLock(async () => {
+    return this.runWithCloudSyncSourceLock(async () => {
       const session = credential.hardwareSession;
       if (!session) {
         throw hardwareSignedOutError();
@@ -1533,12 +1573,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
     urlPath,
     postData,
     retryAfterKeySwitch,
+    requestOptions,
   }: {
     credential: IKeylessCloudSyncCredential;
     urlPath: string;
     postData: Record<string, unknown>;
     // Uploads carry records encrypted with the old key, so they never retry.
     retryAfterKeySwitch?: boolean;
+    requestOptions?: { signal?: AbortSignal; timeout?: number };
   }) {
     const fresh = await this.getFreshHardwareCredential(credential);
     // Records built before a key switch must not go out under the new key:
@@ -1564,6 +1606,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         method: 'POST',
         urlPath,
         data: { ...postData, pwdHash: current.pwdHash },
+        requestOptions,
       });
     };
     try {
@@ -1782,7 +1825,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       });
       if (replacement) {
         const target = { ...replacement, source: derived.source };
-        await this.runWithCloudSyncKeyLock(() =>
+        await this.runWithCloudSyncSourceLock(() =>
           this.repairCredentialMutex.runExclusive(async () => {
             if (
               !isCurrent() ||
@@ -1900,7 +1943,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async apiCheckServerStatusKeyless({
     postData,
+    requestOptions,
   }: {
+    requestOptions?: { signal?: AbortSignal; timeout?: number };
     postData: ICloudSyncCheckServerStatusPostData;
   }) {
     const hardwareCredential = await this.getHardwareSessionCredential();
@@ -1910,6 +1955,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           credential: hardwareCredential,
           urlPath: '/prime/v1/sync/check',
           postData,
+          requestOptions,
           retryAfterKeySwitch: true,
         });
       const data = response.data.data;
@@ -1934,6 +1980,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const response = await keylessCloudSyncApi.checkStatus({
       client,
+      requestOptions,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
     });
@@ -1990,8 +2037,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async apiUploadItemsKeyless({
     postData,
+    requestOptions,
     urlPath,
   }: {
+    requestOptions?: { signal?: AbortSignal; timeout?: number };
     postData: ICloudSyncUploadPostData;
     urlPath: string;
   }) {
@@ -2002,6 +2051,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           credential: hardwareCredential,
           urlPath,
           postData,
+          requestOptions,
         })
       ).data.data;
     }
@@ -2016,6 +2066,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const response = await keylessCloudSyncApi.upload({
       client,
+      requestOptions,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
       urlPath,
@@ -2042,7 +2093,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       // Same key: the flush only rewrote data, which the push leaves out.
       if (credential.pwdHash === pwdHash) {
         await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
-          { callerName: 'Hardware Cloud sync flush push' },
+          { callerName: 'Hardware Cloud sync flush push', forceSync: true },
         );
         return;
       }
@@ -2171,6 +2222,21 @@ class ServiceKeylessCloudSync extends ServiceBase {
           continue;
         }
 
+        const payload = rawDataJson.payload;
+        if (
+          rawDataJson.dataType === EPrimeCloudSyncDataType.Account &&
+          payload &&
+          'accountId' in payload &&
+          typeof payload.accountId === 'string' &&
+          payload.accountId.startsWith(PUBLIC_ACCOUNT_SNAPSHOT_PREFIX)
+        ) {
+          try {
+            normalizePublicAccountSnapshotRecord(rawDataJson);
+          } catch {
+            throw new PublicAccountSnapshotUnsupportedError();
+          }
+        }
+
         const targetCredential = this.buildCredentialForTargetMode(
           syncCredential,
           targetMode,
@@ -2194,6 +2260,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           serverUploaded: false,
         });
       } catch (error) {
+        if (error instanceof PublicAccountSnapshotUnsupportedError) throw error;
         console.error(
           `[PrimeCloudSync] Failed to convert item ${item.id}:`,
           error,
@@ -2285,6 +2352,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       ) {
         return v;
       }
+      this.cloudAccountImportGeneration += 1;
       return {
         ...v,
         currentCloudSyncKeylessWalletId,
@@ -2538,6 +2606,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     enabled: boolean,
     { onlyIfSyncOff = false }: { onlyIfSyncOff?: boolean } = {},
   ): Promise<boolean> {
+    if (!enabled) {
+      await this.backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport();
+    }
     return this.runWithCloudSyncKeyLock(async () => {
       if (onlyIfSyncOff) {
         const current = await primeCloudSyncPersistAtom.get();
@@ -2551,7 +2622,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
           return false;
         }
       }
-      return this.setCloudSyncEnabledKeylessWithKeyLock(enabled);
+      return this.runWithCloudAccountImportLock(() =>
+        this.setCloudSyncEnabledKeylessWithKeyLock(enabled),
+      );
     });
   }
 
@@ -2926,12 +2999,23 @@ class ServiceKeylessCloudSync extends ServiceBase {
       throw new OneKeyError('Failed to get keyless credential');
     }
 
+    await this.backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets({
+      password,
+    });
+
     // Only the local write needs the key lock. The prompt and repair above ran
     // without it, so confirm this credential is still the selected key first.
     const initLocalSyncItems = () =>
       this.runWithCloudSyncKeyLock(async () => {
         const selected = await this.getKeylessCloudSyncCredential();
-        if (selected?.signingPublicKey !== keylessCredential.signingPublicKey) {
+        if (
+          selected?.keylessWalletId !== keylessCredential.keylessWalletId ||
+          selected?.source?.credentialId !==
+            keylessCredential.source?.credentialId ||
+          selected?.signingPublicKey !== keylessCredential.signingPublicKey ||
+          selected?.pwdHash !== keylessCredential.pwdHash ||
+          selected?.encryptionKey !== keylessCredential.encryptionKey
+        ) {
           throw new HardwareCloudSyncError(
             ETranslations.cloud_sync_key_selection_changed__msg,
             'The encryption method for Cloud sync changed. Your data will sync with the new one next time.',
@@ -2939,6 +3023,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         }
         await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB({
           password,
+          skipWalletPreparation: true,
           syncCredential:
             this.buildSyncCredentialWithKeylessCredential(keylessCredential),
         });

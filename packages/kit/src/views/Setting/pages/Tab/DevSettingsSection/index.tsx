@@ -87,11 +87,6 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
-import {
-  INTERCOM_SUPPORT_URL,
-  normalizeIntercomSupportUrl,
-  resolveIntercomSupportUrlOverride,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
@@ -1008,50 +1003,6 @@ const BaseDevSettingsSection = () => {
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
-  const intercomSupportUrlOverride =
-    resolveIntercomSupportUrlOverride(devSettings);
-  const savedIntercomSupportUrl = devSettings.settings?.intercomSupportUrl;
-  const handleOpenIntercomSupportUrlDialog = useCallback(() => {
-    Dialog.show({
-      title: '客服页面地址',
-      description: `仅替换插件打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。必须是 https，http 仅允许 localhost / 127.0.0.1。登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
-      renderContent: (
-        <Dialog.Form
-          formProps={{ values: { url: savedIntercomSupportUrl ?? '' } }}
-        >
-          <Dialog.FormField
-            name="url"
-            rules={{
-              validate: (value: string | undefined) =>
-                !value?.trim() ||
-                !!normalizeIntercomSupportUrl(value) ||
-                '请输入 https:// 开头的完整地址（http 仅限 localhost / 127.0.0.1）',
-            }}
-          >
-            <Input
-              testID="dev-settings-intercom-support-url-input"
-              placeholder={INTERCOM_SUPPORT_URL}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
-      ),
-      onConfirm: async ({ getForm }) => {
-        const { url } = (getForm()?.getValues() ?? {}) as { url?: string };
-        const nextUrl = normalizeIntercomSupportUrl(url);
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-          'intercomSupportUrl',
-          nextUrl,
-        );
-        Toast.success({
-          title: nextUrl ? '客服页面地址已更新' : '已恢复默认客服页面地址',
-          message: nextUrl ?? INTERCOM_SUPPORT_URL,
-        });
-      },
-    });
-  }, [savedIntercomSupportUrl]);
-
   const handleOpenPrimeFreeTrialResetDialog = useCallback(() => {
     Dialog.show({
       title: '重置 Prime 免费试用次数',
@@ -1294,7 +1245,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery SesGallery SES lockdown harden AuthGallery KeylessWalletGallery StorageGallery CloudBackupGallery',
       },
       {
         key: 'account',
@@ -2075,9 +2026,7 @@ const BaseDevSettingsSection = () => {
                         onPress={async () => {
                           try {
                             Toast.message({ title: 'Checking for updates...' });
-                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
-                              true,
-                            );
+                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
                             Toast.success({ title: 'Check updates done' });
                           } catch (e) {
                             Toast.error({
@@ -2308,7 +2257,8 @@ const BaseDevSettingsSection = () => {
 
                       {platformEnv.isWeb ||
                       platformEnv.isDesktop ||
-                      platformEnv.isExtension ? (
+                      platformEnv.isExtension ||
+                      platformEnv.isNative ? (
                         <SectionPressItem
                           icon="ShieldCheckDoneOutline"
                           title="SES Harden Runtime Check"
@@ -2759,19 +2709,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      {platformEnv.isExtension ? (
-                        <SectionPressItem
-                          icon="HelpSupportOutline"
-                          title="客服页面地址"
-                          subtitle={
-                            intercomSupportUrlOverride ??
-                            `默认 ${INTERCOM_SUPPORT_URL}`
-                          }
-                          searchKeywords="intercom support customer service url 客服 地址 覆盖"
-                          onPress={handleOpenIntercomSupportUrlDialog}
-                          testID="dev-settings-intercom-support-url"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionFieldItem
                           icon="ArrowTopRightOutline"
@@ -2800,6 +2737,18 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="SesGallery"
+                        subtitle="SES intrinsic functions, behavior and tamper checks in main and background"
+                        testID="ses-gallery-runtime-check-menu"
+                        searchKeywords="SES lockdown harden intrinsic function runtime check"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                          );
+                        }}
+                      />
                       <SectionPressItem
                         icon="LaptopOutline"
                         title="DesktopApiProxy Test"
