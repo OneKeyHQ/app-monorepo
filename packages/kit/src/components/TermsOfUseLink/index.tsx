@@ -2,13 +2,14 @@ import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { useTermsAndPrivacyLinks } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IntlShape } from 'react-intl';
 
 // Small centered "OneKey Terms of Use" link for the bottom of an explainer
-// dialog. It closes the dialog first so the dialog is not left open behind
-// the page it opens.
+// dialog. It closes the dialog so the dialog is not left open behind the page
+// it opens.
 export function DialogTermsOfUseLink({
   intl,
   testID,
@@ -19,7 +20,17 @@ export function DialogTermsOfUseLink({
   const dialogInstance = useDialogInstance();
   const { termsUrl } = useTermsAndPrivacyLinks();
   const openTermsOfUse = async () => {
-    await dialogInstance.close();
+    if (platformEnv.isNative) {
+      // iOS drops an in-app browser presented on top of a dialog that is
+      // still dismissing, so native waits for the close.
+      await dialogInstance.close();
+      openUrlExternal(termsUrl);
+      return;
+    }
+    // The dialog resolves its close from the exit animation or a timer, and
+    // web popup blockers only honour window.open while the click still holds
+    // user activation, so web opens the page without waiting.
+    void dialogInstance.close();
     openUrlExternal(termsUrl);
   };
 
