@@ -1,49 +1,43 @@
 # Third-party desktop BLE ownership
 
-The Hardware SDK package `@onekeyfe/hwk-desktop-noble-ble` owns the Windows OS
-pairing lifecycle, vendor-specific timing, cancellation, connection retry, and
-stale-bond classification. Its package README is the integration contract for
-other hosts. The Rust helper source and x64/ARM64 prebuilds are maintained there.
+The App owns the native Windows pairing helper. Its Rust crate lives in
+`apps/desktop/native-modules/onekey-ble-pair`; its x64/ARM64 executables live in
+`apps/desktop/public/static/bin/ble-pair/win-{x64,arm64}`. Native Noble fixes and
+the Electron native rebuild also remain in this repository.
 
-App responsibilities are limited to:
+The Hardware SDK package `@onekeyfe/hwk-desktop-noble-ble` coordinates the helper
+process, pairing deadlines, cancellation, connection retry, and structured
+errors. The App supplies the helper path and translated comparison dialog through
+`app/process/windowsBlePairing.ts`. The SDK does not publish the Rust crate or
+native executables.
 
-- Authorizing IPC senders in `app/app.ts` and forwarding structured SDK errors.
-- Providing the packaged helper path and translated numeric-comparison dialog
-  through `app/process/windowsBlePairing.ts`.
-- User recovery instructions/navigation in the onboarding UI. These are not
-  transport retries or automatic device selection.
+## Native builds and packaging
 
-Do not add pairing timers, WinRT decision slots, GATT retries, device address
-rewrites, or vendor scan filtering to the App module wrapper. Normal onboarding
-uses the SDK implementation directly. The temporary BLE developer test page has
-been removed.
+Follow the [Rust helper build instructions](../native-modules/onekey-ble-pair/README.md)
+when changing native pairing behavior. Update the source and matching App
+executables together, preserving the helper process protocol expected by the SDK.
+
+Development resolves `bin/ble-pair/win-${process.arch}/onekey-ble-pair.exe` from
+the App static resources. Windows and Store builds copy the target architecture
+to `bin/ble-pair/onekey-ble-pair.exe` outside ASAR. These resources continue to be
+owned by the App after SDK upgrades.
+
+The App also owns IPC sender authorization in `app/app.ts` and onboarding recovery
+instructions/navigation. Keep transport retry timers and pairing decisions in
+the SDK coordinator rather than duplicating that logic in the App wrapper.
 
 ## SDK release transition
 
 The App currently pins `1.2.11-alpha.1`. The SDK's `1.2.11-alpha.2` source has the
-pairing module, but npm publication is a separate release action. Until that
-release is available, the patch
-`patches/@onekeyfe+hwk-desktop-noble-ble+1.2.11-alpha.1.patch` contains the SDK's
-built CJS/ESM entrypoints and TypeScript declarations. It must be generated from
-SDK source builds, never maintained as a separate pairing implementation. The
-existing adapter-core route-retention patch also remains until the upgrade.
+pairing coordinator, but npm publication is a separate release action. Until that
+release is available, `patches/@onekeyfe+hwk-desktop-noble-ble+1.2.11-alpha.1.patch`
+contains its built CJS/ESM entrypoints and declarations. Generate this patch from
+SDK source builds, never as a separate pairing implementation.
 
-The Windows executable copies under `public/static/bin/ble-pair/win-{x64,arm64}`
-remain host packaging resources during this transition. Their bytes match the
-SDK's `prebuilds/win32-{x64,arm64}`. Update the SDK-owned Rust source and build
-there before refreshing these App resources; do not restore a second Rust crate
-in this repository.
-
-After the SDK release:
-
-1. Upgrade the aligned SDK dependencies and regenerate the lockfile.
-2. Remove the two superseded SDK patches.
-3. Stage the helper from the installed SDK's `prebuilds/win32-${arch}` into the
-   existing `bin/ble-pair` resource path for both Windows and Store builds. Once
-   both packaged builds and development resolve the SDK assets, remove the
-   transitional static copies.
-4. Run the pairing, scan handoff, route-retention, and onboarding recovery tests,
-   then verify the Windows installer contains the correct architecture helper.
+After the SDK release, upgrade the aligned dependencies and remove the
+superseded SDK patches. Keep the App Rust crate, native executables, and Windows
+packaging resources here. Validate normal onboarding and Windows pairing,
+cancellation, timeout recovery, and reconnect on real hardware.
 
 The SDK does not auto-accept comparison codes or remove OS bonds. The App must
 close its dialog when the supplied `AbortSignal` aborts. Only the user may

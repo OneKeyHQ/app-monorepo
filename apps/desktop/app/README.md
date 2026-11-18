@@ -65,5 +65,6 @@ the packaged desktop app from this app directory.
 
 ## Third-party Bluetooth pairing
 
-See [SDK ownership and release transition](../docs/third-party-ble.md). The App
-provides the dialog and executable path; the SDK owns the pairing lifecycle.
+See [native helper ownership and SDK integration](../docs/third-party-ble.md).
+The App maintains the Rust helper, native binaries, dialog, and executable path;
+the SDK coordinates the pairing lifecycle through that host-provided helper.

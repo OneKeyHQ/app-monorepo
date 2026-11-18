@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts
-index eba0e61..170df1c 100644
+index eba0e61..e3774d5 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.mts
 @@ -13,6 +13,22 @@ type BleDebugLogger = (entry: BleDebugLogEntry) => void;
@@ -16,7 +16,7 @@ index eba0e61..170df1c 100644
 +    signal: AbortSignal;
 +}
 +interface WindowsBlePairingOptions {
-+    /** Absolute path to the SDK's helper, copied outside Electron's ASAR. */
++    /** Absolute path to the host-provided helper, copied outside Electron's ASAR. */
 +    helperPath: string;
 +    /** Resolve only after the user compares the code and confirms or cancels. */
 +    onPairingRequest(request: WindowsBlePairingRequest): Promise<WindowsBlePairingDecision>;
@@ -95,7 +95,7 @@ index eba0e61..170df1c 100644
 -export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 +export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, type WindowsBlePairingDecision, type WindowsBlePairingOptions, type WindowsBlePairingRequest, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts
-index 7efe993..0d8db1b 100644
+index 7efe993..9eec52a 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.d.ts
 @@ -13,6 +13,22 @@ type BleDebugLogger = (entry: BleDebugLogEntry) => void;
@@ -112,7 +112,7 @@ index 7efe993..0d8db1b 100644
 +    signal: AbortSignal;
 +}
 +interface WindowsBlePairingOptions {
-+    /** Absolute path to the SDK's helper, copied outside Electron's ASAR. */
++    /** Absolute path to the host-provided helper, copied outside Electron's ASAR. */
 +    helperPath: string;
 +    /** Resolve only after the user compares the code and confirms or cancels. */
 +    onPairingRequest(request: WindowsBlePairingRequest): Promise<WindowsBlePairingDecision>;
