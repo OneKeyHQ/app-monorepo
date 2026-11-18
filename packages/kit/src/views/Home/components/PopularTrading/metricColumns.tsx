@@ -104,7 +104,7 @@ function renderPopularTradingChangeText(
 // Mobile right cell: price stacked over the 24h change (colored text, no badge).
 function renderPopularTradingPriceWithChange(record: IFavoriteTokenDisplay) {
   return (
-    <YStack alignItems="flex-end">
+    <YStack alignItems="flex-end" flexShrink={0}>
       <NumberSizeableText
         size="$bodyLgMedium"
         formatter="price"
@@ -221,5 +221,7 @@ export {
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
+  renderPopularTradingPriceWithChange,
   renderPopularTradingStockBadges,
+  renderPopularTradingTokenIdentity,
 };
