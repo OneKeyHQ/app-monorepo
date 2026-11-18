@@ -12,14 +12,8 @@ import type { MutableRefObject, Ref } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Divider,
-  Icon,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import type { IInputRef } from '@onekeyhq/components';
+import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IInputRef, IToastProps } from '@onekeyhq/components';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -59,21 +53,17 @@ export type ISizeInputMinimumOrderAction = {
 export function getMinimumOrderToastActionProps(
   action?: ISizeInputMinimumOrderAction,
   actionLabel?: string,
-) {
+): Pick<IToastProps, 'duration' | 'actionsAlign' | 'actions'> {
   if (platformEnv.isNativeIOS || !action || !actionLabel) return {};
   return {
     duration: 3000,
     actionsAlign: 'left' as const,
-    actions: (
-      <Button
-        testID="perp-minimum-order-toast-action"
-        size="small"
-        variant="primary"
-        onPress={action.onPress}
-      >
-        {actionLabel}
-      </Button>
-    ),
+    actions: {
+      testID: 'perp-minimum-order-toast-action',
+      variant: 'primary',
+      label: actionLabel,
+      onPress: action.onPress,
+    },
   };
 }
 
