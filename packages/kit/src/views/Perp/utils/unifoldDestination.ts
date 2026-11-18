@@ -42,6 +42,36 @@ export function filterUnifoldSupportedAssetsByWallets(
     .filter((asset) => asset.chains.length > 0);
 }
 
+type IUnifoldChainIdentity = Pick<
+  IUnifoldSupportedAssetChain,
+  'chain_type' | 'chain_id'
+>;
+
+// Unifold identifies a chain by (chain_type, chain_id). chain_id alone is not
+// unique: every non-EVM chain uses 'mainnet' (solana, bitcoin, tron), so a
+// chain_id-only match treats Tron and Solana as the same network.
+export function isSameUnifoldChain(
+  a: IUnifoldChainIdentity | null | undefined,
+  b: IUnifoldChainIdentity | null | undefined,
+): boolean {
+  if (!a || !b) {
+    return false;
+  }
+  return a.chain_type === b.chain_type && a.chain_id === b.chain_id;
+}
+
+// Mirrors the SDK chain-snap rule: picking a token keeps the current chain
+// when the token offers it, and otherwise snaps to the token's first chain.
+export function pickUnifoldChainForAsset(
+  asset: IUnifoldSupportedAsset,
+  currentChain: IUnifoldChainIdentity | null | undefined,
+): IUnifoldSupportedAssetChain | undefined {
+  return (
+    asset.chains.find((chain) => isSameUnifoldChain(chain, currentChain)) ??
+    asset.chains[0]
+  );
+}
+
 export function findMatchingUnifoldSourceSelection(
   assets: IUnifoldSupportedAsset[] | undefined,
   selection: {

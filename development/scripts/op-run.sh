@@ -53,6 +53,7 @@ fi
 echo "Loading environment variables from 1Password vault: $VAULT_NAME"
 
 # Get all item titles from the vault (null-delimited for safe parsing)
+LOADED_NAMES=""
 while IFS= read -r -d '' item; do
     # Sanitize title: replace spaces/hyphens with underscores, remove invalid chars
     sanitized=$(echo "$item" | tr ' -' '__' | tr -cd 'A-Za-z0-9_')
@@ -67,12 +68,16 @@ while IFS= read -r -d '' item; do
     [ -z "$value" ] && continue
 
     export "$sanitized=$value"
+    LOADED_NAMES="${LOADED_NAMES:+$LOADED_NAMES }$sanitized"
     if [ "$sanitized" != "$item" ]; then
         echo "  Loaded: $item -> $sanitized"
     else
         echo "  Loaded: $sanitized"
     fi
 done < <(op item list --vault="$VAULT_NAME" --account="$ACCOUNT" --format=json | jq -j '.[].title + "\u0000"')
+
+# Names only, so commands can tell which values came from 1Password.
+export OP_RUN_LOADED="$LOADED_NAMES"
 
 echo "Environment variables loaded. Starting command..."
 echo ""

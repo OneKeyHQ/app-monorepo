@@ -4,6 +4,8 @@ import {
   filterUnifoldSupportedAssetsByWallets,
   findMatchingUnifoldSourceSelection,
   hasUsableUnifoldSupportedAssets,
+  isSameUnifoldChain,
+  pickUnifoldChainForAsset,
 } from './unifoldDestination';
 
 const mkAsset = (
@@ -128,4 +130,53 @@ describe('findMatchingUnifoldSourceSelection', () => {
       ).toBeNull();
     },
   );
+});
+
+// Every non-EVM chain in the Unifold catalog uses chain_id 'mainnet'.
+const arbitrum = { chain_id: '42161', chain_type: 'ethereum' };
+const solana = { chain_id: 'mainnet', chain_type: 'solana' };
+const tron = { chain_id: 'mainnet', chain_type: 'tron' };
+const bitcoin = { chain_id: 'mainnet', chain_type: 'bitcoin' };
+
+describe('isSameUnifoldChain', () => {
+  it('matches on chain type and chain id together', () => {
+    expect(isSameUnifoldChain(tron, { ...tron })).toBe(true);
+    expect(isSameUnifoldChain(arbitrum, { ...arbitrum })).toBe(true);
+  });
+
+  it('tells apart non-EVM chains that share the mainnet chain id', () => {
+    expect(isSameUnifoldChain(tron, solana)).toBe(false);
+    expect(isSameUnifoldChain(bitcoin, solana)).toBe(false);
+  });
+
+  it('is false when either side is missing', () => {
+    expect(isSameUnifoldChain(undefined, tron)).toBe(false);
+    expect(isSameUnifoldChain(tron, null)).toBe(false);
+  });
+});
+
+describe('pickUnifoldChainForAsset', () => {
+  it('keeps the current chain when the token offers it', () => {
+    const usdt0 = mkAsset([arbitrum, solana, tron]);
+    expect(pickUnifoldChainForAsset(usdt0, tron)).toBe(usdt0.chains[2]);
+    expect(pickUnifoldChainForAsset(usdt0, solana)).toBe(usdt0.chains[1]);
+  });
+
+  it('snaps to the first chain rather than another mainnet chain', () => {
+    // Tron → a token with Solana but no Tron must not land on Solana.
+    const usdc = mkAsset([arbitrum, solana]);
+    expect(pickUnifoldChainForAsset(usdc, tron)).toBe(usdc.chains[0]);
+    // Bitcoin → USDT0 likewise.
+    const usdt0 = mkAsset([arbitrum, solana, tron]);
+    expect(pickUnifoldChainForAsset(usdt0, bitcoin)).toBe(usdt0.chains[0]);
+  });
+
+  it('falls back to the first chain without a current chain', () => {
+    const usdc = mkAsset([arbitrum, solana]);
+    expect(pickUnifoldChainForAsset(usdc, undefined)).toBe(usdc.chains[0]);
+  });
+
+  it('returns undefined for a token without chains', () => {
+    expect(pickUnifoldChainForAsset(mkAsset([]), tron)).toBeUndefined();
+  });
 });
