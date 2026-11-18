@@ -25,10 +25,17 @@ function desired(entry, records, locales) {
   );
 }
 
-// The approval covers one onekey-i18n branch and release channel. Plans made
-// before they were recorded were made for main and the latest release.
-function assertTarget(plan, client) {
-  const approved = plan.central ?? { base: 'main', channel: 'latest' };
+// The approval covers one onekey-i18n branch and release channel. A plan
+// prepared before they were recorded has an unknown target: it may only finish
+// the PR an earlier apply opened (pulling that PR's pinned commit).
+function assertTarget(plan, client, proposal) {
+  if (!plan.central) {
+    if (proposal?.commit) return;
+    throw new Error(
+      'The plan predates recording its onekey-i18n branch and release channel, so its target is unknown. Prepare another preview.',
+    );
+  }
+  const approved = plan.central;
   const current = {
     base: client.base ?? 'main',
     channel: client.channel ?? 'latest',
@@ -141,7 +148,6 @@ async function applyPlan({
       'User confirmation is required. Pass --approve with the preview hash only after the user confirms.',
     );
   const plan = readPlan(file, approval);
-  assertTarget(plan, client);
   const receiptFile = `${file}.receipt.json`;
   const lockFile = `${file}.lock`;
   let lock;
@@ -190,6 +196,7 @@ async function applyPlan({
       }
       if (previous.proposal) receipt.proposal = previous.proposal;
     }
+    assertTarget(plan, client, receipt.proposal);
     owned = true;
     await verifyProject(plan, client, root);
     if (workspace(root).branch !== plan.workspace.branch)

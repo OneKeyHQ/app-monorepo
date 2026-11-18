@@ -961,7 +961,8 @@ async function applyCentralDeleteIfRequested(
     } catch (error) {
       // The PR exists; report it so the pull can be retried on its own.
       summary.pullError = error.message;
-      summary.note += ` Pulling its preview failed: ${error.message}. Retry with \`yarn i18n:pull --pr ${proposal.number} --commit ${proposal.commit} --wait\`.`;
+      // The same command the pull ran, with the same GitHub credentials.
+      summary.note += ` Pulling its preview failed: ${error.message}. Retry with \`node development/scripts/i18n/i18n-pull.js --pr ${proposal.number} --commit ${proposal.commit} --wait\`.`;
     }
   }
 }
@@ -1262,7 +1263,11 @@ async function main() {
     await applyCentralDeleteIfRequested(report, options);
     const output = formatReport(report, options);
     writeOutput(output, options.output);
-    if (report.centralDelete?.pullError) process.exitCode = 1;
+    // CSV output has no room for it, so the PR and the retry always go to stderr.
+    if (report.centralDelete?.pullError) {
+      console.error(`Error: ${report.centralDelete.note}`);
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.error(`Error: ${error.message}`);
     console.error('Run `yarn i18n:unused --help` for usage.');

@@ -4,7 +4,12 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const { applyPlan, verifyLocal } = require('./workflow-apply');
-const { LOCALES_PATH, readJson, writeJson } = require('./workflow-data');
+const {
+  LOCALES_PATH,
+  digest,
+  readJson,
+  writeJson,
+} = require('./workflow-data');
 const {
   preparePlan,
   renderPreview,
@@ -289,6 +294,46 @@ test('apply refuses a plan approved for another onekey-i18n branch or channel, b
   );
   assert.equal(ctx.writes.length, 0);
   assert(!fs.existsSync(`${ctx.file}.receipt.json`));
+});
+
+test('a plan that predates recorded targets may only finish the PR it opened', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  const { approval: _approval, central: _central, ...content } = ctx.plan;
+  const legacy = { ...content, approval: digest(content) };
+  const file = path.join(ctx.root, 'legacy-plan.json');
+  savePlan(legacy, file);
+  const apply = () =>
+    applyPlan({
+      file,
+      approval: legacy.approval,
+      client: ctx.client,
+      root: ctx.root,
+      pullImpl: fakePull,
+    });
+  await assert.rejects(apply, /predates recording its onekey-i18n branch/);
+  assert.equal(ctx.writes.length, 0);
+  assert(!fs.existsSync(`${file}.receipt.json`));
+
+  writeJson(`${file}.receipt.json`, {
+    schemaVersion: 1,
+    kind: 'i18n-receipt',
+    approval: legacy.approval,
+    status: 'failed',
+    failedStage: 'pulling',
+    operations: [],
+    proposal: { number: 9, commit: 'c2' },
+  });
+  ctx.client.project = async () => {
+    throw new Error('reached the preflight');
+  };
+  await assert.rejects(apply, /reached the preflight/);
 });
 
 test('a failed preflight leaves the receipt of an earlier apply as it was', async (t) => {
