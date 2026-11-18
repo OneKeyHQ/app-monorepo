@@ -557,7 +557,6 @@ export function DesktopLayout({
         headerRef={bannerHeaderRef}
         stickyHeaderRef={stickyHeaderRef}
         active={isLayoutActive}
-        renderHeader={renderBannerContent}
       >
         <AppPager
           ref={tabsRef}

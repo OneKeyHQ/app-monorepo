@@ -259,12 +259,10 @@ export function MarketBannerLayout({
   headerRef,
   stickyHeaderRef,
   active,
-  renderHeader,
 }: PropsWithChildren<{
   headerRef: RefObject<IElement | null>;
   stickyHeaderRef: RefObject<IElement | null>;
   active: boolean;
-  renderHeader: () => ReactNode;
 }>) {
   const rootRef = useRef<IElement | null>(null);
   const coverRef = useRef<IElement | null>(null);
@@ -273,16 +271,18 @@ export function MarketBannerLayout({
   const [painted, setPainted] = useState(false);
 
   useLayoutEffect(() => {
+    const header = headerRef.current as HTMLElement | null;
+    const cover = coverRef.current as HTMLElement | null;
+    if (!header || !cover) return;
+    // A second React header would restart stateful content such as the ticker.
+    // Copy its rendered position and quotes before the recovery cover paints.
+    cover.replaceChildren(header.cloneNode(true));
     const selector = `[data-testid="${MarketTestIDs.bannerScrollView}"]`;
-    const source = (
-      rootRef.current as HTMLElement | null
-    )?.querySelector<HTMLElement>(selector);
-    const cover = (
-      coverRef.current as HTMLElement | null
-    )?.querySelector<HTMLElement>(selector);
-    // The recovery cover must show the same cards before its first paint.
-    if (source && cover) cover.scrollLeft = source.scrollLeft;
-  }, [active, ready, painted]);
+    const sourceScroller = header.querySelector<HTMLElement>(selector);
+    const coverScroller = cover.querySelector<HTMLElement>(selector);
+    if (sourceScroller && coverScroller)
+      coverScroller.scrollLeft = sourceScroller.scrollLeft;
+  });
 
   useLayoutEffect(() => {
     if (!ready) {
@@ -365,9 +365,7 @@ export function MarketBannerLayout({
           pointerEvents="none"
           bg="$bgApp"
           aria-hidden
-        >
-          {renderHeader()}
-        </YStack>
+        />
       ) : null}
       <YStack
         ref={rootRef}

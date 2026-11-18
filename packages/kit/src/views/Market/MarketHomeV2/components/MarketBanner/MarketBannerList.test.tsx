@@ -171,6 +171,30 @@ it('keeps the desktop scroll host when initial placeholders become cards', () =>
   expect(screen.getByTestId('banner')).toBeTruthy();
 });
 
+it('shows the rendered headline in the recovery cover instead of restarting it', () => {
+  const header = Object.assign(document.createElement('div'), {
+    measure: jest.fn(),
+    measureInWindow: jest.fn(),
+    measureLayout: jest.fn(),
+  });
+  const headline = document.createElement('div');
+  headline.textContent = 'Currently selected headline';
+  headline.style.transform = 'translateY(-28px)';
+  header.append(headline);
+  render(
+    <MarketBannerLayout
+      active
+      headerRef={{ current: header }}
+      stickyHeaderRef={{ current: null }}
+    >
+      <div>Table</div>
+    </MarketBannerLayout>,
+  );
+  expect(screen.getByText('Currently selected headline').style.transform).toBe(
+    'translateY(-28px)',
+  );
+});
+
 it.each([0, 690])(
   'keeps the banner aligned until pager insets are ready on entry and refocus (scrollLeft=%s)',
   async (scrollLeft) => {
@@ -232,18 +256,19 @@ it.each([0, 690])(
     jest
       .spyOn(stickyHeader, 'getBoundingClientRect')
       .mockReturnValue({ ...headerRect, height: 108, bottom: 108 });
+    const sourceHeader = () => (
+      <MarketBannerProvider>
+        <div data-testid="highlight-header">Selected headline</div>
+        <MarketBannerList compactTopSpacing />
+      </MarketBannerProvider>
+    );
+    const sourceView = render(sourceHeader(), { container: header });
     const page = (active: boolean) => (
       <MarketBannerProvider>
         <MarketBannerLayout
           headerRef={{ current: header }}
           stickyHeaderRef={{ current: stickyHeader }}
           active={active}
-          renderHeader={() => (
-            <>
-              <div data-testid="highlight-header">Headline</div>
-              <MarketBannerList compactTopSpacing />
-            </>
-          )}
         >
           <div data-testid="pager" data-collapsible-pager-active="true">
             <div data-testid={MarketTestIDs.bannerScrollView} />
@@ -275,10 +300,15 @@ it.each([0, 690])(
     expect(screen.queryByTestId('skeleton')).toBeNull();
 
     mockState = populated();
+    sourceView.rerender(sourceHeader());
     const scrollHost = within(pager).getByTestId(
       MarketTestIDs.bannerScrollView,
     );
     scrollHost.scrollLeft = scrollLeft;
+    const sourceScroller = header.querySelector<HTMLElement>(
+      `[data-testid="${MarketTestIDs.bannerScrollView}"]`,
+    );
+    if (sourceScroller) sourceScroller.scrollLeft = scrollLeft;
     const expectAlignedCover = () => {
       expect(
         screen.getByTestId('highlight-header').closest('[aria-hidden="true"]'),
