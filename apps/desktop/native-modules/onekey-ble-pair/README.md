@@ -28,3 +28,9 @@ Windows and Store packaging already copy the target executable outside ASAR.
 Preserve the SDK process protocol: `pair --address`, JSON stdout events, and
 `confirm`/`cancel` stdin decisions. Numeric comparison requires the user's
 confirmation; never record the comparison code in logs.
+
+Normal `pair` runs do not create a diagnostic log or emit device descriptors.
+Read-only diagnostic commands are explicit and may write device identifiers.
+`link` and `pairing-result` events close the host prompt before cleanup. A host
+`cancel` remains valid after `confirm` until WinRT pairing finishes; cancellation
+of a new bond is cleaned up without deleting an `AlreadyPaired` bond.

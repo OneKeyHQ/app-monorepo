@@ -22,6 +22,11 @@ the App static resources. Windows and Store builds copy the target architecture
 to `bin/ble-pair/onekey-ble-pair.exe` outside ASAR. These resources continue to be
 owned by the App after SDK upgrades.
 
+Windows dependency setup builds and stages patched Noble bindings for both x64
+and ARM64 before packaging starts. `afterPack` selects the target's staged binding
+and verifies its PE architecture and native patch markers. Missing or incompatible
+bindings fail packaging instead of shipping a host-architecture binary.
+
 The App also owns IPC sender authorization in `app/app.ts` and onboarding recovery
 instructions/navigation. Keep transport retry timers and pairing decisions in
 the SDK coordinator rather than duplicating that logic in the App wrapper.

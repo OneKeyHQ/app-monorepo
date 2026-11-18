@@ -28,7 +28,7 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
-      // Same SDK helper and resource layout as the regular Windows build.
+      // Same App helper and resource layout as the regular Windows build.
       {
         'from': 'app/build/static/bin/ble-pair/win-${arch}',
         'to': 'bin/ble-pair',

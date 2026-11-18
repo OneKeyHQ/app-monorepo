@@ -12,19 +12,8 @@
 //! `PairingRequested` delegate, so our auto-accept never ran. That is fixed and
 //! confirmed by the logs (the delegate fires) — do NOT re-tweak it.
 //!
-//! `PairAsync` still returns `Failed(19)`, WinRT's opaque catch-all, ~12s after
-//! we Accept. 19 carries no reason, so this build records everything needed to
-//! tell the candidates apart from a SINGLE failing run (rebuilds are expensive):
-//!   - address type + RPA bit pattern     -> is the device using a rotating
-//!                                           Resolvable Private Address?
-//!   - inventory of already-paired BLE    -> is there a stale/half bond, maybe
-//!     devices, before and after            under a previous RPA?
-//!   - link up/down during the ceremony   -> did the device drop the link, or
-//!                                           did we time out while connected?
-//!   - IsPaired() *before* the cleanup    -> did the bond actually get stored
-//!     unpair                               despite the Failed status?
-//!   - monotonic ms on every line         -> is the ~12s a fixed OS timeout or
-//!                                           human latency?
+//! Routine pairing emits only the structured host protocol and writes no log file.
+//! Explicit diagnostic commands may record device identifiers for local inspection.
 //!
 //! stdout protocol — one JSON object per line, flushed immediately:
 //!   {"type":"diag","t_ms":123,"msg":"..."}   diagnostics (mirrored on stderr)
@@ -38,7 +27,7 @@
 //! Usage: onekey-ble-pair <pair|is-paired|forget|inspect> --address AA:BB:..:FF
 
 #[cfg(windows)]
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 #[cfg(windows)]
 use std::sync::{Mutex, OnceLock};
 #[cfg(windows)]
@@ -46,6 +35,8 @@ use std::time::Instant;
 
 #[cfg(windows)]
 static START: OnceLock<Instant> = OnceLock::new();
+#[cfg(windows)]
+static DIAGNOSTICS: AtomicBool = AtomicBool::new(false);
 /// Every emitted line is also appended here, so a standalone run leaves a single
 /// self-contained log the user can hand back verbatim (stdout and stderr get
 /// interleaved/reordered by the terminal; this does not).
@@ -77,7 +68,10 @@ fn init_log_file() {
         .open(&path)
     {
         let _ = LOG_FILE.set(Mutex::new(file));
-        log_line(&format!("===== onekey-ble-pair run, log at {} =====", path.display()));
+        log_line(&format!(
+            "===== onekey-ble-pair run, log at {} =====",
+            path.display()
+        ));
     }
 }
 /// Set by the PairingRequested delegate so we can report Accept -> result delta.
@@ -93,6 +87,8 @@ const DECISION_PENDING: u8 = 0;
 const DECISION_CONFIRM: u8 = 1;
 #[cfg(windows)]
 const DECISION_CANCEL: u8 = 2;
+#[cfg(windows)]
+const DECISION_FINISHED: u8 = 3;
 #[cfg(windows)]
 static DECISION: AtomicU8 = AtomicU8::new(DECISION_PENDING);
 
@@ -159,21 +155,29 @@ fn spawn_decision_reader() {
                 "cancel" => DECISION_CANCEL,
                 _ => continue,
             };
-            // First decision wins; a later line cannot flip a settled ceremony.
-            let _ = DECISION.compare_exchange(
-                DECISION_PENDING,
-                decision,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            );
-            return;
+            if decision == DECISION_CONFIRM {
+                // Confirmation releases the deferral, but cancellation remains valid
+                // until PairAsync completes on the device.
+                let _ = DECISION.compare_exchange(
+                    DECISION_PENDING,
+                    DECISION_CONFIRM,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                );
+            } else {
+                break;
+            }
         }
-        let _ = DECISION.compare_exchange(
-            DECISION_PENDING,
-            DECISION_CANCEL,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        );
+        loop {
+            let current = DECISION.load(Ordering::SeqCst);
+            if current == DECISION_FINISHED
+                || DECISION
+                    .compare_exchange(current, DECISION_CANCEL, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok()
+            {
+                break;
+            }
+        }
     });
 }
 
@@ -190,7 +194,6 @@ fn t_ms() -> u64 {
 #[cfg(windows)]
 fn main() {
     START.get_or_init(Instant::now);
-    init_log_file();
 
     // Multithreaded apartment so WinRT event delegates (PairingRequested,
     // ConnectionStatusChanged) are dispatched on thread-pool threads while we
@@ -202,12 +205,18 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     let command = args.get(1).map(String::as_str).unwrap_or("");
+    if command != "pair" {
+        DIAGNOSTICS.store(true, Ordering::SeqCst);
+        init_log_file();
+    }
     let address = get_flag(&args, "--address");
     let seconds = get_flag(&args, "--seconds")
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(60);
 
-    diag(&format!("helper start command={command} address={address:?}"));
+    diag(&format!(
+        "helper start command={command} address={address:?}"
+    ));
 
     // Leave the link up after bonding instead of closing it. The device holds the
     // link and waits for the host anyway ("wait connection" on screen), so
@@ -365,10 +374,7 @@ mod win {
                     .Name()
                     .map(|v| v.to_string())
                     .unwrap_or_else(|_| "<err>".into());
-                let paired = info
-                    .Pairing()
-                    .and_then(|p| p.IsPaired())
-                    .unwrap_or(false);
+                let paired = info.Pairing().and_then(|p| p.IsPaired()).unwrap_or(false);
                 diag(&format!(
                     "[{tag}]   #{i} paired={paired} name='{name}' id='{id}'"
                 ));
@@ -382,7 +388,10 @@ mod win {
     /// one, as opposed to the rotating RPA we had to pair against. That identity
     /// is the only durable handle on a privacy-mode device like the Safe 7.
     fn identity_from_device_id(id: &str) -> Option<String> {
-        id.rsplit('-').next().filter(|a| a.len() == 17).map(str::to_string)
+        id.rsplit('-')
+            .next()
+            .filter(|a| a.len() == 17)
+            .map(str::to_string)
     }
 
     /// After bonding, find the device's identity address from the OS bond record.
@@ -539,7 +548,6 @@ mod win {
         let addr = super::require_address(address)?;
         diag(&format!("run_pair keepLink={keep_link}"));
 
-
         let (device, pairing) = open_pairing(addr).await?;
         describe_device(&device, &pairing, "before");
         watch_connection(&device);
@@ -655,7 +663,38 @@ mod win {
         }
 
         diag(&format!("calling PairAsync(kinds={kinds:?})"));
-        let result = custom.PairAsync(kinds).map_err(we)?.await.map_err(we)?;
+        let operation = custom.PairAsync(kinds).map_err(we)?;
+        let cancel_operation = operation.clone();
+        let cancelling = std::thread::spawn(move || {
+            use windows::Win32::System::WinRT::{
+                RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED,
+            };
+            let initialized = unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.is_ok();
+            if !initialized {
+                return;
+            }
+            loop {
+                match super::DECISION.load(Ordering::SeqCst) {
+                    super::DECISION_CANCEL => {
+                        let _ = cancel_operation.Cancel();
+                        break;
+                    }
+                    super::DECISION_FINISHED => break,
+                    _ => std::thread::sleep(std::time::Duration::from_millis(
+                        super::DECISION_POLL_MS,
+                    )),
+                }
+            }
+            drop(cancel_operation);
+            unsafe {
+                RoUninitialize();
+            }
+        });
+        let result = operation.await;
+        let cancelled = super::DECISION.swap(super::DECISION_FINISHED, Ordering::SeqCst)
+            == super::DECISION_CANCEL;
+        let _ = cancelling.join();
+        let result = result.map_err(we)?;
 
         if let Some(w) = &scan_watcher {
             let _ = w.Stop();
@@ -692,7 +731,9 @@ mod win {
         //     failures in this whole saga were GetGattServicesAsync=Unreachable,
         //     which is far more specific than 19)
         //   - the current DeviceAccessInformation
-        if status != DevicePairingResultStatus::Paired {
+        if status != DevicePairingResultStatus::Paired
+            && status != DevicePairingResultStatus::AlreadyPaired
+        {
             let connection = device.ConnectionStatus().ok();
             let connected = connection
                 == Some(windows::Devices::Bluetooth::BluetoothConnectionStatus::Connected);
@@ -730,9 +771,24 @@ mod win {
         // cleanup below would otherwise destroy the evidence.
         describe_device(&device, &pairing, "after");
 
+        if status == DevicePairingResultStatus::AlreadyPaired {
+            // A different host may have completed pairing during AEP discovery.
+            // This was an existing bond: neither failure cleanup nor cancellation may delete it.
+            let _ = device.Close();
+            super::emit(r#"{"type":"already-paired"}"#);
+            return Ok(());
+        }
+        if cancelled && status == DevicePairingResultStatus::Paired {
+            // Cancellation won the race with completion of this newly created bond.
+            if let Ok(operation) = ceremony_pairing.UnpairAsync() {
+                let _ = operation.await;
+            }
+            let _ = device.Close();
+            return Err("pairing cancelled by host".into());
+        }
+
         match status {
             DevicePairingResultStatus::Paired => {
-
                 // The RPA we just paired against is disposable — the device will
                 // rotate it. Hand the caller the identity address from the bond
                 // record so it can address the device durably; a connectId keyed
@@ -743,9 +799,7 @@ mod win {
                         diag(&format!(
                             "bonded identity address={identity} (paired via RPA {addr:012x})"
                         ));
-                        super::emit(&format!(
-                            r#"{{"type":"identity","address":"{identity}"}}"#
-                        ));
+                        super::emit(&format!(r#"{{"type":"identity","address":"{identity}"}}"#));
                     }
                     None => diag("could not resolve bonded identity address"),
                 }
@@ -836,55 +890,66 @@ mod win {
         let handler = TypedEventHandler::<
             BluetoothLEAdvertisementWatcher,
             BluetoothLEAdvertisementReceivedEventArgs,
-        >::new(move |_sender, args: Ref<BluetoothLEAdvertisementReceivedEventArgs>| {
-            if let Ok(args) = args.ok() {
-                let addr = args.BluetoothAddress()?;
-                let rssi = args.RawSignalStrengthInDBm().unwrap_or(0);
-                let addr_type = args
-                    .BluetoothAddressType()
-                    .map(addr_type_name)
-                    .unwrap_or("<err>");
-                let adv = args.Advertisement()?;
-                let name = adv
-                    .LocalName()
-                    .map(|v| v.to_string())
-                    .unwrap_or_else(|_| String::new());
+        >::new(
+            move |_sender, args: Ref<BluetoothLEAdvertisementReceivedEventArgs>| {
+                if let Ok(args) = args.ok() {
+                    let addr = args.BluetoothAddress()?;
+                    let rssi = args.RawSignalStrengthInDBm().unwrap_or(0);
+                    let addr_type = args
+                        .BluetoothAddressType()
+                        .map(addr_type_name)
+                        .unwrap_or("<err>");
+                    let adv = args.Advertisement()?;
+                    let name = adv
+                        .LocalName()
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|_| String::new());
 
-                // Accumulate only — no per-packet log line. Track the signal as a
-                // min/max range and keep the advert count.
-                let r = rssi as i16;
-                if let Ok(mut hits) = hits.lock() {
-                    if let Some(e) = hits.iter_mut().find(|(a, ..)| *a == addr) {
-                        e.2 += 1;
-                        if r < e.3 { e.3 = r; }
-                        if r > e.4 { e.4 = r; }
-                    } else {
-                        hits.push((addr, name.clone(), 1, r, r));
+                    // Accumulate only — no per-packet log line. Track the signal as a
+                    // min/max range and keep the advert count.
+                    let r = rssi as i16;
+                    if let Ok(mut hits) = hits.lock() {
+                        if let Some(e) = hits.iter_mut().find(|(a, ..)| *a == addr) {
+                            e.2 += 1;
+                            if r < e.3 {
+                                e.3 = r;
+                            }
+                            if r > e.4 {
+                                e.4 = r;
+                            }
+                        } else {
+                            hits.push((addr, name.clone(), 1, r, r));
+                        }
                     }
-                }
-                // Log ONLY the first time we ever see a Trezor, so the pairing
-                // address is easy to grab without scrolling through the summary.
-                if name.contains("Trezor")
-                    && seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false)
-                {
-                    diag(&format!(
+                    // Log ONLY the first time we ever see a Trezor, so the pairing
+                    // address is easy to grab without scrolling through the summary.
+                    if name.contains("Trezor")
+                        && seen.lock().map(|mut s| s.insert(addr)).unwrap_or(false)
+                    {
+                        diag(&format!(
                         "found {name} addr={addr:012x} addrType={addr_type} randomKind={} rssi={rssi}",
                         classify_random_address(addr)
                     ));
+                    }
                 }
-            }
-            Ok(())
-        });
+                Ok(())
+            },
+        );
 
         watcher.Received(&handler).map_err(we)?;
         watcher.Start().map_err(we)?;
-        diag(&format!("watching advertisements for {seconds}s (active scan, no filter)"));
+        diag(&format!(
+            "watching advertisements for {seconds}s (active scan, no filter)"
+        ));
 
         std::thread::sleep(std::time::Duration::from_secs(seconds));
 
         let _ = watcher.Stop();
         if let Ok(hits) = hits.lock() {
-            let trezor: Vec<_> = hits.iter().filter(|(_, n, ..)| n.contains("Trezor")).collect();
+            let trezor: Vec<_> = hits
+                .iter()
+                .filter(|(_, n, ..)| n.contains("Trezor"))
+                .collect();
             let named = hits.iter().filter(|(_, n, ..)| !n.is_empty()).count();
             diag(&format!(
                 "watch done: {} devices ({} named, {} Trezor)",
@@ -932,7 +997,8 @@ mod win {
         let status = result.Status().map_err(we)?;
         diag(&format!("unpair status={status:?}"));
         match status {
-            DeviceUnpairingResultStatus::Unpaired | DeviceUnpairingResultStatus::AlreadyUnpaired => {
+            DeviceUnpairingResultStatus::Unpaired
+            | DeviceUnpairingResultStatus::AlreadyUnpaired => {
                 super::emit(r#"{"type":"unpaired"}"#);
                 Ok(())
             }
@@ -965,6 +1031,9 @@ fn emit(line: &str) {
 /// file in human-readable form.
 #[cfg(windows)]
 fn diag(message: &str) {
+    if !DIAGNOSTICS.load(Ordering::SeqCst) {
+        return;
+    }
     let t = t_ms();
     emit(&format!(
         r#"{{"type":"diag","t_ms":{t},"msg":"{}"}}"#,

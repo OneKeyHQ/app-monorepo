@@ -17,7 +17,12 @@ for (const [arch, machine] of [
   if (
     bytes.toString('ascii', 0, 2) !== 'MZ' ||
     bytes.readUInt32LE(pe) !== 0x00_00_45_50 ||
-    bytes.readUInt16LE(pe + 4) !== machine
+    bytes.readUInt16LE(pe + 4) !== machine ||
+    ![
+      '"type":"link"',
+      '"type":"pairing-result"',
+      'pairing cancelled by host',
+    ].every((marker) => bytes.includes(Buffer.from(marker)))
   ) {
     process.stderr.write(`Invalid Windows pairing helper for ${arch}\n`);
     process.exit(1);

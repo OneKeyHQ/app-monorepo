@@ -28,7 +28,7 @@ module.exports = {
         from: 'app/build/static/bin/bridge/win-${arch}',
         to: 'bin/bridge',
       },
-      // SDK-owned Windows pairing helper, staged with static resources.
+      // App-owned Windows pairing helper, staged with static resources.
       // Keep it outside ASAR so the SDK can spawn it.
       {
         from: 'app/build/static/bin/ble-pair/win-${arch}',

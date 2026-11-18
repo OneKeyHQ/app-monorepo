@@ -27,6 +27,7 @@ windows = { version = "0.61", features = [
     "Foundation",
     "Foundation_Collections",
     "Win32_System_Com",
+    "Win32_System_WinRT",
 ] }
 # Minimal block_on so we can `.await` the WinRT async ops (like suite) instead
 # of blocking the thread with `.get()`, which starved the PairingRequested
