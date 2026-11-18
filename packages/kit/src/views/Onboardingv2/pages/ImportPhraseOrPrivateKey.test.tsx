@@ -208,6 +208,48 @@ describe('Import Wallet keyboard submission', () => {
     );
   });
 
+  it('lets a replacement key submit while the previous detection is pending', async () => {
+    render(<ImportPhraseOrPrivateKey />);
+    const input = selectPrivateKeyTab();
+    const original = Promise.withResolvers<typeof networkResult>();
+    const replacement = Promise.withResolvers<typeof networkResult>();
+    mockEncode
+      .mockResolvedValueOnce('encoded-original-key')
+      .mockResolvedValueOnce('encoded-replacement-key');
+    mockDetectNetworks
+      .mockReturnValueOnce(original.promise)
+      .mockReturnValueOnce(replacement.promise);
+
+    fireEvent.change(input, { target: { value: 'dummy-original-key' } });
+    await act(async () => enter(input));
+    expect(mockDetectNetworks).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(input, { target: { value: ' dummy-original-key ' } });
+    await act(async () => enter(input));
+    expect(mockDetectNetworks).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(input, { target: { value: 'dummy-replacement-key' } });
+    await act(async () => enter(input));
+    expect(mockDetectNetworks).toHaveBeenCalledTimes(2);
+
+    await act(async () => original.resolve(networkResult));
+    expect(mockPush).not.toHaveBeenCalled();
+
+    await act(async () => enter(input));
+    expect(mockDetectNetworks).toHaveBeenCalledTimes(2);
+
+    await act(async () => replacement.resolve(networkResult));
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith(
+      EOnboardingPagesV2.SelectPrivateKeyNetwork,
+      {
+        input: 'encoded-replacement-key',
+        detectedNetworks: networkResult.detectedNetworks,
+        importType: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
+      },
+    );
+  });
+
   it('ignores a private-key result after switching back to the Recovery Phrase tab', async () => {
     render(<ImportPhraseOrPrivateKey />);
     const input = selectPrivateKeyTab();

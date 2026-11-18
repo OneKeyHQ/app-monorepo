@@ -286,6 +286,15 @@ export default function ImportPhraseOrPrivateKey() {
   }, []);
 
   const handlePrivateKeyChange = useCallback((value: string) => {
+    if (
+      confirmRequestRef.current &&
+      selectedRef.current ===
+        EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey &&
+      trim(value) !== trim(privateKeyRef.current)
+    ) {
+      confirmRequestRef.current = undefined;
+      setIsConfirming(false);
+    }
     privateKeyRef.current = value;
     setPrivateKey(value);
   }, []);
