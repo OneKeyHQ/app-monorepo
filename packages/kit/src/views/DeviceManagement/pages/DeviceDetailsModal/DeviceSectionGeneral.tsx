@@ -62,19 +62,19 @@ function getDurationLabel({
 }) {
   if ('minute' in option) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_minutes },
-      { number: option.minute },
+      { id: ETranslations.device_details_duration_minutes__title },
+      { count: option.minute },
     );
   }
   if ('hour' in option) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_hours },
-      { number: option.hour },
+      { id: ETranslations.device_details_duration_hours__title },
+      { count: option.hour },
     );
   }
   return intl.formatMessage(
-    { id: ETranslations.earn_number_days },
-    { number: option.day },
+    { id: ETranslations.device_details_duration_days__title },
+    { count: option.day },
   );
 }
 
@@ -92,13 +92,13 @@ function getDeviceDurationLabel({
   }
   if (valueMs < 60_000) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_seconds },
-      { number: valueMs / 1000 },
+      { id: ETranslations.device_details_duration_seconds__title },
+      { count: valueMs / 1000 },
     );
   }
   return intl.formatMessage(
-    { id: ETranslations.earn_number_minutes },
-    { number: valueMs / 60_000 },
+    { id: ETranslations.device_details_duration_minutes__title },
+    { count: valueMs / 60_000 },
   );
 }
 
@@ -173,7 +173,7 @@ export function LanguageListItem({
                 color: '$textSubdued',
               }}
             />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+            <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
           </XStack>
         </ListItem>
       )}
@@ -264,7 +264,7 @@ export function AutoLockListItem({
                 color: '$textSubdued',
               }}
             />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+            <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
           </XStack>
         )}
       />
@@ -357,7 +357,7 @@ export function AutoShutDownListItem({
                 color: '$textSubdued',
               }}
             />
-            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+            <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
           </XStack>
         )}
       />

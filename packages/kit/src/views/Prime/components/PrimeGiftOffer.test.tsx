@@ -76,6 +76,7 @@ jest.mock('@onekeyhq/components', () => {
     );
   });
   return {
+    Stack: Container,
     XStack: Container,
     YStack: Container,
     SizableText: Container,
@@ -102,6 +103,10 @@ jest.mock('@react-navigation/core', () => {
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pushModal: mockNavigate }),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useCardSurface', () => ({
+  CARD_SURFACE_RADIUS: 12,
+  useCardShadow: () => 'none',
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({

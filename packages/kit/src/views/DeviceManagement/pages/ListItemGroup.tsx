@@ -1,13 +1,22 @@
 import { Children, cloneElement, isValidElement, useMemo } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
+import { PixelRatio } from 'react-native';
+
 import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  CARD_SURFACE_RADIUS,
+  useCardShadow,
+} from '@onekeyhq/kit/src/hooks/useCardSurface';
 
 import {
   LIST_ITEM_GROUP_INSET,
   LIST_ITEM_GROUP_ITEM_PROPS,
 } from './listItemGroupLayout';
+
+// One device pixel between rows: crisp on high-density screens.
+const HAIRLINE = 1 / PixelRatio.get();
 
 type IListItemGroupProps = {
   title?: string;
@@ -24,6 +33,7 @@ function ListItemGroupBase({
   withSeparator = false,
   groupProps,
 }: IListItemGroupProps) {
+  const cardShadow = useCardShadow();
   const normalizedChildren = useMemo(() => {
     const arr = Children.toArray(children);
     const res: ReactNode[] = [];
@@ -46,7 +56,11 @@ function ListItemGroupBase({
       if (!isLast && withSeparator) {
         res.push(
           <XStack key={`sep-${idx}`} mx={LIST_ITEM_GROUP_INSET}>
-            <Divider borderColor="$neutral4" />
+            <Divider
+              borderColor="$neutral4"
+              borderBottomWidth={HAIRLINE}
+              maxHeight={HAIRLINE}
+            />
           </XStack>,
         );
       }
@@ -58,14 +72,20 @@ function ListItemGroupBase({
   return (
     <YStack gap="$2.5" {...groupProps}>
       {title ? <SizableText size="$headingMd">{title}</SizableText> : null}
+      {/* The shadow sits on an outer layer: clipping on the same view would
+          cut it off on iOS. The inner layer clips row hover fills to the
+          rounded corners. */}
       <YStack
-        bg="$bgApp"
-        borderWidth={1}
-        borderColor="$borderSubdued"
-        borderRadius={12}
-        overflow="hidden"
+        borderRadius={CARD_SURFACE_RADIUS}
+        style={{ boxShadow: cardShadow }}
       >
-        {normalizedChildren}
+        <YStack
+          bg="$bgApp"
+          borderRadius={CARD_SURFACE_RADIUS}
+          overflow="hidden"
+        >
+          {normalizedChildren}
+        </YStack>
       </YStack>
     </YStack>
   );

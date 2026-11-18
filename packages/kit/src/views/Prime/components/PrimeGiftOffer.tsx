@@ -7,12 +7,17 @@ import {
   HeightTransition,
   Icon,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  CARD_SURFACE_RADIUS,
+  useCardShadow,
+} from '@onekeyhq/kit/src/hooks/useCardSurface';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
@@ -51,6 +56,7 @@ export function PrimeGiftOffer({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const theme = useThemeName();
+  const cardShadow = useCardShadow();
   const serialNo = deviceUtils.getDeviceSerialNoFromDbDevice(device);
   const [eligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
   const eligibility = serialNo ? eligibilityBySerialNo[serialNo] : undefined;
@@ -107,6 +113,9 @@ export function PrimeGiftOffer({
   if (!serialNo || !eligibility?.eligible || !eligibility.hasUnclaimedGift) {
     return null;
   }
+  // On the device page the offer sits among raised settings cards, so it
+  // takes their surface instead of a grey block; onboarding keeps its own.
+  const onDevicePage = source === 'deviceDetails';
   const card = (
     <XStack
       ref={impressionRef}
@@ -115,13 +124,14 @@ export function PrimeGiftOffer({
       focusable
       alignItems="center"
       gap="$3"
-      minHeight={88}
+      minHeight={onDevicePage ? 64 : 88}
       w="100%"
-      pl="$4"
-      pr="$5"
-      py="$4"
-      bg="$bgSubdued"
-      borderRadius="$4"
+      pl={onDevicePage ? '$3' : '$4'}
+      pr={onDevicePage ? '$4' : '$5'}
+      py={onDevicePage ? '$3' : '$4'}
+      bg={onDevicePage ? '$bgApp' : '$bgSubdued'}
+      borderRadius={onDevicePage ? CARD_SURFACE_RADIUS : '$4'}
+      style={onDevicePage ? { boxShadow: cardShadow } : undefined}
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       onPress={() => {
@@ -144,16 +154,29 @@ export function PrimeGiftOffer({
         });
       }}
     >
-      <Icon
-        name={
-          theme === 'light'
-            ? 'OnekeyPrimeLightColored'
-            : 'OnekeyPrimeDarkColored'
-        }
-        size="$6"
-      />
+      <Stack
+        w={onDevicePage ? 40 : undefined}
+        h={onDevicePage ? 40 : undefined}
+        borderRadius={onDevicePage ? 10 : undefined}
+        bg={onDevicePage ? '$bgSubdued' : undefined}
+        ai="center"
+        jc="center"
+        flexShrink={0}
+      >
+        <Icon
+          name={
+            theme === 'light'
+              ? 'OnekeyPrimeLightColored'
+              : 'OnekeyPrimeDarkColored'
+          }
+          size="$6"
+        />
+      </Stack>
       <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$bodyLgMedium" cursor="default">
+        <SizableText
+          size={onDevicePage ? '$headingSm' : '$bodyLgMedium'}
+          cursor="default"
+        >
           {intl.formatMessage(
             { id: ETranslations.prime_gift_claim_duration__action },
             { duration: getPrimeGiftDurationText(eligibility, intl) },

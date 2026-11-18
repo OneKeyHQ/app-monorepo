@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -61,7 +61,7 @@ function PressableRow({
   onPress: () => void;
   children: ReactNode;
   testID?: string;
-} & Record<string, unknown>) {
+} & Omit<ComponentProps<typeof XStack>, 'onPress' | 'children'>) {
   return (
     <XStack
       {...shell}
@@ -76,7 +76,7 @@ function PressableRow({
         }
       }}
       px={BLEED}
-      py={8}
+      py={10}
       borderRadius={8}
       gap="$3"
       userSelect="none"
@@ -117,7 +117,7 @@ function LinkRow({
     <PressableRow
       onPress={onPress}
       testID={testID}
-      minHeight={36}
+      minHeight={40}
       ai="flex-start"
     >
       <SizableText
@@ -180,7 +180,7 @@ function FaqsSection() {
           />
         ))
       ) : (
-        <RowsSkeleton widths={[220, 180, 200]} height={36} />
+        <RowsSkeleton widths={[220, 180, 200, 236, 196]} height={40} />
       )}
     </YStack>
   );
@@ -255,7 +255,7 @@ function GuidesSection() {
           .slice(0, MAX_GUIDES)
           .map((item) => <GuideRow key={item.linkId} item={item} />)
       ) : (
-        <RowsSkeleton widths={[200, 170]} height={61} />
+        <RowsSkeleton widths={[200, 170, 186]} height={65} />
       )}
     </YStack>
   );

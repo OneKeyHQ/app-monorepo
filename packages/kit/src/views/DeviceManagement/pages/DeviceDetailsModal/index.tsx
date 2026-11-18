@@ -214,7 +214,7 @@ function DeviceDetailsModalV2Cmp({
             alignItems="center"
             px="$2"
             pb="$8"
-            $gtMd={{ px: '$6', pt: '$8' }}
+            $gtMd={{ px: '$6', pt: '$12', pb: '$16' }}
           >
             <YStack w="100%" maxWidth={DEVICE_DETAILS_COLUMN_WIDTH} gap="$8">
               {/* DeviceBasicInfo self-manages its skeleton; sections gate on

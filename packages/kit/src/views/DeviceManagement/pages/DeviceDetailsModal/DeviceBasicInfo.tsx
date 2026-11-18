@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,7 +9,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { HardwareDevice } from '@onekeyhq/components/src/content/HardwareDevice';
+import {
+  HardwareDevice,
+  getHardwareDeviceAspect,
+} from '@onekeyhq/components/src/content/HardwareDevice';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
@@ -32,18 +33,6 @@ import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDe
 
 import { DeviceUpdateLink } from './DeviceUpdateLink';
 
-// Height over width of each drawn model (their shells' artwork sizes), so
-// every model is drawn at the same height.
-const DEVICE_ASPECT: Partial<Record<IHardwareDeviceType, number>> = {
-  classic: 539 / 327,
-  classic1s: 539 / 327,
-  classicpure: 539 / 327,
-  mini: 1417 / 657,
-  touch: 1751 / 1044,
-  pro: 569 / 350,
-  pro2: 1714 / 1084,
-};
-
 // The device as drawn for its model, lit on the home screen it idles on.
 // Models without a drawing (Trezor, Ledger) keep the wallet avatar.
 function DeviceArt({
@@ -57,7 +46,7 @@ function DeviceArt({
   wallet: IDBWallet | undefined;
   height: number;
 }) {
-  const aspect = deviceType ? DEVICE_ASPECT[deviceType] : undefined;
+  const aspect = getHardwareDeviceAspect(deviceType);
   if (!aspect) {
     return <WalletAvatar size={height} wallet={wallet} status="default" />;
   }
@@ -78,7 +67,16 @@ function DeviceArt({
   );
 }
 
-// Bluetooth name · firmware version · genuine status, as one quiet line.
+function Dot() {
+  return (
+    <SizableText size="$bodyMd" color="$textDisabled">
+      ·
+    </SizableText>
+  );
+}
+
+// The genuine status leads and carries the weight; the Bluetooth name and
+// firmware version follow, quieter.
 function StatusLine({
   secondaryId,
   version,
@@ -89,44 +87,23 @@ function StatusLine({
   verified: boolean | undefined;
 }) {
   const intl = useIntl();
-  const parts: { key: string; node: ReactNode }[] = [];
-  if (secondaryId) {
-    parts.push({
-      key: 'id',
-      node: (
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {secondaryId}
-        </SizableText>
-      ),
-    });
-  }
-  if (version) {
-    parts.push({
-      key: 'version',
-      node: (
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          style={{ fontVariantNumeric: 'tabular-nums' }}
-        >
-          {version}
-        </SizableText>
-      ),
-    });
-  }
-  if (verified !== undefined) {
-    parts.push({
-      key: 'genuine',
-      node: (
+  const meta: { key: string; text: string }[] = [];
+  if (secondaryId) meta.push({ key: 'id', text: secondaryId });
+  if (version) meta.push({ key: 'version', text: version });
+  if (verified === undefined && !meta.length) return null;
+  return (
+    <XStack ai="center" columnGap="$2" rowGap="$1" flexWrap="wrap">
+      {verified === undefined ? null : (
         <XStack ai="center" gap="$1">
           <Icon
             name={verified ? 'BadgeVerifiedSolid' : 'ErrorSolid'}
             size="$4"
             color={verified ? '$iconSuccess' : '$iconCritical'}
+            flexShrink={0}
           />
           <SizableText
-            size="$bodyMd"
-            color={verified ? '$textSubdued' : '$textCritical'}
+            size="$bodyMdMedium"
+            color={verified ? '$textSuccess' : '$textCritical'}
           >
             {intl.formatMessage({
               id: verified
@@ -135,20 +112,18 @@ function StatusLine({
             })}
           </SizableText>
         </XStack>
-      ),
-    });
-  }
-  if (!parts.length) return null;
-  return (
-    <XStack flexWrap="wrap" ai="center" columnGap="$2" rowGap="$1">
-      {parts.map((part, i) => (
+      )}
+      {meta.map((part, i) => (
         <XStack key={part.key} ai="center" gap="$2">
-          {i > 0 ? (
-            <SizableText size="$bodyMd" color="$textDisabled">
-              ·
-            </SizableText>
-          ) : null}
-          {part.node}
+          {i > 0 || verified !== undefined ? <Dot /> : null}
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {part.text}
+          </SizableText>
         </XStack>
       ))}
     </XStack>
@@ -184,7 +159,7 @@ function DeviceBasicInfo({
       <XStack ai="center" gap={gtMd ? '$5' : '$4'}>
         <Skeleton w={Math.round(artHeight * 0.62)} h={artHeight} radius={12} />
         <YStack gap="$2">
-          <Skeleton w={200} h="$8" radius={8} />
+          <Skeleton w={200} h={gtMd ? 36 : 32} radius={8} />
           <Skeleton w={240} h="$5" radius={4} />
         </YStack>
       </XStack>

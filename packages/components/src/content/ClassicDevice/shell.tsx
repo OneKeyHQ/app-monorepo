@@ -55,6 +55,8 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const DEVICE_W = 327;
 const DEVICE_H = 539;
+/** Height over width of the drawn frame; callers size a drawing by height. */
+export const CLASSIC_DEVICE_ASPECT = DEVICE_H / DEVICE_W;
 
 /**
  * The glass panel inside the screen hole. Scenes sweeping "the whole

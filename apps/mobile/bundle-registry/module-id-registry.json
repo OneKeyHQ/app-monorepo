@@ -23342,6 +23342,7 @@
     "packages/kit/src/hooks/useBiometricAuthInfo.ts": 2307,
     "packages/kit/src/hooks/useBlockExplorerNavigation.ts": 16665,
     "packages/kit/src/hooks/useBotWalletDeactivatedStatus.ts": 16633,
+    "packages/kit/src/hooks/useCardSurface.ts": 5574,
     "packages/kit/src/hooks/useCopyAccountAddress.ts": 9837,
     "packages/kit/src/hooks/useCrossDomainRedirect.native.ts": 106,
     "packages/kit/src/hooks/useCurrencySections.ts": 392,

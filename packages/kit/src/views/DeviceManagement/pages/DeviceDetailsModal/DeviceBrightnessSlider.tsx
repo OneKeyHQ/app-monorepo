@@ -121,16 +121,17 @@ export function DeviceBrightnessSlider({
   return (
     <YStack
       px={LIST_ITEM_GROUP_INSET}
-      py="$3"
+      // Same 16px above the title as every other row.
+      py="$4"
       gap="$3"
       opacity={disabled ? 0.5 : 1}
       testID={DeviceManagementTestIDs.brightnessItem}
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyMdMedium" color="$text">
+        <SizableText size="$bodyMdMedium" color="$text" userSelect="none">
           {intl.formatMessage({ id: ETranslations.global_brightness })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
           {displayValue}%
         </SizableText>
       </XStack>

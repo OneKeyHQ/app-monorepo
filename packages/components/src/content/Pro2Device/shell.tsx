@@ -75,6 +75,8 @@ function px(v: number): number {
 }
 
 const DEVICE_H = px(FIGMA_H);
+/** Height over width of the drawn frame; callers size a drawing by height. */
+export const PRO2_DEVICE_ASPECT = DEVICE_H / DEVICE_W;
 
 /**
  * The baked chrome, one bitmap per finish (shared/utils/hardwareDeviceColors

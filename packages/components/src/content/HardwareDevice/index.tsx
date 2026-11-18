@@ -6,11 +6,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
 import { ClassicDevice } from '../ClassicDevice';
+import { CLASSIC_DEVICE_ASPECT } from '../ClassicDevice/shell';
 import { MiniDevice } from '../MiniDevice';
+import { MINI_DEVICE_ASPECT } from '../MiniDevice/shell';
 import { NeoDevice } from '../NeoDevice';
 import { Pro2Device } from '../Pro2Device';
+import { PRO2_DEVICE_ASPECT } from '../Pro2Device/shell';
 import { ProDevice } from '../ProDevice';
+import { PRO_DEVICE_ASPECT } from '../ProDevice/shell';
 import { TouchDevice } from '../TouchDevice';
+import { TOUCH_DEVICE_ASPECT } from '../TouchDevice/shell';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IMiniDeviceScene } from '../MiniDevice';
@@ -159,6 +164,29 @@ const REPLICAS: Partial<
   pro2: Pro2Device,
   neo: NeoDevice,
 };
+
+// Height over width of each replica's frame, keyed like REPLICAS; models
+// that share a replica share its frame.
+const ASPECTS: Partial<Record<IHardwareDeviceType, number>> = {
+  classic: CLASSIC_DEVICE_ASPECT,
+  classic1s: CLASSIC_DEVICE_ASPECT,
+  classicpure: CLASSIC_DEVICE_ASPECT,
+  mini: MINI_DEVICE_ASPECT,
+  pro: PRO_DEVICE_ASPECT,
+  touch: TOUCH_DEVICE_ASPECT,
+  pro2: PRO2_DEVICE_ASPECT,
+  neo: PRO2_DEVICE_ASPECT,
+};
+
+/**
+ * Height over width of the model's drawing, so a caller can size it by
+ * height. Undefined when the model has no drawing.
+ */
+export function getHardwareDeviceAspect(
+  deviceType: IHardwareDeviceType | null | undefined,
+): number | undefined {
+  return deviceType ? ASPECTS[deviceType] : undefined;
+}
 
 export function HardwareDevice({
   deviceType,
