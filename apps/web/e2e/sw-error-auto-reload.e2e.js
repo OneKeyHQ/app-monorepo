@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
-const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
 const { rspack } = require('@rspack/core');
 const { chromium } = require('playwright-core');
@@ -14,6 +13,9 @@ const { chromium } = require('playwright-core');
 const {
   findChromiumExecutable,
 } = require('../../../development/perf-ci/lib/chromium');
+const {
+  startStaticServer,
+} = require('../../../development/perf-ci/lib/staticServer');
 
 const V_664 = '6640000000000000000000000000000000000000-100';
 const V_670 = '6700000000000000000000000000000000000000-200';
@@ -87,14 +89,17 @@ async function compileServiceWorkerBundle(outDir) {
     });
   });
 
-  execFileSync(
-    process.execPath,
-    [
-      path.resolve(__dirname, '../scripts/validate-built-service-worker.mjs'),
-      outDir,
-    ],
-    { stdio: 'inherit' },
-  );
+  const prevArgv2 = process.argv[2];
+  process.argv[2] = outDir;
+  try {
+    await import(
+      pathToFileURL(
+        path.resolve(__dirname, '../scripts/validate-built-service-worker.mjs'),
+      ).href
+    );
+  } finally {
+    process.argv[2] = prevArgv2;
+  }
 
   return fs.readFileSync(path.join(outDir, 'service-worker.js'), 'utf8');
 }
@@ -179,13 +184,20 @@ function buildLegacyV664ClientScript() {
     requestServiceWorkerVersionCheck();
   }
 
+  function renderTestView(testId, text) {
+    const node = document.createElement('div');
+    node.setAttribute('data-testid', testId);
+    node.textContent = text;
+    document.body.replaceChildren(node);
+  }
+
   function renderApp() {
     const pathname = window.location.pathname;
     if (pathname.toLowerCase().includes('/unitas')) {
-      document.body.innerHTML = '<div data-testid="error-boundary">发生了未知错误，请再试一次。</div>';
+      renderTestView('error-boundary', '发生了未知错误，请再试一次。');
       return;
     }
-    document.body.innerHTML = '<div data-testid="v664-home">v6.6.4 Home</div>';
+    renderTestView('v664-home', 'v6.6.4 Home');
   }
 
   window.addEventListener('load', () => {
@@ -394,22 +406,29 @@ function buildV670ClientScript() {
     markPageErrorAndTryAutoReload();
   });
 
+  function renderTestView(testId, text) {
+    const node = document.createElement('div');
+    node.setAttribute('data-testid', testId);
+    node.textContent = text;
+    document.body.replaceChildren(node);
+  }
+
   function renderApp() {
     const pathname = window.location.pathname;
     if (pathname === '/earn/bsc/XAUt/unitas') {
-      document.body.innerHTML =
-        '<div data-testid="unitas-xaut-detail">Unitas XAUt Vault: ' +
-        window.location.search +
-        '</div>';
+      renderTestView(
+        'unitas-xaut-detail',
+        'Unitas XAUt Vault: ' + window.location.search,
+      );
       return;
     }
     if (pathname === '/' || pathname === '/swap') {
-      document.body.innerHTML = '<div data-testid="v670-home">v6.7.0 Home</div>';
+      renderTestView('v670-home', 'v6.7.0 Home');
       return;
     }
     // Unmatched route (NotFound) in v6.7.0: preserve URL and fire route-not-found
     window.__onekeyWebRouteNotFound = true;
-    document.body.innerHTML = '<div data-testid="not-found">NotFound</div>';
+    renderTestView('not-found', 'NotFound');
     window.dispatchEvent(new Event(WEB_ROUTE_NOT_FOUND_EVENT));
   }
 
@@ -432,16 +451,23 @@ function buildV670ClientScript() {
 function buildV680ClientScript() {
   return `
 (function () {
+  function renderTestView(testId, text) {
+    const node = document.createElement('div');
+    node.setAttribute('data-testid', testId);
+    node.textContent = text;
+    document.body.replaceChildren(node);
+  }
+
   window.addEventListener('load', () => {
     const pathname = window.location.pathname;
     if (pathname === '/new-campaign-v680') {
-      document.body.innerHTML =
-        '<div data-testid="campaign-v680-page">v6.8.0 Campaign: ' +
-        window.location.search +
-        '</div>';
+      renderTestView(
+        'campaign-v680-page',
+        'v6.8.0 Campaign: ' + window.location.search,
+      );
       return;
     }
-    document.body.innerHTML = '<div data-testid="v680-home">v6.8.0 Home</div>';
+    renderTestView('v680-home', 'v6.8.0 Home');
   });
 })();
 `;
@@ -484,13 +510,34 @@ function createReleaseArtifacts({
   };
 }
 
+function publishReleaseToDir(webRootDir, release) {
+  fs.writeFileSync(path.join(webRootDir, 'index.html'), release.html, 'utf8');
+  fs.writeFileSync(
+    path.join(webRootDir, 'sw-version-manifest.json'),
+    JSON.stringify(release.manifest),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(webRootDir, release.scriptName),
+    release.scriptContent,
+    'utf8',
+  );
+}
+
 async function run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-sw-e2e-'));
-  let server;
+  const webRootDir = path.join(tmpDir, 'www');
+  fs.mkdirSync(webRootDir, { recursive: true });
+  let staticServer;
   let context;
 
   try {
     const compiledSw = await compileServiceWorkerBundle(tmpDir);
+    fs.writeFileSync(
+      path.join(webRootDir, 'service-worker.js'),
+      compiledSw,
+      'utf8',
+    );
 
     const releaseV664 = createReleaseArtifacts({
       version: V_664,
@@ -511,57 +558,14 @@ async function run() {
       scriptContent: buildV680ClientScript(),
     });
 
-    const scriptsByName = new Map([
-      [releaseV664.scriptName, releaseV664.scriptContent],
-      [releaseV670.scriptName, releaseV670.scriptContent],
-      [releaseV680.scriptName, releaseV680.scriptContent],
-    ]);
-
-    let activeRelease = releaseV664;
-
-    server = http.createServer((req, res) => {
-      const reqUrl = new URL(req.url || '/', 'http://127.0.0.1');
-      const { pathname } = reqUrl;
-
-      if (pathname === '/service-worker.js') {
-        res.writeHead(200, {
-          'Content-Type': 'application/javascript; charset=utf-8',
-          'Cache-Control': 'no-store',
-        });
-        res.end(compiledSw);
-        return;
-      }
-
-      if (pathname === '/sw-version-manifest.json') {
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'no-store',
-        });
-        res.end(JSON.stringify(activeRelease.manifest));
-        return;
-      }
-
-      const scriptKey = pathname.replace(/^\//, '');
-      if (scriptsByName.has(scriptKey)) {
-        res.writeHead(200, {
-          'Content-Type': 'application/javascript; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
-        });
-        res.end(scriptsByName.get(scriptKey));
-        return;
-      }
-
-      // SPA fallback to index.html for navigation routes
-      res.writeHead(200, {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-store',
-      });
-      res.end(activeRelease.html);
+    publishReleaseToDir(webRootDir, releaseV664);
+    staticServer = await startStaticServer({
+      rootDir: webRootDir,
+      host: '127.0.0.1',
+      port: 0,
+      spaFallback: true,
     });
-
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const { port } = server.address();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const { baseUrl } = staticServer;
 
     const executablePath = findChromiumExecutable(
       process.env.WEB_E2E_BROWSER_EXECUTABLE,
@@ -595,7 +599,7 @@ async function run() {
     });
 
     // Step 2: Server publishes release/v6.7.0 (with Unitas)
-    activeRelease = releaseV670;
+    publishReleaseToDir(webRootDir, releaseV670);
 
     // Step 3: Old user clicks the Unitas email link -> initially hits cached v6.6.4,
     // then SW automatically activates v6.7.0 and reloads into the Unitas detail page!
@@ -619,7 +623,7 @@ async function run() {
     );
 
     // Step 4: Server publishes v6.8.0 (with new route /new-campaign-v680)
-    activeRelease = releaseV680;
+    publishReleaseToDir(webRootDir, releaseV680);
 
     // Step 5: User on v6.7.0 opens the new v6.8.0 route (which hits NotFound in v6.7.0)
     // -> v6.7.0 client preserves URL, auto-activates v6.8.0, and reloads into v6.8.0!
@@ -638,9 +642,7 @@ async function run() {
     );
   } finally {
     await context?.close();
-    if (server) {
-      await new Promise((resolve) => server.close(resolve));
-    }
+    await staticServer?.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
