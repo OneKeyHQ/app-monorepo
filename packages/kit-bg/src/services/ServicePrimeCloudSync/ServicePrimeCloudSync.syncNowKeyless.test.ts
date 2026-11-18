@@ -566,7 +566,7 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
         },
         'uploadItemsWithRequestOptions',
       )
-      .mockResolvedValue(undefined);
+      .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
     const saveItems = jest
       .spyOn(service, 'saveServerSyncItemsToLocal')
       .mockResolvedValue(undefined);
