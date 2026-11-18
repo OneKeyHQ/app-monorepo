@@ -117,11 +117,11 @@ async function main() {
         `if (Object.isFrozen(Object.prototype) !== ${enabled}) throw new Error("Unexpected intrinsic integrity");`,
         ...(enabled
           ? [
-              'if (state.evalTaming !== "no-eval") throw new Error("Expected native no-eval");',
-              'var dynamicCodeBlocked = false; try { Reflect.construct(Function, ["return 3"]); } catch (_) { dynamicCodeBlocked = true; }',
-              'if (!dynamicCodeBlocked) throw new Error("Dynamic Function remained available");',
-              'var evalBlocked = false; try { (0, eval)("1 + 2"); } catch (_) { evalBlocked = true; }',
-              'if (!evalBlocked) throw new Error("eval remained available");',
+              'if (state.evalTaming !== "unsafe-eval") throw new Error("Expected native unsafe-eval");',
+              'if (Reflect.construct(Function, ["return 3"])() !== 3) throw new Error("SDK dynamic compilation failed");',
+              'if ((0, eval)("1 + 2") !== 3) throw new Error("Native eval failed");',
+              'var constructorRecoveryBlocked = false; try { (function () {}).constructor("return 3"); } catch (_) { constructorRecoveryBlocked = true; }',
+              'if (!constructorRecoveryBlocked) throw new Error("Function constructor recovery remained available");',
             ]
           : []),
         'if (({}).onekeyLockdownFixture() !== 42) throw new Error("Vetted shim was lost");',
