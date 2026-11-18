@@ -10,6 +10,7 @@
  */
 
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -786,11 +787,17 @@ async function buildCentralDeletePlan({ client, unused }) {
   return plan;
 }
 
-function runPullAfterDelete(pullRequest) {
+function runPullAfterDelete(pullRequest, commit) {
   const scriptPath = path.resolve(__dirname, 'i18n-pull.js');
   const result = spawnSync(
     process.execPath,
-    [scriptPath, '--pr', String(pullRequest), '--wait'],
+    [
+      scriptPath,
+      '--pr',
+      String(pullRequest),
+      ...(commit ? ['--commit', commit] : []),
+      '--wait',
+    ],
     { cwd: REPO_ROOT, env: process.env, stdio: 'inherit' },
   );
 
@@ -851,6 +858,7 @@ async function applyCentralDeleteIfRequested(
       const { CentralClient } = require('./workflow-client-central');
       return new CentralClient();
     },
+    pullAfterDelete = runPullAfterDelete,
   } = {},
 ) {
   if (!options.deleteCentral) {
@@ -928,13 +936,31 @@ async function applyCentralDeleteIfRequested(
       '',
     ].join('\n'),
     branchHint: 'app-unused-keys',
+    // Named after the removed refs, so rerunning the same deletion finds and
+    // reuses its open PR instead of opening a second one.
+    key: crypto
+      .createHash('sha256')
+      .update(
+        plan.toDelete
+          .map((item) => item.ref)
+          .toSorted()
+          .join('\n'),
+      )
+      .digest('hex')
+      .slice(0, 12),
   });
   summary.proposal = proposal;
   summary.note = `Removed ${summary.deleted} keys in onekey-i18n PR #${proposal.number}: ${proposal.url}`;
 
   if (options.pullAfterDelete) {
-    runPullAfterDelete(proposal.number);
-    summary.pulledAfterDelete = true;
+    try {
+      pullAfterDelete(proposal.number, proposal.commit);
+      summary.pulledAfterDelete = true;
+    } catch (error) {
+      // The PR exists; report it so the pull can be retried on its own.
+      summary.pullError = error.message;
+      summary.note += ` Pulling its preview failed: ${error.message}. Retry with \`yarn i18n:pull --pr ${proposal.number} --commit ${proposal.commit} --wait\`.`;
+    }
   }
 }
 
@@ -1234,6 +1260,7 @@ async function main() {
     await applyCentralDeleteIfRequested(report, options);
     const output = formatReport(report, options);
     writeOutput(output, options.output);
+    if (report.centralDelete?.pullError) process.exitCode = 1;
   } catch (error) {
     console.error(`Error: ${error.message}`);
     console.error('Run `yarn i18n:unused --help` for usage.');
