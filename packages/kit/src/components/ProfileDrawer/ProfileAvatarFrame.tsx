@@ -7,12 +7,28 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { openProfileDrawer, profileDrawerProgress } from './profileDrawerStore';
 
 export const PROFILE_AVATAR_TEST_ID = 'home-profile-avatar';
 
-// 40 avatar in a 44 target, as drawn in the header.
+const FOCUS_RING = {
+  outlineColor: '$focusRing',
+  outlineStyle: 'solid',
+  outlineWidth: 2,
+} as const;
+// A pointer dims the avatar it is over, as the drawer's avatar does.
+const HOVER_STYLE = platformEnv.isNative ? undefined : { opacity: 0.8 };
+
+// The phone draws a 40 avatar for the finger. The extension's pointer needs
+// less, and at 32 the avatar no longer outweighs the bare search and network
+// controls across the header.
+export const PROFILE_AVATAR_SIZE = platformEnv.isNative ? '$10' : '$8';
+// The target keeps 2 around the avatar, room for the focus ring.
+const FRAME_SIZE = platformEnv.isNative ? 44 : 36;
+const DOT_SIZE = platformEnv.isNative ? 14 : 12;
+
 export function ProfileAvatarFrame({
   label,
   dot,
@@ -33,10 +49,17 @@ export function ProfileAvatarFrame({
     <Animated.View style={style}>
       <Stack
         testID={PROFILE_AVATAR_TEST_ID}
+        // A real button on web: Tab focus, Enter and Space, and a target the
+        // drawer hands focus back to when it closes.
+        render={<button type="button" aria-label={label} />}
         role="button"
         aria-label={label}
-        w={44}
-        h={44}
+        focusVisibleStyle={FOCUS_RING}
+        hoverStyle={HOVER_STYLE}
+        bg="$transparent"
+        borderWidth={0}
+        w={FRAME_SIZE}
+        h={FRAME_SIZE}
         ml="$-0.5"
         p="$0.5"
         borderRadius="$full"
@@ -54,8 +77,8 @@ export function ProfileAvatarFrame({
             position="absolute"
             top={1}
             right={1}
-            w={14}
-            h={14}
+            w={DOT_SIZE}
+            h={DOT_SIZE}
             borderRadius="$full"
             borderWidth={2}
             borderColor="$bgApp"

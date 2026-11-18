@@ -7,7 +7,7 @@ import avatarFallback from '@onekeyhq/kit/assets/avatar-fallback.png';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ProfileAvatarFrame } from './ProfileAvatarFrame';
+import { PROFILE_AVATAR_SIZE, ProfileAvatarFrame } from './ProfileAvatarFrame';
 
 // The real button pulls the update and unread checks; until it loads the
 // default avatar already opens the drawer.
@@ -19,7 +19,11 @@ function ProfileAvatarButtonFallback() {
     >
       {/* The plain default avatar: the OneKey ID one pulls the sign-in
           state, which the real button loads. */}
-      <Image size="$10" borderRadius="$full" source={avatarFallback} />
+      <Image
+        size={PROFILE_AVATAR_SIZE}
+        borderRadius="$full"
+        source={avatarFallback}
+      />
     </ProfileAvatarFrame>
   );
 }

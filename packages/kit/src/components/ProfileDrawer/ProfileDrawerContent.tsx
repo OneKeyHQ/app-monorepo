@@ -57,24 +57,81 @@ const LazyPrimeUserBadge = lazy(async () => {
 });
 
 const ROW_PRESS_STYLE = { bg: '$bgActive' } as const;
+// With a pointer (the extension) a row needs no 56pt finger target, and at
+// 44 the whole drawer fits the 600pt popup. A pointer also shows the row it
+// is over.
+const ROW_MIN_HEIGHT = platformEnv.isNative ? 56 : 44;
+const ROW_HOVER_STYLE = platformEnv.isNative
+  ? undefined
+  : ({ bg: '$bgHover' } as const);
 const IDENTITY_PRESS_STYLE = { opacity: 0.6 } as const;
+// A pointer over the OneKey ID avatar dims it a little; pressing dims more.
+const AVATAR_HOVER_STYLE = platformEnv.isNative
+  ? undefined
+  : ({ opacity: 0.8 } as const);
+// The name or sign-in line under the avatar takes the rows' hover fill. The
+// padding it needs for that is taken back by the margin, so the words stay
+// in line with the avatar.
+const IDENTITY_LINE_WEB_PROPS = platformEnv.isNative
+  ? undefined
+  : ({
+      px: '$2',
+      mx: '$-2',
+      borderRadius: '$2',
+      hoverStyle: { bg: '$bgHover' },
+    } as const);
+// Rows light up only once the finger has rested a moment, so a swipe that
+// closes the drawer never flashes the row under it; a quick tap still presses.
+// Tamagui's press reads it from a stack's props but does not type it, so it
+// goes in as a spread.
+const DELAYED_PRESS_IN = { delayPressIn: 130 };
 const NOTIFICATION_COUNT_CAP = 99;
 
-// On iOS a CJK label (PingFang glyphs inside the brand font's line box) sits
-// about 0.8pt above the icon's center while Latin labels sit centered;
-// 2/3pt is two device pixels at 3x.
+// A CJK label (the system's CJK glyphs inside the brand font's line box)
+// sits above the icon's center while Latin labels sit centered: about 0.8pt
+// on iOS, where 2/3pt is two device pixels at 3x. In a browser on macOS (the
+// extension) the ink sits 0.5px high and still reads high once matched, so
+// it moves a whole pixel, two device pixels at 2x and crisp at 1x. Other
+// systems are not measured, so they keep the label where it is.
 const CJK_PATTERN = /[⺀-鿿가-힯豈-﫿]/;
-const CJK_LABEL_NUDGE = 2 / 3;
+let CJK_LABEL_NUDGE = 0;
+if (platformEnv.isNativeIOS) CJK_LABEL_NUDGE = 2 / 3;
+else if (!platformEnv.isNative && platformEnv.isRuntimeMacOSBrowser)
+  CJK_LABEL_NUDGE = 1;
 function labelNudge(text: string) {
-  return platformEnv.isNativeIOS && CJK_PATTERN.test(text)
-    ? CJK_LABEL_NUDGE
-    : 0;
+  return CJK_LABEL_NUDGE && CJK_PATTERN.test(text) ? CJK_LABEL_NUDGE : 0;
 }
 
 function isTravelModeActive() {
   return (
     travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
   );
+}
+
+const FOCUS_RING = {
+  outlineColor: '$focusRing',
+  outlineStyle: 'solid',
+  outlineWidth: 2,
+} as const;
+
+// Web only (the extension's drawer). A control's words are not text to
+// select. `accessible` gives a row no tab stop there, so each available one
+// takes one, presses on Enter or Space, and shows a ring when focused that
+// way.
+function webControlProps(onPress: () => void, unavailable = false) {
+  if (platformEnv.isNative) return undefined;
+  if (unavailable) return { userSelect: 'none' as const };
+  return {
+    userSelect: 'none' as const,
+    tabIndex: 0,
+    focusVisibleStyle: FOCUS_RING,
+    onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onPress();
+      }
+    },
+  };
 }
 
 function DrawerRow({
@@ -128,7 +185,7 @@ function DrawerRow({
       aria-label={ariaNote ? `${label}, ${ariaNote}` : label}
       aria-disabled={disabled}
       aria-busy={loading}
-      minHeight={56}
+      minHeight={ROW_MIN_HEIGHT}
       mx="$-3"
       px="$3"
       py="$2"
@@ -137,7 +194,10 @@ function DrawerRow({
       borderRadius="$3"
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
+      hoverStyle={disabled || loading ? undefined : ROW_HOVER_STYLE}
       pressStyle={disabled || loading ? undefined : ROW_PRESS_STYLE}
+      {...DELAYED_PRESS_IN}
+      {...webControlProps(handlePress, disabled)}
       onPress={handlePress}
     >
       <Icon name={icon} size="$6" color={subdued ? '$iconSubdued' : '$icon'} />
@@ -223,6 +283,14 @@ function UpdatePill({ label, failed }: { label: string; failed?: boolean }) {
 // The header's 36pt secondary buttons reach 48pt under a finger.
 const HEADER_BUTTON_HIT_SLOP = 6;
 
+// Icons alone: with a pointer, hovering names them, below the button since
+// it sits at the drawer's top edge.
+function headerButtonTooltip(label: string) {
+  return platformEnv.isNative
+    ? undefined
+    : { title: label, titlePlacement: 'bottom' as const };
+}
+
 function DrawerScanButton() {
   const intl = useIntl();
   const {
@@ -244,6 +312,7 @@ function DrawerScanButton() {
       tokens: { data: tokens, keys, map },
     });
   }, [account, keys, map, network, scanQrCode, tokens]);
+  const label = intl.formatMessage({ id: ETranslations.scan_scan_qr_code });
   return (
     <IconButton
       testID="profile-drawer-scan"
@@ -251,8 +320,12 @@ function DrawerScanButton() {
       variant="secondary"
       icon="ScanOutline"
       accessible
-      aria-label={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+      aria-label={label}
+      {...headerButtonTooltip(label)}
       hitSlop={HEADER_BUTTON_HIT_SLOP}
+      // On web IconButton otherwise swallows every key, Tab included, so
+      // keyboard focus would stop here and never reach the rows.
+      hotKey
       onPress={handleScan}
     />
   );
@@ -278,6 +351,7 @@ function DrawerLockButton() {
     void onLock();
   }, [isTravelMode, onLock]);
   if (!isPasswordSet) return null;
+  const label = intl.formatMessage({ id: ETranslations.settings_lock_now });
   return (
     <IconButton
       testID="profile-drawer-lock"
@@ -287,7 +361,10 @@ function DrawerLockButton() {
       // An icon has nothing for a screen reader to read, so the button must
       // be the element itself.
       accessible
-      aria-label={intl.formatMessage({ id: ETranslations.settings_lock_now })}
+      aria-label={label}
+      {...headerButtonTooltip(label)}
+      // As scan beside it: lets Tab, Enter and Space through on web.
+      hotKey
       hitSlop={HEADER_BUTTON_HIT_SLOP}
       onPress={handleLock}
     />
@@ -344,7 +421,9 @@ function DrawerIdentity() {
         <Stack
           aria-hidden
           hitSlop={4}
+          hoverStyle={AVATAR_HOVER_STYLE}
           pressStyle={IDENTITY_PRESS_STYLE}
+          {...DELAYED_PRESS_IN}
           onPress={handleOneKeyId}
         >
           <OneKeyIdAvatar size="$14" showSocialBadge={false} />
@@ -369,6 +448,9 @@ function DrawerIdentity() {
           py="$1"
           hitSlop={8}
           pressStyle={IDENTITY_PRESS_STYLE}
+          {...DELAYED_PRESS_IN}
+          {...IDENTITY_LINE_WEB_PROPS}
+          {...webControlProps(handleOneKeyId)}
           onPress={handleOneKeyId}
         >
           <SizableText
@@ -397,6 +479,9 @@ function DrawerIdentity() {
           py="$1"
           hitSlop={8}
           pressStyle={IDENTITY_PRESS_STYLE}
+          {...DELAYED_PRESS_IN}
+          {...IDENTITY_LINE_WEB_PROPS}
+          {...webControlProps(handleOneKeyId)}
           onPress={handleOneKeyId}
         >
           <SizableText
@@ -468,7 +553,7 @@ function DrawerAccountRow() {
       accessible
       role="button"
       aria-label={[title, walletName].filter(Boolean).join(', ')}
-      minHeight={56}
+      minHeight={ROW_MIN_HEIGHT}
       mx="$-3"
       px="$3"
       py="$2"
@@ -476,7 +561,10 @@ function DrawerAccountRow() {
       alignItems="center"
       borderRadius="$3"
       borderCurve="continuous"
+      hoverStyle={ROW_HOVER_STYLE}
       pressStyle={ROW_PRESS_STYLE}
+      {...DELAYED_PRESS_IN}
+      {...webControlProps(handlePress)}
       onPress={handlePress}
     >
       {hasNoUsableWallet ? (
@@ -603,7 +691,9 @@ function ProfileDrawerBody() {
       // The drawer shares the app's background; the pushed page reads as
       // the card.
       bg="$bgApp"
-      showsVerticalScrollIndicator={false}
+      // A pointer has no swipe to discover the overflow, so web shows the
+      // scrollbar whenever there is one.
+      showsVerticalScrollIndicator={!platformEnv.isNative}
       contentContainerStyle={{
         flexGrow: 1,
         paddingTop: top + 20,

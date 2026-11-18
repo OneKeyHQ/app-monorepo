@@ -9,7 +9,7 @@ import {
 } from '../MoreActionButton';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 
-import { ProfileAvatarFrame } from './ProfileAvatarFrame';
+import { PROFILE_AVATAR_SIZE, ProfileAvatarFrame } from './ProfileAvatarFrame';
 import { useProfileDrawerMarks } from './useProfileDrawerMarks';
 
 import type { IProfileDrawerAvatarReason } from './profileDrawerMarks';
@@ -33,7 +33,7 @@ function ProfileAvatarWithDot() {
   ].join(', ');
   return (
     <ProfileAvatarFrame label={label} dot={avatarReasons.length > 0}>
-      <OneKeyIdAvatar size="$10" showSocialBadge={false} />
+      <OneKeyIdAvatar size={PROFILE_AVATAR_SIZE} showSocialBadge={false} />
     </ProfileAvatarFrame>
   );
 }
