@@ -108,7 +108,6 @@ function sourceFixture() {
     commit: 'c1',
     files: {
       'project.json': toStableJson({
-        keyCount: 4,
         name: 'Monorepo v5',
         slug: 'app',
         source: { baseLanguage: 'en_US' },
@@ -249,11 +248,12 @@ test('edits commit canonical files to a new onekey-i18n branch and open a PR', a
   });
   assert.equal(proposal.number, 9);
   assert.equal(proposal.branch, 'i18n/app-feat-x-c2abcde');
+  // onekey-i18n stores no key count, so adding and removing keys leaves
+  // project.json alone, and two copy PRs don't conflict there.
   assert.deepEqual(proposal.files, [
     'keys.json',
     'locales/en_US.json',
     'locales/zh_CN.json',
-    'project.json',
     'review.json',
   ]);
   assert.equal(bodies.tree.base_tree, 't1');
@@ -281,7 +281,6 @@ test('edits commit canonical files to a new onekey-i18n branch and open a PR', a
     travel_mode__title: '旅行模式',
   });
   assert.deepEqual(JSON.parse(written['review.json']).zh_CN.reviewed, []);
-  assert.equal(JSON.parse(written['project.json']).keyCount, 4);
   assert.equal(await client.finalize({ title: 't' }), null);
 });
 
