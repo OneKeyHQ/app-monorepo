@@ -30,7 +30,6 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPrimeAppleStorePayment,
-  isPrimeCryptoPaymentSupported,
   isPrimeStoreOnlyPayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type {
@@ -849,9 +848,6 @@ export const PrimePurchaseDialog = (props: {
 
   const { packages, isPackagesLoading, packagesFailure, reloadPackages } =
     usePrimeSubscriptionPackages({ enabled: true });
-  // Same rule as the paywall: card or crypto checkout needs no store plan.
-  const canPurchaseWithoutPackages =
-    Boolean(packagesFailure) && isPrimeCryptoPaymentSupported();
 
   const { purchase } = usePrimePurchaseCallback({
     onPurchase,
@@ -865,7 +861,6 @@ export const PrimePurchaseDialog = (props: {
       {packagesFailure ? (
         <PrimePackagesFetchFailed
           failure={packagesFailure}
-          canPurchaseWithoutPackages={canPurchaseWithoutPackages}
           onRetry={reloadPackages}
         />
       ) : null}
@@ -889,10 +884,10 @@ export const PrimePurchaseDialog = (props: {
           id: ETranslations.prime_subscribe,
         })}
         confirmButtonProps={{
-          disabled: !selectedPackage && !canPurchaseWithoutPackages,
+          disabled: !selectedPackage,
         }}
         onConfirm={() => {
-          if (!selectedPackage && !canPurchaseWithoutPackages) {
+          if (!selectedPackage) {
             return undefined;
           }
           return purchase({

@@ -32,7 +32,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPrimeAppleStorePayment,
-  isPrimeCryptoPaymentSupported,
   isPrimeStorePayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import {
@@ -399,10 +398,6 @@ export default function PrimeDashboard({
   } = usePrimeSubscriptionPackages({
     enabled: shouldShowSubscriptionPlans,
   });
-  // Card and crypto checkout price plans server-side, so a failed store or
-  // card price list must not block them where they are offered.
-  const canPurchaseWithoutPackages =
-    Boolean(packagesFailure) && isPrimeCryptoPaymentSupported();
 
   const selectedPackage = useMemo(
     () =>
@@ -412,8 +407,7 @@ export default function PrimeDashboard({
     [packages, selectedSubscriptionPeriod],
   );
 
-  const subscribeButtonEnabled =
-    !isTravelMode && (Boolean(selectedPackage) || canPurchaseWithoutPackages);
+  const subscribeButtonEnabled = !isTravelMode && Boolean(selectedPackage);
 
   const subscribeConfirmButtonProps = useMemo(
     () => ({
@@ -614,7 +608,6 @@ export default function PrimeDashboard({
                 {packagesFailure ? (
                   <PrimePackagesFetchFailed
                     failure={packagesFailure}
-                    canPurchaseWithoutPackages={canPurchaseWithoutPackages}
                     onRetry={reloadPackages}
                   />
                 ) : (

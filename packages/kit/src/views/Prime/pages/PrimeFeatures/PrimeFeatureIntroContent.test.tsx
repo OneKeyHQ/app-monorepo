@@ -16,7 +16,7 @@ import type { IPackage } from '../../hooks/usePrimePaymentTypes';
 
 const mockSubscribe = jest.fn<Promise<void>, [unknown]>();
 const mockReloadPackages = jest.fn<Promise<void>, []>();
-let mockCanPurchaseWithoutPackages = false;
+let mockCryptoPaymentSupported = false;
 let mockCtaKind = 'subscribe';
 let mockGtMd = false;
 let mockPackages: IPackage[] = [];
@@ -150,8 +150,8 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   default: {},
 }));
 jest.mock('@onekeyhq/shared/src/prime/primePaymentCapabilities', () => ({
-  isPrimeAppleStorePayment: () => !mockCanPurchaseWithoutPackages,
-  isPrimeCryptoPaymentSupported: () => mockCanPurchaseWithoutPackages,
+  isPrimeAppleStorePayment: () => !mockCryptoPaymentSupported,
+  isPrimeCryptoPaymentSupported: () => mockCryptoPaymentSupported,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -189,7 +189,7 @@ describe('Prime feature introduction plan failures', () => {
   beforeEach(async () => {
     messages = await loadLocaleMessages('en');
     jest.clearAllMocks();
-    mockCanPurchaseWithoutPackages = false;
+    mockCryptoPaymentSupported = false;
     mockCtaKind = 'subscribe';
     mockGtMd = false;
     mockPackages = [];
@@ -226,17 +226,15 @@ describe('Prime feature introduction plan failures', () => {
     expect(screen.getByTestId('prime-packages-fetch-retry')).toBeTruthy();
   });
 
-  it('allows supported card/crypto checkout after plan loading fails', async () => {
-    mockCanPurchaseWithoutPackages = true;
+  it('blocks checkout after plan loading fails where card/crypto is offered', () => {
+    mockCryptoPaymentSupported = true;
     renderIntro();
     expect(
       (screen.getByTestId('prime-feature-intro-cta') as HTMLButtonElement)
         .disabled,
-    ).toBe(false);
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('prime-feature-intro-cta'));
-    });
-    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    ).toBe(true);
+    fireEvent.click(screen.getByTestId('prime-feature-intro-cta'));
+    expect(mockSubscribe).not.toHaveBeenCalled();
   });
 
   it('enables store checkout when retry restores a matching plan', async () => {

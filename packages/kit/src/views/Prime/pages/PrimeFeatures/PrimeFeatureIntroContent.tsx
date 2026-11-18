@@ -39,7 +39,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrimeCryptoPaymentSupported } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
@@ -600,9 +599,7 @@ export function PrimeFeatureIntroContent({
       packages?.find((item) => item.subscriptionPeriod === subscriptionPeriod),
     [packages, subscriptionPeriod],
   );
-  const canPurchaseWithoutPackages =
-    Boolean(packagesFailure) && isPrimeCryptoPaymentSupported();
-  const canSubscribe = Boolean(selectedPackage) || canPurchaseWithoutPackages;
+  const canSubscribe = Boolean(selectedPackage);
 
   const closeIntro = useCallback(async () => {
     await onClose?.();
@@ -1051,7 +1048,6 @@ export function PrimeFeatureIntroContent({
     shouldUseSubscribeCta && packagesFailure ? (
       <PrimePackagesFetchFailed
         failure={packagesFailure}
-        canPurchaseWithoutPackages={canPurchaseWithoutPackages}
         onRetry={reloadPackages}
       />
     ) : null;

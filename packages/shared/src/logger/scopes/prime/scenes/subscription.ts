@@ -808,14 +808,11 @@ export class PrimeSubscriptionScene extends BaseScene {
   public primePackagesFailStateShow({
     failureKind,
     storefrontCountryCode,
-    canPurchaseWithoutPackages,
   }: {
     failureKind: IPrimePackagesFailureKind;
     storefrontCountryCode?: string;
-    // Subscribe stays enabled for card or crypto checkout (APK, desktop, web).
-    canPurchaseWithoutPackages: boolean;
   }) {
-    return { failureKind, storefrontCountryCode, canPurchaseWithoutPackages };
+    return { failureKind, storefrontCountryCode };
   }
 
   /**

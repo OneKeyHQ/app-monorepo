@@ -12,12 +12,9 @@ import type { IPrimePackagesFetchFailure } from '../../hooks/primePackagesFetchF
 
 export function PrimePackagesFetchFailed({
   failure,
-  canPurchaseWithoutPackages,
   onRetry,
 }: {
   failure: IPrimePackagesFetchFailure;
-  // The footer Subscribe button stays enabled for card or crypto checkout.
-  canPurchaseWithoutPackages: boolean;
   onRetry: () => Promise<void>;
 }) {
   const intl = useIntl();
@@ -28,9 +25,8 @@ export function PrimePackagesFetchFailed({
     defaultLogger.prime.subscription.primePackagesFailStateShow({
       failureKind: kind,
       storefrontCountryCode,
-      canPurchaseWithoutPackages,
     });
-  }, [kind, canPurchaseWithoutPackages, storefrontCountryCode]);
+  }, [kind, storefrontCountryCode]);
 
   return (
     // Sits where the plan cards would be and matches their surface, so the
