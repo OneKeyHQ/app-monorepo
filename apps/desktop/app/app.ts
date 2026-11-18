@@ -1278,6 +1278,10 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     },
   );
   overlaySession.setDevicePermissionHandler(() => false);
+  overlaySession.removeAllListeners('will-download');
+  overlaySession.on('will-download', (event) => {
+    event.preventDefault();
+  });
 
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
@@ -1442,6 +1446,14 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   webviewSession.setPermissionCheckHandler((_webContents, permission) => {
     if (permission === 'media') return true;
     return WEBVIEW_ALLOWED_PERMISSIONS.has(permission);
+  });
+  webviewSession.setDevicePermissionHandler(() => false);
+  webviewSession.removeAllListeners('will-download');
+  webviewSession.on('will-download', (event, item) => {
+    if (!item.hasUserGesture()) {
+      event.preventDefault();
+      logger.info('[webview] automatic download blocked');
+    }
   });
 
   session.defaultSession.webRequest.onBeforeSendHeaders(

@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
-index 07f73fd..f808b15 100644
+index 07f73fd..f05d7c1 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 @@ -14,6 +14,7 @@ import android.webkit.ConsoleMessage;
@@ -132,6 +132,18 @@ index 07f73fd..f808b15 100644
              } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
+@@ -166,7 +254,10 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+                    *
+                    * Find more details here: https://github.com/react-native-webview/react-native-webview/pull/2732
+                    */
+-                  androidPermission = PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID;
++                  // OneKey patch: ignore RESOURCE_PROTECTED_MEDIA_ID when mAllowsProtectedMedia is false
++                  // instead of passing the WebView resource URI to Activity.requestPermissions.
++                  // androidPermission = PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID;
++                  continue;
+                 }            }
+             // TODO: RESOURCE_MIDI_SYSEX, RESOURCE_PROTECTED_MEDIA_ID.
+             if (androidPermission != null) {
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 index 80c6803..9c47bfa 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
