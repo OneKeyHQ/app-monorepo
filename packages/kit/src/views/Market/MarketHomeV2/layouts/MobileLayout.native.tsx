@@ -38,6 +38,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT,
+  MarketHighlightStrip,
+} from '../../MarketHighlights/MarketHighlightStrip';
+import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
+import {
   MarketBannerList,
   useMarketBannerState,
 } from '../components/MarketBanner/MarketBannerList';
@@ -572,6 +577,11 @@ function MobileLayoutComponent({
     isFetched: isBannerFetched,
     scope: bannerScope,
   } = useMarketBannerState();
+  const { items: highlights, isLoading: isHighlightsLoading } =
+    useMarketHighlights();
+  const highlight = highlights?.[0];
+  const hasHighlightSlot =
+    Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
   const bannerDecisionRef = useRef({
     scope: bannerScope,
     isDecided: false,
@@ -593,9 +603,12 @@ function MobileLayoutComponent({
     isFetched: isBannerFetched,
     bannerCount: bannerList.length,
   });
-  const headerHeight = bannerDecisionRef.current.hasBanners
-    ? bannerHeaderHeightRef.current.height
-    : 1;
+  const headerHeight = Math.max(
+    1,
+    (bannerDecisionRef.current.hasBanners
+      ? bannerHeaderHeightRef.current.height
+      : 0) + (hasHighlightSlot ? MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT : 0),
+  );
   const [measuredStickyHeaderHeight, setMeasuredStickyHeaderHeight] = useState(
     MARKET_TAB_BAR_HEIGHT + getMarketMobileSecondaryHeaderHeight(),
   );
@@ -1026,6 +1039,13 @@ function MobileLayoutComponent({
           onPageScrollStateChanged={handlePagerScrollStateChanged}
           header={
             <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
+              {hasHighlightSlot ? (
+                <MarketHighlightStrip
+                  highlight={highlight}
+                  highlights={highlights}
+                  compact
+                />
+              ) : null}
               <MarketBannerList />
             </YStack>
           }
