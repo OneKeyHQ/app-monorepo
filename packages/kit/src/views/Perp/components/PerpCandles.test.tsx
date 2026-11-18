@@ -166,8 +166,10 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
       '@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/multiChartLayout',
     );
     const ids = getTradingViewNativeMultiChartPanelIds(layout.preset);
+    const isSymbolSynced = ids.length > 1 && layout.sync?.symbol === true;
     return ids.map((id, index) => {
-      const source = index === 0 ? mainSource : layout.panels[id]?.source;
+      const source =
+        index === 0 || isSymbolSynced ? mainSource : layout.panels[id]?.source;
       return source ? (
         <Fragment key={id}>
           {renderPanel({
@@ -175,6 +177,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
             index,
             isMain: index === 0,
             isSplit: ids.length > 1,
+            isSymbolSynced,
             source,
             layoutControl: null,
             setSource: mockSetPanelSource,
@@ -398,6 +401,25 @@ describe('split view', () => {
 
     expect(mockSwitchTradeInstrument).toHaveBeenCalledTimes(1);
     expect(mockSetPanelSource).not.toHaveBeenCalled();
+  });
+
+  it('shows the trade instrument in every panel while the token is synced', () => {
+    mockMultiChartLayout = { ...mockMultiChartLayout, sync: { symbol: true } };
+    renderTradingViewCandles();
+
+    expect(getChartProps('ETH')).toBeUndefined();
+    const panels = mockNativeChart.mock.calls
+      .map(([props]) => props)
+      .filter((props) => props.testID?.endsWith('panel-2'));
+    const panel = panels.at(-1);
+    expect(panel?.source).toEqual(btcSource);
+    // A pick now switches the trade instrument, like the ticker bar's, and
+    // there is nothing left to swap with the trading chart.
+    const picker = panel?.nativeControlsLeading as ReactElement<{
+      onSelectToken?: unknown;
+    }>;
+    expect(picker.props.onSelectToken).toBeUndefined();
+    expect(panel?.nativeControlsTrailing).toBeUndefined();
   });
 
   it('stays a single chart on native layouts', () => {

@@ -42,7 +42,9 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
+import { PrimeGiftDashboardEntry } from '../../components/PrimeGiftDashboardEntry';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
+import { usePrimeGiftClaimableDevices } from '../../hooks/usePrimeGiftClaimableDevices';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
 
@@ -113,6 +115,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
+  const primeGift = usePrimeGiftClaimableDevices();
   const {
     fromFeature,
     networkId,
@@ -588,6 +591,11 @@ export default function PrimeDashboard({
               <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
               {isLoggedInMaybe ? <PrimeUserInfo /> : null}
             </Stack>
+
+            <PrimeGiftDashboardEntry
+              devices={primeGift.devices}
+              isPrimeActive={isPrimeSubscriptionActive}
+            />
 
             {shouldShowSubscriptionPlans ? (
               <Stack px="$5" pt="$5" pb="$2" gap="$2">

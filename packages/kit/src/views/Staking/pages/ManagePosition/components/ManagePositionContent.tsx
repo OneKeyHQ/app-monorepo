@@ -473,6 +473,7 @@ export function ManagePositionContent({
     managePageData,
     depositDisabled,
     withdrawDisabled,
+    withdrawApprovalUnavailable,
     alerts,
     alertsHolding,
     alertsStake,
@@ -1002,6 +1003,8 @@ export function ManagePositionContent({
   // Normal deposit/withdraw rendering
   return (
     <NormalManageContent
+      actionsBlocked={isSwitchingProtocol}
+      withdrawApprovalUnavailable={withdrawApprovalUnavailable}
       networkId={networkId}
       symbol={symbol}
       provider={provider}

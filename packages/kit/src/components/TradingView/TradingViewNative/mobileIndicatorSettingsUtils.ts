@@ -3,11 +3,16 @@ import type {
   ITradingViewNativeIndicatorSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { normalizeTradingViewNativeIndicatorSettings } from './indicatorSettingsAdapter';
+import {
+  getTradingViewNativeIndicatorSettings,
+  normalizeTradingViewNativeIndicatorSettings,
+} from './indicatorSettingsAdapter';
+import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
 
 import type {
   ITradingViewIndicatorSettingsItem,
   ITradingViewIndicatorSettingsLine,
+  ITradingViewIndicatorSettingsValue,
 } from '../TradingViewChartControls/chartSettings';
 
 export type IMobileIndicatorNumberField = {
@@ -172,4 +177,27 @@ export function mergeMobileIndicatorSettings(
         )
       : [...normalized[scope], mergedIndicator],
   };
+}
+
+// Builds the persisted-settings update for one edited indicator. Only that
+// indicator's parameters change; its active state stays as stored.
+export function createMobileIndicatorSettingsUpdater(
+  value: ITradingViewIndicatorSettingsValue,
+  indicator: ITradingViewIndicatorSettingsItem,
+):
+  | ((
+      current: ITradingViewNativeIndicatorSettings,
+    ) => ITradingViewNativeIndicatorSettings)
+  | undefined {
+  const indicatorId = indicator.id;
+  if (!isTradingViewNativeAnyIndicator(indicatorId)) {
+    return undefined;
+  }
+  const next = getTradingViewNativeIndicatorSettings({
+    ...value,
+    indicators: value.indicators.map((item) =>
+      item.id === indicatorId ? indicator : item,
+    ),
+  });
+  return (current) => mergeMobileIndicatorSettings(current, next, indicatorId);
 }
