@@ -191,7 +191,7 @@ index 7efe993..9eec52a 100644
 -export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 +export { type BleDebugLogEntry, type BleDebugLogLevel, type BleDebugLogger, DEFAULT_THIRD_PARTY_BLE_VENDORS, type InitThirdPartyBleSupportOptions, type IpcMainLike, NobleBleHandler, type NobleBleHandlerOptions, type ThirdPartyBleApi, type ThirdPartyBleAvailability, type ThirdPartyBleDeviceInfo, ThirdPartyBleIpcErrorResponse, type ThirdPartyBleSupportHandle, type ThirdPartyBleVendorProfile, type WindowsBlePairingDecision, type WindowsBlePairingOptions, type WindowsBlePairingRequest, createThirdPartyBleIpcErrorResponse, initThirdPartyBleSupport, redactBleDebugLogData, withThirdPartyBleIpcErrors };
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
-index 9170842..927fa01 100644
+index 9170842..f2b65a5 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.js
 @@ -37,7 +37,9 @@ __export(index_exports, {
@@ -205,7 +205,7 @@ index 9170842..927fa01 100644
  
  // src/debugLog.ts
  var REDACTED_KEYS = /* @__PURE__ */ new Set([
-@@ -174,6 +176,367 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
+@@ -174,6 +176,402 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
    trezor: trezorProfile
  });
  
@@ -493,10 +493,11 @@ index 9170842..927fa01 100644
 +  });
 +}
 +var WindowsBlePairing = class {
-+  constructor(options, logger) {
++  constructor(options, preparationTimeoutMs, logger) {
 +    this.pending = /* @__PURE__ */ new Set();
 +    this.options = options;
 +    this.logger = logger;
++    this.preparationTimeoutMs = preparationTimeoutMs;
 +  }
 +  cancel(target) {
 +    for (const entry of this.pending) {
@@ -517,12 +518,46 @@ index 9170842..927fa01 100644
 +    let pairingCleanup = Promise.resolve();
 +    try {
 +      let outcome = "skipped";
-+      const device = await resolveDevice(signal);
++      const preparing = (async () => {
++        const device2 = await resolveDevice(signal);
++        assertActive();
++        if (device2?.address) {
++          const resume = await pauseScan();
++          if (signal.aborted) {
++            resume();
++            throw cancelledError();
++          }
++          resumeScan = resume;
++        }
++        return device2;
++      })();
++      let onAbort;
++      let timer;
++      const interrupted = new Promise((_, reject) => {
++        onAbort = () => reject(cancelledError());
++        signal.addEventListener("abort", onAbort, { once: true });
++        if (signal.aborted) onAbort();
++        timer = setTimeout(() => {
++          reject(
++            (0, import_hwk_adapter_core2.createHwkError)({
++              code: import_hwk_adapter_core2.HardwareErrorCode.DeviceNotFound,
++              message: "BLE discovery did not complete before the connection deadline",
++              params: { phase: "connect", stage: "discovery", timedOut: true }
++            })
++          );
++          entry.controller.abort();
++        }, this.preparationTimeoutMs);
++      });
++      let device;
++      try {
++        device = await Promise.race([preparing, interrupted]);
++      } finally {
++        clearTimeout(timer);
++        signal.removeEventListener("abort", onAbort);
++      }
 +      assertActive();
 +      const address = device?.address;
 +      if (address) {
-+        resumeScan = await pauseScan();
-+        assertActive();
 +        const operation = pairingQueue.then(async () => {
 +          assertActive();
 +          return pairWindowsBleDevice(this.options, { id, vendor, address }, signal, this.logger);
@@ -532,15 +567,15 @@ index 9170842..927fa01 100644
 +          () => void 0
 +        );
 +        pairingQueue = pairingCleanup;
-+        let onAbort;
++        let onPairingAbort;
 +        const aborted = new Promise((_, reject) => {
-+          onAbort = () => reject(cancelledError());
-+          signal.addEventListener("abort", onAbort, { once: true });
++          onPairingAbort = () => reject(cancelledError());
++          signal.addEventListener("abort", onPairingAbort, { once: true });
 +        });
 +        try {
 +          outcome = await Promise.race([operation, aborted]);
 +        } finally {
-+          signal.removeEventListener("abort", onAbort);
++          signal.removeEventListener("abort", onPairingAbort);
 +        }
 +      }
 +      assertActive();
@@ -573,7 +608,7 @@ index 9170842..927fa01 100644
  // src/NobleBleHandler.ts
  var DEFAULT_NOBLE_FACTORY = () => {
    const noble = require("@stoprocent/noble");
-@@ -198,7 +561,9 @@ var requestedServiceUuids = (options) => {
+@@ -198,7 +596,9 @@ var requestedServiceUuids = (options) => {
    const uuids = requested.filter((uuid) => typeof uuid === "string");
    return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
  };
@@ -584,7 +619,7 @@ index 9170842..927fa01 100644
    const adv = p.advertisement ?? {};
    return {
      id: p.id,
-@@ -206,7 +571,10 @@ var peripheralToInfo = (p) => {
+@@ -206,7 +606,10 @@ var peripheralToInfo = (p) => {
      localName: adv.localName,
      rssi: p.rssi,
      isConnectable: p.connectable ?? null,
@@ -596,7 +631,7 @@ index 9170842..927fa01 100644
      serviceSolicitationUuids: adv.serviceSolicitationUuids,
      txPowerLevel: adv.txPowerLevel,
      manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
-@@ -224,48 +592,73 @@ var nativeErrorFields = (error) => {
+@@ -224,48 +627,73 @@ var nativeErrorFields = (error) => {
    const { nativeErrorDomain, nativeErrorCode } = error ?? {};
    return { nativeErrorDomain, nativeErrorCode };
  };
@@ -686,7 +721,7 @@ index 9170842..927fa01 100644
      params
    });
  };
-@@ -318,6 +711,7 @@ var NobleBleHandler = class {
+@@ -318,6 +746,7 @@ var NobleBleHandler = class {
      this._scanning = false;
      this._scanOwners = /* @__PURE__ */ new Set();
      this._scanTransition = Promise.resolve();
@@ -694,17 +729,21 @@ index 9170842..927fa01 100644
      this._initialized = false;
      this._disposed = false;
      this._nobleInstances = /* @__PURE__ */ new Set();
-@@ -328,6 +722,9 @@ var NobleBleHandler = class {
+@@ -328,6 +757,13 @@ var NobleBleHandler = class {
      this._connectTimeoutMs = options.connectTimeoutMs ?? BLE_CONNECT_TIMEOUT_MS;
      this._subscribeTimeoutMs = options.subscribeTimeoutMs ?? BLE_SUBSCRIBE_TIMEOUT_MS;
      this._logger = options.logger;
 +    if (process.platform === "win32" && options.windowsPairing) {
-+      this._windowsPairing = new WindowsBlePairing(options.windowsPairing, options.logger);
++      this._windowsPairing = new WindowsBlePairing(
++        options.windowsPairing,
++        this._connectTimeoutMs,
++        options.logger
++      );
 +    }
      this._vendors = new Map(Object.entries(options.vendors ?? DEFAULT_THIRD_PARTY_BLE_VENDORS));
    }
    _resolveVendor(vendor) {
-@@ -436,7 +833,9 @@ var NobleBleHandler = class {
+@@ -436,7 +872,9 @@ var NobleBleHandler = class {
      const now = Date.now();
      const result = [];
      for (const [id, peripheral] of this._discovered) {
@@ -715,7 +754,7 @@ index 9170842..927fa01 100644
          this._discovered.delete(id);
          this._lastSeen.delete(id);
          this._advertisedUuids.delete(id);
-@@ -450,12 +849,16 @@ var NobleBleHandler = class {
+@@ -450,12 +888,16 @@ var NobleBleHandler = class {
          this._keptByMemory.add(id);
          this._log("info", "scan.keptByMemory", { id });
        }
@@ -734,7 +773,7 @@ index 9170842..927fa01 100644
      }
      return result;
    }
-@@ -509,7 +912,9 @@ var NobleBleHandler = class {
+@@ -509,7 +951,9 @@ var NobleBleHandler = class {
      }
    }
    _armIdleStop() {
@@ -745,7 +784,7 @@ index 9170842..927fa01 100644
      this._clearIdleStop();
      this._idleStopTimer = setTimeout(() => {
        void this._stopContinuousScan();
-@@ -527,7 +932,9 @@ var NobleBleHandler = class {
+@@ -527,7 +971,9 @@ var NobleBleHandler = class {
      const transition = this._scanTransition.then(async () => {
        if (scanning) {
          this._assertActive();
@@ -756,7 +795,7 @@ index 9170842..927fa01 100644
        }
        if (this._scanning === scanning) return;
        this._scanning = scanning;
-@@ -551,6 +958,19 @@ var NobleBleHandler = class {
+@@ -551,6 +997,19 @@ var NobleBleHandler = class {
      this._clearIdleStop();
      await this._setScanning(false);
    }
@@ -776,7 +815,7 @@ index 9170842..927fa01 100644
    /** Stop scanning and forget discovered devices (idle timeout / teardown). */
    async _stopContinuousScan() {
      this._scanOwners.clear();
-@@ -566,6 +986,11 @@ var NobleBleHandler = class {
+@@ -566,6 +1025,11 @@ var NobleBleHandler = class {
        this._scanOwners.delete(vendor);
        if (this._scanOwners.size > 0) return;
      }
@@ -788,7 +827,7 @@ index 9170842..927fa01 100644
      await this._stopContinuousScan();
    }
    /**
-@@ -580,7 +1005,9 @@ var NobleBleHandler = class {
+@@ -580,7 +1044,9 @@ var NobleBleHandler = class {
      )) {
        return null;
      }
@@ -799,7 +838,7 @@ index 9170842..927fa01 100644
    }
    /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
    async readRssi(id) {
-@@ -592,12 +1019,16 @@ var NobleBleHandler = class {
+@@ -592,12 +1058,16 @@ var NobleBleHandler = class {
    }
    /** Abandon matching pairing attempts without touching another owner's links. */
    async cancelPairing(options) {
@@ -818,7 +857,7 @@ index 9170842..927fa01 100644
            message: `connect cancelled: ${attempt.id}`,
            params: { phase: "connect" }
          })
-@@ -708,6 +1139,34 @@ var NobleBleHandler = class {
+@@ -708,6 +1178,34 @@ var NobleBleHandler = class {
      if (!this._resolveVendor(options.vendor).profile.acceptsConnect(options)) {
        throw invariantError(`BLE GATT profile not allowed for ${options.vendor}`);
      }
@@ -853,7 +892,7 @@ index 9170842..927fa01 100644
      this._assertActive();
      const claim = { abandoned: false };
      let abandon;
-@@ -720,8 +1179,11 @@ var NobleBleHandler = class {
+@@ -720,8 +1218,11 @@ var NobleBleHandler = class {
      });
      const timer = setTimeout(() => {
        abandon(
@@ -867,7 +906,7 @@ index 9170842..927fa01 100644
            message: `connect timed out after ${this._connectTimeoutMs}ms`,
            // A device no scan surfaced is not advertising; the Ledger adapter retries that one.
            params: {
-@@ -812,8 +1274,11 @@ var NobleBleHandler = class {
+@@ -812,8 +1313,11 @@ var NobleBleHandler = class {
          route: "none",
          discoveredCount: this._discovered.size
        });
@@ -881,7 +920,7 @@ index 9170842..927fa01 100644
          message: `BLE device not found: ${id}`,
          params: { phase: "connect", notAdvertising: true }
        });
-@@ -856,8 +1321,11 @@ var NobleBleHandler = class {
+@@ -856,8 +1360,11 @@ var NobleBleHandler = class {
        const writeChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === writeUuid);
        const notifyChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === notifyUuid);
        if (!writeChar || !notifyChar) {
@@ -895,7 +934,7 @@ index 9170842..927fa01 100644
            message: `BLE device ${id} lacks the expected characteristics`,
            params: { phase: "connect" }
          });
-@@ -892,11 +1360,14 @@ var NobleBleHandler = class {
+@@ -892,11 +1399,14 @@ var NobleBleHandler = class {
        });
        return { id, name: peripheral.advertisement.localName };
      } catch (error) {
@@ -911,7 +950,7 @@ index 9170842..927fa01 100644
        });
      }
    }
-@@ -921,26 +1392,50 @@ var NobleBleHandler = class {
+@@ -921,26 +1431,50 @@ var NobleBleHandler = class {
    async subscribe(id) {
      const entry = this._requireEntry(id);
      if (!entry.notifyChar) throw invariantError(`BLE notify characteristic missing for ${id}`);
@@ -972,7 +1011,7 @@ index 9170842..927fa01 100644
    }
    async _withSubscribeTimeout(subscribing) {
      let timer;
-@@ -948,8 +1443,11 @@ var NobleBleHandler = class {
+@@ -948,8 +1482,11 @@ var NobleBleHandler = class {
      const expired = new Promise((_, reject) => {
        timer = setTimeout(() => {
          reject(
@@ -986,7 +1025,7 @@ index 9170842..927fa01 100644
              message: `subscribe timed out after ${this._subscribeTimeoutMs}ms`,
              params: { phase: "subscribe" }
            })
-@@ -965,26 +1463,29 @@ var NobleBleHandler = class {
+@@ -965,26 +1502,29 @@ var NobleBleHandler = class {
        if (cancel) this._pendingCancellations.delete(cancel);
      }
    }
@@ -1033,7 +1072,7 @@ index 9170842..927fa01 100644
      if (entry.notifyHandler) {
        entry.notifyChar.removeListener("data", entry.notifyHandler);
        entry.notifyHandler = void 0;
-@@ -1035,6 +1536,7 @@ var NobleBleHandler = class {
+@@ -1035,6 +1575,7 @@ var NobleBleHandler = class {
    dispose() {
      if (this._disposePromise) return this._disposePromise;
      this._disposed = true;
@@ -1041,7 +1080,7 @@ index 9170842..927fa01 100644
      this._clearIdleStop();
      this._scanning = false;
      this._onNotification = void 0;
-@@ -1130,8 +1632,11 @@ var NobleBleHandler = class {
+@@ -1130,8 +1671,11 @@ var NobleBleHandler = class {
      this._assertActive();
      const entry = this._connected.get(id);
      if (!entry) {
@@ -1055,7 +1094,7 @@ index 9170842..927fa01 100644
          message: `BLE device is not connected: ${id}`
        });
      }
-@@ -1200,13 +1705,17 @@ var NobleBleHandler = class {
+@@ -1200,13 +1744,17 @@ var NobleBleHandler = class {
  };
  
  // src/main.ts
@@ -1076,7 +1115,7 @@ index 9170842..927fa01 100644
    if (params && typeof params === "object") {
      try {
 diff --git a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
-index 499f5a7..6797e0c 100644
+index 499f5a7..5369af9 100644
 --- a/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
 +++ b/node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs
 @@ -11,7 +11,9 @@ import {
@@ -1090,7 +1129,7 @@ index 499f5a7..6797e0c 100644
  
  // src/debugLog.ts
  var REDACTED_KEYS = /* @__PURE__ */ new Set([
-@@ -118,6 +120,367 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
+@@ -118,6 +120,402 @@ var DEFAULT_THIRD_PARTY_BLE_VENDORS = Object.freeze({
    trezor: trezorProfile
  });
  
@@ -1378,10 +1417,11 @@ index 499f5a7..6797e0c 100644
 +  });
 +}
 +var WindowsBlePairing = class {
-+  constructor(options, logger) {
++  constructor(options, preparationTimeoutMs, logger) {
 +    this.pending = /* @__PURE__ */ new Set();
 +    this.options = options;
 +    this.logger = logger;
++    this.preparationTimeoutMs = preparationTimeoutMs;
 +  }
 +  cancel(target) {
 +    for (const entry of this.pending) {
@@ -1402,12 +1442,46 @@ index 499f5a7..6797e0c 100644
 +    let pairingCleanup = Promise.resolve();
 +    try {
 +      let outcome = "skipped";
-+      const device = await resolveDevice(signal);
++      const preparing = (async () => {
++        const device2 = await resolveDevice(signal);
++        assertActive();
++        if (device2?.address) {
++          const resume = await pauseScan();
++          if (signal.aborted) {
++            resume();
++            throw cancelledError();
++          }
++          resumeScan = resume;
++        }
++        return device2;
++      })();
++      let onAbort;
++      let timer;
++      const interrupted = new Promise((_, reject) => {
++        onAbort = () => reject(cancelledError());
++        signal.addEventListener("abort", onAbort, { once: true });
++        if (signal.aborted) onAbort();
++        timer = setTimeout(() => {
++          reject(
++            createHwkError2({
++              code: HardwareErrorCode2.DeviceNotFound,
++              message: "BLE discovery did not complete before the connection deadline",
++              params: { phase: "connect", stage: "discovery", timedOut: true }
++            })
++          );
++          entry.controller.abort();
++        }, this.preparationTimeoutMs);
++      });
++      let device;
++      try {
++        device = await Promise.race([preparing, interrupted]);
++      } finally {
++        clearTimeout(timer);
++        signal.removeEventListener("abort", onAbort);
++      }
 +      assertActive();
 +      const address = device?.address;
 +      if (address) {
-+        resumeScan = await pauseScan();
-+        assertActive();
 +        const operation = pairingQueue.then(async () => {
 +          assertActive();
 +          return pairWindowsBleDevice(this.options, { id, vendor, address }, signal, this.logger);
@@ -1417,15 +1491,15 @@ index 499f5a7..6797e0c 100644
 +          () => void 0
 +        );
 +        pairingQueue = pairingCleanup;
-+        let onAbort;
++        let onPairingAbort;
 +        const aborted = new Promise((_, reject) => {
-+          onAbort = () => reject(cancelledError());
-+          signal.addEventListener("abort", onAbort, { once: true });
++          onPairingAbort = () => reject(cancelledError());
++          signal.addEventListener("abort", onPairingAbort, { once: true });
 +        });
 +        try {
 +          outcome = await Promise.race([operation, aborted]);
 +        } finally {
-+          signal.removeEventListener("abort", onAbort);
++          signal.removeEventListener("abort", onPairingAbort);
 +        }
 +      }
 +      assertActive();
@@ -1458,7 +1532,7 @@ index 499f5a7..6797e0c 100644
  // src/NobleBleHandler.ts
  var DEFAULT_NOBLE_FACTORY = () => {
    const noble = __require("@stoprocent/noble");
-@@ -142,7 +505,9 @@ var requestedServiceUuids = (options) => {
+@@ -142,7 +540,9 @@ var requestedServiceUuids = (options) => {
    const uuids = requested.filter((uuid) => typeof uuid === "string");
    return uuids.length ? new Set(uuids.map(normalizeBleUuid)) : void 0;
  };
@@ -1469,7 +1543,7 @@ index 499f5a7..6797e0c 100644
    const adv = p.advertisement ?? {};
    return {
      id: p.id,
-@@ -150,7 +515,10 @@ var peripheralToInfo = (p) => {
+@@ -150,7 +550,10 @@ var peripheralToInfo = (p) => {
      localName: adv.localName,
      rssi: p.rssi,
      isConnectable: p.connectable ?? null,
@@ -1481,7 +1555,7 @@ index 499f5a7..6797e0c 100644
      serviceSolicitationUuids: adv.serviceSolicitationUuids,
      txPowerLevel: adv.txPowerLevel,
      manufacturerDataHex: adv.manufacturerData ? Buffer.from(adv.manufacturerData).toString("hex") : void 0,
-@@ -168,16 +536,26 @@ var nativeErrorFields = (error) => {
+@@ -168,16 +571,26 @@ var nativeErrorFields = (error) => {
    const { nativeErrorDomain, nativeErrorCode } = error ?? {};
    return { nativeErrorDomain, nativeErrorCode };
  };
@@ -1514,7 +1588,7 @@ index 499f5a7..6797e0c 100644
      bluetoothState: state
    }
  });
-@@ -187,29 +565,42 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
+@@ -187,29 +600,42 @@ var toCanonicalBleError = (error, phase, { linkLost = false, facts } = {}) => {
    const native = nativeErrorFields(error);
    const params = { phase, ...native, ...facts };
    if (native.nativeErrorDomain === "CBErrorDomain" && native.nativeErrorCode === 14) {
@@ -1566,7 +1640,7 @@ index 499f5a7..6797e0c 100644
      params
    });
  };
-@@ -262,6 +653,7 @@ var NobleBleHandler = class {
+@@ -262,6 +688,7 @@ var NobleBleHandler = class {
      this._scanning = false;
      this._scanOwners = /* @__PURE__ */ new Set();
      this._scanTransition = Promise.resolve();
@@ -1574,17 +1648,21 @@ index 499f5a7..6797e0c 100644
      this._initialized = false;
      this._disposed = false;
      this._nobleInstances = /* @__PURE__ */ new Set();
-@@ -272,6 +664,9 @@ var NobleBleHandler = class {
+@@ -272,6 +699,13 @@ var NobleBleHandler = class {
      this._connectTimeoutMs = options.connectTimeoutMs ?? BLE_CONNECT_TIMEOUT_MS;
      this._subscribeTimeoutMs = options.subscribeTimeoutMs ?? BLE_SUBSCRIBE_TIMEOUT_MS;
      this._logger = options.logger;
 +    if (process.platform === "win32" && options.windowsPairing) {
-+      this._windowsPairing = new WindowsBlePairing(options.windowsPairing, options.logger);
++      this._windowsPairing = new WindowsBlePairing(
++        options.windowsPairing,
++        this._connectTimeoutMs,
++        options.logger
++      );
 +    }
      this._vendors = new Map(Object.entries(options.vendors ?? DEFAULT_THIRD_PARTY_BLE_VENDORS));
    }
    _resolveVendor(vendor) {
-@@ -380,7 +775,9 @@ var NobleBleHandler = class {
+@@ -380,7 +814,9 @@ var NobleBleHandler = class {
      const now = Date.now();
      const result = [];
      for (const [id, peripheral] of this._discovered) {
@@ -1595,7 +1673,7 @@ index 499f5a7..6797e0c 100644
          this._discovered.delete(id);
          this._lastSeen.delete(id);
          this._advertisedUuids.delete(id);
-@@ -394,12 +791,16 @@ var NobleBleHandler = class {
+@@ -394,12 +830,16 @@ var NobleBleHandler = class {
          this._keptByMemory.add(id);
          this._log("info", "scan.keptByMemory", { id });
        }
@@ -1614,7 +1692,7 @@ index 499f5a7..6797e0c 100644
      }
      return result;
    }
-@@ -453,7 +854,9 @@ var NobleBleHandler = class {
+@@ -453,7 +893,9 @@ var NobleBleHandler = class {
      }
    }
    _armIdleStop() {
@@ -1625,7 +1703,7 @@ index 499f5a7..6797e0c 100644
      this._clearIdleStop();
      this._idleStopTimer = setTimeout(() => {
        void this._stopContinuousScan();
-@@ -471,7 +874,9 @@ var NobleBleHandler = class {
+@@ -471,7 +913,9 @@ var NobleBleHandler = class {
      const transition = this._scanTransition.then(async () => {
        if (scanning) {
          this._assertActive();
@@ -1636,7 +1714,7 @@ index 499f5a7..6797e0c 100644
        }
        if (this._scanning === scanning) return;
        this._scanning = scanning;
-@@ -495,6 +900,19 @@ var NobleBleHandler = class {
+@@ -495,6 +939,19 @@ var NobleBleHandler = class {
      this._clearIdleStop();
      await this._setScanning(false);
    }
@@ -1656,7 +1734,7 @@ index 499f5a7..6797e0c 100644
    /** Stop scanning and forget discovered devices (idle timeout / teardown). */
    async _stopContinuousScan() {
      this._scanOwners.clear();
-@@ -510,6 +928,11 @@ var NobleBleHandler = class {
+@@ -510,6 +967,11 @@ var NobleBleHandler = class {
        this._scanOwners.delete(vendor);
        if (this._scanOwners.size > 0) return;
      }
@@ -1668,7 +1746,7 @@ index 499f5a7..6797e0c 100644
      await this._stopContinuousScan();
    }
    /**
-@@ -524,7 +947,9 @@ var NobleBleHandler = class {
+@@ -524,7 +986,9 @@ var NobleBleHandler = class {
      )) {
        return null;
      }
@@ -1679,7 +1757,7 @@ index 499f5a7..6797e0c 100644
    }
    /** Live RSSI (dBm) of a connected peripheral, else the cached scan-time value. */
    async readRssi(id) {
-@@ -536,12 +961,16 @@ var NobleBleHandler = class {
+@@ -536,12 +1000,16 @@ var NobleBleHandler = class {
    }
    /** Abandon matching pairing attempts without touching another owner's links. */
    async cancelPairing(options) {
@@ -1698,7 +1776,7 @@ index 499f5a7..6797e0c 100644
            message: `connect cancelled: ${attempt.id}`,
            params: { phase: "connect" }
          })
-@@ -652,6 +1081,34 @@ var NobleBleHandler = class {
+@@ -652,6 +1120,34 @@ var NobleBleHandler = class {
      if (!this._resolveVendor(options.vendor).profile.acceptsConnect(options)) {
        throw invariantError(`BLE GATT profile not allowed for ${options.vendor}`);
      }
@@ -1733,7 +1811,7 @@ index 499f5a7..6797e0c 100644
      this._assertActive();
      const claim = { abandoned: false };
      let abandon;
-@@ -664,8 +1121,11 @@ var NobleBleHandler = class {
+@@ -664,8 +1160,11 @@ var NobleBleHandler = class {
      });
      const timer = setTimeout(() => {
        abandon(
@@ -1747,7 +1825,7 @@ index 499f5a7..6797e0c 100644
            message: `connect timed out after ${this._connectTimeoutMs}ms`,
            // A device no scan surfaced is not advertising; the Ledger adapter retries that one.
            params: {
-@@ -756,8 +1216,11 @@ var NobleBleHandler = class {
+@@ -756,8 +1255,11 @@ var NobleBleHandler = class {
          route: "none",
          discoveredCount: this._discovered.size
        });
@@ -1761,7 +1839,7 @@ index 499f5a7..6797e0c 100644
          message: `BLE device not found: ${id}`,
          params: { phase: "connect", notAdvertising: true }
        });
-@@ -800,8 +1263,11 @@ var NobleBleHandler = class {
+@@ -800,8 +1302,11 @@ var NobleBleHandler = class {
        const writeChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === writeUuid);
        const notifyChar = characteristics.find((c) => normalizeBleUuid(c.uuid) === notifyUuid);
        if (!writeChar || !notifyChar) {
@@ -1775,7 +1853,7 @@ index 499f5a7..6797e0c 100644
            message: `BLE device ${id} lacks the expected characteristics`,
            params: { phase: "connect" }
          });
-@@ -836,11 +1302,14 @@ var NobleBleHandler = class {
+@@ -836,11 +1341,14 @@ var NobleBleHandler = class {
        });
        return { id, name: peripheral.advertisement.localName };
      } catch (error) {
@@ -1791,7 +1869,7 @@ index 499f5a7..6797e0c 100644
        });
      }
    }
-@@ -865,26 +1334,50 @@ var NobleBleHandler = class {
+@@ -865,26 +1373,50 @@ var NobleBleHandler = class {
    async subscribe(id) {
      const entry = this._requireEntry(id);
      if (!entry.notifyChar) throw invariantError(`BLE notify characteristic missing for ${id}`);
@@ -1852,7 +1930,7 @@ index 499f5a7..6797e0c 100644
    }
    async _withSubscribeTimeout(subscribing) {
      let timer;
-@@ -892,8 +1385,11 @@ var NobleBleHandler = class {
+@@ -892,8 +1424,11 @@ var NobleBleHandler = class {
      const expired = new Promise((_, reject) => {
        timer = setTimeout(() => {
          reject(
@@ -1866,7 +1944,7 @@ index 499f5a7..6797e0c 100644
              message: `subscribe timed out after ${this._subscribeTimeoutMs}ms`,
              params: { phase: "subscribe" }
            })
-@@ -909,26 +1405,29 @@ var NobleBleHandler = class {
+@@ -909,26 +1444,29 @@ var NobleBleHandler = class {
        if (cancel) this._pendingCancellations.delete(cancel);
      }
    }
@@ -1913,7 +1991,7 @@ index 499f5a7..6797e0c 100644
      if (entry.notifyHandler) {
        entry.notifyChar.removeListener("data", entry.notifyHandler);
        entry.notifyHandler = void 0;
-@@ -979,6 +1478,7 @@ var NobleBleHandler = class {
+@@ -979,6 +1517,7 @@ var NobleBleHandler = class {
    dispose() {
      if (this._disposePromise) return this._disposePromise;
      this._disposed = true;
@@ -1921,7 +1999,7 @@ index 499f5a7..6797e0c 100644
      this._clearIdleStop();
      this._scanning = false;
      this._onNotification = void 0;
-@@ -1074,8 +1574,11 @@ var NobleBleHandler = class {
+@@ -1074,8 +1613,11 @@ var NobleBleHandler = class {
      this._assertActive();
      const entry = this._connected.get(id);
      if (!entry) {

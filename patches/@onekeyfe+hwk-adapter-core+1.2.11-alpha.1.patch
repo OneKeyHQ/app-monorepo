@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/hwk-adapter-core/dist/index.js b/node_modules/@onekeyfe/hwk-adapter-core/dist/index.js
-index 906ce7b..70c771b 100644
+index 906ce7b..c8ae947 100644
 --- a/node_modules/@onekeyfe/hwk-adapter-core/dist/index.js
 +++ b/node_modules/@onekeyfe/hwk-adapter-core/dist/index.js
 @@ -674,7 +674,11 @@ function createCombinedConnector(connectors) {
@@ -15,25 +15,66 @@ index 906ce7b..70c771b 100644
      }
      const merged = [];
      perConnector.forEach(({ index, devices }) => {
-@@ -852,7 +856,15 @@ var isSerializedError = (value) => typeof value === "object" && value !== null &
+@@ -852,17 +856,47 @@ var isSerializedError = (value) => typeof value === "object" && value !== null &
  var restoreHostError = ({ message, code, params }) => _chunkEJIHCWWHjs.isHardwareErrorCode.call(void 0, code) ? _chunkEJIHCWWHjs.createHwkError.call(void 0, { code, message, ...params ? { params } : {} }) : new Error(message);
  function rehydrateElectronBleErrors(bridge) {
    const wrapped = Object.create(bridge);
 -  for (const key of Object.keys(bridge)) {
-+  // OneKey patch: Bind inherited BLE bridge methods to the original instance.
+-    if (typeof bridge[key] === "function") {
++  // OneKey patch: Bind inherited BLE bridge methods to the original instance without evaluating accessors.
 +  //   for (const key of Object.keys(bridge)) {
-+  const keys = /* @__PURE__ */ new Set();
++  //     if (typeof bridge[key] === "function") {
++  const invoke = (method, args) => {
++    const result = method.apply(bridge, args);
++    if (typeof _optionalChain([result, 'optionalAccess', _32 => _32.then]) !== "function") return result;
++    return Promise.resolve(result).catch((error) => {
++      throw isSerializedError(error) ? restoreHostError(error) : error;
++    });
++  };
++  const descriptors = /* @__PURE__ */ new Map();
 +  for (let source = bridge; source && source !== Object.prototype; source = Object.getPrototypeOf(source)) {
 +    for (const key of Reflect.ownKeys(source)) {
-+      if (key !== "constructor") keys.add(key);
++      const descriptor = Object.getOwnPropertyDescriptor(source, key);
++      if (key !== "constructor" && descriptor && !descriptors.has(key))
++        descriptors.set(key, descriptor);
 +    }
 +  }
-+  for (const key of keys) {
-     if (typeof bridge[key] === "function") {
++  for (const [key, descriptor] of descriptors) {
++    if (typeof descriptor.value === "function") {
        Object.defineProperty(wrapped, key, {
-         value: (...args) => {
+-        value: (...args) => {
+-          const method = bridge[key];
+-          const result = method.apply(bridge, args);
+-          if (typeof _optionalChain([result, 'optionalAccess', _32 => _32.then]) !== "function") return result;
+-          return Promise.resolve(result).catch((error) => {
+-            throw isSerializedError(error) ? restoreHostError(error) : error;
+-          });
+-        }
++        // OneKey patch: Bind inherited BLE bridge methods to the original instance without evaluating accessors.
++        //         value: (...args) => {
++        //           const method = bridge[key];
++        //           const result = method.apply(bridge, args);
++        //           if (typeof _optionalChain([result, 'optionalAccess', _32 => _32.then]) !== "function") return result;
++        //           return Promise.resolve(result).catch((error) => {
++        //             throw isSerializedError(error) ? restoreHostError(error) : error;
++        //           });
++        //         }
++        value: (...args) => invoke(bridge[key], args)
++      });
++    } else if (descriptor.get || descriptor.set) {
++      Object.defineProperty(wrapped, key, {
++        get: descriptor.get ? () => {
++          const value = Reflect.get(bridge, key, bridge);
++          return typeof value === "function" ? (...args) => invoke(value, args) : value;
++        } : void 0,
++        set: descriptor.set ? (value) => {
++          Reflect.set(bridge, key, value, bridge);
++        } : void 0
+       });
+     }
+   }
 diff --git a/node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs b/node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs
-index 3589458..bef8dd8 100644
+index 3589458..bbdc491 100644
 --- a/node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs
 +++ b/node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs
 @@ -674,7 +674,11 @@ function createCombinedConnector(connectors) {
@@ -49,20 +90,61 @@ index 3589458..bef8dd8 100644
      }
      const merged = [];
      perConnector.forEach(({ index, devices }) => {
-@@ -852,7 +856,15 @@ var isSerializedError = (value) => typeof value === "object" && value !== null &
+@@ -852,17 +856,47 @@ var isSerializedError = (value) => typeof value === "object" && value !== null &
  var restoreHostError = ({ message, code, params }) => isHardwareErrorCode(code) ? createHwkError({ code, message, ...params ? { params } : {} }) : new Error(message);
  function rehydrateElectronBleErrors(bridge) {
    const wrapped = Object.create(bridge);
 -  for (const key of Object.keys(bridge)) {
-+  // OneKey patch: Bind inherited BLE bridge methods to the original instance.
+-    if (typeof bridge[key] === "function") {
++  // OneKey patch: Bind inherited BLE bridge methods to the original instance without evaluating accessors.
 +  //   for (const key of Object.keys(bridge)) {
-+  const keys = /* @__PURE__ */ new Set();
++  //     if (typeof bridge[key] === "function") {
++  const invoke = (method, args) => {
++    const result = method.apply(bridge, args);
++    if (typeof result?.then !== "function") return result;
++    return Promise.resolve(result).catch((error) => {
++      throw isSerializedError(error) ? restoreHostError(error) : error;
++    });
++  };
++  const descriptors = /* @__PURE__ */ new Map();
 +  for (let source = bridge; source && source !== Object.prototype; source = Object.getPrototypeOf(source)) {
 +    for (const key of Reflect.ownKeys(source)) {
-+      if (key !== "constructor") keys.add(key);
++      const descriptor = Object.getOwnPropertyDescriptor(source, key);
++      if (key !== "constructor" && descriptor && !descriptors.has(key))
++        descriptors.set(key, descriptor);
 +    }
 +  }
-+  for (const key of keys) {
-     if (typeof bridge[key] === "function") {
++  for (const [key, descriptor] of descriptors) {
++    if (typeof descriptor.value === "function") {
        Object.defineProperty(wrapped, key, {
-         value: (...args) => {
+-        value: (...args) => {
+-          const method = bridge[key];
+-          const result = method.apply(bridge, args);
+-          if (typeof result?.then !== "function") return result;
+-          return Promise.resolve(result).catch((error) => {
+-            throw isSerializedError(error) ? restoreHostError(error) : error;
+-          });
+-        }
++        // OneKey patch: Bind inherited BLE bridge methods to the original instance without evaluating accessors.
++        //         value: (...args) => {
++        //           const method = bridge[key];
++        //           const result = method.apply(bridge, args);
++        //           if (typeof result?.then !== "function") return result;
++        //           return Promise.resolve(result).catch((error) => {
++        //             throw isSerializedError(error) ? restoreHostError(error) : error;
++        //           });
++        //         }
++        value: (...args) => invoke(bridge[key], args)
++      });
++    } else if (descriptor.get || descriptor.set) {
++      Object.defineProperty(wrapped, key, {
++        get: descriptor.get ? () => {
++          const value = Reflect.get(bridge, key, bridge);
++          return typeof value === "function" ? (...args) => invoke(value, args) : value;
++        } : void 0,
++        set: descriptor.set ? (value) => {
++          Reflect.set(bridge, key, value, bridge);
++        } : void 0
+       });
+     }
+   }
