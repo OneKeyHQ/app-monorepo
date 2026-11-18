@@ -13,6 +13,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -1654,7 +1655,10 @@ function SendDataInputContainer() {
 
   // Temporary iOS workaround for the 6.7.0 OTA. In 6.8.0, use the native
   // recipient layout after bundling the NativeList fix (OneKeyHQ/app-modules#279).
-  const useLegacyRecipientLayout = platformEnv.isNativeIOS;
+  const useLegacyRecipientLayout = Platform.select({
+    ios: true,
+    default: false,
+  });
   const renderRecipientFields = (
     requestFocusVisibility?: IFocusVisibilityRequest,
   ) => (
