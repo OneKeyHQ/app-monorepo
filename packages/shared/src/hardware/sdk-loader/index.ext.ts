@@ -23,7 +23,9 @@ export const importHardwareSDK = async (_params: {
   );
 };
 
-export const importHardwareSDKLowLevel = async (): Promise<LowLevelCoreApi> => {
+export const importHardwareSDKLowLevel = async (
+  _hardwareTransportType?: EHardwareTransportType,
+): Promise<LowLevelCoreApi> => {
   throw new OneKeyLocalError(
     'Hardware SDK is only available in the extension background',
   );

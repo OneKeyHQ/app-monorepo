@@ -1,4 +1,5 @@
 import { HardwareSDKLowLevel } from '@onekeyfe/hd-common-connect-sdk';
+import bridgeSDK from '@onekeyfe/hd-web-sdk/dist';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -28,16 +29,39 @@ jest.mock('@onekeyfe/hd-common-connect-sdk', () => ({
   },
 }));
 
-// Loading the shared Web LowLevel here would restore the remote iframe.
+jest.mock('@onekeyfe/hd-web-sdk/dist', () => ({
+  __esModule: true,
+  default: {
+    HardwareSDKLowLevel: {
+      init: jest.fn(),
+      call: jest.fn(),
+      uiResponse: jest.fn(),
+      cancel: jest.fn(),
+      switchTransport: jest.fn(),
+      addHardwareGlobalEventListener: jest.fn(),
+      removeAllListeners: jest.fn(),
+      dispose: jest.fn(),
+    },
+  },
+}));
+
+// Offscreen owns both clients instead of resolving the background loader.
 jest.mock('@onekeyhq/shared/src/hardware/sdk-loader', () => {
   throw new OneKeyLocalError('Offscreen must own the local hardware SDK');
 });
 
 const sdk = jest.mocked(HardwareSDKLowLevel);
-const call = (method: string, params: IOffscreenApiMessagePayload['params']) =>
+const bridgeSdk = jest.mocked(bridgeSDK.HardwareSDKLowLevel);
+const call = (
+  method: string,
+  params: IOffscreenApiMessagePayload['params'],
+  module:
+    | 'hardwareSDKLowLevel'
+    | 'hardwareSDKBridgeLowLevel' = 'hardwareSDKLowLevel',
+) =>
   offscreenApi.callOffscreenApiMethod({
     type: OFFSCREEN_API_MESSAGE_TYPE,
-    module: 'hardwareSDKLowLevel',
+    module,
     method,
     params,
   });
@@ -46,7 +70,7 @@ describe('offscreenApi local hardware SDK', () => {
   let activeListener: ((message: CoreMessage) => void) | undefined;
   const request = jest.fn(async () => undefined);
 
-  beforeAll(() => {
+  beforeAll(async () => {
     sdk.addHardwareGlobalEventListener.mockImplementation((listener) => {
       activeListener = listener;
     });
@@ -57,24 +81,27 @@ describe('offscreenApi local hardware SDK', () => {
       activeListener = undefined;
     });
     appGlobals.extJsBridgeOffscreenToBg = { request } as never;
+    sdk.init.mockResolvedValue(true);
+    await call('init', [{ env: 'webusb' }]);
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('initializes the local SDK once and forwards transport settings', async () => {
+  it('forwards direct settings and transport switches without duplicating listeners', async () => {
     sdk.init.mockResolvedValue(true);
     const settings = { env: 'webusb', fetchConfig: false };
     expect(await call('init', [settings])).toBe(true);
     expect(sdk.init).toHaveBeenCalledWith(settings);
-    expect(sdk.addHardwareGlobalEventListener).toHaveBeenCalledTimes(1);
+    expect(activeListener).toEqual(expect.any(Function));
+    expect(sdk.addHardwareGlobalEventListener).not.toHaveBeenCalled();
 
     const switched = { success: true, payload: {} };
     sdk.switchTransport.mockResolvedValue(switched);
     expect(await call('switchTransport', ['webusb'])).toBe(switched);
     expect(sdk.switchTransport).toHaveBeenCalledWith('webusb');
-    expect(sdk.addHardwareGlobalEventListener).toHaveBeenCalledTimes(1);
+    expect(sdk.addHardwareGlobalEventListener).not.toHaveBeenCalled();
   });
 
   it('forwards interaction events and accepts UI response and cancel while a call is pending', async () => {
@@ -164,5 +191,80 @@ describe('offscreenApi local hardware SDK', () => {
     await expect(call('dispose', [])).rejects.toBe(failure);
     expect(sdk.addHardwareGlobalEventListener).toHaveBeenCalledTimes(1);
     expect(activeListener).toEqual(expect.any(Function));
+  });
+});
+
+describe('offscreenApi Bridge SDK', () => {
+  let activeListener: ((message: CoreMessage) => void) | undefined;
+  const request = jest.fn(async () => undefined);
+
+  beforeAll(async () => {
+    bridgeSdk.addHardwareGlobalEventListener.mockImplementation((listener) => {
+      activeListener = listener;
+    });
+    bridgeSdk.removeAllListeners.mockImplementation(() => {
+      activeListener = undefined;
+    });
+    bridgeSdk.dispose.mockImplementation(async () => {
+      activeListener = undefined;
+    });
+    appGlobals.extJsBridgeOffscreenToBg = { request } as never;
+    bridgeSdk.init.mockResolvedValue(true);
+    await call('init', [{}], 'hardwareSDKBridgeLowLevel');
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    bridgeSdk.init.mockResolvedValue(true);
+    sdk.init.mockResolvedValue(true);
+  });
+
+  it('initializes the iframe client with the versioned connect source', async () => {
+    const settings = { connectSrc: 'https://jssdk.onekey.so/synthetic/' };
+    expect(await call('init', [settings], 'hardwareSDKBridgeLowLevel')).toBe(
+      true,
+    );
+    expect(bridgeSdk.init).toHaveBeenCalledWith(settings);
+    expect(activeListener).toEqual(expect.any(Function));
+    expect(bridgeSdk.addHardwareGlobalEventListener).not.toHaveBeenCalled();
+    expect(sdk.init).not.toHaveBeenCalled();
+  });
+
+  it('forwards Bridge interactions and cleanup through the Bridge client', async () => {
+    const event = {
+      event: 'UI_EVENT',
+      type: 'ui-button',
+      payload: { code: 'ButtonRequest_Other' },
+    } as CoreMessage;
+    activeListener?.(event);
+    expect(request).toHaveBeenCalledWith({
+      data: expect.objectContaining({ params: [event] }),
+    });
+    const response = { type: 'ui-receive_pin', payload: '' };
+    await call('uiResponse', [response], 'hardwareSDKBridgeLowLevel');
+    expect(bridgeSdk.uiResponse).toHaveBeenCalledWith(response);
+    await call(
+      'cancel',
+      ['synthetic-bridge-device'],
+      'hardwareSDKBridgeLowLevel',
+    );
+    expect(bridgeSdk.cancel).toHaveBeenCalledWith('synthetic-bridge-device');
+    await call('dispose', [], 'hardwareSDKBridgeLowLevel');
+    expect(bridgeSdk.addHardwareGlobalEventListener).toHaveBeenCalledTimes(1);
+    expect(activeListener).toEqual(expect.any(Function));
+    expect(sdk.dispose).not.toHaveBeenCalled();
+    expect(sdk.addHardwareGlobalEventListener).not.toHaveBeenCalled();
+  });
+
+  it('keeps WebUSB and Bridge clients isolated when changing transports', async () => {
+    await call('init', [{ env: 'webusb' }]);
+    await call('dispose', []);
+    await call('init', [{}], 'hardwareSDKBridgeLowLevel');
+    await call('dispose', [], 'hardwareSDKBridgeLowLevel');
+    await call('init', [{ env: 'webusb' }]);
+    expect(sdk.init).toHaveBeenCalledTimes(2);
+    expect(sdk.dispose).toHaveBeenCalledTimes(1);
+    expect(bridgeSdk.init).toHaveBeenCalledTimes(1);
+    expect(bridgeSdk.dispose).toHaveBeenCalledTimes(1);
   });
 });

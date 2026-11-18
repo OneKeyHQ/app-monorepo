@@ -30,6 +30,8 @@ export const importHardwareSDK = async ({
     .HardwareSDKTopLevel as unknown as Promise<CoreApi>;
 };
 
-export const importHardwareSDKLowLevel = async () =>
+export const importHardwareSDKLowLevel = async (
+  _hardwareTransportType?: EHardwareTransportType,
+) =>
   (await import('@onekeyfe/hd-web-sdk')).default
     .HardwareSDKLowLevel as unknown as Promise<LowLevelCoreApi>;

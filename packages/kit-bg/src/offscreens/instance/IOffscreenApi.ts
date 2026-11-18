@@ -8,6 +8,7 @@ import type { LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 export interface IOffscreenApi {
   hardwareSDKLowLevel: LowLevelCoreApi;
+  hardwareSDKBridgeLowLevel: LowLevelCoreApi;
   adaSdk: OffscreenApiAdaSdk;
   kaspaSdk: OffscreenApiKaspaSdk;
   zcashSdk: IZcashSdkApi;

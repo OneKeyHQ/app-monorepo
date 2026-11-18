@@ -1,3 +1,4 @@
+import type { EHardwareTransportType } from '../../../types';
 import type { CoreApi, UsbDeviceIdentity } from '@onekeyfe/hd-core';
 
 export const probeUsbDeviceIdentities = (_params: {
@@ -7,4 +8,6 @@ export const probeUsbDeviceIdentities = (_params: {
 export const importHardwareSDK = async () =>
   (await import('@onekeyfe/hd-ble-sdk')).default as unknown as Promise<CoreApi>;
 
-export const importHardwareSDKLowLevel = async () => Promise.resolve(undefined);
+export const importHardwareSDKLowLevel = async (
+  _hardwareTransportType?: EHardwareTransportType,
+) => Promise.resolve(undefined);
