@@ -1,6 +1,6 @@
 /* cspell:ignore adservices */
+import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import { getInstallationTimeAsync } from 'expo-application';
-import { NativeModules } from 'react-native';
 
 import {
   EServiceEndpointEnum,
@@ -18,10 +18,6 @@ const MAX_INSTALL_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const APPLE_ADS_ATTRIBUTION_PATH = '/utility/v1/install-attribution/apple-ads';
 const INSTANCE_ID_HEADER = 'x-onekey-instance-id';
 const MAX_FIELD_LENGTH = 128;
-
-type IOneKeyAdServicesAttributionNativeModule = {
-  getAttributionToken: () => Promise<string>;
-};
 
 export type IAppleAdsAttributionData = {
   adGroupId?: string;
@@ -43,18 +39,6 @@ type IAppleAdsAttributionResponse = {
   duplicate?: boolean;
   handled: boolean;
 };
-
-function getNativeModule(): IOneKeyAdServicesAttributionNativeModule {
-  const nativeModule = NativeModules.OneKeyAdServicesAttribution as
-    | IOneKeyAdServicesAttributionNativeModule
-    | undefined;
-  if (!nativeModule) {
-    throw new OneKeyLocalError(
-      'Apple Ads attribution native module is unavailable',
-    );
-  }
-  return nativeModule;
-}
 
 async function markAttributionHandled(): Promise<void> {
   await appStorage.setItem(REPORTED_STORAGE_KEY, '1');
@@ -120,7 +104,8 @@ export async function reportAppleAdsInstallAttribution(
     return;
   }
 
-  const attributionToken = await getNativeModule().getAttributionToken();
+  const attributionToken =
+    await ReactNativeDeviceUtils.getAppleAdsAttributionToken();
   if (!attributionToken) {
     throw new OneKeyLocalError('Apple Ads attribution token is empty');
   }

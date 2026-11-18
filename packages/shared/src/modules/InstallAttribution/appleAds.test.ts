@@ -1,6 +1,6 @@
 /* cspell:ignore adservices */
+import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import { getInstallationTimeAsync } from 'expo-application';
-import { NativeModules } from 'react-native';
 
 import { appApiClient } from '../../appApiClient/appApiClient';
 import appStorage from '../../storage/appStorage';
@@ -14,11 +14,9 @@ jest.mock('expo-application', () => ({
   getInstallationTimeAsync: jest.fn(),
 }));
 
-jest.mock('react-native', () => ({
-  NativeModules: {
-    OneKeyAdServicesAttribution: {
-      getAttributionToken: jest.fn(),
-    },
+jest.mock('@onekeyfe/react-native-device-utils', () => ({
+  ReactNativeDeviceUtils: {
+    getAppleAdsAttributionToken: jest.fn(),
   },
 }));
 
@@ -62,14 +60,14 @@ const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
 const logAppleAdsAttributionMock =
   mockedLoggerModule.defaultLogger.app.install.reportAppleAdsInstallAttribution;
 const postMock = jest.fn();
-const getAttributionTokenMock = jest.fn();
+const getAttributionTokenMock = jest.spyOn(
+  ReactNativeDeviceUtils,
+  'getAppleAdsAttributionToken',
+);
 
 describe('Apple Ads install attribution', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    NativeModules.OneKeyAdServicesAttribution = {
-      getAttributionToken: getAttributionTokenMock,
-    };
     getInstallationTimeMock.mockResolvedValue(new Date());
     getReportedMock.mockResolvedValue(null);
     markReportedMock.mockResolvedValue(undefined);
@@ -220,15 +218,31 @@ describe('Apple Ads install attribution', () => {
     expect(postMock).not.toHaveBeenCalled();
   });
 
-  it('does not mark an unavailable native module as handled', async () => {
-    NativeModules.OneKeyAdServicesAttribution = undefined;
+  it('does not mark a missing attribution token as handled', async () => {
+    getAttributionTokenMock.mockResolvedValueOnce(undefined);
 
     await expect(
       reportAppleAdsInstallAttribution(
         'https://utility.onekey.so',
         'installation-123',
       ),
-    ).rejects.toThrow('native module is unavailable');
+    ).rejects.toThrow('Apple Ads attribution token is empty');
+
+    expect(postMock).not.toHaveBeenCalled();
+    expect(markReportedMock).not.toHaveBeenCalled();
+  });
+
+  it('does not mark a failed token request as handled', async () => {
+    getAttributionTokenMock.mockRejectedValueOnce(
+      new Error('AdServices failed'),
+    );
+
+    await expect(
+      reportAppleAdsInstallAttribution(
+        'https://utility.onekey.so',
+        'installation-123',
+      ),
+    ).rejects.toThrow('AdServices failed');
 
     expect(postMock).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
