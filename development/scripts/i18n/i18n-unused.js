@@ -936,15 +936,17 @@ async function applyCentralDeleteIfRequested(
       '',
     ].join('\n'),
     branchHint: 'app-unused-keys',
-    // Named after the removed refs, so rerunning the same deletion finds and
-    // reuses its open PR instead of opening a second one.
+    // Named after the target and the removed refs, so rerunning the same
+    // deletion reuses its open PR instead of opening a second one, and a
+    // deletion against another branch or channel never reuses this one.
     key: crypto
       .createHash('sha256')
       .update(
-        plan.toDelete
-          .map((item) => item.ref)
-          .toSorted()
-          .join('\n'),
+        [
+          client.base ?? 'main',
+          client.channel ?? 'latest',
+          ...plan.toDelete.map((item) => item.ref).toSorted(),
+        ].join('\n'),
       )
       .digest('hex')
       .slice(0, 12),
