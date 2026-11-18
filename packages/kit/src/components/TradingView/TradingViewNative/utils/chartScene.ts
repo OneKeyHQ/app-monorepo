@@ -41,7 +41,10 @@ import {
 } from '../chartConstants';
 import { drawingPointToScreen } from '../drawings/model';
 
-import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
+import {
+  getTradingViewNativeCandleSlotAtTime,
+  getTradingViewNativeCandleTimestampAtOffset,
+} from './candleTime';
 import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from './chartComponentTree';
 import {
@@ -105,6 +108,7 @@ import type { ITradingViewNativeReferenceLineHitRegion } from './chartComponentS
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
+  ITradingViewNativeCrosshairPosition,
 } from './chartRuntime';
 import type {
   ITradingViewNativeSubIndicatorLegendHitRegion,
@@ -288,6 +292,11 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   priceRangeScale?: number;
   priceScaleMode?: ITradingViewNativePriceScaleMode;
   subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  /**
+   * The crosshair of another chart, e.g. in a split view. Shown at the same
+   * time while this chart has no crosshair of its own.
+   */
+  syncedCrosshair?: ITradingViewNativeCrosshairPosition | null;
   viewport: ITradingViewNativeChartRuntimeViewport;
   watermarkOpacity: number;
   width: number;
@@ -317,6 +326,8 @@ export interface ITradingViewNativeChartScene {
   autoPriceRange: ITradingViewNativePriceRange | null;
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
+  /** Where this chart's own crosshair points; null while it only follows. */
+  crosshairPosition: ITradingViewNativeCrosshairPosition | null;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   priceAxisWidth: number;
   subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
@@ -749,6 +760,7 @@ export function buildTradingViewNativeChartScene({
   priceRangeScale,
   priceScaleMode,
   subIndicatorPanes = [],
+  syncedCrosshair,
   viewport,
   watermarkOpacity,
   width,
@@ -931,6 +943,7 @@ export function buildTradingViewNativeChartScene({
     autoPriceRange: null,
     commands,
     crosshairPointIndex: null,
+    crosshairPosition: null,
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
     subIndicatorLegendHitRegions: [],
@@ -1259,20 +1272,22 @@ export function buildTradingViewNativeChartScene({
     commands.push({ kind: 'restore' });
   }
 
-  const crosshairPointIndex =
-    crosshair.visible && (chartSettings?.options.crossLine ?? true)
-      ? getTradingViewNativePointIndexAtX({
-          initialRightOffset: viewport.initialRightOffset,
-          offset,
-          pointCount: points.length,
-          priceAxisX,
-          x: crosshair.x,
-          zoomScale,
-        })
-      : null;
+  const isCrossLineEnabled = chartSettings?.options.crossLine ?? true;
+  const isOwnCrosshairVisible = crosshair.visible && isCrossLineEnabled;
+  let crosshairPointIndex: number | null = null;
   let crosshairX: number | null = null;
   let crosshairTimestamp: number | null = null;
-  if (crosshair.visible && (chartSettings?.options.crossLine ?? true)) {
+  let crosshairY: number | null = null;
+  let isFollowingCrosshair = false;
+  if (isOwnCrosshairVisible) {
+    crosshairPointIndex = getTradingViewNativePointIndexAtX({
+      initialRightOffset: viewport.initialRightOffset,
+      offset,
+      pointCount: points.length,
+      priceAxisX,
+      x: crosshair.x,
+      zoomScale,
+    });
     if (crosshairPointIndex !== null) {
       crosshairX = getPointX(crosshairPointIndex);
       crosshairTimestamp = points[crosshairPointIndex].t;
@@ -1290,12 +1305,10 @@ export function buildTradingViewNativeChartScene({
         offset: distance,
       });
     }
-  }
-  const pinnedPriceIsOutsideChart =
-    crosshair.price !== undefined &&
-    (crosshair.price < minPrice || crosshair.price > maxPrice);
-  const crosshairY =
-    crosshairX === null || pinnedPriceIsOutsideChart
+    const pinnedPriceIsOutsideChart =
+      crosshair.price !== undefined &&
+      (crosshair.price < minPrice || crosshair.price > maxPrice);
+    crosshairY = pinnedPriceIsOutsideChart
       ? null
       : Math.min(
           Math.max(
@@ -1306,7 +1319,37 @@ export function buildTradingViewNativeChartScene({
           ),
           timeAxisY,
         );
-  if (crosshairX !== null && crosshairY !== null) {
+  } else if (isCrossLineEnabled && syncedCrosshair) {
+    const slot = getTradingViewNativeCandleSlotAtTime({
+      candleIntervalSeconds,
+      candleTimeMode,
+      points,
+      time: syncedCrosshair.time,
+    });
+    if (slot) {
+      const anchorIndex = Math.min(Math.max(slot.index, 0), points.length - 1);
+      const slotX =
+        getPointX(anchorIndex) +
+        (slot.index - anchorIndex) *
+          TRADING_VIEW_NATIVE_CANDLE_STEP *
+          zoomScale;
+      // A time scrolled out of view leaves this chart without a crosshair.
+      if (slotX >= CHART_HORIZONTAL_PADDING && slotX <= priceAxisX) {
+        isFollowingCrosshair = true;
+        crosshairPointIndex = slot.index === anchorIndex ? anchorIndex : null;
+        crosshairX = slotX;
+        crosshairTimestamp = slot.timestamp;
+        const { price } = syncedCrosshair;
+        if (price !== null && price >= minPrice && price <= maxPrice) {
+          crosshairY = getTradingViewNativePriceY(price, layout);
+        }
+      }
+    }
+  }
+  // A followed crosshair keeps its time line where its price is off the chart.
+  const showCrosshairTimeLine =
+    crosshairX !== null && (crosshairY !== null || isFollowingCrosshair);
+  if (crosshairX !== null && showCrosshairTimeLine) {
     commands.push(
       {
         kind: 'clip',
@@ -1326,7 +1369,9 @@ export function buildTradingViewNativeChartScene({
         y1: 0,
         y2: timeAxisY,
       },
-      {
+    );
+    if (crosshairY !== null) {
+      commands.push({
         ...(chartSettings ? { customPaintId: CROSSHAIR_PAINT_ID } : {}),
         kind: 'line',
         paint: 'crosshairLine',
@@ -1334,9 +1379,9 @@ export function buildTradingViewNativeChartScene({
         x2: priceAxisX,
         y1: crosshairY,
         y2: crosshairY,
-      },
-      { kind: 'restore' },
-    );
+      });
+    }
+    commands.push({ kind: 'restore' });
   }
 
   const latestPointIndex = points.length - 1;
@@ -1566,19 +1611,20 @@ export function buildTradingViewNativeChartScene({
     ...chartComponentCommandLayers.textLabelCommands,
   );
 
-  if (
-    crosshairTimestamp !== null &&
-    crosshairX !== null &&
-    crosshairY !== null
-  ) {
-    const crosshairPrice = getTradingViewNativePriceAtY({
-      allowOutsideChart: crosshairY < (hasVolume ? volumeTop : mainChartBottom),
-      maxPrice,
-      minPrice,
-      priceChartHeight,
-      priceScaleMode: resolvedPriceScaleMode,
-      y: crosshairY,
-    });
+  let crosshairPrice: number | null = null;
+  if (crosshairX !== null && crosshairY !== null) {
+    // A followed crosshair shows the other chart's price as it was sent.
+    crosshairPrice = isFollowingCrosshair
+      ? (syncedCrosshair?.price ?? null)
+      : getTradingViewNativePriceAtY({
+          allowOutsideChart:
+            crosshairY < (hasVolume ? volumeTop : mainChartBottom),
+          maxPrice,
+          minPrice,
+          priceChartHeight,
+          priceScaleMode: resolvedPriceScaleMode,
+          y: crosshairY,
+        });
     const crosshairVolume = getTradingViewNativeVolumeAtY({
       maxVolume,
       volumeBottom,
@@ -1633,7 +1679,12 @@ export function buildTradingViewNativeChartScene({
         },
       );
     }
-
+  }
+  if (
+    crosshairTimestamp !== null &&
+    crosshairX !== null &&
+    showCrosshairTimeLine
+  ) {
     const timeLabel = formatTradingViewNativeCrosshairTime(
       crosshairTimestamp,
       candleIntervalSeconds,
@@ -1692,6 +1743,12 @@ export function buildTradingViewNativeChartScene({
     layout,
     commands,
     crosshairPointIndex,
+    crosshairPosition:
+      isOwnCrosshairVisible &&
+      crosshairTimestamp !== null &&
+      crosshairY !== null
+        ? { time: crosshairTimestamp, price: crosshairPrice }
+        : null,
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
     subIndicatorLegendHitRegions,

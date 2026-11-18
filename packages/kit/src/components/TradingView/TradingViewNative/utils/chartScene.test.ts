@@ -1878,3 +1878,155 @@ describe('crosshair in empty chart space', () => {
     ).toBe(true);
   });
 });
+
+describe('crosshair followed from another chart', () => {
+  type ISceneOptions = Parameters<typeof buildTradingViewNativeChartScene>[0];
+  const buildScene = (overrides: Partial<ISceneOptions>) =>
+    buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0,
+      width: 320,
+      ...overrides,
+    });
+  type IScene = ReturnType<typeof buildScene>;
+  const getLines = (scene: IScene) =>
+    scene.commands.flatMap((command) =>
+      command.kind === 'line' && command.paint === 'crosshairLine'
+        ? [command]
+        : [],
+    );
+  const getLabels = (scene: IScene) =>
+    scene.commands.flatMap((command) =>
+      command.kind === 'text' && command.paint === 'crosshairLabelText'
+        ? [command.text]
+        : [],
+    );
+  const getCandleX = (scene: IScene, index: number) =>
+    getTradingViewNativeCandleX({
+      index,
+      offset: scene.viewport.offset,
+      pointCount: POINTS.length,
+      priceAxisX: scene.layout!.priceAxisX,
+      zoomScale: scene.viewport.zoomScale,
+    });
+
+  it('marks the candle that holds the time, without a price line', () => {
+    // Half an hour into the second candle, as a finer chart would send it.
+    const scene = buildScene({
+      syncedCrosshair: { time: POINTS[1].t + 1800, price: null },
+    });
+    const x = getCandleX(scene, 1);
+    expect(scene.crosshairPointIndex).toBe(1);
+    expect(getLines(scene)).toEqual([
+      expect.objectContaining({ x1: x, x2: x, y1: 0 }),
+    ]);
+    expect(getLabels(scene)).toEqual([
+      formatTradingViewNativeCrosshairTime(POINTS[1].t, 3600),
+    ]);
+    // Following is not a crosshair of its own to pass on.
+    expect(scene.crosshairPosition).toBeNull();
+  });
+
+  it('adds the price line only for a price on its scale', () => {
+    const time = POINTS[1].t;
+    const onScale = buildScene({
+      priceDecimalPlaces: 2,
+      syncedCrosshair: { time, price: 101.25 },
+    });
+    const y = getTradingViewNativePriceY(101.25, onScale.layout!);
+    expect(getLines(onScale)).toEqual([
+      expect.objectContaining({ x1: getCandleX(onScale, 1), y1: 0 }),
+      expect.objectContaining({ y1: y, y2: y }),
+    ]);
+    expect(getLabels(onScale)).toEqual([
+      '101.25',
+      formatTradingViewNativeCrosshairTime(time, 3600),
+    ]);
+
+    const offScale = buildScene({ syncedCrosshair: { time, price: 500 } });
+    expect(getLines(offScale)).toHaveLength(1);
+    expect(getLabels(offScale)).toEqual([
+      formatTradingViewNativeCrosshairTime(time, 3600),
+    ]);
+  });
+
+  it('continues past the latest candle into empty space', () => {
+    const scene = buildScene({
+      syncedCrosshair: { time: POINTS[2].t + 2 * 3600, price: null },
+      viewport: { offset: -30, zoomScale: 1 },
+    });
+    const x =
+      getCandleX(scene, 2) + 2 * (getCandleX(scene, 2) - getCandleX(scene, 1));
+    expect(x).toBeLessThan(scene.layout!.priceAxisX);
+    expect(getLines(scene)).toEqual([expect.objectContaining({ x1: x })]);
+    expect(getLabels(scene)).toEqual([
+      formatTradingViewNativeCrosshairTime(POINTS[2].t + 2 * 3600, 3600),
+    ]);
+    // The legend keeps the latest candle: no candle is under the crosshair.
+    expect(scene.crosshairPointIndex).toBeNull();
+  });
+
+  it.each([
+    ['a time scrolled out of view', {}, POINTS[2].t + 1000 * 3600],
+    [
+      'the crosshair turned off',
+      (() => {
+        const chartSettings = createTradingViewNativeChartSettings();
+        chartSettings.options.crossLine = false;
+        return { chartSettings };
+      })(),
+      POINTS[1].t,
+    ],
+  ])('shows nothing for %s', (_, overrides, time) => {
+    const scene = buildScene({
+      ...overrides,
+      syncedCrosshair: { time, price: 101 },
+    });
+    expect(getLines(scene)).toEqual([]);
+    expect(getLabels(scene)).toEqual([]);
+    expect(scene.crosshairPointIndex).toBeNull();
+  });
+
+  it('keeps its own crosshair while the pointer is on it', () => {
+    const idle = buildScene({});
+    const scene = buildScene({
+      crosshair: { visible: true, x: getCandleX(idle, 2), y: 80 },
+      syncedCrosshair: { time: POINTS[0].t, price: 101 },
+    });
+    expect(scene.crosshairPointIndex).toBe(2);
+    expect(getLines(scene)).toEqual([
+      expect.objectContaining({ x1: getCandleX(scene, 2) }),
+      expect.objectContaining({ y1: 80, y2: 80 }),
+    ]);
+    const [priceLabel] = getLabels(scene);
+    expect(scene.crosshairPosition).toEqual({
+      time: POINTS[2].t,
+      price: expect.any(Number),
+    });
+    expect(scene.crosshairPosition?.price?.toFixed(2)).toBe(
+      Number(priceLabel).toFixed(2),
+    );
+  });
+
+  it('passes on no price from below the price pane', () => {
+    const idle = buildScene({ hasVolume: true });
+    const { volumeBottom, volumeTop } = idle.layout!;
+    const scene = buildScene({
+      crosshair: {
+        visible: true,
+        x: getCandleX(idle, 1),
+        y: (volumeTop + volumeBottom) / 2,
+      },
+      hasVolume: true,
+    });
+    expect(scene.crosshairPosition).toEqual({ time: POINTS[1].t, price: null });
+  });
+});
