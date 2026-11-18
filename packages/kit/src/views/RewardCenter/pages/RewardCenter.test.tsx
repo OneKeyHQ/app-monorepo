@@ -344,6 +344,11 @@ describe('inline TRON energy claim', () => {
         renderInline={({ claimed, validUntil, claimDetails }) => (
           <>
             <span>{claimed ? 'claimed' : 'unclaimed'}</span>
+            <span>
+              {claimDetails.inventoryLoading
+                ? 'inventory-loading'
+                : 'inventory-ready'}
+            </span>
             {validUntil ? <span>valid</span> : null}
             {claimDetails.claimButton}
             {claimDetails.redeemButton}
@@ -469,6 +474,19 @@ describe('inline TRON energy claim', () => {
         ),
       { timeout: 3000 },
     );
+  });
+
+  // The view keeps the space of the inventory rows while this flag is set,
+  // so it must cover the whole wait and never drop to "no inventory" first.
+  it('reports the inventory as loading until it arrives', async () => {
+    render(inlineCenter());
+    expect(await screen.findByText('inventory-loading')).toBeTruthy();
+    expect(screen.queryByTestId(RewardCenterTestIDs.addAccountBtn)).toBeNull();
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.getByText('inventory-ready')).toBeTruthy();
   });
 
   it('reports each successful claim and redemption so records can refresh', async () => {

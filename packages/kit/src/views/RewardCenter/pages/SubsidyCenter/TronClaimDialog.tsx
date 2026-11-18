@@ -9,6 +9,7 @@ import {
   ScrollView,
   SegmentControl,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -65,8 +66,14 @@ export function TronClaimView({
   const [tab, setTab] = useState<'claim' | 'redeem'>('claim');
   const isClaimTab = tab === 'claim';
   const action = isClaimTab ? details.claimButton : details.redeemButton;
-  const { remaining, total, monthlyRemaining, monthlyLimit } = details;
+  const { remaining, total, monthlyRemaining, monthlyLimit, inventoryLoading } =
+    details;
   const hasInventory = remaining !== undefined && total !== undefined;
+  const hasMonthly =
+    monthlyRemaining !== undefined && monthlyLimit !== undefined;
+  // The view is laid out the same while the inventory loads as after it
+  // arrives: the number row, the progress track and the monthly row keep
+  // their space, so nothing below them moves when the data lands.
   const content = (
     <YStack gap="$4">
       <SegmentControl
@@ -95,12 +102,23 @@ export function TronClaimView({
                 </SizableText>
               </XStack>
             ) : (
-              details.inventoryFallback
+              <XStack alignItems="center">
+                {/* Invisible, zero-width copy of the number: holds its row height. */}
+                <SizableText
+                  size="$heading3xl"
+                  width={0}
+                  opacity={0}
+                  aria-hidden
+                >
+                  0
+                </SizableText>
+                {details.inventoryFallback}
+              </XStack>
             )}
           </YStack>
-          {hasInventory && total > 0 ? (
-            <InventoryProgress value={(remaining / total) * 100} />
-          ) : null}
+          <InventoryProgress
+            value={hasInventory && total > 0 ? (remaining / total) * 100 : 0}
+          />
           <SizableText size="$bodySm" color="$textSubdued">
             每个地址每日可领取 1 次，领取资格每日 00:00（GMT+8）重置。
           </SizableText>
@@ -110,17 +128,19 @@ export function TronClaimView({
         <ClaimDetailRow label="领取账户">
           {details.accountSelector}
         </ClaimDetailRow>
-        {isClaimTab &&
-        monthlyRemaining !== undefined &&
-        monthlyLimit !== undefined ? (
+        {isClaimTab && (hasMonthly || inventoryLoading) ? (
           <ClaimDetailRow label="本地址本月剩余">
-            <SizableText
-              size="$bodyMdMedium"
-              textAlign="right"
-              fontVariant={['tabular-nums']}
-            >
-              {monthlyRemaining} / {monthlyLimit} 次
-            </SizableText>
+            {hasMonthly ? (
+              <SizableText
+                size="$bodyMdMedium"
+                textAlign="right"
+                fontVariant={['tabular-nums']}
+              >
+                {monthlyRemaining} / {monthlyLimit} 次
+              </SizableText>
+            ) : (
+              <Skeleton.BodyMd />
+            )}
           </ClaimDetailRow>
         ) : null}
         {isClaimTab ? null : details.redeemField}

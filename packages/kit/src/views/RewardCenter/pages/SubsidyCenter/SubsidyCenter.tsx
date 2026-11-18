@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,8 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { showOneKeyIdLoginFailedToast } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
 import { TronRewardCenterContent } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
+import { getTronClaimLabel } from '@onekeyhq/kit/src/views/RewardCenter/tronClaimLabel';
+import { tronRewardActionSize } from '@onekeyhq/kit/src/views/RewardCenter/tronRewardActionSize';
 import { useSettingsPageStyle } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useSettingsPageStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -199,7 +201,28 @@ function SubsidyTotalAmount({
   query: ISubsidyQuery<ISubsidySummaryView>;
 } & Omit<ISizableTextProps, 'children'>) {
   if (query.isLoading) {
-    return <Skeleton.Heading4Xl />;
+    // An invisible copy of the amount holds the exact line box of the final
+    // text, so the placeholder and the value occupy the same height.
+    return (
+      <Stack>
+        <SizableText {...textProps} opacity={0} aria-hidden>
+          {subsidyRecordCopy.noValue}
+        </SizableText>
+        <Stack
+          position="absolute"
+          top={0}
+          bottom={0}
+          left={0}
+          right={0}
+          justifyContent="center"
+          alignItems={
+            textProps.textAlign === 'center' ? 'center' : 'flex-start'
+          }
+        >
+          <Skeleton width={96} height="$6" />
+        </Stack>
+      </Stack>
+    );
   }
   const amount = query.data?.sponsorCostUsd;
   if (!amount) {
@@ -246,7 +269,9 @@ function SubsidySummaryStats({
     },
   ];
   const { width, fontScale } = useWindowDimensions();
-  const [containerWidth, setContainerWidth] = useState(width);
+  // Start from the width the card will be laid out at (the page's 20px
+  // gutters) so the first frame already picks the right arrangement.
+  const [containerWidth, setContainerWidth] = useState(width - 40);
   const stacked = containerWidth < 320 || fontScale > 1.3;
 
   if (query.isError) {
@@ -558,6 +583,29 @@ function SubsidyCenter() {
       setClaimDialogOpen(true);
     }
   }, [opensTronClaim, wide]);
+  // What the claim panel shows until the account is resolved: the same
+  // structure as the loaded panel, so it settles in place instead of
+  // replacing a single placeholder line.
+  const loadingClaimDetails = useMemo<ITronRewardCardState['claimDetails']>(
+    () => ({
+      inventoryLoading: true,
+      inventoryFallback: <Skeleton.BodyLg />,
+      accountSelector: <Skeleton width={96} height="$6" />,
+      claimButton: (
+        <Button
+          testID="subsidy-tron-claim-loading"
+          variant="primary"
+          {...tronRewardActionSize}
+          disabled
+        >
+          {intl.formatMessage({ id: getTronClaimLabel(false, false) })}
+        </Button>
+      ),
+      redeemField: null,
+      redeemButton: null,
+    }),
+    [intl],
+  );
   const showLogin = async (onSuccess?: () => void) => {
     if (loginPending.current) return;
     loginPending.current = true;
@@ -785,10 +833,8 @@ function SubsidyCenter() {
       switch (activePanel) {
         case 'tron':
           detailTitle = 'TRON 免费能量';
-          detail = claimDetails ? (
-            <TronClaimView details={claimDetails} />
-          ) : (
-            <Skeleton.BodyLg />
+          detail = (
+            <TronClaimView details={claimDetails ?? loadingClaimDetails} />
           );
           break;
         case 'multichain':
@@ -862,7 +908,7 @@ function SubsidyCenter() {
           showAccountSelector: routeParams?.showAccountSelector,
           onClose: routeParams?.onClose,
         }}
-        renderLoading={wide ? renderSubsidyBenefits : undefined}
+        renderLoading={renderSubsidyBenefits}
         renderInline={renderSubsidyBenefits}
         onIssued={refreshRecords}
       />

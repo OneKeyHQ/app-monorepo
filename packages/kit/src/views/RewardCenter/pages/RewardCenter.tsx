@@ -90,6 +90,9 @@ export type ITronRewardCardState = {
     total?: number;
     monthlyRemaining?: number;
     monthlyLimit?: number;
+    // The inventory is still on its way, as opposed to known to be missing.
+    // Lets the view keep the space of rows that only exist once it arrives.
+    inventoryLoading: boolean;
     inventoryFallback: ReactNode;
     accountSelector: ReactNode;
     claimButton: ReactNode;
@@ -354,6 +357,10 @@ function RewardCenterDetails({
     inventory.networkId === network?.id
       ? inventory
       : undefined;
+  // The selected account is still being resolved, so no inventory request
+  // has started yet. Without this the view would flash its "no inventory"
+  // and "add account" states for a frame before the request begins.
+  const isInventoryPending = isLoadingResourceState || !currentRewardState;
   const isClaimed = Boolean(result?.isReceived);
   const remaining = result?.remaining;
   const exhausted = remaining === 0 || result?.totalReceivedLimit === 0;
@@ -824,7 +831,7 @@ function RewardCenterDetails({
       return null;
     }
 
-    if (!account && !isLoadingResourceState) {
+    if (!account && !isInventoryPending) {
       return (
         <Button
           testID={RewardCenterTestIDs.addAccountBtn}
@@ -873,6 +880,7 @@ function RewardCenterDetails({
     result,
     account,
     isLoadingResourceState,
+    isInventoryPending,
     isClaiming,
     isClaimed,
     handleClaimResource,
@@ -1130,7 +1138,8 @@ function RewardCenterDetails({
         total: result?.totalReceivedLimit,
         monthlyRemaining: result?.monthRemain,
         monthlyLimit: result?.monthLimit,
-        inventoryFallback: isLoadingResourceState ? (
+        inventoryLoading: isInventoryPending,
+        inventoryFallback: isInventoryPending ? (
           <Skeleton.BodyLg />
         ) : (
           <SizableText size="$heading3xl">—</SizableText>

@@ -103,11 +103,28 @@ function SubsidyRecordList({
   );
 }
 
-function SubsidyRecordSkeleton({ rowHeight }: { rowHeight?: number }) {
+// Height of one record row in the overview card: a 24px title, a 4px gap and
+// a 16px caption. The loading placeholder and the empty state take exactly
+// this height, so an account without records sees no reflow when the list
+// resolves, and one with records only grows downwards.
+const recentRecordRowHeight = 44;
+
+function SubsidyRecordSkeleton({
+  rowHeight,
+  rows = 3,
+}: {
+  rowHeight?: number;
+  rows?: number;
+}) {
   return (
     <YStack gap={rowHeight === undefined ? '$6' : undefined}>
-      {[0, 1, 2].map((index) => (
-        <XStack key={index} minHeight={rowHeight} alignItems="center" gap="$3">
+      {Array.from({ length: rows }, (_, index) => (
+        <XStack
+          key={index}
+          minHeight={rowHeight ?? recentRecordRowHeight}
+          alignItems="center"
+          gap="$3"
+        >
           <Skeleton width="$8" height="$8" radius="round" />
           <YStack flex={1} gap="$1">
             <Skeleton.HeadingSm />
@@ -208,18 +225,17 @@ export function SubsidyRecentRecords({
       />
     );
   } else if (isLoading || !data) {
-    content = <SubsidyRecordSkeleton />;
+    content = <SubsidyRecordSkeleton rows={1} />;
   } else if (data.items.length === 0) {
     // A partial result is not "no records": say what happened instead.
     content = (
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        textAlign="center"
-        py="$2"
-      >
-        {data.isPartial ? subsidyRecordsCopy.partial : subsidyRecordsCopy.empty}
-      </SizableText>
+      <YStack minHeight={recentRecordRowHeight} justifyContent="center">
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {data.isPartial
+            ? subsidyRecordsCopy.partial
+            : subsidyRecordsCopy.empty}
+        </SizableText>
+      </YStack>
     );
   } else {
     content = (

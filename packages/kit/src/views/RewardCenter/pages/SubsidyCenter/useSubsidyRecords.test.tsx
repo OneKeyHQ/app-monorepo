@@ -5,6 +5,7 @@ yarn jest packages/kit/src/views/RewardCenter/pages/SubsidyCenter/useSubsidyReco
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
+  clearSubsidyRecordsCache,
   useSubsidyHistory,
   useSubsidyIdentity,
   useSubsidySummary,
@@ -77,6 +78,7 @@ function deferred<T>() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  clearSubsidyRecordsCache();
   mockGetNetworksByIds.mockResolvedValue({
     networks: [{ id: 'tron--0x2b6653dc', name: 'Tron' }],
   });
@@ -219,6 +221,60 @@ describe('useSubsidyHistory', () => {
     );
     expect(result.current.isError).toBe(false);
     expect(result.current.data?.items).toHaveLength(1);
+  });
+
+  it('paints the last result at once on reopen and refreshes behind it', async () => {
+    const refreshed = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    mockFetchSubsidyHistory.mockReturnValueOnce(refreshed.promise);
+
+    const first = renderHook(() => useSubsidyHistory('user-a'));
+    await waitFor(() => expect(first.result.current.data).toBeDefined());
+    first.unmount();
+
+    // Reopening the page: no placeholder frame, so nothing reflows.
+    const second = renderHook(() => useSubsidyHistory('user-a'));
+    expect(second.result.current.isLoading).toBe(false);
+    expect(second.result.current.data?.items).toHaveLength(1);
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      refreshed.resolve(historyResponse({ items: [] }));
+      await refreshed.promise;
+    });
+    await waitFor(() =>
+      expect(second.result.current.data?.items).toHaveLength(0),
+    );
+  });
+
+  it('never paints the cached records of another user', async () => {
+    const pending = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    mockFetchSubsidyHistory.mockReturnValueOnce(pending.promise);
+
+    const first = renderHook(() => useSubsidyHistory('user-a'));
+    await waitFor(() => expect(first.result.current.data).toBeDefined());
+    first.unmount();
+
+    const second = renderHook(() => useSubsidyHistory('user-b'));
+    expect(second.result.current.data).toBeUndefined();
+    expect(second.result.current.isLoading).toBe(true);
+    second.unmount();
+  });
+
+  it('caches nothing for a session without a OneKey ID', async () => {
+    mockUseOneKeyAuth.mockReturnValue({ isLoggedIn: true, user: {} });
+    const identity = renderHook(() => useSubsidyIdentity()).result.current;
+    mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
+
+    const first = renderHook(() => useSubsidyHistory(identity));
+    await waitFor(() => expect(first.result.current.data).toBeDefined());
+    first.unmount();
+
+    const second = renderHook(() => useSubsidyHistory(identity));
+    expect(second.result.current.data).toBeUndefined();
+    expect(second.result.current.isLoading).toBe(true);
+    second.unmount();
   });
 
   it('drops the records of the previous user after an account switch', async () => {
