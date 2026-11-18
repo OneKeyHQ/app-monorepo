@@ -68,7 +68,7 @@ function TranslateSettings({
         segmentControlItemStyleProps: {
           h: '100%',
           py: '$0',
-          px: '$5',
+          px: '$2',
           justifyContent: 'center',
         },
       } as const)
