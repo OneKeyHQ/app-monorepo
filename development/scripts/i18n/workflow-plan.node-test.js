@@ -360,23 +360,42 @@ test('apply resumes a plan that predates recorded targets only from its PR commi
   assert.deepEqual(await apply(), finished);
 });
 
-test('a finished plan is not reported as done after a language is added locally', async (t) => {
-  const ctx = await prepared(t, (item) => [
+test('a plan is not reported as done once the catalog has another language', async (t) => {
+  const entries = (item) => [
     {
       key: 'global.existing',
       action: 'upsert',
       translations: item.translations('Updated message', '更新后的消息'),
       sources: [],
     },
-  ]);
-  assert.equal((await ctx.apply()).status, 'complete');
-  const receipt = readJson(`${ctx.file}.receipt.json`);
-  const added = path.join(ctx.root, LOCALES_PATH, 'eo.json');
-  fs.copyFileSync(path.join(ctx.root, LOCALES_PATH, 'en_US.json'), added);
-  await assert.rejects(() => ctx.apply(), /Language coverage changed/);
-  assert.deepEqual(readJson(`${ctx.file}.receipt.json`), receipt);
-  fs.unlinkSync(added);
-  assert.equal((await ctx.apply()).status, 'complete');
+  ];
+  const addLanguage = (root) =>
+    fs.copyFileSync(
+      path.join(root, LOCALES_PATH, 'en_US.json'),
+      path.join(root, LOCALES_PATH, 'eo.json'),
+    );
+
+  // The first apply: its pull brings a language the plan doesn't cover.
+  const first = await prepared(t, entries);
+  await assert.rejects(
+    () =>
+      first.apply({
+        pullImpl: (plan, root) => {
+          fakePull(plan, root);
+          addLanguage(root);
+        },
+      }),
+    /Language coverage changed/,
+  );
+  assert.equal(readJson(`${first.file}.receipt.json`).status, 'failed');
+
+  // A rerun of a finished plan after a language was added locally.
+  const rerun = await prepared(t, entries);
+  assert.equal((await rerun.apply()).status, 'complete');
+  const receipt = readJson(`${rerun.file}.receipt.json`);
+  addLanguage(rerun.root);
+  await assert.rejects(() => rerun.apply(), /Language coverage changed/);
+  assert.deepEqual(readJson(`${rerun.file}.receipt.json`), receipt);
 });
 
 test('a failed preflight leaves the receipt of an earlier apply as it was', async (t) => {

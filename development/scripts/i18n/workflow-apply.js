@@ -53,6 +53,16 @@ function projectClient(plan, client, proposal, clientAt) {
   );
 }
 
+// verifyLocal reads only the plan's languages. A pull that brought another one
+// (or a language added since) means the plan no longer covers the catalog, on
+// the first apply and on a rerun alike.
+function assertPlanLocales(plan, root) {
+  if (digest(loadCatalog(root).locales) !== digest(plan.locales))
+    throw new Error(
+      "Language coverage changed: the local catalog no longer has exactly the plan's languages. Prepare another preview.",
+    );
+}
+
 async function verifyProject(plan, client, root) {
   const project = await client.project();
   const locales = loadCatalog(root).locales;
@@ -203,12 +213,7 @@ async function applyPlan({
         // Only re-verifies local files. A plan without a recorded target (which
         // may have finished without a PR) can't be checked and is left as before.
         if (plan.central) assertTarget(plan, client);
-        // verifyLocal reads only the plan's languages, so check that the
-        // local catalog has no others before reporting the plan as done.
-        if (digest(loadCatalog(root).locales) !== digest(plan.locales))
-          throw new Error(
-            'Language coverage changed since this plan finished; prepare another preview.',
-          );
+        assertPlanLocales(plan, root);
         verifyLocal(plan, root);
         return previous;
       }
@@ -237,6 +242,7 @@ async function applyPlan({
         commit: receipt.proposal?.commit,
       }),
     );
+    assertPlanLocales(plan, root);
     receipt.verification = verifyLocal(plan, root, before);
     receipt.status = 'complete';
     receipt.finishedAt = new Date().toISOString();
