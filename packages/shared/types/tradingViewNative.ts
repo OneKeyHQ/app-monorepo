@@ -52,22 +52,51 @@ export type ITradingViewNativeChartTypePreference =
   | 'auto'
   | ITradingViewNativeChartType;
 
-export type ITradingViewNativeMainIndicatorId = 'MA' | 'EMA' | 'BOLL' | 'SAR';
+export type ITradingViewNativeMainIndicatorId =
+  | 'MA'
+  | 'EMA'
+  | 'WMA'
+  | 'VWMA'
+  | 'BOLL'
+  | 'SAR'
+  | 'SUPERTREND'
+  | 'ENV'
+  | 'VWAP'
+  | 'DC';
 
 export type ITradingViewNativeSubIndicatorId =
   | 'VOL'
   | 'MACD'
+  | 'KDJ'
+  | 'SKDJ'
   | 'RSI'
   | 'StochRSI'
   | 'OBV'
   | 'MFI'
+  | 'DMA'
   | 'TRIX'
+  | 'VR'
+  | 'BRAR'
   | 'EMV'
   | 'WR'
   | 'ROC'
   | 'MTM'
+  | 'PSY'
   | 'DMI'
-  | 'CCI';
+  | 'CCI'
+  | 'PVT'
+  | 'ATR'
+  | 'SMI'
+  | 'TSI'
+  | 'RVI'
+  | 'QQE'
+  | 'MASS'
+  | 'KST'
+  | 'BBP'
+  | 'NVI'
+  | 'PMO'
+  | 'RCI'
+  | 'SLOPE';
 
 export type ITradingViewNativeAnyIndicatorId =
   | ITradingViewNativeMainIndicatorId

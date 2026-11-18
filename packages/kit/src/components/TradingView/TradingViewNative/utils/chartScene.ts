@@ -451,6 +451,28 @@ export function getTradingViewNativeChartScenePaintStyles(
   };
 }
 
+const INDICATOR_ISOLATED_POINT_RADIUS = 1.75;
+
+// Whether the value at `index` has no value on either side in the whole
+// series, not only in the part that is in view.
+function isIsolatedIndicatorValue(
+  values: readonly (number | null)[],
+  index: number,
+) {
+  'worklet';
+
+  const previousValue = values[index - 1];
+  const nextValue = values[index + 1];
+  return (
+    (previousValue === null ||
+      previousValue === undefined ||
+      !Number.isFinite(previousValue)) &&
+    (nextValue === null ||
+      nextValue === undefined ||
+      !Number.isFinite(nextValue))
+  );
+}
+
 function appendIndicatorCommands({
   commands,
   customPaintStyles,
@@ -516,6 +538,38 @@ function appendIndicatorCommands({
       }
     } else {
       let linePoints: { x: number; y: number }[] = [];
+      let lastPointIndex = -1;
+      const appendLine = () => {
+        const [point] = linePoints;
+        if (linePoints.length > 1) {
+          commands.push({
+            ...(customPaintId ? { customPaintId } : {}),
+            kind: 'polyline',
+            paint: series.paint,
+            points: linePoints,
+          });
+        } else if (
+          point &&
+          customPaintId &&
+          series.style &&
+          series.showIsolatedPoints &&
+          isIsolatedIndicatorValue(series.values, lastPointIndex)
+        ) {
+          commands.push({
+            cx: point.x,
+            cy: point.y,
+            // The legend paint is the fill version of the line's own paint.
+            customPaintId: `${customPaintId}:legend`,
+            kind: 'circle',
+            paint: series.paint,
+            radius: Math.max(
+              INDICATOR_ISOLATED_POINT_RADIUS,
+              series.style.lineWidth,
+            ),
+          });
+        }
+        linePoints = [];
+      };
       for (let index = firstIndex; index < lastIndex; index += 1) {
         const value = series.values[index];
         if (value !== null && value !== undefined && Number.isFinite(value)) {
@@ -523,26 +577,12 @@ function appendIndicatorCommands({
             x: getPointX(index),
             y: getTradingViewNativePriceY(value, layout),
           });
+          lastPointIndex = index;
         } else {
-          if (linePoints.length > 1) {
-            commands.push({
-              ...(customPaintId ? { customPaintId } : {}),
-              kind: 'polyline',
-              paint: series.paint,
-              points: linePoints,
-            });
-          }
-          linePoints = [];
+          appendLine();
         }
       }
-      if (linePoints.length > 1) {
-        commands.push({
-          ...(customPaintId ? { customPaintId } : {}),
-          kind: 'polyline',
-          paint: series.paint,
-          points: linePoints,
-        });
-      }
+      appendLine();
     }
   }
 }
@@ -1395,10 +1435,21 @@ export function buildTradingViewNativeChartScene({
         (legendHeight, row) => legendHeight + row.backgroundRect.height,
         0,
       );
-    for (const indicator of ['MA', 'EMA'] as const) {
+    // One legend row per indicator whose series carry a legend label.
+    for (const indicator of [
+      'MA',
+      'EMA',
+      'WMA',
+      'VWMA',
+      'SUPERTREND',
+      'ENV',
+      'VWAP',
+      'DC',
+    ] as const) {
       const items = indicatorSeries.flatMap((series) => {
         const value = series.values[legendPointIndex];
         return series.indicator === indicator &&
+          series.visible !== false &&
           series.legendLabel &&
           value !== null &&
           value !== undefined &&

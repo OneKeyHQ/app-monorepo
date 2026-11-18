@@ -290,6 +290,20 @@ export function parseIntercomPart(
   };
 }
 
+// Conversation events such as `teammate_joined` arrive as parts with an empty
+// body. They carry nothing the chat renders, so they must not become bubbles.
+function parseIntercomMessageParts(
+  values: unknown[],
+  participants: unknown[],
+): IIntercomPart[] {
+  return values
+    .map((part) => parseIntercomPart(part, participants))
+    .filter(
+      (part) =>
+        part.blocks.length > 0 || part.replies.length > 0 || !!part.form,
+    );
+}
+
 export function parseIntercomConversation(
   value: unknown,
 ): IIntercomConversation {
@@ -298,17 +312,18 @@ export function parseIntercomConversation(
   if (!id) throw new OneKeyLocalError('Invalid support conversation');
   const message = intercomRecord(data.conversation_message);
   const rawParts = data.conversation_parts ?? data.parts;
-  const parts = [
-    ...(message.id && message.hidden !== true
-      ? [{ ...message, id: `message-${String(message.id)}` }]
-      : []),
-    ...list(intercomRecord(rawParts).conversation_parts ?? rawParts),
-  ]
-    .filter(
+  const parts = parseIntercomMessageParts(
+    [
+      ...(message.id && message.hidden !== true
+        ? [{ ...message, id: `message-${String(message.id)}` }]
+        : []),
+      ...list(intercomRecord(rawParts).conversation_parts ?? rawParts),
+    ].filter(
       (part) =>
         intercomRecord(part).part_type !== 'lightweight_reply_user_response',
-    )
-    .map((part) => parseIntercomPart(part, list(data.participants)));
+    ),
+    list(data.participants),
+  );
   const composer = intercomRecord(data.composer_state);
   return {
     id,
@@ -393,8 +408,9 @@ export function parseIntercomOpen(value: unknown): IIntercomOpen {
     newConversationSubtitle: intercomText(cta.subtitle),
     header: parseHeader(newConversation.header),
     appearance: parseAppearance(data.messenger_configuration),
-    initialParts: list(newConversation.parts).map((part) =>
-      parseIntercomPart(part, list(newConversation.participants)),
+    initialParts: parseIntercomMessageParts(
+      list(newConversation.parts),
+      list(newConversation.participants),
     ),
     createParams,
     suggestions,
