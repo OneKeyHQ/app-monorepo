@@ -55,6 +55,7 @@ import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extension
 import {
   openUrlExternal,
   openUrlInDiscovery,
+  openUrlInDiscoveryOrExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
@@ -983,11 +984,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.settings_help_center,
               }),
               onPress: () => {
-                if (platformEnv.isDesktop || platformEnv.isNative) {
-                  openUrlInDiscovery({ url: helpCenterUrl });
-                } else {
-                  openUrlExternal(helpCenterUrl);
-                }
+                openUrlInDiscoveryOrExternal({ url: helpCenterUrl });
               },
             },
             {

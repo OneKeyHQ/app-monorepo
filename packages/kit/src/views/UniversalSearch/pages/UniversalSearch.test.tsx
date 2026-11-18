@@ -180,6 +180,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceUniversalSearch: {
       universalSearch: () => mockSearch(),
+      universalSearchOfHelpCenter: async () => ({ items: [] }),
       universalSearchRecommend: async () => ({}),
     },
     serviceToken: { getAllAggregateTokenInfo: async () => ({}) },

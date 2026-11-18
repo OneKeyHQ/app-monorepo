@@ -104,6 +104,7 @@ import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
+  UniversalSearchHelpCenterItem,
   UniversalSearchPerpItem,
   UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
@@ -159,6 +160,7 @@ const getSearchTypes = (): EUniversalSearchType[] => {
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
     !platformEnv.isWebDappMode && EUniversalSearchType.Dapp,
     EUniversalSearchType.Perp,
+    EUniversalSearchType.HelpCenter,
   ].filter(Boolean);
 };
 
@@ -298,6 +300,9 @@ export function UniversalSearch({
   const shouldIncludeSettings = allowedSearchTypeSet.has(
     EUniversalSearchType.Settings,
   );
+  const shouldIncludeHelpCenter = allowedSearchTypeSet.has(
+    EUniversalSearchType.HelpCenter,
+  );
   const shouldIncludeMarketTrending =
     !isTravelMode &&
     allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
@@ -333,6 +338,9 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_settings,
         }),
+      intl.formatMessage({
+        id: ETranslations.settings_help_center,
+      }),
     ].filter(Boolean);
   }, [intl]);
 
@@ -564,6 +572,10 @@ export function UniversalSearch({
       getSearchTypes().filter(
         (type) =>
           isBackgroundSearchType(type) &&
+          // Help center comes from a separate, slower endpoint; it is
+          // requested alongside these rounds and appended when it lands, so
+          // it never holds back the rest of the results.
+          type !== EUniversalSearchType.HelpCenter &&
           !PRIMARY_SEARCH_TYPES.includes(type) &&
           allowedSearchTypeSet.has(type),
       ),
@@ -724,6 +736,19 @@ export function UniversalSearch({
         });
       }
 
+      if (result?.[EUniversalSearchType.HelpCenter]?.items?.length) {
+        const data = result[EUniversalSearchType.HelpCenter]
+          .items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getUniversalSearchTabIndex(EUniversalSearchType.HelpCenter),
+          type: EUniversalSearchType.HelpCenter,
+          title: intl.formatMessage({
+            id: ETranslations.settings_help_center,
+          }),
+          ...buildSectionData(data),
+        });
+      }
+
       if (includeSettings) {
         const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
         if (settingsResults.length > 0) {
@@ -875,6 +900,21 @@ export function UniversalSearch({
         // aggregate sub-token (contract-address) matching is preserved.
         aggregateTokenListCacheMap: undefined,
       };
+      const helpCenterPromise = shouldIncludeHelpCenter
+        ? backgroundApiProxy.serviceUniversalSearch
+            .universalSearchOfHelpCenter({ input })
+            .then(
+              (helpCenter): IUniversalSearchBatchResult => ({
+                [EUniversalSearchType.HelpCenter]: helpCenter,
+              }),
+            )
+            .catch((error): IUniversalSearchBatchResult => {
+              console.error('[universalSearch] help center failed', error);
+              return {};
+            })
+        : undefined;
+      let paintedSections: IUniversalSection[] = [];
+      let searchFailed = false;
       try {
         // Skip the primary round entirely when the active scope excludes all
         // primary categories (e.g. browser search scoped to `[Dapp]`).
@@ -924,26 +964,49 @@ export function UniversalSearch({
             includeSettings: shouldIncludeSettings,
           });
         }
-        const mergedSections = mergeSearchResultSections(
+        paintedSections = mergeSearchResultSections(
           primarySections,
           deferredSections,
         );
-        setSections(mergedSections);
-        setSearchStatus(ESearchStatus.done);
-        setPendingAnalytics({ input, run, sections: mergedSections });
       } catch (error) {
         if (isResponseStale()) {
           return;
         }
         console.error('[universalSearch] search failed', error);
-        if (primarySections.length > 0) {
-          setSections(primarySections);
-          setSearchStatus(ESearchStatus.done);
-          setPendingAnalytics({ input, run, sections: primarySections });
+        searchFailed = true;
+        paintedSections = primarySections;
+      }
+      // While help center results are still on the way, an empty result set
+      // keeps the skeleton instead of flashing "No results".
+      if (paintedSections.length > 0 || !helpCenterPromise) {
+        setSections(paintedSections);
+        setSearchStatus(ESearchStatus.done);
+      }
+
+      if (helpCenterPromise) {
+        const helpCenterResult = await helpCenterPromise;
+        if (isResponseStale()) {
           return;
         }
-        setSections([]);
-        setSearchStatus(ESearchStatus.done);
+        const helpCenterSections = buildSearchResultSections({
+          result: helpCenterResult,
+          input,
+        });
+        // Skip the repaint when nothing new arrived and results are already
+        // on screen.
+        if (helpCenterSections.length > 0 || paintedSections.length === 0) {
+          paintedSections = mergeSearchResultSections(
+            paintedSections,
+            helpCenterSections,
+          );
+          setSections(paintedSections);
+          setSearchStatus(ESearchStatus.done);
+        }
+      }
+
+      // A failed search with nothing to show is not logged as a query.
+      if (!searchFailed || paintedSections.length > 0) {
+        setPendingAnalytics({ input, run, sections: paintedSections });
       }
     } else {
       setSections([]);
@@ -1179,6 +1242,14 @@ export function UniversalSearch({
               source={source}
             />
           );
+        case EUniversalSearchType.HelpCenter:
+          return (
+            <UniversalSearchHelpCenterItem
+              item={item}
+              getSearchInput={getSearchInput}
+              source={source}
+            />
+          );
         default:
           return null;
       }
@@ -1220,6 +1291,8 @@ export function UniversalSearch({
           return `${type}-${payload.name}-${index}`;
         case EUniversalSearchType.Settings:
           return `${type}-${payload.title}-${index}`;
+        case EUniversalSearchType.HelpCenter:
+          return `${type}-${payload.id}`;
         default:
           return String(index);
       }

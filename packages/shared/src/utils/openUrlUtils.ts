@@ -467,6 +467,20 @@ export function openUrlInDiscovery(params: IOpenUrlInDiscoveryParams): void {
 }
 
 /**
+ * Open a content page (help center article, guide) in the Discovery browser
+ * where one exists, and in the system browser on web and extension.
+ */
+export function openUrlInDiscoveryOrExternal(
+  params: IOpenUrlInDiscoveryParams,
+): void {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
+    openUrlInDiscovery(params);
+  } else {
+    openUrlExternal(params.url);
+  }
+}
+
+/**
  * Open a fiat crypto (Onramper) URL in a WebView Modal on desktop/native,
  * with cross-domain navigation redirected to the Discovery browser.
  * On web/extension, falls back to opening externally.
@@ -496,6 +510,7 @@ const openUrlUtils = {
   openUrlExternal,
   dismissNativeInAppBrowser,
   openUrlInDiscovery,
+  openUrlInDiscoveryOrExternal,
   openFiatCryptoUrl,
   gotoDiscoveryTab,
   getPendingDiscoveryUrl,
