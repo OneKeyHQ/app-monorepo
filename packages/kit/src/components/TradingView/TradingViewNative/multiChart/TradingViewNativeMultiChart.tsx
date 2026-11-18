@@ -9,9 +9,14 @@ import type {
   ITradingViewNativeIndicatorSettings,
   ITradingViewNativeMultiChartPreset,
   ITradingViewNativeMultiChartSizes,
+  ITradingViewNativeMultiChartSyncOption,
   ITradingViewNativeSource,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSource';
+
+import { createTradingViewNativeCrosshairSyncChannel } from './crosshairSync';
+import { createTradingViewNativeIntervalSync } from './intervalSync';
 import {
   TRADING_VIEW_NATIVE_MULTI_CHART_MIN_PANEL_HEIGHT,
   TRADING_VIEW_NATIVE_MULTI_CHART_MIN_PANEL_WIDTH,
@@ -20,16 +25,20 @@ import {
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
   getTradingViewNativeMultiChartSizes,
+  getTradingViewNativeMultiChartSync,
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
   setTradingViewNativeMultiChartPanelSource,
   setTradingViewNativeMultiChartSizes,
+  setTradingViewNativeMultiChartSync,
   updateTradingViewNativeMultiChartPanel,
 } from './multiChartLayout';
 import { TradingViewNativeMultiChartDivider } from './TradingViewNativeMultiChartDivider';
 import { TradingViewNativeMultiChartLayoutSelect } from './TradingViewNativeMultiChartLayoutSelect';
 import { TradingViewNativeMultiChartPanelContext } from './TradingViewNativeMultiChartPanelContext';
+import { TradingViewNativeMultiChartSyncContext } from './TradingViewNativeMultiChartSyncContext';
+import { createTradingViewNativeViewportSyncChannel } from './viewportSync';
 
 import type { ITradingViewNativeMultiChartAxis } from './multiChartLayout';
 import type {
@@ -37,6 +46,7 @@ import type {
   ITradingViewNativeMultiChartProps,
 } from './TradingViewNativeMultiChart.types';
 import type { ITradingViewNativeMultiChartPanelScope } from './TradingViewNativeMultiChartPanelContext';
+import type { ITradingViewNativeMultiChartSyncScope } from './TradingViewNativeMultiChartSyncContext';
 import type { LayoutChangeEvent } from 'react-native';
 
 type IOnLayoutChange = ITradingViewNativeMultiChartProps['onLayoutChange'];
@@ -86,27 +96,41 @@ function PanelScope({
   );
 }
 
+type IPanelSync = Pick<
+  ITradingViewNativeMultiChartSyncScope,
+  'crosshair' | 'interval' | 'viewport'
+>;
+
 const Panel = memo(
   ({
     id,
     index,
     indicatorSettings,
     isSplit,
+    isSymbolSynced,
     layoutControl,
     onLayoutChange,
     renderPanel,
     source,
+    sync,
   }: {
     id: string;
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
     isSplit: boolean;
+    isSymbolSynced: boolean;
     layoutControl: ReactNode;
     onLayoutChange: IOnLayoutChange;
     renderPanel: ITradingViewNativeMultiChartProps['renderPanel'];
     source: ITradingViewNativeSource;
+    sync: IPanelSync;
   }) => {
     const isMain = index === 0;
+    const instrumentKey = getTradingViewNativeSourceKey(source);
+    const syncScope = useMemo<ITradingViewNativeMultiChartSyncScope>(
+      () => ({ ...sync, isMain, instrumentKey }),
+      [instrumentKey, isMain, sync],
+    );
     const setSource = useCallback<
       ITradingViewNativeMultiChartPanel['setSource']
     >(
@@ -131,25 +155,41 @@ const Panel = memo(
         index,
         isMain,
         isSplit,
+        isSymbolSynced,
         source,
         layoutControl: isMain ? layoutControl : null,
         setSource: isMain ? ignoreSourceChange : setSource,
       }),
-      [id, index, isMain, isSplit, layoutControl, setSource, source],
+      [
+        id,
+        index,
+        isMain,
+        isSplit,
+        isSymbolSynced,
+        layoutControl,
+        setSource,
+        source,
+      ],
     );
     const content = renderPanel(panel);
-    // The first panel stays outside the scope: it keeps the host's own
-    // interval and indicators whether or not the view is split.
-    return isMain ? (
-      content
-    ) : (
-      <PanelScope
-        panelId={id}
-        indicatorSettings={indicatorSettings}
-        onLayoutChange={onLayoutChange}
-      >
-        {content}
-      </PanelScope>
+    // The provider stays mounted whatever the panels sync, so turning an
+    // option on or off never remounts a chart.
+    return (
+      <TradingViewNativeMultiChartSyncContext.Provider value={syncScope}>
+        {/* The first panel stays outside the scope: it keeps the host's own
+            interval and indicators whether or not the view is split. */}
+        {isMain ? (
+          content
+        ) : (
+          <PanelScope
+            panelId={id}
+            indicatorSettings={indicatorSettings}
+            onLayoutChange={onLayoutChange}
+          >
+            {content}
+          </PanelScope>
+        )}
+      </TradingViewNativeMultiChartSyncContext.Provider>
     );
   },
 );
@@ -222,14 +262,69 @@ export function TradingViewNativeMultiChart({
     },
     [onLayoutChange],
   );
+  const sync = useMemo(
+    () => getTradingViewNativeMultiChartSync(layout),
+    [layout],
+  );
+  const handleSyncChange = useCallback(
+    (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
+      onLayoutChange((current) => {
+        const saved = normalizeTradingViewNativeMultiChartLayout(current);
+        const next = setTradingViewNativeMultiChartSync(
+          saved,
+          option,
+          isSynced,
+        );
+        return next === saved ? current : next;
+      });
+    },
+    [onLayoutChange],
+  );
+  const crosshairSyncChannel = useMemo(
+    () => createTradingViewNativeCrosshairSyncChannel(),
+    [],
+  );
+  const viewportSyncChannel = useMemo(
+    () => createTradingViewNativeViewportSyncChannel(),
+    [],
+  );
+  // What every panel shares with the others. A part is rebuilt only when its
+  // own option changes, so the charts keep the rest as it is.
+  const isCrosshairSynced = isSplit && sync.crosshair;
+  const isIntervalSynced = isSplit && sync.interval;
+  const intervalSync = useMemo(
+    // Started anew each time, from the first panel's interval.
+    () => (isIntervalSynced ? createTradingViewNativeIntervalSync() : null),
+    [isIntervalSynced],
+  );
+  const isViewportSynced = isSplit && (sync.time || sync.dateRange);
+  const fitsDateRange = sync.dateRange;
+  const viewportSync = useMemo(
+    () =>
+      isViewportSynced
+        ? { channel: viewportSyncChannel, fitRange: fitsDateRange }
+        : null,
+    [fitsDateRange, isViewportSynced, viewportSyncChannel],
+  );
+  const panelSync = useMemo<IPanelSync>(
+    () => ({
+      crosshair: isCrosshairSynced ? crosshairSyncChannel : null,
+      interval: intervalSync,
+      viewport: viewportSync,
+    }),
+    [crosshairSyncChannel, intervalSync, isCrosshairSynced, viewportSync],
+  );
+  const isSymbolSynced = isSplit && sync.symbol;
   const layoutControl = useMemo(
     () => (
       <TradingViewNativeMultiChartLayoutSelect
         preset={preset}
         onChange={handlePresetChange}
+        sync={sync}
+        onSyncChange={handleSyncChange}
       />
     ),
-    [handlePresetChange, preset],
+    [handlePresetChange, handleSyncChange, preset, sync],
   );
 
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
@@ -336,7 +431,9 @@ export function TradingViewNativeMultiChart({
       {panelIds.map((id, index) => {
         const rect = rects[index];
         const state = layout.panels[id];
-        const source = index === 0 ? mainSource : state?.source;
+        // With the token synced, a panel keeps its own for when that ends.
+        const source =
+          index === 0 || isSymbolSynced ? mainSource : state?.source;
         return (
           // The first panel keeps its tree position, so moving between presets
           // never remounts the host's chart.
@@ -356,7 +453,9 @@ export function TradingViewNativeMultiChart({
                 id={id}
                 index={index}
                 isSplit={isSplit}
+                isSymbolSynced={isSymbolSynced}
                 source={source}
+                sync={panelSync}
                 indicatorSettings={
                   state?.indicatorSettings ?? defaultIndicatorSettings
                 }
