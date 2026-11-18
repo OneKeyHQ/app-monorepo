@@ -617,7 +617,7 @@ const SetTpslForm = memo(
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.perp_position_mark_price,
+                  id: ETranslations.perp_order_mid_price_title,
                 })}
               </SizableText>
               <MarkPrice coin={currentPosition.coin} />
