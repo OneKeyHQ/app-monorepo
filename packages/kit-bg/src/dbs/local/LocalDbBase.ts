@@ -8973,14 +8973,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             const duplicate =
               existing || toAdd.find((item) => item.id === account.id);
-            if (duplicate) {
-              if (publicAccountIdentityEqual(duplicate, account)) {
-                result.unchanged += 1;
-                result.appliedAccountIds.push(account.id);
-              } else {
-                result.conflicts += 1;
-                result.issueByAccountId[account.id] = 'conflicts';
-              }
+            if (duplicate && !publicAccountIdentityEqual(duplicate, account)) {
+              result.conflicts += 1;
+              result.issueByAccountId[account.id] = 'conflicts';
               return;
             }
             const indexedId = accountUtils.buildIndexedAccountId({
@@ -9018,7 +9013,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 }),
               });
             }
-            toAdd.push(account);
+            if (duplicate) {
+              result.unchanged += 1;
+              result.appliedAccountIds.push(account.id);
+            } else {
+              toAdd.push(account);
+            }
           };
           for (const account of accounts) {
             await prepareAccount(account);
@@ -9096,7 +9096,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
           // Write both record types in one transaction, without Cloud hooks or
           // per-account events. Existing records are never removed or updated.
-          if (toAdd.length) {
+          if (indexedToAdd.size) {
             await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.IndexedAccount,
@@ -9104,6 +9104,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               skipIfExists: true,
             });
             checkCurrent();
+          }
+          if (toAdd.length) {
             const added = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.Account,

@@ -111,6 +111,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilentlyThrottled(
         {
           callerName: 'AccountManagerStacks onMounted',
+          repairPublicAccountSnapshots: true,
         },
       );
     },

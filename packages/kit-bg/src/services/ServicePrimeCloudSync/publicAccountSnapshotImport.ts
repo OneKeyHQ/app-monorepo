@@ -39,6 +39,7 @@ const BATCH_SIZE = 50;
 export type IPublicAccountSnapshotApplyResult =
   ICloudPublicAccountSnapshotResult & {
     deleted: number;
+    skippedSnapshotIds: string[];
     issuesBySnapshotId: Record<string, 'pending' | 'conflicts' | 'rejected'>;
   };
 
@@ -53,6 +54,7 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
     rejected: 0,
     cancelled: false,
     appliedSnapshotIds: [],
+    skippedSnapshotIds: [],
   };
 }
 
@@ -256,6 +258,10 @@ export async function importPublicAccountSnapshots({
           walletsByIdentity.get(
             `${snapshot.wallet.kind}__${snapshot.wallet.xfp}__${snapshot.wallet.hidden}`,
           ) || [];
+        if (matches.length === 0) {
+          result.skippedSnapshotIds.push(getPublicAccountSnapshotId(snapshot));
+          return;
+        }
         if (matches.length !== 1) {
           result.pending += 1;
           recordIssue(snapshot, 'pending');

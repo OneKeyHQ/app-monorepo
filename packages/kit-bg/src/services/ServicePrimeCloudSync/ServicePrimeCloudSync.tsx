@@ -13,6 +13,7 @@ import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
   CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID,
   EPrimeCloudSyncDataType,
+  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -33,6 +34,7 @@ import {
 import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
@@ -1487,9 +1489,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncPendingItemsToScene({
     forceSync,
     isCurrent,
+    repairPublicAccountSnapshots,
   }: {
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    repairPublicAccountSnapshots?: boolean;
   } = {}) {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
@@ -1507,8 +1511,18 @@ class ServicePrimeCloudSync extends ServiceBase {
         forceSync,
       }),
     );
+    const acknowledgedItems =
+      repairPublicAccountSnapshots && !forceSync
+        ? await this.syncManagers.account.findAcknowledgedSnapshotsMissingLocalRecords(
+            {
+              items,
+              syncCredential,
+              isCurrent,
+            },
+          )
+        : [];
     return this.syncToSceneWithLocalSyncItems({
-      items: pendingItems,
+      items: pendingItems.concat(acknowledgedItems),
       syncCredential,
       forceSync,
       isCurrent,
@@ -1995,6 +2009,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload,
     forceSync,
     bypassRetryBackoff,
+    repairPublicAccountSnapshots,
   }: IStartServerSyncFlowParams = {}): Promise<boolean | undefined> {
     if (localMutation) {
       const pending = {
@@ -2022,7 +2037,8 @@ class ServicePrimeCloudSync extends ServiceBase {
         isFlush ||
         encryptedSecurityPasswordR1ForServer ||
         setUndefinedTimeToNow ||
-        noDebounceUpload
+        noDebounceUpload ||
+        repairPublicAccountSnapshots
       ) {
         // An explicit operation cannot borrow the result of an ordinary poll.
         // Re-enter after it settles, preserving serialization and key scope.
@@ -2049,6 +2065,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           noDebounceUpload,
           forceSync,
           bypassRetryBackoff,
+          repairPublicAccountSnapshots,
         });
       }
       this.fullSyncRequested = true;
@@ -2066,6 +2083,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             noDebounceUpload,
             forceSync,
             bypassRetryBackoff,
+            repairPublicAccountSnapshots,
           })
         : Promise.resolve(undefined),
     );
@@ -2093,12 +2111,44 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
   }
 
+  private async backfillHardwareAccountSnapshots({
+    syncCredential,
+    isCurrent,
+  }: {
+    syncCredential: ICloudSyncCredential;
+    isCurrent: () => boolean;
+  }) {
+    const { accounts } = await localDb.getAllAccounts();
+    const hardwareAccounts = accounts.filter(({ id }) =>
+      accountUtils.isHwAccount({ accountId: id }),
+    );
+    if (!hardwareAccounts.length || !isCurrent()) return;
+
+    const { devices } = await localDb.getAllDevices();
+    if (!isCurrent()) return;
+    const items = await this.syncManagers.account.buildInitSyncDBItems({
+      dbRecords: hardwareAccounts,
+      allDevices: devices,
+      // A snapshot rebuilt from local data must lose to an existing Cloud edit.
+      initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+      syncCredential,
+    });
+    await this.writeCloudSyncPoolInBatches({
+      items,
+      skipUpdate: true,
+      skipUploadToServer: true,
+      isCurrent,
+    });
+  }
+
   private async runFullCloudReconciliation({
     forceSync,
     bypassRetryBackoff,
+    repairPublicAccountSnapshots,
   }: {
     forceSync?: boolean;
     bypassRetryBackoff?: boolean;
+    repairPublicAccountSnapshots?: boolean;
   }) {
     const entryGeneration = this.publicAccountSnapshotImportGeneration;
     const entryKeyGeneration =
@@ -2200,6 +2250,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
         async () => {
           await this.assertSyncCredentialUnchanged(credential);
+          if (repairPublicAccountSnapshots && isCurrent()) {
+            await this.backfillHardwareAccountSnapshots({
+              syncCredential: credential,
+              isCurrent,
+            });
+          }
           await this.fillingSyncItemsMissingDataFromRawData({
             skipUploadToServer: true,
             isCurrent,
@@ -2232,7 +2288,14 @@ class ServicePrimeCloudSync extends ServiceBase {
             if (!isCurrent() || signal.aborted)
               throw new OneKeyLocalError('Cloud sync was cancelled');
             const all = await this.getAllLocalSyncItems();
-            latestItems = all.items.filter((item) => item.pwdHash === spaceId);
+            // An Account without ciphertext cannot satisfy a matching Cloud version.
+            latestItems = all.items.filter(
+              (item) =>
+                item.pwdHash === spaceId &&
+                (item.dataType !== EPrimeCloudSyncDataType.Account ||
+                  item.isDeleted ||
+                  !!item.data),
+            );
             return latestItems.map((item) => ({
               key: item.id,
               dataTimestamp: item.dataTime,
@@ -2408,6 +2471,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         await this.syncPendingItemsToScene({
           forceSync:
             forceSync || !previous || config.cloudSyncAccountApplyVersion !== 2,
+          repairPublicAccountSnapshots,
           isCurrent,
         });
       }
@@ -2538,6 +2602,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload,
     forceSync,
     bypassRetryBackoff,
+    repairPublicAccountSnapshots,
   }: IStartServerSyncFlowParams) {
     try {
       // const syncMode = await this.getActiveSyncMode();
@@ -2553,6 +2618,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         return await this.runFullCloudReconciliation({
           forceSync,
           bypassRetryBackoff,
+          repairPublicAccountSnapshots,
         });
 
       // when data is written, because the cached password is missing to encrypt, so data is undefined
@@ -2804,12 +2870,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       await assertSelectedKey();
       guard();
 
+      let uploadIncomplete = false;
       if (serverStatus.obsoleted.length || isFlush) {
         const itemsToUpload = localItems.filter((item) =>
           serverStatus.obsoleted.includes(item.id),
         );
         await assertSelectedKey();
-        await this.uploadItemsWithRequestOptions(
+        const upload = await this.uploadItemsWithRequestOptions(
           {
             localItems: itemsToUpload,
             isFlush: isFlush ?? false,
@@ -2822,6 +2889,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         );
         await assertSelectedKey();
         guard();
+        uploadIncomplete =
+          !isFlush &&
+          (upload?.created ?? 0) + (upload?.updated ?? 0) <
+            itemsToUpload.length;
       }
 
       for (const serverItems of [serverStatus.diff, serverStatus.updated]) {
@@ -2848,6 +2919,12 @@ class ServicePrimeCloudSync extends ServiceBase {
           isCurrent,
         });
       guard();
+      if (uploadIncomplete) {
+        throw new OneKeyLocalError({
+          message: 'Cloud sync upload was only partially acknowledged',
+          autoToast: false,
+        });
+      }
     } finally {
       controller.abort();
       this.cloudSyncItemAbortControllers.delete(controller);

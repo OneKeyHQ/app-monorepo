@@ -1,7 +1,10 @@
 import { Semaphore } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
-import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EPrimeCloudSyncDataType,
+  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -14,6 +17,8 @@ import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
+import { publicAccountSnapshotToAccount } from './publicAccountSnapshot';
+import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -93,6 +98,8 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getAllSyncItems: jest.fn(),
+    getAllAccounts: jest.fn(),
+    getAllDevices: jest.fn(),
     getRecordsByIds: jest.fn(),
     addAndUpdateSyncItems: jest.fn(),
     removeCloudSyncPoolItems: jest.fn(),
@@ -399,6 +406,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
 
   test.each([
     { forceSync: true },
+    { repairPublicAccountSnapshots: true },
     { isFlush: true, encryptedSecurityPasswordR1ForServer: 'public-test-lock' },
     { noDebounceUpload: true, setUndefinedTimeToNow: true },
   ])('preserves explicit concurrent sync parameters %p', async (params) => {
@@ -428,6 +436,70 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     await expect(second).resolves.toBe(true);
     expect(selected).toHaveBeenCalledTimes(2);
     expect(selected).toHaveBeenLastCalledWith(expect.objectContaining(params));
+  });
+
+  test('includes a hardware account missing from the sync pool in the next selector check and upload', async () => {
+    const h = harness();
+    const snapshot = publicAccountTestSnapshot();
+    const hardwareAccount = publicAccountSnapshotToAccount(
+      snapshot,
+      'hw-local',
+    );
+    const softwareAccount = publicAccountSnapshotToAccount(
+      snapshot,
+      'hd-local',
+    );
+    jest.spyOn(localDb, 'getAllAccounts').mockResolvedValue({
+      accounts: [hardwareAccount, softwareAccount],
+    });
+    jest.spyOn(localDb, 'getAllDevices').mockResolvedValue({ devices: [] });
+    const recovered: IDBCloudSyncItem = {
+      id: 'recovered-account',
+      dataType: EPrimeCloudSyncDataType.Account,
+      data: 'synthetic-public-snapshot-ciphertext',
+      dataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+      rawKey: '',
+      rawData: '',
+      pwdHash: 'public-root-space',
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: false,
+    };
+    const build = jest.fn(async () => [recovered]);
+    h.service.syncManagers.account.buildInitSyncDBItems = build;
+    h.check.mockImplementationOnce(async ({ localItems = [] }) =>
+      reply({
+        obsoleted: localItems.map((item) => item.id),
+        reconciliation: undefined,
+      }),
+    );
+    const upload = jest
+      .spyOn(h.service, '_callApiUploadItems')
+      .mockResolvedValue({ nonce: 0, created: 1, updated: 0 });
+    const selectorSync = {
+      callerName: 'AccountManagerStacks onMounted',
+      repairPublicAccountSnapshots: true,
+    };
+
+    await expect(
+      h.service.startServerSyncFlowSilently(selectorSync),
+    ).resolves.toBe(true);
+
+    expect(build).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dbRecords: [hardwareAccount],
+        initDataTime: PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+      }),
+    );
+    expect(h.writePool).toHaveBeenCalledWith(
+      expect.objectContaining({ skipUpdate: true }),
+    );
+    expect(upload).toHaveBeenCalledWith(
+      expect.objectContaining({ localItems: [recovered] }),
+    );
+    expect(h.replay).toHaveBeenCalledWith(
+      expect.objectContaining({ repairPublicAccountSnapshots: true }),
+    );
   });
 
   test('does not replay a queued flush across a key switch', async () => {
@@ -922,6 +994,33 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.check).toHaveBeenCalledTimes(1);
   });
 
+  test('downloads the payload again when a local account item only has matching metadata', async () => {
+    const h = harness(1);
+    const remote = h.remote[0];
+    h.pool.set(remote.key, {
+      id: remote.key,
+      data: undefined,
+      dataTime: remote.dataTimestamp,
+      dataType: remote.dataType,
+      pwdHash: remote.pwdHash,
+      rawKey: '',
+      rawData: '',
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    });
+
+    await expect(h.run()).resolves.toBe(true);
+
+    expect(h.check.mock.calls[0][0].localItems).toEqual([]);
+    expect(h.pool.get(remote.key)).toMatchObject({
+      data: remote.data,
+      dataTime: remote.dataTimestamp,
+      localSceneUpdated: false,
+    });
+    expect(h.scene).toHaveBeenCalled();
+  });
+
   test('startup recovers a persisted backend-unverified state through its retry timer', async () => {
     const h = harness();
     h.check.mockResolvedValue(reply({ reconciliation: undefined }));
@@ -1132,6 +1231,39 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.check).toHaveBeenCalledTimes(4);
     await jest.advanceTimersByTimeAsync(120_000);
     expect(h.check).toHaveBeenCalledTimes(4);
+  });
+
+  test('a short receipt from a batched account write schedules a full HTTP retry', async () => {
+    const h = harness();
+    const server = serverItem(1);
+    const local: IDBCloudSyncItem = {
+      id: server.key,
+      data: server.data,
+      dataTime: server.dataTimestamp,
+      dataType: server.dataType,
+      pwdHash: server.pwdHash,
+      isDeleted: false,
+      rawKey: '',
+      rawData: '',
+      localSceneUpdated: true,
+      serverUploaded: false,
+    };
+    h.pool.set(local.id, local);
+    h.check.mockResolvedValue(
+      reply({ obsoleted: [local.id], reconciliation: undefined }),
+    );
+    const upload = jest
+      .spyOn(h.service, '_callApiUploadItems')
+      .mockResolvedValueOnce({ nonce: 0, created: 0, updated: 0 })
+      .mockResolvedValueOnce({ nonce: 1, created: 1, updated: 0 });
+    await h.service.startServerSyncFlowForItems({ localItems: [local] });
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(upload).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(h.check.mock.calls[1][0]).toMatchObject({ isFullDBChecking: true });
+    expect(h.config().cloudSyncReconciliation?.status).toBe('complete');
   });
 
   test.each(['locked', 'offline'] as const)(

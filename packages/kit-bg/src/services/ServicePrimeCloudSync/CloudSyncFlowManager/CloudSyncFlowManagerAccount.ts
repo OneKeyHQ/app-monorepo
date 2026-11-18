@@ -1,4 +1,7 @@
-import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EPrimeCloudSyncDataType,
+  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -345,6 +348,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       const item = await super.buildSyncItem({
         target,
         dataTime: initDataTime,
+        allowHistoricalTime:
+          initDataTime === PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
         preserveUndefinedDataTime: true,
         syncCredential,
       });
@@ -371,6 +376,93 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         await timerUtils.wait(0);
     }
     return built;
+  }
+
+  async findAcknowledgedSnapshotsMissingLocalRecords({
+    items,
+    syncCredential,
+    isCurrent,
+  }: {
+    items: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+    isCurrent?: () => boolean;
+  }): Promise<IDBCloudSyncItem[]> {
+    const prefix = `${this.dataType} >> ${PUBLIC_ACCOUNT_SNAPSHOT_PREFIX}`;
+    const missing = new Map(
+      items
+        .filter(
+          (item) =>
+            item.dataType === this.dataType &&
+            item.rawKey?.startsWith(prefix) &&
+            item.localSceneUpdated &&
+            item.serverUploaded &&
+            !item.isDeleted &&
+            cloudSyncItemBuilder.canLocalItemSyncToScene({
+              item,
+              syncCredential,
+              forceSync: true,
+            }),
+        )
+        .map((item) => [item.rawKey, item]),
+    );
+    if (!missing.size) return [];
+
+    const { localDb } = this.backgroundApi;
+    const [{ accounts }, { indexedAccounts }, { wallets }] = await Promise.all([
+      localDb.getAllAccounts(),
+      localDb.getAllIndexedAccounts(),
+      localDb.getAllWallets(),
+    ]);
+    const walletById = new Map(wallets.map((wallet) => [wallet.id, wallet]));
+    const indexById = new Map(
+      indexedAccounts.map((index) => [index.id, index]),
+    );
+    for (
+      let offset = 0;
+      offset < accounts.length && missing.size;
+      offset += PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE
+    ) {
+      if (isCurrent && !isCurrent()) return [];
+      for (const account of accounts.slice(
+        offset,
+        offset + PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE,
+      )) {
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: account.id,
+        });
+        const wallet = walletById.get(walletId);
+        const index = indexById.get(account.indexedAccountId ?? '');
+        if (
+          wallet &&
+          !wallet.isMocked &&
+          !wallet.isTemp &&
+          index &&
+          index.walletId === walletId &&
+          index.index === account.pathIndex
+        ) {
+          try {
+            const snapshot = buildPublicAccountSnapshot({ wallet, account });
+            if (snapshot)
+              missing.delete(
+                `${this.dataType} >> ${getPublicAccountSnapshotId(snapshot)}`,
+              );
+          } catch {
+            // The normal snapshot importer will validate unresolved records.
+          }
+        }
+      }
+      if (
+        missing.size &&
+        offset + PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE < accounts.length
+      )
+        await timerUtils.wait(0);
+    }
+    if (isCurrent && !isCurrent()) return [];
+    // Re-enter the validated import path without changing the stored ACK.
+    return Array.from(missing.values(), (item) => ({
+      ...item,
+      localSceneUpdated: false,
+    }));
   }
 
   override async syncToScene({
@@ -532,12 +624,16 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           cancelled: result.cancelled || applied.cancelled,
         };
         deleted += applied.deleted;
-        const appliedIds = new Set(applied.appliedSnapshotIds);
+        // Clear issues persisted when an absent wallet was treated as pending.
+        const clearIssueIds = new Set([
+          ...applied.appliedSnapshotIds,
+          ...applied.skippedSnapshotIds,
+        ]);
         for (const candidate of entries) {
           const id = getPublicAccountSnapshotId(candidate.snapshot);
           issues.set(
             candidate.item.id,
-            appliedIds.has(id)
+            clearIssueIds.has(id)
               ? undefined
               : (applied.issuesBySnapshotId[id] ?? 'pending'),
           );
