@@ -14,7 +14,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -37,6 +36,7 @@ import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
 import { EModalMarketRoutes } from '../router/types';
 
+import { MarketHighlightSpeaker } from './MarketHighlightSpeaker';
 import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
 
 import type { IMarketHighlightQuote } from './useMarketHighlightQuotes';
@@ -449,7 +449,7 @@ export function MarketHighlightStrip({
         alignItems="center"
         gap="$2.5"
       >
-        <Icon name="SpeakerPromoteOutline" size="$4.5" color="$iconSubdued" />
+        <MarketHighlightSpeaker />
         <HighlightCarousel
           items={carouselItems}
           quotes={quotes}
