@@ -62,7 +62,8 @@ class WebRootErrorBoundary extends React.PureComponent {
 
   componentDidCatch(error) {
     this.setState({ error });
-    markPageErrorAndTryAutoReload();
+    hasRootPageError = true;
+    tryAutoReloadOnPageError();
     void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
       ({ captureException, initSentry }) => {
         initSentry();
@@ -353,8 +354,10 @@ function triggerAutoReloadForVersion(version, shouldActivateReady = false) {
   window.location.reload();
 }
 
-function markPageErrorAndTryAutoReload() {
-  hasRootPageError = true;
+function tryAutoReloadOnPageError() {
+  if (!isPageInErrorState()) {
+    return false;
+  }
   if (isAutoReloading) {
     return true;
   }
@@ -497,7 +500,7 @@ function setupServiceWorkerVersionProtocol() {
 
 if (typeof window !== 'undefined') {
   window.addEventListener(WEB_ROUTE_NOT_FOUND_EVENT, () => {
-    markPageErrorAndTryAutoReload();
+    tryAutoReloadOnPageError();
   });
 }
 

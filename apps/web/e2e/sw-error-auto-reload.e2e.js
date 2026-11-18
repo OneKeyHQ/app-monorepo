@@ -298,8 +298,8 @@ function buildV670ClientScript() {
     postMessageToServiceWorker('CHECK_VERSION');
   }
 
-  function markPageErrorAndTryAutoReload() {
-    hasRootPageError = true;
+  function tryAutoReloadOnPageError() {
+    if (!isPageInErrorState()) return false;
     if (isAutoReloading) return true;
     if (
       latestActiveVersion &&
@@ -403,7 +403,7 @@ function buildV670ClientScript() {
   }
 
   window.addEventListener(WEB_ROUTE_NOT_FOUND_EVENT, () => {
-    markPageErrorAndTryAutoReload();
+    tryAutoReloadOnPageError();
   });
 
   function renderTestView(testId, text) {

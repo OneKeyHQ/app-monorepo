@@ -217,7 +217,7 @@ function createServiceWorkerTestBed({
   });
 
   async function navigate(url) {
-    let responsePromise;
+    let responsePromise = Promise.resolve(new Response(''));
     const waitUntilPromises = [];
     swListeners.fetch({
       request: {
@@ -952,5 +952,53 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(client.storageMap.get('__onekey_sw_error_auto_reload__')).toBe(
       `${V_NEXT}:/earn/bsc/TOKEN/provider`,
     );
+  });
+
+  test('does NOT auto-reload when client recovers from NotFound back to a valid route before update becomes ready', async () => {
+    const bundleV670 = await createVersionBundle({
+      version: V_NEW,
+      buildTime: 1_700_000_100_000,
+      html: '<!doctype html><html><body>v6.7.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v670.js`,
+      scriptContent: 'console.log("v6.7.0");',
+    });
+    const bundleV680 = await createVersionBundle({
+      version: V_NEXT,
+      buildTime: 1_700_000_200_000,
+      html: '<!doctype html><html><body>v6.8.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v680.js`,
+      scriptContent: 'console.log("v6.8.0");',
+    });
+
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundleV670 });
+    await testBed.navigate(`${ORIGIN}/`);
+
+    const client = createModernWebClientWithRealIndexJs({
+      id: 'client-recovered-not-found',
+      testBed,
+      url: `${ORIGIN}/typo-route`,
+      version: V_NEW,
+    });
+
+    // 1. Boot while still on V_NEW and hit NotFound (no update ready yet)
+    await client.bootServiceWorkerProtocol();
+    await client.triggerRouteNotFound();
+    expect(client.reloadMock).not.toHaveBeenCalled();
+
+    // 2. User navigates back to a valid route -> __onekeyWebRouteNotFound clears
+    globalThis.__onekeyWebRouteNotFound = false;
+
+    // 3. Later, V_NEXT is deployed and a background version check runs -> shows banner, does NOT auto-reload
+    testBed.setServerBundle(bundleV680);
+    await testBed.sendFromClient(client.clientHandle, {
+      type: 'CHECK_VERSION',
+      payload: {
+        clientVersion: V_NEW,
+        clientAutoReloadCapable: true,
+        hasPageError: false,
+      },
+    });
+    expect(client.reloadMock).not.toHaveBeenCalled();
+    expect(client.clientHandle.getBannerElement()).not.toBeNull();
   });
 });
