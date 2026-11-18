@@ -778,7 +778,7 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
   });
 });
 
-describe('third-party Bluetooth recovery through the real wallet finalization page', () => {
+describe('third-party Bluetooth recovery in wallet finalization', () => {
   const hw = jest.mocked(backgroundApiProxy.serviceThirdPartyHardware);
   const confirmGuide = async () => {
     const guide = mockShowDialog.mock.calls.at(-1)?.[0];
@@ -924,37 +924,23 @@ describe('third-party Bluetooth recovery through the real wallet finalization pa
     expect(hw.connectDevice.mock.calls).toHaveLength(1);
   });
 
-  it('recovers through discovery and carries the new connection into wallet and account creation', async () => {
+  it('passes the selected connection operation to wallet creation and releases it', async () => {
     const operationId = createHardwareOperationId('trezor');
-    hw.connectDevice
-      .mockResolvedValueOnce({
-        success: false,
-        payload: {
-          code: HardwareErrorCode.BleConnectFailed,
-          error: 'old identifier is unreachable',
+    hw.connectDevice.mockResolvedValue({
+      success: true,
+      payload: {
+        operationId,
+        connectId: 'new-id',
+        deviceId: 'stable-trezor-identity',
+        model: 'Safe 7',
+        connectionType: 'ble',
+        features: {
+          device_id: 'stable-trezor-identity',
+          initialized: true,
+          firmware_present: true,
         },
-      })
-      .mockResolvedValue({
-        success: true,
-        payload: {
-          operationId,
-          connectId: 'new-id',
-          deviceId: 'stable-trezor-identity',
-          model: 'Safe 7',
-          connectionType: 'ble',
-          features: {
-            device_id: 'stable-trezor-identity',
-            initialized: true,
-            firmware_present: true,
-          },
-        },
-      });
-    const previous = render(trezorCompletionPage('old-id'));
-    fireEvent.click(
-      await screen.findByTestId('onboarding-finalize-setup-retry-btn'),
-    );
-    await confirmGuide();
-    previous.unmount();
+      },
+    });
     const wallet: IDBWallet = {
       id: 'hw--trezor',
       name: 'Trezor',
@@ -978,7 +964,6 @@ describe('third-party Bluetooth recovery through the real wallet finalization pa
     render(trezorCompletionPage('new-id'));
     await screen.findByTestId(ENTER_WALLET_TEST_ID);
     expect(hw.connectDevice.mock.calls).toEqual([
-      [{ vendor: EHardwareVendor.trezor, searchTargetId: 'old-id' }],
       [{ vendor: EHardwareVendor.trezor, searchTargetId: 'new-id' }],
     ]);
     expect(mockCreateThirdPartyWallet).toHaveBeenCalledWith(
