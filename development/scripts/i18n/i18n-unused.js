@@ -961,8 +961,9 @@ async function applyCentralDeleteIfRequested(
     } catch (error) {
       // The PR exists; report it so the pull can be retried on its own.
       summary.pullError = error.message;
-      // The same command the pull ran, with the same GitHub credentials.
-      summary.note += ` Pulling its preview failed: ${error.message}. Retry with \`node development/scripts/i18n/i18n-pull.js --pr ${proposal.number} --commit ${proposal.commit} --wait\`.`;
+      // The same command the pull ran, with the same GitHub credentials. The
+      // script finds the repository from its own path, so it runs from any directory.
+      summary.note += ` Pulling its preview failed: ${error.message}. Retry with \`node "${path.join(REPO_ROOT, 'development/scripts/i18n/i18n-pull.js')}" --pr ${proposal.number} --commit ${proposal.commit} --wait\`.`;
     }
   }
 }
