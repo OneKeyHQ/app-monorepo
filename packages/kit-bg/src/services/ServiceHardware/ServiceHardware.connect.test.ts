@@ -1486,9 +1486,7 @@ describe('ServiceHardware.specialProcessingEvent PIN preference lookup', () => {
     }>;
   };
 
-  function buildDbDeviceRecord(
-    overrides: Partial<IDBDevice> = {},
-  ): IDBDevice {
+  function buildDbDeviceRecord(overrides: Partial<IDBDevice> = {}): IDBDevice {
     return {
       id: 'db-device-id',
       connectId: 'USB_SERIAL_1',
@@ -1531,8 +1529,9 @@ describe('ServiceHardware.specialProcessingEvent PIN preference lookup', () => {
               item.uuid ||
               item.deviceStateInfo?.identity.serialNo ||
               (item.featuresInfo
-                ? deviceUtils.getDeviceSerialNoFromFeatures(item.featuresInfo) ||
-                  ''
+                ? deviceUtils.getDeviceSerialNoFromFeatures(
+                    item.featuresInfo,
+                  ) || ''
                 : '');
             const uuidInQuery =
               deviceUtils.getDeviceSerialNoFromFeatures(features) || '';
@@ -1627,11 +1626,13 @@ describe('ServiceHardware.specialProcessingEvent PIN preference lookup', () => {
 
   afterEach(() => {
     mockedLocalDb.getDeviceByQuery.mockReset();
-    jest.mocked(hardwareInstance.CoreSDKLoader).mockResolvedValue(
-      {} as unknown as Awaited<
-        ReturnType<typeof hardwareInstance.CoreSDKLoader>
-      >,
-    );
+    jest
+      .mocked(hardwareInstance.CoreSDKLoader)
+      .mockResolvedValue(
+        {} as unknown as Awaited<
+          ReturnType<typeof hardwareInstance.CoreSDKLoader>
+        >,
+      );
   });
 
   it('does not inherit old inputPinOnSoftware preference when connectId is reused with a changed features device identity', async () => {
