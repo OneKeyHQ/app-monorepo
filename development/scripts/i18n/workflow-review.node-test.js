@@ -25,7 +25,6 @@ async function prepared(t, options = {}) {
     draft,
     client: api.client,
     root: ctx.root,
-    projectName: 'Monorepo test',
   });
   return { ...ctx, ...api, plan };
 }
@@ -122,6 +121,19 @@ test('plan saving automatically produces standalone HTML and every other languag
   );
   assert(!page.html.includes('src="http'));
   assert.equal(ctx.writes.length, 0);
+});
+
+test('the review page header shows a non-default onekey-i18n target', async (t) => {
+  const ctx = await prepared(t);
+  const header = (plan) =>
+    browser(t, plan).document.getElementById('project').textContent;
+  assert(!header(ctx.plan).includes('目标'));
+  assert(
+    header({
+      ...ctx.plan,
+      central: { base: 'try-tooling', channel: 'test' },
+    }).includes('目标 try-tooling 分支（test 渠道）'),
+  );
 });
 
 test('edited keys retain the original identity and full-language edits/comments survive prompt import', async (t) => {
@@ -221,7 +233,7 @@ test('prefilled revisions preserve original keys, isolate older browser drafts a
     applied: true,
     baseline: {
       kind: 'i18n-draft',
-      sync: { project: ctx.plan.project },
+      sync: {},
       references: [{ key: ctx.plan.entries[0].key, sources: refreshedSources }],
       sourceFiles: ctx.plan.sourceFiles,
     },
@@ -277,7 +289,6 @@ test('comment-only feedback requires model resolution and creates a fresh HTML f
     draft: JSON.parse(fs.readFileSync(file)),
     client: ctx.client,
     root: ctx.root,
-    projectName: 'Monorepo test',
   });
   assert.notEqual(next.approval, ctx.plan.approval);
   assert.equal(next.review.baseApproval, ctx.plan.approval);
