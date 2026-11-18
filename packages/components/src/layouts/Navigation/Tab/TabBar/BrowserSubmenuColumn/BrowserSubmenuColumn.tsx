@@ -13,7 +13,10 @@ import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
-import { BrowserSubmenuContext } from './BrowserSubmenuContext';
+import {
+  BrowserSubmenuCloseArmedContext,
+  BrowserSubmenuContext,
+} from './BrowserSubmenuContext';
 import { EXPANDED_SUBMENU_WIDTH, SubmenuColumn } from './SubmenuColumn';
 import { VerticalDivider } from './VerticalDivider';
 
@@ -23,7 +26,16 @@ export interface IBrowserSubmenuColumnProps {
   multiTabBrowserRouteName?: string;
 }
 
-const HOVER_DELAY_MS = 150;
+// Hover-intent delay before the tab column expands. Short enough to feel
+// responsive, long enough that a cursor passing through the narrow column
+// (e.g. on its way to the primary sidebar) does not pop the overlay open.
+const HOVER_DELAY_MS = 300;
+// After expanding, tab close buttons arm only when the pointer moves at least
+// POINTER_MOVE_THRESHOLD_PX (absorbs click jitter) after the column has
+// settled for CLOSE_ARM_DELAY_MS. Movement still carried over from reaching
+// for a favicon in the collapsed column does not count.
+const CLOSE_ARM_DELAY_MS = 250;
+const POINTER_MOVE_THRESHOLD_PX = 4;
 
 // Browser submenu only shows in the desktop app.
 const isShowWebTabBar = platformEnv.isDesktop;
@@ -34,6 +46,9 @@ export function BrowserSubmenuColumn({
   multiTabBrowserRouteName,
 }: IBrowserSubmenuColumnProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isCloseArmed, setIsCloseArmed] = useState(false);
+  const isHoveredRef = useRef(isHovered);
+  isHoveredRef.current = isHovered;
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const popoverCountRef = useRef(0);
@@ -82,6 +97,13 @@ export function BrowserSubmenuColumn({
   const handleHoverIn = useCallback(() => {
     clearHoverTimer();
     hoverTimerRef.current = setTimeout(() => {
+      // Disarm in the same batch as expanding, so no extra render is needed
+      // and rows never show a close button in the first expanded frame.
+      // Skip when already expanded (e.g. re-entering from a popover), since
+      // the arming effect would not re-run to arm it again.
+      if (!isHoveredRef.current) {
+        setIsCloseArmed(false);
+      }
       setIsHovered(true);
     }, HOVER_DELAY_MS);
   }, [clearHoverTimer]);
@@ -137,9 +159,26 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
+    let moveOrigin: { x: number; y: number } | null = null;
+    let hasMoved = false;
+    let hasSettled = false;
+    const settleTimer = setTimeout(() => {
+      hasSettled = true;
+    }, CLOSE_ARM_DELAY_MS);
 
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      if (hasSettled && !hasMoved) {
+        if (!moveOrigin) {
+          moveOrigin = { x: e.clientX, y: e.clientY };
+        } else if (
+          Math.abs(e.clientX - moveOrigin.x) >= POINTER_MOVE_THRESHOLD_PX ||
+          Math.abs(e.clientY - moveOrigin.y) >= POINTER_MOVE_THRESHOLD_PX
+        ) {
+          hasMoved = true;
+          setIsCloseArmed(true);
+        }
+      }
       if (popoverCountRef.current > 0) return;
 
       if (rafId !== null) return;
@@ -169,6 +208,7 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
+      clearTimeout(settleTimer);
     };
   }, [isHovered, clearHoverTimer]);
 
@@ -198,10 +238,12 @@ export function BrowserSubmenuColumn({
         onMouseLeave={handleHoverOut}
       >
         <VerticalDivider />
-        <SubmenuColumn
-          webPageTabBar={webPageTabBarWithProps}
-          isExpanded={isHovered}
-        />
+        <BrowserSubmenuCloseArmedContext.Provider value={isCloseArmed}>
+          <SubmenuColumn
+            webPageTabBar={webPageTabBarWithProps}
+            isExpanded={isHovered}
+          />
+        </BrowserSubmenuCloseArmedContext.Provider>
       </XStack>
     </BrowserSubmenuContext.Provider>
   );
