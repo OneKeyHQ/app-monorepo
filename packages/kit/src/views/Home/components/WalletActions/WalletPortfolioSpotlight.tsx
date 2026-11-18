@@ -54,7 +54,7 @@ export function WalletPortfolioSpotlight({
   });
   const isStageShown = !!stage?.step && stage.step !== 'off';
   useDeferredGuideBlocker(isRootCovered || isStageShown);
-  const [{ canShowGuide }] = usePortfolioSyncUiStateAtom();
+  const [{ visible, disabled }] = usePortfolioSyncUiStateAtom();
   const { gtSm } = useMedia();
   // The card-style trigger stretches on narrow windows; the icon trigger sizes
   // to its content. Choose in JS: on native, a `$gtSm` override of
@@ -70,7 +70,7 @@ export function WalletPortfolioSpotlight({
   return (
     <Spotlight
       tourName={ESpotlightTour.portfolioMoreMenu}
-      isVisible={enabled && isFocused && isAppVisible && canShowGuide}
+      isVisible={enabled && isFocused && isAppVisible && visible && !disabled}
       delayMs={600}
       deferUntilIdle
       requireVisibleAnchor

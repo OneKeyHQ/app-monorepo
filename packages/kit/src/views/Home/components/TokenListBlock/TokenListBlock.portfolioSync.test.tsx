@@ -854,14 +854,13 @@ describe('Home automatic Portfolio sync', () => {
     );
     render(<TokenListBlock />);
     expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
-      expect.objectContaining({ canShowGuide: true, disabled: false }),
+      expect.objectContaining({ disabled: false, loading: false }),
     );
 
     await refresh();
     expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        canShowGuide: true,
-        disabled: true,
+        disabled: false,
         loading: true,
       }),
     );
@@ -888,7 +887,6 @@ describe('Home automatic Portfolio sync', () => {
     await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
     expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        canShowGuide: true,
         disabled: false,
         loading: false,
       }),
@@ -1198,7 +1196,6 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
     expect(mockUpdateSyncUi).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        canShowGuide: false,
         disabled: true,
         loading: true,
       }),

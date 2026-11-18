@@ -91,7 +91,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        canShowGuide?: boolean;
         disabled?: boolean;
         visible?: boolean;
         loading?: boolean;

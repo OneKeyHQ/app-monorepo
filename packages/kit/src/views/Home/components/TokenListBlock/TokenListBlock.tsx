@@ -4363,17 +4363,14 @@ function TokenListBlock({
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );
 
-  const canUsePortfolioSyncTarget =
-    hasPortfolioSyncTarget &&
-    !isPortfolioSyncing &&
-    !hardwareUiState &&
-    !firmwareUpdateWorkflowRunning;
-
   useEffect(() => {
     updatePortfolioSyncUiState({
-      canShowGuide: showPortfolioSyncButton && canUsePortfolioSyncTarget,
-      disabled:
-        !canUsePortfolioSyncTarget || portfolioCategoryRefresh.isRefreshing,
+      disabled: Boolean(
+        !hasPortfolioSyncTarget ||
+        isPortfolioSyncing ||
+        hardwareUiState ||
+        firmwareUpdateWorkflowRunning,
+      ),
       loading:
         portfolioSyncRequestPhase === 'preparing' ||
         portfolioCategoryRefresh.isRefreshing,
@@ -4381,10 +4378,17 @@ function TokenListBlock({
       request: () => handleSyncPortfolio(),
     });
   }, [
-    canUsePortfolioSyncTarget,
     handleSyncPortfolio,
+    firmwareUpdateWorkflowRunning,
+    hasCurrentHomePortfolioSnapshot,
+    hasMatchingHeldPortfolioPayload,
+    hasPortfolioSyncTarget,
+    hardwareUiState,
+    homePortfolioDisplay.totalFiatUsd,
+    isPortfolioSyncing,
     portfolioCategoryRefresh.isRefreshing,
     portfolioSyncRequestPhase,
+    needsHeldPortfolioPayload,
     showPortfolioSyncButton,
     updatePortfolioSyncUiState,
   ]);
@@ -4392,7 +4396,6 @@ function TokenListBlock({
   useEffect(
     () => () => {
       updatePortfolioSyncUiState({
-        canShowGuide: false,
         disabled: false,
         visible: false,
         loading: false,

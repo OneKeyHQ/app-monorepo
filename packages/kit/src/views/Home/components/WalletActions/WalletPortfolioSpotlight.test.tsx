@@ -15,7 +15,6 @@ let mockIsAppVisible = true;
 let mockIsNative = false;
 const mockVisibilityListeners = new Set<(visible: boolean) => void>();
 let mockPortfolioSyncUiState = {
-  canShowGuide: true,
   disabled: false,
   loading: false,
   visible: true,
@@ -212,7 +211,6 @@ describe('WalletPortfolioSpotlight eligibility', () => {
     mockIsAppVisible = true;
     mockIsNative = false;
     mockPortfolioSyncUiState = {
-      canShowGuide: true,
       disabled: false,
       loading: false,
       visible: true,
@@ -311,7 +309,6 @@ describe('WalletPortfolioSpotlight eligibility', () => {
 
   it('stays hidden when the account is ineligible, including software wallets', () => {
     mockPortfolioSyncUiState = {
-      canShowGuide: false,
       disabled: false,
       loading: false,
       visible: false,
@@ -323,8 +320,8 @@ describe('WalletPortfolioSpotlight eligibility', () => {
     expect(screen.getByRole('button', { name: 'More' })).toBeTruthy();
   });
 
-  it('waits while the action is visible but the guide is ineligible', () => {
-    mockPortfolioSyncUiState.canShowGuide = false;
+  it('waits while the visible action is disabled by a hard block', () => {
+    mockPortfolioSyncUiState.disabled = true;
     renderSpotlight();
 
     expect(screen.queryByTestId('portfolio-spotlight')).toBeNull();
@@ -341,14 +338,13 @@ describe('WalletPortfolioSpotlight eligibility', () => {
     for (const loading of [true, false, true, false]) {
       mockPortfolioSyncUiState = {
         ...mockPortfolioSyncUiState,
-        disabled: loading,
         loading,
       };
       rerender(renderGuide());
       expect(screen.getByTestId('portfolio-spotlight')).toBe(openedGuide);
     }
 
-    mockPortfolioSyncUiState.canShowGuide = false;
+    mockPortfolioSyncUiState.disabled = true;
     rerender(renderGuide());
     expect(screen.queryByTestId('portfolio-spotlight')).toBeNull();
   });
