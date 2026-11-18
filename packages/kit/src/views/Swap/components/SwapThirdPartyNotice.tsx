@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { DialogTermsOfUseLink } from '@onekeyhq/kit/src/components/TermsOfUseLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IntlShape } from 'react-intl';
 
@@ -106,11 +107,27 @@ export const SwapThirdPartyNotice = memo(function SwapThirdPartyNotice() {
         color="$textSubdued"
         dashColor="$textSubdued"
         cursor="pointer"
+        role="button"
         hoverStyle={{ color: '$text' }}
         pressStyle={{ opacity: 0.7 }}
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineOffset: 2,
+        }}
         onPress={() => {
           showSwapHowTradingWorksDialog({ intl });
         }}
+        {...(!platformEnv.isNative && {
+          tabIndex: 0,
+          onKeyDown: (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            event.stopPropagation();
+            showSwapHowTradingWorksDialog({ intl });
+          },
+        })}
       >
         {intl.formatMessage({
           id: ETranslations.swap_how_trading_works__action,

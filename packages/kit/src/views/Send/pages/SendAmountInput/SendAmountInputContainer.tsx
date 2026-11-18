@@ -5269,11 +5269,27 @@ function SendAmountInputContainer() {
           dashColor="$textSubdued"
           dashThickness={0.5}
           cursor="pointer"
+          role="button"
           hoverStyle={{ color: '$text' }}
           pressStyle={{ opacity: 0.7 }}
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: 2,
+          }}
           onPress={() => {
             void openPrivateSendGuide();
           }}
+          {...(!platformEnv.isNative && {
+            tabIndex: 0,
+            onKeyDown: (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              event.stopPropagation();
+              void openPrivateSendGuide();
+            },
+          })}
         >
           {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
         </DashText>

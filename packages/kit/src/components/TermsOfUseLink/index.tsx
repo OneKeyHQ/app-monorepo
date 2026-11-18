@@ -1,3 +1,5 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { useTermsAndPrivacyLinks } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -41,11 +43,27 @@ export function DialogTermsOfUseLink({
       alignItems="center"
       gap="$1"
       cursor="pointer"
+      role="link"
       hoverStyle={{ opacity: 0.8 }}
       pressStyle={{ opacity: 0.7 }}
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: 2,
+      }}
       onPress={() => {
         void openTermsOfUse();
       }}
+      {...(!platformEnv.isNative && {
+        tabIndex: 0,
+        onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          event.stopPropagation();
+          void openTermsOfUse();
+        },
+      })}
     >
       <SizableText
         size="$bodySm"
