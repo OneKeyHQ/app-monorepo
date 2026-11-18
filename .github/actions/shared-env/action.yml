@@ -256,6 +256,7 @@ runs:
 
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          echo "WORKFLOW_BUILD_NUMBER=$build_number" >> $GITHUB_ENV
           # Generate build number ------- end
         fi
       env:
