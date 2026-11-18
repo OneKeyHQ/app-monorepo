@@ -25,6 +25,20 @@ function desired(entry, records, locales) {
   );
 }
 
+// The approval covers one onekey-i18n branch and release channel. Plans made
+// before they were recorded were made for main and the latest release.
+function assertTarget(plan, client) {
+  const approved = plan.central ?? { base: 'main', channel: 'latest' };
+  const current = {
+    base: client.base ?? 'main',
+    channel: client.channel ?? 'latest',
+  };
+  if (approved.base !== current.base || approved.channel !== current.channel)
+    throw new Error(
+      `The plan was approved for onekey-i18n ${approved.base} (${approved.channel} release), but this shell targets ${current.base} (${current.channel} release). Set ONEKEY_I18N_BASE and ONEKEY_I18N_CHANNEL as they were for the preview, or prepare another preview.`,
+    );
+}
+
 async function verifyProject(plan, client, root) {
   const project = await client.project();
   const locales = loadCatalog(root).locales;
@@ -127,6 +141,7 @@ async function applyPlan({
       'User confirmation is required. Pass --approve with the preview hash only after the user confirms.',
     );
   const plan = readPlan(file, approval);
+  assertTarget(plan, client);
   const receiptFile = `${file}.receipt.json`;
   const lockFile = `${file}.lock`;
   let lock;
@@ -148,8 +163,10 @@ async function applyPlan({
     status: 'preflight',
     operations: [],
   };
+  // Set once the receipt file is known to be this plan's and not finished;
+  // until then a failure must leave the file as it is (it may record an open PR).
+  let owned = false;
   try {
-    await verifyProject(plan, client, root);
     if (fs.existsSync(receiptFile)) {
       const previous = readJson(receiptFile);
       if (previous.approval !== approval)
@@ -173,6 +190,8 @@ async function applyPlan({
       }
       if (previous.proposal) receipt.proposal = previous.proposal;
     }
+    owned = true;
+    await verifyProject(plan, client, root);
     if (workspace(root).branch !== plan.workspace.branch)
       throw new Error('Current branch differs from the preview.');
     assertHashes(root, plan.sourceFiles, 'Source');
@@ -199,10 +218,12 @@ async function applyPlan({
     writeJson(receiptFile, receipt);
     return receipt;
   } catch (error) {
-    receipt.failedStage = receipt.status;
-    receipt.status = 'failed';
-    receipt.error = error.message;
-    writeJson(receiptFile, receipt);
+    if (owned) {
+      receipt.failedStage = receipt.status;
+      receipt.status = 'failed';
+      receipt.error = error.message;
+      writeJson(receiptFile, receipt);
+    }
     throw error;
   } finally {
     fs.closeSync(lock);
