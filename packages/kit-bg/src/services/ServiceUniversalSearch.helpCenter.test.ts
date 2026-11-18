@@ -105,6 +105,19 @@ describe('ServiceUniversalSearch help center search', () => {
     });
   });
 
+  test('keeps the cut keyword URL-encodable across a surrogate pair', async () => {
+    const get = jest.fn().mockResolvedValue({ data: { code: 0, data: {} } });
+    const service = createService(get);
+
+    await service.universalSearchOfHelpCenter({
+      input: `${'a'.repeat(99)}😀b`,
+    });
+
+    expect(get).toHaveBeenCalledWith('/utility/v1/help-center/search', {
+      params: { keyword: 'a'.repeat(99), limit: 20 },
+    });
+  });
+
   test('skips the request for a blank query', async () => {
     const get = jest.fn();
     const service = createService(get);

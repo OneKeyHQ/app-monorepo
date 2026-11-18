@@ -280,6 +280,7 @@ jest.mock('../components/SearchResultItems', () => {
     >
       {'symbol' in item.payload ? item.payload.symbol : ''}
       {'name' in item.payload ? item.payload.name : ''}
+      {'title' in item.payload ? item.payload.title : ''}
     </span>
   );
   return {
@@ -289,6 +290,7 @@ jest.mock('../components/SearchResultItems', () => {
     UniversalSearchAccountAssetItem: Row,
     UniversalSearchDappItem: Row,
     UniversalSearchSettingsItem: Row,
+    UniversalSearchHelpCenterItem: Row,
   };
 });
 jest.mock('../components/UniversalSearchMarketResults', () => ({
@@ -431,6 +433,7 @@ beforeEach(() => {
   mockHelpCenterSearch.mockImplementation(async () => ({ items: [] }));
   mockUniversalSearchQuery.mockClear();
   mockFetchAssetDetail.mockReset();
+  mockStockResult.isLoading = false;
   mockStockResult.canLoadMore = false;
   mockStockResult.isLoadingMore = false;
   mockStockResult.isLoadMoreError = false;
@@ -593,6 +596,79 @@ it('does not hold an empty search on a slow help center request', async () => {
   await waitFor(() =>
     expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
   );
+});
+
+function resolveHelpCenterLate() {
+  const state = { settled: false };
+  mockHelpCenterSearch.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          state.settled = true;
+          resolve({
+            items: [
+              {
+                type: EUniversalSearchType.HelpCenter,
+                payload: {
+                  id: '1',
+                  title: 'Late article',
+                  summary: '',
+                  url: 'https://help.onekey.so/articles/1',
+                },
+              },
+            ],
+          });
+        }, 1700);
+      }),
+  );
+  return state;
+}
+
+it('counts late help center articles in a query event still waiting for stocks', async () => {
+  const helpCenter = resolveHelpCenterLate();
+  mockStockResult.isLoading = true;
+  const view = render(
+    <UniversalSearch source={EUniversalSearchSource.Unknown} />,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
+    target: { value: 'match' },
+  });
+  await waitFor(() => expect(helpCenter.settled).toBe(true), {
+    timeout: 4000,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(mockUniversalSearchQuery).not.toHaveBeenCalled();
+  mockStockResult.isLoading = false;
+  view.rerender(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
+  await waitFor(() =>
+    expect(mockUniversalSearchQuery).toHaveBeenCalledTimes(1),
+  );
+  expect(mockUniversalSearchQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ resultCount: 1, exposedTypes: 'helpCenter:1' }),
+  );
+});
+
+it('does not append late help center articles to a lone stock list', async () => {
+  const helpCenter = resolveHelpCenterLate();
+  mockStocks = [
+    {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ];
+  render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
+    target: { value: 'match' },
+  });
+  await waitFor(() => expect(helpCenter.settled).toBe(true), {
+    timeout: 4000,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(screen.queryByText('Late article')).toBeNull();
 });
 
 it('keeps Watchlist hidden for DApp-only searches', async () => {

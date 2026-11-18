@@ -561,6 +561,8 @@ export function UniversalSearch({
   }, [fetchRecommendList]);
 
   const searchInputRef = useRef<string>('');
+  // Mirrors `isLoneStockSection` for late help center results.
+  const isLoneStockSectionRef = useRef(false);
   const getSearchInput = useCallback(() => searchInputRef.current, []);
 
   const effectivePrimaryTypes = useMemo(
@@ -1027,9 +1029,24 @@ export function UniversalSearch({
         }
         if (!helpCenterResult) {
           void helpCenterPromise.then((lateResult) => {
-            if (!isResponseStale() && appendHelpCenterSections(lateResult)) {
-              setSections(paintedSections);
+            // Late articles would turn a lone, paged stock list into a
+            // 5-row preview while the user browses it, so they are dropped.
+            if (
+              isResponseStale() ||
+              isLoneStockSectionRef.current ||
+              !appendHelpCenterSections(lateResult)
+            ) {
+              return;
             }
+            setSections(paintedSections);
+            // Count the articles in this run's query event if it is still
+            // waiting to be logged.
+            const sectionsWithHelpCenter = paintedSections;
+            setPendingAnalytics((pending) =>
+              pending?.run === run
+                ? { ...pending, sections: sectionsWithHelpCenter }
+                : pending,
+            );
           });
         }
       }
@@ -1171,6 +1188,7 @@ export function UniversalSearch({
       (section) =>
         section.tabIndex === STOCK_TAB_INDEX || section.data.length === 0,
     );
+  isLoneStockSectionRef.current = isLoneStockSection;
   // All pages through the selector's scroll hook when stocks stand alone.
   const handleMarketAllScroll = useStockLoadMoreOnScrollEnd(
     stockResult,

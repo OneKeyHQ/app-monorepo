@@ -1549,10 +1549,13 @@ class ServiceUniversalSearch extends ServiceBase {
   }: {
     input: string;
   }): Promise<IUniversalSearchHelpCenterResult> {
-    const keyword = input
-      .trim()
-      .slice(0, HELP_CENTER_SEARCH_KEYWORD_MAX_LENGTH)
-      .trim();
+    let keyword = input.trim().slice(0, HELP_CENTER_SEARCH_KEYWORD_MAX_LENGTH);
+    // A cut through a surrogate pair leaves a lone half that URL encoding
+    // rejects.
+    if (/[\uD800-\uDBFF]$/.test(keyword)) {
+      keyword = keyword.slice(0, -1);
+    }
+    keyword = keyword.trim();
     if (!keyword) {
       return { items: [] };
     }
