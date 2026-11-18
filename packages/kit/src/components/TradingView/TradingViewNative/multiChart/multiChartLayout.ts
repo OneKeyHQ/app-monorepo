@@ -13,8 +13,6 @@ import type {
   ITradingViewNativeSource,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSource';
-
 export const TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID = 'main';
 
 // Panel identity is positional and stable, so a panel keeps its token,
@@ -179,13 +177,17 @@ export function normalizeTradingViewNativeMultiChartLayout(
   const input = isRecord(value) ? value : {};
   const panels: ITradingViewNativeMultiChartLayout['panels'] = {};
   if (isRecord(input.panels)) {
-    for (const id of PANEL_IDS.slice(1)) {
+    for (const id of PANEL_IDS) {
       const panel = input.panels[id];
       if (isRecord(panel)) {
         const source = normalizeSource(panel.source);
         const next: ITradingViewNativeMultiChartPanelState = {};
         if (source) next.source = source;
-        if (isRecord(panel.indicatorSettings)) {
+        // The first panel keeps the host's own indicators.
+        if (
+          id !== TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID &&
+          isRecord(panel.indicatorSettings)
+        ) {
           // The chart normalizes the schema itself; only the container shape
           // matters here.
           next.indicatorSettings =
@@ -214,10 +216,12 @@ export function normalizeTradingViewNativeMultiChartLayout(
       if (typeof isSynced === 'boolean') sync[option] = isSynced;
     }
   }
+  const activePanelId = PANEL_IDS.find((id) => id === input.activePanelId);
   return {
     preset: isTradingViewNativeMultiChartPreset(input.preset)
       ? input.preset
       : '1',
+    ...(activePanelId ? { activePanelId } : {}),
     panels,
     ...(Object.keys(sizes).length ? { sizes } : {}),
     ...(Object.keys(sync).length ? { sync } : {}),
@@ -254,6 +258,52 @@ export function getTradingViewNativeMultiChartPanelIds(
   preset: ITradingViewNativeMultiChartPreset,
 ): string[] {
   return PANEL_IDS.slice(0, PRESET_DEFINITIONS[preset].cells.length);
+}
+
+/**
+ * The panel that shows the host's source. A selection the preset hides falls
+ * back to the first panel and returns with the preset.
+ */
+export function getTradingViewNativeMultiChartActivePanelId(
+  layout: ITradingViewNativeMultiChartLayout,
+): string {
+  const { activePanelId } = layout;
+  return activePanelId &&
+    getTradingViewNativeMultiChartPanelIds(layout.preset).includes(
+      activePanelId,
+    )
+    ? activePanelId
+    : TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID;
+}
+
+/**
+ * Selects a visible panel. The previously selected panel keeps showing
+ * `activeSource`, the host's source it showed until now, so no chart changes
+ * its token. Without `activeSource`, e.g. while every panel shows the host's
+ * token, each panel keeps the token it stores.
+ */
+export function selectTradingViewNativeMultiChartPanel(
+  layout: ITradingViewNativeMultiChartLayout,
+  panelId: string,
+  activeSource?: ITradingViewNativeSource,
+): ITradingViewNativeMultiChartLayout {
+  const previousId = getTradingViewNativeMultiChartActivePanelId(layout);
+  if (
+    previousId === panelId ||
+    !getTradingViewNativeMultiChartPanelIds(layout.preset).includes(panelId)
+  ) {
+    return layout;
+  }
+  return {
+    ...layout,
+    activePanelId: panelId,
+    panels: activeSource
+      ? {
+          ...layout.panels,
+          [previousId]: { ...layout.panels[previousId], source: activeSource },
+        }
+      : layout.panels,
+  };
 }
 
 function clampTracks(tracks: number[], minimumSize: number, available: number) {
@@ -425,66 +475,81 @@ export function setTradingViewNativeMultiChartSizes(
 }
 
 export interface ITradingViewNativeMultiChartPanelDefaults {
-  mainSource: ITradingViewNativeSource;
+  /** The host's source, shown by the selected panel. */
+  activeSource: ITradingViewNativeSource;
   indicatorSettings: ITradingViewNativeIndicatorSettings;
   getDefaultPanelSource: (params: {
     usedSources: readonly ITradingViewNativeSource[];
   }) => ITradingViewNativeSource;
 }
 
+// The selected panel shows the host's source and the first panel keeps the
+// host's indicators, so neither has to store them.
 function isPanelFilled(
-  panel: ITradingViewNativeMultiChartPanelState | undefined,
+  layout: ITradingViewNativeMultiChartLayout,
+  panelId: string,
 ) {
-  return Boolean(panel?.source && panel.indicatorSettings);
+  const panel = layout.panels[panelId];
+  return (
+    (panelId === getTradingViewNativeMultiChartActivePanelId(layout) ||
+      Boolean(panel?.source)) &&
+    (panelId === TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID ||
+      Boolean(panel?.indicatorSettings))
+  );
 }
 
 /**
- * Whether a visible extra panel still lacks its token or its own indicator
- * settings, e.g. in a layout saved by another build.
+ * Whether a visible panel still lacks its token or its own indicator settings,
+ * e.g. in a layout saved by another build.
  */
 export function hasUnfilledTradingViewNativeMultiChartPanel(
   layout: ITradingViewNativeMultiChartLayout,
 ) {
-  return getTradingViewNativeMultiChartPanelIds(layout.preset)
-    .slice(1)
-    .some((id) => !isPanelFilled(layout.panels[id]));
+  return getTradingViewNativeMultiChartPanelIds(layout.preset).some(
+    (id) => !isPanelFilled(layout, id),
+  );
 }
 
 /**
- * Gives every visible extra panel a token and its own indicator settings. A new
- * panel starts from the main chart's indicators and then diverges; values a
- * panel already has are left alone, so re-opening a panel restores it.
+ * Gives every visible panel a token and every extra panel its own indicator
+ * settings. A new panel starts from the main chart's indicators and then
+ * diverges; values a panel already has are left alone, so re-opening a panel
+ * restores it.
  */
 export function fillTradingViewNativeMultiChartPanels(
   layout: ITradingViewNativeMultiChartLayout,
   {
+    activeSource,
     getDefaultPanelSource,
     indicatorSettings,
-    mainSource,
   }: ITradingViewNativeMultiChartPanelDefaults,
 ): ITradingViewNativeMultiChartLayout {
-  const panelIds = getTradingViewNativeMultiChartPanelIds(layout.preset).slice(
-    1,
-  );
-  const usedSources = [mainSource];
+  const panelIds = getTradingViewNativeMultiChartPanelIds(layout.preset);
+  const activeId = getTradingViewNativeMultiChartActivePanelId(layout);
+  const usedSources = [activeSource];
   for (const id of panelIds) {
     const source = layout.panels[id]?.source;
-    if (source) usedSources.push(source);
+    if (id !== activeId && source) usedSources.push(source);
   }
   let panels = layout.panels;
   for (const id of panelIds) {
-    const panel = layout.panels[id];
-    if (!isPanelFilled(panel)) {
+    if (!isPanelFilled(layout, id)) {
+      const panel = layout.panels[id];
       let source = panel?.source;
-      if (!source) {
+      if (!source && id !== activeId) {
         source = getDefaultPanelSource({ usedSources });
         usedSources.push(source);
       }
+      const settings =
+        id === TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID
+          ? undefined
+          : (panel?.indicatorSettings ?? indicatorSettings);
       panels = {
         ...panels,
         [id]: {
-          source,
-          indicatorSettings: panel?.indicatorSettings ?? indicatorSettings,
+          ...panel,
+          ...(source ? { source } : {}),
+          ...(settings ? { indicatorSettings: settings } : {}),
         },
       };
     }
@@ -492,44 +557,25 @@ export function fillTradingViewNativeMultiChartPanels(
   return panels === layout.panels ? layout : { ...layout, panels };
 }
 
+/** The first panel only stores its token; its indicators are the host's. */
 export function updateTradingViewNativeMultiChartPanel(
   layout: ITradingViewNativeMultiChartLayout,
   panelId: string,
   patch: ITradingViewNativeMultiChartPanelState,
 ): ITradingViewNativeMultiChartLayout {
-  if (
-    panelId === TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID ||
-    !PANEL_IDS.some((id) => id === panelId)
-  ) {
+  if (!PANEL_IDS.some((id) => id === panelId)) {
     return layout;
+  }
+  let next = patch;
+  if (panelId === TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID) {
+    if (!patch.source) return layout;
+    next = { source: patch.source };
   }
   return {
     ...layout,
     panels: {
       ...layout.panels,
-      [panelId]: { ...layout.panels[panelId], ...patch },
+      [panelId]: { ...layout.panels[panelId], ...next },
     },
   };
-}
-
-/**
- * Changes an extra panel's token. With `replacing`, only while the panel still
- * shows that token, so a change that lands late cannot undo a newer pick.
- */
-export function setTradingViewNativeMultiChartPanelSource(
-  layout: ITradingViewNativeMultiChartLayout,
-  panelId: string,
-  source: ITradingViewNativeSource,
-  replacing?: ITradingViewNativeSource,
-): ITradingViewNativeMultiChartLayout {
-  const current = layout.panels[panelId]?.source;
-  if (
-    replacing &&
-    (!current ||
-      getTradingViewNativeSourceKey(current) !==
-        getTradingViewNativeSourceKey(replacing))
-  ) {
-    return layout;
-  }
-  return updateTradingViewNativeMultiChartPanel(layout, panelId, { source });
 }

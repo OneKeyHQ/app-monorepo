@@ -136,7 +136,7 @@ export const PerpTestIDs = {
   NativeChartSplitView: 'perp-native-chart-split-view',
   NativeChartPanel: 'perp-native-chart-panel',
   NativeChartPanelTokenSelector: 'perp-native-chart-panel-token-selector',
-  NativeChartPanelTrade: 'perp-native-chart-panel-trade',
+  NativeChartPanelHeader: 'perp-native-chart-panel-header',
   ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',
   MobileChartOverlay: 'perp-mobile-chart-overlay',

@@ -9,27 +9,32 @@ import type {
 export interface ITradingViewNativeMultiChartPanel {
   id: string;
   index: number;
-  /** The first panel: it shows the host's own source and keeps its features. */
+  /**
+   * The first panel: it keeps the host's own interval and indicators wherever
+   * the selection is.
+   */
   isMain: boolean;
+  /**
+   * The selected panel: it shows the host's own source, and its controls row
+   * is the one the grid shows above all panels.
+   */
+  isActive: boolean;
   /** More than one chart is on screen. */
   isSplit: boolean;
   /**
-   * Every panel shows the first panel's token. A pick in any panel should then
-   * change the host's own source instead of calling `setSource`.
+   * Every panel shows the selected panel's token, the host's own source. A pick
+   * in any panel should then change the host's source instead of calling
+   * `setSource`.
    */
   isSymbolSynced: boolean;
   source: ITradingViewNativeSource;
-  /** Layout picker. The host places it in the first panel's controls. */
+  /** Layout picker for the selected panel's controls; null for the others. */
   layoutControl: ReactNode;
   /**
-   * Changes an extra panel's token. The first panel follows the host. With
-   * `replacing`, the change only applies while the panel still shows that
-   * token, so a late change cannot undo a newer pick.
+   * Changes the token of a panel that is not selected. The selected panel
+   * follows the host.
    */
-  setSource: (
-    source: ITradingViewNativeSource,
-    options?: { replacing?: ITradingViewNativeSource },
-  ) => void;
+  setSource: (source: ITradingViewNativeSource) => void;
 }
 
 export interface ITradingViewNativeMultiChartProps {
@@ -40,7 +45,14 @@ export interface ITradingViewNativeMultiChartProps {
       current: ITradingViewNativeMultiChartLayout,
     ) => ITradingViewNativeMultiChartLayout,
   ) => unknown;
-  mainSource: ITradingViewNativeSource;
+  /** The host's source, shown by the selected panel. */
+  activeSource: ITradingViewNativeSource;
+  /**
+   * The user selected a panel showing `source`; the host switches to it.
+   * Resolves whether it did. A selection the host turns down returns to the
+   * panel selected before.
+   */
+  onSelectPanel: (source: ITradingViewNativeSource) => Promise<boolean>;
   /** Indicators a newly opened panel starts from. */
   defaultIndicatorSettings: ITradingViewNativeIndicatorSettings;
   /** Token for a newly opened panel; `usedSources` are already on screen. */

@@ -180,27 +180,38 @@ per split-view panel; they no longer change with the token.
 
 The large web, extension and desktop layouts can show up to four charts through
 `TradingViewNativeMultiChart` (`PerpNativeSplitCandles` in
-`PerpNativeCandles.tsx`). The layout picker sits at the end of the trading
-chart's controls; the layout, panel sizes and each extra panel's token and
-indicators are saved in `perpsTradingViewMultiChartPersistAtom`. Mobile layouts
-and the native apps keep the single chart.
+`PerpNativeCandles.tsx`). One controls row sits above the grid and works on the
+selected chart: interval, chart type, indicators, settings, chart mode, expand
+and, at its end, the layout picker. The layout, the selected panel, panel sizes
+and each panel's token and indicators are saved in
+`perpsTradingViewMultiChartPersistAtom`. Mobile layouts and the native apps
+keep the single chart.
 
-- The first panel is always the active trade instrument and keeps every trading
-  integration: lines with cancel/drag, the order menu and fill marks.
-- An extra panel shows any perp or spot token picked from the regular token
-  selector. It has its own interval and indicators, shows the account's lines
-  and fill marks for its token read-only, and has no order menu.
+- One panel is selected and outlined. It shows the active trade instrument and
+  has every trading integration: lines with cancel/drag, the order menu and
+  fill marks. Its token picker switches the trade instrument.
+- Pressing another panel selects it and switches the trade instrument to its
+  token; no chart moves, changes its token or remounts. Until the switch lands
+  the panel stays read-only, and a switch that fails returns the selection.
+- Instead of its own controls, each chart in a split has a header with its
+  token picker, live price and 24h change, from the same asset contexts as the
+  favorites bar. Perp quotes mark the shared asset contexts as required; a spot
+  token outside the selected panel turns on the spot asset context
+  subscription (`chartPanelsSpotActive`).
+- The other panels show any perp or spot token picked from the regular token
+  selector, with the account's lines and fill marks for it read-only and no
+  order menu. The first panel keeps the page's interval and indicators
+  wherever the selection is; every extra panel has its own.
 - Every panel has the drawing tools. Drawings are saved per token, not per
   panel: panels showing the same token share them live, including undo, and a
   token keeps its drawings when it moves between panels.
-- Its Trade button switches the trade instrument to its token and puts the
-  previously traded token in the panel, so nothing leaves the screen.
 - A new panel starts on a liquid token that is not on screen yet and copies the
   trading chart's indicators; afterwards the two are independent.
 - The layout picker has five sync switches, saved with the layout. All are
   off by default.
   - Symbol: every panel shows the trade instrument, and a token picked in any
-    panel switches it. Panels return to their own tokens when it is turned off.
+    panel switches it; selecting a panel then only moves the controls row to
+    it. Panels return to their own tokens when it is turned off.
   - Interval: every panel takes the trading chart's interval, and an interval
     picked in any panel applies to all.
   - Crosshair: hovering one chart shows its crosshair in the others at the

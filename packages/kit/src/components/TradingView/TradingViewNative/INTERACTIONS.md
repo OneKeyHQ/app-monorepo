@@ -9,10 +9,19 @@ under separate owners:
 - `useTradingViewNativeSettings` isolates indicator/chart settings by Market,
   Perps, or Swap namespace through the existing persisted atom transport.
 - `multiChart` is the split view for several tokens (web, extension and
-  desktop). `TradingViewNativeMultiChart` only lays out a grid: the host
-  persists the layout, supplies the first panel's source and renders each panel,
-  normally as a `TradingViewNative`. The first panel is the host's own chart,
-  unchanged. Every extra panel is wrapped in
+  desktop). `TradingViewNativeMultiChart` lays out a grid and tracks the
+  selected panel: the host persists the layout, supplies the selected panel's
+  source and renders each panel, normally as a `TradingViewNative`. A primary
+  press anywhere in another panel selects it and asks the host to switch to its
+  token; every chart keeps its place, token and mount, the previously selected
+  panel goes on showing the token it showed, and a switch the host turns down
+  returns the selection. The selection shows at once, before the saved layout
+  or the host's source catch up. The grid shows one controls row above all
+  panels, the selected panel's, through
+  `TradingViewNativeMultiChartControlsContext`; the other charts render none,
+  and the layout picker sits in that row. The first panel keeps the host's own
+  interval and indicators wherever the selection is. Every extra panel is
+  wrapped in
   `TradingViewNativeMultiChartPanelContext`, so a chart mounted inside keeps its
   own token, interval, indicator settings and pane heights; chart appearance
   stays shared with the namespace and drawings stay with the token. Presets are grids of cells (`1`, `2h`, `2v`,
@@ -25,10 +34,11 @@ under separate owners:
   `TradingViewNativeMultiChartSyncContext` with what it shares; a part that is
   off is null there, and the provider stays mounted, so changing an option
   never remounts a chart.
-  - Symbol: the grid renders the first panel's source in every panel and sets
-    `isSymbolSynced` on the panels. The host then lets a pick in any panel
-    change its own source. A panel keeps its saved token for when the option
-    is turned off.
+  - Symbol: the grid renders the selected panel's source, the host's, in
+    every panel and sets `isSymbolSynced` on the panels. The host then lets a
+    pick in any panel change its own source, and selecting another panel
+    changes neither the host's source nor any saved token. A panel keeps its
+    saved token for when the option is turned off.
   - Interval: `multiChart/intervalSync` holds the shared interval. The first
     panel sets it when syncing starts, a pick in any panel changes it, and
     every other chart takes it through `useMultiChartIntervalSync`; a chart
@@ -115,8 +125,9 @@ and dash effects are released after each render.
 
 Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
-ownership, split-view panel state (token, interval, indicators, sizes) across
-preset changes and reloads, drawing in every split-view panel with live sync
+ownership, split-view panel state (token, interval, indicators, sizes,
+selection) across preset changes and reloads, selecting a panel without a chart
+remount, drawing in every split-view panel with live sync
 between panels showing one token, every sync option on and off across a
 reload (symbol and interval changed from the first and from another panel; the
 crosshair between panels of different tokens and intervals, with its price

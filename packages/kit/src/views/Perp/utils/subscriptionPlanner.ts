@@ -57,7 +57,8 @@ export function planTradeSubscriptions(params: {
     isSpot ||
     isSpotSelectorOpen ||
     isAllSelectorOpen ||
-    viewState.favoritesBarSpotActive;
+    viewState.favoritesBarSpotActive ||
+    viewState.chartPanelsSpotActive;
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 

@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { act, render, waitFor } from '@testing-library/react-native';
 
@@ -48,6 +48,23 @@ const mockSetPanelSource = jest.fn<
   void,
   Parameters<ITradingViewNativeMultiChartPanel['setSource']>
 >();
+let mockMultiChartProps: ITradingViewNativeMultiChartProps | undefined;
+// What the grid shows in the selected panel while the host is still switching.
+let mockPendingActiveSource: ITradingViewNativeSource | undefined;
+const mockReferenceLineAction = jest.fn();
+const mockPriceSelect = jest.fn();
+const mockMarkAllAssetCtxsRequired = jest.fn();
+const mockMarkAllAssetCtxsNotRequired = jest.fn();
+const mockSetTradeRouteViewState = jest.fn();
+type IMockTokenSelectorProps = {
+  testID?: string;
+  onSelectToken?: (selection: IPerpTokenSelection) => void;
+};
+const mockTokenSelector = jest.fn<null, [IMockTokenSelectorProps]>(() => null);
+const mockQuote = jest.fn<
+  null,
+  [{ coinName: string; mode: string; assetId: number; displayMode: string }]
+>(() => null);
 const mockSwitchTradeInstrument = jest.fn<
   Promise<boolean>,
   [{ mode: 'perp' | 'spot'; coin: string }]
@@ -86,7 +103,12 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useHyperliquidActions: () => ({
-    current: { switchTradeInstrument: mockSwitchTradeInstrument },
+    current: {
+      switchTradeInstrument: mockSwitchTradeInstrument,
+      markAllAssetCtxsRequired: mockMarkAllAssetCtxsRequired,
+      markAllAssetCtxsNotRequired: mockMarkAllAssetCtxsNotRequired,
+      setTradeRouteViewState: mockSetTradeRouteViewState,
+    },
   }),
   useActiveTradeInstrumentAtom: () => [
     {
@@ -131,7 +153,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('./TokenSelector/PerpChartTokenSelector', () => ({
-  PerpChartTokenSelector: () => null,
+  PerpChartTokenSelector: (props: IMockTokenSelectorProps) =>
+    mockTokenSelector(props),
+}));
+
+jest.mock('./FavoritesBar/FavoriteTokenItem', () => ({
+  CtxPriceDisplay: (props: Parameters<typeof mockQuote>[0]) => mockQuote(props),
 }));
 
 jest.mock(
@@ -154,28 +181,34 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   TradingViewNative: (props: ITradingViewNativeProps) => mockNativeChart(props),
   // The grid itself is covered beside the component; here it only has to hand
   // every visible panel to the host.
-  TradingViewNativeMultiChart: ({
-    layout,
-    mainSource,
-    renderPanel,
-  }: ITradingViewNativeMultiChartProps) => {
+  TradingViewNativeMultiChart: (props: ITradingViewNativeMultiChartProps) => {
+    mockMultiChartProps = props;
+    const { activeSource, layout, renderPanel } = props;
     const { Fragment } = jest.requireActual<typeof import('react')>('react');
-    const { getTradingViewNativeMultiChartPanelIds } = jest.requireActual<
+    const {
+      getTradingViewNativeMultiChartActivePanelId,
+      getTradingViewNativeMultiChartPanelIds,
+    } = jest.requireActual<
       typeof import('@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/multiChartLayout')
     >(
       '@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/multiChartLayout',
     );
     const ids = getTradingViewNativeMultiChartPanelIds(layout.preset);
     const isSymbolSynced = ids.length > 1 && layout.sync?.symbol === true;
+    const activeId = getTradingViewNativeMultiChartActivePanelId(layout);
     return ids.map((id, index) => {
+      const isActive = id === activeId;
       const source =
-        index === 0 || isSymbolSynced ? mainSource : layout.panels[id]?.source;
+        isActive || isSymbolSynced
+          ? (mockPendingActiveSource ?? activeSource)
+          : layout.panels[id]?.source;
       return source ? (
         <Fragment key={id}>
           {renderPanel({
             id,
             index,
             isMain: index === 0,
+            isActive,
             isSplit: ids.length > 1,
             isSymbolSynced,
             source,
@@ -212,7 +245,12 @@ jest.mock('./MarketDetail/PerpMarketDetailContent', () => ({
 }));
 
 jest.mock('../hooks/usePerpsNativeChartLines', () => ({
-  usePerpsNativeChartLines: () => ({ chartComponents: [] }),
+  usePerpsNativeChartLines: (enableTradingUi: boolean) => ({
+    chartComponents: [],
+    onReferenceLineAction: enableTradingUi
+      ? mockReferenceLineAction
+      : undefined,
+  }),
 }));
 
 jest.mock('../hooks/usePerpsNativeChartMarks', () => ({
@@ -220,7 +258,9 @@ jest.mock('../hooks/usePerpsNativeChartMarks', () => ({
 }));
 
 jest.mock('../hooks/usePerpsChartOrderMenu', () => ({
-  usePerpsChartOrderMenu: () => ({}),
+  usePerpsChartOrderMenu: (enabled: boolean) => ({
+    onPriceSelect: enabled ? mockPriceSelect : undefined,
+  }),
 }));
 
 jest.mock(
@@ -256,6 +296,8 @@ beforeEach(() => {
   mockTradeDisplay = undefined;
   mockCustomSettings = { showChartLines: false };
   mockMultiChartLayout = { preset: '1', panels: {} };
+  mockMultiChartProps = undefined;
+  mockPendingActiveSource = undefined;
 });
 
 function getChartProps(coin: string) {
@@ -297,11 +339,16 @@ describe('split view', () => {
     expect(panel?.nativeControlsLayoutMode).toBe('desktop');
     // Every panel can be drawn on.
     expect(panel?.enableDrawings).toBe(true);
-    // Trading and page-level controls stay with the trading chart.
+    // Trading stays with the trading chart.
     expect(panel?.onReferenceLineAction).toBeUndefined();
     expect(panel?.onPriceSelect).toBeUndefined();
-    expect(panel?.onChartSwitch).toBeUndefined();
-    expect(panel?.onNativeChartFullscreenChange).toBeUndefined();
+    // Only the selected panel's controls are on screen, so every panel gets
+    // the page-level ones.
+    expect(panel?.onChartSwitch).toBeDefined();
+    expect(panel?.onNativeChartFullscreenChange).toBeDefined();
+    expect(trading?.onInteractionChange).toBeDefined();
+    expect(panel?.onInteractionChange).toBeUndefined();
+    expect(panel?.nativeControlsLeading).toBeUndefined();
     // Its precision comes from its own token, not the traded one.
     expect(panel?.isPricePrecisionLoading).toBe(true);
     await waitFor(() =>
@@ -322,85 +369,142 @@ describe('split view', () => {
     expect(getChartProps('ETH')).toBeUndefined();
   });
 
-  it('swaps a panel with the trading chart when its token is traded', async () => {
+  function getPicker(panelId: string) {
+    return mockTokenSelector.mock.calls
+      .map(([props]) => props)
+      .findLast(
+        (props) =>
+          props.testID === `perp-native-chart-panel-token-selector-${panelId}`,
+      );
+  }
+
+  it('moves trading to a selected panel and keeps the others read-only', () => {
+    mockCoin = 'ETH';
+    mockMultiChartLayout = {
+      preset: '2h',
+      activePanelId: 'panel-2',
+      panels: {
+        main: { source: btcSource },
+        'panel-2': { source: ethSource },
+      },
+    };
     renderTradingViewCandles();
-    const trade = getChartProps('ETH')?.nativeControlsTrailing as ReactElement<{
-      onPress: () => Promise<void>;
-    }>;
 
-    await act(() => trade.props.onPress());
+    const trading = getChartProps('ETH');
+    expect(trading?.onReferenceLineAction).toBe(mockReferenceLineAction);
+    expect(trading?.onPriceSelect).toBe(mockPriceSelect);
+    // Its picker switches the trade instrument instead of the panel's token.
+    expect(getPicker('panel-2')?.onSelectToken).toBeUndefined();
 
-    expect(mockSwitchTradeInstrument).toHaveBeenCalledWith({
+    // The first panel keeps its token, read-only.
+    const first = getChartProps('BTC');
+    expect(first?.onReferenceLineAction).toBeUndefined();
+    expect(first?.onPriceSelect).toBeUndefined();
+    act(() =>
+      getPicker('main')?.onSelectToken?.({ coin: 'SOL', mode: 'perp' }),
+    );
+    expect(mockSetPanelSource).toHaveBeenCalledWith({
+      ...ethSource,
+      coin: 'SOL',
+    });
+  });
+
+  it('names every token with its live quote while split', async () => {
+    const { unmount } = renderTradingViewCandles();
+
+    await waitFor(() =>
+      expect(mockQuote).toHaveBeenCalledWith(
+        expect.objectContaining({ coinName: 'ETH', assetId: 7 }),
+      ),
+    );
+    for (const coinName of ['BTC', 'ETH']) {
+      for (const displayMode of ['price', 'percent']) {
+        expect(mockQuote).toHaveBeenCalledWith(
+          expect.objectContaining({ coinName, mode: 'perp', displayMode }),
+        );
+      }
+    }
+    // The perp quotes stream only while a panel shows them: each mark is
+    // released again.
+    expect(mockMarkAllAssetCtxsRequired.mock.calls.length).toBeGreaterThan(
+      mockMarkAllAssetCtxsNotRequired.mock.calls.length,
+    );
+    unmount();
+    expect(mockMarkAllAssetCtxsNotRequired.mock.calls.length).toBe(
+      mockMarkAllAssetCtxsRequired.mock.calls.length,
+    );
+  });
+
+  it('leaves a single chart to the page header', () => {
+    mockMultiChartLayout = { preset: '1', panels: {} };
+    renderTradingViewCandles();
+
+    expect(mockTokenSelector).not.toHaveBeenCalled();
+    expect(mockQuote).not.toHaveBeenCalled();
+  });
+
+  it('streams spot quotes while a chart that is not trading shows spot', () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      panels: { 'panel-2': { source: { ...ethSource, coin: '@107' } } },
+    };
+    const { unmount } = renderTradingViewCandles();
+
+    expect(mockSetTradeRouteViewState).toHaveBeenCalledWith({
+      chartPanelsSpotActive: true,
+    });
+    unmount();
+    expect(mockSetTradeRouteViewState).toHaveBeenLastCalledWith({
+      chartPanelsSpotActive: false,
+    });
+  });
+
+  it('leaves spot quotes to the trade instrument in the selected panel', () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      activePanelId: 'panel-2',
+      panels: {
+        main: { source: ethSource },
+        'panel-2': { source: { ...ethSource, coin: '@107' } },
+      },
+    };
+    renderTradingViewCandles();
+
+    expect(mockSetTradeRouteViewState).not.toHaveBeenCalled();
+  });
+
+  it('keeps a selected panel read-only until the trade instrument follows', () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      activePanelId: 'panel-2',
+      panels: { main: { source: btcSource } },
+    };
+    // The grid already shows ETH there, the trade instrument is still BTC.
+    mockPendingActiveSource = ethSource;
+    renderTradingViewCandles();
+
+    const selected = getChartProps('ETH');
+    expect(selected?.onReferenceLineAction).toBeUndefined();
+    expect(selected?.onPriceSelect).toBeUndefined();
+    expect(getChartProps('BTC')?.onReferenceLineAction).toBeUndefined();
+  });
+
+  it('switches the trade instrument to a selected panel token', async () => {
+    renderTradingViewCandles();
+    const select = mockMultiChartProps?.onSelectPanel;
+
+    await expect(select?.(ethSource)).resolves.toBe(true);
+    expect(mockSwitchTradeInstrument).toHaveBeenLastCalledWith({
       mode: 'perp',
       coin: 'ETH',
     });
-    // Only while the panel still shows the token that was traded.
-    expect(mockSetPanelSource).toHaveBeenCalledWith(btcSource, {
-      replacing: ethSource,
+    await select?.({ ...ethSource, coin: '@107' });
+    expect(mockSwitchTradeInstrument).toHaveBeenLastCalledWith({
+      mode: 'spot',
+      coin: '@107',
     });
-  });
-
-  it('leaves the panel alone when the switch is superseded', async () => {
     mockSwitchTradeInstrument.mockResolvedValueOnce(false);
-    renderTradingViewCandles();
-    const trade = getChartProps('ETH')?.nativeControlsTrailing as ReactElement<{
-      onPress: () => Promise<void>;
-    }>;
-
-    await act(() => trade.props.onPress());
-
-    expect(mockSetPanelSource).not.toHaveBeenCalled();
-  });
-
-  function startSlowTrade() {
-    let finishSwitch: (switched: boolean) => void = () => {};
-    mockSwitchTradeInstrument.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finishSwitch = resolve;
-        }),
-    );
-    const panel = getChartProps('ETH');
-    const trade = panel?.nativeControlsTrailing as ReactElement<{
-      onPress: () => Promise<void>;
-    }>;
-    let traded: Promise<void> = Promise.resolve();
-    act(() => {
-      traded = trade.props.onPress();
-    });
-    return {
-      picker: panel?.nativeControlsLeading as ReactElement<{
-        onSelectToken: (selection: IPerpTokenSelection) => void;
-      }>,
-      finish: () =>
-        act(async () => {
-          finishSwitch(true);
-          await traded;
-        }),
-    };
-  }
-
-  it('keeps a token picked in the panel while its Trade was switching', async () => {
-    renderTradingViewCandles();
-    const { picker, finish } = startSlowTrade();
-
-    act(() => picker.props.onSelectToken({ coin: 'SOL', mode: 'perp' }));
-    await finish();
-
-    expect(mockSetPanelSource.mock.calls).toEqual([
-      [{ ...ethSource, coin: 'SOL' }],
-    ]);
-  });
-
-  it('drops a Trade that finishes after its panel closed', async () => {
-    const { unmount } = renderTradingViewCandles();
-    const { finish } = startSlowTrade();
-
-    unmount();
-    await finish();
-
-    expect(mockSwitchTradeInstrument).toHaveBeenCalledTimes(1);
-    expect(mockSetPanelSource).not.toHaveBeenCalled();
+    await expect(select?.(ethSource)).resolves.toBe(false);
   });
 
   it('shows the trade instrument in every panel while the token is synced', () => {
@@ -413,13 +517,26 @@ describe('split view', () => {
       .filter((props) => props.testID?.endsWith('panel-2'));
     const panel = panels.at(-1);
     expect(panel?.source).toEqual(btcSource);
-    // A pick now switches the trade instrument, like the ticker bar's, and
-    // there is nothing left to swap with the trading chart.
-    const picker = panel?.nativeControlsLeading as ReactElement<{
-      onSelectToken?: unknown;
-    }>;
-    expect(picker.props.onSelectToken).toBeUndefined();
-    expect(panel?.nativeControlsTrailing).toBeUndefined();
+    // A pick in any panel now switches the trade instrument, like the ticker
+    // bar's.
+    expect(getPicker('panel-2')?.onSelectToken).toBeUndefined();
+    // Only the selected panel trades.
+    expect(panel?.onReferenceLineAction).toBeUndefined();
+    const selected = mockNativeChart.mock.calls
+      .map(([props]) => props)
+      .findLast((props) => props.testID === undefined);
+    expect(selected?.onReferenceLineAction).toBe(mockReferenceLineAction);
+  });
+
+  it('leaves spot quotes to the trade instrument while the token is synced', () => {
+    mockMultiChartLayout = {
+      preset: '2h',
+      sync: { symbol: true },
+      panels: { 'panel-2': { source: { ...ethSource, coin: '@107' } } },
+    };
+    renderTradingViewCandles();
+
+    expect(mockSetTradeRouteViewState).not.toHaveBeenCalled();
   });
 
   it('stays a single chart on native layouts', () => {

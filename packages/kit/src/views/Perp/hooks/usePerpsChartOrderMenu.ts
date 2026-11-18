@@ -48,8 +48,10 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
     instrument.mode === 'spot'
       ? instrument.universe?.baseSzDecimals
       : instrument.universe?.szDecimals;
+  // Only a menu that can open needs live prices; a split-view panel that is
+  // not trading must not re-render on every tick of the traded token.
   const { mid: midPrice } = usePerpsMidPrice({
-    coin: instrument.mode === 'perp' ? instrument.coin : '',
+    coin: enabled && instrument.mode === 'perp' ? instrument.coin : '',
     szDecimals,
     allowActiveAssetFallback: true,
   });

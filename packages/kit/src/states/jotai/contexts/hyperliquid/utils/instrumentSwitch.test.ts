@@ -210,6 +210,7 @@ describe('shouldSyncSubscriptionsAfterInstrumentChange', () => {
             tokenSelectorTab: 'perps',
             infoPanelTab: 'Positions',
             favoritesBarSpotActive: false,
+            chartPanelsSpotActive: false,
           },
           recoveryProof: {
             disabledCount: 3,

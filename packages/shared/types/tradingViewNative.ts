@@ -295,12 +295,13 @@ export type ITradingViewNativeMultiChartSizes = {
 };
 
 export type ITradingViewNativeMultiChartPanelState = {
+  /** What the panel shows while it is not the selected one. */
   source?: ITradingViewNativeSource;
   indicatorSettings?: ITradingViewNativeIndicatorSettings;
 };
 
 export const TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS = [
-  // Every panel shows the first panel's token.
+  // Every panel shows the selected panel's token.
   'symbol',
   // Every panel uses the same interval.
   'interval',
@@ -324,8 +325,13 @@ export type ITradingViewNativeMultiChartLayout = {
   preset: ITradingViewNativeMultiChartPreset;
   sync?: ITradingViewNativeMultiChartSync;
   /**
-   * State of the extra panels by panel ID. The first panel is not stored: it
-   * always shows the host's own source with the host's own preferences.
+   * The selected panel, which shows the host's own source. The first panel
+   * when absent or not shown by the preset.
+   */
+  activePanelId?: string;
+  /**
+   * State of each panel by panel ID. The first panel stores only its source:
+   * it always keeps the host's own preferences.
    */
   panels: Partial<Record<string, ITradingViewNativeMultiChartPanelState>>;
   sizes?: Partial<

@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { IconButton } from '@onekeyhq/components';
+import { XStack, YStack } from '@onekeyhq/components';
 import {
   TradingViewNative,
   TradingViewNativeMultiChart,
@@ -14,20 +12,28 @@ import type {
   ITradingViewNativeProps,
   ITradingViewNativeSource,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import {
+  getTradingViewNativeMultiChartActivePanelId,
+  getTradingViewNativeMultiChartPanelIds,
+  getTradingViewNativeMultiChartSync,
+  normalizeTradingViewNativeMultiChartLayout,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/multiChart/multiChartLayout';
 import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsTradingViewIndicatorSettingsPersistAtom,
   usePerpsTradingViewMultiChartPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDexIndexByAssetId } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
+  isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
+import { useActivePerpsChartInstrument } from '../hooks/usePerpsChartInstrument';
 import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
 import { usePerpsChartPanelInstrument } from '../hooks/usePerpsChartPanelInstrument';
 import { usePerpsNativeChartLines } from '../hooks/usePerpsNativeChartLines';
@@ -35,6 +41,7 @@ import { usePerpsNativeChartMarks } from '../hooks/usePerpsNativeChartMarks';
 import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadata';
 import { PerpTestIDs } from '../testIDs';
 
+import { CtxPriceDisplay } from './FavoritesBar/FavoriteTokenItem';
 import { PerpChartTokenSelector } from './TokenSelector/PerpChartTokenSelector';
 
 import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
@@ -83,6 +90,8 @@ export function PerpNativeCandles({
   );
 }
 
+const PANEL_HEADER_HEIGHT = 32;
+
 // Offered to newly opened panels, most liquid first.
 const DEFAULT_PANEL_COINS = ['BTC', 'ETH', 'SOL', 'HYPE'];
 
@@ -103,108 +112,164 @@ const getDefaultPanelSource: ITradingViewNativeMultiChartProps['getDefaultPanelS
     );
   };
 
-// An extra split-view panel: any token's candles with the account's lines and
-// fills for it, read-only. Trading stays with the first panel; drawing tools
-// are available whenever the first panel has them. While the split view syncs
-// its token, the panel shows the trade instrument and a pick switches it.
-function PerpNativePanelCandles({
-  enableDrawings,
-  mainSource,
+// Live price and 24h change of a panel's token, as in the favorites bar.
+function PerpChartPanelQuote({
+  assetId,
+  coin,
+  mode,
+}: {
+  assetId?: number;
+  coin: string;
+  mode: 'perp' | 'spot';
+}) {
+  const actions = useHyperliquidActions();
+  // Perp quotes come from the shared asset contexts, which only update while
+  // something on screen needs them.
+  useEffect(() => {
+    if (mode !== 'perp') return;
+    const { markAllAssetCtxsNotRequired, markAllAssetCtxsRequired } =
+      actions.current;
+    markAllAssetCtxsRequired();
+    return () => markAllAssetCtxsNotRequired();
+  }, [actions, mode]);
+  if (assetId === undefined) return null;
+  const dexIndex = getDexIndexByAssetId(assetId);
+  const key = `${mode}:${coin}:${assetId}`;
+  return (
+    <>
+      <CtxPriceDisplay
+        key={`${key}:price`}
+        coinName={coin}
+        dexIndex={dexIndex}
+        assetId={assetId}
+        mode={mode}
+        displayMode="price"
+      />
+      <CtxPriceDisplay
+        key={`${key}:percent`}
+        coinName={coin}
+        dexIndex={dexIndex}
+        assetId={assetId}
+        mode={mode}
+        displayMode="percent"
+      />
+    </>
+  );
+}
+
+/**
+ * One split-view panel. The selected panel is the trading chart: once the
+ * trade instrument has switched to its token it has every trading integration.
+ * The others show their token's candles with the account's lines and fills
+ * read-only. Selecting a panel only changes these props, so no chart remounts.
+ * Only the selected panel's controls are on screen, above the grid, so every
+ * panel gets the page-level controls; in a split each panel names its token,
+ * price and 24h change instead.
+ */
+function PerpNativeSplitPanel({
+  activeDisplay,
+  enableTradingUi,
+  hostProps,
   panel,
 }: {
-  enableDrawings?: boolean;
-  mainSource: ITradingViewNativeSource;
+  activeDisplay: IPerpsChartInstrumentDisplay;
+  enableTradingUi: boolean;
+  hostProps: Omit<ITradingViewNativeProps, 'source'>;
   panel: ITradingViewNativeMultiChartPanel;
 }) {
-  const intl = useIntl();
-  const actions = useHyperliquidActions();
-  const { id, isSymbolSynced, setSource, source } = panel;
+  const {
+    id,
+    isActive,
+    isMain,
+    isSplit,
+    isSymbolSynced,
+    layoutControl,
+    setSource,
+    source,
+  } = panel;
   const coin = source.kind === 'hyperliquid' ? source.coin : '';
-  const { display, instrument } = usePerpsChartPanelInstrument(coin);
-  const { chartComponents: lines } = usePerpsNativeChartLines(
-    false,
-    instrument,
-  );
+  const activeInstrument = useActivePerpsChartInstrument();
+  const { display, instrument: panelInstrument } =
+    usePerpsChartPanelInstrument(coin);
+  // A selected panel keeps its own token until the switch has landed, so it
+  // never shows the previous token's orders or menu.
+  const isTrading = isActive && activeInstrument.coin === coin;
+  const instrument = isTrading ? activeInstrument : panelInstrument;
+  const canTrade = isTrading && enableTradingUi;
+  const { chartComponents: lines, onReferenceLineAction } =
+    usePerpsNativeChartLines(canTrade, instrument);
   const marks = usePerpsNativeChartMarks(instrument);
-  const { priceDecimalPlaces } = usePerpsNativeChartMetadata(instrument);
+  const metadata = usePerpsNativeChartMetadata(instrument);
+  const orderMenu = usePerpsChartOrderMenu(canTrade);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
-  // Every pick, Trade press and unmount supersedes a Trade still switching,
-  // so one that finishes late cannot undo something newer.
-  const latestAction = useRef(0);
-  useEffect(
-    () => () => {
-      latestAction.current += 1;
-    },
-    [],
-  );
   const handleSelectToken = useCallback(
     (selection: IPerpTokenSelection) => {
-      latestAction.current += 1;
       setSource(getHyperliquidSource(selection.coin));
     },
     [setSource],
   );
-  const { mode } = instrument;
-  const handleTrade = useCallback(async () => {
-    latestAction.current += 1;
-    const action = latestAction.current;
-    const switched = await actions.current.switchTradeInstrument({
-      mode,
-      coin,
-    });
-    if (switched === false || action !== latestAction.current) return;
-    // Swap rather than duplicate: the token that was being traded stays on
-    // screen in this panel, unless the panel has moved on to another token.
-    setSource(mainSource, { replacing: source });
-  }, [actions, coin, mainSource, mode, setSource, source]);
+  const { onInteractionChange, testID, ...pageProps } = hostProps;
   return (
-    <TradingViewNative
-      testID={`${PerpTestIDs.NativeChartPanel}-${id}`}
-      source={source}
-      storageNamespace="perps"
-      priceDecimalPlaces={priceDecimalPlaces}
-      isPricePrecisionLoading={priceDecimalPlaces === undefined}
-      enableDrawings={enableDrawings}
-      nativeControlsLayoutMode="desktop"
-      chartComponents={chartComponents}
-      nativeControlsLeading={
-        <PerpChartTokenSelector
-          testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${id}`}
-          display={display}
-          onSelectToken={isSymbolSynced ? undefined : handleSelectToken}
-        />
-      }
-      nativeControlsTrailing={
-        // Nothing to swap while every panel shows the trade instrument.
-        isSymbolSynced ? undefined : (
-          <IconButton
-            testID={`${PerpTestIDs.NativeChartPanelTrade}-${id}`}
-            size="small"
-            variant="tertiary"
-            icon="SwitchHorOutline"
-            iconSize="$5"
-            title={intl.formatMessage({ id: ETranslations.global_trade })}
-            onPress={handleTrade}
+    // The header slot is always there, so a preset change never remounts the
+    // chart beside it.
+    <YStack flex={1} minHeight={0}>
+      {isSplit ? (
+        <XStack
+          h={PANEL_HEADER_HEIGHT}
+          px="$2"
+          gap="$2"
+          flexShrink={0}
+          alignItems="center"
+          overflow="hidden"
+          testID={`${PerpTestIDs.NativeChartPanelHeader}-${id}`}
+        >
+          <PerpChartTokenSelector
+            testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${id}`}
+            display={coin === activeInstrument.coin ? activeDisplay : display}
+            // The selected panel's picker switches the trade instrument, and
+            // so does every picker while the panels share the token.
+            onSelectToken={
+              isActive || isSymbolSynced ? undefined : handleSelectToken
+            }
           />
-        )
-      }
-    />
+          <PerpChartPanelQuote
+            coin={coin}
+            mode={instrument.mode}
+            assetId={instrument.assetId}
+          />
+        </XStack>
+      ) : null}
+      <TradingViewNative
+        {...pageProps}
+        {...(canTrade ? orderMenu : {})}
+        testID={isMain ? testID : `${PerpTestIDs.NativeChartPanel}-${id}`}
+        onInteractionChange={isMain ? onInteractionChange : undefined}
+        source={source}
+        priceDecimalPlaces={metadata.priceDecimalPlaces}
+        isPricePrecisionLoading={metadata.priceDecimalPlaces === undefined}
+        chartComponents={chartComponents}
+        onReferenceLineAction={canTrade ? onReferenceLineAction : undefined}
+        nativeControlsTrailing={layoutControl}
+      />
+    </YStack>
   );
 }
 
 /**
  * The trading chart with optional extra panels for other tokens. Only the
- * large web, extension and desktop layouts mount this; the first panel is the
- * same `PerpNativeCandles` the single-chart layouts use.
+ * large web, extension and desktop layouts mount this. Selecting a panel makes
+ * its token the trade instrument; every chart keeps its place and token.
  */
 export function PerpNativeSplitCandles({
+  enableTradingUi,
   source,
-  ...props
+  ...hostProps
 }: IPerpNativeCandlesProps) {
+  const actions = useHyperliquidActions();
   const [layout, setLayout] = usePerpsTradingViewMultiChartPersistAtom();
   const [indicatorSettings] = usePerpsTradingViewIndicatorSettingsPersistAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
-  const mainDisplay = useMemo<IPerpsChartInstrumentDisplay>(
+  const activeDisplay = useMemo<IPerpsChartInstrumentDisplay>(
     () =>
       mode === 'spot'
         ? {
@@ -217,37 +282,59 @@ export function PerpNativeSplitCandles({
           },
     [baseName, coin, displayName, mode],
   );
-  const renderPanel = (panel: ITradingViewNativeMultiChartPanel) =>
-    panel.isMain ? (
-      <PerpNativeCandles
-        key={getTradingViewNativeSourceKey(source)}
-        {...props}
-        source={source}
-        nativeControlsLeading={
-          // Several charts are on screen, so each one names its token.
-          panel.isSplit ? (
-            <PerpChartTokenSelector
-              testID={`${PerpTestIDs.NativeChartPanelTokenSelector}-${panel.id}`}
-              display={mainDisplay}
-            />
-          ) : undefined
-        }
-        nativeControlsTrailing={panel.layoutControl}
-      />
-    ) : (
-      <PerpNativePanelCandles
-        key={getTradingViewNativeSourceKey(panel.source)}
-        panel={panel}
-        mainSource={source}
-        enableDrawings={props.enableDrawings}
-      />
+  const handleSelectPanel = useCallback(
+    async (panelSource: ITradingViewNativeSource) => {
+      if (panelSource.kind !== 'hyperliquid') return false;
+      const switched = await actions.current.switchTradeInstrument({
+        mode: isSpotInstrument(panelSource.coin) ? 'spot' : 'perp',
+        coin: panelSource.coin,
+      });
+      return switched !== false;
+    },
+    [actions],
+  );
+  // Spot quotes only stream while something asks for them; the selected
+  // panel's token is covered by the trade instrument itself.
+  const hasSpotQuote = useMemo(() => {
+    const saved = normalizeTradingViewNativeMultiChartLayout(layout);
+    const activeId = getTradingViewNativeMultiChartActivePanelId(saved);
+    const panelIds = getTradingViewNativeMultiChartPanelIds(saved.preset);
+    return (
+      panelIds.length > 1 &&
+      // A shared token is the trade instrument in every panel.
+      !getTradingViewNativeMultiChartSync(saved).symbol &&
+      panelIds.some((id) => {
+        const panelSource = saved.panels[id]?.source;
+        return (
+          id !== activeId &&
+          panelSource?.kind === 'hyperliquid' &&
+          isSpotInstrument(panelSource.coin)
+        );
+      })
     );
+  }, [layout]);
+  useEffect(() => {
+    if (!hasSpotQuote) return;
+    const { setTradeRouteViewState } = actions.current;
+    setTradeRouteViewState({ chartPanelsSpotActive: true });
+    return () => setTradeRouteViewState({ chartPanelsSpotActive: false });
+  }, [actions, hasSpotQuote]);
+  const renderPanel = (panel: ITradingViewNativeMultiChartPanel) => (
+    <PerpNativeSplitPanel
+      key={getTradingViewNativeSourceKey(panel.source)}
+      panel={panel}
+      activeDisplay={activeDisplay}
+      enableTradingUi={enableTradingUi}
+      hostProps={hostProps}
+    />
+  );
   return (
     <TradingViewNativeMultiChart
       testID={PerpTestIDs.NativeChartSplitView}
       layout={layout}
       onLayoutChange={setLayout}
-      mainSource={source}
+      activeSource={source}
+      onSelectPanel={handleSelectPanel}
       defaultIndicatorSettings={indicatorSettings}
       getDefaultPanelSource={getDefaultPanelSource}
       renderPanel={renderPanel}

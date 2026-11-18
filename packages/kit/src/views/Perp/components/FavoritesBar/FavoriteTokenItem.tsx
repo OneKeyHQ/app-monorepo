@@ -91,7 +91,7 @@ interface IFavoriteTokenItemProps {
   displayMode?: IPerpFavoritesDisplayMode;
 }
 
-const CtxPriceDisplay = memo(
+export const CtxPriceDisplay = memo(
   ({
     coinName,
     dexIndex,

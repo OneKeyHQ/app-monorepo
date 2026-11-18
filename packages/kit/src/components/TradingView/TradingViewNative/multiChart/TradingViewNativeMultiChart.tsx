@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, SetStateAction } from 'react';
 
+import { createPortal } from 'react-dom';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
@@ -21,6 +22,7 @@ import {
   TRADING_VIEW_NATIVE_MULTI_CHART_MIN_PANEL_HEIGHT,
   TRADING_VIEW_NATIVE_MULTI_CHART_MIN_PANEL_WIDTH,
   fillTradingViewNativeMultiChartPanels,
+  getTradingViewNativeMultiChartActivePanelId,
   getTradingViewNativeMultiChartDividers,
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
@@ -29,14 +31,17 @@ import {
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
   resizeTradingViewNativeMultiChartTracks,
-  setTradingViewNativeMultiChartPanelSource,
+  selectTradingViewNativeMultiChartPanel,
   setTradingViewNativeMultiChartSizes,
   setTradingViewNativeMultiChartSync,
   updateTradingViewNativeMultiChartPanel,
 } from './multiChartLayout';
 import { TradingViewNativeMultiChartDivider } from './TradingViewNativeMultiChartDivider';
 import { TradingViewNativeMultiChartLayoutSelect } from './TradingViewNativeMultiChartLayoutSelect';
-import { TradingViewNativeMultiChartPanelContext } from './TradingViewNativeMultiChartPanelContext';
+import {
+  TradingViewNativeMultiChartControlsContext,
+  TradingViewNativeMultiChartPanelContext,
+} from './TradingViewNativeMultiChartPanelContext';
 import { TradingViewNativeMultiChartSyncContext } from './TradingViewNativeMultiChartSyncContext';
 import { createTradingViewNativeViewportSyncChannel } from './viewportSync';
 
@@ -45,13 +50,20 @@ import type {
   ITradingViewNativeMultiChartPanel,
   ITradingViewNativeMultiChartProps,
 } from './TradingViewNativeMultiChart.types';
-import type { ITradingViewNativeMultiChartPanelScope } from './TradingViewNativeMultiChartPanelContext';
+import type {
+  ITradingViewNativeMultiChartControlsSlot,
+  ITradingViewNativeMultiChartPanelScope,
+} from './TradingViewNativeMultiChartPanelContext';
 import type { ITradingViewNativeMultiChartSyncScope } from './TradingViewNativeMultiChartSyncContext';
 import type { LayoutChangeEvent } from 'react-native';
 
 type IOnLayoutChange = ITradingViewNativeMultiChartProps['onLayoutChange'];
 
 function ignoreSourceChange() {}
+
+const NO_CONTROLS_SLOT: ITradingViewNativeMultiChartControlsSlot = {
+  renderControls: () => null,
+};
 
 // Gives the chart inside an extra panel its own indicator settings, stored in
 // the layout snapshot beside the panel's token.
@@ -106,6 +118,7 @@ const Panel = memo(
     id,
     index,
     indicatorSettings,
+    isActive,
     isSplit,
     isSymbolSynced,
     layoutControl,
@@ -117,6 +130,7 @@ const Panel = memo(
     id: string;
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
+    isActive: boolean;
     isSplit: boolean;
     isSymbolSynced: boolean;
     layoutControl: ReactNode;
@@ -134,18 +148,14 @@ const Panel = memo(
     const setSource = useCallback<
       ITradingViewNativeMultiChartPanel['setSource']
     >(
-      (nextSource, options) => {
-        onLayoutChange((current) => {
-          const layout = normalizeTradingViewNativeMultiChartLayout(current);
-          const next = setTradingViewNativeMultiChartPanelSource(
-            layout,
+      (nextSource) => {
+        onLayoutChange((current) =>
+          updateTradingViewNativeMultiChartPanel(
+            normalizeTradingViewNativeMultiChartLayout(current),
             id,
-            nextSource,
-            options?.replacing,
-          );
-          // Nothing to save when the panel has moved on.
-          return next === layout ? current : next;
-        });
+            { source: nextSource },
+          ),
+        );
       },
       [id, onLayoutChange],
     );
@@ -154,15 +164,17 @@ const Panel = memo(
         id,
         index,
         isMain,
+        isActive,
         isSplit,
         isSymbolSynced,
         source,
-        layoutControl: isMain ? layoutControl : null,
-        setSource: isMain ? ignoreSourceChange : setSource,
+        layoutControl: isActive ? layoutControl : null,
+        setSource: isActive ? ignoreSourceChange : setSource,
       }),
       [
         id,
         index,
+        isActive,
         isMain,
         isSplit,
         isSymbolSynced,
@@ -203,19 +215,51 @@ interface IResizeDraft {
   committedOver?: ITradingViewNativeMultiChartProps['layout'];
 }
 
+interface IPanelSelection {
+  panelId: string;
+  previousPanelId: string;
+  /** The selected panel's token, kept on screen until the host shows it. */
+  source: ITradingViewNativeSource;
+  /**
+   * What the previously selected panel showed and goes on showing; none while
+   * every panel shows the host's token and that panel has its own saved.
+   */
+  previousSource?: ITradingViewNativeSource;
+  /** The host's source when the panel was selected. */
+  activeSourceKey: string;
+  waitsForHost: boolean;
+  /** The host turned the switch down. */
+  rejected?: boolean;
+}
+
 export function TradingViewNativeMultiChart({
+  activeSource,
   defaultIndicatorSettings,
   getDefaultPanelSource,
   layout: storedLayout,
-  mainSource,
   onLayoutChange,
+  onSelectPanel,
   renderPanel,
   testID = 'trading-view-multi-chart',
 }: ITradingViewNativeMultiChartProps) {
   const intl = useIntl();
-  const layout = useMemo(
+  const savedLayout = useMemo(
     () => normalizeTradingViewNativeMultiChartLayout(storedLayout),
     [storedLayout],
+  );
+  // A selection shows at once: the saved layout catches up asynchronously on
+  // split runtimes, and the host can take a moment to switch its source.
+  const [selection, setSelection] = useState<IPanelSelection | null>(null);
+  const layout = useMemo(
+    () =>
+      selection
+        ? selectTradingViewNativeMultiChartPanel(
+            savedLayout,
+            selection.panelId,
+            selection.previousSource,
+          )
+        : savedLayout,
+    [savedLayout, selection],
   );
   const { preset } = layout;
   const panelIds = useMemo(
@@ -223,21 +267,116 @@ export function TradingViewNativeMultiChart({
     [preset],
   );
   const isSplit = panelIds.length > 1;
+  const sync = useMemo(
+    () => getTradingViewNativeMultiChartSync(layout),
+    [layout],
+  );
+  const isSymbolSynced = isSplit && sync.symbol;
+  const activePanelId = getTradingViewNativeMultiChartActivePanelId(layout);
+  const activeSourceKey = getTradingViewNativeSourceKey(activeSource);
+  const isWaitingForHost =
+    selection?.waitsForHost === true &&
+    selection.panelId === activePanelId &&
+    selection.activeSourceKey === activeSourceKey;
+  const shownActiveSource = isWaitingForHost ? selection.source : activeSource;
+  // Decided after render, with the host's current source.
+  useEffect(() => {
+    if (!selection) return;
+    const hostMoved = selection.activeSourceKey !== activeSourceKey;
+    if (selection.rejected && !hostMoved) {
+      // The host kept its source, so the previous panel stays selected.
+      setSelection(null);
+      onLayoutChange((current) => ({
+        ...normalizeTradingViewNativeMultiChartLayout(current),
+        activePanelId: selection.previousPanelId,
+      }));
+      return;
+    }
+    if (
+      savedLayout.activePanelId === selection.panelId &&
+      (!selection.waitsForHost || hostMoved)
+    ) {
+      setSelection(null);
+    }
+  }, [activeSourceKey, onLayoutChange, savedLayout, selection]);
+
+  const latestSelectionState = useRef({
+    activeSourceKey,
+    isSymbolSynced,
+    layout,
+    onSelectPanel,
+    shownActiveSource,
+  });
+  latestSelectionState.current = {
+    activeSourceKey,
+    isSymbolSynced,
+    layout,
+    onSelectPanel,
+    shownActiveSource,
+  };
+  const handleSelectPanel = useCallback(
+    (panelId: string) => {
+      const state = latestSelectionState.current;
+      const previousPanelId = getTradingViewNativeMultiChartActivePanelId(
+        state.layout,
+      );
+      if (panelId === previousPanelId) return;
+      // With the token synced every panel shows the host's, so a selection
+      // only moves the controls and keeps each panel's own token for later;
+      // a panel without one keeps the token it showed.
+      const source = state.isSymbolSynced
+        ? state.shownActiveSource
+        : state.layout.panels[panelId]?.source;
+      if (!source) return;
+      const keepsOwnToken =
+        state.isSymbolSynced &&
+        Boolean(state.layout.panels[previousPanelId]?.source);
+      const next: IPanelSelection = {
+        panelId,
+        previousPanelId,
+        source,
+        previousSource: keepsOwnToken ? undefined : state.shownActiveSource,
+        activeSourceKey: state.activeSourceKey,
+        waitsForHost:
+          getTradingViewNativeSourceKey(source) !== state.activeSourceKey,
+      };
+      setSelection(next);
+      onLayoutChange((current) =>
+        selectTradingViewNativeMultiChartPanel(
+          normalizeTradingViewNativeMultiChartLayout(current),
+          panelId,
+          next.previousSource,
+        ),
+      );
+      if (!next.waitsForHost) return;
+      void state
+        .onSelectPanel(source)
+        .catch(() => false)
+        .then((switched) => {
+          if (switched) return;
+          // Only while no newer selection replaced this one.
+          setSelection((current) =>
+            current === next ? { ...next, rejected: true } : current,
+          );
+        });
+    },
+    [onLayoutChange],
+  );
 
   const defaults = useRef({
-    mainSource,
+    activeSource,
     getDefaultPanelSource,
     indicatorSettings: defaultIndicatorSettings,
   });
   defaults.current = {
-    mainSource,
+    activeSource,
     getDefaultPanelSource,
     indicatorSettings: defaultIndicatorSettings,
   };
   // Covers a layout saved without a panel's token or indicator settings, e.g.
   // by another build. The layout picker fills new panels itself.
   const hasIncompletePanel =
-    hasUnfilledTradingViewNativeMultiChartPanel(layout);
+    hasUnfilledTradingViewNativeMultiChartPanel(savedLayout);
   useEffect(() => {
     if (!hasIncompletePanel) return;
     onLayoutChange((current) =>
@@ -261,10 +400,6 @@ export function TradingViewNativeMultiChart({
       );
     },
     [onLayoutChange],
-  );
-  const sync = useMemo(
-    () => getTradingViewNativeMultiChartSync(layout),
-    [layout],
   );
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
@@ -314,7 +449,6 @@ export function TradingViewNativeMultiChart({
     }),
     [crosshairSyncChannel, intervalSync, isCrosshairSynced, viewportSync],
   );
-  const isSymbolSynced = isSplit && sync.symbol;
   const layoutControl = useMemo(
     () => (
       <TradingViewNativeMultiChartLayoutSelect
@@ -325,6 +459,16 @@ export function TradingViewNativeMultiChart({
       />
     ),
     [handlePresetChange, handleSyncChange, preset, sync],
+  );
+
+  // One controls row for the whole grid: the selected panel's.
+  const [controlsBar, setControlsBar] = useState<HTMLDivElement | null>(null);
+  const activeControlsSlot = useMemo<ITradingViewNativeMultiChartControlsSlot>(
+    () => ({
+      renderControls: (controls) =>
+        controlsBar ? createPortal(controls, controlsBar) : null,
+    }),
+    [controlsBar],
   );
 
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
@@ -423,60 +567,106 @@ export function TradingViewNativeMultiChart({
       flex={1}
       width="100%"
       minHeight={0}
-      position="relative"
-      onLayout={handleGridLayout}
       testID={testID}
       data-preset={preset}
     >
-      {panelIds.map((id, index) => {
-        const rect = rects[index];
-        const state = layout.panels[id];
-        // With the token synced, a panel keeps its own for when that ends.
-        const source =
-          index === 0 || isSymbolSynced ? mainSource : state?.source;
-        return (
-          // The first panel keeps its tree position, so moving between presets
-          // never remounts the host's chart.
-          <Stack
-            key={id}
-            position="absolute"
-            left={`${rect.left * 100}%`}
-            top={`${rect.top * 100}%`}
-            width={`${rect.width * 100}%`}
-            height={`${rect.height * 100}%`}
-            minHeight={0}
-            overflow="hidden"
-            testID={`${testID}-panel-${id}`}
-          >
-            {source ? (
-              <Panel
-                id={id}
-                index={index}
-                isSplit={isSplit}
-                isSymbolSynced={isSymbolSynced}
-                source={source}
-                sync={panelSync}
-                indicatorSettings={
-                  state?.indicatorSettings ?? defaultIndicatorSettings
+      <div
+        ref={setControlsBar}
+        data-testid={`${testID}-controls`}
+        style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}
+      />
+      <Stack
+        flex={1}
+        width="100%"
+        minHeight={0}
+        position="relative"
+        onLayout={handleGridLayout}
+      >
+        {panelIds.map((id, index) => {
+          const rect = rects[index];
+          const state = layout.panels[id];
+          const isActive = id === activePanelId;
+          // With the token synced, a panel keeps its own for when that ends.
+          const source =
+            isActive || isSymbolSynced ? shownActiveSource : state?.source;
+          return (
+            // Panels keep their tree position, so neither a preset change nor a
+            // selection remounts a chart.
+            <Stack
+              key={id}
+              position="absolute"
+              left={`${rect.left * 100}%`}
+              top={`${rect.top * 100}%`}
+              width={`${rect.width * 100}%`}
+              height={`${rect.height * 100}%`}
+              minHeight={0}
+              overflow="hidden"
+              testID={`${testID}-panel-${id}`}
+              data-selected={isSplit && isActive ? 'true' : undefined}
+            >
+              <div
+                style={{ display: 'contents' }}
+                // Capture: a press anywhere in the panel, also on a control of
+                // its chart, selects it before the chart handles the press.
+                onPointerDownCapture={
+                  isActive
+                    ? undefined
+                    : (event) => {
+                        if (event.button === 0) handleSelectPanel(id);
+                      }
                 }
-                layoutControl={layoutControl}
-                onLayoutChange={onLayoutChange}
-                renderPanel={renderPanel}
-              />
-            ) : null}
-          </Stack>
-        );
-      })}
-      {dividers.map((divider) => (
-        <TradingViewNativeMultiChartDivider
-          key={`${divider.axis}:${divider.index}`}
-          divider={divider}
-          label={dividerLabel}
-          onStart={handleResizeStart}
-          onMove={handleResizeMove}
-          onEnd={handleResizeEnd}
-        />
-      ))}
+              >
+                <TradingViewNativeMultiChartControlsContext.Provider
+                  value={isActive ? activeControlsSlot : NO_CONTROLS_SLOT}
+                >
+                  {source ? (
+                    <Panel
+                      id={id}
+                      index={index}
+                      isActive={isActive}
+                      isSplit={isSplit}
+                      isSymbolSynced={isSymbolSynced}
+                      source={source}
+                      sync={panelSync}
+                      indicatorSettings={
+                        state?.indicatorSettings ?? defaultIndicatorSettings
+                      }
+                      layoutControl={layoutControl}
+                      onLayoutChange={onLayoutChange}
+                      renderPanel={renderPanel}
+                    />
+                  ) : null}
+                </TradingViewNativeMultiChartControlsContext.Provider>
+              </div>
+              {isSplit && isActive ? (
+                <Stack
+                  position="absolute"
+                  top={0}
+                  right={0}
+                  bottom={0}
+                  left={0}
+                  // Above the chart's toolbars and the dividers on its edges; it
+                  // never takes a press.
+                  zIndex={5}
+                  pointerEvents="none"
+                  borderWidth={1}
+                  borderColor="$borderActive"
+                />
+              ) : null}
+            </Stack>
+          );
+        })}
+        {dividers.map((divider) => (
+          <TradingViewNativeMultiChartDivider
+            key={`${divider.axis}:${divider.index}`}
+            divider={divider}
+            label={dividerLabel}
+            onStart={handleResizeStart}
+            onMove={handleResizeMove}
+            onEnd={handleResizeEnd}
+          />
+        ))}
+      </Stack>
     </Stack>
   );
 }

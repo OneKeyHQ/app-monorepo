@@ -255,6 +255,8 @@ export interface ITradeRouteViewState {
   tokenSelectorTab: string;
   infoPanelTab: string;
   favoritesBarSpotActive: boolean;
+  /** A split-view chart that is not trading shows a spot token's quote. */
+  chartPanelsSpotActive: boolean;
 }
 
 export const {
@@ -267,6 +269,7 @@ export const {
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,
+  chartPanelsSpotActive: false,
 });
 
 // Token pickers open right now. `tokenSelectorOpen` follows it, so closing one
