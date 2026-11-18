@@ -81,7 +81,10 @@ import {
 } from './TokenListViewContext';
 import { getHomeTokenListRowKeys } from './utils';
 
-import type { INativeTokenStatus } from './NativeTokenSelectorList';
+import type {
+  INativeTokenStatus,
+  INativeTokenVerification,
+} from './NativeTokenSelectorList';
 import type {
   IScopedActiveTokenList,
   IScopedActiveTokenListState,
@@ -96,6 +99,7 @@ let nextDisclosureScopeId = 0;
 type IProps = {
   accountId: string;
   nativeTokenStatus?: INativeTokenStatus;
+  nativeTokenVerification?: INativeTokenVerification;
   networkId: string;
   indexedAccountId: string | undefined;
   // When true, the per-owner rendered cache is keyed by `indexedAccountId`
@@ -1327,6 +1331,7 @@ function TokenListViewCmp(props: IProps) {
     <NativeTokenSelectorList
       rows={showSkeleton ? [] : selectorListRows}
       nativeTokenStatus={props.nativeTokenStatus}
+      nativeTokenVerification={props.nativeTokenVerification}
       networkId={networkId}
       networksMap={networksMap}
       tokenListMap={visibleTokenListMap}

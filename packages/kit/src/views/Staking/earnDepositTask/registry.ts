@@ -8,6 +8,7 @@ type IEntry = {
   state: IDepositTaskState;
   token: symbol;
   unsubscribe: () => void;
+  detached: boolean;
   recordingHandle?: IRecoverableDepositTaskHandle;
 };
 
@@ -86,7 +87,13 @@ export function createDepositTaskRegistry() {
     find: (ownerKey: string) => entries.get(ownerKey),
     reserve: (ownerKey: string, state: IDepositTaskState) => {
       const existing = entries.get(ownerKey);
-      if (existing?.state === state) return existing.token;
+      if (existing?.state === state) {
+        if (existing.detached) {
+          existing.detached = false;
+          notify();
+        }
+        return existing.token;
+      }
       if (
         existing ||
         [...entries.values()].some((entry) =>
@@ -96,7 +103,13 @@ export function createDepositTaskRegistry() {
         return undefined;
       const token = Symbol('deposit-task-reservation');
       const unsubscribe = state.subscribe(notify);
-      entries.set(ownerKey, { ownerKey, state, token, unsubscribe });
+      entries.set(ownerKey, {
+        ownerKey,
+        state,
+        token,
+        unsubscribe,
+        detached: false,
+      });
       notify();
       return token;
     },
@@ -109,6 +122,18 @@ export function createDepositTaskRegistry() {
       if (!entry || entry.token !== token || entry.state !== handle.taskState)
         return false;
       entry.recordingHandle = handle;
+      return true;
+    },
+    detach: (
+      ownerKey: string,
+      token: symbol,
+      handle: IRecoverableDepositTaskHandle,
+    ) => {
+      const entry = entries.get(ownerKey);
+      if (!entry || entry.token !== token || entry.recordingHandle !== handle)
+        return false;
+      entry.detached = true;
+      notify();
       return true;
     },
     release: (ownerKey: string, token: symbol) => {

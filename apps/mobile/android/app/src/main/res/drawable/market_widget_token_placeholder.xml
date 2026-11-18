@@ -1,0 +1,4 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="32dp" android:height="32dp" android:viewportWidth="32" android:viewportHeight="32">
+    <path android:fillColor="@color/market_widget_separator" android:pathData="M16,0A16,16 0,1 0,16 32A16,16 0,1 0,16 0" />
+    <path android:fillColor="@color/market_widget_secondary" android:pathData="M16,8L23,16L16,24L9,16Z" />
+</vector>

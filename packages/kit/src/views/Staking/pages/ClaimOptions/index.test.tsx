@@ -42,6 +42,14 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
       items: [{ id: 'request-1', amount: '1' }],
       token: {},
       network: {},
+      claimApprove: {
+        approveType: 'Legacy',
+        approveTarget: '0xspender',
+        tokenAddress: '0xtoken',
+        symbol: 'USDu',
+        decimals: 18,
+      },
+      claimFollowUp: { identity: 'convert-1' },
     },
     isLoading: false,
     run: jest.fn(),
@@ -77,6 +85,23 @@ jest.mock('../../components/PageFrame', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { staking: { page: { unstaking: jest.fn() } } },
 }));
+
+test('forwards the claim approval and server conversion metadata', async () => {
+  mockClaim.mockReset().mockResolvedValue();
+  const screen = render(<ClaimOptions />);
+  fireEvent.click(screen.getByRole('button', { name: 'Select' }));
+  await waitFor(() =>
+    expect(mockClaim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claimApprove: expect.objectContaining({
+          approveTarget: '0xspender',
+          tokenAddress: '0xtoken',
+        }),
+        claimFollowUp: { identity: 'convert-1' },
+      }),
+    ),
+  );
+});
 
 test('retains a Babylon claim fact after its options page unmounts', async () => {
   mockClaim.mockReset().mockResolvedValue();

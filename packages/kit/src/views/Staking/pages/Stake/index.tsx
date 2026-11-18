@@ -360,6 +360,7 @@ function BasicStakePage() {
       if (
         !effectiveApproveType ||
         !approveSpenderAddress ||
+        !effectiveStakeTokenInfo?.token?.address ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {
         return undefined;
@@ -375,7 +376,7 @@ function BasicStakePage() {
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
-          tokenAddress: effectiveStakeTokenInfo?.token.address || '',
+          tokenAddress: effectiveStakeTokenInfo.token.address,
         });
 
       return { allowanceParsed, scopeKey: allowanceScopeKey };

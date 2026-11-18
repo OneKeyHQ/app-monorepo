@@ -46,6 +46,7 @@ import {
   type IBorrowAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
+  type IEarnUtmParams,
   type IEarnWithdrawType,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -90,6 +91,7 @@ export const WithdrawSection = ({
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
+  utm,
   useBorrowApi,
   borrowMarketAddress,
   borrowReserveAddress,
@@ -118,6 +120,7 @@ export const WithdrawSection = ({
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
@@ -372,15 +375,29 @@ export const WithdrawSection = ({
   const approveAssetToken =
     fetchedApproveAssetToken ?? fallbackApproveAssetToken;
   const withdrawApproveToken = useMemo(() => {
-    if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
+    const withdrawApprove = protocolInfo?.withdrawApprove;
+    if (!withdrawApprove?.tokenAddress || !token) {
       return token;
     }
     return {
       ...token,
-      address: protocolInfo.withdrawApprove.tokenAddress,
+      address: withdrawApprove.tokenAddress,
       isNative: false,
+      ...(amountUnit !== 'shares' &&
+        withdrawApprove.inputToken && {
+          symbol: withdrawApprove.inputToken.symbol,
+          displaySymbol: undefined,
+          name: withdrawApprove.inputToken.symbol,
+          logoURI: withdrawApprove.inputToken.logoURI ?? '',
+          decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
+        }),
     };
-  }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  }, [
+    amountUnit,
+    protocolInfo?.protocolInputDecimals,
+    protocolInfo?.withdrawApprove,
+    token,
+  ]);
   const approvalToken = useMemo(() => {
     if (borrowTokenApproveNeeded) {
       if (effectiveBorrowApproveInfo?.approveAsset) {
@@ -1039,6 +1056,7 @@ export const WithdrawSection = ({
         outputTokenAddress: selectedReceiveTokenAddress,
         slippage: pendleSlippage,
         effectiveApy,
+        utm,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
         withdrawType,
@@ -1048,7 +1066,12 @@ export const WithdrawSection = ({
         isActionCurrent,
         isSendCurrent,
         isResultCurrent,
-        taskAccountAddress,
+        taskAccountAddress:
+          taskAccountAddress ??
+          (protocolInfo?.earnAccount?.accountId === accountId &&
+          protocolInfo.earnAccount.networkId === networkId
+            ? protocolInfo.earnAccount.accountAddress
+            : undefined),
         workflowHandoff,
         stakingInfo: {
           label:
@@ -1079,6 +1102,10 @@ export const WithdrawSection = ({
     [
       hasRequiredData,
       handleWithdraw,
+      protocolInfo?.earnAccount,
+      accountId,
+      networkId,
+      utm,
       // identity,
       providerName,
       vault,

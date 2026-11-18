@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EtherFiLiquidReferContract } from '@onekeyhq/shared/src/consts/addresses';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
 
@@ -63,9 +63,10 @@ export class EtherFiEarnProtocol extends EarnProtocol {
   }: {
     networkId: string;
   }): string | undefined {
-    return networkId === getNetworkIdsMap().eth
-      ? EtherFiLiquidReferContract
-      : undefined;
+    return earnUtils.resolveEarnPermitSpenderAddress({
+      providerName: this.providerName,
+      networkId,
+    });
   }
 
   override getLegacyApprovalGuardPolicy(): 'etherfi' | 'none' {

@@ -1,5 +1,6 @@
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   EInternalDappEnum,
@@ -20,7 +21,7 @@ export function createStakeInfoWithOrderId({
     : undefined;
 }
 
-export async function buildEarnStakeConfirmation({
+export async function buildEarnStakeConfirmationOrServerOrder({
   request,
   stakingInfo,
 }: {
@@ -29,6 +30,14 @@ export async function buildEarnStakeConfirmation({
 }) {
   const stakeTx =
     await backgroundApiProxy.serviceStaking.buildStakeTransaction(request);
+  if (!stakeTx.tx) {
+    if (!stakeTx.orderId) {
+      throw new OneKeyLocalError(
+        'Stake response has neither a transaction nor an orderId',
+      );
+    }
+    return { serverOrderId: stakeTx.orderId };
+  }
   const encodedTx = await backgroundApiProxy.serviceStaking.buildInternalDappTx(
     {
       networkId: request.networkId,
@@ -50,4 +59,17 @@ export async function buildEarnStakeConfirmation({
     useFeeInTx: hasBtcFee ? true : undefined,
     feeInfoEditable: hasBtcFee ? false : undefined,
   };
+}
+
+export async function buildEarnStakeConfirmation(params: {
+  request: IStakeBaseParams & { expectedAccountAddress?: string };
+  stakingInfo?: IStakingInfo | null;
+}) {
+  const result = await buildEarnStakeConfirmationOrServerOrder(params);
+  if ('serverOrderId' in result) {
+    throw new OneKeyLocalError(
+      'Deposit task cannot be executed by the protocol',
+    );
+  }
+  return result;
 }

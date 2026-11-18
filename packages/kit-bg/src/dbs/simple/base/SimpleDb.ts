@@ -8,6 +8,19 @@ import {
 } from './simpleDbFacadeCompatibility';
 
 export class SimpleDb {
+  get cloudSyncAccountIssues() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@cloudSyncAccountIssues',
+      loader: () =>
+        import('../entity/SimpleDbEntityCloudSyncAccountIssues').then(
+          ({ SimpleDbEntityCloudSyncAccountIssues }) =>
+            new SimpleDbEntityCloudSyncAccountIssues(),
+        ),
+    });
+    Object.defineProperty(this, 'cloudSyncAccountIssues', { value });
+    return value;
+  }
+
   // Lazy load entities using getters
   get prime() {
     const value = createLazyServiceProxy({

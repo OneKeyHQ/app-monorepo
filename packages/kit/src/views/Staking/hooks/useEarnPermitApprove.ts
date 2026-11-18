@@ -3,13 +3,13 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import {
   isTaskAccountAddress,
   isTaskAccountCurrent,
 } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
@@ -25,6 +25,7 @@ interface IUseEarnPermitApproveParams {
   providerName: string;
   vaultAddress: string;
   expectedAccountAddress?: string;
+  beforeSign?: () => Promise<void>;
 }
 
 export interface IPermitSignatureResult {
@@ -47,6 +48,7 @@ export function useEarnPermitApprove() {
       providerName,
       vaultAddress,
       expectedAccountAddress,
+      beforeSign,
     }: IUseEarnPermitApproveParams): Promise<IPermitSignatureResult> => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -72,9 +74,8 @@ export function useEarnPermitApprove() {
           amount: new BigNumber(amountValue).toFixed(),
         });
 
-      const expectedSpender = getEarnProtocol(
+      const expectedSpender = earnUtils.resolveEarnPermitSpenderAddress({
         providerName,
-      ).resolvePermitSpenderAddress({
         networkId,
       });
       const spender = permit2Data.message?.spender;
@@ -86,66 +87,27 @@ export function useEarnPermitApprove() {
         const error = new Error(
           `Invalid spender address. Expected: ${expectedSpender ?? 'unsupported provider/network'}, Got: ${spender}`,
         );
-        defaultLogger.staking.page.permitSignError({
-          error: error.message,
-        });
+        defaultLogger.staking.page.permitSignError({ error: error.message });
         throw error;
       }
 
-      if (providerName.toLowerCase() === 'etherfi') {
-        const value = new BigNumber(amountValue).shiftedBy(token.decimals);
-        const signedValue = new BigNumber(permit2Data.message?.value ?? '');
-        const permitFields = permit2Data.types?.Permit;
-        const expectedFields = [
-          ['owner', 'address'],
-          ['spender', 'address'],
-          ['value', 'uint256'],
-          ['nonce', 'uint256'],
-          ['deadline', 'uint256'],
-        ];
-        const domainFields = permit2Data.types?.EIP712Domain;
-        const expectedDomainFields = [
-          ['name', 'string'],
-          ['version', 'string'],
-          ['chainId', 'uint256'],
-          ['verifyingContract', 'address'],
-        ];
-        if (
-          permit2Data.primaryType !== 'Permit' ||
-          permit2Data.domain?.chainId !== 1 ||
-          permit2Data.domain?.verifyingContract?.toLowerCase() !==
-            token.address.toLowerCase() ||
-          permit2Data.message?.owner?.toLowerCase() !==
-            account.address.toLowerCase() ||
-          !value.isFinite() ||
-          !value.isInteger() ||
-          !value.isGreaterThan(0) ||
-          !signedValue.isEqualTo(value) ||
-          permitFields?.length !== expectedFields.length ||
-          domainFields?.length !== expectedDomainFields.length ||
-          !expectedDomainFields.every(
-            ([name, type], index) =>
-              domainFields[index]?.name === name &&
-              domainFields[index]?.type === type,
-          ) ||
-          !expectedFields.every(
-            ([name, type], index) =>
-              permitFields[index]?.name === name &&
-              permitFields[index]?.type === type,
-          )
-        ) {
-          throw new OneKeyLocalError('Invalid EtherFi permit data');
-        }
-      }
+      earnUtils.assertEarnPermit({
+        providerName,
+        data: permit2Data,
+        networkId,
+        accountAddress: account.address,
+        token,
+        amount: amountValue,
+      });
+      await beforeSign?.();
 
       const unsignedMessage = stringUtils.stableStringify(permit2Data);
 
       if (
-        expectedAccountAddress !== undefined &&
         !(await isTaskAccountCurrent({
           accountId,
           networkId,
-          accountAddress: expectedAccountAddress,
+          accountAddress: account.address,
         }))
       )
         throw new OneKeyLocalError('Task account changed before Permit');

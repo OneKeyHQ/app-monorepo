@@ -1,5 +1,4 @@
 /** @jest-environment jsdom */
-
 import {
   StrictMode,
   Suspense,
@@ -17,6 +16,13 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+
+jest.mock('../ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: jest.fn(),
+}));
+jest.mock('../ClaimConversionDialog', () => ({
+  runClaimConversion: jest.fn(),
+}));
 
 type IProps = ComponentProps<typeof UniversalWithdraw>;
 type INavigationParams = {
@@ -43,6 +49,7 @@ const mockWorkflowCreation = jest.fn<
   [{ taskId: string; steps: { id: string }[] }]
 >();
 const mockFetchAllowance = jest.fn<Promise<{ allowanceParsed: string }>, []>();
+const mockAssertEarnApproval = jest.fn<Promise<void>, [unknown]>();
 const mockTrackAllowance = jest.fn();
 const mockRetryAllowance = jest.fn();
 const mockAllowanceValue = { current: '0' };
@@ -219,6 +226,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         (await mockGetAccount(params)).address,
     },
     serviceStaking: {
+      assertEarnApproval: (params: unknown) => mockAssertEarnApproval(params),
       getStakingConfigs: jest.fn().mockResolvedValue({}),
       buildUnstakeTransaction: (params: unknown) => mockBuildUnstake(params),
       buildInternalDappTx: (params: unknown) => mockBuildInternal(params),
@@ -628,6 +636,7 @@ function FormWithRealSingleWithdraw({
 describe('UniversalWithdraw share approval continuation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAssertEarnApproval.mockReset().mockResolvedValue();
     mockAllowanceValue.current = '0';
     mockRouteFocus.current = true;
     mockShowTransactionSection.current = false;
@@ -669,6 +678,51 @@ describe('UniversalWithdraw share approval continuation', () => {
         },
       },
     });
+  });
+
+  it('does not open an approval when the registered target validation fails', async () => {
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockAssertEarnApproval.mockRejectedValue(new Error('invalid target'));
+    const screen = render(<UniversalWithdraw {...props} />);
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    fireEvent.click(button);
+    await waitFor(() => expect(mockAssertEarnApproval).toHaveBeenCalled());
+    expect(mockAssertEarnApproval).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-a',
+        expectedAccountAddress: '0xaccount',
+        tokenAddress: '0xtoken',
+        spenderAddress: '0xspender',
+        action: 'unstake',
+      }),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not open approval when the same account changes address during validation', async () => {
+    mockFetchAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const validation = deferred<void>();
+    mockAssertEarnApproval.mockReturnValue(validation.promise);
+    const screen = render(<UniversalWithdraw {...props} />);
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false), {
+      timeout: 5000,
+    });
+    fireEvent.click(button);
+    await waitFor(() => expect(mockAssertEarnApproval).toHaveBeenCalled());
+    mockGetAccount.mockResolvedValue({ address: '0xother' });
+    await act(async () => validation.resolve());
+    await waitFor(() =>
+      expect(button.getAttribute('data-loading')).toBe('false'),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows only the current receive quote and does not reload it during amount validation', async () => {

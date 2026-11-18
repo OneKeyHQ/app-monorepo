@@ -70,6 +70,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -653,6 +654,10 @@ export function UniversalStake({
     () => getEarnProtocol(providerName),
     [providerName],
   );
+  const isProtocolExecutedStake = useMemo(
+    () => earnUtils.isProtocolExecutedStake({ providerName }),
+    [providerName],
+  );
   const stakePresentation = useMemo(
     () => earnProtocol.getStakePresentation(),
     [earnProtocol],
@@ -678,6 +683,8 @@ export function UniversalStake({
     approveTarget.networkId,
     approveTarget.spenderAddress,
     approveTarget.token?.address,
+    postWrapApproveTarget?.spenderAddress,
+    postWrapApproveTarget?.token?.address,
     approveType,
     normalizeEarnActionAmountScope(amountValue),
     transactionInputTokenAddress,
@@ -1876,6 +1883,69 @@ export function UniversalStake({
     [isWrapStake],
   );
 
+  const assertStakeApproval = useCallback(
+    async (
+      isCurrent: () => boolean,
+      target: { spenderAddress: string; token?: IToken },
+    ) => {
+      if (!isCurrent()) throw new OneKeyLocalError('Earn selection changed');
+      if (!networkUtils.isEvmNetwork({ networkId }) || target.token?.isNative)
+        return;
+      if (
+        !target.token?.address ||
+        !target.spenderAddress ||
+        approveTarget.accountId !== accountId ||
+        approveTarget.networkId !== networkId
+      )
+        throw new OneKeyLocalError('Earn approval is unavailable');
+      const address = await getTaskAccountAddress({ accountId, networkId });
+      if (
+        !isCurrent() ||
+        !address ||
+        (taskAccountAddress &&
+          !isTaskAccountAddress(
+            { networkId, accountAddress: taskAccountAddress },
+            address,
+          ))
+      )
+        throw new OneKeyLocalError('Earn approval account changed');
+      await backgroundApiProxy.serviceStaking.assertEarnApproval({
+        networkId,
+        accountId,
+        expectedAccountAddress: address,
+        provider: providerName,
+        symbol: earnUtils.isEtherFiProvider({ providerName })
+          ? actionSymbol
+          : (protocolInfo?.symbol ?? actionSymbol),
+        vault: protocolInfo?.vault,
+        action: 'stake',
+        tokenAddress: target.token.address,
+        spenderAddress: target.spenderAddress,
+      });
+      if (
+        !isCurrent() ||
+        !(await isTaskAccountCurrent({
+          accountId,
+          networkId,
+          accountAddress: address,
+        })) ||
+        !isCurrent()
+      )
+        throw new OneKeyLocalError('Earn selection changed');
+    },
+    [
+      accountId,
+      actionSymbol,
+      approveTarget.accountId,
+      approveTarget.networkId,
+      networkId,
+      protocolInfo?.symbol,
+      protocolInfo?.vault,
+      providerName,
+      taskAccountAddress,
+    ],
+  );
+
   const verifyDepositTaskSend = useCallback(
     async (
       isCurrent: () => boolean,
@@ -1885,12 +1955,27 @@ export function UniversalStake({
       const verify =
         resetActionStateRef.current.actionGuard?.verifyBeforeAction;
       if (verify && !(await verify({ allowRevoke: false }))) return false;
+      if (!canSendDepositTask(isCurrent, step)) return false;
+      if (step === 'approve' || step === 'resetApproval') {
+        await assertStakeApproval(
+          isCurrent,
+          isWrapStake && postWrapApproveTarget
+            ? postWrapApproveTarget
+            : approveTarget,
+        );
+      }
       return Boolean(
         canSendDepositTask(isCurrent, step) &&
         resetActionStateRef.current.actionGuard?.verifyBeforeAction === verify,
       );
     },
-    [canSendDepositTask],
+    [
+      canSendDepositTask,
+      assertStakeApproval,
+      isWrapStake,
+      postWrapApproveTarget,
+      approveTarget,
+    ],
   );
 
   const confirmStakePriceImpact = useCallback(
@@ -2042,6 +2127,9 @@ export function UniversalStake({
     ) => {
       const isCurrent = isApprovalCurrent ?? approvalScopeGuard.capture();
       if (!isCurrent()) return;
+      if (useApprove && !isWrapStake) {
+        await assertStakeApproval(isCurrent, approveTarget);
+      }
       if (usePermit2Approve && !workflowHandoff) {
         try {
           const address = await getTaskAccountAddress({
@@ -2468,15 +2556,15 @@ export function UniversalStake({
     },
     [
       usePermit2Approve,
+      useApprove,
+      assertStakeApproval,
+      approveTarget,
       approvalScopeGuard,
       approveType,
       allowance,
       estimateFeeResp,
       shouldApprove,
       onConfirm,
-      approveTarget.accountId,
-      approveTarget.networkId,
-      approveTarget.spenderAddress,
       amountValue,
       showEstimateGasAlert,
       checkEstimateGasAlert,
@@ -2829,24 +2917,21 @@ export function UniversalStake({
         networkId: approveTarget.networkId,
       });
       if (!isCurrent()) return;
+      await assertStakeApproval(isCurrent, approveTarget);
+      if (!approveTarget.token)
+        throw new OneKeyLocalError('Earn approval token is unavailable');
       const approveResetInfo: IApproveInfo = {
         owner: account.address,
         spender: approveTarget.spenderAddress,
         amount: '0',
         isMax: false,
-        tokenInfo: {
-          ...tokenInfo?.token,
-          address: tokenInfo?.token.address ?? '',
-          symbol: tokenInfo?.token.symbol ?? '',
-          decimals: tokenInfo?.token.decimals ?? 0,
-          isNative: !!tokenInfo?.token.isNative,
-          name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
-        },
+        tokenInfo: approveTarget.token,
       };
       const approvesInfo = [approveResetInfo];
       await navigationToTxConfirm({
         approvesInfo,
         isNavigationCurrent: isCurrent,
+        onBeforeSend: () => assertStakeApproval(isCurrent, approveTarget),
         onSuccess(data) {
           if (!isCurrent()) return;
           // Poll for allowance updates until it becomes 0
@@ -2972,15 +3057,13 @@ export function UniversalStake({
       });
     },
     [
-      approveTarget.accountId,
-      approveTarget.networkId,
-      approveTarget.spenderAddress,
+      approveTarget,
+      assertStakeApproval,
       fetchAllowanceResponse,
       navigationToTxConfirm,
       preparationPolicy,
       verifyPreparedAction,
       intl,
-      tokenInfo?.token,
     ],
   );
 
@@ -3351,6 +3434,8 @@ export function UniversalStake({
                     providerName,
                     vaultAddress: protocolVault || '',
                     expectedAccountAddress: frozenAddress,
+                    beforeSign: () =>
+                      assertStakeApproval(isCurrent, approveTarget),
                   });
                   if (signal.aborted || !isCurrent()) return undefined;
                   signed = result;
@@ -3462,6 +3547,15 @@ export function UniversalStake({
         return;
       }
 
+      try {
+        await assertStakeApproval(isCurrent, approveTarget);
+      } catch (error) {
+        if (isCurrent()) {
+          setApproving(false);
+          errorToastUtils.showToastOfError(error);
+        }
+        return;
+      }
       await navigationToTxConfirm({
         approvesInfo: [
           {
@@ -3472,6 +3566,7 @@ export function UniversalStake({
           },
         ],
         isNavigationCurrent: isCurrent,
+        onBeforeSend: () => assertStakeApproval(isCurrent, approveTarget),
         onSuccess(data) {
           if (!isCurrent()) return;
           const txid =
@@ -3552,10 +3647,8 @@ export function UniversalStake({
     usePermit2Approve,
     preparationPolicy,
     verifyPreparedAction,
-    approveTarget.accountId,
-    approveTarget.networkId,
-    approveTarget.spenderAddress,
-    approveTarget.token,
+    approveTarget,
+    assertStakeApproval,
     navigationToTxConfirm,
     fetchAllowanceResponse,
     showResetUSDTApproveValueDialog,
@@ -3692,9 +3785,20 @@ export function UniversalStake({
     const amountBN = new BigNumber(amountValue);
     return !amountBN.isNaN() && amountBN.gt(0);
   }, [amountValue]);
+  const hasVisibleTaskSetup = activeDepositTask?.steps.some((step) => {
+    if (step.kind === 'deposit' || step.status.type === 'skipped') return false;
+    if (
+      isWrapStake ||
+      shouldApprove ||
+      showStakeProgressRef.current[amountValue]
+    )
+      return true;
+    return !['waiting', 'ready', 'preparing'].includes(step.status.type);
+  });
   const isShowStakeProgress =
-    Boolean(activeDepositTask) ||
-    (isPositiveAmount &&
+    Boolean(hasVisibleTaskSetup) ||
+    (!activeDepositTask &&
+      isPositiveAmount &&
       (isWrapStake ||
         (useApprove &&
           (shouldApprove || showStakeProgressRef.current[amountValue]))));
@@ -3885,11 +3989,15 @@ export function UniversalStake({
       });
     }
     if (shouldApprove) {
+      // One tap covers both steps when the deposit follows the approve on its
+      // own: a Permit2 signature, or a protocol that submits the deposit itself
+      // (OK-66931).
       return intl.formatMessage(
         {
-          id: usePermit2Approve
-            ? ETranslations.earn_approve_deposit
-            : ETranslations.global_approve,
+          id:
+            usePermit2Approve || isProtocolExecutedStake
+              ? ETranslations.earn_approve_deposit
+              : ETranslations.global_approve,
         },
         { amount: amountValue, symbol: tokenInfo?.token.symbol || '' },
       );
@@ -3916,6 +4024,7 @@ export function UniversalStake({
     isWrapStake,
     wrapStakeLabel,
     usePermit2Approve,
+    isProtocolExecutedStake,
     amountValue,
     tokenInfo?.token.symbol,
     stakePresentation.action,

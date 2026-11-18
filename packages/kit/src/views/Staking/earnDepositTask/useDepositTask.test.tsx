@@ -68,6 +68,27 @@ function makeHandle(task: ReturnType<typeof makeTask>): IDepositTaskHandle {
   };
 }
 
+function reserveDetached(
+  ownerKey: string,
+  state: ReturnType<typeof createDepositTaskState>,
+) {
+  const token = depositTaskRegistry.reserve(ownerKey, state);
+  expect(token).toBeDefined();
+  if (!token) return;
+  const handle = {
+    ...makeHandle(state.getTask()),
+    taskState: state,
+    getTask: state.getTask,
+    subscribeRecovery: () => () => undefined,
+    retryDetachedRecording: async () => undefined,
+  };
+  expect(
+    depositTaskRegistry.retainRecordingHandle(ownerKey, token, handle),
+  ).toBe(true);
+  expect(depositTaskRegistry.detach(ownerKey, token, handle)).toBe(true);
+  return token;
+}
+
 describe('useDepositTask', () => {
   beforeEach(() => {
     mockRecoveryAddress.mockReset().mockResolvedValue('owner');
@@ -153,7 +174,7 @@ describe('useDepositTask', () => {
       status: 'succeeded',
     });
     const ownerKey = 'recorded-after-exit-owner';
-    const token = depositTaskRegistry.reserve(ownerKey, state);
+    const token = reserveDetached(ownerKey, state);
     expect(token).toBeDefined();
     const onFinished = jest.fn();
     const view = renderHook(() => useRetainedDepositTask(ownerKey, onFinished));
@@ -183,7 +204,7 @@ describe('useDepositTask', () => {
       status: 'succeeded',
     });
     const ownerKey = 'recording-owner-before-switch';
-    const token = depositTaskRegistry.reserve(ownerKey, state);
+    const token = reserveDetached(ownerKey, state);
     expect(token).toBeDefined();
     let resolveAccount: (address: string) => void = () => undefined;
     mockRecoveryAddress.mockResolvedValueOnce('owner').mockReturnValueOnce(
@@ -222,7 +243,7 @@ describe('useDepositTask', () => {
       status: 'succeeded',
     });
     const ownerKey = 'other-provider-recording-owner';
-    const token = depositTaskRegistry.reserve(ownerKey, state);
+    const token = reserveDetached(ownerKey, state);
     expect(token).toBeDefined();
     const onFinished = jest.fn();
     const view = renderHook(() => useRetainedDepositTask(ownerKey, onFinished));

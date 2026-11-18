@@ -79,6 +79,7 @@ const mockBuildStake = jest.fn<
 >();
 const mockBuildInternal = jest.fn<Promise<IEncodedTx>, [unknown]>();
 const mockAllowance = jest.fn<Promise<IAllowance>, [unknown]>();
+const mockAssertApproval = jest.fn<Promise<void>, [unknown]>();
 const mockWrappedBalance = jest.fn<
   Promise<IFetchTokenDetailItem[]>,
   [unknown]
@@ -123,6 +124,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchTokensDetails: (input: unknown) => mockWrappedBalance(input),
     },
     serviceStaking: {
+      assertEarnApproval: (input: unknown) => mockAssertApproval(input),
       buildStakeTransaction: (input: { stakeType?: IEarnStakeType }) =>
         mockBuildStake(input),
       buildInternalDappTx: (input: unknown) => mockBuildInternal(input),
@@ -286,6 +288,7 @@ describe('useUniversalStake deposits and wrapping', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockRiskAccepted.mockResolvedValue(true);
+    mockAssertApproval.mockResolvedValue(undefined);
     mockBuildStake.mockImplementation(async ({ stakeType }) => ({
       tx: stakeType === 'wrap' ? wrapTx : depositTx,
       orderId: stakeType === 'wrap' ? undefined : 'deposit-order',
@@ -1260,6 +1263,19 @@ describe('useUniversalStake deposits and wrapping', () => {
     expect(onStepChange).not.toHaveBeenCalled();
   });
 
+  it('does not wrap or approve when the account changes during authorization validation', async () => {
+    const validation = deferred<void>();
+    mockAssertApproval.mockReturnValueOnce(validation.promise);
+    const { result } = renderHook(() => useUniversalStake(account));
+    const operation = result.current(params);
+    await waitFor(() => expect(mockAssertApproval).toHaveBeenCalledTimes(1));
+    mockGetAccountAddress.mockResolvedValue('0xother');
+    validation.resolve();
+    await expect(operation).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockBuildStake).not.toHaveBeenCalled();
+  });
+
   it('does not request approval or deposit when the wrapped balance is insufficient', async () => {
     mockWrappedBalance.mockResolvedValue([
       {
@@ -1291,6 +1307,7 @@ describe('useUniversalStake deposits and wrapping', () => {
     ).toEqual({
       type: 'failed',
       stage: 'beforeSend',
+      preparationFailed: true,
     });
     expect(mockWrappedBalance).toHaveBeenCalledWith(
       expect.objectContaining({

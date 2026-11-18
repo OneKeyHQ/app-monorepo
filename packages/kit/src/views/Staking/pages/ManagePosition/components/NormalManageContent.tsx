@@ -10,10 +10,10 @@ import {
   Keyboard as DeviceKeyboard,
   Dialog,
   SizableText,
-  Tabs,
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
@@ -30,6 +30,7 @@ import type {
   IEarnManagePageResponse,
   IEarnSelectField,
   IEarnTokenInfo,
+  IEarnUtmParams,
   IProtocolInfo,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
@@ -84,6 +85,7 @@ interface INormalManageContentProps {
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   suppressPlatformBonus?: boolean;
   ongoingValidator?: IEarnSelectField;
@@ -122,6 +124,7 @@ export function NormalManageContent({
   appNavigation,
   showApyDetail,
   fallbackTokenImageUri,
+  utm,
   stakeProtocolSwitchConfig,
   suppressPlatformBonus,
   ongoingValidator,
@@ -842,7 +845,7 @@ export function NormalManageContent({
   return (
     <>
       <XStack jc="space-between" px="$5">
-        <Tabs.TabBar
+        <TabBar
           divider={false}
           onTabPress={handleTabChange}
           tabNames={tabNames}
@@ -936,6 +939,7 @@ export function NormalManageContent({
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          utm={utm}
           protocolSwitchConfig={stakeProtocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
@@ -980,6 +984,7 @@ export function NormalManageContent({
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          utm={utm}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}

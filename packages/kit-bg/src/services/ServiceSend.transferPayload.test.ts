@@ -342,7 +342,7 @@ describe('privacy send approval lifecycle', () => {
   );
 
   it.each(['xmr--0', 'zec--0'])(
-    '%s logs the signed tx without its hex payloads',
+    '%s returns the signed tx without logging its payload',
     async (networkId) => {
       const { service, accountId, signedTx } = privacySendFixture(networkId);
       const unsignedTx = await service.buildUnsignedTx({
@@ -351,25 +351,14 @@ describe('privacy send approval lifecycle', () => {
       });
       const log = jest.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        await service.signTransaction({
+        const result = await service.signTransaction({
           accountId,
           networkId,
           unsignedTx,
           signOnly: true,
         });
-        const signLogs = log.mock.calls.filter(([label]) =>
-          [
-            'signTx@vault.signTransaction',
-            'signTx@serviceSend.signTransaction',
-          ].includes(label as string),
-        );
-        expect(signLogs).toHaveLength(2);
-        for (const [, payload] of signLogs) {
-          expect(payload).toEqual(
-            expect.objectContaining({ txid: signedTx.txid }),
-          );
-          expect(JSON.stringify(payload)).not.toContain('aabb');
-        }
+        expect(result).toBe(signedTx);
+        expect(log).not.toHaveBeenCalled();
       } finally {
         log.mockRestore();
       }

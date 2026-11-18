@@ -1,10 +1,5 @@
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-} from '@onekeyhq/shared/src/consts/addresses';
-import { EApproveType } from '@onekeyhq/shared/types/staking';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import { EarnProtocol } from '../EarnProtocol';
 
@@ -14,12 +9,10 @@ export class MorphoEarnProtocol extends EarnProtocol {
   }: {
     networkId: string;
   }): string | undefined {
-    if (networkId === getNetworkIdsMap().eth) return MorphoBundlerContract;
-    if (networkId === getNetworkIdsMap().base) return MorphoBaseBundlerContract;
-    if (networkId === getNetworkIdsMap().katana) {
-      return MorphoKatanaBundlerContract;
-    }
-    return undefined;
+    return earnUtils.resolveEarnPermitSpenderAddress({
+      providerName: this.providerName,
+      networkId,
+    });
   }
 
   override resolveAllowanceSpenderAddress({
@@ -31,10 +24,12 @@ export class MorphoEarnProtocol extends EarnProtocol {
     approveType?: EApproveType;
     approveSpenderAddress?: string;
   }): string {
-    if (!approveSpenderAddress) return '';
-    return approveType === EApproveType.Permit
-      ? (this.resolvePermitSpenderAddress({ networkId }) ?? '')
-      : approveSpenderAddress;
+    return earnUtils.resolveEarnAllowanceSpenderAddress({
+      providerName: this.providerName,
+      networkId,
+      approveType,
+      approveSpenderAddress,
+    });
   }
 
   override showsProtectionSection(): boolean {

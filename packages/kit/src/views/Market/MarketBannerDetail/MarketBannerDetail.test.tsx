@@ -83,26 +83,24 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
-    Tabs: {
-      TabBarItem: ({
+    TabBarItem: ({
+      name,
+      tabItemStyle,
+      onPress,
+    }: {
+      name: string;
+      tabItemStyle: { 'aria-selected': boolean };
+      onPress: (name: string) => void;
+    }) =>
+      React.createElement(
+        'button',
+        {
+          role: 'tab',
+          'aria-selected': tabItemStyle['aria-selected'],
+          onClick: () => onPress(name),
+        },
         name,
-        tabItemStyle,
-        onPress,
-      }: {
-        name: string;
-        tabItemStyle: { 'aria-selected': boolean };
-        onPress: (name: string) => void;
-      }) =>
-        React.createElement(
-          'button',
-          {
-            role: 'tab',
-            'aria-selected': tabItemStyle['aria-selected'],
-            onClick: () => onPress(name),
-          },
-          name,
-        ),
-    },
+      ),
     Page: Object.assign(Container, { Header: () => null, Body: Container }),
     Stack: Frame,
     XStack: Container,

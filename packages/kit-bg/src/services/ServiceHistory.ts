@@ -20,10 +20,12 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  convertHistoryTxsFiatCurrency,
   filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
   isHistoryCursorAdvanced,
+  scaleFeeFiatValueToNativeFee,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
@@ -86,7 +88,11 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
-import { perpsDepositOrderAtom } from '../states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  perpsDepositOrderAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
 import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
@@ -1320,7 +1326,11 @@ class ServiceHistory extends ServiceBase {
     });
 
     const filtered = filterHistoryTxs({
-      txs: onChainResult.txs,
+      txs: await this.convertTxsToDisplayCurrency({
+        txs: onChainResult.txs,
+        displayCurrency: sourceCurrency,
+        currencyMap,
+      }),
       sourceCurrency,
       targetCurrency,
       currencyMap,
@@ -1370,6 +1380,35 @@ class ServiceHistory extends ServiceBase {
         networkId: string;
       }[],
     };
+  }
+
+  // Cached rows keep the fiat snapshot of the currency they were fetched in.
+  // Bring them to the caller's display currency, which is the current setting
+  // when the caller names none (OK-67171).
+  // The result is a copy for display: a row whose rate is missing loses its
+  // fiat values in it, while the cached row keeps them. A caller that saves
+  // the result passes `hideUnconvertible: false` to get such a row as stored.
+  private async convertTxsToDisplayCurrency({
+    txs,
+    displayCurrency,
+    currencyMap,
+    hideUnconvertible = true,
+  }: {
+    txs: IAccountHistoryTx[];
+    displayCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
+    hideUnconvertible?: boolean;
+  }): Promise<IAccountHistoryTx[]> {
+    if (!txs.some((tx) => tx.fiatCurrency)) {
+      return txs;
+    }
+    return convertHistoryTxsFiatCurrency({
+      txs,
+      targetCurrency:
+        displayCurrency ?? (await settingsPersistAtom.get()).currencyInfo.id,
+      currencyMap: currencyMap ?? (await currencyPersistAtom.get()).currencyMap,
+      hideUnconvertible,
+    });
   }
 
   // Local history is cached per network + address/xpub and shared by every
@@ -1503,6 +1542,11 @@ class ServiceHistory extends ServiceBase {
       }
     };
 
+    // The server prices each detail's fee in the request currency. Name one
+    // currency for the whole poll, so the confirmed rows built from these
+    // details can be brought to it whatever the setting does meanwhile.
+    const detailCurrency = (await settingsPersistAtom.get()).currencyInfo.id;
+
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
       localHistoryPendingTxs.map(
@@ -1511,6 +1555,7 @@ class ServiceHistory extends ServiceBase {
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
             txid: tx.decodedTx.txid,
+            requestCurrency: detailCurrency,
             // the locally built decoded tx carries the complete input/output
             // set, so detail polling can narrow vault extra params to the
             // addresses this tx actually involves
@@ -1552,14 +1597,38 @@ class ServiceHistory extends ServiceBase {
             txid: remoteTxId,
           });
         }
+        // A pending row cached across a currency switch still carries the
+        // currency it was built in, while the detail fee is priced in the
+        // detail currency. Bring the row to that currency before the fee is
+        // merged, so the confirmed row holds one currency and its fee is not
+        // converted a second time on read (OK-67171).
+        const [pendingTxInDetailCurrency] =
+          await this.convertTxsToDisplayCurrency({
+            txs: [localHistoryPendingTx],
+            displayCurrency: detailCurrency,
+            currencyMap,
+            hideUnconvertible: false,
+          });
+        // This row is saved. With a rate missing it stays in its own currency
+        // and takes no detail fiat fee, so the saved row still holds one
+        // currency and is converted on a later read.
+        const isPendingTxInDetailCurrency =
+          !pendingTxInDetailCurrency.fiatCurrency ||
+          pendingTxInDetailCurrency.fiatCurrency === detailCurrency;
+        const confirmedFeeInNative = isNil(confirmedTx.data.gasFee)
+          ? localHistoryPendingTx.decodedTx.totalFeeInNative
+          : confirmedTx.data.gasFee;
         confirmedTxs.push({
-          ...localHistoryPendingTx,
+          ...pendingTxInDetailCurrency,
+          fiatCurrency: isPendingTxInDetailCurrency
+            ? detailCurrency
+            : pendingTxInDetailCurrency.fiatCurrency,
           originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
             : localHistoryPendingTx.id,
           decodedTx: {
-            ...localHistoryPendingTx.decodedTx,
+            ...pendingTxInDetailCurrency.decodedTx,
             txid: vaultSettings.useRemoteTxId
               ? remoteTxId
               : localHistoryPendingTx.decodedTx.txid,
@@ -1568,12 +1637,22 @@ class ServiceHistory extends ServiceBase {
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
-            totalFeeInNative: isNil(confirmedTx.data.gasFee)
-              ? localHistoryPendingTx.decodedTx.totalFeeInNative
-              : confirmedTx.data.gasFee,
-            totalFeeFiatValue: isNil(confirmedTx.data.gasFeeFiatValue)
-              ? localHistoryPendingTx.decodedTx.totalFeeFiatValue
-              : confirmedTx.data.gasFeeFiatValue,
+            totalFeeInNative: confirmedFeeInNative,
+            // A row that cannot take the detail fiat fee prices the fee
+            // actually paid from its own snapshot. The pending fiat value was
+            // priced with the estimated fee, so it is scaled to the paid one
+            // rather than saved as the fiat value of a fee it does not match.
+            totalFeeFiatValue:
+              isPendingTxInDetailCurrency &&
+              !isNil(confirmedTx.data.gasFeeFiatValue)
+                ? confirmedTx.data.gasFeeFiatValue
+                : scaleFeeFiatValueToNativeFee({
+                    feeFiatValue:
+                      pendingTxInDetailCurrency.decodedTx.totalFeeFiatValue,
+                    feeInNative:
+                      localHistoryPendingTx.decodedTx.totalFeeInNative,
+                    nextFeeInNative: confirmedFeeInNative,
+                  }),
             isFinal: true,
           },
         });
@@ -1842,6 +1921,13 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    // Cached rows the fresh page did not replace may be priced in another
+    // currency.
+    result = await this.convertTxsToDisplayCurrency({
+      txs: result,
+      displayCurrency: sourceCurrency,
+      currencyMap,
+    });
     result = await this.attachPrivateSendDisplayStatus(result);
     result = await this.attachPrivateSendDisplayPrices({
       txs: result,
@@ -2222,7 +2308,13 @@ class ServiceHistory extends ServiceBase {
       }
 
       const resultWithPrivateSendDisplayStatus =
-        await this.attachPrivateSendDisplayStatus(result);
+        await this.attachPrivateSendDisplayStatus(
+          await this.convertTxsToDisplayCurrency({
+            txs: result,
+            displayCurrency: sourceCurrency,
+            currencyMap,
+          }),
+        );
       const resultWithPrivateSendDisplayPrices =
         await this.attachPrivateSendDisplayPrices({
           txs: resultWithPrivateSendDisplayStatus,
@@ -2275,7 +2367,13 @@ class ServiceHistory extends ServiceBase {
     );
 
     const resultWithPrivateSendDisplayStatus =
-      await this.attachPrivateSendDisplayStatus(result);
+      await this.attachPrivateSendDisplayStatus(
+        await this.convertTxsToDisplayCurrency({
+          txs: result,
+          displayCurrency: sourceCurrency,
+          currencyMap,
+        }),
+      );
     const resultWithPrivateSendDisplayPrices =
       await this.attachPrivateSendDisplayPrices({
         txs: resultWithPrivateSendDisplayStatus,
@@ -2742,6 +2840,10 @@ class ServiceHistory extends ServiceBase {
     const isIndexerChain = networkInfo?.backendIndex === true;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The server prices the page in the request currency. Send it explicitly
+    // and stamp the rows with the same value, so a currency switch during the
+    // request cannot leave a row labelled with a currency it was not priced in.
+    const requestCurrency = (await settingsPersistAtom.get()).currencyInfo.id;
     let resp;
     let extraParams: any;
     const fetchHistoryFromServer = async () => {
@@ -2805,6 +2907,7 @@ class ServiceHistory extends ServiceBase {
         },
         {
           headers: {
+            'x-onekey-request-currency': requestCurrency,
             ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId: params.accountId,
@@ -2874,6 +2977,9 @@ class ServiceHistory extends ServiceBase {
         ),
       )
     ).filter(Boolean);
+    for (const tx of txs) {
+      tx.fiatCurrency = requestCurrency;
+    }
 
     return {
       txs:
@@ -3284,6 +3390,9 @@ class ServiceHistory extends ServiceBase {
             xpub,
             accountAddress,
             privacyChainPoolId: params.privacyChainPoolId,
+            ...(params.requestCurrency
+              ? { requestCurrency: params.requestCurrency }
+              : {}),
             // skip account-scoped vault extras when the address lookup
             // failed: the server rejects `accountAddressArray` without an
             // accompanying `accountAddress`, and other vault extras (e.g.

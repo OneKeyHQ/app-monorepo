@@ -8,7 +8,7 @@ yarn i18n:workflow review --file <dir>/plan.json --out <dir>/review.html
 
 Use new output filenames; the model does not implement preview UI.
 Pass `review --feedback <revision.json>` to prefill requested edits while retaining
-original key identities. This produces an editable revision, not a refreshed upload plan.
+original key identities. This produces an editable revision, not a refreshed write plan.
 
 ## Import and revise
 
@@ -20,7 +20,7 @@ original key identities. This produces an editable revision, not a refreshed upl
 
    The importer returns `revise-draft`, `approve-plan`, or `already-applied`.
    Only `approve-plan` confirms the original plan for apply; `already-applied`
-   requires no reupload. Generating feedback inside HTML is not approval until
+   requires no new write. Generating feedback inside HTML is not approval until
    the user sends it into the conversation.
 
 2. For `revise-draft`, run `inspect --file <dir>/revised.json`. Resolve `reviewNote`

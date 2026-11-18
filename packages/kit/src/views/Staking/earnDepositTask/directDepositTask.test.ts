@@ -405,9 +405,13 @@ describe('direct deposit task', () => {
       await expect(runDirectDepositTask(test.args)).resolves.toBe(false);
       expect(test.actions).toEqual(['approve']);
       const beforeRetry = test.getHandle()?.getTask();
+      expect(beforeRetry?.steps[beforeRetry.currentStepIndex].kind).toBe(
+        'deposit',
+      );
       expect(beforeRetry?.steps[beforeRetry.currentStepIndex].status).toEqual({
         type: 'failed',
         stage: 'beforeSend',
+        preparationFailed: true,
       });
       expect(test.onDepositSuccess).not.toHaveBeenCalled();
       expect(confirmReset).not.toHaveBeenCalled();

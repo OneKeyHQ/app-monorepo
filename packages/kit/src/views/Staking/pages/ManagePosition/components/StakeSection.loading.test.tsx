@@ -167,6 +167,9 @@ jest.mock(
 jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
   __esModule: true,
   default: {
+    ...jest.requireActual<
+      typeof import('@onekeyhq/shared/src/utils/earnUtils')
+    >('@onekeyhq/shared/src/utils/earnUtils').default,
     isEtherFiProvider: ({ providerName }: { providerName: string }) =>
       providerName.toLowerCase() === 'etherfi',
     isNativeProvider: ({ providerName }: { providerName: string }) =>
@@ -331,13 +334,17 @@ const item = (info: IToken) => ({
   price24h: '1',
 });
 
-function renderStake(provider = nativeProtocol) {
+function renderStake(
+  provider = nativeProtocol,
+  onTaskRecoveryComplete?: () => void,
+) {
   return render(
     <StakeSection
       accountId="account-1"
       networkId="evm--1"
       tokenInfo={tokenInfo}
       protocolInfo={provider}
+      onTaskRecoveryComplete={onTaskRecoveryComplete}
     />,
   );
 }
@@ -1204,6 +1211,47 @@ it('tracks the submitted EtherFi transaction with its original account and netwo
   );
 });
 
+it('uses the current campaign attribution when confirming a stake', async () => {
+  mockGetEarnAssetsList.mockResolvedValue({ assets: [item(weth)] });
+  mockStakeApproval.mockReturnValue({
+    approve: { approveType: 'legacy', approveTarget: '0xspender' },
+    error: false,
+    retry: jest.fn(),
+  });
+  mockHandleStake.mockResolvedValue(true);
+  const provider = { ...nativeProtocol, provider: 'etherfi' };
+  const view = render(
+    <StakeSection
+      accountId="account-1"
+      networkId="evm--1"
+      tokenInfo={tokenInfo}
+      protocolInfo={provider}
+      utm={{ utmSource: 'first' }}
+    />,
+  );
+  await waitFor(() =>
+    expect(view.getByTestId('confirm').hasAttribute('disabled')).toBe(false),
+  );
+  view.rerender(
+    <StakeSection
+      accountId="account-1"
+      networkId="evm--1"
+      tokenInfo={tokenInfo}
+      protocolInfo={provider}
+      utm={{ utmSource: 'second' }}
+    />,
+  );
+  const onConfirm = mockConfirmStake.mock.calls.at(-1)?.[1];
+  if (!onConfirm)
+    throw new OneKeyLocalError('Stake confirmation is unavailable');
+  await act(async () => {
+    await onConfirm({ amount: '1', taskAccountAddress: '0xowner' });
+  });
+  expect(mockHandleStake).toHaveBeenCalledWith(
+    expect.objectContaining({ utm: { utmSource: 'second' } }),
+  );
+});
+
 it('does not apply a confirmation refresh to a different account', async () => {
   let resolveOld: (value: IEarnAssetsList) => void = () => undefined;
   mockGetEarnAssetsList
@@ -1399,3 +1447,262 @@ it.each([true, false])(
     expect(mockRemovePermitCache).toHaveBeenCalledTimes(1);
   },
 );
+
+it.each(['succeeded', 'pending', 'remoteUnknown'] as const)(
+  'shows the correct manage form after restoring a %s deposit recording',
+  async (status) => {
+    const provider = { ...nativeProtocol, provider: 'etherfi' };
+    const ownerKey = getDepositTaskOwnerKey({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      provider: 'etherfi',
+      vault: 'vault',
+    });
+    const task = createDepositTask({
+      taskId: `manage-${status}`,
+      identity: {
+        accountId: 'account-1',
+        accountAddress: '0xowner',
+        networkId: 'evm--1',
+        provider: 'etherfi',
+        vault: 'vault',
+        inputTokenAddress: '',
+        depositTokenAddress: EthereumWETH,
+        amount: '2',
+        spenderAddress: '0xspender',
+      },
+      steps: [{ id: 'deposit', kind: 'deposit' }],
+    });
+    const state = createDepositTaskState({
+      ...task,
+      currentStepIndex: 1,
+      steps: [
+        {
+          ...task.steps[0],
+          attemptId: 'attempt',
+          status: { type: 'handedOff', txid: 'tx' },
+        },
+      ],
+      recording: { txid: 'tx', status },
+    });
+    const token = depositTaskRegistry.reserve(ownerKey, state);
+    expect(token).toBeDefined();
+    if (!token) return;
+    const handle = {
+      taskState: state,
+      getTask: state.getTask,
+      isExecutionCurrent: () => false,
+      run: jest.fn(async () => undefined),
+      retry: jest.fn(async () => undefined),
+      retryStatus: jest.fn(async () => undefined),
+      cancel: jest.fn(),
+      dispose: jest.fn(),
+      subscribeRecovery: jest.fn(() => () => undefined),
+      retryDetachedRecording: jest.fn(async () => undefined),
+    };
+    expect(
+      depositTaskRegistry.retainRecordingHandle(ownerKey, token, handle),
+    ).toBe(true);
+    expect(depositTaskRegistry.detach(ownerKey, token, handle)).toBe(true);
+    try {
+      mockStakeApproval.mockReturnValue({
+        approve: { approveType: 'legacy', approveTarget: '0xspender' },
+        error: false,
+        retry: jest.fn(),
+      });
+      mockGetEarnAssetsList.mockResolvedValue({
+        assets: [item(weth), item(eth)],
+      });
+      const onTaskRecoveryComplete = jest.fn();
+      const view = renderStake(provider, onTaskRecoveryComplete);
+      if (status === 'succeeded') {
+        await waitFor(() =>
+          expect(depositTaskRegistry.find(ownerKey)).toBeUndefined(),
+        );
+        await waitFor(() =>
+          expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
+        );
+        expect(screen.queryByTestId('retained-task')).toBeNull();
+        await waitFor(() =>
+          expect(onTaskRecoveryComplete).toHaveBeenCalledTimes(1),
+        );
+      } else {
+        await waitFor(() =>
+          expect(mockRetainedStakeForm).toHaveBeenLastCalledWith(
+            expect.objectContaining({ state }),
+          ),
+        );
+        expect(screen.queryByTestId('recovery-blocked')).toBeNull();
+        expect(screen.queryByTestId('retained-task')).toBeNull();
+        expect(screen.getByTestId('stake-form').textContent).toBe('ETH');
+        expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
+        expect(onTaskRecoveryComplete).not.toHaveBeenCalled();
+      }
+      view.unmount();
+    } finally {
+      depositTaskRegistry.release(ownerKey, token);
+    }
+  },
+);
+
+it('opens a fresh manage form after leaving an approved unsent deposit', async () => {
+  const provider = { ...nativeProtocol, provider: 'etherfi' };
+  const ownerKey = getDepositTaskOwnerKey({
+    accountId: 'account-1',
+    networkId: 'evm--1',
+    provider: 'etherfi',
+    vault: 'vault',
+  });
+  const task = createDepositTask({
+    taskId: 'manage-approved-old',
+    identity: {
+      accountId: 'account-1',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      provider: 'etherfi',
+      vault: 'vault',
+      inputTokenAddress: '',
+      depositTokenAddress: EthereumWETH,
+      amount: '2',
+      spenderAddress: '0xspender',
+    },
+    steps: [
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  const state = createDepositTaskState({
+    ...task,
+    currentStepIndex: 1,
+    steps: [
+      {
+        ...task.steps[0],
+        attemptId: 'approve',
+        status: { type: 'succeeded', txid: 'approval-tx' },
+      },
+      { ...task.steps[1], attemptId: 'deposit', status: { type: 'cancelled' } },
+    ],
+  });
+  const token = depositTaskRegistry.reserve(ownerKey, state);
+  expect(token).toBeDefined();
+  if (!token) return;
+  const handle = {
+    taskState: state,
+    getTask: state.getTask,
+    isExecutionCurrent: () => false,
+    run: jest.fn(async () => undefined),
+    retry: jest.fn(async () => undefined),
+    retryStatus: jest.fn(async () => undefined),
+    cancel: jest.fn(),
+    dispose: jest.fn(),
+    subscribeRecovery: jest.fn(() => () => undefined),
+    retryDetachedRecording: jest.fn(async () => undefined),
+  };
+  expect(
+    depositTaskRegistry.retainRecordingHandle(ownerKey, token, handle),
+  ).toBe(true);
+  expect(depositTaskRegistry.detach(ownerKey, token, handle)).toBe(true);
+  let freshToken: symbol | undefined;
+  try {
+    mockStakeApproval.mockReturnValue({
+      approve: { approveType: 'legacy', approveTarget: '0xspender' },
+      error: false,
+      retry: jest.fn(),
+    });
+    mockGetEarnAssetsList.mockResolvedValue({
+      assets: [item(weth), item(eth)],
+    });
+    const view = renderStake(provider);
+    await waitFor(() =>
+      expect(depositTaskRegistry.find(ownerKey)).toBeUndefined(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
+    );
+    expect(screen.queryByTestId('retained-task')).toBeNull();
+    expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Select token' })).toBeTruthy();
+    const freshTask = createDepositTask({
+      taskId: 'manage-new',
+      identity: {
+        ...task.identity,
+        amount: '3',
+        inputTokenAddress: EthereumWETH,
+      },
+      steps: [{ id: 'deposit', kind: 'deposit' }],
+    });
+    freshToken = depositTaskRegistry.reserve(
+      ownerKey,
+      createDepositTaskState(freshTask),
+    );
+    expect(freshToken).toBeDefined();
+    view.unmount();
+  } finally {
+    depositTaskRegistry.release(ownerKey, freshToken ?? token);
+  }
+});
+
+it('waits for EtherFi assets and selects the entry token from the current vault (release coverage)', async () => {
+  let resolveAssets: ((value: IEarnAssetsList) => void) | undefined;
+  mockGetEarnAssetsList.mockReturnValue(
+    new Promise<IEarnAssetsList>((resolve) => {
+      resolveAssets = resolve;
+    }),
+  );
+  renderStake({ ...nativeProtocol, provider: 'etherfi' });
+  await waitFor(() => expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(1));
+  expect(mockGetEarnAssetsList).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: 'etherfi', vault: 'vault' }),
+  );
+  expect(screen.getByTestId('stake-skeleton')).toBeTruthy();
+  expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(true);
+
+  await act(async () => resolveAssets?.({ assets: [item(eth), item(weth)] }));
+  await waitFor(() =>
+    expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
+  );
+  expect(screen.queryByTestId('stake-skeleton')).toBeNull();
+});
+
+it('keeps loaded assets when an account render is abandoned (release coverage)', async () => {
+  mockGetEarnAssetsList.mockResolvedValue({ assets: [item(eth), item(weth)] });
+  const suspended = new Promise<never>(() => undefined);
+  let suspendedRenders = 0;
+  let setAccount: (accountId: string) => void = () => undefined;
+  let rerenderCurrent: () => void = () => undefined;
+  const SuspendOtherAccount = ({ accountId }: { accountId: string }) => {
+    if (accountId === 'account-2') {
+      suspendedRenders += 1;
+      throw suspended;
+    }
+    return null;
+  };
+  const Harness = () => {
+    const [accountId, updateAccount] = useState('account-1');
+    const [, updateTick] = useState(0);
+    setAccount = updateAccount;
+    rerenderCurrent = () => updateTick((tick) => tick + 1);
+    return (
+      <Suspense fallback={<span>Loading</span>}>
+        <StakeSection
+          accountId={accountId}
+          networkId="evm--1"
+          tokenInfo={tokenInfo}
+          protocolInfo={nativeProtocol}
+        />
+        <SuspendOtherAccount accountId={accountId} />
+      </Suspense>
+    );
+  };
+  render(<Harness />);
+  await waitFor(() =>
+    expect(screen.getByTestId('stake-form').textContent).toBe('ETH'),
+  );
+  act(() => startTransition(() => setAccount('account-2')));
+  expect(suspendedRenders).toBeGreaterThan(0);
+  act(() => setAccount('account-1'));
+  act(() => rerenderCurrent());
+  expect(screen.getByTestId('stake-form').textContent).toBe('ETH');
+  expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(false);
+  expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(1);
+});

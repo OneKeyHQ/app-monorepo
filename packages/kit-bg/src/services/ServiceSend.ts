@@ -1130,11 +1130,8 @@ class ServiceSend extends ServiceBase {
           params.diagnosticSendState.context = activeDiagnostic;
         }
       }
-      // Privacy-chain signed txs embed viewing material; log the review instead.
-      let signedTxForLog: (signedTx: ISignedTxPro) => unknown = (signedTx) =>
-        signedTx;
       if (await isLocalWalletNetwork({ networkId })) {
-        const { encodedTx, to, amount, fee } =
+        const { encodedTx } =
           await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
             { networkId, encodedTx: diagnosticUnsignedTx.encodedTx },
           );
@@ -1142,12 +1139,6 @@ class ServiceSend extends ServiceBase {
           ...cloneDeep(diagnosticUnsignedTx),
           encodedTx,
         };
-        signedTxForLog = (signedTx) => ({
-          txid: signedTx.txid,
-          to,
-          amount,
-          fee,
-        });
       }
       const { password, deviceParams } =
         params.prefetchedCredentials ??
@@ -1196,12 +1187,6 @@ class ServiceSend extends ServiceBase {
               deviceParams,
               signOnly,
             });
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                'signTx@vault.signTransaction',
-                signedTxForLog(signedTx),
-              );
-            }
             return signedTx;
           },
           {
@@ -1213,10 +1198,6 @@ class ServiceSend extends ServiceBase {
             ),
           },
         );
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('signTx@serviceSend.signTransaction', signedTxForLog(tx));
-      }
 
       tx.swapInfo = unsignedTx.swapInfo;
       tx.stakingInfo = unsignedTx.stakingInfo;

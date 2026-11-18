@@ -174,7 +174,7 @@ describe('earnUtils EtherFi vault and Permit targets', () => {
         protocolVault,
         backendApproveTarget: MorphoBundlerContract,
       }),
-    ).toBe(protocolVault);
+    ).toBe(MorphoBundlerContract);
   });
 
   it.each([

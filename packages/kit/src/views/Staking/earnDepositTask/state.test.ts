@@ -116,6 +116,28 @@ it('marks a reset as required only for the current preparing attempt', () => {
   expect(task.steps[0].resetRequired).toBeUndefined();
 });
 
+it('keeps a reset unresolved when its allowance preparation fails', () => {
+  let task = createDepositTask({
+    taskId: 'task-1',
+    identity,
+    steps: [
+      { id: 'reset', kind: 'resetApproval' },
+      { id: 'approve', kind: 'approve' },
+      { id: 'deposit', kind: 'deposit' },
+    ],
+  });
+  task = dispatch(task, { type: 'start', stepId: 'reset' });
+  task = dispatch(task, { type: 'preparationFailed', stepId: 'reset' });
+  expect(task.steps[0].status).toEqual({
+    type: 'failed',
+    stage: 'beforeSend',
+    preparationFailed: true,
+  });
+  expect(task.steps[0].resetPreparationFailed).toBe(true);
+  expect(task.steps[0].resetRequired).toBeUndefined();
+  expect(task.steps[0].resetSendStarted).toBeUndefined();
+});
+
 function createRetryingApprovalWithConfirmedReset(): IDepositTask {
   let task = createDepositTask({
     taskId: 'task-1',

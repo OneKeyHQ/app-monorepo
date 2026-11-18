@@ -107,6 +107,7 @@ import {
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
+  openTokenSelectorsAtom,
   orderBookTickOptionsAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
@@ -2013,6 +2014,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(tradeRouteViewStateAtom(), {
         ...current,
         ...patch,
+      });
+    },
+  );
+
+  /** Token pickers report here; the flag stays on while any is open. */
+  setTokenSelectorOpen = contextAtomMethod(
+    (get, set, params: { owner: string; open: boolean }) => {
+      const owners = get(openTokenSelectorsAtom());
+      if (owners.includes(params.owner) === params.open) return;
+      const next = params.open
+        ? [...owners, params.owner]
+        : owners.filter((owner) => owner !== params.owner);
+      set(openTokenSelectorsAtom(), next);
+      this.setTradeRouteViewState.call(set, {
+        tokenSelectorOpen: next.length > 0,
       });
     },
   );
@@ -3974,6 +3990,7 @@ export function useHyperliquidActions() {
   const captureInstrumentSwitchSubscriptionProof =
     actions.captureInstrumentSwitchSubscriptionProof.use();
   const setTradeRouteViewState = actions.setTradeRouteViewState.use();
+  const setTokenSelectorOpen = actions.setTokenSelectorOpen.use();
   const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
@@ -4051,6 +4068,7 @@ export function useHyperliquidActions() {
     switchTradeInstrument,
     captureInstrumentSwitchSubscriptionProof,
     setTradeRouteViewState,
+    setTokenSelectorOpen,
     updateTwapStates,
     updateTwapHistory,
     updateTwapSliceFills,

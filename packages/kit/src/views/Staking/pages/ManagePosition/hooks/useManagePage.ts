@@ -11,10 +11,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   EManagePositionType,
+  EStakeProtocolGroupEnum,
   type IEarnTokenInfo,
   type IEarnWithdrawActionIcon,
   type IProtocolInfo,
-  type IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
@@ -76,6 +76,9 @@ export const useManagePage = ({
     reserveAddress,
     marketAddress,
   });
+  const needsVerifiedProtocol =
+    type === EManagePositionType.Staking &&
+    earnUtils.shouldSendEarnProtocolVault({ providerName: provider });
 
   const {
     result,
@@ -123,26 +126,34 @@ export const useManagePage = ({
           };
         }
 
-        const [managePageData, protocolList] = await Promise.all([
-          backgroundApiProxy.serviceStaking.getManagePage({
-            accountId,
-            networkId,
-            symbol,
-            provider,
-            vault,
-            accountAddress: earnAccount.accountAddress,
-            publicKey: networkUtils.isBTCNetwork(networkId)
-              ? earnAccount.account.pub
+        const [managePageData, protocolList, stakingConfig] = await Promise.all(
+          [
+            backgroundApiProxy.serviceStaking.getManagePage({
+              accountId,
+              networkId,
+              symbol,
+              provider,
+              vault,
+              accountAddress: earnAccount.accountAddress,
+              publicKey: networkUtils.isBTCNetwork(networkId)
+                ? earnAccount.account.pub
+                : undefined,
+            }),
+            backgroundApiProxy.serviceStaking.getProtocolList({
+              symbol,
+              accountId,
+              networkId,
+              filterNetworkId: networkId,
+              includeWithdrawOnly: true,
+              skipStakingConfigFilter: needsVerifiedProtocol,
+            }),
+            needsVerifiedProtocol
+              ? backgroundApiProxy.serviceStaking
+                  .getStakingConfigs({ networkId, provider, symbol })
+                  .catch(() => null)
               : undefined,
-          }),
-          backgroundApiProxy.serviceStaking.getProtocolList({
-            symbol,
-            accountId,
-            networkId,
-            filterNetworkId: networkId,
-            includeWithdrawOnly: true,
-          }),
-        ]);
+          ],
+        );
 
         const { withdrawApprove, withdrawApprovalUnavailable } =
           await resolveProviderWithdrawApproval({
@@ -161,6 +172,7 @@ export const useManagePage = ({
           protocolList,
           earnAccount,
           requestKey,
+          depositsEnabled: stakingConfig?.enabled === true,
           withdrawApprove,
           withdrawApprovalUnavailable,
         };
@@ -190,37 +202,43 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
       requestKey,
+      needsVerifiedProtocol,
       locale,
       currencyId,
     ],
     { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
-  const {
-    managePageData,
-    protocolList,
-    earnAccount,
-    withdrawApprove,
-    withdrawApprovalUnavailable,
-  } = result || {};
+  const isCurrentResult = result?.requestKey === requestKey;
+  const protocolList = isCurrentResult ? result.protocolList : undefined;
+  const earnAccount = isCurrentResult ? result.earnAccount : undefined;
+  const matchingProtocol = earnUtils.findEarnProtocol({
+    protocols: protocolList ?? [],
+    networkId,
+    providerName: provider,
+    protocolVault: vault,
+  });
+  const managePageData =
+    isCurrentResult && (!needsVerifiedProtocol || matchingProtocol)
+      ? result.managePageData
+      : undefined;
+  const withdrawApprove = managePageData ? result?.withdrawApprove : undefined;
+  const withdrawApprovalUnavailable = Boolean(
+    managePageData && result?.withdrawApprovalUnavailable,
+  );
+  const depositsEnabled =
+    result && 'depositsEnabled' in result ? result.depositsEnabled : undefined;
 
   // True while the data on screen was fetched for different params (protocol
   // switch in flight). Computed during render — no effect-timing dependence.
   const isStaleData = !!result && result.requestKey !== requestKey;
 
   const resolvedProtocolVault = useMemo(() => {
-    if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {
+    if (!needsVerifiedProtocol) {
       return vault;
     }
-    if (vault) {
-      return vault;
-    }
-    return protocolList?.find(
-      (item: IStakeProtocolListItem) =>
-        item.provider.name.toLowerCase() === provider.toLowerCase() &&
-        item.network.networkId === networkId,
-    )?.provider.vault;
-  }, [networkId, protocolList, provider, vault]);
+    return matchingProtocol?.provider.vault;
+  }, [matchingProtocol, needsVerifiedProtocol, vault]);
 
   const tokenInfo: IEarnTokenInfo | undefined = useMemo(() => {
     if (!managePageData) {
@@ -296,22 +314,6 @@ export const useManagePage = ({
     }
     const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
 
-    // Find the matching protocol from protocol list
-    const strictMatchingProtocol = protocolList?.find(
-      (item: IStakeProtocolListItem) =>
-        item.provider.name.toLowerCase() === provider.toLowerCase() &&
-        item.network.networkId === networkId &&
-        (!resolvedProtocolVault ||
-          item.provider.vault === resolvedProtocolVault),
-    );
-    const matchingProtocol =
-      strictMatchingProtocol ??
-      protocolList?.find(
-        (item: IStakeProtocolListItem) =>
-          item.provider.name.toLowerCase() === provider.toLowerCase() &&
-          item.network.networkId === networkId,
-      );
-
     // Get withdraw action from managePageData
     const withdrawAction = managePageData.withdraw as
       | IEarnWithdrawActionIcon
@@ -379,7 +381,7 @@ export const useManagePage = ({
     } as IProtocolInfo;
   }, [
     managePageData,
-    protocolList,
+    matchingProtocol,
     symbol,
     provider,
     resolvedProtocolVault,
@@ -391,6 +393,14 @@ export const useManagePage = ({
   const depositDisabled = useMemo(() => {
     if (!managePageData) {
       return false;
+    }
+    if (
+      needsVerifiedProtocol &&
+      (!depositsEnabled ||
+        matchingProtocol?.provider.group ===
+          EStakeProtocolGroupEnum.WithdrawOnly)
+    ) {
+      return true;
     }
     const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
     if (
@@ -423,7 +433,13 @@ export const useManagePage = ({
       managePageData.buy?.payButton?.disabled ??
       false
     );
-  }, [managePageData, type]);
+  }, [
+    managePageData,
+    type,
+    needsVerifiedProtocol,
+    depositsEnabled,
+    matchingProtocol,
+  ]);
 
   const withdrawDisabled = useMemo(() => {
     if (withdrawApprovalUnavailable) {

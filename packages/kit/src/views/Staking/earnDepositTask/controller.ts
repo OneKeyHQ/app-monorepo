@@ -99,6 +99,11 @@ export function createDepositTaskController<TPrepared>({
       dispatch: (stepId, attemptId, action) =>
         state.dispatch({
           ...action,
+          ...(action.type === 'fail' &&
+          state.getTask().steps[state.getTask().currentStepIndex]?.status
+            .type === 'preparing'
+            ? { type: 'preparationFailed' as const }
+            : {}),
           taskId: initialTask.taskId,
           stepId,
           attemptId,

@@ -7,7 +7,7 @@ import {
 } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
@@ -33,9 +33,12 @@ import {
   type EApproveType,
   EInternalDappEnum,
   EInternalStakingAction,
+  type IClaimApproveInfo,
+  type IClaimFollowUpInfo,
   type IEarnClaimType,
   type IEarnPermit2ApproveSignData,
   type IEarnStakeType,
+  type IEarnUtmParams,
   type IEarnWithdrawType,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -65,6 +68,7 @@ import {
 } from '../earnDepositTask/registry';
 import {
   buildEarnStakeConfirmation,
+  buildEarnStakeConfirmationOrServerOrder,
   createStakeInfoWithOrderId,
 } from '../earnDepositTask/transactionBuilder';
 import { waitForEarnTransactionConfirm } from '../earnDepositTask/transactionConfirm';
@@ -96,6 +100,7 @@ import type {
   IEarnTransactionTaskAdapter,
   IEarnTransactionTaskPreparation,
 } from '../../Earn/tasks/transactionTaskController';
+import type { IClaimConversionParams } from '../components/ClaimConversionDialog';
 import type { IDepositTask, IDepositTaskState } from '../earnDepositTask/state';
 import type {
   IDepositTaskHandle,
@@ -319,6 +324,100 @@ function createSubmittedFactReporter({
   };
 }
 
+/**
+ * Server-executed order (OK-61790, Unitas): the stake / unstake response
+ * carries `tx: null` and an orderId. The order stays tracked server side when
+ * the user closes the dialog before it reaches a final state.
+ */
+const handleServerExecutedOrder = async ({
+  orderId,
+  networkId,
+  accountId,
+  intl,
+  onSuccess,
+  onFail,
+  isCurrent,
+  isResultCurrent,
+  verifyCurrentAccount,
+  provider,
+  vault,
+}: {
+  orderId: string;
+  networkId: string;
+  accountId: string;
+  intl: IntlShape;
+  provider: string;
+  vault?: string;
+  isCurrent?: () => boolean;
+  isResultCurrent?: () => boolean;
+  verifyCurrentAccount?: () => Promise<boolean>;
+  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+  onFail?: IModalSendParamList['SendConfirm']['onFail'];
+}) => {
+  const trackDetachedOrder = () => {
+    void backgroundApiProxy.serviceStaking
+      .waitForServerExecutedOrder({
+        orderId,
+        networkId,
+        accountId,
+        refreshScope: { provider, vault },
+      })
+      .catch(() => undefined);
+  };
+  if (
+    (isCurrent && !isCurrent()) ||
+    (verifyCurrentAccount && !(await verifyCurrentAccount())) ||
+    (isCurrent && !isCurrent())
+  ) {
+    trackDetachedOrder();
+    return false;
+  }
+  const { showServerExecutedOrderDialog } =
+    await import('../components/ServerExecutedOrderDialog');
+  if (
+    (isCurrent && !isCurrent()) ||
+    (verifyCurrentAccount && !(await verifyCurrentAccount())) ||
+    (isCurrent && !isCurrent())
+  ) {
+    trackDetachedOrder();
+    return false;
+  }
+  const order = await showServerExecutedOrderDialog({
+    orderId,
+    networkId,
+    accountId,
+  });
+  const isResultStillCurrent = isResultCurrent ?? isCurrent;
+  if (
+    (isResultStillCurrent && !isResultStillCurrent()) ||
+    (verifyCurrentAccount && !(await verifyCurrentAccount())) ||
+    (isResultStillCurrent && !isResultStillCurrent())
+  ) {
+    trackDetachedOrder();
+    return false;
+  }
+  if (order?.status === 'failed') {
+    onFail?.(
+      new OneKeyLocalError(
+        order.errorMessage ??
+          intl.formatMessage({ id: ETranslations.global_failed }),
+      ),
+    );
+    return false;
+  }
+  await Promise.resolve(onSuccess?.([]));
+  return true;
+};
+
+const runClaimConversion = async (
+  params: IClaimConversionParams,
+  isCurrent: () => boolean,
+) => {
+  const module = await import('../components/ClaimConversionDialog');
+  if (!isCurrent()) return 'dismissed' as const;
+  return module.runClaimConversion(params);
+};
+
 const handleStakeSuccess = async ({
   data,
   stakeInfo,
@@ -521,6 +620,7 @@ export function useUniversalStake({
       isActionCurrent,
       // Stakefish specific param
       validatorPublicKey,
+      utm,
     }: {
       amount: string;
       symbol: string;
@@ -576,6 +676,8 @@ export function useUniversalStake({
       onWrapStateChange?: (state: 'submitted' | 'failed' | 'unknown') => void;
       // Stakefish specific param
       validatorPublicKey?: string;
+      // Campaign attribution, forwarded to the server unchanged
+      utm?: IEarnUtmParams;
     }) => {
       const lifetime = lifetimeRef.current;
       const isSendOwnerCurrent = () =>
@@ -611,7 +713,7 @@ export function useUniversalStake({
         return false;
       }
       if (!isOperationCurrent()) return false;
-      const buildStakeConfirmPayload = async ({
+      const buildStakeConfirmPayloadOrServerOrder = async ({
         confirmStakeType = stakeType,
         confirmInputTokenAddress = inputTokenAddress,
         confirmStakingInfo = stakingInfo,
@@ -624,7 +726,7 @@ export function useUniversalStake({
         signedStake?: { signature: string; message: string };
         expectedAccountAddress?: string;
       } = {}) => {
-        return buildEarnStakeConfirmation({
+        return buildEarnStakeConfirmationOrServerOrder({
           request: {
             amount,
             networkId,
@@ -644,12 +746,26 @@ export function useUniversalStake({
             effectiveApy,
             stakeType: confirmStakeType,
             validatorPublicKey,
+            ...utm,
             ...(expectedAccountAddress !== undefined
               ? { expectedAccountAddress }
               : undefined),
           },
           stakingInfo: confirmStakingInfo,
         });
+      };
+      const buildStakeConfirmPayload = async (
+        params: Parameters<
+          typeof buildStakeConfirmPayloadOrServerOrder
+        >[0] = {},
+      ) => {
+        const payload = await buildStakeConfirmPayloadOrServerOrder(params);
+        if ('serverOrderId' in payload) {
+          throw new OneKeyLocalError(
+            'Deposit task cannot be executed by the protocol',
+          );
+        }
+        return payload;
       };
 
       if (taskMode === 'deposit' && directDepositTask) {
@@ -812,6 +928,29 @@ export function useUniversalStake({
         ) {
           throw new OneKeyLocalError('Task account changed before preparation');
         }
+        const assertWrappedApproval = async () => {
+          if (!isCurrent()) return false;
+          await backgroundApiProxy.serviceStaking.assertEarnApproval({
+            networkId,
+            accountId,
+            expectedAccountAddress: accountAddress,
+            provider,
+            symbol,
+            vault: protocolVault,
+            action: 'stake',
+            tokenAddress: postWrapStakeToken.address,
+            spenderAddress: postWrapApproveSpenderAddress,
+          });
+          return (
+            isCurrent() &&
+            (await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress,
+            }))
+          );
+        };
+        if (!(await assertWrappedApproval())) return false;
         let fallbackReservation:
           | { ownerKey: string; token: symbol }
           | undefined;
@@ -927,6 +1066,7 @@ export function useUniversalStake({
               effectiveApy,
               stakeType,
               validatorPublicKey,
+              ...utm,
             },
             stakingInfo,
             inputToken,
@@ -945,7 +1085,11 @@ export function useUniversalStake({
                 return { status: 'cancel' as const };
               }
             },
-            beforeDepositTaskSend,
+            beforeDepositTaskSend: async (step) => {
+              if (beforeDepositTaskSend && !(await beforeDepositTaskSend(step)))
+                return false;
+              return step !== 'approve' || (await assertWrappedApproval());
+            },
             canSendDepositTask,
             prepareWrappedDeposit,
             onTaskReady:
@@ -1474,17 +1618,55 @@ export function useUniversalStake({
       });
       const confirmationLifetime = createEarnConfirmationLifecycle();
       let confirmationHandedOff = false;
+      let serverStakeResult: boolean | undefined;
       const confirmation = createEarnConfirmationTaskAdapter<
         typeof singleIdentity,
         ISingleStakeStep,
-        IPreparedStake,
+        IPreparedStake | { serverOrderId: string },
         ISendTxOnSuccessData[],
         Error
       >({
         prepare: async () => {
-          const prepared = await buildStakeConfirmPayload({
+          const prepared = await buildStakeConfirmPayloadOrServerOrder({
             expectedAccountAddress: singleAccountAddress,
           });
+          if (typeof prepared.serverOrderId === 'string') {
+            const accountCurrent = await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress: singleAccountAddress,
+            }).catch(() => false);
+            serverStakeResult = await handleServerExecutedOrder({
+              orderId: prepared.serverOrderId,
+              networkId,
+              accountId,
+              provider,
+              vault: protocolVault,
+              intl,
+              isCurrent: () => accountCurrent && isOperationCurrent(),
+              isResultCurrent: () => accountCurrent && isResultOwnerCurrent(),
+              verifyCurrentAccount: () =>
+                isTaskAccountCurrent({
+                  accountId,
+                  networkId,
+                  accountAddress: singleAccountAddress,
+                }).catch(() => false),
+              onSuccess: async (data) => {
+                if (
+                  isResultOwnerCurrent() &&
+                  (await isTaskAccountCurrent({
+                    accountId,
+                    networkId,
+                    accountAddress: singleAccountAddress,
+                  }))
+                ) {
+                  await notifyStakeSuccess(data);
+                }
+              },
+              onFail,
+            });
+            return { serverOrderId: prepared.serverOrderId };
+          }
           if (
             singleAccountAddress &&
             ((typeof prepared.encodedTx === 'object' &&
@@ -1505,6 +1687,7 @@ export function useUniversalStake({
           return prepared;
         },
         navigate: async (payload, callbacks) => {
+          if ('serverOrderId' in payload) return;
           await navigationToTxConfirm({
             encodedTx: payload.encodedTx,
             stakingInfo: payload.stakeInfoWithOrderId,
@@ -1560,6 +1743,7 @@ export function useUniversalStake({
           confirmationHandedOff = true;
         },
         onSuccess: async (data, payload) => {
+          if ('serverOrderId' in payload) return;
           const ownerCurrent =
             !confirmationLifetime.isClosed() && isResultOwnerCurrent();
           const accountCheck =
@@ -1629,7 +1813,11 @@ export function useUniversalStake({
         }),
       });
       const result = await confirmation.start(controller.run);
-      return result === 'finished' && isOperationCurrent();
+      return (
+        result === 'finished' &&
+        (serverStakeResult ?? true) &&
+        isOperationCurrent()
+      );
     },
     [
       accountId,
@@ -1695,6 +1883,7 @@ export function useUniversalWithdraw({
       isResultCurrent,
       taskAccountAddress,
       workflowHandoff,
+      utm,
     }: {
       amount: string;
       symbol: string;
@@ -1725,6 +1914,7 @@ export function useUniversalWithdraw({
       isResultCurrent?: () => boolean;
       taskAccountAddress?: string;
       workflowHandoff?: IUniversalWithdrawWorkflowHandoff;
+      utm?: IEarnUtmParams;
     }) => {
       const isOwnerCurrent = resultScope.capture();
       if (!isOwnerCurrent()) return false;
@@ -1816,6 +2006,7 @@ export function useUniversalWithdraw({
             inputTokenAddress,
             outputTokenAddress,
             effectiveApy,
+            ...utm,
             withdrawType,
           },
           stakingInfo,
@@ -1982,6 +2173,7 @@ export function useUniversalWithdraw({
             message: withdrawMessage,
             slippage,
             effectiveApy,
+            ...utm,
             withdrawType,
           },
           stakingInfo,
@@ -2410,6 +2602,11 @@ export function useUniversalWithdraw({
         });
         const confirmationLifetime = createEarnConfirmationLifecycle();
         let confirmationHandedOff = false;
+        let serverWithdrawResult: boolean | undefined;
+        let resolveServerWithdraw: (result: boolean) => void = () => undefined;
+        const serverWithdraw = new Promise<boolean>((resolve) => {
+          resolveServerWithdraw = resolve;
+        });
         let preparationStarted = false;
         let preparationSettled = false;
         const isPageActionCurrent = () =>
@@ -2446,8 +2643,54 @@ export function useUniversalWithdraw({
                     slippage,
                     effectiveApy,
                     withdrawType,
+                    ...utm,
                   },
                 );
+              if (!transaction.tx) {
+                if (!transaction.orderId) {
+                  if (!isPageActionCurrent()) return { type: 'cancelled' };
+                  throw new OneKeyLocalError(
+                    'Unstake response has neither a transaction nor an orderId',
+                  );
+                }
+                const accountCurrent = await isTaskAccountCurrent({
+                  accountId,
+                  networkId,
+                  accountAddress: singleAccountAddress,
+                }).catch(() => false);
+                serverWithdrawResult = await handleServerExecutedOrder({
+                  orderId: transaction.orderId,
+                  networkId,
+                  accountId,
+                  provider,
+                  vault: protocolVault,
+                  intl,
+                  isCurrent: () => accountCurrent && isPageActionCurrent(),
+                  isResultCurrent: () =>
+                    accountCurrent && isResultOwnerCurrent(),
+                  verifyCurrentAccount: () =>
+                    isTaskAccountCurrent({
+                      accountId,
+                      networkId,
+                      accountAddress: singleAccountAddress,
+                    }).catch(() => false),
+                  onSuccess: async (data) => {
+                    if (
+                      isResultOwnerCurrent() &&
+                      (await isTaskAccountCurrent({
+                        accountId,
+                        networkId,
+                        accountAddress: singleAccountAddress,
+                      }))
+                    ) {
+                      await Promise.resolve(onSuccess?.(data));
+                    }
+                  },
+                  onFail,
+                });
+                resolveServerWithdraw(serverWithdrawResult);
+                return { type: 'cancelled' };
+              }
               if (!isPageActionCurrent()) return { type: 'cancelled' };
               if (
                 typeof transaction.tx === 'object' &&
@@ -2641,6 +2884,20 @@ export function useUniversalWithdraw({
           failureCertainty: () => 'unknown',
           cancellationCertainty: () => 'unknown',
         });
+        const serverAwareAdapter = {
+          ...confirmation.adapter,
+          prepare: async (
+            context: Parameters<typeof confirmation.adapter.prepare>[0],
+          ) => {
+            const prepared = await confirmation.adapter.prepare(context);
+            if (serverWithdrawResult !== undefined) {
+              return serverWithdrawResult
+                ? { type: 'skip' as const }
+                : { type: 'cancelled' as const };
+            }
+            return prepared;
+          },
+        };
         if (workflowHandoff) {
           if (
             !taskAccountAddress ||
@@ -2658,8 +2915,11 @@ export function useUniversalWithdraw({
           });
           const result = Promise.race([
             confirmation.navigation.then(
-              (value) => value === 'finished' && isPageActionCurrent(),
+              (value) =>
+                (serverWithdrawResult ?? value === 'finished') &&
+                isPageActionCurrent(),
             ),
+            serverWithdraw,
             cancelled,
           ]);
           const cancelFromPage = () => {
@@ -2687,7 +2947,7 @@ export function useUniversalWithdraw({
                 return {
                   kind: 'transaction',
                   handoffOnSubmit: true,
-                  adapter: mapSingleWithdrawAdapter(confirmation.adapter),
+                  adapter: mapSingleWithdrawAdapter(serverAwareAdapter),
                 };
               },
               result,
@@ -2713,7 +2973,7 @@ export function useUniversalWithdraw({
             }
             return {
               kind: 'transaction',
-              adapter: confirmation.adapter,
+              adapter: serverAwareAdapter,
               handoffOnSubmit: true,
             };
           },
@@ -2730,7 +2990,10 @@ export function useUniversalWithdraw({
           }),
         });
         const result = await confirmation.start(controller.run);
-        return result === 'finished' && (isActionCurrent?.() ?? true);
+        return (
+          (serverWithdrawResult ?? result === 'finished') &&
+          (isActionCurrent?.() ?? true)
+        );
       }
 
       if (withdrawProtocol.kind === 'ethena') {
@@ -3046,6 +3309,8 @@ export function useUniversalClaim({
       vault,
       symbol,
       stakingInfo,
+      claimApprove,
+      claimFollowUp,
       taskAccountAddress,
       onSubmitted,
       onSuccess,
@@ -3066,6 +3331,10 @@ export function useUniversalClaim({
         accountPublicKey?: string,
       ) => void | Promise<void>;
       vault: string;
+      /** Allowance the claim needs first (Unitas USDu), from the claimable list. */
+      claimApprove?: IClaimApproveInfo;
+      /** Server-executed step that follows the claim, from the claimable list. */
+      claimFollowUp?: IClaimFollowUpInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       portfolioSymbol?: string;
@@ -3102,7 +3371,181 @@ export function useUniversalClaim({
         throw new OneKeyLocalError('Claim account changed');
       }
 
+      // OK-61790 (Unitas USDu): the claimed USDu is converted back to USDT by
+      // the protocol right after the claim, which needs an allowance of the
+      // claimed amount. Ask for it before the claim transaction when missing.
+      if (claimApprove && amountNumber.gt(0)) {
+        const assertClaimApproval = async () => {
+          if (!isCurrent()) return false;
+          await backgroundApiProxy.serviceStaking.assertEarnApproval({
+            networkId,
+            accountId,
+            expectedAccountAddress: accountAddress,
+            provider,
+            symbol,
+            vault: protocolVault || vault,
+            action: 'claim',
+            tokenAddress: claimApprove.tokenAddress,
+            spenderAddress: claimApprove.approveTarget,
+          });
+          return (
+            isCurrent() &&
+            (await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress,
+            }))
+          );
+        };
+        if (!(await assertClaimApproval())) return false;
+        const readAllowance = async () => {
+          const info =
+            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+              networkId,
+              accountId,
+              tokenAddress: claimApprove.tokenAddress,
+              spenderAddress: claimApprove.approveTarget,
+            });
+          const allowance = new BigNumber(info.allowanceParsed);
+          if (!allowance.isFinite() || allowance.isNegative()) {
+            throw new OneKeyLocalError('Invalid claim allowance');
+          }
+          return allowance;
+        };
+        const allowance = await readAllowance();
+        if (!isCurrent()) return false;
+        if (allowance.lt(amountNumber)) {
+          const account = await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+          if (
+            !isCurrent() ||
+            !isTaskAccountAddress(
+              { networkId, accountAddress },
+              account.address,
+            )
+          ) {
+            throw new OneKeyLocalError('Claim account changed');
+          }
+          const tokenInfo: IToken = {
+            address: claimApprove.tokenAddress,
+            symbol: claimApprove.symbol,
+            name: claimApprove.symbol,
+            decimals: claimApprove.decimals,
+            isNative: false,
+            networkId,
+          };
+          let approveStatus: 'success' | 'cancel';
+          try {
+            approveStatus = await new Promise<'success' | 'cancel'>(
+              (resolve, reject) => {
+                void navigationToTxConfirm({
+                  isNavigationCurrent: isCurrent,
+                  onBeforeSend: async () => {
+                    if (!(await assertClaimApproval()))
+                      throw new OneKeyLocalError('Claim account changed');
+                  },
+                  approvesInfo: [
+                    {
+                      owner: account.address,
+                      spender: claimApprove.approveTarget,
+                      amount: normalizedAmount,
+                      tokenInfo,
+                    },
+                  ],
+                  onSuccess: () => resolve('success'),
+                  onFail: (error) => reject(error),
+                  onCancel: () => resolve('cancel'),
+                }).catch((error) => reject(error));
+              },
+            );
+          } catch (error) {
+            onFail?.(error as Error);
+            return false;
+          }
+          if (approveStatus !== 'success') {
+            return false;
+          }
+          // The approve was just broadcast; wait for the allowance to land
+          // before building the claim so the server-side conversion can run.
+          let allowanceReady = false;
+          for (let attempt = 0; attempt < 15; attempt += 1) {
+            await timerUtils.wait(2000);
+            if (
+              !isCurrent() ||
+              !(await isTaskAccountCurrent({
+                accountId,
+                networkId,
+                accountAddress,
+              }))
+            )
+              return false;
+            try {
+              if ((await readAllowance()).gte(amountNumber)) {
+                allowanceReady = true;
+                break;
+              }
+            } catch {
+              // keep polling
+            }
+          }
+          if (!allowanceReady) {
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
+            });
+            return false;
+          }
+          await timerUtils.wait(150);
+        }
+      }
+
       const continueClaim = async () => {
+        const claimRequest = {
+          networkId,
+          accountId,
+          symbol,
+          provider,
+          amount: normalizedAmount,
+          claimTokenAddress,
+          claimType,
+          vault,
+        };
+        if (!isCurrent()) return false;
+        if (claimFollowUp && claimFollowUp.identity === identity) {
+          if (
+            !(await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress,
+            }))
+          )
+            return false;
+          const outcome = await runClaimConversion(
+            {
+              intl,
+              request: { ...claimRequest, identity: claimFollowUp.identity },
+              symbol,
+              amount: normalizedAmount,
+              withClaimStep: false,
+            },
+            isCurrent,
+          );
+          if (
+            outcome !== 'failed' &&
+            isResultCurrent() &&
+            (await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress,
+            }))
+          ) {
+            await Promise.resolve(onSuccess?.([]));
+          }
+          return outcome !== 'failed' && isCurrent();
+        }
+        const followUpIdentity = claimFollowUp?.identity;
+        let serverClaimResult: boolean | undefined;
         let claimOwnerPublicKey: string | undefined;
         const submittedFacts = createSubmittedFactReporter({
           onSubmitted: onSubmitted
@@ -3147,8 +3590,50 @@ export function useUniversalClaim({
                 claimType,
                 vault,
               });
-            if (!isCurrent()) throw scopeExpired;
             claimOwnerPublicKey = stakeTx.claimOwnerPublicKey;
+            if (!stakeTx.tx) {
+              if (!stakeTx.orderId) {
+                if (!isCurrent()) throw scopeExpired;
+                throw new OneKeyLocalError(
+                  'Claim returned neither tx nor order',
+                );
+              }
+              const accountCurrent = await isTaskAccountCurrent({
+                accountId,
+                networkId,
+                accountAddress,
+              }).catch(() => false);
+              serverClaimResult = await handleServerExecutedOrder({
+                orderId: stakeTx.orderId,
+                provider,
+                vault,
+                networkId,
+                accountId,
+                intl,
+                isCurrent: () => accountCurrent && isCurrent(),
+                isResultCurrent: () => accountCurrent && isResultCurrent(),
+                verifyCurrentAccount: () =>
+                  isTaskAccountCurrent({
+                    accountId,
+                    networkId,
+                    accountAddress,
+                  }).catch(() => false),
+                onSuccess: async (data) => {
+                  if (
+                    isResultCurrent() &&
+                    (await isTaskAccountCurrent({
+                      accountId,
+                      networkId,
+                      accountAddress,
+                    }))
+                  )
+                    await Promise.resolve(onSuccess?.(data));
+                },
+                onFail,
+              });
+              return { serverOrderId: stakeTx.orderId };
+            }
+            if (!isCurrent()) throw scopeExpired;
             const encodedTx =
               await backgroundApiProxy.serviceStaking.buildInternalDappTx({
                 networkId,
@@ -3226,6 +3711,7 @@ export function useUniversalClaim({
         >({
           prepare: prepareClaim,
           navigate: async (payload, callbacks) => {
+            if ('serverOrderId' in payload) return;
             await navigationToTxConfirm({
               encodedTx: payload.encodedTx,
               stakingInfo: payload.stakeInfoWithOrderId,
@@ -3274,6 +3760,7 @@ export function useUniversalClaim({
             });
           },
           onSuccess: async (data, payload) => {
+            if ('serverOrderId' in payload) return;
             const ownerCurrent =
               !confirmationLifetime.isClosed() && isResultCurrent();
             const accountCheck = ownerCurrent
@@ -3326,8 +3813,29 @@ export function useUniversalClaim({
             } catch {
               return;
             }
-            if (!confirmationLifetime.isClosed() && isResultCurrent())
-              onSuccess?.(data);
+            if (!confirmationLifetime.isClosed() && isResultCurrent()) {
+              if (followUpIdentity) {
+                await runClaimConversion(
+                  {
+                    intl,
+                    request: { ...claimRequest, identity: followUpIdentity },
+                    symbol,
+                    amount: normalizedAmount,
+                    withClaimStep: true,
+                  },
+                  isResultCurrent,
+                );
+              }
+              if (
+                isResultCurrent() &&
+                (await isTaskAccountCurrent({
+                  accountId,
+                  networkId,
+                  accountAddress,
+                }))
+              )
+                await Promise.resolve(onSuccess?.(data));
+            }
           },
           onBroadcastAccepted: reportSubmitted,
           onFail: onFail ? (error) => onFail(error) : undefined,
@@ -3354,7 +3862,9 @@ export function useUniversalClaim({
         });
         try {
           const result = await confirmation.start(controller.run);
-          return result === 'finished' && isCurrent();
+          return (
+            result === 'finished' && (serverClaimResult ?? true) && isCurrent()
+          );
         } catch (error) {
           if (error === scopeExpired) return false;
           throw error;

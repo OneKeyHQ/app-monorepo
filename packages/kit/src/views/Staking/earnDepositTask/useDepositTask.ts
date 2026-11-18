@@ -284,6 +284,12 @@ export function useDepositTask(
           (!entry?.recordingHandle || entry.recordingHandle === trackedHandle)
         ) {
           depositTaskRegistry.release(reservation.ownerKey, reservation.token);
+        } else if (reservation && supportsRecovery(trackedHandle)) {
+          depositTaskRegistry.detach(
+            reservation.ownerKey,
+            reservation.token,
+            trackedHandle,
+          );
         }
       });
     };
@@ -757,6 +763,12 @@ export function useDepositTask(
         handle.dispose();
         if (reservation && !hasUnresolvedTask(handle.getTask())) {
           depositTaskRegistry.release(reservation.ownerKey, reservation.token);
+        } else if (reservation && supportsRecovery(handle)) {
+          depositTaskRegistry.detach(
+            reservation.ownerKey,
+            reservation.token,
+            handle,
+          );
         }
       });
       trackedTasks.clear();

@@ -6,6 +6,10 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { useCommittedEarnScopeGuard } from '../hooks/useCommittedEarnScopeGuard';
 
+import {
+  canDiscardDetachedSetup,
+  discardDetachedSetup,
+} from './finishRetainedRecording';
 import { depositTaskRegistry } from './registry';
 
 import type { IDepositTask, IDepositTaskState } from './state';
@@ -55,6 +59,44 @@ export function useRetainedDepositTask(
         const task = entry.state.getTask();
         const deposit = task.steps.at(-1);
         if (
+          entry.detached &&
+          earnUtils.isEtherFiProvider({
+            providerName: task.identity.provider,
+          }) &&
+          canDiscardDetachedSetup(task)
+        ) {
+          if (finishing === task) return;
+          finishing = task;
+          setResult({ seed, status: 'checking' });
+          void discardDetachedSetup({
+            ownerKey: seed.ownerKey,
+            task,
+            canDiscard: () => active && isOwnerCurrent() && finishing === task,
+          }).then((discarded) => {
+            if (!active || !isOwnerCurrent() || finishing !== task) return;
+            finishing = undefined;
+            if (discarded) {
+              try {
+                onFinishedRef.current?.();
+              } catch (error) {
+                errorToastUtils.showToastOfError(error);
+              }
+            } else if (depositTaskRegistry.find(seed.ownerKey) === entry) {
+              setResult({
+                seed,
+                status: 'ready',
+                value: {
+                  state: entry.state,
+                  task: entry.state.getTask(),
+                  token: entry.token,
+                },
+              });
+            }
+          });
+          return;
+        }
+        if (
+          entry.detached &&
           earnUtils.isEtherFiProvider({
             providerName: task.identity.provider,
           }) &&
@@ -77,6 +119,7 @@ export function useRetainedDepositTask(
               if (
                 matches &&
                 depositTaskRegistry.find(seed.ownerKey) === entry &&
+                entry.detached &&
                 entry.state.getTask() === task &&
                 depositTaskRegistry.release(seed.ownerKey, entry.token)
               ) {

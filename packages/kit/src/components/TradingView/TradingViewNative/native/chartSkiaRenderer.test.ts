@@ -227,6 +227,7 @@ function createScene(
     autoPriceRange: null,
     commands: [],
     crosshairPointIndex: null,
+    crosshairPosition: null,
     customPaintStyles: {},
     priceAxisWidth: 40,
     subIndicatorLegendHitRegions: [],

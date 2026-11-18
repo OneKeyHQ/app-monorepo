@@ -15,6 +15,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getManagePage: jest.fn(),
       getBorrowManagePage: jest.fn(),
       getProtocolList: jest.fn(),
+      getStakingConfigs: jest.fn(),
       getProtocolDetailsV2: jest.fn(),
     },
   },
@@ -25,7 +26,10 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
   __esModule: true,
-  default: { shouldSendEarnProtocolVault: () => true },
+  default: {
+    shouldSendEarnProtocolVault: () => true,
+    findEarnProtocol: () => undefined,
+  },
 }));
 jest.mock('../../../utils/utils', () => ({
   buildLocalTxStatusSyncId: () => 'sync-id',
@@ -102,6 +106,9 @@ describe('useManagePage receipt approval compatibility', () => {
     } as Awaited<ReturnType<typeof staking.getEarnAccount>>);
     staking.getManagePage.mockResolvedValue(managePageData);
     staking.getProtocolList.mockResolvedValue([]);
+    staking.getStakingConfigs.mockResolvedValue({
+      enabled: true,
+    } as NonNullable<Awaited<ReturnType<typeof staking.getStakingConfigs>>>);
     staking.getProtocolDetailsV2.mockResolvedValue({ withdrawApprove });
   });
 

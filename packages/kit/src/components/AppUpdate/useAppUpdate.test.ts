@@ -43,6 +43,9 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     installLocationFailed: jest.fn().mockResolvedValue(undefined),
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
+    fetchAppUpdateInfoByManual: jest.fn(
+      (): Promise<any> => svc.fetchAppUpdateInfo(true),
+    ),
     refreshUpdateStatus: jest.fn(),
     refreshCurrentFeaturedChangelog: jest.fn().mockResolvedValue(undefined),
     processPendingInstallTask: jest.fn(),
@@ -3951,6 +3954,72 @@ describe('onUpdateAction', () => {
     expect(nav.pushModal).toHaveBeenCalledWith(
       'AppUpdateModal',
       expect.objectContaining({ screen: 'UpdatePreview' }),
+    );
+  });
+
+  test('menu action uses the checked notify snapshot even when its hook captured ready', async () => {
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.silent,
+    });
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+    act(() => {
+      result.current.onUpdateActionWithInfo({
+        ...mockAtomHolder.value,
+        status: EAppUpdateStatus.notify,
+        latestVersion: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+    });
+    await act(async () => {
+      jest.runAllTimers();
+    });
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({
+        screen: 'UpdatePreview',
+        params: expect.objectContaining({
+          latestVersion: '3.0.0',
+          isForceUpdate: false,
+        }),
+      }),
+    );
+    expect(nav.pushModal).not.toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'DownloadVerify' }),
+    );
+  });
+
+  test('a newly checked force snapshot opens the full update preview', async () => {
+    setAtom({
+      status: EAppUpdateStatus.done,
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.manual,
+    });
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+    act(() => {
+      result.current.onUpdateActionWithInfo({
+        ...mockAtomHolder.value,
+        status: EAppUpdateStatus.notify,
+        latestVersion: '3.0.0',
+        updateStrategy: EUpdateStrategy.force,
+      });
+    });
+    await act(async () => {
+      jest.runAllTimers();
+    });
+    expect(nav.pushFullModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({
+        screen: 'UpdatePreview',
+        params: expect.objectContaining({
+          latestVersion: '3.0.0',
+          isForceUpdate: true,
+        }),
+      }),
     );
   });
 

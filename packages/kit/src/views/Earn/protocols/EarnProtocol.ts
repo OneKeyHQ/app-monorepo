@@ -173,11 +173,11 @@ export class EarnProtocol {
     protocolVault?: string;
     backendApproveTarget?: string;
   }): string {
-    return earnUtils.shouldSendEarnProtocolVault({
+    return earnUtils.resolveEarnApproveSpenderAddress({
       providerName: this.providerName,
-    })
-      ? (protocolVault ?? backendApproveTarget ?? '')
-      : (backendApproveTarget ?? '');
+      verifiedProtocolVault: protocolVault,
+      backendApproveTarget,
+    });
   }
 
   resolveApproveType({

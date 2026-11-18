@@ -9,3 +9,4 @@ export * from './StepIndicator';
 export * from './Stepper';
 export * from './Table';
 export * from './Tabs';
+export { HeaderScrollGestureContext } from './HeaderScrollGestureContext';

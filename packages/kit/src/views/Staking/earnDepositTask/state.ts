@@ -77,12 +77,15 @@ export type IDepositTaskStepKind =
   | 'approve'
   | 'deposit';
 
-export type IDepositTaskStepStatus = IEarnTransactionStepStatus;
+export type IDepositTaskStepStatus =
+  | Exclude<IEarnTransactionStepStatus, { type: 'failed'; stage: 'beforeSend' }>
+  | { type: 'failed'; stage: 'beforeSend'; preparationFailed?: true };
 
 export type IDepositTaskStep = IEarnTaskStep<
   IDepositTaskStepKind,
   IDepositTaskStepStatus
 > & {
+  preparationOnly?: true;
   resetRequired?: true;
   resetSendStarted?: true;
   resetPriorAttempt?: true;
@@ -119,6 +122,7 @@ export type IDepositTaskRecordingBinding = {
 
 export type IDepositTaskAction =
   | IEarnTransactionStepAction
+  | { type: 'preparationFailed' }
   | { type: 'resetRequired' }
   | { type: 'insertReset'; resetStepId: string }
   | {
@@ -236,6 +240,8 @@ export function reduceDepositTask(
           : {}),
       },
     };
+  } else if (event.type === 'preparationFailed') {
+    payload = { kind: 'transaction', action: { type: 'fail' } };
   } else {
     payload = { kind: 'transaction', action: event };
   }
@@ -272,6 +278,29 @@ export function reduceDepositTask(
       confirmationCallback: _callback,
       ...value
     } = item;
+    if (item.id === step.id) {
+      if (event.type === 'start' || event.type === 'retry') {
+        const preparationOnly =
+          !step.attemptId ||
+          step.preparationOnly === true ||
+          (step.status.type === 'failed' &&
+            step.status.stage === 'beforeSend' &&
+            step.status.preparationFailed === true);
+        if (preparationOnly) value.preparationOnly = true;
+        else delete value.preparationOnly;
+      } else if (event.type === 'confirmationOpened') {
+        delete value.preparationOnly;
+      } else if (event.type === 'fail') {
+        delete value.preparationOnly;
+      } else if (
+        event.type === 'preparationFailed' &&
+        step.preparationOnly &&
+        value.status.type === 'failed' &&
+        value.status.stage === 'beforeSend'
+      ) {
+        value.status = { ...value.status, preparationFailed: true };
+      }
+    }
     if (item.id === step.id && step.kind === 'resetApproval') {
       if (event.type === 'retry') {
         const {
@@ -292,7 +321,10 @@ export function reduceDepositTask(
       if (event.type === 'sendStarted') {
         return { ...value, resetSendStarted: true as const };
       }
-      if (event.type === 'fail' && step.status.type === 'preparing') {
+      if (
+        (event.type === 'fail' || event.type === 'preparationFailed') &&
+        step.status.type === 'preparing'
+      ) {
         return { ...value, resetPreparationFailed: true as const };
       }
     }

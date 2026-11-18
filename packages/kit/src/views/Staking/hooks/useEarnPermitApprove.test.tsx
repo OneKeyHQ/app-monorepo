@@ -142,6 +142,32 @@ describe('useEarnPermitApprove trusted spender', () => {
     expect(mockMessageConfirm).not.toHaveBeenCalled();
   });
 
+  it('fails closed when the pre-sign protocol check rejects', async () => {
+    mockBuildSignData.mockResolvedValue(
+      createPermitData(EtherFiLiquidReferContract),
+    );
+    const beforeSign = jest
+      .fn()
+      .mockRejectedValue(new Error('protocol changed'));
+    const { result } = renderHook(() => useEarnPermitApprove());
+    await expect(
+      result.current.getPermitSignature({ ...params, beforeSign }),
+    ).rejects.toThrow('protocol changed');
+    expect(beforeSign).toHaveBeenCalledTimes(1);
+    expect(mockMessageConfirm).not.toHaveBeenCalled();
+  });
+
+  it('rejects a Morpho permit for a different owner before signing', async () => {
+    const data = createPermitData(MorphoBundlerContract);
+    data.message.owner = vaultAddress;
+    mockBuildSignData.mockResolvedValue(data);
+    const { result } = renderHook(() => useEarnPermitApprove());
+    await expect(
+      result.current.getPermitSignature({ ...params, providerName: 'Morpho' }),
+    ).rejects.toThrow('Invalid Earn permit authorization');
+    expect(mockMessageConfirm).not.toHaveBeenCalled();
+  });
+
   it.each([
     [
       'token',
@@ -197,6 +223,7 @@ describe('useEarnPermitApprove trusted spender', () => {
     'signs the registered spender for %s on %s and preserves the protocol vault',
     async (providerName, networkId, spender) => {
       const permitData = createPermitData(spender.toUpperCase());
+      permitData.domain.chainId = Number(networkId.split('--')[1]);
       mockBuildSignData.mockResolvedValue(permitData);
       const { result } = renderHook(() => useEarnPermitApprove());
 

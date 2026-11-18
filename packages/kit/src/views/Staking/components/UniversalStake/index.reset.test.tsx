@@ -1,5 +1,4 @@
 /** @jest-environment jsdom */
-
 import { Suspense, startTransition, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -34,6 +33,13 @@ import type {
   IDepositTaskHandle,
   IEarnStakeConfirmParams,
 } from '../../earnDepositTask/types';
+
+jest.mock('../ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: jest.fn(),
+}));
+jest.mock('../ClaimConversionDialog', () => ({
+  runClaimConversion: jest.fn(),
+}));
 
 type IConfirm = {
   wrappedInfo?: IWrappedInfo;
@@ -81,6 +87,7 @@ const mockStakeTaskProgress = jest.fn();
 const mockPendleLayout = jest.fn();
 const mockShowEstimate = { value: false };
 const mockAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
+const mockAssertEarnApproval = jest.fn<Promise<void>, [unknown]>();
 const mockBot = jest.fn<Promise<boolean>, [unknown]>();
 const mockEstimate = jest.fn<Promise<unknown>, [unknown]>();
 const mockConfirmation = jest.fn<Promise<unknown>, [unknown]>();
@@ -225,6 +232,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getAccountAddressForApi: () => mockTaskAddress(),
     },
     serviceStaking: {
+      assertEarnApproval: (params: unknown) => mockAssertEarnApproval(params),
       checkAmount: (p: unknown) => mockCheck(p),
       fetchTokenAllowance: () => mockAllowance(),
       buildStakeTransaction: (p: unknown) => mockBuildStake(p),
@@ -668,6 +676,7 @@ describe('EtherFi USDT approval reset', () => {
   const reservePermit = permitStakeWorkflowRegistry.reserve;
   beforeEach(() => {
     jest.resetAllMocks();
+    mockAssertEarnApproval.mockResolvedValue();
     jest
       .spyOn(depositTaskRegistry, 'reserve')
       .mockImplementation((key, state) => {
@@ -4276,6 +4285,38 @@ describe('EtherFi USDT approval reset', () => {
     return { screen, pendingAllowance };
   }
 
+  it('does not flash task steps when a direct WETH deposit is already approved', async () => {
+    const weth = {
+      ...token,
+      symbol: 'WETH',
+      address: EthereumWETH,
+      decimals: 18,
+    };
+    if (!props.tokenInfo) throw new OneKeyLocalError('Missing token info');
+    mockAllowanceState.value = '10';
+    const pending = deferred<{ allowanceParsed: string }>();
+    mockAllowance.mockReturnValueOnce(pending.promise);
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        tokenInfo={{ ...props.tokenInfo, token: weth }}
+        approveTarget={{ ...props.approveTarget, token: weth }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '1' },
+    });
+    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    fireEvent.click(deposit);
+    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    await act(async () => pending.resolve({ allowanceParsed: '10' }));
+    await waitFor(() => expect(mockBuildStake).toHaveBeenCalled());
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+  });
+
   it('does not show a revoke step while checking USDT allowance or after a zero allowance', async () => {
     const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
     const revokeStep = expect.objectContaining({
@@ -4297,10 +4338,21 @@ describe('EtherFi USDT approval reset', () => {
 
     mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
     await act(async () => pendingAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockAssertEarnApproval).toHaveBeenCalled());
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
     expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
     expect(mockDialog).not.toHaveBeenCalled();
     expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+  });
+
+  it('does not sign when the registered deposit approval target fails validation', async () => {
+    const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
+    mockAssertEarnApproval.mockRejectedValue(new Error('invalid target'));
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockAssertEarnApproval).toHaveBeenCalled());
+    await waitFor(() => expect(mockShowToastOfError).toHaveBeenCalled());
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows the revoke step only after a nonzero insufficient allowance is confirmed', async () => {

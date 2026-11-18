@@ -117,6 +117,7 @@ export default function ICloudBackup() {
         {allBackups?.items?.map((item, index) => (
           <ListItem
             key={`${item.dataTime}-${index}`}
+            nativePressableStyle={{ flexShrink: 0 }}
             gap="$3"
             bg="$bg"
             $platform-web={{

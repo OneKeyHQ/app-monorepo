@@ -43,6 +43,7 @@ import type {
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
+  IEarnUtmParams,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -105,6 +106,7 @@ const StakeSectionContent = ({
   suppressPlatformBonus,
   isInModalContext,
   fallbackTokenImageUri,
+  utm,
   protocolSwitchConfig,
   ongoingValidator,
   useBorrowApi,
@@ -134,6 +136,7 @@ const StakeSectionContent = ({
   suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   ongoingValidator?: IEarnSelectField;
   useBorrowApi?: boolean;
@@ -683,6 +686,7 @@ const StakeSectionContent = ({
           !hasRequiredData ||
           !initialAllowanceTarget.approveType ||
           !initialAllowanceTarget.spenderAddress ||
+          !initialAllowanceTarget.token?.address ||
           initialAllowanceTarget.token?.isNative
         ) {
           return undefined;
@@ -705,7 +709,7 @@ const StakeSectionContent = ({
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
             }),
-            tokenAddress: initialAllowanceTarget.token?.address || '',
+            tokenAddress: initialAllowanceTarget.token.address,
           });
 
         return { allowanceParsed, scopeKey: allowanceScopeKey };
@@ -805,6 +809,7 @@ const StakeSectionContent = ({
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         slippage: pendleSlippage,
         effectiveApy,
+        utm,
         stakeType: effectiveStakeType,
         taskMode,
         taskAccountAddress,
@@ -903,6 +908,7 @@ const StakeSectionContent = ({
       effectiveStakeTokenInfo?.token,
       handleStake,
       isStakeAssetReady,
+      utm,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.vault,
       btcFeeRate,
