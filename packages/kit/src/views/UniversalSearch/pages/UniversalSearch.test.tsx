@@ -333,12 +333,21 @@ jest.mock(
     ),
     MobileMarketSearchStockRows: ({
       tableLayout,
+      items,
+      showMore,
+      loadMore,
     }: {
       tableLayout?: boolean;
+      items?: unknown[];
+      showMore?: boolean;
+      loadMore?: unknown;
     }) => (
       <div
         data-testid="mobile-stock-rows"
         data-table-layout={String(tableLayout)}
+        data-row-count={items?.length}
+        data-show-more={String(Boolean(showMore))}
+        data-load-more={String(Boolean(loadMore))}
       />
     ),
     MobileMarketSearchTokenRows: ({
@@ -648,18 +657,18 @@ it('counts late help center articles in a query event still waiting for stocks',
   );
 });
 
-it('does not append late help center articles to a lone stock list', async () => {
+it('shows late help center articles below a lone stock list without previewing it', async () => {
   const helpCenter = resolveHelpCenterLate();
-  mockStocks = [
-    {
-      stockId: 'AAPL',
-      symbol: 'AAPL',
-      name: 'Apple',
-      logoUrl: '',
-      assetType: 'stock',
-      currency: 'USD',
-    },
-  ];
+  mockIsNative = true;
+  mockStocks = Array.from({ length: 8 }, (_, index) => ({
+    stockId: `S${index}`,
+    symbol: `S${index}`,
+    name: `Stock ${index}`,
+    logoUrl: '',
+    assetType: 'stock',
+    currency: 'USD',
+  }));
+  mockStockResult.canLoadMore = true;
   render(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
   fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), {
     target: { value: 'match' },
@@ -667,8 +676,14 @@ it('does not append late help center articles to a lone stock list', async () =>
   await waitFor(() => expect(helpCenter.settled).toBe(true), {
     timeout: 4000,
   });
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  expect(screen.queryByText('Late article')).toBeNull();
+  await waitFor(() => expect(screen.getByText('Late article')).toBeTruthy());
+  const stockRows = screen.getByTestId('mobile-stock-rows');
+  expect(stockRows.dataset.rowCount).toBe('8');
+  expect(stockRows.dataset.showMore).toBe('false');
+  expect(stockRows.dataset.loadMore).toBe('true');
+  expect(
+    screen.getByRole('button', { name: ETranslations.settings_help_center }),
+  ).toBeTruthy();
 });
 
 it('keeps Watchlist hidden for DApp-only searches', async () => {

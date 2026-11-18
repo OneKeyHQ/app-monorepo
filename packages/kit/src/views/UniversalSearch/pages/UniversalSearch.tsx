@@ -201,6 +201,9 @@ const MARKET_TAB_INDEX = getUniversalSearchTabIndex(
 const PRIORITIZED_SECONDARY_TAB_INDEX = getUniversalSearchTabIndex(
   EUniversalSearchType.Perp,
 );
+const HELP_CENTER_TAB_INDEX = getUniversalSearchTabIndex(
+  EUniversalSearchType.HelpCenter,
+);
 
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
@@ -371,6 +374,10 @@ export function UniversalSearch({
   );
   // The query of the paged stock search; empty when stocks are out of scope.
   const [stockQuery, setStockQuery] = useState('');
+  // Set when help center articles land after a lone stock list is on screen:
+  // the articles are shown below it, and the stock list keeps its full rows
+  // and paging instead of turning into a preview while the user browses it.
+  const [keepsLoneStockList, setKeepsLoneStockList] = useState(false);
   const isStockSearchInScope = allowedSearchTypeSet.has(
     EUniversalSearchType.MarketStock,
   );
@@ -402,13 +409,23 @@ export function UniversalSearch({
     const merged = stockSection
       ? [...sections, stockSection].toSorted((a, b) => a.tabIndex - b.tabIndex)
       : sections;
-    return applyMarketSectionPreview(merged, {
+    const previewOptions = {
       stockTabIndex: STOCK_TAB_INDEX,
       tokenTabIndex: MARKET_TAB_INDEX,
       previewLimit: MARKET_PREVIEW_LIMIT,
       stockCanLoadMore: stockResult.canLoadMore,
-    });
-  }, [sections, stockResult.canLoadMore, stockSection]);
+    };
+    if (!keepsLoneStockList) {
+      return applyMarketSectionPreview(merged, previewOptions);
+    }
+    return [
+      ...applyMarketSectionPreview(
+        merged.filter((section) => section.tabIndex !== HELP_CENTER_TAB_INDEX),
+        previewOptions,
+      ),
+      ...merged.filter((section) => section.tabIndex === HELP_CENTER_TAB_INDEX),
+    ];
+  }, [keepsLoneStockList, sections, stockResult.canLoadMore, stockSection]);
   const tokenSectionItems = useMemo(
     () =>
       displaySections.find((section) => section.tabIndex === MARKET_TAB_INDEX)
@@ -885,6 +902,7 @@ export function UniversalSearch({
         currentInput: searchInputRef.current,
       });
     setStockQuery(isStockSearchInScope ? input : '');
+    setKeepsLoneStockList(false);
     if (input) {
       let primarySections: IUniversalSection[] = [];
       const searchParams = {
@@ -1029,14 +1047,11 @@ export function UniversalSearch({
         }
         if (!helpCenterResult) {
           void helpCenterPromise.then((lateResult) => {
-            // Late articles would turn a lone, paged stock list into a
-            // 5-row preview while the user browses it, so they are dropped.
-            if (
-              isResponseStale() ||
-              isLoneStockSectionRef.current ||
-              !appendHelpCenterSections(lateResult)
-            ) {
+            if (isResponseStale() || !appendHelpCenterSections(lateResult)) {
               return;
+            }
+            if (isLoneStockSectionRef.current) {
+              setKeepsLoneStockList(true);
             }
             setSections(paintedSections);
             // Count the articles in this run's query event if it is still
@@ -1186,7 +1201,9 @@ export function UniversalSearch({
     stockResult.items.length > 0 &&
     displaySections.every(
       (section) =>
-        section.tabIndex === STOCK_TAB_INDEX || section.data.length === 0,
+        section.tabIndex === STOCK_TAB_INDEX ||
+        section.data.length === 0 ||
+        (keepsLoneStockList && section.tabIndex === HELP_CENTER_TAB_INDEX),
     );
   isLoneStockSectionRef.current = isLoneStockSection;
   // All pages through the selector's scroll hook when stocks stand alone.
