@@ -248,8 +248,44 @@ async function verifySignedMetadata(
   }
 }
 
+function isValidHttpsUrl(url: unknown): url is string {
+  if (typeof url !== 'string' || !url.startsWith('https://')) {
+    return false;
+  }
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isValidSha256Hex(hash: unknown): hash is string {
+  return typeof hash === 'string' && /^[a-fA-F0-9]{64}$/.test(hash);
+}
+
+function normalizePositiveInt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+interface IDiffManifest {
+  schemaVersion: number;
+  appType: string;
+  appVersion: string;
+  targetBundleVersion: string;
+  hashAlgorithm: string;
+  targetMetadataSha256: string;
+  changedFiles: Record<string, string>;
+  reusedFiles: Record<string, string>;
+}
+
+const diffGpgErrors = new WeakSet<object>();
+
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
+
+  private diffFallbackTargets = new Set<string>();
 
   get isDownloading(): boolean {
     return this.cancelByDest.size > 0;
@@ -330,6 +366,10 @@ class DesktopApiAppBundleUpdate {
     return tempDir;
   }
 
+  private getBundleTargetKey(appVersion: string, bundleVersion: string) {
+    return `${appVersion}-${bundleVersion}`;
+  }
+
   // The destination zip path for a (appVersion, bundleVersion) pair.
   private getDestZipPath(
     params?: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
@@ -341,6 +381,44 @@ class DesktopApiAppBundleUpdate {
       this.getDownloadDir(),
       `${appVersion}-${bundleVersion}.zip`,
     );
+  }
+
+  private getDestDiffZipPath(
+    params?: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
+  ): string | null {
+    const { latestVersion: appVersion, bundleVersion } = params || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    return resolveBundlePath(
+      this.getDownloadDir(),
+      `${appVersion}-${bundleVersion}-diff.zip`,
+    );
+  }
+
+  private cleanupDiffArtifacts(
+    diffZipPath: string | null,
+    stagingDir?: string,
+  ) {
+    if (diffZipPath) {
+      for (const target of [
+        diffZipPath,
+        `${diffZipPath}.partial`,
+        `${diffZipPath}.partial.progress.json`,
+      ]) {
+        try {
+          fs.rmSync(target, { force: true });
+        } catch {
+          // ignore cleanup failure
+        }
+      }
+    }
+    if (stagingDir) {
+      try {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+      } catch {
+        // ignore cleanup failure
+      }
+    }
   }
 
   // Public entry point. OCDS §5.8 per-destination single-flight: a second
@@ -398,6 +476,58 @@ class DesktopApiAppBundleUpdate {
     return run;
   }
 
+  private async downloadArchiveFile({
+    url,
+    targetPath,
+    identity,
+    headers,
+    expectedBytes,
+    expectedSha256,
+    latestVersion,
+    bundleVersion,
+    controller,
+  }: {
+    url: string;
+    targetPath: string;
+    identity: string;
+    headers?: Record<string, string>;
+    expectedBytes?: number;
+    expectedSha256: string;
+    latestVersion: string;
+    bundleVersion: string;
+    controller: AbortController;
+  }) {
+    const cancel = () => controller.abort();
+    this.cancelByDest.set(targetPath, cancel);
+    if (this.cancelByDest.size === 1) {
+      clearWindowProgressBar(this.getMainWindow());
+    }
+    try {
+      await downloadNodeFile({
+        url,
+        targetPath,
+        identity,
+        headers: stripSensitiveHeaders(headers ?? {}),
+        expectedBytes: normalizePositiveInt(expectedBytes),
+        expectedSha256,
+        transport: requestUpdateUrl,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          this.getMainWindow()?.webContents.send(
+            ipcMessageKeys.UPDATE_DOWNLOADING,
+            { ...progress, latestVersion, bundleVersion },
+          );
+          updateWindowProgressBar(this.getMainWindow(), progress.percent);
+        },
+      });
+    } finally {
+      this.cancelByDest.delete(targetPath);
+      if (!this.isDownloading) {
+        clearWindowProgressBar(this.getMainWindow());
+      }
+    }
+  }
+
   // The shared downloader owns range selection, resume, and integrity checks.
   private async runDownloadBundle(
     params: IDownloadPackageParams,
@@ -409,14 +539,18 @@ class DesktopApiAppBundleUpdate {
       sha256,
       signature,
       fileSize,
+      diffDownloadUrl,
+      diffFileSize,
+      diffSha256,
+      diffSignature,
+      skipGPGVerification,
       headers,
     } = params || {};
     if (
       !latestVersion ||
       !bundleVersion ||
       !downloadUrl ||
-      typeof sha256 !== 'string' ||
-      !/^[a-fA-F0-9]{64}$/.test(sha256)
+      !isValidSha256Hex(sha256)
     ) {
       throw createUpdateError({
         code: EUpdateErrorCode.invalidArgument,
@@ -424,38 +558,89 @@ class DesktopApiAppBundleUpdate {
       });
     }
     const filePath = this.getDestZipPath(params);
-    if (!filePath)
+    if (!filePath) {
       throw createUpdateError({
         code: EUpdateErrorCode.invalidArgument,
         step: 'download',
       });
+    }
+    const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
+    const targetKey = this.getBundleTargetKey(latestVersion, bundleVersion);
+    const hasValidDiffSignature =
+      (typeof diffSignature === 'string' && diffSignature.trim().length > 0) ||
+      allowSkipGPG;
+    const isDiffEligible =
+      isValidHttpsUrl(diffDownloadUrl) &&
+      isValidSha256Hex(diffSha256) &&
+      hasValidDiffSignature &&
+      !this.diffFallbackTargets.has(targetKey);
+
+    if (isDiffEligible) {
+      const diffZipPath = this.getDestDiffZipPath(params);
+      if (diffZipPath) {
+        const diffController = new AbortController();
+        try {
+          await this.downloadArchiveFile({
+            url: diffDownloadUrl,
+            targetPath: diffZipPath,
+            identity: `bundle-diff:${latestVersion}:${bundleVersion}:${diffSha256}`,
+            headers,
+            expectedBytes: diffFileSize,
+            expectedSha256: diffSha256,
+            latestVersion,
+            bundleVersion,
+            controller: diffController,
+          });
+          return {
+            downloadUrl,
+            latestVersion,
+            bundleVersion,
+            sha256,
+            signature,
+            diffDownloadUrl,
+            diffFileSize,
+            diffSha256,
+            diffSignature,
+          };
+        } catch (diffError) {
+          const wrappedDiffError = wrapDownloadError(diffError);
+          const errorCode = getUpdateError(wrappedDiffError, 'download').code;
+          if (
+            diffController.signal.aborted ||
+            errorCode === EUpdateErrorCode.cancelled
+          ) {
+            throw wrappedDiffError;
+          }
+          logger.warn(
+            'bundle-download',
+            'Diff bundle download failed, falling back to full bundle',
+            {
+              latestVersion,
+              bundleVersion,
+              error:
+                diffError instanceof Error
+                  ? diffError.message
+                  : String(diffError),
+            },
+          );
+          this.diffFallbackTargets.add(targetKey);
+          this.cleanupDiffArtifacts(diffZipPath);
+        }
+      }
+    }
+
     const controller = new AbortController();
-    const cancel = () => controller.abort();
-    this.cancelByDest.set(filePath, cancel);
-    if (this.cancelByDest.size === 1)
-      clearWindowProgressBar(this.getMainWindow());
     try {
-      await downloadNodeFile({
+      await this.downloadArchiveFile({
         url: downloadUrl,
         targetPath: filePath,
         identity: `bundle:${latestVersion}:${bundleVersion}:${sha256}`,
-        headers: stripSensitiveHeaders(headers ?? {}),
-        expectedBytes:
-          typeof fileSize === 'number' &&
-          Number.isSafeInteger(fileSize) &&
-          fileSize > 0
-            ? fileSize
-            : undefined,
+        headers,
+        expectedBytes: fileSize,
         expectedSha256: sha256,
-        transport: requestUpdateUrl,
-        signal: controller.signal,
-        onProgress: (progress) => {
-          this.getMainWindow()?.webContents.send(
-            ipcMessageKeys.UPDATE_DOWNLOADING,
-            { ...progress, latestVersion, bundleVersion },
-          );
-          updateWindowProgressBar(this.getMainWindow(), progress.percent);
-        },
+        latestVersion,
+        bundleVersion,
+        controller,
       });
       return {
         downloadUrl,
@@ -466,9 +651,6 @@ class DesktopApiAppBundleUpdate {
       };
     } catch (error) {
       throw wrapDownloadError(error);
-    } finally {
-      this.cancelByDest.delete(filePath);
-      if (!this.isDownloading) clearWindowProgressBar(this.getMainWindow());
     }
   }
 
@@ -580,6 +762,425 @@ class DesktopApiAppBundleUpdate {
     }
   }
 
+  private validateAndGetZipEntries(
+    zip: AdmZip,
+    targetDir: string,
+    step: TUpdateErrorStep,
+  ): AdmZip.IZipEntry[] {
+    if (zip.getEntryCount() > MAX_BUNDLE_ENTRY_COUNT) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step,
+      });
+    }
+    const entries = zip.getEntries();
+    if (entries.length > MAX_BUNDLE_ENTRY_COUNT) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step,
+      });
+    }
+    const resolvedTargetDir = path.resolve(targetDir);
+    let totalUncompressedBytes = 0;
+    // Validate all zip entries for path traversal and uncompressed size quotas before extraction
+    for (const entry of entries) {
+      const entryPath = path.resolve(resolvedTargetDir, entry.entryName);
+      if (
+        !entryPath.startsWith(resolvedTargetDir + path.sep) &&
+        entryPath !== resolvedTargetDir
+      ) {
+        logger.error(
+          'bundle-verifyASC',
+          `Path traversal detected in zip entry: ${entry.entryName}`,
+        );
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step,
+        });
+      }
+      const entrySize = entry.header.size;
+      const compressedSize = entry.header.compressedSize;
+      if (
+        !Number.isFinite(entrySize) ||
+        entrySize < 0 ||
+        entrySize > MAX_BUNDLE_UNCOMPRESSED_BYTES
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step,
+        });
+      }
+      if (
+        !Number.isFinite(compressedSize) ||
+        compressedSize < 0 ||
+        compressedSize > MAX_BUNDLE_UNCOMPRESSED_BYTES
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step,
+        });
+      }
+      // adm-zip does not cap inflation when the advertised size is zero.
+      if (!entry.isDirectory && entrySize === 0) {
+        const compressed = entry.getCompressedData();
+        const canonicalEmptyDeflate =
+          entry.header.method === 8 &&
+          compressed.length === 2 &&
+          compressed[0] === 0x03 &&
+          compressed[1] === 0x00;
+        const storedEmpty =
+          entry.header.method === 0 && compressed.length === 0;
+        if (!canonicalEmptyDeflate && !storedEmpty) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step,
+          });
+        }
+      }
+      totalUncompressedBytes += entrySize;
+      if (totalUncompressedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step,
+        });
+      }
+    }
+    return entries;
+  }
+
+  private getDiffCandidateBuildDirs(
+    appVersion: string,
+    targetBundleVersion: string,
+  ): string[] {
+    const candidateBuildDirs: string[] = [];
+    const seenDirs = new Set<string>();
+    const addCandidateBuildDir = (dir: string) => {
+      const resolved = path.resolve(dir);
+      if (!seenDirs.has(resolved)) {
+        seenDirs.add(resolved);
+        candidateBuildDirs.push(dir);
+      }
+    };
+
+    const activeBundle = store.getUpdateBundleData();
+    if (
+      activeBundle?.appVersion === appVersion &&
+      activeBundle.bundleVersion &&
+      activeBundle.bundleVersion !== targetBundleVersion
+    ) {
+      try {
+        addCandidateBuildDir(
+          this.getBundleBuildPath({
+            appVersion,
+            bundleVersion: activeBundle.bundleVersion,
+          }),
+        );
+      } catch {
+        // ignore invalid stored bundle version
+      }
+    }
+
+    const bundleDir =
+      typeof getBundleDirName === 'function' ? getBundleDirName() : '';
+    if (bundleDir && fs.existsSync(bundleDir)) {
+      const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.endsWith('.diff-staging')) {
+          const lastDash = entry.name.lastIndexOf('-');
+          if (lastDash > 0) {
+            const entryAppVersion = entry.name.substring(0, lastDash);
+            const entryBundleVersion = entry.name.substring(lastDash + 1);
+            if (
+              entryAppVersion === appVersion &&
+              entryBundleVersion &&
+              entryBundleVersion !== targetBundleVersion
+            ) {
+              try {
+                addCandidateBuildDir(
+                  this.getBundleBuildPath({
+                    appVersion: entryAppVersion,
+                    bundleVersion: entryBundleVersion,
+                  }),
+                );
+              } catch {
+                // ignore unsafe directory name
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const appPath =
+      typeof app.getAppPath === 'function' ? app.getAppPath() : '';
+    if (appPath) {
+      addCandidateBuildDir(path.join(appPath, 'build'));
+    }
+
+    return candidateBuildDirs;
+  }
+
+  private findMatchingLocalFile(
+    candidateBuildDirs: string[],
+    relPath: string,
+    expectedSha512: string,
+  ): string | null {
+    if (!relPath || path.isAbsolute(relPath)) {
+      return null;
+    }
+    for (const buildDir of candidateBuildDirs) {
+      const resolvedBuildDir = path.resolve(buildDir);
+      const candidatePath = path.resolve(resolvedBuildDir, relPath);
+      if (candidatePath.startsWith(`${resolvedBuildDir}${path.sep}`)) {
+        let isSymlink = false;
+        try {
+          isSymlink = Boolean(
+            fs
+              .lstatSync(candidatePath, { throwIfNoEntry: false })
+              ?.isSymbolicLink(),
+          );
+        } catch {
+          // ignore lstat errors on virtual paths (e.g. inside app.asar)
+        }
+        if (
+          !isSymlink &&
+          fs.existsSync(candidatePath) &&
+          checkFileSha512(candidatePath, expectedSha512)
+        ) {
+          return candidatePath;
+        }
+      }
+    }
+    return null;
+  }
+
+  private async reconstructDiffBundle({
+    appVersion,
+    bundleVersion,
+    diffZipPath,
+    stagingDir,
+    extractDir,
+    allowSkipGPG,
+    signature,
+    diffSha256,
+    diffSignature,
+  }: {
+    appVersion: string;
+    bundleVersion: string;
+    diffZipPath: string;
+    stagingDir: string;
+    extractDir: string;
+    allowSkipGPG: boolean;
+    signature?: string;
+    diffSha256?: string;
+    diffSignature?: string;
+  }) {
+    let signedDiffManifestSha256 = '';
+    let signedMetadataSha256 = '';
+    if (!allowSkipGPG) {
+      if (!diffSha256 || !verifySha256(diffZipPath, diffSha256)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
+      }
+      if (!diffSignature) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.invalidArgument,
+          step: 'verifyASC',
+        });
+      }
+      try {
+        signedDiffManifestSha256 = await readMetadataFileSha256(diffSignature, {
+          appVersion,
+          bundleVersion,
+          fileName: 'diff-manifest.json',
+        });
+        if (!signedDiffManifestSha256) {
+          throw new OneKeyLocalError('Invalid signed diff-manifest sha256');
+        }
+      } catch (error) {
+        const wrapped = wrapSignedMetadataError(error, 'verifyASC');
+        diffGpgErrors.add(wrapped);
+        throw wrapped;
+      }
+      try {
+        signedMetadataSha256 = await readMetadataFileSha256(signature!, {
+          appVersion,
+          bundleVersion,
+          fileName: 'metadata.json',
+        });
+        if (!signedMetadataSha256) {
+          throw new OneKeyLocalError('Invalid signed metadata sha256');
+        }
+      } catch (error) {
+        const wrapped = wrapSignedMetadataError(error, 'verifyASC');
+        diffGpgErrors.add(wrapped);
+        throw wrapped;
+      }
+    }
+
+    const zip = new AdmZip(diffZipPath);
+    const entries = this.validateAndGetZipEntries(zip, stagingDir, 'verifyASC');
+    const hasDiffManifest = entries.some(
+      (e) =>
+        !e.isDirectory &&
+        e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
+          'diff-manifest.json',
+    );
+    const hasMetadata = entries.some(
+      (e) =>
+        !e.isDirectory &&
+        e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
+          'metadata.json',
+    );
+    if (!hasDiffManifest || !hasMetadata) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      });
+    }
+
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+    fs.mkdirSync(stagingDir, { recursive: true });
+    zip.extractAllTo(stagingDir, true);
+
+    const diffManifestPath = path.join(stagingDir, 'diff-manifest.json');
+    const metadataPath = path.join(stagingDir, 'metadata.json');
+    if (
+      !fs.existsSync(diffManifestPath) ||
+      fs.lstatSync(diffManifestPath).isSymbolicLink() ||
+      !fs.existsSync(metadataPath) ||
+      fs.lstatSync(metadataPath).isSymbolicLink()
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      });
+    }
+    if (!allowSkipGPG) {
+      if (
+        !verifySha256(diffManifestPath, signedDiffManifestSha256) ||
+        !verifySha256(metadataPath, signedMetadataSha256)
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
+      }
+    }
+
+    const diffManifest = JSON.parse(
+      fs.readFileSync(diffManifestPath, 'utf8'),
+    ) as Partial<IDiffManifest>;
+    const actualMetadataSha256 = calculateSHA256(metadataPath);
+    if (
+      diffManifest?.schemaVersion !== 1 ||
+      diffManifest.appType !== 'electron' ||
+      diffManifest.appVersion !== appVersion ||
+      diffManifest.targetBundleVersion !== bundleVersion ||
+      diffManifest.hashAlgorithm !== 'sha512' ||
+      !isValidSha256Hex(diffManifest.targetMetadataSha256) ||
+      diffManifest.targetMetadataSha256.toLowerCase() !==
+        actualMetadataSha256.toLowerCase() ||
+      !diffManifest.changedFiles ||
+      typeof diffManifest.changedFiles !== 'object' ||
+      Array.isArray(diffManifest.changedFiles) ||
+      !diffManifest.reusedFiles ||
+      typeof diffManifest.reusedFiles !== 'object' ||
+      Array.isArray(diffManifest.reusedFiles)
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyASC',
+      });
+    }
+
+    const targetMetadata = JSON.parse(
+      fs.readFileSync(metadataPath, 'utf8'),
+    ) as Record<string, string>;
+    if (
+      !targetMetadata ||
+      typeof targetMetadata !== 'object' ||
+      Array.isArray(targetMetadata)
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyASC',
+      });
+    }
+
+    const stagingBuildDir = path.resolve(stagingDir, 'build');
+    for (const [relPath, expectedSha512] of Object.entries(
+      diffManifest.changedFiles,
+    )) {
+      const filePath = path.resolve(stagingBuildDir, relPath);
+      if (
+        !relPath ||
+        path.isAbsolute(relPath) ||
+        !filePath.startsWith(`${stagingBuildDir}${path.sep}`) ||
+        typeof expectedSha512 !== 'string' ||
+        !expectedSha512
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      if (
+        fs.lstatSync(filePath, { throwIfNoEntry: false })?.isSymbolicLink() ||
+        !fs.existsSync(filePath) ||
+        !checkFileSha512(filePath, expectedSha512)
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
+      }
+    }
+
+    const candidateBuildDirs = this.getDiffCandidateBuildDirs(
+      appVersion,
+      bundleVersion,
+    );
+    for (const [relPath, expectedSha512] of Object.entries(
+      diffManifest.reusedFiles,
+    )) {
+      const destFilePath = path.resolve(stagingBuildDir, relPath);
+      if (
+        !relPath ||
+        path.isAbsolute(relPath) ||
+        !destFilePath.startsWith(`${stagingBuildDir}${path.sep}`) ||
+        typeof expectedSha512 !== 'string' ||
+        !expectedSha512
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      const matchedSourcePath = this.findMatchingLocalFile(
+        candidateBuildDirs,
+        relPath,
+        expectedSha512,
+      );
+      if (!matchedSourcePath) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
+      }
+      fs.mkdirSync(path.dirname(destFilePath), { recursive: true });
+      fs.writeFileSync(destFilePath, fs.readFileSync(matchedSourcePath));
+    }
+
+    fs.rmSync(diffManifestPath, { force: true });
+    this.verifyAllExtractedFiles(stagingDir, targetMetadata, stagingDir);
+
+    fs.rmSync(extractDir, { recursive: true, force: true });
+    fs.renameSync(stagingDir, extractDir);
+  }
+
   private async verifyBundleASCInternal(params: IUpdateOperationParams) {
     const {
       sha256,
@@ -587,10 +1188,16 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
       signature,
       skipGPGVerification,
+      diffSha256,
+      diffSignature,
     } = params || {};
     assertUpdateBundleVersion(appVersion, 'verifyASC');
     assertUpdateBundleVersion(bundleVersion, 'verifyASC');
     const downloadedFile = this.getDestZipPath({
+      latestVersion: appVersion,
+      bundleVersion,
+    });
+    const diffZipPath = this.getDestDiffZipPath({
       latestVersion: appVersion,
       bundleVersion,
     });
@@ -615,6 +1222,71 @@ class DesktopApiAppBundleUpdate {
         code: EUpdateErrorCode.invalidArgument,
         step: 'verifyASC',
       });
+    }
+    const targetKey = this.getBundleTargetKey(appVersion, bundleVersion);
+    if (
+      !fs.existsSync(downloadedFile) &&
+      diffZipPath &&
+      fs.existsSync(diffZipPath) &&
+      !this.diffFallbackTargets.has(targetKey)
+    ) {
+      const resolvedRoot = fs.realpathSync(this.getDownloadDir());
+      const resolvedDiffFile = fs.realpathSync(diffZipPath);
+      if (!resolvedDiffFile.startsWith(`${resolvedRoot}${path.sep}`)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      const extractDir = getBundleExtractDir({
+        appVersion,
+        bundleVersion,
+      });
+      if (
+        fs.lstatSync(extractDir, { throwIfNoEntry: false })?.isSymbolicLink()
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      const stagingDir = `${extractDir}.diff-staging`;
+      try {
+        await this.reconstructDiffBundle({
+          appVersion,
+          bundleVersion,
+          diffZipPath,
+          stagingDir,
+          extractDir,
+          allowSkipGPG,
+          signature,
+          diffSha256,
+          diffSignature,
+        });
+        return;
+      } catch (error) {
+        this.cleanupDiffArtifacts(diffZipPath, stagingDir);
+        this.diffFallbackTargets.add(targetKey);
+        if (error && typeof error === 'object' && diffGpgErrors.has(error)) {
+          throw error;
+        }
+        logger.warn(
+          'bundle-verifyASC',
+          'Diff bundle reconstruction failed, falling back to full bundle',
+          {
+            appVersion,
+            bundleVersion,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+        if (!params?.downloadUrl || !params?.sha256) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.packageMissing,
+            step: 'verifyASC',
+          });
+        }
+        await this.runDownloadBundle(params);
+      }
     }
     if (fs.existsSync(downloadedFile)) {
       const resolvedRoot = fs.realpathSync(this.getDownloadDir());
@@ -707,84 +1379,11 @@ class DesktopApiAppBundleUpdate {
 
     try {
       const zip = new AdmZip(downloadedFile);
-      if (zip.getEntryCount() > MAX_BUNDLE_ENTRY_COUNT) {
-        throw createUpdateError({
-          code: EUpdateErrorCode.securityRejected,
-          step: 'verifyASC',
-        });
-      }
-      const entries = zip.getEntries();
-      if (entries.length > MAX_BUNDLE_ENTRY_COUNT) {
-        throw createUpdateError({
-          code: EUpdateErrorCode.securityRejected,
-          step: 'verifyASC',
-        });
-      }
-      const resolvedExtractDir = path.resolve(extractDir);
-      let totalUncompressedBytes = 0;
-      // Validate all zip entries for path traversal and uncompressed size quotas before extraction
-      for (const entry of entries) {
-        const entryPath = path.resolve(resolvedExtractDir, entry.entryName);
-        if (
-          !entryPath.startsWith(resolvedExtractDir + path.sep) &&
-          entryPath !== resolvedExtractDir
-        ) {
-          logger.error(
-            'bundle-verifyASC',
-            `Path traversal detected in zip entry: ${entry.entryName}`,
-          );
-          throw createUpdateError({
-            code: EUpdateErrorCode.securityRejected,
-            step: 'verifyASC',
-          });
-        }
-        const entrySize = entry.header.size;
-        const compressedSize = entry.header.compressedSize;
-        if (
-          !Number.isFinite(entrySize) ||
-          entrySize < 0 ||
-          entrySize > MAX_BUNDLE_UNCOMPRESSED_BYTES
-        ) {
-          throw createUpdateError({
-            code: EUpdateErrorCode.securityRejected,
-            step: 'verifyASC',
-          });
-        }
-        if (
-          !Number.isFinite(compressedSize) ||
-          compressedSize < 0 ||
-          compressedSize > MAX_BUNDLE_UNCOMPRESSED_BYTES
-        ) {
-          throw createUpdateError({
-            code: EUpdateErrorCode.securityRejected,
-            step: 'verifyASC',
-          });
-        }
-        // adm-zip does not cap inflation when the advertised size is zero.
-        if (!entry.isDirectory && entrySize === 0) {
-          const compressed = entry.getCompressedData();
-          const canonicalEmptyDeflate =
-            entry.header.method === 8 &&
-            compressed.length === 2 &&
-            compressed[0] === 0x03 &&
-            compressed[1] === 0x00;
-          const storedEmpty =
-            entry.header.method === 0 && compressed.length === 0;
-          if (!canonicalEmptyDeflate && !storedEmpty) {
-            throw createUpdateError({
-              code: EUpdateErrorCode.securityRejected,
-              step: 'verifyASC',
-            });
-          }
-        }
-        totalUncompressedBytes += entrySize;
-        if (totalUncompressedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
-          throw createUpdateError({
-            code: EUpdateErrorCode.securityRejected,
-            step: 'verifyASC',
-          });
-        }
-      }
+      const entries = this.validateAndGetZipEntries(
+        zip,
+        extractDir,
+        'verifyASC',
+      );
       const metadataEntry = entries.find(
         (e) =>
           !e.isDirectory &&
@@ -957,7 +1556,7 @@ class DesktopApiAppBundleUpdate {
     const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
     const results: { appVersion: string; bundleVersion: string }[] = [];
     for (const entry of entries) {
-      if (entry.isDirectory()) {
+      if (entry.isDirectory() && !entry.name.endsWith('.diff-staging')) {
         const lastDash = entry.name.lastIndexOf('-');
         if (lastDash > 0) {
           const appVersion = entry.name.substring(0, lastDash);
@@ -979,7 +1578,13 @@ class DesktopApiAppBundleUpdate {
     // Strip the known download-artifact suffixes so the same parser works for
     // both extract dir names and download file names.
     let base = name;
-    for (const suffix of ['.progress.json', '.partial', '.zip'] as const) {
+    for (const suffix of [
+      '.progress.json',
+      '.partial',
+      '.zip',
+      '-diff',
+      '.diff-staging',
+    ] as const) {
       if (base.endsWith(suffix)) {
         base = base.slice(0, -suffix.length);
       }
@@ -1022,8 +1627,9 @@ class DesktopApiAppBundleUpdate {
     let deletedDirCount = 0;
 
     // 1) Extract dirs: onekey-bundle/{appV}-{bV}/
-    const bundleDir = getBundleDirName();
-    if (fs.existsSync(bundleDir)) {
+    const bundleDir =
+      typeof getBundleDirName === 'function' ? getBundleDirName() : '';
+    if (bundleDir && fs.existsSync(bundleDir)) {
       const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
       for (const entry of entries) {
         const appV = entry.isDirectory()
@@ -1341,6 +1947,29 @@ class DesktopApiAppBundleUpdate {
     }
   }
 
+  private cleanupDiffStagingDirs() {
+    if (typeof getBundleDirName !== 'function') {
+      return;
+    }
+    const bundleDir = getBundleDirName();
+    if (!bundleDir || !fs.existsSync(bundleDir)) {
+      return;
+    }
+    try {
+      const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.endsWith('.diff-staging')) {
+          fs.rmSync(path.join(bundleDir, entry.name), {
+            recursive: true,
+            force: true,
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to clean up diff staging dirs:', error);
+    }
+  }
+
   private async clearDownloadInternal() {
     if (this.cacheClearPromise) return this.cacheClearPromise;
     // Publish the barrier before cancellation callbacks can start another run.
@@ -1351,6 +1980,7 @@ class DesktopApiAppBundleUpdate {
           [...this.inflightDownloads.values()].map(({ run }) => run),
         );
         fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
+        this.cleanupDiffStagingDirs();
       })
       .finally(() => {
         if (this.cacheClearPromise === clear)
@@ -1495,6 +2125,7 @@ class DesktopApiAppBundleUpdate {
 
   async clearAllJSBundleData() {
     try {
+      this.diffFallbackTargets.clear();
       await this.clearDownload();
       await this.clearBundleExtract();
       store.clearUpdateBundleData();

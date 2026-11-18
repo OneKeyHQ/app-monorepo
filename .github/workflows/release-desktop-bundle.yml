@@ -97,6 +97,10 @@ jobs:
 
   release-desktop-bundle:
     needs: private-fonts
+    permissions:
+      contents: read
+      packages: write
+      actions: read
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -435,6 +439,110 @@ jobs:
             "appType": "electron"
           }
           EOF
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+        with:
+          version: 1.3.1
+
+      - name: Prepare Base Manifest and Generate Diff Bundle
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "$(node development/scripts/ota-base-bundle-oci.js is-supported --app-version "$BUILD_APP_VERSION")" != "true" ]; then
+            echo "Incremental OTA is not enabled for version $BUILD_APP_VERSION (< 6.8.0); skipping diff bundle generation."
+            exit 0
+          fi
+
+          BASE_DIR="$RUNNER_TEMP/ota-base-desktop"
+          mkdir -p "$BASE_DIR"
+
+          if ! printf '%s' "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin; then
+            echo "::warning::Failed to log in to GHCR; attempting anonymous pull or git tag fallback."
+          fi
+
+          if ! node development/scripts/ota-base-bundle-oci.js pull \
+            --app-version "$BUILD_APP_VERSION" \
+            --platform desktop \
+            --output-dir "$BASE_DIR"; then
+            echo "::warning::GHCR base manifest lookup failed; falling back to git tag check."
+          fi
+
+          if [ ! -s "$BASE_DIR/base-metadata.json" ]; then
+            TAG_COMMIT=""
+            for tag_name in "v${BUILD_APP_VERSION}" "${BUILD_APP_VERSION}"; do
+              if git fetch --no-tags --depth=1 origin "+refs/tags/${tag_name}:refs/tags/${tag_name}" 2>/dev/null; then
+                TAG_COMMIT="$(git rev-parse "refs/tags/${tag_name}^{commit}" 2>/dev/null || true)"
+                if [ -n "$TAG_COMMIT" ]; then
+                  echo "Found release tag ${tag_name} at ${TAG_COMMIT}"
+                  break
+                fi
+              fi
+            done
+
+            if [ -n "$TAG_COMMIT" ]; then
+              HEAD_COMMIT="$(git rev-parse HEAD)"
+              if [ "$TAG_COMMIT" = "$HEAD_COMMIT" ]; then
+                cp apps/desktop/bundle/metadata.json "$BASE_DIR/base-metadata.json"
+              else
+                BASE_WORKTREE="$RUNNER_TEMP/ota-base-worktree-desktop"
+                cleanup_base_worktree() {
+                  git worktree remove --force "$BASE_WORKTREE" >/dev/null 2>&1 || rm -rf "$BASE_WORKTREE"
+                }
+                trap cleanup_base_worktree EXIT
+                rm -rf "$BASE_WORKTREE"
+                git worktree add --detach "$BASE_WORKTREE" "$TAG_COMMIT"
+                grep -v -E '^(SENTRY_TOKEN|SENTRY_AUTH_TOKEN)=' .env > "$BASE_WORKTREE/.env" || true
+                (
+                  cd "$BASE_WORKTREE"
+                  NODE_AUTH_TOKEN="$GHCR_TOKEN" NODE_OPTIONS="--max_old_space_size=8192" yarn install --immutable
+                  grep -v -E '^(SENTRY_TOKEN|SENTRY_AUTH_TOKEN)=' "$GITHUB_WORKSPACE/.env" > "$BASE_WORKTREE/.env" || true
+                  cd "$BASE_WORKTREE/apps/desktop"
+                  env -u SENTRY_TOKEN -u SENTRY_AUTH_TOKEN NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS="--max_old_space_size=8192" yarn build:JsBundle
+                )
+                if [ -f "$BASE_WORKTREE/apps/desktop/scripts/finalize-production-assets.js" ]; then
+                  (
+                    cd "$BASE_WORKTREE"
+                    node ./apps/desktop/scripts/finalize-production-assets.js --strip-only
+                  )
+                fi
+                if [ -s "$BASE_WORKTREE/apps/desktop/web-build/metadata.json" ]; then
+                  cp "$BASE_WORKTREE/apps/desktop/web-build/metadata.json" "$BASE_DIR/base-metadata.json"
+                fi
+                cleanup_base_worktree
+                trap - EXIT
+              fi
+
+              if [ -s "$BASE_DIR/base-metadata.json" ]; then
+                if ! node development/scripts/ota-base-bundle-oci.js push \
+                  --app-version "$BUILD_APP_VERSION" \
+                  --platform desktop \
+                  --metadata-path "$BASE_DIR/base-metadata.json" \
+                  --source-commit "$TAG_COMMIT"; then
+                  echo "::warning::Failed to push desktop base manifest to GHCR (token may lack packages:write); continuing."
+                fi
+              fi
+            else
+              echo "No release tag v${BUILD_APP_VERSION} or ${BUILD_APP_VERSION} found; skipping diff bundle generation."
+            fi
+          fi
+
+          if [ -s "$BASE_DIR/base-metadata.json" ]; then
+            node development/scripts/generate-ota-diff-bundle.js \
+              --app-type electron \
+              --app-version "$BUILD_APP_VERSION" \
+              --base-app-version "$BUILD_APP_VERSION" \
+              --build-number "$BUILD_NUMBER" \
+              --bundle-version "$BUILD_BUNDLE_VERSION" \
+              --base-metadata-path "$BASE_DIR/base-metadata.json" \
+              --target-bundle-dir apps/desktop/bundle \
+              --output-zip-path apps/desktop/bundle-zip/electron-diff-bundle.zip \
+              --output-diff-zip-info-path apps/desktop/bundle-zip/electron-diff-bundle.json.info \
+              --output-diff-manifest-info-path apps/desktop/bundle-zip/electron.diff-manifest.json.info \
+              --output-diff-manifest-path apps/desktop/bundle-zip/diff-manifest.json
+          fi
 
       - name: upload bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

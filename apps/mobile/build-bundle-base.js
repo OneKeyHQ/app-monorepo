@@ -201,8 +201,12 @@ const nodeExecutablePath = process.execPath;
 console.log(`Node.js executable path: ${nodeExecutablePath}`);
 
 const ignoreFiles = ['.DS_Store'];
+const exactIgnoreFiles = new Set(['metadata.json', 'dist.zip']);
 
 const shouldIgnoreFile = (fileName) => {
+  if (exactIgnoreFiles.has(fileName)) {
+    return true;
+  }
   return ignoreFiles.some((pattern) => {
     return fileName.endsWith(pattern);
   });
@@ -212,7 +216,7 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
   const metadata = {};
 
   const traverseDirectory = (currentPath) => {
-    const items = fs.readdirSync(currentPath);
+    const items = fs.readdirSync(currentPath).toSorted();
 
     items.forEach((item) => {
       const itemPath = path.join(currentPath, item);
@@ -227,7 +231,10 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
             .digest('hex');
 
           // Use relative path from the base directory as the key
-          const relativePath = path.relative(dirPath, itemPath);
+          const relativePath = path
+            .relative(dirPath, itemPath)
+            .split(path.sep)
+            .join('/');
           metadata[relativePath] = hash;
         } catch (error) {
           console.warn(`Failed to hash file ${itemPath}:`, error.message);
@@ -282,9 +289,16 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
       log('metadata: bundleFormat=three-bundle, requiresCommonBundle=true');
     }
 
+    const sortedMetadata = {};
+    Object.keys(metadata)
+      .toSorted()
+      .forEach((key) => {
+        sortedMetadata[key] = metadata[key];
+      });
+
     // Write metadata.json
     const metadataPath = path.join(dirPath, 'metadata.json');
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    fs.writeFileSync(metadataPath, JSON.stringify(sortedMetadata, null, 2));
     log(`Generated metadata.json at: ${metadataPath}`);
     log(`Total files processed: ${Object.keys(metadata).length}`);
   } else {

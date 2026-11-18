@@ -1318,6 +1318,14 @@ class ServiceAppUpdate extends ServiceBase {
               fileSize: normalizeOptionalNumber(data.jsBundle.fileSize),
               sha256: normalizeOptionalString(data.jsBundle.sha256),
               signature: normalizeOptionalString(data.jsBundle.signature),
+              diffDownloadUrl: normalizeOptionalString(
+                data.jsBundle.diffDownloadUrl,
+              ),
+              diffFileSize: normalizeOptionalNumber(data.jsBundle.diffFileSize),
+              diffSha256: normalizeOptionalString(data.jsBundle.diffSha256),
+              diffSignature: normalizeOptionalString(
+                data.jsBundle.diffSignature,
+              ),
             }
           : undefined,
         featuredChangelog: normalizeFeaturedChangelog(
@@ -1433,6 +1441,25 @@ class ServiceAppUpdate extends ServiceBase {
             new Error('jsBundle fileSize is invalid'),
           );
           return this.cachedUpdateInfo;
+        }
+        if (
+          (normalizedData.jsBundle.diffDownloadUrl &&
+            !normalizedData.jsBundle.diffDownloadUrl.startsWith('https://')) ||
+          (normalizedData.jsBundle.diffSha256 &&
+            !/^[a-fA-F0-9]{64}$/.test(normalizedData.jsBundle.diffSha256)) ||
+          (normalizedData.jsBundle.diffFileSize !== undefined &&
+            (typeof normalizedData.jsBundle.diffFileSize !== 'number' ||
+              !Number.isFinite(normalizedData.jsBundle.diffFileSize) ||
+              normalizedData.jsBundle.diffFileSize <= 0 ||
+              normalizedData.jsBundle.diffFileSize > 512 * 1024 * 1024))
+        ) {
+          defaultLogger.app.appUpdate.log(
+            'fetchConfig: invalid jsBundle diff metadata, clearing diff fields',
+          );
+          normalizedData.jsBundle.diffDownloadUrl = undefined;
+          normalizedData.jsBundle.diffFileSize = undefined;
+          normalizedData.jsBundle.diffSha256 = undefined;
+          normalizedData.jsBundle.diffSignature = undefined;
         }
       }
       this.updateAt = Date.now();
@@ -2208,10 +2235,12 @@ class ServiceAppUpdate extends ServiceBase {
     refreshed: boolean;
     downloadUrl?: string;
     jsBundleDownloadUrl?: string;
+    jsBundleDiffDownloadUrl?: string;
   }> {
     const before = await appUpdatePersistAtom.get();
     const beforeUrl = before.downloadUrl;
     const beforeBundleUrl = before.jsBundle?.downloadUrl;
+    const beforeBundleDiffUrl = before.jsBundle?.diffDownloadUrl;
     try {
       // Re-fetch release info; this re-signs the download URL(s) server-side
       // and writes them back into the persist atom.
@@ -2242,10 +2271,12 @@ class ServiceAppUpdate extends ServiceBase {
         refreshed: false,
         downloadUrl: undefined,
         jsBundleDownloadUrl: undefined,
+        jsBundleDiffDownloadUrl: undefined,
       };
     }
     const downloadUrl = after.downloadUrl;
     const jsBundleDownloadUrl = after.jsBundle?.downloadUrl;
+    const jsBundleDiffDownloadUrl = after.jsBundle?.diffDownloadUrl;
     // "Refreshed" means we actually have a usable HTTPS URL now AND it changed
     // from the dead one (a re-signed URL differs in its query token).
     const appUrlRefreshed =
@@ -2256,10 +2287,16 @@ class ServiceAppUpdate extends ServiceBase {
       !!jsBundleDownloadUrl &&
       jsBundleDownloadUrl.startsWith('https://') &&
       jsBundleDownloadUrl !== beforeBundleUrl;
+    const bundleDiffUrlRefreshed =
+      !!jsBundleDiffDownloadUrl &&
+      jsBundleDiffDownloadUrl.startsWith('https://') &&
+      jsBundleDiffDownloadUrl !== beforeBundleDiffUrl;
     return {
-      refreshed: appUrlRefreshed || bundleUrlRefreshed,
+      refreshed:
+        appUrlRefreshed || bundleUrlRefreshed || bundleDiffUrlRefreshed,
       downloadUrl,
       jsBundleDownloadUrl,
+      jsBundleDiffDownloadUrl,
     };
   }
 

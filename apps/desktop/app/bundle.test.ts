@@ -57,6 +57,7 @@ import {
   lastSHA256FailureReason,
   readMetadataFileSha256,
   testExtractedSha256FromVerifyAscFile,
+  verifyDiffManifestFileSha256,
   verifyMetadataFileSha256,
   verifySha256,
 } from './bundle';
@@ -552,3 +553,76 @@ test.each(['../outside', 'bad/version', 'a..b'])(
     }
   },
 );
+
+describe('verifyDiffManifestFileSha256', () => {
+  test('verifies diff-manifest.json GPG payload and SHA-256 and rejects metadata.json cross-replay', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-diff-asc-'));
+    const diffManifestPath = path.join(tmpDir, 'diff-manifest.json');
+    const diffManifestContent = JSON.stringify({
+      schemaVersion: 1,
+      appType: 'electron',
+      appVersion: '6.1.0',
+      targetBundleVersion: '7701116',
+    });
+    fs.writeFileSync(diffManifestPath, diffManifestContent, 'utf8');
+    const diffSha256 = computeSha256(diffManifestContent);
+    const readSpy = jest.spyOn(openpgp, 'readCleartextMessage');
+    try {
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'diff-manifest.json',
+            sha256: diffSha256,
+            appVersion: '6.1.0',
+            bundleVersion: '7701116',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+
+      await expect(
+        verifyDiffManifestFileSha256({
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+          diffSignature: 'signed-diff',
+          diffManifestPath,
+        }),
+      ).resolves.toBe(true);
+
+      // Cross-replaying a metadata.json signature as diffSignature must fail.
+      await expect(
+        verifyDiffManifestFileSha256({
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+          diffSignature: TEST_SIGNATURE,
+          diffManifestPath,
+        }),
+      ).rejects.toThrow('Invalid signed metadata fileName');
+
+      // Mismatched file content must fail.
+      fs.writeFileSync(diffManifestPath, '{"tampered":true}', 'utf8');
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'diff-manifest.json',
+            sha256: diffSha256,
+            appVersion: '6.1.0',
+            bundleVersion: '7701116',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(
+        verifyDiffManifestFileSha256({
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+          diffSignature: 'signed-diff',
+          diffManifestPath,
+        }),
+      ).rejects.toThrow('Invalid diff asc file');
+    } finally {
+      readSpy.mockRestore();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});

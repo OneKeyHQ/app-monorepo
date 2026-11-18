@@ -141,6 +141,10 @@ export interface IBasicAppUpdateInfo {
     fileSize?: number;
     sha256?: string;
     signature?: string;
+    diffDownloadUrl?: string;
+    diffFileSize?: number;
+    diffSha256?: string;
+    diffSignature?: string;
   };
 }
 

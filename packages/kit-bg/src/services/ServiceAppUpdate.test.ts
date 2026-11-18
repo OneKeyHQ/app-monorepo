@@ -2444,6 +2444,62 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(await service.fetchConfig()).toBeUndefined();
     });
 
+    test('preserves valid jsBundle diff metadata and clears invalid diff metadata while keeping full bundle', async () => {
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.silent,
+        jsBundleVersion: '10',
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle.zip',
+          sha256: 'a'.repeat(64),
+          fileSize: 1024,
+          signature: 'full-sig',
+          diffDownloadUrl: 'https://cdn.onekey.so/diff.zip',
+          diffSha256: 'b'.repeat(64),
+          diffFileSize: 256,
+          diffSignature: 'diff-sig',
+        },
+      });
+      const validResult = await service.fetchConfig();
+      expect(validResult?.jsBundle).toEqual({
+        downloadUrl: 'https://cdn.onekey.so/bundle.zip',
+        sha256: 'a'.repeat(64),
+        fileSize: 1024,
+        signature: 'full-sig',
+        diffDownloadUrl: 'https://cdn.onekey.so/diff.zip',
+        diffSha256: 'b'.repeat(64),
+        diffFileSize: 256,
+        diffSignature: 'diff-sig',
+      });
+
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.silent,
+        jsBundleVersion: '11',
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-11.zip',
+          sha256: 'c'.repeat(64),
+          fileSize: 2048,
+          signature: 'full-sig-11',
+          diffDownloadUrl: 'http://insecure.onekey.so/diff-11.zip',
+          diffSha256: 'd'.repeat(64),
+          diffFileSize: 128,
+          diffSignature: 'diff-sig-11',
+        },
+      });
+      const fallbackResult = await service.fetchConfig();
+      expect(fallbackResult?.jsBundle).toEqual({
+        downloadUrl: 'https://cdn.onekey.so/bundle-11.zip',
+        sha256: 'c'.repeat(64),
+        fileSize: 2048,
+        signature: 'full-sig-11',
+        diffDownloadUrl: undefined,
+        diffSha256: undefined,
+        diffFileSize: undefined,
+        diffSignature: undefined,
+      });
+    });
+
     test('rejects appShell with HTTP downloadUrl', async () => {
       mockFetchConfigResponse({
         version: '2.0.0',

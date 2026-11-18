@@ -93,8 +93,52 @@ const toNativeNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-type IReactNativeBundleUpdateWithPrune = typeof ReactNativeBundleUpdate & {
+type IReactNativeBundleUpdateWithPrune = Omit<
+  typeof ReactNativeBundleUpdate,
+  'downloadBundle' | 'verifyBundleASC' | 'downloadBundleASC'
+> & {
   pruneStaleAppVersionBundles(): Promise<number>;
+  downloadBundle(params: {
+    downloadUrl: string;
+    latestVersion: string;
+    bundleVersion: string;
+    fileSize: number;
+    sha256: string;
+    diffDownloadUrl?: string;
+    diffFileSize?: number;
+    diffSha256?: string;
+    diffSignature?: string;
+  }): Promise<{
+    downloadUrl: string;
+    latestVersion: string;
+    bundleVersion: string;
+    sha256: string;
+    diffDownloadUrl?: string;
+    diffFileSize?: number;
+    diffSha256?: string;
+    diffSignature?: string;
+  }>;
+  verifyBundleASC(params: {
+    sha256: string;
+    latestVersion: string;
+    bundleVersion: string;
+    signature: string;
+    diffDownloadUrl?: string;
+    diffFileSize?: number;
+    diffSha256?: string;
+    diffSignature?: string;
+  }): Promise<void>;
+  downloadBundleASC(params: {
+    downloadUrl: string;
+    signature: string;
+    latestVersion: string;
+    bundleVersion: string;
+    sha256: string;
+    diffDownloadUrl?: string;
+    diffFileSize?: number;
+    diffSha256?: string;
+    diffSignature?: string;
+  }): Promise<void>;
 };
 
 const ReactNativeBundleUpdateWithPrune =
@@ -328,12 +372,25 @@ export function resetBundleInstallLockForTest() {
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
     const result = await runUpdateOperation('download', () =>
-      ReactNativeBundleUpdate.downloadBundle({
+      ReactNativeBundleUpdateWithPrune.downloadBundle({
         downloadUrl: toNativeString(params.downloadUrl),
         latestVersion: toNativeString(params.latestVersion),
         bundleVersion: toNativeString(params.bundleVersion),
         fileSize: toNativeNumber(params.fileSize),
         sha256: toNativeString(params.sha256),
+        ...(params.diffDownloadUrl
+          ? { diffDownloadUrl: toNativeString(params.diffDownloadUrl) }
+          : null),
+        ...(typeof params.diffFileSize === 'number' &&
+        Number.isFinite(params.diffFileSize)
+          ? { diffFileSize: params.diffFileSize }
+          : null),
+        ...(params.diffSha256
+          ? { diffSha256: toNativeString(params.diffSha256) }
+          : null),
+        ...(params.diffSignature
+          ? { diffSignature: toNativeString(params.diffSignature) }
+          : null),
       }),
     );
     return {
@@ -342,6 +399,10 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion: result.bundleVersion,
       sha256: result.sha256,
       signature: params.signature,
+      diffDownloadUrl: result.diffDownloadUrl ?? params.diffDownloadUrl,
+      diffFileSize: result.diffFileSize ?? params.diffFileSize,
+      diffSha256: result.diffSha256 ?? params.diffSha256,
+      diffSignature: result.diffSignature ?? params.diffSignature,
     };
   },
   verifyBundle: (params) =>
@@ -354,21 +415,47 @@ export const BundleUpdate: IBundleUpdate = {
     ),
   verifyBundleASC: (params) =>
     runUpdateOperation('verifyASC', () =>
-      ReactNativeBundleUpdate.verifyBundleASC({
+      ReactNativeBundleUpdateWithPrune.verifyBundleASC({
         sha256: toNativeString(params?.sha256),
         latestVersion: toNativeString(params?.latestVersion),
         bundleVersion: toNativeString(params?.bundleVersion),
         signature: toNativeString(params?.signature),
+        ...(params?.diffDownloadUrl
+          ? { diffDownloadUrl: toNativeString(params.diffDownloadUrl) }
+          : null),
+        ...(typeof params?.diffFileSize === 'number' &&
+        Number.isFinite(params.diffFileSize)
+          ? { diffFileSize: params.diffFileSize }
+          : null),
+        ...(params?.diffSha256
+          ? { diffSha256: toNativeString(params.diffSha256) }
+          : null),
+        ...(params?.diffSignature
+          ? { diffSignature: toNativeString(params.diffSignature) }
+          : null),
       }),
     ),
   downloadBundleASC: (params) =>
     runUpdateOperation('downloadASC', () =>
-      ReactNativeBundleUpdate.downloadBundleASC({
+      ReactNativeBundleUpdateWithPrune.downloadBundleASC({
         downloadUrl: toNativeString(params?.downloadUrl),
         signature: toNativeString(params?.signature),
         latestVersion: toNativeString(params?.latestVersion),
         bundleVersion: toNativeString(params?.bundleVersion),
         sha256: toNativeString(params?.sha256),
+        ...(params?.diffDownloadUrl
+          ? { diffDownloadUrl: toNativeString(params.diffDownloadUrl) }
+          : null),
+        ...(typeof params?.diffFileSize === 'number' &&
+        Number.isFinite(params.diffFileSize)
+          ? { diffFileSize: params.diffFileSize }
+          : null),
+        ...(params?.diffSha256
+          ? { diffSha256: toNativeString(params.diffSha256) }
+          : null),
+        ...(params?.diffSignature
+          ? { diffSignature: toNativeString(params.diffSignature) }
+          : null),
       }),
     ),
   installBundle: (params) => {

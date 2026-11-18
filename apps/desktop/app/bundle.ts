@@ -23,7 +23,7 @@ import {
 
 export const readMetadataFileSha256 = async (
   signature: string,
-  expected?: { appVersion?: string; bundleVersion?: string },
+  expected?: { appVersion?: string; bundleVersion?: string; fileName?: string },
 ) => {
   let json: {
     fileName?: unknown;
@@ -78,9 +78,10 @@ export const readMetadataFileSha256 = async (
   if (typeof json?.sha256 !== 'string' || !json.sha256) {
     throw new OneKeyLocalError('Invalid signed metadata sha256');
   }
+  const expectedFileName = expected?.fileName ?? 'metadata.json';
   if (
     (expected !== undefined || json.fileName !== undefined) &&
-    json.fileName !== 'metadata.json'
+    json.fileName !== expectedFileName
   ) {
     throw new OneKeyLocalError('Invalid signed metadata fileName');
   }
@@ -360,6 +361,33 @@ export const verifyMetadataFileSha256 = async ({
   const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
   if (!isVerified) {
     throw new OneKeyLocalError('Invalid asc file');
+  }
+  return true;
+};
+
+export const verifyDiffManifestFileSha256 = async ({
+  appVersion,
+  expectedAppVersion,
+  bundleVersion,
+  diffSignature,
+  diffManifestPath,
+}: {
+  appVersion: string;
+  expectedAppVersion?: string;
+  bundleVersion: string;
+  diffSignature: string;
+  diffManifestPath: string;
+}) => {
+  logger.info('bundle-verifyDiffManifestASC', diffManifestPath);
+  const targetAppVersion = expectedAppVersion ?? appVersion;
+  const diffManifestSha256 = await readMetadataFileSha256(diffSignature, {
+    appVersion: targetAppVersion,
+    bundleVersion,
+    fileName: 'diff-manifest.json',
+  });
+  const isVerified = verifySha256(diffManifestPath, diffManifestSha256);
+  if (!isVerified) {
+    throw new OneKeyLocalError('Invalid diff asc file');
   }
   return true;
 };

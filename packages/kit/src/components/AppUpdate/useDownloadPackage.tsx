@@ -25,7 +25,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IDownloadPackageParams } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import type {
+  IDownloadPackageParams,
+  IUpdateDownloadedEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
   BundleUpdate,
@@ -74,6 +77,53 @@ appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, () => {
 
 export function resetInstallPackageLockForTest() {
   installPackageState = undefined;
+}
+
+const diffFallbackTargets = new Set<string>();
+
+function getDiffFallbackTargetKey(
+  latestVersion?: string,
+  bundleVersion?: string,
+  sha256?: string,
+): string {
+  return `${latestVersion ?? ''}:${bundleVersion ?? ''}:${sha256 ?? ''}`;
+}
+
+export function resetDiffFallbackTargetsForTest() {
+  diffFallbackTargets.clear();
+}
+
+async function markDiffFallbackIfPackageMissing({
+  fileType,
+  error,
+  params,
+  appUpdateInfo,
+}: {
+  fileType: EUpdateFileType;
+  error: IUpdateErrorDTO;
+  params?: IUpdateDownloadedEvent;
+  appUpdateInfo?: IAppUpdateInfo;
+}) {
+  const isDiffEnabled = Boolean(
+    params?.diffDownloadUrl ||
+    params?.diffSha256 ||
+    appUpdateInfo?.jsBundle?.diffDownloadUrl ||
+    appUpdateInfo?.jsBundle?.diffSha256,
+  );
+  if (
+    fileType === EUpdateFileType.jsBundle &&
+    error.code === EUpdateErrorCode.packageMissing &&
+    isDiffEnabled
+  ) {
+    diffFallbackTargets.add(
+      getDiffFallbackTargetKey(
+        params?.latestVersion ?? appUpdateInfo?.latestVersion,
+        params?.bundleVersion ?? appUpdateInfo?.jsBundleVersion,
+        params?.sha256 ?? appUpdateInfo?.jsBundle?.sha256,
+      ),
+    );
+    await BundleUpdate.clearDownload?.().catch(() => undefined);
+  }
 }
 
 function getFailure(error: unknown, step: TUpdateErrorStep): IUpdateErrorDTO {
@@ -383,10 +433,10 @@ export const useDownloadPackage = () => {
       fileType === EUpdateFileType.appShell &&
       appUpdateInfo.updateStrategy !== EUpdateStrategy.force;
     let packageVerified = false;
+    let params: IUpdateDownloadedEvent;
     ensureUpdateAttemptId();
     try {
-      const params =
-        await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+      params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       if (!params) {
         if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
           await backgroundApiProxy.serviceAppUpdate.verifyPackage();
@@ -454,6 +504,12 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(error);
         return;
       }
+      await markDiffFallbackIfPackageMissing({
+        fileType,
+        error,
+        params,
+        appUpdateInfo,
+      });
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
         error,
@@ -468,10 +524,10 @@ export const useDownloadPackage = () => {
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
+    let params: IUpdateDownloadedEvent;
     ensureUpdateAttemptId();
     try {
-      const params =
-        await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+      params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       if (!params) {
         if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
           await backgroundApiProxy.serviceAppUpdate.verifyASC();
@@ -522,6 +578,12 @@ export const useDownloadPackage = () => {
         failedStep: 'verifyASC',
         errorCode: error.code,
         httpStatus: error.httpStatus,
+      });
+      await markDiffFallbackIfPackageMissing({
+        fileType,
+        error,
+        params,
+        appUpdateInfo,
       });
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
@@ -661,6 +723,13 @@ export const useDownloadPackage = () => {
           const isJsBundle = fileType === EUpdateFileType.jsBundle;
           const skipGPGVerification = await getSkipGPGVerification(isJsBundle);
           const headers = await getRequestHeaders();
+          const diffTargetKey = getDiffFallbackTargetKey(
+            asOptionalString(latestVersion),
+            asOptionalString(jsBundleVersion),
+            asOptionalString(jsBundle?.sha256),
+          );
+          const allowDiff =
+            isJsBundle && !diffFallbackTargets.has(diffTargetKey);
           const downloadParams: IDownloadPackageParams = {
             ...updateEvent,
             signature: isJsBundle
@@ -675,6 +744,16 @@ export const useDownloadPackage = () => {
               : asOptionalString(downloadUrl),
             fileSize: isJsBundle ? jsBundle?.fileSize : (params.fileSize ?? 0),
             sha256: isJsBundle ? asOptionalString(jsBundle?.sha256) : undefined,
+            diffDownloadUrl: allowDiff
+              ? asOptionalString(jsBundle?.diffDownloadUrl)
+              : undefined,
+            diffFileSize: allowDiff ? jsBundle?.diffFileSize : undefined,
+            diffSha256: allowDiff
+              ? asOptionalString(jsBundle?.diffSha256)
+              : undefined,
+            diffSignature: allowDiff
+              ? asOptionalString(jsBundle?.diffSignature)
+              : undefined,
             skipGPGVerification: isJsBundle ? skipGPGVerification : undefined,
             headers,
           };
@@ -725,6 +804,9 @@ export const useDownloadPackage = () => {
                 activeDownloadParams = {
                   ...activeDownloadParams,
                   downloadUrl: freshUrl,
+                  ...(allowDiff && refreshed.jsBundleDiffDownloadUrl
+                    ? { diffDownloadUrl: refreshed.jsBundleDiffDownloadUrl }
+                    : null),
                 };
                 return true;
               },
@@ -741,6 +823,14 @@ export const useDownloadPackage = () => {
           await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
             ...activeDownloadParams,
             ...result,
+            ...(isJsBundle && !result.diffDownloadUrl
+              ? {
+                  diffDownloadUrl: undefined,
+                  diffFileSize: undefined,
+                  diffSha256: undefined,
+                  diffSignature: undefined,
+                }
+              : null),
           });
           await downloadASC();
         } catch (e) {

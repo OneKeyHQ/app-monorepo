@@ -10,6 +10,10 @@ export interface IDownloadPackageParams {
   fileSize?: number;
   sha256?: string;
   signature?: string;
+  diffDownloadUrl?: string;
+  diffFileSize?: number;
+  diffSha256?: string;
+  diffSignature?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
   /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
@@ -19,7 +23,15 @@ export interface IDownloadPackageParams {
 export type IUpdateDownloadedEvent =
   | Pick<
       IDownloadPackageParams,
-      'latestVersion' | 'downloadUrl' | 'bundleVersion' | 'sha256' | 'signature'
+      | 'latestVersion'
+      | 'downloadUrl'
+      | 'bundleVersion'
+      | 'sha256'
+      | 'signature'
+      | 'diffDownloadUrl'
+      | 'diffFileSize'
+      | 'diffSha256'
+      | 'diffSignature'
     >
   | undefined;
 

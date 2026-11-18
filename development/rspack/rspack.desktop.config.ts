@@ -75,7 +75,10 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
           return (
             filePath.endsWith('.DS_Store') ||
             filePath.endsWith('.js.LICENSE.txt') ||
-            filePath.endsWith('.js.map')
+            filePath.endsWith('.LICENSE.txt') ||
+            filePath.endsWith('.js.map') ||
+            filePath.endsWith('.css.map') ||
+            path.basename(filePath) === 'metadata.json'
           );
         };
 
@@ -91,13 +94,17 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
                 .createHash('sha512')
                 .update(fileContent)
                 .digest('hex');
-              metadata[relativePath] = hash;
+              const normalizedRelPath = relativePath.split(path.sep).join('/');
+              metadata[normalizedRelPath] = hash;
             } else if (stats.isDirectory()) {
-              const files = fs.readdirSync(filePath);
+              const files = fs.readdirSync(filePath).toSorted();
               files.forEach((file) => {
                 if (!isIgnoreFile(file)) {
                   const fullPath = path.join(filePath, file);
-                  const relPath = path.join(relativePath, file);
+                  const relPath = path
+                    .join(relativePath, file)
+                    .split(path.sep)
+                    .join('/');
                   hashFile(fullPath, relPath);
                 }
               });
@@ -118,8 +125,15 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
 
         hashFile(outputPath, '');
 
+        const sortedMetadata: Record<string, string> = {};
+        Object.keys(metadata)
+          .toSorted()
+          .forEach((key) => {
+            sortedMetadata[key] = metadata[key];
+          });
+
         const metadataPath = path.join(outputPath, 'metadata.json');
-        fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+        fs.writeFileSync(metadataPath, JSON.stringify(sortedMetadata, null, 2));
         callback();
       },
     );
@@ -163,6 +177,8 @@ export function createDesktopConfig({
         commonDesktopConfig,
         {
           optimization: {
+            moduleIds: 'deterministic',
+            chunkIds: 'deterministic',
             // The wasm glue and its .wasm URL reference each other; RealContentHashPlugin cannot order the cycle.
             realContentHash: false,
             runtimeChunk: 'single',

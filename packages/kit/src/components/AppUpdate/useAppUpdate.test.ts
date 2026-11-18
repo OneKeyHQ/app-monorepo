@@ -105,6 +105,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
     verifyBundle: jest.fn(),
     installBundle: jest.fn(),
     clearBundle: jest.fn(),
+    clearDownload: jest.fn(),
     resetToBuiltInBundle: jest.fn(),
     restart: jest.fn(),
     isSkipGpgVerificationAllowed: jest.fn().mockResolvedValue(false),
@@ -409,7 +410,10 @@ import {
   runDownloadWithRetry,
   useDownloadPackage,
 } from './useAppUpdate';
-import { resetInstallPackageLockForTest } from './useDownloadPackage';
+import {
+  resetDiffFallbackTargetsForTest,
+  resetInstallPackageLockForTest,
+} from './useDownloadPackage';
 // DownloadGaveUpError + the budget-hook option type are not re-exported via
 // useAppUpdate (they are part of the retry-internal contract), so import them
 // directly from the module under test.
@@ -457,6 +461,7 @@ function setAtom(partial: Record<string, any>) {
 function resetAllMocks() {
   jest.clearAllMocks();
   resetInstallPackageLockForTest();
+  resetDiffFallbackTargetsForTest();
   mockGuideBlockers.clear();
   mockRunAfterTokensDone.mockImplementation(({ onRun }) => {
     onRun('test');
@@ -4649,5 +4654,176 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
     });
 
     expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+});
+
+describe('useDownloadPackage incremental diff orchestration', () => {
+  test('forwards diff metadata to BundleUpdate.downloadBundle and preserves it in downloadedEvent', async () => {
+    const jsBundle = {
+      downloadUrl: 'https://cdn.onekey.so/full.zip',
+      fileSize: 2048,
+      sha256: 'a'.repeat(64),
+      signature: 'full-sig',
+      diffDownloadUrl: 'https://cdn.onekey.so/diff.zip',
+      diffFileSize: 256,
+      diffSha256: 'b'.repeat(64),
+      diffSignature: 'diff-sig',
+    };
+    svc.getUpdateInfo.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '50',
+      jsBundle,
+      updateStrategy: EUpdateStrategy.silent,
+    });
+    bundleUpd.downloadBundle.mockResolvedValue({
+      latestVersion: '1.0.0',
+      bundleVersion: '50',
+      downloadUrl: jsBundle.downloadUrl,
+      sha256: jsBundle.sha256,
+      signature: jsBundle.signature,
+      diffDownloadUrl: jsBundle.diffDownloadUrl,
+      diffFileSize: jsBundle.diffFileSize,
+      diffSha256: jsBundle.diffSha256,
+      diffSignature: jsBundle.diffSignature,
+    });
+    bundleUpd.downloadBundleASC.mockResolvedValue(undefined);
+    bundleUpd.verifyBundleASC.mockResolvedValue(undefined);
+    bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDownloadPackage());
+    await act(async () => {
+      await result.current.downloadPackage();
+    });
+
+    expect(bundleUpd.downloadBundle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diffDownloadUrl: jsBundle.diffDownloadUrl,
+        diffFileSize: jsBundle.diffFileSize,
+        diffSha256: jsBundle.diffSha256,
+        diffSignature: jsBundle.diffSignature,
+      }),
+    );
+    expect(svc.updateDownloadedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diffDownloadUrl: jsBundle.diffDownloadUrl,
+        diffFileSize: jsBundle.diffFileSize,
+        diffSha256: jsBundle.diffSha256,
+        diffSignature: jsBundle.diffSignature,
+      }),
+    );
+  });
+
+  test('clears diff fields in downloadedEvent when downloadBundle falls back to full bundle', async () => {
+    const jsBundle = {
+      downloadUrl: 'https://cdn.onekey.so/full.zip',
+      fileSize: 2048,
+      sha256: 'a'.repeat(64),
+      signature: 'full-sig',
+      diffDownloadUrl: 'https://cdn.onekey.so/diff.zip',
+      diffFileSize: 256,
+      diffSha256: 'b'.repeat(64),
+      diffSignature: 'diff-sig',
+    };
+    svc.getUpdateInfo.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '51',
+      jsBundle,
+      updateStrategy: EUpdateStrategy.silent,
+    });
+    bundleUpd.downloadBundle.mockResolvedValue({
+      latestVersion: '1.0.0',
+      bundleVersion: '51',
+      downloadUrl: jsBundle.downloadUrl,
+      sha256: jsBundle.sha256,
+      signature: jsBundle.signature,
+    });
+    bundleUpd.downloadBundleASC.mockResolvedValue(undefined);
+    bundleUpd.verifyBundleASC.mockResolvedValue(undefined);
+    bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDownloadPackage());
+    await act(async () => {
+      await result.current.downloadPackage();
+    });
+
+    expect(svc.updateDownloadedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        downloadUrl: jsBundle.downloadUrl,
+        sha256: jsBundle.sha256,
+        diffDownloadUrl: undefined,
+        diffFileSize: undefined,
+        diffSha256: undefined,
+        diffSignature: undefined,
+      }),
+    );
+  });
+
+  test('falls back cleanly to full bundle download after verifyBundleASC fails with packageMissing on a diff update', async () => {
+    const jsBundle = {
+      downloadUrl: 'https://cdn.onekey.so/full.zip',
+      fileSize: 2048,
+      sha256: 'a'.repeat(64),
+      signature: 'full-sig',
+      diffDownloadUrl: 'https://cdn.onekey.so/diff.zip',
+      diffFileSize: 256,
+      diffSha256: 'b'.repeat(64),
+      diffSignature: 'diff-sig',
+    };
+    svc.getUpdateInfo.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '52',
+      jsBundle,
+      updateStrategy: EUpdateStrategy.manual,
+    });
+    svc.getDownloadEvent.mockResolvedValue({
+      latestVersion: '1.0.0',
+      bundleVersion: '52',
+      downloadUrl: jsBundle.downloadUrl,
+      sha256: jsBundle.sha256,
+      signature: jsBundle.signature,
+      diffDownloadUrl: jsBundle.diffDownloadUrl,
+      diffFileSize: jsBundle.diffFileSize,
+      diffSha256: jsBundle.diffSha256,
+      diffSignature: jsBundle.diffSignature,
+    });
+    bundleUpd.clearDownload.mockResolvedValue(undefined);
+    bundleUpd.verifyBundleASC.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      }),
+    );
+
+    const { result } = renderHook(() => useDownloadPackage());
+    await act(async () => {
+      await result.current.verifyASC();
+    });
+
+    expect(bundleUpd.clearDownload).toHaveBeenCalled();
+
+    bundleUpd.downloadBundle.mockResolvedValue({
+      latestVersion: '1.0.0',
+      bundleVersion: '52',
+      downloadUrl: jsBundle.downloadUrl,
+      sha256: jsBundle.sha256,
+      signature: jsBundle.signature,
+    });
+    bundleUpd.downloadBundleASC.mockResolvedValue(undefined);
+    bundleUpd.verifyBundleASC.mockResolvedValue(undefined);
+    bundleUpd.verifyBundle.mockResolvedValue(undefined);
+
+    await act(async () => {
+      await result.current.downloadPackage({ userInitiated: true });
+    });
+
+    expect(bundleUpd.downloadBundle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        downloadUrl: jsBundle.downloadUrl,
+        diffDownloadUrl: undefined,
+        diffFileSize: undefined,
+        diffSha256: undefined,
+        diffSignature: undefined,
+      }),
+    );
   });
 });

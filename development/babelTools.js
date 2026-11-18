@@ -75,6 +75,10 @@ function normalizeConfig({ platform, config }) {
 
   config.plugins = [
     ...(config.plugins || []),
+    !isJest && [
+      fullPath('./babel-plugins/sentry-relative-source-path'),
+      { rootDir: fullPath('..') },
+    ],
     !isJest && ['@sentry/babel-plugin-component-annotate'],
     [
       // Expose env variable to app client-side code, so you can access it like `process.env.XXXXX`
