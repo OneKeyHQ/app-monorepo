@@ -4,7 +4,10 @@ import type { PropsWithChildren } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
-import { getPopularTradingColumns } from './metricColumns';
+import {
+  getPopularTradingColumns,
+  renderPopularTradingTokenIdentity,
+} from './metricColumns';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IntlShape } from 'react-intl';
@@ -20,7 +23,13 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem',
   () => ({
-    TokenIdentityItem: ({ name }: { name?: string }) => <span>{name}</span>,
+    TokenIdentityItem: ({
+      name,
+      showVolume,
+    }: {
+      name?: string;
+      showVolume?: boolean;
+    }) => <span data-show-volume={String(Boolean(showVolume))}>{name}</span>,
   }),
 );
 
@@ -44,12 +53,17 @@ const intl = {
 it.each([true, false])(
   'supplies the name only for desktop layout %p',
   (desktop) => {
-    const columns = getPopularTradingColumns({
-      intl,
-      shouldUseTableLayout: desktop,
-      renderStarButton: () => null,
-    });
-    render(<>{columns[0].render?.(undefined, record, 0)}</>);
+    if (desktop) {
+      const columns = getPopularTradingColumns({
+        intl,
+        renderStarButton: () => null,
+      });
+      render(<>{columns[0].render?.(undefined, record, 0)}</>);
+    } else {
+      render(
+        <>{renderPopularTradingTokenIdentity(record, { showVolume: true })}</>,
+      );
+    }
 
     expect(Boolean(screen.queryByText('台积电'))).toBe(desktop);
   },
@@ -58,25 +72,27 @@ it.each([true, false])(
 it.each([true, false])(
   'uses the localized perps name only for desktop layout %p',
   (desktop) => {
-    const columns = getPopularTradingColumns({
-      intl,
-      shouldUseTableLayout: desktop,
-      renderStarButton: () => null,
-    });
-    render(
-      <>
-        {columns[0].render?.(
-          undefined,
-          {
-            ...record,
-            name: 'TSM',
-            perpsCoin: 'xyz:TSM',
-            perpsSubtitle: '台积电',
-          },
-          0,
-        )}
-      </>,
-    );
+    const perpsRecord: IFavoriteTokenDisplay = {
+      ...record,
+      name: 'TSM',
+      perpsCoin: 'xyz:TSM',
+      perpsSubtitle: '台积电',
+    };
+    if (desktop) {
+      const columns = getPopularTradingColumns({
+        intl,
+        renderStarButton: () => null,
+      });
+      render(<>{columns[0].render?.(undefined, perpsRecord, 0)}</>);
+    } else {
+      render(
+        <>
+          {renderPopularTradingTokenIdentity(perpsRecord, {
+            showVolume: true,
+          })}
+        </>,
+      );
+    }
 
     expect(Boolean(screen.queryByText('台积电'))).toBe(desktop);
     expect(screen.queryByText('TSM')).toBeNull();
@@ -86,7 +102,6 @@ it.each([true, false])(
 it('does not repeat the perps symbol when there is no localized name', () => {
   const columns = getPopularTradingColumns({
     intl,
-    shouldUseTableLayout: true,
     renderStarButton: () => null,
   });
   render(

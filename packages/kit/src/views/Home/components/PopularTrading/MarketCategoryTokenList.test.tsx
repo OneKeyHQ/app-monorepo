@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 
+import type { IPopularTradingRowContainerProps } from './PopularTradingRowContainer';
 import type { IFavoriteTokenDisplay } from './types';
 import type { GestureResponderEvent, PressableProps } from 'react-native';
 
@@ -61,6 +62,7 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Stack,
     YStack: Stack,
     SizableText: Stack,
+    NumberSizeableText: Stack,
     Skeleton: () => <div data-testid="skeleton" />,
     useMedia: () => ({ md: false }),
     Button: ({
@@ -85,29 +87,74 @@ jest.mock('@onekeyhq/components', () => {
     ),
   };
 });
-jest.mock('./metricColumns', () => ({
-  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT: 0,
-  HOME_MARKET_TABLE_ROW_MIN_HEIGHT: 68,
-  getPopularTradingColumns: ({
-    renderStarButton,
-  }: {
-    renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
-  }) => [
-    {
-      dataIndex: 'symbol',
-      title: 'global.name',
-      render: (_: unknown, record: IFavoriteTokenDisplay) =>
-        renderStarButton(record),
-      renderSkeleton: () => <div data-testid="skeleton" />,
-    },
-  ],
-  renderPopularTradingTokenIdentity: (record: IFavoriteTokenDisplay) => (
-    <span>{record.symbol}</span>
-  ),
-  renderPopularTradingPriceWithChange: (record: IFavoriteTokenDisplay) => (
-    <span>{record.price}</span>
-  ),
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
+  StockSourceLogo: () => null,
+  SubtitleBadge: () => null,
 }));
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem',
+  () => ({
+    TokenIdentityItem: ({
+      symbol,
+      name,
+      showVolume,
+    }: {
+      symbol: string;
+      name?: string;
+      showVolume?: boolean;
+    }) => (
+      <span
+        data-testid={`token-identity-${symbol}`}
+        data-name={name ?? ''}
+        data-show-volume={String(Boolean(showVolume))}
+      >
+        {symbol}
+      </span>
+    ),
+  }),
+);
+jest.mock('./PopularTradingRowContainer', () => {
+  const webModule = jest.requireActual<
+    typeof import('./PopularTradingRowContainer')
+  >('./PopularTradingRowContainer');
+  const nativeModule = jest.requireActual<
+    typeof import('./PopularTradingRowContainer.native')
+  >('./PopularTradingRowContainer.native');
+  return {
+    PopularTradingRowContainer: (props: IPopularTradingRowContainerProps) =>
+      platformEnv.isNative ? (
+        <nativeModule.PopularTradingRowContainer {...props} />
+      ) : (
+        <webModule.PopularTradingRowContainer {...props} />
+      ),
+  };
+});
+jest.mock('./metricColumns', () => {
+  const actual =
+    jest.requireActual<typeof import('./metricColumns')>('./metricColumns');
+  return {
+    ...actual,
+    getPopularTradingColumns: ({
+      renderStarButton,
+    }: {
+      renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
+    }) => [
+      {
+        dataIndex: 'symbol',
+        title: 'global.name',
+        render: (_: unknown, record: IFavoriteTokenDisplay) => (
+          <>
+            {renderStarButton(record)}
+            {actual.renderPopularTradingTokenIdentity(record, {
+              showVolume: false,
+            })}
+          </>
+        ),
+        renderSkeleton: () => <div data-testid="skeleton" />,
+      },
+    ],
+  };
+});
 
 const event = {} as GestureResponderEvent;
 
@@ -120,7 +167,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('logs press notifications without registering a business long press or navigating early', () => {
+it('logs press notifications and keeps highlight committed on synchronous fast taps', () => {
   const token: IFavoriteTokenDisplay = {
     chainId: 'btc--0',
     contractAddress: '',
@@ -146,12 +193,19 @@ it('logs press notifications without registering a business long press or naviga
   );
   const row = mockPressableProps.mock.calls.at(-1)?.[0];
   expect(row?.onLongPress).toBeUndefined();
+
+  // Fast tap (< 50ms): Pressable fires onPressIn and onPress synchronously
+  // in the same release event before delaying onPressOut by 130ms.
   act(() => {
     row?.onPressIn?.(event);
+    row?.onPress?.(event);
   });
   expect(
     screen.getByTestId('category-table').querySelector('[data-bg="$bgActive"]'),
   ).toBeTruthy();
+  expect(onTokenPress).toHaveBeenCalledTimes(1);
+  expect(onTokenPress).toHaveBeenCalledWith(token);
+
   act(() => {
     row?.onPressOut?.(event);
   });
@@ -162,12 +216,6 @@ it('logs press notifications without registering a business long press or naviga
     { stage: 'pressIn', symbol: 'BTC' },
     { stage: 'pressOut', symbol: 'BTC' },
   ]);
-  expect(onTokenPress).not.toHaveBeenCalled();
-  act(() => {
-    row?.onPress?.(event);
-  });
-  expect(onTokenPress).toHaveBeenCalledTimes(1);
-  expect(onTokenPress).toHaveBeenCalledWith(token);
 });
 
 it('clears a pressed highlight when a follow-up scroll touch or category change occurs before pressOut (OK-67475)', () => {
@@ -304,6 +352,13 @@ it.each([true, false])(
     expect(table.querySelector('[data-min-height="68"]')).toBeTruthy();
     expect(Boolean(table.querySelector('[data-min-height="0"]'))).toBe(
       tableLayout,
+    );
+    const identity = screen.getByTestId('token-identity-BTC');
+    expect(identity.getAttribute('data-show-volume')).toBe(
+      String(!tableLayout),
+    );
+    expect(identity.getAttribute('data-name')).toBe(
+      tableLayout ? 'Bitcoin' : '',
     );
   },
 );
