@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -259,9 +260,12 @@ export function useOneKeyAuth() {
     async ({
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
+      freeTrialFeatureId,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       keepFreeTrialPendingAction?: boolean;
+      // Analytics only: the Prime free trial that asked for this login.
+      freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
     } = {}) => {
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
@@ -312,6 +316,7 @@ export function useOneKeyAuth() {
               localKeylessLoginPrepareErrorMessage
             }
             toOneKeyIdPageOnLoginSuccess={toOneKeyIdPageOnLoginSuccess}
+            freeTrialFeatureId={freeTrialFeatureId}
           />
         ),
       });

@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { sanitizeCaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
@@ -782,6 +783,31 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToServer()
   public onekeyIdLoginSuccess({ method }: { method: IOneKeyIdLoginMethod }) {
     return { method };
+  }
+
+  /**
+   * Google / Apple button pressed in the OneKey ID login dialog.
+   * With onekeyIdOAuthLoginCancelled, tells a login dialog closed untouched
+   * from a provider sign-in abandoned midway. `featureId` is set when a
+   * Prime free trial asked for the login.
+   */
+  @LogToServer()
+  public onekeyIdOAuthLoginClick(params: {
+    method: EOAuthSocialLoginProvider;
+    featureId?: EPrimeFeatures;
+  }) {
+    return params;
+  }
+
+  /**
+   * The user cancelled the Google / Apple sign-in page or sheet.
+   */
+  @LogToServer()
+  public onekeyIdOAuthLoginCancelled(params: {
+    method: EOAuthSocialLoginProvider;
+    featureId?: EPrimeFeatures;
+  }) {
+    return params;
   }
 
   /**

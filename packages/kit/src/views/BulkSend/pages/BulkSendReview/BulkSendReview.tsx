@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -479,6 +480,17 @@ function BaseBulkSendReview({
     featureId: EPrimeFeatures.BulkSend,
   });
   const reviewUsageIdRef = useRef<string | undefined>(undefined);
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
+  useEffect(() => {
+    defaultLogger.prime.usage.bulkSendReviewShow({
+      featureName: EPrimeFeatures.BulkSend,
+      featureId: EPrimeFeatures.BulkSend,
+      entitlementSource: isPrimeSubscriptionActive ? 'prime' : 'freeTrial',
+      sendMode: bulkSendMode,
+    });
+    // Once per page instance, with the state as of opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Starting or checking a usage can take a while; a page closed meanwhile
   // must not send.
   const isUnmountedRef = useRef(false);
