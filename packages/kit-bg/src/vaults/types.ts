@@ -927,6 +927,18 @@ export interface IBatchSignTransactionParamsBase {
   progressEventId?: string;
 }
 
+// What a vault's pre-send step gets. `signOnly` and the two pre-broadcast
+// bindings are handed over as the send that follows will receive them: they
+// decide whether that send signs a new tx or settles an earlier attempt.
+export type IPreActionsBeforeSendingParams = Pick<
+  IBatchSignTransactionParamsBase,
+  | 'unsignedTxs'
+  | 'tronResourceRentalInfo'
+  | 'signOnly'
+  | 'beforeBroadcastAction'
+  | 'wcPayPreBroadcastRecord'
+>;
+
 export interface ISignMessageParams extends IPbkdf2KdfParams {
   messages: IUnsignedMessage[];
   password: string;

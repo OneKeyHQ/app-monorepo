@@ -88,6 +88,7 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
+  IPreActionsBeforeSendingParams,
   ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -1169,11 +1170,31 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // A TRON tx has no nonce, so a tx rebuilt for a retry (the energy rental
-  // step builds a new one) is a second transfer unless the first is known
-  // to be on chain. Only the positive verdict is taken here: a payload that
-  // is not found keeps the earlier retry behavior, because a stored payload
-  // expires after TRON_TX_EXPIRATION_TIME and could not be sent again.
+  // A TRON tx has no nonce and spends no inputs: the chain refuses a second
+  // tx only when it is the same one, i.e. has the same txID. A tx built
+  // again for the retry (energy rental and a max TRX send both build a new
+  // one, on a later ref block and expiration) would execute next to the
+  // first, so it is not signed: the stored payload is sent again instead,
+  // and the chain takes that one at most once (OK-67168).
+  override async isUnsignedTxConflictingWithSignedTx({
+    unsignedTx,
+    signedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const txid = (unsignedTx.encodedTx as IEncodedTxTron | null)?.txID;
+    return (
+      Boolean(txid) && txid?.toLowerCase() === signedTx.txid?.toLowerCase()
+    );
+  }
+
+  // Only the positive verdict is taken here. A lookup that cannot find the
+  // tx answers with a pending placeholder, so nothing tells a payload that
+  // never arrived from one still in flight; it stays on record and is the
+  // one a retry sends again (`isUnsignedTxConflictingWithSignedTx`). Once
+  // it is past its expiration (TRON_TX_EXPIRATION_TIME) the node refuses it
+  // and the send has to be started over.
   override async checkSignedTxBroadcastStatus({
     signedTx,
     isAcceptedByNode,
@@ -1465,12 +1486,16 @@ export default class Vault extends VaultBase {
     return tx;
   }
 
-  override async preActionsBeforeSending(params: {
-    unsignedTxs: IUnsignedTxPro[];
-    tronResourceRentalInfo?: ITronResourceRentalInfo;
-    feeInfo?: IFeeInfoUnit;
-  }) {
-    const { tronResourceRentalInfo } = params;
+  override async preActionsBeforeSending(
+    params: IPreActionsBeforeSendingParams & { feeInfo?: IFeeInfoUnit },
+  ) {
+    const {
+      unsignedTxs,
+      tronResourceRentalInfo,
+      signOnly,
+      beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
+    } = params;
 
     if (!tronResourceRentalInfo) {
       return;
@@ -1480,6 +1505,24 @@ export default class Vault extends VaultBase {
       tronResourceRentalInfo;
 
     if (!isResourceRentalNeeded || !isResourceRentalEnabled) {
+      return;
+    }
+
+    // A retry that settles an earlier attempt puts no new tx on the wire:
+    // it replays that attempt or sends its payload again, as it was signed
+    // (`isUnsignedTxConflictingWithSignedTx`). A rental ordered now would
+    // be paid for a tx that is never sent, on top of the one the earlier
+    // attempt may have ordered (OK-67168).
+    if (
+      await this.backgroundApi.serviceSend.hasEarlierBroadcastAttempt({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTxs,
+        signOnly,
+        beforeBroadcastAction,
+        wcPayPreBroadcastRecord,
+      })
+    ) {
       return;
     }
 

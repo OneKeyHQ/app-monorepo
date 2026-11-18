@@ -167,6 +167,18 @@ const withSignedTxPayload = (
   };
 };
 
+// False for flows that bind their own pre-broadcast step to the payload
+// (Prime Infini payment, WalletConnect Pay, replace-by-nonce): they pin the
+// nonce themselves and keep signing again on a retry.
+const canRebroadcastStoredPayload = ({
+  beforeBroadcastAction,
+  wcPayPreBroadcastRecord,
+  replaceTxInfo,
+}: Pick<
+  IBatchSignTransactionParamsBase,
+  'beforeBroadcastAction' | 'wcPayPreBroadcastRecord' | 'replaceTxInfo'
+>) => !beforeBroadcastAction && !wcPayPreBroadcastRecord && !replaceTxInfo;
+
 const assertAccountCanSign = (accountId: string) => {
   if (accountUtils.isWatchingAccount({ accountId })) {
     throw new OneKeyInternalError(
@@ -746,9 +758,7 @@ class ServiceSend extends ServiceBase {
         signedTx: ISignedTxPro;
       }) => Promise<boolean>;
     };
-    // False for flows that bind their own pre-broadcast step to the payload
-    // (Prime Infini payment, WalletConnect Pay, replace-by-nonce); they pin
-    // the nonce themselves and keep signing again.
+    // See `canRebroadcastStoredPayload`.
     canRebroadcast: boolean;
   }): Promise<ISignedTxPro | undefined> {
     if (!canRebroadcast) {
@@ -771,6 +781,44 @@ class ServiceSend extends ServiceBase {
       }
     }
     return undefined;
+  }
+
+  // For a step that runs before the send and pays for the tx signed next
+  // (TRON rents energy for it, OK-67168): whether the send that follows
+  // settles one of these txs against an earlier attempt instead of taking
+  // it as new. A payload a node took is replayed in every flow; one that
+  // left the device with no verdict is judged against the stored payload
+  // (`takeSignedTxToRebroadcast`) unless the flow keeps signing again. The
+  // chain is asked the way the send asks it, so a lookup error propagates
+  // here as well. Not a background method: the caller is a vault.
+  async hasEarlierBroadcastAttempt(
+    params: ISendTxBaseParams &
+      Pick<
+        IBatchSignTransactionParamsBase,
+        | 'unsignedTxs'
+        | 'signOnly'
+        | 'beforeBroadcastAction'
+        | 'wcPayPreBroadcastRecord'
+        | 'replaceTxInfo'
+      >,
+  ): Promise<boolean> {
+    const { accountId, networkId, unsignedTxs, signOnly } = params;
+    if (signOnly) {
+      return false;
+    }
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    for (const { uuid } of unsignedTxs) {
+      const record = uuid
+        ? await this.resolveBroadcastRecord({ uuid, vault })
+        : undefined;
+      if (
+        record &&
+        (record.isBroadcast || canRebroadcastStoredPayload(params))
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @backgroundMethod()
@@ -1714,10 +1762,11 @@ class ServiceSend extends ServiceBase {
           record: broadcastRecord,
           unsignedTx,
           vault: recordVault,
-          canRebroadcast:
-            !beforeBroadcastAction &&
-            !wcPayPreBroadcastRecord &&
-            !replaceTxInfo,
+          canRebroadcast: canRebroadcastStoredPayload({
+            beforeBroadcastAction,
+            wcPayPreBroadcastRecord,
+            replaceTxInfo,
+          }),
         });
       }
     }
@@ -2521,10 +2570,11 @@ class ServiceSend extends ServiceBase {
               current: i + 1,
             });
           }
-          const canRebroadcast =
-            !beforeBroadcastAction &&
-            !wcPayPreBroadcastRecord &&
-            !replaceTxInfo;
+          const canRebroadcast = canRebroadcastStoredPayload({
+            beforeBroadcastAction,
+            wcPayPreBroadcastRecord,
+            replaceTxInfo,
+          });
           // The stored payload may be what spent the coins the refresh
           // needs. No new tx can be built to judge against it then, so the
           // stored payload is the one to send again.

@@ -65,7 +65,6 @@ import type {
   IEstimateGasResp,
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
-  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -144,6 +143,7 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
+  IPreActionsBeforeSendingParams,
   ISignTransactionParams,
   ITransferInfo,
   ITransferPayload,
@@ -666,10 +666,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
    * Extension point for vault implementations to perform preparatory actions
    * before sending transactions, such as resource rental for Tron.
    */
-  async preActionsBeforeSending(params: {
-    unsignedTxs: IUnsignedTxPro[];
-    tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }): Promise<
+  async preActionsBeforeSending(
+    params: IPreActionsBeforeSendingParams,
+  ): Promise<
     | {
         preSendTx?: {
           txid: string;
