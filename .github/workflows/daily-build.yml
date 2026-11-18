@@ -62,39 +62,71 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           echo "Executed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          TODAY=$(date -u "+%Y-%m-%d")
-          DATE=$(date -u "+%Y%m%d")
-          CREATED_SINCE="${TODAY}T00:00:00Z"
-          MIN_RUN_FLOOR=0
 
-          # 2026-11-18 already published 2026111899 (from run #4499 under the old % 100 rule).
-          # Roll post-#4501 runs on 2026-11-18/19 into 20261119xx so build numbers stay
-          # strictly > 2026111899 without colliding on 2026-11-19.
-          if [ "$DATE" = "20261118" ] || [ "$DATE" = "20261119" ]; then
-            DATE="20261119"
-            CREATED_SINCE="2026-11-18T00:00:00Z"
-            MIN_RUN_FLOOR=4501
-          fi
-
-          min_run_today=$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-build.yml/runs?created=>=${CREATED_SINCE}&per_page=100" \
-            --jq "([.workflow_runs[] | select(.run_number > ${MIN_RUN_FLOOR} and .run_number <= ${GITHUB_RUN_NUMBER}) | .run_number] + [${GITHUB_RUN_NUMBER}]) | min" \
-            2>/dev/null || echo "${GITHUB_RUN_NUMBER}")
-          if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
-            min_run_today="${GITHUB_RUN_NUMBER}"
-          fi
-
-          daily_seq=$(( GITHUB_RUN_NUMBER - min_run_today + 1 ))
-          if [ "$daily_seq" -lt 1 ]; then
-            daily_seq=1
-          elif [ "$daily_seq" -gt 99 ]; then
-            echo "::error::Daily build sequence (${daily_seq}) exceeded 99 for ${DATE}"
+          run_created_at=""
+          for attempt in 1 2 3; do
+            run_created_at=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              --jq '.created_at // empty' 2>/dev/null || true)
+            if [[ "$run_created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+              break
+            fi
+            sleep 2
+          done
+          if ! [[ "$run_created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+            echo "::error::Failed to resolve created_at for workflow run ${GITHUB_RUN_ID}"
             exit 1
           fi
 
-          run_number=$(printf "%02d" "$daily_seq")
-          build_number="${DATE}${run_number}"
+          TODAY="${run_created_at:0:10}"
+          DATE="${TODAY//-/}"
+
+          # Preserve legacy modulo-100 build number if a pre-cutover run (<= 4501) is re-run.
+          if [ "${GITHUB_RUN_NUMBER}" -le 4501 ]; then
+            run_number=$(( GITHUB_RUN_NUMBER % 100 ))
+            run_number=$(printf "%02d" "$run_number")
+            build_number="${DATE}${run_number}"
+          else
+            CREATED_RANGE="${TODAY}"
+            MIN_RUN_FLOOR=0
+
+            # 2026-11-18 already published 2026111899 (from run #4499 under the old % 100 rule).
+            # Roll post-#4501 runs on 2026-11-18/19 into 20261119xx so build numbers stay
+            # strictly > 2026111899 without colliding on 2026-11-19.
+            if [ "$DATE" = "20261118" ] || [ "$DATE" = "20261119" ]; then
+              DATE="20261119"
+              CREATED_RANGE="2026-11-18..2026-11-19"
+              MIN_RUN_FLOOR=4501
+            fi
+
+            min_run_today=""
+            for attempt in 1 2 3; do
+              min_run_today=$(gh api \
+                "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-build.yml/runs?created=${CREATED_RANGE}&per_page=100" \
+                --jq "if any(.workflow_runs[]; .run_number == ${GITHUB_RUN_NUMBER}) then ([.workflow_runs[] | select(.run_number > ${MIN_RUN_FLOOR} and .run_number <= ${GITHUB_RUN_NUMBER}) | .run_number] | min // empty) else empty end" \
+                2>/dev/null || true)
+              if [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+                break
+              fi
+              sleep 2
+            done
+            if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+              echo "::error::Failed to query daily workflow runs for ${CREATED_RANGE} (run #${GITHUB_RUN_NUMBER})"
+              exit 1
+            fi
+
+            daily_seq=$(( GITHUB_RUN_NUMBER - min_run_today + 1 ))
+            if [ "$daily_seq" -lt 1 ] || [ "$daily_seq" -gt 99 ]; then
+              echo "::error::Daily build sequence (${daily_seq}) out of range 1..99 for ${DATE}"
+              exit 1
+            fi
+
+            run_number=$(printf "%02d" "$daily_seq")
+            build_number="${DATE}${run_number}"
+          fi
+
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
 
