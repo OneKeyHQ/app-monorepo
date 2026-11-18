@@ -26,6 +26,7 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
         [ESpotlightTour.perpLayoutSettings]: 0,
         [ESpotlightTour.perpDesktopChartResize]: 0,
         [ESpotlightTour.portfolioMoreMenu]: 0,
+        [ESpotlightTour.homeDustSweepBanner]: 0,
       },
     },
   });

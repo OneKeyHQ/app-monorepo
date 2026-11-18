@@ -24,7 +24,6 @@ import {
   ScrollView,
   Spinner,
   Stack,
-  XStack,
   YStack,
   useMedia,
   useNetInfo,
@@ -102,6 +101,10 @@ import {
   HomeHeaderContainer,
   useHomeHeaderLayout,
 } from './HomeHeaderContainer';
+import {
+  isHomeHeaderInMotion,
+  subscribeHomeHeaderMotion,
+} from './homeHeaderMotion';
 import { HomeNativePager } from './HomeNativePager';
 import {
   HOME_PAGE_CONTENT_MAX_WIDTH,
@@ -112,6 +115,13 @@ import {
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
 import {
+  TAB_BAR_HEIGHT,
+  TAB_TOOLBAR_BUTTON_SIZE,
+  TAB_TOOLBAR_CONTENT_WIDTH,
+  TAB_TOOLBAR_FLUSH_TRAILING_INSET,
+  TAB_TOOLBAR_TRAILING_INSET,
+} from './homeTabBarMetrics';
+import {
   isHomeTabActive,
   useHomeTabFreeze,
   useHomeTabOwnerThaw,
@@ -120,7 +130,7 @@ import { debugHomeVisual } from './homeVisualTrace';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
-import { TabHeaderSettings, TabRowDustSweep } from './TabHeaderSettings';
+import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
@@ -136,18 +146,6 @@ import type {
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 
-// The tab bar's filter button. The inset is to its icon; with pill tabs on web
-// the button itself ends at the content edge instead, under the balance row's
-// round "More" button.
-const TAB_TOOLBAR_BUTTON_SIZE = s(24) + 2 * s(6) + 2;
-const TAB_TOOLBAR_CONTENT_WIDTH = s(24);
-const TAB_TOOLBAR_TRAILING_INSET = s(20);
-const TAB_TOOLBAR_FLUSH_TRAILING_INSET =
-  TAB_TOOLBAR_TRAILING_INSET +
-  (TAB_TOOLBAR_BUTTON_SIZE - TAB_TOOLBAR_CONTENT_WIDTH) / 2;
-// Where the flush filter button starts, from the tab bar's trailing edge.
-const TAB_TOOLBAR_LEADING_EDGE =
-  TAB_TOOLBAR_TRAILING_INSET + TAB_TOOLBAR_BUTTON_SIZE;
 const PerpsContainer = lazy(async () => {
   debugPerpsChain('import.start');
   const module = await import('./PerpsContainer');
@@ -696,6 +694,8 @@ function BaseHomePageView({
       }
     };
   }, [measurementIdentity, measurementGeneration]);
+  // Held while a header part animates its height (see homeHeaderMotion).
+  const pendingSharedHeight = useRef<number | undefined>(undefined);
   const nativeHeaderRef = useRef<ViewInstance>(null);
   const nativeFixedHeaderRef = useRef<ViewInstance | null>(null);
   const updateHeaderHeight = useCallback(
@@ -711,6 +711,10 @@ function BaseHomePageView({
       )
         return;
       const height = Math.ceil(rawHeight);
+      if (region === 'shared' && isHomeHeaderInMotion()) {
+        pendingSharedHeight.current = height;
+        return;
+      }
       setHeaderGeometry((previous) => {
         if (
           previous.identity !== measurementIdentity ||
@@ -736,6 +740,16 @@ function BaseHomePageView({
       sharedHeaderKey,
       fixedHeaderKey,
     ],
+  );
+  useEffect(
+    () =>
+      subscribeHomeHeaderMotion(() => {
+        if (isHomeHeaderInMotion()) return;
+        const height = pendingSharedHeight.current;
+        pendingSharedHeight.current = undefined;
+        if (height !== undefined) updateHeaderHeight('shared', height);
+      }),
+    [updateHeaderHeight],
   );
   const handleFullHeaderLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -1122,7 +1136,7 @@ function BaseHomePageView({
       style: isSmallScreen
         ? {
             variant: 'text',
-            height: fs(24) + 2 * s(6) + 2 * s(8),
+            height: TAB_BAR_HEIGHT,
             contentPaddingHorizontal: s(10),
             itemSpacing: 0,
             fontSize: fs(18),
@@ -1136,7 +1150,7 @@ function BaseHomePageView({
             // Matches the former JS pill TabBar: $bodyLgMedium labels with
             // px $3.5 / py $1.5 items, $2 gaps and py $2 around the row.
             variant: 'pill',
-            height: fs(24) + 2 * s(6) + 2 * s(8),
+            height: TAB_BAR_HEIGHT,
             contentPaddingHorizontal: s(20),
             contentPaddingVertical: s(8),
             itemSpacing: s(8),
@@ -1246,21 +1260,6 @@ function BaseHomePageView({
               zIndex: 1,
             }}
           />
-          {/* Pill tabs on Spot: Dust sweep sits in the tab row, ending at the
-              filter button. This zero-height node starts at the tab bar's
-              bottom, so the slot spans the bar above it. */}
-          {!isSmallScreen && activeTabId === EHomeWalletTab.Portfolio ? (
-            <XStack
-              position="absolute"
-              bottom="100%"
-              right={TAB_TOOLBAR_LEADING_EDGE}
-              height={nativeTabBar.style?.height ?? 0}
-              alignItems="center"
-              zIndex={1}
-            >
-              <TabRowDustSweep />
-            </XStack>
-          ) : null}
         </Stack>
         {settings}
       </YStack>
@@ -1270,7 +1269,6 @@ function BaseHomePageView({
     nativeTabBar,
     activeTabId,
     homeScrollOwnerKey,
-    isSmallScreen,
     portalRefCallback,
     stickyHostRefCallback,
     tabConfigs,

@@ -22,6 +22,12 @@ export class DustSweepScene extends BaseScene {
     return params;
   }
 
+  // The Home banner offering Dust sweep was closed for good.
+  @LogToServer()
+  dustSweepHomeBannerDismissed(params: { tokenCount: number }) {
+    return params;
+  }
+
   @LogToServer()
   dustSweepStart(params: {
     network: string;

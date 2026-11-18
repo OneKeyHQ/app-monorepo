@@ -24,6 +24,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   moreActions: isExtPopupOrSidePanel
     ? [
         'buy',
+        'dustSweep',
         'explorer',
         'copy',
         'addressList',
@@ -36,6 +37,7 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
       ]
     : [
         'swap',
+        'dustSweep',
         'explorer',
         'copy',
         'addressList',
@@ -49,7 +51,10 @@ export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
   moreActionGroups: [
     {
       type: 'trading',
-      actions: isExtPopupOrSidePanel ? ['buy'] : ['swap'],
+      // Dust sweep swaps small balances away, so it sits with the trades.
+      actions: isExtPopupOrSidePanel
+        ? ['buy', 'dustSweep']
+        : ['swap', 'dustSweep'],
       order: 1,
     },
     {

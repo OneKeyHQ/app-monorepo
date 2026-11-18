@@ -13,6 +13,7 @@ import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deF
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInfo';
 import { DeFiListBlock } from '../components/DeFiListBlock';
+import { DustSweepHintScope } from '../components/DustSweepBanner/DustSweepBanner';
 import { HomeScrollView } from '../components/HomeScrollView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -129,37 +130,39 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   if (platformEnv.isNative) {
     return (
       <Stack flex={1} onLayout={handleNativeLayout}>
-        <TokenListBlock
-          showRecentHistory={tableLayout ? showRecentHistory : undefined}
-          tableLayout={tokenListTableLayout || undefined}
-          nativeListSidecar={recentHistorySidebar}
-          nativeListSidecarLayout={
-            recentHistorySidebar
-              ? {
-                  width: PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH,
-                  gap: 24,
-                  maxContentWidth: PORTFOLIO_CONTENT_MAX_WIDTH,
-                }
-              : undefined
-          }
-          nativeListFooter={
-            <Stack gap="$6" width="100%" paddingBottom={bottomPadding}>
-              <YStack
-                flex={1}
-                gap={tableLayout ? '$10' : '$6'}
-                pb={tableLayout ? '$8' : '$4'}
-              >
-                {otherBlocks}
-                {tableLayout && addPaddingOnListFooter ? (
+        <DustSweepHintScope>
+          <TokenListBlock
+            showRecentHistory={tableLayout ? showRecentHistory : undefined}
+            tableLayout={tokenListTableLayout || undefined}
+            nativeListSidecar={recentHistorySidebar}
+            nativeListSidecarLayout={
+              recentHistorySidebar
+                ? {
+                    width: PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH,
+                    gap: 24,
+                    maxContentWidth: PORTFOLIO_CONTENT_MAX_WIDTH,
+                  }
+                : undefined
+            }
+            nativeListFooter={
+              <Stack gap="$6" width="100%" paddingBottom={bottomPadding}>
+                <YStack
+                  flex={1}
+                  gap={tableLayout ? '$10' : '$6'}
+                  pb={tableLayout ? '$8' : '$4'}
+                >
+                  {otherBlocks}
+                  {tableLayout && addPaddingOnListFooter ? (
+                    <Stack h="$16" />
+                  ) : null}
+                </YStack>
+                {!tableLayout && addPaddingOnListFooter ? (
                   <Stack h="$16" />
                 ) : null}
-              </YStack>
-              {!tableLayout && addPaddingOnListFooter ? (
-                <Stack h="$16" />
-              ) : null}
-            </Stack>
-          }
-        />
+              </Stack>
+            }
+          />
+        </DustSweepHintScope>
       </Stack>
     );
   }
@@ -170,7 +173,7 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   // All-Networks loading state while the page is "unfocused" (modal open),
   // which causes the token list to be stuck in a loading state.
   return (
-    <>
+    <DustSweepHintScope>
       <Stack
         flexDirection={tableLayout ? 'row' : 'column'}
         pt="$3"
@@ -192,7 +195,7 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
         {recentHistorySidebar}
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </Stack>
-    </>
+    </DustSweepHintScope>
   );
 }
 

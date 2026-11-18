@@ -1,5 +1,4 @@
 import {
-  memo,
   useCallback,
   useContext,
   useEffect,
@@ -16,15 +15,11 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
-  IconButton,
-  Skeleton,
   Stack,
   onVisibilityStateChange,
   useOnRouterChange,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
@@ -80,10 +75,6 @@ import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/context
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { PRIVACY_CHAIN_SYNC_STATUS_LABELS } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
-import {
-  DustSweepEntryCapabilitiesProvider,
-  useActiveAccountDustSweep,
-} from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
@@ -160,9 +151,8 @@ import type {
 import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
 import { useTabIsRefreshingFocused } from '../../hooks/useHomeTab';
 import { HomeTestIDs } from '../../testIDs';
+import { DustSweepBanner } from '../DustSweepBanner/DustSweepBanner';
 import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
-import { RichBlock } from '../RichBlock/RichBlock';
-import { RichBlockHeader } from '../RichBlock/RichBlockHeader';
 
 import {
   WALLET_ASSET_STATUS_BASIS,
@@ -278,46 +268,6 @@ function isSameActiveAccountTokenListRequestContext(
     a.tokenSelectorFilterMode === b.tokenSelectorFilterMode
   );
 }
-
-const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
-  showLabel,
-}: {
-  showLabel?: boolean;
-}) {
-  const intl = useIntl();
-  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
-  const handlePress = useCallback(() => {
-    void openDustSweep('tokenListHeader');
-  }, [openDustSweep]);
-
-  if (!canDustSweep) {
-    return null;
-  }
-
-  if (showLabel) {
-    return (
-      <Button
-        testID="token-list-header-dust-sweep"
-        size="small"
-        variant="secondary"
-        icon="BroomOutline"
-        onPress={handlePress}
-      >
-        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
-      </Button>
-    );
-  }
-
-  return (
-    <IconButton
-      testID="token-list-header-dust-sweep"
-      variant="tertiary"
-      icon="BroomOutline"
-      title={intl.formatMessage({ id: ETranslations.title_dust_sweep })}
-      onPress={handlePress}
-    />
-  );
-});
 
 function TokenListBlock({
   tableLayout,
@@ -4406,56 +4356,6 @@ function TokenListBlock({
     [updatePortfolioSyncUiState],
   );
 
-  // Wide desktop / web: the subtotal after "Tokens" only says something when
-  // DeFi or perps value is part of the balance above. Alone it repeats that
-  // balance, so the title stands without it.
-  const subtotalRepeatsBalance =
-    !!tableLayout &&
-    !platformEnv.isNative &&
-    !(
-      homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey &&
-      [
-        homePortfolioDisplay.defiFiatUsd,
-        homePortfolioDisplay.perpsFiatUsd,
-      ].some((value) => !!value && new BigNumber(value).gt(0))
-    );
-
-  const renderSubTitle = useCallback(() => {
-    if (tableLayout) {
-      if (subtotalRepeatsBalance) return null;
-      if (
-        (!tokenListState.initialized && tokenListState.isRefreshing) ||
-        // The atom still holds another owner's worth (first visit of this
-        // owner, nothing remembered yet): a skeleton, never the wrong number.
-        !isWorthForCurrentOwner
-      ) {
-        return <Skeleton.HeadingLg />;
-      }
-
-      return (
-        <Currency
-          hideValue
-          size="$headingXl"
-          color="$textSubdued"
-          formatter="value"
-          sourceCurrency={accountTokensWorth.currency}
-        >
-          {accountTokensValue}
-        </Currency>
-      );
-    }
-
-    return null;
-  }, [
-    tableLayout,
-    subtotalRepeatsBalance,
-    accountTokensWorth.currency,
-    accountTokensValue,
-    isWorthForCurrentOwner,
-    tokenListState.initialized,
-    tokenListState.isRefreshing,
-  ]);
-
   const [privacyTokenStatus] = useHomePrivacyTokenStatusAtom();
   const nativeTokenStatus = useMemo(() => {
     if (
@@ -4583,20 +4483,8 @@ function TokenListBlock({
           ) : null
         }
         nativeListHeader={
-          platformEnv.isNative ? (
-            <Stack pt="$3">
-              <RichBlockHeader
-                withTitleSeparator
-                title={intl.formatMessage({
-                  id: ETranslations.global_universal_search_tabs_tokens,
-                })}
-                subTitle={renderSubTitle()}
-                headerActions={
-                  <TokenListDustSweepAction showLabel={tableLayout} />
-                }
-                headerContainerProps={{ px: '$pagePadding' }}
-              />
-            </Stack>
+          platformEnv.isNative && !showLpTokensOnly ? (
+            <DustSweepBanner />
           ) : undefined
         }
         nativeListFooter={platformEnv.isNative ? nativeListFooter : undefined}
@@ -4633,44 +4521,24 @@ function TokenListBlock({
     nativeTokenStatus,
     nativeTokenVerification,
     onNativeRefresh,
-    renderSubTitle,
     scopedLpTokenList,
     scopedLpTokenListMap,
     scopedLpTokenListState,
     showLpTokensOnly,
   ]);
 
+  // The Spot tab already names the list, and the balance above is its total:
+  // no "Tokens" heading. Dust sweep lives in the Spot filter panel; the banner
+  // above the list offers it until closed once.
+  if (platformEnv.isNative) {
+    return renderContent();
+  }
+  // Web keeps the block's former wrapper (no text selection across the list).
   return (
-    <DustSweepEntryCapabilitiesProvider
-      // The wide web table's Dust sweep sits in the tab row, under its own
-      // provider; this one would only repeat its requests.
-      isFocused={
-        Boolean(isFocused && isRouteFocused) &&
-        (platformEnv.isNative || !tableLayout)
-      }
-    >
-      {platformEnv.isNative ? (
-        renderContent()
-      ) : (
-        <RichBlock
-          withTitleSeparator
-          title={intl.formatMessage({
-            id: ETranslations.global_universal_search_tabs_tokens,
-          })}
-          subTitle={renderSubTitle()}
-          // Wide web: Dust sweep sits in the tab row instead (HomePageView);
-          // narrow web and native tablets keep it here.
-          headerActions={
-            tableLayout && !platformEnv.isNative ? undefined : (
-              <TokenListDustSweepAction showLabel={tableLayout} />
-            )
-          }
-          headerContainerProps={{ px: '$pagePadding' }}
-          content={renderContent()}
-          plainContentContainer
-        />
-      )}
-    </DustSweepEntryCapabilitiesProvider>
+    <Stack userSelect="none" pointerEvents="box-none">
+      {showLpTokensOnly ? null : <DustSweepBanner />}
+      {renderContent()}
+    </Stack>
   );
 }
 

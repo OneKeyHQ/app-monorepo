@@ -5,8 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
-  Divider,
   ESwitchSize,
   IconButton,
   Popover,
@@ -46,6 +44,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { ListItem } from '../../../components/ListItem';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeTestIDs } from '../testIDs';
 
 import type {
   CollapsiblePagerToolbarItem,
@@ -78,10 +77,17 @@ function useNativeSettingsToolbar(
   const intl = useIntl();
   const onConfig = toolbar?.onConfig;
   const onPressConsumed = toolbar?.onPressConsumed;
-  const title = intl.formatMessage({ id: ETranslations.global_filter });
+  // The token list's panel holds DeFi tokens, managing tokens and dust
+  // sweep, so it is named for tokens; the history one only filters.
+  const title = intl.formatMessage({
+    id:
+      key === EHomeWalletTab.Portfolio
+        ? ETranslations.token_management__title
+        : ETranslations.global_filter,
+  });
   const toolbarTestID =
     key === EHomeWalletTab.Portfolio
-      ? 'home-media-icon-btn'
+      ? HomeTestIDs.spotFilterButton
       : 'home-filter-scam-history-supported-icon-btn';
   const toolbarPress = toolbar?.press;
   const webAnchorElement = useMemo(() => {
@@ -146,12 +152,14 @@ function TokenListSettingsContent({
   onLpTokenFilterChange,
   showLpTokenFilterSwitch,
   showLpTokensOnly,
+  onDustSweep,
 }: {
   handleOnManageToken: () => void;
   manageTokenEnabled: boolean;
   onLpTokenFilterChange: (value: boolean) => void;
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
+  onDustSweep?: () => void;
 }) {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
@@ -161,6 +169,12 @@ function TokenListSettingsContent({
     await timerUtils.wait(150);
     handleOnManageToken();
   }, [closePopover, handleOnManageToken]);
+
+  const handleDustSweepPress = useCallback(async () => {
+    await closePopover?.();
+    await timerUtils.wait(150);
+    onDustSweep?.();
+  }, [closePopover, onDustSweep]);
 
   return (
     <Stack py="$2">
@@ -189,6 +203,16 @@ function TokenListSettingsContent({
           drillIn
         />
       ) : null}
+      {onDustSweep ? (
+        <ListItem
+          testID="token-list-settings-dust-sweep"
+          title={intl.formatMessage({
+            id: ETranslations.out_title_dust_sweep,
+          })}
+          onPress={handleDustSweepPress}
+          drillIn
+        />
+      ) : null}
     </Stack>
   );
 }
@@ -199,6 +223,12 @@ function TokenListSettings({
   nativeToolbar?: IHomeNativeToolbar;
 }) {
   const intl = useIntl();
+  // Dust sweep's lasting entry on every platform.
+  const { canDustSweep: showDustSweep, openDustSweep } =
+    useActiveAccountDustSweep();
+  const handleDustSweep = useCallback(() => {
+    void openDustSweep('tokenListSettings');
+  }, [openDustSweep]);
   const {
     activeAccount: {
       account,
@@ -241,26 +271,28 @@ function TokenListSettings({
     [setTokenSelectorFilter],
   );
 
+  const hasSettings =
+    showLpTokenFilterSwitch || manageTokenEnabled || showDustSweep;
   const nativePopover = useNativeSettingsToolbar(
     EHomeWalletTab.Portfolio,
-    showLpTokenFilterSwitch || manageTokenEnabled,
+    hasSettings,
     showLpTokensOnly,
     nativeToolbar,
   );
-  if (!showLpTokenFilterSwitch && !manageTokenEnabled) {
+  if (!hasSettings) {
     return null;
   }
 
   return (
     <Popover
       {...nativePopover}
-      title={intl.formatMessage({ id: ETranslations.global_filter })}
+      title={intl.formatMessage({ id: ETranslations.token_management__title })}
       renderTrigger={
         nativeToolbar ? null : (
           <IconButton
-            testID="home-media-icon-btn"
+            testID={HomeTestIDs.spotFilterButton}
             title={intl.formatMessage({
-              id: ETranslations.global_filter,
+              id: ETranslations.token_management__title,
             })}
             variant="tertiary"
             icon="SliderHorOutline"
@@ -275,9 +307,27 @@ function TokenListSettings({
           onLpTokenFilterChange={handleLpTokenFilterChange}
           showLpTokenFilterSwitch={showLpTokenFilterSwitch}
           showLpTokensOnly={showLpTokensOnly}
+          onDustSweep={showDustSweep ? handleDustSweep : undefined}
         />
       }
     />
+  );
+}
+
+function SpotTabSettings({
+  nativeToolbar,
+  spotFocused,
+}: {
+  nativeToolbar?: IHomeNativeToolbar;
+  spotFocused: boolean;
+}) {
+  const isRouteFocused = useRouteIsFocused();
+  return (
+    <DustSweepEntryCapabilitiesProvider
+      isFocused={isRouteFocused && spotFocused}
+    >
+      <TokenListSettings nativeToolbar={nativeToolbar} />
+    </DustSweepEntryCapabilitiesProvider>
   );
 }
 const filterScamHistorySupportedNetworkIds = new Set(
@@ -535,14 +585,17 @@ function BasicTabHeaderSettings({
     if (nativeToolbar) {
       return (
         <>
-          <TokenListSettings nativeToolbar={nativeToolbar} />
+          <SpotTabSettings
+            nativeToolbar={nativeToolbar}
+            spotFocused={focusedTab === portfolioName}
+          />
           <TxHistorySettings nativeToolbar={nativeToolbar} />
         </>
       );
     }
     switch (focusedTab) {
       case portfolioName:
-        return <TokenListSettings nativeToolbar={nativeToolbar} />;
+        return <SpotTabSettings nativeToolbar={nativeToolbar} spotFocused />;
       case historyName:
         return <TxHistorySettings nativeToolbar={nativeToolbar} />;
       default:
@@ -553,48 +606,3 @@ function BasicTabHeaderSettings({
 }
 
 export const TabHeaderSettings = memo(BasicTabHeaderSettings);
-
-function TabRowDustSweepButton() {
-  const intl = useIntl();
-  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
-  const handlePress = useCallback(() => {
-    void openDustSweep('tokenListHeader');
-  }, [openDustSweep]);
-  if (!canDustSweep) {
-    return null;
-  }
-  return (
-    <>
-      <Button
-        testID="token-list-header-dust-sweep"
-        variant="tertiary"
-        size="small"
-        icon="BroomOutline"
-        h={38}
-        my="$0"
-        mx="$0"
-        py="$0"
-        px={10}
-        onPress={handlePress}
-      >
-        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
-      </Button>
-      {/* 6 + 1 + 7 before the filter button: the label ends where the
-          balance row's last action label does. x 0 undoes Separator's -0.5px
-          shift. */}
-      <Divider vertical h="$4" x={0} ml={6} mr={7} />
-    </>
-  );
-}
-
-// Wide web Spot tab: Dust sweep is a quiet text button in the tab row, left of
-// the tab bar's filter button (the tab bar itself only draws icon buttons).
-// It reads as an action rather than another tab.
-export function TabRowDustSweep() {
-  const isRouteFocused = useRouteIsFocused();
-  return (
-    <DustSweepEntryCapabilitiesProvider isFocused={isRouteFocused}>
-      <TabRowDustSweepButton />
-    </DustSweepEntryCapabilitiesProvider>
-  );
-}

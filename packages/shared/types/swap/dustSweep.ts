@@ -2,7 +2,12 @@ import type { ISwapErrorMessage, ISwapNetwork, ISwapToken } from './types';
 
 export const DUST_SWEEP_PROVIDER = 'SwapOKX';
 
-export type IDustSweepEntry = 'lowValueRow' | 'tokenListHeader';
+export type IDustSweepEntry =
+  | 'lowValueRow'
+  | 'tokenListHeader'
+  | 'tokenListSettings'
+  | 'homeBanner'
+  | 'walletMore';
 export type IDustSweepRouteParams = {
   accountId?: string;
   indexedAccountId?: string;

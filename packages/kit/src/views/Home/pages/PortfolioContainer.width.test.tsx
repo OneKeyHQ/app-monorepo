@@ -53,6 +53,9 @@ jest.mock('../../DAppConnection/hooks/useActiveTabDAppInfo', () => ({
 jest.mock('../components/DeFiListBlock', () => ({
   DeFiListBlock: () => null,
 }));
+jest.mock('../components/DustSweepBanner/DustSweepBanner', () => ({
+  DustSweepHintScope: ({ children }: { children: ReactNode }) => children,
+}));
 jest.mock('../components/HomeScrollView', () => ({
   HomeScrollView: ({ children }: { children: ReactNode }) => children,
 }));

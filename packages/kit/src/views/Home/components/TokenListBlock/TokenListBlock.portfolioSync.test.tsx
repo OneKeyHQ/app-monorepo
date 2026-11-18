@@ -435,6 +435,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({ defaultLogger: {} }));
 jest.mock('@onekeyhq/kit/src/utils/fiatConvert', () => ({
   convertFiat: ({ value }: { value: string }) => value,
 }));
+jest.mock('../DustSweepBanner/DustSweepBanner', () => ({
+  DustSweepBanner: () => null,
+}));
 jest.mock('../HomeStickyHeaderContext', () => ({
   HomeStickyHeaderContext: jest
     .requireActual<typeof import('react')>('react')
@@ -1420,37 +1423,15 @@ describe('Home automatic Portfolio sync', () => {
     await refresh();
     expect(mockNotifySettled).not.toHaveBeenCalled();
   });
-  describe('the Tokens title on the wide web table', () => {
-    const shownSubTitle = () => mockRichBlock.mock.calls.at(-1)?.[0].subTitle;
-
-    beforeEach(() => {
-      platformEnv.isNative = false;
-    });
-
-    afterEach(() => {
-      platformEnv.isNative = true;
-    });
-
-    it('stands alone when tokens are the whole balance', () => {
-      render(<TokenListBlock tableLayout />);
-      expect(shownSubTitle()).toBeNull();
-    });
-
-    it('carries the token subtotal when DeFi or perps value adds to the balance', () => {
+  it('heads the list with no Tokens title, even beside DeFi or perps value', () => {
+    platformEnv.isNative = false;
+    try {
       mockHomeDisplay = { ...mockHomeDisplay, defiFiatUsd: '40' };
       render(<TokenListBlock tableLayout />);
-      expect(shownSubTitle()).not.toBeNull();
-    });
-
-    it('keeps the subtotal off for a snapshot of another account', () => {
-      mockHomeDisplay = {
-        ...mockHomeDisplay,
-        ownerKey: 'another-account__evm--1',
-        defiFiatUsd: '40',
-      };
-      render(<TokenListBlock tableLayout />);
-      expect(shownSubTitle()).toBeNull();
-    });
+      expect(mockRichBlock).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNative = true;
+    }
   });
 });
 

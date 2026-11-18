@@ -85,6 +85,11 @@ export function DustSweepEntryCapabilitiesProvider({
   );
 }
 
+// Networks Dust sweep can open on; undefined while the capabilities load.
+export function useDustSweepSupportedNetworkIds() {
+  return useContext(DustSweepEntryCapabilitiesContext).supportedNetworkIds;
+}
+
 export function useNavigateToDustSweep() {
   const intl = useIntl();
 

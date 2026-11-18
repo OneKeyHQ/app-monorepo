@@ -65,6 +65,7 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.perpLayoutSettings]: 0,
         [ESpotlightTour.perpDesktopChartResize]: 0,
         [ESpotlightTour.portfolioMoreMenu]: 0,
+        [ESpotlightTour.homeDustSweepBanner]: 0,
       },
     });
   }
