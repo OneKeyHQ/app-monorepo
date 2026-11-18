@@ -790,13 +790,16 @@ export class PrimeSubscriptionScene extends BaseScene {
    * With onekeyIdOAuthLoginExited, tells a login dialog closed untouched
    * from a provider sign-in abandoned midway. `featureId` is set when a
    * Prime free trial asked for the login.
+   * Both events carry their own time ($timestamp): in a fresh extension expand
+   * tab they can happen before analytics is initialized, and the events cached
+   * until then are sent later and in reverse order.
    */
   @LogToServer()
   public onekeyIdOAuthLoginClick(params: {
     method: EOAuthSocialLoginProvider;
     featureId?: EPrimeFeatures;
   }) {
-    return params;
+    return { ...params, $timestamp: Date.now() };
   }
 
   /**
@@ -811,7 +814,7 @@ export class PrimeSubscriptionScene extends BaseScene {
     featureId?: EPrimeFeatures;
     reason: 'cancelled' | 'unknown';
   }) {
-    return params;
+    return { ...params, $timestamp: Date.now() };
   }
 
   /**
