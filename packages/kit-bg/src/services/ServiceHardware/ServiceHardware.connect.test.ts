@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -11,12 +11,15 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import * as hardwareInstance from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EHardwareVendor,
+  EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
@@ -29,9 +32,11 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice, IDBWallet } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type { IInstallOneKeyUdevRulesResult } from '../../desktopApis/DesktopApiSystem';
+import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type {
   Features,
   SearchDevice,
+  UiEvent,
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 
@@ -1466,5 +1471,382 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
 
     expect(uiResponse).toHaveBeenCalledWith(response);
     expect(shouldSwitchTransportType).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardware.specialProcessingEvent PIN preference lookup', () => {
+  type ISpecialProcessingEventService = {
+    specialProcessingEvent(params: {
+      originEvent: UiEvent;
+      usedPayload: IHardwareUiPayload;
+      isCurrent: () => boolean;
+    }): Promise<{
+      uiRequestType: EHardwareUiStateAction;
+      payload: IHardwareUiPayload;
+    }>;
+  };
+
+  function buildDbDeviceRecord(
+    overrides: Partial<IDBDevice> = {},
+  ): IDBDevice {
+    return {
+      id: 'db-device-id',
+      connectId: 'USB_SERIAL_1',
+      uuid: 'HW_SERIAL_1',
+      deviceId: 'DEVICE_ID_1',
+      deviceType: EDeviceType.Classic1s,
+      name: 'OneKey Classic 1S',
+      vendor: EHardwareVendor.onekey,
+      settings: {
+        inputPinOnSoftware: false,
+        inputPinOnSoftwareSupport: true,
+      },
+      ...overrides,
+    } as unknown as IDBDevice;
+  }
+
+  function installDeviceQueryMock(devices: IDBDevice[]) {
+    mockedLocalDb.getDeviceByQuery.mockImplementation(
+      async ({ connectId, featuresDeviceId, features, vendor }) => {
+        const normalizedVendor = vendor ?? EHardwareVendor.onekey;
+        return devices.find((item) => {
+          if ((item.vendor ?? EHardwareVendor.onekey) !== normalizedVendor) {
+            return false;
+          }
+          if (connectId) {
+            const connId = connectId.toLowerCase();
+            const matchesConnectId =
+              item.connectId?.toLowerCase() === connId ||
+              item.usbConnectId?.toLowerCase() === connId ||
+              item.bleConnectId?.toLowerCase() === connId;
+            if (!matchesConnectId) {
+              return false;
+            }
+          }
+          if (featuresDeviceId && item.deviceId !== featuresDeviceId) {
+            return false;
+          }
+          if (features) {
+            const uuidInDb =
+              item.uuid ||
+              item.deviceStateInfo?.identity.serialNo ||
+              (item.featuresInfo
+                ? deviceUtils.getDeviceSerialNoFromFeatures(item.featuresInfo) ||
+                  ''
+                : '');
+            const uuidInQuery =
+              deviceUtils.getDeviceSerialNoFromFeatures(features) || '';
+            if (uuidInDb && uuidInQuery) {
+              if (uuidInQuery !== uuidInDb) {
+                return false;
+              }
+            } else if (!connectId && !featuresDeviceId) {
+              return false;
+            }
+          }
+          return true;
+        });
+      },
+    );
+  }
+
+  function createPinProcessingHarness() {
+    const showEnterPinOnDevice = jest.fn(async () => undefined);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: {
+          showEnterPinOnDevice,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as ISpecialProcessingEventService;
+    return {
+      showEnterPinOnDevice,
+      specialProcessingEvent: internals.specialProcessingEvent.bind(service),
+    };
+  }
+
+  function buildRequestPinParams({
+    connectId = 'USB_SERIAL_1',
+    deviceId = '',
+    features,
+  }: {
+    connectId?: string;
+    deviceId?: string;
+    features?: Partial<Features>;
+  }) {
+    const deviceType = features?.deviceType ?? EDeviceType.Classic1s;
+    const uiResponseCorrelation = {
+      interactionId: 'pin-interaction-1',
+      deviceId: deviceId || 'sdk-device-1',
+    };
+    const eventPayload = {
+      device: {
+        connectId,
+        deviceType,
+        deviceId,
+        features,
+      },
+      responseCorrelation: uiResponseCorrelation,
+    };
+    const originEvent = {
+      type: EHardwareUiStateAction.REQUEST_PIN,
+      payload: eventPayload,
+    } as unknown as UiEvent;
+    const usedPayload: IHardwareUiPayload = {
+      uiRequestType: EHardwareUiStateAction.REQUEST_PIN,
+      eventType: '',
+      deviceType,
+      deviceId,
+      connectId,
+      deviceMode: EOneKeyDeviceMode.normal,
+      isBootloaderMode: false,
+      uiResponseCorrelation,
+      rawPayload: eventPayload,
+    };
+    return {
+      originEvent,
+      usedPayload,
+      uiResponseCorrelation,
+      isCurrent: () => true,
+    };
+  }
+
+  beforeEach(() => {
+    mockedLocalDb.getDeviceByQuery.mockReset();
+    jest.mocked(hardwareInstance.CoreSDKLoader).mockResolvedValue({
+      getDeviceType: jest.fn(
+        (features?: Partial<Features>) =>
+          features?.deviceType ?? EDeviceType.Classic1s,
+      ),
+      supportInputPinOnSoftware: jest.fn((features?: Partial<Features>) => ({
+        support: !features?.bootloaderMode,
+      })),
+    } as unknown as Awaited<ReturnType<typeof hardwareInstance.CoreSDKLoader>>);
+  });
+
+  afterEach(() => {
+    mockedLocalDb.getDeviceByQuery.mockReset();
+    jest.mocked(hardwareInstance.CoreSDKLoader).mockResolvedValue(
+      {} as unknown as Awaited<
+        ReturnType<typeof hardwareInstance.CoreSDKLoader>
+      >,
+    );
+  });
+
+  it('does not inherit old inputPinOnSoftware preference when connectId is reused with a changed features device identity', async () => {
+    installDeviceQueryMock([
+      buildDbDeviceRecord({
+        id: 'db-old',
+        connectId: 'USB_SERIAL_1',
+        uuid: 'HW_SERIAL_1',
+        deviceId: 'OLD_DEVICE_ID',
+        settings: {
+          inputPinOnSoftware: true,
+          inputPinOnSoftwareSupport: true,
+        },
+      }),
+    ]);
+    const { showEnterPinOnDevice, specialProcessingEvent } =
+      createPinProcessingHarness();
+    const params = buildRequestPinParams({
+      connectId: 'USB_SERIAL_1',
+      deviceId: 'NEW_DEVICE_ID',
+      features: {
+        deviceType: EDeviceType.Classic1s,
+        deviceId: 'NEW_DEVICE_ID',
+        device_id: 'NEW_DEVICE_ID',
+        serialNo: 'HW_SERIAL_1',
+      },
+    });
+
+    const result = await specialProcessingEvent(params);
+
+    expect(result.uiRequestType).toBe(EHardwareUiStateAction.EnterPinOnDevice);
+    expect(result.payload.pinSwitchToAppAvailable).toBe(false);
+    expect(showEnterPinOnDevice).toHaveBeenCalledTimes(1);
+    expect(showEnterPinOnDevice).toHaveBeenCalledWith({
+      responseCorrelation: params.uiResponseCorrelation,
+    });
+  });
+
+  it('prefers the post-reset record over an older record sharing connectId when features device identity changes', async () => {
+    installDeviceQueryMock([
+      buildDbDeviceRecord({
+        id: 'db-old',
+        connectId: 'USB_SERIAL_1',
+        uuid: 'HW_SERIAL_1',
+        deviceId: 'OLD_DEVICE_ID',
+        settings: {
+          inputPinOnSoftware: true,
+          inputPinOnSoftwareSupport: true,
+        },
+      }),
+      buildDbDeviceRecord({
+        id: 'db-new',
+        connectId: 'USB_SERIAL_1',
+        uuid: 'HW_SERIAL_1',
+        deviceId: 'NEW_DEVICE_ID',
+        settings: {
+          inputPinOnSoftware: false,
+          inputPinOnSoftwareSupport: true,
+        },
+      }),
+    ]);
+    const { showEnterPinOnDevice, specialProcessingEvent } =
+      createPinProcessingHarness();
+    const params = buildRequestPinParams({
+      connectId: 'USB_SERIAL_1',
+      deviceId: 'NEW_DEVICE_ID',
+      features: {
+        deviceType: EDeviceType.Classic1s,
+        deviceId: 'NEW_DEVICE_ID',
+        device_id: 'NEW_DEVICE_ID',
+        serialNo: 'HW_SERIAL_1',
+      },
+    });
+
+    const result = await specialProcessingEvent(params);
+
+    expect(result.uiRequestType).toBe(EHardwareUiStateAction.EnterPinOnDevice);
+    expect(result.payload.pinSwitchToAppAvailable).toBe(true);
+    expect(showEnterPinOnDevice).toHaveBeenCalledTimes(1);
+    expect(showEnterPinOnDevice).toHaveBeenCalledWith({
+      responseCorrelation: params.uiResponseCorrelation,
+    });
+  });
+
+  it('uses the stored inputPinOnSoftware preference when features device identity matches', async () => {
+    installDeviceQueryMock([
+      buildDbDeviceRecord({
+        id: 'db-target',
+        connectId: 'USB_SERIAL_1',
+        uuid: 'HW_SERIAL_1',
+        deviceId: 'TARGET_DEVICE_ID',
+        settings: {
+          inputPinOnSoftware: true,
+          inputPinOnSoftwareSupport: true,
+        },
+      }),
+    ]);
+    const { showEnterPinOnDevice, specialProcessingEvent } =
+      createPinProcessingHarness();
+
+    const normalizedResult = await specialProcessingEvent(
+      buildRequestPinParams({
+        connectId: 'USB_SERIAL_1',
+        deviceId: 'TARGET_DEVICE_ID',
+        features: {
+          deviceType: EDeviceType.Classic1s,
+          deviceId: 'TARGET_DEVICE_ID',
+          device_id: 'TARGET_DEVICE_ID',
+          serialNo: 'HW_SERIAL_1',
+        },
+      }),
+    );
+
+    expect(normalizedResult.uiRequestType).toBe(
+      EHardwareUiStateAction.REQUEST_PIN,
+    );
+
+    const rawProtoResult = await specialProcessingEvent(
+      buildRequestPinParams({
+        connectId: 'USB_SERIAL_1',
+        deviceId: '',
+        features: {
+          deviceType: EDeviceType.Classic1s,
+          device_id: 'TARGET_DEVICE_ID',
+          serialNo: 'HW_SERIAL_1',
+        },
+      }),
+    );
+
+    expect(rawProtoResult.uiRequestType).toBe(
+      EHardwareUiStateAction.REQUEST_PIN,
+    );
+    expect(showEnterPinOnDevice).not.toHaveBeenCalled();
+  });
+
+  it('defaults to EnterPinOnDevice for unknown features identity rather than falling back to connectId', async () => {
+    installDeviceQueryMock([
+      buildDbDeviceRecord({
+        id: 'db-old',
+        connectId: 'USB_SERIAL_1',
+        uuid: 'HW_SERIAL_1',
+        deviceId: 'OLD_DEVICE_ID',
+        settings: {
+          inputPinOnSoftware: true,
+          inputPinOnSoftwareSupport: true,
+        },
+      }),
+    ]);
+    const { showEnterPinOnDevice, specialProcessingEvent } =
+      createPinProcessingHarness();
+    const params = buildRequestPinParams({
+      connectId: 'USB_SERIAL_1',
+      deviceId: '',
+      features: {
+        deviceType: EDeviceType.Classic1s,
+        serialNo: 'HW_SERIAL_1',
+      },
+    });
+
+    const result = await specialProcessingEvent(params);
+
+    expect(result.uiRequestType).toBe(EHardwareUiStateAction.EnterPinOnDevice);
+    expect(result.payload.pinSwitchToAppAvailable).toBe(false);
+    expect(showEnterPinOnDevice).toHaveBeenCalledTimes(1);
+    expect(showEnterPinOnDevice).toHaveBeenCalledWith({
+      responseCorrelation: params.uiResponseCorrelation,
+    });
+  });
+
+  it('does not match a legacy DB record without deviceId by connectId alone', async () => {
+    installDeviceQueryMock([
+      buildDbDeviceRecord({
+        id: 'db-legacy',
+        connectId: 'USB_SERIAL_1',
+        uuid: 'HW_SERIAL_1',
+        deviceId: '',
+        settings: {
+          inputPinOnSoftware: true,
+          inputPinOnSoftwareSupport: true,
+        },
+      }),
+    ]);
+    const { showEnterPinOnDevice, specialProcessingEvent } =
+      createPinProcessingHarness();
+
+    const rawProtoParams = buildRequestPinParams({
+      connectId: 'USB_SERIAL_1',
+      deviceId: '',
+      features: {
+        deviceType: EDeviceType.Classic1s,
+        device_id: 'NEW_DEVICE_ID',
+        serialNo: 'HW_SERIAL_1',
+      },
+    });
+    const rawProtoResult = await specialProcessingEvent(rawProtoParams);
+
+    expect(rawProtoResult.uiRequestType).toBe(
+      EHardwareUiStateAction.EnterPinOnDevice,
+    );
+    expect(rawProtoResult.payload.pinSwitchToAppAvailable).toBe(false);
+
+    const unknownParams = buildRequestPinParams({
+      connectId: 'USB_SERIAL_1',
+      deviceId: '',
+      features: {
+        deviceType: EDeviceType.Classic1s,
+        serialNo: 'HW_SERIAL_1',
+      },
+    });
+    const unknownResult = await specialProcessingEvent(unknownParams);
+
+    expect(unknownResult.uiRequestType).toBe(
+      EHardwareUiStateAction.EnterPinOnDevice,
+    );
+    expect(unknownResult.payload.pinSwitchToAppAvailable).toBe(false);
+    expect(showEnterPinOnDevice).toHaveBeenCalledTimes(2);
   });
 });

@@ -1444,9 +1444,22 @@ class ServiceHardware extends ServiceBase {
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
       const { device, type } = originEvent.payload || {};
       const { features } = device || {};
-      const dbDevice = await localDb.getDeviceByQuery({
-        connectId: newPayload.connectId,
-      });
+      const featuresDeviceId = [features?.deviceId, features?.device_id]
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find(Boolean);
+      const requestConnectId = newPayload.connectId?.trim() || undefined;
+      let dbDevice: IDBDevice | undefined;
+      if (featuresDeviceId) {
+        dbDevice = await localDb.getDeviceByQuery({
+          connectId: requestConnectId,
+          featuresDeviceId,
+        });
+        if (!dbDevice && requestConnectId) {
+          dbDevice = await localDb.getDeviceByQuery({
+            featuresDeviceId,
+          });
+        }
+      }
       const payloadDeviceType = features
         ? await deviceUtils.getDeviceTypeFromFeatures({ features })
         : undefined;
