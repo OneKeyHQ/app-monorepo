@@ -177,16 +177,6 @@ class CentralClient {
     };
   }
 
-  updateKeyCount(state) {
-    const keyCount = Object.values(state.keyMeta).filter(
-      (meta) => !meta.archived,
-    ).length;
-    if (state.project.keyCount !== keyCount) {
-      state.project.keyCount = keyCount;
-      this.changed.add('project.json');
-    }
-  }
-
   /** Set text per language; "" or null removes that language's text. */
   async setValues(name, values) {
     const state = await this.load();
@@ -221,7 +211,6 @@ class CentralClient {
         this.changed.add(`locales/${iso}.json`);
       }
     }
-    this.updateKeyCount(state);
   }
 
   async create(entry, localeMap) {
@@ -266,7 +255,6 @@ class CentralClient {
         }
       }
     }
-    this.updateKeyCount(state);
   }
 
   // Only the read that apply uses to detect concurrent edits.

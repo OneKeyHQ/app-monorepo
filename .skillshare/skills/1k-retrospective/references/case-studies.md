@@ -1710,6 +1710,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Use solid app backgrounds for the search row, native tabs and sticky subheaders; disable the Market search glass and pager scroll-edge effect. Keep the search row in normal layout and remove its external-overlay measurement, prop forwarding and compensating insets.
 **Catchable by**: Sections 3, 6 and 8: Verify initial rendering, sticky scrolling and tab switches on iOS. Regression tests assert opaque headers and no overlay/scroll-edge props, retain the search row during banner/category loading, and check empty/retry viewport resizing and Android geometry. The 33 focused tests and iOS 26.5 simulator checks passed for the implementation.
 
+## Case: Address risk top exposure value truncated (OK-67492)
+**Date**: 2026-11-17 | **Platforms**: All clients (shared React page); verified on the iOS simulator.
+**Symptom**: On the address risk check result, the Top exposure value was cut off, e.g. `Phishing address 41.2…` in English.
+**Root Cause**: The three stats split the row equally although Top exposure holds a category plus a percentage while the other two hold single numbers. The first fix widened that column to 1:1:2, which then squeezed the count labels below the German and Spanish label widths on 375-point screens (found in review).
+**Fix**: On narrow screens show the two counts side by side and give Top exposure its own full-width row; keep the single 1:1:2 row on wider screens.
+**Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest) — include the longest translated labels, not only English and Chinese.
+
 ## Case: Web translation setting labels truncated (OK-67494)
 **Date**: 2026-11-17 | **Platforms**: All clients with the in-app browser (shared hook); verified on the iOS simulator in English.
 **Symptom**: In the in-app browser Web translation settings, segment labels were cut off in English, e.g. `Standard transl…` and `Follow app lang…`; longer locales such as German and Portuguese are affected as well.
