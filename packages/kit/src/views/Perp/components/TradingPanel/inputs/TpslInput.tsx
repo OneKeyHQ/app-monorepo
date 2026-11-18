@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
   getFontSize,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -57,6 +58,8 @@ interface ITpslInputProps {
   ifOnDialog?: boolean;
   hiddenTp?: boolean;
   hiddenSl?: boolean;
+  tpError?: string;
+  slError?: string;
   isMobile?: boolean;
   // Optional props for profit/loss calculation
   amount?: string | number;
@@ -71,14 +74,16 @@ function RoePresetButtons({
   disabled: boolean;
   onChange: (percent: string) => void;
 }) {
+  const { gtMd } = useMedia();
   return (
     <XStack gap="$2">
-      {['5', '10', '20', '50'].map((percent) => (
+      {['5', '10', '25', '50'].map((percent) => (
         <Button
           key={percent}
           testID={`perp-${isTP ? 'tp' : 'sl'}-roe-${percent}`}
           flex={1}
           size="small"
+          minHeight={platformEnv.isNative || !gtMd ? '$10' : undefined}
           disabled={disabled}
           onPress={() => onChange(percent)}
         >
@@ -101,9 +106,15 @@ export const TpslInput = memo(
     ifOnDialog = false,
     hiddenTp = false,
     hiddenSl = false,
+    tpError,
+    slError,
     isMobile = false,
     amount,
   }: ITpslInputProps) => {
+    const { gtMd } = useMedia();
+    const isMobileDialog = ifOnDialog && (platformEnv.isNative || !gtMd);
+    const feedbackTextSize = isMobileDialog ? '$bodyMd' : '$bodySm';
+    const feedbackMinHeight = isMobileDialog ? '$5' : '$4';
     const [focusedField, setFocusedField] = useState<
       'tpPrice' | 'tpPercent' | 'slPrice' | 'slPercent' | undefined
     >();
@@ -461,11 +472,12 @@ export const TpslInput = memo(
                       outlineStyle: 'solid',
                     }
               }
-              borderWidth={ifOnDialog ? '$px' : 0}
+              borderWidth={ifOnDialog || tpError ? '$px' : 0}
               borderColor={
-                ifOnDialog && focusedField === 'tpPrice' && !disabled
+                (tpError && '$borderCritical') ||
+                (ifOnDialog && focusedField === 'tpPrice' && !disabled
                   ? '$border'
-                  : unfocusedBorderColor
+                  : unfocusedBorderColor)
               }
               bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
               borderRadius={ifOnDialog ? '$3' : '$2'}
@@ -501,11 +513,12 @@ export const TpslInput = memo(
                       outlineStyle: 'solid',
                     }
               }
-              borderWidth={ifOnDialog ? '$px' : 0}
+              borderWidth={ifOnDialog || tpError ? '$px' : 0}
               borderColor={
-                ifOnDialog && focusedField === 'tpPercent' && !disabled
+                (tpError && '$borderCritical') ||
+                (ifOnDialog && focusedField === 'tpPercent' && !disabled
                   ? '$border'
-                  : unfocusedBorderColor
+                  : unfocusedBorderColor)
               }
               bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
               borderRadius={ifOnDialog ? '$3' : '$2'}
@@ -555,22 +568,40 @@ export const TpslInput = memo(
             onChange={handleTpPercentChange}
           />
         )}
-        {!hiddenTp && expectedProfit ? (
-          <XStack justifyContent="flex-start" pr="$0.5">
-            <SizableText
-              size="$bodySm"
-              color={
-                !expectedProfit.startsWith('-') ? '$green11' : '$textSubdued'
-              }
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_profit,
-                })}
-                {': '}
+        {!hiddenTp && (ifOnDialog || expectedProfit || tpError) ? (
+          <XStack
+            justifyContent="flex-start"
+            minHeight={ifOnDialog ? feedbackMinHeight : undefined}
+            pr="$0.5"
+          >
+            {!tpError ? (
+              <SizableText
+                size={feedbackTextSize}
+                color={
+                  expectedProfit && !expectedProfit.startsWith('-')
+                    ? '$green11'
+                    : '$textSubdued'
+                }
+              >
+                <SizableText size={feedbackTextSize} color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_profit,
+                  })}
+                  {': '}
+                </SizableText>
+                {expectedProfit ?? '--'}
               </SizableText>
-              {expectedProfit}
-            </SizableText>
+            ) : null}
+            {tpError ? (
+              <SizableText
+                size={feedbackTextSize}
+                color="$textCritical"
+                maxWidth="100%"
+                flexShrink={1}
+              >
+                {tpError}
+              </SizableText>
+            ) : null}
           </XStack>
         ) : null}
         {hiddenSl ? null : (
@@ -586,11 +617,12 @@ export const TpslInput = memo(
                       outlineStyle: 'solid',
                     }
               }
-              borderWidth={ifOnDialog ? '$px' : 0}
+              borderWidth={ifOnDialog || slError ? '$px' : 0}
               borderColor={
-                ifOnDialog && focusedField === 'slPrice' && !disabled
+                (slError && '$borderCritical') ||
+                (ifOnDialog && focusedField === 'slPrice' && !disabled
                   ? '$border'
-                  : unfocusedBorderColor
+                  : unfocusedBorderColor)
               }
               bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
               borderRadius={ifOnDialog ? '$3' : '$2'}
@@ -626,11 +658,12 @@ export const TpslInput = memo(
                     }
               }
               borderRadius={ifOnDialog ? '$3' : '$2'}
-              borderWidth={ifOnDialog ? '$px' : 0}
+              borderWidth={ifOnDialog || slError ? '$px' : 0}
               borderColor={
-                ifOnDialog && focusedField === 'slPercent' && !disabled
+                (slError && '$borderCritical') ||
+                (ifOnDialog && focusedField === 'slPercent' && !disabled
                   ? '$border'
-                  : unfocusedBorderColor
+                  : unfocusedBorderColor)
               }
               bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
             >
@@ -679,21 +712,39 @@ export const TpslInput = memo(
             onChange={handleSlPercentChange}
           />
         )}
-        {!hiddenSl && expectedLoss ? (
-          <XStack justifyContent="flex-start" pr="$0.5">
-            <SizableText
-              size="$bodySm"
-              color={expectedLoss.startsWith('-') ? '$red11' : '$textSubdued'}
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_loss,
-                })}
-                {': '}
-              </SizableText>
+        {!hiddenSl && (ifOnDialog || expectedLoss || slError) ? (
+          <XStack
+            justifyContent="flex-start"
+            minHeight={ifOnDialog ? feedbackMinHeight : undefined}
+            pr="$0.5"
+          >
+            {!slError ? (
+              <SizableText
+                size={feedbackTextSize}
+                color={
+                  expectedLoss?.startsWith('-') ? '$red11' : '$textSubdued'
+                }
+              >
+                <SizableText size={feedbackTextSize} color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_loss,
+                  })}
+                  {': '}
+                </SizableText>
 
-              {expectedLoss}
-            </SizableText>
+                {expectedLoss ?? '--'}
+              </SizableText>
+            ) : null}
+            {slError ? (
+              <SizableText
+                size={feedbackTextSize}
+                color="$textCritical"
+                maxWidth="100%"
+                flexShrink={1}
+              >
+                {slError}
+              </SizableText>
+            ) : null}
           </XStack>
         ) : null}
       </YStack>

@@ -78,7 +78,7 @@ interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
   onClose: () => void;
 }
 
-function getTriggerPriceError(
+function getTriggerPriceErrors(
   { tpTriggerPx, slTriggerPx }: ReturnType<typeof buildPositionTpslSubmission>,
   midPrice: string | undefined,
   isLong: boolean,
@@ -112,7 +112,10 @@ function getTriggerPriceError(
     }
     return undefined;
   }
-  return validatePrice('tp', tpTriggerPx) ?? validatePrice('sl', slTriggerPx);
+  return {
+    tp: validatePrice('tp', tpTriggerPx),
+    sl: validatePrice('sl', slTriggerPx),
+  };
 }
 
 function MarkPrice({ coin }: { coin: string }) {
@@ -468,13 +471,14 @@ const SetTpslForm = memo(
         }),
       [currentTpslOrders, formData.tpPrice, formData.slPrice],
     );
-    const priceError = getTriggerPriceError(
+    const priceErrors = getTriggerPriceErrors(
       draft,
       midPrice,
       isLongPosition,
       intl,
     );
-    const isValidForm = hasPositionTpslSubmission(draft) && !priceError;
+    const isValidForm =
+      hasPositionTpslSubmission(draft) && !priceErrors.tp && !priceErrors.sl;
 
     const handleSubmit = useCallback(async () => {
       try {
@@ -531,12 +535,13 @@ const SetTpslForm = memo(
           }
         }
 
-        const error = getTriggerPriceError(
+        const errors = getTriggerPriceErrors(
           submission,
           midPrice,
           isLongPosition,
           intl,
         );
+        const error = errors.tp ?? errors.sl;
         if (error) {
           Toast.error({ title: error });
           return;
@@ -651,6 +656,8 @@ const SetTpslForm = memo(
             szDecimals={szDecimals}
             leverage={leverage}
             tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
+            tpError={priceErrors.tp}
+            slError={priceErrors.sl}
             onChange={handleTpslChange}
             amount={
               configureAmount
@@ -695,7 +702,7 @@ const SetTpslForm = memo(
                 fontSize: getFontSize('$bodyMd'),
                 color: '$textSubdued',
               }}
-              containerProps={{ alignItems: 'center' }}
+              containerProps={{ alignItems: 'center', pt: '$0' }}
               width="$4"
               height="$4"
             />
@@ -737,11 +744,6 @@ const SetTpslForm = memo(
             ) : null}
           </YStack>
         </YStack>
-        {priceError ? (
-          <SizableText size="$bodySm" color="$textCritical" pb="$2">
-            {priceError}
-          </SizableText>
-        ) : null}
         <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
             testID="perp-processed-value-btn"
