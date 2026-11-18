@@ -259,6 +259,7 @@ function buildErrorPayload(error: unknown, request: IBackgroundThreadRequest) {
   const safeData = buildSafeBackgroundThreadErrorData(data, {
     request,
     message: errorPayload.message,
+    error,
   });
   if (safeData) {
     errorPayload.data = safeData;
