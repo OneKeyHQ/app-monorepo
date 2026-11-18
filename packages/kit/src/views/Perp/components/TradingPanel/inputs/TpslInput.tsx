@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
 import {
+  Button,
   Input,
   SizableText,
   XStack,
@@ -59,10 +60,33 @@ interface ITpslInputProps {
   isMobile?: boolean;
   // Optional props for profit/loss calculation
   amount?: string | number;
-  // When a leg's price equals the price derived from this percent, show this
-  // percent verbatim instead of the value reverse-computed from the snapped
-  // price, so a seeded 10% default reads as "10" like manual percent entry.
-  seedPercent?: { tp?: string; sl?: string };
+}
+
+function RoePresetButtons({
+  isTP,
+  disabled,
+  onChange,
+}: {
+  isTP: boolean;
+  disabled: boolean;
+  onChange: (percent: string) => void;
+}) {
+  return (
+    <XStack gap="$2">
+      {['5', '10', '20', '50'].map((percent) => (
+        <Button
+          key={percent}
+          testID={`perp-${isTP ? 'tp' : 'sl'}-roe-${percent}`}
+          flex={1}
+          size="small"
+          disabled={disabled}
+          onPress={() => onChange(percent)}
+        >
+          {`${isTP ? '+' : '-'}${percent}%`}
+        </Button>
+      ))}
+    </XStack>
+  );
 }
 
 export const TpslInput = memo(
@@ -79,7 +103,6 @@ export const TpslInput = memo(
     hiddenSl = false,
     isMobile = false,
     amount,
-    seedPercent,
   }: ITpslInputProps) => {
     const [focusedField, setFocusedField] = useState<
       'tpPrice' | 'tpPercent' | 'slPrice' | 'slPercent' | undefined
@@ -169,23 +192,6 @@ export const TpslInput = memo(
     );
 
     useEffect(() => {
-      // Keep the seeded percent (e.g. 10) as-is while the leg still sits on its
-      // seeded price; fall back to the reverse-computed percent once the user
-      // moves the price off that seed.
-      const resolveDisplayPercent = (priceValue: string, isTP: boolean) => {
-        const seed = isTP ? seedPercent?.tp : seedPercent?.sl;
-        if (seed && calculatePrice(seed, isTP) === priceValue) {
-          return seed;
-        }
-        return calculatePercent(priceValue, isTP);
-      };
-      const newTpPercent = tpsl.tpPrice
-        ? resolveDisplayPercent(tpsl.tpPrice, true)
-        : '';
-      const newSlPercent = tpsl.slPrice
-        ? resolveDisplayPercent(tpsl.slPrice, false)
-        : '';
-
       setInternalState((prev) => {
         const shouldUpdateTp = prev.tpTriggerPx !== tpsl.tpPrice;
         const shouldUpdateSl = prev.slTriggerPx !== tpsl.slPrice;
@@ -197,12 +203,15 @@ export const TpslInput = memo(
         return {
           tpTriggerPx: tpsl.tpPrice,
           slTriggerPx: tpsl.slPrice,
-          tpGainPercent: shouldUpdateTp ? newTpPercent : prev.tpGainPercent,
-          slLossPercent: shouldUpdateSl ? newSlPercent : prev.slLossPercent,
+          tpGainPercent: shouldUpdateTp
+            ? calculatePercent(tpsl.tpPrice, true)
+            : prev.tpGainPercent,
+          slLossPercent: shouldUpdateSl
+            ? calculatePercent(tpsl.slPrice, false)
+            : prev.slLossPercent,
         };
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tpsl.tpPrice, tpsl.slPrice, side]);
+    }, [tpsl.tpPrice, tpsl.slPrice, calculatePercent]);
 
     const handleTpPriceChange = useCallback(
       (value: string) => {
@@ -539,6 +548,13 @@ export const TpslInput = memo(
             </YStack>
           </XStack>
         )}
+        {hiddenTp ? null : (
+          <RoePresetButtons
+            isTP
+            disabled={disabled || !referencePrice.gt(0)}
+            onChange={handleTpPercentChange}
+          />
+        )}
         {!hiddenTp && expectedProfit ? (
           <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText
@@ -655,6 +671,13 @@ export const TpslInput = memo(
               />
             </YStack>
           </XStack>
+        )}
+        {hiddenSl ? null : (
+          <RoePresetButtons
+            isTP={false}
+            disabled={disabled || !referencePrice.gt(0)}
+            onChange={handleSlPercentChange}
+          />
         )}
         {!hiddenSl && expectedLoss ? (
           <XStack justifyContent="flex-start" pr="$0.5">

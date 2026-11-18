@@ -43,12 +43,6 @@ import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
-import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
-import {
-  DEFAULT_TPSL_ROE_PERCENT,
-  buildDefaultTpSlPercent,
-  shouldSeedPositionTpSlLeg,
-} from '../../utils/tpslSeed';
 import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
@@ -70,13 +64,6 @@ import {
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
 
-// The position TP/SL seed defaults each empty leg to a 10% ROE; a stable
-// reference lets TpslInput display "10" verbatim on the seeded price.
-const POSITION_TPSL_SEED_PERCENT = {
-  tp: DEFAULT_TPSL_ROE_PERCENT,
-  sl: DEFAULT_TPSL_ROE_PERCENT,
-};
-
 export interface ISetTpslParams {
   coin: string;
   szDecimals: number;
@@ -89,6 +76,43 @@ export interface ISetTpslParams {
 
 interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
   onClose: () => void;
+}
+
+function getTriggerPriceError(
+  { tpTriggerPx, slTriggerPx }: ReturnType<typeof buildPositionTpslSubmission>,
+  midPrice: string | undefined,
+  isLong: boolean,
+  intl: IntlShape,
+) {
+  const mid = new BigNumber(midPrice || 0);
+  function validatePrice(kind: 'tp' | 'sl', price?: string) {
+    if (!price) return undefined;
+    const trigger = new BigNumber(price);
+    if (!trigger.isFinite() || !trigger.gt(0)) {
+      return intl.formatMessage(
+        { id: ETranslations.form_must_greater_then_value },
+        { value: 0 },
+      );
+    }
+    const shouldBeAbove = (kind === 'tp') === isLong;
+    if (mid.gt(0) && (shouldBeAbove ? trigger.lte(mid) : trigger.gte(mid))) {
+      return intl.formatMessage(
+        { id: ETranslations.perps_pro_order_trigger_price },
+        {
+          type: intl.formatMessage({
+            id: kind === 'tp' ? ETranslations.perp_tp : ETranslations.perp_sl,
+          }),
+          dir: intl.formatMessage({
+            id: shouldBeAbove
+              ? ETranslations.perps_above
+              : ETranslations.perps_below,
+          }),
+        },
+      );
+    }
+    return undefined;
+  }
+  return validatePrice('tp', tpTriggerPx) ?? validatePrice('sl', slTriggerPx);
 }
 
 function MarkPrice({ coin }: { coin: string }) {
@@ -358,66 +382,6 @@ const SetTpslForm = memo(
       amount: '',
       percentage: 100,
     }));
-    const tpslUserEditedRef = useRef({ tp: false, sl: false });
-    const tpslSeededRef = useRef({ tp: false, sl: false });
-
-    useEffect(() => {
-      if (!new BigNumber(entryPrice).gt(0)) {
-        return;
-      }
-      const defaultPrices = resolveTpSlTriggerPx({
-        hasTpsl: true,
-        ...buildDefaultTpSlPercent(),
-        referencePrice: new BigNumber(entryPrice),
-        side: isLongPosition ? 'long' : 'short',
-        leverage,
-        szDecimals,
-      });
-      setFormData((previous) => {
-        const shouldSeedTp = shouldSeedPositionTpSlLeg({
-          hasExistingOrder: Boolean(tpOrder),
-          hasPreset: Boolean(presetTriggerPrice && presetTpsl === 'tp'),
-          currentValue: previous.tpPrice,
-          userEdited: tpslUserEditedRef.current.tp,
-          seeded: tpslSeededRef.current.tp,
-        });
-        const shouldSeedSl = shouldSeedPositionTpSlLeg({
-          hasExistingOrder: Boolean(slOrder),
-          hasPreset: Boolean(presetTriggerPrice && presetTpsl === 'sl'),
-          currentValue: previous.slPrice,
-          userEdited: tpslUserEditedRef.current.sl,
-          seeded: tpslSeededRef.current.sl,
-        });
-        if (!shouldSeedTp && !shouldSeedSl) {
-          return previous;
-        }
-        if (shouldSeedTp) {
-          tpslSeededRef.current.tp = true;
-        }
-        if (shouldSeedSl) {
-          tpslSeededRef.current.sl = true;
-        }
-        return {
-          ...previous,
-          tpPrice: shouldSeedTp
-            ? (defaultPrices.tpTriggerPx ?? '')
-            : previous.tpPrice,
-          slPrice: shouldSeedSl
-            ? (defaultPrices.slTriggerPx ?? '')
-            : previous.slPrice,
-        };
-      });
-    }, [
-      entryPrice,
-      isLongPosition,
-      leverage,
-      presetTpsl,
-      presetTriggerPrice,
-      slOrder,
-      szDecimals,
-      tpOrder,
-    ]);
-
     const [configureAmount, setConfigureAmount] = useState(false);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -438,19 +402,7 @@ const SetTpslForm = memo(
 
     const handleTpslChange = useCallback(
       (data: { tpPrice: string; slPrice: string }) => {
-        setFormData((prev) => {
-          if (data.tpPrice !== prev.tpPrice) {
-            tpslUserEditedRef.current.tp = true;
-          }
-          if (data.slPrice !== prev.slPrice) {
-            tpslUserEditedRef.current.sl = true;
-          }
-          return {
-            ...prev,
-            tpPrice: data.tpPrice,
-            slPrice: data.slPrice,
-          };
-        });
+        setFormData((prev) => ({ ...prev, ...data }));
       },
       [],
     );
@@ -507,11 +459,22 @@ const SetTpslForm = memo(
       [positionSize],
     );
 
-    const isValidForm = useMemo(() => {
-      const hasNewTpPrice = !tpOrder && formData.tpPrice.trim() !== '';
-      const hasNewSlPrice = !slOrder && formData.slPrice.trim() !== '';
-      return hasNewTpPrice || hasNewSlPrice;
-    }, [formData.tpPrice, formData.slPrice, tpOrder, slOrder]);
+    const draft = useMemo(
+      () =>
+        buildPositionTpslSubmission({
+          orders: currentTpslOrders,
+          tpTriggerPx: formData.tpPrice,
+          slTriggerPx: formData.slPrice,
+        }),
+      [currentTpslOrders, formData.tpPrice, formData.slPrice],
+    );
+    const priceError = getTriggerPriceError(
+      draft,
+      midPrice,
+      isLongPosition,
+      intl,
+    );
+    const isValidForm = hasPositionTpslSubmission(draft) && !priceError;
 
     const handleSubmit = useCallback(async () => {
       try {
@@ -568,89 +531,17 @@ const SetTpslForm = memo(
           }
         }
 
-        if (!isValidForm) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.perp_tp_sl_error_price,
-            }),
-          });
+        const error = getTriggerPriceError(
+          submission,
+          midPrice,
+          isLongPosition,
+          intl,
+        );
+        if (error) {
+          Toast.error({ title: error });
           return;
         }
 
-        const currentPriceBN = new BigNumber(midPrice || '0');
-        const tpPriceBN = new BigNumber(formData.tpPrice || '0');
-        const slPriceBN = new BigNumber(formData.slPrice || '0');
-
-        if (
-          submission.tpTriggerPx &&
-          tpPriceBN.isFinite() &&
-          currentPriceBN.gt(0)
-        ) {
-          const isInvalid = isLongPosition
-            ? tpPriceBN.lte(currentPriceBN)
-            : tpPriceBN.gte(currentPriceBN);
-
-          if (isInvalid) {
-            let errorMessage = '';
-            if (isLongPosition) {
-              // Long + above
-              errorMessage = intl.formatMessage({
-                // invalid => invalid
-
-                // oxlint-disable-next-line @cspell/spellchecker
-                id: ETranslations.perp_invaild_tp_desc_1,
-              });
-            } else {
-              // Short + below
-              errorMessage = intl.formatMessage({
-                // invalid => invalid
-
-                // oxlint-disable-next-line @cspell/spellchecker
-                id: ETranslations.perp_invaild_tp_desc_2,
-              });
-            }
-
-            Toast.error({
-              title: errorMessage,
-            });
-            return;
-          }
-        }
-
-        if (
-          submission.slTriggerPx &&
-          slPriceBN.isFinite() &&
-          currentPriceBN.gt(0)
-        ) {
-          const isInvalid = isLongPosition
-            ? slPriceBN.gte(currentPriceBN)
-            : slPriceBN.lte(currentPriceBN);
-          if (isInvalid) {
-            let errorMessage = '';
-            if (isLongPosition) {
-              // Long + below
-              errorMessage = intl.formatMessage({
-                // invalid => invalid
-
-                // oxlint-disable-next-line @cspell/spellchecker
-                id: ETranslations.perp_invaild_sl_desc_1,
-              });
-            } else {
-              // Short + above
-              errorMessage = intl.formatMessage({
-                // invalid => invalid
-
-                // oxlint-disable-next-line @cspell/spellchecker
-                id: ETranslations.perp_invaild_sl_desc_2,
-              });
-            }
-
-            Toast.error({
-              title: errorMessage,
-            });
-            return;
-          }
-        }
         await hyperliquidActions.current.setPositionTpsl({
           assetId,
           expectedAccountAddress: activeAccount?.accountAddress ?? '',
@@ -678,7 +569,6 @@ const SetTpslForm = memo(
       hyperliquidActions,
       onClose,
       midPrice,
-      isValidForm,
       intl,
       canSubmitForScopedAccount,
       activeAccount?.accountAddress,
@@ -760,7 +650,6 @@ const SetTpslForm = memo(
             side={isLongPosition ? 'long' : 'short'}
             szDecimals={szDecimals}
             leverage={leverage}
-            seedPercent={POSITION_TPSL_SEED_PERCENT}
             tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
             onChange={handleTpslChange}
             amount={
@@ -848,6 +737,11 @@ const SetTpslForm = memo(
             ) : null}
           </YStack>
         </YStack>
+        {priceError ? (
+          <SizableText size="$bodySm" color="$textCritical" pb="$2">
+            {priceError}
+          </SizableText>
+        ) : null}
         <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
             testID="perp-processed-value-btn"
