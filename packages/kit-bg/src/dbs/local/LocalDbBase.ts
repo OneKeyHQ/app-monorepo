@@ -458,6 +458,7 @@ type IPublicCloudAccountApplyParams = {
 
 type IPublicCloudAccountApplyResult = {
   added: number;
+  indexedAccountsChanged: boolean;
   deleted: number;
   unchanged: number;
   pending: number;
@@ -8758,6 +8759,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const unchangedResult = {
       added: 0,
+      indexedAccountsChanged: false,
       deleted: 0,
       unchanged: 0,
       pending: accounts.length,
@@ -8973,14 +8975,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             const duplicate =
               existing || toAdd.find((item) => item.id === account.id);
-            if (duplicate) {
-              if (publicAccountIdentityEqual(duplicate, account)) {
-                result.unchanged += 1;
-                result.appliedAccountIds.push(account.id);
-              } else {
-                result.conflicts += 1;
-                result.issueByAccountId[account.id] = 'conflicts';
-              }
+            if (duplicate && !publicAccountIdentityEqual(duplicate, account)) {
+              result.conflicts += 1;
+              result.issueByAccountId[account.id] = 'conflicts';
               return;
             }
             const indexedId = accountUtils.buildIndexedAccountId({
@@ -9018,7 +9015,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 }),
               });
             }
-            toAdd.push(account);
+            if (duplicate) {
+              result.unchanged += 1;
+              result.appliedAccountIds.push(account.id);
+            } else {
+              toAdd.push(account);
+            }
           };
           for (const account of accounts) {
             await prepareAccount(account);
@@ -9096,14 +9098,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
           // Write both record types in one transaction, without Cloud hooks or
           // per-account events. Existing records are never removed or updated.
-          if (toAdd.length) {
-            await this.txAddRecords({
+          if (indexedToAdd.size) {
+            const addedIndexes = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.IndexedAccount,
               records: Array.from(indexedToAdd.values()),
               skipIfExists: true,
             });
             checkCurrent();
+            result.indexedAccountsChanged = addedIndexes.added > 0;
+          }
+          if (toAdd.length) {
             const added = await this.txAddRecords({
               tx,
               name: ELocalDBStoreNames.Account,
@@ -9194,7 +9199,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               const indexIds = indexes
                 .filter((item) => item.walletId === walletId)
                 .map((item) => item.id);
-              if (indexIds.length)
+              if (indexIds.length) {
                 await this.txUpdateRecords({
                   tx,
                   name: ELocalDBStoreNames.IndexedAccount,
@@ -9209,6 +9214,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                     return item;
                   },
                 });
+                result.indexedAccountsChanged = true;
+              }
               checkCurrent();
             }
           }
