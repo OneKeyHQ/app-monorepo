@@ -357,6 +357,25 @@ test('apply does not continue a plan that predates recorded targets, but re-veri
   assert.deepEqual(await apply(), finished);
 });
 
+test('a finished plan is not reported as done after a language is added locally', async (t) => {
+  const ctx = await prepared(t, (item) => [
+    {
+      key: 'global.existing',
+      action: 'upsert',
+      translations: item.translations('Updated message', '更新后的消息'),
+      sources: [],
+    },
+  ]);
+  assert.equal((await ctx.apply()).status, 'complete');
+  const receipt = readJson(`${ctx.file}.receipt.json`);
+  const added = path.join(ctx.root, LOCALES_PATH, 'eo.json');
+  fs.copyFileSync(path.join(ctx.root, LOCALES_PATH, 'en_US.json'), added);
+  await assert.rejects(() => ctx.apply(), /Language coverage changed/);
+  assert.deepEqual(readJson(`${ctx.file}.receipt.json`), receipt);
+  fs.unlinkSync(added);
+  assert.equal((await ctx.apply()).status, 'complete');
+});
+
 test('a failed preflight leaves the receipt of an earlier apply as it was', async (t) => {
   const ctx = await prepared(t, (item) => [
     {

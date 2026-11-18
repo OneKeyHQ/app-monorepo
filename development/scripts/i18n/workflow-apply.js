@@ -196,6 +196,12 @@ async function applyPlan({
         // Only re-verifies local files. A plan without a recorded target (which
         // may have finished without a PR) can't be checked and is left as before.
         if (plan.central) assertTarget(plan, client, previous.proposal);
+        // verifyLocal reads only the plan's languages, so check that the
+        // local catalog has no others before reporting the plan as done.
+        if (digest(loadCatalog(root).locales) !== digest(plan.locales))
+          throw new Error(
+            'Language coverage changed since this plan finished; prepare another preview.',
+          );
         verifyLocal(plan, root);
         return previous;
       }
