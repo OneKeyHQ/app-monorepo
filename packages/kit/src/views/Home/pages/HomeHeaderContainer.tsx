@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
+import type { IYStackProps } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -18,6 +19,7 @@ import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
 import { HomeTestIDs } from '../testIDs';
 
+import { useHomeHeaderInMotion } from './homeHeaderMotion';
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 import type { IHomePrivacyActionsPresentation } from '../components/HomePrivacyActions';
@@ -141,6 +143,23 @@ export function useHomeHeaderLayout() {
   );
 }
 
+// Holds the native header open at its reserved height, except while a part
+// of it folds away (the last banner closing, see homeHeaderMotion): then the
+// header follows its content. Only this frame re-renders as the motion starts
+// and ends; the content inside stays the same.
+function HeaderFrame({
+  reservedHeight,
+  children,
+  ...props
+}: IYStackProps & { reservedHeight?: number }) {
+  const inMotion = useHomeHeaderInMotion();
+  return (
+    <YStack {...props} minHeight={inMotion ? undefined : reservedHeight}>
+      {children}
+    </YStack>
+  );
+}
+
 function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
   const {
     wallet,
@@ -180,11 +199,12 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
   }, [wallet?.id, wallet?.type, isWalletNotBackedUp, homeBalanceState]);
 
   return (
-    <YStack
-      pb="$8"
+    <HeaderFrame
+      // Small screens: the text tab row adds its own 14 above the labels.
+      pb="$4"
       gap="$5"
-      minHeight={nativeMinHeight}
-      $gtMd={{ gap: '$8' }}
+      reservedHeight={nativeMinHeight}
+      $gtMd={{ gap: '$8', pb: '$8' }}
       bg="$bgApp"
       pointerEvents="box-none"
     >
@@ -243,7 +263,7 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
           zero-balance / not-backed-up still works via the `hidden`
           prop. */}
       <WalletBanner hidden={!shouldShowBanner} />
-    </YStack>
+    </HeaderFrame>
   );
 }
 

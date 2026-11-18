@@ -9,8 +9,8 @@ import {
   Easing,
   type GestureResponderEvent,
   type HostInstance,
-  LayoutAnimation,
   PanResponder,
+  View,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -45,6 +45,7 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { WALLET_BANNER_IMAGE_SIZE } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import { beginHomeHeaderMotion } from '@onekeyhq/kit/src/views/Home/pages/homeHeaderMotion';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   HYPERLIQUID_REFERRAL_CODE,
@@ -664,7 +665,6 @@ const STACK_FLY_SPRING = {
 };
 const STACK_MOVE_MS = 300;
 const STACK_CLOSE_MS = 150;
-const STACK_COLLAPSE_MS = 200;
 const STACK_CONTENT_MS = 150;
 const STACK_HOVER_MS = 150;
 // About 3px in on each side of a phone-wide card, like the wide strip's press.
@@ -1316,7 +1316,8 @@ function BannerStackCard({
               boxShadow: shadows.rest,
               ...(isTop && {
                 hoverStyle: { boxShadow: shadows.hover },
-                cursor: 'pointer',
+                // A banner, not a link: the plain arrow, as asked for.
+                cursor: 'default',
               }),
               transition: 'popoverQuick',
               animateOnly: ANIMATE_ONLY_SHADOW,
@@ -1425,6 +1426,60 @@ function BannerStackCard({
   );
 }
 
+// Folds the stack band and the gap above it away, on the cards' own move
+// (STACK_MOVE_MS, STACK_EASE_MOVE): it is the same stack settling.
+// React state drives it a frame at a time, so every frame commits a layout:
+// the native home pager places the tabs below from the header's layout, and
+// neither a UI-thread nor a JS-driven Animated height reaches that layout on
+// every frame. Only this frame re-renders; its children stay the same.
+function StackFold({
+  folding,
+  height,
+  onFolded,
+  children,
+}: {
+  folding: boolean;
+  height: number;
+  onFolded: () => void;
+  children: ReactNode;
+}) {
+  const [progress, setProgress] = useState(1);
+  const onFoldedRef = useRef(onFolded);
+  useEffect(() => {
+    onFoldedRef.current = onFolded;
+  }, [onFolded]);
+  useEffect(() => {
+    if (!folding) return undefined;
+    // Timed from the first frame, so the curve's start is not skipped.
+    let start: number | undefined;
+    let frame = 0;
+    const step = (now: number) => {
+      start ??= now;
+      const t = Math.min(1, (now - start) / STACK_MOVE_MS);
+      setProgress(1 - STACK_EASE_MOVE(t));
+      if (t < 1) frame = requestAnimationFrame(step);
+      else onFoldedRef.current();
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [folding]);
+  return (
+    <View
+      style={
+        folding
+          ? {
+              height: height * progress,
+              marginTop: (progress - 1) * STACK_HEADER_GAP,
+              overflow: 'hidden',
+            }
+          : undefined
+      }
+    >
+      {children}
+    </View>
+  );
+}
+
 function BannerStack({
   banners,
   handleBannerOnPress,
@@ -1453,9 +1508,6 @@ function BannerStack({
   const [flyRequest, setFlyRequest] = useState(0);
   const [jump, setJump] = useState(false);
   const [spread] = useState(() => new Animated.Value(0));
-  const stackHeight = count
-    ? STACK_CARD_HEIGHT + STACK_PEEK * (Math.min(count, 3) - 1)
-    : 0;
 
   // Each visit shows the next banner as it is, without motion: the cards
   // mount afresh.
@@ -1465,6 +1517,20 @@ function BannerStack({
     if (isFocus && !homeFocused.current) setVisitKey((key) => key + 1);
     homeFocused.current = isFocus;
   });
+  // The band keeps its height while banners close during a visit, so nothing
+  // below the stack moves; the closed card's edge just leaves room under the
+  // stack. The next visit lays the band out for the banners left. It grows
+  // at once when banners arrive.
+  const depth = Math.min(count, 3);
+  const [bandDepth, setBandDepth] = useState({ visitKey, depth });
+  let heldDepth = bandDepth.depth;
+  if (bandDepth.visitKey !== visitKey || depth > bandDepth.depth) {
+    heldDepth = depth;
+    setBandDepth({ visitKey, depth });
+  }
+  const stackHeight = count
+    ? STACK_CARD_HEIGHT + STACK_PEEK * (heldDepth - 1)
+    : 0;
 
   // After a keyboard or screen reader pick, focus follows the new front card.
   const buttons = useRef(new Map<string, unknown>());
@@ -1587,38 +1653,46 @@ function BannerStack({
   );
   const onRequestNext = useCallback(() => setFlyRequest((n) => n + 1), []);
 
-  // Closing the last banner folds the band and the gap above it away. Native
-  // lays the fold out itself; web eases the height in JS.
-  const [collapse] = useState(() => new Animated.Value(1));
-  const [collapsing, setCollapsing] = useState(false);
+  // Closing the last banner folds the band and the gap above it away, then
+  // drops it (StackFold).
+  const [folding, setFolding] = useState(false);
   const [folded, setFolded] = useState(false);
+  const foldItem = useRef<IWalletBanner | undefined>(undefined);
+  const endFoldMotion = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => endFoldMotion.current?.(), []);
+  const onFolded = useCallback(() => {
+    setFolded(true);
+    if (foldItem.current) handleDismiss(foldItem.current);
+  }, [handleDismiss]);
+  // The header's reserved height follows the banner list, so the motion ends
+  // only once the closed banner has left it (or after a second at most);
+  // ending it earlier would reopen the header for a frame.
+  useEffect(() => {
+    if (!folded || !endFoldMotion.current) return undefined;
+    const end = () => {
+      endFoldMotion.current?.();
+      endFoldMotion.current = undefined;
+    };
+    if (!count) {
+      end();
+      return undefined;
+    }
+    const timer = setTimeout(end, 1000);
+    return () => clearTimeout(timer);
+  }, [count, folded]);
   const onClosed = useCallback(
     (id: string) => {
       const item = order.find((banner) => banner.id === id);
       if (!item) return;
       if (count <= 1 && !leadingContent && !reduceMotion) {
-        if (platformEnv.isNative) {
-          // Only the views that move animate; the band itself just goes.
-          LayoutAnimation.configureNext({
-            duration: STACK_COLLAPSE_MS,
-            update: { type: LayoutAnimation.Types.easeOut },
-          });
-          setFolded(true);
-          handleDismiss(item);
-          return;
-        }
-        setCollapsing(true);
-        Animated.timing(collapse, {
-          toValue: 0,
-          duration: STACK_COLLAPSE_MS,
-          easing: STACK_EASE_OUT,
-          useNativeDriver: false,
-        }).start(() => handleDismiss(item));
+        endFoldMotion.current = beginHomeHeaderMotion();
+        foldItem.current = item;
+        setFolding(true);
         return;
       }
       handleDismiss(item);
     },
-    [collapse, count, handleDismiss, leadingContent, order, reduceMotion],
+    [count, handleDismiss, leadingContent, order, reduceMotion],
   );
 
   const part = useCallback(
@@ -1645,12 +1719,7 @@ function BannerStack({
     <Animated.View
       key={visitKey}
       style={{
-        height: collapsing
-          ? collapse.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, stackHeight],
-            })
-          : stackHeight,
+        height: stackHeight,
         ...(STACK_DRAG_WITH_RESPONDER && { width }),
       }}
     >
@@ -1721,7 +1790,7 @@ function BannerStack({
             },
           })}
           zIndex={50}
-          cursor="pointer"
+          cursor="default"
           aria-hidden
           onPress={onRequestNext}
         />
@@ -1732,16 +1801,7 @@ function BannerStack({
   if (folded) return null;
 
   return (
-    <Animated.View
-      style={{
-        marginTop: collapsing
-          ? collapse.interpolate({
-              inputRange: [0, 1],
-              outputRange: [-STACK_HEADER_GAP, 0],
-            })
-          : 0,
-      }}
-    >
+    <StackFold folding={folding} height={stackHeight} onFolded={onFolded}>
       <YStack
         gap="$3"
         bg="$bgApp"
@@ -1779,7 +1839,7 @@ function BannerStack({
           </Stack>
         ) : null}
       </YStack>
-    </Animated.View>
+    </StackFold>
   );
 }
 

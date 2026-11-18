@@ -24872,6 +24872,7 @@
     "packages/kit/src/views/Home/pages/WalletContentWithAuth.tsx": 11716,
     "packages/kit/src/views/Home/pages/defiDesktopStickyDom.ts": 10607,
     "packages/kit/src/views/Home/pages/historyTokenRefreshGate.ts": 10223,
+    "packages/kit/src/views/Home/pages/homeHeaderMotion.ts": 15468,
     "packages/kit/src/views/Home/pages/homeOverviewBalanceHold.ts": 9327,
     "packages/kit/src/views/Home/pages/homePageContentMaxWidth.ts": 17086,
     "packages/kit/src/views/Home/pages/homePageNoWalletContent.ts": 16343,

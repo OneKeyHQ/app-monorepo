@@ -177,6 +177,11 @@ export function HomeNativePager({
       })),
     [tabs, selectedIndex],
   );
+  // The header's height is state here, so a header that animates its height
+  // (the banner stack folding away) re-renders the pager every frame. Its
+  // content stays one element, which React skips instead of rebuilding the
+  // whole header each frame.
+  const headerContent = useMemo(() => renderHeader(), [renderHeader]);
   const tabBarProps = useMemo(
     () => ({ focusedTab, indexDecimal, onTabPress: jumpToTab }),
     [focusedTab, indexDecimal, jumpToTab],
@@ -257,7 +262,7 @@ export function HomeNativePager({
                   : null
               }
             >
-              {renderHeader()}
+              {headerContent}
             </SpotlightScrollStateContext.Provider>
           </View>
         }
