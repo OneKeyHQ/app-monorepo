@@ -1636,17 +1636,17 @@ function shouldClientAutoReload(client, targetVersion) {
     return false;
   }
   const runtimeState = clientId ? clientRuntimeStates.get(clientId) : undefined;
-  if (
-    runtimeState?.clientVersion &&
-    runtimeState.clientVersion === targetVersion
-  ) {
+  if (!runtimeState || !runtimeState.clientVersion) {
     return false;
   }
-  if (runtimeState?.hasPageError) {
+  if (runtimeState.clientVersion === targetVersion) {
+    return false;
+  }
+  if (runtimeState.hasPageError) {
     return true;
   }
   if (
-    !runtimeState?.clientAutoReloadCapable &&
+    !runtimeState.clientAutoReloadCapable &&
     isLegacyClientUrlCrashingOnOldBuild(client.url)
   ) {
     return true;

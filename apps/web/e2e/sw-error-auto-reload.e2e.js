@@ -11,6 +11,10 @@ const path = require('node:path');
 const { rspack } = require('@rspack/core');
 const { chromium } = require('playwright-core');
 
+const {
+  findChromiumExecutable,
+} = require('../../../development/perf-ci/lib/chromium');
+
 const V_664 = '6640000000000000000000000000000000000000-100';
 const V_670 = '6700000000000000000000000000000000000000-200';
 const V_680 = '6800000000000000000000000000000000000000-300';
@@ -541,10 +545,14 @@ async function run() {
     const { port } = server.address();
     const baseUrl = `http://127.0.0.1:${port}`;
 
+    const executablePath = findChromiumExecutable(
+      process.env.WEB_E2E_BROWSER_EXECUTABLE,
+    );
     context = await chromium.launchPersistentContext(
       path.join(tmpDir, 'profile'),
       {
-        executablePath: process.env.WEB_E2E_BROWSER_EXECUTABLE,
+        args: ['--no-sandbox'],
+        ...(executablePath ? { executablePath } : {}),
         headless: true,
       },
     );

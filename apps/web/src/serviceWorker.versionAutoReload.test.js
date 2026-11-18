@@ -764,4 +764,60 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     await guardedClient.triggerRootErrorBoundary(new Error('Persistent error'));
     expect(guardedClient.reloadMock).not.toHaveBeenCalled();
   });
+
+  test('does NOT force-reload an already-current Earn tab that has not re-registered after a Service Worker restart', async () => {
+    const bundleV670 = await createVersionBundle({
+      version: V_NEW,
+      buildTime: 1_700_000_100_000,
+      html: '<!doctype html><html><body>v6.7.0</body></html>',
+      scriptUrl: `${ORIGIN}/main.v670.js`,
+      scriptContent: 'console.log("v6.7.0");',
+    });
+
+    const sharedCacheStorage = createMemoryCacheStorage();
+    const initialWorker = createServiceWorkerTestBed({
+      cacheStorage: sharedCacheStorage,
+      serverBundle: bundleV670,
+    });
+    // Populate activeVersion = V_NEW and critical asset cache
+    await initialWorker.navigate(UNITAS_EMAIL_URL);
+    const cache = await sharedCacheStorage.open(`onekey-web-critical:${V_NEW}`);
+    await cache.put(
+      bundleV670.scriptUrl,
+      new Response(bundleV670.scriptContent, {
+        status: 200,
+        headers: { 'Content-Type': 'application/javascript' },
+      }),
+    );
+
+    // Simulate Service Worker termination and restart with empty in-memory clientRuntimeStates
+    const restartedWorker = createServiceWorkerTestBed({
+      cacheStorage: sharedCacheStorage,
+      serverBundle: bundleV670,
+    });
+
+    const unreportedHealthyEarnTab = createLegacyV664Client({
+      id: 'client-unreported-earn',
+      url: UNITAS_EMAIL_URL,
+      version: V_NEW,
+    });
+    const siblingSwapTab = createLegacyV664Client({
+      id: 'client-sibling-swap',
+      url: `${ORIGIN}/swap`,
+      version: V_NEW,
+    });
+    restartedWorker.controlledClients.set(
+      unreportedHealthyEarnTab.id,
+      unreportedHealthyEarnTab,
+    );
+    restartedWorker.controlledClients.set(siblingSwapTab.id, siblingSwapTab);
+
+    // Sibling tab triggers a version check before the Earn tab has sent any message to the restarted worker
+    await restartedWorker.sendFromClient(siblingSwapTab, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_NEW },
+    });
+
+    expect(unreportedHealthyEarnTab.reloadMock).not.toHaveBeenCalled();
+  });
 });

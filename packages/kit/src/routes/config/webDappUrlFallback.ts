@@ -20,14 +20,23 @@ function normalizeWebPathname(path?: string) {
 export function isNotFoundRouteState(
   state:
     | {
+        index?: number;
         routes?: { name?: string }[];
       }
     | null
     | undefined,
 ) {
-  return Boolean(
-    state?.routes?.length === 1 && state.routes[0]?.name === 'NotFound',
-  );
+  const routes = state?.routes;
+  if (!Array.isArray(routes) || routes.length === 0) {
+    return false;
+  }
+  const focusedIndex =
+    typeof state?.index === 'number' &&
+    state.index >= 0 &&
+    state.index < routes.length
+      ? state.index
+      : routes.length - 1;
+  return routes[focusedIndex]?.name === 'NotFound';
 }
 
 export function clearWebRouteNotFoundState() {

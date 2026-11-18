@@ -342,11 +342,31 @@ describe('syncWebRouteNotFoundState and shouldPreserveUnmatchedWebUrl', () => {
     globalThis.dispatchEvent = dispatchSpy;
 
     try {
-      const matchedNotFound = syncWebRouteNotFoundState({
-        path: '/earn/new-campaign-v680/?utm_source=onekey_email',
-        state: {
-          routes: [{ name: ERootRoutes.NotFound }],
+      const linkingConfig = {
+        initialRouteName: ERootRoutes.Main,
+        screens: {
+          [ERootRoutes.Main]: {
+            path: '/',
+            screens: {
+              [ETabRoutes.Market]: 'market',
+            },
+          },
+          NotFound: '*',
         },
+      };
+      const unmatchedPath = '/earn/new-campaign-v680/?utm_source=onekey_email';
+      const parsedNotFoundState = getStateFromPath(
+        unmatchedPath,
+        linkingConfig,
+      );
+      expect(parsedNotFoundState?.routes.map((route) => route.name)).toEqual([
+        ERootRoutes.Main,
+        ERootRoutes.NotFound,
+      ]);
+
+      const matchedNotFound = syncWebRouteNotFoundState({
+        path: unmatchedPath,
+        state: parsedNotFoundState,
       });
 
       expect(matchedNotFound).toBe(true);
