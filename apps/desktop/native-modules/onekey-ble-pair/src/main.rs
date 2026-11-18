@@ -723,48 +723,7 @@ mod win {
             status.0
         ));
 
-        // Deep probe on FAILURE: separate "never connected" from "connected but
-        // SMP/GATT failed". Status 19 flattens both. We ask three questions the
-        // device can only answer if the link is actually reachable:
-        //   - ConnectionStatus right now
-        //   - whether an unpaired GATT service query reaches it (the earliest
-        //     failures in this whole saga were GetGattServicesAsync=Unreachable,
-        //     which is far more specific than 19)
-        //   - the current DeviceAccessInformation
-        if status != DevicePairingResultStatus::Paired
-            && status != DevicePairingResultStatus::AlreadyPaired
-        {
-            let connection = device.ConnectionStatus().ok();
-            let connected = connection
-                == Some(windows::Devices::Bluetooth::BluetoothConnectionStatus::Connected);
-            let conn = connection
-                .map(|v| format!("{v:?}"))
-                .unwrap_or_else(|| "<err>".into());
-            diag(&format!("[probe] connectionStatus={conn}"));
-
-            // An offline service query starts another connection attempt after pairing failed.
-            if connected {
-                match device.GetGattServicesAsync() {
-                    Ok(op) => match op.await {
-                        Ok(res) => {
-                            let gatt_status = res
-                                .Status()
-                                .map(|v| format!("{v:?}"))
-                                .unwrap_or_else(|_| "<err>".into());
-                            let count = res.Services().and_then(|s| s.Size()).unwrap_or(0);
-                            diag(&format!(
-                                "[probe] GetGattServices status={gatt_status} serviceCount={count} \
-                                 (Unreachable => link never formed; Success => link is fine, SMP is the problem)"
-                            ));
-                        }
-                        Err(e) => diag(&format!("[probe] GetGattServices await error: {e}")),
-                    },
-                    Err(e) => diag(&format!("[probe] GetGattServices call error: {e}")),
-                }
-            } else {
-                diag("[probe] skipped GetGattServices: link is disconnected");
-            }
-        }
+        // The host bounds failure cleanup; diagnostic GATT queries must not delay it.
 
         // State AFTER the ceremony but BEFORE our cleanup unpair — this is the
         // window in which "Failed but actually bonded" would be visible, and the
