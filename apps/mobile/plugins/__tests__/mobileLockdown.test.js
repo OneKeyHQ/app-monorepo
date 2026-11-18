@@ -1,4 +1,5 @@
 /* eslint-env jest */
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -64,7 +65,7 @@ function createRuntime({
 
 describe('mobile lockdown bootstrap', () => {
   test.each(['main', 'background'])(
-    '%s blocks dynamic evaluation and constructor recovery',
+    '%s permits SDK dynamic compilation and blocks constructor recovery',
     (runtime) => {
       const context = createRuntime();
       context.exports.finishMobileLockdown(runtime);
@@ -73,9 +74,12 @@ describe('mobile lockdown bootstrap', () => {
         '(0, eval)("1 + 2")',
         'globalThis.eval("1 + 2")',
         'Reflect.apply(eval, undefined, ["1 + 2"])',
-        'Function("return globalThis")()',
-        'new Function("return globalThis")()',
-        'Reflect.construct(Function, ["return globalThis"])()',
+        'Function("return 3")()',
+        'new Function("return 3")()',
+        'Reflect.construct(Function, ["return 3"])()',
+      ])
+        expect(vm.runInContext(source, context)).toBe(3);
+      for (const source of [
         '(()=>{}).constructor("return globalThis")()',
         '(async()=>{}).constructor("return globalThis")()',
         '(function*(){}).constructor("return globalThis")()',
@@ -91,6 +95,61 @@ describe('mobile lockdown bootstrap', () => {
           context,
         ),
       ).toBe(true);
+    },
+  );
+
+  test.each(['main', 'background'])(
+    '%s configures hardware SDK V1 and V2 schemas after hardening',
+    (runtime) => {
+      // A child keeps protobuf and SES in the same realm without freezing Jest.
+      const source = `
+        const assert = require('assert');
+        const fs = require('fs');
+        const vm = require('vm');
+        const Module = require('module');
+        const babel = require('@babel/core');
+        const helperPath = ${JSON.stringify(helperPath)};
+        const { code } = babel.transformFileSync(helperPath, {
+          babelrc: false,
+          configFile: false,
+          plugins: [
+            '@babel/plugin-transform-typescript',
+            '@babel/plugin-transform-modules-commonjs',
+            ['transform-define', { 'process.env.ONEKEY_MOBILE_LOCKDOWN': 'true' }],
+          ],
+        });
+        const helper = new Module(helperPath, module);
+        helper._compile(code, helperPath);
+        for (const filename of ${JSON.stringify(getMobileLockdownPolyfills())}) {
+          vm.runInThisContext(fs.readFileSync(filename, 'utf8'), { filename });
+        }
+        helper.exports.finishMobileLockdown(${JSON.stringify(runtime)});
+        const transport = require('@onekeyfe/hd-transport').default;
+        for (const filename of [
+          'messages.json', 'messages_legacy_v1.json', 'messages-protocol-v2.json',
+        ]) {
+          const schema = require('@onekeyfe/hd-core/src/data/messages/' + filename);
+          const root = transport.parseConfigure(schema);
+          const features = root.lookupType('GetFeatures');
+          assert.strictEqual(transport.encodeProtobuf(features, {}).toHex(), '');
+          const ping = root.lookupType('Ping');
+          const encoded = transport.encodeProtobuf(ping, { message: 'ping' }).toHex();
+          assert.strictEqual(encoded, '0a0470696e67');
+          assert.strictEqual(ping.decode(Buffer.from(encoded, 'hex')).message, 'ping');
+        }
+        assert(Object.isFrozen(Object.prototype));
+        assert(Object.isFrozen(Array.prototype));
+        assert(Object.isFrozen(Function.prototype));
+        assert(Object.isFrozen(Promise.prototype));
+        assert.throws(() => (function () {}).constructor('return globalThis'));
+        process.stdout.write('HARDWARE_CODECS_PASS');
+      `;
+      expect(
+        execFileSync(process.execPath, ['-e', source], {
+          cwd: path.resolve(mobileRoot, '../..'),
+          encoding: 'utf8',
+        }),
+      ).toBe('HARDWARE_CODECS_PASS');
     },
   );
 
@@ -386,7 +445,7 @@ describe('mobile lockdown bootstrap', () => {
         enabled: true,
         runtime,
         lockdownApplied: true,
-        evalTaming: 'no-eval',
+        evalTaming: 'unsafe-eval',
       });
       expect(
         vm.runInContext(
