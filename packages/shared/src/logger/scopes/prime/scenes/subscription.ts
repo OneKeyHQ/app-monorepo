@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { sanitizeCaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
@@ -840,6 +841,38 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToServer()
   public onekeyIdLoginSuccess({ method }: { method: IOneKeyIdLoginMethod }) {
     return { method };
+  }
+
+  /**
+   * Google / Apple button pressed in the OneKey ID login dialog.
+   * With onekeyIdOAuthLoginExited, tells a login dialog closed untouched
+   * from a provider sign-in abandoned midway. `featureId` is set when a
+   * Prime free trial asked for the login.
+   * Both events carry their own time ($timestamp): in a fresh extension expand
+   * tab they can happen before analytics is initialized, and the events cached
+   * until then are sent later and in reverse order.
+   */
+  @LogToServer()
+  public onekeyIdOAuthLoginClick(params: {
+    method: EOAuthSocialLoginProvider;
+    featureId?: EPrimeFeatures;
+  }) {
+    return { ...params, $timestamp: Date.now() };
+  }
+
+  /**
+   * The Google / Apple sign-in ended without signing in and without an error.
+   * `cancelled`: the user certainly cancelled (a native sheet, or the
+   * extension). `unknown`: a web sign-in page that failed to load ends the
+   * same way, so it may not be the user's choice.
+   */
+  @LogToServer()
+  public onekeyIdOAuthLoginExited(params: {
+    method: EOAuthSocialLoginProvider;
+    featureId?: EPrimeFeatures;
+    reason: 'cancelled' | 'unknown';
+  }) {
+    return { ...params, $timestamp: Date.now() };
   }
 
   /**

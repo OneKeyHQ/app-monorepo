@@ -970,9 +970,15 @@ class ServiceSignatureConfirm extends ServiceBase {
     networkId: string;
     unsignedTxs: IUnsignedTxPro[];
     tronResourceRentalInfo?: ITronResourceRentalInfo;
+    reviewQuoteValidUntil?: number;
   }) {
-    const { accountId, networkId, unsignedTxs, tronResourceRentalInfo } =
-      params;
+    const {
+      accountId,
+      networkId,
+      unsignedTxs,
+      tronResourceRentalInfo,
+      reviewQuoteValidUntil,
+    } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -980,6 +986,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
+      reviewQuoteValidUntil,
     });
   }
 
