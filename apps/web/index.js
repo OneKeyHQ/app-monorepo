@@ -42,8 +42,15 @@ const SERVICE_WORKER_MESSAGE_TYPES = {
   UPDATE_READY: 'UPDATE_READY',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
 };
+const AUTO_RELOAD_STORAGE_KEY = '__onekey_sw_error_auto_reload__';
+const WEB_ROUTE_NOT_FOUND_EVENT = 'onekey-web-route-not-found';
 
 let pendingVersionActivation = '';
+let hasRootPageError = false;
+let isAutoReloading = false;
+let latestReadyVersion = '';
+let latestActiveVersion = '';
+const CURRENT_WEB_VERSION_INFO = createCurrentWebVersionInfo();
 
 function formatLocaleMessage(id, defaultMessage, values) {
   return appLocale.intl.formatMessage({ id, defaultMessage }, values);
@@ -54,6 +61,7 @@ class WebRootErrorBoundary extends React.PureComponent {
 
   componentDidCatch(error) {
     this.setState({ error });
+    markPageErrorAndTryAutoReload();
     void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
       ({ captureException, initSentry }) => {
         initSentry();
@@ -138,7 +146,13 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 function showUpdateBanner(onRefresh) {
+  if (isAutoReloading) {
+    return;
+  }
   const show = () => {
+    if (isAutoReloading) {
+      return;
+    }
     document.getElementById('sw-update-banner')?.remove();
 
     const banner = document.createElement('div');
@@ -229,7 +243,7 @@ function showUpdateBanner(onRefresh) {
   }
 }
 
-function getCurrentWebVersionInfo() {
+function createCurrentWebVersionInfo() {
   const commit =
     process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA || '';
   const buildNumber = process.env.BUILD_NUMBER || '0';
@@ -240,6 +254,10 @@ function getCurrentWebVersionInfo() {
     commitHash: commit || 'local',
     webVersion: `${commit || 'local'}-${buildNumber}`,
   };
+}
+
+function getCurrentWebVersionInfo() {
+  return CURRENT_WEB_VERSION_INFO;
 }
 
 function getCurrentWebVersion() {
@@ -253,11 +271,53 @@ function logCurrentWebVersionInfo() {
   );
 }
 
+function isPageInErrorState() {
+  return Boolean(hasRootPageError || globalThis.__onekeyWebRouteNotFound);
+}
+
+function getAutoReloadTargetKey(version) {
+  const pathname =
+    typeof window !== 'undefined' && window.location?.pathname
+      ? window.location.pathname
+      : '/';
+  return `${version}:${pathname}`;
+}
+
+function hasAlreadyAutoReloadedForVersion(version) {
+  if (!version || typeof window === 'undefined') {
+    return false;
+  }
+  try {
+    return (
+      window.sessionStorage?.getItem(AUTO_RELOAD_STORAGE_KEY) ===
+      getAutoReloadTargetKey(version)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function markAutoReloadedForVersion(version) {
+  if (!version || typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.sessionStorage?.setItem(
+      AUTO_RELOAD_STORAGE_KEY,
+      getAutoReloadTargetKey(version),
+    );
+  } catch {
+    // Ignore sessionStorage restrictions in private/sandboxed contexts.
+  }
+}
+
 function postMessageToServiceWorker(type, payload = {}) {
   navigator.serviceWorker.controller?.postMessage({
     type,
     payload: {
       clientVersion: getCurrentWebVersion(),
+      clientAutoReloadCapable: true,
+      hasPageError: isPageInErrorState(),
       ...payload,
     },
   });
@@ -279,8 +339,57 @@ function activateReadyVersion(version) {
   }, 3000);
 }
 
+function triggerAutoReloadForVersion(version, shouldActivateReady = false) {
+  isAutoReloading = true;
+  if (version) {
+    markAutoReloadedForVersion(version);
+  }
+  document.getElementById('sw-update-banner')?.remove();
+  if (shouldActivateReady && version) {
+    activateReadyVersion(version);
+    return;
+  }
+  window.location.reload();
+}
+
+function markPageErrorAndTryAutoReload() {
+  hasRootPageError = true;
+  if (isAutoReloading) {
+    return true;
+  }
+  if (
+    latestActiveVersion &&
+    latestActiveVersion !== getCurrentWebVersion() &&
+    !hasAlreadyAutoReloadedForVersion(latestActiveVersion)
+  ) {
+    triggerAutoReloadForVersion(latestActiveVersion, false);
+    return true;
+  }
+  if (
+    latestReadyVersion &&
+    latestReadyVersion !== getCurrentWebVersion() &&
+    !hasAlreadyAutoReloadedForVersion(latestReadyVersion)
+  ) {
+    triggerAutoReloadForVersion(latestReadyVersion, true);
+    return true;
+  }
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    requestServiceWorkerVersionCheck();
+  }
+  return false;
+}
+
 function showReadyVersionBanner(version) {
-  if (!version || pendingVersionActivation === version) {
+  if (!version || pendingVersionActivation === version || isAutoReloading) {
+    return;
+  }
+  latestReadyVersion = version;
+  if (
+    isPageInErrorState() &&
+    version !== getCurrentWebVersion() &&
+    !hasAlreadyAutoReloadedForVersion(version)
+  ) {
+    triggerAutoReloadForVersion(version, true);
     return;
   }
   showUpdateBanner(() => activateReadyVersion(version));
@@ -290,12 +399,20 @@ function showActivatedVersionBanner(version) {
   if (!version || version === getCurrentWebVersion()) {
     return false;
   }
+  if (isAutoReloading) {
+    return true;
+  }
+  latestActiveVersion = version;
+  if (isPageInErrorState() && !hasAlreadyAutoReloadedForVersion(version)) {
+    triggerAutoReloadForVersion(version, false);
+    return true;
+  }
   showUpdateBanner(() => window.location.reload());
   return true;
 }
 
 function requestServiceWorkerVersionCheck() {
-  if (!navigator.serviceWorker.controller) {
+  if (!navigator.serviceWorker?.controller) {
     return;
   }
   postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.GET_VERSION_STATE);
@@ -325,9 +442,15 @@ function setupServiceWorkerVersionProtocol() {
 
     if (type === SERVICE_WORKER_MESSAGE_TYPES.VERSION_ACTIVATED) {
       const version = payload.version;
-      if (pendingVersionActivation === version) {
+      if (
+        (version && pendingVersionActivation === version) ||
+        (payload.autoReload &&
+          version &&
+          version !== getCurrentWebVersion() &&
+          !hasAlreadyAutoReloadedForVersion(version))
+      ) {
         pendingVersionActivation = '';
-        window.location.reload();
+        triggerAutoReloadForVersion(version, false);
         return;
       }
       showActivatedVersionBanner(version);
@@ -347,6 +470,12 @@ function setupServiceWorkerVersionProtocol() {
     if (document.visibilityState === 'visible') {
       requestServiceWorkerVersionCheck();
     }
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(WEB_ROUTE_NOT_FOUND_EVENT, () => {
+    markPageErrorAndTryAutoReload();
   });
 }
 

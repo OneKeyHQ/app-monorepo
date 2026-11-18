@@ -12,9 +12,13 @@ import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  WEB_ROUTE_NOT_FOUND_EVENT,
+  clearWebRouteNotFoundState,
   getWebDappAllowListRule,
   getWebDappUrlFallback,
   normalizeMarketTokenDetailPath,
+  shouldPreserveUnmatchedWebUrl,
+  syncWebRouteNotFoundState,
 } from './webDappUrlFallback';
 
 const allowList = {
@@ -324,5 +328,66 @@ describe('normalizeMarketTokenDetailPath', () => {
     '/',
   ])('preserves other URLs and query values: %s', (path) => {
     expect(normalizeMarketTokenDetailPath(path)).toBe(path);
+  });
+});
+
+describe('syncWebRouteNotFoundState and shouldPreserveUnmatchedWebUrl', () => {
+  afterEach(() => {
+    clearWebRouteNotFoundState();
+  });
+
+  it('marks unmatched NotFound routes and preserves their URL for SW update reload', () => {
+    const dispatchSpy = jest.fn();
+    const originalDispatchEvent = globalThis.dispatchEvent;
+    globalThis.dispatchEvent = dispatchSpy;
+
+    try {
+      const matchedNotFound = syncWebRouteNotFoundState({
+        path: '/earn/new-campaign-v680/?utm_source=onekey_email',
+        state: {
+          routes: [{ name: ERootRoutes.NotFound }],
+        },
+      });
+
+      expect(matchedNotFound).toBe(true);
+      expect(
+        (globalThis as Record<string, unknown>).__onekeyWebRouteNotFound,
+      ).toBe(true);
+      expect(
+        (globalThis as Record<string, unknown>).__onekeyWebUnmatchedPath,
+      ).toBe('/earn/new-campaign-v680');
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: WEB_ROUTE_NOT_FOUND_EVENT }),
+      );
+      expect(
+        shouldPreserveUnmatchedWebUrl({
+          currentPath: '/earn/new-campaign-v680',
+          unmatchedPath: (globalThis as Record<string, unknown>)
+            .__onekeyWebUnmatchedPath as string,
+        }),
+      ).toBe(true);
+      expect(
+        shouldPreserveUnmatchedWebUrl({
+          currentPath: '/swap',
+          unmatchedPath: (globalThis as Record<string, unknown>)
+            .__onekeyWebUnmatchedPath as string,
+        }),
+      ).toBe(false);
+
+      syncWebRouteNotFoundState({
+        path: '/swap',
+        state: {
+          routes: [{ name: ERootRoutes.Main }],
+        },
+      });
+      expect(
+        (globalThis as Record<string, unknown>).__onekeyWebRouteNotFound,
+      ).toBe(false);
+      expect(
+        (globalThis as Record<string, unknown>).__onekeyWebUnmatchedPath,
+      ).toBe('');
+    } finally {
+      globalThis.dispatchEvent = originalDispatchEvent;
+    }
   });
 });

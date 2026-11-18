@@ -6,6 +6,80 @@ type IAllowListRule = {
 type IAllowList = Record<string, IAllowListRule>;
 
 const DYNAMIC_PATH_SUFFIX = '/.';
+export const WEB_ROUTE_NOT_FOUND_EVENT = 'onekey-web-route-not-found';
+
+function normalizeWebPathname(path?: string) {
+  if (!path) {
+    return '';
+  }
+  const [pathname = ''] = path.split(/[?#]/);
+  const normalized = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  return normalized.length > 1 ? normalized.replace(/\/+$/, '') : normalized;
+}
+
+export function isNotFoundRouteState(
+  state:
+    | {
+        routes?: { name?: string }[];
+      }
+    | null
+    | undefined,
+) {
+  return Boolean(
+    state?.routes?.length === 1 && state.routes[0]?.name === 'NotFound',
+  );
+}
+
+export function clearWebRouteNotFoundState() {
+  const runtimeGlobal = globalThis as Record<string, unknown>;
+  runtimeGlobal.__onekeyWebRouteNotFound = false;
+  runtimeGlobal.__onekeyWebUnmatchedPath = '';
+}
+
+export function syncWebRouteNotFoundState({
+  path,
+  state,
+}: {
+  path: string;
+  state:
+    | {
+        routes?: { name?: string }[];
+      }
+    | null
+    | undefined;
+}) {
+  const runtimeGlobal = globalThis as Record<string, unknown>;
+  if (isNotFoundRouteState(state)) {
+    runtimeGlobal.__onekeyWebRouteNotFound = true;
+    runtimeGlobal.__onekeyWebUnmatchedPath = normalizeWebPathname(path);
+    if (typeof globalThis.dispatchEvent === 'function') {
+      try {
+        globalThis.dispatchEvent(new Event(WEB_ROUTE_NOT_FOUND_EVENT));
+      } catch {
+        // Ignore environments without DOM Event support.
+      }
+    }
+    return true;
+  }
+  clearWebRouteNotFoundState();
+  return false;
+}
+
+export function shouldPreserveUnmatchedWebUrl({
+  currentPath,
+  unmatchedPath,
+}: {
+  currentPath?: string;
+  unmatchedPath?: string;
+}) {
+  const normalizedCurrent = normalizeWebPathname(currentPath);
+  const normalizedUnmatched = normalizeWebPathname(unmatchedPath);
+  return Boolean(
+    normalizedCurrent &&
+    normalizedUnmatched &&
+    normalizedCurrent === normalizedUnmatched,
+  );
+}
 
 export function normalizeMarketTokenDetailPath(path: string) {
   // Native tokens have an empty address. Publish the existing native route
