@@ -146,6 +146,7 @@ export function SettingsRow({
 
 export function SettingsCheckboxRow({
   label,
+  description,
   testID,
   value,
   disabled,
@@ -154,6 +155,7 @@ export function SettingsCheckboxRow({
   onChange,
 }: {
   label: string;
+  description?: string;
   testID?: string;
   value: boolean;
   disabled: boolean;
@@ -178,20 +180,31 @@ export function SettingsCheckboxRow({
           testID ?? formatTestID(label)
         }`}
         label={label}
+        description={description}
         value={value}
         disabled={disabled}
         labelProps={{ variant: '$bodyMdMedium' }}
-        containerProps={{ alignItems: 'center' }}
+        // A description makes the label block taller; keep the box on the
+        // label line instead of centering it against both lines. The 2px top
+        // padding matches the box's vertical margin so their centers align.
+        containerProps={{ alignItems: description ? 'flex-start' : 'center' }}
         // Drop the default web `flex: 1` so the label is sized by its text and
         // the row can tell when the controls no longer fit beside it.
         labelContainerProps={{
-          py: '$0',
+          pt: description ? '$0.5' : '$0',
+          pb: '$0',
           my: '$0',
           justifyContent: 'center',
           flex: undefined,
+          // Let a long description wrap within the dialog width.
+          flexShrink: description ? 1 : undefined,
         }}
         onChange={(checked) => onChange(Boolean(checked))}
       />
+      {/* Keep children on one line. On native, Yoga can wrap a content-sized
+          nested `flexWrap` stack even after sizing it for a single line (seen
+          with zh-CN labels). This row's own wrap moves the controls below the
+          label as a group when they do not fit. */}
       {children ? (
         <XStack ml={controlsIndent} flexShrink={1}>
           {children}
@@ -332,7 +345,9 @@ export function SettingsSelect<TValue extends string>({
       testID={`trading-view-settings-select-${testID}`}
       title={title}
       value={value}
-      disabled={disabled}
+      // On Android, explicit false maps to readOnly={false} in the default
+      // trigger Input, overriding its editable={false} and intercepting taps.
+      disabled={platformEnv.isNativeAndroid ? disabled || undefined : disabled}
       onChange={onChange}
       placement="bottom-end"
       floatingPanelProps={

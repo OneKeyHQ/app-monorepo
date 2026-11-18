@@ -1,13 +1,18 @@
 import axios from 'axios';
 
+import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import platformEnv from '../../platformEnv';
+import { DEFAULT_IP_TABLE_CONFIG } from '../constants/ipTableDefaults';
 import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  getSelectedIpForHost,
   isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
@@ -17,6 +22,7 @@ import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type { IAvailabilityOutcome } from '../availabilityAggregator';
 import type { IApiAvailabilityTiming } from '../availabilityMetrics';
+import type { IIpTableConfigWithRuntime } from '../types/ipTable';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 const mockAvailabilityOutcomes: IAvailabilityOutcome[] = [];
@@ -149,8 +155,108 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
   afterEach(() => {
     axios.defaults.adapter = originalAdapter;
     consoleErrorSpy.mockRestore();
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
+
+  test.each(
+    ['ios', 'android'].flatMap((platform) =>
+      ['config', 'selection', 'reset', 'disabled'].map((change) => ({
+        platform,
+        change,
+      })),
+    ),
+  )(
+    '$platform main drops its cached route after bg changes $change',
+    async ({ platform, change }) => {
+      const initial = await mockedRequestHelper.getIpTableConfig();
+      if (!initial?.runtime)
+        throw new OneKeyLocalError('expected runtime fixture');
+      const nextIp = '198.51.100.42';
+      initial.config.domains['example.com'].endpoints.push({
+        ...initial.config.domains['example.com'].endpoints[0],
+        ip: nextIp,
+      });
+      resetAdapterFailoverStatesForTesting();
+      jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+      jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS', platform === 'ios');
+      jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        platform === 'android',
+      );
+      const getConfig = jest.fn(async () => initial);
+      jest.replaceProperty(appGlobals, '$backgroundApiProxy', {
+        serviceIpTable: { getConfig },
+      } as unknown as typeof appGlobals.$backgroundApiProxy);
+      mockedRequestHelper.getIpTableConfig.mockImplementation(
+        jest.requireActual<typeof import('../requestHelper')>(
+          '../requestHelper',
+        ).default.getIpTableConfig,
+      );
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        headers: {},
+        body: '{}',
+      });
+      const hostname = `warm-${platform}.example.com`;
+      const adapter = createIpTableAdapter({});
+      await adapter(buildConfig(`https://${hostname}/v1`));
+      expect(mockedSniRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ip: '93.184.216.34' }),
+        expect.anything(),
+      );
+      let updated: IIpTableConfigWithRuntime = {
+        ...initial,
+        config: {
+          ...initial.config,
+          domains: {
+            'example.com': {
+              endpoints: [
+                {
+                  ...initial.config.domains['example.com'].endpoints[0],
+                  ip: nextIp,
+                },
+              ],
+            },
+          },
+        },
+        runtime: { ...initial.runtime, selections: { 'example.com': nextIp } },
+      };
+      if (change === 'selection') updated.config = initial.config;
+      if (change === 'disabled')
+        updated.runtime = { ...initial.runtime, enabled: false };
+      if (change === 'reset')
+        updated = {
+          config: DEFAULT_IP_TABLE_CONFIG,
+          runtime: {
+            enabled: true,
+            lastUpdated: 0,
+            lastRegionCheck: 0,
+            selections: {},
+          },
+        };
+      getConfig.mockResolvedValue(updated);
+      appEventBus.dispatchInboundFromBackground({
+        type: EAppEventBusNames.IpTableConfigChanged,
+        payload: undefined,
+        originNodeId: 'bg-normal-selection-revoked',
+      });
+      // No failing requests, clock advance or main-side cache reset in between.
+      await adapter(buildConfig(`https://${hostname}/v1`));
+      expect(getConfig).toHaveBeenCalledTimes(2);
+      if (change === 'config' || change === 'selection') {
+        expect(mockedSniRequest).toHaveBeenLastCalledWith(
+          expect.objectContaining({ ip: nextIp }),
+          expect.anything(),
+        );
+      } else {
+        expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+        expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
 
   test('falls back before SNI work when proxy preflight is active', async () => {
     mockedIsProxyActiveForUrl.mockResolvedValue(true);
@@ -388,6 +494,19 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
   });
 
   describe('availability metrics context', () => {
+    test('ignores a persisted selection and last-best IP removed from the active table', async () => {
+      const active = await mockedRequestHelper.getIpTableConfig();
+      if (!active?.runtime)
+        throw new OneKeyLocalError('expected fixture configuration');
+      active.runtime.selections['example.com'] = '203.0.113.1';
+      active.runtime.lastBestIp = { 'example.com': '203.0.113.1' };
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue(active);
+      getSelectedIpForHost.clear();
+      await expect(
+        getSelectedIpForHost('wallet.example.com'),
+      ).resolves.toBeNull();
+    });
+
     function buildTimedConfig(url: string) {
       const config = buildConfig(url);
       const timing: IApiAvailabilityTiming = {
@@ -413,7 +532,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       });
       const sni = buildTimedConfig('https://metrics-sni.example.com/v1');
       await adapter(sni.config);
-      expect(sni.timing).toMatchObject({ route: 'sni', proxyActive: false });
+      expect(sni.timing).toMatchObject({
+        route: 'sni',
+        proxyActive: false,
+        ip: '93.184.216.34',
+      });
 
       mockedSniRequest.mockRejectedValue(new Error('connection reset'));
       const fallback = buildTimedConfig('https://metrics-fb.example.com/v1');
@@ -427,7 +550,53 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         route: 'domain',
         proxyActive: true,
       });
-      expect(mockAvailabilityOutcomes).toHaveLength(0);
+      expect(
+        mockAvailabilityOutcomes.filter(({ source }) => source === 'api_ip'),
+      ).toEqual([
+        expect.objectContaining({ target: '93.184.216.34', status: 'failed' }),
+      ]);
+    });
+
+    test.each([
+      ['network failure', 'ERR_NETWORK'],
+      ['cancellation', 'ERR_CANCELED'],
+    ])('does not retry a null-response domain %s', async (_label, code) => {
+      const cause = new Error('fixture domain outcome');
+      const domainError = Object.assign(new Error('domain request failed'), {
+        code,
+        cause,
+      });
+      mockedSniRequest.mockResolvedValue(null);
+      fallbackAdapter.mockRejectedValue(domainError);
+      const { config, timing } = buildTimedConfig(
+        'https://metrics-null.example.com/v1',
+      );
+      const result = createIpTableAdapter({})(config);
+
+      await expect(result).rejects.toBe(domainError);
+      await expect(result).rejects.toMatchObject({ code, cause });
+      expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      expect(timing.route).toBe('fallback');
+      if (code === 'ERR_CANCELED') {
+        // The IP already failed before cancellation of the domain fallback.
+        expect(
+          mockAvailabilityOutcomes.filter(({ source }) => source !== 'api_ip'),
+        ).toHaveLength(0);
+      } else {
+        expect(mockAvailabilityOutcomes).toContainEqual(
+          expect.objectContaining({
+            source: 'api',
+            status: 'network_error',
+            failure: { detail: 'fallback:/v1', errorCode: 'err_network' },
+          }),
+        );
+        expect(
+          mockAvailabilityOutcomes.filter(
+            (outcome) => outcome.source === 'api_net',
+          ),
+        ).toEqual([expect.objectContaining({ status: 'failed' })]);
+      }
     });
 
     test('records errors raised by the adapter itself with their context', async () => {
@@ -448,9 +617,18 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       expect(timing.reported).toBe(true);
       expect(mockAvailabilityOutcomes).toEqual([
         expect.objectContaining({
+          source: 'api_ip',
+          target: '93.184.216.34',
+          status: 'failed',
+        }),
+        expect.objectContaining({
           source: 'api',
           status: 'network_error',
-          failure: { detail: 'sni:/v1', errorCode: 'sni_cert_failed' },
+          failure: {
+            detail: 'sni:/v1',
+            errorCode: 'sni_cert_failed',
+            ip: '93.184.216.34',
+          },
         }),
         expect.objectContaining({ source: 'api_net', status: 'failed' }),
         expect.objectContaining({ source: 'api_route', target: 'sni' }),
@@ -545,13 +723,7 @@ describe('isIpTableTransportError', () => {
 });
 
 describe('ipTableAdapter fail-open on domain network failures', () => {
-  const BUILTIN_CN_IPS = [
-    '104.18.20.233',
-    '104.18.21.233',
-    '216.19.3.115',
-    '216.19.2.116',
-    '216.19.4.106',
-  ];
+  const BUILTIN_CN_IPS = ['43.168.19.96', '43.168.24.171'];
 
   let originalAdapter: typeof axios.defaults.adapter;
   let fallbackAdapter: jest.Mock<
@@ -645,6 +817,190 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     };
     expect(sniArgs.ip).toBe(BUILTIN_CN_IPS[0]);
     expect(sniArgs.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('fail-open uses the active table instead of a revoked last-best or builtin IP', async () => {
+    const ip = '198.51.100.42';
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+      config: {
+        version: 1,
+        ttl_sec: 60,
+        generated_at: '2026-11-14T00:00:00Z',
+        signature: '',
+        domains: {
+          'onekeycn.com': {
+            endpoints: [{ ip, provider: 'test', region: 'ALL', weight: 1 }],
+          },
+        },
+      },
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: { 'onekeycn.com': '' },
+        lastBestIp: { 'onekeycn.com': '203.0.113.1' },
+      },
+    });
+    await failNTimes(3);
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      headers: {},
+      body: '{}',
+    });
+    await createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+    );
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ ip }),
+      expect.anything(),
+    );
+  });
+
+  test.each(['ios', 'android'])(
+    '%s main refreshes a warm selection when bg replaces the table',
+    async (platform) => {
+      jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+      jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS', platform === 'ios');
+      jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        platform === 'android',
+      );
+      const configWithRuntime: IIpTableConfigWithRuntime = {
+        config: {
+          version: 1,
+          ttl_sec: 60,
+          generated_at: '2026-11-14T00:00:00Z',
+          signature: '',
+          domains: {
+            'onekeycn.com': {
+              endpoints: [
+                {
+                  ip: '203.0.113.1',
+                  provider: 'test',
+                  region: 'ALL',
+                  weight: 1,
+                },
+              ],
+            },
+          },
+        },
+        runtime: {
+          enabled: true,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: { 'onekeycn.com': '' },
+          lastBestIp: { 'onekeycn.com': '203.0.113.1' },
+        },
+      };
+      const getConfig = jest.fn(async () => configWithRuntime);
+      jest.replaceProperty(appGlobals, '$backgroundApiProxy', {
+        serviceIpTable: { getConfig },
+      } as unknown as typeof appGlobals.$backgroundApiProxy);
+      mockedRequestHelper.getIpTableConfig.mockImplementation(
+        jest.requireActual<typeof import('../requestHelper')>(
+          '../requestHelper',
+        ).default.getIpTableConfig,
+      );
+      await failNTimes(3);
+      // A separate bg runtime replaces the table; main cannot share its heap.
+      const replacement: IIpTableConfigWithRuntime = {
+        ...configWithRuntime,
+        config: {
+          ...configWithRuntime.config,
+          domains: {
+            'onekeycn.com': {
+              endpoints: [
+                {
+                  ip: '198.51.100.42',
+                  provider: 'test',
+                  region: 'ALL',
+                  weight: 1,
+                },
+              ],
+            },
+          },
+        },
+      };
+      getConfig.mockResolvedValue(replacement);
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        headers: {},
+        body: '{}',
+      });
+
+      await createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      );
+
+      expect(getConfig).toHaveBeenCalledTimes(2);
+      expect(mockedSniRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ ip: '198.51.100.42' }),
+        expect.anything(),
+      );
+
+      // Main has cached the selected IP. BG cannot clear that separate heap.
+      const updated: IIpTableConfigWithRuntime = {
+        ...replacement,
+        config: {
+          ...replacement.config,
+          domains: {
+            'onekeycn.com': {
+              endpoints: [
+                {
+                  ip: '198.51.100.43',
+                  provider: 'test',
+                  region: 'ALL',
+                  weight: 1,
+                },
+              ],
+            },
+          },
+        },
+      };
+      getConfig.mockResolvedValue(updated);
+      appEventBus.dispatchInboundFromBackground({
+        type: EAppEventBusNames.IpTableConfigChanged,
+        payload: undefined,
+        originNodeId: 'bg-table-replacement',
+      });
+      await createIpTableAdapter({})(
+        buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+      );
+      expect(getConfig).toHaveBeenCalledTimes(3);
+      expect(mockedSniRequest).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ip: '198.51.100.43' }),
+        expect.anything(),
+      );
+    },
+  );
+
+  test('native main stays on the domain until the bg provider is ready', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeMainThread', true);
+    jest.replaceProperty(platformEnv, 'enableNativeBackgroundThread', true);
+    const proxyDescriptor = Object.getOwnPropertyDescriptor(
+      appGlobals,
+      '$backgroundApiProxy',
+    );
+    Object.defineProperty(appGlobals, '$backgroundApiProxy', {
+      value: undefined,
+    });
+    mockedRequestHelper.getIpTableConfig.mockImplementation(
+      jest.requireActual<typeof import('../requestHelper')>('../requestHelper')
+        .default.getIpTableConfig,
+    );
+    try {
+      await failNTimes(4);
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+    } finally {
+      if (proxyDescriptor)
+        Object.defineProperty(
+          appGlobals,
+          '$backgroundApiProxy',
+          proxyDescriptor,
+        );
+    }
   });
 
   test('maps data.onekey.so fail-open to the first onekeycn.com builtin IP', async () => {
@@ -1415,17 +1771,21 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
     jest.clearAllMocks();
   });
 
-  test('GET falls back to domain after an ambiguous SNI timeout', async () => {
-    mockedSniRequest.mockRejectedValue(
-      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
-    );
-    await expect(
-      createIpTableAdapter({})(
-        buildMethodConfig('https://api.example.com/v1', 'get'),
-      ),
-    ).resolves.toMatchObject({ data: { fallback: true } });
-    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
-  });
+  test.each(['get', 'head', 'options'])(
+    '%s falls back to domain once after an ambiguous SNI timeout',
+    async (method) => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+      );
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', method),
+        ),
+      ).resolves.toMatchObject({ data: { fallback: true } });
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('POST does NOT fall back after an ambiguous SNI timeout (double-send risk)', async () => {
     mockedSniRequest.mockRejectedValue(
@@ -1442,15 +1802,76 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
-  test('POST falls back when the error proves the connection was never established', async () => {
+  test.each(['post', 'put', 'patch', 'delete'])(
+    '%s does not fall back after SNI starts, regardless of the final connection error',
+    async (method) => {
+      for (const code of [
+        'SNI_CONNECTION_REFUSED',
+        'SNI_DNS_FAILED',
+        'SNI_INVALID_URL',
+      ]) {
+        mockedSniRequest.mockRejectedValue(
+          Object.assign(new Error('final connection error'), { code }),
+        );
+        await expect(
+          createIpTableAdapter({})(
+            buildMethodConfig('https://api.example.com/v1', method),
+          ),
+        ).rejects.toMatchObject({ code: 'ERR_NETWORK', cause: { code } });
+      }
+      expect(mockedSniRequest).toHaveBeenCalledTimes(3);
+      expect(fallbackAdapter).not.toHaveBeenCalled();
+    },
+  );
+
+  test('POST uses the domain for its first request when no IP is selected', async () => {
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue(null);
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  // A final connection error can follow an internal retry after the body was sent.
+  test.each([
+    ['java.net.ConnectException', 'connection failed'],
+    ['java.net.NoRouteToHostException', 'no route to host'],
+    [undefined, 'Request failed: Failed to connect to /93.184.216.34:443'],
+    [undefined, 'Host unreachable'],
+  ])(
+    'POST does NOT fall back on SNI_REQUEST_FAILED (cause %s, message %s)',
+    async (causeName, message) => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error(message), {
+          code: 'SNI_REQUEST_FAILED',
+          cause: causeName ? { name: causeName } : undefined,
+        }),
+      );
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', 'post'),
+        ),
+      ).rejects.toMatchObject({
+        code: 'ERR_NETWORK',
+        cause: { code: 'SNI_REQUEST_FAILED' },
+      });
+      expect(fallbackAdapter).not.toHaveBeenCalled();
+    },
+  );
+
+  test('GET still falls back on SNI_REQUEST_FAILED with a final Android connection error', async () => {
     mockedSniRequest.mockRejectedValue(
-      Object.assign(new Error('connection refused'), {
-        code: 'SNI_CONNECTION_REFUSED',
+      Object.assign(new Error('Failed to connect to /93.184.216.34:443'), {
+        code: 'SNI_REQUEST_FAILED',
+        cause: { name: 'java.net.ConnectException' },
       }),
     );
     await expect(
       createIpTableAdapter({})(
-        buildMethodConfig('https://api.example.com/v1', 'post'),
+        buildMethodConfig('https://api.example.com/v1', 'get'),
       ),
     ).resolves.toMatchObject({ data: { fallback: true } });
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
@@ -1484,7 +1905,7 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
       ),
     ).rejects.toMatchObject({
       code: 'ERR_NETWORK',
-      cause: { message: expect.stringContaining('not idempotent') },
+      cause: { message: expect.stringContaining('method is not allowed') },
     });
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });

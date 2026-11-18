@@ -3,8 +3,15 @@ import logger from 'electron-log/main';
 
 import { MAC_APP_STORE_DOWNLOAD_LINK } from '@onekeyhq/shared/src/config/appConfig';
 
+import { hasUnsafeUrlChars } from './deepLink';
+
 export async function openExternalUrl(url: string): Promise<void> {
   try {
+    if (!url || typeof url !== 'string' || hasUnsafeUrlChars(url)) {
+      logger.warn('[setWindowOpenHandler] blocked malformed external url');
+      return;
+    }
+
     const parsed = new URL(url);
     // The DApp browser hands OneKey's own Mac App Store listing to the OS
     // (OK-64036); that exact link is the only non-https exception.

@@ -30,7 +30,11 @@ export function HomeNativePager({
   ref,
   tabs,
   initialTabName,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   headerHeightHint,
+  headerLayoutKey,
   topOverlayHeightHint,
   renderHeader,
   topOverlay,
@@ -41,13 +45,18 @@ export function HomeNativePager({
   onTabPrepare,
 }: IHomeNativePagerProps) {
   const [headerLayout, setHeaderLayout] = useState({
+    key: headerLayoutKey,
     hint: headerHeightHint,
     height: headerHeightHint ?? 182,
     generation: 0,
   });
-  if (headerLayout.hint !== headerHeightHint) {
+  if (
+    headerLayout.hint !== headerHeightHint ||
+    headerLayout.key !== headerLayoutKey
+  ) {
     // Reset before committing a new header variant, including A -> B -> A.
     setHeaderLayout({
+      key: headerLayoutKey,
       hint: headerHeightHint,
       height: headerHeightHint ?? 182,
       generation: headerLayout.generation + 1,
@@ -177,6 +186,21 @@ export function HomeNativePager({
       <CollapsiblePagerView
         ref={pagerRef}
         style={{ flex: 1, backgroundColor: theme.bgApp.val }}
+        nativeTabBar={
+          nativeTabBar
+            ? {
+                ...nativeTabBar,
+                style: {
+                  ...nativeTabBar.style,
+                  backgroundColor: topEdgeActive
+                    ? 'transparent'
+                    : theme.bgApp.val,
+                },
+              }
+            : undefined
+        }
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         initialPage={initialIndex}
         nestedScrollEnabled
         nativeSmoothHeaderScrollEnabled
@@ -202,7 +226,7 @@ export function HomeNativePager({
           }
         }}
         headerHeight={headerLayout.height}
-        stickyHeaderHeight={stickyHeight}
+        stickyHeaderHeight={nativeTabBar?.style?.height ?? stickyHeight}
         // Spot remains the owner of shared asset loading even while offscreen.
         pageRetentionDistance={tabs.length}
         offscreenPageLimit={Math.max(1, tabs.length - 1)}

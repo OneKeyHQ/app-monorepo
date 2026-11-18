@@ -109,6 +109,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { subscribeNativeStorageRecoveryInvalidation } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryInvalidation';
+import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import type {
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
@@ -214,9 +219,12 @@ import { findLocalWalletAddressOwners } from '../../vaults/localWallet/addressOw
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
-import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import {
   buildAnalyticsWalletProfile,
@@ -261,9 +269,11 @@ import type {
 } from '../../vaults/types';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { IPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export type IAddHDOrHWAccountsParams = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   walletId: string | undefined;
   networkId: string | undefined;
   indexes?: Array<number>; // multiple add by indexes
@@ -1373,6 +1383,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountNames,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    publicAccountCreationContext,
   }: {
     walletId: string;
     networkId: string;
@@ -1382,6 +1393,7 @@ class ServiceAccount extends ServiceBase {
     };
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -1394,19 +1406,23 @@ class ServiceAccount extends ServiceBase {
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
       );
     }
-    await this.addIndexedAccount({
-      walletId,
-      indexes: [dbAccount.pathIndex],
-      skipIfExists: true,
-      names: indexedAccountNames,
-      applyRestoreSyncPolicy,
-    });
+    if (!isPublicAccountCreationContext(publicAccountCreationContext)) {
+      await this.addIndexedAccount({
+        walletId,
+        indexes: [dbAccount.pathIndex],
+        skipIfExists: true,
+        names: indexedAccountNames,
+        applyRestoreSyncPolicy,
+      });
+    }
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
       skipEventEmit,
       applyRestoreSyncPolicy,
+      publicAccountCreationContext,
+      publicAccountIndexedNames: indexedAccountNames,
     });
   }
 
@@ -1458,6 +1474,14 @@ class ServiceAccount extends ServiceBase {
       indexes,
       deriveType,
     };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccountsForUserCreation(params: IAddHDOrHWAccountsParams) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
+    );
   }
 
   @backgroundMethod()
@@ -2585,7 +2609,7 @@ class ServiceAccount extends ServiceBase {
     let address = '';
     let xpub = '';
     let btcForkAddressEncoding: EAddressEncodings | undefined;
-    const addressValidationResult = await vault.validateAddress(input);
+    const addressValidationResult = await vault.validateWatchingAddress(input);
     if (addressValidationResult.isValid) {
       address = addressValidationResult.normalizedAddress;
       btcForkAddressEncoding = addressValidationResult.encoding;
@@ -3400,6 +3424,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    return this.setAccountNameInternal(params);
+  }
+
+  // Background-only replay entry point; the guard never crosses a UI bridge.
+  async setAccountNameFromCloud(
+    params: IDBSetAccountNameParams,
+    isCurrent: () => boolean,
+  ): Promise<void> {
+    return this.setAccountNameInternal(params, isCurrent);
+  }
+
+  private async setAccountNameInternal(
+    params: IDBSetAccountNameParams,
+    isCurrent?: () => boolean,
+  ): Promise<void> {
     const { accountId, indexedAccountId, name } = params;
 
     let account: IDBAccount | undefined;
@@ -3429,7 +3468,9 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const r = await localDb.setAccountName(params);
+    const r = isCurrent
+      ? await localDb.setAccountName(params, { isCurrent })
+      : await localDb.setAccountName(params);
 
     if (!params.applyRestoreSyncPolicy) {
       if (!params.skipEventEmit) {
@@ -4718,8 +4759,7 @@ class ServiceAccount extends ServiceBase {
                   seed: seedBuffer,
                   keylessWalletId,
                 });
-              await keylessSyncCredentialStorage.saveCredential(credential);
-              this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+              await this.backgroundApi.serviceKeylessCloudSync.persistNewKeylessCloudSyncCredential(
                 credential,
               );
             } catch (error) {
@@ -5522,6 +5562,13 @@ class ServiceAccount extends ServiceBase {
       hideImmediately,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    void this.backgroundApi.servicePrivacyChain
+      .onWalletTempStatusChanged({ walletId })
+      .catch((error: unknown) => {
+        console.error('[privacy-chain] wallet keep notice failed', {
+          error: error instanceof Error ? error.message : '',
+        });
+      });
     return result;
   }
 
@@ -6160,6 +6207,246 @@ class ServiceAccount extends ServiceBase {
       return { address: account.addressDetail.normalizedAddress, account };
     }
     return { address: account.address, account };
+  }
+
+  private manualMnemonicRecovery:
+    | {
+        id: string;
+        walletId: string;
+        credential: string;
+        environment: IRuntimeEnvironment;
+        expiresAt: number;
+        busy: boolean;
+        cleanup: () => void;
+      }
+    | undefined;
+
+  private async assertManualMnemonicWallet(walletId: string) {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is unavailable in this runtime',
+      );
+    }
+    const wallet = await localDb.getWallet({ walletId, withoutRefill: true });
+    if (
+      !accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isBotWallet({ walletId }) ||
+      wallet.type !== WALLET_TYPE_HD ||
+      wallet.isKeyless
+    ) {
+      throw new OneKeyLocalError(
+        'This wallet does not support manual mnemonic recovery',
+      );
+    }
+    return environment;
+  }
+
+  private async hasManualMnemonicRecoveryFault() {
+    const probe = async () => {
+      try {
+        await appStorage.getItem('$$manualMnemonicRecoveryProbe');
+      } catch (error) {
+        if (getNativeStorageMigrationRecoveryTarget(error) !== 'appStorage')
+          throw error;
+        return true;
+      }
+      if (platformEnv.isNativeBackgroundThread) {
+        // Owner state is set only after the persisted emergency fence is
+        // verified. A caller cannot assert this recovery evidence.
+        const { isNativeAppStorageEmergencyModeActive } =
+          await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+        if (isNativeAppStorageEmergencyModeActive()) return true;
+      }
+      try {
+        // Fixed full snapshot, read directly in bg. Caller-selected atoms and
+        // main-runtime reports must never establish recovery admission.
+        await this.backgroundApi.getAtomStates();
+      } catch (error) {
+        const code = (error as { code?: unknown } | undefined)?.code;
+        if (
+          !(error instanceof Error) ||
+          code === -32_602 ||
+          code === 'ERR_CANCELED' ||
+          code === 'ETIMEDOUT' ||
+          code === 'ECONNABORTED' ||
+          /time[\s-]*out|timed[\s-]*out|abort|cancel|invalid\s*(?:params?|parameters?|arguments?)|atomName not found/i.test(
+            `${error.name} ${error.message}`,
+          )
+        ) {
+          throw error;
+        }
+        return true;
+      }
+      return false;
+    };
+    let probeTimer: ReturnType<typeof setTimeout> | undefined;
+    return new Promise<boolean>((resolve, reject) => {
+      probeTimer = setTimeout(
+        () =>
+          reject(
+            new OneKeyLocalError('Manual mnemonic recovery probe timed out'),
+          ),
+        10_000,
+      );
+      void probe().then(resolve, reject);
+    }).finally(() => clearTimeout(probeTimer));
+  }
+
+  @backgroundMethod()
+  async getManualMnemonicRecoveryInfo({ walletId }: { walletId: string }) {
+    if (!platformEnv.isNative) return undefined;
+    if (typeof walletId !== 'string' || !walletId) {
+      throw new OneKeyLocalError('Invalid manual mnemonic recovery wallet');
+    }
+    const probeEnvironment = await travelModeManager.getRuntimeEnvironment();
+    if (probeEnvironment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is unavailable in this runtime',
+      );
+    }
+    const hasBackgroundFault = await this.hasManualMnemonicRecoveryFault();
+    if (!hasBackgroundFault) return undefined;
+    const environment = await this.assertManualMnemonicWallet(walletId);
+    if (environment !== probeEnvironment || environment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Runtime changed during manual mnemonic recovery',
+      );
+    }
+    if (!(await localDb.isPasswordSet()))
+      throw new OneKeyLocalError(
+        'A wallet password is required for manual recovery',
+      );
+    const credential = await localDb.getCredentialRaw(walletId);
+    if (credential.id !== walletId || !credential.credential)
+      throw new OneKeyLocalError('Wallet credential is unavailable');
+    this.manualMnemonicRecovery?.cleanup();
+    const id = stringUtils.generateUUID();
+    const expiresAt = Date.now() + 5 * 60_000;
+    const timer = setTimeout(() => {
+      if (this.manualMnemonicRecovery?.id === id)
+        this.manualMnemonicRecovery.cleanup();
+    }, 5 * 60_000);
+    const unsubscribeRecoveryInvalidation =
+      subscribeNativeStorageRecoveryInvalidation(() => {
+        if (this.manualMnemonicRecovery?.id === id)
+          this.manualMnemonicRecovery.cleanup();
+      });
+    const cancel = () => {
+      if (this.manualMnemonicRecovery?.id === id)
+        this.manualMnemonicRecovery = undefined;
+      appEventBus.off(EAppEventBusNames.LockApp, cancel);
+      unsubscribeRecoveryInvalidation();
+      clearTimeout(timer);
+    };
+    appEventBus.on(EAppEventBusNames.LockApp, cancel);
+    this.manualMnemonicRecovery = {
+      id,
+      walletId,
+      credential: credential.credential,
+      environment,
+      expiresAt,
+      busy: false,
+      cleanup: cancel,
+    };
+    return { sessionId: id, expiresAt };
+  }
+
+  @backgroundMethod()
+  async cancelManualMnemonicRecovery({ sessionId }: { sessionId: string }) {
+    if (this.manualMnemonicRecovery?.id === sessionId)
+      this.manualMnemonicRecovery.cleanup();
+  }
+
+  @backgroundMethod()
+  async getManualRecoveryMnemonic({
+    sessionId,
+    password,
+  }: {
+    sessionId: string;
+    password: string;
+  }) {
+    const session = this.manualMnemonicRecovery;
+    const assertSession = async () => {
+      if (
+        !session ||
+        session.id !== sessionId ||
+        this.manualMnemonicRecovery !== session ||
+        Date.now() >= session.expiresAt
+      ) {
+        throw new OneKeyLocalError(
+          'Manual mnemonic recovery request expired or was cancelled',
+        );
+      }
+      const environment = await this.assertManualMnemonicWallet(
+        session.walletId,
+      );
+      if (
+        environment !== session.environment ||
+        environment.commands.isBlocked
+      ) {
+        throw new OneKeyLocalError(
+          'Runtime changed during manual mnemonic recovery',
+        );
+      }
+      const credential = await localDb.getCredentialRaw(session.walletId);
+      if (
+        credential.id !== session.walletId ||
+        credential.credential !== session.credential
+      ) {
+        throw new OneKeyLocalError(
+          'Wallet credential changed during manual mnemonic recovery',
+        );
+      }
+      try {
+        if (!(await this.hasManualMnemonicRecoveryFault())) {
+          throw new OneKeyLocalError(
+            'Manual mnemonic recovery is no longer available',
+          );
+        }
+      } catch (error) {
+        // Revoke admission when bg is healthy or its fault cannot be verified.
+        session.cleanup();
+        throw error;
+      }
+      if (
+        this.manualMnemonicRecovery !== session ||
+        Date.now() >= session.expiresAt ||
+        environment.commands.isBlocked
+      ) {
+        throw new OneKeyLocalError(
+          'Manual mnemonic recovery request expired or was cancelled',
+        );
+      }
+    };
+    await assertSession();
+    if (!session || session.busy)
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is already in progress',
+      );
+    session.busy = true;
+    try {
+      await this.backgroundApi.servicePassword.verifyPasswordForManualMnemonicRecovery(
+        password,
+      );
+      await assertSession();
+      const credential = await localDb.getCredentialInner({
+        credentialId: session.walletId,
+      });
+      const mnemonicRaw = await mnemonicFromEntropy(
+        credential.credential,
+        password,
+      );
+      const mnemonic =
+        await this.backgroundApi.servicePassword.encodeSensitiveText({
+          text: mnemonicRaw,
+        });
+      await assertSession();
+      session.cleanup();
+      return { mnemonic };
+    } finally {
+      session.busy = false;
+    }
   }
 
   @backgroundMethod()
@@ -7134,6 +7421,19 @@ class ServiceAccount extends ServiceBase {
           });
         }
       },
+    );
+  }
+
+  // Same wallets generateHDWalletMissingHashAndXfp fills; read-only.
+  async hasHdWalletsMissingHashOrXfp(): Promise<boolean> {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.allHdWalletsHashAndXfpGenerated) return false;
+    const { wallets } = await localDb.getAllWallets();
+    return wallets.some(
+      (wallet) =>
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !wallet.isKeyless &&
+        !(wallet.hash && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })),
     );
   }
 

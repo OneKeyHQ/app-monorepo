@@ -220,7 +220,10 @@ export type IOneKeyIdAuthStateRepairParams = {
     | 'incompleteLogoutProjection';
 };
 
-export type IPrimeGiftAnalyticsSource = 'onboarding' | 'deviceDetails';
+export type IPrimeGiftAnalyticsSource =
+  | 'onboarding'
+  | 'deviceDetails'
+  | 'primeDashboard';
 
 export type IPrimeGiftStageParams =
   | {
@@ -445,20 +448,30 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToServer()
   public primeGiftOfferShown({
     source,
+    deviceCount,
   }: {
     source: IPrimeGiftAnalyticsSource;
+    deviceCount?: number;
   }) {
-    return { source };
+    return {
+      source,
+      ...(typeof deviceCount === 'number' ? { deviceCount } : {}),
+    };
   }
 
   /** User tapped a visible Prime gift banner. */
   @LogToServer()
   public primeGiftOfferClick({
     source,
+    deviceCount,
   }: {
     source: IPrimeGiftAnalyticsSource;
+    deviceCount?: number;
   }) {
-    return { source };
+    return {
+      source,
+      ...(typeof deviceCount === 'number' ? { deviceCount } : {}),
+    };
   }
 
   /** Campaign banner on the Prime gift claim-success page became visible. */
@@ -724,10 +737,15 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToLocal()
   public primeRestorePurchaseResult({
     result,
+    source,
   }: {
     result: 'success' | 'noPurchases' | 'failed';
+    // Unset for the restore button. `purchaseExistingSubscription`: the
+    // purchase button got the store account's existing subscription back
+    // instead of a new charge.
+    source?: 'purchaseExistingSubscription';
   }) {
-    return { result };
+    return { result, source };
   }
 
   /**

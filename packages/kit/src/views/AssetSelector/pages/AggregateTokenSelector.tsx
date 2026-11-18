@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { formatNativeSelectorAmount } from '@onekeyhq/kit/src/components/TokenListView/nativeSelectorFormat';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -181,6 +182,9 @@ function NativeAggregateRowMirror({
       key: token.$key,
       testID: AssetSelectorTestIDs.aggregateTokenListItem,
       height: 60,
+      // The $bodyLg/$bodyMd line boxes are unscaled, so the row must not take
+      // Android's legacy sub-400dp 0.9 row scale (OK-66072).
+      heightRounding: 'nearest',
       title: token.networkName || network?.name || '',
       subtitle: !accountId
         ? intl.formatMessage({
@@ -215,6 +219,7 @@ function NativeAggregateRowMirror({
       disabled: isOtherTokenProcessing,
       opacity: isOtherTokenProcessing ? 0.5 : 1,
       style: {
+        container: TOKEN_ROW_CONTAINER_STYLE,
         horizontalPadding: 12,
         verticalPadding: 8,
         leadingGap: 12,

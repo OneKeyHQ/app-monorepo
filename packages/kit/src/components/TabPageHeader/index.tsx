@@ -164,6 +164,7 @@ function BaseDesktopTabPageHeader({
       <Page.Header
         headerShown
         headerTitleAlign="center"
+        headerContainerBackgroundColor={theme.bgSubdued.val}
         headerStyle={desktopHeaderStyle}
         headerTitle={renderUniversalSearchInput}
         headerRight={renderDesktopModeRightButtons}

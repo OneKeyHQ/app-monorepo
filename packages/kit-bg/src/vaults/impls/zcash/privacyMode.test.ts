@@ -246,6 +246,14 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable,
     ).toHaveBeenCalledTimes(2);
     expect(mutex.isLocked()).toBe(false);
+    expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountIds: [accountId],
+      backfillActive: false,
+      change: 'syncState',
+    });
   });
 
   it('completes a new enable after saving authorization without preparing the scan database', async () => {
@@ -572,6 +580,14 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     ).not.toHaveBeenCalled();
     expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
     expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountIds: [accountId],
+      backfillActive: true,
+      change: 'syncState',
+    });
+    expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledWith({ accountId });
   });
@@ -628,30 +644,6 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     await service.enablePrivacyMode({ networkId: 'zec--0', accountId });
 
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps an enabled account on when repairing its key fails', async () => {
-    const { backgroundApi, service } = createService();
-    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
-      {
-        intent: 'on',
-        birthdayHeight: 2_000_000,
-      },
-    );
-    backgroundApi.simpleDb.privacyChainKeys.getKey.mockResolvedValue(undefined);
-    mockGetVault.mockResolvedValue({
-      zcashRetryLocalWalletSetup: jest
-        .fn()
-        .mockRejectedValue(new Error('cancelled on the device')),
-    });
-
-    await expect(
-      service.enablePrivacyMode({ networkId: 'zec--0', accountId }),
-    ).rejects.toThrow('cancelled on the device');
-
-    const state = backgroundApi.simpleDb.privacyChainState;
-    expect(state.beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
-    expect(state.cancelZcashPendingEnables).not.toHaveBeenCalled();
   });
 
   it('does not report a failed notification as a failed enable', async () => {
@@ -740,6 +732,13 @@ it.each([false, true])(
       expect(rescan).not.toHaveBeenCalled();
     }
     expect(prepare).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountIds: [accountId],
+      backfillActive: true,
+    });
   },
 );
 

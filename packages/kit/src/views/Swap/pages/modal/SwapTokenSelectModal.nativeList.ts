@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -22,6 +23,7 @@ type IBuildSwapTokenNativeListParams = {
   searchKeyword?: string;
   isMediumScreen: boolean;
   isDesktopSelector: boolean;
+  isNativeIOS?: boolean;
   currencySymbol: string;
   oppositeToken?: ISwapToken;
   otherNetworkStartIndex: number;
@@ -55,6 +57,9 @@ function formatSwapListAmount(
   return { text: segments.map((part) => part.text).join(''), segments };
 }
 
+// NativeList applies this inset to the rows and to its header and empty slots.
+export const SWAP_TOKEN_LIST_CONTENT_INSET = 8;
+
 export function buildSwapTokenNativeListSnapshot({
   tokens,
   theme,
@@ -62,6 +67,7 @@ export function buildSwapTokenNativeListSnapshot({
   searchKeyword,
   isMediumScreen,
   isDesktopSelector,
+  isNativeIOS,
   currencySymbol,
   oppositeToken,
   otherNetworkStartIndex,
@@ -94,9 +100,10 @@ export function buildSwapTokenNativeListSnapshot({
         sectionKey: `section:${index}`,
         title: sectionTitle,
         height: 36,
+        heightRounding: 'nearest',
         pressDisabled: true,
         style: {
-          horizontalPadding: isDesktopSelector ? 4 : 20,
+          horizontalPadding: 12,
           title: {
             fontSize: 14,
             lineHeight: 20,
@@ -113,6 +120,7 @@ export function buildSwapTokenNativeListSnapshot({
           type: 'system',
           variant: 'spacer',
           height: 12,
+          heightRounding: 'nearest',
           pressDisabled: true,
         });
       }
@@ -136,7 +144,7 @@ export function buildSwapTokenNativeListSnapshot({
             borderWidth: warningBorderWidth,
             borderColor: theme.separator,
           },
-          horizontalPadding: 20,
+          horizontalPadding: isDesktopSelector ? 20 : 12,
           verticalPadding: 14,
           leadingGap: 8,
           image: { width: 20, height: 20 },
@@ -154,6 +162,7 @@ export function buildSwapTokenNativeListSnapshot({
           type: 'system',
           variant: 'spacer',
           height: 8,
+          heightRounding: 'nearest',
           pressDisabled: true,
         });
       }
@@ -189,6 +198,9 @@ export function buildSwapTokenNativeListSnapshot({
       key,
       type: 'identity',
       height: searchKeyword ? 76 : 60,
+      // Explicit heights pair with unscaled style metrics, so they must not
+      // take Android's legacy sub-400dp 0.9 row scale (OK-66072).
+      heightRounding: 'nearest',
       opacity: disabled ? 0.5 : 1,
       leading: {
         kind: 'token',
@@ -227,7 +239,10 @@ export function buildSwapTokenNativeListSnapshot({
         },
       ],
       style: {
-        horizontalPadding: isDesktopSelector ? 4 : 20,
+        container: TOKEN_ROW_CONTAINER_STYLE,
+        // iOS uses the default leading inset and compensates the trailing
+        // button's internal padding when horizontalPadding is omitted.
+        ...(isNativeIOS && !isDesktopSelector ? {} : { horizontalPadding: 12 }),
         leadingGap: 12,
         trailingGap: 8,
         image: { width: 40, height: 40, shape: 'circle' },
@@ -247,7 +262,7 @@ export function buildSwapTokenNativeListSnapshot({
       generation: 1,
       layout: {
         kind: 'linear',
-        contentPaddingHorizontal: isDesktopSelector ? 16 : 0,
+        contentPaddingHorizontal: SWAP_TOKEN_LIST_CONTENT_INSET,
       },
       selection: { mode: 'none', selectedKeys: [] },
       theme,

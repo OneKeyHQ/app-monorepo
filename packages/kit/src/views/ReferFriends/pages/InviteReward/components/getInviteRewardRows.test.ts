@@ -1,4 +1,7 @@
-import { getInviteRewardRows } from './getInviteRewardRows';
+import {
+  getInviteRewardRows,
+  getInviteRewardScopeItems,
+} from './getInviteRewardRows';
 
 import type { IInviteRewardRow } from './getInviteRewardRows';
 import type { IRewardSummaryItem } from './shared/getRewardSummary';
@@ -111,5 +114,67 @@ describe('getInviteRewardRows', () => {
     // Swap is off but has earnings, so it stays; DeFi is off and empty.
     expect(subjectsOf(rows, true)).toEqual(['swap']);
     expect(subjectsOf(rows, false)).toEqual(['hardware', 'perps']);
+  });
+
+  it('maps server scope copy onto the matching product', () => {
+    const rows = getInviteRewardRows({}, undefined, [
+      { subject: 'Swap', description: '  Swap providers  ' },
+      { subject: 'Unknown', description: 'ignored' },
+      { subject: 'Onchain', description: '  first defi  ' },
+      { subject: 'Earn', description: 'second defi' },
+      { subject: 'Perp', description: '   ' },
+      { subject: 'HardwareSales', description: 'Hardware stores' },
+    ]);
+    const scopeOf = (subject: IInviteRewardRow['subject']) =>
+      rows.find((row) => row.subject === subject)?.scopeDescription;
+
+    expect(scopeOf('swap')).toBe('Swap providers');
+    // Earn and Onchain both mean DeFi; the first non-empty copy wins.
+    expect(scopeOf('defi')).toBe('first defi');
+    expect(scopeOf('hardware')).toBe('Hardware stores');
+    expect(scopeOf('perps')).toBeNull();
+
+    const blankThenEarn = getInviteRewardRows({}, undefined, [
+      { subject: 'Onchain', description: ' ' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ]);
+    expect(
+      blankThenEarn.find((row) => row.subject === 'defi')?.scopeDescription,
+    ).toBe('DeFi venues');
+  });
+
+  it('leaves scope empty when the server omits it', () => {
+    expect(
+      getInviteRewardRows(undefined).every(
+        (row) => row.scopeDescription === null,
+      ),
+    ).toBe(true);
+    expect(
+      getInviteRewardRows({ Perp: { available: [] } }).every(
+        (row) => row.scopeDescription === null,
+      ),
+    ).toBe(true);
+    expect(getInviteRewardScopeItems(getInviteRewardRows(null))).toEqual([]);
+  });
+
+  it('lists scope copy only for products still on the breakdown', () => {
+    const configs = {
+      Swap: { enabled: false },
+      Earn: { enabled: false },
+      Onchain: { enabled: false },
+    };
+    const items = getInviteRewardScopeItems(
+      getInviteRewardRows({ Onchain: { swap: [reward('3')] } }, configs, [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+        { subject: 'HardwareSales', description: 'Hardware stores' },
+      ]),
+    );
+
+    // Swap is off but has earnings, so its scope stays. DeFi is off and empty.
+    expect(items).toEqual([
+      { subject: 'swap', description: 'Swap providers' },
+      { subject: 'hardware', description: 'Hardware stores' },
+    ]);
   });
 });

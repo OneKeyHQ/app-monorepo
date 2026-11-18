@@ -31,10 +31,13 @@ const {
   applyDevVendorConfig,
   isDevVendorEnabled,
 } = require('./plugins/devVendor');
+const { applyMobileLockdownConfig } = require('./plugins/mobileLockdown');
+const {
+  createSesRuntimeCheckMiddleware,
+} = require('./plugins/sesRuntimeCheckMiddleware');
 const {
   getThirdPartyMMKVImportError,
 } = require('./scripts/native-storage-metro-policy');
-// const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
 
@@ -168,6 +171,7 @@ const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
 // Sub-path aliases for packages whose `exports` map Metro can't read with
 // `unstable_enablePackageExports=false`; resolved via Node's `require.resolve()`, which does honor it. Update this array when packages add new sub-paths.
 const SUBPATH_EXPORT_ALIASES = [
+  '@onekeyfe/react-native-image/icon',
   '@onekeyfe/hwk-adapter-core/errors',
   '@onekeyfe/hwk-adapter-core/ui-events',
   '@onekeyfe/hwk-trezor-connector-webusb/constants',
@@ -490,7 +494,20 @@ const getMetroRuntimeTarget = (context) =>
     monorepoRoot,
     'packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts',
   );
+  const canonicalSvgDir = `${path.resolve(
+    monorepoRoot,
+    'packages/components/svg',
+  )}${path.sep}`;
   config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (
+      moduleName.startsWith('@onekeyhq/components/svg/') ||
+      moduleName.includes('/packages/components/svg/')
+    ) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `Direct Metro import of canonical SVG source is forbidden (${moduleName}). Use <Icon name="..." />, NativeList iconName, BottomTabs icon name, or the packaged OneKeyIcons resource set instead.`,
+      );
+    }
     const thirdPartyMMKVImportError = getThirdPartyMMKVImportError({
       moduleName,
       originModulePath: context.originModulePath,
@@ -508,7 +525,18 @@ const getMetroRuntimeTarget = (context) =>
         `AsyncStorage deep import bypasses the native bg proxy: ${moduleName}`,
       );
     }
-    return previousResolveRequest(context, moduleName, platform);
+    const resolved = previousResolveRequest(context, moduleName, platform);
+    if (
+      resolved?.filePath?.startsWith(canonicalSvgDir) ||
+      (Array.isArray(resolved?.filePaths) &&
+        resolved.filePaths.some((fp) => fp.startsWith(canonicalSvgDir)))
+    ) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `Direct Metro import of canonical SVG source is forbidden (${moduleName}). Use <Icon name="..." />, NativeList iconName, BottomTabs icon name, or the packaged OneKeyIcons resource set instead.`,
+      );
+    }
+    return resolved;
   };
 }
 
@@ -716,18 +744,6 @@ const applyFixImageAssetsMiddleware = (middleware) => {
         'metro-sever: >>>>> the asset path is auto fixed >>>>>',
         req.url,
       );
-    } else if (
-      req.url.startsWith('/packages/components/svg/') &&
-      req.url.includes('.svg')
-    ) {
-      req.url = req.url.replace(
-        '/packages/components/svg/',
-        buildRelativeDirPath('/packages/components/svg/'),
-      );
-      console.log(
-        'metro-sever: >>>>> the svg asset path is auto fixed >>>>>',
-        req.url,
-      );
     }
     return middleware(req, res, next);
   };
@@ -735,8 +751,13 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) => {
   const assetMiddleware = applyFixImageAssetsMiddleware(metroMiddleware);
+  const sesMiddleware = createSesRuntimeCheckMiddleware(
+    process.env.ONEKEY_DEV_SESSION_ID,
+  );
   return (req, res, next) =>
-    serveDevSessionWebEmbed(req, res, () => assetMiddleware(req, res, next));
+    sesMiddleware(req, res, () =>
+      serveDevSessionWebEmbed(req, res, () => assetMiddleware(req, res, next)),
+    );
 };
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
@@ -751,7 +772,7 @@ config.cacheVersion = [
   .join('-');
 
 const metroConfigWithPlugins = applyDevVendorConfig(
-  splitCodePlugin(config, projectRoot),
+  applyMobileLockdownConfig(splitCodePlugin(config, projectRoot)),
   projectRoot,
 );
 
@@ -769,7 +790,6 @@ module.exports = withRozenite(
   }),
   {
     enabled: process.env.WITH_ROZENITE === 'true',
-    // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
     enhanceMetroConfig: (cfg) => cfg,
   },
 );

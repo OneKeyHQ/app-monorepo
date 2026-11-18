@@ -125,6 +125,7 @@ function TxConfirm() {
   const { urlSecurityInfo } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: sourceInfo?.isWalletConnectRequest,
   });
 
   const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
@@ -524,6 +525,7 @@ function TxConfirm() {
         />
         {sourceInfo?.origin ? (
           <DAppSiteMark
+            sourceInfo={sourceInfo}
             origin={sourceInfo.origin}
             urlSecurityInfo={urlSecurityInfo}
             hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
@@ -562,7 +564,7 @@ function TxConfirm() {
     accountId,
     transferPayload,
     gasAccountScenario,
-    sourceInfo?.origin,
+    sourceInfo,
     urlSecurityInfo,
     visibleSimulationComponents,
     securityCheckRequestKey,

@@ -13,11 +13,12 @@ import type {
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
-import cache from './localBackupPasswordCache';
+import cache, { LocalBackupPasswordCache } from './localBackupPasswordCache';
 import ServiceCloudBackupV2 from './ServiceCloudBackupV2';
 
 const mockProvider = {
@@ -62,6 +63,9 @@ jest.mock('../../states/jotai/atoms/cloudBackup', () => ({
   cloudBackupStatusAtom: {},
 }));
 jest.mock('./localBackupPasswordCache', () => ({
+  ...jest.requireActual<typeof import('./localBackupPasswordCache')>(
+    './localBackupPasswordCache',
+  ),
   __esModule: true,
   default: {
     get: jest.fn(),
@@ -71,6 +75,21 @@ jest.mock('./localBackupPasswordCache', () => ({
     finishReset: jest.fn(),
   },
 }));
+jest.mock(
+  '@onekeyhq/shared/src/storage/instance/secureStorageInstance',
+  () => ({
+    __esModule: true,
+    default: {
+      isPersistenceAvailable: jest.fn(),
+      supportSecureStorageWithBiometrics: jest.fn(),
+      getSecureItem: jest.fn(),
+      setSecureItem: jest.fn(),
+      removeSecureItem: jest.fn(),
+      getSecureItemWithBiometrics: jest.fn(),
+      setSecureItemWithBiometrics: jest.fn(),
+    },
+  }),
+);
 
 const accountInfo: IBackupProviderAccountInfo = {
   userId: 'synthetic-cloudkit-account',
@@ -1347,6 +1366,71 @@ describe('local iCloud restore integration', () => {
         privateDataEncrypted: encrypted.toString('base64'),
       };
     });
+
+    it.each(['backup', 'first restore'])(
+      're-enrolls an interrupted %s only after correct manual decryption and recovers after cold start',
+      async (initialAction) => {
+        const metadata = new Map<string, string>();
+        const keys = new Map<string, string>();
+        const secure = jest.mocked(secureStorage);
+        secure.isPersistenceAvailable?.mockReturnValue(true);
+        secure.supportSecureStorageWithBiometrics?.mockResolvedValue(true);
+        secure.getSecureItem.mockImplementation(
+          async (key) => metadata.get(key) ?? null,
+        );
+        secure.setSecureItem.mockImplementation(async (key, value) => {
+          metadata.set(key, value);
+        });
+        secure.removeSecureItem.mockImplementation(async (key) => {
+          keys.delete(key);
+          metadata.delete(key);
+        });
+        secure.setSecureItemWithBiometrics.mockImplementation(
+          async (key, value) => {
+            keys.set(key, value);
+          },
+        );
+        secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+          new Error('cancelled'),
+        );
+        secure.getSecureItemWithBiometrics?.mockImplementation(
+          async (key) => keys.get(key) ?? null,
+        );
+        let realCache = new LocalBackupPasswordCache();
+        cached.get.mockImplementation((scope) => realCache.get(scope));
+        cached.set.mockImplementation((scope) => realCache.set(scope));
+        if (initialAction === 'backup') {
+          mockSuccessfulBackup();
+          await expect(
+            service.backup({ data, password }),
+          ).resolves.toMatchObject({ recordID: recordId });
+        } else {
+          expect(
+            await service.prepareLocalRestore({ recordId, password }),
+          ).not.toBeNull();
+        }
+        const pending = [...metadata];
+        realCache = new LocalBackupPasswordCache();
+        expect(await service.prepareLocalRestore({ recordId })).toBeNull();
+        await expect(
+          service.prepareLocalRestore({ recordId, password: 'wrong-password' }),
+        ).rejects.toThrow();
+        expect([...metadata]).toEqual(pending);
+        expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+        expect(secure.removeSecureItem).not.toHaveBeenCalled();
+        expect(
+          await service.prepareLocalRestore({ recordId, password }),
+        ).not.toBeNull();
+        expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
+        expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+        realCache = new LocalBackupPasswordCache();
+        expect(await service.prepareLocalRestore({ recordId })).not.toBeNull();
+        expect(secure.getSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+        expect(keys.size).toBe(1);
+        expect(mockProvider.deleteBackup).not.toHaveBeenCalled();
+        expect(transfer.startImport).not.toHaveBeenCalled();
+      },
+    );
 
     it('uses a one-use background handle and still requires local wallet authorization', async () => {
       const prepared = await prepareCached();

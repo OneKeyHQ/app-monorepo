@@ -1,5 +1,8 @@
-import isDev from 'electron-is-dev';
+import { app } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 // Runtime switches for the Windows Trezor BLE work.
 //

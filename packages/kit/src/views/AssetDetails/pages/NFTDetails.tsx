@@ -221,7 +221,7 @@ export default function NFTDetails() {
           config.size?.width,
           config.size?.height,
         );
-      } catch (error: any) {
+      } catch (error) {
         if (error instanceof OneKeyAppError) {
           Toast.error({
             title: error.message,
@@ -230,10 +230,14 @@ export default function NFTDetails() {
           return;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const message = error?.message;
+        const hasErrorDetails = typeof error === 'object' && error !== null;
+        const message =
+          hasErrorDetails && 'message' in error ? error.message : undefined;
         const cancelError =
-          typeof message === 'string' && message.includes('User cancelled');
+          (hasErrorDetails &&
+            'code' in error &&
+            error.code === 'E_PICKER_CANCELLED') ||
+          (typeof message === 'string' && message.includes('User cancelled'));
         if (cancelError) {
           setIsCollecting(false);
           return;

@@ -184,6 +184,7 @@ describe('desktop API module allowlist', () => {
     'revenueCatGetAppUserId',
     'revenueCatGetCustomerInfo',
     'revenueCatGetOfferings',
+    'revenueCatGetStorefront',
     'revenueCatPurchasePackage',
     'revenueCatRestorePurchases',
     'revenueCatCheckTrialOrIntroductoryPriceEligibility',

@@ -12,7 +12,7 @@
   "upgrade.title": "OneKey を更新", "upgrade.subtitle": "以前のインストール設定は保持されます。", "upgrade.pathLabel": "更新先", "upgrade.install": "今すぐ更新",
   "uninstall.title": "OneKey をアンインストールしています",
   "uninstall.confirmTitle": "OneKey をアンインストールしますか？",
-  "uninstall.confirmSubtitle": "このコンピューターからアプリを削除します。ウォレットデータは削除されません。",
+  "uninstall.confirmSubtitle": "ウォレットや設定を含む、現在の Windows アカウントの OneKey のローカルデータがすべて完全に削除されます。続行する前に、リカバリーフレーズまたは秘密鍵をバックアップしてください。",
   "uninstall.confirm": "アンインストール",
   "uninstall.cancel": "キャンセル", "uninstall.subtitle": "アプリケーションファイルを安全に削除しています。このウィンドウを閉じないでください。", "uninstall.status": "アプリケーションファイルを整理しています…", "uninstall.finishTitle": "OneKey をアンインストールしました", "uninstall.finishSubtitle": "アプリケーションファイルを安全に削除しました。OneKey をご利用いただきありがとうございます。", "uninstall.close": "完了", "uninstallError.title": "アンインストールが完了しませんでした", "uninstallError.subtitle": "今すぐ再試行するか、後で OneKey をアンインストールしてください。", "uninstallError.retry": "アンインストールを再試行",
   "error.title": "インストールが完了しませんでした", "error.subtitle": "既存のデータは保持されています。再試行するか、後でもう一度インストールしてください。", "error.retry": "再試行", "finish.safeHint": "「OneKey を開く」をクリックして利用を開始"

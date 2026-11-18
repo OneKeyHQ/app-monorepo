@@ -4,9 +4,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   getEndpointHealth,
-  getRuntime,
   noteNetworkOutcome,
   recordEndpointHealth,
+  selectEndpoint,
   withWallet,
   withWalletLease,
 } from './carrier';
@@ -47,7 +47,16 @@ function mockWallet(rt: Record<string, unknown>) {
 
 describe('Zcash endpoint outcomes through the leased API', () => {
   beforeEach(() => {
+    selectEndpoint(account.lightwalletdUrl);
     recordEndpointHealth({ ok: true, latencyMs: null });
+  });
+
+  it('takes no sample before any wallet operation picked a node', () => {
+    jest.isolateModules(() => {
+      const fresh = jest.requireActual<typeof import('./carrier')>('./carrier');
+      fresh.noteNetworkOutcome(networkError());
+      expect(fresh.getEndpointHealth()).toBeUndefined();
+    });
   });
 
   it('stays on one endpoint through repeated network and runtime failures', () => {
@@ -70,29 +79,6 @@ describe('Zcash endpoint outcomes through the leased API', () => {
     recordEndpointHealth({ ok: true, latencyMs: 42 });
     recordEndpointHealth({ ok: true });
     expect(getEndpointHealth()?.latencyMs).toBe(42);
-  });
-
-  it('probes the tip on the requested endpoint without touching scan health', async () => {
-    const api = await sdk.getZcashApi();
-    noteNetworkOutcome(networkError());
-    const before = getEndpointHealth();
-    const rt = { chainTipAt: jest.fn().mockResolvedValue(123) };
-    jest
-      .mocked(getRuntime)
-      .mockResolvedValue(
-        rt as unknown as Awaited<ReturnType<typeof getRuntime>>,
-      );
-
-    await expect(
-      api.getChainTip({
-        network: 'main',
-        lightwalletdUrl: 'https://private.example.invalid',
-      }),
-    ).resolves.toBe(123);
-    expect(rt.chainTipAt).toHaveBeenCalledWith(
-      'https://private.example.invalid',
-    );
-    expect(getEndpointHealth()).toEqual(before);
   });
 
   // A stored send is never resubmitted; it is mined or expires.

@@ -567,6 +567,39 @@ describe('buildBasicOptions', () => {
       return event;
     };
 
+    test('drops only the superseded home token cancellation and keeps its local log', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event = {
+        exception: {
+          values: [
+            {
+              type: 'CanceledError',
+              value: 'Home token request superseded',
+            },
+          ],
+        },
+      };
+
+      expect(callBeforeSend(options, event)).toBeNull();
+      expect(onError).toHaveBeenCalledWith(
+        'Home token request superseded',
+        undefined,
+      );
+    });
+
+    test.each([
+      ['CanceledError', 'Another request was canceled'],
+      ['TypeError', 'Home token request superseded'],
+      ['Error', 'Home token request superseded'],
+      ['Error', 'java.net.SocketTimeoutException: request failed'],
+    ])('keeps %s: %s', (type, value) => {
+      const options = buildBasicOptions({ onError: jest.fn() });
+      const event = { exception: { values: [{ type, value }] } };
+
+      expect(callBeforeSend(options, event)).toBe(event);
+    });
+
     test('should sanitize error message and call onError callback', () => {
       const onError = jest.fn();
       const options = buildBasicOptions({ onError });
@@ -708,6 +741,42 @@ describe('buildBasicOptions', () => {
       const result = callBeforeSend(options, event);
 
       expect(result).toBeNull();
+    });
+
+    test('should return null when hint.originalException is a filtered OneKeyError subclass or SNI cancellation', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              type: 'java.io.InterruptedIOException',
+              value: 'timeout',
+            },
+          ],
+        },
+      };
+
+      expect(
+        options.beforeSend?.(event, {
+          originalException: {
+            name: 'Error',
+            className: 'OneKeyError',
+            cause: {
+              name: 'java.io.InterruptedIOException',
+              message: 'timeout',
+            },
+          },
+        }),
+      ).toBeNull();
+      expect(
+        options.beforeSend?.(event, {
+          originalException: {
+            name: 'SniRequestCancelledError',
+            code: 'SNI_CANCELLED',
+          },
+        }),
+      ).toBeNull();
     });
 
     test('should forward web-embed exceptions locally and drop the Sentry event', () => {

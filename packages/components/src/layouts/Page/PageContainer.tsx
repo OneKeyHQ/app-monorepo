@@ -13,6 +13,7 @@ export function PageContainer({
   fullPage,
   testID,
   backgroundColor,
+  directFooter,
 }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
@@ -28,9 +29,17 @@ export function PageContainer({
         ) : (
           children
         )}
-        <BasicPageFooter />
+        <BasicPageFooter directProps={directFooter} />
       </BasicPage>
     ),
-    [fullPage, testID, backgroundColor, scrollEnabled, scrollProps, children],
+    [
+      fullPage,
+      testID,
+      backgroundColor,
+      scrollEnabled,
+      scrollProps,
+      children,
+      directFooter,
+    ],
   );
 }

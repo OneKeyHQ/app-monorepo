@@ -76,14 +76,16 @@ function PageFirmwareUpdateChangeLog() {
       // user confirmed earlier; the fresh result must drive the next start.
       confirmUpdateResult.current = undefined;
       try {
-        const resolvedTransport =
-          await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
-            connectId,
-            hardwareCallContext:
-              platformEnv.isDesktop || !connectId
-                ? EHardwareCallContext.UPDATE_FIRMWARE
-                : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
-          });
+        const resolvedTransport = platformEnv.isDesktop
+          ? await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+              { connectId: connectId ?? '' },
+            )
+          : await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
+              connectId,
+              hardwareCallContext: connectId
+                ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+                : EHardwareCallContext.UPDATE_FIRMWARE,
+            });
         const compatibleConnectId = resolvedTransport.connectId;
         setActiveConnectId(compatibleConnectId);
 
@@ -164,7 +166,7 @@ function PageFirmwareUpdateChangeLog() {
   }, [navigation, result, retryInfo, setStepInfo]);
 
   const content = useMemo(() => {
-    if (isLoading) {
+    if (isLoading !== false) {
       return (
         <>
           <FirmwareUpdateExitPrevent />

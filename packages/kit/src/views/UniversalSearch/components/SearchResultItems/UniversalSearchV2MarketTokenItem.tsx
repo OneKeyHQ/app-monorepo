@@ -159,6 +159,7 @@ interface IUniversalSearchMarketTokenItemProps {
   watchlistIdentity?: IMarketWatchListItemV2;
   getSearchInput?: () => string;
   source: EUniversalSearchSource;
+  tableLayout?: boolean;
 }
 
 export function UniversalSearchV2MarketTokenItem({
@@ -167,10 +168,12 @@ export function UniversalSearchV2MarketTokenItem({
   watchlistIdentity,
   getSearchInput,
   source,
+  tableLayout,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const { gtMd } = useMedia();
+  const showMetrics = tableLayout ?? gtMd;
 
   const {
     logoUrl,
@@ -366,7 +369,7 @@ export function UniversalSearchV2MarketTokenItem({
         </YStack>
 
         {/* Liquidity or market-cap column - desktop only */}
-        {gtMd ? (
+        {showMetrics ? (
           <XStack
             w={MARKET_DATA_COLUMN_WIDTH}
             jc="flex-end"
@@ -384,7 +387,7 @@ export function UniversalSearchV2MarketTokenItem({
         ) : null}
 
         {/* VOLUME 24H column - desktop only */}
-        {gtMd ? (
+        {showMetrics ? (
           <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
             <NumberSizeableText
               size="$bodyMd"

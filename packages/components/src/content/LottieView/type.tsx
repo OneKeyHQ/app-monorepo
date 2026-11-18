@@ -10,6 +10,7 @@ export type ILottieViewProps = Omit<
 > & {
   source: LottieWebProps['animationData'] | LottieNativeProps['source'];
   autoPlay?: boolean;
+  nativeProgress?: LottieNativeProps['progress'];
   resizeMode?: 'cover' | 'contain' | 'center';
   loop?: boolean;
   renderMode?: LottieNativeProps['renderMode'];

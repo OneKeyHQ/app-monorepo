@@ -2207,6 +2207,10 @@ export class DeviceStageBurstScope {
         this.burstSeq += 1;
       }
       const base = mergedExtras.resetOutcome ? undefined : prev;
+      let payload = mergedExtras.payload ?? base?.payload;
+      if (!mergedExtras.payload && payload?.deviceProgress) {
+        payload = { ...payload, deviceProgress: undefined };
+      }
       const pickConfirm = <T>(
         explicit: T | undefined,
         fromRegistration: T | undefined,
@@ -2326,7 +2330,7 @@ export class DeviceStageBurstScope {
             : registered
               ? registered.count
               : base?.confirmCount,
-        payload: mergedExtras.payload ?? base?.payload,
+        payload,
       };
     });
   }

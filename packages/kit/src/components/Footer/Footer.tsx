@@ -3,8 +3,8 @@ import { Suspense, lazy, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -14,6 +14,7 @@ import { NetworkStatus } from '../NetworkStatus';
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
 import { useDesktopWebFooterRoute } from './desktopWebFooterRoute';
+import { perpFooterConfig } from './perpFooterConfig';
 
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
@@ -110,24 +111,26 @@ export function PerpFooterActions() {
           })}
         </SizableText>
       </XStack>
-      <ActionList
-        title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={menuTrigger}
-        sections={[
-          {
-            items: links.map((item) => ({
-              label: intl.formatMessage({ id: item.translationKey }),
-              onPress: () => {
-                if (item.onPress) {
-                  item.onPress();
-                } else if (item.href) {
-                  openUrlExternal(item.href);
-                }
-              },
-            })),
-          },
-        ]}
-      />
+      {perpFooterConfig.showMoreMenu ? (
+        <ActionList
+          title={intl.formatMessage({ id: ETranslations.global_more })}
+          renderTrigger={menuTrigger}
+          sections={[
+            {
+              items: links.map((item) => ({
+                label: intl.formatMessage({ id: item.translationKey }),
+                onPress: () => {
+                  if (item.onPress) {
+                    item.onPress();
+                  } else if (item.href) {
+                    openUrlExternal(item.href);
+                  }
+                },
+              })),
+            },
+          ]}
+        />
+      ) : null}
     </XStack>
   );
 }
@@ -161,7 +164,7 @@ export function Footer() {
     <XStack
       width="100%"
       pl="$2"
-      pr="$6"
+      pr={isInPerpRoute ? perpFooterConfig.paddingRight : '$6'}
       py="$2"
       borderTopWidth={1}
       borderTopColor="$borderSubdued"

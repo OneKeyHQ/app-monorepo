@@ -86,7 +86,13 @@ class ServiceDemo extends ServiceBase {
       await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
     ).default;
     const api = await zcashSdk.getZcashApi();
-    return api.runRuntimeSelfTest({ stage: params.stage });
+    const lightwalletdUrl =
+      params.stage === 'network'
+        ? await this.backgroundApi.serviceCustomRpc.resolveRpcUrlWithBuiltIn({
+            networkId: getNetworkIdsMap().zec,
+          })
+        : undefined;
+    return api.runRuntimeSelfTest({ stage: params.stage, lightwalletdUrl });
   }
 
   @backgroundMethodForDev()

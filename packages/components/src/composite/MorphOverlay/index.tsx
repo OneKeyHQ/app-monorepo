@@ -6,8 +6,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactNode } from 'react';
+import type { FocusEvent, KeyboardEvent, ReactNode } from 'react';
 
+import { FocusScope } from '@tamagui/focus-scope';
 import {
   PixelRatio,
   StyleSheet,
@@ -60,7 +61,8 @@ import { usableWindowBottom } from '../../utils/usableWindowBottom';
 
 import { dynamicIslandRect } from './dynamicIsland';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type { IStackProps } from '../../primitives';
+import type { BlurEvent, KeyDownEvent, LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
@@ -104,12 +106,166 @@ import type { SharedValue } from 'react-native-reanimated';
  * the reveal's first frame is a shared value (geometry, fades, the lit
  * seat), never a React style.
  *
- * Still out of scope until ratified: accessibility focus and the
+ * Still out of scope until ratified: native accessibility focus and the
  * Android back button. Judge springs in a release build — dev-mode JS
  * load slanders the engine.
  */
 
 export type IMorphOverlayPose = 'hidden' | 'capsule' | 'card';
+
+// Parked panels stay mounted for animation. FocusScope's default candidate
+// list does not exclude inert descendants, so handle Tab within the live UI.
+function getFocusCandidates(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button, input, select, textarea, a[href], [tabindex]',
+    ),
+  ).filter(
+    (element) =>
+      element.tabIndex >= 0 &&
+      !element.matches(':disabled') &&
+      !element.closest('[inert]') &&
+      element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility !== 'hidden',
+  );
+}
+
+function focusInitialCandidate(container: HTMLElement) {
+  const candidates = getFocusCandidates(container);
+  const target = candidates.find((element) =>
+    element.hasAttribute('data-morph-initial-focus'),
+  );
+  (target ?? candidates[0] ?? container).focus({ preventScroll: true });
+}
+
+function handleMountAutoFocus(event: Event) {
+  const container = event.currentTarget;
+  if (!(container instanceof HTMLElement)) return;
+  event.preventDefault();
+  focusInitialCandidate(container);
+}
+
+// React Native types the capture handlers with its own events; on web,
+// react-native-web passes the DOM events these handlers read.
+function handleFocusKeyDown(event: KeyDownEvent | KeyboardEvent<HTMLElement>) {
+  if (
+    !('key' in event) ||
+    event.defaultPrevented ||
+    event.key !== 'Tab' ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey
+  ) {
+    return;
+  }
+  const container = event.currentTarget;
+  const candidates = getFocusCandidates(container);
+  const index = candidates.findIndex(
+    (element) => element === document.activeElement,
+  );
+  const next = event.shiftKey
+    ? (index <= 0 ? candidates.length : index) - 1
+    : (index + 1) % candidates.length;
+  event.preventDefault();
+  (candidates[next] ?? container).focus({ preventScroll: true });
+}
+
+function handleFocusBlur(event: BlurEvent | FocusEvent<HTMLElement>) {
+  if (!('relatedTarget' in event) || event.relatedTarget) return;
+  const container = event.currentTarget;
+  // A step change can make the focused control inert without unmounting it.
+  requestAnimationFrame(() => {
+    if (
+      container.isConnected &&
+      !container.closest('[inert]') &&
+      document.activeElement === document.body
+    ) {
+      focusInitialCandidate(container);
+    }
+  });
+}
+
+function OverlayLayer({
+  ownsFocus,
+  focusKey,
+  ...props
+}: IStackProps & { ownsFocus: boolean; focusKey: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const wasActiveRef = useRef(false);
+  const [reclaimingFocus, setReclaimingFocus] = useState(false);
+  const reclaimFocus = useCallback(() => {
+    const container = containerRef.current;
+    if (
+      !ownsFocus ||
+      !container ||
+      container.contains(document.activeElement)
+    ) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      rect.x + rect.width / 2,
+      rect.y + rect.height / 2,
+    );
+    if (hit && container.contains(hit)) {
+      // A later-mounted dialog can sit below this portal but pause its scope.
+      // Reactivate the scope without remounting the input or clearing its value.
+      setReclaimingFocus(true);
+    }
+  }, [ownsFocus]);
+  useEffect(() => {
+    if (reclaimingFocus) setReclaimingFocus(false);
+  }, [reclaimingFocus]);
+  useEffect(() => {
+    if (!ownsFocus || reclaimingFocus) return;
+    let frame = 0;
+    const handleFocusIn = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(reclaimFocus);
+    };
+    document.addEventListener('focusin', handleFocusIn);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [ownsFocus, reclaimingFocus, reclaimFocus]);
+  useEffect(() => {
+    const wasActive = wasActiveRef.current;
+    wasActiveRef.current = ownsFocus;
+    const container = containerRef.current;
+    // This runs inside the portal, after the new panel's inert state commits.
+    // Scope activation handles its own autofocus and saves the return target.
+    if (!ownsFocus || !wasActive || !container) return;
+    if (
+      document.activeElement !== document.body &&
+      !container.contains(document.activeElement)
+    ) {
+      reclaimFocus();
+      return;
+    }
+    getFocusCandidates(container)
+      .find((element) => element.hasAttribute('data-morph-initial-focus'))
+      ?.focus({ preventScroll: true });
+  }, [focusKey, ownsFocus, reclaimFocus]);
+  return (
+    <FocusScope
+      ref={containerRef}
+      enabled={ownsFocus && !reclaimingFocus}
+      trapped={ownsFocus && !reclaimingFocus}
+      onMountAutoFocus={handleMountAutoFocus}
+    >
+      <Stack
+        {...props}
+        {...(ownsFocus
+          ? {
+              onKeyDownCapture: handleFocusKeyDown,
+              onBlurCapture: handleFocusBlur,
+            }
+          : null)}
+      />
+    </FocusScope>
+  );
+}
 
 /**
  * One thing the overlay can hold: the caller's live value, the rest
@@ -917,6 +1073,7 @@ export function MorphOverlay<T>({
     };
   }, [dragAllowed, dragEnabled]);
   const blocking = modal || scrim;
+  const ownsFocus = !platformEnv.isNative && blocking && pose !== 'hidden';
   // The capsule's close button rides outside the measured row, so the
   // box simply widens by the button when the grant arrives — no
   // re-measure, and the row's words never rebuild for it.
@@ -1448,7 +1605,10 @@ export function MorphOverlay<T>({
             is lit, on the empty beat, and builds nothing. No
             mount fades anywhere here — the wrapper owns every
             fade, and seats never leave. */}
-        <Animated.View style={cardStyle}>
+        <Animated.View
+          style={cardStyle}
+          {...(platformEnv.isNative ? null : { inert: pose !== 'card' })}
+        >
           {seats.map((seat) => (
             <PanelSeat
               key={seat.key}
@@ -1465,6 +1625,7 @@ export function MorphOverlay<T>({
             above whatever column is lit. */}
         <Animated.View
           style={toolbarStyle}
+          {...(platformEnv.isNative ? null : { inert: pose !== 'card' })}
           pointerEvents={pose === 'card' ? 'box-none' : 'none'}
         >
           {cornerBadge ? (
@@ -1490,6 +1651,7 @@ export function MorphOverlay<T>({
         </Animated.View>
         <Animated.View
           style={pillStyle}
+          {...(platformEnv.isNative ? null : { inert: pose !== 'capsule' })}
           pointerEvents={pose === 'capsule' ? 'box-none' : 'none'}
         >
           {/* Keyed by its words: a key change swaps the row in
@@ -1543,7 +1705,16 @@ export function MorphOverlay<T>({
           box-none layer out of the native hierarchy, and the flattened
           path loses hit-testing for the whole subtree — the stage draws
           but nothing inside takes a touch. Keep the native view. */}
-      <Stack
+      <OverlayLayer
+        ownsFocus={ownsFocus}
+        focusKey={`${pose}:${activeSeatKey ?? ''}`}
+        {...(platformEnv.isNative
+          ? null
+          : {
+              tabIndex: -1,
+              outlineStyle: 'none',
+              inert: pose === 'hidden',
+            })}
         style={styles.layer}
         pointerEvents="box-none"
         collapsable={false}
@@ -1595,7 +1766,7 @@ export function MorphOverlay<T>({
             </Animated.View>
           </GestureDetector>
         )}
-      </Stack>
+      </OverlayLayer>
     </ImperativeOverlayMountBody>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
@@ -9,6 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getRequestedNativeStorageRecovery,
+  subscribeNativeStorageRecovery,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
 
@@ -26,6 +30,10 @@ const HOST_ANIMATION: IOverlayAnimation = {
  * use their own overlay level above it.
  */
 export function AppStateContainer({ children }: PropsWithChildren) {
+  const recovering = useSyncExternalStore(
+    subscribeNativeStorageRecovery,
+    getRequestedNativeStorageRecovery,
+  );
   // The WalletConnect modal is its own Android window above the app and its
   // overlays; close it when the lock screen appears.
   useEffect(() => {
@@ -35,7 +43,8 @@ export function AppStateContainer({ children }: PropsWithChildren) {
   }, []);
   return (
     <OverlayView
-      visible
+      visible={!recovering}
+      keepContentMounted
       level="lock"
       presentation="fullscreen"
       animation={HOST_ANIMATION}

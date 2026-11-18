@@ -6,10 +6,8 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Alert,
   DebugRenderTracker,
-  Dialog,
   Divider,
   Icon,
   SizableText,
@@ -30,7 +28,6 @@ import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAcco
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import {
   privacyChainPoolOwnerKey,
@@ -42,10 +39,7 @@ import {
   shouldBlockBotWalletCopyAddress,
   shouldBlockBotWalletReceive,
 } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import {
-  ActionItem,
-  RawActions,
-} from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -80,10 +74,7 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
-import {
-  LocalWalletPoolStatus,
-  LocalWalletSyncRow,
-} from './LocalWalletPoolStatus';
+import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -261,12 +252,9 @@ function TokenDetailsHeaderContent({
     deriveInfo,
     deriveType,
     privacyHistoryPoolId: selectedPoolIdProp,
+    privacyChainVaultSettings,
   } = props;
   const navigation = useAppNavigation();
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
   const intl = useIntl();
   const { copyText } = useClipboard();
   const copyAccountAddress = useCopyAccountAddress();
@@ -278,16 +266,26 @@ function TokenDetailsHeaderContent({
 
   const [settings] = useSettingsPersistAtom();
 
-  const { network, wallet, account, vaultSettings } = useAccountData({
+  const {
+    network,
+    wallet,
+    account,
+    vaultSettings: accountVaultSettings,
+  } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
+  const vaultSettings = accountVaultSettings ?? privacyChainVaultSettings;
   const privacyHistoryPoolId = resolveSelectedPoolId({
     settings: vaultSettings?.localWallet,
     selectedPoolId: selectedPoolIdProp,
   });
-  const hasSelectedPool = privacyHistoryPoolId !== undefined;
+  // Monero has no pool tab, so its pool is only known once settings load;
+  // until then it already counts as a pool page instead of a plain token one.
+  const hasSelectedPool =
+    privacyHistoryPoolId !== undefined ||
+    (!vaultSettings && networkUtils.isLocalWalletNetwork({ networkId }));
   const selectedPool = vaultSettings?.localWallet?.pools.find(
     (pool) => pool.id === privacyHistoryPoolId,
   );
@@ -295,8 +293,7 @@ function TokenDetailsHeaderContent({
   // Until settings resolve a selected pool counts as private: that hides the
   // generic action row instead of flashing it on a private tab.
   const isPrivatePool = hasSelectedPool && !isPublicPool;
-  // A pool that can no longer receive. Balance, history and the withdraw
-  // action still show; Send does not (see the action row below).
+  // Pools that can no longer receive do not expose transfer actions.
   const isLegacyPoolTab = selectedPool?.receivesFunds === false;
   const localWalletPool = useLocalWalletPool({
     networkId,
@@ -305,9 +302,14 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
-  const privacyStatus = useTokenPrivacyStatus({
+  const poolDisplayKey = privacyChainPoolOwnerKey({
+    accountId,
     networkId,
+    poolId: privacyHistoryPoolId,
+  });
+  const privacyStatus = useTokenPrivacyStatus({
     pool: localWalletPool,
+    ownerKey: poolDisplayKey,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
   // One gate for every private-UI decision below, so the page settles once.
@@ -315,14 +317,13 @@ function TokenDetailsHeaderContent({
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
     isPrivatePool && isLocalWalletReady && !isLocalWalletEnabled;
+  // Off swaps the balance and actions for the enable card, so a private pool
+  // shows neither until it knows which.
+  const shouldShowOverview =
+    !isPrivatePool || (isLocalWalletReady && !isPrivatePoolDisabled);
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
-  const poolDisplayKey = privacyChainPoolOwnerKey({
-    accountId,
-    networkId,
-    poolId: privacyHistoryPoolId,
-  });
   const poolDisplay =
     privacyChainPoolDisplay?.ownerKey === poolDisplayKey
       ? privacyChainPoolDisplay
@@ -511,8 +512,6 @@ function TokenDetailsHeaderContent({
   let isBalanceLoading = showLoadingState;
   if (shouldShowPoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
-  } else if (isPrivatePool) {
-    isBalanceLoading = !isLocalWalletReady;
   }
   const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
 
@@ -634,79 +633,6 @@ function TokenDetailsHeaderContent({
     [wallet?.type],
   );
 
-  const poolAction = poolDisplay?.action;
-  // Withdraw opens the amount step, like Ledger Live's self transfer: any
-  // amount from the private pool to the account's own public address. Shield
-  // sweeps with Max, so the indexer's transparent UTXOs pay their own fee.
-  const handlePoolActionPress = useCallback(() => {
-    if (!poolAction?.toAddress || !poolAction.amount) return;
-    if (poolAction.type === 'withdraw') {
-      Dialog.confirm({
-        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
-        description: intl.formatMessage({
-          id: ETranslations.privacy_unshield_warning__desc,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: async ({ close }) => {
-          await close();
-          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-            screen: EModalSignatureConfirmRoutes.TxAmountInput,
-            params: {
-              networkId,
-              accountId,
-              isNFT: false,
-              token: tokenDetails?.info ?? tokenInfo,
-              recipientAddress: poolAction.toAddress,
-              isAllNetworks,
-              localWalletSourcePool: poolAction.spendSource,
-              onSuccess: poolAction.onDone,
-            },
-          });
-        },
-      });
-      return;
-    }
-    void backgroundApiProxy.servicePrivacyChain
-      .prewarmLocalWalletSend({
-        networkId,
-        accountId,
-        sourcePool: 'transparent',
-        toAddress: poolAction.toAddress,
-      })
-      .catch(() => undefined);
-    void navigationToTxConfirm({
-      transfersInfo: [
-        {
-          from: poolAction.fromAddress,
-          to: poolAction.toAddress,
-          amount: poolAction.amount,
-          localWalletShield: true,
-          localWalletSourcePool: 'transparent',
-        },
-      ],
-      transferPayload: {
-        amountToSend: poolAction.amount,
-        originalRecipient: poolAction.toAddress,
-        isMaxSend: true,
-        isNFT: false,
-      },
-      isInternalTransfer: true,
-      onSuccess: poolAction.onDone,
-    });
-  }, [
-    intl,
-    navigation,
-    navigationToTxConfirm,
-    poolAction,
-    networkId,
-    accountId,
-    tokenDetails?.info,
-    tokenInfo,
-    isAllNetworks,
-  ]);
-
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
@@ -807,34 +733,6 @@ function TokenDetailsHeaderContent({
     poolDisplay?.address,
   ]);
 
-  const poolActionItem =
-    hasSelectedPool && poolAction ? (
-      <ActionItem
-        testID={`local-wallet-pool-${poolAction.type}-btn`}
-        label={intl.formatMessage({
-          id:
-            poolAction.type === 'shield'
-              ? ETranslations.privacy_balance_shield__action
-              : ETranslations.global_withdraw,
-        })}
-        icon={
-          poolAction.type === 'shield' ? 'ShieldOutline' : 'UnlockedOutline'
-        }
-        disabled={
-          isWatchOnly ||
-          localWalletPool.state?.paused ||
-          poolAction.disabled ||
-          !poolAction.toAddress ||
-          !poolAction.amount
-        }
-        onPress={handlePoolActionPress}
-        trackID={`wallet-token-details-local-wallet-${poolAction.type}`}
-      />
-    ) : null;
-  const legacyPoolActionRow = poolActionItem ? (
-    <RawActions>{poolActionItem}</RawActions>
-  ) : null;
-
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
@@ -853,7 +751,9 @@ function TokenDetailsHeaderContent({
             />
           </Stack>
         ) : null}
-        {isPrivatePool && !isPrivateSynced ? (
+        {/* Shown once the pool's state is read: a Preparing panel during loading would vanish again
+            for the usual synced account and shift the page. */}
+        {isPrivatePool && isLocalWalletReady && !isPrivateSynced ? (
           <Stack px="$5" pt="$4" pb={isPrivatePoolDisabled ? '$5' : undefined}>
             {isPrivatePoolDisabled ? (
               <LocalWalletPoolStatus
@@ -868,7 +768,7 @@ function TokenDetailsHeaderContent({
           </Stack>
         ) : null}
         {/* Overview */}
-        {!isPrivatePoolDisabled ? (
+        {shouldShowOverview ? (
           <Stack px="$5" py="$5">
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}
@@ -885,13 +785,17 @@ function TokenDetailsHeaderContent({
                   : undefined
               }
             />
-            {isLegacyPoolTab ? (
-              legacyPoolActionRow
-            ) : (
+            <LocalWalletPoolStatus
+              networkId={networkId}
+              accountId={accountId}
+              pool={localWalletPool}
+              presentation="tokenDetails"
+            />
+            {isLegacyPoolTab ? null : (
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
                   testID={AssetDetailsTestIDs.sendBtn}
-                  disabled={isPrivatePool && localWalletPool.state?.paused}
+                  disabled={isPrivatePool && localWalletPool.isSyncPaused}
                   onPress={handleSendPress}
                   trackID="wallet-token-details-send"
                 />
@@ -900,7 +804,7 @@ function TokenDetailsHeaderContent({
                   disabled={
                     isWatchOnly ||
                     isBotWalletReceiveBlocked ||
-                    (isPrivatePool && localWalletPool.state?.paused)
+                    (isPrivatePool && localWalletPool.isSyncPaused)
                   }
                   allowPressWhenDisabled={isBotWalletReceiveBlocked}
                   onPress={async () => {
@@ -932,73 +836,28 @@ function TokenDetailsHeaderContent({
                   }}
                   trackID="wallet-token-details-receive"
                 />
-                {poolActionItem}
-                {isPublicPool ? (
-                  <RawActions.More
-                    testID="token-details-more-btn"
-                    renderItems={({ handleActionListClose }) => (
-                      <>
-                        <ActionList.Item
-                          testID="token-details-more-swap"
-                          icon="SwitchHorOutline"
-                          label={intl.formatMessage({
-                            id: ETranslations.global_swap,
-                          })}
-                          disabled={disableSwapAction}
-                          onClose={handleActionListClose}
-                          onPress={handleOnSwap}
-                          trackID="wallet-token-details-swap"
-                        />
-                        <ReviewControl>
-                          <ActionBuy
-                            inList
-                            onClose={handleActionListClose}
-                            disabled={showLoadingState}
-                            isTabView={isTabView}
-                            walletId={wallet?.id ?? ''}
-                            networkId={networkId}
-                            accountId={accountId}
-                            walletType={wallet?.type}
-                            tokenAddress={tokenInfo.address}
-                            tokenSymbol={tokenInfo.symbol}
-                            source="tokenDetails"
-                            trackID="wallet-token-details-buy"
-                          />
-                        </ReviewControl>
-                      </>
-                    )}
+                <RawActions.Swap
+                  testID={AssetDetailsTestIDs.swapBtn}
+                  onPress={handleOnSwap}
+                  disabled={disableSwapAction}
+                  trackID="wallet-token-details-swap"
+                />
+                <ReviewControl>
+                  <ActionBuy
+                    disabled={showLoadingState}
+                    isTabView={isTabView}
+                    walletId={wallet?.id ?? ''}
+                    networkId={networkId}
+                    accountId={accountId}
+                    walletType={wallet?.type}
+                    tokenAddress={tokenInfo.address}
+                    tokenSymbol={tokenInfo.symbol}
+                    source="tokenDetails"
+                    trackID="wallet-token-details-buy"
                   />
-                ) : (
-                  <>
-                    <RawActions.Swap
-                      testID={AssetDetailsTestIDs.swapBtn}
-                      onPress={handleOnSwap}
-                      disabled={disableSwapAction}
-                      trackID="wallet-token-details-swap"
-                    />
-                    <ReviewControl>
-                      <ActionBuy
-                        disabled={showLoadingState}
-                        isTabView={isTabView}
-                        walletId={wallet?.id ?? ''}
-                        networkId={networkId}
-                        accountId={accountId}
-                        walletType={wallet?.type}
-                        tokenAddress={tokenInfo.address}
-                        tokenSymbol={tokenInfo.symbol}
-                        source="tokenDetails"
-                        trackID="wallet-token-details-buy"
-                      />
-                    </ReviewControl>
-                  </>
-                )}
+                </ReviewControl>
               </RawActions>
             )}
-            <LocalWalletPoolStatus
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-            />
           </Stack>
         ) : null}
 
@@ -1019,17 +878,7 @@ function TokenDetailsHeaderContent({
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
         />
-        {isPrivatePool ? (
-          <>
-            <LocalWalletSyncRow
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-              settingsOnly
-            />
-            <TokenPrivacyPreviewEntry />
-          </>
-        ) : null}
+        {isPrivatePool ? <TokenPrivacyPreviewEntry /> : null}
         {/* History */}
         <Divider mb="$3" />
       </>

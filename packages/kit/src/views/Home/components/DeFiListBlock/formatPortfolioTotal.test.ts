@@ -12,8 +12,11 @@ describe('formatPortfolioTotal', () => {
     expect(formatPortfolioTotal(1234.5, '$', false)).toBe('$1,234.50');
   });
 
-  it('preserves hidden balances', () => {
-    expect(formatPortfolioTotal(24.5, '$', true)).toBe('$****');
+  it.each(['$', '¥'])('hides the amount and currency symbol %s', (currency) => {
+    expect(formatPortfolioTotal(24.5, currency, true)).toBe('****');
+    expect(formatPortfolioTotal(24.5, currency, false)).toBe(
+      `${currency}24.50`,
+    );
   });
 
   it('uses a two-decimal zero fallback for non-finite totals', () => {

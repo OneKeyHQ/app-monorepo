@@ -2,9 +2,11 @@ import {
   OneKeyErrorPrimeLoginExceedDeviceLimit,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyErrorPrimeUserBanned,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPrimeFreeTrialAtomData,
   IPrimeFreeTrialFeatureQuota,
@@ -273,6 +275,7 @@ describe('ServicePrimeFreeTrial', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllTimers();
     jest.useRealTimers();
   });
@@ -919,6 +922,33 @@ describe('ServicePrimeFreeTrial', () => {
       ).rejects.toBeTruthy();
       expect(mockOneKeyIdClient.post).toHaveBeenCalledTimes(1);
     });
+
+    test.each([
+      new OneKeyErrorPrimeUserBanned(),
+      { code: '90012', className: 'OneKeyErrorPrimeUserBanned' },
+    ])(
+      'does not retry a ban discovered while capturing the request: %j',
+      async (error) => {
+        const { service, servicePrime, simpleDb } = createService();
+        const wait = jest.spyOn(timerUtils, 'wait');
+        servicePrime.captureOneKeyIdAuthRequestConfig.mockRejectedValue(error);
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-banned-race',
+          }),
+        ).rejects.toBe(error);
+
+        expect(
+          servicePrime.captureOneKeyIdAuthRequestConfig,
+        ).toHaveBeenCalledTimes(1);
+        expect(wait).not.toHaveBeenCalled();
+        expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+        expect(simpleDb.records.size).toBe(0);
+        wait.mockRestore();
+      },
+    );
   });
 
   describe('usage results', () => {
@@ -1462,6 +1492,105 @@ describe('ServicePrimeFreeTrial', () => {
       // No backoff timer: each retry would reopen the device-limit page.
       expect(jest.getTimerCount()).toBe(0);
     });
+
+    it.each(['typed', 'serialized'] as const)(
+      'pauses a %s banned finish without losing the result and resumes only for its owner',
+      async (kind) => {
+        const { service, simpleDb, servicePrime } = createService();
+        const usageId = 'usage-banned-finish';
+        const key = `user-a__BulkSend__${usageId}`;
+        seedStartedUsage(simpleDb, { usageId });
+        // A previous transient failure already armed a retry timer.
+        mockOneKeyIdClient.post.mockRejectedValueOnce(serverError(90_000));
+        await service.markUsageSuccess({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId,
+        });
+        await flushPromises();
+        expect(jest.getTimerCount()).toBe(1);
+        const capture =
+          servicePrime.captureOneKeyIdAuthRequestConfig.getMockImplementation();
+        servicePrime.captureOneKeyIdAuthRequestConfig.mockRejectedValue(
+          kind === 'typed'
+            ? new OneKeyErrorPrimeUserBanned()
+            : { code: '90012' },
+        );
+        await service.onPrimeUserStateChanged();
+        await flushPromises();
+
+        expect(simpleDb.records.get(key)).toMatchObject({
+          result: 'success',
+          reportAttempts: 1,
+        });
+        expect(simpleDb.records.get(key)?.reportedAt).toBeUndefined();
+        expect(simpleDb.records.get(key)?.nextReportAt).toBeUndefined();
+        expect(jest.getTimerCount()).toBe(0);
+        const captures =
+          servicePrime.captureOneKeyIdAuthRequestConfig.mock.calls.length;
+        jest.advanceTimersByTime(60 * 60 * 1000);
+        await flushPromises();
+        expect(
+          servicePrime.captureOneKeyIdAuthRequestConfig,
+        ).toHaveBeenCalledTimes(captures);
+
+        servicePrime.captureOneKeyIdAuthRequestConfig.mockImplementation(
+          capture,
+        );
+        mockOneKeyIdClient.post.mockResolvedValue({ data: { code: 0 } });
+        mockState.user = {
+          isLoggedIn: true,
+          isLoggedInOnServer: true,
+          onekeyUserId: 'user-b',
+        };
+        await service.onPrimeUserStateChanged();
+        await flushPromises();
+        expect(finishCalls()).toHaveLength(1);
+        mockState.user.onekeyUserId = 'user-a';
+        await service.onPrimeUserStateChanged();
+        await flushPromises();
+        expect(finishCalls()).toHaveLength(2);
+        expect(simpleDb.records.get(key)).toMatchObject({
+          result: 'success',
+          reportedAt: expect.any(Number),
+        });
+        expect(jest.getTimerCount()).toBe(0);
+      },
+    );
+
+    it.each(['typed', 'serialized'] as const)(
+      'pauses a %s server ban before the local projection updates and retries on recovery',
+      async (kind) => {
+        const { service, simpleDb } = createService();
+        const usageId = 'usage-server-banned';
+        const key = `user-a__BulkSend__${usageId}`;
+        seedStartedUsage(simpleDb, { usageId });
+        mockOneKeyIdClient.post.mockRejectedValue(
+          kind === 'typed'
+            ? new OneKeyErrorPrimeUserBanned()
+            : { code: '90012' },
+        );
+        await service.markUsageSuccess({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId,
+        });
+        await flushPromises();
+        expect(simpleDb.records.get(key)).toMatchObject({
+          result: 'success',
+          reportAttempts: 0,
+        });
+        expect(simpleDb.records.get(key)?.reportedAt).toBeUndefined();
+        expect(simpleDb.records.get(key)?.nextReportAt).toBeUndefined();
+        expect(jest.getTimerCount()).toBe(0);
+        mockOneKeyIdClient.post.mockResolvedValue({ data: { code: 0 } });
+        await service.flushPendingReports();
+        await flushPromises();
+        expect(finishCalls()).toHaveLength(2);
+        expect(simpleDb.records.get(key)).toMatchObject({
+          result: 'success',
+          reportedAt: expect.any(Number),
+        });
+      },
+    );
 
     it('only reports a record as its owner and never spins for others', async () => {
       const { service, simpleDb } = createService();

@@ -24,7 +24,6 @@ import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate'
 
 import { isBorrowMetricReadyForMarketSwitch } from './borrowMetricSnapshot.utils';
 
-const PRELOADED_CACHE_TTL = 60_000;
 const POLLING_INTERVAL = 30 * 1000;
 
 type IRewardsRequest = Parameters<
@@ -109,7 +108,6 @@ type IScopedBorrowRewardsResult = {
   state: 'resolved' | 'error' | 'cancelled';
   accountGeneration?: number;
   resolvedAt?: number;
-  fromFreshCache?: boolean;
 };
 
 export const useBorrowRewards = ({
@@ -154,7 +152,6 @@ export const useBorrowRewards = ({
     data: IBorrowRewards;
     accountGeneration: number;
   } | null>(null);
-  const firstRequestScopeRef = useRef<string | null>(null);
   const forceNetworkRef = useRef(false);
   const {
     result: scopedResult,
@@ -168,30 +165,8 @@ export const useBorrowRewards = ({
       const requestGeneration = currentAccountGeneration;
       const forceNetwork = forceNetworkRef.current;
       forceNetworkRef.current = false;
-      const isFirstRequestForScope = firstRequestScopeRef.current !== scopeKey;
-      firstRequestScopeRef.current = scopeKey;
       try {
         registerAccountInvalidation();
-        if (isFirstRequestForScope && !forceNetwork && swrKey) {
-          const cached =
-            swrCacheUtils.getWithTimestamp<IScopedBorrowRewardsResult>(swrKey);
-          const now = Date.now();
-          if (
-            cached?.data.scopeKey === scopeKey &&
-            cached.data.state === 'resolved' &&
-            cached.data.data &&
-            cached.updatedAt > lastAccountInvalidationAt &&
-            cached.updatedAt <= now &&
-            now - cached.updatedAt < PRELOADED_CACHE_TTL
-          ) {
-            return {
-              ...cached.data,
-              accountGeneration: requestGeneration,
-              resolvedAt: cached.updatedAt,
-              fromFreshCache: true,
-            };
-          }
-        }
         return {
           scopeKey,
           data: await fetchRewards(requestParams, forceNetwork),
@@ -224,7 +199,7 @@ export const useBorrowRewards = ({
         };
       }
     },
-    [currentAccountGeneration, requestParams, scopeKey, swrKey],
+    [currentAccountGeneration, requestParams, scopeKey],
     {
       initResult: null,
       watchLoading: true,
@@ -233,9 +208,7 @@ export const useBorrowRewards = ({
       alwaysSetState: !isPreloading,
       swrKey,
       swrShouldPersist: (result) =>
-        result?.state === 'resolved' &&
-        !result.fromFreshCache &&
-        Boolean(result.data),
+        result?.state === 'resolved' && Boolean(result.data),
     },
   );
   const hasSettledCurrentScope =

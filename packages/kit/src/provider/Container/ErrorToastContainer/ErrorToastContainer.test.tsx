@@ -3,7 +3,8 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, fireEvent, render } from '@testing-library/react';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import {
   InvalidPIN,
   NeedFirmwareUpgradeFromWeb,
@@ -22,12 +23,26 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { setNativeAppStorageEmergencyStatus } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { getErrorAction } from './ErrorToasts';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
 const mockOpenChangeLogModal = jest.fn();
+const mockRootNavigate = jest.fn<void, unknown[]>();
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv');
+  return {
+    ...actual,
+    __esModule: true,
+    default: { ...actual.default, isNative: true },
+  };
+});
 
 jest.mock(
   '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions',
@@ -42,7 +57,7 @@ jest.mock(
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
   () => ({}),
 );
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({}));
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({}));
 
 jest.mock('react-intl', () => {
@@ -63,10 +78,15 @@ jest.mock('@onekeyhq/components', () => ({
     onPress: () => void;
   }) => <button onClick={onPress}>{children}</button>,
   Toast: {
+    dismiss: jest.fn(),
     error: jest.fn(),
     message: jest.fn(),
     success: jest.fn(),
     warning: jest.fn(),
+  },
+  Dialog: { show: jest.fn() },
+  rootNavigationRef: {
+    current: { navigate: (...args: unknown[]) => mockRootNavigate(...args) },
   },
   globalNetInfo: {
     currentState: jest.fn(() => ({
@@ -102,10 +122,230 @@ const mockedGlobalNetInfo = globalNetInfo as unknown as {
 describe('ErrorToastContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getErrorAction).mockReset();
+    jest.mocked(Dialog.show).mockImplementation((options) => ({
+      close: async (extra) => {
+        await options.onClose?.(extra);
+      },
+      getForm: () => undefined,
+      isExist: () => true,
+    }));
+    setNativeAppStorageEmergencyStatus(undefined);
     mockSubscribeNativeStorageContractViolations.mockReturnValue(jest.fn());
     mockedGlobalNetInfo.currentState.mockReturnValue({
       isInternetReachable: true,
     });
+  });
+
+  it('shows a persistent ban dialog instead of an actionable toast', async () => {
+    render(<ErrorToastContainer />);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'This account has been banned.',
+        errorCode: '90012',
+        httpStatusCode: 403,
+        requestId: 'login-denied',
+        diagnosticText: 'Restricted OAuth sign-in',
+      });
+    });
+    expect(Dialog.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'OneKey ID 已被封禁',
+        description: '如有疑问，可以联系客服',
+        showCancelButton: false,
+        onConfirmText: '我明白了',
+        dismissOnOverlayPress: false,
+        disableDrag: true,
+      }),
+    );
+    expect(mockedToast.error).not.toHaveBeenCalled();
+    expect(getErrorAction).not.toHaveBeenCalled();
+    expect(mockRootNavigate).not.toHaveBeenCalled();
+  });
+
+  it('waits for the login dialog to close and deduplicates the persistent error', async () => {
+    let finishClosing: (() => void) | undefined;
+    const closing = new Promise<void>((resolve) => {
+      finishClosing = resolve;
+    });
+    const onLoginClose = jest.fn();
+    const close = jest.fn(async () => {
+      await closing;
+      await onLoginClose();
+    });
+    jest.mocked(Dialog.show).mockReturnValueOnce({
+      close,
+      getForm: () => undefined,
+      isExist: () => true,
+    });
+    showOneKeyIdLoginDialog({ title: 'Login' });
+    render(<ErrorToastContainer />);
+    const showBan = () =>
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: '',
+        errorCode: 90_012,
+      });
+    act(() => {
+      showBan();
+      showBan();
+    });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finishClosing?.();
+    });
+    expect(onLoginClose).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
+    expect(Dialog.show).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: 'OneKey ID 已被封禁',
+        description: '如有疑问，可以联系客服',
+      }),
+    );
+    await act(async () => {
+      showBan();
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
+    const errorDialog = jest.mocked(Dialog.show).mock.calls[1][0];
+    await act(async () => {
+      await errorDialog.onClose?.();
+      showBan();
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(3);
+    expect(mockedToast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([90_012, '90012'])(
+    'shows a serialized ban %s as the ban dialog without a toast',
+    async (errorCode) => {
+      render(<ErrorToastContainer />);
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title: '',
+          errorCode,
+        });
+      });
+      expect(Dialog.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'OneKey ID 已被封禁',
+          description: '如有疑问，可以联系客服',
+        }),
+      );
+      expect(mockedToast.error).not.toHaveBeenCalled();
+    },
+  );
+
+  const emergencyStatus = {
+    mode: 'emergency',
+    phase: 'active',
+    epoch: '1-test',
+    policy: 'retain-current-without-legacy-merge-v1',
+  } as const;
+
+  it('shows a persisted emergency warning when the toast consumer mounts after bootstrap and locale loading', () => {
+    setNativeAppStorageEmergencyStatus(emergencyStatus);
+    expect(Toast.warning).not.toHaveBeenCalled();
+    const view = render(<ErrorToastContainer />);
+    expect(Toast.warning).toHaveBeenCalledTimes(1);
+    expect(Toast.warning).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: 'Emergency storage mode',
+        message: expect.stringContaining('Migration is not complete'),
+      }),
+    );
+    act(() => setNativeAppStorageEmergencyStatus({ ...emergencyStatus }));
+    expect(Toast.warning).toHaveBeenCalledTimes(1);
+    view.unmount();
+    render(<ErrorToastContainer />);
+    expect(Toast.warning).toHaveBeenCalledTimes(2);
+  });
+
+  it('subscribes to later emergency activation and stops observing after unmount', () => {
+    const view = render(<ErrorToastContainer />);
+    expect(Toast.warning).not.toHaveBeenCalled();
+    act(() => setNativeAppStorageEmergencyStatus(emergencyStatus));
+    expect(Toast.warning).toHaveBeenCalledTimes(1);
+    act(() =>
+      setNativeAppStorageEmergencyStatus({
+        ...emergencyStatus,
+        epoch: '2-test',
+      }),
+    );
+    expect(Toast.warning).toHaveBeenCalledTimes(2);
+    view.unmount();
+    act(() =>
+      setNativeAppStorageEmergencyStatus({
+        ...emergencyStatus,
+        epoch: '3-test',
+      }),
+    );
+    expect(Toast.warning).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not display native emergency status on non-native platforms', () => {
+    const property = jest.replaceProperty(platformEnv, 'isNative', false);
+    try {
+      setNativeAppStorageEmergencyStatus(emergencyStatus);
+      const view = render(<ErrorToastContainer />);
+      expect(Toast.warning).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      property.restore();
+    }
+  });
+
+  it('forwards raw migration text, method, icon, duration and existing actions to the shared toast', async () => {
+    const view = render(<ErrorToastContainer />);
+    const title =
+      'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed';
+    const action = <button type="button">Support</button>;
+    jest.mocked(getErrorAction).mockReturnValueOnce(action);
+    await act(async () =>
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'warning',
+        title,
+        message: 'Original diagnostic details',
+        icon: 'ErrorOutline',
+        duration: 8000,
+        toastId: 'caller-id',
+        nativeStorageRecoveryTestSessionId: 'storage-repair-test-toast',
+      }),
+    );
+    expect(Toast.warning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title,
+        message: 'Original diagnostic details',
+        icon: 'ErrorOutline',
+        duration: 8000,
+        toastId: 'caller-id',
+        actions: action,
+        nativeStorageRecoveryTestSessionId: 'storage-repair-test-toast',
+      }),
+    );
+    expect(Toast.error).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('keeps the title verbatim when the migration diagnostic is only in message', async () => {
+    const view = render(<ErrorToastContainer />);
+    const message =
+      'Native storage migration target is inconsistent:jotai; Jotai MMKV migration marker is missing after migration completed';
+    await act(async () =>
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'Original operation failure',
+        message,
+        i18nKey: ETranslations.wallet_action_failed,
+        i18nInfo: { message: 'would replace the title' },
+      }),
+    );
+    expect(Toast.error).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Original operation failure', message }),
+    );
+    view.unmount();
   });
 
   it('shows the Portfolio firmware guidance and opens updates for that device', async () => {

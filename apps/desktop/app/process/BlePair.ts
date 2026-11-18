@@ -2,12 +2,15 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-import isDev from 'electron-is-dev';
+import { app } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getAppStaticResourcesPath } from '../resoucePath';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 // One-shot spawn wrapper for the `onekey-ble-pair` helper.
 //

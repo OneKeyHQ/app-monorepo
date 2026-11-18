@@ -888,7 +888,7 @@ export function useSwapProTokenInit() {
     swapTypeSwitch,
   });
   const shouldSyncSwapProTokenInfo =
-    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
+    ownsActiveSwapProTradeState && swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const {
     defaultTokens,
@@ -1970,6 +1970,7 @@ export function useSwapProSupportNetworksTokenList(
 
   return {
     hasAccount: Boolean(positionAccountId),
+    positionOwnerKey,
     resolvedNetworkIds: positionRuntimeEntry?.resolvedNetworkIds ?? [],
     positionLoadError: positionRuntimeEntry?.status === 'error',
     positionLoading:

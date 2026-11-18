@@ -7,7 +7,7 @@
   "options.title":"Выберите папку установки","options.subtitle":"Используйте рекомендуемую папку или выберите другую.","options.pathLabel":"Установить в","options.browse":"Обзор","options.install":"Установить сейчас","upgrade.title":"Обновить OneKey","upgrade.subtitle":"Предыдущие параметры установки будут сохранены.","upgrade.pathLabel":"Папка обновления","upgrade.install":"Обновить сейчас",
   "uninstall.title":"Удаление OneKey",
   "uninstall.confirmTitle": "Удалить OneKey?",
-  "uninstall.confirmSubtitle": "Приложение будет удалено с этого компьютера. Данные кошелька не будут удалены.",
+  "uninstall.confirmSubtitle": "Все локальные данные OneKey текущей учетной записи Windows, включая кошельки и настройки, будут безвозвратно удалены. Прежде чем продолжить, сохраните резервную копию фраз восстановления или приватных ключей.",
   "uninstall.confirm": "Удалить",
   "uninstall.cancel": "Отмена","uninstall.subtitle":"Файлы приложения безопасно удаляются. Не закрывайте это окно.","uninstall.status":"Обработка файлов приложения…","uninstall.finishTitle":"OneKey удален","uninstall.finishSubtitle":"Файлы приложения безопасно удалены. Спасибо, что использовали OneKey.","uninstall.close":"Готово","uninstallError.title":"Удаление не завершено","uninstallError.subtitle":"Повторите попытку сейчас или удалите OneKey позже.","uninstallError.retry":"Повторить удаление","error.title":"Установка не завершена","error.subtitle":"Ваши данные не повреждены. Повторите попытку или установите позже.","error.retry":"Повторить","finish.safeHint":"Нажмите «Открыть OneKey», чтобы начать"
 }

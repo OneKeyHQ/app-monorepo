@@ -6,6 +6,7 @@ import {
   TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
 } from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
+import { getTradingViewNativeNavigationEvent } from '../utils/chartNavigation';
 import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
@@ -21,6 +22,7 @@ import type {
   ITradingViewNativePriceScaleMode,
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
+import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorPriceScales } from '../utils/subIndicatorPriceScale';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
@@ -156,6 +158,54 @@ export function resizeTradingViewNativeChartRuntime(
         startOffset: runtime.timeAxisScaleGesture.startOffset,
         startZoomScale: runtime.timeAxisScaleGesture.startZoomScale,
       }),
+    },
+  };
+}
+
+export function navigateTradingViewNativeChartRuntime(
+  runtime: ITradingViewNativeChartRuntime,
+  action: ITradingViewNativeNavigationAction,
+  priceAxisWidth: number,
+): ITradingViewNativeChartRuntime {
+  'worklet';
+
+  const chartWidth = getTradingViewNativeChartWidth(
+    runtime.size.width,
+    priceAxisWidth,
+  );
+  const event = getTradingViewNativeNavigationEvent({
+    action,
+    chartWidth,
+    pointCount: runtime.points.length,
+    viewport: runtime.viewport,
+  });
+  if (!event) return runtime;
+
+  const nextState = reduceTradingViewNativeChartRuntime(runtime, event);
+  const { offset, zoomScale } = nextState.viewport;
+  return {
+    ...runtime,
+    ...nextState,
+    pinnedPriceRange: action === 'reset' ? null : runtime.pinnedPriceRange,
+    priceRangeScale: action === 'reset' ? 1 : runtime.priceRangeScale,
+    // Rebase any ongoing gesture so a second-finger button press cannot undo it.
+    panGesture: {
+      ...runtime.panGesture,
+      startOffset:
+        runtime.panGesture.startOffset + offset - runtime.viewport.offset,
+    },
+    pinchGesture: {
+      ...runtime.pinchGesture,
+      scaleBaseline: runtime.pinchGesture.currentScale,
+      startOffset: offset,
+      startZoomScale: zoomScale,
+    },
+    timeAxisScaleGesture: {
+      ...runtime.timeAxisScaleGesture,
+      chartWidth,
+      startOffset: offset,
+      startX: runtime.timeAxisScaleGesture.currentX,
+      startZoomScale: zoomScale,
     },
   };
 }

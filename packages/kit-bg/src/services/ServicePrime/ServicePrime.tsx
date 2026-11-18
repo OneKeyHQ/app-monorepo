@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  ONEKEY_ID_OAUTH_BIND_PATH,
+  RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
@@ -24,6 +27,7 @@ import {
   OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimeUserBanned,
   OneKeyLocalError,
   OneKeyServerApiError,
   PrimeLoginDialogCancelError,
@@ -42,6 +46,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -100,6 +105,7 @@ import type {
   IPrimeInfiniPaymentOption,
   IPrimeInfiniPaymentPreBroadcastSnapshot,
   IPrimeInfiniPaymentSource,
+  IPrimeInfiniPendingPaymentLookup,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
@@ -954,6 +960,9 @@ class ServicePrime extends ServiceBase {
   }
 
   private isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown) {
+    if (isPrimeUserBannedError(error)) {
+      return false;
+    }
     const e = error as OneKeyError | undefined;
     const errorData = e?.data as IOneKeyIdOAuthBindErrorData | undefined;
     return (
@@ -987,6 +996,9 @@ class ServicePrime extends ServiceBase {
     };
     fallbackMessage: string;
   }) {
+    if (isPrimeUserBannedError(response.data)) {
+      return new OneKeyErrorPrimeUserBanned();
+    }
     const errorCode = Number(response.data.code);
     const errorMessage = response.data.message || fallbackMessage;
     if ([90_002, 90_003].includes(errorCode)) {
@@ -1195,6 +1207,9 @@ class ServicePrime extends ServiceBase {
 
           return Array.isArray(translations) ? translations : batch;
         } catch (error) {
+          if (isPrimeUserBannedError(error)) {
+            throw error;
+          }
           const errorCode = Number((error as OneKeyError | undefined)?.code);
           if ([90_104, 90_105].includes(errorCode)) {
             throw error;
@@ -1219,6 +1234,18 @@ class ServicePrime extends ServiceBase {
         }
       }),
     );
+    if (
+      settledResults.some(
+        (result) =>
+          result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+      )
+    ) {
+      // The active UI session owns this feedback. Concurrent batches and
+      // stale sessions must not produce automatic background-call toasts.
+      const error = new OneKeyErrorPrimeUserBanned();
+      error.autoToast = false;
+      throw error;
+    }
     const rejected = settledResults.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
@@ -3404,7 +3431,7 @@ class ServicePrime extends ServiceBase {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
         >(
-          '/prime/v1/account/identities/oauth/bind',
+          ONEKEY_ID_OAUTH_BIND_PATH,
           {
             token: oauthAccessToken,
             legacyOneKeyIdAuthToken,
@@ -4664,6 +4691,15 @@ class ServicePrime extends ServiceBase {
       serverUserInfoRequest,
     ]);
 
+    // The client interceptor already signed out the banned session.
+    const bannedResult = [profileResult, serverUserInfoResult].find(
+      (result): result is PromiseRejectedResult =>
+        result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+    );
+    if (bannedResult) {
+      throw bannedResult.reason;
+    }
+
     await this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError({
       results: [profileResult, serverUserInfoResult],
       requestAuthToken,
@@ -5745,11 +5781,32 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiGetCustomerJWT() {
+  async apiGetCustomerJWT({
+    expectedOneKeyUserId,
+  }: {
+    expectedOneKeyUserId: string;
+  }) {
+    const createSessionChangedError = () =>
+      new OneKeyLocalError({
+        message: 'Support session changed',
+        autoToast: false,
+      });
+    // Pin the request to the account the support session belongs to, so a
+    // login switch while it is in flight can never hand out another user's
+    // Intercom identity token.
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: createSessionChangedError,
+    });
     const client = await this.getPrimeClient();
     const result = await client.get<IApiClientResponse<{ token: string }>>(
       '/prime/v1/general/customer_jwt',
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
     );
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError: createSessionChangedError,
+    });
     return result?.data?.data;
   }
 
@@ -6082,6 +6139,7 @@ class ServicePrime extends ServiceBase {
     token,
     expectedOneKeyUserId,
     flowContext,
+    authContext,
   }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
     return this.runInfiniPaymentRequest({
       flowContext: flowContext
@@ -6092,6 +6150,7 @@ class ServicePrime extends ServiceBase {
       request: async (context) => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
         const client = await this.getPrimeClient();
         const result = await client.post<
           IApiClientResponse<IPrimeInfiniPaymentApiResponse>
@@ -6166,6 +6225,115 @@ class ServicePrime extends ServiceBase {
         failureReason: 'localPersistenceFailed',
       });
     }
+  }
+
+  private assertInfiniPaymentRequestAuthContext(
+    snapshot: IOneKeyIdAuthSnapshot,
+    context?: IPrimeInfiniCheckoutAuthContext,
+  ) {
+    if (
+      context &&
+      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        context.authSessionSource !== snapshot.authSessionSource ||
+        context.authStateGeneration !== snapshot.authStateGeneration)
+    )
+      throw this.createInfiniPurchaseUserChangedError();
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPendingPayment({
+    expectedOneKeyUserId,
+    authContext,
+  }: {
+    expectedOneKeyUserId: string;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<IPrimeInfiniPendingPaymentLookup> {
+    const snapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    this.assertInfiniPaymentRequestAuthContext(snapshot, authContext);
+    const lookup: IPrimeInfiniPendingPaymentLookup = {
+      authContext: {
+        onekeyUserId: snapshot.expectedOneKeyUserId,
+        authSessionSource: snapshot.authSessionSource,
+        authStateGeneration: snapshot.authStateGeneration,
+      },
+    };
+    try {
+      const client = await this.getPrimeClient();
+      const result = await client.get<
+        IApiClientResponse<{
+          payments: Array<
+            IPrimeInfiniPaymentApiResponse & {
+              plan?: unknown;
+              transactions?: unknown;
+            }
+          >;
+        }>
+      >('/prime/v1/infini/payment/pending', {
+        ...this.getInfiniPurchaseRequestConfig(snapshot),
+        timeout: 5000,
+      });
+      if (
+        !result?.data ||
+        result.data.code !== 0 ||
+        !result.data.data ||
+        typeof result.data.data !== 'object' ||
+        Array.isArray(result.data.data) ||
+        !Array.isArray(result.data.data.payments)
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
+      const { payments } = result.data.data;
+      for (const pending of payments) {
+        if (
+          !pending ||
+          typeof pending !== 'object' ||
+          Array.isArray(pending) ||
+          !isString(pending.paymentId) ||
+          !pending.paymentId.trim()
+        )
+          throw new OneKeyLocalError('Invalid Infini pending payment identity');
+        // Warn for every known order, but only one order can be a recovery candidate.
+        if (payments.length === 1) {
+          let payment: IPrimeInfiniPayment | undefined;
+          try {
+            payment = validateInfiniPaymentResponse(pending);
+          } catch {
+            /* Warn without offering recovery when fields are incomplete. */
+          }
+          const hasTransactions = Array.isArray(pending.transactions)
+            ? pending.transactions.length > 0
+            : undefined;
+          const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
+          lookup.pendingPayment = {
+            paymentId: pending.paymentId,
+            payment,
+            plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
+            hasTransactions,
+          };
+          lookup.pendingPayment.hasLocalSendEvidence =
+            await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
+              {
+                onekeyUserId: snapshot.expectedOneKeyUserId,
+                paymentId: pending.paymentId,
+              },
+            );
+        }
+      }
+      lookup.hasPendingPayments = payments.length > 0;
+    } catch (error) {
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: 'paymentContext',
+        status: 'failed',
+        reason: 'remotePendingLookupFailed',
+      });
+      // Advisory discovery cannot prove there is no old order on failure.
+      lookup.status = 'unavailable';
+    }
+    // Authentication failures are outside the advisory failure path.
+    await this.assertInfiniPurchaseAuthSnapshot(snapshot);
+    return lookup;
   }
 
   @backgroundMethod()

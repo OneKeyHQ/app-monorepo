@@ -4,8 +4,10 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Anchor,
+  Icon,
   Image,
   Page,
   ScrollView,
@@ -50,7 +52,7 @@ export default function PickYourDevice() {
   const DEVICES = useMemo<
     Array<{
       name: string;
-      tags?: string[];
+      tags?: Array<{ label: string; icon?: IKeyOfIcons }>;
       deviceType: EDeviceType[];
       image: ReturnType<typeof require>;
       colors?: string[];
@@ -62,12 +64,18 @@ export default function PickYourDevice() {
         name: intl.formatMessage({
           id: ETranslations.onekey_pro_series__title,
         }),
+        tags: [{ label: 'Pro' }, { label: 'Pro 2' }],
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
         image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
       },
       {
+        name: 'OneKey Neo',
+        deviceType: [EDeviceType.Neo],
+        image: require('@onekeyhq/kit/assets/pick-neo.png'),
+      },
+      {
         name: 'OneKey Classic',
-        tags: ['1S', '1S Pure'],
+        tags: [{ label: '1S' }, { label: '1S Pure' }],
         deviceType: [EDeviceType.Classic1s, EDeviceType.ClassicPure],
         image: require('@onekeyhq/kit/assets/pick-classic.png'),
       },
@@ -83,7 +91,7 @@ export default function PickYourDevice() {
             name: intl.formatMessage({
               id: ETranslations.legacy_devices__title,
             }),
-            tags: ['Mini', 'Touch'],
+            tags: [{ label: 'Mini' }, { label: 'Touch' }],
             deviceType: [],
             image: require('@onekeyhq/kit/assets/pick-legacy.png'),
             colors: SHIMMER_NEUTRAL,
@@ -91,7 +99,11 @@ export default function PickYourDevice() {
           },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
-        tags: ['Ledger', 'Trezor', 'Keystone'],
+        tags: [
+          { label: 'Ledger', icon: 'LedgerBrand' },
+          { label: 'Trezor', icon: 'TrezorBrand' },
+          { label: 'Keystone', icon: 'KeystoneBrand' },
+        ],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
         colors: SHIMMER_NEUTRAL,
@@ -245,7 +257,13 @@ export default function PickYourDevice() {
                   resizeMode="contain"
                 />
               </YStack>
-              <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
+              {/* Wide cards center their content, so the text block keeps the
+                  height of one title line and one tag row: a wrapped title or
+                  tag row grows downward without shifting the image and title. */}
+              <YStack
+                gap="$3"
+                $gtMd={{ gap: '$5', alignItems: 'center', height: 78 }}
+              >
                 <SizableText
                   size="$headingXl"
                   $gtMd={{ size: '$heading2xl', textAlign: 'center' }}
@@ -258,11 +276,17 @@ export default function PickYourDevice() {
                   gap="$2"
                   flexWrap="wrap"
                   maxWidth="50%"
-                  $gtMd={{ minHeight: '$6', maxWidth: '100%' }}
+                  $gtMd={{
+                    minHeight: '$6',
+                    maxWidth: '100%',
+                    justifyContent: 'center',
+                  }}
                 >
-                  {tags?.map((tag) => (
-                    <YStack
-                      key={tag}
+                  {tags?.map(({ label, icon }) => (
+                    <XStack
+                      key={label}
+                      gap="$1"
+                      alignItems="center"
                       px="$2"
                       py="$1"
                       borderRadius="$1"
@@ -270,8 +294,11 @@ export default function PickYourDevice() {
                       borderWidth={1}
                       borderColor="$borderActive"
                     >
-                      <SizableText size="$bodySmMedium">{tag}</SizableText>
-                    </YStack>
+                      {icon ? (
+                        <Icon name={icon} size="$4" color="$text" />
+                      ) : null}
+                      <SizableText size="$bodySmMedium">{label}</SizableText>
+                    </XStack>
                   ))}
                 </XStack>
               </YStack>

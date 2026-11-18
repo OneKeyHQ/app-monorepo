@@ -4,7 +4,7 @@ import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import '@onekeyhq/shared/src/web/index.css';
 import { Suspense, lazy, useEffect, useState } from 'react';
 
-import { KitProvider } from '@onekeyhq/kit';
+import type { KitProvider as IKitProvider } from '@onekeyhq/kit';
 
 import {
   flushDesktopWatchdogBreadcrumbs,
@@ -182,7 +182,7 @@ function TrayPanelApp() {
   );
 }
 
-export default function App(props: ComponentProps<typeof KitProvider>) {
+export default function App(props: ComponentProps<typeof IKitProvider>) {
   const isTrayPanel =
     typeof globalThis !== 'undefined' &&
     typeof globalThis.location !== 'undefined' &&
@@ -191,6 +191,10 @@ export default function App(props: ComponentProps<typeof KitProvider>) {
   if (isTrayPanel) {
     return <TrayPanelApp />;
   }
+
+  const { KitProvider } = require('@onekeyhq/kit') as {
+    KitProvider: typeof IKitProvider;
+  };
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('App render');

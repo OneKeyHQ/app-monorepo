@@ -449,7 +449,6 @@ function ProtocolLogo({
 
 const DESCRIPTION_LINE_HEIGHT = 20;
 const DESCRIPTION_MAX_LINES = 3;
-const DESCRIPTION_PENDING_MEASURE_MAX_CHARS = 132;
 
 function getCollapsedDescriptionText(description: string, target: number) {
   let cut = description.slice(0, target);
@@ -504,24 +503,15 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   );
 
   const maxVisibleHeight = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES + 1;
-  const hasPendingMeasurement = fullHeight === 0;
-  const hasOverflow =
-    fullHeight > maxVisibleHeight ||
-    (hasPendingMeasurement &&
-      description.length > DESCRIPTION_PENDING_MEASURE_MAX_CHARS);
+  const hasOverflow = fullHeight > maxVisibleHeight;
 
   // Estimate how many characters fit within DESCRIPTION_MAX_LINES, based on
   // the ratio of the visible-line height to the full text height. Height-based
   // measurement works on every platform (unlike onTextLayout, which is not
   // reliable on react-native-web here).
   const truncatedText = useMemo(() => {
-    if (!hasOverflow || !fullHeight) {
-      return hasOverflow
-        ? getCollapsedDescriptionText(
-            description,
-            DESCRIPTION_PENDING_MEASURE_MAX_CHARS,
-          )
-        : description;
+    if (!hasOverflow) {
+      return description;
     }
     const ratio =
       (DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES) / fullHeight;
@@ -536,12 +526,20 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
   }
 
   return (
-    <YStack position="relative">
+    <YStack
+      position="relative"
+      minHeight={
+        !expanded && hasOverflow
+          ? DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES
+          : undefined
+      }
+    >
       {expanded || !hasOverflow ? (
         <SizableText
           size="$bodyMd"
           lineHeight={DESCRIPTION_LINE_HEIGHT}
           color={color}
+          numberOfLines={expanded ? undefined : DESCRIPTION_MAX_LINES}
         >
           {description}
         </SizableText>
@@ -566,6 +564,7 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
         </SizableText>
       )}
       <YStack
+        key={description}
         position="absolute"
         opacity={0}
         pointerEvents="none"

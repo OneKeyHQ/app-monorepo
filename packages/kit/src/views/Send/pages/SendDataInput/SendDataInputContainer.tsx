@@ -1798,6 +1798,14 @@ function SendDataInputContainer() {
             accountId={currentAccount.accountId}
             networkId={currentAccount.networkId}
             senderDeriveType={senderDeriveType}
+            senderAddressForm={
+              // Only a chain with both forms (Zcash) has a form to open on.
+              vaultSettings?.localWallet?.addressForms.publicLabel
+                ? vaultSettings.localWallet.pools.find(
+                    (pool) => pool.key === localWalletSourcePool,
+                  )?.kind
+                : undefined
+            }
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
             activeTab={quickSelectActiveTab}

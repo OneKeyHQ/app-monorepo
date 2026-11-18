@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { StyleSheet, View } from 'react-native';
+import PagerView from 'react-native-pager-view';
 
 import type { ICheckedState, ISizableTextProps } from '@onekeyhq/components';
 import {
@@ -6,21 +9,22 @@ import {
   Checkbox,
   Dialog,
   Page,
+  ScrollView,
   Select,
   SizableText as SizableTextBase,
   Spinner,
   Stack,
   Table,
-  Tabs,
   Toast,
   XStack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import type { IDBCloudSyncItem } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   useDevSettingsPersistAtom,
@@ -743,7 +747,6 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
         dataSource={displayItems}
         estimatedItemSize={40}
         keyExtractor={(item) => item.id}
-        tabIntegrated
       />
     </YStack>
   );
@@ -946,6 +949,20 @@ function ScenarioPanel() {
       >
         Toggle isCloudSyncEnabledKeyless (KW)
       </Button>
+      <Button
+        size="small"
+        onPress={async () => {
+          const removed =
+            await backgroundApiProxy.serviceKeylessCloudSync.debugRemoveSelectedHardwareCloudKey();
+          Toast.message({
+            title: removed
+              ? 'Hardware key removed; reopen Cloud sync to see the prompt'
+              : 'No hardware key on this device',
+          });
+        }}
+      >
+        Remove hardware key (keep selection)
+      </Button>
     </YStack>
   );
 }
@@ -1085,8 +1102,10 @@ function DebugPanel() {
   );
 }
 
+const styles = StyleSheet.create({ pager: { flex: 1 } });
+
 export default function PagePrimeCloudSyncDebug() {
-  const tabContainerWidth = useTabContainerWidth();
+  const pagerRef = useRef<PagerView>(null);
 
   const localItemsTable = useCallback(
     () => <SyncItemTable activeTab="local" />,
@@ -1100,48 +1119,48 @@ export default function PagePrimeCloudSyncDebug() {
 
   const statusPanel = useCallback(() => {
     return (
-      <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <StatusPanel />
-      </Tabs.ScrollView>
+      </ScrollView>
     );
   }, []);
 
   const debugPanel = useCallback(() => {
     return (
-      <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <DebugPanel />
-      </Tabs.ScrollView>
+      </ScrollView>
     );
   }, []);
 
   const scenarioPanel = useCallback(() => {
     return (
-      <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <ScenarioPanel />
-      </Tabs.ScrollView>
+      </ScrollView>
     );
   }, []);
 
   const tabs = useMemo(() => {
     return [
       {
-        title: '本地数据',
+        name: '本地数据',
         page: localItemsTable,
       },
       {
-        title: '云端数据',
+        name: '云端数据',
         page: serverItemsTable,
       },
       {
-        title: '状态检查',
+        name: '状态检查',
         page: statusPanel,
       },
       {
-        title: '调试面板',
+        name: '调试面板',
         page: debugPanel,
       },
       {
-        title: 'Scenarios',
+        name: 'Scenarios',
         page: scenarioPanel,
       },
     ];
@@ -1153,21 +1172,62 @@ export default function PagePrimeCloudSyncDebug() {
     statusPanel,
   ]);
 
+  const pages = useMemo(
+    () => tabs.map((tab) => ({ key: tab.name, name: tab.name })),
+    [tabs],
+  );
+  const tabBarNames = useMemo(() => pages.map((page) => page.name), [pages]);
+  const {
+    initialIndex,
+    selectedIndex,
+    focusedTab,
+    indexDecimal,
+    jumpToTab,
+    selectIndex,
+  } = useAppPagerController({
+    pages,
+    pagerRef,
+    animationEnabled: platformEnv.isNative,
+  });
+
   return (
     <Page>
       <Page.Header title="云同步数据调试" />
       <Page.Body>
         <Stack flex={1} minHeight={0}>
-          <Tabs.Container
-            width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
-            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+          <TabBar
+            tabNames={tabBarNames}
+            focusedTab={focusedTab}
+            indexDecimal={indexDecimal}
+            onTabPress={jumpToTab}
+          />
+          <PagerView
+            ref={pagerRef}
+            style={styles.pager}
+            initialPage={initialIndex}
+            scrollEnabled={platformEnv.isNative}
+            onPageSelected={(event) => selectIndex(event.nativeEvent.position)}
+            onPageScroll={(event) => {
+              const { position, offset } = event.nativeEvent;
+              indexDecimal.value = position + offset;
+            }}
           >
-            {tabs.map((tab) => (
-              <Tabs.Tab key={tab.title} name={tab.title}>
-                {tab.page()}
-              </Tabs.Tab>
+            {tabs.map((tab, index) => (
+              <View key={tab.name} style={styles.pager} collapsable={false}>
+                <Stack
+                  flex={1}
+                  minHeight={0}
+                  display={
+                    platformEnv.isNative || selectedIndex === index
+                      ? 'flex'
+                      : 'none'
+                  }
+                >
+                  {tab.page()}
+                </Stack>
+              </View>
             ))}
-          </Tabs.Container>
+          </PagerView>
         </Stack>
       </Page.Body>
     </Page>

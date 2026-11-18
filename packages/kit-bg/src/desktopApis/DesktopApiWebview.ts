@@ -1,7 +1,7 @@
 import path from 'path';
 
-import { session } from 'electron';
-import isDev from 'electron-is-dev';
+import { app, session } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import {
@@ -17,6 +17,8 @@ import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
 import injectedDesktopCode from './injectedDesktopCode.text-js';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 let templatePhishingUrls: string[] = [];
 

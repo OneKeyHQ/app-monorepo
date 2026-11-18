@@ -3,6 +3,54 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 describe('serviceHardwareUtils', () => {
+  it('reports scalar BLE transfer results without forwarding packets or identifiers', () => {
+    const result = serviceHardwareUtils.parseBleFileWriteLogPayload([
+      '[ReactNativeBleTransport] FileWrite perf',
+      JSON.stringify({
+        platform: 'ios',
+        mode: 'native-frame',
+        ok: false,
+        frames: 2,
+        packets: 4,
+        frameBytes: 100,
+        elapsedMs: 50,
+        writeMs: { total: 10 },
+        readWaitMs: { total: 40 },
+        serialNo: 'private',
+        packet: 'secret',
+      }),
+    ]);
+    expect(result).toMatchObject({
+      status: 'failed',
+      bytes: 100,
+      durationMs: 50,
+      effectiveTransferRateBytesPerSecond: 2000,
+      writeDurationMs: 10,
+    });
+    expect(result).not.toHaveProperty('serialNo');
+    expect(result).not.toHaveProperty('packet');
+  });
+
+  it.each([-1, '100', null, 0.5])(
+    'rejects malformed BLE byte counters (%s)',
+    (frameBytes) => {
+      expect(
+        serviceHardwareUtils.parseBleFileWriteLogPayload([
+          '[ReactNativeBleTransport] FileWrite perf',
+          JSON.stringify({
+            platform: 'android',
+            mode: 'per-packet',
+            ok: true,
+            frames: 0,
+            packets: 0,
+            frameBytes,
+            elapsedMs: 0,
+          }),
+        ]),
+      ).toBeUndefined();
+    },
+  );
+
   it('keeps identifier suffixes for logs', () => {
     expect(serviceHardwareUtils.maskLogIdentifier('PR1234567890')).toBe(
       '***7890',

@@ -42,6 +42,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true, isNativeIOS: true, isNativeAndroid: false },
 }));
+jest.mock('@react-navigation/elements', () => ({
+  HeaderHeightContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0 }),
+}));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({ isFoldableIPhone: () => false }),
+);
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     ui: {

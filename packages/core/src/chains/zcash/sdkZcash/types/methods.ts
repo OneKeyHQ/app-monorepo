@@ -7,7 +7,6 @@ export const ZCASH_SDK_METHODS = [
   // Never leased: it must run past a stuck lease to recover a wedged carrier.
   'resetCarrier',
   'capabilities',
-  'getChainTip',
   'getTransactionPolicy',
   'inspectTransaction',
   'prewarmPczt',
@@ -28,6 +27,7 @@ export const ZCASH_SDK_METHODS = [
   'redactPcztForHardwareSigner',
 
   'prepareWalletAccounts',
+  'purgeUnknownAccounts',
   'syncWallet',
   'queueRescanFrom',
   'rescanWallet',

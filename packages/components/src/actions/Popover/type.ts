@@ -44,6 +44,8 @@ export interface IPopoverProps {
     trapFocus?: boolean;
   };
   sheetProps?: ISheetOptions;
+  /** Disable when sheet content owns its bounded scrolling region. */
+  sheetContentScrollable?: boolean;
   /**
    * Native only. `auto` (default) anchors the panel to `renderTrigger` in
    * expanded windows (>= 768 wide) and uses a sheet below that, like web;
@@ -53,10 +55,13 @@ export interface IPopoverProps {
    */
   nativePresentation?: 'auto' | 'anchored' | 'sheet';
   /**
-   * Native only. Window rect to anchor to instead of measuring
+   * Window (web: viewport) rect to anchor to instead of measuring
    * `renderTrigger`, for popovers opened imperatively from a known position.
+   * Web uses it only when there is no `renderTrigger`.
    */
   nativeAnchorRect?: { x: number; y: number; width: number; height: number };
+  /** Web only. Tracks a trigger rendered outside React as it moves. */
+  webAnchorElement?: HTMLElement;
   mountNativePortalBeforeOpen?: boolean;
   /**
    * Unique identifier for tracking/analytics purposes.

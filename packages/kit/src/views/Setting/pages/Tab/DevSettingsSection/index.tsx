@@ -161,6 +161,18 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
+const LazyCipherKeyValueDevSettings = LazyLoad(async () => {
+  const { CipherKeyValueDevSettings } =
+    await import('./CipherKeyValueDevSettings');
+  return { default: CipherKeyValueDevSettings };
+});
+
+const LazyNativeStorageRecoveryTestPanel = LazyLoad(async () => {
+  const { NativeStorageRecoveryTestPanel } =
+    await import('./NativeStorageRecoveryTestPanel');
+  return { default: NativeStorageRecoveryTestPanel };
+});
+
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 type ILocalSecretEnvelopeSimulatedKeyLossResult = {
@@ -1190,7 +1202,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1232,7 +1244,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery SesGallery SES lockdown harden AuthGallery KeylessWalletGallery StorageGallery CloudBackupGallery',
       },
       {
         key: 'account',
@@ -1880,6 +1892,22 @@ const BaseDevSettingsSection = () => {
                       />
                       {platformEnv.isNative ? (
                         <SectionPressItem
+                          icon="StorageOutline"
+                          title="Storage recovery tests"
+                          subtitle="Isolated scenarios and dangerous real-marker test"
+                          testID="native-storage-recovery-tests-menu"
+                          onPress={() => {
+                            Dialog.cancel({
+                              title: 'Storage recovery tests',
+                              renderContent: (
+                                <LazyNativeStorageRecoveryTestPanel />
+                              ),
+                            });
+                          }}
+                        />
+                      ) : null}
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
                           icon="BagOutline"
                           title="AppNotificationBadge"
                           subtitle="设置应用图标角标"
@@ -1983,9 +2011,7 @@ const BaseDevSettingsSection = () => {
                         onPress={async () => {
                           try {
                             Toast.message({ title: 'Checking for updates...' });
-                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
-                              true,
-                            );
+                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
                             Toast.success({ title: 'Check updates done' });
                           } catch (e) {
                             Toast.error({
@@ -2004,6 +2030,21 @@ const BaseDevSettingsSection = () => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevFirmwareUpdateModal,
                           );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="CipherKeyValue hardware test"
+                        subtitle="Test device confirmation, repeatability and decryption"
+                        testID="dev-settings-cipher-key-value"
+                        searchKeywords="SLIP-0011 cipher encrypt decrypt hardware 硬件 加密 解密"
+                        onPress={() => {
+                          Dialog.show({
+                            title: 'CipherKeyValue hardware test',
+                            showConfirmButton: false,
+                            dismissOnOverlayPress: false,
+                            renderContent: <LazyCipherKeyValueDevSettings />,
+                          });
                         }}
                       />
                       <SectionPressItem
@@ -2201,7 +2242,8 @@ const BaseDevSettingsSection = () => {
 
                       {platformEnv.isWeb ||
                       platformEnv.isDesktop ||
-                      platformEnv.isExtension ? (
+                      platformEnv.isExtension ||
+                      platformEnv.isNative ? (
                         <SectionPressItem
                           icon="ShieldCheckDoneOutline"
                           title="SES Harden Runtime Check"
@@ -2681,6 +2723,18 @@ const BaseDevSettingsSection = () => {
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="SesGallery"
+                        subtitle="SES intrinsic functions, behavior and tamper checks in main and background"
+                        testID="ses-gallery-runtime-check-menu"
+                        searchKeywords="SES lockdown harden intrinsic function runtime check"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
                         icon="LaptopOutline"
                         title="DesktopApiProxy Test"
                         subtitle="Test all DesktopApiProxy modules and methods"
@@ -2711,6 +2765,22 @@ const BaseDevSettingsSection = () => {
                             onPress={() => {
                               navigation.push(
                                 EModalSettingRoutes.SettingDevCryptoGalleryModal,
+                              );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="KeyOutline"
+                            title={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__title,
+                            })}
+                            subtitle={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__desc,
+                            })}
+                            searchKeywords="Hardware Derivation Path Test BIP32 硬件 派生路径 签名 OK-66332"
+                            testID="hardware-path-test-menu"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevHardwarePathTestModal,
                               );
                             }}
                           />

@@ -258,6 +258,11 @@ class ProviderApiWalletConnect {
       walletConnectDiagnostics.record('session', 'proposal_approved', proposal);
       await serviceDApp.saveConnectionSession({
         origin,
+        displayOrigin:
+          uriUtils.safeGetWalletConnectVerifiedOrigin({
+            verifyContext: proposal.verifyContext,
+            claimedOrigin: origin,
+          }) ?? '',
         accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,
@@ -550,6 +555,7 @@ class ProviderApiWalletConnect {
     request: WalletKitTypes.SessionRequest;
     requestProxy: WalletConnectRequestProxy;
   }) {
+    const { topic } = request;
     const origin = this.getDAppOrigin({ sessionRequest: request });
     // Find connected account
     const accountsInfo =
@@ -557,6 +563,7 @@ class ProviderApiWalletConnect {
         origin,
         scope: requestProxy.providerName,
         isWalletConnectRequest: true,
+        walletConnectTopic: topic,
       });
     const chainInfo =
       await this.backgroundApi.serviceWalletConnect.getWcChainInfo(
@@ -575,6 +582,7 @@ class ProviderApiWalletConnect {
       origin,
       scope: requestProxy.providerName,
       isWalletConnectRequest: true,
+      walletConnectTopic: topic,
     });
   }
 
@@ -601,7 +609,10 @@ class ProviderApiWalletConnect {
 
   getDAppOrigin(option: IWalletConnectRequestOptions) {
     const originUrl =
-      option.sessionRequest?.verifyContext.verified.origin ?? '';
+      option.sessionRequest?.verifyContext?.verified?.origin ||
+      this.web3Wallet?.getActiveSessions()?.[option.sessionRequest?.topic ?? '']
+        ?.peer.metadata.url ||
+      '';
     try {
       return new URL(originUrl).origin;
     } catch (_error) {

@@ -2,12 +2,19 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { TabHeaderSettings } from './TabHeaderSettings';
 
@@ -19,6 +26,8 @@ const mockWait = jest.fn(async (_ms: number) => undefined);
 const mockAuthState = {
   isPrimeSubscriptionActive: false,
 };
+const mockToolbarState = { enabled: false, selected: false };
+const mockPopover = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -61,10 +70,27 @@ jest.mock('@onekeyhq/components', () => {
     Popover: ({
       renderContent,
       renderTrigger,
+      open,
+      onOpenChange,
+      webAnchorElement,
     }: {
       renderContent?: ReactNode;
       renderTrigger?: ReactNode;
-    }) => React.createElement('div', null, renderTrigger, renderContent),
+      open?: boolean;
+      onOpenChange?: (value: boolean) => void;
+      webAnchorElement?: HTMLElement;
+    }) => {
+      const contentType = React.isValidElement(renderContent)
+        ? renderContent.type
+        : undefined;
+      mockPopover({
+        open,
+        onOpenChange,
+        webAnchorElement,
+        kind: typeof contentType === 'function' ? contentType.name : '',
+      });
+      return React.createElement('div', null, renderTrigger, renderContent);
+    },
     SizableText: Box,
     Stack: Box,
     Switch: Box,
@@ -102,7 +128,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     jest.fn(),
   ],
   useTokenSelectorFilterPersistAtom: () => [
-    { homeShowLpTokensOnly: false },
+    { homeShowLpTokensOnly: mockToolbarState.selected },
     jest.fn(),
   ],
 }));
@@ -136,7 +162,8 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/tokenSelectorFilterUtils', () => ({
-  isTokenSelectorDappTokenFilterSupportedNetwork: () => false,
+  isTokenSelectorDappTokenFilterSupportedNetwork: () =>
+    mockToolbarState.enabled,
 }));
 
 jest.mock('../../../components/ListItem', () => {
@@ -188,8 +215,185 @@ describe('TabHeaderSettings history export entry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthState.isPrimeSubscriptionActive = false;
+    mockToolbarState.enabled = false;
+    mockToolbarState.selected = false;
     mockClosePopover.mockResolvedValue(undefined);
     mockWait.mockResolvedValue(undefined);
+  });
+
+  it('keeps both native toolbar entries registered across focused tabs and LP updates', () => {
+    mockToolbarState.enabled = true;
+    const onConfig = jest.fn();
+    const nativeToolbar = { onConfig };
+    const { rerender, unmount } = render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={nativeToolbar}
+      />,
+    );
+    expect(onConfig).toHaveBeenCalledWith(
+      EHomeWalletTab.Portfolio,
+      expect.objectContaining({ selected: false }),
+    );
+    expect(onConfig).toHaveBeenCalledWith(
+      EHomeWalletTab.History,
+      expect.objectContaining({ selected: false }),
+    );
+    onConfig.mockClear();
+    rerender(
+      <TabHeaderSettings focusedTab="DeFi" nativeToolbar={nativeToolbar} />,
+    );
+    expect(onConfig).not.toHaveBeenCalled();
+    mockToolbarState.selected = true;
+    rerender(
+      <TabHeaderSettings
+        focusedTab={ETranslations.dexmarket_spot}
+        nativeToolbar={nativeToolbar}
+      />,
+    );
+    expect(onConfig.mock.calls).toEqual([
+      [EHomeWalletTab.Portfolio, expect.objectContaining({ selected: true })],
+    ]);
+    onConfig.mockClear();
+    unmount();
+    expect(onConfig.mock.calls).toEqual([
+      [EHomeWalletTab.Portfolio, undefined],
+      [EHomeWalletTab.History, undefined],
+    ]);
+  });
+
+  it('passes the external web toolbar button to the filter popover', () => {
+    mockToolbarState.enabled = true;
+    const button = document.createElement('button');
+    button.dataset.testid = 'home-media-icon-btn';
+    document.body.appendChild(button);
+    const { unmount } = render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.dexmarket_spot}
+        nativeToolbar={{
+          onConfig: jest.fn(),
+          press: {
+            key: EHomeWalletTab.Portfolio,
+            anchorRect: { x: 1, y: 2, width: 38, height: 38 },
+          },
+        }}
+      />,
+    );
+    try {
+      expect(mockPopover).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'TokenListSettingsContent',
+          open: true,
+          webAnchorElement: button,
+        }),
+      );
+    } finally {
+      unmount();
+      button.remove();
+    }
+  });
+
+  it('consumes each native request once and closes on tab or capability changes', () => {
+    mockToolbarState.enabled = true;
+    const onConfig = jest.fn();
+    const press = {
+      key: EHomeWalletTab.Portfolio,
+      anchorRect: { x: 1, y: 2, width: 38, height: 38 },
+    };
+    const { rerender } = render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.dexmarket_spot}
+        nativeToolbar={{ onConfig, press }}
+      />,
+    );
+    const latest = () =>
+      ['TokenListSettingsContent', 'TxHistorySettingsContent'].map((kind) => {
+        const value = [...mockPopover.mock.calls]
+          .toReversed()
+          .find(([props]) => props.kind === kind)?.[0];
+        return value as {
+          open: boolean;
+          onOpenChange: (value: boolean) => void;
+        };
+      });
+    expect(latest().map((value) => value.open)).toEqual([true, false]);
+    act(() => latest()[0].onOpenChange(false));
+    mockToolbarState.enabled = false;
+    rerender(
+      <TabHeaderSettings
+        focusedTab={ETranslations.dexmarket_spot}
+        nativeToolbar={{ onConfig, press }}
+      />,
+    );
+    mockToolbarState.enabled = true;
+    rerender(
+      <TabHeaderSettings
+        focusedTab={ETranslations.dexmarket_spot}
+        nativeToolbar={{ onConfig, press }}
+      />,
+    );
+    expect(latest().map((value) => value.open)).toEqual([false, false]);
+    const historyPress = { ...press, key: EHomeWalletTab.History };
+    rerender(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={{ onConfig, press: historyPress }}
+      />,
+    );
+    expect(latest().map((value) => value.open)).toEqual([false, true]);
+    rerender(
+      <TabHeaderSettings focusedTab="DeFi" nativeToolbar={{ onConfig }} />,
+    );
+    expect(latest().map((value) => value.open)).toEqual([false, false]);
+    rerender(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={{ onConfig, press: historyPress }}
+      />,
+    );
+    expect(latest().map((value) => value.open)).toEqual([false, false]);
+  });
+
+  it('keeps a consumed native request from reopening after the settings remount', () => {
+    mockToolbarState.enabled = true;
+    const press = {
+      key: EHomeWalletTab.History,
+      anchorRect: { x: 1, y: 2, width: 38, height: 38 },
+    };
+    const latestHistoryPopover = () =>
+      [...mockPopover.mock.calls]
+        .toReversed()
+        .find(([props]) => props.kind === 'TxHistorySettingsContent')?.[0] as
+        | { open: boolean; onOpenChange: (value: boolean) => void }
+        | undefined;
+    const onConfig = jest.fn();
+    const onPressConsumed = jest.fn();
+    const first = render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={{ onConfig, press, onPressConsumed }}
+      />,
+    );
+    expect(latestHistoryPopover()?.open).toBe(true);
+    expect(onPressConsumed).toHaveBeenCalledWith(press);
+    act(() => latestHistoryPopover()?.onOpenChange(false));
+    expect(latestHistoryPopover()?.open).toBe(false);
+    first.unmount();
+    onPressConsumed.mockClear();
+    // The owner keeps the consumed request while the pager subtree remounts.
+    render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={{
+          onConfig,
+          press,
+          pressConsumed: true,
+          onPressConsumed,
+        }}
+      />,
+    );
+    expect(latestHistoryPopover()?.open).toBe(false);
+    expect(onPressConsumed).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -18,6 +18,7 @@ export async function runBoundedSyncTurn({
   expectedStepMs,
   step,
   onStep,
+  shouldStop,
   now = Date.now,
 }: {
   /** The turn's whole budget: the scheduler's watchdog for this chain. */
@@ -27,6 +28,8 @@ export async function runBoundedSyncTurn({
   step: () => Promise<ILocalWalletSyncStepResult>;
   /** Publishes progress after every step; a failure is logged, never ends the turn. */
   onStep?: () => Promise<void>;
+  /** Asked before every step but the first: a pause or a lost data consent ends the turn there. */
+  shouldStop?: () => Promise<boolean>;
   now?: () => number;
 }): Promise<ILocalWalletSyncTurnResult> {
   const startedAt = now();
@@ -38,6 +41,10 @@ export async function runBoundedSyncTurn({
     const elapsed = now() - startedAt;
     // The first step always runs.
     if (steps > 0 && elapsed + lastStepMs > budgetMs) {
+      break;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    if (steps > 0 && shouldStop && (await shouldStop())) {
       break;
     }
     const stepStartedAt = now();

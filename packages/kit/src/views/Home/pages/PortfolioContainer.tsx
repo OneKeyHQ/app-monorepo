@@ -55,6 +55,13 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   const showRecentHistory = platformEnv.isNative
     ? nativeContentWidth >= 1280
     : media.gtXl;
+  const tokenListTableLayout = platformEnv.isNative
+    ? (showRecentHistory
+        ? Math.min(nativeContentWidth, PORTFOLIO_CONTENT_MAX_WIDTH) -
+          PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH -
+          24
+        : nativeContentWidth) >= 768
+    : tableLayout;
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
   const isTabFocused =
     stickyHeaderCtx?.activeTabId === EHomeWalletTab.Portfolio;
@@ -153,7 +160,7 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
       <Stack flex={1} onLayout={handleNativeLayout}>
         <TokenListBlock
           showRecentHistory={tableLayout ? showRecentHistory : undefined}
-          tableLayout={tableLayout || undefined}
+          tableLayout={tokenListTableLayout || undefined}
           nativeListSidecar={recentHistorySidebar}
           nativeListSidecarLayout={
             recentHistorySidebar

@@ -214,6 +214,7 @@ export const BorrowNavigation = {
       networkId: string;
       provider: string;
       marketAddress: string;
+      providerLogoURI?: string;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {

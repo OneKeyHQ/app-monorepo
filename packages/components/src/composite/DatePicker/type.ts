@@ -37,6 +37,8 @@ export interface IDatePickerProps extends IDatePickerBaseProps {
   mode?: 'date';
   value?: Date | null;
   onChange?: (date: Date | null) => void;
+  /** Defaults to true; the day grid still marks today with a dot. */
+  showTodayShortcut?: boolean;
 }
 
 export interface IRangePickerProps extends IDatePickerBaseProps {

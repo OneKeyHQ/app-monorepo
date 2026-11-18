@@ -19,6 +19,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { Stack, rootNavigationRef } from '@onekeyhq/components';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -72,6 +73,11 @@ export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscr
     });
     return true;
   };
+
+// iPad and foldable iPhones keep the app's orientation, so the chart fills the
+// window as it is instead of waiting for a forced landscape rotation.
+const keepsDeviceOrientation = () =>
+  platformEnv.isNativeIOSPad || isFoldableIPhone();
 
 function publishFullscreenActivity() {
   publishTradingViewNativeFullscreenActive(
@@ -138,8 +144,7 @@ export function TradingViewNativeFullscreenPage() {
         closePage(presentationId);
       } else {
         setHasExpectedLayout(
-          hasSize &&
-            (platformEnv.isNativeIOSPad || layout.width > layout.height),
+          hasSize && (keepsDeviceOrientation() || layout.width > layout.height),
         );
       }
     },
@@ -153,7 +158,7 @@ export function TradingViewNativeFullscreenPage() {
   useLayoutEffect(() => {
     if (!entry?.closing) return;
     if (
-      platformEnv.isNativeIOSPad ||
+      keepsDeviceOrientation() ||
       (layoutRef.current.width > 0 &&
         layoutRef.current.height > 0 &&
         layoutRef.current.height >= layoutRef.current.width)
@@ -193,10 +198,10 @@ export function TradingViewNativeFullscreenPage() {
       onLayout={handleLayout}
       testID="trading-view-native-fullscreen-layer"
     >
-      {platformEnv.isNativeIOSPad ? null : <StatusBar hidden />}
+      {keepsDeviceOrientation() ? null : <StatusBar hidden />}
       <GestureHandlerRootView
         style={
-          platformEnv.isNativeIOSPad
+          keepsDeviceOrientation()
             ? { flex: 1 }
             : {
                 width: Math.max(width, height),
@@ -208,9 +213,7 @@ export function TradingViewNativeFullscreenPage() {
           {/* The portrait presenter can leave a stale top inset after rotation. */}
           <SafeAreaView
             edges={
-              platformEnv.isNativeIOSPad
-                ? undefined
-                : ['left', 'right', 'bottom']
+              keepsDeviceOrientation() ? undefined : ['left', 'right', 'bottom']
             }
             style={{ flex: 1 }}
           >

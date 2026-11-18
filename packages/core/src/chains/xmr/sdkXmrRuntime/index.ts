@@ -1,6 +1,4 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
-
-import type { IXmrFeePriority, IXmrNetwork, IXmrRuntimeError } from './types';
+import type { IXmrFeePriority, IXmrNetwork } from './types';
 
 // All async despite sync wasm: reached across a Worker/WebView boundary on
 // every platform.
@@ -116,49 +114,12 @@ export type IXmrRuntimeApi = {
   diagDatabase: () => Promise<string>;
 };
 
-let loader: (() => Promise<IXmrRuntimeApi>) | undefined;
-
-export function setXmrRuntimeApiLoader(next: () => Promise<IXmrRuntimeApi>) {
-  loader = next;
-}
-
-export function hasXmrRuntimeApiLoader(): boolean {
-  return Boolean(loader);
-}
-
 export async function getXmrRuntimeApi(): Promise<IXmrRuntimeApi> {
-  if (!loader) {
-    throw new OneKeyLocalError(
-      'xmr runtime is not available on this carrier; setXmrRuntimeApiLoader() was never called',
-    );
-  }
-  return loader();
-}
-
-/** Runtime errors cross the boundary as JSON strings; anything else returns null. */
-export function readXmrRuntimeError(error: unknown): IXmrRuntimeError | null {
-  let raw: string | null = null;
-  if (typeof error === 'string') {
-    raw = error;
-  } else if (error instanceof Error) {
-    raw = error.message;
-  }
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      typeof (parsed as IXmrRuntimeError).code === 'string'
-    ) {
-      return parsed as IXmrRuntimeError;
-    }
-  } catch {
-    // Not a runtime error.
-  }
-  return null;
+  const { getXmrRuntimeApiForCarrier } = await import('./sdk');
+  return getXmrRuntimeApiForCarrier();
 }
 
 export * from './address';
+export * from './runtimeError';
 export * from './sign';
 export * from './types';

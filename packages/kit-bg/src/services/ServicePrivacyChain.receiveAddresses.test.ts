@@ -7,7 +7,19 @@ jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
 }));
 jest.mock('../states/jotai/atoms', () => ({
-  privacyChainAtom: { set: jest.fn(async () => undefined) },
+  privacyChainAtom: {
+    set: jest.fn(async () => undefined),
+    // A plain function: resetAllMocks would wipe a jest.fn implementation.
+    get: async () => ({
+      progress: {},
+      boostingNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
+      preparingAccountKeys: [],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+    }),
+  },
 }));
 const mockGetVaultSettings = jest.fn();
 jest.mock('../vaults/settings', () => ({
@@ -49,6 +61,7 @@ describe('Local wallet receive addresses', () => {
         }) => Promise<{ publicAddress: string; privateAddress?: string }>;
       },
       {
+        boostPausedByNetwork: {} as Record<string, boolean>,
         backgroundApi: {
           serviceCustomRpc: {
             ensureLocalWalletRemoteConfigLoaded: async () => undefined,
@@ -80,6 +93,19 @@ describe('Local wallet receive addresses', () => {
       privateAddress: undefined,
     });
   });
+
+  it('withholds the private form while the whole chain is paused', async () => {
+    const service = Object.assign(createService(true), {
+      boostPausedByNetwork: { [networkId]: true },
+    });
+
+    await expect(
+      service.getLocalWalletAccountAddresses({ networkId, accountId }),
+    ).resolves.toEqual({
+      publicAddress: 't1-address',
+      privateAddress: undefined,
+    });
+  });
 });
 
 describe('Local wallet send readiness', () => {
@@ -98,7 +124,9 @@ describe('Local wallet send readiness', () => {
       paused: false,
     },
   ) {
-    mockGetVaultSettings.mockResolvedValue({ localWallet: {} });
+    mockGetVaultSettings.mockResolvedValue({
+      localWallet: { syncedBelowBlocks: 100 },
+    });
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({ syncPolicy }),
     });
@@ -136,7 +164,7 @@ describe('Local wallet send readiness', () => {
         networkId,
         accountId,
       }),
-    ).resolves.toEqual({ blocksLeft: 100, canSend: false });
+    ).resolves.toEqual({ blocksLeft: 100, canSend: false, status: 'syncing' });
   });
 
   it('allows sending below it', async () => {
@@ -145,7 +173,7 @@ describe('Local wallet send readiness', () => {
         networkId,
         accountId,
       }),
-    ).resolves.toEqual({ blocksLeft: 99, canSend: true });
+    ).resolves.toEqual({ blocksLeft: 99, canSend: true, status: 'synced' });
   });
 
   it('says nothing on a chain that never waits for the scan', async () => {
@@ -172,6 +200,10 @@ describe('Local wallet send readiness', () => {
         enabled: false,
         paused: true,
       }).getLocalWalletSendReadiness({ networkId, accountId }),
-    ).resolves.toEqual({ blocksLeft: null, canSend: false });
+    ).resolves.toEqual({
+      blocksLeft: null,
+      canSend: false,
+      status: 'accountPaused',
+    });
   });
 });

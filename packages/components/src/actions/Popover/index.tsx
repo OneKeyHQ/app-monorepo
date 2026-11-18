@@ -123,6 +123,7 @@ function RawPopover({
   renderContent,
   floatingPanelProps,
   sheetProps,
+  sheetContentScrollable = true,
   openPopover,
   closePopover,
   placement = 'bottom-end',
@@ -132,6 +133,8 @@ function RawPopover({
   offset: offsetProp,
   hoverable,
   keepChildrenMounted: keepChildrenMountedProp,
+  nativeAnchorRect,
+  webAnchorElement,
 }: IPopoverProps) {
   const isOpen = Boolean(isOpenProp);
   useDeferredGuideBlocker(isOpen);
@@ -199,12 +202,16 @@ function RawPopover({
   const reposition = useAnchoredPosition({
     open: isOpen && !isSheet,
     triggerRef,
+    anchorElement: renderTrigger ? undefined : webAnchorElement,
+    // Without a trigger, anchor to the viewport rect the caller measured
+    // (e.g. a pager toolbar button drawn outside React).
+    anchorRect: renderTrigger ? undefined : nativeAnchorRect,
     panel,
     placement: placement as Placement,
     offset,
     allowFlip,
   });
-  useHoverOpen({
+  const cancelHover = useHoverOpen({
     hoverable: isSheet ? undefined : (hoverable as IPopoverHoverable),
     triggerRef,
     panel,
@@ -263,12 +270,13 @@ function RawPopover({
   > & { trapFocus?: boolean };
 
   const handleTriggerPress = useCallback(() => {
+    cancelHover();
     if (isOpen) {
       requestClose();
     } else {
       openPopover?.();
     }
-  }, [isOpen, openPopover, requestClose]);
+  }, [cancelHover, isOpen, openPopover, requestClose]);
 
   return (
     <>
@@ -331,22 +339,42 @@ function RawPopover({
                 />
               </XStack>
             ) : null}
-            <ScrollView
-              flex={isFitSheet ? undefined : 1}
-              marginTop="$-0.5"
-              borderTopLeftRadius={showHeader ? undefined : '$6'}
-              borderTopRightRadius={showHeader ? undefined : '$6'}
-              borderBottomLeftRadius="$6"
-              borderBottomRightRadius="$6"
-              backgroundColor="$bg"
-              showsVerticalScrollIndicator={false}
-              mx="$5"
-              mb={bottom || '$5'}
-              maxHeight={sheetScrollViewMaxHeight}
-              borderCurve="continuous"
-            >
-              {content}
-            </ScrollView>
+            {sheetContentScrollable ? (
+              <ScrollView
+                flex={isFitSheet ? undefined : 1}
+                showsVerticalScrollIndicator={false}
+                marginTop="$-0.5"
+                borderTopLeftRadius={showHeader ? undefined : '$6'}
+                borderTopRightRadius={showHeader ? undefined : '$6'}
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                mx="$5"
+                mb={bottom || '$5'}
+                maxHeight={sheetScrollViewMaxHeight}
+                borderCurve="continuous"
+              >
+                {content}
+              </ScrollView>
+            ) : (
+              <YStack
+                flex={1}
+                minHeight={0}
+                overflow="hidden"
+                marginTop="$-0.5"
+                borderTopLeftRadius={showHeader ? undefined : '$6'}
+                borderTopRightRadius={showHeader ? undefined : '$6'}
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                mx="$5"
+                mb={bottom || '$5'}
+                maxHeight={sheetScrollViewMaxHeight}
+                borderCurve="continuous"
+              >
+                {content}
+              </YStack>
+            )}
           </YStack>
         </OverlayView>
       ) : (

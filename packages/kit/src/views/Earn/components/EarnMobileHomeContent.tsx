@@ -30,7 +30,9 @@ function EarnMobileHomeContentComponent({
   faqList,
   isFaqLoading,
   isActive,
+  bannerAutoPlayEnabled,
   showContent,
+  keepHiddenLayout,
   isRefreshing,
   isPullRefreshing,
   displayTotalFiatValue,
@@ -47,7 +49,9 @@ function EarnMobileHomeContentComponent({
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading: boolean;
   isActive: boolean;
+  bannerAutoPlayEnabled: boolean;
   showContent: boolean;
+  keepHiddenLayout: boolean;
   /** Any portfolio load — drives the overview number skeletons */
   isRefreshing: boolean;
   /**
@@ -67,11 +71,20 @@ function EarnMobileHomeContentComponent({
 }) {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
+  const hideRetainedLayout = keepHiddenLayout && !showContent;
 
   return (
     <ScrollView
       flex={1}
-      display={showContent ? 'flex' : 'none'}
+      // On iOS, display:none detaches nested PagerView children and resets the
+      // banner's selected page while the outer pager shows the Browser tab.
+      display={showContent || keepHiddenLayout ? 'flex' : 'none'}
+      opacity={hideRetainedLayout ? 0 : undefined}
+      pointerEvents={hideRetainedLayout ? 'none' : undefined}
+      accessibilityElementsHidden={hideRetainedLayout || undefined}
+      importantForAccessibility={
+        hideRetainedLayout ? 'no-hide-descendants' : undefined
+      }
       showsVerticalScrollIndicator={false}
       nestedScrollEnabled
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
@@ -114,7 +127,11 @@ function EarnMobileHomeContentComponent({
             onOpenTokens={onOpenTokens}
             onOpenProtocols={onOpenProtocols}
           />
-          <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
+          <EarnHomeBanner
+            banners={bannerList}
+            isLoading={isBannerLoading}
+            autoPlayEnabled={isActive && bannerAutoPlayEnabled}
+          />
         </YStack>
       </HeaderScrollGestureWrapper>
 

@@ -898,6 +898,7 @@ describe('marketDetailNavigation', () => {
     ).toEqual({
       tokenAddress: '0xabc',
       network: 'eth',
+      swapTokenSymbol: undefined,
       isNative: false,
       marketTokenId: undefined,
       marketVariantId: undefined,

@@ -115,12 +115,7 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: INobleBleApi;
-  /** Privacy-chain node request from the main process (no renderer CORS). */
-  privacyChainNodeRequest: (params: {
-    url: string;
-    contentType: string;
-    body: Uint8Array;
-  }) => Promise<{ ok: true; bytes: Uint8Array } | { ok: false; error: string }>;
+  /** Privacy-chain node requests from the main process (no renderer CORS). */
   fetchStream: IFetchStreamRequester;
   getCpuUsage: () => Promise<{ usage: number }>;
   getMemoryUsage: () => Promise<{

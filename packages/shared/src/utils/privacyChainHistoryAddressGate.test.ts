@@ -7,6 +7,7 @@ import {
   gateLocalWalletHistoryTx,
 } from './privacyChainHistoryAddressGate';
 
+import type { ILocalWalletDisplayedAddressResolver } from './privacyChainHistoryAddressGate';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -105,57 +106,36 @@ describe('gateLocalWalletHistoryTx', () => {
     expect(gateLocalWalletHistoryTx(zcashGate(UA), tx)).toBe(tx);
   });
 
-  it('names legacy change by the transparent pool and keeps the counterparty', () => {
-    const tx = row({
-      receives: [
-        info({ from: T1, to: EXTERNAL }),
-        info({ from: T1, to: LEGACY_CHANGE, isOwn: true }),
-      ],
-    });
-    const transfer = gateLocalWalletHistoryTx(zcashGate(UA), tx).decodedTx
-      .actions[0].assetTransfer;
-    expect(transfer?.receives).toEqual([
-      info({ from: T1, to: EXTERNAL }),
-      info({
-        from: T1,
-        to: '',
-        isOwn: true,
-        shieldedTo: { poolId: 0, isOwn: true },
+  // As BTC shows them, a change address included.
+  it.each([
+    [
+      'beside the counterparty',
+      row({
+        receives: [
+          info({ from: T1, to: EXTERNAL }),
+          info({ from: T1, to: LEGACY_CHANGE, isOwn: true }),
+        ],
       }),
-    ]);
-    expect(transfer?.to).toBe(EXTERNAL);
-    expect(JSON.stringify(transfer)).not.toContain(LEGACY_CHANGE);
-  });
-
-  it('keeps a side on our displayed address when legacy change sits beside it', () => {
-    const tx = row({
-      from: LEGACY_CHANGE,
-      sends: [
-        info({ from: LEGACY_CHANGE, to: EXTERNAL, isOwn: true }),
-        info({ from: T1, to: EXTERNAL, isOwn: true }),
-      ],
-    });
-    const transfer = gateLocalWalletHistoryTx(zcashGate(UA), tx).decodedTx
-      .actions[0].assetTransfer;
-    expect(transfer?.from).toBe(T1);
-    expect(transfer?.shieldedFrom).toBeUndefined();
-    expect(transfer?.sends[0]).toMatchObject({
-      from: '',
-      shieldedFrom: { poolId: 0, isOwn: true },
-    });
-  });
-
-  it('names a side by pool when only legacy change is on it', () => {
-    const tx = row({
-      from: LEGACY_CHANGE,
-      sends: [info({ from: LEGACY_CHANGE, to: EXTERNAL, isOwn: true })],
-    });
-    const transfer = gateLocalWalletHistoryTx(zcashGate(UA), tx).decodedTx
-      .actions[0].assetTransfer;
-    expect(transfer).toMatchObject({
-      from: '',
-      shieldedFrom: { poolId: 0, isOwn: true },
-    });
+    ],
+    [
+      'beside the displayed address',
+      row({
+        from: LEGACY_CHANGE,
+        sends: [
+          info({ from: LEGACY_CHANGE, to: EXTERNAL, isOwn: true }),
+          info({ from: T1, to: EXTERNAL, isOwn: true }),
+        ],
+      }),
+    ],
+    [
+      'alone on a side',
+      row({
+        from: LEGACY_CHANGE,
+        sends: [info({ from: LEGACY_CHANGE, to: EXTERNAL, isOwn: true })],
+      }),
+    ],
+  ])('shows our transparent change address as it is (%s)', (_, tx) => {
+    expect(gateLocalWalletHistoryTx(zcashGate(UA), tx)).toBe(tx);
   });
 
   it.each([
@@ -232,7 +212,7 @@ describe('gateLocalWalletHistoryDetail', () => {
     ).toMatchObject({ address: '', to: '', isOwn: true });
   });
 
-  it('removes legacy change from transparent I/O and keeps everything else', () => {
+  it('keeps our transparent change in I/O as it is', () => {
     const detail = {
       sends: [
         io({ from: LEGACY_CHANGE, address: LEGACY_CHANGE, isOwn: true }),
@@ -243,18 +223,15 @@ describe('gateLocalWalletHistoryDetail', () => {
         io({ to: LEGACY_CHANGE, address: LEGACY_CHANGE }),
       ],
     } as IOnChainHistoryTx;
-    const gated = gateLocalWalletHistoryDetail(zcashGate(UA), detail);
-    expect(JSON.stringify(gated)).not.toContain(LEGACY_CHANGE);
-    expect(gated.sends[1]).toBe(detail.sends[1]);
-    expect(gated.receives[0]).toBe(detail.receives[0]);
-    // Named as ours even where the I/O didn't flag it.
-    expect(gated.receives[1]).toMatchObject({ to: '', isOwn: true });
+    expect(gateLocalWalletHistoryDetail(zcashGate(UA), detail)).toBe(detail);
   });
 
   it("marks an entry ours only by its own side's address", () => {
     const detail = {
-      sends: [io({ from: LEGACY_CHANGE, address: LEGACY_CHANGE, isOwn: true })],
-      receives: [io({ from: LEGACY_CHANGE, to: EXTERNAL, address: EXTERNAL })],
+      sends: [
+        shielded({ from: DIVERSIFIED, address: DIVERSIFIED, isOwn: true }),
+      ],
+      receives: [io({ from: DIVERSIFIED, to: EXTERNAL, address: EXTERNAL })],
     } as IOnChainHistoryTx;
     const gated = gateLocalWalletHistoryDetail(zcashGate(UA), detail);
     expect(gated.receives[0]).toMatchObject({
@@ -271,5 +248,70 @@ describe('gateLocalWalletHistoryDetail', () => {
       receives: [shielded({ address: EXTERNAL, to: EXTERNAL })],
     } as IOnChainHistoryTx;
     expect(gateLocalWalletHistoryDetail(zcashGate(UA), detail)).toBe(detail);
+  });
+});
+
+// The chain reads its own address forms; the gate only ever shows a displayed address.
+describe('gateLocalWalletHistoryDetail with a chain reading', () => {
+  const gateWith = (toDisplayedAddress: ILocalWalletDisplayedAddressResolver) =>
+    buildLocalWalletHistoryAddressGate({
+      localWallet: zcash,
+      addresses: { publicAddress: T1, privateAddress: UA },
+      ownerAddress: T1,
+      toDisplayedAddress,
+    });
+  const shielded = (overrides: Partial<IOnChainHistoryTxTransfer>) =>
+    io({ type: EOnChainHistoryTransferType.Shielded, poolId: 4, ...overrides });
+
+  it('shows an own address as the displayed one it stands for', () => {
+    const detail = {
+      sends: [
+        shielded({ isOwn: true, address: DIVERSIFIED, from: DIVERSIFIED }),
+      ],
+      receives: [
+        shielded({ isOwn: true, address: DIVERSIFIED, to: DIVERSIFIED }),
+      ],
+    } as IOnChainHistoryTx;
+    const gated = gateLocalWalletHistoryDetail(
+      gateWith(({ address }) => (address === DIVERSIFIED ? UA : undefined)),
+      detail,
+    );
+    expect(gated.sends[0]).toMatchObject({ address: UA, from: UA });
+    expect(gated.receives[0]).toMatchObject({ address: UA, to: UA });
+  });
+
+  it('never shows a reading that is not a displayed address', () => {
+    const detail = {
+      receives: [
+        shielded({ isOwn: true, address: DIVERSIFIED, to: DIVERSIFIED }),
+      ],
+    } as IOnChainHistoryTx;
+    const gated = gateLocalWalletHistoryDetail(
+      gateWith(() => `u1${'z'.repeat(90)}`),
+      detail,
+    );
+    expect(gated.receives[0]).toMatchObject({ address: '', to: '' });
+  });
+
+  it('reads each entry in its own pool and leaves others alone', () => {
+    const readings: [string, number | undefined][] = [];
+    const detail = {
+      sends: [io({ isOwn: true, address: DIVERSIFIED, from: DIVERSIFIED })],
+      receives: [
+        shielded({ isOwn: true, address: DIVERSIFIED, to: DIVERSIFIED }),
+        shielded({ address: EXTERNAL, to: EXTERNAL }),
+      ],
+    } as IOnChainHistoryTx;
+    gateLocalWalletHistoryDetail(
+      gateWith(({ address, poolId }) => {
+        readings.push([address, poolId]);
+        return undefined;
+      }),
+      detail,
+    );
+    expect(readings).toEqual([
+      [DIVERSIFIED, 0],
+      [DIVERSIFIED, 4],
+    ]);
   });
 });

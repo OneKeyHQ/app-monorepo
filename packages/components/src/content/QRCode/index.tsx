@@ -89,7 +89,6 @@ function BasicQRCode({
   logoSvg,
   logoBackgroundColor: logoBGColor,
   logoBorderRadius,
-  logoSvgColor = '$text',
   logoMargin = DEFAULT_LOGO_MARGIN,
   logoSize = DEFAULT_LOGO_SIZE,
   brandMark,
@@ -164,9 +163,17 @@ function BasicQRCode({
   // second logo would be clipped to the first one's shape. Only the logo
   // image needs a clip — the plate is a <Rect> that rounds itself.
   const logoClipId = `qrLogo${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  // Keep edge-touching finder rings inside the viewport when fractional SVG
+  // dimensions are rounded by the renderer. Center without scaling the symbol.
+  const svgSize = Math.ceil(size) + 2;
+  const svgInset = (svgSize - size) / 2;
 
   return (
-    <Svg height={size} width={size}>
+    <Svg
+      height={svgSize}
+      width={svgSize}
+      viewBox={`${-svgInset} ${-svgInset} ${svgSize} ${svgSize}`}
+    >
       {logo ? (
         <Defs>
           <ClipPath id={logoClipId}>
@@ -198,14 +205,6 @@ function BasicQRCode({
                 href={href}
                 preserveAspectRatio="xMidYMid slice"
                 width={logoSize}
-              />
-            ) : null}
-            {logoSvg ? (
-              <Icon
-                name="OnekeyBrand"
-                width={logoSize}
-                height={logoSize}
-                color={logoSvgColor}
               />
             ) : null}
             {brandMark ? (
@@ -378,6 +377,23 @@ export function QRCode({
           logoSize={scaledLogoSize}
           logoMargin={scaledLogoMargin}
         />
+        {props.logoSvg ? (
+          <Stack
+            position="absolute"
+            left={(canvasSize - scaledLogoSize) / 2}
+            top={(canvasSize - scaledLogoSize) / 2}
+            width={scaledLogoSize}
+            height={scaledLogoSize}
+            pointerEvents="none"
+          >
+            <Icon
+              name="OnekeyBrand"
+              width={scaledLogoSize}
+              height={scaledLogoSize}
+              color={props.logoSvgColor ?? '$text'}
+            />
+          </Stack>
+        ) : null}
       </Stack>
     </Theme>
   );

@@ -9,8 +9,11 @@ import type {
 
 export const useAppearanceTheme: IUseAppearanceTheme = () => {};
 
-/** Native-only: nothing off native presents its own UI over the app. */
-export const getAppThemeVariant: IGetAppThemeVariant = () => undefined;
+// The app theme, recorded from NavigationContainer's root background paint.
+// The web image cropper draws over the app and needs it.
+let appVariant: 'light' | 'dark' | undefined;
+
+export const getAppThemeVariant: IGetAppThemeVariant = () => appVariant;
 
 /** Native-only: web has no system bars to paint. */
 export const setSystemBarsOverride: ISetSystemBarsOverride = () => {};
@@ -22,5 +25,6 @@ export const updateAppRootViewBackground: IUpdateAppRootViewBackground = (
   themeVariant,
   themeSetting,
 ) => {
+  appVariant = themeVariant;
   updateRootViewBackgroundColor(color, themeVariant, themeSetting);
 };

@@ -1,6 +1,10 @@
+import { readXmrRuntimeError } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getLocalWalletSyncErrorKind } from '../../localWallet/userFacingError';
+
 import {
+  fetchXmrChainTipDirect,
   forgetXmrStaleFirst,
   getXmrChainTip,
   getXmrLastKnownChainTip,
@@ -23,15 +27,16 @@ const raw = {
   syncStep: jest.fn(async () => '{}'),
 };
 
+const mockFetchHeightDirect = jest.fn<Promise<number | null>, [unknown]>();
+jest.mock('@onekeyhq/core/src/chains/xmr/xmrNodeDirect', () => ({
+  fetchXmrNodeHeightDirect: (params: unknown) => mockFetchHeightDirect(params),
+}));
+
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
-  hasXmrRuntimeApiLoader: () => true,
   getXmrRuntimeApi: async () => raw,
   readXmrRuntimeError: jest.requireActual(
     '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime',
   ).readXmrRuntimeError,
-}));
-jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
-  installXmrCarrier: () => undefined,
 }));
 
 let mockSavedTip: number | undefined;
@@ -166,6 +171,48 @@ describe('xmr runtime session', () => {
     await expect(api.balance('3', '1')).rejects.toThrow('WALLET_BUSY');
     expect(raw.openWallet).toHaveBeenCalledTimes(1);
   });
+
+  // A runtime without a node answers NODE_NOT_CONFIGURED; while the node is down that is expected.
+  it('keeps the retry window instead of reopening while the node is unreachable', async () => {
+    raw.setNodeUrl.mockImplementation(async () => {
+      throw runtimeError('NETWORK_ERROR');
+    });
+    raw.chainTip.mockImplementation(async () => {
+      throw runtimeError('NODE_NOT_CONFIGURED');
+    });
+    for (let call = 0; call < 3; call += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const api = await getXmrRuntime(vault);
+      // eslint-disable-next-line no-await-in-loop
+      const error = await api.chainTip().catch((e: unknown) => e);
+      // Read like the runtime's own errors: send and broadcast show an unreachable node, not a lost tx.
+      expect(readXmrRuntimeError(error)?.code).toBe('NETWORK_ERROR');
+      expect(getLocalWalletSyncErrorKind(error)).toBe('nodeUnreachable');
+    }
+    expect(raw.openWallet).toHaveBeenCalledTimes(1);
+    expect(raw.setNodeUrl).toHaveBeenCalledTimes(1);
+
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 30_000);
+    await getXmrRuntime(vault);
+    expect(raw.setNodeUrl).toHaveBeenCalledTimes(2);
+    raw.setNodeUrl.mockReset();
+  });
+
+  it('reports a missing node without reopening when none is configured', async () => {
+    const noNode = {
+      getXmrNetwork: async () => 'mainnet',
+      resolveXmrNodeUrl: async () => {
+        throw new OneKeyLocalError('no node');
+      },
+    } as unknown as Vault;
+    raw.chainTip.mockImplementation(async () => {
+      throw runtimeError('NODE_NOT_CONFIGURED');
+    });
+    const api = await getXmrRuntime(noNode);
+    await expect(api.chainTip()).rejects.toThrow('NODE_NOT_CONFIGURED');
+    expect(raw.openWallet).toHaveBeenCalledTimes(1);
+  });
 });
 
 // A mid-step read would fail as "not open" and trigger self-heal on a merely
@@ -253,7 +300,7 @@ describe('xmr stale-first reads', () => {
         }),
     );
     const api = await getXmrRuntime(vault);
-    for (const key of ['history:a', 'progress:a', 'history:b']) {
+    for (const key of ['history:a', 'progress:a', 'history:b', 'storage']) {
       // eslint-disable-next-line no-await-in-loop
       await readXmrStaleFirst({ key, read: async () => 'old', fallback: '?' });
     }
@@ -263,7 +310,8 @@ describe('xmr stale-first reads', () => {
     const step = api.syncStep('3', '10');
     await Promise.resolve();
     const read = jest.fn(async () => 'new');
-    for (const key of ['history:a', 'progress:a']) {
+    // The database size changes with any one account's data.
+    for (const key of ['history:a', 'progress:a', 'storage']) {
       // eslint-disable-next-line no-await-in-loop
       await expect(
         readXmrStaleFirst({ key, read, fallback: '?' }),
@@ -545,6 +593,37 @@ describe('xmr node health', () => {
       ok: false,
     });
   });
+
+  // The scheduler's tip skips the runtime and its lock, yet still feeds health and the last tip.
+  it('records a direct tip fetch without opening the runtime', async () => {
+    mockFetchHeightDirect.mockResolvedValueOnce(3_800_000);
+    await expect(fetchXmrChainTipDirect(vault)).resolves.toBe(3_800_000);
+    expect(raw.openWallet).not.toHaveBeenCalled();
+    expect(raw.chainTip).not.toHaveBeenCalled();
+    expect(mockFetchHeightDirect).toHaveBeenCalledWith({
+      nodeBase: 'https://node.example:18081',
+    });
+    expect(getXmrNodeHealth()).toMatchObject({
+      url: 'https://node.example:18081',
+      ok: true,
+    });
+    await expect(getXmrLastKnownChainTip(vault)).resolves.toBe(3_800_000);
+  });
+
+  it.each([
+    ['a refused connection', () => Promise.reject(new Error('offline'))],
+    ['an error status', () => Promise.resolve(null)],
+  ])(
+    'reports %s on the direct tip as an unreachable node',
+    async (_, reply) => {
+      mockFetchHeightDirect.mockImplementationOnce(reply);
+      const error = await fetchXmrChainTipDirect(vault).catch(
+        (e: unknown) => e,
+      );
+      expect(getLocalWalletSyncErrorKind(error)).toBe('nodeUnreachable');
+      expect(getXmrNodeHealth()).toMatchObject({ ok: false });
+    },
+  );
 
   it('keys the sample by the node it came from', async () => {
     await getXmrChainTip(await getXmrRuntime(vault));

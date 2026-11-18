@@ -21,6 +21,7 @@ import {
   PRIME_REDEEM_LANDING_PATH,
   PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
@@ -309,6 +310,12 @@ export const buildAllowList = (
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {
+    rules[
+      pagePath`${ERootRoutes.Modal}${EModalRoutes.PrimeModal}${EPrimePages.PrimeCloudSync}`
+    ] = {
+      showUrl: true,
+      showParams: false,
+    };
     // Permission WebUSB
     rules[pagePath`${ERootRoutes.PermissionWebDevice}`] = {
       showUrl: true,

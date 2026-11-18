@@ -9,9 +9,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
-import { Stack } from '@onekeyhq/components';
-import BtcCircle from '@onekeyhq/components/src/primitives/Icon/react/illus/BtcCircle';
-import Ethereum from '@onekeyhq/components/src/primitives/Icon/react/illus/Ethereum';
+import { Icon, Stack } from '@onekeyhq/components';
 
 const SEGMENTS = [
   { start: -87, end: 136, color: '#FF9416' },
@@ -130,7 +128,7 @@ export function WalletPortfolioArtwork({ scale }: { scale: number }) {
         <Rect x={134} y={284} width={42} height={3} rx={1.5} fill="#9A8DC7" />
       </Svg>
       <Stack position="absolute" left={71 * scale} top={121 * scale}>
-        <BtcCircle width={28 * scale} height={28 * scale} />
+        <Icon name="BtcCircleIllus" width={28 * scale} height={28 * scale} />
       </Stack>
       <Stack
         position="absolute"
@@ -143,7 +141,7 @@ export function WalletPortfolioArtwork({ scale }: { scale: number }) {
         alignItems="center"
         justifyContent="center"
       >
-        <Ethereum width={32 * scale} height={32 * scale} />
+        <Icon name="EthereumIllus" width={32 * scale} height={32 * scale} />
       </Stack>
       <Stack position="absolute" left={115 * scale} top={121 * scale}>
         <Svg width={50 * scale} height={28 * scale} viewBox="0 0 50 28">

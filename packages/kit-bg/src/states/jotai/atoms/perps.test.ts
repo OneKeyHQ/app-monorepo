@@ -1,4 +1,5 @@
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
+import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
@@ -22,6 +23,7 @@ import {
   perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
+  perpsTradingViewIndicatorSettingsPersistAtom,
   tradingModeAtom,
 } from './perps';
 
@@ -29,6 +31,50 @@ import type { IAtomNameKeys } from '../atomNames';
 import type { IJotaiAtomPro } from '../types';
 
 const now = 1_000_000;
+
+describe('perpsTradingViewIndicatorSettingsPersistAtom', () => {
+  const atom = perpsTradingViewIndicatorSettingsPersistAtom.atom();
+  const initialSettings = jotaiDefaultStore.get(atom);
+
+  afterEach(() => {
+    jotaiDefaultStore.set(atom, initialSettings);
+  });
+
+  it('enables only volume when there are no saved indicator settings', () => {
+    const settings = jotaiDefaultStore.get(atom);
+
+    expect(
+      [...settings.mainIndicators, ...settings.subIndicators]
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL']);
+  });
+
+  it('preserves a saved empty indicator selection', () => {
+    jotaiDefaultStore.set(atom, createTradingViewNativeIndicatorSettings());
+
+    expect(jotaiDefaultStore.get(atom).subIndicators).toEqual([]);
+  });
+
+  it('keeps volume disabled after the user turns it off', () => {
+    jotaiDefaultStore.set(atom, {
+      ...createTradingViewNativeIndicatorSettings(),
+      subIndicators: [
+        {
+          active: false,
+          id: 'VOL',
+          lines: {},
+          parameters: {},
+          transparency: 50,
+        },
+      ],
+    });
+
+    expect(jotaiDefaultStore.get(atom).subIndicators).toEqual([
+      expect.objectContaining({ active: false, id: 'VOL' }),
+    ]);
+  });
+});
 
 describe('tradingModeAtom', () => {
   it('persists the selected trading mode across app restarts', () => {

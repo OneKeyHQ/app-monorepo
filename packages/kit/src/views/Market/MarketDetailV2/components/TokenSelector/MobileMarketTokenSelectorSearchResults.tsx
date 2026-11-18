@@ -88,6 +88,7 @@ export function MobileMarketSearchSectionTitle({ title }: { title: string }) {
 export type IMobileMarketSearchAllSection = {
   key: string;
   title: string;
+  header?: ReactNode;
   body: ReactNode;
 };
 
@@ -123,7 +124,12 @@ export function MobileMarketSearchAllList({
         title={section.title}
       />,
     );
-    children.push(<YStack key={`${section.key}-body`}>{section.body}</YStack>);
+    children.push(
+      <YStack key={`${section.key}-body`}>
+        {section.header}
+        {section.body}
+      </YStack>,
+    );
   });
   return (
     <NativeScrollView
@@ -168,16 +174,22 @@ export function MobileMarketSearchShowMoreButton({
 function SearchTokenRow<T>({
   entry,
   onPress,
+  tableLayout,
 }: {
   entry: IMobileMarketSearchTokenEntry<T>;
   onPress: (item: T) => void;
+  tableLayout?: boolean;
 }) {
   const handlePress = useCallback(
     () => onPress(entry.raw),
     [entry.raw, onPress],
   );
   return (
-    <MobileSelectorSearchTokenRow item={entry.token} onPress={handlePress} />
+    <MobileSelectorSearchTokenRow
+      item={entry.token}
+      onPress={handlePress}
+      tableLayout={tableLayout}
+    />
   );
 }
 
@@ -190,6 +202,7 @@ export function MobileMarketSearchStockRows({
   onRetry,
   onPress,
   loadMore,
+  tableLayout,
 }: {
   items: IMarketStockPublicItem[];
   isError: boolean;
@@ -197,6 +210,7 @@ export function MobileMarketSearchStockRows({
   onShowMore: () => void;
   onRetry: () => void;
   onPress: (item: IMarketStockPublicItem) => void;
+  tableLayout?: boolean;
   // Set when the section lists every stock and pages as All scrolls.
   loadMore?: {
     isLoadingMore: boolean;
@@ -229,6 +243,7 @@ export function MobileMarketSearchStockRows({
           key={item.stockId}
           item={item}
           onPress={onPress}
+          tableLayout={tableLayout}
         />
       ))}
       {showMore ? (
@@ -255,16 +270,23 @@ export function MobileMarketSearchTokenRows<T>({
   showMore,
   onShowMore,
   onPress,
+  tableLayout,
 }: {
   entries: IMobileMarketSearchTokenEntry<T>[];
   showMore: boolean;
   onShowMore: () => void;
   onPress: (item: T) => void;
+  tableLayout?: boolean;
 }) {
   return (
     <YStack>
       {entries.map((entry) => (
-        <SearchTokenRow key={entry.key} entry={entry} onPress={onPress} />
+        <SearchTokenRow
+          key={entry.key}
+          entry={entry}
+          onPress={onPress}
+          tableLayout={tableLayout}
+        />
       ))}
       {showMore ? (
         <MobileMarketSearchShowMoreButton
@@ -281,18 +303,24 @@ export function MobileMarketSearchTokenList<T>({
   entries,
   onPress,
   listHeader,
+  tableLayout,
 }: {
   entries: IMobileMarketSearchTokenEntry<T>[];
   onPress: (item: T) => void;
   // Scrolls with the rows, e.g. universal search's section title.
   listHeader?: ReactElement;
+  tableLayout?: boolean;
 }) {
   const listMeasurementProps = useSelectorListMeasurements();
   const renderItem = useCallback(
     ({ item }: { item: IMobileMarketSearchTokenEntry<T> }) => (
-      <SearchTokenRow entry={item} onPress={onPress} />
+      <SearchTokenRow
+        entry={item}
+        onPress={onPress}
+        tableLayout={tableLayout}
+      />
     ),
-    [onPress],
+    [onPress, tableLayout],
   );
   return (
     <FlatList

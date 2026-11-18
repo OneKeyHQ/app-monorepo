@@ -794,21 +794,20 @@ function createPriceAxisLabelPainter(
 
 function drawReferenceTitle(
   context: IChartDrawingContext,
-  labelHeight: number,
+  labels: IPriceAxisLabels,
   measureText: IMeasureText,
 ) {
   const {
     config,
-    layout: { axisOnLeft, plot, plotHeight, yAtValue, fontSize },
+    layout: { axisOnLeft, plot, fontSize },
     painter: { commands },
   } = context;
+  const { labelHeight, clampLabelY, referenceLabelY } = labels;
   const ref = config.referenceLine;
   if (ref?.title) {
     const textWidth = measureText(ref.title, 'referenceLineLabel');
-    const y = Math.min(
-      plotHeight - labelHeight,
-      Math.max(0, yAtValue(ref.price) - labelHeight),
-    );
+    // Share the axis badge's center so the tag and price read as one pill.
+    const y = (referenceLabelY ?? clampLabelY(ref.price)) - labelHeight / 2;
     const x = axisOnLeft ? plot.x : plot.x + plot.width - textWidth - 8;
     commands.push({
       kind: 'rect',
@@ -852,7 +851,7 @@ function drawPriceAxis(
       ref.axisLabelTextColor ?? '#fff',
       labels.referenceLabelY ?? labels.clampLabelY(ref.price),
     );
-    drawReferenceTitle(context, labels.labelHeight, measureText);
+    drawReferenceTitle(context, labels, measureText);
   }
   const lastPoint = points[points.length - 1];
   if (config.showLastValue)

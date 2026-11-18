@@ -357,6 +357,28 @@ function getActiveInfiniSupersededPaymentSessions({
   });
 }
 
+function hasInfiniPaymentLocalSendEvidence({
+  rawData,
+  onekeyUserId,
+  paymentId,
+  now,
+}: {
+  rawData: ISimpleDBPrime | null | undefined;
+  onekeyUserId: string;
+  paymentId: string;
+  now: number;
+}) {
+  return [
+    rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId],
+    ...getActiveInfiniSupersededPaymentSessions({ rawData, onekeyUserId, now }),
+  ].some(
+    (session) =>
+      session?.payment?.paymentId === paymentId &&
+      session.sendStarted &&
+      isValidInfiniPendingPaymentSession(session, { onekeyUserId, now }),
+  );
+}
+
 function isValidInfiniPendingPaymentSession(
   session: IPrimeInfiniPendingPaymentSession | undefined,
   {
@@ -1690,12 +1712,30 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async hasInfiniPaymentLocalSendEvidence({
+    onekeyUserId,
+    paymentId,
+  }: {
+    onekeyUserId: string;
+    paymentId: string;
+  }): Promise<boolean> {
+    return hasInfiniPaymentLocalSendEvidence({
+      rawData: await this.getRawData(),
+      onekeyUserId,
+      paymentId,
+      now: Date.now(),
+    });
+  }
+
+  @backgroundMethod()
   async setInfiniPendingPaymentSession({
     onekeyUserId,
     session,
+    isRemoteRecovery = false,
   }: {
     onekeyUserId: string;
     session: IPrimeInfiniPendingPaymentSessionInput;
+    isRemoteRecovery?: boolean;
   }): Promise<IPrimeInfiniPendingPaymentSession> {
     if (!onekeyUserId || session.baseline.onekeyUserId !== onekeyUserId) {
       throw new OneKeyLocalError({
@@ -1802,6 +1842,15 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         payment: nextPayment,
         sendStarted: Boolean(
           session.sendStarted ||
+          // A remote quote cannot erase a send archived after discovery.
+          // Explicit new purchases keep the existing session behavior.
+          (isRemoteRecovery &&
+            hasInfiniPaymentLocalSendEvidence({
+              rawData,
+              onekeyUserId,
+              paymentId: session.payment.paymentId,
+              now,
+            })) ||
           hasPrimeInfiniPaymentProgressSnapshot(nextPayment) ||
           (isCurrentSessionValid &&
             currentSession &&

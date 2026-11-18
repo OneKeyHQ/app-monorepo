@@ -14,11 +14,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/appUpdate';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -28,6 +29,7 @@ import {
   useDownloadPackage,
 } from '../../../components/AppUpdate';
 import { HyperlinkText } from '../../../components/HyperlinkText';
+import { useForceUpdateContactSupport } from '../hooks/useForceUpdateContactSupport';
 import { AppUpdateTestIDs } from '../testIDs';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
@@ -66,15 +68,19 @@ function RetryButton({ onPress }: IButtonProps) {
   );
 }
 
-function ContactUsButton() {
+function ContactUsButton({ onPress }: { onPress?: () => void }) {
   const intl = useIntl();
-  const onPress = useCallback(() => {
+  const handlePress = useCallback(() => {
+    if (onPress) {
+      onPress();
+      return;
+    }
     void showIntercom();
-  }, []);
+  }, [onPress]);
   return (
     <XStack>
-      <Button testID={AppUpdateTestIDs.contactUsBtn} onPress={onPress}>
-        {intl.formatMessage({ id: ETranslations.global_contact_us })}
+      <Button testID={AppUpdateTestIDs.contactUsBtn} onPress={handlePress}>
+        {intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })}
       </Button>
     </XStack>
   );
@@ -84,15 +90,16 @@ function DownloadVerify({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
   const intl = useIntl();
-  const { isForceUpdate } = route.params || {};
+  const { isForceUpdate: isForceUpdateParam } = route.params || {};
+  const { isForceUpdate, handleContactSupport } = useForceUpdateContactSupport({
+    initialForceUpdate: isForceUpdateParam,
+  });
   usePreventRemove(!!isForceUpdate, () => {});
   const { data } = useAppUpdateInfo();
   const navigation = useAppNavigation();
   const {
     downloadPackage,
     downloadASC,
-    verifyASC,
-    verifyPackage,
     showUpdateInCompleteDialog,
     installPackage,
   } = useDownloadPackage();
@@ -122,18 +129,21 @@ function DownloadVerify({
 
   const handleToUpdate = useCallback(async () => {
     setIsInstalling(true);
-    setTimeout(() => {
+    const resetTimer = setTimeout(() => {
       setIsInstalling(false);
     }, 5500);
-    await installPackage(
-      () => {},
-      () => {
-        showInCompleteDialog();
-        setTimeout(() => {
-          setIsInstalling(false);
-        }, 350);
-      },
-    );
+    try {
+      await installPackage(
+        () => {},
+        () => {
+          showInCompleteDialog();
+        },
+        { userInitiated: true, installSource: 'legacy' },
+      );
+    } finally {
+      clearTimeout(resetTimer);
+      setIsInstalling(false);
+    }
   }, [installPackage, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const hasError = checkIsError(data.status);
@@ -195,15 +205,63 @@ function DownloadVerify({
     const title = intl.formatMessage({
       id: ETranslations.update_download_and_verify_text,
     });
-    return isForceUpdate
-      ? {
-          title,
-          headerLeft,
-        }
-      : {
-          title,
-        };
+    return {
+      title,
+      headerLeft: isForceUpdate ? headerLeft : undefined,
+    };
   }, [intl, isForceUpdate, headerLeft]);
+
+  const isShowingInlineContactUs =
+    data.status === EAppUpdateStatus.verifyASCFailed ||
+    data.status === EAppUpdateStatus.verifyPackageFailed;
+  const showFooterContactUs = Boolean(
+    isForceUpdate && !isShowingInlineContactUs,
+  );
+  const canRetryFromFooter = [
+    EAppUpdateStatus.downloadPackageFailed,
+    EAppUpdateStatus.downloadASCFailed,
+    EAppUpdateStatus.verifyASCFailed,
+    EAppUpdateStatus.verifyPackageFailed,
+    EAppUpdateStatus.failed,
+    EAppUpdateStatus.updateIncomplete,
+    EAppUpdateStatus.notify,
+  ].includes(data.status);
+  const isConfirmActionable =
+    data.status === EAppUpdateStatus.ready ||
+    data.status === EAppUpdateStatus.manualInstall ||
+    canRetryFromFooter;
+
+  const handleRetryFromFooter = useCallback(() => {
+    if (data.status === EAppUpdateStatus.downloadASCFailed) {
+      void downloadASC();
+      return;
+    }
+    void downloadPackage({ userInitiated: true });
+  }, [data.status, downloadASC, downloadPackage]);
+
+  let confirmButtonTextId = ETranslations.global_install;
+  if (data.status === EAppUpdateStatus.manualInstall) {
+    confirmButtonTextId = ETranslations.update_manual_update;
+  } else if (canRetryFromFooter) {
+    confirmButtonTextId = ETranslations.global_retry;
+  }
+
+  let handleFooterConfirm: () => void | Promise<void> = handleToUpdate;
+  if (data.status === EAppUpdateStatus.manualInstall) {
+    handleFooterConfirm = handleToManualInstall;
+  } else if (canRetryFromFooter) {
+    handleFooterConfirm = handleRetryFromFooter;
+  }
+
+  let postDownloadErrorTextId =
+    data.errorText ?? ETranslations.global_update_failed;
+  if (data.updateError?.code === EUpdateErrorCode.installLocation) {
+    postDownloadErrorTextId =
+      ETranslations.app_update_move_to_applications__desc;
+  } else if (data.status === EAppUpdateStatus.updateIncomplete) {
+    postDownloadErrorTextId =
+      ETranslations.update_update_incomplete_package_missing_desc;
+  }
 
   return (
     <Page scrollEnabled>
@@ -241,7 +299,9 @@ function DownloadVerify({
             }}
             renderAction={({ status }) =>
               status === EStepItemStatus.Failed ? (
-                <RetryButton onPress={() => downloadPackage()} />
+                <RetryButton
+                  onPress={() => void downloadPackage({ userInitiated: true })}
+                />
               ) : null
             }
           />
@@ -337,13 +397,20 @@ function DownloadVerify({
             }}
             renderAction={({ status }) => {
               if (status === EStepItemStatus.Failed) {
-                if (
-                  data.errorText ===
-                  ETranslations.update_installation_package_possibly_compromised
-                ) {
-                  return <RetryButton onPress={verifyASC} />;
-                }
-                return <ContactUsButton />;
+                return (
+                  <XStack gap="$3" flexWrap="wrap">
+                    <RetryButton
+                      onPress={() =>
+                        void downloadPackage({ userInitiated: true })
+                      }
+                    />
+                    <ContactUsButton
+                      onPress={() => {
+                        void handleContactSupport();
+                      }}
+                    />
+                  </XStack>
+                );
               }
               return null;
             }}
@@ -411,25 +478,67 @@ function DownloadVerify({
             }}
             renderAction={({ status }) => {
               if (status === EStepItemStatus.Failed) {
-                if (
-                  data.errorText ===
-                  ETranslations.update_installation_package_possibly_compromised
-                ) {
-                  return <RetryButton onPress={verifyPackage} />;
-                }
-                return <ContactUsButton />;
+                return (
+                  <XStack gap="$3" flexWrap="wrap">
+                    <RetryButton
+                      onPress={() =>
+                        void downloadPackage({ userInitiated: true })
+                      }
+                    />
+                    <ContactUsButton
+                      onPress={() => {
+                        void handleContactSupport();
+                      }}
+                    />
+                  </XStack>
+                );
               }
               return null;
             }}
           />
         </Stepper>
+        {data.status === EAppUpdateStatus.failed ||
+        data.status === EAppUpdateStatus.updateIncomplete ? (
+          <XStack
+            pt="$4"
+            gap="$3"
+            flexDirection="column"
+            alignItems="flex-start"
+          >
+            <SizableText size="$bodyLg" color="$textCritical">
+              {intl.formatMessage({
+                id: postDownloadErrorTextId,
+              })}
+            </SizableText>
+            <RetryButton
+              onPress={() => void downloadPackage({ userInitiated: true })}
+            />
+          </XStack>
+        ) : null}
       </Page.Body>
       <Page.Footer
+        stacked={showFooterContactUs}
+        onCancelText={
+          showFooterContactUs
+            ? intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })
+            : undefined
+        }
+        onCancel={
+          showFooterContactUs
+            ? (_close) => {
+                void handleContactSupport();
+              }
+            : undefined
+        }
+        cancelButtonProps={
+          showFooterContactUs
+            ? {
+                testID: AppUpdateTestIDs.contactUsBtn,
+              }
+            : undefined
+        }
         onConfirmText={intl.formatMessage({
-          id:
-            data.status === EAppUpdateStatus.manualInstall
-              ? ETranslations.update_manual_update
-              : ETranslations.global_install,
+          id: confirmButtonTextId,
         })}
         confirmButtonProps={{
           loading: installing,
@@ -437,13 +546,9 @@ function DownloadVerify({
             data.status === EAppUpdateStatus.ready
               ? 'BadgeVerifiedSolid'
               : undefined,
-          disabled: data.status !== EAppUpdateStatus.ready || installing,
+          disabled: !isConfirmActionable || installing,
         }}
-        onConfirm={
-          data.status === EAppUpdateStatus.manualInstall
-            ? handleToManualInstall
-            : handleToUpdate
-        }
+        onConfirm={handleFooterConfirm}
       />
     </Page>
   );

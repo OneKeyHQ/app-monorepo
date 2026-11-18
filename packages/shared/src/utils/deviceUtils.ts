@@ -86,16 +86,24 @@ function canonicalizeBleNameForDevice(name: string, deviceType?: IDeviceType) {
     : name;
 }
 
-function getDeviceDisplayName({ state }: { state: DeviceState }): string {
+function getDeviceDisplayName({
+  state,
+  preferBleName = false,
+}: {
+  state: DeviceState;
+  preferBleName?: boolean;
+}): string {
   const { identity } = state;
+  const bleName = identity.bleName
+    ? canonicalizeBleNameForDevice(identity.bleName, identity.deviceType)
+    : undefined;
   const defaultName = identity.deviceType
     ? getDefaultDeviceLabel(identity.deviceType)
     : undefined;
   return (
+    (preferBleName ? bleName : undefined) ||
     identity.label ||
-    (identity.bleName
-      ? canonicalizeBleNameForDevice(identity.bleName, identity.deviceType)
-      : undefined) ||
+    bleName ||
     defaultName ||
     identity.model ||
     'OneKey'

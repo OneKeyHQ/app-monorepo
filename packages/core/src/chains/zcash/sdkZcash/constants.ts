@@ -47,7 +47,6 @@ export const ZCASH_POOL_NAME_BY_ID: Record<string, string> = {
 // zatoshi per ZEC (10^8), decimals mirror presetNetworks.
 export const ZCASH_DECIMALS = 8;
 
-// Sapling activation, Zcash mainnet -- the earliest height any shielded tx
-// can exist at. Safe birthday floor for a wallet we can't prove is
-// history-free. Not the product scan floor, which starts at Orchard.
+// Sapling activation, Zcash mainnet. This protocol milestone is separate
+// from the product scan floor, which starts at Ironwood.
 export const ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET = 419_200;

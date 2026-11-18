@@ -1,12 +1,15 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
+  GlassButtonCapsule,
   HeaderIconButton,
   Icon,
+  IconButton,
   InteractiveIcon,
   NavBackButton,
   Page,
@@ -23,6 +26,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -32,11 +36,14 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import {
   MarketStarV2,
@@ -44,7 +51,10 @@ import {
 } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { getTokenAgeLabel } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
-import { buildMarketFullUrlV2 } from '../../../marketUtils';
+import {
+  buildMarketFullUrlV2,
+  buildMarketStockFullUrlV2,
+} from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
@@ -81,34 +91,81 @@ function AddressLineSkeleton() {
 export function MarketDetailHeader({
   showFavoriteButton = true,
   marketTokenCategory,
+  pendingMarketAsset,
+  routeTokenPreview,
 }: {
   showFavoriteButton?: boolean;
   marketTokenCategory?: string;
+  pendingMarketAsset?: IMarketTokenDetailRouteParams['pendingMarketAsset'];
+  routeTokenPreview?: IMarketTokenDetailPreview;
 }) {
   const media = useMedia();
   const intl = useIntl();
-  const { width: windowWidth } = useWindowDimensions();
-  const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const {
+    top: safeAreaTop,
+    left: safeAreaLeft,
+    right: safeAreaRight,
+  } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
   const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, tokenDetailPreview, networkId, isNative, isStockToken } =
-    useMarketDetailHeaderDisplayData();
-  const { stockDetail, stockPreview } = useStockDetail();
+  const {
+    tokenDetail,
+    tokenDetailPreview,
+    tokenAddress,
+    networkId,
+    isNative,
+    isStockToken,
+  } = useMarketDetailHeaderDisplayData();
+  const { stockDetail, stockPreview, isStockRoute } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
-  const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
+  const isInPageHeaderTarget =
+    platformEnv.isNativeIOS26Plus &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone() &&
+    !isOverlayPage;
+  const portraitHeaderGeometryRef = useRef<{
+    width: number;
+    top: number;
+    left: number;
+    right: number;
+  } | null>(null);
+  if (
+    isInPageHeaderTarget &&
+    isFocused &&
+    media.md &&
+    windowWidth <= windowHeight &&
+    safeAreaTop > 0
+  ) {
+    portraitHeaderGeometryRef.current = {
+      width: windowWidth,
+      top: safeAreaTop,
+      left: safeAreaLeft,
+      right: safeAreaRight,
+    };
+  }
+  const inPageHeaderGeometry = isInPageHeaderTarget
+    ? portraitHeaderGeometryRef.current
+    : null;
+  const isCompactDetailLayout =
+    !media.gtLg &&
+    (platformEnv.isWeb || (!platformEnv.isNative && isStockRoute));
   // DApp mode hides the sidebar above md, so this header owns global navigation.
   const showDappHeaderAboveDetail =
-    platformEnv.isWebDappMode && media.gtMd && isMobileWebLayout;
+    platformEnv.isWebDappMode && media.gtMd && isCompactDetailLayout;
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
   const useListingStockHeader = Boolean(
-    (platformEnv.isNative || isMobileWebLayout) && isStockToken,
+    !pendingMarketAsset &&
+    (platformEnv.isNative || isCompactDetailLayout) &&
+    isStockToken,
   );
   const detailKind = resolveMarketMobileDetailKind({
-    isStockToken,
+    isStockToken: !pendingMarketAsset && isStockToken,
     marketTokenCategory,
   });
   let headerSubtitle: string | undefined;
@@ -116,7 +173,11 @@ export function MarketDetailHeader({
     headerSubtitle =
       stockDetail?.name || stockPreview?.name || tokenDetail?.stock?.subtitle;
   } else if (detailKind === 'topCoin') {
-    headerSubtitle = tokenDetail?.name;
+    headerSubtitle =
+      pendingMarketAsset?.name ??
+      pendingMarketAsset?.symbol ??
+      tokenDetail?.name ??
+      routeTokenPreview?.name;
   }
   const firstTradeTime =
     tokenDetail?.firstTradeTime ?? tokenDetailPreview?.firstTradeTime;
@@ -125,9 +186,8 @@ export function MarketDetailHeader({
     (typeof firstTradeTime === 'string' || typeof firstTradeTime === 'number')
       ? getTokenAgeLabel(intl, Number(firstTradeTime))
       : undefined;
-  const headerNetworkLogoUri = useListingStockHeader
-    ? undefined
-    : networkLogoUri;
+  const headerNetworkLogoUri =
+    useListingStockHeader || pendingMarketAsset ? undefined : networkLogoUri;
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.MarketModal, {
@@ -164,13 +224,28 @@ export function MarketDetailHeader({
     stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
   }
   const stableLogoUrls = stableLogoUrlsRef.current;
+  const previewLogoUrl =
+    pendingMarketAsset?.logoUrl ?? routeTokenPreview?.tokenImageUri;
+  const previewLogoUrls = useMemo(
+    () => (previewLogoUrl ? [previewLogoUrl] : undefined),
+    [previewLogoUrl],
+  );
   const headerIdentity = resolveMarketDetailHeaderIdentity({
     isStockToken: useListingStockHeader,
     stockSymbol: stockDetail?.symbol || stockPreview?.symbol,
     stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
-    tokenSymbol: tokenDetail?.symbol,
-    tokenLogoUrl: tokenDetail?.logoUrl,
-    tokenLogoUrls: stableLogoUrls,
+    tokenSymbol:
+      pendingMarketAsset?.symbol ??
+      tokenDetail?.symbol ??
+      routeTokenPreview?.symbol,
+    tokenLogoUrl: pendingMarketAsset
+      ? pendingMarketAsset.logoUrl
+      : (tokenDetail?.logoUrl ?? routeTokenPreview?.tokenImageUri),
+    tokenLogoUrls: pendingMarketAsset
+      ? previewLogoUrls
+      : (stableLogoUrls ??
+        routeTokenPreview?.tokenImageUris ??
+        previewLogoUrls),
   });
 
   const customHeaderLeft = useMemo(
@@ -190,16 +265,19 @@ export function MarketDetailHeader({
   // Reserve the bar margins, back/action capsules, and the title's side gaps.
   // Custom bar items resist native compression, so constrain long identities
   // before UIKit lays out the left and right item groups.
-  const nativeHeaderTitleMaxWidth = Math.max(
-    0,
-    windowWidth -
-      safeAreaLeft -
-      safeAreaRight -
-      40 -
-      44 -
-      (showFavoriteButton ? 100 : 44) -
-      32,
-  );
+  const isTitleInLeftItem = isFoldableIPhone();
+  const nativeHeaderTitleMaxWidth = isTitleInLeftItem
+    ? FOLDABLE_IPHONE_TITLE_ITEM_WIDTH
+    : Math.max(
+        0,
+        (inPageHeaderGeometry?.width ?? windowWidth) -
+          (inPageHeaderGeometry?.left ?? safeAreaLeft) -
+          (inPageHeaderGeometry?.right ?? safeAreaRight) -
+          40 -
+          44 -
+          (showFavoriteButton ? 100 : 44) -
+          32,
+      );
 
   const renderNativeHeaderTitle = useCallback(
     () => (
@@ -359,23 +437,35 @@ export function MarketDetailHeader({
     chainId: networkId ?? '',
     contractAddress: tokenDetail?.address ?? '',
     from: EWatchlistFrom.Detail,
-    tokenSymbol: tokenDetail?.symbol ?? '',
+    tokenSymbol: headerIdentity.symbol,
     isNative,
   });
 
   const { shareText } = useShare();
+  const shareAddress = isStockToken
+    ? (tokenDetail?.address ?? '')
+    : tokenAddress;
+  const canShare = Boolean(
+    !pendingMarketAsset &&
+    (listingStockId ||
+      (networkId && (isStockToken || isNative || shareAddress))),
+  );
 
   const handleShareNative = useCallback(() => {
-    if (!networkId) return;
+    if (listingStockId) {
+      void shareText(buildMarketStockFullUrlV2({ stockId: listingStockId }));
+      return;
+    }
+    if (!networkId || !canShare) return;
     const shortCode =
       networkUtils.getNetworkShortCode({ networkId }) || networkId;
     const url = buildMarketFullUrlV2({
       network: shortCode,
-      address: tokenDetail?.address ?? '',
+      address: shareAddress ?? '',
       isNative,
     });
     void shareText(url);
-  }, [networkId, tokenDetail?.address, isNative, shareText]);
+  }, [listingStockId, canShare, networkId, shareAddress, isNative, shareText]);
 
   const handleStarNative = useCallback(() => {
     void onStarPress();
@@ -394,10 +484,20 @@ export function MarketDetailHeader({
           ]
         : []),
       glassBarItem(
-        <HeaderIconButton icon="ShareOutline" onPress={handleShareNative} />,
+        <HeaderIconButton
+          icon="ShareOutline"
+          onPress={handleShareNative}
+          disabled={!canShare}
+        />,
       ),
     ],
-    [showFavoriteButton, starChecked, handleStarNative, handleShareNative],
+    [
+      showFavoriteButton,
+      starChecked,
+      handleStarNative,
+      handleShareNative,
+      canShare,
+    ],
   );
 
   // Drive the back button through useMarketDetailBackNavigation so the
@@ -417,9 +517,68 @@ export function MarketDetailHeader({
         identifier: 'market-detail-back',
         onPress: handleBackPress,
       },
+      ...(isTitleInLeftItem
+        ? [
+            {
+              type: 'custom' as const,
+              element: renderNativeHeaderTitle(),
+              hidesSharedBackground: true,
+            },
+          ]
+        : []),
     ],
-    [handleBackPress, intl],
+    [handleBackPress, intl, isTitleInLeftItem, renderNativeHeaderTitle],
   );
+
+  if (inPageHeaderGeometry) {
+    return (
+      <>
+        <Page.Header headerShown={false} />
+        <XStack
+          testID="market-detail-in-page-header"
+          alignItems="center"
+          width={inPageHeaderGeometry.width}
+          px="$4"
+          pt={inPageHeaderGeometry.top}
+          pb={10}
+          gap="$3"
+        >
+          <GlassButtonCapsule circular>
+            <NavBackButton
+              onPress={handleBackPress}
+              borderWidth={0}
+              hitSlop={4}
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.global_back,
+              })}
+            />
+          </GlassButtonCapsule>
+          <XStack flex={1} minWidth={0}>
+            {renderNativeHeaderTitle()}
+          </XStack>
+          <GlassButtonCapsule circular={!showFavoriteButton}>
+            <XStack alignItems="center" gap="$4">
+              {showFavoriteButton ? (
+                <HeaderIconButton
+                  icon={starChecked ? 'StarSolid' : 'StarOutline'}
+                  onPress={handleStarNative}
+                  borderWidth={0}
+                  hitSlop={4}
+                />
+              ) : null}
+              <HeaderIconButton
+                icon="ShareOutline"
+                onPress={handleShareNative}
+                disabled={!canShare}
+                borderWidth={0}
+                hitSlop={4}
+              />
+            </XStack>
+          </GlassButtonCapsule>
+        </XStack>
+      </>
+    );
+  }
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
     // Explicit headerShown is required because this route can also be
@@ -432,7 +591,7 @@ export function MarketDetailHeader({
         // A fixed-width titleView avoids the initial intrinsic-size growth that
         // previously let long identities overlap the bar items. Keeping it in
         // the native title slot also avoids a custom left-item snapshot on pop.
-        headerTitle={renderNativeHeaderTitle}
+        headerTitle={isTitleInLeftItem ? '' : renderNativeHeaderTitle}
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
@@ -452,13 +611,14 @@ export function MarketDetailHeader({
   return (
     <>
       {showDappHeaderAboveDetail ? tabPageHeader : null}
-      {media.md || isMobileWebLayout ? (
+      {media.md || isCompactDetailLayout ? (
         <TabPageHeaderContainer
           hideNavigationHeader={!showDappHeaderAboveDetail}
         >
           <NavBackButton onPress={handleBackPress} />
+          {platformEnv.isNativeIOS ? null : <XStack w="$3" flexShrink={0} />}
 
-          {platformEnv.isNative || isMobileWebLayout ? (
+          {platformEnv.isNative || isCompactDetailLayout ? (
             renderNativeHeaderTitle()
           ) : (
             <XStack flex={1} ai="center" gap="$2">
@@ -539,8 +699,11 @@ export function MarketDetailHeader({
             </XStack>
           )}
 
-          {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
-            <XStack gap={isMobileWebLayout ? '$6' : '$3'} ai="center">
+          {networkId ||
+          listingIdentity.assetId ||
+          listingIdentity.stockId ||
+          pendingMarketAsset ? (
+            <XStack gap={isCompactDetailLayout ? '$6' : '$3'} ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
                   {...listingIdentity}
@@ -548,17 +711,29 @@ export function MarketDetailHeader({
                   contractAddress={tokenDetail?.address ?? ''}
                   size="large"
                   from={EWatchlistFrom.Detail}
-                  tokenSymbol={tokenDetail?.symbol ?? ''}
+                  tokenSymbol={headerIdentity.symbol}
                   isNative={isNative}
                 />
               ) : null}
-              <ShareButton
-                networkId={networkId}
-                address={tokenDetail?.address ?? ''}
-                isNative={isNative}
-                useIconButton
-                size="large"
-              />
+              {canShare && (
+                <ShareButton
+                  stockId={listingStockId}
+                  networkId={networkId}
+                  address={shareAddress ?? ''}
+                  isNative={isNative}
+                  useIconButton
+                  size="large"
+                />
+              )}
+              {pendingMarketAsset ? (
+                <IconButton
+                  testID="market-url-icon-btn"
+                  icon="ShareOutline"
+                  variant="tertiary"
+                  size="large"
+                  disabled
+                />
+              ) : null}
             </XStack>
           ) : null}
         </TabPageHeaderContainer>

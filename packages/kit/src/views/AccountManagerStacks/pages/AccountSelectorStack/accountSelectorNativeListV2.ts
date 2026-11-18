@@ -25,6 +25,7 @@ import type {
   ImageSource,
   LeadingVisual,
   NativeListTheme,
+  VisualOverlay,
 } from '@onekeyfe/react-native-native-list';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -286,23 +287,43 @@ export function accountSelectorAccountVisualV2({
       tintColor: theme.secondaryText,
     },
     overlays: network
-      ? [
-          {
-            position: 'bottomRight',
-            size: 20,
-            padding: 2,
-            offset: 4,
-            backgroundColor: theme.rowBackground,
-            image:
-              !network.isCustomNetwork &&
-              !network.isAllNetworks &&
-              network.logoURI
-                ? accountSelectorRemoteImageV2(network.logoURI, 16)
-                : undefined,
-            text: network.isCustomNetwork ? network.name?.[0] : undefined,
-            name: network.isAllNetworks ? 'AllNetworksSolid' : undefined,
-          },
-        ]
+      ? [accountSelectorNetworkBadgeOverlayV2({ network, theme })]
       : undefined,
+  };
+}
+
+// The badge must never be an empty disc: a logo that fails to load (OK-66073,
+// the evm--20250217 (XP) network) or a network without one falls back to the globe glyph, the
+// same fallback the network and token selectors draw.
+function accountSelectorNetworkBadgeOverlayV2({
+  network,
+  theme,
+}: {
+  network: NonNullable<
+    Parameters<typeof accountSelectorAccountVisualV2>[0]['network']
+  >;
+  theme: NativeListTheme;
+}): VisualOverlay {
+  const base = {
+    position: 'bottomRight' as const,
+    size: 20,
+    padding: 2,
+    offset: 4,
+    backgroundColor: theme.rowBackground,
+  };
+  if (network.isAllNetworks) {
+    return { ...base, name: 'AllNetworksSolid' };
+  }
+  if (network.isCustomNetwork) {
+    return { ...base, text: network.name?.[0] };
+  }
+  const globe = { name: 'GlobusOutline', tintColor: theme.iconSubdued };
+  if (!network.logoURI) {
+    return { ...base, ...globe };
+  }
+  return {
+    ...base,
+    image: accountSelectorRemoteImageV2(network.logoURI, 16),
+    fallbackIcon: globe,
   };
 }

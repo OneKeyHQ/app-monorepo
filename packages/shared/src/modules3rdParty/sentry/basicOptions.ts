@@ -253,6 +253,7 @@ export const buildSentryReleaseName = () =>
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
+  'SniRequestCancelledError',
   EOneKeyErrorClassNames.OneKeyError,
   EOneKeyErrorClassNames.OneKeyLocalError,
   EOneKeyErrorClassNames.OneKeyHardwareError,
@@ -269,6 +270,32 @@ const FILTERED_ERROR_TYPES = new Set([
   EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
+const isFilteredOriginalException = (originalException: unknown): boolean => {
+  let current: unknown = originalException;
+  for (let depth = 0; depth < 4 && current; depth += 1) {
+    if (typeof current !== 'object') {
+      break;
+    }
+    const candidate = current as {
+      className?: unknown;
+      name?: unknown;
+      code?: unknown;
+      cause?: unknown;
+    };
+    if (
+      (typeof candidate.className === 'string' &&
+        FILTERED_ERROR_TYPES.has(candidate.className)) ||
+      (typeof candidate.name === 'string' &&
+        FILTERED_ERROR_TYPES.has(candidate.name)) ||
+      candidate.code === 'SNI_CANCELLED'
+    ) {
+      return true;
+    }
+    current = candidate.cause;
+  }
+  return false;
+};
+
 const FILTER_ERROR_VALUES = new Set([
   'AbortError: AbortError',
   'cancel timeout',
@@ -282,6 +309,12 @@ const isFilterErrorAndSkipSentry = (error?: {
     return false;
   }
   if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
+    return true;
+  }
+  if (
+    error.type === 'CanceledError' &&
+    error.value === 'Home token request superseded'
+  ) {
     return true;
   }
 
@@ -319,7 +352,9 @@ const isFilterErrorAndSkipSentry = (error?: {
 export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
   event: T,
   onError: ISentrySanitizationErrorHandler,
+  hint?: { originalException?: unknown },
 ): T | null => {
+  const shouldSkipSentry = isFilteredOriginalException(hint?.originalException);
   if (Array.isArray(event.exception?.values)) {
     for (let index = 0; index < event.exception.values.length; index += 1) {
       const exceptionValue = event.exception.values[index];
@@ -356,6 +391,9 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
       }
     }
   }
+  if (shouldSkipSentry) {
+    return null;
+  }
   // Filter out duplicate error messages
   if (Array.isArray(event.breadcrumbs)) {
     event.breadcrumbs = event.breadcrumbs.filter(
@@ -381,7 +419,7 @@ export const buildBasicOptions = ({
     // zeroing the sample rate alone does NOT stop span creation.
     tracesSampleRate: 0,
     profilesSampleRate: 0,
-    beforeSend: (event, _hint) => sanitizeSentryEvent(event, onError),
+    beforeSend: (event, hint) => sanitizeSentryEvent(event, onError, hint),
   }) satisfies BrowserOptions;
 
 type ISentryTransportBuilder = Pick<

@@ -10,6 +10,7 @@ import { openWebView as openWebViewOverlay } from '@onekeyhq/kit/src/views/WebVi
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -21,6 +22,7 @@ import {
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { handleDeepLinkUrl } from '..';
+import { handleMarketWidgetLink } from '../marketWidgetLink';
 import {
   handleReferralLandingUrl,
   navigateToReferralLanding,
@@ -39,7 +41,13 @@ jest.mock('expo-linking', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
+  // presetNetworks (reached through earnUtils) wraps its lists in memoFn
+  memoFn: (fn: unknown) => fn,
   memoizee: (fn: unknown) => fn,
+}));
+
+jest.mock('../marketWidgetLink', () => ({
+  handleMarketWidgetLink: jest.fn(async () => undefined),
 }));
 
 jest.mock(
@@ -150,6 +158,70 @@ describe('handleDeepLinkUrl', () => {
     jest.clearAllMocks();
   });
 
+  it('routes a widget editor link through the same unlock and request guard', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget_config?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+      });
+      await flushAsyncTasks();
+      expect(handleMarketWidgetLink).toHaveBeenCalledWith({
+        target: {
+          kind: 'editor',
+          profileId: '4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+        },
+        shouldContinue: expect.any(Function),
+      });
+      const [{ shouldContinue }] = jest.mocked(handleMarketWidgetLink).mock
+        .calls[0];
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget?assetId=bitcoin',
+      });
+      expect(shouldContinue()).toBe(false);
+      await flushAsyncTasks();
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
+  });
+
+  it('routes native widget links to their typed handler before legacy parsing', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget?assetId=bitcoin',
+      });
+      await flushAsyncTasks();
+      expect(handleMarketWidgetLink).toHaveBeenCalledWith({
+        target: { kind: 'asset', assetId: 'bitcoin' },
+        shouldContinue: expect.any(Function),
+      });
+      const [{ shouldContinue }] = jest.mocked(handleMarketWidgetLink).mock
+        .calls[0];
+      expect(shouldContinue()).toBe(true);
+      handleDeepLinkUrl({ url: 'https://app.onekey.so/market' });
+      expect(shouldContinue()).toBe(false);
+      await flushAsyncTasks();
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
+  });
+
+  it('ignores duplicate widget identity parameters instead of accepting the last value', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget?assetId=bitcoin&assetId=ethereum',
+      });
+      await flushAsyncTasks();
+      expect(handleMarketWidgetLink).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
+  });
+
   it('routes invited_by_friend app deep links through the referral request guard immediately', async () => {
     handleDeepLinkUrl({
       url: 'onekey-wallet://invited_by_friend?code=OLD&page=perps',
@@ -188,6 +260,82 @@ describe('handleDeepLinkUrl', () => {
     await flushAsyncTasks();
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+
+  it('rejects deep links containing unsafe characters across all platforms', async () => {
+    const unsafeUrls = [
+      'onekey-wallet://invited_by_friend?code=VALID" --switch',
+      'onekey-wallet://invited_by_friend?code=VALID with space',
+      'onekey-wallet://invited_by_friend?code=VALID\u0000null',
+      'onekey-wallet://invited_by_friend?code=VALID\r\ninject',
+    ];
+    for (const url of unsafeUrls) {
+      handleDeepLinkUrl({ url });
+    }
+    await flushAsyncTasks();
+
+    expect(mockedHandleReferralLandingUrl).not.toHaveBeenCalled();
+    expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'onekey-wallet://wc?uri=https%3A%2F%2Fevil.example',
+    'onekey-wallet://wc?uri=wc%3A123%402%22--inject',
+    'onekey-wallet://wc?uri=wc%3A123%402%20space',
+  ])(
+    'rejects WalletConnect deep links with non-wc scheme or decoded unsafe characters in uri: %s',
+    async (url) => {
+      const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+      appGlobals.$rootAppNavigation = {
+        navigate: jest.fn(),
+      } as unknown as typeof appGlobals.$rootAppNavigation;
+      try {
+        const { connectWalletConnectToDapp } = jest.requireMock(
+          '../../../../components/WalletConnect/connectWalletConnectToDapp',
+        ) as { connectWalletConnectToDapp: jest.Mock };
+        handleDeepLinkUrl({ url });
+        await flushAsyncTasks();
+        await flushAsyncTasks();
+
+        expect(connectWalletConnectToDapp).not.toHaveBeenCalled();
+      } finally {
+        appGlobals.$rootAppNavigation = originalRootAppNavigation;
+      }
+    },
+  );
+
+  it('does not log raw deep-link URLs or query parameters such as symKey to console or UTM analytics', async () => {
+    const consoleLogSpy = jest
+      .spyOn(console, 'log')
+      .mockImplementation(() => {});
+    const utmReportSpy = jest
+      .spyOn(defaultLogger.app.router, 'utmParamsCaptured')
+      .mockImplementation((params) => params);
+    const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+    appGlobals.$rootAppNavigation = {
+      navigate: jest.fn(),
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    try {
+      // oxlint-disable-next-line @cspell/spellchecker
+      const wcLink =
+        'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKeyDevLog123&utm_source=dapp';
+      handleDeepLinkUrl({ url: wcLink });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(
+        'secretSymKeyDevLog123',
+      );
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(
+        'eb16df1f-1d3b-4018-9d18-28ef610cc1a4',
+      );
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(wcLink);
+      expect(utmReportSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleLogSpy.mockRestore();
+      utmReportSpy.mockRestore();
+      appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    }
   });
 });
 
@@ -548,6 +696,50 @@ describe('stocks / perps universal links', () => {
         symbol: 'USDT',
         provider: 'spark',
         vault: '0xe2e7a17dff93280dec073c995595155283e3c372',
+      },
+    );
+  });
+
+  it('carries campaign attribution from the earn universal link', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/earn/bsc/USDT/unitas?vault=0xe9e8573bb351da16c6ee7ddac0cbc70b7f9784ae&utm_source=twitter&utm_medium=kol&utm_campaign=unitas_launch_1103',
+    });
+    await flushAsyncTasks();
+
+    expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        network: 'bsc',
+        symbol: 'USDT',
+        provider: 'unitas',
+        vault: '0xe9e8573bb351da16c6ee7ddac0cbc70b7f9784ae',
+        utmSource: 'twitter',
+        utmMedium: 'kol',
+        utmCampaign: 'unitas_launch_1103',
+      },
+    );
+  });
+
+  it('drops malformed campaign params from the earn universal link', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/earn/bsc/USDT/unitas?utm_source=onekey_app&utm_medium=with%20space&utm_campaign=',
+    });
+    await flushAsyncTasks();
+
+    expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        network: 'bsc',
+        symbol: 'USDT',
+        provider: 'unitas',
+        vault: undefined,
+        utmSource: 'onekey_app',
       },
     );
   });

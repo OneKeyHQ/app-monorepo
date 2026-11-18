@@ -104,7 +104,7 @@ export function getQRCodeLogoClearArenaSize({
 }
 
 // The OneKey mark for the middle of a code, as filled shapes: the three
-// shapes of the `Onekey` brand icon (primitives/Icon/react/brand). The icon
+// shapes of the `Onekey` brand icon (svg/brand/onekey.svg). The icon
 // pads its 24-unit grid by one unit a side; `inset` and `size` give the
 // square the mark itself fills, as the bitmap logo does. It is kept as data
 // so the SVG and the canvas renderer both draw it in the same pass as the

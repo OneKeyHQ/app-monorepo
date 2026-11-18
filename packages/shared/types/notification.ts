@@ -265,6 +265,7 @@ export enum ENotificationPushMessageMode {
 export enum ENotificationCommand {
   openRewardDistributionHistoryModal = 'openRewardDistributionHistoryModal',
   openHardwareSalesOrder = 'openHardwareSalesOrder',
+  openSupportConversation = 'openSupportConversation',
 }
 // /notification/v1/message/ack
 export type INotificationPushMessageAckParams = {

@@ -12,7 +12,6 @@ import {
   deriveAccountKeys,
   deriveTransparentXpubFromUfvk,
   finalizeTransparentHardwarePczt,
-  getChainTip,
   getTransactionPolicy,
   inspectTransaction,
   parseTransparentTransactions,
@@ -448,35 +447,6 @@ describe('deriveTransparentXpubFromUfvk', () => {
         hdIndex: 0,
       }),
     ).rejects.toThrow('account key length');
-  });
-});
-
-describe('getChainTip', () => {
-  beforeEach(() => {
-    mockChainTipAt.mockReset();
-  });
-
-  it('uses an isolated endpoint client', async () => {
-    mockChainTipAt.mockResolvedValue(3_500_000);
-
-    await expect(
-      getChainTip({
-        network: 'main',
-        lightwalletdUrl: 'https://lightwalletd.example',
-      }),
-    ).resolves.toBe(3_500_000);
-    expect(mockChainTipAt).toHaveBeenCalledWith('https://lightwalletd.example');
-  });
-
-  it('keeps the nullable probe contract on network failure', async () => {
-    mockChainTipAt.mockRejectedValue(new Error('offline'));
-
-    await expect(
-      getChainTip({
-        network: 'main',
-        lightwalletdUrl: 'https://lightwalletd.example',
-      }),
-    ).resolves.toBeNull();
   });
 });
 

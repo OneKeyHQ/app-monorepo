@@ -1,7 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyErrorI18nInfo } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { isKnownTranslationKey } from '@onekeyhq/shared/src/locale';
+import { isKnownTranslationKey } from '@onekeyhq/shared/src/locale/translationKeys';
 import type { IDustSweepReason } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapErrorMessage } from '@onekeyhq/shared/types/swap/types';
 

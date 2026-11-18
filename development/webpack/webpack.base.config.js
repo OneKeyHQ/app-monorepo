@@ -9,6 +9,10 @@ const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
 const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData');
+const {
+  iconAssetsAlias,
+  OneKeyIconAssetsPlugin,
+} = require('../onekey-icons/build');
 const { resolveCommitSha } = require('../utils/resolveCommitSha');
 
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
@@ -59,6 +63,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
   extensions: createResolveExtensions({ platform, configName }),
   symlinks: true,
   alias: {
+    ...iconAssetsAlias,
     'react-native$': 'react-native-web',
     'react-native-aes-crypto': false,
     'react-native-cloud-fs': false,
@@ -211,6 +216,7 @@ module.exports = ({ platform, basePath, configName }) => {
         : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
+      new OneKeyIconAssetsPlugin(),
       new HtmlWebpackPlugin({
         title: platform,
         minify: !isDev,
@@ -335,6 +341,30 @@ module.exports = ({ platform, basePath, configName }) => {
               type: 'webassembly/async',
             },
             {
+              // External <use> cannot resolve small SVGs inlined as data URLs.
+              test: /\.svg$/,
+              include:
+                /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
+              type: 'asset/resource',
+              generator: {
+                filename: 'static/onekey-icons/[name].[contenthash:8][ext]',
+              },
+            },
+            {
+              // This generated resource module needs native import.meta for URL assets.
+              test: /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assetUrls\.ts$/,
+              use: {
+                loader: 'babel-loader',
+                options: {
+                  ...babelLoaderOption,
+                  configFile: false,
+                  plugins: [
+                    require.resolve('@babel/plugin-transform-typescript'),
+                  ],
+                },
+              },
+            },
+            {
               test: [/\.avif$/],
               type: 'asset',
               mimetype: 'image/avif',
@@ -353,6 +383,8 @@ module.exports = ({ platform, basePath, configName }) => {
                 /\.svg$/,
                 /\.webp$/,
               ],
+              exclude:
+                /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
               type: 'asset',
               parser: { dataUrlCondition: { maxSize: 1000 } },
             },

@@ -63,6 +63,8 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
         rows: {
           key: string;
           title: string;
+          height?: number;
+          heightRounding?: string;
           subtitle?: string;
           disabled?: boolean;
           trailing?: { kind: string; primary?: string; secondary?: string }[];
@@ -87,6 +89,8 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
                 {
                   key: row.key,
                   'data-testid': 'list-item',
+                  'data-height': row.height,
+                  'data-height-rounding': row.heightRounding,
                   'data-balance': row.trailing?.find(
                     (item) => item.kind === 'valuePair',
                   )?.primary,
@@ -597,6 +601,12 @@ describe('AggregateTokenSelector', () => {
     expect(row('Arbitrum').getAttribute('data-balance')).toBe('414');
     expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('$0.41');
     expect(row('Ethereum').getAttribute('data-balance')).toBeNull();
+    // Explicit heights opt out of Android's legacy sub-400dp 0.9 row scale,
+    // which clipped unscaled text metrics (OK-66072).
+    expect(row('Arbitrum').getAttribute('data-height')).toBe('60');
+    expect(row('Arbitrum').getAttribute('data-height-rounding')).toBe(
+      'nearest',
+    );
   });
 
   it('preserves an empty balance and unavailable fiat value', async () => {

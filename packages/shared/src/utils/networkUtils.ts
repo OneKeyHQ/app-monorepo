@@ -18,6 +18,8 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_SOL,
   IMPL_TRON,
+  IMPL_XMR,
+  IMPL_ZCASH,
   SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
@@ -55,6 +57,12 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
 
 function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
   return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
+}
+
+// Chains whose vault settings declare `localWallet`, known before those
+// settings load; a kit-bg test keeps the two in step.
+function isLocalWalletNetwork({ networkId }: { networkId: string }) {
+  return [IMPL_ZCASH, IMPL_XMR].includes(getNetworkImpl({ networkId }));
 }
 
 function isTronNetworkByNetworkId(networkId?: string) {
@@ -375,6 +383,7 @@ export default {
   isLightningNetworkByNetworkId,
   isSolanaNetworkByNetworkId,
   isTronNetworkByNetworkId,
+  isLocalWalletNetwork,
   isBTCNetwork,
   isBTCMainnet,
   getBtcDappNetworkName,

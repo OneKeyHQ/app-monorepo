@@ -17,6 +17,9 @@ export const LOCAL_WALLET_SYNC_TIMEOUT_MESSAGE =
 export const LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE =
   'privacy-chain: chain tip request timed out';
 
+export const LOCAL_WALLET_CHAIN_TIP_FAILED_MESSAGE =
+  'privacy-chain: chain tip request failed';
+
 // The mobile bridge to the web-embed WebView gave up on a runtime call.
 const WEBEMBED_CALL_TIMEOUT_MESSAGE = 'WebEmbed bridge call timeout';
 
@@ -33,17 +36,6 @@ export function isLocalWalletSlotsFullError(error: unknown): boolean {
     error !== null &&
     (error as { key?: unknown }).key ===
       ETranslations.privacy_slots_delete__desc
-  );
-}
-
-// The account's viewing key is missing or names another key than its meta;
-// Retry setup derives it again.
-export function isLocalWalletSetupIncompleteError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { key?: unknown }).key ===
-      ETranslations.privacy_error_setup_incomplete__msg
   );
 }
 
@@ -135,7 +127,8 @@ export function getLocalWalletSyncErrorKind(
   }
   if (
     readLocalWalletErrorCode(error) === 'NETWORK_ERROR' ||
-    readErrorMessage(error).includes(LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE)
+    readErrorMessage(error).includes(LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE) ||
+    readErrorMessage(error).includes(LOCAL_WALLET_CHAIN_TIP_FAILED_MESSAGE)
   ) {
     return 'nodeUnreachable';
   }

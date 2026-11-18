@@ -119,17 +119,16 @@ describe('ServiceHistory cached history address gate', () => {
     jest.mocked(getLocalWalletHistoryAddressGate).mockClear();
   });
 
-  it('hides an own address the Receive page does not show', async () => {
+  // A transparent change address of ours shows as it is, as on BTC.
+  it('shows our transparent change address the Receive page does not show', async () => {
     const { service } = createService([cachedRow(ZEC, 'z1', 'zec-account')]);
     const [tx] = await service.getAccountsLocalHistoryTxs({
       accountId: 'zec-account',
       networkId: ZEC,
     });
-    expect(JSON.stringify(tx)).not.toContain(LEGACY_CHANGE);
     expect(sendsOf(tx)?.[0]).toMatchObject({
-      from: '',
+      from: LEGACY_CHANGE,
       isOwn: true,
-      shieldedFrom: { poolId: 0, isOwn: true },
     });
     expect(receivesOf(tx)?.[1]).toMatchObject({ to: OWN });
   });
@@ -189,7 +188,10 @@ describe('ServiceHistory cached history address gate', () => {
     ]);
     expect(txs.find((tx) => tx.decodedTx.txid === 'b1')).toBe(btc);
     const zecRows = txs.filter((tx) => tx.decodedTx.networkId === ZEC);
-    expect(JSON.stringify(zecRows)).not.toContain(LEGACY_CHANGE);
+    // The account whose gate failed hides every own address; the other shows its change.
+    expect(
+      zecRows.filter((tx) => JSON.stringify(tx).includes(LEGACY_CHANGE)),
+    ).toHaveLength(1);
     expect(getLocalWalletHistoryAddressGate).toHaveBeenCalledTimes(2);
   });
 });

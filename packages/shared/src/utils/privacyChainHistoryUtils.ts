@@ -157,6 +157,59 @@ export function projectPrivacyChainHistoryTxToPool({
   };
 }
 
+export type IPrivacyChainHistorySideRow = {
+  tx: IAccountHistoryTx;
+  // The side's pool, set only on a row split from a tx touching both sides.
+  poolId?: number;
+  // The history id the private side's row was split from.
+  sourceId?: string;
+};
+
+// A move between the public and private sides lists once per side, as BTC
+// lists a move between two of the account's address types.
+export function splitPrivacyChainHistoryTxsBySide(
+  txs: IAccountHistoryTx[],
+): IPrivacyChainHistorySideRow[] {
+  return txs.flatMap((tx): IPrivacyChainHistorySideRow[] => {
+    const poolIds = tx.privacyChainHistoryPoolIds ?? [];
+    if (!poolIds.includes(PRIVACY_CHAIN_PUBLIC_POOL_ID)) {
+      return [{ tx }];
+    }
+    // Pool codes are upstream's and grow with each newer pool; the newest one with a delta is the
+    // private pool the app shows (Zcash: Ironwood over Orchard and Sapling).
+    const privatePoolIds = poolIds.filter(
+      (poolId) =>
+        poolId !== PRIVACY_CHAIN_PUBLIC_POOL_ID &&
+        tx.privacyChainHistoryPoolDeltas?.[String(poolId)] !== undefined,
+    );
+    if (!privatePoolIds.length) {
+      return [{ tx }];
+    }
+    const privatePoolId = Math.max(...privatePoolIds);
+    const privateTx = projectPrivacyChainHistoryTxToPool({
+      tx,
+      selectedPoolId: privatePoolId,
+    });
+    if (privateTx === tx) {
+      return [{ tx }];
+    }
+    return [
+      {
+        tx: projectPrivacyChainHistoryTxToPool({
+          tx,
+          selectedPoolId: PRIVACY_CHAIN_PUBLIC_POOL_ID,
+        }),
+        poolId: PRIVACY_CHAIN_PUBLIC_POOL_ID,
+      },
+      {
+        tx: { ...privateTx, id: `${tx.id}:${privatePoolId}` },
+        poolId: privatePoolId,
+        sourceId: tx.id,
+      },
+    ];
+  });
+}
+
 // The indexer owns the public half outright; drops the row if nothing shielded remains after stripping it.
 function stripPublicPool<T extends IPrivacyChainMergeableTx>(tx: T): T | null {
   const poolIds = (tx.privacyChainHistoryPoolIds ?? []).filter(

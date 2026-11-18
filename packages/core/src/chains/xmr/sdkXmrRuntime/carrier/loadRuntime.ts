@@ -3,9 +3,8 @@
 import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
-import { readXmrRuntimeError, setXmrRuntimeApiLoader } from '..';
-import { setXmrRuntimeLoader } from '../address';
 import { XMR_RUNTIME_METHODS, coerceXmrU64Args } from '../methods';
+import { readXmrRuntimeError } from '../runtimeError';
 
 import type { IXmrRuntimeApi } from '..';
 
@@ -122,18 +121,4 @@ export async function installXmrHostRequester(
 
 export function xmrStorageRequiresWorkerRestart(): boolean {
   return rawModule?.storageRequiresWorkerRestart() ?? false;
-}
-
-export function installXmrRuntime() {
-  setXmrRuntimeApiLoader(loadXmrRuntime);
-  setXmrRuntimeLoader(async () => {
-    const api = await loadXmrRuntime();
-    return {
-      deriveAccount: api.deriveAccount,
-      deriveSubaddress: api.deriveSubaddress,
-      validateAddress: api.validateAddress,
-      signTransactionWithBip32Key: api.signTransactionWithBip32Key,
-      verifyTransaction: api.verifyTransaction,
-    };
-  });
 }

@@ -22,6 +22,9 @@ import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
+import { useMarketWidgetCopy } from '@onekeyhq/kit/src/views/Market/MarketWidget/useMarketWidgetCopy';
+import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
   useDevSettingsPersistAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -36,7 +39,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
@@ -59,9 +62,11 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
+  AutoDownloadAppUpdateListItem,
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
@@ -217,6 +222,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
+  const languageSearchKeywords = useLanguageSearchKeywords();
+  const marketWidgetCopy = useMarketWidgetCopy();
   const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -410,6 +417,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_language,
               }),
+              keywords: languageSearchKeywords,
               renderElement: <LanguageListItem />,
             },
             {
@@ -436,6 +444,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_vibration_haptic,
                   }),
                   renderElement: <HapticFeedbackListItem />,
+                }
+              : undefined,
+            platformEnv.isNativeIOS && marketWidget.supportsSettingsEditing()
+              ? {
+                  id: 'market-widgets',
+                  icon: 'LayoutDashboardOutline',
+                  title: marketWidgetCopy.marketWidgets,
+                  testID: 'settings-market-widgets',
+                  onPress: (
+                    navigation?: ReturnType<typeof useAppNavigation>,
+                  ) => {
+                    navigation?.pushModal(EModalRoutes.MarketModal, {
+                      screen: EModalMarketRoutes.MarketWidgetList,
+                    });
+                  },
                 }
               : undefined,
           ],
@@ -957,6 +980,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ListVersionItem />,
             },
+            platformEnv.isDesktop && !platformEnv.isDesktopStore
+              ? {
+                  id: 'auto-download-app-update',
+                  icon: 'FileDownloadOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__desc,
+                  }),
+                  renderElement: <AutoDownloadAppUpdateListItem />,
+                }
+              : undefined,
           ],
           [
             {
@@ -1142,6 +1178,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       },
     ];
     const hiddenTravelModeItemIds = new Set([
+      'market-widgets',
       'notifications',
       'onekey-transfer',
       'manual-backup',
@@ -1217,6 +1254,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     });
   }, [
     intl,
+    marketWidgetCopy.marketWidgets,
     cloudBackupFeatureInfo?.supportCloudBackup,
     cloudBackupFeatureInfo?.icon,
     cloudBackupFeatureInfo?.title,
@@ -1236,5 +1274,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     privacyPolicyUrl,
     isPrimeActive,
     isMobileLayout,
+    languageSearchKeywords,
   ]);
 };

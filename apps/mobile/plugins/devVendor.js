@@ -160,7 +160,16 @@ function listShellInputRepoFiles(repoRoot, inputScopes) {
       `[devVendor] Unable to list shell inputs: ${result.stderr || result.error?.message || 'unknown error'}`,
     );
   }
-  return [...new Set(result.stdout.split('\0').filter(Boolean))].toSorted();
+  return [
+    ...new Set(
+      result.stdout
+        .split('\0')
+        .filter(
+          (relativePath) =>
+            relativePath && fs.existsSync(path.join(repoRoot, relativePath)),
+        ),
+    ),
+  ].toSorted();
 }
 
 function getNativePatchInputPaths(
@@ -988,6 +997,13 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   }
   return {
     app: getAppNativeAbiDescriptor(platform, repoRoot),
+    iconResources: hashRepoFiles(
+      listShellInputRepoFiles(repoRoot, [
+        'packages/components/svg',
+        'development/onekey-icons',
+      ]),
+      repoRoot,
+    ),
     dependencies: dependencyNames.map((name) =>
       getNativePackageAbiDescriptor(name, platform, repoRoot),
     ),
@@ -1104,6 +1120,7 @@ function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
       `engine.new-architecture=${descriptor.engine.newArchitecture}`,
       `hermes-bytecode-version=${String(descriptor.hermesBytecodeVersion)}`,
       `app=${stableJsonStringify(descriptor.app)}`,
+      `icon-resources=${descriptor.iconResources}`,
       ...descriptor.dependencies.map(stableJsonStringify),
     ].join('\0'),
   );

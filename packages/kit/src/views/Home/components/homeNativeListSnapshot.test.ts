@@ -11,11 +11,13 @@ import {
   historySectionKey,
   prepareHomeNativeListSnapshot,
 } from './homeNativeListSnapshot';
+import { NFT_WEB_ROW_FILL_THEME } from './NFTListView/nativeNFTRows';
 
 import type {
   ActivityRow,
   MediaTileRow,
   NativeListSnapshot,
+  NativeListTheme,
 } from '@onekeyfe/react-native-native-list';
 
 let mockValidationDevelopmentMode = true;
@@ -187,7 +189,10 @@ describe('Home NativeList snapshot boundaries', () => {
     expect(prepared.rows[1]).toMatchObject({ key: 'normal', title: 'Normal' });
   });
 
-  it('drops a malformed activity while preserving its valid peer', () => {
+  // NativeList 6.7.0-alpha.402 repairs a malformed image descriptor (it
+  // clears the image and keeps the row) instead of rejecting the row, and the
+  // prepared snapshot must carry that repaired row, not the malformed input.
+  it('keeps a malformed activity with its image cleared while preserving its valid peer', () => {
     const snapshot: NativeListSnapshot = {
       schemaVersion: 1,
       generation: 1,
@@ -200,6 +205,27 @@ describe('Home NativeList snapshot boundaries', () => {
             image: { uri: '', width: 40, height: 40 },
           },
         },
+        activity('normal', 'Normal'),
+      ],
+    };
+    const prepared = prepareHomeNativeListSnapshot(snapshot);
+    expect(prepared.rows.map((row) => row.key)).toEqual(['bad', 'normal']);
+    expect(prepared.rows[0]).toMatchObject({ leading: { kind: 'token' } });
+    expect(
+      prepared.rows[0].type === 'activity' &&
+        prepared.rows[0].leading &&
+        'image' in prepared.rows[0].leading,
+    ).toBe(false);
+    expect(() => serializeSnapshot(prepared)).not.toThrow();
+  });
+
+  it('drops a row the validator still rejects while preserving its valid peer', () => {
+    const snapshot: NativeListSnapshot = {
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'sectioned' },
+      rows: [
+        { ...activity('bad', 'Bad'), key: '' },
         activity('normal', 'Normal'),
       ],
     };
@@ -250,6 +276,33 @@ describe('Home NativeList snapshot boundaries', () => {
     expect(prepared.rows.map((row) => row.key)).toEqual(['normal']);
     expect(() => serializeSnapshot(prepared)).not.toThrow();
   });
+
+  it.each([true, false])(
+    'keeps NFT tiles and their clear row fills with development mode %s',
+    (developmentMode) => {
+      mockValidationDevelopmentMode = developmentMode;
+
+      const prepared = prepareHomeNativeListSnapshot({
+        schemaVersion: 1,
+        generation: 1,
+        layout: { kind: 'grid', gridColumns: 2 },
+        theme: NFT_WEB_ROW_FILL_THEME as NativeListTheme,
+        rows: [
+          {
+            key: 'nft',
+            type: 'mediaTile',
+            variant: 'gallery',
+            title: 'NFT',
+            subtitle: 'Collection',
+            imageState: 'error',
+          },
+        ],
+      });
+
+      expect(prepared.rows.map((row) => row.key)).toEqual(['nft']);
+      expect(prepared.theme).toMatchObject(NFT_WEB_ROW_FILL_THEME);
+    },
+  );
 
   it('bounds NFT names and collection names before serializing mixed tiles', () => {
     const longTile: MediaTileRow = {

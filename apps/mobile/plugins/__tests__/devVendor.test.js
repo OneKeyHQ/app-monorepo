@@ -638,6 +638,65 @@ describe('devVendor', () => {
     }
   });
 
+  it('invalidates compatible and exact native shells for canonical icons and their compiler', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      for (const relativePath of [
+        'packages/components/svg/outline/chart-position.svg',
+        'development/onekey-icons/generate-icons.mjs',
+      ]) {
+        const file = path.join(fixture.repoRoot, relativePath);
+        const original = fs.readFileSync(file);
+        const baselines = Object.fromEntries(
+          ['ios', 'android'].map((platform) => {
+            const nativeContractKey = computeNativeContractKey(
+              platform,
+              fixture.repoRoot,
+            );
+            return [
+              platform,
+              {
+                contract: nativeContractKey,
+                compatible: computeShellCompatibilityKey({
+                  platform,
+                  nativeContractKey,
+                }),
+                exact: computeShellInputKey(
+                  {
+                    platform,
+                    nativeContractKey,
+                    webEmbedInputKey: '1'.repeat(64),
+                  },
+                  fixture.repoRoot,
+                ),
+              },
+            ];
+          }),
+        );
+        fs.appendFileSync(file, '\nchanged icon input\n');
+        for (const platform of ['ios', 'android']) {
+          const nativeContractKey = computeNativeContractKey(
+            platform,
+            fixture.repoRoot,
+          );
+          expect(nativeContractKey).not.toBe(baselines[platform].contract);
+          expect(
+            computeShellCompatibilityKey({ platform, nativeContractKey }),
+          ).not.toBe(baselines[platform].compatible);
+          expect(
+            computeShellInputKey(
+              { platform, nativeContractKey, webEmbedInputKey: '1'.repeat(64) },
+              fixture.repoRoot,
+            ),
+          ).not.toBe(baselines[platform].exact);
+        }
+        fs.writeFileSync(file, original);
+      }
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('keeps shell input keys stable for non-ABI shell and web changes', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
@@ -693,6 +752,32 @@ describe('devVendor', () => {
       if (platform === 'ios')
         expect(computeShellInputKey(inputs)).not.toBe(previousInputKey);
       else expect(computeShellInputKey(inputs)).toBe(previousInputKey);
+    }
+  });
+
+  it('excludes a removed tracked native module before it is staged', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      const relativePath =
+        'apps/mobile/ios/OneKeyWallet/RemovedSupportModule.mm';
+      const filePath = path.join(fixture.repoRoot, relativePath);
+      fs.writeFileSync(filePath, 'RCT_EXPORT_MODULE(RemovedSupportModule)\n');
+      const staged = spawnSync('git', ['add', relativePath], {
+        cwd: fixture.repoRoot,
+      });
+      expect(staged.status).toBe(0);
+      expect(getNativeContractInputPaths('ios', fixture.repoRoot)).toContain(
+        relativePath,
+      );
+      fs.unlinkSync(filePath);
+      expect(
+        getNativeContractInputPaths('ios', fixture.repoRoot),
+      ).not.toContain(relativePath);
+      expect(() =>
+        computeNativeContractKey('ios', fixture.repoRoot),
+      ).not.toThrow();
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
     }
   });
 

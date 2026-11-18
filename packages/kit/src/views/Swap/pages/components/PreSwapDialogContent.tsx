@@ -773,6 +773,12 @@ const PreSwapDialogContent = ({
     () => resolveSwapReviewResultStep(swapSteps.steps),
     [swapSteps.steps],
   );
+  const retryFailedApproval =
+    resultStep?.type === ESwapStepType.APPROVE_TX &&
+    resultStep.status === ESwapStepStatus.FAILED &&
+    resultStep.canRetry &&
+    !resultStep.submitResultUnknown &&
+    resultStep !== swapSteps.steps[swapSteps.steps.length - 1];
   const supportSlippageRebuild = Boolean(
     rebuildReviewWithSlippage &&
     preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
@@ -911,7 +917,7 @@ const PreSwapDialogContent = ({
       />
       {showResultContent && resultStep ? (
         <PreSwapConfirmResult
-          onConfirm={onDone}
+          onConfirm={retryFailedApproval ? onConfirm : onDone}
           fromToken={preSwapData?.fromToken}
           supportUrl={quoteResult?.supportUrl}
           lastStep={resultStep}
@@ -930,6 +936,10 @@ const PreSwapDialogContent = ({
             <PreSwapTokenItem
               token={preSwapData?.fromToken}
               amount={fromAmount}
+              strictCurrencyConversion={
+                preSwapData?.strictCurrencyConversion ||
+                preSwapData?.swapType === ESwapTabSwitchType.STOCK
+              }
             />
           </YStack>
           {/* You received */}
@@ -978,6 +988,10 @@ const PreSwapDialogContent = ({
             <PreSwapTokenItem
               token={preSwapData?.toToken}
               amount={toAmount}
+              strictCurrencyConversion={
+                preSwapData?.strictCurrencyConversion ||
+                preSwapData?.swapType === ESwapTabSwitchType.STOCK
+              }
               loading={shouldShowSwapReviewToAmountSkeleton({
                 swapBuildLoading: preSwapData.swapBuildLoading,
                 toTokenAmount: preSwapData.toTokenAmount,

@@ -7,6 +7,7 @@ import {
   Divider,
   ESwitchSize,
   Icon,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
   SegmentControl,
   Select,
   SizableText,
@@ -213,7 +214,8 @@ function LanguageRow() {
         open={open}
         onChange={handleChange}
         onOpenChange={setOpen}
-        floatingPanelProps={SELECT_FLOATING_PANEL_PROPS}
+        searchable
+        floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
         sheetProps={SELECT_SHEET_PROPS}
         placement="bottom-end"
         offset={SELECT_OFFSET}

@@ -216,20 +216,6 @@ export class ZcashPrivacyMode {
         });
       }
     };
-    // An enabled account that only lost its key re-derives it in place: a
-    // failed attempt (e.g. cancelled on the device) must not turn it off.
-    if (
-      state.intent === 'on' &&
-      state.operation === undefined &&
-      existingMeta &&
-      !hasExplicitBirthday &&
-      !needsBirthdayUpdate
-    ) {
-      await retryLocalWalletSetup(
-        (await vaultFactory.getVault({ networkId, accountId })) as VaultZcash,
-      );
-      return;
-    }
     await this.backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable(
       {
         networkId,
@@ -315,6 +301,13 @@ export class ZcashPrivacyMode {
         networkId,
         accountIds: [accountId],
         backfillActive: true,
+        ...(!hasExplicitBirthday &&
+        !forceViewingKeyDerivation &&
+        !needsBirthdayUpdate &&
+        state.intent === 'off' &&
+        state.resumeFromHeight !== undefined
+          ? { change: 'syncState' as const }
+          : {}),
       })
       .catch((error: unknown) => {
         console.error(
@@ -392,6 +385,7 @@ export class ZcashPrivacyMode {
       networkId,
       accountIds: [accountId],
       backfillActive: false,
+      change: 'syncState',
     });
   }
 

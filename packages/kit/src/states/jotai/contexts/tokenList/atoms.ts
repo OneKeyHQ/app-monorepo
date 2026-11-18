@@ -110,6 +110,7 @@ export const {
 } = contextAtom<{
   disabled: boolean;
   visible: boolean;
+  loading?: boolean;
   request?: () => void;
 }>({
   disabled: false,

@@ -34,7 +34,7 @@ export type IUpdateAppRootViewBackground = (
 /**
  * The variant that native UI presented over the app (e.g. the image
  * cropper) should use: a foreground surface's pin when one is up,
- * otherwise the app theme. `undefined` before the app theme resolves,
- * and always off native.
+ * otherwise the app theme. `undefined` before the app theme resolves.
+ * Off native there are no foreground pins, only the app theme.
  */
 export type IGetAppThemeVariant = () => 'light' | 'dark' | undefined;

@@ -11,6 +11,7 @@ jest.mock('@onekeyhq/components', () => ({
   NumberSizeableText: ({ children }: PropsWithChildren) => (
     <span>{children}</span>
   ),
+  SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
   XStack: ({
     children,
     height,
@@ -39,12 +40,16 @@ jest.mock('../../PriceChangeBadge', () => ({
   PriceChangeBadge: () => null,
 }));
 
-const mockIdentityProps = jest.fn<null, [{ stockListingName?: string }]>(
-  () => null,
-);
+const mockIdentityProps = jest.fn<
+  null,
+  [{ stockListingName?: string; showVolume?: boolean; volume?: number }]
+>(() => null);
 jest.mock('./TokenIdentityItem', () => ({
-  TokenIdentityItem: (props: { stockListingName?: string }) =>
-    mockIdentityProps(props),
+  TokenIdentityItem: (props: {
+    stockListingName?: string;
+    showVolume?: boolean;
+    volume?: number;
+  }) => mockIdentityProps(props),
 }));
 
 const listing: IMarketToken = {
@@ -91,6 +96,29 @@ describe('TokenListItem', () => {
     expect(mockIdentityProps).toHaveBeenLastCalledWith(
       expect.objectContaining({ stockListingName: 'Apple' }),
     );
+  });
+
+  test('shows a separate volume metric only in three-column banner mode', () => {
+    const { rerender } = render(
+      <TokenListItem
+        item={{ ...listing, turnover: 123 }}
+        onPress={jest.fn()}
+        bannerColumnMode="two"
+      />,
+    );
+    expect(screen.queryByText('123')).toBeNull();
+    expect(mockIdentityProps.mock.lastCall?.[0].showVolume).toBe(true);
+    expect(mockIdentityProps.mock.lastCall?.[0].volume).toBe(123);
+    rerender(
+      <TokenListItem
+        item={{ ...listing, turnover: 123 }}
+        onPress={jest.fn()}
+        bannerColumnMode="three"
+      />,
+    );
+    expect(screen.getByText('123')).toBeTruthy();
+    expect(mockIdentityProps.mock.lastCall?.[0].showVolume).toBe(true);
+    expect(mockIdentityProps.mock.lastCall?.[0].volume).toBeUndefined();
   });
 
   test.each<[string, IMarketToken]>([

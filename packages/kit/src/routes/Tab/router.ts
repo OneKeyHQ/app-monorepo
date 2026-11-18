@@ -28,37 +28,23 @@ import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
 
-// Native tab icons using SVG files from @onekeyhq/components/svg
+// Native tab icons using packaged OneKeyIcons resource names
 // The native tab bar will tint icons using tabBarActiveTintColor/tabBarInactiveTintColor
 const nativeTabIcons = {
   wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/wallet-4.svg')
-      : require('@onekeyhq/components/svg/outline/wallet-4.svg'),
+    focused ? 'Wallet4Solid' : 'Wallet4Outline',
   swap: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/switch-hor.svg')
-      : require('@onekeyhq/components/svg/outline/switch-hor.svg'),
+    focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
   discover: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/compass.svg')
-      : require('@onekeyhq/components/svg/outline/compass.svg'),
+    focused ? 'CompassSolid' : 'CompassOutline',
   market: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/trading-view-candles.svg')
-      : require('@onekeyhq/components/svg/outline/trading-view-candles.svg'),
+    focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
   perp: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/trade.svg')
-      : require('@onekeyhq/components/svg/outline/trade.svg'),
+    focused ? 'TradeSolid' : 'TradeOutline',
   earn: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/coins.svg')
-      : require('@onekeyhq/components/svg/outline/coins.svg'),
+    focused ? 'CoinsSolid' : 'CoinsOutline',
   developer: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
-    focused
-      ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
-      : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
+    focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
 };
 
 type IGetTabRouterParams = {

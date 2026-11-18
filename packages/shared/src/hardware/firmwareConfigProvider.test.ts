@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { defaultLogger } from '../logger/logger';
+import platformEnv from '../platformEnv';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
@@ -27,6 +28,7 @@ jest.mock('axios', () => ({
 jest.mock('../platformEnv', () => ({
   __esModule: true,
   default: {
+    isDev: false,
     isNative: true,
     isDesktop: false,
   },
@@ -61,6 +63,45 @@ jest.mock('../request/helpers/sniRequest', () => ({
   isSniSupported: jest.fn(),
   sniRequest: jest.fn(),
 }));
+
+// The production builtin table lists a single provider. Candidate ordering is
+// provider-aware, so these tests pin a table with several.
+jest.mock('../request/constants/ipTableDefaults', () => {
+  const actual = jest.requireActual<
+    typeof import('../request/constants/ipTableDefaults')
+  >('../request/constants/ipTableDefaults');
+  const endpoint = (ip: string, provider: string) => ({
+    ip,
+    provider,
+    region: 'ALL' as const,
+    weight: 100,
+  });
+  return {
+    ...actual,
+    DEFAULT_IP_TABLE_CONFIG: {
+      ...actual.DEFAULT_IP_TABLE_CONFIG,
+      domains: {
+        'onekeycn.com': {
+          endpoints: [
+            endpoint('104.18.20.233', 'cloudflare'),
+            endpoint('104.18.21.233', 'cloudflare'),
+            endpoint('216.19.4.106', 'volcengine'),
+            endpoint('43.168.19.96', 'EdgeOne'),
+            endpoint('43.168.24.171', 'EdgeOne'),
+          ],
+        },
+        'onekeytest.com': {
+          endpoints: [
+            endpoint('104.18.31.39', 'cloudflare'),
+            endpoint('104.18.30.39', 'cloudflare'),
+            endpoint('43.168.24.171', 'EdgeOne'),
+            endpoint('43.168.19.96', 'EdgeOne'),
+          ],
+        },
+      },
+    },
+  };
+});
 
 const mockedAxios = jest.mocked(axios);
 const mockedRequestHelper = requestHelper as jest.Mocked<typeof requestHelper>;
@@ -198,6 +239,45 @@ describe('firmware config provider', () => {
       signal: expect.any(AbortSignal),
     });
   });
+
+  it.each([
+    {
+      name: 'desktop development',
+      isDesktop: true,
+      isDev: true,
+      baseUrl: '/__onekey_firmware_config',
+    },
+    {
+      name: 'desktop production',
+      isDesktop: true,
+      isDev: false,
+      baseUrl: 'https://data.onekey.so',
+    },
+    {
+      name: 'native development',
+      isDesktop: false,
+      isDev: true,
+      baseUrl: 'https://data.onekey.so',
+    },
+  ])(
+    'selects manifest URLs for $name',
+    async ({ isDesktop, isDev, baseUrl }) => {
+      jest.replaceProperty(platformEnv, 'isDesktop', isDesktop);
+      jest.replaceProperty(platformEnv, 'isNative', !isDesktop);
+      jest.replaceProperty(platformEnv, 'isDev', isDev);
+      const config = buildRemoteConfig();
+      directGet.mockResolvedValue({ data: config });
+
+      for (const preRelease of [false, true]) {
+        await expect(fetchFirmwareConfig({ preRelease })).resolves.toBe(config);
+        expect(directGet).toHaveBeenLastCalledWith(
+          `${baseUrl}/${preRelease ? 'pre-config' : 'config'}.json?noCache=1`,
+          { timeout: 10_000, signal: expect.any(AbortSignal) },
+        );
+      }
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+    },
+  );
 
   it('normalizes a stable config published before the Pro2 manifest', async () => {
     const { pro2: _pro2, ...stableConfig } = buildRemoteConfig();

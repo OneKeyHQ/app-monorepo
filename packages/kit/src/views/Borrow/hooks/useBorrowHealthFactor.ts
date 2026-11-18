@@ -34,7 +34,6 @@ interface IUseBorrowHealthFactorParams {
 }
 
 const POLLING_INTERVAL = 30 * 1000; // 30 seconds
-const PRELOADED_CACHE_TTL = 60_000;
 
 type IHealthFactorRequest = Parameters<
   typeof backgroundApiProxy.serviceStaking.getBorrowHealthFactor
@@ -118,7 +117,6 @@ type IScopedHealthFactorResult = {
   state: 'resolved' | 'error' | 'cancelled';
   accountGeneration?: number;
   resolvedAt?: number;
-  fromFreshCache?: boolean;
 };
 
 export const useBorrowHealthFactor = ({
@@ -156,7 +154,6 @@ export const useBorrowHealthFactor = ({
     data: IBorrowHealthFactor;
     accountGeneration: number;
   } | null>(null);
-  const firstRequestScopeRef = useRef<string | null>(null);
   const forceNetworkRef = useRef(false);
   const {
     result: scopedResult,
@@ -170,30 +167,8 @@ export const useBorrowHealthFactor = ({
       const requestGeneration = currentAccountGeneration;
       const forceNetwork = forceNetworkRef.current;
       forceNetworkRef.current = false;
-      const isFirstRequestForScope = firstRequestScopeRef.current !== scopeKey;
-      firstRequestScopeRef.current = scopeKey;
       try {
         registerAccountInvalidation();
-        if (isFirstRequestForScope && !forceNetwork && swrKey) {
-          const cached =
-            swrCacheUtils.getWithTimestamp<IScopedHealthFactorResult>(swrKey);
-          const now = Date.now();
-          if (
-            cached?.data.scopeKey === scopeKey &&
-            cached.data.state === 'resolved' &&
-            cached.data.data &&
-            cached.updatedAt > lastAccountInvalidationAt &&
-            cached.updatedAt <= now &&
-            now - cached.updatedAt < PRELOADED_CACHE_TTL
-          ) {
-            return {
-              ...cached.data,
-              accountGeneration: requestGeneration,
-              resolvedAt: cached.updatedAt,
-              fromFreshCache: true,
-            };
-          }
-        }
         return {
           scopeKey,
           data: await fetchHealthFactor(requestParams, forceNetwork),
@@ -226,7 +201,7 @@ export const useBorrowHealthFactor = ({
         };
       }
     },
-    [currentAccountGeneration, requestParams, scopeKey, swrKey],
+    [currentAccountGeneration, requestParams, scopeKey],
     {
       initResult: null,
       watchLoading: true,
@@ -234,9 +209,7 @@ export const useBorrowHealthFactor = ({
       revalidateOnFocus: !isPreloading,
       swrKey,
       swrShouldPersist: (result) =>
-        result?.state === 'resolved' &&
-        !result.fromFreshCache &&
-        Boolean(result.data),
+        result?.state === 'resolved' && Boolean(result.data),
       // Fix: Ensure API responses update state even when page loses focus during request
       alwaysSetState: !isPreloading,
     },

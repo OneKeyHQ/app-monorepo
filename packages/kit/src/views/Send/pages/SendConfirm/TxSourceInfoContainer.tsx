@@ -13,6 +13,8 @@ function TxSourceInfoContainer(props: IProps) {
 
   const { urlSecurityInfo } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
+    walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: sourceInfo?.isWalletConnectRequest,
   });
 
   if (!sourceInfo || !sourceInfo.origin) {
@@ -22,6 +24,7 @@ function TxSourceInfoContainer(props: IProps) {
   return (
     <Stack px="$5" pt="$2">
       <DAppSiteMark
+        sourceInfo={sourceInfo}
         origin={sourceInfo.origin}
         urlSecurityInfo={urlSecurityInfo}
       />

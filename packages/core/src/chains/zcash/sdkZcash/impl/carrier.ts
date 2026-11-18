@@ -2,7 +2,6 @@ import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacy
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';
 import { isZcashAccountImportCheckpointError } from '../runtimeError';
 
 import { wrapKeysModuleWithStackCleanup } from './keysMemory';
@@ -330,6 +329,10 @@ export async function diagnoseWalletDatabase({
 // The endpoint the last wallet operation used; health samples are attributed to it.
 let selectedEndpointUrl: string | undefined;
 
+export function selectEndpoint(url: string): void {
+  selectedEndpointUrl = url;
+}
+
 // Opens the network's database without resolving any account.
 export async function openWalletDatabase(
   network: IZcashNetwork,
@@ -356,7 +359,7 @@ export async function withWallet(
   const rt = await openWalletDatabase(account.network);
   const dbName = walletDbName(account);
   // Pinned to the configured endpoint (default or custom RPC); no automatic failover.
-  selectedEndpointUrl = account.lightwalletdUrl;
+  selectEndpoint(account.lightwalletdUrl);
   rt.setLightwalletdUrl(account.lightwalletdUrl);
 
   // Match by UFVK, not uuid: the runtime's uuid is not stable across a purge, so it can't be cached.
@@ -459,7 +462,11 @@ export function recordEndpointHealth(sample: {
   ok: boolean;
   latencyMs?: number | null;
 }): void {
-  const url = selectedEndpointUrl ?? ZCASH_LIGHTWALLETD_MAINNET;
+  // Before any wallet operation no node has been used, so there is none to attribute it to.
+  const url = selectedEndpointUrl;
+  if (url === undefined) {
+    return;
+  }
   endpointHealth = {
     url,
     ok: sample.ok,

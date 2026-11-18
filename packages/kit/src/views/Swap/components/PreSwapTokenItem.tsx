@@ -28,6 +28,7 @@ interface IPreSwapTokenItemProps {
   loading?: boolean;
   isFloating?: boolean;
   rateDifference?: ISwapRateDifference;
+  strictCurrencyConversion?: boolean;
 }
 
 const PreSwapTokenItem = ({
@@ -36,6 +37,7 @@ const PreSwapTokenItem = ({
   loading,
   isFloating,
   rateDifference,
+  strictCurrencyConversion,
 }: IPreSwapTokenItemProps) => {
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -45,8 +47,15 @@ const PreSwapTokenItem = ({
       amount,
       targetCurrency: settings.currencyInfo.id,
       currencyMap,
+      strictCurrencyConversion,
     });
-  }, [amount, currencyMap, settings.currencyInfo.id, token]);
+  }, [
+    amount,
+    currencyMap,
+    settings.currencyInfo.id,
+    strictCurrencyConversion,
+    token,
+  ]);
   const networkImageUri = useMemo(() => {
     if (token?.networkLogoURI) {
       return token.networkLogoURI;

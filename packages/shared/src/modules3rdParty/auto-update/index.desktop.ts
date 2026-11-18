@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -22,6 +23,7 @@ import {
   type IClearPackage,
   type IDownloadASC,
   type IDownloadPackage,
+  type IDownloadProgressScope,
   type IInstallPackage,
   type IManualInstallPackage,
   type IUpdateDownloadedEvent,
@@ -199,6 +201,8 @@ const installPackage: IInstallPackage = async (params) => {
         ...downloadedEvent,
         latestVersion: params.latestVersion,
         buildNumber: String(platformEnv.buildNumber || 1),
+        userInitiated: params.userInitiated,
+        installSource: params.installSource,
       }),
       new Promise<void>((resolve) => {
         setTimeout(resolve, 3500);
@@ -208,17 +212,62 @@ const installPackage: IInstallPackage = async (params) => {
   });
 };
 
-export const useDownloadProgress: IUseDownloadProgress = (scope) => {
+const prepareMacInstall = async (params: IAppUpdateInfo): Promise<void> => {
+  if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) {
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
+  }
+  await runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.prepareMacInstall({
+      ...params.downloadedEvent,
+      latestVersion: params.latestVersion,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
+};
+
+const prepareQuitInstall: NonNullable<
+  IAppUpdate['prepareQuitInstall']
+> = async (params, expectedTarget) => {
+  if (!params) {
+    await runUpdateOperation('install', () =>
+      globalThis.desktopApiProxy.appUpdate.prepareQuitInstall(
+        undefined,
+        expectedTarget,
+      ),
+    );
+    return;
+  }
+  if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) return;
+  await runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.prepareQuitInstall({
+      ...params.downloadedEvent,
+      latestVersion: params.latestVersion,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
+};
+
+export const useDownloadProgressDetails = (scope?: IDownloadProgressScope) => {
   const latestVersion = scope?.latestVersion;
   const bundleVersion = scope?.bundleVersion;
-  const [percent, setPercent] = useState(0);
+  const [progress, setProgress] = useState({
+    percent: 0,
+    total: 0,
+    transferred: 0,
+  });
 
   const updatePercent = useThrottledCallback(
     (params: IUpdateProgressUpdate) => {
       console.log('update/downloading', params);
-      const { percent: progress } = params;
-      defaultLogger.update.app.log('downloading', progress);
-      setPercent(Number(Number(progress).toFixed()));
+      defaultLogger.update.app.log('downloading', params.percent);
+      setProgress({
+        percent: Math.round(params.percent),
+        total: params.total,
+        transferred: params.transferred,
+      });
     },
     10,
   );
@@ -227,13 +276,17 @@ export const useDownloadProgress: IUseDownloadProgress = (scope) => {
     (event: IUpdateDownloadedEvent) => {
       if (bundleVersion || event?.bundleVersion) return;
       defaultLogger.update.app.log('downloaded');
-      setPercent(100);
+      setProgress((current) => ({
+        ...current,
+        percent: 100,
+        transferred: current.total,
+      }));
     },
     [bundleVersion],
   );
 
   useEffect(() => {
-    setPercent(0);
+    setProgress({ percent: 0, total: 0, transferred: 0 });
     // Filter before throttling so another destination cannot replace queued progress.
     const onProgress = (event: IUpdateProgressUpdate) => {
       if (bundleVersion) {
@@ -255,8 +308,11 @@ export const useDownloadProgress: IUseDownloadProgress = (scope) => {
       updatePercent.cancel();
     };
   }, [updatedDownloaded, updatePercent, bundleVersion, latestVersion]);
-  return percent;
+  return progress;
 };
+
+export const useDownloadProgress: IUseDownloadProgress = (scope) =>
+  useDownloadProgressDetails(scope).percent;
 
 const clearPackage: IClearPackage = async () => {
   await runUpdateOperation('cleanup', () =>
@@ -285,6 +341,8 @@ export const AppUpdate: IAppUpdate = {
   downloadASC,
   checkPackageAvailability,
   installPackage,
+  prepareMacInstall,
+  prepareQuitInstall,
   manualInstallPackage,
   clearPackage,
   clearApkCache,

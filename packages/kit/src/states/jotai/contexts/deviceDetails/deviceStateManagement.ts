@@ -1,4 +1,5 @@
 import {
+  getDeviceStateIdentityRecoveryKeys,
   getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
@@ -42,6 +43,11 @@ export function getDeviceStateSnapshotFromEvent({
     // SDK cache without advancing its metadata.
     const acceptsEqualMetadata =
       event.source === 'settings-read' ||
+      getDeviceStateIdentityRecoveryKeys({
+        currentState,
+        incomingState: event.state,
+        source: event.source,
+      }).length > 0 ||
       getDeviceStateSettingsRecoveryKeys({
         currentState,
         incomingState: event.state,

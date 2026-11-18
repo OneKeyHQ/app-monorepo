@@ -2,13 +2,16 @@ import axios, { AxiosError, AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
 import {
+  markApiAvailabilityIp,
   markApiAvailabilityProxy,
   markApiAvailabilityRoute,
   reportApiAvailabilityError,
+  reportApiAvailabilityIpError,
   setAvailabilityIpTableState,
 } from '../availabilityMetrics';
 import {
@@ -29,7 +32,13 @@ import {
 } from './ipTableRequestOutcome';
 import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
-import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
+import {
+  isProxyActiveForUrl,
+  isSniSupported,
+  isSniUploadFileSupported,
+  sniRequest,
+  sniUploadFile,
+} from './sniRequest';
 import {
   raceSniRequestWithAbort,
   throwIfSniRequestAborted,
@@ -41,6 +50,11 @@ import type {
   IAvailabilityIpTableState,
   IAvailabilityRoute,
 } from '../availabilityMetrics';
+import type {
+  IIpTableRemoteConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -176,31 +190,13 @@ export function reportIpTableRequestFailure(
 /**
  * Once a request has been handed to the SNI transport it may have reached
  * the server even when we got no usable response back. Re-sending it over
- * the domain is only safe for idempotent methods, or when the error code
- * proves the connection was never established (nothing was written).
+ * the domain is only allowed for the explicit read-method fallback policy.
+ * A final native error code cannot prove that an earlier attempt sent nothing.
  */
 const IDEMPOTENT_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-// SNI_NETWORK_UNREACHABLE is deliberately NOT in this set: on iOS the native
-// module maps NSURLErrorNetworkConnectionLost — which can fire after the body
-// was fully sent and the server executed the request — to that code
-// (SniConnectClient.swift maps NotConnectedToInternet and
-// NetworkConnectionLost to the same .networkUnreachable case), so it cannot
-// prove the request was never written.
-const SNI_PRE_WRITE_ERROR_CODES = new Set([
-  'SNI_CONNECTION_REFUSED',
-  'SNI_DNS_FAILED',
-  'SNI_INVALID_URL',
-]);
-
-function canFallbackAfterSniStarted(method: string, error?: unknown): boolean {
-  if (IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase())) {
-    return true;
-  }
-  if (error && SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error))) {
-    return true;
-  }
-  return false;
+function canFallbackAfterSniStarted(method: string): boolean {
+  return IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase());
 }
 
 // A TLS failure on the pinned IP says that route is broken, not that the
@@ -331,13 +327,12 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 // level (timeouts, resets — NOT HTTP error responses or cancellations), the
 // adapter opens a time-boxed window during which hosts of that root domain
 // resolve to a fallback IP (runtime last-best IP when available, builtin
-// config otherwise). This is the only protection available in runtimes where
-// the simpleDb-backed config is absent: the main runtime on split-runtime
-// targets and the cold-start window before background init completes.
+// config otherwise). Native main reads the active table through bg; until that
+// provider is ready it keeps using the domain rather than unverified builtins.
 // The request that trips the threshold is never replayed — only subsequent
 // requests take the fail-open route — and once a request has been handed to
 // the SNI transport, falling back to the domain (which re-sends it) is
-// restricted to idempotent methods or provably-unsent errors; see
+// restricted to the explicit read-method fallback policy; see
 // canFallbackAfterSniStarted.
 
 interface IAdapterFailoverState {
@@ -375,7 +370,7 @@ const adapterFailoverStates = new Map<string, IAdapterFailoverState>();
 /** IP Table state for availability metrics, from the inputs selection uses. */
 const readIpTableAvailabilityState = memoizee(
   async (): Promise<IAvailabilityIpTableState> => {
-    if (!(await shouldUseIpTable())) return 'disabled';
+    if (!isSniSupported() || !(await shouldUseIpTable())) return 'disabled';
     const configWithRuntime = await requestHelper.getIpTableConfig();
     if (!configWithRuntime) return 'noConfig';
     return configWithRuntime.runtime?.enabled === false
@@ -384,6 +379,12 @@ const readIpTableAvailabilityState = memoizee(
   },
   { promise: true, maxAge: 5000 },
 );
+
+// The bus relays bg updates to native main, which owns separate memoized state.
+appEventBus.on(EAppEventBusNames.IpTableConfigChanged, () => {
+  getSelectedIpForHost.clear();
+  void readIpTableAvailabilityState.clear();
+});
 
 /**
  * Transport-level failure allowlist. Only errors that prove the network path
@@ -575,8 +576,11 @@ async function recordDomainRequestOutcome(options: {
   }
 }
 
-function getFailoverFallbackIp(lookupDomain: string): string | null {
-  const endpoints = DEFAULT_IP_TABLE_CONFIG.domains[lookupDomain]?.endpoints;
+function getFailoverFallbackIp(
+  lookupDomain: string,
+  config: IIpTableRemoteConfig = DEFAULT_IP_TABLE_CONFIG,
+): string | null {
+  const endpoints = config.domains[lookupDomain]?.endpoints;
   if (!endpoints || endpoints.length === 0) {
     return null;
   }
@@ -594,6 +598,7 @@ function getFailoverFallbackIp(lookupDomain: string): string | null {
 async function getActiveFailoverIp(
   lookupDomain: string,
   runtimeLastBestIp: string | undefined,
+  config?: IIpTableRemoteConfig,
 ): Promise<string | null> {
   if (!isFailoverActive(lookupDomain)) {
     return null;
@@ -602,7 +607,14 @@ async function getActiveFailoverIp(
     deactivateFailover(lookupDomain, 'kill_switch');
     return null;
   }
-  return runtimeLastBestIp || getFailoverFallbackIp(lookupDomain);
+  const endorsedLastBestIp =
+    !config ||
+    config.domains[lookupDomain]?.endpoints.some(
+      (endpoint) => endpoint.ip === runtimeLastBestIp,
+    )
+      ? runtimeLastBestIp
+      : undefined;
+  return endorsedLastBestIp || getFailoverFallbackIp(lookupDomain, config);
 }
 
 // ========== Step aside on SNI failures ==========
@@ -842,11 +854,15 @@ async function getSelectedIpForHostInternal(
 
     // Check if config exists and is enabled
     if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
-      // No config = the main runtime or the cold-start window before the
-      // background init completes. When the domain is failing at transport
-      // level, fail-open to a builtin IP so those runtimes have protection
-      // too. runtime.enabled === false is explicit user intent: no fail-open.
-      if (!configWithRuntime) {
+      // Native main cannot know which builtins a persisted table revoked until
+      // bg is ready. runtime.enabled === false also forbids fail-open.
+      if (
+        !configWithRuntime &&
+        !(
+          platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+        )
+      ) {
         const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
         const failoverIp = await getActiveFailoverIp(lookupDomain, undefined);
         if (failoverIp) {
@@ -895,7 +911,12 @@ async function getSelectedIpForHostInternal(
     const selectedIp = runtime?.selections[lookupDomain];
 
     // If selectedIp exists (not undefined), use it
-    if (selectedIp) {
+    if (
+      selectedIp &&
+      config.domains[lookupDomain]?.endpoints.some(
+        (endpoint) => endpoint.ip === selectedIp,
+      )
+    ) {
       debugLog(
         `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
       );
@@ -919,6 +940,7 @@ async function getSelectedIpForHostInternal(
         const failoverIp = await getActiveFailoverIp(
           lookupDomain,
           runtime?.lastBestIp?.[lookupDomain],
+          config,
         );
         if (failoverIp) {
           logIpTableEvent('warn', 'iptable_selection', {
@@ -975,6 +997,7 @@ async function getSelectedIpForHostInternal(
     const noSelectionFailoverIp = await getActiveFailoverIp(
       lookupDomain,
       runtime?.lastBestIp?.[lookupDomain],
+      config,
     );
     if (noSelectionFailoverIp) {
       logIpTableEvent('warn', 'iptable_selection', {
@@ -1612,9 +1635,10 @@ export function createIpTableAdapter(
     );
 
     markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'sni');
+    markApiAvailabilityIp(config.$oneKeyAvailabilityTiming, selectedIp);
     const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
-    // null-response branch throws for non-idempotent requests and that
+    // null-response branch throws outside the read fallback policy and that
     // throw lands in the same catch below, which would otherwise report the
     // same failure a second time.
     let ipFailureReported = false;
@@ -1654,25 +1678,28 @@ export function createIpTableAdapter(
 
       // If SNI request fails, use original adapter
       if (!sniResponse) {
+        reportApiAvailabilityIpError(config.$oneKeyAvailabilityTiming, {
+          code: 'SNI_RESPONSE_MISSING',
+        });
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         await reportIpFailureOnce('SNI response null');
         // A null response is ambiguous — the request may have reached the
-        // server. Re-sending over the domain is only safe for idempotent
-        // methods; anything else must surface the failure to the caller.
+        // server. Only the explicit read-method fallback policy may resend
+        // it over the domain; other methods must surface the failure.
         const method = (config.method || 'GET').toUpperCase();
         if (!canFallbackAfterSniStarted(method)) {
           logIpTableEvent('warn', 'sni_fallback_blocked', {
             hostname,
             rootDomain,
             method,
-            reason: 'non_idempotent_after_sni_started',
+            reason: 'method_not_allowed_after_sni_started',
           });
           throw new OneKeyLocalError(
-            'IP Table Adapter: SNI response missing and request is not idempotent',
+            'IP Table Adapter: SNI response missing and method is not allowed to fall back',
           );
         }
-        // Fallback to domain (isFallback = true, so domain failure won't be counted)
-        return await callOriginalAdapter({
+        // Let domain rejection reach the caller instead of the SNI catch below.
+        return callOriginalAdapter({
           config,
           isFallback: true,
           hostname,
@@ -1736,6 +1763,11 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
+      reportApiAvailabilityIpError(
+        config.$oneKeyAvailabilityTiming,
+        error,
+        config.signal,
+      );
       const failClosed = isSniFailClosedError(error);
 
       // At most once per SNI attempt — the null-response branch may already
@@ -1749,12 +1781,12 @@ export function createIpTableAdapter(
       // Once the request was handed to the SNI transport it may have been
       // written to the wire (e.g. SNI_TIMEOUT after send). Re-sending over
       // the domain risks double-executing mutating requests, so fallback is
-      // restricted to idempotent methods or errors that prove the
-      // connection was never established.
+      // restricted to the explicit read-method fallback policy, regardless
+      // of the final native error code.
       const method = (config.method || 'GET').toUpperCase();
       const canFallback = failClosed
         ? canFallbackAfterFailClosedError(method, error)
-        : canFallbackAfterSniStarted(method, error);
+        : canFallbackAfterSniStarted(method);
       if (failClosed) {
         debugError('[IpTableAdapter] SNI fail-closed error:', error);
         logIpTableEvent(canFallback ? 'warn' : 'error', 'sni_fail_closed', {
@@ -1774,7 +1806,7 @@ export function createIpTableAdapter(
             rootDomain,
             method,
             errorCode: getErrorCode(error),
-            reason: 'non_idempotent_after_sni_started',
+            reason: 'method_not_allowed_after_sni_started',
           });
         }
         // Metrics keep the native code; the caller gets the domain shape.
@@ -1816,6 +1848,177 @@ export function createIpTableAdapter(
       throw error;
     }
   };
+}
+
+export type IIpTableUploadFileSkipReason =
+  | 'sni_unsupported'
+  | 'upload_unsupported'
+  | 'invalid_url'
+  | 'proxy_active'
+  | 'preflight_error'
+  | 'no_selected_ip'
+  | 'sni_bypass';
+
+export type IIpTableUploadFileResult =
+  | { route: 'sni'; ipHash: string; response: ISniResponse }
+  | { route: 'skipped'; reason: IIpTableUploadFileSkipReason };
+
+/**
+ * Upload a local file over the same pinned-IP/SNI route the axios adapter
+ * would pick for `url`. It never falls back to the domain itself: `skipped`
+ * means nothing was sent, and a thrown error means the SNI upload started and
+ * failed, so the caller decides whether a domain retry is safe.
+ *
+ * Must run where the IP table config lives (the background runtime on
+ * split-runtime targets); elsewhere no IP is selected and it skips.
+ */
+export async function uploadFileViaIpTable(params: {
+  url: string;
+  filePath: string;
+  headers: Record<string, string>;
+  method?: 'POST' | 'PUT';
+  timeout: number;
+  signal?: ISniRequestOptions['signal'];
+}): Promise<IIpTableUploadFileResult> {
+  const { url, filePath, headers, timeout, signal } = params;
+  const method = params.method ?? 'POST';
+  const skip = (
+    reason: IIpTableUploadFileSkipReason,
+    fields: Record<string, unknown> = {},
+  ): IIpTableUploadFileResult => {
+    logIpTableEvent('warn', 'sni_upload_decision', {
+      platform: getSniLogPlatform(),
+      method,
+      decision: 'skipped',
+      reason,
+      ...fields,
+    });
+    return { route: 'skipped', reason };
+  };
+
+  if (!isSniSupported()) {
+    return skip('sni_unsupported');
+  }
+  if (!isSniUploadFileSupported()) {
+    return skip('upload_unsupported');
+  }
+
+  let targetUrl: URL;
+  try {
+    targetUrl = new URL(url);
+  } catch {
+    return skip('invalid_url');
+  }
+  if (targetUrl.protocol !== 'https:' || targetUrl.port) {
+    return skip('invalid_url', { hostname: targetUrl.hostname });
+  }
+  const { hostname } = targetUrl;
+  const rootDomain = extractRootDomain(hostname);
+
+  throwIfSniRequestAborted(signal);
+  try {
+    const proxyActive = await raceSniRequestWithAbort(
+      isProxyActiveForUrl(targetUrl.toString()),
+      signal,
+    );
+    if (proxyActive === true) {
+      return skip('proxy_active', { hostname, rootDomain });
+    }
+  } catch (error) {
+    if (getErrorCode(error) === 'SNI_CANCELLED') {
+      throw error;
+    }
+    return skip('preflight_error', {
+      hostname,
+      rootDomain,
+      errorCode: getErrorCode(error),
+    });
+  }
+
+  const selectedIp = await raceSniRequestWithAbort(
+    getSelectedIpForHost(hostname),
+    signal,
+  );
+  if (!selectedIp) {
+    return skip('no_selected_ip', { hostname, rootDomain });
+  }
+  const ipHash = hashForLog(selectedIp);
+  if (
+    shouldBypassSni(rootDomain, selectedIp, method) &&
+    !(await isFailoverDisabledByDevSettings())
+  ) {
+    return skip('sni_bypass', {
+      hostname,
+      rootDomain,
+      selectedIpHash: ipHash,
+    });
+  }
+
+  logIpTableEvent('info', 'sni_upload_decision', {
+    platform: getSniLogPlatform(),
+    hostname,
+    rootDomain,
+    method,
+    decision: 'sni',
+    selectedIpHash: ipHash,
+  });
+
+  const requestSequence = nextIpTableRequestSequence();
+  try {
+    const response = await sniUploadFile(
+      {
+        ip: selectedIp,
+        hostname,
+        path: `${targetUrl.pathname}${targetUrl.search}`,
+        headers,
+        method,
+        filePath,
+        timeout,
+      },
+      { signal },
+    );
+    if (!response) {
+      return skip('upload_unsupported', { hostname, rootDomain });
+    }
+    await recordSniRequestOutcome({
+      rootDomain,
+      ip: selectedIp,
+      ok: true,
+      requestSequence,
+    });
+    reportRequestSuccessCallback?.({
+      domain: rootDomain,
+      requestType: 'ip',
+      target: selectedIp,
+      requestSequence,
+    });
+    return { route: 'sni', ipHash, response };
+  } catch (error) {
+    if (countsAgainstSelectedIp(error)) {
+      await recordSniRequestOutcome({
+        rootDomain,
+        ip: selectedIp,
+        ok: false,
+        requestSequence,
+      });
+      reportRequestFailureCallback?.({
+        domain: rootDomain,
+        requestType: 'ip',
+        target: selectedIp,
+        error: getErrorMessage(error),
+        requestSequence,
+      });
+    }
+    logIpTableEvent('error', 'sni_upload_failed', {
+      hostname,
+      rootDomain,
+      method,
+      selectedIpHash: ipHash,
+      errorCode: getErrorCode(error),
+      errorMessage: getErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 /**

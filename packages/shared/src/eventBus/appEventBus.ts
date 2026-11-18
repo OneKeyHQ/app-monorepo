@@ -119,6 +119,7 @@ export type IEventBusPayloadShowToast = {
   i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
+  nativeStorageRecoveryTestSessionId?: string;
 };
 
 export type ILinuxUdevGuideReason =
@@ -165,12 +166,20 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.IpTableConfigChanged]: undefined;
   [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
     status: 'VALID' | 'INVALID' | 'UNKNOWN';
     isTimeErrorConfirmed: boolean;
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
+  // The device is asking for confirmation `current` of `total`.
+  [EAppEventBusNames.HardwareCloudKeySignProgress]: {
+    current: number;
+    total: number;
+  };
+  // Another device reset the key or signed this one out; it must sign again.
+  [EAppEventBusNames.HardwareCloudKeyDropped]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.SwapApprovingSuccess]: {
@@ -331,8 +340,20 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebView]: { requestId: string } | undefined;
+  [EAppEventBusNames.WebEmbedWebViewMountRequested]: {
+    mountId: string;
+    mountSequence: number;
+  };
+  [EAppEventBusNames.WebEmbedWebViewProviderReady]:
+    | { mainRuntimeId: string; probeId?: string }
+    | undefined;
+  [EAppEventBusNames.WebEmbedWebViewRuntimeProbe]: { probeId: string };
+  [EAppEventBusNames.WebEmbedWebViewNotReady]: { mountId: string };
+  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: {
+    mountId: string;
+    requestId?: string;
+  };
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   // The authenticity card's exits, from the DeviceStage driver back to
   // whoever is running the check (OK-59934).
@@ -471,6 +492,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalWalletAccountsChanged]: {
     networkId: string;
     accountIds: string[];
+    // Only pause/resume preserves the current display; absent means invalidate.
+    change?: 'syncState';
   };
   // A display read gave up and showed a saved balance; the live one is in.
   [EAppEventBusNames.LocalWalletBalanceLanded]: {
@@ -713,6 +736,8 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.OpenAppUpdateDetails]: undefined;
+  [EAppEventBusNames.AppUpdateCompleted]: { version: string };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
@@ -724,6 +749,8 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    navigationAction?: 'push';
+    isNativeBackgroundNavigation?: true;
     extras?: {
       params?: {
         coin?: string;
@@ -765,6 +792,15 @@ export interface IAppEventBusPayload {
     showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
+  [EAppEventBusNames.EarnServerOrderSettled]: {
+    accountId: string;
+    indexedAccountId?: string;
+    networkId: string;
+    provider: string;
+    vault?: string;
+    orderId: string;
+    status: 'success' | 'failed';
+  };
   [EAppEventBusNames.SwitchEarnMode]: {
     mode: 'earn' | 'borrow';
     switchType?: 'default' | 'tap';
@@ -793,6 +829,9 @@ export interface IAppEventBusPayload {
     description: string;
     icon: string | undefined;
     remotePushMessageInfo: INotificationPushMessageInfo;
+  };
+  [EAppEventBusNames.SupportConversationUpdated]: {
+    conversationId?: string;
   };
   [EAppEventBusNames.ExecuteNotificationCommand]: {
     action: string;

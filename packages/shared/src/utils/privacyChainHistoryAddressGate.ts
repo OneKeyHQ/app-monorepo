@@ -1,3 +1,5 @@
+import { EOnChainHistoryTransferType } from '../../types/history';
+
 import {
   collectPrivacyChainOwnAddresses,
   isLocalWalletDisplayedAddress,
@@ -15,21 +17,33 @@ import type {
   IDecodedTxTransferInfo,
 } from '../../types/tx';
 
-// History may show an address of this account only when it is byte-identical
-// to one the Receive / token details pages display. The background applies
-// this where rows are built, so the UI renders what a row carries.
+// History shows a private address of this account only as the one Receive displays, and a
+// transparent one as it is. The background applies this where rows are built, so the UI renders
+// what a row carries.
+
+// The chain's reading of an address of ours in one pool: the displayed address it stands for, if
+// any. It decides by that pool's receiver only, so a private output never reads as the t-address.
+export type ILocalWalletDisplayedAddressResolver = (params: {
+  address: string;
+  poolId: number | undefined;
+  addresses: IPrivacyChainAccountAddresses;
+}) => string | undefined;
+
 export type ILocalWalletHistoryAddressGate = {
   addresses?: IPrivacyChainAccountAddresses | null;
   publicPoolId?: number;
   publicAddressPattern?: string;
   // The account's own address, which a detail's I/O may name without marking it.
   ownerAddress?: string;
+  // Without one, only a byte-identical displayed address is shown.
+  toDisplayedAddress?: ILocalWalletDisplayedAddressResolver;
 };
 
 export function buildLocalWalletHistoryAddressGate({
   localWallet,
   addresses,
   ownerAddress,
+  toDisplayedAddress,
 }: {
   localWallet?: {
     pools?: { id: number; kind: 'public' | 'private' }[];
@@ -38,8 +52,10 @@ export function buildLocalWalletHistoryAddressGate({
   };
   addresses?: IPrivacyChainAccountAddresses | null;
   ownerAddress?: string;
+  toDisplayedAddress?: ILocalWalletDisplayedAddressResolver;
 }): ILocalWalletHistoryAddressGate {
   return {
+    toDisplayedAddress,
     // Without a public form (Monero) Receive never shows the public address.
     addresses: localWallet?.addressForms?.publicLabel
       ? addresses
@@ -51,13 +67,19 @@ export function buildLocalWalletHistoryAddressGate({
   };
 }
 
+// A transparent address of ours (a change address among them) is public on chain and shown as
+// it is, as BTC shows one; only a private form must be the one Receive displays.
 function hiddenOwnAddresses(
   gate: ILocalWalletHistoryAddressGate,
   own: Set<string>,
 ): Set<string> {
+  const publicForm = gate.publicAddressPattern
+    ? new RegExp(gate.publicAddressPattern)
+    : undefined;
   return new Set(
     [...own].filter(
       (address) =>
+        !publicForm?.test(address) &&
         !isLocalWalletDisplayedAddress({ addresses: gate.addresses, address }),
     ),
   );
@@ -161,12 +183,50 @@ export function gateLocalWalletHistoryTx<T extends IAccountHistoryTx>(
   return changed ? { ...tx, decodedTx: { ...tx.decodedTx, actions } } : tx;
 }
 
+// An own entry whose address the chain reads as a displayed one shows that one; the check below
+// still drops anything else.
+function showOwnAddressesAsDisplayed(
+  gate: ILocalWalletHistoryAddressGate,
+  detail: IOnChainHistoryTx,
+): IOnChainHistoryTx {
+  const { toDisplayedAddress, addresses } = gate;
+  if (!toDisplayedAddress || !addresses) return detail;
+  const showEntry =
+    (ownSide: 'from' | 'to') =>
+    (entry: IOnChainHistoryTxTransfer): IOnChainHistoryTxTransfer => {
+      const address = entry.address || entry[ownSide];
+      if (!entry.isOwn || !address) return entry;
+      const isPrivate = entry.type === EOnChainHistoryTransferType.Shielded;
+      const displayed = toDisplayedAddress({
+        address,
+        poolId: isPrivate ? entry.poolId : gate.publicPoolId,
+        addresses,
+      });
+      if (
+        !displayed ||
+        displayed === address ||
+        !isLocalWalletDisplayedAddress({ addresses, address: displayed })
+      ) {
+        return entry;
+      }
+      return { ...entry, address: displayed, [ownSide]: displayed };
+    };
+  return {
+    ...detail,
+    ...(detail.sends ? { sends: detail.sends.map(showEntry('from')) } : {}),
+    ...(detail.receives
+      ? { receives: detail.receives.map(showEntry('to')) }
+      : {}),
+  };
+}
+
 // A detail's wallet I/O: an own entry whose address isn't displayed keeps its
 // amount and pool but loses the address.
 export function gateLocalWalletHistoryDetail(
   gate: ILocalWalletHistoryAddressGate,
-  detail: IOnChainHistoryTx,
+  rawDetail: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
+  const detail = showOwnAddressesAsDisplayed(gate, rawDetail);
   const own = collectPrivacyChainOwnAddresses({
     owner: gate.ownerAddress,
     inputTransfers: detail.sends,

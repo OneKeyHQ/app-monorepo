@@ -176,6 +176,7 @@ function StockTokenVariantRow({
   portfolioData,
   onSelect,
   compact = false,
+  alignPriceRight = false,
 }: {
   index: number;
   variant: IMarketStockTokenVariant;
@@ -184,6 +185,7 @@ function StockTokenVariantRow({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
   compact?: boolean;
+  alignPriceRight?: boolean;
 }) {
   const resolvedVariantKeys = useContext(StockTokenVariantResolvedContext);
   const balance = findVariantBalance({
@@ -271,6 +273,7 @@ function StockTokenVariantRow({
         flexBasis={0}
         minWidth={0}
         alignItems="center"
+        justifyContent={alignPriceRight ? 'flex-end' : undefined}
       >
         {variant.price ? (
           <NumberSizeableText
@@ -278,6 +281,7 @@ function StockTokenVariantRow({
             formatter="price"
             formatterOptions={{ currency: '$' }}
             numberOfLines={1}
+            flexShrink={alignPriceRight ? 1 : undefined}
           >
             {variant.price}
           </NumberSizeableText>
@@ -304,6 +308,7 @@ function StockTokenVariantSelectorContent({
   const portfolioData = useContext(StockTokenVariantPortfolioContext);
   const { md } = useMedia();
   const compactColumns = compact && md;
+  const alignPriceRight = Boolean(platformEnv.isNative && compactColumns);
   const {
     tokenVariants,
     selectedTokenId,
@@ -383,7 +388,7 @@ function StockTokenVariantSelectorContent({
             flex={compactColumns ? 1 : PRICE_COLUMN_FLEX}
             flexBasis={0}
             minWidth={0}
-            alignItems="flex-start"
+            alignItems={alignPriceRight ? 'flex-end' : 'flex-start'}
           >
             <DashText
               size="$bodySmMedium"
@@ -416,6 +421,7 @@ function StockTokenVariantSelectorContent({
             key={variant.tokenId}
             index={index}
             compact={compactColumns}
+            alignPriceRight={alignPriceRight}
             variant={variant}
             selected={variant.tokenId === selectedTokenId}
             isPortfolioScope={variant.tokenId === portfolioScopeTokenId}

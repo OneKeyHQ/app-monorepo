@@ -1,5 +1,5 @@
 {
-  "_comment": "Budgets for web cold-start. resourceCount, scriptCount and jsDecodedBytes use raw PerformanceResourceTiming entries to match existing baselines. Normalized URL de-duplicated diagnostics are emitted separately as uniqueResourceCount, uniqueScriptCount and uniqueJsDecodedBytes.",
+  "_comment": "Budgets for web cold-start. resourceCount and scriptCount count static assets once per URL (including query parameters); API requests remain per-request. jsDecodedBytes uses raw PerformanceResourceTiming entries. Raw counts and normalized URL diagnostics are emitted separately.",
   "defaults": {
     "fcpMs": 1000,
     "firstTextMs": 1000,

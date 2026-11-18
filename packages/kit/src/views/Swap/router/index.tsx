@@ -1,10 +1,12 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import { createMarketDetailV2Route } from '../../Market/MarketDetailV2/MarketDetailV2Route';
 
 const LimitOrderDetailModal = LazyLoadPage(
   () => import('../pages/modal/LimitOrderDetailModal'),
@@ -44,9 +46,9 @@ const SwapProTokenSelectModal = LazyLoad(
   () => import('../pages/modal/SwapProSelectTokenModal'),
 );
 
-const SwapProMarketDetailModal = LazyLoadPage(
-  () => import('../../Market/MarketDetailV2'),
-);
+const SwapProMarketDetailModal = platformEnv.isNative
+  ? createMarketDetailV2Route()
+  : LazyLoadPage(() => import('../../Market/MarketDetailV2'));
 
 const DustSweepPage = LazyLoadPage(
   () => import('../../DustSweep/DustSweepPage'),
@@ -62,9 +64,14 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     options: ({ route }) => {
       const isSwapStockSelectTarget =
         route.params?.selectTarget === 'swapStock';
+      const useDesktopTokenSelector =
+        (platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          platformEnv.isExtension) &&
+        !isSwapStockSelectTarget;
       return {
-        modalContentMaxWidth: isSwapStockSelectTarget ? undefined : 880,
-        modalContentMaxHeight: isSwapStockSelectTarget ? undefined : 700,
+        modalContentMaxWidth: useDesktopTokenSelector ? 880 : undefined,
+        modalContentMaxHeight: useDesktopTokenSelector ? 700 : undefined,
       };
     },
     translationId: ETranslations.token_selector_title,

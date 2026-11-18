@@ -9,7 +9,6 @@ import { buildXmrLocalWalletCapability } from './localWallet';
 import type Vault from './Vault';
 
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
-  hasXmrRuntimeApiLoader: () => true,
   readXmrRuntimeError: jest.requireActual(
     '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime',
   ).readXmrRuntimeError,
@@ -52,7 +51,7 @@ function build() {
       simpleDb: { privacyChainState: state },
       servicePrivacyChain: {
         onLocalWalletAccountsChanged: notify,
-        ensureLocalWalletViewingKey: async () => 'synthetic-key',
+        turnOffLocalWalletAccountWithoutKey: async () => undefined,
       },
     },
   } as unknown as Vault;
@@ -67,16 +66,15 @@ beforeEach(() => {
 describe('xmr legacy enable and resume admission', () => {
   it('resumes a saved date without opening the offline Runtime', async () => {
     const { state, capability } = build();
-    await state.beginXmrEnable({
+    await state.saveXmrEnabledAccount({
       networkId,
       accountId,
+      vkFp,
       birthdayHeight: 1,
       birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
       birthdayTimestamp: timestamp,
     });
-    await state.completeXmrEnable({ accountId, vkFp });
-    await state.beginXmrDisable({ accountId, resumeFromHeight: 1 });
-    await state.completeXmrDisable({ accountId });
+    await state.saveXmrDisabledAccount({ accountId, resumeFromHeight: 1 });
 
     await capability.enableAccount({ accountId });
 
@@ -86,41 +84,21 @@ describe('xmr legacy enable and resume admission', () => {
       birthdayTimestamp: timestamp,
       birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
     });
-    expect(mockRuntime).not.toHaveBeenCalled();
-  });
-
-  it('migrates an interrupted enable journal without losing its date', async () => {
-    const { state, capability } = build();
-    await state.beginXmrEnable({
-      networkId,
-      accountId,
-      birthdayHeight: 1,
-      birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
-      birthdayTimestamp: timestamp,
-    });
-
-    await capability.retryAccountSetup({ accountId });
-
-    const saved = await state.getXmrAccountState({ accountId });
-    expect(saved).toMatchObject({
-      intent: 'on',
-      birthdayTimestamp: timestamp,
-      birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
-    });
-    expect(saved.operation).toBeUndefined();
     expect(mockRuntime).not.toHaveBeenCalled();
   });
 
   it('preserves the original resolved start when resuming', async () => {
-    const { state, capability } = build();
-    await state.beginXmrEnable({
+    const { state, capability, notify } = build();
+    await state.saveXmrEnabledAccount({
       networkId,
       accountId,
+      vkFp,
       birthdayHeight: 3_000_000,
     });
-    await state.completeXmrEnable({ accountId, vkFp });
-    await state.beginXmrDisable({ accountId, resumeFromHeight: 3_700_000 });
-    await state.completeXmrDisable({ accountId });
+    await state.saveXmrDisabledAccount({
+      accountId,
+      resumeFromHeight: 3_700_000,
+    });
 
     await capability.enableAccount({ accountId });
 
@@ -129,6 +107,12 @@ describe('xmr legacy enable and resume admission', () => {
       birthdayHeight: 3_000_000,
     });
     expect(mockRuntime).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: true,
+      change: 'syncState',
+    });
   });
 
   it('saves a changed target without waiting for node or scan preparation', async () => {
@@ -145,6 +129,11 @@ describe('xmr legacy enable and resume admission', () => {
     });
     expect(mockRuntime).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: true,
+    });
   });
 
   it('keeps successful admission when scheduler notification fails', async () => {
@@ -159,7 +148,7 @@ describe('xmr legacy enable and resume admission', () => {
   });
 
   it('keeps the resume start when a busy Runtime has no fresh progress', async () => {
-    const { state, capability } = build();
+    const { state, capability, notify } = build();
     await state.saveXmrEnabledAccount({
       networkId,
       accountId,
@@ -168,6 +157,12 @@ describe('xmr legacy enable and resume admission', () => {
     });
     mockBusy = true;
     await capability.disableAccount({ accountId });
+    expect(notify).toHaveBeenCalledWith({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: false,
+      change: 'syncState',
+    });
     expect(await state.getXmrAccountState({ accountId })).toMatchObject({
       intent: 'off',
       resumeFromHeight: 3_000_000,

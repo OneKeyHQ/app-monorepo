@@ -454,6 +454,9 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
           key,
           type: 'identity',
           height: 60,
+          // Explicit heights pair with unscaled style metrics, so they must not
+          // take Android's legacy sub-400dp 0.9 row scale (OK-66072).
+          heightRounding: 'nearest',
           testID: `home-token-item-${token.networkId ?? 'any'}-${token.symbol ?? key}`,
           leading: {
             kind: 'token',

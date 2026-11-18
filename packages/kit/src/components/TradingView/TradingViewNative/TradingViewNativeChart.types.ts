@@ -27,6 +27,12 @@ import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
   drawingStorageKey?: string;
+  /**
+   * Where the indicator panes' order and heights are kept. They arrange the
+   * chart's indicators rather than one token's data, so the key should not
+   * change with the token. Falls back to `drawingStorageKey`.
+   */
+  indicatorPanesStorageKey?: string;
   loadDrawingHistory?: IDrawingHistoryLoader;
   enableDrawings?: boolean;
   enableNavigationControls?: boolean;
@@ -46,6 +52,7 @@ export interface ITradingViewNativeChartProps {
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  priceAxisDecimalPlaces?: number;
   priceDecimalPlaces?: number;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;

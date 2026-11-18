@@ -11,6 +11,7 @@ import type {
   ActivityRow,
   NativeListSnapshot,
 } from '@onekeyfe/react-native-native-list';
+import type { LayoutChangeEvent } from 'react-native';
 
 let mockSnapshot: NativeListSnapshot;
 let mockNativeListProps: {
@@ -24,12 +25,17 @@ let mockIsNative = true;
 let mockSettingsHideValue = false;
 let mockCanReplaceTx = false;
 let mockStatus = 'confirmed';
+let mockRootLayout: ((event: LayoutChangeEvent) => void) | undefined;
+let mockNativeListMounts = 0;
 const mockTriggerRefresh = jest.fn();
+let mockAddressesInfo: Record<string, { label?: string }> = {};
+let mockRowModel: {
+  address: string;
+  descriptionPrefix: string;
+  row: { key: string; type: string; description?: string };
+};
 const mockBuildHistoryActivityRow = jest.fn(
-  (_params: { hideValue: boolean }) => ({
-    address: '',
-    row: { key: 'test-tx', type: 'activity' },
-  }),
+  (_params: { hideValue: boolean; tableLayout?: boolean }) => mockRowModel,
 );
 const mockGetVaultSettings = jest.fn<
   Promise<{ hideFeeInfoInHistoryList: boolean }>,
@@ -49,6 +55,9 @@ jest.mock('@onekeyfe/react-native-native-list', () => ({
   }) => {
     mockSnapshot = snapshot;
     mockNativeListProps = props;
+    React.useEffect(() => {
+      mockNativeListMounts += 1;
+    }, []);
     return null;
   },
 }));
@@ -61,7 +70,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 jest.mock('react-native', () => ({
-  View: ({ children }: { children: React.ReactNode }) => children,
+  View: ({
+    children,
+    onLayout,
+  }: {
+    children: React.ReactNode;
+    onLayout?: (event: LayoutChangeEvent) => void;
+  }) => {
+    mockRootLayout = onLayout;
+    return children;
+  },
 }));
 jest.mock('@onekeyhq/components', () => ({
   Stack: () => null,
@@ -87,6 +105,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getVaultSettings: (...args: unknown[]) => mockGetVaultSettings(...args),
     },
     serviceToken: { getNativeToken: async () => ({ symbol: 'FIL' }) },
+    serviceAccountProfile: { queryAddress: async () => ({}) },
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
@@ -114,7 +133,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/historyList', () => ({
   useSearchKeyAtom: () => [''],
-  useAddressesInfoAtom: () => [{}],
+  useAddressesInfoAtom: () => [mockAddressesInfo],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ currencyInfo: { symbol: '$' } }],
@@ -180,8 +199,10 @@ jest.mock('../homeNativeListSnapshot', () => ({
   prepareHomeNativeListSnapshot: (snapshot: NativeListSnapshot) => snapshot,
 }));
 jest.mock('./historyActivityRows', () => ({
-  buildHistoryActivityRow: (params: { hideValue: boolean }) =>
-    mockBuildHistoryActivityRow(params),
+  buildHistoryActivityRow: (params: {
+    hideValue: boolean;
+    tableLayout?: boolean;
+  }) => mockBuildHistoryActivityRow(params),
   formatHistoryNumber: () => ({ text: 'fee', textSegments: [] }),
 }));
 
@@ -190,6 +211,14 @@ beforeEach(() => {
   mockSettingsHideValue = false;
   mockCanReplaceTx = false;
   mockStatus = 'confirmed';
+  mockRootLayout = undefined;
+  mockNativeListMounts = 0;
+  mockAddressesInfo = {};
+  mockRowModel = {
+    address: '',
+    descriptionPrefix: '',
+    row: { key: 'test-tx', type: 'activity' },
+  };
   mockTriggerRefresh.mockClear();
   mockBuildHistoryActivityRow.mockClear();
   mockGetVaultSettings.mockResolvedValue({ hideFeeInfoInHistoryList: false });
@@ -211,6 +240,38 @@ const baseProps = {
   observeFrozenTop: false,
   onAwayFromTopChange() {},
 } as IHomeHistoryListViewProps;
+
+it('switches native rows at the root width without remounting the list', () => {
+  const { rerender } = render(<NativeHistoryList {...baseProps} />);
+  const rowLayout = () =>
+    mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout;
+  expect(rowLayout()).toBe(false);
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 767 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(false);
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 768 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(true);
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 767 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(false);
+  expect(mockNativeListMounts).toBe(1);
+
+  rerender(<NativeHistoryList {...baseProps} tableLayout={false} />);
+  expect(mockRootLayout).toBeUndefined();
+  expect(rowLayout()).toBe(false);
+  rerender(<NativeHistoryList {...baseProps} tableLayout />);
+  expect(rowLayout()).toBe(true);
+});
 
 it('only observes the native scroll position when requested', () => {
   const view = render(<NativeHistoryList {...baseProps} frozenTopEnabled />);
@@ -250,6 +311,25 @@ it('keeps Home defaults and disables detail refresh while hiding the leading slo
   expect(mockBuildHistoryActivityRow).toHaveBeenLastCalledWith(
     expect.objectContaining({ hideValue: false }),
   );
+  const rowLayout = () =>
+    mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout;
+  (
+    [
+      [767, false],
+      [768, true],
+      [767, false],
+    ] as const
+  ).forEach(([width, expected]) => {
+    act(() => {
+      mockRootLayout?.({
+        nativeEvent: { layout: { width } },
+      } as LayoutChangeEvent);
+    });
+    expect(rowLayout()).toBe(expected);
+    expect(activity().hideLeading).toBe(true);
+    expect(mockSnapshot.capabilities?.pullToRefresh).toBe(false);
+  });
+  expect(mockNativeListMounts).toBe(1);
 
   mockSettingsHideValue = true;
   rerender(
@@ -260,6 +340,15 @@ it('keeps Home defaults and disables detail refresh while hiding the leading slo
       hideValue
     />,
   );
+  expect(mockBuildHistoryActivityRow).toHaveBeenLastCalledWith(
+    expect.objectContaining({ hideValue: true }),
+  );
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 768 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(true);
   expect(mockBuildHistoryActivityRow).toHaveBeenLastCalledWith(
     expect.objectContaining({ hideValue: true }),
   );
@@ -314,9 +403,19 @@ it.each([true, false])(
     );
     const props = {
       ...baseProps,
-      tableLayout: true,
+      showIcon: false,
+      refreshEnabled: false,
+      hideValue: true,
     } as IHomeHistoryListViewProps;
     render(<NativeHistoryList {...props} />);
+    act(() => {
+      mockRootLayout?.({
+        nativeEvent: { layout: { width: 768 } },
+      } as LayoutChangeEvent);
+    });
+    expect(mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout).toBe(
+      true,
+    );
     const fee = () =>
       (mockSnapshot.rows.find((row) => row.type === 'activity') as ActivityRow)
         .fee;
@@ -327,3 +426,48 @@ it.each([true, false])(
     expect(fee()?.hidden).toBe(hidden);
   },
 );
+
+// The address part of the description opens the address sheet. NativeList is
+// told where that part starts and never reads it out of the string, so a
+// label holding the separator the time uses stays one tappable label.
+it('states where the description action starts instead of leaving it to the separator', () => {
+  const activityRow = () =>
+    mockSnapshot.rows.find((row) => row.type === 'activity') as {
+      description?: string;
+      descriptionActionKey?: string;
+      descriptionActionStart?: number;
+    };
+
+  mockRowModel = {
+    address: '0xrouter',
+    descriptionPrefix: '08:48 • ',
+    row: { key: 'test-tx', type: 'activity', description: '08:48 • 0x12…ab' },
+  };
+  mockAddressesInfo = { 'test-address': { label: 'Router • V2' } };
+  const { rerender } = render(<NativeHistoryList {...baseProps} />);
+  expect(activityRow()).toMatchObject({
+    description: '08:48 • Router • V2',
+    descriptionActionKey: 'address-info',
+    descriptionActionStart: 8,
+  });
+
+  // Phone rows carry no time: the whole label is the action.
+  mockRowModel = {
+    address: '0xrouter',
+    descriptionPrefix: '',
+    row: { key: 'test-tx', type: 'activity', description: '0x12…ab' },
+  };
+  rerender(<NativeHistoryList {...baseProps} data={[{ ...history }]} />);
+  expect(activityRow()).toMatchObject({
+    description: 'Router • V2',
+    descriptionActionKey: 'address-info',
+    descriptionActionStart: 0,
+  });
+
+  // Without address info there is no action and no start.
+  mockAddressesInfo = {};
+  rerender(<NativeHistoryList {...baseProps} data={[{ ...history }]} />);
+  expect(activityRow().description).toBe('0x12…ab');
+  expect(activityRow().descriptionActionKey).toBeUndefined();
+  expect(activityRow().descriptionActionStart).toBeUndefined();
+});

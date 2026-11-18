@@ -9,8 +9,10 @@ import {
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
-  ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-  ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
   ZCASH_SPAM_REGION_END_MAINNET,
   ZCASH_SPAM_REGION_START_MAINNET,
   ZCASH_TARGET_BLOCK_SECONDS,
@@ -62,57 +64,50 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   localWallet: {
     activation: 'account-opt-in',
-    feeSetByProtocol: true,
     balanceShape: 'pooled',
     // t1/t3, or a ZIP-320 TEX address (tex1 + 38 bech32m chars).
     publicAddressPattern:
       '^(t[13][1-9A-HJ-NP-Za-km-z]{33}|tex1[02-9ac-hj-np-z]{38})$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
-    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
+    hiddenEndpointLabelId: ETranslations.private_send_private_option,
     tipLagWarningBlocks: 48,
-    // Orchard stays listed: imported seeds may still hold value there (it
-    // stopped receiving at NU6.3). Sapling is view-only (no prover), omitted.
+    syncedBelowBlocks: 48,
+    // The first release exposes transparent funds and the Ironwood pool.
     pools: [
       {
         id: ZCASH_POOL_IDS.transparent,
         key: 'transparent',
         kind: 'public',
         source: 'backend',
-        label: 'Transparent',
+        label: 'Public',
       },
       {
         id: ZCASH_POOL_IDS.ironwood,
         key: 'ironwood',
         kind: 'private',
         source: 'localScan',
-        label: 'Ironwood',
+        label: 'Private',
         isDefaultPrivate: ZCASH_CURRENT_SHIELDED_POOL === 'ironwood',
       },
-      {
-        id: ZCASH_POOL_IDS.orchard,
-        key: 'orchard',
-        kind: 'private',
-        source: 'localScan',
-        label: 'Orchard',
-        isDefaultPrivate: ZCASH_CURRENT_SHIELDED_POOL === 'orchard',
-        receivesFunds: false,
-      },
     ],
-    // Sapling is view-only (no prover): old notes still show in history.
-    historyOnlyPools: [{ id: ZCASH_POOL_IDS.sapling, label: 'Sapling' }],
     accountSetup: {
       requiresBirthday: true,
-      // Orchard activation: the shielded pools this wallet spends from start here.
+      // Ironwood is the first supported shielded history in this release.
       earliestBirthday: {
-        height: ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-        timestamp: ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
+        height: ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+        timestamp: ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
       },
     },
     addressForms: {
-      publicLabel: ETranslations.privacy_receive_transparent_address__title,
-      privateLabel: ETranslations.privacy_receive_private_address__title,
+      // Same words as the token tabs and send source.
+      publicLabel: ETranslations.privacy_balance_public__title,
+      privateLabel: ETranslations.private_send_private_option,
     },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
+    blockTimeChange: {
+      fromHeight: ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+      blockTimeSeconds: ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
+    },
     scanRegionHints: [
       {
         fromHeight: ZCASH_SPAM_REGION_START_MAINNET,
@@ -136,7 +131,8 @@ const settings: IVaultSettings = {
   publicKeyExportEnabled: false,
   supportExportedSecretKeys: [],
 
-  importedAccountEnabled: true,
+  // Nothing exports a Zcash key, so nothing imports one either.
+  importedAccountEnabled: false,
   watchingAccountEnabled: true,
   hardwareAccountEnabled: true,
   // The lightwalletd the scanner reads from; transparent sends stay on the backend either way.

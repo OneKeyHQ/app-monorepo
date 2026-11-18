@@ -8,6 +8,19 @@ import {
 } from './simpleDbFacadeCompatibility';
 
 export class SimpleDb {
+  get cloudSyncAccountIssues() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@cloudSyncAccountIssues',
+      loader: () =>
+        import('../entity/SimpleDbEntityCloudSyncAccountIssues').then(
+          ({ SimpleDbEntityCloudSyncAccountIssues }) =>
+            new SimpleDbEntityCloudSyncAccountIssues(),
+        ),
+    });
+    Object.defineProperty(this, 'cloudSyncAccountIssues', { value });
+    return value;
+  }
+
   // Lazy load entities using getters
   get prime() {
     const value = createLazyServiceProxy({
@@ -683,6 +696,32 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'babylonSync', { value });
+    return value;
+  }
+
+  get hardwareTelemetry() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@hardwareTelemetry',
+      loader: () =>
+        import('../entity/SimpleDbEntityHardwareTelemetry').then(
+          ({ SimpleDbEntityHardwareTelemetry }) =>
+            new SimpleDbEntityHardwareTelemetry(),
+        ),
+    });
+    Object.defineProperty(this, 'hardwareTelemetry', { value });
+    return value;
+  }
+
+  get firmwareArtifactCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@firmwareArtifactCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityFirmwareArtifactCache').then(
+          ({ SimpleDbEntityFirmwareArtifactCache }) =>
+            new SimpleDbEntityFirmwareArtifactCache(),
+        ),
+    });
+    Object.defineProperty(this, 'firmwareArtifactCache', { value });
     return value;
   }
 

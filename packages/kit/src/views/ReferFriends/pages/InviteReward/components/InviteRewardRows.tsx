@@ -22,16 +22,25 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
+import { useInviteRewardScopes } from '../../../hooks/useInviteRewardScopes';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import {
   type IInviteRewardRow,
+  type IInviteRewardScopeItem,
   type IInviteRewardSubject,
   INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
   getInviteRewardRows,
+  getInviteRewardScopeItems,
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeDesktopTitle,
+  withRewardScopesHint,
+} from './RewardScopeInfo';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -41,15 +50,6 @@ import {
 } from './useInviteCardStyle';
 
 import type { IInviteCardStyle } from './useInviteCardStyle';
-
-// Product names match the level targets and rates ("Perps volume", "Swap
-// fees"), so each product reads the same everywhere on the referral pages.
-const SUBJECT_TITLE: Record<IInviteRewardSubject, ETranslations> = {
-  hardware: ETranslations.referral_referred_type_3,
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  defi: ETranslations.referral_referred_type_2,
-};
 
 interface IRewardLabelTooltip {
   title: string;
@@ -82,6 +82,7 @@ function RewardListRow({
   pendingLabel: string;
   onPress: () => void;
 }) {
+  const scopeDescription = row.scopeDescription;
   return (
     <ListItem
       {...COMPACT_ROW_BLEED_PROPS}
@@ -89,6 +90,15 @@ function RewardListRow({
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <RewardScopeCompactTitle
+            title={title}
+            subject={row.subject}
+            description={scopeDescription}
+          />
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
@@ -241,9 +251,11 @@ function DesktopRewardRow({
     >
       <DesktopCell first>
         <ProductTile subject={row.subject} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={row.subject}
+          description={row.scopeDescription}
+        />
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
@@ -296,17 +308,20 @@ function DesktopRewardRow({
 function RewardsEmpty({
   cardStyle,
   onCopyLink,
+  scopeItems,
 }: {
   cardStyle: IInviteCardStyle;
   onCopyLink?: () => void;
+  scopeItems: readonly IInviteRewardScopeItem[];
 }) {
   const intl = useIntl();
+  const description = intl.formatMessage({
+    id: ETranslations.referral_earnings_empty__desc,
+  });
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={intl.formatMessage({
-        id: ETranslations.referral_earnings_empty__desc,
-      })}
+      description={withRewardScopesHint(description, scopeItems)}
       buttonProps={
         onCopyLink
           ? {
@@ -365,10 +380,17 @@ export function InviteRewardRows({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  const rewardScopes = useInviteRewardScopes();
   const rows = useMemo(
-    () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
-    [summaryInfo],
+    () =>
+      getInviteRewardRows(
+        summaryInfo,
+        summaryInfo.rebateConfig.configs,
+        rewardScopes,
+      ),
+    [summaryInfo, rewardScopes],
   );
+  const scopeItems = useMemo(() => getInviteRewardScopeItems(rows), [rows]);
   const hasAnyData = rows.some((row) => row.hasData);
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,
@@ -379,7 +401,7 @@ export function InviteRewardRows({
   );
   const titleFor = useCallback(
     (subject: IInviteRewardSubject) =>
-      intl.formatMessage({ id: SUBJECT_TITLE[subject] }),
+      intl.formatMessage({ id: INVITE_REWARD_SUBJECT_TITLE[subject] }),
     [intl],
   );
   const monthlyLabel = intl.formatMessage({
@@ -446,7 +468,11 @@ export function InviteRewardRows({
             ))}
           </YStack>
         ) : (
-          <RewardsEmpty cardStyle={cardStyle} onCopyLink={copyLink} />
+          <RewardsEmpty
+            cardStyle={cardStyle}
+            onCopyLink={copyLink}
+            scopeItems={scopeItems}
+          />
         )}
       </YStack>
     );
@@ -467,7 +493,7 @@ export function InviteRewardRows({
     return (
       <YStack gap="$2">
         {compactTitle}
-        <RewardsEmpty cardStyle={cardStyle} />
+        <RewardsEmpty cardStyle={cardStyle} scopeItems={scopeItems} />
       </YStack>
     );
   }

@@ -36,8 +36,20 @@ test.each([
   'https://evil.test/',
   'https://auth.onekey.so:444/',
   'https://user:pass@auth.onekey.so/',
+  `${SUPABASE_PROJECT_URL}/auth/v1/authorize?q=" --gpu-launcher=calc`,
+  `${SUPABASE_PROJECT_URL}/auth/v1/authorize?q=raw space`,
   'not a URL',
 ])('rejects %s without opening an external program', async (url) => {
   await expect(openOAuthBrowser(url)).rejects.toThrow();
+  expect(mockOpenExternal).not.toHaveBeenCalled();
+});
+
+test('rejects OAuth URLs containing ASCII control characters', async () => {
+  await expect(
+    openOAuthBrowser(`${SUPABASE_PROJECT_URL}/auth/v1/authorize\u0000`),
+  ).rejects.toThrow();
+  await expect(
+    openOAuthBrowser(`${SUPABASE_PROJECT_URL}/auth/v1/authorize\r\n`),
+  ).rejects.toThrow();
   expect(mockOpenExternal).not.toHaveBeenCalled();
 });

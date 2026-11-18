@@ -751,6 +751,109 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     },
   );
 
+  it.each(
+    (['V1', 'V2'] as const).flatMap((protocol) =>
+      [
+        {
+          revision: 4,
+          updatedAt: 400,
+          deviceId: 'DEVICE_ID',
+          serialNo: '',
+          accepted: true,
+        },
+        {
+          revision: 4,
+          updatedAt: 400,
+          deviceId: null,
+          serialNo: 'SERIAL',
+          accepted: true,
+        },
+        {
+          revision: 3,
+          updatedAt: 400,
+          deviceId: 'DEVICE_ID',
+          serialNo: '',
+          accepted: false,
+        },
+        {
+          revision: 5,
+          updatedAt: 300,
+          deviceId: 'DEVICE_ID',
+          serialNo: '',
+          accepted: false,
+        },
+        {
+          revision: 4,
+          updatedAt: 400,
+          deviceId: 'OTHER_DEVICE_ID',
+          serialNo: '',
+          accepted: false,
+        },
+      ].map((entry) => ({ ...entry, protocol })),
+    ),
+  )(
+    'repairs missing $protocol UI identity at $revision / $updatedAt / $deviceId / $serialNo',
+    ({ protocol, revision, updatedAt, deviceId, serialNo, accepted }) => {
+      const currentState = {
+        protocol,
+        revision: 4,
+        updatedAt: 400,
+        identity: {
+          deviceId: serialNo ? null : 'DEVICE_ID',
+          serialNo,
+          bleName: null,
+          label: 'Current label',
+        },
+        status: { mode: 'normal', unlocked: false },
+        settings: { language: 'ja' },
+        versions: { firmware: '1.0.0' },
+      } as IOneKeyDeviceState;
+      const device = { connectId: 'DEVICE_BLE', uuid: 'SERIAL' };
+      const event = {
+        connectId: 'DEVICE_BLE',
+        revision,
+        source: 'device-info' as const,
+        changedKeys: ['versions.firmware'],
+        state: {
+          ...currentState,
+          revision,
+          updatedAt,
+          identity: {
+            ...currentState.identity,
+            deviceId,
+            serialNo: 'SERIAL',
+            bleName: 'Device BLE',
+            label: 'Stale label',
+          },
+          status: { ...currentState.status, unlocked: true },
+          settings: { ...currentState.settings, language: 'en' },
+        },
+      };
+      const snapshot = getDeviceStateSnapshotFromEvent({
+        device,
+        currentState,
+        event,
+      });
+
+      expect(Boolean(snapshot)).toBe(accepted);
+      if (!snapshot) return;
+      expect(snapshot.state.identity).toMatchObject({
+        serialNo: 'SERIAL',
+        bleName: 'Device BLE',
+        label: 'Current label',
+      });
+      expect(snapshot.state.settings.language).toBe('ja');
+      expect(snapshot.state.status.unlocked).toBe(false);
+      expect(
+        getDeviceStateSnapshotFromEvent({
+          device,
+          currentState: snapshot.state,
+          event,
+        }),
+      ).toBeUndefined();
+    },
+  );
+
   it('keeps V1 UI settings through bootloader and normal firmware read-back', () => {
     const currentState = {
       protocol: 'V1',

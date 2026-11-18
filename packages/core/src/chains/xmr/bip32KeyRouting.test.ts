@@ -7,12 +7,16 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { encryptRevealableSeed, mnemonicToRevealableSeed } from '../../secret';
 
 import CoreChainHd from './CoreChainHd';
-import { setXmrRuntimeLoader } from './sdkXmrRuntime/address';
 import { getXmrReviewRequest } from './transactionReview';
 
 import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 import type { IEncodedTxXmr } from './types';
 import type { ICoreApiNetworkInfo } from '../../types';
+
+const mockLoadRuntime = jest.fn<Promise<IXmrPureRuntimeApi>, []>();
+jest.mock('./sdkXmrRuntime/sdk', () => ({
+  getXmrRuntimeApiForCarrier: () => mockLoadRuntime(),
+}));
 
 // The runtime gets the same BIP-32 key address derivation uses; no spend key crosses back.
 
@@ -162,7 +166,7 @@ describe.each([
     let addressKey = '';
 
     beforeAll(async () => {
-      setXmrRuntimeLoader(async () => recordingRuntime(calls));
+      mockLoadRuntime.mockResolvedValue(recordingRuntime(calls));
       await new CoreChainHd().getAddressesFromHd({
         networkInfo,
         template,

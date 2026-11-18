@@ -4,6 +4,7 @@ import {
   createSignInMessage,
 } from '@aptos-labs/siwa';
 import {
+  AccountAddress,
   Deserializer,
   Network,
   NetworkToNodeAPI,
@@ -64,6 +65,12 @@ type IAccountInfo =
       address: string;
     }
   | undefined;
+
+function normalizeSigningAddress(address: string) {
+  return AccountAddress.fromString(
+    hexUtils.addHexPrefix(address.toLowerCase()),
+  ).toStringLong();
+}
 
 export function decodeBytesTransaction(txn: any) {
   let bcsTxn: Uint8Array;
@@ -291,7 +298,12 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
 
-    const { hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    this.assertAccountAddress(
+      account,
+      rawTxn.rawTransaction.sender.toString(),
+      normalizeSigningAddress,
+    );
     const encodeTx = {
       bcsTxn: hexBcsTxn,
     };
@@ -316,7 +328,12 @@ class ProviderApiAptos extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
 
-    const { hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    const { rawTxn, hexBcsTxn } = this._decodeTxToRawTransaction(params);
+    this.assertAccountAddress(
+      account,
+      rawTxn.rawTransaction.sender.toString(),
+      normalizeSigningAddress,
+    );
     const encodeTx = {
       bcsTxn: hexBcsTxn,
     };
@@ -499,6 +516,11 @@ class ProviderApiAptos extends ProviderApiBase {
     const rawTx = SimpleTransaction.deserialize(
       new Deserializer(hexToBytes(params)),
     );
+    this.assertAccountAddress(
+      account,
+      rawTx.rawTransaction.sender.toString(),
+      normalizeSigningAddress,
+    );
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -562,6 +584,13 @@ class ProviderApiAptos extends ProviderApiBase {
     params: AptosSignInInput,
   ): Promise<IAptosSignInOutput> {
     const { account, accountInfo } = await this._getAccount(request);
+    if (params.address !== undefined) {
+      this.assertAccountAddress(
+        account,
+        params.address,
+        normalizeSigningAddress,
+      );
+    }
 
     const signInBoundFields: AptosSignInBoundFields = {
       address: params.address ?? account.address,

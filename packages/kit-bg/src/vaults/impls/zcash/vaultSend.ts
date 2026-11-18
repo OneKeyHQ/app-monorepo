@@ -26,6 +26,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { validateZcashMemoHex } from '@onekeyhq/shared/src/utils/zcashMemo';
 import type {
   IEstimateGasParams,
@@ -75,6 +76,7 @@ export async function zcashCreatePczt(
     memoHex?: string;
   },
 ): Promise<IZcashCreatedPczt> {
+  zcashSpendSourceFromKey(params.spendSource);
   // Pending sends don't block new ones: their stored transactions already spend their notes, so the proposer can't reuse them.
   const account = await vault.zcashGetWalletAccount({
     accountId: params.accountId,
@@ -233,14 +235,15 @@ export async function buildEncodedTx(
       },
     );
   const sourcePool = transferInfo.localWalletSourcePool;
+  if (sourcePool !== undefined && sourcePool !== 'transparent') {
+    zcashSpendSourceFromKey(sourcePool);
+  }
   const requestedSpendSource = zcashSpendSourceFromKey(
     transferInfo.localWalletSpendSource,
   );
   if (
     privacyMode.intent !== 'on' &&
-    (sourcePool === 'orchard' ||
-      sourcePool === 'ironwood' ||
-      requestedSpendSource !== undefined)
+    (sourcePool === 'ironwood' || requestedSpendSource !== undefined)
   ) {
     throw zcashTransparentError(
       'PRIVACY_MODE_DISABLED',
@@ -271,7 +274,7 @@ export async function buildEncodedTx(
     .toFixed(0, BigNumber.ROUND_DOWN);
   // Only an explicit Max request may change the entered amount; ordinary transfers reach the proposer unchanged.
   const spendSource: IZcashSpendSource =
-    sourcePool === 'orchard' || sourcePool === 'ironwood'
+    sourcePool === 'ironwood'
       ? sourcePool
       : (requestedSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL);
   if (params.transferPayload?.isMaxSend === true) {
@@ -662,7 +665,8 @@ export async function broadcastTransaction(
     try {
       broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
     } catch (error) {
-      // Like BTC, a failed broadcast keeps no input lock; a retry reuses the inputs and the node rejects a real double spend.
+      // As Ledger Live does, any failure releases the inputs: a retry spends the same coins, so
+      // if the first attempt did land the node refuses the second instead of paying twice.
       await vault.backgroundApi.simpleDb.privacyChainJournal
         .settleTransparentPendingTx({
           accountId: vault.accountId,
@@ -673,6 +677,20 @@ export async function broadcastTransaction(
             ...zcashDescribeError(releaseError),
           });
         });
+      // No answer (timeout, network, 5xx) may still mean the node has it, so the user is told to
+      // check the history before retrying.
+      if (isTransientNetworkLikeError(error)) {
+        console.error('[zcash] transparent broadcast outcome unknown', {
+          txid: expectedTxid,
+          ...zcashDescribeError(error),
+        });
+        throw toUserFacingZcashError(
+          zcashTransparentError(
+            'BROADCAST_OUTCOME_UNKNOWN',
+            'Zcash transparent broadcast outcome is unknown',
+          ),
+        );
+      }
       throw error;
     }
     if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {

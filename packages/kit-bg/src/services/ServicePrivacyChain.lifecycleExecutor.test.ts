@@ -77,6 +77,8 @@ function createHarness() {
         clearRuntimeOrphans: jest.fn(record('runtimeRows')),
         removeWalletState: jest.fn(record('walletState')),
         forgetAccountEpochs: jest.fn(record('memoryCaches')),
+        // The chain switch is a setting, not scan data.
+        setNetworkPaused: jest.fn(async () => undefined),
       },
       privacyChainKeys: {
         removeKeys: jest.fn(record('viewingKeys')),
@@ -259,17 +261,130 @@ describe('privacy chain lifecycle executor', () => {
       const notifies =
         LOCAL_WALLET_LIFECYCLE[event].notify && event !== 'networkPause';
       expect({ event, refreshed }).toEqual({ event, refreshed: notifies });
+      const accountNotices = emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+      );
+      if (event === 'networkPause') {
+        expect(accountNotices).toHaveLength(1);
+      }
+      for (const [, payload] of accountNotices) {
+        if (event === 'networkPause') {
+          expect(payload).toHaveProperty('change', 'syncState');
+        } else {
+          expect(payload).not.toHaveProperty('change');
+        }
+      }
     }
     emit.mockRestore();
   });
 
-  it('network pause is a session flag only', async () => {
-    const { service, calls } = createHarness();
+  // Preparing clears on the account's next position. One that stops scanning never gets one, and
+  // its flag would hold the chain at Preparing while other accounts scan.
+  it.each([
+    ['disable', false],
+    ['deleteAccount', false],
+    ['rescan', true],
+  ] as const)('%s keeps the account Preparing: %s', async (event, keeps) => {
+    const { service, capability } = createHarness();
+    await service.runLocalWalletLifecycle({
+      event,
+      targets: [targetFor(event, capability)],
+    });
+    const own = `${networkId}:${accountId}`;
+    const other = `${networkId}:other`;
+    let state = {
+      progress: {},
+      boostingNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
+      preparingAccountKeys: [own, other],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+    };
+    for (const [update] of mockAtomSet.mock.calls) {
+      if (typeof update === 'function') {
+        state = (update as (value: typeof state) => typeof state)(state);
+      }
+    }
+    expect(state.preparingAccountKeys).toEqual(keeps ? [own, other] : [other]);
+  });
+
+  // Deleting an account's data waits behind a running scan; its published state must not.
+  it('drops Preparing and scan completion as soon as the user deletes an account’s data', async () => {
+    const own = `${networkId}:${accountId}`;
+    const other = `${networkId}:other`;
+    const processPendingAccountDeletion = jest.fn(
+      () => new Promise<void>(() => {}),
+    );
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as IService,
+      {
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              requestAccountDeletion: async () => ({
+                networkId,
+                accountId,
+                requestId: 'r1',
+              }),
+            },
+          },
+        },
+        // Private methods stubbed here; typed loosely so the intersection keeps the service.
+        ...({
+          backfillActiveByAccount: {},
+          requireAccountCapability: async () => ({}),
+          isPersistenceMasked: async () => false,
+          listLocalWalletAccountTwins: async () => [],
+          processPendingAccountDeletion,
+          onLocalWalletAccountsChanged: jest.fn(async () => undefined),
+        } as Record<string, unknown>),
+      },
+    );
+
+    await service.deleteLocalWalletAccountData({ networkId, accountId });
+
+    type IScanState = {
+      progress: Record<string, unknown>;
+      preparingAccountKeys: string[];
+      completedScanByAccount: Record<
+        string,
+        { sessionId: string; sequence: number }
+      >;
+    };
+    let state: IScanState = {
+      progress: { [own]: {}, [other]: {} },
+      preparingAccountKeys: [own, other],
+      completedScanByAccount: {
+        [own]: { sessionId: 'session', sequence: 1 },
+        [other]: { sessionId: 'session', sequence: 2 },
+      },
+    };
+    for (const [update] of mockAtomSet.mock.calls) {
+      if (typeof update === 'function') {
+        state = (update as (value: IScanState) => IScanState)(state);
+      }
+    }
+    expect(processPendingAccountDeletion).toHaveBeenCalled();
+    expect(state).toEqual({
+      progress: { [other]: {} },
+      preparingAccountKeys: [other],
+      completedScanByAccount: {
+        [other]: { sessionId: 'session', sequence: 2 },
+      },
+    });
+  });
+
+  it('network pause saves the chain switch and touches no scan data', async () => {
+    const { service, calls, backgroundApi } = createHarness();
     await service.runLocalWalletLifecycle({
       event: 'networkPause',
       targets: [{ scope: 'accounts', networkId, accountIds: [] }],
     });
     expect(service.boostPausedByNetwork[networkId]).toBe(true);
+    expect(
+      backgroundApi.simpleDb.privacyChainState.setNetworkPaused,
+    ).toHaveBeenCalledWith({ networkId, paused: true });
     expect(calls).toEqual([]);
     expect(service.publishBoostingNetworks).toHaveBeenCalled();
   });
@@ -527,12 +642,12 @@ describe('privacy chain cache write-back racing a delete', () => {
   async function seedRecord(
     privacyChainState: SimpleDbEntityPrivacyChainState,
   ) {
-    await privacyChainState.beginXmrEnable({
+    await privacyChainState.saveXmrEnabledAccount({
       networkId,
       accountId,
+      vkFp: '9'.repeat(32),
       birthdayHeight: 100,
     });
-    await privacyChainState.completeXmrEnable({ accountId });
   }
 
   async function deleteLocalData(

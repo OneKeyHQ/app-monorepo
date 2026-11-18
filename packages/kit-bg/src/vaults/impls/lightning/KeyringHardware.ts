@@ -26,6 +26,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -341,6 +342,10 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    for (const message of params.messages) {
+      if ('message' in message)
+        assertNoHardwareCloudSyncSigningRequest(message.message);
+    }
     this.assertPro2LightningSupported(params.deviceParams);
 
     if (process.env.NODE_ENV !== 'production') {
@@ -356,6 +361,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
     const result = await Promise.all(
       params.messages.map(async ({ message }) => {
+        const messageHex = Buffer.from(message).toString('hex');
+        assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
         const response = await sdk.btcSignMessage(connectId, deviceId, {
           ...params.deviceParams?.deviceCommonParams,
           path: `${accountUtils.buildLnToBtcPath({
@@ -363,7 +370,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             isTestnet: network.isTestnet,
           })}/0/0`,
           coin: coinName,
-          messageHex: Buffer.from(message).toString('hex'),
+          messageHex,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);

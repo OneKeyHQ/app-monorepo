@@ -1,5 +1,7 @@
 const path = require('path');
 
+const { iconAssetsAlias } = require('../onekey-icons/build');
+
 function createBaseResolveOptions({
   basePath,
   enableSentryMinimalCompat,
@@ -12,6 +14,7 @@ function createBaseResolveOptions({
     extensions,
     symlinks: true,
     alias: {
+      ...iconAssetsAlias,
       'react-native$': 'react-native-web',
       'react-native-fast-image': path.join(
         __dirname,

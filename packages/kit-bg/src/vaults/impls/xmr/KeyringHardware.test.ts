@@ -1,6 +1,7 @@
 // cspell:ignore clsag clsags subaddr rsig vinis randMult
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
 import { keccak_256 as keccak256 } from '@noble/hashes/sha3';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -205,8 +206,8 @@ describe('Monero KeyringHardware', () => {
       success: false,
       path: "m/44'/128'/0'/0/0",
       payload: {
-        error: 'Failure_DataError,Non-hardened paths unsupported on Ed25519',
-        code: 0,
+        error: 'Non-hardened paths unsupported on Ed25519',
+        code: HardwareErrorCode.DeviceNotSupportPath,
       },
     };
     const keyring = createKeyring({ sdk: {} });

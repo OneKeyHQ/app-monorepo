@@ -467,7 +467,6 @@ function AssetSelectorTrigger({
             networkId: _network.id,
             activeAccountId: accountId,
             activeNetworkId: _network.id,
-            forceShowActiveAccountTokenList: true,
             indexedAccountId: indexedAccountId ?? '',
             hideBalanceAndValue: !isOneToMany,
             onSelect: buildTokenSelectHandler({
@@ -528,7 +527,6 @@ function AssetSelectorTrigger({
           networkId: selectedNetworkId,
           activeAccountId: selectedAccountId,
           activeNetworkId: selectedNetworkId,
-          forceShowActiveAccountTokenList: true,
           indexedAccountId: selectedIndexedAccountId ?? '',
           hideBalanceAndValue: !isOneToMany,
           onSelect: buildTokenSelectHandler({

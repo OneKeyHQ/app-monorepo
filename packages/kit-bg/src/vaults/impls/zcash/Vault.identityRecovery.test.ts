@@ -6,6 +6,7 @@ jest.mock('../../../states/jotai/atoms', () => ({
   privacyChainAtom: { set: jest.fn(async () => undefined) },
 }));
 
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
@@ -175,7 +176,10 @@ describe('Zcash identity mismatch recovery', () => {
     });
     await expect(
       privacyChainState.getZcashAccountMeta({ accountId: account.id }),
-    ).resolves.toMatchObject({ vkFp: newVkFp, birthdayHeight: 3_000_000 });
+    ).resolves.toMatchObject({
+      vkFp: newVkFp,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
     await expect(
       getLocalWalletViewingKey({
         backgroundApi,

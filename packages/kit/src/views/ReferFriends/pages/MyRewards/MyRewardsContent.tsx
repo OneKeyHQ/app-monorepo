@@ -11,7 +11,6 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
   Divider,
@@ -28,6 +27,7 @@ import {
   useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -38,6 +38,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { EarnInviteeRewardContent } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/EarnInviteeRewardContent';
 import { InviteeRewardContent as PerpsInviteeRewardContent } from '@onekeyhq/kit/src/views/Perp/components/InviteeReward/InviteeRewardContent';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { SwapInviteeRewardContent } from '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -53,14 +54,24 @@ import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 import { CompactFieldRow } from '../../components/CompactFieldRow';
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
+import { useInviteRewardScopes } from '../../hooks/useInviteRewardScopes';
 import {
   BenefitsTabPlaceholder,
   useBenefitsBindStatus,
 } from '../InviteReward/components/BenefitsTabPlaceholder';
-import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import {
+  INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
+  getInviteRewardScopeDescription,
+  getInviteRewardScopeItems,
+} from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { PartDot } from '../InviteReward/components/PartDot';
 import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeDesktopTitle,
+} from '../InviteReward/components/RewardScopeInfo';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -78,6 +89,8 @@ import {
   PerksCampaignBanner,
   usePerksBannerItems,
 } from './PerksCampaignBanner';
+
+import type { IInviteRewardSubject } from '../InviteReward/components/getInviteRewardRows';
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
@@ -124,20 +137,15 @@ function useMyRewardsCopy() {
   return copy;
 }
 
-const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
-  perps: INVITE_REWARD_SUBJECT_ICON.perps,
-  swap: INVITE_REWARD_SUBJECT_ICON.swap,
-  earn: INVITE_REWARD_SUBJECT_ICON.defi,
-};
-
-// Same product names as the invite tab's breakdown.
-const MODULE_TITLE: Record<IRewardModule, ETranslations> = {
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  earn: ETranslations.referral_referred_type_2,
-};
-
 const MODULES: IRewardModule[] = ['perps', 'swap', 'earn'];
+
+// The invite breakdown's product for each module: its icon, name and
+// reward-scope copy are the product's, so both tabs read the same.
+const MODULE_SUBJECT: Record<IRewardModule, IInviteRewardSubject> = {
+  perps: 'perps',
+  swap: 'swap',
+  earn: 'defi',
+};
 
 // Desktop rows bleed 12px past the text, like the invite tab's breakdown, so
 // the text lines up with the section title.
@@ -884,7 +892,10 @@ function ProductTile({ module }: { module: IRewardModule }) {
       jc="center"
       flexShrink={0}
     >
-      <Icon name={MODULE_ICON[module]} size="$5" />
+      <Icon
+        name={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[module]]}
+        size="$5"
+      />
     </Stack>
   );
 }
@@ -892,11 +903,13 @@ function ProductTile({ module }: { module: IRewardModule }) {
 function DesktopRow({
   row,
   title,
+  scopeDescription,
   noRewardLabel,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   noRewardLabel: string;
   onPress: () => void;
 }) {
@@ -961,9 +974,11 @@ function DesktopRow({
     >
       <DesktopCell first>
         <ProductTile module={row.module} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={MODULE_SUBJECT[row.module]}
+          description={scopeDescription}
+        />
       </DesktopCell>
       {renderValues()}
       <Icon
@@ -979,21 +994,35 @@ function DesktopRow({
   );
 }
 
+// Room for both value lines: the 20px amount, a 2px gap and the 16px unpaid
+// line. Every compact row reserves it, so a row keeps one height from its
+// skeleton to whatever loads (two lines, one, or a note) and the list below
+// never moves (OK-66978). Scaled like the tokens those lines are built from,
+// so narrow Android screens do not get extra padding.
+const COMPACT_VALUE_MIN_HEIGHT = s(38);
+
 function CompactRow({
   row,
   title,
+  scopeDescription,
   labels,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   labels: { unpaid: string; noReward: string };
   onPress: () => void;
 }) {
   const copy = useMyRewardsCopy();
   const renderValue = () => {
     if (row.status === 'loading') {
-      return <Skeleton width={72} height={16} />;
+      return (
+        <>
+          <Skeleton.BodyMd w={72} />
+          <Skeleton.BodySm w={56} />
+        </>
+      );
     }
     if (row.status === 'error') {
       return <SubduedNote>{copy.loadFailed}</SubduedNote>;
@@ -1002,7 +1031,7 @@ function CompactRow({
       return <SubduedNote>{labels.noReward}</SubduedNote>;
     }
     return (
-      <YStack ai="flex-end" gap="$0.5">
+      <>
         {row.paid ? (
           <RewardValue value={row.paid} size="$bodyMdMedium" />
         ) : null}
@@ -1018,21 +1047,37 @@ function CompactRow({
             />
           </XStack>
         ) : null}
-      </YStack>
+      </>
     );
   };
   return (
     <ListItem
       testID={`my-rewards-module-${row.module}`}
       {...COMPACT_ROW_BLEED_PROPS}
-      icon={MODULE_ICON[row.module]}
+      icon={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[row.module]]}
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <RewardScopeCompactTitle
+            title={title}
+            subject={MODULE_SUBJECT[row.module]}
+            description={scopeDescription}
+          />
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
-      {renderValue()}
+      <YStack
+        minHeight={COMPACT_VALUE_MIN_HEIGHT}
+        ai="flex-end"
+        jc="center"
+        gap="$0.5"
+      >
+        {renderValue()}
+      </YStack>
     </ListItem>
   );
 }
@@ -1129,6 +1174,7 @@ function MyRewardsContentBody({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  const rewardScopes = useInviteRewardScopes();
   const {
     activeAccount: { account, indexedAccount, ready: accountReady },
   } = useActiveAccount({ num: 0 });
@@ -1137,45 +1183,26 @@ function MyRewardsContentBody({
   const hasAccount = Boolean(accountId || indexedAccountId);
 
   // Perps, Swap and Earn rewards are all keyed by the account's EVM address
-  // (Perps uses the master address, not the agent wallet).
-  const { result: earnAccountResult } = usePromiseResult(
-    async () => {
-      if (!hasAccount) {
-        return null;
-      }
-      try {
-        const resolved = await backgroundApiProxy.serviceStaking.getEarnAccount(
-          {
-            accountId: accountId ?? '',
-            indexedAccountId,
-            networkId: getNetworkIdsMap().eth,
-            btcOnlyTaproot: true,
-          },
-        );
-        return {
-          accountId,
-          indexedAccountId,
-          earnAccount: resolved?.accountAddress ? resolved : null,
-        };
-      } catch {
-        return {
-          accountId,
-          indexedAccountId,
-          earnAccount: null,
-        };
-      }
-    },
-    [accountId, hasAccount, indexedAccountId],
-    { watchLoading: true, undefinedResultIfReRun: true },
-  );
-  // The previous account's result can still be in state on the first render
-  // after a switch. Treat that as loading, not as this account's address.
-  const earnAccount =
-    earnAccountResult &&
-    earnAccountResult.accountId === accountId &&
-    earnAccountResult.indexedAccountId === indexedAccountId
-      ? earnAccountResult.earnAccount
-      : undefined;
+  // (Perps uses the master address, not the agent wallet). useEarnAccount
+  // caches it per account, so switching back to an account paints its cached
+  // overview without blanking the figures first (OK-66978).
+  const { earnAccount: resolvedEarnAccount, isLoading: isEarnAccountLoading } =
+    useEarnAccount({
+      networkId: getNetworkIdsMap().eth,
+      // Pass both ids so the hook resolves the account shown in the header,
+      // not the selector's newer pick while the switch is still landing.
+      accountId,
+      indexedAccountId,
+    });
+  // undefined while resolving, null when the account has no EVM address.
+  let earnAccount: typeof resolvedEarnAccount | null | undefined = null;
+  if (hasAccount) {
+    if (resolvedEarnAccount?.accountAddress) {
+      earnAccount = resolvedEarnAccount;
+    } else if (isEarnAccountLoading) {
+      earnAccount = undefined;
+    }
+  }
 
   const walletAddress = earnAccount?.accountAddress;
   // Started here, beside the overview, so an empty Perks tab does not wait on
@@ -1327,7 +1354,17 @@ function MyRewardsContentBody({
     }
   };
   const titleFor = (module: IRewardModule) =>
-    intl.formatMessage({ id: MODULE_TITLE[module] });
+    intl.formatMessage({
+      id: INVITE_REWARD_SUBJECT_TITLE[MODULE_SUBJECT[module]],
+    });
+  const scopeFor = (module: IRewardModule) =>
+    getInviteRewardScopeDescription(MODULE_SUBJECT[module], rewardScopes);
+  const scopeItems = getInviteRewardScopeItems(
+    MODULES.map((module) => ({
+      subject: MODULE_SUBJECT[module],
+      scopeDescription: scopeFor(module),
+    })),
+  );
   const sectionTitle = intl.formatMessage({
     id: ETranslations.referral_earnings_by_product__title,
   });
@@ -1349,7 +1386,12 @@ function MyRewardsContentBody({
       );
     }
     if (!isLoading && hasNoRewards(overview)) {
-      return <BenefitsTabPlaceholder bindStatus={bindStatus} />;
+      return (
+        <BenefitsTabPlaceholder
+          bindStatus={bindStatus}
+          scopeItems={scopeItems}
+        />
+      );
     }
     if (md) {
       return (
@@ -1359,6 +1401,7 @@ function MyRewardsContentBody({
               key={row.module}
               row={row}
               title={titleFor(row.module)}
+              scopeDescription={scopeFor(row.module)}
               labels={labels}
               onPress={() => handleRowPress(row)}
             />
@@ -1386,6 +1429,7 @@ function MyRewardsContentBody({
             key={row.module}
             row={row}
             title={titleFor(row.module)}
+            scopeDescription={scopeFor(row.module)}
             noRewardLabel={labels.noReward}
             onPress={() => handleRowPress(row)}
           />

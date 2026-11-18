@@ -1,3 +1,4 @@
+// cspell:ignore financials
 import { useCallback, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -6,10 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   DelayedFreeze,
   Skeleton,
-  Tabs,
+  Tab,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import type { IAppPagerTabBarProps } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -26,6 +28,9 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import { useStockDetail } from '../../../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { shouldHideStockFinancials } from '../../StockFinancials/financialChartData';
+import { useStockFinancialLabels } from '../../StockFinancials/stockFinancialLabels';
+import { useStockFinancials } from '../../StockFinancials/useStockFinancials';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
 import { Portfolio } from '../components/Portfolio';
@@ -51,6 +56,15 @@ import { StickyHeader } from './StickyHeader';
 
 import type { IMarketMobileDetailKind } from '../../../utils/marketMobileDetailKind';
 
+function getStickyHeaderHeight(tabKey: string) {
+  // Reserve the destination's column header before iOS displays its list.
+  return tabKey === 'transactions' ||
+    tabKey === 'portfolio' ||
+    tabKey === 'holders'
+    ? 89
+    : 45;
+}
+
 function MobileInformationTabsHeader({
   holdersTabLabel,
   holdersTabName,
@@ -74,11 +88,8 @@ function MobileInformationTabsHeader({
     [focusedTab, onTabPress],
   );
   const renderTabBarItem = useCallback(
-    (
-      itemProps: React.ComponentProps<typeof Tabs.TabBarItem>,
-      index: number,
-    ) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>, index: number) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         testID={`market-detail-information-tab-${index}`}
@@ -92,8 +103,14 @@ function MobileInformationTabsHeader({
 
   return (
     <MarketDetailHeaderGesture panActiveOffsetY={[-4, 4]} scrollScale={1}>
-      <YStack bg="$bgApp" pointerEvents="box-none">
-        <Tabs.TabBar
+      <YStack
+        bg="$bgApp"
+        pointerEvents="box-none"
+        {...(!platformEnv.isNative
+          ? { position: 'sticky', top: 0, zIndex: 10 }
+          : undefined)}
+      >
+        <TabBar
           {...props}
           scrollable
           keepFocusedTabVisible
@@ -169,6 +186,11 @@ export function MobileInformationTabs({
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
     useTokenDetail();
   const { stockId } = useStockDetail();
+  const financials = useStockFinancials(
+    detailKind === 'stock' ? stockId : undefined,
+  );
+  const financialLabels = useStockFinancialLabels();
+  const hideFinancials = shouldHideStockFinancials(financials, financialLabels);
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
   const holdersTabName = intl.formatMessage({
@@ -196,8 +218,9 @@ export function MobileInformationTabs({
       id: ETranslations.global_overview,
     });
     const portfolioTab = (
-      <Tabs.Tab
+      <Tab
         key="portfolio"
+        startMounted={platformEnv.isNativeAndroid}
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_myposition,
         })}
@@ -216,12 +239,12 @@ export function MobileInformationTabs({
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>
-      </Tabs.Tab>
+      </Tab>
     );
 
     if (detailKind === 'topCoin') {
       return [
-        <Tabs.Tab key="overview" name={overviewName}>
+        <Tab key="overview" name={overviewName}>
           <DelayedFreeze freeze={freezeContent}>
             <MobileTopCoinsOverviewPanel
               scrollEnabled={scrollEnabled}
@@ -229,29 +252,33 @@ export function MobileInformationTabs({
               isAssetDetailLoading={isMarketAssetDetailLoading}
             />
           </DelayedFreeze>
-        </Tabs.Tab>,
+        </Tab>,
         portfolioTab,
       ];
     }
 
     if (detailKind === 'stock') {
       return [
-        <Tabs.Tab key="overview" name={overviewName}>
+        <Tab key="overview" name={overviewName}>
           <DelayedFreeze freeze={freezeContent}>
             <MobileStockOverviewPanel scrollEnabled={scrollEnabled} />
           </DelayedFreeze>
-        </Tabs.Tab>,
-        stockId ? (
-          <Tabs.Tab
+        </Tab>,
+        stockId && !hideFinancials ? (
+          <Tab
             key="financials"
             name={intl.formatMessage({
               id: ETranslations.market_stock_financials__title,
             })}
           >
             <DelayedFreeze freeze={freezeContent}>
-              <MobileStockFinancialsPanel scrollEnabled={scrollEnabled} />
+              <MobileStockFinancialsPanel
+                scrollEnabled={scrollEnabled}
+                stockId={stockId}
+                financials={financials}
+              />
             </DelayedFreeze>
-          </Tabs.Tab>
+          </Tab>
         ) : null,
         portfolioTab,
       ].filter(Boolean);
@@ -264,13 +291,13 @@ export function MobileInformationTabs({
     const shouldShowLiquidityPoolsTab = !isNative && !isStockToken;
 
     return [
-      <Tabs.Tab key="overview" name={overviewName}>
+      <Tab key="overview" name={overviewName}>
         <DelayedFreeze freeze={freezeContent}>
           <MobileTrendingOverviewPanel scrollEnabled={scrollEnabled} />
         </DelayedFreeze>
-      </Tabs.Tab>,
+      </Tab>,
       shouldShowTransactionsTab && (
-        <Tabs.Tab
+        <Tab
           key="transactions"
           name={intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions,
@@ -284,11 +311,11 @@ export function MobileInformationTabs({
               scrollEnabled={scrollEnabled}
             />
           </DelayedFreeze>
-        </Tabs.Tab>
+        </Tab>
       ),
       portfolioTab,
       shouldShowLiquidityPoolsTab && (
-        <Tabs.Tab
+        <Tab
           key="liquidityPools"
           name={intl.formatMessage({
             id: ETranslations.global_liquidity,
@@ -305,10 +332,10 @@ export function MobileInformationTabs({
               />
             </MarketDetailScrollView>
           </DelayedFreeze>
-        </Tabs.Tab>
+        </Tab>
       ),
       shouldShowHoldersTab && (
-        <Tabs.Tab key="holders" name={holdersTabName}>
+        <Tab key="holders" name={holdersTabName}>
           <DelayedFreeze freeze={freezeContent}>
             <Holders
               tokenAddress={tokenAddress}
@@ -316,7 +343,7 @@ export function MobileInformationTabs({
               scrollEnabled={scrollEnabled}
             />
           </DelayedFreeze>
-        </Tabs.Tab>
+        </Tab>
       ),
     ].filter(Boolean);
   }, [
@@ -341,6 +368,8 @@ export function MobileInformationTabs({
     marketAssetDetail,
     isMarketAssetDetailLoading,
     stockId,
+    financials,
+    hideFinancials,
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
@@ -370,14 +399,17 @@ export function MobileInformationTabs({
   );
 
   // Reset native header and page offsets when switching tokens. Stock network
-  // hydration must not remount the chart for the same stock.
+  // hydration and financial tab availability must not remount the chart.
   const tokenKey =
     detailKind === 'stock'
       ? `stock:${stockId ?? ''}`
       : `${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`;
   const tabsKey = useMemo(
-    () => `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
-    [tabKeys, tokenKey],
+    () =>
+      detailKind === 'stock'
+        ? tokenKey
+        : `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
+    [detailKind, tabKeys, tokenKey],
   );
 
   // Stock tabs are independent of the selected token network. Other tab sets
@@ -391,13 +423,18 @@ export function MobileInformationTabs({
     ) : null;
   }
 
-  const initialStickyHeight = preferPosition ? 89 : 45;
+  const initialStickyHeight = getStickyHeaderHeight(
+    preferPosition ? 'portfolio' : 'overview',
+  );
   return (
     <MarketDetailPager
       key={tabsKey}
       initialHeaderHeight={initialHeaderHeight}
       initialStickyHeaderHeight={
         initialHeaderHeight === undefined ? undefined : initialStickyHeight
+      }
+      getStickyHeaderHeight={
+        platformEnv.isNativeIOS ? getStickyHeaderHeight : undefined
       }
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       scrollEnabled={scrollEnabled}

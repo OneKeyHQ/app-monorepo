@@ -91,6 +91,11 @@ function buildPlatformEnvDefineMap(platform: string): Record<string, boolean> {
   return buildSharedPlatformEnvDefineMap(loadBuildTimeEnv(platform));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { OneKeyIconAssetsPlugin } = require('../onekey-icons/build') as {
+  OneKeyIconAssetsPlugin: new () => RspackPluginInstance;
+};
+
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
@@ -475,6 +480,7 @@ export function createBaseConfig({
         : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
+      new OneKeyIconAssetsPlugin(),
       new HtmlWebpackPlugin({
         title: platform,
         minify: !isDev,
@@ -568,6 +574,16 @@ export function createBaseConfig({
           type: 'webassembly/async',
         },
         {
+          // External <use> cannot resolve small SVGs inlined as data URLs.
+          test: /\.svg$/,
+          include:
+            /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
+          type: 'asset/resource',
+          generator: {
+            filename: 'static/onekey-icons/[name].[contenthash:8][ext]',
+          },
+        },
+        {
           test: [/\.avif$/],
           type: 'asset',
           parser: {
@@ -578,6 +594,8 @@ export function createBaseConfig({
         },
         {
           test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/, /\.webp$/],
+          exclude:
+            /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
           type: 'asset',
           parser: { dataUrlCondition: { maxSize: 1000 } },
         },
@@ -700,6 +718,19 @@ export function createBaseConfig({
                   // the webpack babel chain (babelTools.js, !isJest). Runs while
                   // JSX is still intact (babel-loader precedes swc here). Builds
                   // are never jest, so no isJest guard is needed.
+                  // Absolute checkout paths otherwise change emitted sizes and
+                  // can push CI past a splitChunks boundary compared to local.
+                  ...(!isDev && platform === 'web'
+                    ? [
+                        [
+                          path.join(
+                            __dirname,
+                            '../babel-plugins/sentry-relative-source-path',
+                          ),
+                          { rootDir: path.resolve(__dirname, '../..') },
+                        ],
+                      ]
+                    : []),
                   ['@sentry/babel-plugin-component-annotate'],
                   // Function-level perf instrumentation (parity with webpack
                   // babelTools.js, gated on PERF_MONITOR_ENABLED=1). Must run

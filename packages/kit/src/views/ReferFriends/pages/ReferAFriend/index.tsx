@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -16,6 +16,7 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
@@ -50,6 +51,7 @@ import { EPhaseState } from './types';
 interface IReferAFriendPageProps {
   postConfig: IInvitePostConfig;
   phaseState: EPhaseState;
+  onPhaseSourceChange: (phase: EPhaseState, ready: boolean) => void;
   actions?: ReactNode;
 }
 
@@ -73,7 +75,7 @@ function PhaseLayer({
       opacity={isActive ? 1 : 0}
       pointerEvents={isActive ? 'auto' : 'none'}
       aria-hidden={!isActive}
-      transition="quick"
+      transition={platformEnv.isNativeIOS ? undefined : 'quick'}
       animateOnly={ANIMATE_ONLY_OPACITY}
     >
       {children}
@@ -81,11 +83,49 @@ function PhaseLayer({
   );
 }
 
+function IOSPhaseIllustration({
+  isIntro,
+  onPhaseSourceChange,
+}: {
+  isIntro: boolean;
+  onPhaseSourceChange: IReferAFriendPageProps['onPhaseSourceChange'];
+}) {
+  const onIntroSourceChange = useCallback(
+    (ready: boolean) => onPhaseSourceChange(EPhaseState.next, ready),
+    [onPhaseSourceChange],
+  );
+  const onHowToSourceChange = useCallback(
+    (ready: boolean) => onPhaseSourceChange(EPhaseState.join, ready),
+    [onPhaseSourceChange],
+  );
+
+  return (
+    <XStack>
+      <PhaseLayer isActive={isIntro}>
+        <InviteCodeStepImage
+          step={1}
+          isActive={isIntro}
+          onSourceAvailabilityChange={onIntroSourceChange}
+        />
+      </PhaseLayer>
+      <PhaseLayer isActive={!isIntro} overlapPrevious>
+        <InviteCodeStepImage
+          step={2}
+          isActive={!isIntro}
+          onSourceAvailabilityChange={onHowToSourceChange}
+        />
+      </PhaseLayer>
+    </XStack>
+  );
+}
+
 function ReferAFriendPage({
   postConfig,
   phaseState,
+  onPhaseSourceChange,
   actions,
 }: IReferAFriendPageProps) {
+  const themeVariant = useThemeVariant();
   const isIntro = phaseState === EPhaseState.next;
   // With the actions pinned to the footer (native modal), the content starts
   // from the top like other onboarding screens, and the spare height falls
@@ -101,17 +141,25 @@ function ReferAFriendPage({
       flex={1}
       justifyContent={isFooterActions ? 'flex-start' : 'center'}
     >
-      <AnimatePresence exitBeforeEnter>
-        <Stack
-          key={phaseState}
-          transition="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-        >
-          <InviteCodeStepImage step={isIntro ? 1 : 2} />
-        </Stack>
-      </AnimatePresence>
+      {platformEnv.isNativeIOS ? (
+        <IOSPhaseIllustration
+          key={themeVariant}
+          isIntro={isIntro}
+          onPhaseSourceChange={onPhaseSourceChange}
+        />
+      ) : (
+        <AnimatePresence exitBeforeEnter>
+          <Stack
+            key={phaseState}
+            transition="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+          >
+            <InviteCodeStepImage step={isIntro ? 1 : 2} />
+          </Stack>
+        </AnimatePresence>
+      )}
       <XStack>
         <PhaseLayer isActive={isIntro}>
           <ReferAFriendIntroPhase postConfig={postConfig} />
@@ -143,6 +191,31 @@ function ReferAFriendPageWrapper() {
     perksEntry: route.params?.perksEntry,
   });
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
+  const readyPhases = useRef(new Set<EPhaseState>());
+  const pendingPhase = useRef<EPhaseState | undefined>(undefined);
+  const requestPhase = useCallback((phase: EPhaseState) => {
+    // Commit the illustration, copy, and actions together once the source mounts.
+    if (platformEnv.isNativeIOS && !readyPhases.current.has(phase)) {
+      pendingPhase.current = phase;
+      return;
+    }
+    pendingPhase.current = undefined;
+    setPhaseState(phase);
+  }, []);
+  const onPhaseSourceChange = useCallback(
+    (phase: EPhaseState, ready: boolean) => {
+      if (!ready) {
+        readyPhases.current.delete(phase);
+        return;
+      }
+      readyPhases.current.add(phase);
+      if (pendingPhase.current === phase) {
+        pendingPhase.current = undefined;
+        setPhaseState(phase);
+      }
+    },
+    [],
+  );
   const activeTab = useReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
   const { setActiveTab, openPerks, openInvite } =
@@ -182,14 +255,26 @@ function ReferAFriendPageWrapper() {
   const actions = (
     <ReferAFriendPhaseActions
       phaseState={phaseState}
-      setPhaseState={setPhaseState}
+      setPhaseState={requestPhase}
     />
   );
+  const footer =
+    isInviteTab && postConfig && !showInlineActions ? (
+      <Stack px="$4" py="$4" bg="$bgApp">
+        {actions}
+        {perksLink}
+      </Stack>
+    ) : null;
 
   return (
     <Page
       scrollEnabled
       scrollProps={{ contentContainerStyle: { flexGrow: 1 } }}
+      directFooter={
+        platformEnv.isNativeIOS && footer
+          ? { enabled: true, children: footer }
+          : undefined
+      }
     >
       {isCompactHeader ? (
         <Page.Header
@@ -242,6 +327,7 @@ function ReferAFriendPageWrapper() {
               <ReferAFriendPage
                 postConfig={postConfig}
                 phaseState={phaseState}
+                onPhaseSourceChange={onPhaseSourceChange}
                 actions={showInlineActions ? actions : undefined}
               />
             ) : null}
@@ -260,13 +346,8 @@ function ReferAFriendPageWrapper() {
         )}
       </Page.Body>
 
-      {isInviteTab && postConfig && !showInlineActions ? (
-        <Page.Footer>
-          <Stack px="$4" py="$4" bg="$bgApp">
-            {actions}
-            {perksLink}
-          </Stack>
-        </Page.Footer>
+      {!platformEnv.isNativeIOS && footer ? (
+        <Page.Footer>{footer}</Page.Footer>
       ) : null}
     </Page>
   );

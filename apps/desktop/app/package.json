@@ -17,7 +17,7 @@
     "electron-check-biometric-auth-changed": "1.0.0",
     "iconv-lite": "0.6.3",
     "mime-db": "1.52.0",
-    "systeminformation": "5.31.7",
+    "systeminformation": "5.33.16",
     "validator": "13.15.23"
   },
   "resolutions": {
@@ -27,6 +27,6 @@
     "tinyglobby": "0.2.17",
     "tmp": "0.2.7",
     "brace-expansion@^2.0.2": "2.1.6",
-    "undici@^6.25.0": "6.28.1"
+    "undici@^6.25.0": "6.29.1"
   }
 }

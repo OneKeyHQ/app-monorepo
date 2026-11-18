@@ -1,4 +1,5 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
@@ -80,16 +81,16 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
         derive: async () => ({ ...derived, chainTip: null }),
       });
 
-      expect(
-        (await zcash.getZcashAccountMeta({ accountId: account.id }))
-          ?.birthdayHeight,
-      ).toBe(
+      const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
+      expect(meta?.birthdayHeight).toBe(
         estimateZcashBirthdayHeight({
           birthdayTimestamp,
           chainTip: 3_400_000,
           now,
         }),
       );
+      // The node places the height before the account registers.
+      expect(meta?.birthdayHeightEstimated).toBe(true);
     } finally {
       clock.mockRestore();
     }
@@ -200,7 +201,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
     expect(meta).toMatchObject({
       vkFp,
-      birthdayHeight: 3_000_000,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
       addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
     });
     expect(JSON.stringify(await zcash.getRawData())).not.toContain(
@@ -316,7 +317,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toMatchObject({
       vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'another-ufvk' }),
-      birthdayHeight: 3_000_000,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
     });
   });
 

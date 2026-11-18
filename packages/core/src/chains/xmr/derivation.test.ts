@@ -1,11 +1,14 @@
-import {
-  deriveXmrAccount,
-  setXmrRuntimeLoader,
-  validateXmrAddress,
-} from './sdkXmrRuntime/address';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { deriveXmrAccount, validateXmrAddress } from './sdkXmrRuntime/address';
 
 import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 import type { IXmrNetwork } from './sdkXmrRuntime/types';
+
+const mockLoadRuntime = jest.fn<Promise<IXmrPureRuntimeApi>, []>();
+jest.mock('./sdkXmrRuntime/sdk', () => ({
+  getXmrRuntimeApiForCarrier: () => mockLoadRuntime(),
+}));
 
 // Pins the wiring, not the cryptography: a wrong network, swapped viewing-pair halves or JSON
 // shape drift silently yield a plausible address for the wrong wallet.
@@ -67,8 +70,10 @@ function fakeRuntime(): IXmrPureRuntimeApi & {
 
 describe('xmr derivation plumbing', () => {
   // The load failure must surface: an empty address would be a receive form that loses money.
-  it('surfaces a failure rather than deriving nothing when no carrier is registered', async () => {
-    setXmrRuntimeLoader(undefined as never);
+  it('surfaces a failure rather than deriving nothing when the runtime cannot load', async () => {
+    mockLoadRuntime.mockRejectedValue(
+      new OneKeyLocalError('runtime unavailable'),
+    );
     await expect(
       deriveXmrAccount({ network: 'mainnet', bip32PrivateKeyHex: 'aa' }),
     ).rejects.toThrow();
@@ -76,7 +81,7 @@ describe('xmr derivation plumbing', () => {
 
   it('passes the network through instead of assuming mainnet', async () => {
     const runtime = fakeRuntime();
-    setXmrRuntimeLoader(async () => runtime);
+    mockLoadRuntime.mockResolvedValue(runtime);
 
     await deriveXmrAccount({
       network: 'testnet',
@@ -92,7 +97,7 @@ describe('xmr derivation plumbing', () => {
   // Swapped halves scan nothing while the address still looks correct.
   it('keeps the viewing pair halves in their own fields', async () => {
     const runtime = fakeRuntime();
-    setXmrRuntimeLoader(async () => runtime);
+    mockLoadRuntime.mockResolvedValue(runtime);
 
     const derived = await deriveXmrAccount({
       network: 'mainnet',
@@ -106,7 +111,7 @@ describe('xmr derivation plumbing', () => {
 
   it('validates addresses against the requested network', async () => {
     const runtime = fakeRuntime();
-    setXmrRuntimeLoader(async () => runtime);
+    mockLoadRuntime.mockResolvedValue(runtime);
 
     await expect(
       validateXmrAddress({ address: '4abc', network: 'mainnet' }),
@@ -118,7 +123,7 @@ describe('xmr derivation plumbing', () => {
 
   it('defaults address validation to mainnet only when asked to', async () => {
     const runtime = fakeRuntime();
-    setXmrRuntimeLoader(async () => runtime);
+    mockLoadRuntime.mockResolvedValue(runtime);
 
     await validateXmrAddress({ address: '4abc' });
     expect(runtime.calls.at(-1)).toEqual({

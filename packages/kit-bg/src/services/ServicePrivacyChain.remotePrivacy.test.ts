@@ -13,6 +13,20 @@ const mockGetChainOnlyVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
 }));
+jest.mock('../states/jotai/atoms', () => ({
+  privacyChainAtom: {
+    set: async () => undefined,
+    get: async () => ({
+      progress: {},
+      boostingNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
+      preparingAccountKeys: [],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+    }),
+  },
+}));
 jest.mock('../vaults/settings', () => ({
   getVaultSettings: async () => ({
     localWallet: { pools: [{ key: 'orchard', source: 'localScan' }] },
@@ -29,7 +43,6 @@ type IService = {
   ) => Promise<ILocalWalletAccountState>;
   enableLocalWalletAccount: (params: IParams) => Promise<void>;
   assertLocalWalletAccountAdmission: (params: IParams) => Promise<void>;
-  retryLocalWalletAccountSetup: (params: IParams) => Promise<void>;
   enableLocalWalletAccountInSlot: (params: IParams) => Promise<void>;
   refreshLocalWalletAccount: (params: IParams) => Promise<void>;
   getLocalWalletSendReadiness: (
@@ -126,9 +139,6 @@ describe.each(['zec--0', 'xmr--0'])(
       await expect(
         service.assertLocalWalletAccountAdmission(params),
       ).rejects.toThrow();
-      await expect(
-        service.retryLocalWalletAccountSetup(params),
-      ).rejects.toThrow();
       expect(ensureLoaded).toHaveBeenCalled();
       expect(enableAccount).not.toHaveBeenCalled();
       expect(admission).not.toHaveBeenCalled();
@@ -149,7 +159,7 @@ describe.each(['zec--0', 'xmr--0'])(
         }),
       ).toMatchObject({
         canSend: false,
-        paused: true,
+        status: 'unavailable',
       });
     });
 

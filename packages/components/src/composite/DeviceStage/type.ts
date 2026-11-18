@@ -185,8 +185,8 @@ export interface IDeviceStageProps {
    */
   replicaWidth?: number;
   /** The model's finish, read by the driver off the device row's serial
-   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 has one.
-   * Omitted: the model's default shell. */
+   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 and the
+   * Neo have one. Omitted: the model's default shell. */
   deviceColor?: IHardwareDeviceColor;
   step: IDeviceStageStep;
   /**
@@ -213,6 +213,14 @@ export interface IDeviceStageProps {
    * and rows of `installConfirm`/`installing` — and the app a
    * wallet-match `openApp` names. */
   appName?: string;
+  /** File-write progress reported by the SDK, 0–100. */
+  transferProgress?: number;
+  transferMetrics?: {
+    transferredBytes?: number;
+    totalBytes?: number;
+    rateBytesPerSecond?: number;
+    retryCount?: number;
+  };
   /** Live install progress, 0–100 — `installing`'s bar and the active
    * row of `installBatch`. Real progress from the vendor SDK, never
    * simulated. */

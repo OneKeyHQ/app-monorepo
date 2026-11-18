@@ -352,6 +352,12 @@ describe('ServiceAccount Keyless removal phase', () => {
         },
         serviceKeylessCloudSync: {
           setKeylessCloudSyncCredentialCache,
+          persistNewKeylessCloudSyncCredential: jest.fn(
+            async (syncCredential) => {
+              await keylessSyncCredentialStorage.saveCredential(syncCredential);
+              setKeylessCloudSyncCredentialCache(syncCredential);
+            },
+          ),
           setPersistedCurrentCloudSyncKeylessWalletId,
         },
         servicePrimeCloudSync: {

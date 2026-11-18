@@ -1,6 +1,7 @@
 import { jubjub, jubjub_groupHash, pallas } from '@noble/curves/misc';
 import { blake2b } from '@noble/hashes/blake2b';
 import { bech32m } from 'bech32';
+import bs58check from 'bs58check';
 import { decode as decodeCompactSize, encodingLength } from 'varuint-bitcoin';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -70,9 +71,10 @@ function validateSaplingReceiver(receiver: Uint8Array) {
     invalidAddress();
 }
 
-export function getSupportedZcashUnifiedAddressReceiverTypes(
+// Each receiver by its type, in address order; undefined unless the address is payable here.
+function decodeSupportedZcashUnifiedAddress(
   address: string,
-): number[] | undefined {
+): Map<number, Uint8Array> | undefined {
   try {
     if (
       address.length > MAX_UNIFIED_CHARACTERS ||
@@ -102,7 +104,7 @@ export function getSupportedZcashUnifiedAddressReceiverTypes(
     let previousType = -1;
     let hasTransparent = false;
     let hasOrchard = false;
-    const receiverTypes: number[] = [];
+    const receivers = new Map<number, Uint8Array>();
     while (offset < payload.length) {
       const type = readCompactSize();
       const length = readCompactSize();
@@ -125,13 +127,57 @@ export function getSupportedZcashUnifiedAddressReceiverTypes(
         // Revision-zero addresses cannot contain MUST-understand metadata.
         return undefined;
       }
-      receiverTypes.push(type);
+      receivers.set(type, receiver);
     }
     // Only a Unified address with an Orchard receiver is payable.
-    return hasOrchard ? receiverTypes : undefined;
+    return hasOrchard ? receivers : undefined;
   } catch {
     return undefined;
   }
+}
+
+export function getSupportedZcashUnifiedAddressReceiverTypes(
+  address: string,
+): number[] | undefined {
+  const receivers = decodeSupportedZcashUnifiedAddress(address);
+  return receivers ? [...receivers.keys()] : undefined;
+}
+
+// A shielded payment goes to one Orchard receiver; the wallet reads back only that receiver, so two
+// addresses holding it are one recipient.
+export function isSameZcashOrchardRecipient(a: string, b: string): boolean {
+  if (a === b) return true;
+  const orchardA = decodeSupportedZcashUnifiedAddress(a)?.get(3);
+  const orchardB = decodeSupportedZcashUnifiedAddress(b)?.get(3);
+  // The apps' Buffer polyfill compares only Buffers, unlike Node's.
+  return (
+    !!orchardA &&
+    !!orchardB &&
+    Buffer.from(orchardA).equals(Buffer.from(orchardB))
+  );
+}
+
+// Transparent receiver type codes and the t-address prefix each encodes to (t1 P2PKH, t3 P2SH).
+const TRANSPARENT_RECEIVER_PREFIXES: [number, number[]][] = [
+  [0, [0x1c, 0xb8]],
+  [1, [0x1c, 0xbd]],
+];
+
+// The t-address a Unified address carries, if it has a transparent receiver.
+export function getZcashUnifiedAddressTransparentReceiver(
+  address: string,
+): string | undefined {
+  const receivers = decodeSupportedZcashUnifiedAddress(address);
+  if (!receivers) return undefined;
+  for (const [type, prefix] of TRANSPARENT_RECEIVER_PREFIXES) {
+    const hash = receivers.get(type);
+    if (hash) {
+      return bs58check.encode(
+        Buffer.concat([Buffer.from(prefix), Buffer.from(hash)]),
+      );
+    }
+  }
+  return undefined;
 }
 
 export function isSupportedZcashUnifiedAddress(address: string): boolean {

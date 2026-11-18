@@ -277,7 +277,6 @@ class ServiceCustomRpc extends ServiceBase {
   }
 
   // Read-only: a chain with its own node uses it unless an enabled row overrides it; the built-in node is never written as a row.
-  // A server-delivered default replaces the built-in one, never a custom row.
   public async resolveRpcUrlWithBuiltIn({
     networkId,
   }: {
@@ -287,6 +286,16 @@ class ServiceCustomRpc extends ServiceBase {
     if (record?.rpc && record.enabled) {
       return record.rpc;
     }
+    return this.resolveDefaultRpcUrl({ networkId });
+  }
+
+  // The node without an enabled custom row. A server-delivered default
+  // replaces the built-in one, never a custom row.
+  public async resolveDefaultRpcUrl({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<string | undefined> {
     await this.ensureLocalWalletRemoteConfigLoaded();
     const remoteUrl = getLocalWalletRemoteConfig(networkId)?.nodeUrls?.[0];
     if (remoteUrl) {

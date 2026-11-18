@@ -86,4 +86,30 @@ describe('MarketPerpsTokenListItem', () => {
       '$1',
     );
   });
+
+  it('shows unknown wide volume as a placeholder', () => {
+    render(
+      <MarketPerpsTokenListItem
+        item={{ ...perp, volume24h: '' }}
+        onPress={jest.fn()}
+        bannerColumnMode="three"
+      />,
+    );
+    expect(screen.getByText('--')).toBeTruthy();
+  });
+
+  it('keeps the localized name and shows volume once in three-column mode', () => {
+    render(
+      <MarketPerpsTokenListItem
+        item={perp}
+        onPress={jest.fn()}
+        bannerColumnMode="three"
+      />,
+    );
+    expect(screen.getByTestId('perps-lines').textContent).toContain('Bitcoin');
+    expect(screen.getByTestId('perps-lines').textContent).not.toContain(
+      '123456789',
+    );
+    expect(screen.getAllByText('123456789')).toHaveLength(1);
+  });
 });

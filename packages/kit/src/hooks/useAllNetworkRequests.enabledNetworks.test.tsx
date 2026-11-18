@@ -16,7 +16,12 @@ jest.mock('../background/instance/backgroundApiProxy', () => {
     __esModule: true,
     default: {
       serviceAllNetwork: { getAllNetworkAccountsForHome },
-      serviceDeFi: { getDeFiEnabledNetworksMap: jest.fn(async () => ({})) },
+      serviceDeFi: {
+        getDeFiEnabledNetworksMapState: jest.fn(async () => ({
+          enabledNetworksMap: {},
+          isReady: false,
+        })),
+      },
     },
   };
 });

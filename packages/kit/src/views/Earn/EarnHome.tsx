@@ -86,6 +86,7 @@ function BasicEarnHome({
   showHeader,
   showContent,
   isVisible,
+  bannerAutoPlayEnabled = true,
   overrideDefaultTab,
   tabsRef,
   useSwipePager,
@@ -101,6 +102,7 @@ function BasicEarnHome({
    * the swipe never triggers a request for a tab the user is only passing over.
    */
   isVisible?: boolean;
+  bannerAutoPlayEnabled?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -715,7 +717,9 @@ function BasicEarnHome({
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
+          bannerAutoPlayEnabled={bannerAutoPlayEnabled}
           showContent={(isVisible ?? showContent) !== false}
+          keepHiddenLayout={Boolean(platformEnv.isNativeIOS && useSwipePager)}
           isRefreshing={isOverviewRefreshing}
           isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
@@ -820,6 +824,7 @@ export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
   isVisible,
+  bannerAutoPlayEnabled = true,
   defaultTab,
   tabsRef,
   useSwipePager,
@@ -828,6 +833,7 @@ export function EarnHomeWithProvider({
   showHeader?: boolean;
   showContent?: boolean;
   isVisible?: boolean;
+  bannerAutoPlayEnabled?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -846,6 +852,7 @@ export function EarnHomeWithProvider({
           showHeader={showHeader}
           showContent={showContent}
           isVisible={isVisible}
+          bannerAutoPlayEnabled={bannerAutoPlayEnabled}
           overrideDefaultTab={defaultTab}
           tabsRef={tabsRef}
           useSwipePager={useSwipePager}

@@ -1,5 +1,6 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
+import type { IBleCommunicationTelemetry } from '@onekeyhq/shared/src/logger/scopes/hardware/scenes/connection';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const BLE_MTU_READY_LOG_EVENT = '[ReactNativeBleTransport] BLE MTU ready';
@@ -76,6 +77,64 @@ function shouldReportBleMtuReadyTelemetry(
   return true;
 }
 
+function parseBleFileWriteLogPayload(
+  payload: readonly unknown[],
+): IBleCommunicationTelemetry | undefined {
+  const index = payload.indexOf('[ReactNativeBleTransport] FileWrite perf');
+  if (index < 0 || typeof payload[index + 1] !== 'string') return undefined;
+  try {
+    const data = JSON.parse(payload[index + 1] as string) as Record<
+      string,
+      unknown
+    >;
+    const { platform, mode, ok, frames, packets, frameBytes, elapsedMs } = data;
+    if (
+      (platform !== 'ios' && platform !== 'android') ||
+      (mode !== 'native-frame' && mode !== 'per-packet') ||
+      typeof ok !== 'boolean'
+    )
+      return undefined;
+    const validCount = (value: unknown): value is number =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+    const validDuration = (value: unknown): value is number =>
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= Number.MAX_SAFE_INTEGER;
+    if (
+      !validCount(frames) ||
+      !validCount(packets) ||
+      !validCount(frameBytes) ||
+      !validDuration(elapsedMs)
+    )
+      return undefined;
+    const total = (value: unknown) => {
+      const duration =
+        value && typeof value === 'object'
+          ? (value as Record<string, unknown>).total
+          : undefined;
+      return validDuration(duration) ? duration : undefined;
+    };
+    return {
+      transportType: 'ble',
+      platform,
+      method: 'FilesystemFileWrite',
+      status: ok ? 'success' : 'failed',
+      mode,
+      frames,
+      packets,
+      bytes: frameBytes,
+      durationMs: elapsedMs,
+      effectiveTransferRateBytesPerSecond:
+        elapsedMs > 0 ? (frameBytes * 1000) / elapsedMs : undefined,
+      writeDurationMs: total(data.writeMs),
+      readWaitDurationMs: total(data.readWaitMs),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function hardwareLog(name: string, ...args: any[]) {
   try {
     defaultLogger.hardware.sdkLog.serviceEvent(
@@ -108,5 +167,6 @@ export default {
   hardwareLog,
   maskLogIdentifier,
   parseBleMtuReadyLogPayload,
+  parseBleFileWriteLogPayload,
   shouldReportBleMtuReadyTelemetry,
 };

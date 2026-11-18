@@ -25,6 +25,7 @@ import {
   Popover,
   ScrollView,
   SizableText,
+  Spinner,
   Stack,
   Tooltip,
   XStack,
@@ -41,11 +42,14 @@ import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dar
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
@@ -57,7 +61,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -524,11 +527,15 @@ interface IMoreActionContentGridItemProps {
   onPress: () => void;
   ignorePress?: boolean;
   showRedDot?: boolean;
+  showUnreadDot?: boolean;
   showBadges?: boolean;
   badges?: number;
   lottieSrc?: any;
   isPrimeFeature?: boolean;
   hidePrimeBadge?: boolean;
+  keepOpenOnPress?: boolean;
+  disabled?: boolean;
+  isLoading?: boolean;
 }
 
 function MoreActionContentGridItem({
@@ -539,11 +546,15 @@ function MoreActionContentGridItem({
   testID,
   trackID,
   showRedDot,
+  showUnreadDot,
   showBadges,
   badges = 0,
   lottieSrc,
   isPrimeFeature,
   hidePrimeBadge,
+  keepOpenOnPress,
+  disabled,
+  isLoading,
   isDesktopMode,
   isDarkTheme,
 }: IMoreActionContentGridItemProps & {
@@ -553,16 +564,17 @@ function MoreActionContentGridItem({
   const { closePopover } = usePopoverContext();
 
   const handlePress = useCallback(() => {
-    if (ignorePress) {
+    if (ignorePress || disabled) {
       return;
     }
     defaultLogger.ui.button.click({
       trackId: trackID,
     });
+    if (keepOpenOnPress) return onPress();
     return runAfterActionListClose(() => closePopover?.(), onPress, {
       waitForAnimation: false,
     });
-  }, [closePopover, ignorePress, onPress, trackID]);
+  }, [closePopover, disabled, ignorePress, keepOpenOnPress, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
@@ -606,7 +618,8 @@ function MoreActionContentGridItem({
   return (
     <YStack
       testID={testID}
-      onPress={handlePress}
+      onPress={disabled ? undefined : handlePress}
+      accessibilityState={{ disabled: !!disabled, busy: !!isLoading }}
       group
       w="$20"
       flexShrink={1}
@@ -629,10 +642,14 @@ function MoreActionContentGridItem({
         $group-press={desktopIconPressStyle}
         borderRadius="$3"
         borderCurve="continuous"
+        position="relative"
       >
         <YStack>
-          {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
-          {lottieSrc ? (
+          {isLoading ? <Spinner size="small" /> : null}
+          {!isLoading && icon ? (
+            <Icon size="$6" color="$icon" name={icon} />
+          ) : null}
+          {!isLoading && lottieSrc ? (
             <Stack w="$8" h="$8" ai="center" jc="center">
               <LottieView width={32} height={32} source={lottieSrc} />
             </Stack>
@@ -678,6 +695,13 @@ function MoreActionContentGridItem({
             </Stack>
           ) : null}
         </YStack>
+        {showUnreadDot ? (
+          <SupportUnreadDot
+            testID="more-action-support-unread-dot"
+            top={6}
+            right={6}
+          />
+        ) : null}
         {/* Only show Prime badge for non-Prime users */}
         {isPrimeFeature && !hidePrimeBadge && !isPrimeUser ? (
           <Stack
@@ -806,6 +830,7 @@ function MoreActionOneKeyId() {
   if (!isLoggedIn) {
     return (
       <XStack
+        testID="more-action-onekey-id"
         alignItems="center"
         py={isDesktopMode ? '$2.5' : '$4'}
         px={isDesktopMode ? '$3' : '$4'}
@@ -851,6 +876,7 @@ function MoreActionOneKeyId() {
 
   return (
     <XStack
+      testID="more-action-onekey-id"
       alignItems="center"
       py={isDesktopMode ? '$2.5' : '$4'}
       px={isDesktopMode ? '$3' : '$4'}
@@ -1498,14 +1524,19 @@ const showDevModeEntryInMoreMenu = platformEnv.isDev && platformEnv.isNative;
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
   const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
-  const { closePopover } = usePopoverContext();
+  const { closePopover, open } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
   const themeVariant = useThemeVariant();
-  const { toReferFriendsPage } = useReferFriends();
+  const { toReferFriendsPage, isReferralEntryPending, isReferralEntryLoading } =
+    useReferFriends({
+      isEntryActive: open !== false,
+      beforeNavigate: closePopover,
+    });
   const handleReferFriends = useCallback(() => {
     void toReferFriendsPage();
   }, [toReferFriendsPage]);
@@ -1539,8 +1570,10 @@ const MoreActionMoreGrid = () => {
       {
         title: intl.formatMessage({ id: ETranslations.settings_contact_us }),
         icon: 'HelpSupportOutline' as const,
+        testID: 'more-action-support' as const,
         onPress: handleHelpAndSupport,
         trackID: 'wallet-customer-support',
+        showUnreadDot: hasUnreadSupportMessages,
       },
 
       {
@@ -1550,6 +1583,9 @@ const MoreActionMoreGrid = () => {
         testID: 'referral' as const,
         onPress: handleReferFriends,
         trackID: 'wallet-referral',
+        keepOpenOnPress: true,
+        disabled: isReferralEntryPending,
+        isLoading: isReferralEntryLoading,
       },
       ...(showReviewControlledFeatures
         ? [
@@ -1575,10 +1611,13 @@ const MoreActionMoreGrid = () => {
     ];
   }, [
     handleHelpAndSupport,
+    hasUnreadSupportMessages,
     handleRedeem,
     intl,
     themeVariant,
     handleReferFriends,
+    isReferralEntryPending,
+    isReferralEntryLoading,
     handleDevMode,
     showReviewControlledFeatures,
   ]);
@@ -1945,9 +1984,13 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const isShowRedDot = useIsShowRedDot();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
 
   // Large dot for mobile
   const dot = useMemo(() => {
+    if (hasUnreadSupportMessages) {
+      return <Dot color="$bgCriticalStrong" />;
+    }
     if (isShowUpgradeDot) {
       return (
         <Dot
@@ -1959,18 +2002,23 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
       );
     }
     return null;
-  }, [isDesktopMode, isShowUpgradeDot]);
+  }, [hasUnreadSupportMessages, isDesktopMode, isShowUpgradeDot]);
 
   // Small dot for desktop (similar to DesktopTabItem)
   const desktopDot = useMemo(() => {
-    if (!isShowUpgradeDot && !isShowRedDot) return null;
+    if (!isShowUpgradeDot && !isShowRedDot && !hasUnreadSupportMessages) {
+      return null;
+    }
     return (
       <Stack
         width="$3"
         height="$3"
-        // Update dot uses accent (brand green) to match the header "Update
-        // now" button; the notification (non-update) dot stays critical red.
-        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
+        // Unread support takes priority over the green update indicator.
+        bg={
+          isShowUpgradeDot && !hasUnreadSupportMessages
+            ? '$bgAccent'
+            : '$bgCriticalStrong'
+        }
         borderRadius="$full"
         position="absolute"
         right={-4}
@@ -1979,7 +2027,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
         borderColor="$bgSidebar"
       />
     );
-  }, [isShowUpgradeDot, isShowRedDot]);
+  }, [isShowUpgradeDot, isShowRedDot, hasUnreadSupportMessages]);
 
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.FullScreenPush, {

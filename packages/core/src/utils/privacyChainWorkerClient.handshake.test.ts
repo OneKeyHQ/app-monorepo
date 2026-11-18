@@ -1,6 +1,6 @@
 import {
   servePrivacyChainWorker,
-  workerCarrierHasHostRequest,
+  workerCarrierHasHostStreamRequest,
 } from './privacyChainWorkerClient';
 
 describe('privacy chain worker handshake', () => {
@@ -32,16 +32,16 @@ describe('privacy chain worker handshake', () => {
   // A Worker that installs a relay nobody answers fails every request: the
   // runtime stops using its own fetch once a relay is installed.
   it('records whether the carrier relays HTTP', async () => {
-    await ping([{ hostRequest: true }]);
-    expect(workerCarrierHasHostRequest()).toBe(true);
+    await ping([{ hostStreamRequest: true }]);
+    expect(workerCarrierHasHostStreamRequest()).toBe(true);
 
-    await ping([{ hostRequest: false }]);
-    expect(workerCarrierHasHostRequest()).toBe(false);
+    await ping([{ hostStreamRequest: false }]);
+    expect(workerCarrierHasHostStreamRequest()).toBe(false);
   });
 
   it('treats a handshake without the flag as no relay', async () => {
-    await ping([{ hostRequest: true }]);
+    await ping([{ hostStreamRequest: true }]);
     await ping([]);
-    expect(workerCarrierHasHostRequest()).toBe(false);
+    expect(workerCarrierHasHostStreamRequest()).toBe(false);
   });
 });

@@ -1,7 +1,10 @@
+import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
+
 import {
   drawTradingViewNativeCanvasScene,
   getTradingViewNativeCanvasFont,
 } from './chartCanvasRenderer';
+import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
 
 import type {
   ITradingViewNativeChartSceneCommand,
@@ -13,6 +16,7 @@ function createCanvasContext() {
   return {
     arc: jest.fn(),
     beginPath: jest.fn(),
+    clearRect: jest.fn(),
     clip: jest.fn(),
     closePath: jest.fn(),
     createLinearGradient: jest.fn(() => gradient),
@@ -27,12 +31,13 @@ function createCanvasContext() {
     lineJoin: 'miter',
     lineTo: jest.fn(),
     lineWidth: 1,
-    measureText: jest.fn(() => ({ width: 6 })),
+    measureText: jest.fn((_text: string) => ({ width: 6 })),
     moveTo: jest.fn(),
     rect: jest.fn(),
     restore: jest.fn(),
     save: jest.fn(),
     setLineDash: jest.fn(),
+    setTransform: jest.fn(),
     stroke: jest.fn(),
     strokeRect: jest.fn(),
     strokeStyle: '',
@@ -50,6 +55,108 @@ const colors = {
 };
 
 describe('TradingViewNative web canvas scene renderer', () => {
+  it.each([
+    { width: 840, closeX: 185, closeY: 13 },
+    { width: 300, closeX: 185, closeY: 13 },
+    { width: 295, closeX: 8, closeY: 28 },
+  ])(
+    'keeps same-length OHLC digits in stable slots at width $width',
+    ({ width, closeX, closeY }) => {
+      const chartSettings = createTradingViewNativeChartSettings();
+      chartSettings.options.priceChange = false;
+      const renderPrices = (open: number) => {
+        const context = createCanvasContext();
+        context.measureText.mockImplementation((text: string) => ({
+          width: text.length * 6 - (text.match(/11/g)?.length ?? 0),
+        }));
+        const canvas = {
+          getBoundingClientRect: () => ({ width, height: 400 }),
+          getContext: () => context,
+        } as unknown as HTMLCanvasElement;
+        const scene = drawTradingViewNativeCanvasChart({
+          candleIntervalSeconds: 3600,
+          candleLabels: { open: 'O', high: 'H', low: 'L', close: 'C' },
+          canvas,
+          chartComponents: [],
+          chartSettings,
+          chartType: 'candlestick',
+          colors,
+          currentPriceLabel: '80310.1',
+          extendTimeAxisBorderToCanvasEdge: false,
+          hasVolume: false,
+          indicatorSeries: [
+            {
+              indicator: 'MA',
+              key: 'ma11',
+              kind: 'line',
+              legendLabel: 'MA11',
+              paint: 'indicatorOrangeStroke',
+              style: {
+                color: '#ffffff',
+                lineStyle: 'solid',
+                lineWidth: 1,
+                opacity: 1,
+              },
+              values: [80_310.1],
+            },
+          ],
+          isMobileLayout: false,
+          pinnedPriceRange: null,
+          points: [
+            {
+              o: open,
+              h: 82_000.1,
+              l: 79_000.1,
+              c: 80_310.1,
+              t: 1_700_000_000,
+              v: 10,
+            },
+          ],
+          priceAxisFontSize: 11,
+          priceAxisWidth: 60,
+          priceDecimalPlaces: 1,
+          priceRangeScale: 1,
+          priceScaleMode: 'linear',
+          runtimeState: {
+            crosshair: { visible: false, x: 0, y: 0 },
+            viewport: { offset: 0, zoomScale: 1 },
+          },
+          showLegend: true,
+          subIndicatorPanes: [],
+          timeAxisFontSize: 12,
+          timeAxisHeight: 28,
+          watermarkImage: null,
+          watermarkOpacity: 0,
+        });
+        return { context, commands: scene?.commands ?? [] };
+      };
+      for (const open of [81_111.1, 80_888.1]) {
+        const { commands, context } = renderPrices(open);
+        const labels = commands.flatMap((command) =>
+          command.kind === 'text' &&
+          command.font === 'legend' &&
+          ['O', 'H', 'L', 'C'].includes(command.text)
+            ? [{ text: command.text, x: command.x, y: command.y }]
+            : [],
+        );
+        expect(labels).toEqual([
+          { text: 'O', x: 8, y: 13 },
+          { text: 'H', x: 67, y: 13 },
+          { text: 'L', x: 126, y: 13 },
+          { text: 'C', x: closeX, y: closeY },
+        ]);
+        expect(context.fillText).toHaveBeenCalledWith(`${open}`, 17, 13);
+        const indicatorValue = commands.find(
+          (command) =>
+            command.kind === 'text' &&
+            command.customPaintId &&
+            command.text === '80310.1',
+        );
+        expect(indicatorValue).toMatchObject({ x: 34 });
+      }
+    },
+  );
+
   it.each(['B', 'S'] as const)(
     'preserves the existing %s label font and position on web',
     (label) => {

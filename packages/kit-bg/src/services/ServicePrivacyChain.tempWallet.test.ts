@@ -93,6 +93,7 @@ function createService({
     },
     enableMutexByNetwork: new Map<string, Mutex>(),
     repairMutexByAccount: new Map<string, Mutex>(),
+    boostPausedByNetwork: {} as Record<string, boolean>,
     storageUnsupportedNetworkIds: new Set<string>(),
     orphanCleanupGeneration: new Map<string, number>(),
     ...overrides,
@@ -147,21 +148,14 @@ describe('temp wallets cannot turn on privacy', () => {
     );
   });
 
-  it('refuses setup retries and rescans for a temp-wallet account', async () => {
-    const retryAccountSetup = jest.fn(async () => undefined);
+  it('refuses rescans for a temp-wallet account', async () => {
     const rescan = jest.fn(async () => ({ fromHeight: 0 }));
     const rewindAccount = jest.fn(async () => undefined);
     const { service } = createService({
       tempWalletIds: new Set([tempWalletId]),
-      capability: { retryAccountSetup, rescan, rewindAccount },
+      capability: { rescan, rewindAccount },
     });
 
-    await expect(
-      service.retryLocalWalletAccountSetup({
-        networkId,
-        accountId: tempAccountId,
-      }),
-    ).rejects.toThrow();
     await expect(
       service.resetLocalChainData({ networkId, accountId: tempAccountId }),
     ).rejects.toThrow();
@@ -181,7 +175,6 @@ describe('temp wallets cannot turn on privacy', () => {
       }),
     ).rejects.toThrow();
 
-    expect(retryAccountSetup).not.toHaveBeenCalled();
     expect(rescan).not.toHaveBeenCalled();
     expect(rewindAccount).not.toHaveBeenCalled();
   });
@@ -190,6 +183,7 @@ describe('temp wallets cannot turn on privacy', () => {
     const runLocalWalletLifecycle = jest.fn(async () => ({
       failedNetworkIds: [],
     }));
+    const startUserSync = jest.fn(async () => undefined);
     const accounts: ILocalWalletAccount[] = [tempAccountId, savedAccountId].map(
       (accountId) => ({
         accountId,
@@ -204,12 +198,14 @@ describe('temp wallets cannot turn on privacy', () => {
         listAccounts: async () => ({ accounts, cleanupAccountIds: [] }),
         getAccountAliases: async ({ accountId }) => [accountId],
       },
-      overrides: { runLocalWalletLifecycle },
+      overrides: { runLocalWalletLifecycle, startUserSync },
     });
 
     await service.clearTransactionHistoryCache({ networkId });
 
     expect(runLocalWalletLifecycle).toHaveBeenCalledTimes(1);
+    // The reset starts the chain like a Sync, so it shows at once.
+    expect(startUserSync).toHaveBeenCalledWith({ networkId });
     expect(runLocalWalletLifecycle).toHaveBeenCalledWith({
       event: 'resetSyncStorage',
       targets: [
@@ -321,7 +317,14 @@ describe('temp wallets read as privacy unavailable', () => {
     });
 
     await expect(
-      service.ensureLocalWalletViewingKey({
+      (
+        service as unknown as {
+          obtainLocalWalletViewingKey: (params: {
+            networkId: string;
+            accountId: string;
+          }) => Promise<unknown>;
+        }
+      ).obtainLocalWalletViewingKey({
         networkId: 'xmr--0',
         accountId: tempHdAccountId,
       }),
@@ -434,5 +437,90 @@ describe('the scheduler never scans temp-wallet accounts', () => {
       networkId,
       accountIds: [savedAccountId],
     });
+  });
+});
+
+// Wallet settings flip "keep" on a temp wallet; its pages must not wait for the periodic check.
+describe('a temp wallet kept or no longer kept', () => {
+  const { appEventBus, EAppEventBusNames } = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+  >('@onekeyhq/shared/src/eventBus/appEventBus');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function createKeepService(networkIds: string[], hasRecords = true) {
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as IService,
+      {
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              hasWalletAccountRecords: async () => hasRecords,
+            },
+          },
+          serviceAccount: {
+            getAllAccounts: async () => ({
+              accounts: [
+                { id: tempAccountId },
+                { id: `${tempWalletId}--0` },
+                { id: savedAccountId },
+              ],
+            }),
+          },
+        },
+        getLocalWalletNetworkIds: async () => networkIds,
+        init: jest.fn(async () => undefined),
+        shortenStartupQuietWindow: jest.fn(),
+        scheduleBackgroundSync: jest.fn(),
+      },
+    );
+  }
+
+  it("tells that wallet's pages to read again, then schedules a pass", async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = createKeepService(['zec--0', 'xmr--0']);
+
+    await service.onWalletTempStatusChanged({ walletId: tempWalletId });
+
+    const notices = emit.mock.calls.filter(
+      ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+    );
+    expect(notices).toEqual(
+      ['zec--0', 'xmr--0'].map((id) => [
+        EAppEventBusNames.LocalWalletAccountsChanged,
+        { networkId: id, accountIds: [tempAccountId, `${tempWalletId}--0`] },
+      ]),
+    );
+    expect(service.shortenStartupQuietWindow).toHaveBeenCalled();
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  // Its pages still read again: a kept temp wallet can now enable privacy.
+  it('schedules no pass for a wallet with no privacy state', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = createKeepService(['zec--0'], false);
+
+    await service.onWalletTempStatusChanged({ walletId: tempWalletId });
+
+    expect(
+      emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+      ),
+    ).toHaveLength(1);
+    expect(service.init).not.toHaveBeenCalled();
+    expect(service.shortenStartupQuietWindow).not.toHaveBeenCalled();
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+
+  it('does nothing without a privacy network', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = createKeepService([]);
+
+    await service.onWalletTempStatusChanged({ walletId: tempWalletId });
+
+    expect(emit).not.toHaveBeenCalled();
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
   });
 });

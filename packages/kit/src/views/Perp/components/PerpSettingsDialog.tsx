@@ -17,8 +17,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
@@ -29,7 +31,6 @@ import {
   usePerpsSpotDustingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -500,6 +501,7 @@ function PerpSettingsMainContent({
 
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
+  onOpenReferral: IActivityHubOpenReferral;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
@@ -510,10 +512,14 @@ function PerpSettingsMenuContent({
   closePopover,
   onOpenGuide,
   onOpenPortfolio,
+  onOpenReferral,
   showActivityCenterEntry,
   showChartPositionSetting,
   showGuideEntry,
-}: IPerpSettingsPopoverContentProps & { isPopover?: boolean }) {
+}: IPerpSettingsPopoverContentProps & {
+  isPopover?: boolean;
+  onOpenReferral: IActivityHubOpenReferral;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -612,6 +618,7 @@ function PerpSettingsMenuContent({
                 renderMenuReferral={
                   isPopover ? renderSettingsContent : undefined
                 }
+                onOpenReferral={onOpenReferral}
               />
             )
           : undefined
@@ -624,6 +631,7 @@ export function showPerpSettingsDialog({
   title,
   onOpenGuide,
   onOpenPortfolio,
+  onOpenReferral,
   showActivityCenterEntry = false,
   showChartPositionSetting = false,
   showGuideEntry = false,
@@ -631,6 +639,7 @@ export function showPerpSettingsDialog({
   title: string;
   onOpenPortfolio: () => void;
   onOpenGuide?: () => void;
+  onOpenReferral: IActivityHubOpenReferral;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
@@ -661,6 +670,7 @@ export function showPerpSettingsDialog({
           closePopover={closeDialog}
           onOpenGuide={onOpenGuide}
           onOpenPortfolio={onOpenPortfolio}
+          onOpenReferral={onOpenReferral}
           showActivityCenterEntry={showActivityCenterEntry}
           showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}
@@ -678,6 +688,7 @@ export function PerpSettingsPopover({
   showActivityCenterEntry = false,
   showChartPositionSetting = false,
   showGuideEntry = false,
+  onOpenReferral,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
 
@@ -693,6 +704,7 @@ export function PerpSettingsPopover({
           <PerpSettingsMenuContent
             isPopover
             closePopover={closePopover}
+            onOpenReferral={onOpenReferral}
             showActivityCenterEntry={showActivityCenterEntry}
             showChartPositionSetting={showChartPositionSetting}
             showGuideEntry={showGuideEntry}

@@ -10,6 +10,7 @@ const mockSetOverviewResult = jest.fn();
 const mockShowDialog = jest.fn();
 const mockCopyText = jest.fn();
 let mockIsCompact = false;
+let mockRewardScopes: { subject: string; description: string }[] = [];
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
@@ -19,9 +20,7 @@ let mockEarnAccountResult: {
   result?: { accountId: string; accountAddress: string } | null;
   isLoading: boolean;
 };
-let mockEarnAccountIdentity:
-  | { accountId?: string; indexedAccountId?: string }
-  | undefined;
+const mockUseEarnAccount = jest.fn();
 type IMockOverview = Record<
   'perps' | 'swap' | 'earn',
   { status: 'success'; data: unknown } | { status: 'error' }
@@ -77,11 +76,14 @@ jest.mock('@onekeyhq/components', () => {
     Image: () => null,
     NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
+    // Jest maps components/src/utils/scale to this same mock.
+    s: (size: number) => size,
     SizableText: Primitive,
     Skeleton: Object.assign(() => null, {
       HeadingLg: () => null,
       Heading3Xl: () => null,
-      BodyMd: () => null,
+      BodyMd: () => React.createElement('i', { 'data-skeleton': 'bodyMd' }),
+      BodySm: () => React.createElement('i', { 'data-skeleton': 'bodySm' }),
     }),
     Stack: Primitive,
     XStack: Primitive,
@@ -92,37 +94,23 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-// The account resolver depends on account ids; the overview only on the
-// resolved address, so the dependency count tells the two calls apart. The
-// overview runs its real fetcher, so the component sees the object it
+// The overview runs its real fetcher, so the component sees the object it
 // fetched, after a cached one when the test seeds one.
+jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount', () => ({
+  useEarnAccount: (params: unknown) => {
+    mockUseEarnAccount(params);
+    return {
+      earnAccount: mockEarnAccountResult.result ?? undefined,
+      isLoading: mockEarnAccountResult.isLoading,
+    };
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
-    if (deps.length !== 1) {
-      const raw = mockEarnAccountResult.isLoading
-        ? undefined
-        : mockEarnAccountResult.result;
-      return {
-        isLoading: mockEarnAccountResult.isLoading,
-        run: jest.fn(),
-        result:
-          raw === undefined
-            ? undefined
-            : {
-                accountId:
-                  mockEarnAccountIdentity?.accountId ??
-                  mockActiveAccount.account?.id,
-                indexedAccountId:
-                  mockEarnAccountIdentity?.indexedAccountId ??
-                  mockActiveAccount.indexedAccount?.id,
-                earnAccount: raw,
-              },
-      };
-    }
     const React = jest.requireActual<typeof import('react')>('react');
     const address = mockEarnAccountResult.result?.accountAddress;
     const fetchedResult = mockOverviewResult.result;
-    // Hook order is stable: this branch always runs second in a render.
     // oxlint-disable-next-line react-hooks/rules-of-hooks
     const [fetched, setFetched] = React.useState<unknown>(undefined);
     // oxlint-disable-next-line react-hooks/rules-of-hooks
@@ -190,9 +178,19 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
 
-jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: () => null,
-}));
+// Compact product rows render through ListItem; only their value matters here.
+jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    ListItem: ({
+      testID,
+      children,
+    }: {
+      testID?: string;
+      children?: ReactNode;
+    }) => React.createElement('div', { 'data-testid': testID }, children),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
@@ -240,12 +238,8 @@ jest.mock('../InviteReward/components/BenefitsTabPlaceholder', () => ({
   useBenefitsBindStatus: () => ({}),
 }));
 
-jest.mock('../InviteReward/components/getInviteRewardRows', () => ({
-  INVITE_REWARD_SUBJECT_ICON: {
-    perps: 'TradeOutline',
-    swap: 'SwitchHorOutline',
-    defi: 'CoinsOutline',
-  },
+jest.mock('../../hooks/useInviteRewardScopes', () => ({
+  useInviteRewardScopes: () => mockRewardScopes,
 }));
 
 jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
@@ -280,6 +274,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+
+import { ReferFriendsTestIDs } from '../../testIDs';
+
 import { MyRewardsContent } from './MyRewardsContent';
 
 // Renders, then lets the overview fetch land.
@@ -304,11 +302,12 @@ describe('MyRewardsContent', () => {
     mockPerksProductOpened.mockReset();
     mockPerksAddressCopied.mockReset();
     mockIsCompact = false;
+    mockRewardScopes = [];
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
     };
-    mockEarnAccountIdentity = undefined;
+    mockUseEarnAccount.mockReset();
     mockEarnAccountResult = {
       result: { accountId: 'evm-account', accountAddress: '0xabc' },
       isLoading: false,
@@ -980,16 +979,47 @@ describe('MyRewardsContent', () => {
       account: { id: 'hd-2' },
       indexedAccount: { id: 'hd-2--0' },
     };
-    mockEarnAccountIdentity = {
-      accountId: 'hd-1--account',
-      indexedAccountId: 'hd-1--0',
-    };
+    mockEarnAccountResult = { result: undefined, isLoading: true };
     await rerenderMyRewards(view);
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
     expect(
       screen.getByTestId('my-rewards-module-perps').textContent,
     ).not.toContain('4');
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves the address of the account it shows, by both ids', async () => {
+    await renderMyRewards();
+    expect(mockUseEarnAccount).toHaveBeenLastCalledWith({
+      networkId: getNetworkIdsMap().eth,
+      accountId: 'hd-1--account',
+      indexedAccountId: 'hd-1--0',
+    });
+  });
+
+  it('keeps a cached address on screen while it revalidates', async () => {
+    mockEarnAccountResult = {
+      result: { accountId: 'evm-account', accountAddress: '0xabc' },
+      isLoading: true,
+    };
+    await renderMyRewards();
+    expect(screen.getByTestId('my-rewards-copy-address')).toBeTruthy();
+    // Total 5, unpaid 1: the loaded row, not its skeleton.
+    expect(screen.getByTestId('my-rewards-module-perps').textContent).toContain(
+      '51',
+    );
+  });
+
+  it('keeps both value lines on compact rows while loading', async () => {
+    mockIsCompact = true;
+    mockEarnAccountResult = { result: undefined, isLoading: true };
+    await renderMyRewards();
+    const lines = Array.from(
+      screen
+        .getByTestId('my-rewards-module-perps')
+        .querySelectorAll('[data-skeleton]'),
+    ).map((node) => node.getAttribute('data-skeleton'));
+    expect(lines).toEqual(['bodyMd', 'bodySm']);
   });
 
   it('waits for saved accounts before showing the empty-wallet state', async () => {
@@ -1211,5 +1241,35 @@ describe('MyRewardsContent', () => {
       status: 'has_rewards',
       entry: 'route',
     });
+  });
+
+  it('shows the server reward scope on the Swap and DeFi rows', async () => {
+    mockRewardScopes = [
+      { subject: 'Swap', description: 'Swap providers' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ];
+    await renderMyRewards();
+
+    // Perps has no scope copy; Swap and DeFi (Earn) each get one icon.
+    const scopeInfos = screen.getAllByTestId(
+      ReferFriendsTestIDs.inviteRewardScopeInfo,
+    );
+    expect(scopeInfos).toHaveLength(2);
+    expect(screen.getByText('Swap providers')).toBeTruthy();
+    expect(screen.getByText('DeFi venues')).toBeTruthy();
+
+    // The icon sits on the product name; its press must not open the row.
+    for (const scopeInfo of scopeInfos) {
+      fireEvent.click(scopeInfo);
+    }
+    expect(mockShowDialog).not.toHaveBeenCalled();
+    expect(mockPerksProductOpened).not.toHaveBeenCalled();
+  });
+
+  it('shows no scope icon when the server sends no scope copy', async () => {
+    await renderMyRewards();
+    expect(
+      screen.queryByTestId(ReferFriendsTestIDs.inviteRewardScopeInfo),
+    ).toBeNull();
   });
 });

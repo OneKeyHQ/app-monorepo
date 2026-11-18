@@ -56,6 +56,7 @@ import {
 
 import type { IEarnSortOption } from '../../components/EarnMobileSortControl';
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 type IEarnSortDirection = 'asc' | 'desc';
 
@@ -118,6 +119,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const media = useMedia();
 
   const isDesktopLayout = !platformEnv.isNative && media.gtSm;
+  const [listWidth, setListWidth] = useState(0);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
+  const isTableLayout =
+    isDesktopLayout || (platformEnv.isNative && listWidth >= 768);
+  const isNativeTableLayout = platformEnv.isNative && isTableLayout;
 
   const customHeaderLeft = useMemo(
     () => (
@@ -428,7 +436,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   size="md"
                   borderRadius="$2"
                   tokenImageUri={item.provider.logoURI}
-                  showNetworkIcon={!isDesktopLayout}
+                  showNetworkIcon={!isTableLayout}
                   networkId={item.network.networkId}
                 />
               </Stack>
@@ -504,11 +512,14 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         hideInMobile: true,
         align: 'flex-end',
         sortable: true,
-        comparator: (a, b) => {
-          const tvlA = parseFloat(a.provider.totalFiatValue || '0');
-          const tvlB = parseFloat(b.provider.totalFiatValue || '0');
-          return tvlA - tvlB;
-        },
+        comparator:
+          isNativeTableLayout && !isFixedRateCategory
+            ? undefined
+            : (a, b) => {
+                const tvlA = parseFloat(a.provider.totalFiatValue || '0');
+                const tvlB = parseFloat(b.provider.totalFiatValue || '0');
+                return tvlA - tvlB;
+              },
         render: (item) => (
           <SizableText size="$bodyLgMedium">
             <EarnText size="$bodyLg" text={item?.tvl} />
@@ -545,20 +556,23 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         minWidth:
-          isFixedRateCategory && !isDesktopLayout
+          isFixedRateCategory && !isTableLayout
             ? MOBILE_FIXED_RATE_YIELD_COLUMN_MIN_WIDTH
             : undefined,
         align: 'flex-end',
         sortable: true,
-        comparator: (a, b) => {
-          const aprA = parseFloat(a.provider.aprWithoutFee || '0');
-          const aprB = parseFloat(b.provider.aprWithoutFee || '0');
-          return aprA - aprB;
-        },
+        comparator:
+          isNativeTableLayout && !isFixedRateCategory
+            ? undefined
+            : (a, b) => {
+                const aprA = parseFloat(a.provider.aprWithoutFee || '0');
+                const aprB = parseFloat(b.provider.aprWithoutFee || '0');
+                return aprA - aprB;
+              },
         render: (item) => {
           const showMobileLiquidity =
             isFixedRateCategory &&
-            !isDesktopLayout &&
+            !isTableLayout &&
             Boolean(item.provider.liquidity);
           const mobileLiquidityLabel = intl.formatMessage({
             id: ETranslations.global_liquidity,
@@ -569,7 +583,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           // "NaN" TVL copy, and this string is rendered verbatim
           const showMobileTvl =
             !isFixedRateCategory &&
-            !isDesktopLayout &&
+            !isTableLayout &&
             isDisplayableMetricText(item.tvl?.text);
           const mobileTvl = showMobileTvl ? (
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
@@ -616,7 +630,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           return (
             <YStack ai="flex-end" gap="$0.5" minWidth={0}>
               <AprText
-                hideSuffix={isDesktopLayout}
+                hideSuffix={isTableLayout}
                 asset={{
                   aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
                   aprInfo: item?.aprInfo,
@@ -630,7 +644,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         },
       },
     ];
-  }, [intl, isDesktopLayout, isFixedRateCategory]);
+  }, [intl, isTableLayout, isNativeTableLayout, isFixedRateCategory]);
 
   const shouldShowCategoryTabs =
     protocolCategoryCounts.simpleEarnCount > 0 &&
@@ -701,13 +715,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   ]);
 
   const content = useMemo(() => {
+    let skeletonProtocolFlex = 1;
+    if (isTableLayout) {
+      skeletonProtocolFlex = isNativeTableLayout ? 5 : 2.5;
+    }
     if (isLoading) {
       return (
-        <YStack>
+        <YStack onLayout={platformEnv.isNative ? onListLayout : undefined}>
           {/* Table Header - Desktop only */}
-          {isDesktopLayout ? (
+          {isTableLayout ? (
             <ListItem mx="$0" px="$pagePadding">
-              <XStack flex={2.5}>
+              <XStack flex={isNativeTableLayout ? 5 : 2.5}>
                 <Skeleton h="$3" w={80} />
               </XStack>
               <XStack flex={1} jc="flex-end">
@@ -716,6 +734,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               <XStack flex={2} jc="flex-end">
                 <Skeleton h="$3" w={40} />
               </XStack>
+              {isNativeTableLayout && isFixedRateCategory ? (
+                <XStack flex={2} jc="flex-end">
+                  <Skeleton h="$3" w={40} />
+                </XStack>
+              ) : null}
               <XStack flex={2} jc="flex-end">
                 <Skeleton h="$3" w={40} />
               </XStack>
@@ -728,10 +751,10 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               key={index}
               mx="$0"
               px="$pagePadding"
-              ai={isDesktopLayout ? 'center' : 'flex-start'}
+              ai={isTableLayout ? 'center' : 'flex-start'}
             >
               {/* Protocol column */}
-              <XStack flex={isDesktopLayout ? 2.5 : 1} ai="center" gap="$3">
+              <XStack flex={skeletonProtocolFlex} ai="center" gap="$3">
                 <Skeleton w="$10" h="$10" borderRadius="$2" />
                 <YStack gap="$1" flex={1}>
                   <Skeleton h="$4" w="70%" />
@@ -739,7 +762,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 </YStack>
               </XStack>
 
-              {isDesktopLayout ? (
+              {isTableLayout ? (
                 <>
                   {/* Network column */}
                   <XStack flex={1} jc="flex-end">
@@ -749,6 +772,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   <XStack flex={2} jc="flex-end">
                     <Skeleton h="$4" w={100} />
                   </XStack>
+                  {isNativeTableLayout && isFixedRateCategory ? (
+                    <XStack flex={2} jc="flex-end">
+                      <Skeleton h="$4" w={80} />
+                    </XStack>
+                  ) : null}
                   {/* APR column */}
                   <XStack flex={2} jc="flex-end">
                     <Skeleton h="$4" w={80} />
@@ -767,7 +795,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
     if (protocolData.length === 0) {
       return (
-        <YStack alignItems="center" flex={1}>
+        <YStack
+          alignItems="center"
+          flex={1}
+          onLayout={platformEnv.isNative ? onListLayout : undefined}
+        >
           <Empty
             px="$pagePadding"
             py="$0"
@@ -791,7 +823,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     }
 
     return (
-      <YStack>
+      <YStack onLayout={platformEnv.isNative ? onListLayout : undefined}>
         {!isDesktopLayout ? (
           <XStack
             px="$pagePadding"
@@ -834,15 +866,14 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           key={selectedCategory}
           data={mobileProtocolData}
           columns={columns}
-          withHeader={isDesktopLayout}
-          sortKey={isDesktopLayout || isFixedRateCategory ? sortKey : undefined}
+          withHeader={isTableLayout}
+          tableLayout={platformEnv.isNative ? isTableLayout : undefined}
+          sortKey={isTableLayout || isFixedRateCategory ? sortKey : undefined}
           sortDirection={
-            isDesktopLayout || isFixedRateCategory ? sortDirection : undefined
+            isTableLayout || isFixedRateCategory ? sortDirection : undefined
           }
           onSortChange={
-            isDesktopLayout || isFixedRateCategory
-              ? handleSortChange
-              : undefined
+            isTableLayout || isFixedRateCategory ? handleSortChange : undefined
           }
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
@@ -873,6 +904,9 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     selectedCategory,
     handleProtocolPress,
     isDesktopLayout,
+    isTableLayout,
+    isNativeTableLayout,
+    onListLayout,
     isFixedRateCategory,
     intl,
     fetchProtocolData,

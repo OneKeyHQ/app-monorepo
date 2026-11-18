@@ -19,7 +19,7 @@ module.exports = {
     installerSidebar: 'app/build/static/images/icons/installerSidebar.bmp',
     installerIcon: 'app/build/static/images/icons/installerIcon.ico',
     uninstallerIcon: 'app/build/static/images/icons/installerIcon.ico',
-    deleteAppDataOnUninstall: false,
+    deleteAppDataOnUninstall: true,
   },
   win: {
     files: [...baseFiles, ...winExcludePrebuilds],

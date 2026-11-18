@@ -9,6 +9,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -36,6 +37,7 @@ import {
   buildAggregateTokenMapKeyForAggregateConfig,
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
+  findTokenKeysMissingFromMap,
   getEmptyTokenData,
   getMergedTokenData,
   normalizeTokenSearchResults,
@@ -685,6 +687,31 @@ class ServiceToken extends ServiceBase {
     });
     throwIfRequestAborted();
 
+    // OK-66042: a row listed in `data` without a `map` entry reaches Home as a
+    // "--" price with an empty balance / value column. Log the mismatch at the
+    // response boundary so an intermittent server omission is attributable.
+    const keysMissingFromMap = findTokenKeysMissingFromMap(resp.data.data);
+    if (keysMissingFromMap.length > 0) {
+      const groups: Record<string, number> = {};
+      for (const item of keysMissingFromMap) {
+        groups[item.group] = (groups[item.group] ?? 0) + 1;
+      }
+      defaultLogger.token.request.fetchAccountTokensMapMissingKeys({
+        networkId,
+        flag: flag ?? '',
+        missingCount: keysMissingFromMap.length,
+        groups,
+      });
+      defaultLogger.token.request.fetchAccountTokensMapMissingSymbols({
+        networkId,
+        flag: flag ?? '',
+        symbols: uniq(keysMissingFromMap.map((item) => item.symbol)).slice(
+          0,
+          10,
+        ),
+      });
+    }
+
     const resolvedCurrency = await this.normalizeTokensRespToUsd(
       resp.data.data,
       requestCurrency,
@@ -1098,6 +1125,7 @@ class ServiceToken extends ServiceBase {
       contractList,
       withCheckInscription,
       withFrozenBalance,
+      expectedAccountAddress,
     } = params;
 
     const [accountAddress, xpub] = await Promise.all([
@@ -1110,6 +1138,15 @@ class ServiceToken extends ServiceBase {
         networkId,
       }),
     ]);
+
+    if (expectedAccountAddress !== undefined) {
+      if (!expectedAccountAddress || !accountAddress)
+        throw new OneKeyLocalError('Token balance account changed');
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? accountAddress.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!matches) throw new OneKeyLocalError('Token balance account changed');
+    }
 
     if (!accountAddress && !xpub) {
       console.log(

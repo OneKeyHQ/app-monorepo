@@ -4,10 +4,11 @@ import { styled } from '@tamagui/core';
 import { useIntl } from 'react-intl';
 
 import { AnimatePresence, Stack, YStack } from '@onekeyhq/components';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { PerpsActivityCenterContent } from '@onekeyhq/kit/src/views/Perp/components/PerpsActivityCenterAction';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { WebAccountPanelFooter } from './atoms/WebAccountPanelFooter';
@@ -48,13 +49,14 @@ const AnimatedPanelView = styled(Stack, {
 export default function WebAccountPanelPopoverContent({
   initialView,
   connected,
-  showPerpsActivityCenter,
   closePopover,
+  onOpenPerpsReferral,
 }: {
   initialView: IWebAccountPanelView;
   connected: boolean;
-  showPerpsActivityCenter: boolean;
   closePopover: () => void;
+  // Set only where the Perps activity center entry is shown.
+  onOpenPerpsReferral?: IActivityHubOpenReferral;
 }) {
   const intl = useIntl();
   const backLabel = intl.formatMessage({ id: ETranslations.global_back });
@@ -114,7 +116,7 @@ export default function WebAccountPanelPopoverContent({
           onNavigateSettings={() => navigate('settings')}
           onNavigateArticles={() => navigate('articles')}
           onNavigatePerpsActivityCenter={
-            showPerpsActivityCenter
+            onOpenPerpsReferral
               ? () => navigate('perpsActivityCenter')
               : undefined
           }
@@ -151,7 +153,7 @@ export default function WebAccountPanelPopoverContent({
         </YStack>
       );
     }
-    if (view === 'perpsActivityCenter') {
+    if (view === 'perpsActivityCenter' && onOpenPerpsReferral) {
       return (
         <YStack w="100%">
           <WebAccountPanelHeader title={backLabel} onBack={back} />
@@ -160,6 +162,7 @@ export default function WebAccountPanelPopoverContent({
             showTitle={false}
             menuLayout
             menuPopoverLayout
+            onOpenReferral={onOpenPerpsReferral}
           />
         </YStack>
       );
@@ -180,7 +183,7 @@ export default function WebAccountPanelPopoverContent({
     closePopover,
     connected,
     backLabel,
-    showPerpsActivityCenter,
+    onOpenPerpsReferral,
   ]);
 
   const presenceCustom = useMemo(() => ({ going }), [going]);

@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { logPrimeFreeTrialResult } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
@@ -107,6 +108,7 @@ function isUncertainRequestError(error: unknown) {
     error instanceof OneKeyErrorPrimeLoginInvalidToken ||
     error instanceof OneKeyErrorPrimeLoginExceedDeviceLimit ||
     error instanceof OneKeyErrorPrimePaidMembershipRequired ||
+    isPrimeUserBannedError(error) ||
     isUserChangedError(error)
   ) {
     return false;
@@ -1476,6 +1478,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
         }
         if (
           isUserChangedError(error) ||
+          isPrimeUserBannedError(error) ||
           error instanceof OneKeyErrorPrimeLoginInvalidToken ||
           error instanceof OneKeyErrorPrimeLoginExceedDeviceLimit
         ) {
@@ -1488,6 +1491,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
             (current) =>
               current ? { ...current, nextReportAt: undefined } : current,
           );
+          // Cancel any older backoff timer as well; the durable result is
+          // retried when the owner's usable session is restored.
+          if (isPrimeUserBannedError(error)) this.scheduleReportRetry();
           return;
         }
         this.trace({

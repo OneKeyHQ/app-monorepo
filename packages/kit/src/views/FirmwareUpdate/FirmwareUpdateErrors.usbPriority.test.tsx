@@ -13,6 +13,7 @@ import {
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import { FirmwareUpdateTransferInterruptedError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
+  ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
   type IOneKeyError,
   ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
@@ -145,6 +146,42 @@ describe('firmware update USB-priority errors', () => {
       ).toBe(key);
     },
   );
+
+  it.each([
+    ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport,
+    HardwareErrorCode.DeviceCheckDeviceIdError,
+  ])('shows actionable preflight guidance and retry for %s', (code) => {
+    const error = convertDeviceError({ code, error: 'Preflight rejected' });
+    const onRetry = jest.fn();
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+    const { result } = renderHook(
+      () =>
+        useLegacyFirmwareUpdateErrors({
+          error,
+          onRetry,
+          result: undefined,
+          lastFirmwareTipMessage: undefined,
+        }),
+      { wrapper: IntlWrapper },
+    );
+    expect(
+      (
+        result.current.content as ReactElement<{
+          title: string;
+          message: string;
+        }>
+      ).props,
+    ).toMatchObject({
+      title: presentation.title,
+      message: presentation.message,
+    });
+    expect(result.current.onRetryHandler).toBe(onRetry);
+  });
 
   it('keeps the USB troubleshooting link and retry in the legacy error view', () => {
     const onRetry = jest.fn();

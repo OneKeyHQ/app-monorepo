@@ -195,6 +195,7 @@ export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
 
 type IMarketReviewExecutionSnapshot = {
   reviewAnalytics?: ISwapReviewAnalytics;
+  strictCurrencyConversion: boolean;
   kind: 'swap' | 'wrap';
   accountAddress: string;
   accountId: string;
@@ -1766,11 +1767,13 @@ export function useSpeedSwapActions(props: {
         quoteResult: snapshot.quoteResult,
         shouldFallback: snapshot.shouldFallback,
         slippage: snapshot.quoteResult.slippage ?? slippage,
+        strictCurrencyConversion: snapshot.strictCurrencyConversion,
         rateDifference: buildMarketReviewRateDifference({
           quoteResult: snapshot.quoteResult,
           swapInfo: snapshot.swapInfo,
           defaultTokenCurrency: settingsAtom.currencyInfo.id,
           currencyMap,
+          strictCurrencyConversion: snapshot.strictCurrencyConversion,
         }),
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
@@ -2076,6 +2079,7 @@ export function useSpeedSwapActions(props: {
         );
         reviewExecutionSnapshotRef.current = {
           reviewAnalytics,
+          strictCurrencyConversion: swapType === ESwapTabSwitchType.STOCK,
           kind: 'wrap',
           accountAddress: swapInfo.accountAddress,
           accountId: netAccountRes.result?.id ?? '',
@@ -2147,6 +2151,7 @@ export function useSpeedSwapActions(props: {
       });
       reviewExecutionSnapshotRef.current = {
         reviewAnalytics,
+        strictCurrencyConversion: swapType === ESwapTabSwitchType.STOCK,
         kind: 'swap',
         accountAddress: userAddress,
         accountId: netAccountRes.result?.id ?? '',
@@ -2191,6 +2196,7 @@ export function useSpeedSwapActions(props: {
       shouldApprove,
       shouldResetApprove,
       slippage,
+      swapType,
       tradeType,
       toToken,
     ],
@@ -3347,6 +3353,7 @@ export function useSpeedSwapActions(props: {
 
         reviewExecutionSnapshotRef.current = {
           reviewAnalytics: snapshot.reviewAnalytics,
+          strictCurrencyConversion: snapshot.strictCurrencyConversion,
           kind: 'swap',
           accountAddress: snapshot.accountAddress,
           accountId: snapshot.accountId,

@@ -12,6 +12,8 @@ type IStatusResult =
 let mockStatusResult: IStatusResult;
 let mockWalletId: string | undefined = 'hd-1';
 const mockBindWalletInviteCode = jest.fn();
+const mockGetBindStatus = jest.fn<Promise<string>, unknown[]>();
+let mockStatusFetcher: (() => Promise<unknown>) | undefined;
 
 jest.mock('@onekeyhq/components', () => ({
   Skeleton: { BodyMd: () => <i data-testid="description-skeleton" /> },
@@ -24,7 +26,10 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({ result: mockStatusResult, run: jest.fn() }),
+  usePromiseResult: (fetcher: () => Promise<unknown>) => {
+    mockStatusFetcher = fetcher;
+    return { result: mockStatusResult, run: jest.fn() };
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
@@ -40,7 +45,8 @@ jest.mock(
   () => ({
     useWalletBoundReferralCode: () => ({
       bindWalletInviteCode: mockBindWalletInviteCode,
-      getReferralCodeBindDisplayStatus: jest.fn(),
+      getReferralCodeBindDisplayStatus: (...args: unknown[]) =>
+        mockGetBindStatus(...args),
     }),
   }),
 );
@@ -67,6 +73,13 @@ jest.mock('../../../components/ReferralCardEmpty', () => ({
   ),
 }));
 
+// The scope link itself is covered with the invite tab; here only where the
+// placeholder offers it.
+jest.mock('./RewardScopeInfo', () => ({
+  withRewardScopesHint: (description: string, items: readonly unknown[]) =>
+    items.length ? `${description} [scope-hint]` : description,
+}));
+
 jest.mock('./useInviteCardStyle', () => ({
   useInviteHomeCardStyle: () => ({}),
 }));
@@ -80,8 +93,22 @@ import {
   useBenefitsBindStatus,
 } from './BenefitsTabPlaceholder';
 
-function Subject() {
-  return <BenefitsTabPlaceholder bindStatus={useBenefitsBindStatus()} />;
+const SCOPE_ITEMS = [
+  { subject: 'swap', description: 'Swap providers' },
+  { subject: 'defi', description: 'DeFi venues' },
+] as const;
+
+function Subject({
+  scopeItems,
+}: {
+  scopeItems?: (typeof SCOPE_ITEMS)[number][];
+}) {
+  return (
+    <BenefitsTabPlaceholder
+      bindStatus={useBenefitsBindStatus()}
+      scopeItems={scopeItems}
+    />
+  );
 }
 
 function getText() {
@@ -158,5 +185,48 @@ describe('BenefitsTabPlaceholder', () => {
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
     ).toBeNull();
+  });
+
+  it('paints the status a wallet last resolved to while it checks again', async () => {
+    // A wallet no other test uses: the remembered statuses live for the run.
+    mockWalletId = 'hd-remembered';
+    mockGetBindStatus.mockResolvedValue('bind');
+    const view = render(<Subject />);
+    expect(
+      screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
+    ).toBeNull();
+    await mockStatusFetcher?.();
+
+    // Back on this wallet, before its new check lands.
+    mockStatusResult = undefined;
+    view.rerender(<Subject />);
+    expect(screen.queryByTestId('description-skeleton')).toBeNull();
+    expect(
+      screen.getByTestId(ReferFriendsTestIDs.benefitsBindBtn),
+    ).toBeTruthy();
+  });
+
+  it.each(['bind', 'unknown', 'bound'])(
+    'links the reward scope for a wallet that can earn (%s)',
+    (status) => {
+      mockStatusResult = { walletId: 'hd-1', status };
+      render(<Subject scopeItems={[...SCOPE_ITEMS]} />);
+      expect(getText()).toContain('[scope-hint]');
+    },
+  );
+
+  it.each(['notApplicable', 'unsupported'])(
+    'leaves the reward scope out for a wallet that cannot earn (%s)',
+    (status) => {
+      mockStatusResult = { walletId: 'hd-1', status };
+      render(<Subject scopeItems={[...SCOPE_ITEMS]} />);
+      expect(getText()).not.toContain('[scope-hint]');
+    },
+  );
+
+  it('shows no scope link without scope copy', () => {
+    mockStatusResult = { walletId: 'hd-1', status: 'bound' };
+    render(<Subject />);
+    expect(getText()).not.toContain('[scope-hint]');
   });
 });

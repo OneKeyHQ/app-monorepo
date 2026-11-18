@@ -1,7 +1,10 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import { AxiosError as InfiniAxiosError } from 'axios';
+
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -171,6 +174,8 @@ jest.mock('../../endpoints', () => ({
 // Captures the interceptor callbacks that ServiceBase.getOneKeyIdClient
 // registers, so tests can invoke the response error interceptor directly.
 const mockCapturedInterceptors: {
+  requestOnFulfilled?: (config: any) => Promise<any>;
+  responseOnFulfilled?: (response: any) => Promise<any>;
   responseOnRejected?: (error: unknown) => Promise<unknown>;
 } = {};
 
@@ -194,14 +199,17 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
     getOneKeyIdAuthClient: jest.fn(async () => ({
       interceptors: {
         request: {
-          use: jest.fn(),
+          use: jest.fn((onFulfilled: (config: any) => Promise<any>) => {
+            mockCapturedInterceptors.requestOnFulfilled = onFulfilled;
+          }),
         },
         response: {
           use: jest.fn(
             (
-              _onFulfilled: unknown,
+              onFulfilled: (response: any) => Promise<any>,
               onRejected: (error: unknown) => Promise<unknown>,
             ) => {
+              mockCapturedInterceptors.responseOnFulfilled = onFulfilled;
               mockCapturedInterceptors.responseOnRejected = onRejected;
             },
           ),
@@ -342,7 +350,7 @@ const {
 } = require('@onekeyhq/shared/src/locale/enum/translations');
 const {
   stashRequestAuthTokenOfError,
-  takeRequestAuthTokenOfError,
+  takeRequestAuthContextOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
   getPrimeGiftVerifyFailureLogPayload,
@@ -369,6 +377,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    hasInfiniPaymentLocalSendEvidence: jest.fn(async () => false),
     recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
@@ -1413,6 +1422,107 @@ describe('ServicePrime.apiCancelInfiniSubscription', () => {
   });
 });
 
+describe('ServicePrime.apiGetCustomerJWT', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  it('requests the support token with the expected account session pinned', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const get = jest.fn(async () => ({ data: { data: { token: 'jwt-a' } } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toEqual({ token: 'jwt-a' });
+    expect(get).toHaveBeenCalledWith('/prime/v1/general/customer_jwt', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+  });
+
+  it('rejects before requesting when another account is signed in', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Support session changed');
+    expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('discards a token issued while the account switched in flight', async () => {
+    const { service, simpleDbPrime } = createService();
+    let currentUser = userA;
+    let authStateGeneration = 3;
+    let activeToken = 'token-a';
+    mockPrimePersistAtom.get.mockImplementation(async () => currentUser);
+    simpleDbPrime.getActiveAuthToken.mockImplementation(
+      async () => activeToken,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockImplementation(
+      async () => authStateGeneration,
+    );
+    const requestStarted = createDeferred();
+    const response = createDeferred();
+    const get = jest.fn(async () => {
+      requestStarted.resolve();
+      await response.promise;
+      return { data: { data: { token: 'jwt-a' } } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    const result = service
+      .apiGetCustomerJWT({ expectedOneKeyUserId: 'user-a' })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    await requestStarted.promise;
+    currentUser = { isLoggedIn: true, onekeyUserId: 'user-b' };
+    authStateGeneration = 4;
+    activeToken = 'token-b';
+    response.resolve();
+
+    await expect(result).resolves.toEqual(
+      expect.objectContaining({ message: 'Support session changed' }),
+    );
+  });
+});
+
 describe('ServicePrime Prime redemption API', () => {
   const userA = {
     isLoggedIn: true,
@@ -1812,6 +1922,297 @@ describe('ServicePrime Infini payment APIs', () => {
     result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
     return result;
   }
+
+  function pendingResponse(payments: unknown) {
+    return {
+      data: { code: 0, message: 'success', data: { payments } },
+    };
+  }
+
+  it.each(['monthly', 'yearly', 'annual', undefined])(
+    'discovers account-scoped pending data with plan %s',
+    async (plan) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () =>
+        pendingResponse([{ ...payment, plan, transactions: [] }]),
+      );
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.plan).toBe(
+        plan === 'annual' ? 'yearly' : plan,
+      );
+      expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/pending', {
+        headers: { 'X-Onekey-Request-Token': 'token-a' },
+        timeout: 5000,
+      });
+      expect(JSON.stringify(result)).not.toContain('token-a');
+    },
+  );
+
+  it.each([false, true])(
+    'keeps pending visible when local send evidence lookup fails=%s',
+    async (fails) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      if (fails)
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockRejectedValue(
+          new Error('storage unavailable'),
+        );
+      else
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockResolvedValue(true);
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () =>
+          pendingResponse([{ ...payment, plan: 'monthly', transactions: [] }]),
+        ),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.hasLocalSendEvidence).toBe(
+        fails ? undefined : true,
+      );
+      expect(result.status).toBe(fails ? 'unavailable' : undefined);
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).toHaveBeenCalledWith({
+        onekeyUserId: 'user-a',
+        paymentId: payment.paymentId,
+      });
+    },
+  );
+
+  it('confirms absence only for a successful payments empty array', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => pendingResponse([])),
+    }));
+    const result = await service.apiGetInfiniPendingPayment({
+      expectedOneKeyUserId: 'user-a',
+    });
+    expect(result).toEqual({
+      hasPendingPayments: false,
+      authContext: {
+        onekeyUserId: 'user-a',
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 3,
+      },
+    });
+    expect(
+      simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [payment, { ...payment, paymentId: 'other-order', amountConfirming: '1' }],
+    [{ ...payment, paymentId: 'other-order', amountConfirming: '1' }, payment],
+    [payment, payment],
+    [{ paymentId: 'remote-id' }, payment],
+  ])(
+    'never chooses a recovery from multiple orders: %j',
+    async (...payments) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => pendingResponse(payments)),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.status).toBeUndefined();
+      expect(result.hasPendingPayments).toBe(true);
+      expect(result.pendingPayment).toBeUndefined();
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'])(
+    'returns unknown status, never confirmed absence, on %s',
+    async (code) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => {
+          throw new InfiniAxiosError('secret-token private-address', code);
+        }),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result).toMatchObject({
+        status: 'unavailable',
+        authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+      });
+      expect(JSON.stringify(result)).not.toMatch(
+        /secret-token|private-address/,
+      );
+      expect(
+        JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+      ).not.toMatch(/secret-token|private-address/);
+    },
+  );
+
+  it.each([
+    undefined,
+    { data: {} },
+    ...[null, undefined, false, 0, '', [], {}, payment].map((data) => ({
+      data: { code: 0, data },
+    })),
+    ...[null, undefined, false, 0, '', {}, '[]'].map(pendingResponse),
+    ...[
+      null,
+      undefined,
+      false,
+      1,
+      '',
+      [],
+      {},
+      { paymentId: '' },
+      { paymentId: ' ' },
+      { paymentId: null },
+      { paymentId: 1 },
+    ].map((item) => pendingResponse([item])),
+    { data: { code: 1, data: { payments: [] } } },
+    { data: { data: { payments: [] } } },
+    pendingResponse([payment, null]),
+    pendingResponse([null, payment]),
+  ])(
+    'warns instead of blocking a new purchase on invalid discovery: %j',
+    async (response) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => response),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.status).toBe('unavailable');
+      expect(result.pendingPayment).toBeUndefined();
+    },
+  );
+
+  it.each([
+    { paymentId: 'remote-id' },
+    {
+      paymentId: 'remote-id',
+      status: 'pending',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      amountRemaining: '29.99',
+      expiresAt: payment.expiresAt,
+      lastQuotedAt: payment.expiresAt - 1_800_000,
+    },
+  ])(
+    'warns without reconstructing a quote from order-only data: %j',
+    async (pending) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => pendingResponse([pending])),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toEqual({
+        paymentId: 'remote-id',
+        payment: undefined,
+        plan: undefined,
+        hasTransactions: undefined,
+        hasLocalSendEvidence: false,
+      });
+    },
+  );
+
+  it('keeps identity changes blocking even when discovery has failed', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        throw new InfiniAxiosError('timeout', 'ECONNABORTED');
+      }),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it('rejects an account change even after a successful empty lookup', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        return pendingResponse([]);
+      }),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it.each([401, 403])(
+    'keeps endpoint HTTP%s advisory while the pinned account lifecycle is unchanged',
+    async (httpStatusCode) => {
+      const { service } = createInfiniService();
+      const error = new OneKeyServerApiError({
+        httpStatusCode,
+        message: 'auth rejected',
+      });
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => {
+          throw error;
+        }),
+      }));
+      await expect(
+        service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+      ).resolves.toMatchObject({
+        status: 'unavailable',
+        authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+      });
+    },
+  );
+
+  it('keeps unavailable discovery client setup advisory under the same authenticated identity', async () => {
+    const { service } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => {
+      throw new OneKeyLocalError('discovery client unavailable');
+    });
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toMatchObject({
+      status: 'unavailable',
+      authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+    });
+  });
+
+  it('still refuses creating after the consent auth lifecycle has changed', async () => {
+    const { service } = createInfiniService();
+    const authContext = {
+      onekeyUserId: 'user-a',
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      authStateGeneration: 2,
+    };
+    const post = jest.fn();
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+        authContext,
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+    expect(post).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
 
   it('loads supported payment options', async () => {
     const { service } = createInfiniService();
@@ -3434,6 +3835,95 @@ describe('ServicePrime invalid-token handling', () => {
       await service.getPrimeClient();
     });
 
+    it('signs out a 90012 session through the invalid-token handler without exposing the token', async () => {
+      const rawError = {
+        data: { code: 90_012, requestUrl: '/prime/v1/user/info' },
+      };
+      stashRequestAuthTokenOfError({
+        error: rawError,
+        requestAuthToken: REQUEST_TOKEN,
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(rawError),
+      ).rejects.toMatchObject({
+        code: 90_012,
+        className: 'OneKeyErrorPrimeUserBanned',
+      });
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        }),
+      );
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
+    });
+
+    it('keeps the signed-in account for a bind ban whose error records only the service origin', async () => {
+      const error = {
+        data: { code: 90_012, requestUrl: 'https://test.onekey.so' },
+      };
+      stashRequestAuthTokenOfError({
+        error,
+        requestAuthToken: REQUEST_TOKEN,
+        requestUrl: '/prime/v1/account/identities/oauth/bind',
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(error),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(handlerImpl).not.toHaveBeenCalled();
+    });
+
+    it('rejects a banned body even when automatic error handling was disabled', async () => {
+      const response = {
+        data: { code: 90_012, data: { status: 'merge_required' } },
+        config: {
+          url: '/prime/v1/account/oauth/login',
+          headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+          autoHandleError: false,
+        },
+      };
+      await expect(
+        mockCapturedInterceptors.responseOnFulfilled?.(response),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(handlerImpl).toHaveBeenCalled();
+    });
+
+    it('normalizes a ban returned as HTTP 403 without exposing its request config', async () => {
+      const error = {
+        response: { data: { code: 90_012 } },
+        config: {
+          url: '/prime/v1/user/info',
+          headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+        },
+      };
+      const thrown = await mockCapturedInterceptors
+        .responseOnRejected?.(error)
+        .catch((reason: unknown) => reason);
+      expect(thrown).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
+      );
+    });
+
+    it('does not treat an ordinary successful payload code as a server ban', async () => {
+      const response = { data: { code: 0, data: { code: 90_012 } } };
+      await expect(
+        mockCapturedInterceptors.responseOnFulfilled?.(response),
+      ).resolves.toBe(response);
+    });
+
+    it('keeps the banned error when signing out fails', async () => {
+      handlerImpl.mockRejectedValueOnce(
+        new OneKeyLocalError('storage unavailable'),
+      );
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.({
+          data: { code: 90_012 },
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+    });
+
     async function invokeInterceptorWith90002() {
       const onRejected = mockCapturedInterceptors.responseOnRejected;
       expect(onRejected).toBeDefined();
@@ -3475,7 +3965,7 @@ describe('ServicePrime invalid-token handling', () => {
       expect(JSON.stringify(rawError)).not.toContain(REQUEST_TOKEN);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
       // Read-and-delete: a second take returns nothing.
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
     it('marks the rethrown error with $$invalidTokenHandled after handling', async () => {
@@ -8206,6 +8696,32 @@ describe('ServicePrime.apiTranslate free-trial batches', () => {
     });
   });
 
+  it.each(['typed', 'serialized'] as const)(
+    'surfaces a %s ban without automatic per-request toasts',
+    async (kind) => {
+      const { service, post } = createTranslateService(() => ({ code: 0 }));
+      post.mockRejectedValue(
+        kind === 'typed'
+          ? new OneKeyErrorPrimeUserBanned()
+          : { code: '90012', autoToast: true },
+      );
+      await expect(translate(service)).rejects.toMatchObject({
+        code: 90_012,
+        autoToast: false,
+      });
+    },
+  );
+
+  it('prioritizes a concurrent ban over AI-unavailable fallback', async () => {
+    const { service } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_012,
+    }));
+    await expect(translate(service)).rejects.toMatchObject({
+      code: 90_012,
+      autoToast: false,
+    });
+  });
+
   it('keeps the billed batches when another batch is exhausted', async () => {
     const { service, backgroundApi, post } = createTranslateService((batch) =>
       batch[0] === 'b1'
@@ -8664,5 +9180,76 @@ describe('ServicePrime inviteProfilePublic', () => {
     await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
 
     expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+});
+
+describe('ServicePrime banned OneKey ID', () => {
+  let user: Record<string, unknown>;
+  const originalGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalSet = mockPrimePersistAtom.set.getMockImplementation();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    user = {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'user-a',
+      primeSubscription: { isActive: true },
+    };
+    mockPrimePersistAtom.get.mockImplementation(async () => user);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      user = typeof update === 'function' ? update(user) : update;
+      return undefined;
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: REQUEST_TOKEN,
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(
+      originalGet || (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalSet || (async () => undefined),
+    );
+    jest.restoreAllMocks();
+  });
+
+  function setup() {
+    const result = createService();
+    result.simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    result.simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
+    result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(7);
+    return result;
+  }
+
+  it('does not reinterpret 90012 carrying conflict metadata as an account merge', () => {
+    const { service } = setup();
+    expect(
+      service.isOneKeyIdOAuthIdentityAlreadyBoundError({
+        code: 90_012,
+        data: { messageId: 'oauth_identity_already_bound', code: 90_300 },
+      }),
+    ).toBe(false);
+  });
+
+  it('lets a ban win over a successful sibling profile response', async () => {
+    const { service } = setup();
+    const get = jest.fn(async (url: string) => ({
+      status: 200,
+      data:
+        url === '/prime/v1/account/profile'
+          ? { code: 90_012 }
+          : { code: 0, data: { userId: 'user-a', isPrime: true } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeUserBanned,
+    );
   });
 });

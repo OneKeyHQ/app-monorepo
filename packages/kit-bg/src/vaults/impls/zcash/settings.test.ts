@@ -4,8 +4,8 @@
 jest.mock('../../../dbs/local/localDbInstance');
 
 import {
-  ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-  ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
 } from '@onekeyhq/shared/src/config/zcash';
 import { PRIVACY_CHAIN_PUBLIC_POOL_ID } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 
@@ -22,13 +22,25 @@ describe('zcash vault settings invariants', () => {
   });
 
   it('enables only account types whose full flow works', () => {
-    expect(settings.importedAccountEnabled).toBe(true);
+    expect(settings.importedAccountEnabled).toBe(false);
     expect(settings.watchingAccountEnabled).toBe(true);
     // KeyringHardware: device UA/UFVK at setup, device-signed PCZT at send
     expect(settings.hardwareAccountEnabled).toBe(true);
     expect(settings.qrAccountEnabled).toBe(false);
     expect(settings.externalAccountEnabled).toBe(false);
     expect(settings.supportedThirdPartyVendors).toBeUndefined();
+  });
+
+  it('takes neither an xpub to watch nor an xprv to import', async () => {
+    const vault = Object.create(Vault.prototype) as Vault;
+    await expect(
+      vault.validateXpub(
+        'xpub6CTtvTVbDbZu89GVR6dCs7ezFPNTUXH4UmHYc75hWrmDq6npasnzm7qDiRebwHEmxAQxTX1HZvTZEmSiiNHDwbUu5thgjXWZcCRcQB3ovgP',
+      ),
+    ).resolves.toEqual({ isValid: false });
+    await expect(vault.validateXprvt('xprv-anything')).resolves.toEqual({
+      isValid: false,
+    });
   });
 
   it('offers hardware accounts only on devices whose firmware has Zcash', () => {
@@ -65,8 +77,8 @@ describe('zcash vault settings invariants', () => {
         accountSetup: {
           requiresBirthday: true,
           earliestBirthday: {
-            height: ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-            timestamp: ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
+            height: ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+            timestamp: ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
           },
         },
       }),
@@ -78,7 +90,7 @@ describe('zcash vault settings invariants', () => {
     expect(settings.onChainHistoryDisabled).toBeFalsy();
   });
 
-  it('declares one backend pool and local-scan shielded pools', () => {
+  it('exposes only transparent funds and Ironwood shielded history', () => {
     const localWallet = settings.localWallet;
     const pools = localWallet?.pools ?? [];
     expect(
@@ -86,12 +98,12 @@ describe('zcash vault settings invariants', () => {
     ).toEqual([
       { key: 'transparent', kind: 'public', source: 'backend' },
       { key: 'ironwood', kind: 'private', source: 'localScan' },
-      { key: 'orchard', kind: 'private', source: 'localScan' },
     ]);
     const backendPools = pools.filter((pool) => pool.source === 'backend');
     expect(backendPools.map((pool) => pool.id)).toEqual([
       PRIVACY_CHAIN_PUBLIC_POOL_ID,
     ]);
     expect(localWallet?.withholdAddressFromBackend).toBeFalsy();
+    expect(localWallet?.historyOnlyPools).toBeUndefined();
   });
 });

@@ -9,6 +9,7 @@ import {
   getOneKeyStoreHandoffUrl,
   handleOneKeyStoreLink,
   openUrlExternal,
+  openUrlInApp,
   setForceSystemBrowserForDebug,
 } from './openUrlUtils';
 
@@ -49,6 +50,7 @@ const mockEnv = platformEnv as unknown as {
   isNativeIOS: boolean;
   isNativeBackgroundThread: boolean;
   isDesktopMac: boolean;
+  isExtension: boolean;
 };
 const mockOpenURL = openURL as jest.Mock;
 const mockOpenBrowserAsync = openBrowserAsync as jest.Mock;
@@ -465,5 +467,33 @@ describe('dismissNativeInAppBrowser', () => {
     await flushPromises();
     await flushPromises();
     expect(mockDismissBrowser).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('openUrlInApp (extension)', () => {
+  const mockNavigate = jest.fn();
+  const mockTabsCreate = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEnv.isNative = false;
+    mockEnv.isExtension = true;
+    Object.assign(appGlobals, {
+      $navigationRef: { current: { navigate: mockNavigate } },
+    });
+    Object.assign(globalThis, { chrome: { tabs: { create: mockTabsCreate } } });
+  });
+
+  afterEach(() => {
+    mockEnv.isNative = true;
+    mockEnv.isExtension = false;
+  });
+
+  it('still opens ordinary links in a browser tab', () => {
+    openUrlInApp('https://onekey.so/', 'OneKey');
+    expect(mockTabsCreate).toHaveBeenCalledWith({
+      url: 'https://onekey.so/',
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

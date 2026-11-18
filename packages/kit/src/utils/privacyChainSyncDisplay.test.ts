@@ -5,64 +5,28 @@ import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/local
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  PRIVACY_CHAIN_SYNC_STATUS_LABELS,
+  formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   formatPrivacyChainSyncSummary,
   formatPrivacyChainTimeLeft,
   getPrivacyChainBackfillProgress,
   getPrivacyChainNetworkSyncDisplay,
-  getPrivacyChainSyncLabel,
+  isPrivacyChainTimeLeftReliable,
+  pickPrivacyChainSummaryFigure,
   pickSlowestPrivacyChainNetwork,
 } from './privacyChainSyncDisplay';
 
-it('does not label ordinary scanning as data-blocked', () => {
-  expect(getPrivacyChainSyncLabel({ backfilling: true })).toBe(
-    ETranslations.global_syncing,
+it('labels both pauses alike, and an outdated WebView as a sync error', () => {
+  expect(PRIVACY_CHAIN_SYNC_STATUS_LABELS.accountPaused).toBe(
+    ETranslations.syncing_paused__title,
   );
-  expect(getPrivacyChainSyncLabel({ backfilling: false })).toBe(
-    ETranslations.global_synced,
+  expect(PRIVACY_CHAIN_SYNC_STATUS_LABELS.chainPaused).toBe(
+    ETranslations.syncing_paused__title,
   );
-});
-
-it('puts an unsupported device above every other state', () => {
-  expect(
-    getPrivacyChainSyncLabel({
-      storageUnsupported: true,
-      disabled: true,
-      paused: true,
-      held: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.privacy_error_webview_outdated__msg);
-});
-
-it('prioritizes disabled, paused, held, and preparing states consistently', () => {
-  expect(
-    getPrivacyChainSyncLabel({
-      disabled: true,
-      paused: true,
-      held: true,
-      preparing: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.global_disabled);
-  expect(
-    getPrivacyChainSyncLabel({
-      paused: true,
-      held: true,
-      preparing: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.syncing_paused__title);
-  expect(
-    getPrivacyChainSyncLabel({
-      held: true,
-      preparing: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.privacy_sync_waiting_wifi__msg);
-  expect(getPrivacyChainSyncLabel({ preparing: true, backfilling: true })).toBe(
-    ETranslations.global_preparing,
+  expect(PRIVACY_CHAIN_SYNC_STATUS_LABELS.storageUnsupported).toBe(
+    ETranslations.global_sync_error,
   );
 });
 
@@ -129,12 +93,28 @@ describe('chain status shared by settings and the floating control', () => {
     backfillScannedHeight: null,
     backfillProgress: 0,
   };
+  const complete = {
+    ...scanning,
+    backfillScannedHeight: 1000,
+    backfillProgress: 1,
+    isBackfillComplete: true,
+    tipScannedHeight: 1000,
+    tipLag: 0,
+    isTipCaughtUp: true,
+  };
   let state: IPrivacyChainScanState;
+  const display = () =>
+    getPrivacyChainNetworkSyncDisplay({
+      state,
+      networkId: 'xmr--0',
+      syncedBelowBlocks: 100,
+      blockTime: undefined,
+    });
   beforeEach(() => {
     state = {
       boostingNetworkIds: ['xmr--0'],
       pausedNetworkIds: [],
-      preparingNetworkIds: [],
+      preparingAccountKeys: [],
       dataBlockedNetworkIds: [],
       storageUnsupportedNetworkIds: [],
       syncErrorByNetworkId: {},
@@ -142,75 +122,35 @@ describe('chain status shared by settings and the floating control', () => {
     };
   });
 
-  it('prepares after an explicit start, hiding other accounts figures', () => {
+  it('prepares after an explicit start, hiding that account figures', () => {
     state.progress = { 'xmr--0:active': scanning };
-    state.preparingNetworkIds = ['xmr--0'];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
+    state.preparingAccountKeys = ['xmr--0:active'];
+    expect(display()).toMatchObject({
+      status: 'preparing',
       labelId: ETranslations.global_preparing,
-      entry: undefined,
-      isCaughtUp: false,
     });
+    expect(display().progress).toBeUndefined();
   });
 
-  it('reports a chain whose accounts all finished the backfill as caught up', () => {
-    const complete = {
-      ...scanning,
-      backfillScannedHeight: 1000,
-      backfillProgress: 1,
-      isBackfillComplete: true,
-    };
+  it('calls a chain synced only once every account is', () => {
     state.progress = { 'xmr--0:done': complete };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' })
-        .isCaughtUp,
-    ).toBe(true);
+    expect(display().status).toBe('synced');
     state.progress = { 'xmr--0:done': complete, 'xmr--0:queued': queued };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' })
-        .isCaughtUp,
-    ).toBe(false);
+    expect(display().status).toBe('syncing');
   });
 
   it('shows advancing work while another account is still waiting for its cursor', () => {
     state.progress = { 'xmr--0:active': scanning, 'xmr--0:queued': queued };
-    const result = getPrivacyChainNetworkSyncDisplay({
-      state,
-      networkId: 'xmr--0',
+    expect(display()).toMatchObject({
+      labelId: ETranslations.global_syncing,
+      progress: scanning,
     });
-    expect(result.labelId).toBe(ETranslations.global_syncing);
-    expect(result.entry).toBe(scanning);
   });
 
   it('prepares only while no account on this chain has a scanned cursor', () => {
     state.progress = { 'xmr--0:queued': queued, 'zec--0:other': scanning };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.global_preparing,
-      entry: undefined,
-    });
-  });
-
-  it('does not claim 100% while the scheduler still has foreground work', () => {
-    const complete = {
-      ...scanning,
-      backfillScannedHeight: 1000,
-      backfillProgress: 1,
-      isBackfillComplete: true,
-    };
-    state.progress = { 'xmr--0:done': complete };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.global_syncing,
-      entry: undefined,
-    });
-    state.boostingNetworkIds = [];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({ labelId: ETranslations.global_synced, entry: complete });
+    expect(display().labelId).toBe(ETranslations.global_preparing);
+    expect(display().progress).toBeUndefined();
   });
 
   it('puts pause and the data wait ahead of an old error', () => {
@@ -218,26 +158,40 @@ describe('chain status shared by settings and the floating control', () => {
     state.pausedNetworkIds = ['xmr--0'];
     state.dataBlockedNetworkIds = ['xmr--0'];
     state.syncErrorByNetworkId['xmr--0'] = 'failed';
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.syncing_paused__title,
-      syncError: undefined,
-    });
+    expect(display().labelId).toBe(ETranslations.syncing_paused__title);
+    expect(display().syncError).toBeUndefined();
     state.pausedNetworkIds = [];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.privacy_sync_waiting_wifi__msg,
-      syncError: undefined,
-    });
+    expect(display().labelId).toBe(
+      ETranslations.privacy_sync_waiting_wifi__msg,
+    );
+    expect(display().syncError).toBeUndefined();
     state.dataBlockedNetworkIds = [];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
+    expect(display()).toMatchObject({
       labelId: ETranslations.global_sync_error,
       syncError: 'failed',
     });
+  });
+
+  it('limits a wallet view to its own accounts and reports them all paused', () => {
+    state.progress = { 'xmr--0:mine': complete, 'xmr--0:other': scanning };
+    expect(
+      getPrivacyChainNetworkSyncDisplay({
+        state,
+        networkId: 'xmr--0',
+        syncedBelowBlocks: 100,
+        blockTime: undefined,
+        accountIds: ['mine'],
+      }).status,
+    ).toBe('synced');
+    expect(
+      getPrivacyChainNetworkSyncDisplay({
+        state,
+        networkId: 'xmr--0',
+        syncedBelowBlocks: 100,
+        blockTime: undefined,
+        accountPaused: true,
+      }).status,
+    ).toBe('accountPaused');
   });
 });
 
@@ -306,7 +260,7 @@ it('shows priority scan work advancing while the contiguous cursor stays still',
   expect(timeLeft({ blocksPerSec: 2 }, true)).toBe('');
 });
 
-it('falls back from time to percentage to the state alone', () => {
+it('shows the one figure picked, falling back to the state alone', () => {
   const syncing: ILocalWalletSyncProgress = {
     birthdayHeight: 0,
     backfillScannedHeight: 10,
@@ -322,34 +276,80 @@ it('falls back from time to percentage to the state alone', () => {
   };
   const summary = (
     progress: ILocalWalletSyncProgress | undefined,
-    isSyncing = true,
-  ) =>
-    formatPrivacyChainSyncSummary({
-      label: 'Syncing',
-      progress,
-      syncing: isSyncing,
-    });
-  expect(summary({ ...syncing, blocksPerSec: 3 })).toMatch(
-    /^Syncing 10\.0% · ~/,
+    figure: 'timeLeft' | 'percent' | undefined,
+  ) => formatPrivacyChainSyncSummary({ label: 'Syncing', progress, figure });
+  expect(summary({ ...syncing, blocksPerSec: 3 }, 'timeLeft')).toMatch(
+    /^Syncing · ~/,
   );
-  expect(summary(syncing)).toBe('Syncing 10.0%');
-  expect(
-    summary({
-      ...syncing,
-      backfillRemainingBlocks: undefined,
-      backfillScannedHeight: null,
-    }),
-  ).toBe('Syncing 10.0%');
-  expect(
-    summary({
-      ...syncing,
-      backfillRemainingBlocks: undefined,
-      backfillScannedHeight: null,
-      backfillProgress: null,
-    }),
-  ).toBe('Syncing');
-  expect(summary(undefined)).toBe('Syncing');
-  expect(summary(syncing, false)).toBe('Syncing');
+  expect(summary({ ...syncing, blocksPerSec: 3 }, 'percent')).toBe(
+    'Syncing · 10.0%',
+  );
+  expect(summary({ ...syncing, backfillProgress: null }, 'percent')).toBe(
+    'Syncing',
+  );
+  expect(summary(undefined, 'percent')).toBe('Syncing');
+  expect(summary(syncing, undefined)).toBe('Syncing');
+});
+
+describe('time left reliability', () => {
+  const measured: ILocalWalletSyncProgress = {
+    birthdayHeight: 0,
+    backfillScannedHeight: 10,
+    backfillTargetHeight: 100,
+    backfillProgress: 0.1,
+    backfillRemainingBlocks: 90,
+    isBackfillComplete: false,
+    tipScannedHeight: 10,
+    chainTip: 100,
+    tipLag: 90,
+    isTipCaughtUp: false,
+    isSyncing: true,
+    blocksPerSec: 3,
+    blocksPerSecSince: 0,
+  };
+  type ISettings = Parameters<
+    typeof isPrivacyChainTimeLeftReliable
+  >[0]['settings'];
+  const slowRegion = (fromHeight: number, toHeight: number) =>
+    ({
+      scanRegionHints: [
+        {
+          fromHeight,
+          toHeight,
+          labelId: ETranslations.privacy_sync_spam_region__msg,
+        },
+      ],
+    }) as ISettings;
+  const reliable = (
+    progress: ILocalWalletSyncProgress,
+    settings?: ISettings,
+    now = 60_000,
+  ) => isPrivacyChainTimeLeftReliable({ progress, settings, now });
+
+  it('waits until the speed has been measured for a minute', () => {
+    expect(reliable(measured, undefined, 59_999)).toBe(false);
+    expect(reliable(measured)).toBe(true);
+    expect(reliable({ ...measured, blocksPerSecSince: undefined })).toBe(false);
+  });
+
+  // The speed before a slower region says nothing about crossing it.
+  it('distrusts a declared slow region that is not scanned yet', () => {
+    expect(reliable(measured, slowRegion(50, 80))).toBe(false);
+    expect(
+      reliable({ ...measured, backfillScannedHeight: 80 }, slowRegion(50, 80)),
+    ).toBe(true);
+    expect(reliable(measured, slowRegion(200, 300))).toBe(true);
+  });
+
+  it('shows the percentage until a time left can be trusted', () => {
+    const pick = (progress: ILocalWalletSyncProgress, now: number) =>
+      pickPrivacyChainSummaryFigure({ progress, settings: undefined, now });
+    expect(pick(measured, 60_000)).toBe('timeLeft');
+    expect(pick(measured, 1000)).toBe('percent');
+    expect(pick({ ...measured, blocksPerSec: undefined }, 60_000)).toBe(
+      'percent',
+    );
+  });
 });
 
 describe('formatPrivacyChainSyncError', () => {
@@ -373,4 +373,35 @@ describe('formatPrivacyChainSyncError', () => {
       ETranslations.privacy_sync_failed_retrying__msg,
     );
   });
+});
+
+// Zcash NU7: 75s blocks become 25s; a lag across it is timed block by block.
+it('times a tip lag across a block interval change', () => {
+  const NU7 = 3_543_405;
+  const settings = {
+    blockTimeSeconds: 75,
+    blockTimeChange: { fromHeight: NU7, blockTimeSeconds: 25 },
+    tipLagWarningBlocks: 48,
+  } as Parameters<typeof formatPrivacyChainSyncDetail>[0]['settings'];
+  const caughtUp = (chainTip: number, tipLag: number) =>
+    formatPrivacyChainSyncDetail({
+      progress: {
+        birthdayHeight: 0,
+        backfillScannedHeight: chainTip - tipLag,
+        backfillTargetHeight: chainTip - tipLag,
+        backfillProgress: 1,
+        isBackfillComplete: true,
+        tipScannedHeight: chainTip - tipLag,
+        chainTip,
+        tipLag,
+        isTipCaughtUp: false,
+        isSyncing: false,
+      },
+      settings,
+      intl: createIntl({ locale: 'en' }),
+    });
+  // 200 blocks at 25s and 200 at 75s: about 5.6 hours, not 2.8.
+  expect(caughtUp(NU7 + 199, 400)).toMatch(/ · 6 hours/);
+  // An hour of 25s blocks is 144, so 100 behind is not worth a word.
+  expect(caughtUp(NU7 + 1000, 100)).not.toContain(' · ');
 });

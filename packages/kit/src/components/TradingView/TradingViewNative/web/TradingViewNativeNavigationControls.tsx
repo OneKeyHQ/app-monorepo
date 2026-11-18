@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { FocusEvent, KeyboardEvent } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Stack, XStack, useTheme } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS,
@@ -13,36 +12,27 @@ import {
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_RADIUS,
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE,
   TRADING_VIEW_NATIVE_NAVIGATION_ICON_SIZE,
+  TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS,
 } from '../utils/chartNavigation';
+import {
+  TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS,
+  TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
+  TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
+  getTradingViewNativeNavigationLayout,
+} from '../utils/chartNavigationControls';
 
 import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
 
-// Glyphs share one visual size on a 24 px grid with thin rounded strokes, like
-// TradingView's control bar, so the bar reads as a single set.
-const NAVIGATION_BUTTONS: Record<
-  ITradingViewNativeNavigationAction,
-  { labelId: ETranslations; path: string }
-> = {
-  zoomOut: { labelId: ETranslations.menu_zoom_out, path: 'M6 12h12' },
-  zoomIn: { labelId: ETranslations.menu_zoom_in, path: 'M6 12h12M12 6v12' },
-  scrollLeft: {
-    labelId: ETranslations.chart_scroll_left__action,
-    path: 'M14 7l-5 5 5 5',
-  },
-  scrollRight: {
-    labelId: ETranslations.chart_scroll_right__action,
-    path: 'M10 7l5 5-5 5',
-  },
-  reset: {
-    labelId: ETranslations.global_reset,
-    path: 'M5.5 12a6.5 6.5 0 1 0 6.5-6.5 7.04 7.04 0 0 0-4.87 1.98L5.5 9.11M5.5 5.5v3.61h3.61',
-  },
-};
+// Reset sits right after this button in both tab order and layout.
+const RESET_FOCUS_FALLBACK_ACTION: ITradingViewNativeNavigationAction =
+  'scrollRight';
 
 interface ITradingViewNativeNavigationControlsProps {
   backgroundColor: string;
   chartWidth: number;
+  isResetVisible: boolean;
   isVisible: boolean;
+  isMobileLayout?: boolean;
   onAction: (action: ITradingViewNativeNavigationAction) => void;
   timeAxisHeight: number;
   testID?: string;
@@ -51,7 +41,9 @@ interface ITradingViewNativeNavigationControlsProps {
 export function TradingViewNativeNavigationControls({
   backgroundColor,
   chartWidth,
+  isResetVisible,
   isVisible,
+  isMobileLayout = false,
   onAction,
   timeAxisHeight,
   testID,
@@ -63,7 +55,41 @@ export function TradingViewNativeNavigationControls({
   // it visible outside the hot zone.
   const [keyboardFocusedAction, setKeyboardFocusedAction] =
     useState<ITradingViewNativeNavigationAction | null>(null);
+  const resetFocusFallbackRef = useRef<HTMLButtonElement>(null);
+  // Reset unmounts once it has nothing to undo, which may skip its blur and
+  // drop focus to the document. Hand keyboard focus to the adjacent button so
+  // keyboard users keep their place and a stale reset focus cannot linger.
+  if (!isResetVisible && keyboardFocusedAction === 'reset') {
+    setKeyboardFocusedAction(RESET_FOCUS_FALLBACK_ACTION);
+  }
+  useLayoutEffect(() => {
+    const fallbackButton = resetFocusFallbackRef.current;
+    // Focus and key events already sit on their button, so only the handoff
+    // above leaves the DOM focus behind.
+    if (
+      keyboardFocusedAction === RESET_FOCUS_FALLBACK_ACTION &&
+      fallbackButton &&
+      document.activeElement !== fallbackButton
+    ) {
+      fallbackButton.focus();
+    }
+  }, [keyboardFocusedAction]);
   const isShown = isVisible || keyboardFocusedAction !== null;
+  const buttonSize = isMobileLayout
+    ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE
+    : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE;
+  const buttonGap = isMobileLayout
+    ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP
+    : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_GAP;
+  const { primaryTrailingInset, resetButtonLeft } =
+    getTradingViewNativeNavigationLayout({
+      buttonSize,
+      chartWidth,
+      gap: buttonGap,
+    });
+  const actions = isResetVisible
+    ? TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS
+    : TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS;
   const testIDPrefix = testID
     ? `${testID}-navigation`
     : 'trading-view-native-navigation';
@@ -77,13 +103,16 @@ export function TradingViewNativeNavigationControls({
       bottom={timeAxisHeight + TRADING_VIEW_NATIVE_NAVIGATION_BOTTOM_GAP}
       zIndex={2}
       justifyContent="center"
-      gap={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_GAP}
+      gap={buttonGap}
+      paddingRight={primaryTrailingInset}
       opacity={isShown ? 1 : 0}
       pointerEvents={isShown ? 'box-none' : 'none'}
     >
-      {TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS.map((action) => {
-        const { labelId, path } = NAVIGATION_BUTTONS[action];
+      {actions.map((action) => {
+        const { labelId, path } =
+          TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS[action];
         const label = intl.formatMessage({ id: labelId });
+        const isReset = action === 'reset';
         const updateKeyboardFocus = (
           event: FocusEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
         ) => {
@@ -94,19 +123,32 @@ export function TradingViewNativeNavigationControls({
         return (
           <Stack
             key={action}
-            render={<button type="button" aria-label={label} />}
+            render={
+              <button
+                type="button"
+                aria-label={label}
+                ref={
+                  action === RESET_FOCUS_FALLBACK_ACTION
+                    ? resetFocusFallbackRef
+                    : undefined
+                }
+              />
+            }
             testID={`${testIDPrefix}-${action}`}
             aria-label={label}
             alignItems="center"
             justifyContent="center"
-            width={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE}
-            height={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE}
+            width={buttonSize}
+            height={buttonSize}
             padding={0}
             borderRadius={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_RADIUS}
             borderCurve="continuous"
             borderWidth="$px"
             borderColor="$borderStrong"
             backgroundColor={backgroundColor}
+            position={isReset ? 'absolute' : undefined}
+            top={isReset ? 0 : undefined}
+            left={isReset ? resetButtonLeft : undefined}
             cursor="pointer"
             pointerEvents={isShown ? 'auto' : 'none'}
             hoverStyle={{ opacity: 0.86 }}

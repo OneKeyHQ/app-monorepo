@@ -8,6 +8,7 @@ import {
   backgroundClass,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type {
@@ -91,11 +92,33 @@ abstract class ProviderApiBase {
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
       );
-    if (!accountsInfo) {
+    if (!accountsInfo?.length) {
       throw web3Errors.provider.unauthorized();
     }
     return accountsInfo;
   };
+
+  protected assertAccountAddress(
+    account: INetworkAccount,
+    address: unknown,
+    normalize?: (value: string) => string,
+  ) {
+    const accountAddress = account.addressDetail.normalizedAddress;
+    if (typeof address === 'string' && address && accountAddress) {
+      try {
+        if (
+          normalize
+            ? normalize(address) === normalize(accountAddress)
+            : address === accountAddress
+        ) {
+          return;
+        }
+      } catch {
+        // Invalid address encodings cannot authorize a signing account.
+      }
+    }
+    throw web3Errors.provider.unauthorized();
+  }
 
   notifyNetworkChangedToDappSite = debounce(
     (targetOrigin: string) => {

@@ -31,6 +31,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
+  getUtxoHistoryDisplayValue,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -78,7 +79,10 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -205,6 +209,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   // async getDisplayAddress(address: string): Promise<string> {
 
   abstract validateAddress(address: string): Promise<IAddressValidation>;
+
+  // Address forms a watch-only account can be built on; a send recipient may take more.
+  async validateWatchingAddress(address: string): Promise<IAddressValidation> {
+    return this.validateAddress(address);
+  }
 
   abstract validateXpub(xpub: string): Promise<IXpubValidation>;
 
@@ -524,6 +533,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async checkSignedTxBroadcastStatus(_params: {
     signedTx: ISignedTxPro;
     attemptedAt: number;
+    // A node returned a txid for this payload on an earlier attempt.
+    isAcceptedByNode?: boolean;
   }): Promise<ESignedTxBroadcastStatus> {
     return ESignedTxBroadcastStatus.Unknown;
   }
@@ -531,8 +542,63 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // Override to recognize broadcast errors that prove the node never
   // accepted the payload (e.g. a preflight rejection), so a retry can sign
   // again at once instead of waiting for a chain verdict.
-  async isSignedTxRejectedByBroadcast(_error: unknown): Promise<boolean> {
+  async isSignedTxRejectedByBroadcast(
+    _error: unknown,
+    // The route this broadcast took, which the stored custom RPC setting
+    // alone does not tell.
+    _options?: { useDefaultRpc?: boolean },
+  ): Promise<boolean> {
     return false;
+  }
+
+  // Override in chain vaults that can prove the chain accepts at most one of
+  // an earlier signed payload and the tx about to be signed (same sender
+  // nonce, a shared UTXO input). A retry whose earlier broadcast has no
+  // verdict signs again only when this holds; otherwise the stored payload
+  // is sent again, because a tx built on fresh inputs or a fresh nonce pays
+  // a second time when the first one did land (OK-67090). The default keeps
+  // the earlier retry behavior of chains that have no such proof.
+  async isUnsignedTxConflictingWithSignedTx(_params: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    return true;
+  }
+
+  // Shared verdict for chains whose signed tx id is known before broadcast
+  // and whose history API finds a tx by id: a tx the chain has executed has
+  // reached it, whatever its execution result, so its nonce or inputs are
+  // taken. Anything else, a failed lookup included, is no verdict at all,
+  // because an unseen tx may still be in flight or in a private mempool.
+  // A pending answer is no proof either: a lookup that cannot find the tx
+  // may return a pending placeholder that echoes the requested id (custom
+  // networks always do).
+  protected async checkSignedTxBroadcastStatusByTxDetails({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    const { txid } = signedTx;
+    // A payload the node already took is replayed with or without this
+    // verdict, so the lookup would only cost a request per replayed tx.
+    if (!txid || isAcceptedByNode) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const txDetails =
+      await this.backgroundApi.serviceHistory.fetchHistoryTxDetails({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        txid,
+      });
+    const onChainTx = txDetails?.data;
+    const isExecuted =
+      onChainTx?.status === EOnChainHistoryTxStatus.Success ||
+      onChainTx?.status === EOnChainHistoryTxStatus.Failed;
+    return isExecuted && onChainTx?.tx?.toLowerCase() === txid.toLowerCase()
+      ? ESignedTxBroadcastStatus.Broadcast
+      : ESignedTxBroadcastStatus.Unknown;
   }
 
   async buildBulkSendEncodedTxs(_params: {
@@ -879,6 +945,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       const isPrivateSendHistory =
         onChainHistoryTx.isPrivateSend === true ||
         onChainHistoryTx.type === EOnChainHistoryTxType.PrivateSend;
+      // UTXO rows render the server's net `value`; a transfer between the
+      // account's own addresses nets to 0, so resolve the moved amount instead.
+      const historyValue = vaultSettings.isUtxo
+        ? getUtxoHistoryDisplayValue(onChainHistoryTx)
+        : onChainHistoryTx.value;
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
@@ -904,7 +975,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
-        nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
+        nativeAmount: vaultSettings.isUtxo ? historyValue : undefined,
 
         extraInfo: await this.buildOnChainHistoryTxExtraInfo({
           onChainHistoryTx,
@@ -913,7 +984,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           type: isPrivateSendHistory
             ? EOnChainHistoryTxType.PrivateSend
             : onChainHistoryTx.type,
-          value: onChainHistoryTx.value,
+          value: historyValue,
           label: isPrivateSendHistory
             ? EOnChainHistoryTxType.PrivateSend
             : onChainHistoryTx.label,
@@ -1679,6 +1750,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       accountId,
       withUTXOs: _withUTXOs,
       privacyChainPoolId: _privacyChainPoolId,
+      requestCurrency,
       ...rest
     } = params;
     const client = await this.backgroundApi.serviceGas.getClient(
@@ -1691,6 +1763,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       rest,
       {
         headers: {
+          ...(requestCurrency
+            ? { 'x-onekey-request-currency': requestCurrency }
+            : {}),
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {
               accountId,

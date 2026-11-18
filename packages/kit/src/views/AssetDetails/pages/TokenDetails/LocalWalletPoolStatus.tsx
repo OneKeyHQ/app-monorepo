@@ -1,4 +1,5 @@
-import { useCallback, useRef } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,37 +7,31 @@ import {
   Button,
   Dialog,
   Icon,
-  IconButton,
   SizableText,
   Stack,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { LocalWalletPasswordAlert } from './LocalWalletPasswordAlert';
 import {
-  BirthdayDialogForm,
-  LocalWalletDebugControl,
-  PrivacyEnableDisclosure,
-  ScanRepairControl,
-  SetupRepairControl,
-  createEnableBirthdayForm,
   getBirthdayInputError,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
+import {
+  PrivacyEnableContent,
+  createPrivacyEnableForm,
+} from './PrivacyEnableContent';
 import { TokenPrivacyPanel } from './TokenPrivacyPanel';
+import { getLocalWalletSyncAction } from './useLocalWalletPool';
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
@@ -49,63 +44,74 @@ function logLocalWalletActionError(action: string) {
   };
 }
 
-function useOpenPrivacyNetworkSettings({
-  accountId,
-  networkId,
-}: {
-  accountId: string;
-  networkId: string;
-}) {
-  const navigation = useAppNavigation();
-  return useCallback(() => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
-      params: {
-        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
-        networkId,
-      },
-    });
-  }, [accountId, navigation, networkId]);
-}
-
 export function LocalWalletPoolStatus({
   networkId,
   accountId,
   pool: lw,
-  settingsMode = false,
   presentation,
+  renderEnableTrigger,
 }: {
   networkId: string;
   accountId: string;
   pool: ILocalWalletPool;
-  settingsMode?: boolean;
-  presentation?: 'tokenDetails';
+  presentation?: 'tokenDetails' | 'home';
+  renderEnableTrigger?: (props: {
+    onPress: () => Promise<void>;
+    loading: boolean;
+    disabled: boolean;
+  }) => ReactNode;
 }) {
   const intl = useIntl();
-  const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
-  // A full network is not toasted: the dialog explains how to make room.
+  // A full network is not toasted: the dialog lists what can be deleted.
   const showSlotsFullOr = useCallback(
     (action: string) => (error: unknown) => {
       if (!isLocalWalletSlotsFullError(error)) {
         logLocalWalletActionError(action)(error);
         return;
       }
-      showPrivacyChainSlotsFullDialog({
-        intl,
-        // Already on the page that lists the accounts and their data.
-        onOpenSettings: settingsMode ? undefined : openSettings,
-      });
+      showPrivacyChainSlotsFullDialog({ intl, networkId });
     },
-    [intl, openSettings, settingsMode],
+    [intl, networkId],
   );
   // No keyring for this wallet type (e.g. Monero hardware): withhold the toggle.
   const canEnable =
     !lw.state?.privacyDisabled &&
     !lw.isUnsupportedWallet &&
+    !lw.isTempWallet &&
     (accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isHwAccount({ accountId }));
+  const owner = useMemo(
+    () => ({ mounted: true, accountId, networkId }),
+    [accountId, networkId],
+  );
+  const currentOwnerRef = useRef(owner);
+  currentOwnerRef.current = owner;
+  const canEnableRef = useRef(canEnable);
+  canEnableRef.current = canEnable;
+  const enableDialogRef = useRef<IDialogInstance | undefined>(undefined);
+  useEffect(() => {
+    owner.mounted = true;
+    return () => {
+      owner.mounted = false;
+      const dialog = enableDialogRef.current;
+      enableDialogRef.current = undefined;
+      void dialog?.close();
+    };
+  }, [owner]);
+  const isCurrentOwner = useCallback(
+    () =>
+      owner.mounted &&
+      currentOwnerRef.current === owner &&
+      canEnableRef.current,
+    [owner],
+  );
 
   const openEnable = useCallback(async () => {
+    if (!isCurrentOwner() || enableDialogRef.current?.isExist()) return;
+    if (lw.isSyncPaused) {
+      await getLocalWalletSyncAction(lw)().catch(showSlotsFullOr('resume'));
+      return;
+    }
     if (lw.state?.paused || !lw.settings?.accountSetup.requiresBirthday) {
       await lw.enableAccount({}).catch(showSlotsFullOr('enable'));
       return;
@@ -114,41 +120,55 @@ export function LocalWalletPoolStatus({
       .assertLocalWalletAccountAdmission({ networkId, accountId })
       .then(() => true)
       .catch((error: unknown) => {
-        showSlotsFullOr('enable')(error);
+        if (isCurrentOwner()) showSlotsFullOr('enable')(error);
         return false;
       });
-    if (!admitted) return;
+    if (!admitted || !isCurrentOwner()) return;
     const twinBirthday =
       await backgroundApiProxy.servicePrivacyChain.getLocalWalletTwinBirthday({
         networkId,
         accountId,
       });
-    if (twinBirthday) {
+    if (!isCurrentOwner()) return;
+    if (twinBirthday && presentation !== 'home') {
       await lw.enableAccount(twinBirthday).catch(showSlotsFullOr('enable'));
       return;
     }
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
     const earliestBirthday = lw.settings?.accountSetup.earliestBirthday;
-    const formRef = createEnableBirthdayForm(hintTimestamp);
-    Dialog.confirm({
+    const formRef = createPrivacyEnableForm({ earliestBirthday });
+    if (twinBirthday?.birthdayHeight !== undefined) {
+      formRef.current.mode = 'height';
+      formRef.current.height = String(twinBirthday.birthdayHeight);
+      formRef.current.startChoice = 'height';
+    } else if (twinBirthday?.birthdayTimestamp !== undefined) {
+      formRef.current.date = new Date(twinBirthday.birthdayTimestamp);
+      formRef.current.startChoice = 'date';
+    }
+    const dialog = Dialog.show({
       title: intl.formatMessage({
-        id: ETranslations.privacy_enable__title,
+        id: ETranslations.privacy_enable_account__title,
       }),
+      showConfirmButton: true,
+      showCancelButton: true,
       renderContent: (
-        <YStack gap="$4">
-          <PrivacyEnableDisclosure
-            hasRecommendedMonth={typeof hintTimestamp === 'number'}
-          />
-          <BirthdayDialogForm
-            networkId={networkId}
-            formRef={formRef}
-            allowSavedBirthday={false}
-            earliestBirthday={earliestBirthday}
-          />
-        </YStack>
+        <PrivacyEnableContent
+          networkId={networkId}
+          accountId={accountId}
+          deviceExportsViewKey={lw.settings?.accountSetup.deviceExportsViewKey}
+          formRef={formRef}
+          earliestBirthday={earliestBirthday}
+          birthdayHintTimestamp={hintTimestamp}
+        />
       ),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
+      onClose: () => {
+        if (enableDialogRef.current === dialog) {
+          enableDialogRef.current = undefined;
+        }
+      },
       onConfirm: async ({ preventClose }) => {
+        if (!isCurrentOwner()) return;
         const birthday = readEnableBirthday(
           formRef.current,
           earliestBirthday,
@@ -172,7 +192,16 @@ export function LocalWalletPoolStatus({
         }
       },
     });
-  }, [accountId, intl, lw, networkId, showSlotsFullOr]);
+    enableDialogRef.current = dialog;
+  }, [
+    accountId,
+    intl,
+    isCurrentOwner,
+    lw,
+    networkId,
+    presentation,
+    showSlotsFullOr,
+  ]);
 
   // Guards against a second tap opening a second dialog in the gap before the first one opens.
   const openingEnableRef = useRef(false);
@@ -185,22 +214,6 @@ export function LocalWalletPoolStatus({
       openingEnableRef.current = false;
     }
   }, [openEnable]);
-
-  const handleDelete = useCallback(() => {
-    Dialog.confirm({
-      title: intl.formatMessage({
-        id: ETranslations.privacy_delete_data__title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.privacy_delete_data__desc,
-      }),
-      tone: 'destructive',
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_delete }),
-      onConfirm: async () => {
-        await lw.deleteLocalData();
-      },
-    });
-  }, [intl, lw]);
 
   if (!lw.hasPooledBalance || !lw.isReady) {
     return null;
@@ -219,15 +232,35 @@ export function LocalWalletPoolStatus({
     disabledDescriptionId = ETranslations.syncing_paused__title;
   }
 
-  if (!lw.enabled) {
-    if (!settingsMode && lw.pool?.source !== 'localScan') {
+  if (
+    !lw.enabled ||
+    (presentation === 'home' &&
+      (lw.isSyncPaused ||
+        lw.state?.privacyDisabled ||
+        lw.isUnsupportedWallet ||
+        lw.isTempWallet))
+  ) {
+    if (lw.pool?.source !== 'localScan') {
       return null;
     }
-    if (presentation === 'tokenDetails' && !settingsMode) {
+    if (renderEnableTrigger) {
+      const loading = lw.busy || lw.state?.pendingOperation === 'enable';
+      return renderEnableTrigger({
+        onPress: handleEnable,
+        loading,
+        disabled: !canEnable || loading,
+      });
+    }
+    if (presentation === 'tokenDetails' || presentation === 'home') {
       return (
         <TokenPrivacyPanel
           state={
             lw.state?.pendingOperation === 'enable' ? 'preparing' : 'disabled'
+          }
+          title={
+            presentation === 'home' && !canEnable
+              ? intl.formatMessage({ id: ETranslations.global_not_available })
+              : undefined
           }
           description={intl.formatMessage({ id: disabledDescriptionId })}
           busy={lw.busy}
@@ -287,132 +320,43 @@ export function LocalWalletPoolStatus({
             </Button>
           ) : null}
         </YStack>
-        {settingsMode ? (
-          <Button
-            testID="local-wallet-delete-btn"
-            mt="$4"
-            size="small"
-            variant="tertiary"
-            disabled={lw.busy}
-            onPress={handleDelete}
-          >
-            {intl.formatMessage({ id: ETranslations.global_delete })}
-          </Button>
-        ) : null}
       </YStack>
     );
   }
 
-  // Retry would derive the same other key again; only deleting local data
-  // lets the next enable adopt it.
-  const identityMismatch = lw.state?.identityMismatch === true;
-  const isPreparing = lw.isPreparing;
-  const canRepairSetup = !lw.hasSyncError && !lw.isSyncPaused;
-  const deleteForMismatch = identityMismatch ? (
-    <Button
-      testID="local-wallet-identity-delete-btn"
-      size="small"
-      variant="tertiary"
-      disabled={lw.busy}
-      onPress={handleDelete}
-    >
-      {intl.formatMessage({ id: ETranslations.global_delete })}
-    </Button>
-  ) : null;
-
   const needsPassword = lw.poolBalance?.frozen?.some(
     ({ reason }) => reason === 'needsPassword',
   );
-  let syncActions: React.ReactNode = null;
-  if (settingsMode && identityMismatch) {
-    syncActions = deleteForMismatch;
-  } else if (settingsMode && !isPreparing) {
-    if (lw.addresses) {
-      syncActions = (
-        <ScanRepairControl
-          networkId={networkId}
-          accountId={accountId}
-          currentBirthdayHeight={lw.state?.birthdayHeight}
-          earliestBirthday={lw.settings?.accountSetup.earliestBirthday}
-          onDone={lw.refresh}
-        />
-      );
-    } else if (canRepairSetup) {
-      syncActions = (
-        <SetupRepairControl
-          networkId={networkId}
-          accountId={accountId}
-          onDone={lw.refresh}
-        />
-      );
-    }
-  }
-
-  if (!settingsMode && !needsPassword) {
+  if (!needsPassword) {
     return null;
   }
-
+  if (presentation === 'tokenDetails') {
+    return (
+      <LocalWalletPasswordAlert
+        networkId={networkId}
+        accountId={accountId}
+        presentation="tokenDetails"
+        onVerified={lw.refresh}
+      />
+    );
+  }
   return (
     <YStack pt="$3" gap="$2">
-      {needsPassword ? (
-        <LocalWalletPasswordAlert networkId={networkId} accountId={accountId} />
-      ) : null}
-      {settingsMode ? (
-        <XStack
-          pt="$1"
-          justifyContent="space-between"
-          alignItems="center"
-          gap="$2"
-        >
-          <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
-            {lw.syncStatusText ?? '— / —'}
-          </SizableText>
-          <XStack gap="$2" alignItems="center">
-            {syncActions}
-          </XStack>
-        </XStack>
-      ) : null}
-      {settingsMode ? (
-        <>
-          <Button
-            testID="local-wallet-delete-btn"
-            size="small"
-            variant="tertiary"
-            disabled={lw.busy}
-            onPress={handleDelete}
-          >
-            {intl.formatMessage({ id: ETranslations.global_delete })}
-          </Button>
-          <LocalWalletDebugControl
-            networkId={networkId}
-            accountId={accountId}
-            state={lw.state}
-            addresses={lw.addresses}
-            balance={lw.balance}
-            syncProgress={lw.syncProgress}
-          />
-        </>
-      ) : null}
+      <LocalWalletPasswordAlert networkId={networkId} accountId={accountId} />
     </YStack>
   );
 }
 
 export function LocalWalletSyncRow({
-  networkId,
-  accountId,
   pool: lw,
-  settingsOnly = false,
 }: {
   networkId: string;
   accountId: string;
   pool: ILocalWalletPool;
-  settingsOnly?: boolean;
 }) {
   const intl = useIntl();
-  const accountPaused = lw.state?.paused === true;
   // Paused here or from the sync light; either way this button resumes it.
-  const canResume = accountPaused || lw.isNetworkPaused;
-  const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
+  const canResume = lw.isSyncPaused;
 
   if (
     !lw.hasPooledBalance ||
@@ -421,30 +365,6 @@ export function LocalWalletSyncRow({
     lw.pool?.source !== 'localScan'
   ) {
     return null;
-  }
-
-  const settingsButton = (
-    <IconButton
-      testID="local-wallet-open-settings-btn"
-      ml="$2"
-      size="small"
-      variant="tertiary"
-      icon="SettingsOutline"
-      title={intl.formatMessage({ id: ETranslations.global_settings })}
-      onPress={openSettings}
-    />
-  );
-  if (settingsOnly) {
-    return (
-      <XStack
-        px="$5"
-        minHeight="$9"
-        alignItems="center"
-        justifyContent="flex-end"
-      >
-        {settingsButton}
-      </XStack>
-    );
   }
 
   return (
@@ -497,13 +417,9 @@ export function LocalWalletSyncRow({
         icon={canResume ? 'PlayOutline' : 'RefreshCcwOutline'}
         loading={lw.busy}
         onPress={() => {
-          let action = lw.refreshBalanceNow;
-          if (accountPaused) {
-            action = () => lw.enableAccount({});
-          } else if (lw.isNetworkPaused) {
-            action = lw.resumeNetworkSync;
-          }
-          void action().catch(logLocalWalletActionError('refresh'));
+          void getLocalWalletSyncAction(lw)().catch(
+            logLocalWalletActionError('refresh'),
+          );
         }}
       >
         {intl.formatMessage({
@@ -512,7 +428,6 @@ export function LocalWalletSyncRow({
             : ETranslations.privacy_balance_refresh__action,
         })}
       </Button>
-      {settingsButton}
     </XStack>
   );
 }

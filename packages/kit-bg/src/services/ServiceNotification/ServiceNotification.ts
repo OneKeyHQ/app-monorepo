@@ -16,8 +16,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  getSupportConversationFromNotification,
+  isSupportReplyPushMessage,
+  takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -45,6 +49,7 @@ import type {
   INotificationShowResult,
 } from '@onekeyhq/shared/types/notification';
 import {
+  ENotificationCommand,
   ENotificationPermission,
   ENotificationPermissionRecoveryAction,
   ENotificationPermissionRecoveryTestScenario,
@@ -215,6 +220,26 @@ export default class ServiceNotification extends ServiceBase {
       remotePushMessageInfo: messageInfo,
     });
 
+    // A support reply can arrive over both websocket and JPush; refresh once
+    // per message on every platform (OK-67112). An unusable conversation id
+    // still refreshes unread state, it just cannot target a conversation.
+    const isSupportReply = isSupportReplyPushMessage(messageInfo);
+    if (isSupportReply) {
+      const isDuplicate = !!msgId && this.showedNotificationIds.includes(msgId);
+      defaultLogger.notification.support.supportReplyPushReceived({
+        pushSource: messageInfo.pushSource,
+        isDuplicate,
+      });
+      if (!isDuplicate) {
+        // Send only an invalidation hint across runtimes. The foreground must
+        // fetch any message preview with its current authenticated session.
+        appEventBus.emit(
+          EAppEventBusNames.SupportConversationUpdated,
+          getSupportConversationFromNotification(messageInfo) ?? {},
+        );
+      }
+    }
+
     if (messageInfo.pushSource === 'jpush') {
       // jpush will show notification automatically
     }
@@ -233,7 +258,7 @@ export default class ServiceNotification extends ServiceBase {
           remotePushMessageInfo: messageInfo,
         };
         await this.showNotification(notificationParams);
-        if (!platformEnv.isNativeIOS) {
+        if (!platformEnv.isNativeIOS && !isSupportReply) {
           appEventBus.emit(
             EAppEventBusNames.ShowInAppPushNotification,
             notificationParams,
@@ -301,6 +326,11 @@ export default class ServiceNotification extends ServiceBase {
     });
   };
 
+  @backgroundMethod()
+  async consumePendingLegacyNavigation() {
+    return takePendingLegacyNavigationEvent();
+  }
+
   onNotificationClosed = async ({
     notificationId,
     params,
@@ -317,6 +347,47 @@ export default class ServiceNotification extends ServiceBase {
   };
 
   isColdStartByNotificationDone = false;
+
+  private pendingSupportConversation: { conversationId?: string } | undefined;
+
+  @backgroundMethod()
+  async requestOpenSupportConversation({
+    conversationId,
+    sourceNodeId,
+  }: {
+    conversationId?: string;
+    sourceNodeId?: string;
+  }) {
+    const targetNodeId =
+      platformEnv.isExtensionBackground &&
+      sourceNodeId &&
+      !(await this.backgroundApi.serviceApp.isAppLocked())
+        ? sourceNodeId
+        : undefined;
+    // Keep the intent in bg until a foreground is mounted and can claim it.
+    this.pendingSupportConversation = { conversationId };
+    defaultLogger.notification.support.supportReplyQueued({
+      conversationId,
+      hasSourceNodeId: !!sourceNodeId,
+      opensExpandTab: !!(platformEnv.isExtensionBackground && !targetNodeId),
+    });
+    if (platformEnv.isExtensionBackground && !targetNodeId) {
+      await extUtils.openExpandTab({});
+    }
+    appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+      action: ENotificationCommand.openSupportConversation,
+      ...(targetNodeId ? { data: { targetNodeId } } : {}),
+    });
+  }
+
+  @backgroundMethod()
+  async takePendingSupportConversation(): Promise<
+    { conversationId?: string } | undefined
+  > {
+    const pendingConversation = this.pendingSupportConversation;
+    this.pendingSupportConversation = undefined;
+    return pendingConversation;
+  }
 
   @backgroundMethod()
   async handleColdStartByNotification(params: INotificationClickParams) {

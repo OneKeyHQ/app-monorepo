@@ -504,7 +504,6 @@ export function PerpMobileLayout() {
               <PerpPositionsList
                 handleViewTpslOrders={handleViewTpslOrders}
                 isMobile
-                useTabsList={false}
                 disableListScroll
               />
             </YStack>
@@ -516,7 +515,6 @@ export function PerpMobileLayout() {
               <PerpOpenOrdersList
                 isMobile
                 isPanelActive={activeTab === ETabName.OpenOrders}
-                useTabsList={false}
                 disableListScroll
               />
             </YStack>
@@ -525,12 +523,12 @@ export function PerpMobileLayout() {
               flex={1}
               onLayout={(event) => handleTraceLayout('balancesPanel', event)}
             >
-              <SpotBalanceList isMobile useTabsList={false} disableListScroll />
+              <SpotBalanceList isMobile disableListScroll />
             </YStack>
           </YStack>
         </ScrollView>
       </PerpMobileTopChartProvider>
-      {platformEnv.isNativeIOS26Plus &&
+      {(platformEnv.isNativeIOS26Plus || platformEnv.isNativeAndroid) &&
       chartPosition === 'bottom' &&
       (tabBarHeight ?? 0) > 0 ? (
         <YStack

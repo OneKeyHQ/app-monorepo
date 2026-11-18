@@ -1,7 +1,13 @@
+import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
+import {
+  placeZcashBirthdayHeight,
+  settleZcashBirthdayPlacementTurn,
+} from './birthday';
 import { getZcashSyncMutex } from './lifecycle';
 import Vault from './Vault';
 import {
@@ -10,13 +16,25 @@ import {
 } from './vaultLifecycle';
 
 jest.mock('../../../dbs/local/localDbInstance');
+jest.mock('./birthday', () => ({
+  ...jest.requireActual<typeof import('./birthday')>('./birthday'),
+  placeZcashBirthdayHeight: jest.fn(),
+}));
+
+const placeBirthday = jest.mocked(placeZcashBirthdayHeight);
+
+// Clears the placement count, including a failure an earlier test left unsettled.
+function resetPlacementCount() {
+  settleZcashBirthdayPlacementTurn([]);
+  settleZcashBirthdayPlacementTurn([]);
+}
 
 describe('Zcash local lifecycle operations do not depend on pending history', () => {
   function fixture(historyState: 'pending' | 'unreadable') {
     const accountId = 'synthetic-account';
     const account = { ufvk: 'synthetic-ufvk', vkFp: 'synthetic-fp' };
     const repair = {
-      birthdayHeight: 2_000_000,
+      birthdayHeight: 3_500_000,
       requestedAt: 1,
       birthdaySource: 'manual-height' as const,
     };
@@ -182,15 +200,15 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       listZcashAccountMetas: async () => [
         {
           accountId: f.accountId,
-          meta: { vkFp: 'shared', birthdayHeight: 2_500_000 },
+          meta: { vkFp: 'shared', birthdayHeight: 3_600_000 },
         },
         {
           accountId: 'alias',
-          meta: { vkFp: 'shared', birthdayHeight: 1_900_000 },
+          meta: { vkFp: 'shared', birthdayHeight: 3_490_000 },
         },
         {
           accountId: 'other',
-          meta: { vkFp: 'other', birthdayHeight: 1_000_000 },
+          meta: { vkFp: 'other', birthdayHeight: 3_450_000 },
         },
       ],
     });
@@ -202,9 +220,56 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       repair: f.repair,
     });
     expect(f.rescanWallet.mock.calls).toEqual([
-      [{ ...f.account, birthdayHeight: 1_900_000 }],
-      [{ ...f.account, birthdayHeight: 1_900_000 }],
+      [{ ...f.account, birthdayHeight: 3_490_000 }],
+      [{ ...f.account, birthdayHeight: 3_490_000 }],
     ]);
+  });
+
+  it('clamps a saved pre-Ironwood alias birthday before rewinding the shared wallet', async () => {
+    const f = fixture('pending');
+    Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+      listZcashAccountMetas: async () => [
+        {
+          accountId: f.accountId,
+          meta: { vkFp: 'shared', birthdayHeight: 3_500_000 },
+        },
+        {
+          accountId: 'alias',
+          meta: { vkFp: 'shared', birthdayHeight: 2_000_000 },
+        },
+      ],
+    });
+    await f.vault
+      .getLocalWalletCapability()
+      .rewindAccount({ accountId: f.accountId });
+    expect(f.rescanWallet).toHaveBeenCalledWith({
+      ...f.account,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
+  });
+
+  it('persists the supported height when replaying a pre-Ironwood repair', async () => {
+    const f = fixture('pending');
+    f.repair.birthdayHeight = 2_000_000;
+    await f.vault.applyPendingRescan({
+      accountId: f.accountId,
+      repair: f.repair,
+    });
+    expect(f.rescanWallet).toHaveBeenCalledWith({
+      ...f.account,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
+    expect(f.saveAccountMeta).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+        }),
+      }),
+    );
+    expect(f.removePendingRescan).toHaveBeenCalledWith({
+      accountId: f.accountId,
+      expectedRepair: f.repair,
+    });
   });
 
   it('keeps the saved birthday, epochs and journal when the runtime refuses the rescan', async () => {
@@ -232,6 +297,117 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     expect(f.dropWalletDatabase).toHaveBeenCalledTimes(1);
   });
 
+  describe('a date repair', () => {
+    const birthdayTimestamp = Date.UTC(2026, 9, 1);
+    const dateRepair = {
+      birthdayHeight: 3_440_000,
+      birthdaySource: 'manual-month' as const,
+      birthdayTimestamp,
+      birthdayHeightEstimated: true,
+      requestedAt: 1,
+    };
+    function dateFixture() {
+      const f = fixture('pending');
+      Object.assign(f.vault, {
+        getLocalWalletChainTip: async () => 3_700_000,
+        zcashResolveLightwalletdUrl: async () => 'https://lightwalletd.test',
+      });
+      Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+        listZcashPendingRescans: async () => [
+          { accountId: f.accountId, repair: dateRepair },
+        ],
+      });
+      return f;
+    }
+
+    beforeEach(() => {
+      placeBirthday.mockReset();
+      resetPlacementCount();
+    });
+
+    it('rewinds the runtime to the height the node placed', async () => {
+      const f = dateFixture();
+      placeBirthday.mockResolvedValue(3_480_000);
+      await f.vault.applyPendingRescan({
+        accountId: f.accountId,
+        repair: dateRepair,
+      });
+      expect(placeBirthday).toHaveBeenCalledWith({
+        lightwalletdUrl: 'https://lightwalletd.test',
+        birthdayTimestamp,
+        chainTip: 3_700_000,
+      });
+      expect(f.rescanWallet).toHaveBeenCalledWith(
+        expect.objectContaining({ birthdayHeight: 3_480_000 }),
+      );
+      expect(f.saveAccountMeta).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            birthdayHeight: 3_480_000,
+            birthdayTimestamp,
+            birthdayHeightEstimated: undefined,
+          }),
+        }),
+      );
+      expect(f.removePendingRescan).toHaveBeenCalledWith({
+        accountId: f.accountId,
+        expectedRepair: dateRepair,
+      });
+    });
+
+    it('stays journaled while the node cannot place it', async () => {
+      const f = dateFixture();
+      placeBirthday.mockResolvedValue(null);
+      await expect(
+        f.vault.applyPendingRescan({
+          accountId: f.accountId,
+          repair: dateRepair,
+        }),
+      ).rejects.toThrow('rescan start not placed yet');
+      expect(f.rescanWallet).not.toHaveBeenCalled();
+      expect(f.saveAccountMeta).not.toHaveBeenCalled();
+      expect(f.removePendingRescan).not.toHaveBeenCalled();
+    });
+
+    // A node that keeps failing to place the date is reported, never by failing the other accounts.
+    it('keeps retrying without failing the turn', async () => {
+      const f = dateFixture();
+      placeBirthday.mockResolvedValue(null);
+      const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const reported: boolean[] = [];
+      for (let turn = 0; turn < 3; turn += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await expect(f.vault.zcashResumePendingRescans()).resolves.toBe(
+          undefined,
+        );
+        reported.push(settleZcashBirthdayPlacementTurn([f.accountId]));
+      }
+      errors.mockRestore();
+      expect(reported).toEqual([false, false, true]);
+      expect(f.rescanWallet).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ type: 'timestamp' as const, timestamp: birthdayTimestamp }, true],
+      [{ type: 'height' as const, height: 3_600_000 }, undefined],
+    ])('journals whether %j is still an estimate', async (from, estimated) => {
+      const f = fixture('pending');
+      const save = jest.fn(async () => undefined);
+      Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+        saveZcashPendingRescan: save,
+      });
+      await f.vault.rescanLocalWallet({ accountId: f.accountId, from });
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repair: expect.objectContaining({
+            birthdayHeightEstimated: estimated,
+          }),
+        }),
+      );
+      expect(placeBirthday).not.toHaveBeenCalled();
+    });
+  });
+
   it('sets a rescan height without fetching a live chain tip', async () => {
     const f = fixture('unreadable');
     const getTip = jest
@@ -245,7 +421,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
 
     await zcashRescanFromHeight(f.vault, {
       accountId: f.accountId,
-      birthdayHeight: 2_500_000,
+      birthdayHeight: 3_600_000,
       birthdaySource: 'manual-height',
     });
 
@@ -253,7 +429,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     expect(saveRepair).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: f.accountId,
-        repair: expect.objectContaining({ birthdayHeight: 2_500_000 }),
+        repair: expect.objectContaining({ birthdayHeight: 3_600_000 }),
       }),
     );
   });
@@ -270,18 +446,74 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     await expect(
       f.vault.rescanLocalWallet({
         accountId: f.accountId,
-        from: { type: 'height', height: 2_500_000 },
+        from: { type: 'height', height: 3_600_000 },
       }),
-    ).resolves.toEqual({ fromHeight: 2_500_000 });
+    ).resolves.toEqual({ fromHeight: 3_600_000 });
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: f.accountId,
-        repair: expect.objectContaining({ birthdayHeight: 2_500_000 }),
+        repair: expect.objectContaining({ birthdayHeight: 3_600_000 }),
       }),
     );
     expect(apply).not.toHaveBeenCalled();
     expect(f.rescanWallet).not.toHaveBeenCalled();
     expect(f.purgeWallet).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'returns the supported rescan height for an older manual input (dry run: %s)',
+    async (dryRun) => {
+      const f = fixture('pending');
+      const save = jest.fn(async () => undefined);
+      Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+        saveZcashPendingRescan: save,
+      });
+      await expect(
+        f.vault.rescanLocalWallet({
+          accountId: f.accountId,
+          from: { type: 'height', height: 2_000_000 },
+          dryRun,
+        }),
+      ).resolves.toEqual({ fromHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET });
+      if (dryRun) {
+        expect(save).not.toHaveBeenCalled();
+      } else {
+        expect(save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            repair: expect.objectContaining({
+              birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+            }),
+          }),
+        );
+      }
+    },
+  );
+
+  it('queues a saved recovery cursor no earlier than Ironwood', async () => {
+    const f = fixture('pending');
+    const queueRescanFrom = jest.fn(
+      async (_account: unknown, { fromHeight }: { fromHeight: number }) => ({
+        queued: true,
+        fromHeight,
+        toHeight: 3_700_000,
+      }),
+    );
+    Object.assign(f.vault, {
+      zcashGetApi: async () => ({ queueRescanFrom }),
+    });
+    await expect(
+      f.vault.queueLocalWalletRescanFrom({
+        accountId: f.accountId,
+        fromHeight: 2_000_000,
+      }),
+    ).resolves.toEqual({
+      queued: true,
+      fromHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+      toHeight: 3_700_000,
+    });
+    expect(queueRescanFrom).toHaveBeenCalledWith(f.account, {
+      fromHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
   });
 
   it('waits for an active scan to finish before deleting its runtime rows', async () => {
@@ -349,7 +581,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
         transparentAddress: 't1',
         seedFingerprintHex: 'd'.repeat(64),
         hdIndex: 0,
-        birthdayHeight: 2_000_000,
+        birthdayHeight: 3_500_000,
         birthdaySource: 'manual-height' as const,
         createdAt: 1,
       };
@@ -400,7 +632,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
           getSyncProgress: async () => {
             entered();
             await progressGate;
-            return { birthdayHeight: 2_500_000 };
+            return { birthdayHeight: 3_600_000 };
           },
           rescanWallet,
         }),
@@ -408,7 +640,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
       const preparing = vault.zcashPrepareAccounts({ accountIds: [accountId] });
       await progressEntered;
       const repair = {
-        birthdayHeight: 3_000_000,
+        birthdayHeight: 3_700_000,
         birthdaySource: 'manual-height' as const,
         requestedAt: 2,
       };
@@ -430,7 +662,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
         ]);
       if (change === 'applied')
         expect(await db.getZcashAccountMeta({ accountId })).toMatchObject({
-          birthdayHeight: 3_000_000,
+          birthdayHeight: 3_700_000,
         });
     },
   );
@@ -456,7 +688,7 @@ it('heals only the surviving account after filtering a pending deletion', async 
     createdAt: 1,
   };
   for (const [accountId, birthdayHeight] of [
-    ['hd-1--a', 2_000_000],
+    ['hd-1--a', 3_500_000],
     ['hd-1--b', 4_000_000],
   ] as const) {
     // eslint-disable-next-line no-await-in-loop
@@ -493,15 +725,204 @@ it('heals only the surviving account after filtering a pending deletion', async 
   });
   await vault.zcashPrepareAccounts({
     accountIds: ['hd-1--a', 'hd-1--b'],
-    chainTip: 3_000_000,
+    chainTip: 3_700_000,
   });
   expect(await db.getZcashAccountMeta({ accountId: 'hd-1--a' })).toMatchObject({
-    birthdayHeight: 2_000_000,
+    birthdayHeight: 3_500_000,
   });
   expect(await db.getZcashAccountMeta({ accountId: 'hd-1--b' })).toMatchObject({
-    birthdayHeight: 3_000_000,
+    birthdayHeight: 3_700_000,
   });
   expect(prepareWalletAccounts).toHaveBeenCalledWith([
-    expect.objectContaining({ ufvk: 'hd-1--b', birthdayHeight: 3_000_000 }),
+    expect.objectContaining({ ufvk: 'hd-1--b', birthdayHeight: 3_700_000 }),
   ]);
+});
+
+describe('registering an account whose birthday is a date estimate', () => {
+  const networkId = 'zec--0';
+  const birthdayTimestamp = Date.UTC(2026, 9, 1);
+  const baseMeta = {
+    vkFp: 'c'.repeat(32),
+    unifiedAddress: 'u1',
+    transparentAddress: 't1',
+    seedFingerprintHex: 'd'.repeat(64),
+    hdIndex: 0,
+    createdAt: 1,
+  };
+
+  async function setup() {
+    let saved: unknown;
+    const db = new SimpleDbEntityPrivacyChainState();
+    (db as { appStorage: unknown }).appStorage = {
+      getItem: async () => saved,
+      setItem: async (_key: string, value: unknown) => {
+        saved = value;
+      },
+    };
+    const metas = [
+      [
+        'hd-1--dated',
+        {
+          ...baseMeta,
+          birthdayHeight: 3_440_000,
+          birthdaySource: 'manual-month' as const,
+          birthdayTimestamp,
+          birthdayHeightEstimated: true,
+        },
+      ],
+      [
+        'hd-1--fixed',
+        {
+          ...baseMeta,
+          vkFp: 'e'.repeat(32),
+          birthdayHeight: 3_500_000,
+          birthdaySource: 'manual-height' as const,
+        },
+      ],
+    ] as const;
+    for (const [accountId, meta] of metas) {
+      // eslint-disable-next-line no-await-in-loop
+      await db.beginZcashPrivacyModeEnable({
+        networkId,
+        accountId,
+        birthdayHeight: meta.birthdayHeight,
+      });
+      // eslint-disable-next-line no-await-in-loop
+      await db.saveZcashAccountMeta({ accountId, meta });
+      // eslint-disable-next-line no-await-in-loop
+      await db.completeZcashPrivacyModeEnable({ accountId });
+    }
+    const prepareWalletAccounts = jest.fn(
+      async (accounts: unknown[]) => accounts,
+    );
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId,
+      backgroundApi: { simpleDb: { privacyChainState: db } },
+      zcashResolveLightwalletdUrl: async () => 'https://lightwalletd.test',
+      zcashGetAccountMeta: (params: { accountId: string }) =>
+        db.getZcashAccountMeta(params),
+      zcashGetWalletAccount: async ({ accountId }: { accountId: string }) => ({
+        ...(await db.getZcashAccountMeta({ accountId })),
+        ufvk: accountId,
+      }),
+      zcashGetApi: async () => ({
+        prepareWalletAccounts,
+        getSyncProgress: async () => ({ birthdayHeight: null }),
+      }),
+    });
+    return { db, vault, prepareWalletAccounts };
+  }
+
+  beforeEach(() => {
+    placeBirthday.mockReset();
+    resetPlacementCount();
+  });
+
+  it('places and saves the height before registering', async () => {
+    const { db, vault, prepareWalletAccounts } = await setup();
+    placeBirthday.mockResolvedValue(3_480_000);
+    const prepared = await vault.zcashPrepareAccounts({
+      accountIds: ['hd-1--dated', 'hd-1--fixed'],
+      chainTip: 3_700_000,
+    });
+    expect(placeBirthday).toHaveBeenCalledTimes(1);
+    expect(placeBirthday).toHaveBeenCalledWith({
+      lightwalletdUrl: 'https://lightwalletd.test',
+      birthdayTimestamp,
+      chainTip: 3_700_000,
+    });
+    const meta = await db.getZcashAccountMeta({ accountId: 'hd-1--dated' });
+    expect(meta).toMatchObject({
+      birthdayHeight: 3_480_000,
+      birthdayTimestamp,
+    });
+    expect(meta?.birthdayHeightEstimated).toBeUndefined();
+    expect(prepareWalletAccounts).toHaveBeenCalledWith([
+      expect.objectContaining({
+        ufvk: 'hd-1--dated',
+        birthdayHeight: 3_480_000,
+      }),
+      expect.objectContaining({
+        ufvk: 'hd-1--fixed',
+        birthdayHeight: 3_500_000,
+      }),
+    ]);
+    expect(prepared.map((item) => item.accountId)).toEqual([
+      'hd-1--dated',
+      'hd-1--fixed',
+    ]);
+  });
+
+  it('keeps the account waiting while the node cannot place it', async () => {
+    const { db, vault, prepareWalletAccounts } = await setup();
+    placeBirthday.mockResolvedValue(null);
+    const prepared = await vault.zcashPrepareAccounts({
+      accountIds: ['hd-1--dated', 'hd-1--fixed'],
+      chainTip: 3_700_000,
+    });
+    expect(prepareWalletAccounts).toHaveBeenCalledWith([
+      expect.objectContaining({ ufvk: 'hd-1--fixed' }),
+    ]);
+    expect(prepared.map((item) => item.accountId)).toEqual(['hd-1--fixed']);
+    expect(
+      await db.getZcashAccountMeta({ accountId: 'hd-1--dated' }),
+    ).toMatchObject({
+      birthdayHeight: 3_440_000,
+      birthdayHeightEstimated: true,
+    });
+  });
+
+  // The turn goes on for the other accounts and only reports the node on the third turn.
+  it('reports the node while the other accounts keep scanning', async () => {
+    const { vault } = await setup();
+    placeBirthday.mockResolvedValue(null);
+    const syncWallet = jest.fn(async () => ({
+      stateChanged: false,
+      chainTip: 3_700_000,
+      backfillRemaining: true,
+      fullyScanned: null,
+    }));
+    Object.assign(vault, {
+      backgroundApi: {
+        ...vault.backgroundApi,
+        servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
+      },
+      listLocalWalletAccounts: async () => ({
+        accounts: [
+          ['hd-1--dated', 'c'.repeat(32)],
+          ['hd-1--fixed', 'e'.repeat(32)],
+        ].map(([accountId, accountRuntimeKey]) => ({
+          accountId,
+          accountRuntimeKey,
+          runtimeKey: ZCASH_NETWORK_MAIN,
+          syncEnabled: true,
+        })),
+      }),
+      zcashHasAccountViewingKey: async () => true,
+      zcashGetApi: async () => ({
+        prepareWalletAccounts: async (accounts: unknown[]) => accounts,
+        getSyncProgress: async () => ({ birthdayHeight: null }),
+        syncWallet,
+      }),
+    });
+    const turn = () =>
+      vault.syncLocalWalletGroupImpl({
+        accountIds: ['hd-1--dated', 'hd-1--fixed'],
+        chainTip: 3_700_000,
+      });
+    await expect(turn()).resolves.toMatchObject({
+      synced: true,
+      syncError: undefined,
+    });
+    await expect(turn()).resolves.toMatchObject({ syncError: undefined });
+    await expect(turn()).resolves.toMatchObject({
+      synced: true,
+      syncError: 'nodeUnreachable',
+    });
+    expect(syncWallet).toHaveBeenCalledTimes(3);
+    expect(syncWallet).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ufvk: 'hd-1--fixed' }),
+      expect.objectContaining({ activeUfvks: ['hd-1--fixed'] }),
+    );
+  });
 });

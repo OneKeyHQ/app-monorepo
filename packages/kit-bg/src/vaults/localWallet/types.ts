@@ -3,6 +3,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
+import type { ILocalWalletSyncStatus } from '../../utils/privacyChainSyncStatus';
 import type { IRescanLocalWalletFrom } from '../types';
 
 export type ILocalWalletAccount = {
@@ -36,6 +37,11 @@ export type ILocalWalletSyncProgress = {
   isSyncing: boolean;
   // Smoothed scan speed, added when progress is published; absent until the scan has advanced.
   blocksPerSec?: number;
+  // When the speed above started being measured.
+  blocksPerSecSince?: number;
+  // When a pass last caught the account up, added when progress is published; the page needs no
+  // read of its own to show it.
+  lastSyncedAt?: number;
 };
 
 // Why a network's last background sync failed, for the status row and light.
@@ -82,8 +88,8 @@ export type ILocalWalletSyncPolicy = {
 export type ILocalWalletSendReadiness = {
   blocksLeft: number | null;
   canSend: boolean;
-  // Why a sendSync wait is not moving: the network is paused, or its last pass failed.
-  paused?: boolean;
+  // Why sending waits: the account's sync status (paused, waiting for Wi-Fi, an error...).
+  status?: ILocalWalletSyncStatus;
   syncError?: ILocalWalletSyncErrorKind;
 };
 
@@ -235,9 +241,16 @@ export type ILocalWalletCapability = {
     forceViewingKeyDerivation?: boolean;
   }) => Promise<void>;
   disableAccount: (params: { accountId: string }) => Promise<void>;
-  retryAccountSetup: (params: { accountId: string }) => Promise<void>;
+  // Whether two addresses pay one recipient. A private address read back from the chain names only
+  // the receiver it paid, not the full address entered. Absent: the strings must be equal.
+  isSameRecipient?: (a: string, b: string) => boolean;
   // Undefined until the account is enabled and its viewing material exists.
   getAccountAddresses: (params: {
+    accountId: string;
+  }) => Promise<ILocalWalletAccountAddresses | undefined>;
+  // The addresses an account is known by, a paused one included: for naming an address only,
+  // never for handing one out. Absent: getAccountAddresses.
+  getAccountNamingAddresses?: (params: {
     accountId: string;
   }) => Promise<ILocalWalletAccountAddresses | undefined>;
   // Lifecycle primitive: deletes the account's rows from the runtime unless
@@ -281,6 +294,8 @@ export type ILocalWalletCapability = {
   }>;
   getAccountAliases: (params: { accountId: string }) => Promise<string[]>;
   getChainTip: () => Promise<number | null>;
+  // Latest height for validating typed input (node today, backend later); must not load the scanner.
+  getLatestHeight?: () => Promise<number | null>;
   onWalletCreated: (params: {
     walletId: string;
     isFreshlyGeneratedMnemonic: boolean;
@@ -299,6 +314,8 @@ export type ILocalWalletCapability = {
     // Only accounts this turn actually brought up to its observed chain tip.
     // Display progress may be stale and must never establish completion.
     caughtUpAccountIds?: string[];
+    // A problem to show although the turn did not fail, e.g. an account still waiting on the node.
+    syncError?: ILocalWalletSyncErrorKind;
   }>;
   // Drops the account's scanned data (shared with its aliases) and scans
   // again from its birthday.
@@ -311,7 +328,11 @@ export type ILocalWalletCapability = {
   syncCompletionIsAuthoritative?: boolean;
   // True only when the carrier can prove the timed-out execution was
   // terminated; otherwise quarantine requires authoritative sync completion.
-  recoverFromTimeout: () => Promise<boolean>;
+  // `remountCarrier: false` restarts only this chain's own execution, never a carrier other features
+  // share.
+  recoverFromTimeout: (options?: {
+    remountCarrier?: boolean;
+  }) => Promise<boolean>;
   // A user operation (a send) holds the runtime: the sync it delays is not
   // stuck, and recovering would kill the send.
   isUserOperationActive?: () => boolean;
@@ -322,7 +343,6 @@ export type ILocalWalletCapability = {
   getSyncEndpoint?: () => Promise<
     | {
         url: string;
-        defaultUrl: string;
         health?: {
           ok: boolean;
           latencyMs: number | null;

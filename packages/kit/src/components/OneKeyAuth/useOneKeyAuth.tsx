@@ -37,6 +37,7 @@ import {
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from './extOneKeyIdAuthExpandTab';
 import { getDisplayEmailOrUnknown } from './oneKeyIdDisplayEmailUtils';
+import { showOneKeyIdLoginDialog as showLoginDialogInstance } from './oneKeyIdLoginDialogs';
 
 // import PrimeLoginEmailDialogV2 from '../../views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2';
 
@@ -216,7 +217,7 @@ export function useOneKeyAuth() {
             }
             onCancelFn();
           };
-          const loginDialog = Dialog.show({
+          const loginDialog = showLoginDialogInstance({
             onCancel: onCancelThisDialog,
             onClose: onCancelThisDialog,
             floatingPanelProps: platformEnv.isDesktop

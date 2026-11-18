@@ -50,6 +50,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 const historyMessages: Record<string, string> = {
   [ETranslations.private_send_private_option]: 'Private',
+  [ETranslations.privacy_balance_public__title]: 'Public',
   [ETranslations.privacy_history_pool__title]: '{pool} pool',
   [ETranslations.privacy_history_shielded__title]: 'Shielded',
 };
@@ -397,6 +398,43 @@ describe('Home native history financial display parity', () => {
   });
 });
 
+describe('Home history description boundary', () => {
+  const build = (tableLayout: boolean, to: string, updatedAt?: number) => {
+    const tx = history([{ ...transfer('7'), to }], []);
+    tx.decodedTx.updatedAt = updatedAt;
+    return buildHistoryActivityRow({
+      history: tx,
+      tableLayout,
+      isUTXO: true,
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+  };
+
+  // The address part opens the address sheet and the time in front of it does
+  // not, so the row reports where the address starts.
+  it('reports the text in front of the address part', () => {
+    const table = build(true, 'b', Date.UTC(2026, 0, 1, 8, 48));
+    expect(table.descriptionPrefix).toMatch(/ • $/);
+    expect(table.row.description).toBe(`${table.descriptionPrefix}b`);
+
+    // Phone rows show the address alone.
+    const stacked = build(false, 'b', Date.UTC(2026, 0, 1, 8, 48));
+    expect(stacked.descriptionPrefix).toBe('');
+    expect(stacked.row.description).toBe('b');
+
+    expect(build(true, 'b').descriptionPrefix).toBe('');
+  });
+
+  it('keeps a description that is only the time free of a prefix', () => {
+    const timeOnly = build(false, '', Date.UTC(2026, 0, 1, 8, 48));
+    expect(timeOnly.descriptionPrefix).toBe('');
+    expect(timeOnly.row.description).not.toBe('');
+    expect(timeOnly.row.description).not.toContain(' • ');
+  });
+});
+
 describe('Home history shielded endpoints', () => {
   const gatedRow = ({
     localWalletAddresses,
@@ -435,7 +473,7 @@ describe('Home history shielded endpoints', () => {
       { id: 0, kind: 'public' as const, label: 'Transparent' },
       { id: 4, kind: 'private' as const, label: 'Ironwood' },
     ],
-    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
+    hiddenEndpointLabelId: ETranslations.private_send_private_option,
     publicAddressPattern: '^t[13][1-9A-HJ-NP-Za-km-z]{33}$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
   };
@@ -477,12 +515,12 @@ describe('Home history shielded endpoints', () => {
   it('names a hidden counterparty by pool and never looks it up as an address', () => {
     const result = shieldedRow({ side: 'from', marker: { poolId: 4 } });
     expect(result.address).toBe('');
-    expect(result.row.description).toBe('Ironwood pool');
+    expect(result.row.description).toBe('Private');
   });
 
-  it("uses the chain's own name when the counterparty's pool is unknown", () => {
+  it('labels a hidden counterparty as private even when its pool is unknown', () => {
     expect(shieldedRow({ side: 'to', marker: {} }).row.description).toBe(
-      'Shielded',
+      'Private',
     );
     expect(
       shieldedRow({
@@ -504,14 +542,14 @@ describe('Home history shielded endpoints', () => {
       addresses: { publicAddress: T1, privateAddress: U1 },
     });
     expect(scanning.address).toBe('');
-    expect(scanning.row.description).toBe('Ironwood pool');
+    expect(scanning.row.description).toBe('Private');
     const notScanning = shieldedRow({
       side: 'from',
       marker: own,
       addresses: { publicAddress: T1 },
     });
     expect(notScanning.address).toBe('');
-    expect(notScanning.row.description).toBe('Ironwood pool');
+    expect(notScanning.row.description).toBe('Private');
   });
 
   it('never claims which own address a note reached when the row cannot tell', () => {
@@ -521,10 +559,11 @@ describe('Home history shielded endpoints', () => {
       addresses: { publicAddress: T1, privateAddress: U1 },
     });
     expect(result.address).toBe('');
-    expect(result.row.description).toBe('Ironwood pool');
+    expect(result.row.description).toBe('Private');
   });
 
-  it('shows our transparent address only when it is the displayed one', () => {
+  // As BTC shows them, whether or not it is the address Receive displays.
+  it('shows our transparent address as it is', () => {
     const own = (addresses: { publicAddress?: string }) => {
       const tx = history([{ ...transfer('1'), from: T1, to: T1 }], []);
       tx.decodedTx.owner = T1;
@@ -541,11 +580,11 @@ describe('Home history shielded endpoints', () => {
     };
     expect(own({ publicAddress: T1 }).address).toBe(T1);
     const mismatch = own({ publicAddress: `t1${'C'.repeat(33)}` });
-    expect(mismatch.address).toBe('');
-    expect(mismatch.row.description).toBe('Transparent pool');
+    expect(mismatch.address).toBe(T1);
+    expect(mismatch.row.description).not.toBe('Public');
   });
 
-  it('names a row whose target is our own change address by pool', () => {
+  it('names a row whose target is our own change address by that address', () => {
     const change = `t1${'H'.repeat(33)}`;
     const tx = history(
       [{ ...transfer('1'), from: T1, to: '', isOwn: true }],
@@ -562,8 +601,8 @@ describe('Home history shielded endpoints', () => {
       currency: '$',
       intl,
     });
-    expect(result.address).toBe('');
-    expect(result.row.description).toBe('Transparent pool');
+    expect(result.address).toBe(change);
+    expect(result.row.description).not.toBe('Public');
   });
 
   it("shows another account's t1 as the sender of a transparent receive", () => {
@@ -589,7 +628,7 @@ describe('Home history shielded endpoints', () => {
       intl,
     });
     expect(result.address).toBe(sender);
-    expect(result.row.description).not.toBe('Shielded');
+    expect(result.row.description).not.toBe('Private');
   });
 
   it('shows a transparent multi-address count as text, on BTC as before', () => {

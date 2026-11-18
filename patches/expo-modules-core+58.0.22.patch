@@ -227,6 +227,21 @@ index 3d860cb..e115508 100644
  
    private var runtime: ReactRuntime? = null
  
+diff --git a/node_modules/expo-modules-core/ios/Core/Functions/AsyncFunctionDefinition.swift b/node_modules/expo-modules-core/ios/Core/Functions/AsyncFunctionDefinition.swift
+index 48ee585..01106a4 100644
+--- a/node_modules/expo-modules-core/ios/Core/Functions/AsyncFunctionDefinition.swift
++++ b/node_modules/expo-modules-core/ios/Core/Functions/AsyncFunctionDefinition.swift
+@@ -197,7 +197,9 @@ public class AsyncFunctionDefinition<Args, FirstArgType, ReturnType>: AnyAsyncFu
+         switch consume result {
+         case .success(let value):
+           promise.resolve(value)
+-        case .failure(let error as any Error):
++        // OneKey patch: avoid the Swift 6.4.2 compiler crash (expo/expo#52631).
++        // case .failure(let error as any Error):
++        case .failure(let error):
+           promise.reject(error)
+         }
+       }
 diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 index f30fc12..b98b291 100644
 --- a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift

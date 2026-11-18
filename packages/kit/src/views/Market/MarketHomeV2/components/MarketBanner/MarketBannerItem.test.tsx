@@ -174,27 +174,37 @@ describe('Market theme banner', () => {
     },
   );
 
-  it('shows at most three supplied tokens in numeric gain order without mutating the response', () => {
+  it('sorts the top three without mutating the response or remounting retained rows', () => {
     const tokens = [
-      makeToken('LOW', '2'),
-      makeToken('TOP', '10'),
+      { ...makeToken('SAME', '2'), stockId: 'low' },
+      { ...makeToken('SAME', '10'), stockId: 'top' },
       makeToken('LOSS', '-1'),
       makeToken('SECOND', '3'),
     ];
-    render(<MarketBannerItem item={makeBanner(tokens)} />);
+    const { rerender } = render(<MarketBannerItem item={makeBanner(tokens)} />);
     const rows = screen.getAllByTestId('market-banner-token-row');
     expect(rows).toHaveLength(3);
     expect(rows.map((row) => row.textContent)).toEqual([
-      'TOP--10',
+      'SAME--10',
       'SECOND--3',
-      'LOW--2',
+      'SAME--2',
     ]);
     expect(tokens.map((token) => token.symbol)).toEqual([
-      'LOW',
-      'TOP',
+      'SAME',
+      'SAME',
       'LOSS',
       'SECOND',
     ]);
+    const refreshed = tokens.map((token) =>
+      token.stockId === 'top'
+        ? { ...token, priceChange24hPercent: '0' }
+        : token,
+    );
+    rerender(<MarketBannerItem item={makeBanner(refreshed)} />);
+    const reordered = screen.getAllByTestId('market-banner-token-row');
+    expect(reordered[0]).toBe(rows[1]);
+    expect(reordered[1]).toBe(rows[2]);
+    expect(reordered[2]).toBe(rows[0]);
   });
 
   it('keeps missing quotes behind losses and preserves actual zero values', () => {

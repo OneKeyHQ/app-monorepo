@@ -1,5 +1,4 @@
 import {
-  allowPrivacyChainRelayProbe,
   clearPrivacyChainRelayTargetsCacheForTest,
   isPrivacyChainRelayTargetAllowed,
 } from './privacyChainRelayTargets';
@@ -78,32 +77,5 @@ describe('privacy-chain relay targets', () => {
     await expect(
       isPrivacyChainRelayTargetAllowed('https://new.example/json_rpc', targets),
     ).resolves.toBe(true);
-  });
-
-  it('allows an unsaved node only while it is being probed', async () => {
-    const url =
-      'https://probe.example/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLatestBlock';
-    const release = allowPrivacyChainRelayProbe('https://probe.example');
-    await expect(
-      isPrivacyChainRelayTargetAllowed(url, configured()),
-    ).resolves.toBe(true);
-    release();
-    release();
-    await expect(
-      isPrivacyChainRelayTargetAllowed(url, configured()),
-    ).resolves.toBe(false);
-  });
-
-  it('keeps an overlapping probe until its last holder releases', async () => {
-    const releaseA = allowPrivacyChainRelayProbe('https://probe.example/');
-    const releaseB = allowPrivacyChainRelayProbe('https://probe.example');
-    releaseA();
-    await expect(
-      isPrivacyChainRelayTargetAllowed('https://probe.example/x', configured()),
-    ).resolves.toBe(true);
-    releaseB();
-    await expect(
-      isPrivacyChainRelayTargetAllowed('https://probe.example/x', configured()),
-    ).resolves.toBe(false);
   });
 });

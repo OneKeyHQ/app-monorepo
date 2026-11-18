@@ -45,13 +45,25 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 import org.json.JSONObject;
 
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
+import so.onekey.app.wallet.marketwidget.OneKeyMarketWidgetPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
+  public static final class NativeLogSubscriber {
+    @Subscribe(threadMode = ThreadMode.ASYNC)
+    public void onLogEvent(Object event) {
+      List<String> messages = (List<String>) event;
+      OneKeyLog.info("App", "native => " + messages.get(0) + ": " + messages.get(1));
+    }
+  }
+
   public boolean isTravelModeMaskingData() {
     MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
     if (mmkv == null) {
@@ -113,6 +125,7 @@ public class BaseMainApplication extends Application implements ReactApplication
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new OneKeyTravelModeLaunchEpochPackage());
+        packages.add(new OneKeyMarketWidgetPackage());
         return packages;
       }
 
@@ -187,6 +200,7 @@ public class BaseMainApplication extends Application implements ReactApplication
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           List<ReactPackage> mainPackages = new PackageList(this).getPackages();
           mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+          mainPackages.add(new OneKeyMarketWidgetPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
@@ -407,6 +421,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
       backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+      backgroundPackages.add(new OneKeyMarketWidgetPackage());
       manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();
@@ -462,6 +477,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       RNSentrySDK.init(this, options -> {
         options.setDsn(dsn);
         options.setEnabled(true);
+        options.setEnvironment(BuildConfig.DEBUG ? "development" : "production");
         options.setMaxBreadcrumbs(100);
         options.setMaxCacheItems(60);
         options.setAnrEnabled(true);
@@ -565,6 +581,9 @@ public class BaseMainApplication extends Application implements ReactApplication
         // Keep the recovery path independent from React Native initialization.
         return;
     }
+
+    // Keep logging process-scoped without reflecting over Activity's AndroidX parents.
+    EventBus.getDefault().register(new NativeLogSubscriber());
 
     long tBeforeSoLoader = System.currentTimeMillis();
     try {

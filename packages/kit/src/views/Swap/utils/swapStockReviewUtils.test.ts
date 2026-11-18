@@ -206,6 +206,19 @@ describe('swapStockReviewUtils', () => {
     });
   });
 
+  it('does not report a share price when the selected currency has no exchange rate', () => {
+    const result = buildSwapStockReviewDisplay({
+      currencyMap,
+      fromAmount: '100',
+      fromToken: { ...paymentToken, currency: 'usd' },
+      targetCurrency: 'cny',
+      toAmount: '0.3219',
+      toToken: stockToken,
+    });
+    expect(result?.estimatedShares).toBe('0.32141715');
+    expect(result?.sharePrice).toBeUndefined();
+  });
+
   it('uses the quoted receive amount when reviewing a stock sale', () => {
     const result = buildSwapStockReviewDisplay({
       currencyMap,

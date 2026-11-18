@@ -24,11 +24,12 @@ function PortfolioHeaderSmallBase({ isStock = false }: { isStock?: boolean }) {
       <SizableText {...commonTextProps} w={100} minWidth={0}>
         {intl.formatMessage({ id: ETranslations.global_balance })}
       </SizableText>
-      <XStack flex={1} justifyContent="flex-end">
+      <XStack flex={1} flexBasis={0} minWidth={0} justifyContent="flex-end">
         <DashText
           size="$bodySm"
           color="$textSubdued"
           dashThickness={0.5}
+          dashOverlay
           tooltip={intl.formatMessage({ id: ETranslations.marketdex_un_pnl })}
           tooltipTitle={intl.formatMessage({
             id: ETranslations.marketdex_pnl_cal,
@@ -44,6 +45,7 @@ function PortfolioHeaderSmallBase({ isStock = false }: { isStock?: boolean }) {
           size="$bodySm"
           color="$textSubdued"
           dashThickness={0.5}
+          dashOverlay
           tooltip={intl.formatMessage({
             id: ETranslations.marketdex_total_pnl_desc,
           })}

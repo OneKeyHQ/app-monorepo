@@ -69,7 +69,6 @@ import {
 import { BorrowMarketPreloadQueue } from './BorrowMarketPreloadQueue';
 
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
-const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
 // A cache hit normally settles in the same frame. On a weak network, do not
 // hold the old market forever for a broken image CDN; the delayed skeleton
 // will already be visible by this point and native fallback can take over.
@@ -343,9 +342,7 @@ export const BorrowDataGate = ({
       isBorrowReservesCacheReusable(cachedReservesEntry.updatedAt)
         ? cachedReservesEntry.data.data
         : undefined;
-    // A stale SWR snapshot still belongs to this account and market. Keep it
-    // available for stale-while-revalidate display; the age check below still
-    // forces a network request when it is outside the refresh TTL.
+    // Keep the snapshot visible while the current scope is refreshed.
     lastReservesUpdatedAtRef.current = cachedScopeData
       ? (cachedReservesEntry?.updatedAt ?? null)
       : null;
@@ -397,23 +394,6 @@ export const BorrowDataGate = ({
       const shouldForceRefresh =
         forceRefreshCounterRef.current > lastForceRefreshCounterRef.current;
       if (!isViewActiveRef.current && !shouldForceRefresh) {
-        return reservesResultRef.current
-          ? {
-              scopeKey: fetchKey,
-              data: reservesResultRef.current,
-              fromCache: true,
-            }
-          : undefined;
-      }
-      const lastUpdatedAt = lastReservesUpdatedAtRef.current;
-      const isStale =
-        !lastUpdatedAt ||
-        !isBorrowReservesCacheReusable(lastUpdatedAt) ||
-        Date.now() - lastUpdatedAt > BORROW_STALE_TTL;
-      // Also fetch if we have no cached result (e.g., after fetchKey changed and cache was cleared)
-      const hasNoCache = reservesResultRef.current === undefined;
-      const shouldFetch = shouldForceRefresh || isStale || hasNoCache;
-      if (!shouldFetch) {
         return reservesResultRef.current
           ? {
               scopeKey: fetchKey,

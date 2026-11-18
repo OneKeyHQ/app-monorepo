@@ -9,6 +9,10 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  TRAY_PENDING_TX_NO_AMOUNT,
+  formatTrayHiddenAmount,
+} from '@onekeyhq/shared/src/utils/trayDataUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   EDecodedTxActionType,
@@ -52,12 +56,15 @@ function formatDisplayAmount({
   amount,
   symbol,
   prefix = '',
+  hideValue,
 }: {
   amount?: string;
   symbol?: string;
   prefix?: string;
+  hideValue?: boolean;
 }): ITrayDisplayValue {
   if (!amount || !symbol) return '';
+  if (hideValue) return formatTrayHiddenAmount(symbol);
   const bn = new BigNumber(amount);
   if (bn.isNaN()) {
     return `${prefix}${amount} ${symbol}`;
@@ -72,10 +79,12 @@ function formatTransfersAmount({
   transfers,
   prefix,
   intl,
+  hideValue,
 }: {
   transfers: ITransferInfo[];
   prefix: string;
   intl: IntlShape;
+  hideValue?: boolean;
 }) {
   if (!transfers.length) return '';
 
@@ -83,6 +92,7 @@ function formatTransfersAmount({
     new Set(transfers.map((transfer) => transfer.tokenIdOnNetwork)),
   );
   if (tokenIds.length > 1) {
+    if (hideValue) return formatTrayHiddenAmount();
     return `${prefix}${intl.formatMessage(
       { id: ETranslations.count_assets },
       { count: tokenIds.length },
@@ -100,6 +110,7 @@ function formatTransfersAmount({
     amount: totalAmount,
     symbol: firstTransfer?.isNFT ? firstTransfer?.name : firstTransfer?.symbol,
     prefix,
+    hideValue,
   });
 }
 
@@ -121,9 +132,11 @@ function getSingleTarget({
 function getHistoryAlignedDisplayInfo({
   tx,
   intl,
+  hideValue,
 }: {
   tx: IPendingTx;
   intl: IntlShape;
+  hideValue?: boolean;
 }): IHistoryAlignedDisplayInfo | undefined {
   const decodedTx = tx.historyTx?.decodedTx;
   if (!decodedTx) return undefined;
@@ -145,14 +158,21 @@ function getHistoryAlignedDisplayInfo({
             { symbol: approveSymbol },
           )
         : intl.formatMessage({ id: ETranslations.global_approve }));
-    const secondaryValue = tokenApprove?.isInfiniteAmount
-      ? `${intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_amount_un_limit,
-        })} ${approveSymbol}`
-      : formatDisplayAmount({
-          amount: approveAmount,
-          symbol: approveSymbol,
-        });
+    let secondaryValue: ITrayDisplayValue;
+    if (!tokenApprove?.isInfiniteAmount) {
+      secondaryValue = formatDisplayAmount({
+        amount: approveAmount,
+        symbol: approveSymbol,
+        hideValue,
+      });
+    } else if (hideValue) {
+      // "Unlimited" is an allowance size too.
+      secondaryValue = formatTrayHiddenAmount(approveSymbol);
+    } else {
+      secondaryValue = `${intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      })} ${approveSymbol}`;
+    }
 
     return {
       title,
@@ -220,6 +240,7 @@ function getHistoryAlignedDisplayInfo({
         transfers: sends,
         prefix: '-',
         intl,
+        hideValue,
       });
     } else if (onlyReceives) {
       title =
@@ -235,17 +256,20 @@ function getHistoryAlignedDisplayInfo({
         transfers: receives,
         prefix: '+',
         intl,
+        hideValue,
       });
     } else {
       primaryValue = formatTransfersAmount({
         transfers: receives,
         prefix: '+',
         intl,
+        hideValue,
       });
       secondaryValue = formatTransfersAmount({
         transfers: sends,
         prefix: '-',
         intl,
+        hideValue,
       });
     }
 
@@ -272,6 +296,7 @@ function TxRow({
   typeLabel,
   pendingLabel,
   intl,
+  hideValue,
   formatDate,
   onPress,
 }: {
@@ -279,20 +304,27 @@ function TxRow({
   typeLabel: string;
   pendingLabel: string;
   intl: IntlShape;
+  hideValue?: boolean;
   formatDate: (
     date: Date | string,
     options?: { hideTheYear?: boolean },
   ) => string;
   onPress: () => void;
 }) {
-  const historyInfo = getHistoryAlignedDisplayInfo({ tx, intl });
+  const historyInfo = getHistoryAlignedDisplayInfo({ tx, intl, hideValue });
   const txTime = historyInfo?.timestamp ?? tx.updatedAt ?? tx.createdAt;
   const timeText = txTime
     ? formatDate(new Date(txTime), { hideTheYear: true })
     : '';
   const description =
     historyInfo?.description || accountUtils.shortenAddress({ address: tx.to });
-  const primaryValue = historyInfo?.primaryValue || tx.amount;
+  // `tx.amount` arrives pre-formatted, so it can only be masked as a whole;
+  // the "no amount" dash is not a value and stays.
+  const fallbackAmount =
+    hideValue && tx.amount && tx.amount !== TRAY_PENDING_TX_NO_AMOUNT
+      ? formatTrayHiddenAmount()
+      : tx.amount;
+  const primaryValue = historyInfo?.primaryValue || fallbackAmount;
   const secondaryValue =
     historyInfo?.secondaryValue || tx.confirmations || pendingLabel;
   const renderDisplayValue = ({
@@ -374,10 +406,12 @@ function TxRow({
 
 export function PendingTransactions({
   transactions,
+  hideValue,
   onTxPress,
   onViewAll,
 }: {
   transactions: IPendingTx[];
+  hideValue?: boolean;
   onTxPress: (tx: IPendingTx) => void;
   onViewAll: () => void;
 }) {
@@ -427,6 +461,7 @@ export function PendingTransactions({
             typeLabel={typeLabel}
             pendingLabel={pendingLabel}
             intl={intl}
+            hideValue={hideValue}
             formatDate={formatDate}
             onPress={() => onTxPress(tx)}
           />

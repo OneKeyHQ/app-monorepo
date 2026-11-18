@@ -8,9 +8,12 @@ import { act, fireEvent, render, within } from '@testing-library/react';
 
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
 
-import type { LayoutChangeEvent } from 'react-native';
+import { DefaultLoadingNode } from './DefaultLoadingNode';
+
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 
 let mockVerticalLayout: ((event: LayoutChangeEvent) => void) | undefined;
+let mockIsNativeAndroid = false;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -58,14 +61,23 @@ jest.mock('react-native', () => ({
   View: ({
     children,
     onLayout,
+    style,
     testID,
   }: {
     children?: ReactNode;
     onLayout?: (event: LayoutChangeEvent) => void;
+    style?: StyleProp<ViewStyle>;
     testID?: string;
   }) => {
     if (onLayout) mockVerticalLayout = onLayout;
-    return <div data-testid={testID}>{children}</div>;
+    return (
+      <div
+        data-testid={testID}
+        style={onLayout ? Object.assign({}, ...[style].flat()) : undefined}
+      >
+        {children}
+      </div>
+    );
   },
 }));
 
@@ -93,6 +105,7 @@ jest.mock('@onekeyhq/components', () => ({
   ),
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   TABULAR_NUMS: ['tabular-nums'],
+  XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   useTheme: () => ({
     bgAccent: { val: '#0a0' },
@@ -116,7 +129,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: false },
+  default: {
+    isNative: false,
+    get isNativeAndroid() {
+      return mockIsNativeAndroid;
+    },
+  },
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -292,5 +310,70 @@ describe('OrderBook mobile mid price', () => {
 
     expect(onSelectMidPrice).toHaveBeenCalledTimes(1);
     expect(onSelectMidPrice).toHaveBeenCalledWith('101');
+  });
+});
+
+describe('OrderBook Android horizontal layout', () => {
+  afterEach(() => {
+    mockIsNativeAndroid = false;
+  });
+
+  it('reserves all rows through the loading transition when switching coins', () => {
+    mockIsNativeAndroid = true;
+    const props = {
+      horizontal: true,
+      maxLevelsPerSide: 13,
+      loadingNode: (
+        <DefaultLoadingNode variant="mobileHorizontal" maxLevelsPerSide={13} />
+      ),
+      showTickSelector: false,
+      variant: 'mobileHorizontal' as const,
+    };
+    const view = render(
+      <OrderBook {...props} asks={[]} bids={[]} symbol="ETH" />,
+    );
+    for (const [symbol, ask, bid, rows, height] of [
+      ['ETH', '2354', '2353', 13, '372px'],
+      ['xyz:XYZ100', '', '', 13, '372px'],
+      ['xyz:XYZ100', '29767', '29766', 13, '372px'],
+      ['xyz:XYZ100', '29767', '29766', 5, '180px'],
+    ] as const) {
+      view.rerender(
+        <OrderBook
+          {...props}
+          asks={ask ? [{ n: 1, px: ask, sz: '1' }] : []}
+          bids={bid ? [{ n: 1, px: bid, sz: '1' }] : []}
+          maxLevelsPerSide={rows}
+          symbol={symbol}
+        />,
+      );
+      expect(
+        (view.container.firstElementChild as HTMLElement).style.height,
+      ).toBe(height);
+      expect(view.getByText('global.buy')).toBeTruthy();
+      expect(view.getByText('global.sell')).toBeTruthy();
+      if (!ask) expect(view.getAllByText('--')).toHaveLength(52);
+    }
+  });
+
+  it.each([
+    { isNativeAndroid: false, horizontal: true, variant: 'mobileHorizontal' },
+    { isNativeAndroid: true, horizontal: false, variant: 'mobileVertical' },
+  ] as const)('preserves the existing height for %j', (platform) => {
+    mockIsNativeAndroid = platform.isNativeAndroid;
+    const view = render(
+      <OrderBook
+        asks={[]}
+        bids={[]}
+        horizontal={platform.horizontal}
+        loadingNode={null}
+        showTickSelector={false}
+        variant={platform.variant}
+      />,
+    );
+
+    expect((view.container.firstElementChild as HTMLElement).style.height).toBe(
+      '100%',
+    );
   });
 });

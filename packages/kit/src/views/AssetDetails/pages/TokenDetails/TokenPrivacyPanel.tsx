@@ -20,6 +20,7 @@ export type ITokenPrivacyPanelState =
   | 'syncing'
   | 'synced'
   | 'stopped'
+  | 'waitingWifi'
   | 'error';
 
 export type ITokenPrivacyPanelProps = {
@@ -35,25 +36,26 @@ export type ITokenPrivacyPanelProps = {
   onEnable?: () => void;
   onStop?: () => void;
   onSync?: () => void;
+  onAllowMobileData?: () => void;
 };
 
 const STATUS_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
-  disabled: ETranslations.privacy_enable__title,
+  disabled: ETranslations.privacy_enable_account__title,
   preparing: ETranslations.global_preparing,
   syncing: ETranslations.global_syncing,
   synced: ETranslations.global_synced,
   stopped: ETranslations.syncing_paused__title,
+  waitingWifi: ETranslations.privacy_sync_waiting_wifi__msg,
   error: ETranslations.global_sync_error,
 };
 
-const ACTION_LABELS: Record<
-  Exclude<ITokenPrivacyPanelState, 'preparing'>,
-  ETranslations
-> = {
+const ACTION_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
   disabled: ETranslations.global_enable,
+  preparing: ETranslations.global_pause,
   syncing: ETranslations.global_pause,
   synced: ETranslations.global_refresh,
   stopped: ETranslations.global_resume,
+  waitingWifi: ETranslations.privacy_sync_mobile_data__title,
   error: ETranslations.global_retry,
 };
 
@@ -70,6 +72,7 @@ export function TokenPrivacyPanel({
   onEnable,
   onStop,
   onSync,
+  onAllowMobileData,
 }: ITokenPrivacyPanelProps) {
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
@@ -78,11 +81,14 @@ export function TokenPrivacyPanel({
   const isSyncing = state === 'syncing';
   const isError = state === 'error';
   const isSynced = state === 'synced';
+  const isStopped = state === 'stopped' || state === 'waitingWifi';
   let onAction = onSync;
   if (isDisabled) {
     onAction = onEnable;
-  } else if (isSyncing) {
+  } else if (isPreparing || isSyncing) {
     onAction = onStop;
+  } else if (state === 'waitingWifi') {
+    onAction = onAllowMobileData;
   }
   let statusIcon: IIconProps['name'] = 'PauseOutline';
   let statusColor: IIconProps['color'] = '$iconSubdued';
@@ -101,18 +107,17 @@ export function TokenPrivacyPanel({
     typeof progress === 'number' && Number.isFinite(progress)
       ? Math.min(100, Math.max(0, progress))
       : undefined;
-  const showProgress =
-    (isSyncing || state === 'stopped') && progressValue !== undefined;
+  const showProgress = (isSyncing || isStopped) && progressValue !== undefined;
   let supportingText = description;
   if (supportingText === undefined) {
     if (isDisabled) {
       supportingText = intl.formatMessage({
-        id: ETranslations.privacy_enable__desc,
+        id: ETranslations.privacy_enable_account__desc,
       });
     }
   }
   const action =
-    state !== 'preparing' && onAction && !(isDisabled && enableUnavailable) ? (
+    onAction && !(isDisabled && enableUnavailable) ? (
       <Button
         testID="token-privacy-action"
         alignSelf={isDisabled ? 'flex-start' : 'center'}
@@ -120,7 +125,7 @@ export function TokenPrivacyPanel({
         mt={isDisabled ? '$3' : undefined}
         flexShrink={0}
         size="small"
-        variant={isDisabled ? 'primary' : 'tertiary'}
+        variant={isDisabled ? 'primary' : 'secondary'}
         loading={busy}
         disabled={busy}
         onPress={onAction}
@@ -137,14 +142,10 @@ export function TokenPrivacyPanel({
       p="$4"
       gap="$3"
     >
-      <XStack
-        alignItems={isDisabled ? 'flex-start' : 'center'}
-        gap="$3"
-        minHeight="$8"
-      >
+      <XStack alignItems="flex-start" gap="$3" minHeight="$8">
         <Stack
           width={isDisabled ? '$10' : '$5'}
-          height={isDisabled ? '$10' : '$5'}
+          height={isDisabled ? '$10' : '$8'}
           bg={isDisabled ? '$bgStrong' : undefined}
           borderRadius="$full"
           alignItems="center"
@@ -162,15 +163,24 @@ export function TokenPrivacyPanel({
           )}
         </Stack>
         <YStack flex={1} minWidth={0} gap="$1">
-          <XStack gap="$2" alignItems="center" flexWrap="wrap">
+          <XStack
+            gap="$3"
+            alignItems="center"
+            minHeight={isDisabled ? undefined : '$8'}
+          >
             <SizableText
               testID="token-privacy-status"
               size="$bodyMdMedium"
               color="$text"
+              flex={1}
               flexShrink={1}
             >
-              {title ?? intl.formatMessage({ id: STATUS_LABELS[state] })}
+              {title ??
+                intl.formatMessage({
+                  id: STATUS_LABELS[state],
+                })}
             </SizableText>
+            {!isDisabled ? action : null}
           </XStack>
           {supportingText ? (
             <SizableText size="$bodySm" color="$textSubdued">
@@ -197,23 +207,6 @@ export function TokenPrivacyPanel({
           ) : null}
           {isDisabled ? action : null}
         </YStack>
-        {!isDisabled ? (
-          <XStack alignItems="center" gap="$2" flexShrink={0}>
-            {showProgress && progressValue !== undefined ? (
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                fontVariant={['tabular-nums']}
-              >
-                {intl.formatNumber(progressValue / 100, {
-                  style: 'percent',
-                  maximumFractionDigits: 1,
-                })}
-              </SizableText>
-            ) : null}
-            {action}
-          </XStack>
-        ) : null}
       </XStack>
       {showProgress ? (
         <Progress
@@ -225,7 +218,7 @@ export function TokenPrivacyPanel({
           value={progressValue}
           animated={!reducedMotion}
           progressColor="$borderSubdued"
-          indicatorColor={state === 'stopped' ? '$iconDisabled' : '$text'}
+          indicatorColor={isStopped ? '$iconDisabled' : '$text'}
         />
       ) : null}
     </YStack>

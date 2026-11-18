@@ -3,10 +3,8 @@
 import '@onekeyhq/core/src/utils/privacyChainWorkerReleaseEnv';
 import { createPrivacyChainBufferedRequest } from '@onekeyhq/core/src/utils/privacyChainBufferedRequest';
 import {
-  createWorkerHostRequester,
   createWorkerHostStreamRequester,
   servePrivacyChainWorker,
-  workerCarrierHasHostRequest,
   workerCarrierHasHostStreamRequest,
 } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 
@@ -27,16 +25,14 @@ servePrivacyChainWorker<IXmrRuntimeApi>({
     const api = await m.loadXmrRuntime();
     storageRequiresWorkerRestart = m.xmrStorageRequiresWorkerRestart;
     // Keep decoding and binary assembly in this Worker. Plain web uses its own
-    // bounded Fetch; other carriers relay chunks through the available host.
-    if (workerCarrierHasHostStreamRequest()) {
-      await m.installXmrHostRequester(
-        createPrivacyChainBufferedRequest(createWorkerHostStreamRequester()),
-      );
-    } else if (workerCarrierHasHostRequest()) {
-      await m.installXmrHostRequester(createWorkerHostRequester('xmr'));
-    } else {
-      await m.installXmrHostRequester(createPrivacyChainBufferedRequest());
-    }
+    // bounded Fetch; other carriers relay chunks through the host.
+    await m.installXmrHostRequester(
+      createPrivacyChainBufferedRequest(
+        workerCarrierHasHostStreamRequest()
+          ? createWorkerHostStreamRequester()
+          : undefined,
+      ),
+    );
     return api;
   },
   storageRequiresRestart: () => storageRequiresWorkerRestart(),

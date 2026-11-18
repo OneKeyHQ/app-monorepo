@@ -68,34 +68,19 @@ export type IPrivacyChainWorkerClient<TApi> = {
   reset: () => void;
 };
 
-/**
- * Performs one network request on the Worker's behalf. The Worker's own fetch obeys
- * CORS and mixed content, which most nodes fail, so the host relays instead.
- */
-export type IPrivacyChainHostRequest = (
-  url: string,
-  contentType: string,
-  body: Uint8Array,
-) => Promise<Uint8Array>;
-
 export function createPrivacyChainWorkerClient<TApi>(options: {
   label: string;
   methods: readonly string[];
   createWorker: () => Worker;
   /** Omitted: the runtime keeps fetching inside wasm, reaching only browser-serving nodes. */
-  hostRequest?: IPrivacyChainHostRequest;
   hostStreamRequest?: IFetchStreamRequester;
-  /** Cheap method used to prove the Worker booted. */
-  handshakeMethod?: string;
   handshakeTimeoutMs?: number;
 }): IPrivacyChainWorkerClient<TApi> {
   const {
     label,
     methods,
     createWorker,
-    handshakeMethod = 'ping',
     handshakeTimeoutMs = DEFAULT_HANDSHAKE_TIMEOUT_MS,
-    hostRequest,
     hostStreamRequest,
   } = options;
 
@@ -146,9 +131,8 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
-        callWorker(current, handshakeMethod, [
+        callWorker(current, 'ping', [
           {
-            hostRequest: Boolean(hostRequest),
             hostStreamRequest: Boolean(hostStreamRequest),
           },
         ]),
@@ -213,13 +197,14 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
                 return;
               }
               current.hostStreams.add(result.response.id);
-            } else if (
-              request.action !== 'open' &&
-              (!result.ok ||
+            } else {
+              const streamEnded =
+                !result.ok ||
                 request.action === 'cancel' ||
-                ('chunk' in result && result.chunk.done))
-            ) {
-              current.hostStreams.delete(request.id);
+                ('chunk' in result && result.chunk.done);
+              if (request.action !== 'open' && streamEnded) {
+                current.hostStreams.delete(request.id);
+              }
             }
           } catch (error) {
             if (request.action !== 'open') {
@@ -245,42 +230,6 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
         })();
         return;
       }
-      const ask = event.data as {
-        type?: string;
-        requestId?: number;
-        url?: string;
-        contentType?: string;
-        body?: Uint8Array;
-      };
-      if (ask?.type === 'host-request') {
-        const reply = (payload: Record<string, unknown>) =>
-          current.worker.postMessage({
-            type: 'host-response',
-            requestId: ask.requestId,
-            ...payload,
-          });
-        if (!hostRequest) {
-          reply({
-            ok: false,
-            error: `${label} worker: this carrier installed no host fetch`,
-          });
-          return;
-        }
-        void hostRequest(
-          ask.url ?? '',
-          ask.contentType ?? '',
-          ask.body ?? new Uint8Array(),
-        )
-          .then((bytes) => reply({ ok: true, bytes }))
-          .catch((e: unknown) =>
-            reply({
-              ok: false,
-              error: e instanceof Error ? e.message : String(e),
-            }),
-          );
-        return;
-      }
-
       const {
         id,
         ok,
@@ -440,88 +389,11 @@ function toPlainError(e: unknown): Record<string, unknown> {
   return out;
 }
 
-/** Backstop for a relayed node request: hosts time out after 30s of silence, this catches one that never answers. */
-export const PRIVACY_CHAIN_HOST_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
-
-export function createWorkerHostRequester(
-  label: string,
-  timeoutMs = PRIVACY_CHAIN_HOST_REQUEST_TIMEOUT_MS,
-) {
-  const scope = globalThis as unknown as {
-    postMessage: (message: unknown) => void;
-    addEventListener: (type: string, fn: (event: MessageEvent) => void) => void;
-  };
-  const pending = new Map<
-    number,
-    { resolve: (b: Uint8Array) => void; reject: (e: Error) => void }
-  >();
-  let nextId = 1;
-
-  scope.addEventListener('message', (event: MessageEvent) => {
-    const data = event.data as {
-      type?: string;
-      requestId?: number;
-      ok?: boolean;
-      bytes?: Uint8Array;
-      error?: string;
-    };
-    if (data?.type !== 'host-response') return;
-    const waiter = pending.get(data.requestId ?? -1);
-    if (!waiter) return;
-    pending.delete(data.requestId ?? -1);
-    if (data.ok && data.bytes) {
-      waiter.resolve(new Uint8Array(data.bytes));
-    } else {
-      waiter.reject(
-        new Error(data.error ?? `${label} worker: host fetch failed`),
-      );
-    }
-  });
-
-  return async (url: string, contentType: string, body: Uint8Array) => {
-    const requestId = nextId;
-    nextId += 1;
-    return new Promise<Uint8Array>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        if (pending.delete(requestId)) {
-          reject(
-            new Error(
-              `${label} worker: host fetch timed out after ${timeoutMs}ms (${url})`,
-            ),
-          );
-        }
-      }, timeoutMs);
-      pending.set(requestId, {
-        resolve: (bytes) => {
-          clearTimeout(timer);
-          resolve(bytes);
-        },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      });
-      scope.postMessage({
-        type: 'host-request',
-        requestId,
-        url,
-        contentType,
-        body,
-      });
-    });
-  };
-}
-
-// Set by the client's handshake; false on carriers with no relay (web, mobile web-embed).
-let carrierHasHostRequest = false;
+// Set by the client's handshake; false on carriers with no relay (plain web).
 let carrierHasHostStreamRequest = false;
 
 export function workerCarrierHasHostStreamRequest(): boolean {
   return carrierHasHostStreamRequest;
-}
-
-export function workerCarrierHasHostRequest(): boolean {
-  return carrierHasHostRequest;
 }
 
 type IWorkerRuntimeState = {
@@ -595,11 +467,7 @@ export function servePrivacyChainWorker<TApi extends object>(options: {
   scope.onmessage = (event: MessageEvent) => {
     // Replies to our own host-fetch requests belong to the requester's
     // listener; they are not calls for us to dispatch.
-    if (
-      ['host-response', 'host-stream-response'].includes(
-        (event.data as { type?: string })?.type ?? '',
-      )
-    ) {
+    if ((event.data as { type?: string })?.type === 'host-stream-response') {
       return;
     }
     const { id, method, args } = event.data as {
@@ -615,9 +483,6 @@ export function servePrivacyChainWorker<TApi extends object>(options: {
           return;
         }
         if (method === 'ping') {
-          carrierHasHostRequest =
-            (args?.[0] as { hostRequest?: boolean } | undefined)
-              ?.hostRequest === true;
           carrierHasHostStreamRequest =
             (args?.[0] as { hostStreamRequest?: boolean } | undefined)
               ?.hostStreamRequest === true;

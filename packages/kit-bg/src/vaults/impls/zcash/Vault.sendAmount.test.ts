@@ -124,7 +124,6 @@ describe('Zcash send amount intent', () => {
     });
     expect(pools).toEqual([
       expect.objectContaining({ key: 'ironwood', isDefault: true }),
-      expect.objectContaining({ key: 'orchard' }),
       expect.objectContaining({
         key: 'transparent',
         spendable: '500000000',
@@ -132,7 +131,7 @@ describe('Zcash send amount intent', () => {
       }),
     ]);
     expect(pools?.[0].spendable).toBeUndefined();
-    expect(pools?.[1].spendable).toBeUndefined();
+    expect(pools?.some((item) => item.key === 'orchard')).toBe(false);
   });
 
   // ZIP-320: exchanges' TEX deposit addresses take transparent funds only.
@@ -272,7 +271,7 @@ describe('Zcash send amount intent', () => {
     expect(zcashBuildTransparentEncodedTx).toHaveBeenCalled();
   });
 
-  it.each(['ironwood', 'orchard'])(
+  it.each(['ironwood'])(
     'preserves the Withdraw source %s for a transparent recipient',
     async (source) => {
       const { vault, quotePczt } = createVault(
@@ -300,6 +299,28 @@ describe('Zcash send amount intent', () => {
         expect.anything(),
         expect.objectContaining({ spendSource: source }),
       );
+    },
+  );
+
+  it.each(['localWalletSourcePool', 'localWalletSpendSource'] as const)(
+    'rejects unsupported Orchard inputs through %s',
+    async (field) => {
+      const { vault, quotePczt } = createVault(
+        balance('100000000', '0', '200000000'),
+      );
+      await expect(
+        vault.buildEncodedTx({
+          transfersInfo: [
+            {
+              from: 't1-from',
+              to: 'u1-recipient',
+              amount: '1',
+              [field]: 'orchard',
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({ code: 'UNSUPPORTED_SHIELDED_POOL' });
+      expect(quotePczt).not.toHaveBeenCalled();
     },
   );
 

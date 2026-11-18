@@ -270,6 +270,28 @@ describe('xmr fiat value', () => {
     const details = await vault.fetchTokenDetails({} as never);
     expect(details.data.data[0]).toMatchObject({ price: 150, price24h: -2.5 });
   });
+
+  // The market footer and the chart's history fallback both read this id.
+  it.each<[string, () => Promise<string>]>([
+    ['with a quote', async () => '150'],
+    ['without a quote', () => Promise.reject(new Error('40056'))],
+  ])('names the market asset on token details %s', async (_label, quote) => {
+    const { vault } = createPricedVault(quote);
+    const details = await vault.fetchTokenDetails({} as never);
+    expect(details.data.data[0].info.coingeckoId).toBe('monero');
+  });
+
+  it('names the market asset for a chain-only vault', async () => {
+    const { vault } = createPricedVault(async () => '150');
+    Object.assign(vault, {
+      accountId: '',
+      getLocalWalletCapability: () => ({
+        getAccountState: async () => ({ enabled: false, paused: false }),
+      }),
+    });
+    const details = await vault.fetchTokenDetails({} as never);
+    expect(details.data.data[0].info.coingeckoId).toBe('monero');
+  });
 });
 
 describe('xmr network on a delisted chain', () => {

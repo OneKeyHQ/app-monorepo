@@ -11,7 +11,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { useIsOverlayPage } from '@onekeyhq/components';
+import { useIsOverlayPage, useMedia } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
@@ -172,6 +172,7 @@ export function useSwapTokenList(
   isSearchPending = false,
 ) {
   const isFocused = useIsFocused();
+  const { gtMd } = useMedia();
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const [swapAllNetworkTokenListStatus] =
@@ -182,7 +183,9 @@ export function useSwapTokenList(
     supportNetworksOverride ?? swapSupportAllNetworksBase;
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
-  const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
+  const swapAddressInfo = useSwapAddressInfo(selectTokenModalType, {
+    networkScope: 'selector',
+  });
   const [tokenListRequests] = useSwapTokenListRequestsAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -402,8 +405,11 @@ export function useSwapTokenList(
     networkId: tokenFetchParams.networkId,
   });
   const refreshFullChainLists =
-    Boolean(platformEnv.isDesktop || platformEnv.isWeb) &&
-    from !== ESwapTabSwitchType.STOCK;
+    Boolean(
+      platformEnv.isDesktop ||
+      platformEnv.isWeb ||
+      (platformEnv.isExtension && gtMd),
+    ) && from !== ESwapTabSwitchType.STOCK;
   const queryCoveredByWalletRefresh =
     refreshFullChainLists &&
     swapSupportAllAccounts.some(
@@ -435,6 +441,7 @@ export function useSwapTokenList(
     currency: requestCurrency,
     cacheEpoch,
     networks: allNetworkSwapNetworksReadyKey,
+    fullChainLists: refreshFullChainLists,
   });
   // Chain selection starts a new search intent even when contract searches
   // share the same all-network HTTP identity and in-flight request.
@@ -731,7 +738,7 @@ export function useSwapTokenList(
               otherWalletTypeAccountId,
               filter,
               requestCurrency,
-              { policy: 'revalidate' },
+              { policy: 'revalidate', fullChainLists: refreshFullChainLists },
             ),
           fetchTokens: searchSubscription
             ? (params, options) =>

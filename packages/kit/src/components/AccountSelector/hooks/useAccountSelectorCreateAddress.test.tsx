@@ -1,9 +1,18 @@
 /** @jest-environment jsdom */
 
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
-import { act, renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react';
+
+import { Dialog, Toast } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useAccountSelectorCreateAddress } from './useAccountSelectorCreateAddress';
 
 const mockAddDefaultNetworkAccounts = jest.fn<Promise<unknown>, [unknown]>();
+const mockAddAccounts = jest.fn<Promise<unknown>, [unknown]>();
 const mockIsThirdPartyHwByWalletId = jest.fn<Promise<boolean>, [unknown]>();
 const mockGetNetwork = jest.fn<
   Promise<{ name: string } | undefined>,
@@ -23,6 +33,11 @@ const mockGetDeriveInfoOfNetwork = jest.fn<
 const mockCallAccountSelectorAction = jest.fn<Promise<void>, [string, unknown]>(
   async () => undefined,
 );
+const mockGetIndexedAccounts = jest.fn<
+  Promise<{ accounts: { id: string }[] }>,
+  [unknown]
+>();
+const mockVerifyPassword = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -31,10 +46,14 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       getWalletDevice: jest.fn(async () => ({ connectId: 'device-1' })),
       isThirdPartyHwByWalletId: (params: unknown) =>
         mockIsThirdPartyHwByWalletId(params),
-      getIndexedAccountsOfWallet: jest.fn(async () => ({ accounts: [] })),
+      getIndexedAccountsOfWallet: (params: unknown) =>
+        mockGetIndexedAccounts(params),
+      addHDOrHWAccountsForUserCreation: (params: unknown) =>
+        mockAddAccounts(params),
+      isBtcOnlyFirmwareByWalletId: jest.fn(async () => false),
     },
     serviceBatchCreateAccount: {
-      addDefaultNetworkAccounts: (params: unknown) =>
+      addDefaultNetworkAccountsForUserCreation: (params: unknown) =>
         mockAddDefaultNetworkAccounts(params),
     },
     serviceHardwareUI: {
@@ -46,18 +65,31 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockGetDeriveInfoOfNetwork(params),
     },
     servicePassword: {
-      promptPasswordVerifyByWallet: jest.fn(async () => undefined),
+      promptPasswordVerifyByWallet: (params: unknown) =>
+        mockVerifyPassword(params),
     },
   },
 }));
 
 jest.mock('@onekeyhq/components', () => ({
-  Button: () => null,
+  Button: ({
+    children,
+    onPress,
+  }: {
+    children: ReactNode;
+    onPress: () => void;
+  }) => <button onClick={onPress}>{children}</button>,
   Dialog: { show: jest.fn() },
-  SizableText: () => null,
-  Stack: () => null,
+  SizableText: ({ children }: { children: ReactNode }) => (
+    <span>{children}</span>
+  ),
+  Stack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Toast: { error: jest.fn() },
-  XStack: () => null,
+  XStack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  showIntercom: jest.fn(async () => {}),
 }));
 
 jest.mock('react-intl', () => ({
@@ -109,6 +141,8 @@ async function createAllNetworkAddress(selectAfterCreate = false) {
 describe('useAccountSelectorCreateAddress', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetIndexedAccounts.mockResolvedValue({ accounts: [] });
+    mockVerifyPassword.mockResolvedValue(undefined);
     mockGetNetwork.mockReset().mockResolvedValue({ name: 'Bitcoin' });
     mockGetDeriveInfoOfNetwork
       .mockReset()
@@ -116,6 +150,148 @@ describe('useAccountSelectorCreateAddress', () => {
     mockAddDefaultNetworkAccounts.mockResolvedValue({
       addedAccounts: [{ networkId: 'evm--1', deriveType: 'default' }],
       failedAccounts: [pathForbidden],
+    });
+  });
+
+  it('closes the failed QR-address dialog before opening support', async () => {
+    let finishClose: () => void = () => {};
+    const close = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishClose = resolve;
+        }),
+    );
+    jest.mocked(Dialog.show).mockReturnValueOnce({
+      close,
+      isExist: () => true,
+      getForm: () => undefined,
+    });
+    mockAddAccounts.mockRejectedValue({
+      className: EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+    });
+    const { result } = renderHook(() => useAccountSelectorCreateAddress());
+    await act(async () => {
+      await result.current.createAddress({
+        num: 0,
+        account: {
+          walletId: 'qr-wallet-test',
+          networkId: 'evm--1',
+          indexedAccountId: 'qr-wallet-test--1',
+          deriveType: 'default',
+        },
+      });
+    });
+    expect(mockAddAccounts).toHaveBeenCalledTimes(2);
+    expect(mockAddAccounts).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        walletId: 'qr-wallet-test',
+        networkId: 'evm--1',
+        indexedAccountId: 'qr-wallet-test--1',
+      }),
+    );
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    render(<>{jest.mocked(Dialog.show).mock.calls[0][0].renderContent}</>);
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.global_contact_us }),
+    );
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(showIntercom).not.toHaveBeenCalled();
+    await act(async () => finishClose());
+    expect(showIntercom).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])(
+    'returns the created first index for an empty HD wallet (selectAfterCreate=%s)',
+    async (selectAfterCreate) => {
+      mockAddDefaultNetworkAccounts.mockResolvedValue({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+      mockGetIndexedAccounts.mockResolvedValue({
+        accounts: [{ id: 'hd-wallet-1--7' }, { id: 'hd-wallet-1--0' }],
+      });
+      const { result } = renderHook(() => useAccountSelectorCreateAddress());
+      await act(async () => {
+        const response = await result.current.createAddress({
+          num: 0,
+          selectAfterCreate,
+          account: {
+            walletId: 'hd-wallet-1',
+            networkId: getNetworkIdsMap().onekeyall,
+            indexedAccountId: undefined,
+            deriveType: 'default',
+          },
+          customNetworks: [{ networkId: 'evm--1', deriveType: 'default' }],
+        });
+        expect(response).toEqual({
+          walletId: 'hd-wallet-1',
+          indexedAccountId: 'hd-wallet-1--0',
+          accounts: [],
+        });
+      });
+      expect(mockVerifyPassword).toHaveBeenCalledWith(
+        expect.objectContaining({ walletId: 'hd-wallet-1' }),
+      );
+      expect(mockVerifyPassword.mock.invocationCallOrder[0]).toBeLessThan(
+        mockAddDefaultNetworkAccounts.mock.invocationCallOrder[0],
+      );
+      expect(mockAddDefaultNetworkAccounts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          indexes: [0],
+          indexedAccountId: undefined,
+          customNetworks: [{ networkId: 'evm--1', deriveType: 'default' }],
+        }),
+      );
+      expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
+        1,
+        'refresh',
+        { num: 0 },
+      );
+      if (selectAfterCreate) {
+        expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
+          2,
+          'updateSelectedAccountForHdOrHwAccount',
+          {
+            num: 0,
+            walletId: 'hd-wallet-1',
+            indexedAccountId: 'hd-wallet-1--0',
+          },
+        );
+      } else {
+        expect(mockCallAccountSelectorAction).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  it('does not return an unrelated index when the requested first index is absent', async () => {
+    mockAddDefaultNetworkAccounts.mockResolvedValue({
+      addedAccounts: [],
+      failedAccounts: [],
+    });
+    mockGetIndexedAccounts.mockResolvedValue({
+      accounts: [{ id: 'hd-wallet-1--7' }],
+    });
+    const { result } = renderHook(() => useAccountSelectorCreateAddress());
+    await act(async () => {
+      const response = await result.current.createAddress({
+        num: 0,
+        account: {
+          walletId: 'hd-wallet-1',
+          networkId: getNetworkIdsMap().onekeyall,
+          indexedAccountId: undefined,
+          deriveType: 'default',
+        },
+      });
+      expect(response).toEqual({
+        walletId: 'hd-wallet-1',
+        indexedAccountId: undefined,
+        accounts: [],
+      });
+    });
+    expect(mockCallAccountSelectorAction).toHaveBeenCalledTimes(1);
+    expect(mockCallAccountSelectorAction).toHaveBeenCalledWith('refresh', {
+      num: 0,
     });
   });
 

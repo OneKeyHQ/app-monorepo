@@ -25,7 +25,8 @@ export function getDefaultLocalWalletSendPool({
 
 // The page the send starts from limits the source: a public pool's page pays
 // only from it; a private pool's page offers that pool and, if the user picks
-// it, the public one. Without an entry pool every eligible pool is offered.
+// it, the public one. Without an entry pool every eligible pool is offered
+// except old ones, which are reached only from their own entry.
 export function getEntryLocalWalletSendPools({
   pools,
   entryPool,
@@ -36,7 +37,14 @@ export function getEntryLocalWalletSendPools({
   descriptors: ILocalWalletPoolDescriptor[];
 }): ILocalWalletSendPool[] {
   const entry = descriptors.find((pool) => pool.key === entryPool);
-  if (!entry) return pools;
+  if (!entry) {
+    const oldPools = new Set(
+      descriptors
+        .filter((pool) => pool.receivesFunds === false)
+        .map((pool) => pool.key),
+    );
+    return pools.filter((pool) => !oldPools.has(pool.key));
+  }
   const allowed = new Set(
     entry.kind === 'public'
       ? [entry.key]

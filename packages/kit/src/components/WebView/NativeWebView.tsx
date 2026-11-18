@@ -315,18 +315,26 @@ const NativeWebView = forwardRef(
         console.warn(
           `WebView render process gone (didCrash: ${didCrash}), recreating WebView`,
         );
-        // Bump key to force React to unmount the dead WebView and mount a fresh one
-        setWebViewKey((prev) => prev + 1);
+        if (typeof recreateOnContentProcessTerminate === 'function') {
+          recreateOnContentProcessTerminate();
+        } else {
+          // Ordinary WebViews retain their local renderer replacement.
+          setWebViewKey((prev) => prev + 1);
+        }
       },
-      [],
+      [recreateOnContentProcessTerminate],
     );
 
     // iOS can kill the WebContent process under memory pressure, leaving a dead WebView.
     const handleContentProcessDidTerminate = useCallback(() => {
       if (isUnmountingRef.current) return;
       console.warn('WebView content process terminated, recreating WebView');
-      setWebViewKey((prev) => prev + 1);
-    }, []);
+      if (typeof recreateOnContentProcessTerminate === 'function') {
+        recreateOnContentProcessTerminate();
+      } else {
+        setWebViewKey((prev) => prev + 1);
+      }
+    }, [recreateOnContentProcessTerminate]);
 
     const debuggingEnabled = useMemo(() => {
       if (__DEV__) {

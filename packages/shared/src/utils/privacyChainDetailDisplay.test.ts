@@ -221,6 +221,20 @@ describe('getPrivacyChainEntryItem', () => {
       { kind: 'own', poolId: 4, isSpend: true },
     );
   });
+  // The background leaves a spent note's address only when it is a displayed one.
+  it('names a spent note by the address it was received at', () => {
+    expect(
+      entry({
+        entry: { isOwn: true, address: privateAddress, poolId: 4 },
+        isInput: true,
+      }),
+    ).toEqual({
+      kind: 'own',
+      poolId: 4,
+      isSpend: true,
+      address: privateAddress,
+    });
+  });
   it('shows others by exact address or pool', () => {
     expect(
       entry({ entry: { isOwn: false, address: privateAddress, poolId: 4 } }),

@@ -49,7 +49,9 @@ import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compo
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import {
   type EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -79,6 +81,7 @@ import {
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { getStockTokenFiatValue } from '../../hooks/swapStockFiatValueUtils';
 import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { getSwapAccountNetworkWarningAccountId } from '../../hooks/useSwapAccount.utils';
@@ -89,10 +92,7 @@ import {
   ESwapStockTradeSide,
   type IUseSwapStockChannelReturn,
 } from '../../hooks/useSwapStockChannel';
-import {
-  useSwapStockAmountInputState,
-  useSwapStockEstimatedReceiveState,
-} from '../../hooks/useSwapStockTradeInputs';
+import { useSwapStockAmountInputState } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
 import { getSwapBalanceActionProps } from '../../utils/swapBalanceActionUtils';
 import {
@@ -104,15 +104,8 @@ import {
   buildSwapRecentTokenPairsFromHistory,
   getSwapMarketPendingHistoryKey,
 } from '../../utils/swapMarketHistory';
-import {
-  calculateSwapStockEstimatedShares,
-  getValidStockTokenToAssetRatio,
-  resolveSwapStockReviewToken,
-} from '../../utils/swapStockReviewUtils';
-import {
-  getStockQuoteTradeControl,
-  isQuoteRequestForStockTrade,
-} from '../../utils/swapStockTradeControl';
+import { resolveSwapStockReviewToken } from '../../utils/swapStockReviewUtils';
+import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
@@ -123,6 +116,8 @@ import SwapQuoteResult from './SwapQuoteResult';
 import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockDisabledActionButtonProps,
+  getStockReceiveDisplayScope,
+  isStockReceivePairSynced,
   shouldDeferStockInitialContent,
   shouldResetStockTradeQuoteState,
   shouldShowStockQuoteActionLoading,
@@ -137,20 +132,20 @@ import {
   useSwapStockSelection,
 } from './SwapStockMarketProvider';
 import {
+  SwapStockMobilePositions,
   SwapStockPositions,
   SwapStockPositionsProvider,
 } from './SwapStockPositions';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
-import {
-  isCurrentStockMarketClosedQuoteEventError,
-  isCurrentStockQuoteEventError,
-} from './SwapStockTradeAlertUtils';
+import { isCurrentStockMarketClosedQuoteEventError } from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
 import SwapTipsContainer from './SwapTipsContainer';
+import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
+import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -165,7 +160,10 @@ interface ISwapStockDesktopContainerProps {
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
-  onPreSwap: (stockReviewToken?: ISwapToken) => void;
+  onPreSwap: (
+    stockReviewToken?: ISwapToken,
+    reviewTokens?: ISwapReviewTokens,
+  ) => void;
   onToAnotherAddressModal: () => void;
   onOpenProviderList: () => void;
   refreshAction: () => void;
@@ -230,91 +228,31 @@ function StockTradeSideSwitch({
 }
 
 function StockEstimatedReceive({
-  forceLoading,
-  quoteResult,
-  quoteLoading,
-  quoteEventFetching,
+  model,
   stockChannel,
   stockTradeConfig,
-  stockReviewToken,
 }: {
-  forceLoading?: boolean;
-  quoteResult?: IFetchQuoteResult;
-  quoteLoading: boolean;
-  quoteEventFetching: boolean;
+  model: ReturnType<typeof useStockEstimatedReceiveModel>;
   stockChannel: IUseSwapStockChannelReturn;
   stockTradeConfig?: ISwapStockTradeConfig;
-  stockReviewToken?: ISwapToken;
 }) {
   const intl = useIntl();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [quoteEventError] = useSwapQuoteEventErrorAtom();
-  const shouldHideQuoteResult = useMemo(() => {
-    const hasStockQuoteControl = Boolean(
-      getStockQuoteTradeControl({
-        quoteResult,
-        fromTokenAmount: fromTokenAmount.value,
-        fromTokenSymbol: stockChannel.fromToken?.symbol,
-        intl,
-      }),
-    );
-    return (
-      hasStockQuoteControl ||
-      isCurrentStockQuoteEventError({
-        fromToken: stockChannel.fromToken,
-        fromTokenAmount: fromTokenAmount.value,
-        quoteEventError,
-        toToken: stockChannel.toToken,
-      })
-    );
-  }, [
-    fromTokenAmount.value,
-    intl,
-    quoteEventError,
-    quoteResult,
-    stockChannel.fromToken,
-    stockChannel.toToken,
-  ]);
-  const receiveQuoteLoading = Boolean(
-    forceLoading || quoteLoading || (quoteEventFetching && !quoteResult),
-  );
   const {
     canSelectReceiveToken,
     currencySymbol,
-    isLoading,
-    isSellSide,
+    estimatedShares,
     isReceiveTokenPopoverOpen,
+    isSellSide,
     onReceiveTokenPress,
-    quoteMatchesStockTrade,
     rateDifference,
     receiveAmount,
     receiveFiatValue,
-    receiveToken,
+    receiveTokenSymbol,
     setIsReceiveTokenPopoverOpen,
-  } = useSwapStockEstimatedReceiveState({
-    forceHideQuote: shouldHideQuoteResult || forceLoading,
-    quoteEventFetching: false,
-    quoteLoading: receiveQuoteLoading,
-    quoteResult,
-    stockChannel,
-  });
-  const receiveTokenSymbol = receiveToken?.symbol ?? '';
-  const estimatedStockTokenAmount =
-    stockChannel.tradeSide === ESwapStockTradeSide.Buy
-      ? quoteResult?.toAmount
-      : quoteResult?.fromAmount;
-  const tokenToAssetRatio = stockReviewToken?.stock?.tokenToAssetRatio;
-  const estimatedShares = calculateSwapStockEstimatedShares({
-    stockTokenAmount: quoteMatchesStockTrade
-      ? estimatedStockTokenAmount
-      : undefined,
-    tokenToAssetRatio,
-  });
-  const stockUnderlyingSymbol =
-    stockReviewToken?.stock?.underlyingAssetTicker ?? '';
-  const shouldShowEstimatedShares = Boolean(
-    getValidStockTokenToAssetRatio(tokenToAssetRatio),
-  );
+    shouldShowEstimatedShares,
+    showReceiveSkeleton,
+    stockUnderlyingSymbol,
+  } = model;
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
   const shouldShowReceiveToken = Boolean(
     hasReceiveAmount || (isSellSide && receiveTokenSymbol),
@@ -328,7 +266,7 @@ function StockEstimatedReceive({
   let estimatedSharesContent: ReactNode = (
     <SizableText size="$bodyMdMedium">--</SizableText>
   );
-  if (isLoading) {
+  if (showReceiveSkeleton) {
     estimatedSharesContent = <Skeleton h="$5" w="$20" />;
   } else if (estimatedShares) {
     estimatedSharesContent = (
@@ -467,7 +405,7 @@ function StockEstimatedReceive({
           alignItems="flex-end"
           minWidth={0}
         >
-          {isLoading ? (
+          {showReceiveSkeleton ? (
             <>
               <XStack
                 h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
@@ -506,7 +444,7 @@ function StockEstimatedReceive({
                   {receiveFiatValue || '0'}
                 </NumberSizeableText>
                 <SwapRateDifferenceText
-                  loading={isLoading}
+                  loading={showReceiveSkeleton}
                   rateDifference={rateDifference}
                   size="$bodyMd"
                 />
@@ -750,8 +688,24 @@ function StockActionGate({
   }
 
   if (stockChannel.readyForQuote || shouldPreserveStockActionsState) {
+    const account = swapFromAddressInfo.activeAccount;
+    const accountId = account?.indexedAccount?.id ?? account?.account?.id;
+    const { currentStockToken, payToken, tradeSide } = stockChannel;
     return (
       <SwapActionsState
+        stockRecipientSnapshotScope={
+          accountId && currentStockToken && payToken
+            ? JSON.stringify([
+                accountId,
+                account?.deriveType,
+                tradeSide,
+                currentStockToken.networkId,
+                currentStockToken.contractAddress,
+                payToken.networkId,
+                payToken.contractAddress,
+              ])
+            : undefined
+        }
         disabled={
           stockSelection?.availability === 'pending' ||
           stockTradeIdentityLoading ||
@@ -1131,13 +1085,44 @@ function StockTradeTicket({
       stockDetail?.symbol,
     ],
   );
-  const onStockPreSwap = useCallback(
-    () => onPreSwap(stockReviewToken),
-    [onPreSwap, stockReviewToken],
-  );
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const [settings] = useSettingsPersistAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const fromTokenKey = getTokenIdentityKey(stockChannel.fromToken);
+  const toTokenKey = getTokenIdentityKey(stockChannel.toToken);
+  const receiveDisplayScope =
+    swapFromAddressInfo.isAddressInfoReady &&
+    swapToAddressInfo.isAddressInfoReady &&
+    isStockReceivePairSynced({
+      fromTokenKey,
+      toTokenKey,
+      stockTokenKey: getTokenIdentityKey(stockChannel.currentStockToken),
+      payTokenKey: getTokenIdentityKey(stockChannel.payToken),
+      tradeSide: stockChannel.tradeSide,
+    })
+      ? getStockReceiveDisplayScope({
+          accounts: [
+            swapFromAddressInfo.activeAccount?.wallet?.id,
+            swapFromAddressInfo.activeAccount?.indexedAccount?.id,
+            swapFromAddressInfo.activeAccount?.account?.id,
+            swapFromAddressInfo.accountInfo?.account?.id,
+            swapToAddressInfo.activeAccount?.wallet?.id,
+            swapToAddressInfo.activeAccount?.indexedAccount?.id,
+            swapToAddressInfo.activeAccount?.account?.id,
+            swapToAddressInfo.accountInfo?.account?.id,
+          ],
+          fromAddress: swapFromAddressInfo.address,
+          toAddress: swapToAddressInfo.address,
+          fromTokenKey,
+          toTokenKey,
+          tradeSide: stockChannel.tradeSide,
+          amount: amountInputState.inputValue,
+          currencyId: settings.currencyInfo.id,
+        })
+      : undefined;
   const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
   const deferInitialAmountContent = shouldDeferStockInitialContent({
     channelStage: stockChannel.channelStage,
@@ -1155,6 +1140,53 @@ function StockTradeTicket({
     stockTradeIdentityLoading ||
     deferInitialAmountContent,
   );
+  const quoteMatchesAccount =
+    Boolean(receiveDisplayScope) &&
+    isQuoteRequestForStockTrade({
+      currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+      currentAddress: swapFromAddressInfo.address,
+      currentReceivingAddress: swapToAddressInfo.address,
+      quoteRequest: quoteActionLock,
+      receiveToken: stockChannel.toToken,
+      sendAmount: amountInputState.inputValue,
+      sendToken: stockChannel.fromToken,
+    });
+  const receiveModel = useStockEstimatedReceiveModel({
+    forceLoading: showEstimatedReceiveSkeleton,
+    inputToken: amountInputState.inputToken,
+    inputTokenPrice: amountInputState.inputTokenPrice,
+    receiveDisplayScope,
+    quoteMatchesAccount,
+    quoteResult,
+    quoteLoading,
+    quoteEventFetching,
+    stockChannel,
+    stockReviewToken,
+  });
+  const displayAmountInputState = {
+    ...amountInputState,
+    inputTokenPrice: receiveModel.inputTokenPrice,
+    amountFiatValue: getStockTokenFiatValue({
+      amount: amountInputState.inputValue,
+      tokenPrice: receiveModel.inputTokenPrice,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    }),
+    reviewFromToken:
+      amountInputState.inputToken && receiveModel.inputTokenPrice
+        ? { ...amountInputState.inputToken, ...receiveModel.inputTokenPrice }
+        : undefined,
+  };
+  const onStockPreSwap = () => {
+    const receiveToken = stockChannel.toToken;
+    onPreSwap(stockReviewToken, {
+      fromToken: displayAmountInputState.reviewFromToken,
+      toToken:
+        receiveToken && receiveModel.receiveTokenPrice
+          ? { ...receiveToken, ...receiveModel.receiveTokenPrice }
+          : undefined,
+    });
+  };
   let resolvedStockTradeHeader = stockTradeHeader;
   if (
     stockTradeHeader &&
@@ -1217,19 +1249,15 @@ function StockTradeTicket({
         {resolvedStockTradeHeader}
         <StockAmountInput
           fetchLoading={fetchLoading}
-          amountInputState={amountInputState}
+          amountInputState={displayAmountInputState}
           deferInitialContent={deferInitialAmountContent}
           forceLoading={showStockTradeIdentitySkeleton}
           storeName={storeName}
         />
         <StockEstimatedReceive
-          forceLoading={showEstimatedReceiveSkeleton}
-          quoteResult={quoteResult}
-          quoteLoading={quoteLoading}
-          quoteEventFetching={quoteEventFetching}
+          model={receiveModel}
           stockChannel={stockChannel}
           stockTradeConfig={stockTradeConfig}
-          stockReviewToken={stockReviewToken}
         />
         {renderActionGateOutsideTicket ? null : stockActionGate}
         {showStockTradeIdentitySkeleton ? null : (
@@ -1615,15 +1643,10 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           }
         />
         {embedded || isDesktopModalPage ? null : (
-          <>
-            <SwapPendingHistoryListComponent
-              storeName={storeName}
-              protocol={EProtocolOfExchange.STOCK}
-            />
-            <YStack mt="$2">
-              <SwapStockPositions mobile networks={supportNetworksList} />
-            </YStack>
-          </>
+          <SwapStockMobilePositions
+            networks={supportNetworksList}
+            storeName={storeName}
+          />
         )}
       </YStack>
     </Keyboard.AwareScrollView>

@@ -1,9 +1,7 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
-import {
-  createPrivacyChainFetchStreamRelay,
-  relayPrivacyChainNodeRequest,
-} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainFetchStreamRelay } from '../utils/privacyChainNodeRelay';
 
 import ProviderApiPrivate from './ProviderApiPrivate';
 
@@ -36,7 +34,6 @@ jest.mock('../utils/privacyChainRelayTargets', () => ({
 }));
 const streamRelay = jest.fn(async () => ({ ok: true, cancelled: true }));
 jest.mock('../utils/privacyChainNodeRelay', () => ({
-  relayPrivacyChainNodeRequest: jest.fn(async () => ({ ok: true, b64: '' })),
   createPrivacyChainFetchStreamRelay: jest.fn(() => streamRelay),
 }));
 
@@ -47,11 +44,6 @@ const page = (origin: string): IJsBridgeMessagePayload =>
     data: { method: 'fetchStream' },
   }) as IJsBridgeMessagePayload;
 
-const nodeRequest = {
-  url: 'http://192.168.1.1/admin',
-  contentType: 'application/json',
-  b64: '',
-};
 const streamOpen = {
   action: 'open' as const,
   url: 'http://192.168.1.1/admin',
@@ -65,7 +57,6 @@ function setup() {
 
 describe('ProviderApiPrivate web-embed-only methods on native', () => {
   beforeEach(() => {
-    jest.mocked(relayPrivacyChainNodeRequest).mockClear();
     streamRelay.mockClear();
   });
 
@@ -80,9 +71,6 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     ['Prime purchase modal', markWebEmbedChannelPayload(page('null'), false)],
   ])('rejects %s', async (_label, request) => {
     const provider = setup();
-    await expect(
-      provider.privacyChainNodeRequest(request, nodeRequest),
-    ).rejects.toThrow('privacyChainNodeRequest: not allowed');
     await expect(provider.fetchStream(request, streamOpen)).rejects.toThrow(
       'fetchStream: not allowed',
     );
@@ -95,16 +83,12 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     await expect(provider.webEmbedApiNotReady(request)).rejects.toThrow(
       'webEmbedApiNotReady: not allowed',
     );
-    expect(relayPrivacyChainNodeRequest).not.toHaveBeenCalled();
     expect(streamRelay).not.toHaveBeenCalled();
   });
 
   it('serves the singleton web-embed page', async () => {
     const provider = setup();
     const request = markWebEmbedChannelPayload(page('null'), true);
-    await expect(
-      provider.privacyChainNodeRequest(request, nodeRequest),
-    ).resolves.toEqual({ ok: true, b64: '' });
     await expect(provider.fetchStream(request, streamOpen)).resolves.toEqual({
       ok: true,
       cancelled: true,
@@ -112,9 +96,10 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     await expect(provider.getSensitiveEncodeKey(request)).resolves.toBe(
       'encode-key',
     );
-    await provider.webEmbedApiReady(request);
+    provider.activateWebEmbedMount({ mountId: 'singleton', mountSequence: 1 });
+    await provider.webEmbedApiReady(request, { mountId: 'singleton' });
     expect(provider.isWebEmbedApiReady).toBe(true);
-    await provider.webEmbedApiNotReady(request);
+    await provider.webEmbedApiNotReady(request, { mountId: 'singleton' });
     expect(provider.isWebEmbedApiReady).toBe(false);
   });
 
@@ -124,4 +109,57 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     await provider.setWebEmbedApiNotReady();
     expect(provider.isWebEmbedApiReady).toBe(false);
   });
+
+  it('keeps the encode key from other privileged pages off native', async () => {
+    const env = platformEnv as { isNative?: boolean };
+    env.isNative = false;
+    try {
+      await expect(
+        setup().getSensitiveEncodeKey(page('https://tradingview.onekey.so')),
+      ).rejects.toThrow('getSensitiveEncodeKey: not allowed');
+    } finally {
+      env.isNative = true;
+    }
+  });
+});
+
+describe('ProviderApiPrivate risk white list', () => {
+  const request = {
+    origin: 'https://site.example',
+    scope: '$private',
+    data: { method: 'wallet_addBrowserUrlToRiskWhiteList' },
+  } as unknown as IJsBridgeMessagePayload;
+
+  function setupWithModalResult(result: unknown) {
+    const addBrowserUrlToRiskWhiteList = jest.fn(async () => undefined);
+    const provider = new ProviderApiPrivate({
+      backgroundApi: {
+        serviceDApp: { openRiskWhiteListModal: jest.fn(async () => result) },
+        serviceDiscovery: { addBrowserUrlToRiskWhiteList },
+      },
+    });
+    return { provider, addBrowserUrlToRiskWhiteList };
+  }
+
+  it('adds the site after the user confirms', async () => {
+    const { provider, addBrowserUrlToRiskWhiteList } = setupWithModalResult({
+      confirmed: true,
+    });
+    await provider.wallet_addBrowserUrlToRiskWhiteList(request);
+    expect(addBrowserUrlToRiskWhiteList).toHaveBeenCalledWith(
+      'https://site.example',
+    );
+  });
+
+  it.each([[undefined], [{}], [{ confirmed: 'true' }]])(
+    'leaves the list alone when the modal settles with %j',
+    async (result) => {
+      const { provider, addBrowserUrlToRiskWhiteList } =
+        setupWithModalResult(result);
+      await expect(
+        provider.wallet_addBrowserUrlToRiskWhiteList(request),
+      ).rejects.toMatchObject({ code: 4001 });
+      expect(addBrowserUrlToRiskWhiteList).not.toHaveBeenCalled();
+    },
+  );
 });

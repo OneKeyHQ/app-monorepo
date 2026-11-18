@@ -7,6 +7,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     typeof import('@onekeyhq/shared/src/eventBus/appEventBusNames')
   >('@onekeyhq/shared/src/eventBus/appEventBusNames').EAppEventBusNames,
   appEventBus: {
+    on: jest.fn(),
     emit: (...args: unknown[]) => {
       mockEmit(...args);
     },
@@ -36,9 +37,14 @@ describe('privacy lifecycle invalidation', () => {
     mockSetProgress.mockReset().mockResolvedValue(undefined);
   });
 
-  it.each(['progress', 'scheduler'])(
-    'invalidates retained pages even when %s notification work fails',
-    async (failedStep) => {
+  it.each([
+    ['progress', undefined],
+    ['scheduler', undefined],
+    ['progress', 'syncState'],
+    ['scheduler', 'syncState'],
+  ] as const)(
+    'notifies retained pages even when %s work fails (change: %s)',
+    async (failedStep, change) => {
       const error = new Error(`${failedStep} unavailable`);
       const init = jest.fn().mockResolvedValue(undefined);
       if (failedStep === 'progress') {
@@ -62,6 +68,7 @@ describe('privacy lifecycle invalidation', () => {
         networkId: 'zec--0',
         accountIds: ['account-a'],
         backfillActive: false,
+        ...(change ? { change } : {}),
       };
 
       await expect(service.onLocalWalletAccountsChanged(params)).rejects.toBe(
@@ -69,7 +76,11 @@ describe('privacy lifecycle invalidation', () => {
       );
       expect(mockEmit).toHaveBeenCalledWith(
         EAppEventBusNames.LocalWalletAccountsChanged,
-        { networkId: params.networkId, accountIds: params.accountIds },
+        {
+          networkId: params.networkId,
+          accountIds: params.accountIds,
+          ...(change ? { change } : {}),
+        },
       );
       expect(mockEmit).toHaveBeenCalledTimes(1);
     },
@@ -181,7 +192,7 @@ describe('init', () => {
       expect(
         jest.mocked(service).forEachLocalWalletCapability.mock.calls,
       ).toHaveLength(1);
-      expect(service.foregroundBoostRequestedByNetwork['xmr--0']).toBe(true);
+      expect(service.backfillActiveByAccount['account-a']).toBe(true);
     } finally {
       clearInterval(service.periodicSyncTimer);
     }

@@ -9,6 +9,7 @@ import {
   useDownloadPackage,
 } from '@onekeyhq/kit/src/components/AppUpdate';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -19,19 +20,23 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { AppUpdateTestIDs } from '../../testIDs';
+
 import type { IUpdatePreviewActionButton } from './type';
 
 export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
   isForceUpdate,
+  onContactSupport,
 }: {
   isForceUpdate?: boolean;
+  onContactSupport?: () => void;
 }) => {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
 
   const navigation = useAppNavigation();
 
-  const { downloadPackage } = useDownloadPackage();
+  const { downloadPackage, downloadASC } = useDownloadPackage();
 
   const updateFileType = getUpdateFileType({
     latestVersion: appUpdateInfo.data?.latestVersion,
@@ -60,8 +65,22 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         appUpdateInfo.data.downloadUrl ||
         appUpdateInfo.data.jsBundle?.downloadUrl
       ) {
-        if (appUpdateInfo.data.status === EAppUpdateStatus.notify) {
+        const currentStatus = appUpdateInfo.data.status;
+        if (currentStatus === EAppUpdateStatus.notify) {
           void downloadPackage();
+        } else if (currentStatus === EAppUpdateStatus.downloadASCFailed) {
+          void downloadASC?.();
+        } else if (
+          [
+            EAppUpdateStatus.done,
+            EAppUpdateStatus.failed,
+            EAppUpdateStatus.updateIncomplete,
+            EAppUpdateStatus.downloadPackageFailed,
+            EAppUpdateStatus.verifyASCFailed,
+            EAppUpdateStatus.verifyPackageFailed,
+          ].includes(currentStatus)
+        ) {
+          void downloadPackage({ userInitiated: true });
         }
         navigation.push(EAppUpdateRoutes.DownloadVerify, {
           isForceUpdate,
@@ -70,15 +89,46 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
     }
   }, [
     appUpdateInfo.data,
+    downloadASC,
     downloadPackage,
     isForceUpdate,
     navigation,
     shouldOpenStore,
   ]);
+  const handleContactSupport = useCallback(() => {
+    if (onContactSupport) {
+      onContactSupport();
+      return;
+    }
+    void showIntercom();
+  }, [onContactSupport]);
+
   return (
     <Page.Footer>
       <YStack>
         <Page.FooterActions
+          stacked={isForceUpdate}
+          onCancelText={
+            isForceUpdate
+              ? intl.formatMessage({
+                  id: ETranslations.swap_review_tx_failed_2,
+                })
+              : undefined
+          }
+          onCancel={
+            isForceUpdate
+              ? (_close) => {
+                  handleContactSupport();
+                }
+              : undefined
+          }
+          cancelButtonProps={
+            isForceUpdate
+              ? {
+                  testID: AppUpdateTestIDs.contactUsBtn,
+                }
+              : undefined
+          }
           onConfirmText={intl.formatMessage({
             id: shouldOpenStore
               ? ETranslations.update_update_now

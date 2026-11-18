@@ -1,4 +1,4 @@
-export const TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION = 5 as const;
+export const TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION = 6 as const;
 export const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_SCHEMA_VERSION = 2 as const;
 
 export const TRADING_VIEW_NATIVE_THEME_COLORS = {
@@ -52,22 +52,51 @@ export type ITradingViewNativeChartTypePreference =
   | 'auto'
   | ITradingViewNativeChartType;
 
-export type ITradingViewNativeMainIndicatorId = 'MA' | 'EMA' | 'BOLL' | 'SAR';
+export type ITradingViewNativeMainIndicatorId =
+  | 'MA'
+  | 'EMA'
+  | 'WMA'
+  | 'VWMA'
+  | 'BOLL'
+  | 'SAR'
+  | 'SUPERTREND'
+  | 'ENV'
+  | 'VWAP'
+  | 'DC';
 
 export type ITradingViewNativeSubIndicatorId =
   | 'VOL'
   | 'MACD'
+  | 'KDJ'
+  | 'SKDJ'
   | 'RSI'
   | 'StochRSI'
   | 'OBV'
   | 'MFI'
+  | 'DMA'
   | 'TRIX'
+  | 'VR'
+  | 'BRAR'
   | 'EMV'
   | 'WR'
   | 'ROC'
   | 'MTM'
+  | 'PSY'
   | 'DMI'
-  | 'CCI';
+  | 'CCI'
+  | 'PVT'
+  | 'ATR'
+  | 'SMI'
+  | 'TSI'
+  | 'RVI'
+  | 'QQE'
+  | 'MASS'
+  | 'KST'
+  | 'BBP'
+  | 'NVI'
+  | 'PMO'
+  | 'RCI'
+  | 'SLOPE';
 
 export type ITradingViewNativeAnyIndicatorId =
   | ITradingViewNativeMainIndicatorId
@@ -189,7 +218,7 @@ export function createTradingViewNativeChartSettings(): ITradingViewNativeChartS
       pastEvents: false,
       clickInteraction: false,
       crossLine: true,
-      navigationButtons: true,
+      navigationButtons: false,
     },
     latestPriceLine: {
       upColor: colors.positive,
@@ -220,4 +249,93 @@ export function createTradingViewNativeIndicatorSettings(): ITradingViewNativeIn
     mainIndicators: [],
     subIndicators: [],
   };
+}
+
+export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
+
+export type ITradingViewNativeSource =
+  | {
+      kind: 'asset';
+      assetId: string;
+    }
+  | {
+      kind: 'hyperliquid';
+      coin: string;
+      environment: ITradingViewNativeHyperliquidEnvironment;
+    }
+  | {
+      kind: 'market';
+      fallbackCoinGeckoId?: string;
+      isNative?: boolean;
+      networkId: string;
+      tokenAddress: string;
+      symbol: string;
+      realtime: 'disabled' | 'websocket';
+    }
+  | {
+      kind: 'stock';
+      stockId: string;
+    };
+
+export const TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS = [
+  '1',
+  '2h',
+  '2v',
+  '3',
+  '4',
+] as const;
+
+export type ITradingViewNativeMultiChartPreset =
+  (typeof TRADING_VIEW_NATIVE_MULTI_CHART_PRESETS)[number];
+
+/** Track fractions of one preset's grid; each axis sums to 1. */
+export type ITradingViewNativeMultiChartSizes = {
+  columns: number[];
+  rows: number[];
+};
+
+export type ITradingViewNativeMultiChartPanelState = {
+  source?: ITradingViewNativeSource;
+  indicatorSettings?: ITradingViewNativeIndicatorSettings;
+};
+
+export const TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS = [
+  // Every panel shows the first panel's token.
+  'symbol',
+  // Every panel uses the same interval.
+  'interval',
+  // Hovering one chart shows its crosshair at the same time in the others.
+  'crosshair',
+  // Moving one chart scrolls the others to the same time.
+  'time',
+  // Moving one chart makes the others show the same span of time.
+  'dateRange',
+] as const;
+
+export type ITradingViewNativeMultiChartSyncOption =
+  (typeof TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS)[number];
+
+/** What the charts of a split view share. A missing option is off. */
+export type ITradingViewNativeMultiChartSync = Partial<
+  Record<ITradingViewNativeMultiChartSyncOption, boolean>
+>;
+
+export type ITradingViewNativeMultiChartLayout = {
+  preset: ITradingViewNativeMultiChartPreset;
+  sync?: ITradingViewNativeMultiChartSync;
+  /**
+   * State of the extra panels by panel ID. The first panel is not stored: it
+   * always shows the host's own source with the host's own preferences.
+   */
+  panels: Partial<Record<string, ITradingViewNativeMultiChartPanelState>>;
+  sizes?: Partial<
+    Record<
+      ITradingViewNativeMultiChartPreset,
+      ITradingViewNativeMultiChartSizes
+    >
+  >;
+};
+
+export function createTradingViewNativeMultiChartLayout(): ITradingViewNativeMultiChartLayout {
+  return { preset: '1', panels: {} };
 }

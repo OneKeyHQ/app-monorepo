@@ -53,7 +53,7 @@ describe('Keystone adapter initialization', () => {
     expect(HwkKeystoneAdapter).toHaveBeenCalledWith({
       origin: 'OneKey',
       usbConnector: undefined,
-      qrKeyRequestLimit: 10,
+      qrKeyRequestLimit: 20,
     });
   });
 
@@ -69,6 +69,7 @@ describe('Keystone adapter initialization', () => {
     expect(HwkKeystoneAdapter).toHaveBeenCalledWith({
       origin: 'OneKey',
       usbConnector: connector,
+      qrKeyRequestLimit: 20,
     });
   });
 

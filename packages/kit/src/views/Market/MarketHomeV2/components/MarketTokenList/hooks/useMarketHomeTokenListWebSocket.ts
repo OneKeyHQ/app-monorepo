@@ -346,6 +346,30 @@ export function useMarketHomeTokenListWebSocket({
   const isMountedRef = useRef(true);
   const isSyncingSubscriptionsRef = useRef(false);
   const syncRequestIdRef = useRef(0);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() =>
+    typeof document === 'undefined'
+      ? true
+      : document.visibilityState !== 'hidden',
+  );
+
+  useEffect(() => {
+    if (
+      typeof document === 'undefined' ||
+      typeof document.addEventListener !== 'function'
+    ) {
+      return;
+    }
+    const handleVisibilityChange = () => {
+      setIsDocumentVisible(document.visibilityState !== 'hidden');
+    };
+    handleVisibilityChange();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const effectiveEnabled = Boolean(enabled && isDocumentVisible);
 
   const subscriptionIdentity = useMemo(
     () => subscriptions.map((item) => item.key).join('|'),
@@ -594,13 +618,13 @@ export function useMarketHomeTokenListWebSocket({
   ]);
 
   useEffect(() => {
-    desiredSubscriptionsRef.current = enabled
+    desiredSubscriptionsRef.current = effectiveEnabled
       ? new Map(subscriptions.map((item) => [item.key, item]))
       : new Map<string, IMarketHomeTokenSubscription>();
     syncRequestIdRef.current += 1;
     void syncMarketHomeTokenSubscriptions();
   }, [
-    enabled,
+    effectiveEnabled,
     subscriptions,
     subscriptionIdentity,
     syncMarketHomeTokenSubscriptions,
@@ -615,7 +639,7 @@ export function useMarketHomeTokenListWebSocket({
   }, [syncMarketHomeTokenSubscriptions]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!effectiveEnabled) {
       return;
     }
 
@@ -717,7 +741,7 @@ export function useMarketHomeTokenListWebSocket({
         handleMarketDataUpdate,
       );
     };
-  }, [enabled]);
+  }, [effectiveEnabled]);
 
   const liveTokenOverrides = useMemo(
     () => Object.values(liveOverridesByKey),
@@ -725,7 +749,7 @@ export function useMarketHomeTokenListWebSocket({
   );
 
   return useMemo(() => {
-    if (!enabled) {
+    if (!effectiveEnabled) {
       return tokens;
     }
 
@@ -733,5 +757,5 @@ export function useMarketHomeTokenListWebSocket({
       tokens,
       liveTokenOverrides,
     });
-  }, [enabled, tokens, liveTokenOverrides]);
+  }, [effectiveEnabled, tokens, liveTokenOverrides]);
 }

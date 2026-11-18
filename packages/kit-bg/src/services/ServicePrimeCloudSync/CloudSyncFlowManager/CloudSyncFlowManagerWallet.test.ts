@@ -167,6 +167,20 @@ describe('CloudSyncFlowManagerWallet', () => {
     expect(payload).not.toHaveProperty('botWallets');
   });
 
+  test('syncs the wallet avatar seed even without any network accounts', async () => {
+    const firstEvmAddress = '0x1111111111111111111111111111111111111111';
+    const target = {
+      ...qaTarget,
+      wallet: { ...qaTarget.wallet, firstEvmAddress, accounts: [] },
+    };
+    const payload = await manager.buildSyncPayload({ target });
+    expect(payload.firstEvmAddress).toBe(firstEvmAddress);
+    await manager.syncToSceneEachItem({ target, payload });
+    expect(setWalletNameAndAvatar).toHaveBeenCalledWith(
+      expect.objectContaining({ firstEvmAddress }),
+    );
+  });
+
   test('syncToSceneEachItem only updates wallet metadata', async () => {
     await expect(
       manager.syncToSceneEachItem({

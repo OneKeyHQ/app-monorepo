@@ -9,6 +9,7 @@ import {
   calculateAccountTokensValue,
   calculateAccountTotalValue,
   checkWrappedTokenPair,
+  findTokenKeysMissingFromMap,
   flattenAggregateTokensMap,
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
@@ -1881,5 +1882,49 @@ describe('retainAccountsWorth', () => {
     expect(retainAccountsWorth({ worth, accountValueKeys: new Set() })).toEqual(
       {},
     );
+  });
+});
+
+describe('findTokenKeysMissingFromMap', () => {
+  const token = (key: string, symbol: string) =>
+    ({ $key: key, symbol }) as unknown as IAccountToken;
+  const fiat = {} as ITokenFiat;
+
+  it('lists the data rows each group carries without a map entry', () => {
+    // OK-66042: a row whose $key is absent from its group's map renders with
+    // "--" price and an empty balance / value column on Home.
+    const resp = {
+      tokens: {
+        data: [
+          token('sol--101_addr_native', 'SOL'),
+          token('sol--101_addr_usdc', 'USDC'),
+        ],
+        keys: '',
+        map: { 'sol--101_addr_usdc': fiat },
+      },
+      smallBalanceTokens: {
+        data: [token('sol--101_addr_aury', 'AURY')],
+        keys: '',
+        map: {},
+      },
+      riskTokens: { data: [], keys: '', map: {} },
+    } as unknown as IFetchAccountTokensResp;
+    expect(findTokenKeysMissingFromMap(resp)).toEqual([
+      { group: 'tokens', $key: 'sol--101_addr_native', symbol: 'SOL' },
+      {
+        group: 'smallBalanceTokens',
+        $key: 'sol--101_addr_aury',
+        symbol: 'AURY',
+      },
+    ]);
+  });
+
+  it('returns an empty list when every row has a map entry', () => {
+    const resp = {
+      tokens: { data: [token('k1', 'A')], keys: '', map: { k1: fiat } },
+      smallBalanceTokens: { data: [], keys: '', map: {} },
+      riskTokens: { data: [token('k2', 'B')], keys: '', map: { k2: fiat } },
+    } as unknown as IFetchAccountTokensResp;
+    expect(findTokenKeysMissingFromMap(resp)).toEqual([]);
   });
 });

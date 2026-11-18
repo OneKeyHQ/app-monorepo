@@ -1,5 +1,3 @@
-import { loadXmrPureRuntimeInProcess } from './pureRuntimeFallback';
-
 import type { IXmrNetwork } from './types';
 
 export type IXmrDerivedAccount = {
@@ -32,17 +30,9 @@ export type IXmrPureRuntimeApi = {
   verifyTransaction: (signableHex: string, reviewJson: string) => Promise<void>;
 };
 
-let runtimeLoader: (() => Promise<IXmrPureRuntimeApi>) | undefined;
-
-export function setXmrRuntimeLoader(loader: () => Promise<IXmrPureRuntimeApi>) {
-  runtimeLoader = loader;
-}
-
 export async function getXmrPureRuntime(): Promise<IXmrPureRuntimeApi> {
-  if (runtimeLoader) {
-    return runtimeLoader();
-  }
-  return loadXmrPureRuntimeInProcess();
+  const { getXmrRuntimeApiForCarrier } = await import('./sdk');
+  return getXmrRuntimeApiForCarrier();
 }
 
 export async function deriveXmrAccount(params: {

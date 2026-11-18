@@ -47,9 +47,9 @@ export type IPrivacyChainAccountAddresses = {
 };
 
 // What a history endpoint shows:
-// - own: this account's side. `address` is the own address the data names
-//   (shown only when byte-identical to a displayed one); a spend has none and
-//   shows the pool's displayed address. Otherwise the pool name.
+// - own: this account's side. `address` is the own address the data names: a
+//   transparent one as it is, a private one only as Receive displays it.
+//   Otherwise the pool name.
 // - address: an exactly known counterparty address.
 // - pool: the pool name, when the address is hidden or unknown.
 export type IPrivacyChainEndpointItem =
@@ -73,10 +73,9 @@ export function getPrivacyChainDisplayPools(localWallet?: {
   ];
 }
 
-// The single rule for showing an address of this account in history: it
-// must be byte-identical to one the Receive / token details pages display.
-// Anything else (a diversified address, a subaddress, a change receiver)
-// could be copied and paid to without the wallet seeing it.
+// Whether an address of this account is one the Receive / token details pages display. A private
+// one must be (a diversified address or subaddress could be paid without the wallet seeing it);
+// the history gate shows a transparent one as it is.
 export function isLocalWalletDisplayedAddress({
   addresses,
   address,
@@ -275,7 +274,8 @@ export function getPrivacyChainEntryItem({
       'isOwn' | 'to' | 'address' | 'label' | 'poolId'
     >
   >;
-  // Inputs are spent notes: they carry no address of their own.
+  // Inputs are spent notes, named by the address they were received at when the background
+  // left it (only a displayed one), else by pool.
   isInput: boolean;
   ownAddresses?: Set<string>;
 }): IPrivacyChainEndpointItem {
@@ -287,9 +287,12 @@ export function getPrivacyChainEntryItem({
   const address =
     rawAddress && rawAddress !== entry.label ? rawAddress : undefined;
   if (entry.isOwn || (address && ownAddresses?.has(address))) {
-    return isInput
-      ? { kind: 'own', poolId, isSpend: true }
-      : { kind: 'own', poolId, ...(address ? { address } : {}) };
+    return {
+      kind: 'own',
+      poolId,
+      ...(isInput ? { isSpend: true } : {}),
+      ...(address ? { address } : {}),
+    };
   }
   return address ? { kind: 'address', address } : { kind: 'pool', poolId };
 }
@@ -382,22 +385,22 @@ export function getPrivacyChainEndpointFlow({
             ownAddresses,
           }),
         ),
-      // Our transparent I/O whose address the background removed.
+      // Our transparent I/O: by its address, or by pool where the background removed it.
       ...((direction === 'from' ? inputTransfers : outputTransfers) ?? [])
         .filter(
           (entry) =>
             entry.type !== EOnChainHistoryTransferType.Shielded &&
             entry.isOwn &&
-            !entry.isChange &&
-            !entry.address &&
-            !entry[direction],
+            !entry.isChange,
         )
-        .map(
-          (): IPrivacyChainEndpointItem => ({
+        .map((entry): IPrivacyChainEndpointItem => {
+          const address = entry[direction] || entry.address;
+          return {
             kind: 'own',
             poolId: pools?.find((pool) => pool.kind === 'public')?.id,
-          }),
-        ),
+            ...(address ? { address } : {}),
+          };
+        }),
       // Our side named by pool where the background removed its address.
       ...[...(transfer?.sends ?? []), ...(transfer?.receives ?? [])]
         .filter((entry) => !entry.isChange)

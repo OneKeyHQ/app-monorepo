@@ -9,6 +9,8 @@ export type IRevenueCatAuthContext = {
 
 export type IRevenueCatCustomerInfo = {
   managementURL: string | null;
+  // RevenueCat server time of the response, ISO 8601.
+  requestDate?: string;
   entitlements: {
     active: Record<
       string,
@@ -44,8 +46,18 @@ export type IRevenueCatOfferings = {
   current: { availablePackages: IRevenueCatPackage[] } | null;
 };
 
+export type IRevenueCatStorefront = {
+  countryCode: string;
+};
+
+export type IRevenueCatStoreTransaction = {
+  // Store charge date of this transaction, ISO 8601.
+  purchaseDate: string;
+};
+
 export type IRevenueCatPurchaseResult = {
   customerInfo: IRevenueCatCustomerInfo;
+  transaction?: IRevenueCatStoreTransaction | null;
 };
 
 export type IRevenueCatRequestMap = {
@@ -58,6 +70,7 @@ export type IRevenueCatRequestMap = {
   getAppUserId: undefined;
   getCustomerInfo: { expectedAppUserId: string };
   getOfferings: undefined;
+  getStorefront: undefined;
   purchasePackage: {
     packageIdentifier: string;
     offeringIdentifier: string;
@@ -78,6 +91,7 @@ export type IRevenueCatResultMap = {
   getAppUserId: string;
   getCustomerInfo: IRevenueCatCustomerInfo;
   getOfferings: IRevenueCatOfferings;
+  getStorefront: IRevenueCatStorefront | null;
   purchasePackage: IRevenueCatPurchaseResult;
   restorePurchases: IRevenueCatCustomerInfo;
   checkTrialOrIntroductoryPriceEligibility: Record<string, { status: number }>;

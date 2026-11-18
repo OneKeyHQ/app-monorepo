@@ -304,17 +304,24 @@ it('keeps the empty added section before hidden tokens and serializes its rows',
     'sectionHeader',
     'identity',
   ]);
+  // Explicit heights must round to the nearest pixel instead of taking
+  // Android's legacy sub-400dp 0.9 scale, which shrank the 60dp row under
+  // its unscaled 24 + 20 line boxes and clipped the subtitle (OK-66072).
   expect(mockSnapshot?.rows[0]).toMatchObject({
     variant: 'spacer',
     height: 20,
+    heightRounding: 'nearest',
   });
   expect(mockSnapshot?.rows[1]).toMatchObject({
+    height: 30,
+    heightRounding: 'nearest',
     style: { title: { fontWeight: 'regular' } },
   });
   expect(mockSnapshot?.rows[2]).toMatchObject({
     title: 'EX',
     subtitle: 'Example token',
     height: 60,
+    heightRounding: 'nearest',
     pressDisabled: true,
     leading: {
       fallbackIcon: { size: 28, backgroundColor: '#123456' },

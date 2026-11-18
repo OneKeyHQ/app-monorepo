@@ -1,14 +1,15 @@
-// Lowest height the low-level wallet registration flow accepts. Keep
-// separate from the product scan floor below, which starts at Orchard
-// since this wallet cannot spend Sapling.
-export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET = 419_201;
-
-// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs). Deepest
-// product scan: this wallet cannot spend Sapling (no proving parameters).
+// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs).
 export const ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET = 1_687_104;
-// Wall-clock time of that activation block; paired with the block interval
-// to estimate a chain tip when the network is unreachable.
 export const ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS = Date.UTC(2022, 4, 31);
+
+// NU6.3 / Ironwood activation, mainnet.
+export const ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET = 3_428_143;
+export const ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS = Date.UTC(2026, 6, 28);
+
+// The first release supports Ironwood history. Both custom birthdays and
+// full scans must start at or above this product floor.
+export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET =
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET;
 
 export const ZCASH_SPAM_REGION_START_MAINNET = 1_710_000;
 export const ZCASH_SPAM_REGION_END_MAINNET = 1_960_000;
@@ -25,3 +26,10 @@ export function isZcashSpamRegionHeight(height: number | null | undefined) {
 
 // Zcash's target block interval, used to turn a block lag into elapsed time.
 export const ZCASH_TARGET_BLOCK_SECONDS = 75;
+
+// NU7 cuts the target block interval to 25s from this mainnet height.
+export const ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET = 3_543_405;
+export const ZCASH_POST_NU7_TARGET_BLOCK_SECONDS = 25;
+// Projected from height 3,539,042 at 2026-11-02T07:08Z at 75s per block;
+// off by hours at most, inside the one-day birthday margin.
+export const ZCASH_NU7_ACTIVATION_TIMESTAMP_MS = Date.UTC(2026, 10, 6, 2);

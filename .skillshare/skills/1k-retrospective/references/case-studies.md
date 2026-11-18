@@ -6,6 +6,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 
 <!-- New cases are appended below this line -->
 
+## Case: Mobile Home market recommendation cards retained table header spacing
+**Date**: 2026-11-10 | **Platforms**: iOS, Android (native)
+**Symptom**: The mobile Home market recommendation card grid left an extra 32px blank area before the next Home block.
+**Root Cause**: The content minimum-height fix applied the desktop table header allowance to mobile favorites state, while the regression test only exercised a category list and never rendered recommendation cards.
+**Fix**: Applied the 32px header allowance only to table layout, kept the mobile favorites list reservation to its row and action-band height, and added a test that renders mobile recommendation cards and the Add button.
+**Catchable by**: Section 3: UI changes verified on mobile recommendation-card layout; Section 5: Test state must exercise the changed rendering branch
+
 ## Case: iOS OneKey ID logout dialog stuck with loading spinner
 **Date**: 2026-02-26 | **Platforms**: iOS (native)
 **Symptom**: After clicking logout in OneKey ID page, the confirmation dialog showed a permanent loading spinner and never closed, even after the modal behind it was dismissed.
@@ -1072,6 +1079,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
 
+## Case: Android Select trigger focused as a text input instead of opening (OK-65708)
+**Date**: 2026-10-27 | **Platforms**: Android (native `main` runtime); the fix is scoped to chart `SettingsSelect` triggers
+**Symptom**: In the native TradingView chart settings, tapping the Chart, Chart style or Price change colors select on Android put a text caret and selection handle in the trigger instead of opening the options.
+**Root Cause**: `SettingsSelect` passes an explicit `disabled={false}`. The default Select trigger renders a read-only `Input`, whose Tamagui `Group` forwards `disabled: false` to the inner TextInput, and `useInputProps` mapped it to `readOnly: false`. The native TextInput prefers a defined `readOnly` over `editable`, so Android's read-only `editable={false}` was overridden. RN Android hit testing only lets touches pass through disabled views, so the enabled EditText took the tap and the trigger never got `onPress`. Selects that omit `disabled` kept `readOnly` undefined and worked.
+**Fix**: On Android, `SettingsSelect` passes `disabled` only as `true` or `undefined`, preserving the default trigger's `editable={false}` when enabled. Disabled controls still receive `true`; other platforms keep their original props. Shared `Input` and `TextArea` behavior is unchanged. Verified all three chart selects and ordinary search input on an Android API 36 emulator.
+**Catchable by**: Section 8: Manual Verification (tap every Select on Android native); an explicit `false` overriding an omitted-prop default (`readOnly: false` beating `editable={false}`) is NEW — not covered
+
 ## Case: Mobile browser top chrome missed gradient pages and copied a button color (OK-65819)
 **Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser; Android/iPad bottom bar follows the top color)
 **Symptom**: On Tinyman the header stayed white, and after scroll it turned the yellow of the "Go to Tinyman v2" button. Android's bottom bar copied that color.
@@ -1128,3 +1142,570 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: #14122 moved Home token rows on every platform to NativeList `dataRow`s (icon slot, three `weight: 1` cells with a fixed 12px gap, trailing swap button, `horizontalPadding: 12`). `TokenListHeader` is a plain `ListItem` rendered through `NativeList.listHeader`; its web branch kept the pre-#14122 four-equal-column layout (`$3` gap, no leading slot, an empty fourth flex column, default `mx="$2"`), so each header cell was narrower and shifted left of the data cells. The native branch already hard-coded the native row geometry, so mobile looked fine.
 **Fix**: The header mirrors the row template per engine through `tokenListRowLayout.ts` / `tokenListRowLayout.native.ts` (`getTokenListHeaderLayout`), shares `getTokenRowIconSize` with the row config, reserves the trailing swap footprint from `withSwapAction`, and pins the geometry with `TokenListHeader.test.tsx`.
 **Catchable by**: Section 4: Business Logic & Regression — when a list migrates its rows to another rendering engine (NativeList), re-verify every sibling that hand-mirrors row geometry (headers, skeletons, footers) on each platform, not only the rows.
+
+## Case: Native chart previous-close tag drawn half a badge above its price badge
+**Date**: 2026-10-30 | **Platforms**: iOS, Android (native Skia chart, main UI runtime)
+**Symptom**: On the share 1D simple chart, the `Previous close` tag and the `$213.66` axis badge looked shifted up as a pair: the tag sat entirely above the dashed reference line while the price badge was centered on it.
+**Root Cause**: The Skia port in #14075 laid out the two halves of the reference-line label with different vertical anchors. `createPriceAxisLabelPainter` centered the axis badge on its label Y (`y - labelHeight / 2`), but `drawReferenceTitle` placed the tag at `yAtValue(price) - labelHeight`, so its bottom edge touched the line. It also used the raw line position, so the tag did not follow the badge when `getPriceAxisLabels` nudged it away from the last-price badge.
+**Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
+**Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).
+
+## Case: Native chart settings button left fullscreen on mobile
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime), mobile web (single runtime)
+**Symptom**: With a native chart fullscreen on mobile, the toolbar settings button sat right next to exit fullscreen, so a near miss left fullscreen (OK-65712). On Android and mobile web, pressing settings itself also left fullscreen.
+**Root Cause**: `TradingViewNativeContainer` hid only the in-chart settings button with `!isNativeChartFullscreen`. The toolbar placement built in `mobileSettingsControl` had no such check, so it kept rendering in fullscreen. Only iOS can push a modal over its fullscreen page; `pushTradingViewNativeFullscreenModal` returns `false` on Android and web, so those platforms fell through to `onBeforeOpenSettings`, which exited fullscreen before opening settings.
+**Fix**: Hide only the button inside the `mobileSettingsControl` wrapper while fullscreen, and remove `onBeforeOpenSettings`. The wrapper stays because a truthy control keeps the chart type and indicator actions out of the toolbar, and `mobileToolbarExtra` stays because it carries the mobile web fullscreen toggle. A `TradingViewNativeContainer` test pins the hidden button and the retained control and extras.
+**Catchable by**: NEW — when a control has several placements, apply its visibility rule to every placement, and check what else reads a prop's truthiness before clearing it. A workaround that leaves the current mode (such as exiting fullscreen to open a page) should be checked against the user's flow on each platform.
+
+## Case: Recipient pager selection echoed through native commands and initialPage
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime and its per-view native pager instance; no bg state or cross-runtime deserialization)
+**Symptom**: On Android, swiping between recipient tabs left the segmented indicator partway between tabs. Removing the echoed page command also exposed an iOS path that reapplied the selected page and detached/rebuilt its scroll observation after each swipe.
+**Root Cause**: `onPageSelected` updated `activeTab`, which triggered `setPageWithoutAnimation` during Android settling and prematurely finished the transition. Once selection refs suppressed that command, the render-derived `initialPage` still changed with `activeTab`; iOS reset `_hasAppliedInitialPage` while no page command had been received and reapplied the page during layout. A pager mock checking only imperative calls missed this prop-driven path.
+**Fix**: Record native selections to skip echoed commands, and capture `initialPage` once per `RecipientQuickSelect` mount. Keep external tab/index changes on the existing imperative synchronization path. Extend the focus suite to check stable initial props and no echoed commands across repeated iOS/Android selections, external tab changes, visible-tab index changes, and fresh mount initialization.
+**Catchable by**: Section 4: Business Logic & Regression — when removing a native synchronization command, trace both imperative commands and changing props through each platform's native implementation; assert mount-only props remain stable and controlled external updates still synchronize.
+
+## Case: Home token rows painted blank balances on first mount while All Networks loaded (OK-66042)
+**Date**: 2026-11-02 | **Platforms**: Android, iOS (native `main` UI runtime; NativeList rows; no bg state or cross-runtime copy involved)
+**Symptom**: On Android the Home token list showed `--` for balance and value on freshly mounted rows until the All Networks refresh finished, which could take several seconds.
+**Root Cause**: `NativeTokenSelectorList` builds its native list snapshot from per-row fiat that `HomeTokenCellMirror` components report through a layout effect. On a row's first mount the snapshot is built in the same render, before the mirror has reported, so the row carries no fiat. The follow-up render that would have filled it was held off by the All Networks load.
+**Fix**: When a row's mirror has not reported yet, `NativeTokenSelectorList` reads the row's cells synchronously from the token-list context store (`readHomeCellValue`, same resolution as `useTokenFiat` / `useAggregateSubTokenFiatMap`), so the first snapshot already carries the fiat. A test renders a first-mount row with an empty mirror map and asserts the balance, value, and price columns.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI — when a list snapshot depends on values reported by child effects, verify the first frame on a slow data path, not only the settled state.
+
+## Case: Home hide-value toggle lagged behind the background round trip (OK-66089)
+**Date**: 2026-11-02 | **Platforms**: Android, iOS, extension (split runtimes: `main` UI writes `settingsValuePersistAtom`, `bg` owns it and echoes the accepted value back; desktop/web single runtime unaffected)
+**Symptom**: Tapping the eye icon on Home took seconds to mask or unmask balances on Android while All Networks was refreshing.
+**Root Cause**: On split runtimes a UI-side atom `set` only proxies the write to bg and the UI repaints when bg's echo returns, so the toggle queued behind every other bg write already in flight. Review of the optimistic replacement found two follow-ups: an echo of an older write could flip the UI back after the user had already toggled again, and a bg rejection (Travel Mode blocks this atom) left the UI showing a value bg never accepted.
+**Fix**: `JotaiCrossAtom.setOptimistic` applies the value on the UI runtime first, then forwards it; `settingsValuePersistAtom` uses `deepCompare` so the equal echo is a no-op. `optimisticAtomWrites` tracks pending forwards per atom: while any are in flight, `wrapAtomPro` drops bg echoes that do not carry the newest local value, and a rejected forward restores the last value bg accepted before the error propagates. Tests cover reordered echoes and every mix of resolved and rejected writes.
+**Catchable by**: Section 5: No race conditions in async operations — for optimistic UI over a round trip, enumerate reordered echoes and rejected writes, not only the happy path; Section 1: Error cases handled.
+
+## Case: BTC history showed 0 for a transfer between the account's own addresses (OK-66077)
+**Date**: 2026-11-02 | **Platforms**: All (bg `VaultBase` history decoding for UTXO chains; the UI renders the decoded value)
+**Symptom**: Sending BTC from one of the account's addresses to another of its own fresh receive addresses produced a history row with amount 0.
+**Root Cause**: UTXO history rows render the server's `value`, which is the account's net change. When every input and output belongs to the account, the net is 0 even though an amount moved.
+**Fix**: `getUtxoHistoryDisplayValue` returns the sum of the owned outputs the server does not explicitly mark as change when the net value is 0 and both legs are the account's own; a change-only spend keeps the net value since it has no recipient. `VaultBase` uses it for `nativeAmount` and the action value. Unit tests cover the self-transfer, a non-zero value, an external leg, change-marked outputs, change-only outputs, and nothing to sum.
+**Catchable by**: Section 4: Business Logic & Regression — when displaying a server-aggregated field, test the degenerate input where the aggregation cancels out (self-transfer, round trip).
+
+## Case: Language picker modules missing native module IDs
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because SelectSearchableList.tsx, filterSelectItems.ts, localeSearch.ts, and translationKeys.ts are not in the module ID registry.
+**Root Cause**: The new language-picker files are imported by Select and the locale options, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register the four files in apps/mobile/bundle-registry/module-id-registry.json with the existing module ID allocator.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Wide iPad language search used the anchored layout inside a sheet
+**Date**: 2026-11-02 | **Platforms**: iPad Settings (native main UI). Phone sheets and triggered wide panels are unchanged.
+**Symptom**: On iPad Settings the language picker is a sheet, but the search field autofocused at the small size and the list used a fixed 360-point height, leaving empty sheet space.
+**Root Cause**: Search layout followed window width. iPad Settings clamps Tamagui `md`, so Select passes no popover trigger and the native popover stays a sheet even when the window is at least 768 points wide.
+**Fix**: Treat the search UI as a sheet unless a popover trigger exists and the window is expanded, matching native anchoring. Include that flag in the open content memo so a web resize does not keep the previous layout.
+**Catchable by**: Section 3: a layout mode must follow the presentation the host actually mounts, not only the window width; Section 4: logic moved into a memo must keep the condition that changes while the memo stays mounted.
+
+## Case: Mobile stock sharing used the selected token URL (OK-66105)
+**Date**: 2026-11-02 | **Platforms**: iOS/Android main UI runtime and compact Web/Desktop headers; verified on iOS and Desktop
+**Symptom**: Sharing a stock detail page produced `/market/token/bsc/<contract>` instead of `/market/stock/AAPL`, including chain parameters and tying the link to one token variant.
+**Root Cause**: The native share handler always built a token URL from the network and contract, and the compact header did not pass the listing stock ID to the existing stock-aware ShareButton. Sharing availability also depended on token metadata even when the stock identity was already known.
+**Fix**: Build the native stock link from the listing ID with the existing stock URL helper, pass that ID to the compact ShareButton, and allow sharing before token metadata resolves. Preserve ordinary token sharing. Regression tests cover iOS 26, other native headers, and compact Web headers before and after token resolution; real Desktop and iOS clipboard checks confirmed stock URLs.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI — distinguish a stock listing identity from its selected token variant; Section 6: Verify the actual shared URL before and after asynchronous token metadata resolves, including ordinary-token regression cases.
+
+## Case: Stock detail charts mounted with a temporary Token Price default (OK-66069)
+**Date**: 2026-11-02 | **Platforms**: Desktop/Web single JS runtime and iOS/Android main UI runtime; verified on Desktop and iOS; no native resource ownership changes
+**Symptom**: On a cold stock detail entry, the page first showed Token Price and then switched to Share Price. On iOS, the price buttons could remain correctly unselected while the Simple chart still loaded token data before redrawing with share data.
+**Root Cause**: The shared price-source state temporarily returned token mode while the stock status request was pending and already exposed `isPriceSourceReady`. Desktop price/chart content and mobile Simple/Pro chart owners ignored that readiness flag. Guarding only the mobile price header did not prevent chart children from mounting with the temporary source. On native, this readiness belongs to the main UI runtime while responses arrive asynchronously from the isolated bg runtime.
+**Fix**: Wait for price-source readiness before mounting desktop price/chart content or either mobile chart mode, reserve a loading area, and keep mobile token chart price updates inactive during the wait. Preserve the existing resolved market defaults, error fallback, and manual selections. Tests cover open, closed, and failed responses across Simple, native Pro, and WebView Pro paths; delayed real responses on Desktop and iOS confirmed the first mounted chart used Share Price.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: Distinguish unresolved asynchronous state from a valid default; Section 6: Assert that dependent charts do not mount before readiness, then mount with the resolved source; Section 8: Verify cold-cache transitions on the real platforms, including both mobile chart modes.
+
+## Case: Referral reward scopes silent on wide native
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime; wide layout when `gtMd` is true, including tablets)
+**Symptom**: On a wide native device, tapping "Learn more" on the empty referral earnings card and the product-row info icons did nothing. The server-provided reward scope descriptions never appeared.
+**Root Cause**: Both entry points render `Tooltip` when `gtMd` is true. Native `Tooltip` returns only `renderTrigger` and never shows `renderContent`, so the descriptions were unreachable on tablets and other wide native layouts. Narrow native already used `Popover`.
+**Fix**: Use `Popover` on native at every width for the Learn more hint and for `InfoIcon` (product-row icons and the other info icons that share it). Web and desktop wide layouts still use `Tooltip`. Regression tests cover native and non-native, wide and compact, for both entry points.
+**Catchable by**: Section 3: Cross-Platform Impact — a `gtMd` Tooltip branch must be checked against the native Tooltip implementation, which does not display content.
+
+## Case: Language search pulled the translations enum into the web startup graph
+**Date**: 2026-11-02 | **Platforms**: Web (single JS runtime, cold startup graph). Desktop, extension, and native bundles do not use this forbidden-module check.
+**Symptom**: The Web CI job failed because `packages/shared/src/locale/enum/translations.ts` was in the cold startup graph.
+**Root Cause**: Select's search filter imported `localeSearch.ts`, and the web locale barrel re-exported that module plus `isKnownTranslationKey`. `isKnownTranslationKey` calls `Object.values(ETranslations)`, which the web inline-translations transform cannot erase. The error toast container is mounted at startup and was that call's sync importer.
+**Fix**: Move text normalization into `normalizeSearchText.ts` and point Select at that file. Stop re-exporting `localeSearch` and `isKnownTranslationKey` from the web locale barrel. The startup toast checks the active catalog instead of the enum. Register `normalizeSearchText.ts` for the native bundle.
+**Catchable by**: Section 3: a module imported by startup UI must not import `translations.ts` unless every member access is a static `ETranslations.*` that the web inline transform removes; Section 4: a new shared helper used by Select or the app shell has to be checked against the web startup graph, not only the screen that owns the feature.
+
+## Case: Cancelled biometric backup enrollment could never retry (OK-65971)
+**Date**: 2026-11-03 | **Platforms**: iOS, Android (bg owns the cache and mutex; main calls the background proxy from a separate JS runtime; native SecureStore resources are shared)
+**Symptom**: Cancelling biometric enrollment during backup or first restore left that record on password-only recovery, even after a later correct-password restore.
+**Root Cause**: The cache journals a key reference before authenticated native creation. Cancellation leaves a pending entry without ciphertext; reads ignore it, while the old write path rejected every existing entry. Rotating the service on each retry would also accumulate Android Keystore wrapping aliases because Expo value deletion retains those aliases.
+**Fix**: Retry only pending entries after verified backup or manual decryption. Under the existing mutex, reject shared references, remove the old protected value, verify persistence, retain its dedicated authenticated service, and write fresh random recovery-key material. Preserve complete pairings and reset/erasure barriers. Regression tests cover cancellation, cold retries, correct-password boundaries, persistence failures, isolation, concurrency, and bounded service aliases; native device acceptance remains required.
+**Catchable by**: Section 4: Business Logic & Regression — distinguish interrupted journals from complete records and trace native resource deletion semantics; Section 5: No race conditions in async operations; Section 6: Cover cancellation, cold retry, persistence failure, and reset ordering.
+
+## Case: Portfolio sync silently stopped after a hardware mnemonic change
+**Date**: 2026-11-04 | **Platforms**: iOS, Android, extension (identity state and sync generation belong to bg; main invokes the service across isolated JS heaps); desktop and web use a single JS runtime
+**Symptom**: After resetting a hardware wallet and importing a different mnemonic without recreating its App wallet, manual Portfolio sync stopped without an error.
+**Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
+**Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
+**Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.
+
+## Case: Perps chart defaults disagreed with the intended native chart mode (OK-66019)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop UI and iOS/Android main UI; no native resource changes
+**Symptom**: A fresh or older settings record without a chart mode opened TradingView instead of the native chart. Changing only the initial setting would still leave legacy records and the first toggle inconsistent.
+**Root Cause**: The settings atom, chart renderer fallback, mobile chart layout fallback, and missing-value toggle behavior all assumed TradingView as the default.
+**Fix**: Default all three owners to native and treat an absent saved mode as native when toggling. Preserve explicit saved choices. Existing PerpCandles tests cover missing settings, explicit overrides, and switching modes.
+**Catchable by**: Section 4: Business Logic & Regression — when changing a persisted default, test fresh settings, older records without the field, explicit saved choices, and the first interaction.
+
+## Case: Ordinary orders exposed the position TP/SL order link (OK-66078)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop wide position rows and native main UI where the wide row is rendered
+**Symptom**: An ordinary open order for the same coin caused the position TP/SL cell to show an order link even though no partial TP/SL order existed.
+**Root Cause**: The row treated every non-position TP/SL order as a partial TP/SL candidate without checking reduce-only status and the recognized TP/SL kind.
+**Fix**: Require both reduceOnly and getTpSlKind before setting hasNonPositionTpslOrder. Existing PositionsRow tests distinguish ordinary orders, partial TP/SL orders, and position TP/SL orders.
+**Catchable by**: Section 4: Business Logic & Regression — exercise sibling order types sharing the same coin before deriving a feature-specific action from a common order list.
+
+## Case: Reversal trade sharing did not match Hyperliquid (OK-65718)
+**Date**: 2026-11-04 | **Platforms**: Shared UI hook on Web/Desktop and iOS/Android main UI; tested with the Web Jest preset, not device acceptance
+**Symptom**: Reversal shares showed zero entry price and return. Using only the closed quantity and prorating the fee produced values that differed from Hyperliquid and a net PnL that differed from the trade history row.
+**Root Cause**: Entry-price reconstruction did not recognize Long > Short and Short > Long. Splitting the fill into closed and opened legs also introduced a different display convention from Hyperliquid's full-fill trade sharing.
+**Fix**: Recognize both reversal directions while retaining the full fill size for entry price and return calculations and deducting the full fill fee. This intentionally follows Hyperliquid's trade-sharing convention, rather than reconstructing the closed position's cost basis. With fill size 5, gross PnL 20, fee 1 and leverage 10, the long-to-short example at price 110 shares net PnL 19, entry price 106 and return 35.85%; the short-to-long example at price 90 shares net PnL 19, entry price 94 and return 40.43%. Ordinary-close tests retain full-fee deductions.
+**Catchable by**: Section 4: Business Logic & Regression — verify reference-product formulas and keep trade-history and share amounts consistent before adopting a different accounting convention from review feedback.
+**Reference**: Hyperliquid production `config-BUOnMMpI.js` (`l4`, `u4`, `Vse`) and `ShareModal-CdPBXUc8.js`, inspected 2026-11-04 at https://app.hyperliquid.xyz/assets/config-BUOnMMpI.js and https://app.hyperliquid.xyz/assets/ShareModal-CdPBXUc8.js. Synthetic inputs executed against the extracted production row function confirm the values above.
+
+## Case: Mobile stock trade modals showed a redundant K-line button (OK-66221)
+**Date**: 2026-11-04 | **Platforms**: iOS and Android (main UI runtime)
+**Symptom**: Opening Buy or Sell from Market stock details displayed a K-line button in the Stock trade modal.
+**Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
+**Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
+**Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.
+
+## Case: Missing Perps account blocked Portfolio sync
+**Date**: 2026-11-05 | **Platforms**: iOS, Android, and extension background runtime; desktop and web single runtime. The account lookup runs in the service that builds the Portfolio category payload.
+**Symptom**: Manual Portfolio sync never uploaded when the indexed account had no Perps network account. Home treated Perps as unknown instead of zero.
+**Root Cause**: `localDb.getAccount` throws `OneKeyLocalError('Account not found')` before `getNetworkAccount` can throw `indexedAccounts not found`. The category fetch only treated the latter message as a confirmed empty Perps balance, so the real missing-account error stayed unknown and blocked upload.
+**Fix**: Treat both confirmed local lookup misses as zero Perps equity, and leave other lookup failures unknown. Regression tests cover the uncreated Perps account, the indexed-account miss, and unrelated not-found errors.
+**Catchable by**: Section 4: Business Logic & Regression — trace the thrown error from the missing DB record, not only the error the caller expected; Section 6: A bug fix includes a regression test for the confirmed empty case and for nearby errors that must stay unknown.
+
+## Case: Chart settings dialog flashed on Reset (OK-66403)
+**Date**: 2026-11-05 | **Platforms**: Shared chart settings dialog (Market / Swap / Perps) on Web/Desktop single runtime and extension/iOS/Android main UI; verified on Web. No native resource changes.
+**Symptom**: Pressing Reset in Chart settings made the whole dialog flash: for 2-3 frames every control turned disabled, Confirm showed a spinner and the header close button disappeared.
+**Root Cause**: Reset reused Confirm's `commitValue`, which toggles the dialog-wide submitting state. Persisting local defaults resolves within a frame or two, so the state flipped on and straight back off. The first fix kept controls editable during the save, but `commitSettingsValue()` committed the current draft rather than the persisted defaults, so an edit made before the save resolved was marked as saved and then overwritten by the controlled value refresh.
+**Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
+**Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
+
+## Case: Menu bar tray kept showing balances after the client hid values (OK-56225)
+**Date**: 2026-11-05 | **Platforms**: Desktop macOS. The main window is a single JS runtime; the menu bar tray panel is a separate Electron renderer with no background API and no jotai hydration, fed only by the payload the main window sends through the main process cache.
+**Symptom**: With the home balance switched to `****`, the menu bar panel still showed the total balance and pending transaction amounts.
+**Root Cause**: The hide-value setting lives in the main window's jotai store. The tray payload had no field for it, the main-window provider neither read the setting nor re-sent on a toggle, and the tray rendered the amounts unconditionally.
+**Fix**: Carry `hideValue` on every tray payload, stamped when the payload is sent, and re-deliver the last payload as soon as the setting flips instead of waiting for a gather that needs the network and may fail. The tray masks the total as `****` and pending amounts as `**** SYMBOL`, the same rules as the home total and history rows; market quotes stay visible. Regression tests cover the sender (stamp at send time, immediate re-delivery, error and locked placeholders, reset) and the rendered tray panel (hidden, visible, live toggle).
+**Catchable by**: Section 3: Cross-Platform Impact — list every window and runtime that renders the same data before treating a display setting as global; Section 4: Business Logic & Regression — a privacy toggle must be checked on each surface that shows the value, including ones that receive a copied snapshot.
+
+## Case: Perps indicator reset removed default volume (OK-66449)
+**Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
+**Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
+**Root Cause**: Reset used generic inactive indicator defaults without the Perps storage namespace.
+**Fix**: Pass the namespace through reset and enable VOL only for Perps defaults. Regression tests and Web reset/refresh verification cover persistence and unchanged market/swap defaults.
+**Catchable by**: Section 4: Business Logic & Regression — module defaults must survive shared reset flows.
+
+## Case: Empty desktop order headers could not scroll (OK-65891)
+**Date**: 2026-11-06 | **Platforms**: Desktop/Web single runtime; verified in Web.
+**Symptom**: Narrow or zoomed empty order tables clipped rightmost columns with no way to reach them.
+**Root Cause**: The empty state had no body scroller, and the separate header scroller was disabled.
+**Fix**: Enable horizontal header scrolling only for the desktop empty state. Hide the scroll indicator to match the existing table presentation. Web verification covers reaching the final columns while the empty state and fixed actions stay in place.
+**Catchable by**: Section 8: Manual Verification — test empty and populated layouts at constrained widths.
+
+## Case: Historical trade shares skipped current-position leverage (OK-65726)
+**Date**: 2026-11-06 | **Platforms**: Shared main UI on mobile/extension and single-runtime desktop/Web.
+**Symptom**: Share leverage and ROE differed from Hyperliquid when current-position leverage differed from the cached setting.
+**Root Cause**: The lookup started with last-used leverage and omitted the matching current position.
+**Fix**: Prefer account-scoped same-coin position leverage before last-used and maximum-leverage fallbacks. Regression tests cover precedence and unrelated coins. This aligns the accepted Hyperliquid display convention, not historical execution leverage; fills do not provide that field.
+**Catchable by**: Section 4: Data flow end-to-end — verify the reference product's data precedence and distinguish current state from historical facts.
+
+## Case: Perps interval switches remounted the native canvas (OK-65650)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main chart UI and UI worklet; bg is not involved. Direct device verification uses iOS Simulator.
+**Symptom**: Switching intervals briefly blanked the full plot. Retaining the canvas then exposed a fullscreen handoff regression: returning after changing interval reset the adopted viewport again.
+**Root Cause**: The interval in the React key remounted the canvas. The retained inline canvas later compared stale pre-fullscreen props and overwrote the fullscreen runtime after handoff. Price controls also assumed every interval change meant automatic/linear mode.
+**Fix**: Retain the native Perps canvas, reset runtime for a genuinely different interval, and check the actual UI runtime interval after handoff before resetting. Synchronize controls from the runtime's actual scale state. Component lifecycle tests cover candle replacement, ordinary interval reset, and preservation of the fullscreen viewport and price scale. The transient flash has iOS recording evidence; prolonged loading remains unverified. Android jitter (OK-65337) is associated only as a suspected common cause, not a successfully reproduced or verified fix.
+**Catchable by**: Section 5: No stale state after parent transitions — test fullscreen interval changes and exit, including queued UI ownership transfer, rather than only mounting or resizing a canvas.
+
+## Case: Perps showed an extra chart selector while TradingView loaded (OK-66555)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI; verified on iOS Simulator. No bg or shared native resource changes.
+**Symptom**: Switching from Original to TradingView briefly showed a standalone TradingView dropdown above the loading chart.
+**Root Cause**: The Perps wrapper passed a loading-only chart selector through `mobileToolbarExtra`, outside the normal toolbar readiness visibility gate.
+**Fix**: Remove that extra selector and its import. Keep a settings icon accessible before readiness, with a chart-switch-only menu so stalled or failed TV loading does not trap users. Hide full settings and chart style until readiness. Regression coverage includes a chart that never becomes ready and switching after closing the recovery dialog. iOS verification covers the visible before/after loading state, delayed local chart loading, rendered candles after recovery, and switching back to Original while TV remains stalled; Android device verification remains for QA.
+**Catchable by**: Section 8: Manual Verification — inspect loading and ready states separately when moving controls into a settings menu.
+
+## Case: Lite backup completion outlived its owning dialog
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and asynchronous bg wallet service. The process-owned native NFC operation can finish after the main UI owner unmounts; the two JS heaps are separate.
+**Symptom**: Closing a parent menu cancelled a pending Lite operation. If a native backup then completed, the card could contain the backup while the wallet remained marked unbacked up. Retrying a failed first write could also reuse stale new-card state after PIN initialization.
+**Root Cause**: React parent dismissal unmounted the operation owner, UI cancellation discarded the native result, and retries assumed the first card state was still current.
+**Fix**: Keep the owning parent mounted until the operation settles, settle UI cancellation once, refresh card state on retry, retain card identity and request overwrite confirmation. Persist backup status inside the native write callback only for an error-free true result with the expected serial and captured wallet ID; gate subsequent UI on the owner still being mounted. Focused hook tests cover successful completion after unmount/cancellation and reject errors, false results and other-card results. Physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: Trace native completion through UI cancellation and bg persistence; test an owner unmount before native success and stale card state after a failed first write.
+
+## Case: Closing a lower iOS dialog blurred an independent upper overlay
+**Date**: 2026-11-06 | **Platforms**: iOS main UI runtime and process-owned native overlay windows. Android and Web/Desktop keyboard behavior is unchanged.
+**Symptom**: Closing a lower dialog dismissed the keyboard and blurred an input in an independent upper overlay window.
+**Root Cause**: Both dialog close paths requested a delayed global keyboard dismissal, which could target another native window's first responder after the lower dialog closed.
+**Fix**: Skip the two global keyboard dismissals on iOS and let the closing entry release its own input. Add independent overlay, handoff and reopening scenarios to the existing Gallery. Focused dialog tests check both close paths on iOS and retain non-iOS dismissal. Native/device keyboard acceptance remains open.
+**Catchable by**: Sections 3, 5 and 8: Check global input side effects against independently owned windows and verify focus while closing a lower overlay with an upper input active.
+
+
+## Case: Lite PIN changes checked card identity after mutation
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and process-owned native NFC operation; no bg heap sharing is assumed.
+**Symptom**: Verifying the old PIN on card A and presenting card B with the same PIN could change B's PIN before the App reported a card mismatch.
+**Root Cause**: The native changePin call did not receive the verified serial; the App's result handler compared card identity only after the write.
+**Fix**: Forward the verified serial to the SDK. On Android, validate the acquired card state and mutate through the same connection. On iOS, refresh card identity before PIN dispatch and claim the pending completion with its identity snapshot so a late connection after cancellation cannot become unguarded. Reuse DeviceMismatch and require native rebuilds. Focused App, wrapper and native host regressions cover forwarding, mismatch rejection, V1/V2 and cancellation; physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: A device identity used to authorize mutation must be checked before the mutation on the same native resource; result validation alone cannot undo a wrong-device write.
+
+## Case: Email signup rejection disappeared with the Toast and hid later OTP errors (OK-65956)
+**Date**: 2026-11-06 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI; the error metadata also survives background bridge serialization. No native resource ownership changes.
+**Symptom**: New email users could miss the signup-disabled Toast while checking their inbox. Persisting the existing-account guidance in the verification error slot then hid invalid-code and network errors when users submitted an earlier OTP.
+**Root Cause**: The OTP request wrapper discarded the SDK error code, and failed sends reset the inline error state. The initial persistent-guidance implementation prioritized the send rejection over independent verification failures.
+**Fix**: Preserve the exact Supabase code in local error metadata, retain the existing Toast, and render the existing localized signup guidance independently from verification errors. Keep the guidance during edits and failed retries; clear it on successful send/login or a new email, configuration, or sign-in method. Regression tests cover structured matching, serialization, both visible errors, editing only the verification error away, recovery, and stale requests. Real-client acceptance remains open.
+**Catchable by**: Sections 4-6: Trace structured errors through wrappers to the UI and test sequential failures from different operations; retaining one diagnostic must not hide another operation's actionable error.
+
+## Case: Market tabs jumped when their sticky headers had different heights (OK-63910, OK-65972)
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. Background initialization and data ownership are outside this layout path.
+**Symptom**: When switching from Trending to empty Favorites, the outgoing list moved up by 88 pt before the page changed. Switching between Financials and My Positions on a stock detail page shifted the incoming content by 44 pt after it appeared.
+**Root Cause**: A shared sticky header height drove the native scroll inset. Its update could precede or follow the native page switch, so one page temporarily used the other page's height.
+**Fix**: App-modules #221 lets the iOS Pager apply the destination page's inset before display. The app supplies each tab's height and keeps the home header aligned with the page the Pager is displaying. Focused Jest tests cover the destination height and the source header before selection completes. A local native build verified both transitions on the iOS simulator with empty Favorites and empty positions. Simulator retesting with the published SDK is pending.
+**Catchable by**: Sections 5, 6 and 8: Check the ordering of native page selection and header updates, and inspect the first visible frame in both directions when tabs have different heights.
+
+## Case: Market destination empty rows used the source tab height
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. The background runtime is outside this layout path.
+**Symptom**: When switching from Favorites to Trending, the destination no-match or retry row was 88 pt taller until the native page-selection callback.
+**Root Cause**: The lists shared an available height based on the displayed tab's sticky header even after the Pager received heights for each page.
+**Fix**: Derive each iOS list's available height from the same per-page sticky header height as the Pager. The regression checks the rendered row snapshot before and after native selection for both states.
+**Catchable by**: Sections 5 and 6: Check destination list geometry independently of the displayed header when switching between tabs with different heights.
+
+## Case: Extracted privacy sync effects blocked strict native bundling
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. The effects run in the main UI runtime and report network changes through the background bridge; native wake-lock ownership and separate main/bg JS heaps are unchanged. Web/Desktop single-runtime and extension bundling do not use this native registry.
+**Symptom**: The Native CI job failed before producing its startup reports after the floating privacy sync indicator was replaced with a nonvisual effects component.
+**Root Cause**: The new PrivacyChainSyncEffects.tsx import entered the native graph without a stable module ID; the registry still contained only the removed PrivacyChainSyncLight.tsx path.
+**Fix**: Register the new module through the existing allocator and add a strict-registry regression test that fails without the entry. Split threshold loading, network reporting and wake-lock cleanup into scoped hooks without changing their behavior. Focused tests pass; the local full native graph build remains blocked by external symlinked dependencies, so the remote Native job must confirm full bundling after push.
+**Catchable by**: Sections 3, 4 and 6: When extracting a shared component, verify the strict native registry as well as its runtime behavior; add a regression test for the new imported path.
+
+## Case: Removing a floating sync panel removed the chain pause entry
+**Date**: 2026-11-09 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI through the existing background service bridge. Native resource ownership and separate main/bg heaps are unchanged.
+**Symptom**: After the global privacy sync panel was removed, an active chain had no UI action that could pause scanning across page visits. Settings retained only chain Resume and separate account Pause controls.
+**Root Cause**: The deleted panel was the only foreground caller of pauseLocalWalletScan. Account pause changes account participation and does not set the persisted network pause flag.
+**Fix**: Add Pause beside the existing settings status for active unfinished chains, retain Resume for a paused chain, and reuse the existing background operations. Keep busy state and an immediate re-entry guard; render the resulting state only from background publication. Show the existing localized error Toast when either chain action fails so the unchanged scan state is explained. Tests cover network scoping, account controls, paused/resumed publication, pending and failed requests, retry, and available-state boundaries. Native-device interaction remains unverified.
+**Catchable by**: Sections 4-6: Before removing a UI surface, trace every action to its last remaining caller and distinguish account-level controls from network-level controls; test reachable actions as well as rendered status.
+
+## Case: Privacy account management modules were missing from the native registry (OK-66558)
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
+**Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.
+**Root Cause**: Both new module paths entered the mobile graph without stable IDs in the strict native module registry.
+**Fix**: Register both modules with the official allocator and add strict module-lookup regressions. Preserve the existing account-name display, chain identity and account-specific callbacks. Full native bundling requires CI confirmation after push.
+**Catchable by**: Sections 3, 4 and 6: Verify strict native module registration when extracting shared components, even when their web preview and component tests pass.
+
+## Case: Privacy account preview ignored the active locale (OK-66558)
+**Date**: 2026-11-09 | **Platforms**: Developer gallery on Web/Desktop and mobile main UI. No background or native-resource changes.
+**Symptom**: Scenario controls, fixture names, explanatory copy and gallery navigation stayed English when the active language changed.
+**Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
+**Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
+**Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.
+
+## Case: Wallet selector positioned only against its first viewport (OK-64041)
+**Date**: 2026-11-09 | **Platforms**: Desktop/Web single JS runtime; mobile selector UI main with a native list instance per view. Background initialization and wallet-data ownership are unchanged.
+**Symptom**: The selected last wallet could be outside the visible list after the selector's measured viewport shrank following its first positioning request.
+**Root Cause**: A once-only flag suppressed subsequent positioning after layout changed. The SDK's oversized-group alignment calculation is a separate concern and does not replay successful requests on resize.
+**Fix**: Track nonzero list dimensions and reissue the existing wallet/group target after layout changes, deduplicating unchanged requests. Cancel queued frames after input, selection changes, blur or unmount. Committed component regressions cover viewport shrink, deduplication and cancellation; latest complete-App visual and native touch/rotation acceptance remain open.
+**Catchable by**: Sections 5, 6 and 8: Test layout changes after an initial positioning succeeds, cancellation before its queued frame runs, and user control after resize.
+
+## Case: WalletConnect namespace approval mismatch
+**Date**: 2026-10-31 | **Platforms**: iOS (reproduced); Android, Desktop, Web, Extension (shared WalletConnect service)
+**Symptom**: OpenRouter/Coinbase connection approval returned to Home with an SDK `Unsupported events` error. Proposals requiring EVM also omitted optional Algorand from the session despite offering its account in the approval UI.
+**Root Cause**: Account selection skipped unsupported namespaces, but approval construction retained them with undefined events. When required namespaces were present, another filter removed optional namespaces that were absent from the required set, including supported Algorand.
+**Fix**: Filter approval namespaces by the wallet's supported implementation map and process all optional namespaces while retaining unsupported-chain filtering. Required namespace validation remains in place.
+**Catchable by**: Section 4: data flow end-to-end; regression tests must cover unsupported optional namespaces and supported optional namespaces alongside a different required namespace, checking both approved accounts and real SDK validation.
+
+## Case: WalletConnect inherited namespace keys
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Proposals with required EVM and optional `toString`, `constructor`, or `__proto__` passed SDK proposal validation but produced invalid approval namespaces and extra unsupported account selectors.
+**Root Cause**: Support checks read ordinary object properties without checking ownership. Inherited functions were treated as supported implementations and methods/events; assigning `__proto__` also changed the approval result object's prototype.
+**Fix**: Reuse an own-property-checked implementation lookup for approval account selection and namespace construction. Unsupported required namespaces are rejected and unsupported optional namespaces are omitted before accessing methods/events.
+**Catchable by**: Section 4: data flow end-to-end; test inherited property names as external keys, assert account selection and result prototype, and validate the resulting session with the real SDK.
+
+## Case: WalletConnect optional namespace without supported chains
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Required EVM with optional Algorand on unsupported chains produced an Algorand account selector with no available network IDs and an empty Algorand approval namespace. The account selector's empty network list falls back to all networks.
+**Root Cause**: Optional namespace support was checked by implementation alone; neither account selection nor approval construction required a usable supported chain. The SDK validators accept an empty optional namespace, so validator-only assertions missed the issue.
+**Fix**: Omit optional account selectors without supported networks and only write optional approval namespaces with at least one merged supported chain and a matching non-empty account address. Preserve required namespace processing and supported optional chains.
+**Catchable by**: Section 4: data flow end-to-end; assert UI account-selection inputs and exact namespace keys for all-unsupported, partially supported, and missing-account cases in addition to real SDK validation.
+
+## Case: Invisible browser translation action (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime); no background or native-resource ownership changes.
+**Symptom**: The browser translation sheet had a blank action area, but tapping it still opened the OneKey ID sign-in gate on iOS.
+**Root Cause**: The mobile browser capsule supplied GlassHeaderContext to the native popover content. Button removed its primary background for glass chrome while the translation label retained its inverse color on the light sheet.
+**Fix**: Reset the glass-header context at the native popover content boundary for both sheet and anchored presentations, retaining the trigger's context and existing action handler. Desktop/Web popover implementations are unchanged.
+**Catchable by**: Sections 3, 6 and 8: Test overlay context isolation from glass triggers and verify visible action contrast, not only hit targets or accessibility labels.
+
+## Case: Excess translation sheet title spacing (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime).
+**Symptom**: The mobile translation sheet had excessive space between its title and the target-language row.
+**Root Cause**: The content's uniform `$5` padding added another full top inset below the native sheet header's existing bottom padding.
+**Fix**: Use `$2` content top padding on native, matching the translation settings view. Preserve `$5` horizontal/bottom padding and all non-native padding.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered native sheet, not each container in isolation.
+
+## Case: Native popover close lifecycle suite cannot load (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: Jest Web preset testing native overlay components; no production runtime changes.
+**Symptom**: CI unit-test shard 1 failed before running the native close lifecycle suite, while the focused translation and context-isolation tests passed.
+**Root Cause**: Importing GlassHeaderProvider from the native popover also imports navigation and native layout dependencies. The existing close lifecycle suite did not mock them, so Jest attempted to execute the untransformed ESM entry of @react-navigation/elements.
+**Fix**: Add the same navigation, safe-area and foldable-device mocks used by the neighboring native popover suites, keeping the real glass context and all lifecycle assertions.
+**Catchable by**: Sections 4 and 6: Run existing consumer suites when introducing a transitive dependency, not only the newly added regression tests.
+
+## Case: Universal Search table headers used a different background (OK-66871)
+**Date**: 2026-11-10 | **Platforms**: Universal Search UI on desktop/web (single JS runtime) and mobile (main runtime).
+**Symptom**: The table headers in All, Tokens, and Stocks appeared against a different surface from the search page.
+**Root Cause**: The shared selectors used their own table header backgrounds, while Universal Search used `$bgApp` for the page.
+**Fix**: Pass `$bgApp` to the search result headers and keep the stock selector's default `$bg`. Update the existing stock selector test to expect the explicit default background.
+**Catchable by**: Check sticky header contrast against the enclosing surface in each results tab, and run the existing tests for shared selectors when adding a default prop.
+
+## Case: Mobile Stocks order history tab was missing (OK-66882)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android (main UI and background swap history service).
+**Symptom**: Mobile Stocks showed positions and a pending-order preview, with no tab for browsing completed orders.
+**Root Cause**: The mobile layout rendered positions directly without mounting the stock history list or providing a way to switch to it.
+**Fix**: Restore the Positions and Order History tabs and show the pending preview only on Positions. Use a stock-scoped clear action that also filters queued history writes for the same scope.
+**Catchable by**: Verify both tabs on mobile with pending and completed orders, and test clearing stock history while a write is queued and other swap history exists.
+
+## Case: Perps deposit reused Solana payer and amount after switching to ETH (OK-66646)
+**Date**: 2026-11-10 | **Platforms**: Desktop/Web single-runtime UI hooks; reproduced and manually regressed on desktop.
+**Symptom**: Switching a Perps deposit from Solana USDC to native ETH sent the old Solana payer address and USDC quantity in an Ethereum quote, producing an invalid-address error.
+**Root Cause**: The account promise retained its previous result until the new network account resolved. The amount reset ran in a passive effect, while the amount-only debounce retained the previous token's quantity for 800ms.
+**Fix**: Bind account results to the selected account/network scope, reset amount state with token identity before effects run, and accept debounced amounts only when both token identity and amount match the current input.
+**Catchable by**: Test the real deposit and amount hooks together with delayed account resolution and fake timers. Assert that Solana USDC to ETH, account switches, same-network token switches, and rapid token round trips never quote with a stale payer or quantity.
+
+## Case: Native Buy kept a Processing order after the payment page failed to load (OK-66774)
+**Date**: 2026-11-10 | **Platforms**: iOS native Buy (main runtime classifies the checkout failure, background runtime stores the order). Android, desktop, web and extension have no in-app checkout and are unaffected.
+**Symptom**: A Paybis checkout whose payment web view failed on an SSL error left an order shown as Processing, and the page sent the user to that order instead of offering a retry.
+**Root Cause**: Onramper SDK 1.3.1 reports every failure of the provider's payment surface as `providerFailed` (payment outcome unknown), including a web view that never loaded. The client kept every such order for tracking.
+**Fix**: Read a `providerFailed` as a page load failure only when the failure carries a load error (support code `NSURLErrorDomain/<code>` other than cancelled, or the page's own `load_error`) and the web view had not reported ready. That hidden order is dropped and the page offers an in-place retry; a failure without a load error stays tracked as outcome unknown. The first version of the fix inferred the load failure from a missing `providerReady` alone, which review rejected: a provider page is not bound to report readiness.
+**Catchable by**: Section 4: Edge cases — error states of a third-party surface. Decide an outcome that drops a payment record on positive evidence from the failure, never on an event that did not arrive.
+
+## Case: Bulk Send random amounts did nothing with only the max entered (OK-66698)
+**Date**: 2026-11-10 | **Platforms**: Bulk Send amounts page on desktop/web (single JS runtime), extension and mobile (main UI runtime). No background or native-resource changes.
+**Symptom**: In ManyToOne / ManyToMany range mode, entering only the max generated no amounts, showed no error and kept Review disabled.
+**Root Cause**: Range validity and generation both required a non-empty min, while these modes start with both inputs empty and the "0" placeholder reads as an already-filled min.
+**Fix**: Treat an empty min as the chain minimum transfer amount, or the smallest token unit when the chain defines none, in validation, validity and generation. Review follow-up: an amount that display rounding would drop below a lower bound it met keeps that bound's precision (chain minimum 5.46 with an integer max formatted 5.68 as "5"), and a shared OneToMany balance must cover the chain minimum for every transfer instead of only one. Second review round: that kept precision is capped at the token's decimals (a min of 1.12345678 on a 6-decimal token produced an 8-decimal amount), and a range entered before the vault settings load is revalidated and regenerated once the chain minimum arrives, in both the mobile preview and the desktop table.
+**Catchable by**: Sections 4 and 6: When an input becomes optional, test the fallback value through every later step (rounding, balance caps) against chain limits, including a decimal chain minimum with an integer input, a balance below minimum × transfer count, an input finer than the token's decimals, and a fallback read before its async source resolves.
+
+## Case: Native Buy rate and fee popovers doubled the gap under the title (OK-66874)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime), where the popover presents as a sheet. The anchored panel on expanded windows is unchanged.
+**Symptom**: The rate and fee explainer sheets left too much space between the title and the body.
+**Root Cause**: The body's uniform `$5` padding added a full top inset below the sheet header's own bottom padding.
+**Fix**: Share one `InfoPopoverContent` body that pads its top only in the anchored panel, which has no header, and keeps `$5` horizontal/bottom padding everywhere.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered sheet, not each container in isolation (same pattern as the OK-66811 translation sheet).
+
+
+## Case: Cloud sync device names depended on cached hardware labels
+**Date**: 2026-11-10 | **Platforms**: Desktop/web (single JS runtime); mobile/extension hardware work stays in bg and the existing persisted-atom bridge updates main UI. SDK and native resource ownership are unchanged.
+**Symptom**: Cloud sync could show a custom label such as fido88 instead of the Bluetooth name Neo 1797, and a saved label fallback could become stale after a rename.
+**Root Cause**: Cloud copied the label-first device display name from an SDK runtime snapshot, while V2 label reads use the settings scope. Its saved display metadata was not updated by existing wallet label changes.
+**Fix**: Prefer the canonical Bluetooth name, retain label/model fallbacks, and read settings only when no Bluetooth name is available. Reuse label updates only after matching the standard wallet identity, and refresh display metadata after a Cloud key reset. A saved Bluetooth name skips label lookups and extra hardware reads.
+**Catchable by**: Sections 4 and 6: Exercise both label and Bluetooth name together, all empty Bluetooth-name variants, stale cached labels, unrelated wallet identities, and assertions on hardware-call counts.
+
+## Case: Optional Cloud label refresh blocked hardware signing
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background flow; desktop/web use one JS runtime, while mobile/extension use isolated bg and main runtimes. No native-resource or JS heap ownership changes.
+**Symptom**: A device without a Bluetooth name could no longer enable or reset Cloud sync if the new settings read failed, even though its standard-wallet runtime state and cached label were already valid.
+**Root Cause**: A display-only enrichment call was awaited as a required prerequisite to signing, and its error escaped the validated standard-wallet flow.
+**Fix**: Keep the validated runtime snapshot when a recoverable settings refresh fails, log the sanitized failure, and preserve operation/lease cancellation and explicit hardware or PIN cancellation. The existing live identity checks still gate signing.
+**Catchable by**: Sections 4, 5 and 6: Fail optional metadata reads after required validation succeeds; verify signing can proceed with the known name, while cancellation still stops before any signature.
+
+
+## Case: Cloud key reset reported failure after committing a new key
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing UI metadata broadcasts. Native resource ownership is unchanged.
+**Symptom**: Saving a refreshed device name could reject after a successful key rotation, report a failed reset, and skip generation recording, session revocation and forced synchronization.
+**Root Cause**: The display-name persistence await sat between committing the new key and required reset finalization, allowing an optional storage failure to interrupt security-relevant cleanup.
+**Fix**: Finish generation recording, session revocation, synchronization and timestamp updates first. Persist the display name afterward as best effort and log a sanitized failure without rejecting the completed reset.
+**Catchable by**: Sections 4, 5 and 6: Inject an optional persistence failure after the irreversible operation and assert the committed key, recorded generation, revoked sessions and completed sync independently of display metadata.
+
+## Case: Privacy account actions interfered with unrelated rows (OK-66891, OK-66892)
+**Date**: 2026-11-10 | **Platforms**: iOS, Android and extension main UI runtime; desktop/web single JS runtime. Background scanning, native resource ownership and shared account admission are unchanged.
+**Symptom**: An account action disabled unrelated rows, while deleting local data displayed loading on Pause. The first per-account guard also let a duplicate confirmation finish before the original request, allowing the dialog footer to close early.
+**Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
+**Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
+**Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
+
+
+## Case: Devices sharing a recovery phrase could replace each other's Cloud name
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing persisted metadata delivered to main. SDK/native resource ownership is unchanged.
+**Symptom**: Renaming another physical device restored from the same recovery phrase could replace the selected Cloud device's name, and an unrelated Bluetooth name could disable future label refreshes.
+**Root Cause**: The Cloud credential ID identifies the standard wallet rather than the physical device, so matching only that ID admitted metadata from other devices using the same wallet.
+**Fix**: Keep a local hash of the physical device's normalized serial number when Cloud signing reads it. Reuse another flow's label only when both wallet and physical bindings match, and recheck the binding during the atom update. Keep unbound legacy sources unchanged until a Cloud signing operation identifies their device; no extra hardware reads are added.
+**Catchable by**: Sections 4, 5 and 6: Test two devices with the same wallet fingerprint but different serial numbers, missing physical identity, legacy metadata and a physical-source change during an async label lookup.
+
+
+## Case: A failed post-reset sync left the committed Cloud device name stale
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg and main. No SDK/native resource ownership changes.
+**Symptom**: After the data key was committed, a forced-sync error skipped the device-name refresh. The selected Cloud device kept its previous name and physical binding despite successful hardware signing.
+**Root Cause**: Making metadata persistence best effort prevented storage errors from failing the reset, but placing it only after successful synchronization still skipped it on the failure path.
+**Fix**: Remember the freshly signed source only after the data-key commit succeeds, then attempt its metadata update in finalization regardless of later synchronization failure. Keep metadata errors non-fatal and preserve the original synchronization error.
+**Catchable by**: Sections 4, 5 and 6: Fail the network step after key commit and assert the new key remains stored, the source name and physical binding refresh, and the original network error is still reported.
+
+## Case: Cloud device name helper missing from the native module registry
+**Date**: 2026-11-10 | **Platforms**: iOS, Android
+**Symptom**: Native startup graph CI failed while allocating the new hardware Cloud device name helper.
+**Root Cause**: The helper entered the background bundle graph without a stable module ID registration.
+**Fix**: Register the helper with the existing module ID update command and validate the strict registry lookup.
+**Catchable by**: Section 4: register new files consumed by native bundles before pushing.
+
+## Case: Lite card backup listed Bot Wallets (OK-66802)
+**Date**: 2026-11-10 | **Platforms**: Lite card wallet selection and shared Prime Transfer filtering on supported clients.
+**Symptom**: Bot Wallets appeared in the Lite card backup wallet picker.
+**Root Cause**: The picker accepted HD wallet IDs and excluded only Keyless IDs. Bot IDs also start with `hd-`, so they passed that predicate. Prime Transfer already excluded Bot Wallets by default, but its helper was local to that service.
+**Fix**: Extract the backup filter into `shared` and reuse it in Lite card selection and Prime Transfer. Exclude Keyless wallets by metadata or ID, exclude Bot Wallets by default, and preserve explicit Bot selection for CLI export. Keep the Lite picker restricted to HD wallets and add regression coverage for mixed wallet lists.
+**Catchable by**: Sections 4 and 6: Trace all consumers of shared wallet eligibility rules and test ordinary, Keyless, Bot, hardware, QR, imported and watching wallets together.
+
+## Case: Shared backup filter was missing from the native module registry (OK-66802)
+**Date**: 2026-11-10 | **Platforms**: iOS CI main/background three-bundle build; the stable registry is also used by Android. Build-time only, with no native-resource or runtime-lifecycle changes.
+**Symptom**: Native CI failed during union bundle allocation even though the filtering tests, lint and type checks passed.
+**Root Cause**: The new shared source module was not added to the stable module ID registry. The production allocator rejects unregistered paths.
+**Fix**: Register `walletBackupUtils.ts` with the repository updater, preserving every existing ID. Verify the original strict allocator failure now passes, check the registry map, run the existing registry suites, and confirm Native CI succeeds.
+**Catchable by**: Section 3: Check native bundle integration when adding a shared module, including strict module-ID registration in addition to lint and type checks.
+
+## Case: Chart settings needed an extra step after Reset (OK-66883)
+**Date**: 2026-11-10 | **Platforms**: Desktop and Web wide-layout chart settings dialogs (single JS runtime).
+**Symptom**: In the full Indicators dialog, Reset changed the draft and required Confirm. Chart Settings saved defaults but left its dialog open.
+**Root Cause**: The two Reset handlers followed different save paths. Closing unconditionally after an async save would also discard edits entered while the reset was saving.
+**Fix**: Save defaults and close the dialog only when the latest draft still matches the saved reset. Keep any newer edits available for Confirm and leave the dialog open on save failure.
+**Catchable by**: Test Reset in both dialogs with a delayed save. Check that an untouched draft closes after success, an edit made during the save remains available, and a failed save can be retried.
+
+## Case: Perps Add Position amount field did not focus on iOS (OK-66886)
+**Date**: 2026-11-10 | **Platforms**: iOS main UI runtime (React Native Fabric and UIKit keyboard accessory).
+**Symptom**: Tapping the amount field in Perps Add Position could leave it unfocused with the keyboard closed. The issue also covered position TP/SL fields.
+**Root Cause**: A Fabric layout update could make a recycled, empty `InputAccessoryView` host visible. Its absolute frame overlapped the text input and intercepted taps.
+**Fix**: Backport `pointerEvents: 'box-none'` to the shared host in React Native 0.88.0 so taps reach the input and the UIKit keyboard toolbar keeps its own touch handling. Remove the Perps TWAP `pointerEvents: 'none'` workaround. [Upstream React Native fix](https://github.com/react/react-native/pull/59904)
+**Catchable by**: On an iOS simulator, reopen Add Position to exercise view reuse. Tap the middle of the amount field and verify focus, numeric entry, and keyboard toolbar interaction. Repeat in another accessory-backed form such as Swap Limit.
+
+## Case: Prime extension browser actions and pagination spacing (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Subscribed users saw browser-home actions without a usable embedded browser; hiding those actions initially moved the pagination dots by 2px.
+**Root Cause**: Shared benefits did not gate browser actions by extension capability. The reserved CTA slot omitted the Button's two transparent borders.
+**Fix**: Replace subscribed extension browser CTAs with noninteractive availability text, label only AI translation as app-only, preserve pagination, and reserve button content height plus both border widths. Keep unsubscribed CTAs and other-platform behavior unchanged.
+**Catchable by**: Sections 3 and 8: Compare actual pagination positions across CTA/no-CTA transitions in popup, narrow side panel, and full-screen; token height alone is not rendered border-box height.
+
+## Case: Prime extension media letterboxing and resize navigation (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Narrow video introductions placed the title far below the visible media; resizing then selecting another benefit could leave the hero blank.
+**Root Cause**: A fixed 400px hero letterboxed 16:10 video on narrow screens. Swiper cached its initial height, and virtualized slide updates after resizing reset the scroll offset despite a successful requested scroll.
+**Fix**: Size extension video heroes from measured width, capped at 400px; refresh carousel geometry when dimensions change and retain the short extension carousel window. Keep icon heroes and all non-extension sizing unchanged.
+**Catchable by**: Section 8: Inspect rendered media-to-title spacing and test resize followed by pagination, including video/icon transitions, rather than checking only the active slide during resize.
+
+## Case: Bitcoin dependency hardening broke BIP322 message verification
+**Date**: 2026-11-11 | **Platforms**: Shared Bitcoin message verification on supported clients.
+**Symptom**: Updating the bitcoinjs-lib dependency used by bip322-js from 6.1.7 to 6.1.10 rejected previously valid BIP322 signatures.
+**Root Cause**: BIP322 built its virtual `to_spend` transaction through PSBT extraction without UTXO metadata. The security update correctly requires that metadata when accounting for real PSBT inputs, while the BIP322 virtual transaction deliberately has a null prevout.
+**Fix**: Keep the parent-scoped 6.1.10 resolution and construct only the virtual transaction with `Transaction`, preserving its serialized bytes. Real PSBT fee accounting and extraction retain the hardened validation.
+**Catchable by**: Verify existing mainnet/testnet P2WPKH, P2SH-P2WPKH and P2TR signatures, invalid signatures, legacy ECDSA and exact virtual transaction bytes. Independently assert that inconsistent or missing real PSBT UTXO metadata is still rejected.
+
+
+## Case: Wallet Home favorites retained space for absent rows (OK-67010)
+**Date**: 2026-11-11 | **Platforms**: Wallet Home on mobile, desktop, web and extension.
+**Symptom**: One or two favorite tokens left excessive blank space below the Wallet Home Market list.
+**Root Cause**: Both the list wrapper and the section reserved three rows, and a missing View More action still left a 50px spacer.
+**Fix**: Remove the three-row reservation and unused footer spacer for loaded favorites. Let web tables size to content and bound native virtualized tables by the displayed row count, including the header only in table layout. Keep category and recommendation reservations unchanged.
+**Catchable by**: Sections 3, 4 and 6: Exercise one, two, three and more than three favorites in native and web list/table layouts; verify visible rows, trailing space and the View More threshold.
+
+## Case: Removing favorite-list spacing collapsed the native viewport
+**Date**: 2026-11-11 | **Platforms**: iOS and Android main UI runtimes. Native-resource ownership and background data flows are unchanged.
+**Symptom**: Loaded Wallet Home favorites could be clipped after removing the list wrapper's minimum height.
+**Root Cause**: Native RichTable delegates to a flex-based virtualized ListView with a two-point minimum. It needs a bounded parent viewport and cannot derive its height from its rows. The original DOM test mocked RichTable as content-sized text and missed this native constraint.
+**Fix**: Give only the native favorites wrapper an explicit height based on the displayed rows and optional table header. Extend regression coverage to native list/table layouts, including the three-row display limit, while preserving content sizing on web.
+**Catchable by**: Sections 3 and 6: Check the real platform-specific list implementation when removing height constraints; keep regression coverage for a usable native viewport as well as reduced blank space.
+
+## Case: Non-USD token quotes shifted the mobile chart (OK-67005)
+**Date**: 2026-11-11 | **Platforms**: iOS and Android main UI runtimes. Native-resource ownership and background data flows are unchanged.
+**Symptom**: The token detail chart moved when the full quote arrived after opening or switching a token with CNY selected.
+**Root Cause**: Preview data omitted priceConverted, so the converted-price row appeared only after the full detail response and increased the header height.
+**Fix**: Reserve the converted-price row through loading, preview and full-detail states on native clients using a non-USD currency. Preserve USD and non-native visibility behavior and cover the lifecycle and token-switch cases.
+**Catchable by**: Sections 4 and 6: Test loading, preview and full-response geometry separately with USD and non-USD currencies, including a token switch.
+
+## Case: First Android position-tab switch reset the collapsed header (OK-67015)
+**Date**: 2026-11-11 | **Platforms**: Android main UI runtime. Native-resource ownership and background data flows are unchanged.
+**Symptom**: The first switch from a partially scrolled Overview to My position reset the header, while subsequent switches preserved its position.
+**Root Cause**: The inactive position tab mounted on first focus, allowing scroll synchronization to run before its incoming list was ready. Warm-switch checks did not exercise this initial mount.
+**Fix**: Enable the existing per-tab eager-mount capability only for the Android position tab. Android 35 verification with an ordinary token and no positions preserved the header on the initial visit and a fresh re-entry; populated position lists and iOS manual regression remain unverified.
+**Catchable by**: Sections 3 and 8: Verify the first tab switch after a fresh detail mount at partial and full header collapse, then compare subsequent switches and a fresh re-entry.
+
+## Case: Passive support polling bypassed the startup delay
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: First-screen visibility requested a support JWT and pinged Intercom before Bootstrap's ten-second delay elapsed.
+**Root Cause**: Visibility, unlock and push paths could start the unread task independently of Bootstrap.
+**Fix**: Add a controller startup gate enabled only by Bootstrap's delayed callback. Keep explicit support opens immediate and test visibility, unlock, push and identity changes before the gate opens.
+**Catchable by**: Sections 4 and 5: Trace every entry into a delayed subsystem; a timer in one caller does not constrain independent callers.
+
+## Case: Native support image previews used persistent disk caches
+**Date**: 2026-11-12 | **Platforms**: iOS and Android main UI runtimes; image caching is owned by the native image loader.
+**Symptom**: Received, pending and selected support images could remain in the native image disk cache after app data reset.
+**Root Cause**: Support used the shared Image default caching policy for private attachments and local previews.
+**Fix**: Set cachePolicy="none" on all three support image surfaces, mapping to the native NONE policy, and cover all three states in rendering tests.
+**Catchable by**: Sections 3 and 6: Review platform-specific storage behavior of shared media components, including pending and draft states.
+
+## Case: Accepted support messages remained failed locally
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: A lost send response showed a failed pending bubble even after polling returned the accepted message; retry could create another conversation.
+**Root Cause**: Pending state trusted request completion without reconciling server client IDs, and new-conversation recovery depended on receiving its creation response.
+**Fix**: Reconcile pending messages by client ID, prevent late failures from restoring acknowledged bubbles, and query existing conversations before explicit retries. Recover creation responses through read-only polling.
+**Catchable by**: Sections 4 and 5: Test successful server mutation followed by a lost response, including polling before the original promise rejects.
+
+## Case: Support inbox polling dropped loaded page boundaries
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: A new or updated first-page conversation pushed the previous boundary item out of an already loaded inbox.
+**Root Cause**: Polling replaced the first page while retaining only later pages, and could replace the cursor belonging to the loaded range.
+**Fix**: Retain the complete loaded range, merge refreshed first-page content by ID, and keep pagination owned by the last loaded page. Test cursor/page pagination and repeated boundary shifts.
+**Catchable by**: Sections 4 and 5: Combine pagination with live refreshes; verify the union of loaded IDs and ownership of the next-page cursor.
+
+## Case: Stalled support uploads left the composer pending indefinitely
+**Date**: 2026-11-12 | **Platforms**: iOS and Android main runtimes using Expo transport; Web, desktop and extension using browser transport.
+**Symptom**: An upload whose connection never settled kept the attachment and composer pending without a recovery deadline.
+**Root Cause**: The upload passed the caller's abort signal but had no timeout of its own.
+**Fix**: Link caller cancellation to a sixty-second upload deadline and remove listeners/timers on completion. Test stalled native and Web requests, pre-aborted signals and cancellation without automatic mutation retries.
+**Catchable by**: Section 5: Every externally awaited upload needs bounded completion and cleanup, separately from its metadata request.
+
+## Case: Creating a support conversation interrupted the composer
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: Assigning the newly created conversation ID remounted the page; preserving the key alone still temporarily disabled the composer while its first refresh was pending.
+**Root Cause**: Route identity used the server ID, and the page discarded the acknowledged creation data before the first GET completed.
+**Fix**: Preserve the page instance for its own creation transition and retain the acknowledged conversation as a fallback. Continue resetting drafts on actual conversation changes; test the same input node, focus, draft and editability with the first GET held pending.
+**Catchable by**: Sections 4 and 5: Distinguish enrichment of the current route from navigation to another entity, and test the interval before a follow-up read completes.
+
+## Case: A late extension logout observer revoked a fresh support visitor
+**Date**: 2026-11-12 | **Platforms**: Extension main windows with separate JS heaps, shared IndexedDB/Web Locks and bg-owned authoritative account state; native main/bg identity checks also covered.
+**Symptom**: A second window processing logout later could delete the anonymous visitor already created by the first window.
+**Root Cause**: Each runtime treated its local identity transition as permission to clear shared credentials without a shared transition marker or authoritative account check.
+**Fix**: Coordinate the persisted identity marker and anonymous boot with the same lock. Check bg identity before transitions and after obtaining a JWT; test independent module registries over shared storage and delayed atom synchronization.
+**Catchable by**: Sections 3 and 5: Independent UI runtimes can observe one identity change at different times; shared-resource mutation needs shared ownership and current identity verification.
+
+## Case: Support previews were consumed while hidden and older replies resurfaced
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; extension windows coordinate shared notification metadata through IndexedDB/Web Locks. Web and desktop use one app runtime, with separate Web tabs coordinated by storage locks.
+**Symptom**: Hiding while notification metadata was being read could permanently consume an unseen preview. A follow-up that recorded only the newest reply caused older replies from the same batch to appear in later polls or after restart.
+**Root Cause**: Session validity did not imply visibility, persistence preceded publication, and per-reply bookkeeping lost the existing one-preview-per-batch behavior.
+**Fix**: Validate a visibility generation after asynchronous work, publish the newest preview synchronously to the visible host, then persist the observed batch's bounded IDs/timestamps under the shared lock. Keep unread badges and allow genuinely new replies.
+**Catchable by**: Sections 5 and 6: Pause lock acquisition, metadata reads and writes around hide/resume and competing windows; also test two unread conversations across another poll and a cold restart.
+
+## Case: Submitted support form values reverted after a failed refresh
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main UI runtimes; Web and desktop single runtimes.
+**Symptom**: A successful form POST followed by a failed GET cleared the draft and exposed the old server value. Confirming again could submit that stale value.
+**Root Cause**: The form treated a resolved polling refresh as a successful read even though the scheduler absorbs read errors. Reusing a poll started before the POST was also insufficient confirmation.
+**Fix**: Add a fresh-read result that waits for an older poll before starting the post-write read. Release a submitted draft only after a valid snapshot; retain it after failed reads and release it when polling recovers, without overwriting newer edits. Test the production POST/failed-GET/reconfirm flow and inactive-screen cancellation.
+**Catchable by**: Sections 4 and 5: Separate mutation success, request completion and authoritative read success; cached display data is not confirmation of a write.
+
+## Case: Uncertain support creation recovery searched only the first inbox page
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main UI runtimes; Web and desktop single runtimes.
+**Symptom**: After a lost creation response, a conversation that had moved beyond the first twenty inbox rows could be missed and an explicit Retry could create a second conversation.
+**Root Cause**: Client-ID reconciliation inspected only the first inbox response, treating an incomplete history search as absence of the accepted write.
+**Fix**: Follow cursor/page pagination through the relevant timestamp range and inspect candidate conversations for the original client ID. Reject incomplete pagination, repeated cursors and failed page reads instead of authorizing another creation; inspect candidates with unknown timestamps as well.
+**Catchable by**: Sections 4 and 5: Move an accepted write to page two before recovery, and interrupt pagination with missing/repeated cursors or read failures; assert that the mutation is not replayed.
+
+## Case: Intercom reply pushes left native unread dots stale (OK-67112)
+**Date**: 2026-11-11 | **Platforms**: iOS and Android. Main owns JS unread state; main/bg initialize independently in separate heaps and share the process-native Intercom instance. Attribute deduplication was verified on Android 18.10.0.
+**Symptom**: OneKey support-reply pushes could arrive while support entry dots remained off.
+**Root Cause**: Polling only read the SDK cache. The initial push-driven refresh treated an unchanged language update's success as evidence of a server request, but Android acknowledged duplicate attributes locally. Its mock forced a cache change and missed that path. Clearing the pending flag before a failed refresh also discarded the retry.
+**Fix**: Deliver reply events from bg to main, defer background refreshes, and deduplicate reply IDs. The Android bridge invalidates only SDK attribute dedup before the normal authenticated update; main awaits its callback and reads the cache alongside SDK unread events. Failed refreshes are requeued, and older binaries without the bridge report failure. Pinned-SDK component checks, a bridge harness with framework/transport stubs, regression tests and mutation checks passed; rebuilt Android device verification remains pending.
+**Catchable by**: Sections 4 and 6: Verify the remote effect behind SDK success callbacks, model pinned-SDK deduplication, and cover delayed responses, failure retry and missing native capabilities. Remove the native dedup reset or retry flag to confirm the corresponding regression checks fail.
+
+## Case: Hardware gas-price EVM transaction with an access list failed to send (OK-67031)
+**Date**: 2026-11-12 | **Platforms**: All clients with OneKey hardware or Trezor. Hardware signing runs in bg on iOS, Android and extension and in the single runtime on desktop and web; the CLI hardware signer shares the builder.
+**Symptom**: On a gas-price network, a dApp transaction carrying `accessList` (an empty array included) was signed on the device and then failed to send. Found by code reading and a unit-level simulation; not reproduced on a device.
+**Root Cause**: The gas-price hardware sign message has no access-list field, so the device signs a legacy payload. Since the Trezor integration the builder assembled an EIP-2930 transaction locally whenever `accessList` was truthy, attaching the legacy signature to different bytes that recover to another sender. The existing test asserted the type 1 assembly itself and never compared it with what the device signs.
+**Fix**: Drop `accessList` and `txType` on the gas-price hardware path so the locally assembled transaction is the legacy one the device signed. Tests compare the serialized bytes with the list-less legacy transaction for non-empty and empty lists.
+**Catchable by**: NEW — not covered (when a signer has its own message format, assert that the bytes assembled locally are the bytes it signs, including empty-array and optional-field inputs)
+
+## Case: Market search and sticky headers used inconsistent background materials (OK-67414)
+**Date**: 2026-11-17 | **Platforms**: iOS main UI, with page-owned native search and pager views; bg is uninvolved. The shared native layout is also regression-tested on Android.
+**Symptom**: Scrolling Market on iOS 26+ exposed a visible background boundary between the search row and the sticky tabs, filters and column headers.
+**Root Cause**: Market enabled search glass and native scroll-edge blur with transparent header surfaces alongside opaque app backgrounds. The measured search row also became an absolute external overlay, coupling list and loading-state spacing to native capability and overlay geometry.
+**Fix**: Use solid app backgrounds for the search row, native tabs and sticky subheaders; disable the Market search glass and pager scroll-edge effect. Keep the search row in normal layout and remove its external-overlay measurement, prop forwarding and compensating insets.
+**Catchable by**: Sections 3, 6 and 8: Verify initial rendering, sticky scrolling and tab switches on iOS. Regression tests assert opaque headers and no overlay/scroll-edge props, retain the search row during banner/category loading, and check empty/retry viewport resizing and Android geometry. The 33 focused tests and iOS 26.5 simulator checks passed for the implementation.

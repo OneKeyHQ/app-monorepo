@@ -3,6 +3,7 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 
 import { TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING } from '../../chartConstants';
 
+import { getTradingViewNativeSubIndicatorY } from './coordinates';
 import { getTradingViewNativeSubIndicatorPaneLayouts } from './layout';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 import {
@@ -331,6 +332,44 @@ describe('TradingViewNative sub-indicator scene', () => {
     ).toBeNull();
   });
 
+  it('keeps a nonzero crosshair value visible under a fixed precision', () => {
+    const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'macd', indicator: 'MACD' }],
+      points: POINTS,
+    }).map(({ pane: renderPane }) => renderPane);
+    expect(pane).toBeDefined();
+    if (!pane) {
+      return;
+    }
+    pane.format = { precision: 2, type: 'inherit' };
+    pane.scale = { kind: 'fixed', maxValue: 0.01, minValue: -0.01 };
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: [pane],
+      stackBottom: 300,
+      stackTop: 244,
+      startIndex: 0,
+    });
+    const [layout] = layouts;
+    expect(layout?.range).toBeTruthy();
+    if (!layout?.range) {
+      return;
+    }
+    const y = getTradingViewNativeSubIndicatorY({
+      bottom: layout.plotBottom,
+      range: layout.range,
+      top: layout.plotTop,
+      value: 0.0034,
+    });
+
+    const text = getTradingViewNativeSubIndicatorCrosshairValueText({
+      layouts,
+      y,
+    });
+    expect(text).not.toBe('0.00');
+    expect(Number(text)).toBeCloseTo(0.0034, 3);
+  });
+
   it('supports plot fills across finite runs and narrow histogram bars', () => {
     const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
       configs: [{ id: 'macd', indicator: 'MACD' }],
@@ -650,5 +689,72 @@ describe('TradingViewNative sub-indicator scene', () => {
         ),
       ).size,
     ).toBeGreaterThan(1);
+  });
+
+  it('draws squeeze states as palette colored circles on the zero line', () => {
+    const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'smi', indicator: 'SMI' }],
+      points: POINTS,
+    }).map(({ pane: renderPane }) => renderPane);
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: pane ? [pane] : [],
+      stackBottom: 300,
+      stackTop: 220,
+      startIndex: 30,
+    });
+    const [layout] = layouts;
+    const commands: ITradingViewNativeChartSceneCommand[] = [];
+    const customPaintStyles: Record<
+      string,
+      ITradingViewNativeChartScenePaintStyle
+    > = {};
+
+    appendTradingViewNativeSubIndicatorCommands({
+      candleBodyWidth: 5,
+      chartWidth: 280,
+      commands,
+      customPaintStyles,
+      endIndex: POINTS.length,
+      getPointX: (index) => index * 6,
+      layouts,
+      priceAxisX: 280,
+      startIndex: 30,
+    });
+
+    const circles = commands.flatMap((command) =>
+      command.kind === 'circle' ? [command] : [],
+    );
+    const squeeze = pane?.series.find(({ id }) => id === 'squeeze');
+    const zeroY =
+      layout?.range &&
+      getTradingViewNativeSubIndicatorY({
+        bottom: layout.plotBottom,
+        range: layout.range,
+        top: layout.plotTop,
+        value: 0,
+      });
+
+    // One circle per visible bar that has a squeeze state.
+    expect(circles).toHaveLength(
+      squeeze?.values.slice(30).filter((value) => value !== null).length ?? -1,
+    );
+    expect(circles.length).toBeGreaterThan(0);
+    circles.forEach((circle) => {
+      expect(circle.cy).toBe(zeroY);
+      expect(circle.radius).toBe(1.75);
+      expect(circle.customPaintId).toContain(':series:squeeze:palette:');
+      expect(customPaintStyles[circle.customPaintId ?? '']?.drawStyle).toBe(
+        'fill',
+      );
+    });
+    // The momentum columns still use their own palette.
+    expect(
+      commands.some(
+        (command) =>
+          command.kind === 'rect' &&
+          command.customPaintId?.includes(':series:momentum:palette:'),
+      ),
+    ).toBe(true);
   });
 });

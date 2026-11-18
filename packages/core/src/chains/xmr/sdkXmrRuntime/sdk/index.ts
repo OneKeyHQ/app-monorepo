@@ -1,2 +1,2 @@
-// Node/Jest fallback; platform resolution picks the index.*.ts suffix file.
-export { getXmrRuntimeApiForCarrier } from './index.web';
+// Node and Jest only, so no Worker: every app build picks an index.*.ts file.
+export { loadXmrRuntime as getXmrRuntimeApiForCarrier } from '../carrier/loadRuntime';

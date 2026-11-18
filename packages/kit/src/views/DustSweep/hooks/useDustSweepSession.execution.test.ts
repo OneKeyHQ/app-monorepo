@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -170,6 +171,35 @@ beforeEach(() => {
     dealReceiveAmount: '0.01',
   });
   mockHistory.mockResolvedValue(undefined);
+});
+
+it('pauses the batch on a device connection failure and resumes only on request', async () => {
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    if (mockSend.mock.calls.length === 1)
+      throw Object.assign(new Error('device not found'), {
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        code: HardwareErrorCode.DeviceNotFound,
+      });
+    return broadcast(params);
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'waiting',
+    'waiting',
+    'waiting',
+  ]);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  await act(async () => result.current.resume());
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'success',
+    'success',
+    'success',
+  ]);
+  expect(mockSend).toHaveBeenCalledTimes(4);
 });
 
 it('skips quote errors, fails build errors and completes the next token', async () => {

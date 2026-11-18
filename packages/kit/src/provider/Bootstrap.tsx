@@ -17,8 +17,13 @@ import {
   rootNavigationRef,
   useShortcuts,
   useSplitSubView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  initIntercom,
+  startIntercomBackgroundPolling,
+} from '@onekeyhq/kit/src/views/Intercom/client';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   getDevSettingsNetworkThrottleEnabled,
@@ -26,10 +31,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
-  EUpdateStrategy,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -44,13 +49,16 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import {
   createDistinctChangeCounter,
@@ -86,11 +94,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../components/AccountSelector/AccountSelectorProvider';
-import {
-  AppUpdateForeground,
-  isAutoUpdateStrategy,
-  useAppUpdateInfo,
-} from '../components/AppUpdate';
+import { AppUpdateForeground } from '../components/AppUpdate';
+import { useDesktopUpdateMenu } from '../components/AppUpdate/useDesktopUpdateMenu';
 import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
@@ -110,10 +115,6 @@ import type { IntlShape } from 'react-intl';
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
   : () => () => undefined;
-
-const useAppUpdateInfoCallback = platformEnv.isDesktop
-  ? useAppUpdateInfo
-  : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
 
 function PrivacyChainForeground() {
   const wakeSync = useCallback(() => {
@@ -141,13 +142,6 @@ const LazyExtPrimeSubscriptionHandoffOnMount =
       })
     : null;
 
-// useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
-// and AppState 'active' resume listener now live in <AppUpdateForeground />,
-// mounted once below in Bootstrap's render output. Existing callers in
-// Bootstrap (Desktop only) pulled `useAppUpdateInfo(false, false)` for the
-// data side; that signature is preserved by treating the second arg as
-// ignored.
-
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
       const formInstances = getFormInstances();
@@ -158,58 +152,7 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, downloadPackage, onUpdateAction } =
-        useAppUpdateInfoCallback(false);
-      const isCheckingUpdate = useRef(false);
-
-      const onCheckUpdate = useCallback(async () => {
-        defaultLogger.update.app.log('checkForUpdates');
-        if (isCheckingUpdate.current) {
-          return;
-        }
-        isCheckingUpdate.current = true;
-        const { isNeedUpdate, response } = await checkForUpdates();
-        // OTA (silent/seamless) updates download/install transparently in
-        // the background. The desktop menu "Check for updates" must not open
-        // the download/verify UI for these strategies — that breaks the
-        // silent/seamless contract. Instead, kick off the background
-        // download silently (the auto useEffect only runs once at startup,
-        // so mid-session OTA discovery would otherwise stall) and show the
-        // "up to date" dialog as user feedback. The auto useEffect still
-        // drives any user-visible install dialog when status === ready.
-        const isOtaStrategy =
-          response &&
-          isAutoUpdateStrategy(
-            response.updateStrategy ?? EUpdateStrategy.manual,
-          );
-        if (isNeedUpdate && isOtaStrategy) {
-          // serviceAppUpdate.downloadPackage() inside this hook gates on
-          // DOWNLOAD_ENTRY_STATUSES, so calling it while already in-flight
-          // is a safe no-op. Fire-and-forget — we don't await the download.
-          void downloadPackage?.();
-        }
-        if ((isNeedUpdate && !isOtaStrategy) || response === undefined) {
-          onUpdateAction();
-          isCheckingUpdate.current = false;
-        } else {
-          Dialog.confirm({
-            title: intl.formatMessage({
-              id: ETranslations.update_app_update_latest_version,
-            }),
-            tone: 'success',
-            icon: 'Ai3StarSolid',
-            description: intl.formatMessage({
-              id: ETranslations.update_app_up_to_date,
-            }),
-            onClose: () => {
-              isCheckingUpdate.current = false;
-            },
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_ok,
-            }),
-          });
-        }
-      }, [checkForUpdates, downloadPackage, intl, onUpdateAction]);
+      const onCheckUpdate = useDesktopUpdateMenu();
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
@@ -337,9 +280,12 @@ const useDesktopEvents = platformEnv.isDesktop
       );
 
       useEffect(() => {
-        globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
-          void onCheckUpdateRef.current();
-        });
+        const unsubscribeCheckUpdate = globalThis.desktopApi.on(
+          ipcMessageKeys.CHECK_FOR_UPDATES,
+          () => {
+            void onCheckUpdateRef.current();
+          },
+        );
 
         const debounceOpenSettings = debounce(
           (isVisible: boolean) => {
@@ -359,6 +305,9 @@ const useDesktopEvents = platformEnv.isDesktop
         globalThis.desktopApi.on(ipcMessageKeys.APP_LOCK_NOW, () => {
           void useOnLockRef.current();
         });
+        return () => {
+          unsubscribeCheckUpdate?.();
+        };
       }, []);
 
       useShortcuts(undefined, (eventName) => {
@@ -378,11 +327,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Swap);
             });
             break;
-          case EShortcutEvents.TabMarket:
+          case EShortcutEvents.TabMarket: {
+            // Checked before closing modals: pressing it while already on
+            // Market is not an entry, and an unconsumed marker would mislabel
+            // a later return from a detail page.
+            const isMarketEntry = willTabFocusTransition(ETabRoutes.Market);
             ensureModalClosedAndNavigate(() => {
+              if (isMarketEntry) {
+                markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              }
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
@@ -586,22 +543,41 @@ const useLogVersionInfo = () => {
 };
 
 export const useIntercomInit = () => {
-  const isInitializedRef = useRef(false);
+  const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
+  const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
+  useEffect(() => {
+    const previousIdentity = previousIdentityRef.current;
+    const identityChanged =
+      previousIdentity.onekeyUserId !== onekeyUserId ||
+      previousIdentity.isLoggedIn !== isLoggedIn;
+    previousIdentityRef.current = { onekeyUserId, isLoggedIn };
+    // Retire an explicitly opened session immediately without enabling passive
+    // network traffic before the startup delay has elapsed.
+    if (identityChanged) {
+      void initIntercom().catch(() => {
+        console.warn('Failed to synchronize Intercom identity');
+      });
+    }
+  }, [onekeyUserId, isLoggedIn]);
   useEffect(() => {
     const timer = setTimeout(
       () => {
-        if (isInitializedRef.current) {
-          return;
-        }
-        void initIntercom();
-        isInitializedRef.current = true;
+        void startIntercomBackgroundPolling().catch(() => {
+          console.warn('Failed to initialize Intercom');
+        });
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),
     );
     return () => clearTimeout(timer);
   }, []);
 };
+
+// Leaf component so prime-atom and theme updates skip the rest of Bootstrap.
+function IntercomSessionSync() {
+  useIntercomInit();
+  return null;
+}
 
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
@@ -1117,7 +1093,6 @@ export function Bootstrap() {
   useIPadMainMenu();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
-  useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
@@ -1129,6 +1104,7 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <PrivacyChainForeground />
+      <IntercomSessionSync />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>

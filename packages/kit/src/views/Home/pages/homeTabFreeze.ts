@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 
 // How long an inactive home tab pane stays rendered after it loses focus.
-// The collapsible tab pager slides for ~300 ms and keeps re-syncing the new
-// tab's scroll offset for ~250 ms after the index flips (which happens at the
-// half-way point of the slide). Freezing before that leaves the pane the user
-// is sliding away from blank mid-animation.
+// Keep the outgoing pane rendered through the pager transition so freezing
+// cannot blank it while it is still visible.
 export const HOME_TAB_FREEZE_DELAY_MS = 500;
 
 export function isHomeTabActive({

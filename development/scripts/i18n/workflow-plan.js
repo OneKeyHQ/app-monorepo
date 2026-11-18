@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { translationRecords } = require('./workflow-client');
+const { translationRecords } = require('./workflow-client-central');
 const {
   ROOT,
   digest,
@@ -49,27 +49,16 @@ function assertPlanMode(plan) {
 async function preparePlan({
   draft,
   client,
-  projectName,
   root = ROOT,
   mode: requestedMode,
 }) {
-  if (!projectName)
-    throw new Error(
-      'Pass --project-name with the intended Lokalise project name. Inspect it with the project command first.',
-    );
   const catalog = loadCatalog(root);
   const mode = workflowMode(requestedMode ?? draft.mode);
   const entries = normalizeDraft(draft, catalog);
   const base = workspace(root);
   assertGeneratedBaseline(root, draft.sync);
   assertHashes(root, draft.sourceFiles || {}, 'Source');
-  const project = await client.project(projectName);
-  if (
-    draft.sync &&
-    (draft.sync.project.id !== project.id ||
-      draft.sync.project.name !== project.name)
-  )
-    throw new Error('Preview project differs from the initial pull.');
+  const project = await client.project();
   const localeMap = mapLanguages(
     catalog.locales,
     project.languages,
@@ -80,12 +69,23 @@ async function preparePlan({
   const changes = [];
   for (const entry of entries) {
     const remote = await client.findKey(entry.key);
+    // A name only archived onekey-i18n keys use cannot be created; stop here
+    // rather than after approval.
+    const archived = remote
+      ? []
+      : ((await client.archivedRefs?.(entry.key)) ?? []);
+    if (archived.length)
+      throw new Error(
+        `${entry.key} is archived in onekey-i18n (${archived.join(', ')}). Choose another key name.`,
+      );
     if (
       !remote &&
-      !/^[a-z][a-z0-9_]*__(title|action|desc|msg)$/.test(entry.key)
+      !/^[a-z][a-z0-9_]*__(title|action|desc|msg)$/.test(entry.key) &&
+      // Backend error identifiers must retain the key defined by the service.
+      !/^error__service_[a-z0-9]+(?:_[a-z0-9]+)*_error$/.test(entry.key)
     )
       throw new Error(
-        `${entry.key}: a new key must use semantic_key__title/action/desc/msg.`,
+        `${entry.key}: a new key must use semantic_key__title/action/desc/msg or error__service_*_error.`,
       );
     if (!remote && Object.hasOwn(catalog.values.en_US, entry.localKey))
       throw new Error(
@@ -132,7 +132,6 @@ async function preparePlan({
     kind: 'i18n-plan',
     mode,
     createdAt: new Date().toISOString(),
-    project: { id: project.id, name: project.name },
     localeMap,
     locales: catalog.locales,
     workspace: base,
@@ -186,7 +185,6 @@ function renderPreview(plan) {
   const lines = [
     '# i18n 变更预览',
     '',
-    `项目：${cell(plan.project.name)}（${cell(plan.project.id)}）`,
     `模式：${plan.mode === 'complete' ? '补全（新增 key、填补空译文；保留已有非空译文）' : '更新（upsert：创建或更新）'}`,
     `范围：${plan.entries.length} 个 key，完整校验 ${plan.locales.length} 种语言。这里只展示英文和简体中文；其余翻译保存在方案 JSON 中。`,
     '',

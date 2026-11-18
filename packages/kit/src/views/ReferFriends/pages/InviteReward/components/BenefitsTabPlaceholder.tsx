@@ -12,7 +12,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
+import { withRewardScopesHint } from './RewardScopeInfo';
 import { useInviteHomeCardStyle } from './useInviteCardStyle';
+
+import type { IInviteRewardScopeItem } from './getInviteRewardRows';
+import type { IReferralBindDisplayStatus } from '../../../hooks/useWalletBoundReferralCode/referralBindStatusUtils';
+
+// The last status each wallet resolved to in this session. Switching back to a
+// wallet paints it at once, so the empty card does not drop to its skeleton
+// line and then grow the code button again; the fresh check still runs and
+// replaces it.
+const lastStatusByWallet = new Map<string, IReferralBindDisplayStatus>();
 
 // Whether the active wallet can still take a referral code. Perks calls this
 // on mount, beside its rewards request rather than after it, so the empty
@@ -25,10 +35,13 @@ export function useBenefitsBindStatus() {
       entry: platformEnv.isNative ? 'modal' : 'tab',
     });
   const { result, run: refresh } = usePromiseResult(
-    async () => ({
-      walletId,
-      status: await getReferralCodeBindDisplayStatus({ walletId }),
-    }),
+    async () => {
+      const status = await getReferralCodeBindDisplayStatus({ walletId });
+      if (walletId) {
+        lastStatusByWallet.set(walletId, status);
+      }
+      return { walletId, status };
+    },
     [getReferralCodeBindDisplayStatus, walletId],
     { undefinedResultIfReRun: true },
   );
@@ -37,9 +50,9 @@ export function useBenefitsBindStatus() {
   // undefined while a rerun clears `result`. Comparing those two undefined
   // values must not read `.status`.
   const status =
-    result !== undefined && result.walletId === walletId
+    (result !== undefined && result.walletId === walletId
       ? result.status
-      : undefined;
+      : undefined) ?? (walletId ? lastStatusByWallet.get(walletId) : undefined);
   return { walletId, status, refresh, bindWalletInviteCode };
 }
 
@@ -51,8 +64,12 @@ export type IBenefitsBindStatus = ReturnType<typeof useBenefitsBindStatus>;
 // code dialog could only bind some other wallet.
 export function BenefitsTabPlaceholder({
   bindStatus,
+  scopeItems = [],
 }: {
   bindStatus: IBenefitsBindStatus;
+  // Which channels and protocols earn rewards, linked under the copy of a
+  // wallet that can earn them (already bound, or able to bind).
+  scopeItems?: readonly IInviteRewardScopeItem[];
 }) {
   const intl = useIntl();
   const cardStyle = useInviteHomeCardStyle();
@@ -79,7 +96,10 @@ export function BenefitsTabPlaceholder({
     case 'bound':
       content = {
         title: t(ETranslations.referral_perks_empty__title),
-        description: t(ETranslations.referral_no_reward),
+        description: withRewardScopesHint(
+          t(ETranslations.referral_no_reward),
+          scopeItems,
+        ),
       };
       break;
     case 'notApplicable':
@@ -93,7 +113,10 @@ export function BenefitsTabPlaceholder({
     default:
       content = {
         title: t(ETranslations.referral_perks_empty__title),
-        description: t(ETranslations.referral_perks_empty__desc),
+        description: withRewardScopesHint(
+          t(ETranslations.referral_perks_empty__desc),
+          scopeItems,
+        ),
         buttonProps: {
           testID: ReferFriendsTestIDs.benefitsBindBtn,
           variant: 'secondary',

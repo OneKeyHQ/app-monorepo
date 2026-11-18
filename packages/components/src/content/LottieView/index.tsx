@@ -24,6 +24,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
       loop = true,
       resizeMode,
       autoPlay = true,
+      nativeProgress,
       renderMode,
       onAnimationFinish,
       ...props
@@ -47,7 +48,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
     );
     useEffect(() => {
       isFinishedRef.current = false;
-    }, [source]);
+    }, [nativeProgress, source]);
 
     const appStateRef = useRef(AppState.currentState);
     const [restProps, style] = usePropsAndStyle(props, {
@@ -61,6 +62,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
           appStateRef.current &&
           /inactive|background/.exec(appStateRef.current) &&
           nextAppState === 'active' &&
+          nativeProgress === undefined &&
           !isPausedRef.current &&
           !isFinishedRef.current
         ) {
@@ -75,7 +77,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
       return () => {
         subscription.remove();
       };
-    }, []);
+    }, [nativeProgress]);
 
     useImperativeHandle(ref, () => ({
       play: () => {
@@ -109,6 +111,7 @@ export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
     return (
       <AnimatedLottieView
         autoPlay={autoPlay}
+        progress={nativeProgress}
         resizeMode={resizeMode}
         source={source as LottieNativeProps['source']}
         loop={loop}

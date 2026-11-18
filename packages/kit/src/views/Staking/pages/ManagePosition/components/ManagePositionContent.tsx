@@ -20,11 +20,15 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
+import { StakingAmountInputSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput/StakingAmountInputSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnUtmParams,
+  IStakeProtocolListItem,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -88,11 +92,14 @@ export interface IManagePositionContentProps {
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  // Campaign attribution for the stake / withdraw request (Unitas reports by
+  // campaign); undefined unless the page was opened from a campaign link.
+  utm?: IEarnUtmParams;
 }
 
 // Loading shell for the manage panel. Instead of masking the whole panel with
-// gray blocks, render the fixed chrome — the type switcher when applicable,
-// the amount input frame, and the token — immediately, and reserve skeletons
+// gray blocks, render the fixed chrome — the type switcher when applicable and
+// the amount input frame — immediately, and reserve skeletons
 // only for the values that depend on the (slow) getManagePage response. This
 // keeps the layout stable (no jump when data lands) and makes the wait feel
 // smoother.
@@ -100,7 +107,6 @@ const ManageSectionShell = ({
   type,
   symbol,
   defaultTab,
-  fallbackTokenImageUri,
   isPendleProvider,
   hasProtocolSwitch,
   isInModalContext,
@@ -108,7 +114,6 @@ const ManageSectionShell = ({
   type: EManagePositionType;
   symbol: string;
   defaultTab?: 'deposit' | 'withdraw';
-  fallbackTokenImageUri?: string;
   isPendleProvider: boolean;
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
@@ -217,41 +222,7 @@ const ManageSectionShell = ({
       <YStack px="$5" py="$2.5" gap="$4">
         {/* Amount input frame — fixed chrome, only the value pends. Dimensions
             mirror StakingAmountInput/AmountInput so nothing shifts on load. */}
-        <YStack borderRadius="$3" bg="$bgSubdued" px="$3.5" py="$2.5" gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {activeLabel}
-          </SizableText>
-          <XStack h="$11" ai="center" jc="space-between">
-            <Skeleton h="$6" w="$24" borderRadius="$2" />
-            <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
-              {/* Pendle resolves the actual pair after this shell renders, so
-                  its route image is not authoritative during loading. Keep the
-                  icon as a skeleton until token metadata arrives; this also
-                  matches AmountInput's $7 token trigger size (OK-63661). */}
-              {fallbackTokenImageUri && !isPendleProvider ? (
-                <Token
-                  size="sm"
-                  w="$7"
-                  h="$7"
-                  tokenImageUri={fallbackTokenImageUri}
-                />
-              ) : (
-                <Skeleton w="$7" h="$7" radius="round" />
-              )}
-              {/* The symbol is the one real string this frame used to draw, and
-                  a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
-                  a full-width name sitting among skeleton bars reads worse than
-                  no name at all, and the page title already carries it. Skeleton
-                  it like everything else and let the real symbol land with the
-                  rest of the data. */}
-              <Skeleton h="$6" w="$20" borderRadius="$2" />
-            </XStack>
-          </XStack>
-          <XStack jc="space-between" ai="center">
-            <Skeleton h="$3" w="$16" borderRadius="$2" />
-            <Skeleton h="$3" w="$20" borderRadius="$2" />
-          </XStack>
-        </YStack>
+        <StakingAmountInputSkeleton title={activeLabel} />
 
         {hasProtocolSwitch ? (
           <>
@@ -485,6 +456,7 @@ export function ManagePositionContent({
   suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  utm,
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const intl = useIntl();
@@ -501,6 +473,7 @@ export function ManagePositionContent({
     managePageData,
     depositDisabled,
     withdrawDisabled,
+    withdrawApprovalUnavailable,
     alerts,
     alertsHolding,
     alertsStake,
@@ -915,7 +888,6 @@ export function ManagePositionContent({
         type={type}
         symbol={symbol}
         defaultTab={defaultTab}
-        fallbackTokenImageUri={fallbackTokenImageUri}
         isPendleProvider={earnUtils.isPendleProvider({
           providerName: provider,
         })}
@@ -1031,6 +1003,8 @@ export function ManagePositionContent({
   // Normal deposit/withdraw rendering
   return (
     <NormalManageContent
+      actionsBlocked={isSwitchingProtocol}
+      withdrawApprovalUnavailable={withdrawApprovalUnavailable}
       networkId={networkId}
       symbol={symbol}
       provider={provider}
@@ -1061,6 +1035,7 @@ export function ManagePositionContent({
       showApyDetail={showApyDetail}
       stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
       suppressPlatformBonus={suppressPlatformBonus}
+      utm={utm}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
     />

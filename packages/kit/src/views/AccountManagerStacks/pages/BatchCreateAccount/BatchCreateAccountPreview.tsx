@@ -991,7 +991,7 @@ function BatchCreateAccountPreviewPage({
 
               try {
                 const result =
-                  await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+                  await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForUserCreation(
                     isAdvancedMode
                       ? {
                           mode: 'advanced',

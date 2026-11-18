@@ -571,6 +571,23 @@ const solNetwork: ISwapNetwork = {
 };
 
 describe('asset entry default counterpart ownership', () => {
+  const btc: ISwapToken = {
+    networkId: 'btc--0',
+    contractAddress: '',
+    symbol: 'BTC',
+    decimals: 8,
+    isNative: true,
+  };
+  const btcNetwork: ISwapNetwork = {
+    ...freshNetwork,
+    networkId: btc.networkId,
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    supportSingleSwap: false,
+    defaultSelectTokenDetail: { from: btc, to: bnb },
+  };
+  const btcNetworks = [btcNetwork, cachedBsc, freshNetwork];
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockStore = createStore();
@@ -580,6 +597,107 @@ describe('asset entry default counterpart ownership', () => {
     jest
       .mocked(getLatestHomeSelectedAccountInfo)
       .mockResolvedValue(emptyHomeAccountInfo);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it('waits for the BTC asset entry API pair and preserves the entered amount', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({
+      importFromToken: btc,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc),
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toBeUndefined();
+    act(() =>
+      mockStore.set(swapFromTokenAmountAtom(), {
+        value: '0.25',
+        isInput: true,
+      }),
+    );
+    await act(async () => request.resolve(btcNetworks));
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(bnb),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '0.25',
+      isInput: true,
+    });
+  });
+
+  it.each([false, true])(
+    'keeps the BTC fallback after timeout and a late response (cached=%s)',
+    async (cached) => {
+      jest.useFakeTimers();
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      mockGetNetworkCache.mockResolvedValue({
+        data: cached ? btcNetworks : [],
+      });
+      renderMarket({
+        importFromToken: btc,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      });
+      await act(async () => {});
+      await act(async () => jest.advanceTimersByTime(2000));
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH');
+      await act(async () => request.resolve(btcNetworks));
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH');
+    },
+  );
+
+  it('falls back to ETH when the configured BTC target network is unsupported', async () => {
+    mockFetchNetworks.mockResolvedValue([
+      btcNetwork,
+      { ...cachedBsc, supportCrossChainSwap: false },
+      freshNetwork,
+    ]);
+    renderMarket({
+      importFromToken: btc,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH'),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc);
+  });
+
+  it.each([false, true])(
+    'falls back to ETH when BTC configuration fails (cached=%s)',
+    async (cached) => {
+      mockGetNetworkCache.mockResolvedValue({
+        data: cached ? btcNetworks : [],
+      });
+      mockFetchNetworks.mockRejectedValue(new Error('offline'));
+      renderMarket({
+        importFromToken: btc,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH'),
+      );
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc);
+    },
+  );
+
+  it('does not overwrite a manual BTC counterpart when configuration arrives', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({
+      importFromToken: btc,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc),
+    );
+    const manualToken = { ...bnb, contractAddress: 'manual', isNative: false };
+    act(() => mockStore.set(swapSelectToTokenAtom(), manualToken));
+    await act(async () => request.resolve(btcNetworks));
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(manualToken);
   });
 
   it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
@@ -1599,6 +1717,133 @@ describe('empty Swap bootstrap with a newer restored account revision', () => {
     });
     expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(pair.fromToken);
     expect(mockStore.get(swapSelectToTokenAtom())).toEqual(pair.toToken);
+  });
+
+  it('preserves both token selections after leaving a Stock modal', async () => {
+    const stock = { ...marketToken, isStock: true };
+    const selectedToken = { ...marketToken, contractAddress: '0xselected' };
+    const stockParams: ISwapInitParams = {
+      swapSource: ESwapSource.MARKET,
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      importToToken: stock,
+      importFromToken: swapDefaultSetTokens['evm--1'].fromToken,
+    };
+    mockFetchNetworks.mockResolvedValue([
+      { ...freshNetwork, supportStock: true },
+    ]);
+    mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    mockStore.set(swapSelectToTokenAtom(), stock);
+    const view = renderMarket(stockParams, 'store:swapModal');
+    await waitFor(() =>
+      expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true),
+    );
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    act(() => mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK));
+    view.rerender(stockParams);
+    const pair = swapDefaultSetTokens['evm--1'];
+    act(() => {
+      mockStore.set(swapSelectFromTokenAtom(), pair.fromToken);
+      mockStore.set(swapSelectToTokenAtom(), pair.toToken);
+      mockStore.set(swapSelectedTokensColdStartContextAtom(), undefined);
+      mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    });
+    mockIsFocused = false;
+    view.rerender(stockParams);
+    act(() => mockStore.set(swapSelectFromTokenAtom(), selectedToken));
+    mockIsFocused = true;
+    view.rerender(stockParams);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(selectedToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(pair.toToken);
+
+    const selectedToToken = { ...selectedToken, contractAddress: '0xother' };
+    mockIsFocused = false;
+    view.rerender(stockParams);
+    const homeRead = deferred<typeof homeInfo>();
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockClear();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValueOnce(homeRead.promise);
+    act(() => mockStore.set(swapInitialSelectedTokensSyncedAtom(), false));
+    mockIsFocused = true;
+    view.rerender(stockParams);
+    await waitFor(() =>
+      expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalled(),
+    );
+    act(() => mockStore.set(swapSelectToTokenAtom(), selectedToToken));
+    await act(async () =>
+      homeRead.resolve({
+        ...homeInfo,
+        selectedAccount: { ...selectedAccount },
+        selectedAccountUpdatedAt: revision + 1,
+      }),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(selectedToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(selectedToToken);
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+  });
+
+  it('does not restore Stock when a tab-only Stock route returns to Swap', async () => {
+    const params: ISwapInitParams = {
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+    };
+    mockFetchNetworks.mockResolvedValue([
+      { ...freshNetwork, supportStock: true },
+    ]);
+    const view = renderMarket(params, 'store:swapModal');
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    act(() => mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK));
+    view.rerender(params);
+    const pair = swapDefaultSetTokens['evm--1'];
+    act(() => {
+      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      mockStore.set(swapSelectFromTokenAtom(), pair.fromToken);
+      mockStore.set(swapSelectToTokenAtom(), pair.toToken);
+      mockStore.set(swapSelectedTokensColdStartContextAtom(), undefined);
+      mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+    });
+    mockIsFocused = false;
+    view.rerender(params);
+    mockIsFocused = true;
+    view.rerender(params);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(pair.fromToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(pair.toToken);
+
+    mockIsFocused = false;
+    view.rerender(params);
+    const previousAccountToken = {
+      ...marketToken,
+      contractAddress: '0xpreviousaccount',
+    };
+    act(() => mockStore.set(swapSelectFromTokenAtom(), previousAccountToken));
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockResolvedValueOnce({
+      ...homeInfo,
+      selectedAccount: {
+        ...selectedAccount,
+        walletId: 'new-wallet',
+        indexedAccountId: 'new-account',
+      },
+      selectedAccountUpdatedAt: revision + 1,
+    });
+    act(() => mockStore.set(swapInitialSelectedTokensSyncedAtom(), false));
+    mockIsFocused = true;
+    view.rerender(params);
+    await waitFor(() => expect(selectedAccount.walletId).toBe('new-wallet'));
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(mockStore.get(swapSelectFromTokenAtom())).not.toEqual(
+      previousAccountToken,
+    );
   });
 
   it.each(['tokens', 'account', 'home', 'blur', 'unmount'])(

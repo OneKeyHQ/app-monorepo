@@ -14,18 +14,45 @@ import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import { parseMarketStockNumber } from './utils';
 
+import type { IBannerDetailColumnMode } from '../../../MarketBannerDetail/BannerDetailListColumnHeader';
+
 // The compact stock row shared by the mobile Stocks tab and the mobile banner
 // detail list.
 export function MobileMarketStockListItem({
   item,
   onPress,
+  bannerColumnMode = 'compact',
 }: {
   item: IMarketStockPublicItem;
   onPress: (item: IMarketStockPublicItem) => void;
+  bannerColumnMode?: IBannerDetailColumnMode;
 }) {
   const price = parseMarketStockNumber(item.price);
   const priceChange = parseMarketStockNumber(item.priceChange24hPercent);
   const volume = parseMarketStockNumber(item.volume24h);
+  const volumeColumn =
+    volume === undefined ? (
+      <SizableText
+        flex={1}
+        size="$bodyMd"
+        color="$textSubdued"
+        textAlign="right"
+        numberOfLines={1}
+      >
+        --
+      </SizableText>
+    ) : (
+      <NumberSizeableText
+        flex={1}
+        size="$bodyMd"
+        formatter="marketCap"
+        formatterOptions={{ currency: '$' }}
+        textAlign="right"
+        numberOfLines={1}
+      >
+        {volume}
+      </NumberSizeableText>
+    );
   return (
     // Same frame as the Trending row (`TokenListItem`): fixed 72px height,
     // 32px logo, 14px to the text, 4px between the two lines, and 8px
@@ -42,7 +69,7 @@ export function MobileMarketStockListItem({
       onPress={() => onPress(item)}
     >
       <XStack
-        flex={1}
+        flex={bannerColumnMode === 'compact' ? 1 : 2}
         minWidth={0}
         alignItems="center"
         gap={MARKET_CELL_LOGO_GAP}
@@ -63,7 +90,7 @@ export function MobileMarketStockListItem({
             {item.name ? (
               <SubtitleText subtitle={item.name} maxWidth={66} />
             ) : null}
-            {volume ? (
+            {volume && bannerColumnMode !== 'three' ? (
               <NumberSizeableText
                 size="$bodySm"
                 color="$textSubdued"
@@ -77,29 +104,60 @@ export function MobileMarketStockListItem({
           </XStack>
         </YStack>
       </XStack>
-      <XStack alignItems="center" gap="$2">
-        {price === undefined ? (
-          <SizableText
-            size="$bodyLgMedium"
-            color="$textSubdued"
-            flexShrink={1}
-            numberOfLines={1}
-          >
-            --
-          </SizableText>
-        ) : (
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="price"
-            formatterOptions={{ currency: '$' }}
-            flexShrink={1}
-            numberOfLines={1}
-          >
-            {price}
-          </NumberSizeableText>
-        )}
-        <PriceChangeBadge change={priceChange ?? '--'} />
-      </XStack>
+      {bannerColumnMode === 'compact' ? (
+        <XStack alignItems="center" gap="$2">
+          {price === undefined ? (
+            <SizableText
+              size="$bodyLgMedium"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+            >
+              --
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+              flexShrink={1}
+              numberOfLines={1}
+            >
+              {price}
+            </NumberSizeableText>
+          )}
+          <PriceChangeBadge change={priceChange ?? '--'} />
+        </XStack>
+      ) : (
+        <>
+          {price === undefined ? (
+            <SizableText
+              flex={1}
+              size="$bodyLgMedium"
+              color="$textSubdued"
+              textAlign="right"
+              numberOfLines={1}
+            >
+              --
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              flex={1}
+              size="$bodyLgMedium"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+              textAlign="right"
+              numberOfLines={1}
+            >
+              {price}
+            </NumberSizeableText>
+          )}
+          <XStack flex={1} jc="flex-end" minWidth={0}>
+            <PriceChangeBadge change={priceChange ?? '--'} />
+          </XStack>
+          {bannerColumnMode === 'three' ? volumeColumn : null}
+        </>
+      )}
     </XStack>
   );
 }

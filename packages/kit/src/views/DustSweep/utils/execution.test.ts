@@ -1,4 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
@@ -2103,6 +2104,71 @@ describe('Dust Sweep serial execution boundaries', () => {
       DustSweepUserCanceled,
     );
   });
+
+  it.each([
+    { code: HardwareErrorCode.DeviceNotFound },
+    {
+      code: HardwareErrorCode.PollingTimeout,
+      payload: { code: HardwareErrorCode.BleConnectedError },
+    },
+    { code: ThirdPartyHardwareErrorCode.BleConnectFailed },
+    { code: HardwareErrorCode.BlindSignDisabled },
+  ])('pauses for a hardware error: $code', async (details) => {
+    mockSend.mockImplementation(async (params: ISendParams) => {
+      await params.onBeforeSignAndSend?.();
+      throw Object.assign(new Error('hardware error'), {
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        ...details,
+      });
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+      DustSweepRetryableError,
+    );
+    expect(options.onPrepared).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not pause for a non-hardware error with a matching code', async () => {
+    const error = Object.assign(new Error('non-hardware error'), {
+      code: HardwareErrorCode.DeviceNotFound,
+    });
+    mockSend.mockImplementation(async (params: ISendParams) => {
+      await params.onBeforeSignAndSend?.();
+      throw error;
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toBe(error);
+    expect(options.onPrepared).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    HardwareErrorCode.DeviceNotFound,
+    HardwareErrorCode.ActionCancelled,
+  ])(
+    'does not retry hardware error %s carrying a broadcast identity',
+    async (code) => {
+      const txId = `0x${'34'.repeat(32)}`;
+      const error = withBroadcastTxContext(
+        Object.assign(new OneKeyLocalError('hardware error'), {
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          code,
+        }),
+        { networkId: snapshot.networkId, txId },
+      );
+      mockSend.mockImplementation(async (params: ISendParams) => {
+        await params.onBeforeSignAndSend?.();
+        throw error;
+      });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toBe(error);
+      expect(options.onPrepared).not.toHaveBeenCalled();
+      expect(options.onSubmissionError).toHaveBeenCalledWith(
+        undefined,
+        undefined,
+        { txId },
+      );
+    },
+  );
 
   it.each(['swap', 'approval'] as const)(
     'preserves the %s send error and signed identity without polling or resending',

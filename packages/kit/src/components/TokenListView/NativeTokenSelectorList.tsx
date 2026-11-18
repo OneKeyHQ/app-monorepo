@@ -19,12 +19,14 @@ import {
   SizableText,
   Stack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -48,7 +50,14 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import {
   useCreateAccountStateAtom,
   useProcessingTokenStateAtom,
+  useTokenListContextData,
 } from '../../states/jotai/contexts/tokenList';
+import {
+  aggCell,
+  cell,
+  meta,
+  subcell,
+} from '../../states/jotai/contexts/tokenList/cells/projection';
 import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/cells/useAggregateSubTokenFiatMap';
 import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells/useTokenFiat';
 import { convertFiat } from '../../utils/fiatConvert';
@@ -58,8 +67,14 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
-import { getTokenRowIconSize } from './tokenListRowLayoutShared';
+import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
+import {
+  TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
+  getTokenRowIconSize,
+  getTokenTableColumnWeights,
+} from './tokenListRowLayoutShared';
 
+import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
   DataRow,
   IdentityRow,
@@ -77,8 +92,48 @@ type IHomeCellValue = {
   fiat: ITokenFiat | undefined;
   memberFiatMap: Record<string, ITokenFiat>;
 };
+// Native retains its existing passive verification icon.
+type IWebLeadingBadge = NonNullable<
+  DataRow['columns'][number]['webLeadingBadge']
+>;
 const EMPTY_HOME_CELL_VALUES: Record<string, IHomeCellValue> = {};
+
+// Synchronous, non-reactive read of a row's cells (same resolution as
+// `useTokenFiat` / `useAggregateSubTokenFiatMap`). The mirrors below report
+// cell values through a layout effect, so the snapshot built in the same
+// render as a row's first mount would otherwise carry no fiat for it: the
+// native list then shows `--` until the follow-up render, which an
+// all-networks load can hold off for seconds (OK-66042).
+function readHomeCellValue(
+  store: IJotaiContextStore,
+  key: string,
+  members: IAccountToken[] | undefined,
+): IHomeCellValue {
+  const aggregate = isAgg(key, store.get(meta(store, key)));
+  const fiat = store.get(aggregate ? aggCell(store, key) : cell(store, key));
+  const memberFiatMap: Record<string, ITokenFiat> = {};
+  if (aggregate && members?.length) {
+    for (const member of members) {
+      const memberFiat = store.get(subcell(store, key, member.networkId ?? ''));
+      if (memberFiat) {
+        memberFiatMap[member.$key] = memberFiat;
+      }
+    }
+  }
+  return { fiat, memberFiatMap };
+}
 const EMPTY_SWAP_DISABLED: Record<string, boolean> = {};
+
+export type INativeTokenStatus = {
+  networkId: string;
+  label: string;
+  loading: boolean;
+};
+
+export type INativeTokenVerification = {
+  networkId: string;
+  label: string;
+};
 
 function HomeTokenCellMirror({
   token,
@@ -178,6 +233,8 @@ export function NativeTokenSelectorList({
   webScrollHost,
   useExternalWebScrollHost,
   ownerKey,
+  nativeTokenStatus,
+  nativeTokenVerification,
 }: {
   rows: ITokenSelectorListRow[];
   networkId: string;
@@ -223,15 +280,31 @@ export function NativeTokenSelectorList({
   webScrollHost?: HTMLElement | null;
   useExternalWebScrollHost?: boolean;
   ownerKey?: string;
+  nativeTokenStatus?: INativeTokenStatus;
+  nativeTokenVerification?: INativeTokenVerification;
 }) {
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
+  const uiTheme = useTheme();
+  const verificationIconColor = uiTheme.iconCaution.val;
+  const verificationBadgeTextColor = uiTheme.textCaution.val;
+  const verificationBadgeBackgroundColor = uiTheme.bgCautionSubdued.val;
+  // The iOS table renderer keeps title icons on the primary line. Keep this
+  // network-scoped so sync state changes do not switch the list's layout.
+  const useIOSPrivacyTableLayout =
+    platformEnv.isNativeIOS &&
+    !isAllNetworks &&
+    !isTokenSelector &&
+    !crossNetworkGroupingActive &&
+    !!networkId &&
+    networkUtils.isLocalWalletNetwork({ networkId });
   const { gtMd } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [createAccountState] = useCreateAccountStateAtom();
   const [processingTokenState] = useProcessingTokenStateAtom();
+  const { store: homeCellStore } = useTokenListContextData();
   const hostAnchorRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<NativeListRef>(null);
   const activeTooltipToken = useRef<string | undefined>(undefined);
@@ -358,12 +431,18 @@ export function NativeTokenSelectorList({
       withPrice,
       withSwapAction,
       withAggregateBadge,
+      nativeTokenStatus,
+      nativeTokenVerification,
+      verificationIconColor,
+      verificationBadgeTextColor,
+      verificationBadgeBackgroundColor,
       intl,
       settings.currencyInfo?.id,
       settingsValue.hideValue,
       gtMd,
       currencyMap,
       theme,
+      useIOSPrivacyTableLayout,
     ];
     const previousCache = rowCacheRef.current;
     const canReuseRows =
@@ -386,6 +465,13 @@ export function NativeTokenSelectorList({
     >();
     const targetCurrency = settings.currencyInfo?.id ?? '';
     const iconSize = getTokenRowIconSize(gtMd);
+    const columnWeights = getTokenTableColumnWeights(withSwapAction);
+    const dataRowContainerStyle = useIOSPrivacyTableLayout
+      ? {
+          ...TOKEN_ROW_CONTAINER_STYLE,
+          backgroundColor: theme.rowBackground ?? theme.background,
+        }
+      : TOKEN_ROW_CONTAINER_STYLE;
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
         switch (item.syntheticRowType) {
@@ -443,8 +529,16 @@ export function NativeTokenSelectorList({
             !homeCellSeam && members?.length
               ? members.map((member) => tokenListMap?.[member.$key])
               : undefined;
+          // A row whose mirror has not reported yet (first mount) reads its
+          // cells directly so the first snapshot already carries its fiat.
+          const homeCellValue = homeCellSeam
+            ? (homeCellValues[key] ??
+              (homeCellStore
+                ? readHomeCellValue(homeCellStore, key, members)
+                : undefined))
+            : undefined;
           const fiat = homeCellSeam
-            ? homeCellValues[key]?.fiat
+            ? homeCellValue?.fiat
             : resolveMapTokenFiat({
                 $key: key,
                 networkId: token.networkId,
@@ -475,7 +569,7 @@ export function NativeTokenSelectorList({
             const resolvedMembers = members ?? [];
             const resolvedAllMembers = allMembers ?? [];
             const memberFiatMap = homeCellSeam
-              ? (homeCellValues[key]?.memberFiatMap ?? {})
+              ? (homeCellValue?.memberFiatMap ?? {})
               : Object.fromEntries(
                   resolvedMembers.flatMap((member) => {
                     const memberFiat = tokenListMap?.[member.$key];
@@ -688,7 +782,49 @@ export function NativeTokenSelectorList({
                 : undefined;
             const titleIcon = receiptIcon ?? gasIcon;
             const secondaryTitleIcon = receiptIcon ? gasIcon : undefined;
+            const tokenStatus =
+              !isTokenSelector &&
+              !isAllNetworks &&
+              token.isNative &&
+              token.networkId === networkId &&
+              nativeTokenStatus?.networkId === networkId
+                ? nativeTokenStatus
+                : undefined;
+            const needsVerification =
+              !isTokenSelector &&
+              !isAllNetworks &&
+              !hideBalanceAndValue &&
+              token.isNative &&
+              token.networkId === networkId &&
+              nativeTokenVerification?.networkId === networkId;
+            const isCompactVerification =
+              needsVerification && !platformEnv.isNative && !gtMd;
+            const verificationIcon: IdentityRow['titleIcon'] =
+              needsVerification && (platformEnv.isNative || !gtMd)
+                ? {
+                    name: 'InfoCircleOutline',
+                    tintColor: verificationIconColor,
+                    accessibilityLabel: nativeTokenVerification?.label,
+                  }
+                : undefined;
+            const verificationBadge: IWebLeadingBadge | undefined =
+              needsVerification && !platformEnv.isNative && gtMd
+                ? {
+                    text: intl.formatMessage({
+                      id: ETranslations.global_unverified,
+                    }),
+                    textColor: verificationBadgeTextColor,
+                    backgroundColor: verificationBadgeBackgroundColor,
+                  }
+                : undefined;
             const trailing: TrailingAccessory[] = [];
+            if (
+              tokenStatus?.loading &&
+              !creatingAddress &&
+              !currentProcessing
+            ) {
+              trailing.push({ kind: 'spinner' });
+            }
             if (!creatingAddress && !hideBalanceAndValue && fiat) {
               trailing.push({
                 kind: 'valuePair',
@@ -731,6 +867,10 @@ export function NativeTokenSelectorList({
               type: 'identity',
               key: rowKey,
               height: 60,
+              // The $bodyLg/$bodyMd line boxes (24 + 20) and 8dp paddings are
+              // unscaled, so the row height must not take Android's legacy
+              // sub-400dp 0.9 factor or the subtitle gets clipped (OK-66072).
+              heightRounding: 'nearest',
               testID: `${tokenItemTestIDPrefix}-${token.networkId ?? 'any'}-${token.symbol ?? key}`,
               title: token.isAggregateToken
                 ? (token.commonSymbol ?? token.symbol ?? '')
@@ -759,6 +899,9 @@ export function NativeTokenSelectorList({
               titleIcon,
               secondaryTitleIcon,
               badges: [
+                ...(tokenStatus
+                  ? [{ key: 'sync-status', text: tokenStatus.label }]
+                  : []),
                 ...(isAllNetworks &&
                 (withAggregateBadge || isTokenSelector) &&
                 token.isAggregateToken &&
@@ -782,6 +925,7 @@ export function NativeTokenSelectorList({
               disabled: !!otherProcessing,
               opacity: otherProcessing ? 0.5 : 1,
               style: {
+                container: TOKEN_ROW_CONTAINER_STYLE,
                 horizontalPadding: 12,
                 verticalPadding: 8,
                 leadingGap: 12,
@@ -793,7 +937,117 @@ export function NativeTokenSelectorList({
                 },
               },
             };
-            if (tableLayout && !isTokenSelector) {
+            if (
+              !tableLayout &&
+              ((platformEnv.isNative && tokenStatus) || needsVerification) &&
+              !creatingAddress &&
+              !currentProcessing
+            ) {
+              const balanceAccessory = trailing.find(
+                (accessory) => accessory.kind === 'valuePair',
+              );
+              const nativeSyncStatus = platformEnv.isNative
+                ? tokenStatus
+                : undefined;
+              // Native identity accessories stack vertically. Keep the balance
+              // in a column so the spinner remains beside the two-line row.
+              const statusRow: DataRow = {
+                type: 'dataRow',
+                key: rowKey,
+                height: nativeRow.height,
+                heightRounding: nativeRow.heightRounding,
+                testID: nativeRow.testID,
+                accessibilityLabel: [
+                  nativeRow.title,
+                  tokenStatus?.label,
+                  verificationBadge?.text ??
+                    verificationIcon?.accessibilityLabel,
+                  nativeSyncStatus ? undefined : nativeRow.subtitle,
+                  balanceAccessory?.primary,
+                  balanceAccessory?.secondary,
+                ]
+                  .filter(Boolean)
+                  .join(', '),
+                leading,
+                badges: nativeSyncStatus
+                  ? nativeRow.badges?.filter(
+                      (badge) => badge.key !== 'sync-status',
+                    )
+                  : nativeRow.badges,
+                columns: [
+                  {
+                    key: 'asset',
+                    text: nativeRow.title,
+                    secondaryText:
+                      nativeSyncStatus?.label ?? nativeRow.subtitle,
+                    secondaryTextSegments:
+                      !nativeSyncStatus && withPrice
+                        ? [
+                            ...(priceText.segments ?? [
+                              { text: priceText.text },
+                            ]),
+                            { text: ' ' },
+                            ...(priceChangeText.segments ?? [
+                              { text: priceChangeText.text },
+                            ]),
+                          ]
+                        : undefined,
+                    titleIcon,
+                    weight: isCompactVerification ? 1 : 2,
+                  },
+                  ...(balanceAccessory || needsVerification
+                    ? [
+                        {
+                          key: 'balance',
+                          text: balanceText.text,
+                          titleIcon: verificationIcon,
+                          ...(verificationBadge
+                            ? { webLeadingBadge: verificationBadge }
+                            : {}),
+                          textSegments: balanceText.segments,
+                          secondaryText: valueText.text,
+                          secondaryTextSegments: valueText.segments,
+                          alignment: 'end' as const,
+                          weight: isCompactVerification
+                            ? (2 as const)
+                            : (1 as const),
+                        },
+                      ]
+                    : []),
+                ],
+                trailing: tokenStatus?.loading ? [{ kind: 'spinner' }] : [],
+                disabled: nativeRow.disabled,
+                opacity: nativeRow.opacity,
+                style: {
+                  container: dataRowContainerStyle,
+                  horizontalPadding: 12,
+                  verticalPadding: 8,
+                  leadingGap: 12,
+                  lineGap: 0,
+                  columns: {
+                    token: '$bodyLg',
+                    fontWeight: 'medium',
+                    lines: 1,
+                  },
+                  columnSecondary: {
+                    token: '$bodyMd',
+                    lines: 1,
+                  },
+                  image: { width: iconSize, height: iconSize, shape: 'circle' },
+                },
+              };
+              nativeRows.push(statusRow);
+              nextRows.set(rowKey, {
+                token,
+                cellValue: homeCellValues[key],
+                swapDisabled: swapDisabled[key],
+                fiat,
+                members,
+                allMembers,
+                memberFiatValues,
+                row: statusRow,
+              });
+            } else if (tableLayout && !isTokenSelector) {
               const swapAction: TrailingAccessory[] = withSwapAction
                 ? [
                     {
@@ -813,26 +1067,33 @@ export function NativeTokenSelectorList({
                 type: 'dataRow',
                 key: rowKey,
                 height: 60,
+                heightRounding: 'nearest',
                 testID: nativeRow.testID,
                 leading,
-                badges: nativeRow.badges,
+                badges: nativeRow.badges?.filter(
+                  (badge) => badge.key !== 'sync-status',
+                ),
                 columns: [
                   {
                     key: 'asset',
                     text: nativeRow.title,
-                    secondaryText: token.name,
+                    secondaryText: tokenStatus?.label ?? token.name,
                     titleIcon,
                     secondaryTitleIcon,
-                    weight: 1,
+                    weight: columnWeights.asset,
                   },
                   {
                     key: 'balance',
                     text: balanceText.text,
+                    titleIcon: verificationIcon,
+                    ...(verificationBadge
+                      ? { webLeadingBadge: verificationBadge }
+                      : {}),
                     textSegments: balanceText.segments,
                     secondaryText: valueText.text,
                     secondaryTextSegments: valueText.segments,
                     alignment: 'end',
-                    weight: 1,
+                    weight: columnWeights.balance,
                   },
                   {
                     key: 'price',
@@ -842,11 +1103,23 @@ export function NativeTokenSelectorList({
                     secondaryTextSegments: priceChangeText.segments,
                     secondaryTone: priceChangeTone,
                     alignment: 'end',
-                    weight: 1,
+                    weight: columnWeights.price,
                   },
+                  ...(columnWeights.swapSpacer
+                    ? [
+                        {
+                          key: 'swapSpacer',
+                          text: '',
+                          weight: columnWeights.swapSpacer,
+                        },
+                      ]
+                    : []),
                 ],
-                trailing: swapAction,
+                trailing: tokenStatus?.loading
+                  ? [{ kind: 'spinner' }, ...swapAction]
+                  : swapAction,
                 style: {
+                  container: dataRowContainerStyle,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,
@@ -893,7 +1166,10 @@ export function NativeTokenSelectorList({
     const nextSnapshot: NativeListSnapshot = {
       schemaVersion: 1,
       generation: 1,
-      layout: { kind: 'linear', contentPaddingHorizontal: 8 },
+      layout: {
+        kind: useIOSPrivacyTableLayout ? 'table' : 'linear',
+        contentPaddingHorizontal: TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
+      },
       rows: nativeRows,
       theme,
       ...(structuralTransition ? { structuralTransition } : undefined),
@@ -938,11 +1214,17 @@ export function NativeTokenSelectorList({
     tokenItemTestIDPrefix,
     homeCellSeam,
     homeCellValues,
+    homeCellStore,
     rowKeys,
     tableLayout,
     withPrice,
     withSwapAction,
     withAggregateBadge,
+    nativeTokenStatus,
+    nativeTokenVerification,
+    verificationIconColor,
+    verificationBadgeTextColor,
+    verificationBadgeBackgroundColor,
     swapDisabled,
     structuralTransition,
     disclosure,
@@ -954,6 +1236,7 @@ export function NativeTokenSelectorList({
     gtMd,
     currencyMap,
     theme,
+    useIOSPrivacyTableLayout,
   ]);
 
   useLayoutEffect(() => {

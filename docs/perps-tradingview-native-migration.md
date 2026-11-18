@@ -172,10 +172,47 @@ use separate Perps persistent atoms. Desktop dialogs, mobile quick settings and
 mobile settings routes retain the originating namespace.
 
 Intervals use a dedicated Perps storage key.
-Drawing keys include a `perps:` prefix before the existing source;
-indicator-pane heights and ordering use that same isolated key.
-The built-in multi-chart layout has been removed. Saved layout snapshots and
-per-panel preferences are ignored; the original chart's preferences still apply.
+Drawing keys include a `perps:` prefix before the existing source.
+Indicator-pane heights and ordering are kept once for the Perps chart and once
+per split-view panel; they no longer change with the token.
+
+## Split view
+
+The large web, extension and desktop layouts can show up to four charts through
+`TradingViewNativeMultiChart` (`PerpNativeSplitCandles` in
+`PerpNativeCandles.tsx`). The layout picker sits at the end of the trading
+chart's controls; the layout, panel sizes and each extra panel's token and
+indicators are saved in `perpsTradingViewMultiChartPersistAtom`. Mobile layouts
+and the native apps keep the single chart.
+
+- The first panel is always the active trade instrument and keeps every trading
+  integration: lines with cancel/drag, the order menu and fill marks.
+- An extra panel shows any perp or spot token picked from the regular token
+  selector. It has its own interval and indicators, shows the account's lines
+  and fill marks for its token read-only, and has no order menu.
+- Every panel has the drawing tools. Drawings are saved per token, not per
+  panel: panels showing the same token share them live, including undo, and a
+  token keeps its drawings when it moves between panels.
+- Its Trade button switches the trade instrument to its token and puts the
+  previously traded token in the panel, so nothing leaves the screen.
+- A new panel starts on a liquid token that is not on screen yet and copies the
+  trading chart's indicators; afterwards the two are independent.
+- The layout picker has five sync switches, saved with the layout. All are
+  off by default.
+  - Symbol: every panel shows the trade instrument, and a token picked in any
+    panel switches it. Panels return to their own tokens when it is turned off.
+  - Interval: every panel takes the trading chart's interval, and an interval
+    picked in any panel applies to all.
+  - Crosshair: hovering one chart shows its crosshair in the others at the
+    same time. Each chart marks the candle of its own interval that holds that
+    time, and its legend reads that candle. The price line follows only
+    between panels showing the same token.
+  - Time: panning or zooming one chart scrolls the others to the same time;
+    each keeps its own zoom.
+  - Date range: the others also zoom, so every chart shows the same span of
+    time, as far as the zoom limits and its loaded history allow.
+- Expanding the chart expands the whole grid. The legacy TradingView renderer
+  stays a single chart; the saved layout returns with the native renderer.
 Market and Swap keep their existing storage keys and settings. Perps starts with
 the standard defaults when its new keys are absent; no Market or legacy WebView
 settings or drawings are copied, read as a fallback, removed or migrated.

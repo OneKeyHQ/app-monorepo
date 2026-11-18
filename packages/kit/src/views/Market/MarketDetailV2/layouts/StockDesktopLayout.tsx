@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   Tooltip,
   XStack,
@@ -69,6 +70,7 @@ import {
 } from '../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
+import { useMarketDetailTabMinHeight } from '../hooks/useMarketDetailTabMinHeight';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -1332,9 +1334,15 @@ function StockOverview({
   const intl = useIntl();
   const { activeTab, selectTab } = useStockDetailTab(initialSection);
   const { stockId } = useStockDetail();
+  const { ref, minHeight, preserveScrollPosition } =
+    useMarketDetailTabMinHeight(stockId);
+  const handleTabChange = (tab: IStockDetailTab) => {
+    preserveScrollPosition();
+    selectTab(tab);
+  };
 
   return (
-    <YStack>
+    <YStack ref={ref} minHeight={minHeight}>
       <XStack
         testID={STOCK_DETAIL_TABS_TEST_ID}
         height={44}
@@ -1356,7 +1364,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => selectTab('overview')}
+          onPress={() => handleTabChange('overview')}
         >
           {intl.formatMessage({ id: ETranslations.global_overview })}
         </Button>
@@ -1374,7 +1382,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => selectTab('position')}
+          onPress={() => handleTabChange('position')}
         >
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,
@@ -1453,8 +1461,12 @@ export function StockDesktopLayout({
     isPortfolioPending: isStockPortfolioPending,
     isPortfolioIncomplete: isStockPortfolioIncomplete,
   } = useStockPortfolioData();
-  const { priceMode, handlePriceModeChange, sharePriceAvailable } =
-    useStockPriceSource();
+  const {
+    priceMode,
+    handlePriceModeChange,
+    sharePriceAvailable,
+    isPriceSourceReady,
+  } = useStockPriceSource();
 
   return (
     <Stack
@@ -1479,30 +1491,38 @@ export function StockDesktopLayout({
             pb="$8"
             gap="$4"
           >
-            <StockPriceHeader
-              priceMode={priceMode}
-              sharePriceAvailable={sharePriceAvailable}
-              onPriceModeChange={handlePriceModeChange}
-            />
-            <StockChart
-              active={active}
-              chartContainerTestID="stock-token-detail-tradingview"
-              fullscreenZIndex={chartFullscreenZIndex}
-              fullscreenStyle={{
-                position: 'fixed',
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: platformEnv.isWeb ? 40 : 0,
-              }}
-              marketTradingView={marketTradingView}
-              priceMode={priceMode}
-              chartMode={chartMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              isChartFullscreen={isChartFullscreen}
-              onEnterChartFullscreen={onEnterChartFullscreen}
-            />
+            {isPriceSourceReady ? (
+              <>
+                <StockPriceHeader
+                  priceMode={priceMode}
+                  sharePriceAvailable={sharePriceAvailable}
+                  onPriceModeChange={handlePriceModeChange}
+                />
+                <StockChart
+                  active={active}
+                  chartContainerTestID="stock-token-detail-tradingview"
+                  fullscreenZIndex={chartFullscreenZIndex}
+                  fullscreenStyle={{
+                    position: 'fixed',
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: platformEnv.isWeb ? 40 : 0,
+                  }}
+                  marketTradingView={marketTradingView}
+                  priceMode={priceMode}
+                  chartMode={chartMode}
+                  isChartSwitchDisabled={isChartSwitchDisabled}
+                  onChartSwitch={onChartSwitch}
+                  isChartFullscreen={isChartFullscreen}
+                  onEnterChartFullscreen={onEnterChartFullscreen}
+                />
+              </>
+            ) : (
+              <Stack flex={1} alignItems="center" justifyContent="center">
+                <Spinner size="large" />
+              </Stack>
+            )}
           </YStack>
           {/* The tab owns the whole lower region: Overview carries the stat
               grid and the editorial sections, My position replaces all of

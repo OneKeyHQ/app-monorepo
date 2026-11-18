@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
@@ -11,11 +11,14 @@ import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/compon
 import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
-import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
+import {
+  BannerDetailListColumnHeader,
+  resolveBannerDetailColumnMode,
+} from './BannerDetailListColumnHeader';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { FlatListProps } from 'react-native';
+import type { FlatListProps, LayoutChangeEvent } from 'react-native';
 
 type IBannerDetailTokenFlatListProps = {
   data: IMarketToken[];
@@ -38,6 +41,11 @@ export function BannerDetailTokenFlatList({
 }: IBannerDetailTokenFlatListProps) {
   const intl = useIntl();
   const tabBarHeight = useTabBarHeight();
+  const [listWidth, setListWidth] = useState(0);
+  const columnMode = resolveBannerDetailColumnMode(listWidth);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
 
   const sortedData = useMemo(
     () =>
@@ -51,9 +59,13 @@ export function BannerDetailTokenFlatList({
 
   const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(
     ({ item }) => (
-      <TokenListItem item={item} onPress={() => onItemPress(item)} />
+      <TokenListItem
+        item={item}
+        onPress={() => onItemPress(item)}
+        bannerColumnMode={columnMode}
+      />
     ),
-    [onItemPress],
+    [columnMode, onItemPress],
   );
 
   const keyExtractor = useCallback((item: IMarketToken) => item.id, []);
@@ -72,7 +84,7 @@ export function BannerDetailTokenFlatList({
   }, [intl, isLoading]);
 
   return (
-    <Stack flex={1}>
+    <Stack flex={1} onLayout={onListLayout}>
       <BannerDetailListColumnHeader
         // Same label as the mobile home lists: the row's second line is the
         // token's volume.
@@ -84,9 +96,10 @@ export function BannerDetailTokenFlatList({
         changeSortType={changeSortType}
         change24hColumnTitle={change24hColumnTitle}
         onChangeSortPress={onChangeSortPress}
+        columnMode={columnMode}
       />
       {isLoading && sortedData.length === 0 ? (
-        <TokenListSkeleton count={15} />
+        <TokenListSkeleton count={15} bannerColumnMode={columnMode} />
       ) : (
         <FlatList<IMarketToken>
           style={{ flex: 1 }}

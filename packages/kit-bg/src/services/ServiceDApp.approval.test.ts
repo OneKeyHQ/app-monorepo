@@ -671,12 +671,13 @@ describe('ServiceDApp connection approval transaction', () => {
     expectNoApprovalSideEffects({ ...harness, emitSpy });
   });
 
-  it('commits, resolves, emits, and cleans up a replaced WalletConnect session on the stable happy path', async () => {
+  it('commits, resolves, and emits without disconnecting a same-origin WalletConnect session', async () => {
     const origin = 'https://stable-approval.test';
     const harness = createHarness();
     const accountInfo = buildConnectionAccount('approval-a');
+    const walletConnectAccount = buildConnectionAccount('wallet-connect-old');
     await harness.dappConnection.upsertConnection({
-      accountsInfo: [buildConnectionAccount('wallet-connect-old')],
+      accountsInfo: [walletConnectAccount],
       origin,
       storageType: 'walletConnect',
       walletConnectTopic: 'old-wallet-connect-topic',
@@ -691,35 +692,28 @@ describe('ServiceDApp connection approval transaction', () => {
           ?.connectionMap[0],
       ).toEqual(accountInfo);
     });
-    const cleanupFinished = createDeferred();
-    const deleteWalletConnectConnectionIfTopic =
-      harness.dappConnection.deleteWalletConnectConnectionIfTopic.bind(
-        harness.dappConnection,
-      );
-    jest
-      .spyOn(harness.dappConnection, 'deleteWalletConnectConnectionIfTopic')
-      .mockImplementation(async (params) => {
-        const removed = await deleteWalletConnectConnectionIfTopic(params);
-        cleanupFinished.resolve();
-        return removed;
-      });
-    const approval = harness.service.approveConnectionSession({
-      accountInfo,
-      accountSelectorNum: 0,
-      approvalId: 'approval-stable',
-      expectedSelectedAccount: buildSelectedAccount('approval-a'),
-      mode: 'save',
-      origin,
-      requestId: 103,
-    });
-    await expect(approval).resolves.toEqual({ approved: true });
-    await cleanupFinished.promise;
+    await expect(
+      harness.service.approveConnectionSession({
+        accountInfo,
+        accountSelectorNum: 0,
+        approvalId: 'approval-stable',
+        expectedSelectedAccount: buildSelectedAccount('approval-a'),
+        mode: 'save',
+        origin,
+        requestId: 103,
+      }),
+    ).resolves.toEqual({ approved: true });
 
     const rawData = await harness.dappConnection.getRawData();
     expect(rawData?.data.injectedProvider[origin]?.connectionMap[0]).toEqual(
       accountInfo,
     );
-    expect(rawData?.data.walletConnect[origin]).toBeUndefined();
+    expect(
+      rawData?.data.walletConnect['old-wallet-connect-topic'],
+    ).toMatchObject({
+      connectionMap: { 1000: walletConnectAccount },
+      walletConnectTopic: 'old-wallet-connect-topic',
+    });
     expect(harness.resolveCallback).toHaveBeenCalledWith({
       data: accountInfo,
       id: 103,
@@ -732,112 +726,96 @@ describe('ServiceDApp connection approval transaction', () => {
       items: [{ address: accountInfo.address, networkId: 'evm--1' }],
       url: origin,
     });
-    expect(harness.walletConnectDisconnect).toHaveBeenCalledWith(
-      'old-wallet-connect-topic',
-    );
+    expect(harness.walletConnectDisconnect).not.toHaveBeenCalled();
   });
 
-  it('retains the replaced WalletConnect state when remote disconnect fails', async () => {
-    const origin = 'https://wallet-connect-disconnect-failure.test';
+  it('preserves a legacy URL-keyed WalletConnect session during injected approval', async () => {
+    const origin = 'https://legacy-wallet-connect.test';
     const harness = createHarness();
-    const accountInfo = buildConnectionAccount('approval-a');
-    const previousWalletConnectAccount = buildConnectionAccount(
-      'wallet-connect-recoverable',
+    const walletConnectAccount = buildConnectionAccount(
+      'wallet-connect-legacy',
     );
     await harness.dappConnection.upsertConnection({
-      accountsInfo: [previousWalletConnectAccount],
+      accountsInfo: [walletConnectAccount],
       origin,
       storageType: 'walletConnect',
-      walletConnectTopic: 'recoverable-wallet-connect-topic',
+      walletConnectTopic: 'legacy-topic',
+    });
+    await harness.dappConnection.setRawData((rawData) => {
+      if (!rawData) throw new OneKeyLocalError('missing fixture');
+      const legacy = rawData.data.walletConnect['legacy-topic'];
+      return {
+        data: {
+          ...rawData.data,
+          walletConnect: { [origin]: legacy },
+        },
+      };
     });
     jest.clearAllMocks();
-    harness.walletConnectDisconnect.mockRejectedValueOnce(
-      new Error('remote disconnect unavailable'),
-    );
-    const approval = harness.service.approveConnectionSession({
-      accountInfo,
-      accountSelectorNum: 0,
-      approvalId: 'approval-wallet-connect-disconnect-failure',
-      expectedSelectedAccount: buildSelectedAccount('approval-a'),
-      mode: 'save',
-      origin,
-      requestId: 108,
-    });
-    await expect(approval).resolves.toEqual({ approved: true });
-    await Promise.resolve();
+    await expect(
+      harness.service.approveConnectionSession({
+        accountInfo: buildConnectionAccount('approval-a'),
+        accountSelectorNum: 0,
+        approvalId: 'approval-legacy-wallet-connect',
+        expectedSelectedAccount: buildSelectedAccount('approval-a'),
+        mode: 'save',
+        origin,
+        requestId: 108,
+      }),
+    ).resolves.toEqual({ approved: true });
 
-    const rawData = await harness.dappConnection.getRawData();
-    expect(rawData?.data.injectedProvider[origin]?.connectionMap[0]).toEqual(
-      accountInfo,
-    );
-    expect(rawData?.data.walletConnect[origin]).toMatchObject({
-      connectionMap: { 1000: previousWalletConnectAccount },
-      walletConnectTopic: 'recoverable-wallet-connect-topic',
+    expect(
+      await harness.dappConnection.getWalletConnectConnection('legacy-topic'),
+    ).toMatchObject({
+      connectionMap: { 1000: walletConnectAccount },
+      walletConnectTopic: 'legacy-topic',
     });
-    expect(harness.walletConnectDisconnect).toHaveBeenCalledWith(
-      'recoverable-wallet-connect-topic',
-    );
+    expect(harness.walletConnectDisconnect).not.toHaveBeenCalled();
   });
 
-  it('does not delete a newer WalletConnect session after the old topic disconnects', async () => {
-    const origin = 'https://wallet-connect-cleanup-race.test';
+  it('preserves both same-origin WalletConnect topics across injected approval', async () => {
+    const origin = 'https://wallet-connect-multiple.test';
     const harness = createHarness();
-    const oldWalletConnectAccount =
-      buildConnectionAccount('wallet-connect-old');
-    const newWalletConnectAccount =
-      buildConnectionAccount('wallet-connect-new');
-    await harness.dappConnection.upsertConnection({
-      accountsInfo: [oldWalletConnectAccount],
-      origin,
-      storageType: 'walletConnect',
-      walletConnectTopic: 'old-wallet-connect-topic',
-    });
-    jest.clearAllMocks();
-    const disconnectStarted = createDeferred();
-    const finishDisconnect = createDeferred();
-    harness.walletConnectDisconnect.mockImplementationOnce(async () => {
-      disconnectStarted.resolve();
-      await finishDisconnect.promise;
-    });
-    const approval = harness.service.approveConnectionSession({
-      accountInfo: buildConnectionAccount('approval-a'),
-      accountSelectorNum: 0,
-      approvalId: 'approval-wallet-connect-cleanup-race',
-      expectedSelectedAccount: buildSelectedAccount('approval-a'),
-      mode: 'save',
-      origin,
-      requestId: 109,
-    });
-    await expect(approval).resolves.toEqual({ approved: true });
-    await disconnectStarted.promise;
-
-    await harness.dappConnection.upsertConnection({
-      accountsInfo: [newWalletConnectAccount],
-      origin,
-      storageType: 'walletConnect',
-      walletConnectTopic: 'new-wallet-connect-topic',
-    });
-    finishDisconnect.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    const oldAccount = buildConnectionAccount('wallet-connect-old');
+    const newAccount = buildConnectionAccount('wallet-connect-new');
+    for (const [topic, account] of [
+      ['old-topic', oldAccount],
+      ['new-topic', newAccount],
+    ] as const) {
+      await harness.dappConnection.upsertConnection({
+        accountsInfo: [account],
+        origin,
+        storageType: 'walletConnect',
+        walletConnectTopic: topic,
+      });
+    }
+    await expect(
+      harness.service.approveConnectionSession({
+        accountInfo: buildConnectionAccount('approval-a'),
+        accountSelectorNum: 0,
+        approvalId: 'approval-multiple-wallet-connect',
+        expectedSelectedAccount: buildSelectedAccount('approval-a'),
+        mode: 'save',
+        origin,
+        requestId: 109,
+      }),
+    ).resolves.toEqual({ approved: true });
 
     const rawData = await harness.dappConnection.getRawData();
-    expect(rawData?.data.walletConnect[origin]).toMatchObject({
-      connectionMap: { 1000: newWalletConnectAccount },
-      walletConnectTopic: 'new-wallet-connect-topic',
+    expect(Object.keys(rawData?.data.walletConnect ?? {}).toSorted()).toEqual([
+      'new-topic',
+      'old-topic',
+    ]);
+    expect(rawData?.data.walletConnect['old-topic'].connectionMap).toEqual({
+      1000: oldAccount,
     });
-    expect(
-      Object.values(rawData?.data.walletConnect[origin]?.connectionMap ?? {}),
-    ).toEqual([newWalletConnectAccount]);
-    expect(
-      Object.values(rawData?.data.walletConnect[origin]?.connectionMap ?? {}),
-    ).not.toContainEqual(oldWalletConnectAccount);
-    expect(harness.walletConnectDisconnect).toHaveBeenCalledWith(
-      'old-wallet-connect-topic',
-    );
+    expect(rawData?.data.walletConnect['new-topic'].connectionMap).toEqual({
+      1000: newAccount,
+    });
+    expect(harness.walletConnectDisconnect).not.toHaveBeenCalled();
   });
 
-  it('clears injected and old WalletConnect state before saving a new WalletConnect session', async () => {
+  it('keeps injected and old WalletConnect state when saving a new same-origin topic', async () => {
     const origin = 'https://wallet-connect-reconnect.test';
     const harness = createHarness();
     const injectedAccount = buildConnectionAccount('injected-old');
@@ -858,32 +836,23 @@ describe('ServiceDApp connection approval transaction', () => {
     });
     jest.clearAllMocks();
 
-    await harness.service.deleteExistSessionBeforeConnect({
-      origin,
-      storageType: 'walletConnect',
-    });
-
-    let rawData = await harness.dappConnection.getRawData();
-    expect(rawData?.data.injectedProvider[origin]).toBeUndefined();
-    expect(rawData?.data.walletConnect[origin]).toBeUndefined();
-    expect(harness.walletConnectDisconnect).toHaveBeenCalledWith(
-      'old-wallet-connect-topic',
-    );
-
-    await harness.dappConnection.upsertConnection({
+    await harness.service.saveConnectionSession({
       accountsInfo: [newWalletConnectAccount],
       origin,
       storageType: 'walletConnect',
       walletConnectTopic: 'new-wallet-connect-topic',
     });
-    rawData = await harness.dappConnection.getRawData();
-    expect(rawData?.data.walletConnect[origin]).toMatchObject({
-      connectionMap: { 1000: newWalletConnectAccount },
-      walletConnectTopic: 'new-wallet-connect-topic',
+    const rawData = await harness.dappConnection.getRawData();
+    expect(rawData?.data.injectedProvider[origin].connectionMap).toEqual({
+      0: injectedAccount,
     });
     expect(
-      Object.values(rawData?.data.walletConnect[origin]?.connectionMap ?? {}),
-    ).toEqual([newWalletConnectAccount]);
+      rawData?.data.walletConnect['old-wallet-connect-topic'].connectionMap,
+    ).toEqual({ 1000: oldWalletConnectAccount });
+    expect(
+      rawData?.data.walletConnect['new-wallet-connect-topic'].connectionMap,
+    ).toEqual({ 1000: newWalletConnectAccount });
+    expect(harness.walletConnectDisconnect).not.toHaveBeenCalled();
   });
 
   it('restores the staged DApp session when guarded Home preparation throws', async () => {

@@ -10,10 +10,52 @@ import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import {
   getEmailAuthCaptchaErrorMessage,
   getEmailOtpRequestErrorMessage,
+  isEmailOtpSignupDisabledError,
 } from './emailOtpErrorUtils';
 
 const enMessages: Record<string, string> = enCatalog;
 const zhMessages: Record<string, string> = zhCatalog;
+
+describe('email OTP signup-disabled errors', () => {
+  test.each([
+    new AuthApiError(
+      'Signups not allowed for this instance',
+      422,
+      'signup_disabled',
+    ),
+    { name: 'AuthApiError', code: 'signup_disabled', status: 422 },
+    toPlainErrorObject(
+      new OneKeyLocalError({
+        message: 'Email sign-up is no longer supported.',
+        data: { supabaseErrorCode: 'signup_disabled' },
+      }),
+    ),
+  ])(
+    'recognizes the structured error across SDK and local error boundaries',
+    (error) => {
+      expect(isEmailOtpSignupDisabledError(error)).toBe(true);
+    },
+  );
+
+  test.each([
+    null,
+    undefined,
+    'signup_disabled',
+    new Error('signup_disabled'),
+    new AuthApiError(
+      'Signups not allowed for this instance',
+      422,
+      'email_address_invalid',
+    ),
+    { code: 'signup_disabled' },
+    { data: { supabaseErrorCode: 'SIGNUP_DISABLED' } },
+  ])(
+    'does not infer signup-disabled from text or unrelated errors: %s',
+    (error) => {
+      expect(isEmailOtpSignupDisabledError(error)).toBe(false);
+    },
+  );
+});
 
 describe('email authentication CAPTCHA messages', () => {
   test.each([

@@ -88,19 +88,21 @@ export function prepareHomeNativeListSnapshot(
     }),
   };
   try {
-    validateSnapshot(normalized);
-    return normalized;
+    // The validator repairs what it can (for example it clears a malformed
+    // image descriptor instead of rejecting the row), so hand its result on
+    // rather than the rows as they came in.
+    return validateSnapshot(normalized);
   } catch {
     const seenKeys = new Set<string>();
     // A row that fails NativeList's own contract must not hide its valid peers.
-    const rows = normalized.rows.filter((row) => {
-      if (seenKeys.has(row.key)) return false;
+    const rows = normalized.rows.flatMap((row) => {
+      if (seenKeys.has(row.key)) return [];
       try {
-        validateSnapshot({ ...normalized, rows: [row] });
+        const validated = validateSnapshot({ ...normalized, rows: [row] });
         seenKeys.add(row.key);
-        return true;
+        return validated.rows;
       } catch {
-        return false;
+        return [];
       }
     });
     return { ...normalized, rows };

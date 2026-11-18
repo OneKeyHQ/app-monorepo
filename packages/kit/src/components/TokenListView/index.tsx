@@ -74,12 +74,17 @@ import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
+import { getTokenListSlotInsetCompensation } from './tokenListRowLayoutShared';
 import {
   TokenListViewContext,
   useTokenListViewContext,
 } from './TokenListViewContext';
 import { getHomeTokenListRowKeys } from './utils';
 
+import type {
+  INativeTokenStatus,
+  INativeTokenVerification,
+} from './NativeTokenSelectorList';
 import type {
   IScopedActiveTokenList,
   IScopedActiveTokenListState,
@@ -93,6 +98,8 @@ let nextDisclosureScopeId = 0;
 
 type IProps = {
   accountId: string;
+  nativeTokenStatus?: INativeTokenStatus;
+  nativeTokenVerification?: INativeTokenVerification;
   networkId: string;
   indexedAccountId: string | undefined;
   // When true, the per-owner rendered cache is keyed by `indexedAccountId`
@@ -720,7 +727,11 @@ function TokenListViewCmp(props: IProps) {
   ]);
 
   const limitedTokens = useMemo(() => {
-    if (overFlowState.isOverflow && overFlowState.isSliced) {
+    if (
+      overFlowState.isSliced &&
+      limit &&
+      (overFlowState.isOverflow || filteredTokens.length > limit)
+    ) {
       return filteredTokens.slice(0, limit);
     }
     return filteredTokens;
@@ -812,7 +823,11 @@ function TokenListViewCmp(props: IProps) {
     if (!homeProjectedIds) {
       return undefined;
     }
-    if (overFlowState.isOverflow && overFlowState.isSliced && limit) {
+    if (
+      overFlowState.isSliced &&
+      limit &&
+      (overFlowState.isOverflow || homeProjectedIds.length > limit)
+    ) {
       return homeProjectedIds.slice(0, limit);
     }
     return homeProjectedIds;
@@ -1109,17 +1124,25 @@ function TokenListViewCmp(props: IProps) {
     browseEmptyTitle,
   ]);
 
+  const hasOverflow =
+    overFlowState.isOverflow || (!!limit && displayCountForOverflow > limit);
+
   useEffect(() => {
     if (limit) {
-      setOverFlowState((prev) => ({
-        ...prev,
-        isOverflow: displayCountForOverflow > limit,
-      }));
+      const nextIsOverflow = displayCountForOverflow > limit;
+      setOverFlowState((prev) =>
+        prev.isOverflow === nextIsOverflow
+          ? prev
+          : {
+              ...prev,
+              isOverflow: nextIsOverflow,
+            },
+      );
     }
   }, [displayCountForOverflow, limit]);
 
   const renderPlainModeFooter = useCallback(() => {
-    if (overFlowState.isOverflow && overFlowState.isSliced) {
+    if (hasOverflow && overFlowState.isSliced) {
       return (
         <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
@@ -1153,7 +1176,7 @@ function TokenListViewCmp(props: IProps) {
             </SizableText>
           </Stack>
         ) : null}
-        {overFlowState.isOverflow && !overFlowState.isSliced ? (
+        {hasOverflow && !overFlowState.isSliced ? (
           <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
               testID="token-list-show-less-btn"
@@ -1169,7 +1192,7 @@ function TokenListViewCmp(props: IProps) {
       </Stack>
     );
   }, [
-    overFlowState.isOverflow,
+    hasOverflow,
     overFlowState.isSliced,
     withFooter,
     tableLayout,
@@ -1187,8 +1210,7 @@ function TokenListViewCmp(props: IProps) {
   const disclosureEnabled =
     (platformEnv.isNative || platformEnv.isWeb) &&
     plainMode &&
-    (overFlowState.isOverflow ||
-      (!!limit && displayCountForOverflow > limit)) &&
+    hasOverflow &&
     !showSkeleton &&
     listData.length > 0;
   useEffect(() => {
@@ -1207,9 +1229,23 @@ function TokenListViewCmp(props: IProps) {
   }, [disclosureEnabled, disclosureScope]);
   const keepExpandedContent =
     !overFlowState.isSliced || expandedContentScope === disclosureScope;
+  // NativeList lays the header, footer, expanded-content and structure-toggle
+  // slots out at the list's `contentPaddingHorizontal`, the same inset the
+  // rows get before their own `horizontalPadding`. The native slot content
+  // here is page-level (block header, footer rows, the show more / less
+  // button, the Home blocks below the list) and already pads itself to the
+  // page edge, so pull the slot inset back out or everything around the rows
+  // lands 8 units further in than the rows and the tab bar. Web slot content
+  // is sized for the inset (see TokenListHeader), and the Android sidecar
+  // layout drops the inset on its own (see the helper).
+  const slotInsetCompensation = getTokenListSlotInsetCompensation({
+    isNative: !!platformEnv.isNative,
+    isNativeAndroid: !!platformEnv.isNativeAndroid,
+    hasSidecarLayout: !!nativeListSidecarLayout,
+  });
   const expandedContent =
     disclosureEnabled && keepExpandedContent ? (
-      <Stack key={disclosureScope}>
+      <Stack key={disclosureScope} mx={slotInsetCompensation}>
         {withFooter ? (
           <TokenListFooter
             tableLayout={tableLayout}
@@ -1230,7 +1266,7 @@ function TokenListViewCmp(props: IProps) {
       </Stack>
     ) : undefined;
   const structureToggle = disclosureEnabled ? (
-    <XStack pt="$3" px="$5" jc="center" ai="center">
+    <XStack pt="$3" px="$5" mx={slotInsetCompensation} jc="center" ai="center">
       <Button
         testID={
           overFlowState.isSliced
@@ -1255,7 +1291,7 @@ function TokenListViewCmp(props: IProps) {
       ? structuralTransitionCommand
       : undefined;
   const listHeader = (
-    <Stack>
+    <Stack mx={slotInsetCompensation}>
       {nativeListHeader}
       {withHeader ? (
         <TokenListHeader
@@ -1268,14 +1304,14 @@ function TokenListViewCmp(props: IProps) {
     </Stack>
   );
   const listFooter = plainMode ? (
-    <>
+    <Stack mx={slotInsetCompensation}>
       {!disclosureEnabled && !showSkeleton && listData.length
         ? renderPlainModeFooter()
         : null}
       {nativeListFooter}
-    </>
+    </Stack>
   ) : (
-    <Stack pb="$5">
+    <Stack pb="$5" mx={slotInsetCompensation}>
       {withFooter ? (
         <TokenListFooter
           tableLayout={tableLayout}
@@ -1294,6 +1330,8 @@ function TokenListViewCmp(props: IProps) {
   return (
     <NativeTokenSelectorList
       rows={showSkeleton ? [] : selectorListRows}
+      nativeTokenStatus={props.nativeTokenStatus}
+      nativeTokenVerification={props.nativeTokenVerification}
       networkId={networkId}
       networksMap={networksMap}
       tokenListMap={visibleTokenListMap}

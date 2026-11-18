@@ -1,7 +1,9 @@
 import {
+  applyTradingViewNativeSubIndicatorDisplayPrecision,
   buildTradingViewNativeSubIndicatorRenderPane,
   buildTradingViewNativeSubIndicatorRenderPanes,
 } from './model';
+import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 import { resolveTradingViewNativeSubIndicatorInstance } from './settings';
 
 import type { ITradingViewNativeSubIndicatorCalculation } from './types';
@@ -204,6 +206,63 @@ describe('TradingViewNative sub-indicator render model', () => {
       'volume-first',
       'rsi-second',
     ]);
+  });
+
+  it('applies the main price precision to inherited panes only', () => {
+    const points = Array.from({ length: 40 }, (_, index) => ({
+      c: 100 + Math.sin(index / 3) * 5,
+      h: 106,
+      l: 94,
+      o: 100,
+      t: 1_700_000_000 + index * 60,
+      v: 10,
+    }));
+    const [inheritedPane, pricePane, smallVolumePane] =
+      createTradingViewNativeSubIndicatorRenderSnapshots({
+        configs: [
+          { id: 'inherited', indicator: 'MACD' },
+          { id: 'rsi', indicator: 'RSI' },
+          { id: 'volume', indicator: 'VOL' },
+        ],
+        points,
+      }).map(({ pane }) => pane);
+    const panes = [inheritedPane!, pricePane!, smallVolumePane!];
+
+    const resolvedPanes = applyTradingViewNativeSubIndicatorDisplayPrecision(
+      panes,
+      2,
+    );
+
+    expect(resolvedPanes[0]?.format).toEqual({ precision: 2, type: 'inherit' });
+    expect(resolvedPanes[1]).toBe(pricePane);
+    // Volumes below one K unit keep their significant digits.
+    expect(resolvedPanes[2]).toBe(smallVolumePane);
+    expect(inheritedPane?.format).toEqual({ type: 'inherit' });
+    expect(
+      applyTradingViewNativeSubIndicatorDisplayPrecision(panes, undefined),
+    ).toBe(panes);
+  });
+
+  it('limits decimals of volume panes that reach K units', () => {
+    const points = Array.from({ length: 40 }, (_, index) => ({
+      c: 100,
+      h: 101,
+      l: 99,
+      o: 100,
+      t: 1_700_000_000 + index * 60,
+      v: 500 + index * 100,
+    }));
+    const [volumePane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'volume', indicator: 'VOL' }],
+      points,
+    }).map(({ pane }) => pane);
+
+    const [resolvedPane] = applyTradingViewNativeSubIndicatorDisplayPrecision(
+      [volumePane!],
+      undefined,
+    );
+
+    expect(resolvedPane?.format).toEqual({ precision: 2, type: 'volume' });
   });
 
   it('rejects calculations for a different indicator', () => {

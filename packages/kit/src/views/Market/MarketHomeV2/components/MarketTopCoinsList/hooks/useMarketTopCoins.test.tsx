@@ -5,6 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type {
   IMarketAssetDetailData,
@@ -125,6 +126,26 @@ describe('useMarketTopCoins', () => {
     mockToMarketDetailPage.mockResolvedValue(undefined);
   });
 
+  it('opens native detail without starting asset or token metadata requests', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      const { result } = renderHook(() => useMarketTopCoins());
+
+      await act(async () => {
+        await result.current.handleItemPress(bitcoin);
+      });
+
+      expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+        expect.objectContaining({ assetId: 'btc', symbol: 'BTC' }),
+      );
+      expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(0);
+      expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
+  });
+
   it('navigates with the default variant returned by the Asset detail API', async () => {
     serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
     const { result } = renderHook(() => useMarketTopCoins());
@@ -137,6 +158,7 @@ describe('useMarketTopCoins', () => {
       {
         assetId: 'btc',
         currency: 'usd',
+        autoHandleError: false,
       },
     ]);
     expect(serviceToken.fetchTokenInfoOnly.mock.calls).toContainEqual([
@@ -253,6 +275,7 @@ describe('useMarketTopCoins', () => {
     expect(mockUseToDetailPage).toHaveBeenCalledWith({
       marketTokenCategory: 'top_coins',
       replaceCurrentDetail: true,
+      from: 'DetailSwitch',
     });
   });
 

@@ -21,6 +21,7 @@ import {
   Keyboard,
   LinearGradient,
   Page,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
   Select,
   SizableText,
   Spinner,
@@ -147,7 +148,8 @@ export const LayoutHeaderLanguageSelector = memo(() => {
         value={value}
         onChange={handleLanguageChange}
         placement="bottom-end"
-        floatingPanelProps={{ maxHeight: 280 }}
+        searchable
+        floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
         renderTrigger={({ label }) =>
           gtMd ? (

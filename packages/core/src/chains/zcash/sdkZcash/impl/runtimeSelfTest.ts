@@ -1,13 +1,12 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
-import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';
-
 import { getKeys, getRuntime, getRuntimeWasm } from './carrier';
 
 import type { IZcashSdkApi } from '../types/sdk';
 
 export const runRuntimeSelfTest: IZcashSdkApi['runRuntimeSelfTest'] = async ({
   stage,
+  lightwalletdUrl,
 }) => {
   switch (stage) {
     case 'worker':
@@ -26,8 +25,11 @@ export const runRuntimeSelfTest: IZcashSdkApi['runRuntimeSelfTest'] = async ({
       return { stage };
     }
     case 'network': {
+      if (!lightwalletdUrl) {
+        throw new OneKeyLocalError('zcash self-test: no node to ask');
+      }
       const rt = await getRuntimeWasm();
-      const chainTip = await rt.chainTipAt(ZCASH_LIGHTWALLETD_MAINNET);
+      const chainTip = await rt.chainTipAt(lightwalletdUrl);
       if (!Number.isSafeInteger(chainTip) || chainTip <= 0) {
         throw new OneKeyLocalError('zcash self-test: invalid chain tip');
       }

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 
-import { useNetInfo, useUpdateEffect } from '@onekeyhq/components';
+import {
+  useNetInfo,
+  useUpdateEffect,
+  useVisibilityChange,
+} from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -28,6 +32,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
+import { CloudSyncReconciliationEffect } from './CloudSyncReconciliationEffect';
 import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
@@ -348,6 +353,15 @@ function PrimeGlobalEffectAfterAuthReady() {
 function PrimeGlobalEffectView() {
   const { isReady } = useOneKeyAuth();
 
+  // Back in the foreground: another device may have reset the hardware Cloud
+  // key or signed this one out meanwhile. Throttled in the background.
+  const onVisibilityChange = useCallback((visible: boolean) => {
+    if (visible) {
+      void backgroundApiProxy.serviceKeylessCloudSync.checkHardwareCloudSyncSessionThrottled();
+    }
+  }, []);
+  useVisibilityChange(onVisibilityChange);
+
   useEffect(() => {
     // Main-runtime handler NEVER mutates the shared session storage: every
     // persistent session deletion is bg-owned and identity-coordinated — a main-side
@@ -408,6 +422,7 @@ function PrimeGlobalEffectView() {
   return (
     <>
       <KYTIntroOnMount />
+      <CloudSyncReconciliationEffect />
       {isReady ? <PrimeGlobalEffectAfterAuthReady /> : null}
     </>
   );

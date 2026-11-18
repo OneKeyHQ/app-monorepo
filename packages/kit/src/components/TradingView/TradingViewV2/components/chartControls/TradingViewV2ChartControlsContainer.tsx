@@ -1,12 +1,13 @@
 import { type ReactNode, memo, useCallback, useMemo } from 'react';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, IconButton } from '@onekeyhq/components';
 import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
   ChartSettingsDialogContent,
   showTradingViewChartSettingsDialog,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
 import { TradingViewMobileChartSettingsDialogContent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent';
 
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
@@ -264,10 +265,14 @@ export const TradingViewV2ChartControlsContainer = memo(
         renderContent: (
           <TradingViewMobileChartSettingsDialogContent
             chartMode="tradingView"
-            tradingViewChartStyle={mobileChartStyle}
+            tradingViewChartStyle={
+              isControlsReady ? mobileChartStyle : undefined
+            }
             onChartSwitch={onChartSwitch}
             onOpenSettings={
-              onOpenChartSettings ?? showTradingViewChartSettingsDialog
+              isControlsReady
+                ? (onOpenChartSettings ?? showTradingViewChartSettingsDialog)
+                : undefined
             }
           />
         ),
@@ -275,6 +280,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [
       chartSettingsTitle,
       enableNativeChartSettings,
+      isControlsReady,
       mobileChartStyle,
       onChartSwitch,
       onControlInteraction,
@@ -363,7 +369,25 @@ export const TradingViewV2ChartControlsContainer = memo(
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}
-        rightControl={layoutMode === 'mobile' ? mobileToolbarExtra : undefined}
+        rightControl={
+          layoutMode === 'mobile'
+            ? (mobileToolbarExtra ??
+              (!isControlsReady &&
+              enableNativeChartSettings &&
+              onChartSwitch ? (
+                <IconButton
+                  testID="trading-view-loading-chart-settings-trigger"
+                  size="small"
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                  iconSize="$5"
+                  title={chartSettingsTitle}
+                  onPress={showMobileChartSettingsDialog}
+                  {...HEADER_ICON_BUTTON_STYLE_PROPS}
+                />
+              ) : undefined))
+            : undefined
+        }
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}

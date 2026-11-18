@@ -88,7 +88,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         connectId,
       }: {
         connectId: string;
-      }) => Promise.resolve(connectId),
+      }) => Promise.resolve({ connectId }),
     },
   },
 }));

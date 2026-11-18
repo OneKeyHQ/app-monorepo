@@ -7,11 +7,48 @@ import type {
 } from '@onekeyhq/shared/types/deviceStage';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type { IDeviceType, KnownDevice } from '@onekeyfe/hd-core';
 
+export type IBleCommunicationTelemetry = {
+  deviceType?: string;
+  firmwareVersion?: string;
+  bleVersion?: string;
+  transportType: 'ble';
+  platform: 'ios' | 'android' | 'desktop';
+  method: 'FilesystemFileWrite';
+  status: 'success' | 'failed';
+  mode: 'native-frame' | 'per-packet';
+  // Success summaries combine calls over a ten-second window; older events
+  // without this field represent one FileWrite call.
+  callCount?: number;
+  frames: number;
+  packets: number;
+  bytes: number;
+  durationMs: number;
+  effectiveTransferRateBytesPerSecond?: number;
+  writeDurationMs?: number;
+  readWaitDurationMs?: number;
+};
+
 export class HardwareConnectionScene extends BaseScene {
+  @LogToServer({ level: 'info', waitForServer: true })
+  private bleCommunicationResult(params: IBleCommunicationTelemetry) {
+    return params;
+  }
+
+  public reportBleCommunicationResult(
+    params: IBleCommunicationTelemetry,
+  ): Promise<void> {
+    return this.bleCommunicationResult(params) as unknown as Promise<void>;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public bleCommunicationRecorded(params: IBleCommunicationTelemetry) {
+    return params;
+  }
+
   @LogToServer()
   public bleMtuReady(params: {
     transportType: 'ble';

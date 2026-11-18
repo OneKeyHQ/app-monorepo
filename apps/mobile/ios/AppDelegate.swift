@@ -149,6 +149,11 @@ private func initializeNativeSentry() {
   }
   RNSentrySDK.start { options in
     options.enabled = true
+#if DEBUG
+    options.environment = "development"
+#else
+    options.environment = "production"
+#endif
     options.maxBreadcrumbs = 100
     options.maxCacheItems = 60
     options.enableAppHangTracking = true

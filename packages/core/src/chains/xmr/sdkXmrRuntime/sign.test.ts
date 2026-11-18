@@ -1,9 +1,13 @@
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { setXmrRuntimeLoader } from './address';
 import { signXmrTransaction } from './sign';
 
 import type { IXmrPureRuntimeApi } from './address';
+
+const mockLoadRuntime = jest.fn<Promise<IXmrPureRuntimeApi>, []>();
+jest.mock('./sdk', () => ({
+  getXmrRuntimeApiForCarrier: () => mockLoadRuntime(),
+}));
 
 const review = {
   network: 'mainnet' as const,
@@ -25,7 +29,7 @@ function runtime() {
       JSON.stringify({ txid: '11'.repeat(32), rawHex: 'aabb', sizeBytes: 2 }),
     ),
   };
-  setXmrRuntimeLoader(async () => api);
+  mockLoadRuntime.mockResolvedValue(api);
   return api;
 }
 const sign = () =>

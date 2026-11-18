@@ -15,7 +15,7 @@ export function WalletActionPortfolioSync({
 }) {
   const intl = useIntl();
   const [portfolioSyncUiState] = usePortfolioSyncUiStateAtom();
-  const { disabled, request, visible } = portfolioSyncUiState;
+  const { disabled, loading, request, visible } = portfolioSyncUiState;
 
   const handlePress = useCallback(
     (close: () => void) => {
@@ -34,7 +34,9 @@ export function WalletActionPortfolioSync({
       trackID="wallet-action-update-portfolio"
       icon="OnekeyDeviceCustom"
       label={intl.formatMessage({
-        id: ETranslations.portfolio_sync_to_device__action,
+        id: loading
+          ? ETranslations.global_updating
+          : ETranslations.portfolio_sync_to_device__action,
       })}
       disabled={disabled}
       onClose={onClose}
