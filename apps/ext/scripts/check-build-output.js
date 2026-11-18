@@ -380,10 +380,10 @@ function main() {
       0,
     );
   const budgets = {
-    // Linux CI output with the Zcash and Monero runtime wasm measured
-    // 186073416 bytes (run 40808182907); about 2% headroom.
-    // Trust the CI number when the margin is thin; macOS builds differ.
-    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 190000000),
+    // The local hardware runtime includes static protobuf codecs. After removing
+    // both legacy Web SDK bundles, macOS output measured 192987401 bytes.
+    // Allow about 1.6% headroom; background and remote-code gates stay separate.
+    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 196000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),

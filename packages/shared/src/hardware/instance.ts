@@ -178,6 +178,6 @@ export const resetHardwareSDKInstance = async (): Promise<void> => {
   console.log('HardwareSDK instance reset completed');
 };
 
-export const CoreSDKLoader = async () => import('@onekeyfe/hd-core');
+export { CoreSDKLoader } from './coreSdkLoader';
 
 export { HardwareSDK };
