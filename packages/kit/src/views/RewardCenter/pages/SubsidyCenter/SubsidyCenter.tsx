@@ -1,15 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   Accordion,
   Button,
-  Empty,
   Icon,
+  NumberSizeableText,
   Page,
-  Pagination,
   ScrollView,
   SizableText,
   Skeleton,
@@ -19,7 +19,10 @@ import {
   useInModalDialog,
   useMedia,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
+import type {
+  IPageNavigationProp,
+  ISizableTextProps,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -32,9 +35,8 @@ import { TronRewardCenterContent } from '@onekeyhq/kit/src/views/RewardCenter/pa
 import { useSettingsPageStyle } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useSettingsPageStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ITestModalPagesParam } from '@onekeyhq/shared/src/routes';
-import { ETestModalPages } from '@onekeyhq/shared/src/routes';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IModalRewardCenterParamList } from '@onekeyhq/shared/src/routes';
+import { EModalRewardCenterRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -42,11 +44,28 @@ import {
   desktopSubsidySidebarWidth,
 } from './DesktopSubsidyLayout';
 import { EnergyArtwork } from './EnergyArtwork';
-import { SubsidyPreviewMenu, TronRewardPreview } from './SubsidyPreview';
+import {
+  SubsidyRecentRecords,
+  SubsidyRecordsPanel,
+  SubsidySummaryLoadFailed,
+  subsidyRecordsCopy,
+} from './SubsidyRecords';
+import {
+  SUBSIDY_RECENT_RECORD_LIMIT,
+  formatSubsidyCount,
+  subsidyRecordCopy,
+} from './subsidyRecordUtils';
 import { TronClaimView, subsidyDialogProps } from './TronClaimDialog';
+import {
+  useSubsidyHistory,
+  useSubsidyIdentity,
+  useSubsidySummary,
+} from './useSubsidyRecords';
 
 import type { ISubsidyPanel } from './DesktopSubsidyLayout';
-import type { ISubsidyPreviewMode } from './SubsidyPreview';
+import type { ISubsidySummaryView } from './subsidyRecordUtils';
+import type { ISubsidyQuery } from './useSubsidyRecords';
+import type { RouteProp } from '@react-navigation/core';
 
 const loginRequiredLabel = '需登录';
 
@@ -83,50 +102,14 @@ const subsidyFAQs = [
   },
 ];
 
-type ISubsidyRecord = {
-  title: string;
-  network: 'TRON' | 'Base';
-  timestamp: string;
-  saved: number;
-  icon: IKeyOfIcons;
+// TODO(OK-67058): move to i18n keys once the copy is final.
+const summaryCopy = {
+  totalLabel: 'GA 累计赞助金额',
+  gaSettledLabel: 'GA 已结算',
+  gaSettledUnit: '笔',
+  tronAcceptedLabel: 'Tron 能量申请已受理',
+  tronAcceptedUnit: '次',
 };
-
-function demoRecord(
-  network: ISubsidyRecord['network'],
-  timestamp: string,
-  saved: number,
-): ISubsidyRecord {
-  const isTron = network === 'TRON';
-  return {
-    title: isTron ? 'USDT 转账' : 'USDC 转账',
-    network,
-    timestamp,
-    saved,
-    icon: isTron ? 'FlashSolid' : 'GasOutline',
-  };
-}
-
-const recentRecordLimit = 6;
-const demoRecords = [
-  demoRecord('TRON', '2026-11-10T02:24:00Z', 1.24),
-  demoRecord('Base', '2026-11-09T10:06:00Z', 0.08),
-  demoRecord('TRON', '2026-11-09T01:41:00Z', 1.18),
-  demoRecord('Base', '2026-11-08T11:52:00Z', 0.12),
-  demoRecord('TRON', '2026-11-08T04:17:00Z', 1.2),
-  demoRecord('Base', '2026-11-07T07:38:00Z', 0.18),
-  demoRecord('TRON', '2026-11-07T00:53:00Z', 1.18),
-  demoRecord('Base', '2026-11-06T09:12:00Z', 0.22),
-  demoRecord('TRON', '2026-11-06T03:46:00Z', 1.24),
-  demoRecord('Base', '2026-11-05T12:21:00Z', 0.09),
-  demoRecord('TRON', '2026-11-05T05:09:00Z', 1.22),
-  demoRecord('Base', '2026-11-04T08:34:00Z', 0.14),
-  demoRecord('TRON', '2026-11-04T02:58:00Z', 1.26),
-  demoRecord('Base', '2026-11-03T10:43:00Z', 0.16),
-  demoRecord('TRON', '2026-11-03T06:15:00Z', 1.19),
-  demoRecord('Base', '2026-11-02T13:07:00Z', 0.25),
-  demoRecord('TRON', '2026-11-02T01:32:00Z', 1.21),
-  demoRecord('Base', '2026-11-01T08:49:00Z', 0.7),
-];
 
 const usageSteps = [
   {
@@ -206,182 +189,94 @@ function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function SubsidyRecordList({
-  items,
-  rowHeight,
+// The headline amount is the Gas Account sponsor cost. It has no value until
+// a settled record carries an evidenced amount, and that must read as blank
+// rather than as $0.
+function SubsidyTotalAmount({
+  query,
+  ...textProps
 }: {
-  items: ISubsidyRecord[];
-  rowHeight?: number;
-}) {
-  const headingSize = rowHeight === undefined ? '$headingMd' : '$headingSm';
-  return (
-    <YStack
-      {...(rowHeight === undefined && {
-        gap: '$6',
-        p: '$4',
-        bg: '$bgSubdued',
-        borderRadius: '$6',
-        borderCurve: 'continuous',
-        overflow: 'hidden',
-      })}
-    >
-      {items.length === 0 ? (
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          textAlign="center"
-          py="$2"
-        >
-          暂无补贴记录
-        </SizableText>
-      ) : null}
-      {items.map((record) => (
-        <XStack
-          key={record.timestamp}
-          minHeight={rowHeight}
-          alignItems="center"
-          gap="$3"
-        >
-          <Stack
-            width="$8"
-            height="$8"
-            flexShrink={0}
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon name={record.icon} size="$6" color="$iconSubdued" />
-          </Stack>
-          <YStack flex={1} minWidth={0} gap="$1">
-            <XStack alignItems="baseline" gap="$3">
-              <SizableText size={headingSize} flex={1}>
-                {record.title}
-              </SizableText>
-              <SizableText
-                size={headingSize}
-                color="$textSuccess"
-                flexShrink={0}
-              >
-                ${record.saved.toFixed(2)}
-              </SizableText>
-            </XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {record.network} ·{' '}
-              {formatDate(record.timestamp, { hideTimeForever: true })}
-            </SizableText>
-          </YStack>
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
-
-function PaginatedSubsidyHistory({
-  records,
-  compact = false,
-}: {
-  records: ISubsidyRecord[];
-  compact?: boolean;
-}) {
-  const rowHeight = compact ? 52 : 64;
-  const [pageSize, setPageSize] = useState(1);
-  const [recordIndex, setRecordIndex] = useState(0);
-  const total = Math.ceil(records.length / pageSize);
-  const current = Math.min(
-    Math.floor(recordIndex / pageSize) + 1,
-    Math.max(total, 1),
-  );
-  const start = (current - 1) * pageSize;
-
-  const list = (
-    <ScrollView
-      flex={1}
-      minHeight={0}
-      contentContainerStyle={records.length ? undefined : { flexGrow: 1 }}
-      onLayout={({ nativeEvent }) =>
-        setPageSize(
-          Math.max(1, Math.floor(nativeEvent.layout.height / rowHeight)),
-        )
-      }
-    >
-      {records.length ? (
-        <SubsidyRecordList
-          items={records.slice(start, start + pageSize)}
-          rowHeight={rowHeight}
-        />
-      ) : (
-        <Empty
-          flexGrow={1}
-          {...(compact
-            ? {
-                illustration: 'Orders',
-                title: '暂无补贴记录',
-                titleProps: { size: '$headingMd' },
-              }
-            : {
-                illustration: 'Document',
-                illustrationProps: { size: 88, mb: '$1' },
-                description: '暂无补贴记录',
-                descriptionProps: { size: '$bodyMd' },
-              })}
-        />
-      )}
-    </ScrollView>
-  );
-  const pagination =
-    total > 1 ? (
-      <Pagination
-        alignSelf={compact ? 'flex-end' : 'center'}
-        flexShrink={0}
-        current={current}
-        total={total}
-        siblingCount={0}
-        onChange={(page) => setRecordIndex((page - 1) * pageSize)}
-        testID={
-          compact
-            ? 'subsidy-desktop-history-pagination'
-            : 'subsidy-history-pagination'
-        }
-      />
-    ) : null;
-
-  if (compact) {
+  query: ISubsidyQuery<ISubsidySummaryView>;
+} & Omit<ISizableTextProps, 'children'>) {
+  if (query.isLoading) {
+    return <Skeleton.Heading4Xl />;
+  }
+  const amount = query.data?.sponsorCostUsd;
+  if (!amount) {
     return (
-      <YStack flex={1} minHeight={0} gap="$3">
-        {list}
-        {pagination}
-      </YStack>
+      <SizableText {...textProps}>{subsidyRecordCopy.noValue}</SizableText>
     );
   }
-
   return (
-    <Page>
-      <Page.Header title="全部补贴记录（演示）" />
-      <Page.Body px="$5" pt="$2">
-        {list}
-      </Page.Body>
-      {pagination ? (
-        <Page.Footer>
-          <YStack py="$3" borderTopWidth={1} borderTopColor="$borderSubdued">
-            {pagination}
-          </YStack>
-        </Page.Footer>
-      ) : null}
-    </Page>
+    <NumberSizeableText
+      {...textProps}
+      formatter="value"
+      formatterOptions={{ currency: '$' }}
+    >
+      {amount}
+    </NumberSizeableText>
   );
 }
 
-export function NetworkFeeSubsidyHistory() {
-  return <PaginatedSubsidyHistory records={demoRecords} />;
-}
-
-function SubsidySummaryStats({ recordCount }: { recordCount: number }) {
+// Settled Gas Account sponsorships and accepted TRON energy requests are
+// counted separately: the server does not merge them into one number.
+function SubsidySummaryStats({
+  query,
+  compact = false,
+}: {
+  query: ISubsidyQuery<ISubsidySummaryView>;
+  // Plain rows for the desktop sidebar, where the two-cell card would push
+  // the panel links below the fold of the fixed-height modal.
+  compact?: boolean;
+}) {
   const summaryStats = [
-    { label: '已补贴交易', value: `${recordCount} 笔` },
-    { label: '补贴类型', value: '2 项' },
+    {
+      label: summaryCopy.gaSettledLabel,
+      value: formatSubsidyCount(
+        query.data?.gaSettledCount,
+        summaryCopy.gaSettledUnit,
+      ),
+    },
+    {
+      label: summaryCopy.tronAcceptedLabel,
+      value: formatSubsidyCount(
+        query.data?.tronAcceptedCount,
+        summaryCopy.tronAcceptedUnit,
+      ),
+    },
   ];
   const { width, fontScale } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(width);
   const stacked = containerWidth < 320 || fontScale > 1.3;
+
+  if (query.isError) {
+    return (
+      <SubsidySummaryLoadFailed compact={compact} onRetry={query.reload} />
+    );
+  }
+
+  if (compact) {
+    return (
+      <YStack mt="$2" gap="$1" testID="subsidy-summary-stats">
+        {summaryStats.map(({ label, value }) => (
+          <XStack key={label} alignItems="center" gap="$3">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              flex={1}
+              minWidth={0}
+              numberOfLines={1}
+            >
+              {label}
+            </SizableText>
+            <SizableText size="$bodySmMedium" flexShrink={0}>
+              {value}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
+    );
+  }
 
   return (
     <Stack
@@ -608,18 +503,22 @@ function BenefitCard({
   );
 }
 
-function NetworkFeeSubsidy() {
+function SubsidyCenter() {
   const intl = useIntl();
   const navigation =
-    useAppNavigation<IPageNavigationProp<ITestModalPagesParam>>();
+    useAppNavigation<IPageNavigationProp<IModalRewardCenterParamList>>();
+  const { params: routeParams } =
+    useRoute<
+      RouteProp<
+        IModalRewardCenterParamList,
+        EModalRewardCenterRoutes.RewardCenter
+      >
+    >();
   const { isLoggedIn, loginOneKeyId } = useOneKeyAuth();
-  const [previewMode, setPreviewMode] = useState<ISubsidyPreviewMode>('live');
-  const records = previewMode === 'emptyHistory' ? [] : demoRecords;
-  const totalSaved = records.reduce((total, record) => total + record.saved, 0);
-  const [previewSession, setPreviewSession] = useState(0);
-  const [previewValidUntil, setPreviewValidUntil] = useState<number>();
-  const signedIn =
-    previewMode === 'live' ? Boolean(isLoggedIn) : previewMode !== 'guest';
+  const signedIn = Boolean(isLoggedIn);
+  const identity = useSubsidyIdentity();
+  const summaryQuery = useSubsidySummary(identity);
+  const historyQuery = useSubsidyHistory(identity);
   const { gtMd } = useMedia();
   const wide = Boolean(
     gtMd &&
@@ -640,33 +539,19 @@ function NetworkFeeSubsidy() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const dialog = useInModalDialog();
-  const selectPreview = useCallback((mode: ISubsidyPreviewMode) => {
-    setPreviewMode(mode);
-    setPreviewValidUntil(
-      mode === 'claimed' ? Date.now() + 10 * 60_000 : undefined,
-    );
-  }, []);
-  const openPreview = useCallback(
-    (mode: ISubsidyPreviewMode) => {
-      selectPreview(mode);
-      setPreviewSession((session) => session + 1);
-      setPanel(mode === 'emptyHistory' ? 'history' : 'tron');
-      setClaimDialogOpen(
-        !wide && mode !== 'guest' && mode !== 'live' && mode !== 'emptyHistory',
-      );
-    },
-    [selectPreview, wide],
+  // The TRON energy entries that predate the subsidy center (wallet "More",
+  // transaction confirmation) open this page for one account. They expect the
+  // claim itself, so the claim sheet opens once the page has settled; opening
+  // it during the push transition would race the modal animation.
+  const opensTronClaim = Boolean(
+    routeParams?.accountId && routeParams?.networkId,
   );
-  const renderPreviewMenu = useCallback(
-    () => <SubsidyPreviewMenu mode={previewMode} onSelect={openPreview} />,
-    [previewMode, openPreview],
-  );
-  const showLogin = async (onSuccess?: () => void) => {
-    if (previewMode === 'guest') {
-      selectPreview('available');
-      onSuccess?.();
-      return;
+  const handlePageMounted = useCallback(() => {
+    if (opensTronClaim && !wide) {
+      setClaimDialogOpen(true);
     }
+  }, [opensTronClaim, wide]);
+  const showLogin = async (onSuccess?: () => void) => {
     if (loginPending.current) return;
     loginPending.current = true;
     try {
@@ -703,24 +588,23 @@ function NetworkFeeSubsidy() {
   const overview = signedIn ? (
     <YStack gap="$2">
       <YStack alignItems="center" gap="$2" pt="$2">
-        <SizableText
+        <SubsidyTotalAmount
+          query={summaryQuery}
           size="$heading4xl"
           fontSize={40}
           lineHeight={48}
           textAlign="center"
-        >
-          ${totalSaved.toFixed(2)}
-        </SizableText>
+        />
         <SizableText
           size="$bodyXs"
           color="$textDisabled"
           letterSpacing={1.2}
           textAlign="center"
         >
-          累计获得补贴（演示）
+          {summaryCopy.totalLabel}
         </SizableText>
       </YStack>
-      <SubsidySummaryStats recordCount={records.length} />
+      <SubsidySummaryStats query={summaryQuery} />
     </YStack>
   ) : (
     <YStack>
@@ -779,8 +663,18 @@ function NetworkFeeSubsidy() {
     claimed = false,
     validUntil,
     exhausted = false,
-    claimDetails,
+    claimDetails: rewardClaimDetails,
   }: Partial<ITronRewardCardState> = {}) => {
+    // An entry that fixes the account (transaction confirmation) hides the
+    // selector, so the claim view names the account in plain text instead.
+    const claimDetails = rewardClaimDetails && {
+      ...rewardClaimDetails,
+      accountSelector: rewardClaimDetails.accountSelector ?? (
+        <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          {accountName}
+        </SizableText>
+      ),
+    };
     let description = signedIn ? '每日按地址领取' : '每个地址每日最多领取一次';
     let actionLabel = signedIn ? '去领取' : loginRequiredLabel;
     if (claimed) {
@@ -895,8 +789,8 @@ function NetworkFeeSubsidy() {
           detail = <MultichainDetails />;
           break;
         case 'history':
-          detailTitle = '补贴记录';
-          detail = <PaginatedSubsidyHistory compact records={records} />;
+          detailTitle = subsidyRecordsCopy.title;
+          detail = <SubsidyRecordsPanel compact query={historyQuery} />;
           break;
         case 'help':
           detailTitle = intl.formatMessage({ id: ETranslations.global_faqs });
@@ -910,8 +804,15 @@ function NetworkFeeSubsidy() {
       return (
         <DesktopSubsidyLayout
           detailTitle={detailTitle}
-          totalSaved={totalSaved}
-          recordCount={records.length}
+          totalLabel={summaryCopy.totalLabel}
+          total={
+            <SubsidyTotalAmount
+              query={summaryQuery}
+              size="$heading4xl"
+              fontVariant={['tabular-nums']}
+            />
+          }
+          summary={<SubsidySummaryStats compact query={summaryQuery} />}
           benefitCards={
             <>
               {tronCard}
@@ -942,23 +843,17 @@ function NetworkFeeSubsidy() {
   };
 
   let benefitsContent;
-  if (previewMode !== 'live' && previewMode !== 'guest') {
-    benefitsContent = (
-      <TronRewardPreview
-        key={previewSession}
-        mode={previewMode === 'emptyHistory' ? 'available' : previewMode}
-        validUntil={previewValidUntil}
-        onModeChange={selectPreview}
-        renderInline={renderSubsidyBenefits}
-      />
-    );
-  } else if (signedIn) {
+  if (signedIn) {
     benefitsContent = (
       <TronRewardCenterContent
         params={{
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
-          walletId: wallet?.id,
+          // An entry that names an account claims for it; the "More" entry
+          // names none and follows the wallet's current account.
+          accountId: routeParams?.accountId || account?.id || '',
+          networkId: routeParams?.networkId || network?.id || '',
+          walletId: routeParams?.walletId || wallet?.id,
+          showAccountSelector: routeParams?.showAccountSelector,
+          onClose: routeParams?.onClose,
         }}
         renderLoading={wide ? renderSubsidyBenefits : undefined}
         renderInline={renderSubsidyBenefits}
@@ -969,13 +864,11 @@ function NetworkFeeSubsidy() {
   }
 
   return (
-    <Page backgroundColor={pageBackgroundColor}>
+    <Page backgroundColor={pageBackgroundColor} onMounted={handlePageMounted}>
       <Page.Header
         headerContainerBackgroundColor={headerBackgroundColor}
         headerStyle={headerStyle}
         title="补贴中心"
-        headerRight={renderPreviewMenu}
-        headerRightNoGlass
       />
       <Page.Body>
         {wide ? (
@@ -1009,9 +902,10 @@ function NetworkFeeSubsidy() {
                     gap="$3"
                   >
                     <SizableText size="$headingMd">
-                      补贴记录（演示）
+                      {subsidyRecordsCopy.title}
                     </SizableText>
-                    {records.length > recentRecordLimit ? (
+                    {(historyQuery.data?.items.length ?? 0) >
+                    SUBSIDY_RECENT_RECORD_LIMIT ? (
                       <Button
                         testID="subsidy-view-all-records"
                         childrenAsText={false}
@@ -1027,7 +921,7 @@ function NetworkFeeSubsidy() {
                         pressStyle={{ bg: '$transparent', opacity: 0.6 }}
                         onPress={() =>
                           navigation.push(
-                            ETestModalPages.NetworkFeeSubsidyHistory,
+                            EModalRewardCenterRoutes.SubsidyHistory,
                           )
                         }
                       >
@@ -1044,9 +938,7 @@ function NetworkFeeSubsidy() {
                       </Button>
                     ) : null}
                   </XStack>
-                  <SubsidyRecordList
-                    items={records.slice(0, recentRecordLimit)}
-                  />
+                  <SubsidyRecentRecords query={historyQuery} />
                 </YStack>
               ) : null}
 
@@ -1068,13 +960,13 @@ function NetworkFeeSubsidy() {
   );
 }
 
-export default function NetworkFeeSubsidyModal() {
+export default function SubsidyCenterModal() {
   return (
     <AccountSelectorProviderMirror
       config={{ sceneName: EAccountSelectorSceneName.home }}
       enabledNum={[0]}
     >
-      <NetworkFeeSubsidy />
+      <SubsidyCenter />
     </AccountSelectorProviderMirror>
   );
 }

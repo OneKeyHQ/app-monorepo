@@ -14,19 +14,19 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { subsidyRecordsCopy } from './SubsidyRecords';
+
 export type ISubsidyPanel = 'tron' | 'multichain' | 'history' | 'help';
 
 export const desktopSubsidySidebarWidth = '40%';
 
 function PanelLink({
   label,
-  trailingLabel,
   selected,
   testID,
   onPress,
 }: {
   label: string;
-  trailingLabel?: string;
   selected: boolean;
   testID: string;
   onPress: () => void;
@@ -53,30 +53,25 @@ function PanelLink({
       <SizableText size="$headingSm" color={textColor}>
         {label}
       </SizableText>
-      <XStack alignItems="center" gap="$2">
-        {trailingLabel ? (
-          <SizableText size="$bodyMdMedium" color={textColor}>
-            {trailingLabel}
-          </SizableText>
-        ) : null}
-        <ListItem.DrillIn color={selected ? '$iconActive' : '$iconSubdued'} />
-      </XStack>
+      <ListItem.DrillIn color={selected ? '$iconActive' : '$iconSubdued'} />
     </Button>
   );
 }
 
 export function DesktopSubsidyLayout({
   detailTitle,
-  totalSaved,
-  recordCount,
+  totalLabel,
+  total,
+  summary,
   benefitCards,
   activePanel,
   onSelectPanel,
   children,
 }: {
   detailTitle?: string;
-  totalSaved: number;
-  recordCount: number;
+  totalLabel: string;
+  total: ReactNode;
+  summary: ReactNode;
   benefitCards: ReactNode;
   activePanel: ISubsidyPanel;
   onSelectPanel: (panel: ISubsidyPanel) => void;
@@ -106,15 +101,14 @@ export function DesktopSubsidyLayout({
             <XStack alignItems="center" gap="$2">
               <YStack flex={1} minWidth={0} gap="$1">
                 <SizableText size="$bodySm" color="$textSubdued">
-                  累计获得补贴（演示）
+                  {totalLabel}
                 </SizableText>
-                <SizableText size="$heading4xl" fontVariant={['tabular-nums']}>
-                  ${totalSaved.toFixed(2)}
-                </SizableText>
+                {total}
               </YStack>
               <Icon name="CoinsIllus" width={80} height={80} flexShrink={0} />
             </XStack>
-            <YStack mt="$8" gap="$2">
+            {summary}
+            <YStack mt="$5" gap="$2">
               <SizableText size="$headingSm" color="$textSubdued">
                 我的补贴
               </SizableText>
@@ -123,8 +117,7 @@ export function DesktopSubsidyLayout({
             <Divider my="$3" />
             <YStack gap="$1.5">
               <PanelLink
-                label="补贴记录"
-                trailingLabel={String(recordCount)}
+                label={subsidyRecordsCopy.title}
                 selected={activePanel === 'history'}
                 testID="subsidy-view-all-records"
                 onPress={() => onSelectPanel('history')}

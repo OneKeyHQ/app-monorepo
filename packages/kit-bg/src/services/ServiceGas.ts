@@ -7,14 +7,23 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
   IEstimateGasParams,
   IFeeInfoUnit,
   IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
+import type {
+  ISubsidyHistory,
+  ISubsidyHistoryParams,
+  ISubsidySummary,
+} from '@onekeyhq/shared/types/subsidy';
 
 import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 import { vaultFactory } from '../vaults/factory';
@@ -56,6 +65,60 @@ class ServiceGas extends ServiceBase {
       })),
       ...(await this.getOneKeyIdAuthHeaders()),
     };
+  }
+
+  // Subsidy record queries of the signed-in OneKey ID. Prime resolves the
+  // member from the login token and the registered instance id; the App never
+  // sends a member identifier. Prime rejects unknown, empty or repeated query
+  // keys, so only parameters that carry a value are sent.
+  private async requestSubsidyQuery<T>({
+    url,
+    params,
+  }: {
+    url: string;
+    params?: Record<string, string | number | undefined>;
+  }): Promise<T> {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const query: Record<string, string | number> = {};
+    Object.entries(params ?? {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        query[key] = value;
+      }
+    });
+    try {
+      const resp = await client.get<IApiClientResponse<T>>(url, {
+        params: query,
+      });
+      return resp.data.data;
+    } catch (error) {
+      // The subsidy center shows its own retry state for a failed query, so
+      // the server error must not raise the global toast as well. Session
+      // errors are converted by the OneKey ID client and keep their handling.
+      if (error instanceof OneKeyServerApiError) {
+        error.autoToast = false;
+      }
+      throw error;
+    }
+  }
+
+  // Last 90 days, newest first. `complete: false` means a source failed and
+  // the list is partial, not empty.
+  @backgroundMethod()
+  async fetchSubsidyHistory(
+    params: ISubsidyHistoryParams = {},
+  ): Promise<ISubsidyHistory> {
+    return this.requestSubsidyQuery<ISubsidyHistory>({
+      url: '/prime/v1/subsidy/history',
+      params,
+    });
+  }
+
+  // All-time totals; fails as a whole when any source is unavailable.
+  @backgroundMethod()
+  async fetchSubsidySummary(): Promise<ISubsidySummary> {
+    return this.requestSubsidyQuery<ISubsidySummary>({
+      url: '/prime/v1/subsidy/summary',
+    });
   }
 
   @backgroundMethod()

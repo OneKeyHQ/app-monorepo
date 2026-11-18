@@ -1030,9 +1030,14 @@ class ServiceAccountProfile extends ServiceBase {
     const request: {
       networkId: string;
     } & IProxyRequestParam = { networkId, ...body };
+    // TRON energy issuance (free claim, code redeem) is bound to the signed-in
+    // OneKey ID: the Wallet BFF resolves the member from the login token. The
+    // header is read per request, so a signed-out user sends none and stays
+    // anonymous. Only this request is authenticated, never the shared client.
     const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/trxres',
       request,
+      { headers: await this.getOneKeyIdAuthHeaders() },
     );
 
     if (returnRawData) {

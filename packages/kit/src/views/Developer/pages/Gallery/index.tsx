@@ -10,10 +10,6 @@ const SesHardenRuntimeCheckGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
 );
-const NetworkFeeSubsidyGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkFeeSubsidy'),
-);
 const PrivacyTokenDetailsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyTokenDetails'),
@@ -362,10 +358,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentSesHardenRuntimeCheck,
     component: SesHardenRuntimeCheckGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentNetworkFeeSubsidy,
-    component: NetworkFeeSubsidyGallery,
   },
   {
     name: EGalleryRoutes.ComponentPrivacyTokenDetails,

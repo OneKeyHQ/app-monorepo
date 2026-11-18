@@ -42,6 +42,7 @@ import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalRewardCenterRoutes,
   IModalRewardCenterParamList,
+  IRewardCenterCloseResult,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
@@ -69,8 +70,15 @@ import type { RouteProp } from '@react-navigation/core';
 
 const networkIdsMap = getNetworkIdsMap();
 
-type IRewardCenterParams =
-  IModalRewardCenterParamList[EModalRewardCenterRoutes.RewardCenter];
+// The route params are all optional because the subsidy center can open
+// without an account; the TRON claim itself always works on a resolved one.
+type IRewardCenterParams = {
+  accountId: string;
+  networkId: string;
+  walletId?: string;
+  showAccountSelector?: boolean;
+  onClose?: (result: IRewardCenterCloseResult) => void;
+};
 
 export type ITronRewardCardState = {
   accountName?: string;
@@ -1335,6 +1343,8 @@ export function TronRewardCenterContent({
   );
 }
 
+// Standalone TRON energy page. It is no longer routed: the RewardCenter route
+// opens the subsidy center, which embeds TronRewardCenterContent inline.
 export default function RewardCenter() {
   const { params } =
     useRoute<
@@ -1345,7 +1355,11 @@ export default function RewardCenter() {
     >();
   return (
     <TronRewardCenterContent
-      params={params ?? { accountId: '', networkId: '' }}
+      params={{
+        ...params,
+        accountId: params?.accountId ?? '',
+        networkId: params?.networkId ?? '',
+      }}
     />
   );
 }

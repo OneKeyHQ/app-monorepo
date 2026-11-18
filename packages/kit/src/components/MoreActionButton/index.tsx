@@ -63,12 +63,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
   ESettingsTabNames,
   ETabDeveloperRoutes,
-  ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -1554,6 +1554,18 @@ const MoreActionMoreGrid = () => {
     );
   }, [closePopover]);
 
+  const handleSubsidyCenter = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.MainModal, {
+          screen: EModalRewardCenterRoutes.RewardCenter,
+        });
+      },
+      { waitForAnimation: false },
+    );
+  }, [closePopover, navigation]);
+
   const handleDevMode = useCallback(() => {
     return runAfterActionListClose(
       () => closePopover?.(),
@@ -1598,6 +1610,14 @@ const MoreActionMoreGrid = () => {
             },
           ]
         : []),
+      {
+        // TODO(OK-67058): move to an i18n key once the copy is final.
+        title: '补贴中心',
+        icon: 'FlashOutline' as const,
+        testID: 'more-action-subsidy-center' as const,
+        onPress: handleSubsidyCenter,
+        trackID: 'wallet-subsidy-center',
+      },
       ...(showDevModeEntryInMoreMenu
         ? [
             {
@@ -1606,21 +1626,6 @@ const MoreActionMoreGrid = () => {
               testID: 'more-action-dev-mode' as const,
               onPress: handleDevMode,
               trackID: 'wallet-dev-mode',
-            },
-          ]
-        : []),
-      ...(platformEnv.isDev
-        ? [
-            {
-              title: '补贴中心',
-              icon: 'FlashOutline' as const,
-              testID: 'more-action-subsidy-center',
-              trackID: 'wallet-subsidy-center',
-              onPress: () => {
-                navigation.pushModal(EModalRoutes.TestModal, {
-                  screen: ETestModalPages.NetworkFeeSubsidy,
-                });
-              },
             },
           ]
         : []),
@@ -1634,8 +1639,8 @@ const MoreActionMoreGrid = () => {
     handleReferFriends,
     isReferralEntryPending,
     isReferralEntryLoading,
+    handleSubsidyCenter,
     handleDevMode,
-    navigation,
     showReviewControlledFeatures,
   ]);
   return (
