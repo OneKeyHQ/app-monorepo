@@ -138,7 +138,9 @@ const createHardwareSDKInstance = async (params: {
         }
       }
       settings.connectSrc = connectSrc;
-      HardwareLowLevelSDK = await importHardwareSDKLowLevel();
+      HardwareLowLevelSDK = await importHardwareSDKLowLevel(
+        params.hardwareTransportType,
+      );
       if (platformEnv.isExtensionBackgroundServiceWorker) {
         // addHardwareGlobalEventListener in ext offscreen
       } else {

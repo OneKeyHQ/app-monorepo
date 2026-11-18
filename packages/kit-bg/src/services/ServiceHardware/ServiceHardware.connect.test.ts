@@ -70,6 +70,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNative: false,
     isNativeAndroid: false,
     isSupportDesktopBle: false,
+    isExtensionBackgroundServiceWorker: false,
   },
 }));
 
@@ -132,6 +133,7 @@ const mutablePlatformEnv = platformEnv as unknown as {
   isNative: boolean;
   isNativeAndroid: boolean;
   isSupportDesktopBle: boolean;
+  isExtensionBackgroundServiceWorker: boolean;
 };
 const mockedLocalDb = jest.mocked(localDb);
 const mockedAppStatus = jest.mocked(simpleDb.appStatus);
@@ -317,6 +319,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     mutablePlatformEnv.isNative = false;
     mutablePlatformEnv.isNativeAndroid = false;
     mutablePlatformEnv.isSupportDesktopBle = false;
+    mutablePlatformEnv.isExtensionBackgroundServiceWorker = false;
     mockedLocalDb.getAllDevices.mockResolvedValue({ devices: [] });
     mockedLocalDb.getAllWallets.mockResolvedValue({ wallets: [] });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
@@ -1176,6 +1179,41 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(checkBridgeStatus).not.toHaveBeenCalled();
     expect(switchTransport).not.toHaveBeenCalled();
   });
+
+  it.each([EHardwareTransportType.WEBUSB, EHardwareTransportType.Bridge])(
+    'recreates the extension client under the lifecycle lock for %s',
+    async (transportType) => {
+      mutablePlatformEnv.isExtensionBackgroundServiceWorker = true;
+      const coreSdk = await jest
+        .requireActual<typeof hardwareInstance>(
+          '@onekeyhq/shared/src/hardware/instance',
+        )
+        .CoreSDKLoader();
+      const sdk = coreSdk.HardwareTopLevelSdk();
+      const switchInPlace = jest.spyOn(sdk, 'switchTransport');
+      const runExclusiveOneKeyOperation = jest.fn(
+        async (operation: () => Promise<unknown>) => operation(),
+      );
+      const setHardwareTransportType = jest.fn(async () => undefined);
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceHardwareUI: { runExclusiveOneKeyOperation },
+          serviceSetting: { setHardwareTransportType },
+        } as unknown as IBackgroundApi,
+      });
+      const getSDKInstance = jest
+        .spyOn(service, 'getSDKInstance')
+        .mockResolvedValue(sdk);
+      await service.switchTransport({ transportType });
+      expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(setHardwareTransportType).toHaveBeenCalledWith(transportType);
+      expect(getSDKInstance).toHaveBeenCalledWith({
+        connectId: undefined,
+        hardwareTransportType: transportType,
+      });
+      expect(switchInPlace).not.toHaveBeenCalled();
+    },
+  );
 
   it('串行执行不同 transport 的 SDK 生命周期切换', async () => {
     let resolveFirstInstance: ((value: object) => void) | undefined;

@@ -4670,6 +4670,11 @@ class ServiceHardware extends ServiceBase {
   }: {
     transportType: EHardwareTransportType;
   }) {
+    if (platformEnv.isExtensionBackgroundServiceWorker) {
+      // Replace the offscreen client when crossing the iframe boundary.
+      await this.switchHardwareTransportType({ transportType });
+      return;
+    }
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
