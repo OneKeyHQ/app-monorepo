@@ -24458,6 +24458,7 @@
     "packages/kit/src/views/DeviceManagement/hooks/useDeviceBackNavigation.tsx": 13818,
     "packages/kit/src/views/DeviceManagement/hooks/useDeviceManagerModalStyle.tsx": 23607,
     "packages/kit/src/views/DeviceManagement/hooks/useDeviceManagerNavigation.tsx": 14273,
+    "packages/kit/src/views/DeviceManagement/pages/DeviceArt.tsx": 5887,
     "packages/kit/src/views/DeviceManagement/pages/DeviceCommonHeader.tsx": 8179,
     "packages/kit/src/views/DeviceManagement/pages/DeviceDetailsModal/DeviceBasicInfo.tsx": 12902,
     "packages/kit/src/views/DeviceManagement/pages/DeviceDetailsModal/DeviceBrightnessSlider.tsx": 988,

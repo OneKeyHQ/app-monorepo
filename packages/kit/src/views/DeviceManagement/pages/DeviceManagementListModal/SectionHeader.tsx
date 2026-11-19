@@ -1,52 +1,22 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import {
-  IconButton,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
+import { SizableText, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+// Desktop page title. Phones show it in the navigation bar instead, and adding
+// a device is the last card in the grid on both.
 function SectionHeader() {
   const intl = useIntl();
-  const toOnBoardingPage = useNavigateToPickYourDevicePage();
   const { gtMd } = useMedia();
-
-  const onAddDevice = useCallback(async () => {
-    void toOnBoardingPage();
-  }, [toOnBoardingPage]);
-
   if (!gtMd) {
     return null;
   }
-
   return (
-    <XStack ai="center" jc="space-between" gap="$5">
-      <YStack flex={1} gap="$1">
-        <SizableText size="$heading2xl" color="$text">
-          {intl.formatMessage({
-            id: ETranslations.global_my_device,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_my_device_dec,
-          })}
-        </SizableText>
-      </YStack>
-      <IconButton
-        testID="device-management-on-add-device-icon-btn"
-        icon="PlusLargeOutline"
-        size="small"
-        variant="primary"
-        onPress={onAddDevice}
-      />
-    </XStack>
+    <SizableText size="$heading2xl" color="$text">
+      {intl.formatMessage({
+        id: ETranslations.device_management_devices__title,
+      })}
+    </SizableText>
   );
 }
 

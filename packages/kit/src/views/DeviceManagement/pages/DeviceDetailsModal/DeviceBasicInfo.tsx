@@ -4,17 +4,11 @@ import {
   Icon,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  HardwareDevice,
-  getHardwareDeviceAspect,
-} from '@onekeyhq/components/src/content/HardwareDevice';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
   getDeviceSecondaryIdentifier,
   useCurrentWalletIdAtom,
@@ -25,47 +19,13 @@ import {
   useWalletWithDeviceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
-import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
+import { DeviceArt } from '../DeviceArt';
 
 import { DeviceUpdateLink } from './DeviceUpdateLink';
-
-// The device as drawn for its model, lit on the home screen it idles on.
-// Models without a drawing (Trezor, Ledger) keep the wallet avatar.
-function DeviceArt({
-  deviceType,
-  color,
-  wallet,
-  height,
-}: {
-  deviceType: IHardwareDeviceType | undefined;
-  color: IHardwareDeviceColor | undefined;
-  wallet: IDBWallet | undefined;
-  height: number;
-}) {
-  const aspect = getHardwareDeviceAspect(deviceType);
-  if (!aspect) {
-    return <WalletAvatar size={height} wallet={wallet} status="default" />;
-  }
-  const width = Math.round(height / aspect);
-  return (
-    <Stack w={width} h={height} flexShrink={0} pointerEvents="none" aria-hidden>
-      <HardwareDevice
-        deviceType={deviceType}
-        color={color}
-        width={width}
-        // The scene that shows the idle home screen; arriving already lit
-        // keeps a wake-up from reading as the device connecting.
-        animation="connecting"
-        instantEntry
-        shadow
-      />
-    </Stack>
-  );
-}
 
 function Dot() {
   return (
