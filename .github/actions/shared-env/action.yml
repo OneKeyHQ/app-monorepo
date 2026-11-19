@@ -198,21 +198,74 @@ runs:
       if: ${{ github.event.workflow_run }}
       shell: bash
       run: |
+        set -euo pipefail
         echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
         if [ ! -z "${WORKFLOW_BUILD_NUMBER:-}" ]; then
           echo "BUILD_NUMBER=$WORKFLOW_BUILD_NUMBER" >> $GITHUB_ENV
         else
           # Generate build number ------- start
-          DATE=`date "+%Y%m%d"`
-          run_number=$(($workflow_run_number % 100))
-          run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}"
+          run_created_at="${workflow_run_created_at:-}"
+          if ! [[ "$run_created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+            for attempt in 1 2 3; do
+              run_created_at=$(gh api \
+                "repos/${GITHUB_REPOSITORY}/actions/runs/${workflow_run_id}" \
+                --jq '.created_at // empty' 2>/dev/null || true)
+              if [[ "$run_created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+                break
+              fi
+              sleep 2
+            done
+          fi
+          if ! [[ "$run_created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+            echo "::error::Failed to resolve created_at for upstream workflow run ${workflow_run_id}"
+            exit 1
+          fi
+
+          TODAY="${run_created_at:0:10}"
+          FULL_DATE="${TODAY//-/}"
+
+          if [ "${workflow_name:-}" = "daily-build-dev" ]; then
+            DATE_PREFIX="1000${FULL_DATE:4:4}"
+          else
+            DATE_PREFIX="${FULL_DATE}"
+          fi
+
+          min_run_today=""
+          for attempt in 1 2 3; do
+            min_run_today=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_id}/runs?created=${TODAY}&per_page=100" \
+              --jq "if any(.workflow_runs[]; .run_number == ${workflow_run_number}) then ([.workflow_runs[] | select(.run_number <= ${workflow_run_number}) | .run_number] | min // empty) else empty end" \
+              2>/dev/null || true)
+            if [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+              break
+            fi
+            sleep 2
+          done
+          if ! [[ "$min_run_today" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to query workflow runs for ${TODAY} (run #${workflow_run_number})"
+            exit 1
+          fi
+
+          daily_seq=$(( workflow_run_number - min_run_today + 1 ))
+          if [ "$daily_seq" -lt 1 ] || [ "$daily_seq" -gt 99 ]; then
+            echo "::error::Daily build sequence (${daily_seq}) out of range 1..99 for ${DATE_PREFIX}"
+            exit 1
+          fi
+          run_number=$(printf "%02d" "$daily_seq")
+          build_number="${DATE_PREFIX}${run_number}"
+
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          echo "WORKFLOW_BUILD_NUMBER=$build_number" >> $GITHUB_ENV
           # Generate build number ------- end
         fi
       env:
-        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+        GH_TOKEN: ${{ github.token }}
+        workflow_id: ${{ github.event.workflow_run.workflow_id }}
+        workflow_name: ${{ github.event.workflow_run.name }}
+        workflow_run_id: ${{ github.event.workflow_run.id }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number }}
+        workflow_run_created_at: ${{ github.event.workflow_run.created_at }}
 
     - name: Inject Environment Variables
       shell: bash
