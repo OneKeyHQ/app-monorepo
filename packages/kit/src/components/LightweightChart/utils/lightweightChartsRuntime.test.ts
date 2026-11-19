@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore tickmarks
 import { runInNewContext } from 'vm';
 
 import type { ILightweightChartConfig } from '../types';
@@ -102,7 +103,7 @@ function createNativeChartPage(
     applyOptions: jest.fn(),
     removeSeries: jest.fn(),
     addCustomSeries: jest.fn(() => primary),
-    addSeries: jest.fn(),
+    addSeries: jest.fn().mockReturnValue(primary),
     timeScale: () => ({
       fitContent,
       subscribeVisibleTimeRangeChange: jest.fn(),
@@ -161,6 +162,36 @@ function createNativeChartPage(
     flushFrame: () => requestAnimationFrame.mock.calls.at(-1)?.[0](),
   };
 }
+
+it('keeps Catalyst OI ticks distinct on initial render and refresh', () => {
+  const page = createNativeChartPage({
+    seriesType: 'area',
+    priceScaleFormat: 'open-interest',
+    priceFormatterType: 'usd',
+  });
+  const seriesFormat = () => {
+    const options = page.chart.addSeries.mock.calls.at(-1)?.[1] as {
+      priceFormat: {
+        formatter: (value: number) => string;
+        tickmarksFormatter: (values: number[]) => string[];
+      };
+    };
+    return options.priceFormat;
+  };
+  expect(seriesFormat().tickmarksFormatter([20_000, 20_020, 20_120])).toEqual([
+    '$20K',
+    '$20.02K',
+    '$20.12K',
+  ]);
+  expect(seriesFormat().formatter(20_020)).toBe('$20K');
+
+  page.chart.addSeries.mockClear();
+  page.pageWindow.applyChartConfig(page.config);
+  expect(seriesFormat().tickmarksFormatter([20_001, 20_002])).toEqual([
+    '$20.001K',
+    '$20.002K',
+  ]);
+});
 
 it.each([
   ['en', 'Nov'],
