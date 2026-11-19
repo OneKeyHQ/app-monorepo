@@ -4,7 +4,9 @@ const {
   REGISTRY_EPOCH,
   SCHEMA_VERSION,
   createModuleIdAllocator,
+  createFileToIdMap,
   isModuleIdInDomain,
+  loadRegistry,
 } = require('../../plugins/moduleIdRegistry');
 const {
   checkModuleMaps,
@@ -29,6 +31,14 @@ function createRegistry({ modules = {}, tombstones = {} } = {}) {
 }
 
 describe('module ID registry CLI helpers', () => {
+  it('resolves the legacy favorite hook in strict mobile builds', () => {
+    const map = createFileToIdMap({ registry: loadRegistry(), strict: true });
+    expect(
+      map.get(
+        'packages/kit/src/views/Market/MarketDetailV2/hooks/useLegacyMarketAsset.ts',
+      ),
+    ).toEqual(expect.any(Number));
+  });
   it('collects eager, main, background, common, and segment modules', () => {
     const entries = collectModuleMapEntries({
       common: { 1: 'packages/common.ts' },
