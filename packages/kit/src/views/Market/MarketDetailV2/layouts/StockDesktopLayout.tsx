@@ -71,6 +71,7 @@ import {
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
 import { useMarketDetailTabMinHeight } from '../hooks/useMarketDetailTabMinHeight';
+import { useSelectedStockTokenTrading } from '../hooks/useSelectedStockTokenTrading';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -362,6 +363,9 @@ function StockPriceHeader({
         selectedTokenVariant?.tradingHours?.isPaused,
     });
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
+  // The token price follows the token selected in the trade panel, so its
+  // status does too: switching to a 24/5 token outside its hours reads closed.
+  const tokenTrading = useSelectedStockTokenTrading(!isSharePrice);
 
   const changeValueText = priceChangeValue?.toFixed();
 
@@ -449,12 +453,14 @@ function StockPriceHeader({
             </SizableText>
           </XStack>
         </XStack>
-        {/* The token price updates around the clock, so its quote is never
-            stale — only the share price reports when it last moved. */}
+        {/* With the token price shown, the chip reports the selected token's
+            own status. Token prices keep moving even while a 24/5 token is
+            closed, so only the share price reports when it last moved. */}
         <StockMarketStatusBadge
           stock={stockStatus}
           variant="inline"
           showLastUpdate={isSharePrice}
+          tokenTrading={tokenTrading}
         />
       </YStack>
 
