@@ -38,6 +38,8 @@ describe('TradingView Native sub-indicator controller adapter', () => {
     expect(configs.map(({ indicator }) => indicator)).toEqual(
       TRADING_VIEW_NATIVE_SUB_INDICATORS,
     );
-    expect(new Set(configs.map(({ id }) => id)).size).toBe(13);
+    expect(new Set(configs.map(({ id }) => id)).size).toBe(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS.length,
+    );
   });
 });

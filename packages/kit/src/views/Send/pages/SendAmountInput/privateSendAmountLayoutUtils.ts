@@ -3,17 +3,18 @@
 // On native phones the regular and private tabs use different skeletons: the
 // regular tab keeps the balance card inside the scroll body above a Preview
 // footer, while the private tab moves the quote card, the action button and
-// the "How it works" link into the footer. Both tabs center the amount in the
-// space left above their bottom stack, so the taller private stack used to lift
-// the amount by half of the height difference on every toggle. Padding the top
-// of the private amount column by the full difference puts the centered amount
-// back on the regular position; the extra footer content only consumes the
-// empty space below it.
+// the footer help (notice and "How it works" link) into the footer. Both tabs
+// center the amount in the space left above their bottom stack, so the taller
+// private stack used to lift the amount by half of the height difference on
+// every toggle. Padding the top of the private amount column by the full
+// difference puts the centered amount back on the regular position; the extra
+// footer content only consumes the empty space below it.
 
 export interface IMobilePrivateSendAmountTopOffsetParams {
-  // Measured height of the "How it works" link, 0 when it is not rendered.
+  // Measured height of the footer help (notice and "How it works" link), 0
+  // when it is not rendered.
   footerHelpHeight: number;
-  // Gap between the action button and the "How it works" link.
+  // Gap between the action button and the footer help.
   footerActionsGap: number;
   // Measured (or estimated) height of the private quote card.
   quoteCardHeight: number;

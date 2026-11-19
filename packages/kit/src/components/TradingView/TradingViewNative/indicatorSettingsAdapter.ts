@@ -45,6 +45,15 @@ const MAIN_INDICATOR_LINE_COLORS = [
   TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
 ] as const;
 const MAIN_INDICATOR_PERIODS = [5, 10, 20] as const;
+const MAIN_INDICATOR_TITLES: Partial<
+  Record<ITradingViewNativeMainIndicatorId, string>
+> = {
+  DC: 'DC (Donchian Channels)',
+  ENV: 'ENV (Envelope)',
+  VWAP: 'VWAP (Volume Weighted Average Price)',
+  VWMA: 'VWMA (Volume Weighted Moving Average)',
+  WMA: 'WMA (Weighted Moving Average)',
+};
 const DEFAULT_UP_COLOR = TRADING_VIEW_NATIVE_THEME_COLORS.positive;
 const DEFAULT_DOWN_COLOR = TRADING_VIEW_NATIVE_THEME_COLORS.negative;
 const LEGACY_INDICATOR_THEME_COLOR_MAP: Readonly<Record<string, string>> = {
@@ -545,10 +554,10 @@ function createMainIndicator(
     }),
     scope: 'main' as const,
     showOpacity: false,
-    title: id,
+    title: MAIN_INDICATOR_TITLES[id] ?? id,
   };
 
-  if (id === 'MA' || id === 'EMA') {
+  if (id === 'MA' || id === 'EMA' || id === 'WMA' || id === 'VWMA') {
     return {
       ...base,
       lines: MAIN_INDICATOR_PERIODS.map((period, index) =>
@@ -606,6 +615,174 @@ function createMainIndicator(
           color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
           id: 'lower',
           label: 'LB',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+          id: 'background',
+          label: 'Background',
+          showStyle: false,
+          storedIndicator,
+        }),
+      ],
+    };
+  }
+
+  if (id === 'SUPERTREND') {
+    return {
+      ...base,
+      parameters: [
+        createParameter({
+          fallbackValue: 14,
+          id: 'atrPeriod',
+          label: 'ATR Length',
+          min: 1,
+          step: 1,
+          storedIndicator,
+        }),
+        createParameter({
+          fallbackValue: 3,
+          id: 'multiplier',
+          label: 'Multiplier',
+          min: 0,
+          step: 0.1,
+          storedIndicator,
+        }),
+      ],
+      lines: [
+        createLine({
+          color: DEFAULT_UP_COLOR,
+          id: 'up',
+          label: 'Up Trend',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+        createLine({
+          color: DEFAULT_DOWN_COLOR,
+          id: 'down',
+          label: 'Down Trend',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+      ],
+    };
+  }
+
+  if (id === 'ENV') {
+    return {
+      ...base,
+      parameters: [
+        createParameter({
+          fallbackValue: 8,
+          id: 'bandwidth',
+          label: 'Bandwidth',
+          min: 0.1,
+          step: 0.1,
+          storedIndicator,
+        }),
+        createParameter({
+          fallbackValue: 3,
+          id: 'multiplier',
+          label: 'Multiplier',
+          min: 0,
+          step: 0.1,
+          storedIndicator,
+        }),
+        createParameter({
+          fallbackValue: 100,
+          id: 'lookback',
+          label: 'Lookback',
+          max: 500,
+          min: 2,
+          step: 1,
+          storedIndicator,
+        }),
+      ],
+      lines: [
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.warning,
+          id: 'upper',
+          label: 'Upper',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+          id: 'lower',
+          label: 'Lower',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+          id: 'background',
+          label: 'Background',
+          showStyle: false,
+          storedIndicator,
+        }),
+      ],
+    };
+  }
+
+  if (id === 'VWAP') {
+    return {
+      ...base,
+      parameters: [
+        createParameter({
+          fallbackValue: 14,
+          id: 'period',
+          label: 'Length',
+          min: 1,
+          step: 1,
+          storedIndicator,
+        }),
+      ],
+      lines: [
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+          id: 'vwap',
+          label: 'VWAP',
+          showCheckbox: false,
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+      ],
+    };
+  }
+
+  if (id === 'DC') {
+    return {
+      ...base,
+      parameters: [
+        createParameter({
+          fallbackValue: 20,
+          id: 'period',
+          label: 'Length',
+          min: 1,
+          step: 1,
+          storedIndicator,
+        }),
+      ],
+      lines: [
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+          id: 'basis',
+          label: 'Basis',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+          id: 'upper',
+          label: 'Upper',
+          showSecondaryStyle: true,
+          storedIndicator,
+        }),
+        createLine({
+          color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+          id: 'lower',
+          label: 'Lower',
           showSecondaryStyle: true,
           storedIndicator,
         }),
@@ -1058,16 +1235,22 @@ function getSubIndicatorOverrides(
       return [[input.id, parameterMap.get(input.id) ?? input.defaultValue]];
     }),
   );
+  // The down/up colors are the first two colors of the first palette, so only
+  // that palette takes them. Every other palette is passed on with its own
+  // colors so that its theme colors still get resolved with the rest.
   const palettes =
     definition.palettes.length > 0 && indicator.opacityColors
       ? Object.fromEntries(
-          definition.palettes.map((palette) => [
+          definition.palettes.map((palette, index) => [
             palette.id,
-            [
-              indicator.opacityColors?.downColor ?? palette.defaultColors[0],
-              indicator.opacityColors?.upColor ?? palette.defaultColors[1],
-              ...palette.defaultColors.slice(2),
-            ],
+            index === 0
+              ? [
+                  indicator.opacityColors?.downColor ??
+                    palette.defaultColors[0],
+                  indicator.opacityColors?.upColor ?? palette.defaultColors[1],
+                  ...palette.defaultColors.slice(2),
+                ]
+              : [...palette.defaultColors],
           ]),
         )
       : undefined;
