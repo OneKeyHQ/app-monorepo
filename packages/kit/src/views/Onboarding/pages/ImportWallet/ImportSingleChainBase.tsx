@@ -93,19 +93,24 @@ export function ImportSingleChainBase({
   );
   const form = useForm<IFormValues>(formOptions);
 
-  const { control } = form;
+  const { control, setValue } = form;
   const submittingRef = useRef(false);
   const networkId = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
-  const inputTextDebounced = useDebounce(inputText, 600);
+  const normalizedInput = fixInputImportSingleChain(inputText ?? '');
+  const inputDebounced = useDebounce(normalizedInput, 600);
   const accountName = useFormWatch({ control, name: 'accountName' });
   const trimmedAccountName = accountName?.trim() ?? '';
   const accountNameDebounced = useDebounce(trimmedAccountName, 600);
 
   const deriveType = useFormWatch({ control, name: 'deriveType' });
 
+  useEffect(() => {
+    setValue('deriveType', undefined);
+  }, [networkId, normalizedInput, setValue]);
+
   const inputToValidate =
-    inputText === inputTextDebounced ? inputText : undefined;
+    normalizedInput === inputDebounced ? normalizedInput : undefined;
   const validationRequest = useMemo(
     () => ({
       id: Symbol('import key validation'),
@@ -120,6 +125,7 @@ export function ImportSingleChainBase({
     result: IGeneralInputValidation;
     deriveItems?: IAccountDeriveInfoItems[];
   }>();
+  const activeValidationRequestId = useRef<symbol | undefined>(undefined);
 
   const nameToValidate =
     trimmedAccountName === accountNameDebounced
@@ -174,6 +180,7 @@ export function ImportSingleChainBase({
       return;
     }
 
+    activeValidationRequestId.current = id;
     let cancelled = false;
     const validateKey = async () => {
       let result: IGeneralInputValidation;
@@ -181,7 +188,7 @@ export function ImportSingleChainBase({
       try {
         const encodedInput =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: fixInputImportSingleChain(input),
+            text: input,
           });
         if (cancelled) return;
         result =
@@ -216,6 +223,7 @@ export function ImportSingleChainBase({
     void validateKey();
     return () => {
       cancelled = true;
+      activeValidationRequestId.current = undefined;
     };
   }, [form, validationRequest]);
 
@@ -223,6 +231,26 @@ export function ImportSingleChainBase({
     validation?.requestId === validationRequest.id ? validation : undefined;
   const validateResult = currentValidation?.result;
   const deriveItems = currentValidation?.deriveItems;
+  const matchesValidationRequest = useCallback(
+    (values: IFormValues) =>
+      fixInputImportSingleChain(values.input ?? '') ===
+        validationRequest.input &&
+      values.networkId === validationRequest.networkId,
+    [validationRequest],
+  );
+  const guardDeriveTypeChange = useCallback(
+    (value: IAccountDeriveTypes) => {
+      // The selector can deliver a choice after the form has switched keys.
+      if (
+        activeValidationRequestId.current !== validationRequest.id ||
+        !matchesValidationRequest(form.getValues())
+      ) {
+        return { defaultPrevented: true };
+      }
+      return value;
+    },
+    [form, matchesValidationRequest, validationRequest.id],
+  );
   const isDeriveTypeReady = useCallback(
     (value: IAccountDeriveTypes | undefined) =>
       !deriveItems || deriveItems.some((item) => item.value === value),
@@ -240,8 +268,7 @@ export function ImportSingleChainBase({
     if (
       confirmDisabled ||
       submittingRef.current ||
-      values.input !== validationRequest.input ||
-      values.networkId !== validationRequest.networkId ||
+      !matchesValidationRequest(values) ||
       (values.accountName?.trim() ?? '') !== nameRequest.name ||
       !isDeriveTypeReady(values.deriveType) ||
       form.getFieldState('accountName').error
@@ -259,9 +286,9 @@ export function ImportSingleChainBase({
     confirmDisabled,
     form,
     isDeriveTypeReady,
+    matchesValidationRequest,
     nameRequest.name,
     onConfirm,
-    validationRequest,
   ]);
 
   const formWithSubmit = useMemo(() => ({ ...form, submit }), [form, submit]);
@@ -303,7 +330,7 @@ export function ImportSingleChainBase({
             />
           </Form.Field>
 
-          {validateResult && !validateResult?.isValid && inputTextDebounced ? (
+          {validateResult && !validateResult?.isValid && inputDebounced ? (
             <SizableText size="$bodyMd" color="$textCritical">
               {invalidMessage}
             </SizableText>
@@ -317,6 +344,7 @@ export function ImportSingleChainBase({
               <DeriveTypeSelectorFormInput
                 networkId={networkId || ''}
                 preloadedItems={deriveItems}
+                onChange={guardDeriveTypeChange}
                 renderTrigger={({ label, onPress }) => (
                   <Stack
                     testID="wallet-derivation-path-selector-trigger"

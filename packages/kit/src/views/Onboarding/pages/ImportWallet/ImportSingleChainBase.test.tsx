@@ -17,7 +17,7 @@ import { ImportSingleChainBase } from './ImportSingleChainBase';
 
 import type { UseFormReturn } from 'react-hook-form';
 
-const btcDeriveTypes: IAccountDeriveTypes[] = ['BIP84', 'BIP44'];
+const btcDeriveTypes: IAccountDeriveTypes[] = ['BIP86', 'BIP44'];
 const btcDeriveItems: IAccountDeriveInfoItems[] = btcDeriveTypes.map(
   (value) => ({
     value,
@@ -36,6 +36,7 @@ const mockValidateInput = jest.fn(
   }),
 );
 const mockLoadDeriveItems = jest.fn(async () => btcDeriveItems);
+const mockDeriveTypeChange = jest.fn<void, [(value: string) => void]>();
 const mockCheckAccountName = jest.fn(async ({ name }: { name: string }) => {
   if (name === 'taken') {
     throw new OneKeyLocalError('Duplicate account name');
@@ -63,13 +64,23 @@ jest.mock('@onekeyhq/components', () => {
     name: string;
     children: ReactElement<{
       value?: string;
+      onChange?: (value: string) => string | { defaultPrevented: true };
       onChangeText?: (text: string) => void;
     }>;
   }) => {
     const { field } = useController({ name });
+    const onChangeText = (value: string) => {
+      const nextValue = children.props.onChange?.(value) ?? value;
+      if (typeof nextValue === 'string') {
+        field.onChange(nextValue);
+      }
+    };
+    if (name === 'deriveType') {
+      mockDeriveTypeChange(onChangeText);
+    }
     return cloneElement(children, {
       value: field.value as string,
-      onChangeText: field.onChange,
+      onChangeText,
     });
   };
   const Form = ({
@@ -304,18 +315,18 @@ describe('private key import submission', () => {
     expect(footer.disabled).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
 
-    fireEvent.change(selector, { target: { value: 'BIP84' } });
+    fireEvent.change(selector, { target: { value: 'BIP86' } });
     expect(footer.disabled).toBe(false);
     await act(async () => {
       fireEvent.keyDown(input, { key: 'Enter' });
     });
     expect(onConfirm).toHaveBeenCalledWith(
-      expect.objectContaining({ deriveType: 'BIP84' }),
+      expect.objectContaining({ deriveType: 'BIP86' }),
       undefined,
     );
   });
 
-  it('keeps a non-default BTC derivation type while checking an edited name', async () => {
+  it('keeps a non-default BTC derivation type when editing the name or key whitespace', async () => {
     const onConfirm = jest.fn(async () => undefined);
     const input = renderImport(onConfirm);
     mockValidateInput.mockResolvedValueOnce(btcValidation);
@@ -325,6 +336,9 @@ describe('private key import submission', () => {
       name: 'Derivation path',
     });
     fireEvent.change(selector, { target: { value: 'BIP44' } });
+
+    fireEvent.change(input, { target: { value: '  test-xprv  ' } });
+    expect(selector.value).toBe('BIP44');
 
     const nameCheck = Promise.withResolvers<void>();
     mockCheckAccountName.mockReturnValueOnce(nameCheck.promise);
@@ -383,5 +397,45 @@ describe('private key import submission', () => {
       screen.queryByRole('combobox', { name: 'Derivation path' }),
     ).toBeNull();
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('resets the BTC derivation choice when a cleared key is replaced', async () => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    const footer = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Confirm',
+    });
+    const getSelector = () =>
+      screen.getByRole<HTMLSelectElement>('combobox', {
+        name: 'Derivation path',
+      });
+    mockValidateInput.mockResolvedValueOnce(btcValidation);
+    fireEvent.change(input, { target: { value: 'test-xprv-a' } });
+    await finishValidation();
+    fireEvent.change(getSelector(), { target: { value: 'BIP44' } });
+    const delayedChange = mockDeriveTypeChange.mock.lastCall?.[0];
+    expect(delayedChange).toBeDefined();
+
+    fireEvent.change(input, { target: { value: '' } });
+    mockValidateInput.mockResolvedValueOnce(btcValidation);
+    fireEvent.change(input, { target: { value: 'test-xprv-b' } });
+    await finishValidation();
+    expect(getSelector().value).toBe('');
+    act(() => {
+      delayedChange?.('BIP44');
+    });
+    expect(getSelector().value).toBe('');
+    expect(footer.disabled).toBe(true);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    fireEvent.change(getSelector(), { target: { value: 'BIP86' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ input: 'test-xprv-b', deriveType: 'BIP86' }),
+      undefined,
+    );
   });
 });
