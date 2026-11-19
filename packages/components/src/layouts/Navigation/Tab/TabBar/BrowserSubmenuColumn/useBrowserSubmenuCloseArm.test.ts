@@ -59,8 +59,17 @@ describe('useBrowserSubmenuCloseArm', () => {
     enter(100, 100);
     expand();
     settle();
-    move(103, 103);
+    move(102, 102);
     expect(api().isCloseArmed).toBe(false);
+  });
+
+  it('arms on a first diagonal move over the threshold after a stationary enter', () => {
+    const { api, enter, move, expand, settle } = setup();
+    enter(100, 100);
+    expand();
+    settle();
+    move(103, 103);
+    expect(api().isCloseArmed).toBe(true);
   });
 
   it('ignores moves before the settle delay expires', () => {

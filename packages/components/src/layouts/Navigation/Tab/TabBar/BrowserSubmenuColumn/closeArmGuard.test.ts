@@ -44,11 +44,20 @@ describe('createCloseArmGuard', () => {
     expect(onArm).toHaveBeenCalledTimes(1);
   });
 
-  it('does not arm on a move below the threshold', () => {
+  it('does not arm on a diagonal move below the threshold distance', () => {
     const { move, onArm } = setup({ x: 100, y: 100 });
     jest.advanceTimersByTime(DELAY_MS);
-    move(103, 103);
+    // sqrt(2^2 + 2^2) ≈ 2.83px
+    move(102, 102);
     expect(onArm).not.toHaveBeenCalled();
+  });
+
+  it('arms on a diagonal move at or over the threshold distance', () => {
+    const { move, onArm } = setup({ x: 100, y: 100 });
+    jest.advanceTimersByTime(DELAY_MS);
+    // sqrt(3^2 + 3^2) ≈ 4.24px, although each axis moved less than 4px
+    move(103, 103);
+    expect(onArm).toHaveBeenCalledTimes(1);
   });
 
   it('arms once small moves add up to the threshold from the origin', () => {

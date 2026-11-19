@@ -41,10 +41,9 @@ export function createCloseArmGuard({
         origin = point;
         return;
       }
-      if (
-        Math.abs(point.x - origin.x) >= thresholdPx ||
-        Math.abs(point.y - origin.y) >= thresholdPx
-      ) {
+      const dx = point.x - origin.x;
+      const dy = point.y - origin.y;
+      if (dx * dx + dy * dy >= thresholdPx * thresholdPx) {
         isArmed = true;
         onArm();
       }
