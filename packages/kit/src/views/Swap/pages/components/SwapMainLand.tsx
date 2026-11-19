@@ -221,7 +221,9 @@ import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
-import SwapSwapMbContainer from './SwapSwapMbContainer';
+import SwapSwapMbContainer, {
+  SWAP_TWO_PANE_FORM_WIDTH,
+} from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
@@ -253,11 +255,8 @@ type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
-// Same width as Page.Container's `compact` layout.
-const SWAP_FOLDABLE_FORM_WIDTH_PROPS = {
-  maxWidth: 520,
-  alignSelf: 'center',
-} as const;
+// The $5 page padding beside the form, in points.
+const SWAP_FOLDABLE_PAGE_PADDING = 20;
 
 function supportsSwapReviewPreBuild({
   quote,
@@ -1977,6 +1976,21 @@ const SwapMainLoad = ({
     !embeddedStockTrade &&
     !isMarketEmbeddedSwap;
 
+  // The media driver keeps iPhones on phone breakpoints, so no $gtMd layout
+  // ever applies on an unfolded iPhone and the form would stretch the amount
+  // and the token selector to opposite edges. The unfolded screen gets two
+  // panes instead. Embedded panels are sized by their host.
+  const isFoldableSwapPage =
+    isFoldableIPhone() &&
+    pageType !== EPageType.modal &&
+    !embeddedStockTrade &&
+    !isMarketEmbeddedSwap;
+  // Swap and Bridge place the provider panel beside the form themselves.
+  const foldableProviderPanelTab =
+    isFoldableSwapPage &&
+    (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE);
+
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
       embeddedStockTrade &&
@@ -2159,6 +2173,7 @@ const SwapMainLoad = ({
         supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
         supportNetworksReady={!fetchLoading}
         showThirdPartyNotice={showThirdPartyNotice}
+        providerPanelCapable={foldableProviderPanelTab}
       />
     );
   }, [
@@ -2197,6 +2212,7 @@ const SwapMainLoad = ({
     gtLg,
     isMarketEmbeddedSwap,
     shouldRenderDesktopSwapHeader,
+    foldableProviderPanelTab,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -2231,18 +2247,6 @@ const SwapMainLoad = ({
     }
     return 'regular' as const;
   }, [pageType, swapTypeSwitch, showDesktopProviderPanel, gtLg]);
-
-  // The media driver keeps iPhones on phone breakpoints, so the container's
-  // own $gtMd width cap never applies on an unfolded iPhone and the form would
-  // stretch the amount and the token selector to opposite edges. Cap the page
-  // directly; the folded screen is narrower than the cap. Every tab shares the
-  // cap so the header does not shift sideways when switching tabs. Embedded
-  // panels are sized by their host.
-  const capFoldableFormWidth =
-    isFoldableIPhone() &&
-    pageType !== EPageType.modal &&
-    !embeddedStockTrade &&
-    !isMarketEmbeddedSwap;
 
   // Native iOS: zero top padding so the header row (given a fixed h=56 in
   // SwapHeaderContainer) occupies [top, top+56] — structurally identical to the
@@ -2349,12 +2353,7 @@ const SwapMainLoad = ({
 
   const pageContent = (
     <StockReceiveSnapshotProvider>
-      <Page.Container
-        flex={1}
-        layout={containerLayout}
-        padded={false}
-        {...(capFoldableFormWidth ? SWAP_FOLDABLE_FORM_WIDTH_PROPS : undefined)}
-      >
+      <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
           testID={SwapTestIDs.pageContainer}
           flex={1}
@@ -2398,9 +2397,30 @@ const SwapMainLoad = ({
                 </YStack>
               </YStack>
             </SwapRevealSnapshotProvider>
-          ) : (
-            swapContent
-          )}
+          ) : null}
+          {!shouldRenderDesktopSwapHeader && isFoldableSwapPage ? (
+            // Foldable phones keep one wrapper in every posture, so folding
+            // never remounts the content. Tabs that have no second pane yet
+            // are capped at the width they have on the folded screen: the
+            // content stays where Swap and Bridge put the form and does not
+            // resize when the device unfolds. A plain max width needs no
+            // window size, so it is never applied a frame late.
+            <YStack
+              flex={1}
+              minHeight={0}
+              width="100%"
+              maxWidth={
+                foldableProviderPanelTab
+                  ? undefined
+                  : SWAP_TWO_PANE_FORM_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2
+              }
+            >
+              {swapContent}
+            </YStack>
+          ) : null}
+          {!shouldRenderDesktopSwapHeader && !isFoldableSwapPage
+            ? swapContent
+            : null}
         </YStack>
       </Page.Container>
     </StockReceiveSnapshotProvider>
