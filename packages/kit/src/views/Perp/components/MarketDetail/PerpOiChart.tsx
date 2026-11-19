@@ -290,6 +290,7 @@ export function PerpOiChart({
             fontSize={isMobile ? 9 : 11}
             priceFormatter={formatOpenInterestUsd}
             priceTickFormatter={formatOpenInterestTicks}
+            priceScaleFormat="open-interest"
             priceScalePosition="left"
             priceScaleMinimumWidth={priceScaleMinimumWidth}
             showHorzGridLines
