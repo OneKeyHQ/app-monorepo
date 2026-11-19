@@ -122,7 +122,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
-import { SimpleDbEntityEarnFunding } from '../dbs/simple/entity/SimpleDbEntityEarnFunding';
+import { createLazyServiceProxy } from '../apis/lazyServiceProxy';
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
@@ -192,7 +192,13 @@ const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
-  private readonly earnFunding = new SimpleDbEntityEarnFunding();
+  private readonly earnFunding = createLazyServiceProxy({
+    serviceName: 'simpleDb@earnFunding',
+    loader: () =>
+      import('../dbs/simple/entity/SimpleDbEntityEarnFunding').then(
+        ({ SimpleDbEntityEarnFunding }) => new SimpleDbEntityEarnFunding(),
+      ),
+  });
 
   private _abortControllersByRequestId: Record<string, Set<AbortController>> =
     {};

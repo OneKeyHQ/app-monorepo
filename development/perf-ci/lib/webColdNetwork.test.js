@@ -60,6 +60,65 @@ describe('web cold network fixtures', () => {
     expect(recordRefusal(request)).toBeNull();
   });
 
+  test('replays the public DeFi startup requests and market reserves', () => {
+    const store = createFixtureStore(readFixtureFile(DEFAULT_FIXTURE_PATH));
+    const readEarnData = (pathName, postData) => {
+      const request = {
+        method: postData ? 'POST' : 'GET',
+        url: `https://earn.onekeycn.com${pathName}`,
+        postData,
+      };
+      expect(recordRefusal(request)).toBeNull();
+      const { entry } = store.lookup(request);
+      expect(entry).toMatchObject({
+        status: 200,
+        scenarios: ['defi'],
+        json: { code: 0 },
+      });
+      return entry.json.data;
+    };
+
+    expect(readEarnData('/earn/v1/banner/list')).toEqual([]);
+    expect(
+      readEarnData('/earn/v1/available-assets?type=stableCoins').assets.map(
+        ({ symbol }) => symbol,
+      ),
+    ).toContain('USDC');
+    expect(readEarnData('/earn/v2/available-assets').assets[0]).toMatchObject({
+      type: 'normal',
+    });
+    expect(
+      readEarnData('/earn/v2/stake-protocol/list', '{}').protocols[0],
+    ).toMatchObject({ symbol: expect.any(String) });
+    const { marketAddress, networkId, provider } = readEarnData(
+      '/earn/v1/borrow/markets',
+    ).markets[0];
+    const reservesQuery = new URLSearchParams({
+      provider,
+      networkId,
+      marketAddress,
+    });
+    const reserves = readEarnData(`/earn/v1/borrow/reserves?${reservesQuery}`);
+    expect(reserves.supply.assets[0].token.networkId).toBe(networkId);
+    expect(reserves.borrow.assets[0].token.networkId).toBe(networkId);
+
+    const accountScopedRequests = [
+      {
+        method: 'GET',
+        url: `https://earn.onekeycn.com/earn/v1/borrow/reserves?${reservesQuery}&accountAddress=0x1`,
+      },
+      {
+        method: 'POST',
+        url: 'https://earn.onekeycn.com/earn/v2/stake-protocol/list',
+        postData: '{"accountAddress":"0x1"}',
+      },
+    ];
+    for (const request of accountScopedRequests) {
+      expect(recordRefusal(request)).toMatch(/not allowed/);
+      expect(store.lookup(request).entry).toBeNull();
+    }
+  });
+
   test('keys GET requests by host, path and sorted query without volatile params', () => {
     expect(
       requestKey({

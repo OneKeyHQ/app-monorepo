@@ -47,11 +47,27 @@ const RECORDABLE_ENDPOINTS = [
     route: 'GET earn.onekeycn.com/earn/v1/available-assets',
     query: ['type'],
   },
+  { route: 'GET earn.onekeycn.com/earn/v1/banner/list' },
   { route: 'GET earn.onekeycn.com/earn/v1/block-region' },
+  { route: 'GET earn.onekeycn.com/earn/v1/borrow/markets' },
+  {
+    route: 'GET earn.onekeycn.com/earn/v1/borrow/reserves',
+    query: ['marketAddress', 'networkId', 'provider'],
+    values: {
+      marketAddress: /^0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2$/,
+      networkId: /^evm--1$/,
+      provider: /^aave$/,
+    },
+  },
   { route: 'GET earn.onekeycn.com/earn/v1/faq/list' },
+  { route: 'GET earn.onekeycn.com/earn/v2/available-assets' },
   {
     route: 'POST earn.onekeycn.com/earn/v2/recommend',
     body: /^\{"accounts":\[\]\}$/,
+  },
+  {
+    route: 'POST earn.onekeycn.com/earn/v2/stake-protocol/list',
+    body: /^\{\}$/,
   },
   { route: 'GET rebate.onekeycn.com/rebate/v1/invite/post-config' },
   {
