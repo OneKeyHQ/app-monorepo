@@ -3,6 +3,11 @@ import { useThemeVariant } from './useThemeVariant';
 // Corner radius of the raised settings cards.
 export const CARD_SURFACE_RADIUS = 12;
 
+// Row chevrons on these cards are a size down from ListItem's 24px default so
+// they sit quieter beside 14px text. The wider negative margin keeps the
+// stroke on the same right edge.
+export const CARD_ROW_CHEVRON_PROPS = { size: '$5', mx: -4.5 } as const;
+
 // A card reads as raised, not outlined: a faint ring stands in for the edge
 // and two soft layers give it lift. Dark surfaces can't show the layers, so
 // they keep the ring alone.

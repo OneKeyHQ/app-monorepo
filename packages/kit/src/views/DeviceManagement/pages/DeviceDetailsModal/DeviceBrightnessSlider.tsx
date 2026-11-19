@@ -139,10 +139,11 @@ export function DeviceBrightnessSlider({
         value={displayValue}
         min={MIN_BRIGHTNESS}
         max={MAX_BRIGHTNESS}
-        segments={4}
+        // Continuous: brightness has no preset levels to mark, and the
+        // value above already updates while dragging, so no bubble.
+        segments={0}
         sliderHeight={4}
-        showBubble
-        alignSegmentMarksToIntegerValues
+        showBubble={false}
         disabled={disabled}
         onChange={handleChange}
         onSlideComplete={handleSlideComplete}

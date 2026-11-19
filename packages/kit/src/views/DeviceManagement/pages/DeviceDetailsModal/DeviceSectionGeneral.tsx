@@ -171,6 +171,7 @@ export function LanguageListItem({
               primaryTextProps={{
                 size: '$bodyMd',
                 color: '$textSubdued',
+                userSelect: 'none',
               }}
             />
             <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
@@ -262,6 +263,7 @@ export function AutoLockListItem({
               primaryTextProps={{
                 size: '$bodyMd',
                 color: '$textSubdued',
+                userSelect: 'none',
               }}
             />
             <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />
@@ -355,6 +357,7 @@ export function AutoShutDownListItem({
               primaryTextProps={{
                 size: '$bodyMd',
                 color: '$textSubdued',
+                userSelect: 'none',
               }}
             />
             <ListItem.DrillIn ml="$0" name="ChevronDownSmallOutline" />

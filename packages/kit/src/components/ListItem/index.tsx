@@ -5,7 +5,14 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { isValidElement, useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  isValidElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -240,16 +247,26 @@ const ListItemCheckMark = (props: IStackProps) => (
   </Stack>
 );
 
+// Lets a group of rows (such as a settings card) restyle every drill-in
+// chevron inside it, including rows rendered by nested components.
+export const ListItemDrillInPropsContext = createContext<
+  IIconProps | undefined
+>(undefined);
+
 // DrillIn
-const ListItemDrillIn = (props: IIconProps) => (
-  <Icon
-    name="ChevronRightSmallOutline"
-    color="$iconSubdued"
-    mx="$-1.5"
-    flexShrink={0}
-    {...props}
-  />
-);
+const ListItemDrillIn = (props: IIconProps) => {
+  const groupProps = useContext(ListItemDrillInPropsContext);
+  return (
+    <Icon
+      name="ChevronRightSmallOutline"
+      color="$iconSubdued"
+      mx="$-1.5"
+      flexShrink={0}
+      {...groupProps}
+      {...props}
+    />
+  );
+};
 
 // Separator
 const ListItemSeparator = () => <Divider mx="$5" />;

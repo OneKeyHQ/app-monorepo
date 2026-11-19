@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  CARD_ROW_CHEVRON_PROPS,
   CARD_SURFACE_RADIUS,
   useCardShadow,
 } from '@onekeyhq/kit/src/hooks/useCardSurface';
@@ -176,13 +177,19 @@ export function PrimeGiftOffer({
         <SizableText
           size={onDevicePage ? '$headingSm' : '$bodyLgMedium'}
           cursor="default"
+          userSelect="none"
         >
           {intl.formatMessage(
             { id: ETranslations.prime_gift_claim_duration__action },
             { duration: getPrimeGiftDurationText(eligibility, intl) },
           )}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" cursor="default">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          cursor="default"
+          userSelect="none"
+        >
           {intl.formatMessage({
             id:
               source === 'onboarding'
@@ -191,12 +198,14 @@ export function PrimeGiftOffer({
           })}
         </SizableText>
       </YStack>
-      {/* Match ListItem.DrillIn's default 24dp; $6 shrinks on narrow Android screens. */}
+      {/* Match ListItem.DrillIn's default 24dp ($6 shrinks on narrow Android
+          screens); on the device page, match its rows' smaller chevron. */}
       <Icon
         name="ChevronRightSmallOutline"
         color="$iconSubdued"
         mr="$-1.5"
         flexShrink={0}
+        {...(onDevicePage ? CARD_ROW_CHEVRON_PROPS : {})}
       />
     </XStack>
   );

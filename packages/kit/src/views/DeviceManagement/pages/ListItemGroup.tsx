@@ -4,8 +4,12 @@ import type { ComponentProps, ReactNode } from 'react';
 import { PixelRatio } from 'react-native';
 
 import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
+  ListItem,
+  ListItemDrillInPropsContext,
+} from '@onekeyhq/kit/src/components/ListItem';
+import {
+  CARD_ROW_CHEVRON_PROPS,
   CARD_SURFACE_RADIUS,
   useCardShadow,
 } from '@onekeyhq/kit/src/hooks/useCardSurface';
@@ -84,7 +88,9 @@ function ListItemGroupBase({
           borderRadius={CARD_SURFACE_RADIUS}
           overflow="hidden"
         >
-          {normalizedChildren}
+          <ListItemDrillInPropsContext.Provider value={CARD_ROW_CHEVRON_PROPS}>
+            {normalizedChildren}
+          </ListItemDrillInPropsContext.Provider>
         </YStack>
       </YStack>
     </YStack>
