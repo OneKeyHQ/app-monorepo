@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "{token} स्पॉट खरीदें",
   "perps_spot_deposit_to_usdc__desc": "अपने खाते में ऑन-चेन एसेट जमा करें",
   "perps_spot_deposit_to_usdc__title": "USDC में जमा करें",
+  "perps_tp_long_loss__desc": "ट्रिगर मूल्य प्रवेश मूल्य से कम है। पोज़िशन बंद करने पर भी नुकसान होने का अनुमान है।",
+  "perps_tp_short_loss__desc": "ट्रिगर मूल्य प्रवेश मूल्य से अधिक है। पोज़िशन बंद करने पर भी नुकसान होने का अनुमान है।",
   "perps_trading_page_chart__title": "ट्रेडिंग पेज कैंडलस्टिक चार्ट",
   "perps_trigger_price_equal_current": "ट्रिगर मूल्य वर्तमान मूल्य से अलग होना चाहिए",
   "photo_library_access_denied__desc": "इमेज सेव करने के लिए OneKey को फ़ोटो लाइब्रेरी का एक्सेस चाहिए। कृपया सेटिंग्स में जाकर फ़ोटो लाइब्रेरी की अनुमति चालू करें।",

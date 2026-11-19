@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "買入 {token} 現貨",
   "perps_spot_deposit_to_usdc__desc": "將鏈上資產充值到你的帳戶",
   "perps_spot_deposit_to_usdc__title": "充值到 USDC",
+  "perps_tp_long_loss__desc": "觸發價低於開倉價，平倉後預計仍有虧損。",
+  "perps_tp_short_loss__desc": "觸發價高於開倉價，平倉後預計仍有虧損。",
   "perps_trading_page_chart__title": "交易頁 K 線圖",
   "perps_trigger_price_equal_current": "觸發價不能等於當前價格",
   "photo_library_access_denied__desc": "OneKey 需要存取照片圖庫才能儲存圖片。請前往設定並啟用照片圖庫權限。",

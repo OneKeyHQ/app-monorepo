@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "{token} 현물 구매",
   "perps_spot_deposit_to_usdc__desc": "온체인 자산을 계정에 입금",
   "perps_spot_deposit_to_usdc__title": "USDC로 입금",
+  "perps_tp_long_loss__desc": "트리거 가격이 진입가보다 낮습니다. 포지션을 종료해도 손실이 발생할 것으로 예상됩니다.",
+  "perps_tp_short_loss__desc": "트리거 가격이 진입가보다 높습니다. 포지션을 종료해도 손실이 발생할 것으로 예상됩니다.",
   "perps_trading_page_chart__title": "거래 페이지 캔들스틱 차트",
   "perps_trigger_price_equal_current": "트리거 가격은 현재 가격과 달라야 합니다",
   "photo_library_access_denied__desc": "OneKey는 이미지를 저장하려면 사진 보관함 접근 권한이 필요합니다. 설정으로 이동하여 사진 보관함 권한을 활성화해 주세요.",
