@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
@@ -39,6 +39,11 @@ import {
 import type { IPerpOiHistoryRange } from '../../utils/fetchPerpOiHistory';
 
 const OI_CACHE_NAMESPACE = swrCacheNamespaces.perpsOiHistory;
+const OI_WINDOW_DAYS: Record<IPerpOiHistoryRange, number> = {
+  '24h': 1,
+  '7d': 7,
+  history: 90,
+};
 const USE_WEB_SNAPSHOT_STORE = Platform.select({
   native: false,
   default: true,
@@ -145,7 +150,7 @@ export function PerpOiChart({
         ) {
           return previous;
         }
-        return { ...cached, refreshFailed: Boolean(previous) };
+        return { ...cached, refreshFailed: previous?.refreshFailed };
       });
     });
     return () => {
@@ -159,8 +164,16 @@ export function PerpOiChart({
     current && !current.history?.data.length
       ? swrCacheUtils.get<IPerpOiHistoryResult>(requestKey)?.history
       : undefined;
-  const history = cachedHistory ?? current?.history;
-  const data = history?.data;
+  const points = (cachedHistory ?? current?.history)?.data;
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - OI_WINDOW_DAYS[range] * 86_400;
+  const first = points?.findIndex(([time]) => time >= windowStart) ?? -1;
+  const last = points?.findLastIndex(([time]) => time <= now) ?? -1;
+  const data = useMemo(
+    () =>
+      first >= 0 && first <= last ? points?.slice(first, last + 1) : undefined,
+    [first, last, points],
+  );
   const title = intl.formatMessage({
     id: ETranslations.perp_token_bar_open_Interest,
   });
@@ -202,7 +215,7 @@ export function PerpOiChart({
       : undefined;
 
   const waiting = Boolean(coin && (!current || isLoading));
-  const failed = Boolean(current && !history);
+  const failed = current?.refreshFailed;
   const ranges: Array<{ key: IPerpOiHistoryRange; label: string }> = [
     { key: '24h', label: '24H' },
     { key: '7d', label: '7D' },
