@@ -89,6 +89,7 @@ describe('travelModeCommandPolicy', () => {
     ['serviceSetting', 'setSelectedBrowserTab'],
     ['serviceSetting', 'refreshLastActivity'],
     ['serviceApp', 'isAppLocked'],
+    ['serviceApp', 'prepareAppRestart'],
     ['serviceApp', 'restartApp'],
     ['', 'getAtomStates'],
     ['', 'setAtomValue'],

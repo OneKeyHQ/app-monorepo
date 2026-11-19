@@ -59,6 +59,18 @@ export class SparkScene extends BaseScene {
     return params;
   }
 
+  /**
+   * The SDK was disconnected ahead of an app restart. Written at once: the
+   * runtime is gone before a deferred entry would be.
+   */
+  @LogToLocal({ level: 'info', enqueueImmediately: true })
+  public disconnectedBeforeRestart(params: {
+    durationMs: number;
+    pendingConnects: number;
+  }) {
+    return params;
+  }
+
   /** A warning the Breez SDK logged itself. */
   @LogToLocal({ level: 'warn' })
   public sdkWarning(params: { line: string }) {

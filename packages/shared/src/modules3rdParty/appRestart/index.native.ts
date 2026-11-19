@@ -4,6 +4,10 @@ import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
+import platformEnv from '../../platformEnv';
+
+import { runBeforeAppRestartHandlers } from './beforeAppRestart';
+
 import type { IAppRestart, IAppRestartOptions } from './types';
 
 export type { IAppRestartOptions } from './types';
@@ -16,6 +20,7 @@ export { EAppRestartMode } from './types';
  *      closing the use-after-free race that crashed iOS on language switch.
  *   2. For `mode='all'`, the bg host is torn down in lockstep with the
  *      main reload — keeping bundle moduleId tables consistent after OTA.
+ *   3. On iOS the handlers of `beforeAppRestart` run first.
  */
 export const appRestart: IAppRestart = async (opts: IAppRestartOptions) => {
   defaultLogger.setting.page.restartApp({
@@ -49,6 +54,16 @@ export const appRestart: IAppRestart = async (opts: IAppRestartOptions) => {
         (err as Error)?.message ?? String(err)
       }`,
     );
+  }
+
+  // iOS keeps the process and rebuilds the background runtime inside it, so
+  // what that runtime holds in native memory is released first. This holds
+  // for both modes: the reload command reaches every React host, and on the
+  // iOS simulator a `mode: UI` restart re-ran the background entry as well
+  // (RN 0.88, 2026-11-10). Android restarts the process or keeps the
+  // background runtime, so nothing outlives its runtime there.
+  if (platformEnv.isNativeIOS) {
+    await runBeforeAppRestartHandlers(opts);
   }
 
   await BackgroundThread.restart(opts.mode, opts.reason);

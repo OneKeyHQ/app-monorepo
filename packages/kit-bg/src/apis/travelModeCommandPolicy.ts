@@ -43,7 +43,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'mergeHomeDataToSwapMap',
     'shouldUseGlobalDeriveType',
   ]),
-  serviceApp: new Set(['isAppLocked', 'restartApp']),
+  serviceApp: new Set(['isAppLocked', 'prepareAppRestart', 'restartApp']),
   serviceDiscovery: new Set([
     'buildWebsiteIconUrl',
     'fetchDiscoveryHomePageData',

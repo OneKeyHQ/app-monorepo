@@ -1,5 +1,6 @@
 import BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { addBeforeAppRestartHandler } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiInit from './backgroundApiInit';
@@ -28,5 +29,16 @@ const backgroundApiProxy = new BackgroundApiProxy({
 });
 
 appGlobals.$backgroundApiProxy = backgroundApiProxy;
+
+// A restart requested in the native main runtime first lets the background
+// runtime run its own before-restart handlers: they live in its separate heap.
+if (
+  platformEnv.isNativeMainThread &&
+  platformEnv.enableNativeBackgroundThread
+) {
+  addBeforeAppRestartHandler((options) =>
+    backgroundApiProxy.serviceApp.prepareAppRestart(options),
+  );
+}
 
 export default backgroundApiProxy;

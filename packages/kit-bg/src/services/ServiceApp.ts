@@ -18,7 +18,9 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import { runBeforeAppRestartHandlers } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
+import type { IAppRestartOptions } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import { resetIntercomVisitorStorage } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
@@ -157,6 +159,15 @@ class ServiceApp extends ServiceBase {
       mode: opts.mode ?? EAppRestartMode.All,
       reason: opts.reason ?? 'serviceApp.restartApp',
     });
+  }
+
+  /**
+   * Relayed by the native main runtime before it restarts the app itself, so
+   * the before-restart handlers of this runtime run as well.
+   */
+  @backgroundMethod()
+  async prepareAppRestart(options: IAppRestartOptions) {
+    await runBeforeAppRestartHandlers(options);
   }
 
   private async resetNativeLocalSecretEnvelopeKeys() {

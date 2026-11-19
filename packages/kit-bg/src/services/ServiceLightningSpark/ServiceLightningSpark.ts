@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { addBeforeAppRestartHandler } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -145,6 +146,8 @@ class ServiceLightningSpark extends ServiceBase {
     appEventBus.on(EAppEventBusNames.UnlockApp, () => {
       void this.connectHeldSession();
     });
+    // Called on iOS only, where a restart keeps the process.
+    addBeforeAppRestartHandler(() => this.disconnectBeforeAppRestart());
   }
 
   private sdk: ISparkSdk | undefined;
@@ -161,6 +164,13 @@ class ServiceLightningSpark extends ServiceBase {
   private connectGeneration = 0;
 
   private releaseRuntimeLock: (() => void) | undefined;
+
+  // SDK connects still in flight. Each ends as the active SDK or disconnects
+  // its SDK, and a restart waits for that.
+  private pendingSdkConnects = new Set<Promise<void>>();
+
+  // Set when the app is about to restart; no SDK connect starts after that.
+  private closedForRestart = false;
 
   private recentEvents: ISparkRecentEvent[] = [];
 
@@ -566,10 +576,23 @@ class ServiceLightningSpark extends ServiceBase {
     const startedAt = Date.now();
     let initMs = 0;
     let connectPromise: Promise<ISparkSdk> | undefined;
+    let finishPendingConnect: () => void = () => undefined;
     let sdk: ISparkSdk;
+    const assertNotSuperseded = () => {
+      if (generation !== this.connectGeneration) {
+        throw new OneKeyLocalError('Lightning connect was superseded');
+      }
+    };
     try {
       const breez = await loadBreezSdk();
       initMs = Date.now() - startedAt;
+      if (this.closedForRestart) {
+        throw new OneKeyLocalError('The app is restarting');
+      }
+      const pendingConnect = new Promise<void>((resolve) => {
+        finishPendingConnect = resolve;
+      }).finally(() => this.pendingSdkConnects.delete(pendingConnect));
+      this.pendingSdkConnects.add(pendingConnect);
       connectPromise = breez.connect({
         config: {
           ...breez.defaultConfig(network),
@@ -593,26 +616,30 @@ class ServiceLightningSpark extends ServiceBase {
         SPARK_CONNECT_TIMEOUT_MS,
         'Lightning connect timed out',
       );
-      if (generation !== this.connectGeneration) {
-        throw new OneKeyLocalError('Lightning connect was superseded');
-      }
+      assertNotSuperseded();
       await sdk.addEventListener({
         onEvent: (event) => this.onSdkEvent(walletId, event),
       });
       await this.ensureSparkPublicMode(sdk);
+      // A lock or a restart may have disconnected during the two calls above.
+      assertNotSuperseded();
     } catch (error) {
       // A connect that timed out or was superseded may still resolve; keep
       // the lock until it settles so no other tab opens the same storage.
       void (connectPromise ?? Promise.reject(error))
         .then((lateSdk) => lateSdk.disconnect())
         .catch(() => undefined)
-        .finally(releaseLock);
+        .finally(() => {
+          releaseLock();
+          finishPendingConnect();
+        });
       throw error;
     }
     this.sdk = sdk;
     this.connectedWalletId = walletId;
     this.connectedNetwork = network;
     this.releaseRuntimeLock = releaseLock;
+    finishPendingConnect();
     const connectMs = Date.now() - startedAt - initMs;
 
     const info = await sdk.getInfo({});
@@ -669,6 +696,27 @@ class ServiceLightningSpark extends ServiceBase {
   async devGetUserSettings(_params: IBackgroundMethodWithDevOnlyPassword) {
     const { sdk } = this.getConnectedSdk();
     return sdk.getUserSettings();
+  }
+
+  /**
+   * The native SDK lives outside the JS runtime. When iOS rebuilds this
+   * runtime in place, an SDK left connected keeps running with nothing able
+   * to reach it. In tests such leftovers stalled the sync of later connects
+   * and aborted the app when one emitted an event to its vanished listener.
+   * So a restart disconnects the SDK first, waits for a connect in flight to
+   * give up its SDK, and lets no connect start after that: the runtime is
+   * gone right after.
+   */
+  private async disconnectBeforeAppRestart() {
+    const startedAt = Date.now();
+    this.closedForRestart = true;
+    const pendingConnects = [...this.pendingSdkConnects];
+    await this.disconnect();
+    await Promise.all(pendingConnects);
+    defaultLogger.lightning.spark.disconnectedBeforeRestart({
+      durationMs: Date.now() - startedAt,
+      pendingConnects: pendingConnects.length,
+    });
   }
 
   @backgroundMethod()
