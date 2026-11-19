@@ -219,6 +219,15 @@ struct MarketLockScreenEntityTests {
            "The native configuration can retain the same asset in two list positions")
     expect(list.first?.asset.assetId == "btc", "Changing another list configuration does not mutate this one")
 
+    let selectionFile = directory.appendingPathComponent("lock-screen-assets-v1.json")
+    try FileManager.default.removeItem(at: selectionFile)
+    try FileManager.default.createDirectory(at: selectionFile, withIntermediateDirectories: false)
+    let ids = [bitcoinEntity.id, customEntity.id]
+    expect(MarketLockScreenAssetQuery.resolve(ids, in: store).map(\.id) == ids,
+      "WidgetKit can resolve saved IDs before the provider handles a selection write failure")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+    expect(MarketLockScreenAssetQuery.resolve(ids, in: store).isEmpty, "Masked selections never expose saved asset IDs")
+
     print("MarketLockScreenEntityTests: \(checks) checks passed")
   }
 }

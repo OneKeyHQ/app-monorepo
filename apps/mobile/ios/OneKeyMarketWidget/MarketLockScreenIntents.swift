@@ -118,10 +118,15 @@ struct MarketLockScreenAssetQuery: EntityStringQuery {
   }
 
   func entities(for identifiers: [String]) async throws -> [MarketLockScreenAssetEntity] {
-    let store = MarketWidgetStore()
+    Self.resolve(identifiers, in: MarketWidgetStore())
+  }
+
+  static func resolve(_ identifiers: [String], in store: MarketWidgetStore) -> [MarketLockScreenAssetEntity] {
     guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return [] }
     let entities = identifiers.compactMap { MarketLockScreenAssetEntity(id: $0, store: store) }
-    try store.rememberLockScreenAssets(entities.map(\.asset))
+    // WidgetKit must resolve saved IDs even when the provider can only read cached prices.
+    // The timeline registers these assets before making any market requests.
+    guard let current = store.configuration().configuration, current.privacyMasked != true else { return [] }
     return entities
   }
 
