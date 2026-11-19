@@ -17,6 +17,9 @@ export const BROWSER_SITE_ROW_HEIGHT = 60;
 const PX = platformEnv.isNative ? 1 / PixelRatio.get() : 0;
 // Unconstrained ListItem height (History): py 8 + 24.33 + 20.33 on native.
 export const BROWSER_SITE_AUTO_ROW_HEIGHT = 60 + 2 * PX;
+// UIKit places single-line text half a pixel lower than React Native's layout,
+// which snaps the rounded-up text boxes up; lift rows and headers one pixel.
+const TEXT_OFFSET_Y = platformEnv.isNativeIOS ? -PX : 0;
 // DiscoveryIcon size="$10".
 const ICON_SIZE = 40;
 // DiscoveryIcon borderRadius "$2".
@@ -104,8 +107,6 @@ export function buildBrowserSiteRow({
       // the edit buttons; the padding leaves exactly the text block's height.
       container: { cornerRadius: 12 },
       verticalPadding: (height - (44 + 2 * PX)) / 2,
-      // Edit buttons sit in <XStack gap="$6">.
-      trailingGap: 24,
       image: { cornerRadius: ICON_RADIUS },
       // ListItem.Text stacks the two lines with no gap.
       lineGap: 0,
@@ -114,18 +115,24 @@ export function buildBrowserSiteRow({
         lineHeight: 24 + PX,
         fontWeight: 'medium',
         letterSpacing: 0,
+        // SizableText's app-wide default.
+        tabularNumbers: true,
         color: theme.primaryText,
         lines: 1,
         truncate: 'tail',
+        ...(TEXT_OFFSET_Y ? { offsetY: TEXT_OFFSET_Y } : undefined),
       },
       subtitle: {
         fontSize: 14,
         lineHeight: 20 + PX,
         fontWeight: 'regular',
         letterSpacing: 0,
+        // SizableText's app-wide default.
+        tabularNumbers: true,
         color: theme.secondaryText,
         lines: 1,
         truncate: 'tail',
+        ...(TEXT_OFFSET_Y ? { offsetY: TEXT_OFFSET_Y } : undefined),
       },
     },
   };
@@ -163,9 +170,12 @@ export function buildBrowserSectionHeaderRow({
         lineHeight: 20 + PX,
         fontWeight: 'semibold',
         letterSpacing: 0,
+        // SizableText's app-wide default.
+        tabularNumbers: true,
         color: theme.secondaryText,
         lines: 1,
         truncate: 'tail',
+        ...(TEXT_OFFSET_Y ? { offsetY: TEXT_OFFSET_Y } : undefined),
       },
     },
   };
