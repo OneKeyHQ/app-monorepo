@@ -1,0 +1,183 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
+index c4c4de1..dbf9a26 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayStore.js
+@@ -136,6 +136,16 @@ export class OverlayStore {
+     dropped.forEach(e => this.notifyRemoved(e.id, reason));
+   }
+ 
++  // OneKey patch: scope web page overlay interaction to the focused root route.
++  setFocusedPageHost(hostKey) {
++    if (this.focusedPageHost === hostKey) return;
++    this.focusedPageHost = hostKey;
++    this.emit();
++  }
++  isPageHostFocused(hostKey) {
++    return this.focusedPageHost === undefined || this.focusedPageHost === hostKey;
++  }
++
+   /** Native / navigation signal: the owning page was covered, detached or restored. */
+   setPageVisible(ownerKey, visible) {
+     if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
+@@ -180,7 +190,9 @@ export class OverlayStore {
+   resolveBack(focusedHostKey) {
+     // Non-blocking entries take back / Escape only when they ask to be
+     // dismissible (an anchored popover); toasts do not.
+-    const candidates = this.snapshot.entries.filter(e => e.phase === 'active' && !e.suspended && (e.blocking || e.dismissible) && (e.scope === 'global' || focusedHostKey === undefined || e.hostKey === focusedHostKey));
++    // OneKey patch: a visible dialog on a covered root must not consume Escape.
++    // const candidates = this.snapshot.entries.filter(e => e.phase === 'active' && !e.suspended && (e.blocking || e.dismissible) && (e.scope === 'global' || focusedHostKey === undefined || e.hostKey === focusedHostKey));
++    const candidates = this.snapshot.entries.filter(e => e.phase === 'active' && !e.suspended && (e.blocking || e.dismissible) && (e.scope === 'global' || this.isPageHostFocused(e.hostKey) && (focusedHostKey === undefined || e.hostKey === focusedHostKey)));
+     const top = candidates[candidates.length - 1];
+     if (!top) {
+       return {
+@@ -206,7 +218,9 @@ export class OverlayStore {
+     } = this.snapshot;
+     for (let i = entries.length - 1; i >= 0; i -= 1) {
+       const entry = entries[i];
+-      if (entry && entry.phase !== 'closing' && !entry.suspended && entry.blocking) {
++      // OneKey patch: only a foreground page dialog may block other routes.
++      // if (entry && entry.phase !== 'closing' && !entry.suspended && entry.blocking) {
++      if (entry && entry.phase !== 'closing' && !entry.suspended && entry.blocking && (entry.scope === 'global' || this.isPageHostFocused(entry.hostKey))) {
+         return entry;
+       }
+     }
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
+index dc32352..0670721 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
+@@ -81,6 +81,8 @@ export function syncOverlayInert() {
+   nextPageInert.forEach(element => setInert(element, true));
+   pageInertElements = nextPageInert;
+   for (const [hostKey, host] of pageHosts) {
++    // OneKey patch: make covered root-route page hosts inert while keeping them visible.
++    setInert(host, nextPageInert.has(host) || !overlayStore.isPageHostFocused(hostKey));
+     inertEntriesBelow(host, top?.scope === 'page' && top.hostKey === hostKey ? top : undefined);
+   }
+   for (const [level, root] of layerRoots) {
+@@ -138,10 +140,13 @@ export function scheduleOverlayInertSync() {
+ export function registerOverlayPageHost(hostKey, element) {
+   installOverlayWebManager();
+   pageHosts.set(hostKey, element);
++  // OneKey patch: sync inert state when a page host mounts or unmounts.
++  syncOverlayInert();
+   pageHostListeners.get(hostKey)?.forEach(listener => listener());
+   return () => {
+     if (pageHosts.get(hostKey) === element) {
+       pageHosts.delete(hostKey);
++      syncOverlayInert();
+       pageHostListeners.get(hostKey)?.forEach(listener => listener());
+     }
+   };
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
+index 4d11a0b..f111714 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayStore.d.ts
+@@ -22,6 +22,7 @@ export declare class OverlayStore {
+     private queued;
+     private readonly handlers;
+     private readonly closingTimers;
++    private focusedPageHost;
+     private readonly pageVisibility;
+     private readonly listeners;
+     private snapshot;
+@@ -41,6 +42,8 @@ export declare class OverlayStore {
+         belowLevel?: IOverlayEntry['level'];
+         reason?: IOverlayDismissReason;
+     }): void;
++    setFocusedPageHost(hostKey: string | null | undefined): void;
++    isPageHostFocused(hostKey: string | undefined): boolean;
+     /** Native / navigation signal: the owning page was covered, detached or restored. */
+     setPageVisible(ownerKey: string, visible: boolean): void;
+     /** The owning page left the navigation state for good. */
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
+index 59c8f8c..cb4147a 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
+@@ -62,6 +62,9 @@ export class OverlayStore {
+     ReturnType<typeof setTimeout>
+   >();
+ 
++  // OneKey patch: track the focused root route host on web.
++  private focusedPageHost: string | null | undefined;
++
+   private readonly pageVisibility = new Map<string, boolean>();
+ 
+   private readonly listeners = new Set<() => void>();
+@@ -198,6 +201,19 @@ export class OverlayStore {
+     dropped.forEach((e) => this.notifyRemoved(e.id, reason));
+   }
+ 
++  // OneKey patch: scope web page overlay interaction to the focused root route.
++  setFocusedPageHost(hostKey: string | null | undefined): void {
++    if (this.focusedPageHost === hostKey) return;
++    this.focusedPageHost = hostKey;
++    this.emit();
++  }
++
++  isPageHostFocused(hostKey: string | undefined): boolean {
++    return (
++      this.focusedPageHost === undefined || this.focusedPageHost === hostKey
++    );
++  }
++
+   /** Native / navigation signal: the owning page was covered, detached or restored. */
+   setPageVisible(ownerKey: string, visible: boolean): void {
+     if ((this.pageVisibility.get(ownerKey) ?? true) === visible) {
+@@ -247,9 +263,13 @@ export class OverlayStore {
+         e.phase === 'active' &&
+         !e.suspended &&
+         (e.blocking || e.dismissible) &&
++        // OneKey patch: a visible dialog on a covered root must not consume Escape.
++        // (e.scope === 'global' ||
++        //   focusedHostKey === undefined ||
++        //   e.hostKey === focusedHostKey)
+         (e.scope === 'global' ||
+-          focusedHostKey === undefined ||
+-          e.hostKey === focusedHostKey)
++          (this.isPageHostFocused(e.hostKey) &&
++            (focusedHostKey === undefined || e.hostKey === focusedHostKey)))
+     );
+     const top = candidates[candidates.length - 1];
+     if (!top) {
+@@ -274,7 +294,10 @@ export class OverlayStore {
+         entry &&
+         entry.phase !== 'closing' &&
+         !entry.suspended &&
+-        entry.blocking
++        // OneKey patch: only a foreground page dialog may block other routes.
++        // entry.blocking
++        entry.blocking &&
++        (entry.scope === 'global' || this.isPageHostFocused(entry.hostKey))
+       ) {
+         return entry;
+       }
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
+index e70efd9..094a214 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
+@@ -110,6 +110,11 @@ export function syncOverlayInert() {
+   pageInertElements = nextPageInert;
+ 
+   for (const [hostKey, host] of pageHosts) {
++    // OneKey patch: make covered root-route page hosts inert while keeping them visible.
++    setInert(
++      host,
++      nextPageInert.has(host) || !overlayStore.isPageHostFocused(hostKey)
++    );
+     inertEntriesBelow(
+       host,
+       top?.scope === 'page' && top.hostKey === hostKey ? top : undefined
+@@ -187,10 +192,13 @@ export function registerOverlayPageHost(
+ ): () => void {
+   installOverlayWebManager();
+   pageHosts.set(hostKey, element);
++  // OneKey patch: sync inert state when a page host mounts or unmounts.
++  syncOverlayInert();
+   pageHostListeners.get(hostKey)?.forEach((listener) => listener());
+   return () => {
+     if (pageHosts.get(hostKey) === element) {
+       pageHosts.delete(hostKey);
++      syncOverlayInert();
+       pageHostListeners.get(hostKey)?.forEach((listener) => listener());
+     }
+   };

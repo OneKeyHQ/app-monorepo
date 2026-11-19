@@ -471,11 +471,13 @@ function BaseMarketHome() {
   const headerRef = useRef<ViewInstance>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [headerTag, setHeaderTag] = useState(0);
+  // Frozen bottom tabs disconnect refs without unmounting this state. Keep
+  // the measured geometry for the first restored frame and refresh its host.
   const handleHeaderRef = useCallback((view: ViewInstance | null) => {
     headerRef.current = view;
-    if (view === null) {
-      setHeaderTag(0);
-      setHeaderHeight(0);
+    if (view && platformEnv.isNativeIOS) {
+      const tag = findNodeHandle(view);
+      if (tag && tag > 0) setHeaderTag(tag);
     }
   }, []);
   const headerReady =

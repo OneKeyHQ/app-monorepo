@@ -13,6 +13,7 @@ import {
 } from '@react-navigation/native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { PageTypeContext } from '../../hocs/PageType/context';
 import { ModalNavigatorContext } from '../../hooks/useModalNavigatorContext';
@@ -26,18 +27,36 @@ type INavigation = NavigationProp<ParamListBase>;
 
 /**
  * True while the owner route is the active route of every navigator between
- * it and its root route. Web also checks the root stack so covered page
- * overlays cannot make a newly pushed root modal inert.
+ * it and its root route. Web keeps page overlays visible behind root modals
+ * while `FocusedOverlayHost` isolates interaction to the foreground route.
  */
 function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
   let current: INavigation | undefined = navigation;
   let key = ownerKey;
   while (current) {
     const state = current.getState();
-    if (state.routes[state.index]?.key !== key) {
+    const parent: INavigation | undefined = current.getParent();
+    const currentKey = key;
+    if (!parent && !platformEnv.isNative) {
+      const hostIndex = state.routes.findIndex(
+        (route) => route.key === currentKey,
+      );
+      if (hostIndex >= 0) {
+        return (
+          hostIndex <= state.index &&
+          state.routes
+            .slice(hostIndex + 1, state.index + 1)
+            .every(
+              (route) =>
+                route.name === ERootRoutes.Modal ||
+                route.name === ERootRoutes.iOSFullScreen,
+            )
+        );
+      }
+    }
+    if (state.routes[state.index]?.key !== currentKey) {
       return false;
     }
-    const parent: INavigation | undefined = current.getParent();
     if (!parent || (platformEnv.isNative && !parent.getParent())) {
       return true;
     }
