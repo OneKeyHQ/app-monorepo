@@ -23,6 +23,7 @@ export function createServiceWorkerVersionProtocol({
   showUpdateBanner,
 }) {
   let pendingActivation;
+  let deferredAutoReloadVersion = '';
   let nextActivationRequestId = 0;
   let isAutoReloading = false;
   let isListeningForVersionUpdates = false;
@@ -109,8 +110,20 @@ export function createServiceWorkerVersionProtocol({
       return;
     }
     pendingActivation = undefined;
+    deferredAutoReloadVersion = '';
     showManualUpdateBanner();
     reloadPageManually();
+  }
+
+  function cancelPendingActivation() {
+    pendingActivation = undefined;
+    const version = deferredAutoReloadVersion;
+    deferredAutoReloadVersion = '';
+    if (!isAutoReloading && canAutoReload(version)) {
+      postMessage(MESSAGE_TYPES.CHECK_VERSION, {
+        retryAutoReloadVersion: version,
+      });
+    }
   }
 
   function activateReadyVersion(version) {
@@ -167,7 +180,7 @@ export function createServiceWorkerVersionProtocol({
         latestReadyVersion !== pendingActivation.version &&
         latestActiveVersion !== pendingActivation.version
       ) {
-        pendingActivation = undefined;
+        cancelPendingActivation();
       }
       showManualUpdateBanner();
     }
@@ -179,7 +192,7 @@ export function createServiceWorkerVersionProtocol({
       payload.version === pendingActivation.version &&
       payload.requestId === pendingActivation.requestId
     ) {
-      pendingActivation = undefined;
+      cancelPendingActivation();
       if (latestReadyVersion === payload.version) {
         latestReadyVersion = '';
       }
@@ -196,11 +209,16 @@ export function createServiceWorkerVersionProtocol({
         finishActivation(pendingActivation);
       } else if (
         payload.autoReload === true &&
-        !pendingActivation &&
         !isAutoReloading &&
         canAutoReload(version)
       ) {
-        reloadPageAutomatically(version);
+        if (!pendingActivation) {
+          reloadPageAutomatically(version);
+        } else if (deferredAutoReloadVersion !== version) {
+          deferredAutoReloadVersion = version;
+          // A directed reload does not report whether our manual target still exists.
+          postMessage(MESSAGE_TYPES.GET_VERSION_STATE);
+        }
       } else if (version !== getCurrentWebVersion()) {
         offerVersionUpdate(version, true);
       }
@@ -229,6 +247,7 @@ export function createServiceWorkerVersionProtocol({
       requestRecoveryCheck,
     );
     globalThis.addEventListener(WEB_ROUTE_RECOVERED_EVENT, () => {
+      deferredAutoReloadVersion = '';
       postMessage(MESSAGE_TYPES.REPORT_CLIENT_STATE);
     });
   }

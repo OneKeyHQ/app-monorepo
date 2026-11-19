@@ -66,13 +66,8 @@ const MESSAGE_TYPES = {
   PREFETCH_TRADINGVIEW_EMBED: 'PREFETCH_TRADINGVIEW_EMBED',
 };
 const TRADINGVIEW_EMBED_PROTOCOL_VERSION = 1;
+// These providers are absent from v6.6.4's Earn deep-link provider map.
 const LEGACY_V670_AUTO_RELOAD_EARN_PROVIDERS = new Set(['unitas', 'etherfi']);
-const LEGACY_V670_AUTO_RELOAD_EARN_SYMBOLS = new Set([
-  'xaut',
-  'eeth',
-  'steth',
-  'ebtc',
-]);
 
 let versionCheckPromise = null;
 let versionStateMutations = Promise.resolve();
@@ -1677,11 +1672,7 @@ function isLegacyClientUrlCrashingOnOldBuild(rawUrl) {
         }
       });
     if (segments.length === 4 && segments[0] === 'earn') {
-      const [, , symbol, provider] = segments;
-      return (
-        LEGACY_V670_AUTO_RELOAD_EARN_PROVIDERS.has(provider) ||
-        LEGACY_V670_AUTO_RELOAD_EARN_SYMBOLS.has(symbol)
-      );
+      return LEGACY_V670_AUTO_RELOAD_EARN_PROVIDERS.has(segments[3]);
     }
     return false;
   } catch {
@@ -1806,7 +1797,11 @@ function sendAutoReloadToClient(client, targetVersion) {
   });
 }
 
-async function maybeAutoActivateAndReloadClients(state, requestingClient) {
+async function maybeAutoActivateAndReloadClients(
+  state,
+  requestingClient,
+  confirmedReadyVersion,
+) {
   if (!state) {
     return { autoActivated: false, state };
   }
@@ -1814,23 +1809,26 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
   const allClients =
     await getControlledClientsWithRequestingClient(requestingClient);
 
-  if (state.readyVersion && (await isReadyVersionCacheValid(state))) {
-    const candidateReadyVersion = state.readyVersion;
+  if (
+    confirmedReadyVersion &&
+    state.readyVersion === confirmedReadyVersion &&
+    (await isReadyVersionCacheValid(state))
+  ) {
     if (
       allClients.some((item) =>
-        shouldClientAutoReload(item, candidateReadyVersion),
+        shouldClientAutoReload(item, confirmedReadyVersion),
       )
     ) {
       const promotedState = await promoteReadyVersionState(state, {
         shouldBroadcast: false,
       });
-      if (promotedState.activeVersion === candidateReadyVersion) {
+      if (promotedState.activeVersion === confirmedReadyVersion) {
         allClients.forEach((item) => {
-          if (shouldClientAutoReload(item, candidateReadyVersion)) {
-            sendAutoReloadToClient(item, candidateReadyVersion);
+          if (shouldClientAutoReload(item, confirmedReadyVersion)) {
+            sendAutoReloadToClient(item, confirmedReadyVersion);
           } else {
             sendMessageToClient(item, MESSAGE_TYPES.VERSION_ACTIVATED, {
-              version: candidateReadyVersion,
+              version: confirmedReadyVersion,
             });
           }
         });
@@ -1842,6 +1840,7 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
 
   if (
     state.activeVersion &&
+    !state.readyVersion &&
     allClients.some((item) =>
       shouldClientAutoReload(item, state.activeVersion),
     ) &&
@@ -1850,7 +1849,10 @@ async function maybeAutoActivateAndReloadClients(state, requestingClient) {
     ))
   ) {
     const latestState = await readVersionState();
-    if (latestState.activeVersion !== state.activeVersion) {
+    if (
+      latestState.activeVersion !== state.activeVersion ||
+      latestState.readyVersion
+    ) {
       return { autoActivated: false, state: latestState };
     }
     const clientsToReload = allClients.filter((item) =>
@@ -1900,7 +1902,7 @@ async function runVersionUpdateCheck({ client } = {}) {
       if (!autoActivated) {
         sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, resolvedState);
       }
-      return resolvedState;
+      return { state: resolvedState };
     }
 
     const isOlderThanActiveManifest = isManifestOlderThan(
@@ -1910,7 +1912,7 @@ async function runVersionUpdateCheck({ client } = {}) {
     if (isOlderThanActiveManifest) {
       const nextState = await rollbackToManifestVersionState(state, manifest);
       sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
-      return nextState;
+      return { state: nextState };
     }
 
     const isOlderThanReadyManifest = Boolean(
@@ -1943,7 +1945,11 @@ async function runVersionUpdateCheck({ client } = {}) {
     if (manifest.version === state.readyVersion) {
       if (await isReadyVersionCacheValid(state)) {
         const { autoActivated, state: resolvedState } =
-          await maybeAutoActivateAndReloadClients(state, client);
+          await maybeAutoActivateAndReloadClients(
+            state,
+            client,
+            manifest.version,
+          );
         if (!autoActivated) {
           sendMessageToClient(
             client,
@@ -1955,14 +1961,17 @@ async function runVersionUpdateCheck({ client } = {}) {
             manifest: resolvedState.readyManifest,
           });
         }
-        return resolvedState;
+        return {
+          state: resolvedState,
+          confirmedReadyVersion: manifest.version,
+        };
       }
       state = await clearUnchangedReadyVersionState(state);
     }
 
     if (isVersionRetryDeferred(state, manifest.version)) {
       sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
-      return state;
+      return { state };
     }
 
     if (state.readyVersion && state.readyVersion !== manifest.version) {
@@ -1970,12 +1979,12 @@ async function runVersionUpdateCheck({ client } = {}) {
     }
     if (state.activeVersion === manifest.version) {
       sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
-      return state;
+      return { state };
     }
     if (isManifestOlderThan(manifest, state.activeManifest)) {
       const nextState = await rollbackToManifestVersionState(state, manifest);
       sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, nextState);
-      return nextState;
+      return { state: nextState };
     }
 
     await prefetchVersion(manifest);
@@ -1994,14 +2003,18 @@ async function runVersionUpdateCheck({ client } = {}) {
       return readyState;
     });
     const { autoActivated, state: resolvedState } =
-      await maybeAutoActivateAndReloadClients(nextState, client);
+      await maybeAutoActivateAndReloadClients(
+        nextState,
+        client,
+        manifest.version,
+      );
     if (!autoActivated) {
       await broadcastMessage(MESSAGE_TYPES.UPDATE_READY, {
         version: manifest.version,
         manifest,
       });
     }
-    return resolvedState;
+    return { state: resolvedState, confirmedReadyVersion: manifest.version };
   } catch (error) {
     const errorCode = getVersionErrorCode(error);
     const nextState = await mutateVersionState(async () => {
@@ -2020,7 +2033,7 @@ async function runVersionUpdateCheck({ client } = {}) {
       operation: MESSAGE_TYPES.CHECK_VERSION,
       version: attemptedVersion,
     });
-    return nextState;
+    return { state: nextState };
   }
 }
 
@@ -2031,9 +2044,13 @@ async function checkForVersionUpdate({ client, retryJoinedCheck = true } = {}) {
       versionCheckPromise = null;
     });
   }
-  const state = await versionCheckPromise;
+  const { state, confirmedReadyVersion } = await versionCheckPromise;
   const { autoActivated, state: resolvedState } =
-    await maybeAutoActivateAndReloadClients(state, client);
+    await maybeAutoActivateAndReloadClients(
+      state,
+      client,
+      confirmedReadyVersion,
+    );
   if (
     joinedCheck &&
     retryJoinedCheck &&
@@ -2324,25 +2341,13 @@ self.addEventListener('message', (event) => {
   }
 
   if (type === MESSAGE_TYPES.GET_VERSION_STATE) {
-    updateClientRuntimeState(client, payload);
     event.waitUntil(
       (async () => {
-        // Yield a microtask so a paired CHECK_VERSION message queued in the
-        // same turn starts versionCheckPromise before we read version state.
-        await Promise.resolve();
         if (versionCheckPromise) {
           await versionCheckPromise.catch(() => undefined);
         }
         const state = await readVersionState();
-        const { autoActivated, state: resolvedState } =
-          await maybeAutoActivateAndReloadClients(state, client);
-        if (!autoActivated) {
-          sendMessageToClient(
-            client,
-            MESSAGE_TYPES.VERSION_STATE,
-            resolvedState,
-          );
-        }
+        sendMessageToClient(client, MESSAGE_TYPES.VERSION_STATE, state);
       })(),
     );
     return;
@@ -2350,6 +2355,15 @@ self.addEventListener('message', (event) => {
 
   if (type === MESSAGE_TYPES.CHECK_VERSION) {
     updateClientRuntimeState(client, payload);
+    const clientId = client?.id;
+    if (
+      payload.retryAutoReloadVersion &&
+      clientRuntimeStates.get(clientId)?.clientAutoReloadCapable &&
+      autoReloadedClientVersions.get(clientId) ===
+        payload.retryAutoReloadVersion
+    ) {
+      autoReloadedClientVersions.delete(clientId);
+    }
     event.waitUntil(checkForVersionUpdate({ client }));
     return;
   }

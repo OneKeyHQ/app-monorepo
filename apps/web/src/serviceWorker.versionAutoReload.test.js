@@ -161,6 +161,16 @@ async function createVersionBundle({
   };
 }
 
+function createV664Bundle() {
+  return createVersionBundle({
+    version: V_OLD,
+    buildTime: 1_700_000_000_000,
+    html: '<!doctype html><html><body>v6.6.4</body></html>',
+    scriptUrl: `${ORIGIN}/main.v664.js`,
+    scriptContent: 'console.log("v6.6.4");',
+  });
+}
+
 function createV670Bundle() {
   return createVersionBundle({
     version: V_NEW,
@@ -773,43 +783,41 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     });
   });
 
-  test('does NOT force-reload a legacy v6.6.4 client on a normal working route (e.g. /swap)', async () => {
-    const bundleV664 = await createVersionBundle({
-      version: V_OLD,
-      buildTime: 1_700_000_000_000,
-      html: '<!doctype html><html><body>v6.6.4</body></html>',
-      scriptUrl: `${ORIGIN}/main.v664.js`,
-      scriptContent: 'console.log("v6.6.4");',
-    });
-    const bundleV670 = await createVersionBundle({
-      version: V_NEW,
-      buildTime: 1_700_000_100_000,
-      html: '<!doctype html><html><body>v6.7.0</body></html>',
-      scriptUrl: `${ORIGIN}/main.v670.js`,
-      scriptContent: 'console.log("v6.7.0");',
-    });
+  test.each(['/swap', '/earn/ethereum/stETH/lido?utm_source=audit'])(
+    'offers a manual update to a legacy client on the supported route %s',
+    async (path) => {
+      const bundleV664 = await createV664Bundle();
+      const bundleV670 = await createV670Bundle();
+      const testBed = createServiceWorkerTestBed({ serverBundle: bundleV664 });
+      await testBed.navigate(`${ORIGIN}/swap`);
+      testBed.setServerBundle(bundleV670);
+      const client = createLegacyV664Client({ url: `${ORIGIN}${path}` });
+      testBed.controlledClients.set(client.id, client);
 
+      await testBed.sendFromClient(client, {
+        type: 'CHECK_VERSION',
+        payload: { clientVersion: V_OLD },
+      });
+      expect(client.reloadMock).not.toHaveBeenCalled();
+      expect(client.bannersShown).toEqual([{ type: 'ready', version: V_NEW }]);
+    },
+  );
+
+  test('automatically recovers a legacy EtherFi deep link', async () => {
+    const bundleV664 = await createV664Bundle();
+    const bundleV670 = await createV670Bundle();
     const testBed = createServiceWorkerTestBed({ serverBundle: bundleV664 });
     await testBed.navigate(`${ORIGIN}/swap`);
-
     testBed.setServerBundle(bundleV670);
-
-    const legacySwapClient = createLegacyV664Client({
-      url: `${ORIGIN}/swap`,
-      version: V_OLD,
+    const client = createLegacyV664Client({
+      url: `${ORIGIN}/earn/ethereum/ETH/EtherFi`,
     });
-    testBed.controlledClients.set(legacySwapClient.id, legacySwapClient);
-
-    await testBed.sendFromClient(legacySwapClient, {
+    testBed.controlledClients.set(client.id, client);
+    await testBed.sendFromClient(client, {
       type: 'CHECK_VERSION',
       payload: { clientVersion: V_OLD },
     });
-
-    // Must NOT interrupt a normal page with a forced reload; shows banner instead.
-    expect(legacySwapClient.reloadMock).not.toHaveBeenCalled();
-    expect(legacySwapClient.bannersShown).toEqual([
-      { type: 'ready', version: V_NEW },
-    ]);
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
   });
 
   test('promotes already-ready version on top-level navigation / browser refresh', async () => {
@@ -1186,70 +1194,143 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(unreportedHealthyEarnTab.reloadMock).not.toHaveBeenCalled();
   });
 
-  test('does NOT auto-activate a readyVersion when concurrent CHECK_VERSION rolls it back to activeVersion', async () => {
-    const bundleV664 = await createVersionBundle({
-      version: V_OLD,
-      buildTime: 1_700_000_000_000,
-      html: '<!doctype html><html><body>v6.6.4</body></html>',
-      scriptUrl: `${ORIGIN}/main.v664.js`,
-      scriptContent: 'console.log("v6.6.4");',
-    });
-    const bundleV670 = await createVersionBundle({
-      version: V_NEW,
-      buildTime: 1_700_000_100_000,
-      html: '<!doctype html><html><body>v6.7.0</body></html>',
-      scriptUrl: `${ORIGIN}/main.v670.js`,
-      scriptContent: 'console.log("v6.7.0");',
-    });
+  test.each(['rollback', 'manifest failure'])(
+    'GET_VERSION_STATE stays read-only when a separate CHECK_VERSION is delayed and returns a %s',
+    async (outcome) => {
+      const bundleV664 = await createV664Bundle();
+      const bundleV670 = await createV670Bundle();
+      const testBed = createServiceWorkerTestBed({ serverBundle: bundleV664 });
+      await testBed.navigate(`${ORIGIN}/`);
+      testBed.setServerBundle(bundleV670);
+      const normalClient = createLegacyV664Client({
+        id: 'client-normal',
+        url: `${ORIGIN}/swap`,
+      });
+      await testBed.sendFromClient(normalClient, {
+        type: 'CHECK_VERSION',
+        payload: { clientVersion: V_OLD },
+      });
+      const stateCache = await testBed.cacheStorage.open(
+        'onekey-web-version-state',
+      );
+      const readState = async () => {
+        const response = await stateCache.match(
+          `${ORIGIN}/__onekey_web_version_state__`,
+        );
+        return response.json();
+      };
+      const readyState = { activeVersion: V_OLD, readyVersion: V_NEW };
+      expect(await readState()).toMatchObject(readyState);
 
-    const testBed = createServiceWorkerTestBed({ serverBundle: bundleV664 });
-    await testBed.navigate(`${ORIGIN}/`);
+      const errorClient = createLegacyV664Client({
+        id: 'client-rollback-race',
+        url: UNITAS_EMAIL_URL,
+      });
+      testBed.controlledClients.set(errorClient.id, errorClient);
+      const payload = { clientVersion: V_OLD };
+      await testBed.sendFromClient(errorClient, {
+        type: 'GET_VERSION_STATE',
+        payload,
+      });
+      expect(errorClient.bannersShown).toEqual([
+        { type: 'ready', version: V_NEW },
+      ]);
+      expect(errorClient.reloadMock).not.toHaveBeenCalled();
+      expect(await readState()).toMatchObject(readyState);
 
-    // Prefetch V_NEW into readyVersion while on a normal route
-    testBed.setServerBundle(bundleV670);
-    const normalClient = createLegacyV664Client({
-      id: 'client-normal',
-      url: `${ORIGIN}/swap`,
-      version: V_OLD,
+      const manifestResponse = Promise.withResolvers();
+      globalThis.fetch.mockImplementationOnce(() => manifestResponse.promise);
+      const versionCheck = testBed.sendFromClient(errorClient, {
+        type: 'CHECK_VERSION',
+        payload,
+      });
+      const pendingSnapshot = testBed.sendFromClient(errorClient, {
+        type: 'GET_VERSION_STATE',
+        payload,
+      });
+      try {
+        expect(await readState()).toMatchObject(readyState);
+        expect(errorClient.reloadMock).not.toHaveBeenCalled();
+      } finally {
+        manifestResponse.resolve(
+          outcome === 'rollback'
+            ? new Response(JSON.stringify(bundleV664.manifest))
+            : new Response('', { status: 503 }),
+        );
+        await Promise.all([versionCheck, pendingSnapshot]);
+      }
+
+      expect(errorClient.reloadMock).not.toHaveBeenCalled();
+      expect(await readState()).toMatchObject({
+        ...readyState,
+        readyVersion: outcome === 'rollback' ? '' : V_NEW,
+      });
+      if (outcome === 'manifest failure') {
+        await testBed.sendFromClient(errorClient, {
+          type: 'CHECK_VERSION',
+          payload,
+        });
+        expect(errorClient.reloadMock).toHaveBeenCalledTimes(1);
+        expect(await readState()).toMatchObject({
+          activeVersion: V_NEW,
+          readyVersion: '',
+        });
+      }
+    },
+  );
+
+  test('an offline check does not reload to a verified active release when navigation could promote an unconfirmed ready release', async () => {
+    const activeBundle = await createV670Bundle();
+    const readyBundle = await createV680Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: activeBundle });
+    const bootstrapClient = createLegacyV664Client({
+      url: UNITAS_EMAIL_URL,
+      id: 'client-bootstrap',
     });
-    testBed.controlledClients.set(normalClient.id, normalClient);
-    await testBed.sendFromClient(normalClient, {
+    await testBed.sendFromClient(bootstrapClient, {
       type: 'CHECK_VERSION',
       payload: { clientVersion: V_OLD },
     });
+    const activeCriticalCache = await testBed.cacheStorage.open(
+      `onekey-web-critical:${V_NEW}`,
+    );
+    expect(
+      await activeCriticalCache.match(activeBundle.scriptUrl),
+    ).toBeDefined();
+    expect(bootstrapClient.reloadMock).toHaveBeenCalledTimes(1);
 
-    // Server rolls back manifest to V_OLD
-    testBed.setServerBundle(bundleV664);
-
-    // Now an error client sends GET_VERSION_STATE and CHECK_VERSION concurrently
-    const errorClient = createLegacyV664Client({
-      id: 'client-rollback-race',
-      url: UNITAS_EMAIL_URL,
-      version: V_OLD,
+    testBed.setServerBundle(readyBundle);
+    const healthyClient = createLegacyV664Client({
+      url: `${ORIGIN}/swap`,
+      version: V_NEW,
     });
-    testBed.controlledClients.set(errorClient.id, errorClient);
-
-    await Promise.all([
-      testBed.sendFromClient(errorClient, {
-        type: 'GET_VERSION_STATE',
-        payload: { clientVersion: V_OLD },
-      }),
-      testBed.sendFromClient(errorClient, {
-        type: 'CHECK_VERSION',
-        payload: { clientVersion: V_OLD },
-      }),
-    ]);
-
-    expect(errorClient.reloadMock).not.toHaveBeenCalled();
+    await testBed.sendFromClient(healthyClient, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_NEW },
+    });
     const stateCache = await testBed.cacheStorage.open(
       'onekey-web-version-state',
     );
-    const stateResponse = await stateCache.match(
-      `${ORIGIN}/__onekey_web_version_state__`,
-    );
-    const persistedState = await stateResponse.json();
-    expect(persistedState.activeVersion).toBe(V_OLD);
-    expect(persistedState.readyVersion).toBe('');
+    const readState = async () => {
+      const response = await stateCache.match(
+        `${ORIGIN}/__onekey_web_version_state__`,
+      );
+      return response.json();
+    };
+    const readyState = { activeVersion: V_NEW, readyVersion: V_NEXT };
+    expect(await readState()).toMatchObject(readyState);
+
+    const errorClient = createLegacyV664Client({
+      url: UNITAS_EMAIL_URL,
+      id: 'client-more-than-one-version-behind',
+    });
+    globalThis.fetch.mockRejectedValueOnce(new Error('offline manifest'));
+    await testBed.sendFromClient(errorClient, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_OLD },
+    });
+    expect(errorClient.reloadMock).not.toHaveBeenCalled();
+    expect(await readState()).toMatchObject(readyState);
   });
 
   test('withdrawn readyVersion in VERSION_STATE is cleared and does not consume sessionStorage auto-reload quota', async () => {
@@ -1466,6 +1547,134 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     client.receivedWorkerMessages.length = 0;
     await client.triggerRouteNotFound();
     expect(client.receivedWorkerMessages).toContainEqual(verifiedRecovery);
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('CHECK_VERSION can retry only the reporting modern client and its previously dispatched version', async () => {
+    const bundle = await createV680Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
+    const first = {
+      id: 'first',
+      url: `${ORIGIN}/typo`,
+      postMessage: jest.fn(),
+    };
+    const second = {
+      id: 'second',
+      url: `${ORIGIN}/typo`,
+      postMessage: jest.fn(),
+    };
+    const legacy = createLegacyV664Client({ url: UNITAS_EMAIL_URL });
+    const modernErrorState = {
+      clientVersion: V_NEW,
+      clientAutoReloadCapable: true,
+      hasPageError: true,
+    };
+    for (const client of [first, second]) {
+      testBed.controlledClients.set(client.id, client);
+      await testBed.sendFromClient(client, {
+        type: 'REPORT_CLIENT_STATE',
+        payload: modernErrorState,
+      });
+    }
+    await testBed.sendFromClient(legacy, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_OLD },
+    });
+    const countAutoReloads = (client) =>
+      client.postMessage.mock.calls.filter(
+        ([message]) =>
+          message.type === 'VERSION_ACTIVATED' &&
+          message.payload.autoReload === true,
+      ).length;
+    expect([countAutoReloads(first), countAutoReloads(second)]).toEqual([1, 1]);
+    expect(legacy.reloadMock).toHaveBeenCalledTimes(1);
+
+    await testBed.sendFromClient(first, {
+      type: 'CHECK_VERSION',
+      payload: { ...modernErrorState, retryAutoReloadVersion: V_OLD },
+    });
+    expect(countAutoReloads(first)).toBe(1);
+    await testBed.sendFromClient(first, {
+      type: 'CHECK_VERSION',
+      payload: { ...modernErrorState, retryAutoReloadVersion: V_NEXT },
+    });
+    expect([countAutoReloads(first), countAutoReloads(second)]).toEqual([2, 1]);
+
+    await testBed.sendFromClient(legacy, {
+      type: 'CHECK_VERSION',
+      payload: { clientVersion: V_OLD, retryAutoReloadVersion: V_NEXT },
+    });
+    expect(legacy.reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries a Worker-directed recovery after a different pending manual update disappears', async () => {
+    const currentBundle = await createV670Bundle();
+    const recoveryBundle = await createV680Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: currentBundle });
+    const client = createModernWebClientWithRealIndexJs({
+      testBed,
+      url: `${ORIGIN}/typo-route`,
+      holdActivationRequests: true,
+    });
+    await client.bootServiceWorkerProtocol();
+    const manualVersion = '6900000000000000000000000000000000000000-400';
+    client.clientHandle.postMessage({
+      type: 'UPDATE_READY',
+      payload: { version: manualVersion },
+    });
+    client.clickRefresh();
+    await client.triggerRouteNotFound();
+    testBed.setServerBundle(recoveryBundle);
+    client.sentMessages.mockClear();
+
+    const releaseSnapshot = Promise.withResolvers();
+    const sendFromClient = testBed.sendFromClient;
+    jest.spyOn(testBed, 'sendFromClient').mockImplementation((source, data) => {
+      if (data.type === 'GET_VERSION_STATE') {
+        return releaseSnapshot.promise.then(() => sendFromClient(source, data));
+      }
+      return sendFromClient(source, data);
+    });
+    const countRecoveryMessages = () =>
+      client.receivedWorkerMessages.filter(
+        ({ type, payload }) =>
+          type === 'VERSION_ACTIVATED' &&
+          payload.version === V_NEXT &&
+          payload.autoReload === true,
+      ).length;
+    try {
+      await testBed.sendFromClient(client.clientHandle, {
+        type: 'CHECK_VERSION',
+        payload: {
+          clientVersion: V_NEW,
+          clientAutoReloadCapable: true,
+          hasPageError: true,
+        },
+      });
+      expect(countRecoveryMessages()).toBe(1);
+      expect(client.reloadMock).not.toHaveBeenCalled();
+      expect(client.sentMessages).toHaveBeenCalledWith({
+        type: 'GET_VERSION_STATE',
+        payload: {
+          clientVersion: V_NEW,
+          clientAutoReloadCapable: true,
+          hasPageError: true,
+        },
+      });
+    } finally {
+      releaseSnapshot.resolve();
+      await client.flushSwMessages();
+    }
+    expect(client.sentMessages).toHaveBeenCalledWith({
+      type: 'CHECK_VERSION',
+      payload: {
+        clientVersion: V_NEW,
+        clientAutoReloadCapable: true,
+        hasPageError: true,
+        retryAutoReloadVersion: V_NEXT,
+      },
+    });
+    expect(countRecoveryMessages()).toBe(2);
     expect(client.reloadMock).toHaveBeenCalledTimes(1);
   });
 
