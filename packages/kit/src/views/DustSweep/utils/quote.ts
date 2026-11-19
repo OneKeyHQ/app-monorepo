@@ -114,6 +114,7 @@ export function getDustSweepQuoteError(
           limit: quote.limit,
           fromTokenAmount: token.amount,
           fromTokenSymbol: token.symbol,
+          fromTokenBalanceMultiplier: token.balanceMultiplier,
         })
       : undefined,
   });
@@ -122,15 +123,18 @@ export function getDustSweepQuoteError(
 function getActualPriceImpactPercent({
   fromToken,
   toToken,
-  fromAmount,
   toAmount,
+  fromFiatValue,
 }: {
   fromToken: IDustSweepToken;
   toToken: IDustSweepSnapshot['nativeToken'];
-  fromAmount: string;
   toAmount?: string;
+  fromFiatValue?: string;
 }) {
-  const fromValue = new BigNumber(fromAmount).times(fromToken.price ?? '');
+  const fromValue =
+    fromFiatValue === undefined
+      ? new BigNumber(fromToken.amount).times(fromToken.price ?? '')
+      : new BigNumber(fromFiatValue);
   const toValue = new BigNumber(toAmount ?? '').times(toToken.price ?? '');
   if (!fromValue.isFinite() || !fromValue.gt(0) || !toValue.isFinite())
     return undefined;
@@ -173,12 +177,22 @@ function getDustSweepQuoteRiskResult(
     !new BigNumber(quote.fromAmount ?? '').eq(token.amount)
   )
     return { reason: 'unknown' };
+  const quoteMultiplier = quote.fromTokenInfo.balanceMultiplier;
+  if (
+    tokenRebaseUtils.isValidBalanceMultiplier(quoteMultiplier) &&
+    !new BigNumber(quoteMultiplier).eq(token.balanceMultiplier ?? '1')
+  )
+    return { reason: 'unknown' };
+  const isScaled = tokenRebaseUtils.isScalingBalanceMultiplier(
+    token.balanceMultiplier,
+  );
   const isWrapped = quote.info.provider === 'wrapped';
   if (isWrapped ? quote.isWrapped !== true : quote.isWrapped)
     return { reason: 'unknown' };
   if (
     isWrapped &&
-    (token.isNative ||
+    (isScaled ||
+      token.isNative ||
       quote.fromTokenInfo.isNative ||
       !snapshot.nativeToken.isNative ||
       !quote.toTokenInfo.isNative ||
@@ -197,11 +211,7 @@ function getDustSweepQuoteRiskResult(
         !new BigNumber(quote.fee.percentageFee).isZero()))
   )
     return { reason: 'unknown' };
-  if (
-    quote.swapShouldSignedData ||
-    quote.shouldWrappedToken ||
-    tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
-  )
+  if (quote.swapShouldSignedData || quote.shouldWrappedToken)
     return { reason: 'unknown' };
   for (const fee of quote.fee?.otherFeeInfos ?? []) {
     const amount = new BigNumber(fee.amount ?? '');
@@ -224,29 +234,37 @@ function getDustSweepQuoteRiskResult(
     ...snapshot.nativeToken,
     price: getUsablePrice(snapshot.nativeToken.price, quote.toTokenInfo.price),
   };
+  // Sweep sells the full Wallet balance. Its USD value already accounts for
+  // the multiplier, regardless of whether the quote prices use display units.
+  const fromFiatValue = isScaled ? token.valueUsd : undefined;
   const tip = resolveQuoteShowTip({
     quoteShowTip: quote.quoteShowTip,
     fromToken,
     toToken,
     fromAmount: token.amount,
     toAmount: quote.toAmount,
+    fromFiatValue,
   });
   if (tip?.type === EQuoteShowTipType.PRICE_IMPACT)
     return { reason: 'valueDrop', tip };
   if (tip) return { reason: 'unknown', tip };
   const quotedImpact =
     quote.valueDropPercent ?? quote.quoteShowTip?.priceImpact;
-  const impactPercent =
-    quotedImpact === undefined
+  const localImpact =
+    isScaled || quotedImpact === undefined
       ? getActualPriceImpactPercent({
           fromToken,
           toToken,
-          fromAmount: token.amount,
           toAmount: quote.toAmount,
+          fromFiatValue,
         })
-      : new BigNumber(quotedImpact);
-  if (!impactPercent || !impactPercent.isFinite()) return { reason: 'unknown' };
-  if (impactPercent.gt(snapshot.slippage)) return { reason: 'priceImpact' };
+      : undefined;
+  const impactPercent =
+    quotedImpact === undefined ? localImpact : new BigNumber(quotedImpact);
+  if (!impactPercent?.isFinite() || (isScaled && !localImpact?.isFinite()))
+    return { reason: 'unknown' };
+  if (impactPercent.gt(snapshot.slippage) || localImpact?.gt(snapshot.slippage))
+    return { reason: 'priceImpact' };
   return {};
 }
 

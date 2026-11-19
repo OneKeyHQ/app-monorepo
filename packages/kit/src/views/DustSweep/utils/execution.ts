@@ -14,6 +14,7 @@ import {
 import type { IMarketGasInfoEntry } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import { completeBroadcastedSwapSuccess } from '@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess';
 import {
+  checkSwapBalanceSufficientFromAmount,
   checkSwapLatestBalanceSufficient,
   getSwapQuoteBalanceRequirements,
   getSwapRequiredNativeBalanceAmount,
@@ -30,6 +31,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
@@ -147,6 +149,47 @@ export function waitDustSweepPoll(signal: AbortSignal) {
   });
 }
 
+async function checkScaledTokenBalance(
+  token: ISwapToken,
+  amount: string,
+  snapshot: IDustSweepSnapshot,
+) {
+  // Use the Wallet API to keep the balance check on the candidate's raw basis.
+  const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+    accountId: snapshot.accountId,
+    networkId: snapshot.networkId,
+    contractList: [token.contractAddress],
+    expectedAccountAddress: snapshot.address,
+    withFrozenBalance: true,
+  });
+  const detail = details.find(
+    ({ info }) =>
+      info?.address &&
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: {
+          networkId: info.networkId ?? snapshot.networkId,
+          contractAddress: info.address,
+        },
+      }),
+  );
+  const rawBalance = new BigNumber(detail?.balanceParsed ?? '');
+  const multiplier = tokenRebaseUtils.pickBalanceMultiplier(detail);
+  if (
+    detail?.info.decimals !== token.decimals ||
+    !rawBalance.isFinite() ||
+    rawBalance.isNegative() ||
+    (multiplier !== undefined &&
+      !new BigNumber(multiplier).eq(token.balanceMultiplier ?? '1'))
+  )
+    throw new DustSweepSkip('unknown');
+  return checkSwapBalanceSufficientFromAmount({
+    balance: rawBalance.toFixed(),
+    amount,
+    tokenSymbol: token.symbol,
+  });
+}
+
 async function checkBalance(
   token: ISwapToken,
   amount: string,
@@ -162,13 +205,17 @@ async function checkBalance(
   } = {},
 ) {
   assertActive(options.signal);
-  const balance = await checkSwapLatestBalanceSufficient({
-    token,
-    amount,
-    accountId: options.snapshot.accountId,
-    accountAddress: options.snapshot.address,
-    throwOnError: true,
-  });
+  const balance = tokenRebaseUtils.isScalingBalanceMultiplier(
+    token.balanceMultiplier,
+  )
+    ? await checkScaledTokenBalance(token, amount, options.snapshot)
+    : await checkSwapLatestBalanceSufficient({
+        token,
+        amount,
+        accountId: options.snapshot.accountId,
+        accountAddress: options.snapshot.address,
+        throwOnError: true,
+      });
   assertActive(options.signal);
   if (!balance.isSufficient) {
     const sourceAmountIsInsufficient =
@@ -177,7 +224,12 @@ async function checkBalance(
     const localError = getSwapBalanceInsufficientError({
       networkId: token.networkId,
       tokenSymbol: balance.tokenSymbol ?? token.symbol,
-      reserveAmount: sourceAmountIsInsufficient ? undefined : reserveAmount,
+      reserveAmount: sourceAmountIsInsufficient
+        ? undefined
+        : tokenRebaseUtils.applyBalanceMultiplier({
+            amount: reserveAmount,
+            balanceMultiplier: token.balanceMultiplier,
+          }),
     });
     throw new DustSweepSkip(
       insufficientGas ? 'insufficientGas' : 'insufficientBalance',
@@ -297,6 +349,7 @@ async function prepareAllowanceInfos(
       symbol: token.symbol,
       name: token.name ?? token.symbol,
       isNative: false,
+      balanceMultiplier: token.balanceMultiplier,
     },
   }));
 }
@@ -402,7 +455,9 @@ async function validateDustSweepTransfer(
     !amount.isFinite() ||
     !amount.gt(0) ||
     !selectedAmount.isFinite() ||
-    amount.gt(selectedAmount) ||
+    (tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
+      ? !amount.eq(selectedAmount)
+      : amount.gt(selectedAmount)) ||
     amountDecimals === null ||
     amountDecimals > token.decimals
   )
@@ -545,8 +600,13 @@ async function prepareDustSweepItem(
     (execution.encodedTx && execution.transferInfo)
   )
     throw new DustSweepSkip('unknown');
-  if (execution.transferInfo)
+  if (execution.transferInfo) {
     await validateDustSweepTransfer(execution.transferInfo, options);
+    if (execution.transferInfo.tokenInfo) {
+      execution.transferInfo.tokenInfo.balanceMultiplier =
+        token.balanceMultiplier;
+    }
+  }
   if (isEvm && execution.encodedTx)
     assertDustSweepEvmZeroValue(execution.encodedTx);
   const approvalInfos = execution.transferInfo

@@ -558,7 +558,7 @@ describe('Dust Sweep quote execution guards', () => {
     ).toBe('unknown');
   });
 
-  it('does not bypass custom extra confirmation or scaled token restrictions', () => {
+  it('continues to require extra confirmation for custom quotes', () => {
     expect(
       getDustSweepQuoteRisk(
         { ...quote, quoteShowTip: { showCheckbox: true } },
@@ -566,13 +566,64 @@ describe('Dust Sweep quote execution guards', () => {
         snapshot,
       ),
     ).toBe('unknown');
+  });
+
+  it('requires the raw input and measures scaled-token losses against the Wallet USD value', () => {
+    const scaled = { ...token, valueUsd: '20', balanceMultiplier: '2' };
+    const scaledQuote = { ...quote, fromTokenInfo: scaled, toAmount: '0.02' };
+    expect(
+      getDustSweepQuoteRisk(scaledQuote, scaled, snapshot),
+    ).toBeUndefined();
     expect(
       getDustSweepQuoteRisk(
-        quote,
-        { ...token, balanceMultiplier: '2' },
+        { ...scaledQuote, fromAmount: '20' },
+        scaled,
         snapshot,
       ),
     ).toBe('unknown');
+    expect(
+      getDustSweepQuoteRisk(
+        { ...scaledQuote, toAmount: '0.018', valueDropPercent: 0 },
+        scaled,
+        snapshot,
+      ),
+    ).toBe('priceImpact');
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...scaledQuote,
+          toAmount: '0.013',
+          quoteShowTip: { type: EQuoteShowTipType.PRICE_IMPACT },
+        },
+        scaled,
+        snapshot,
+      ),
+    ).toBe('valueDrop');
+  });
+
+  it('skips a quote that reports a different multiplier for the selected asset', () => {
+    const scaled = { ...token, valueUsd: '20', balanceMultiplier: '2' };
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...quote,
+          fromTokenInfo: { ...scaled, balanceMultiplier: '3' },
+          toAmount: '0.02',
+        },
+        scaled,
+        snapshot,
+      ),
+    ).toBe('unknown');
+  });
+
+  it('checks raw limits and displays the scaled limit quantity', () => {
+    const scaled = { ...token, valueUsd: '20', balanceMultiplier: '2' };
+    const limited = { ...quote, fromTokenInfo: scaled, limit: { min: '11' } };
+    expect(getDustSweepQuoteRisk(limited, scaled, snapshot)).toBe('noQuote');
+    expect(
+      getDustSweepQuoteError('noQuote', limited, scaled, snapshot).localError
+        ?.values?.amount,
+    ).toBe('22');
   });
 });
 

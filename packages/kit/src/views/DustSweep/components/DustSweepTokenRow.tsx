@@ -1,6 +1,5 @@
 import { memo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,6 +21,7 @@ import { SwapStepStatusIcon } from '@onekeyhq/kit/src/views/Swap/components/PreS
 import { formatSwapErrorMessage } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   IDustSweepItem,
@@ -286,9 +286,10 @@ const DustSweepTokenRowBase = ({
               formatter="balance"
               numberOfLines={1}
             >
-              {new BigNumber(token.amount)
-                .times(token.balanceMultiplier ?? 1)
-                .toFixed()}
+              {tokenRebaseUtils.applyBalanceMultiplier({
+                amount: token.amount,
+                balanceMultiplier: token.balanceMultiplier,
+              })}
             </NumberSizeableText>
             <Currency
               size="$bodyMd"
