@@ -1320,17 +1320,10 @@ class ServiceAppUpdate extends ServiceBase {
               signature: normalizeOptionalString(data.jsBundle.signature),
             }
           : undefined,
-        // A featured payload must be attributable to the release in the same
-        // response. When the response omits `version`, normalizeFeaturedChangelog
-        // skips its version guard and would accept cards for any release — the
-        // stale-content path this fix closes. Drop them instead.
-        featuredChangelog:
-          data.featuredChangelog && !responseVersion
-            ? undefined
-            : normalizeFeaturedChangelog(
-                data.featuredChangelog,
-                responseVersion,
-              ),
+        featuredChangelog: normalizeFeaturedChangelog(
+          data.featuredChangelog,
+          responseVersion,
+        ),
       };
       if (
         data.featuredChangelog &&
@@ -1529,7 +1522,7 @@ class ServiceAppUpdate extends ServiceBase {
       if (data.featuredChangelog && !featuredChangelog) return;
       await appUpdatePersistAtom.set((prev) =>
         prev.latestVersion === installedVersion && !prev.jsBundleVersion
-          ? { ...prev, featuredChangelog }
+          ? { ...prev, featuredChangelog: featuredChangelog ?? null }
           : prev,
       );
     } catch {
@@ -2815,6 +2808,8 @@ class ServiceAppUpdate extends ServiceBase {
       isRollbackTarget: undefined,
       downloadedEvent: undefined,
       lastUpdateDialogShownAt: 0,
+      // `null`, not omitted: see IAppUpdateInfo.featuredChangelog.
+      featuredChangelog: null,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
     // Schedule an immediate check so that if a newer version was released
@@ -2891,23 +2886,16 @@ class ServiceAppUpdate extends ServiceBase {
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
     await this.resetDownloadAttemptBudget();
+    await AppUpdate.clearPackage();
+    await BundleUpdate.clearDownload();
+    await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
     // reset() below schedules an immediate fetchAppUpdateInfo(forceUpdate=false)
     // which would hit getAppLatestInfo's 5-min in-memory cache and replay the
     // release the user just asked us to clear straight back onto the atom.
     this.cachedUpdateInfo = undefined;
     this.updateAt = 0;
     void this.fetchAppChangeLog.clear();
-    try {
-      await AppUpdate.clearPackage();
-      await BundleUpdate.clearDownload();
-      await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
-    } finally {
-      // The atom (and its persisted copy) drives every update surface,
-      // including the featured changelog. A native cleanup failure must never
-      // skip this clear, or the previous release stays visible after
-      // "Clear update cache" while the UI reports an error.
-      await this.reset();
-    }
+    await this.reset();
   }
 
   fetchAppChangeLog = memoizee(
@@ -3491,6 +3479,9 @@ class ServiceAppUpdate extends ServiceBase {
             jsBundleVersion: effectiveJsBundleVersion,
             jsBundle: effectiveJsBundle,
             summary: releaseInfo?.summary || '',
+            // A release without cards must clear the cached ones explicitly;
+            // see IAppUpdateInfo.featuredChangelog.
+            featuredChangelog: releaseInfo.featuredChangelog ?? null,
             latestVersion: releaseInfo.version || prev.latestVersion,
             updateAt: Date.now(),
             errorText:

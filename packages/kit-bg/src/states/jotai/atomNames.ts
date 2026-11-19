@@ -188,13 +188,6 @@ export const atomsConfig: Partial<
   [EAtomNames.settingsValuePersistAtom]: {
     deepCompare: true,
   },
-  // Written as complete snapshots (reset() full literal, otherwise `{...prev}`).
-  // lodash merge with the atom's initialValue resurrects fields the writer
-  // removed: on native the UI runtime hydrates initialValue from a cold-start
-  // MMKV snapshot, so a cleared featuredChangelog came back on every bg echo.
-  [EAtomNames.appUpdatePersistAtom]: {
-    mergeInitialValue: false,
-  },
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },

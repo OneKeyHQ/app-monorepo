@@ -182,7 +182,10 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
   lastRequestSeq?: number;
-  featuredChangelog?: IFeaturedChangelog;
+  // Cleared with `null`, never `undefined`: on native the UI runtime folds a
+  // cold-start snapshot into this atom's initialValue and lodash-merges every
+  // write with it, which skips `undefined` and would restore stale cards.
+  featuredChangelog?: IFeaturedChangelog | null;
   // In-flight attemptId for the current update cycle. Persisted (rather than
   // module-memory only) so the post-install / post-relaunch
   // `firstLaunchAfterUpdated` success event can re-emit the same id as the

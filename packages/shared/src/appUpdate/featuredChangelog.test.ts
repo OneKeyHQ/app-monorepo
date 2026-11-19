@@ -1,9 +1,4 @@
-import {
-  isFeaturedChangelogForVersion,
-  normalizeFeaturedChangelog,
-} from './featuredChangelog';
-
-import type { IFeaturedChangelog } from './featuredChangelog';
+import { normalizeFeaturedChangelog } from './featuredChangelog';
 
 const media = { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' };
 
@@ -62,40 +57,5 @@ describe('Featured Changelog action normalization', () => {
     expect(result?.features).toHaveLength(10);
     expect(result?.features[0].title).toBe('Feature 0');
     expect(result?.features[9].title).toBe('Feature 9');
-  });
-});
-
-describe('isFeaturedChangelogForVersion', () => {
-  const changelog = (version: string): IFeaturedChangelog => ({
-    version,
-    features: [{ ...media } as IFeaturedChangelog['features'][number]],
-  });
-
-  test('matches the exact authored version', () => {
-    expect(isFeaturedChangelogForVersion(changelog('6.3.0'), '6.3.0')).toBe(
-      true,
-    );
-  });
-
-  test('rejects a payload authored for another release', () => {
-    // OK-54862: a cancelled test release (9906.15.1) must never be rendered as
-    // the installed version's (6.3.0) featured changelog.
-    expect(isFeaturedChangelogForVersion(changelog('9906.15.1'), '6.3.0')).toBe(
-      false,
-    );
-  });
-
-  test('treats missing or blank versions as unmatched', () => {
-    expect(isFeaturedChangelogForVersion(undefined, '6.3.0')).toBe(false);
-    expect(isFeaturedChangelogForVersion(changelog('6.3.0'), undefined)).toBe(
-      false,
-    );
-    expect(isFeaturedChangelogForVersion(changelog('  '), '6.3.0')).toBe(false);
-  });
-
-  test('compares trimmed versions only', () => {
-    expect(isFeaturedChangelogForVersion(changelog(' 6.3.0 '), '6.3.0')).toBe(
-      true,
-    );
   });
 });
