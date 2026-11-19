@@ -29,6 +29,31 @@ const receipt = {
   supportReference: 'CASE-FIXTURE',
 };
 
+function createClientFixture(): jest.Mocked<IDeletionClient> {
+  return {
+    getLinkInfo: jest.fn().mockResolvedValue({
+      status: 'ready',
+      allowedProvider: 'google',
+      expiresAt,
+      serverTime,
+      confirmationVersion: CONFIRMATION_VERSION,
+      deletionScope: [DELETION_SCOPE],
+      retainedScope: RETAINED_SCOPE,
+      warningCodes: WARNING_CODES,
+      recreationPolicy: 'allowed_new_wallet',
+    }),
+    sendDeletionOtp: jest.fn().mockResolvedValue({
+      challengeId: 'fixture-challenge',
+      maskedEmail: 'd***@example.invalid',
+      expiresAt,
+      serverTime,
+      resendAfterSeconds: 0,
+    }),
+    deleteShare: jest.fn(),
+    getResult: jest.fn(),
+  };
+}
+
 const uuidDescriptor = Object.getOwnPropertyDescriptor(
   globalThis.crypto,
   'randomUUID',
@@ -50,28 +75,7 @@ afterAll(() => {
 it.each([false, true])(
   'rejects a different recovery account and preserves the original operation (already accepted: %s)',
   async (accepted) => {
-    const client: jest.Mocked<IDeletionClient> = {
-      getLinkInfo: jest.fn().mockResolvedValue({
-        status: 'ready',
-        allowedProvider: 'google',
-        expiresAt,
-        serverTime,
-        confirmationVersion: CONFIRMATION_VERSION,
-        deletionScope: [DELETION_SCOPE],
-        retainedScope: RETAINED_SCOPE,
-        warningCodes: WARNING_CODES,
-        recreationPolicy: 'allowed_new_wallet',
-      }),
-      sendDeletionOtp: jest.fn().mockResolvedValue({
-        challengeId: 'fixture-challenge',
-        maskedEmail: 'd***@example.invalid',
-        expiresAt,
-        serverTime,
-        resendAfterSeconds: 0,
-      }),
-      deleteShare: jest.fn(),
-      getResult: jest.fn(),
-    };
+    const client = createClientFixture();
     const error = (code: 'AUTH_EXPIRED' | 'IDENTITY_MISMATCH') =>
       new DeletionError({ code });
     const completed: ICompleted = {
@@ -177,3 +181,98 @@ it.each([false, true])(
     }
   },
 );
+
+it('preserves the original request and blocks result sign-in until the server cooldown ends', async () => {
+  const client = createClientFixture();
+  const authenticate = jest.fn().mockResolvedValue('fixture-proof');
+  const business: IBusinessAuth = {
+    origin: 'https://prime.example.invalid',
+    authenticate,
+    transport: jest.fn(),
+  };
+  const history: IResultHistory = new Map();
+  client.deleteShare.mockRejectedValueOnce(
+    new DeletionError({
+      code: 'OPERATION_IN_PROGRESS',
+      supportReference: receipt.supportReference,
+    }),
+  );
+  client.getResult
+    .mockRejectedValueOnce(new DeletionError({ code: 'AUTH_EXPIRED' }))
+    .mockRejectedValueOnce(
+      new DeletionError({ code: 'RATE_LIMITED', retryAfterSeconds: 60 }),
+    )
+    .mockResolvedValueOnce({
+      ...receipt,
+      status: 'processing',
+      retryAfterSeconds: 0,
+    });
+  jest.mocked(createDeletionClient).mockReturnValue(client);
+  const { result } = renderHook(() =>
+    useDeletionFlow(token, business, history),
+  );
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  act(() => result.current.signIn('google'));
+  await waitFor(() => expect(result.current.screen.step).toBe('confirm'));
+  act(() => result.current.submit('01234567', [...WARNING_CODES]));
+  await waitFor(() => expect(result.current.error?.code).toBe('AUTH_EXPIRED'));
+  const original = history.get(token);
+  act(() => result.current.reauthenticate());
+  await waitFor(() => expect(result.current.error?.code).toBe('RATE_LIMITED'));
+
+  await act(async () => result.current.reauthenticate());
+  expect(authenticate).toHaveBeenCalledTimes(2);
+  expect(client.getResult).toHaveBeenCalledTimes(2);
+  expect(history.get(token)).toMatchObject({
+    attempt: original?.attempt,
+    accepted: original?.accepted,
+  });
+  expect(history.get(token)?.proof).toBeUndefined();
+  const deadline = history.get(token)?.checkAfter;
+  expect(deadline).toBeGreaterThan(globalThis.performance.now());
+  const now = jest
+    .spyOn(globalThis.performance, 'now')
+    .mockReturnValue(result.current.resultCheckAfter);
+  try {
+    await act(async () => result.current.reauthenticate());
+    expect(authenticate).toHaveBeenCalledTimes(3);
+    expect(client.getResult).toHaveBeenCalledTimes(3);
+    expect(client.deleteShare).toHaveBeenCalledTimes(1);
+    expect(history.get(token)?.result).toMatchObject(receipt);
+  } finally {
+    now.mockRestore();
+  }
+});
+
+it('blocks the old challenge after the server reports expiry and the resend is limited', async () => {
+  const client = createClientFixture();
+  const business: IBusinessAuth = {
+    origin: 'https://prime.example.invalid',
+    authenticate: jest.fn().mockResolvedValue('fixture-proof'),
+    transport: jest.fn(),
+  };
+  const history: IResultHistory = new Map();
+  client.deleteShare.mockRejectedValueOnce(
+    new DeletionError({ code: 'OTP_EXPIRED' }),
+  );
+  jest.mocked(createDeletionClient).mockReturnValue(client);
+  const { result } = renderHook(() =>
+    useDeletionFlow(token, business, history),
+  );
+  await waitFor(() => expect(result.current.screen.step).toBe('identity'));
+  act(() => result.current.signIn('google'));
+  await waitFor(() => expect(result.current.screen.step).toBe('confirm'));
+  act(() => result.current.submit('01234567', [...WARNING_CODES]));
+  await waitFor(() => expect(result.current.error?.code).toBe('OTP_EXPIRED'));
+
+  client.sendDeletionOtp.mockRejectedValueOnce(
+    new DeletionError({ code: 'RATE_LIMITED', retryAfterSeconds: 60 }),
+  );
+  act(() => result.current.sendDeletionOtp());
+  await waitFor(() =>
+    expect(result.current.error?.code).toBe('OTP_SEND_RATE_LIMITED'),
+  );
+  await act(async () => result.current.submit('01234567', [...WARNING_CODES]));
+  expect(client.deleteShare).toHaveBeenCalledTimes(1);
+  expect(result.current.screen.step).toBe('email');
+});

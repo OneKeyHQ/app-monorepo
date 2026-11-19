@@ -145,6 +145,10 @@ export function useDeletionFlow(
   const [screen, setScreen] = useState<IScreen>({ step: 'loading' });
   const [error, setError] = useState<IFlowError>();
   const [busy, setBusy] = useState(false);
+  const resultCheckAfter =
+    screen.step === 'result'
+      ? Math.max(screen.checkAfter ?? 0, error?.retryAt ?? 0)
+      : 0;
   const request = useRef<symbol | undefined>(undefined);
   const channel = useRef<
     { close(): void; client: IDeletionClient; signal: AbortSignal } | undefined
@@ -538,6 +542,10 @@ export function useDeletionFlow(
       }
     } catch (cause) {
       if (isCurrent()) {
+        const retryAfterSeconds =
+          cause instanceof DeletionError
+            ? cause.response.retryAfterSeconds
+            : undefined;
         remember({
           ...previous,
           proof:
@@ -547,6 +555,13 @@ export function useDeletionFlow(
               ? undefined
               : previous.proof,
           canRetry: false,
+          checkAfter:
+            retryAfterSeconds === undefined
+              ? previous.checkAfter
+              : Math.max(
+                  previous.checkAfter ?? 0,
+                  otpCooldownDeadline(retryAfterSeconds),
+                ),
         });
         const transportFailed =
           cause instanceof TypeError ||
@@ -600,6 +615,8 @@ export function useDeletionFlow(
             step: 'confirm',
             proof,
             key: attempt.key,
+            challengeExpiresAt:
+              code === 'OTP_EXPIRED' ? 0 : attempt.review.challengeExpiresAt,
             deleteRetryAt:
               code === 'RATE_LIMITED'
                 ? otpCooldownDeadline(
@@ -695,7 +712,12 @@ export function useDeletionFlow(
   }
 
   function checkStatus() {
-    if (screen.step !== 'result' || !channel.current || !screen.proof) {
+    if (
+      screen.step !== 'result' ||
+      !channel.current ||
+      !screen.proof ||
+      globalThis.performance.now() < resultCheckAfter
+    ) {
       return;
     }
     const { client } = channel.current;
@@ -705,7 +727,12 @@ export function useDeletionFlow(
   }
 
   function reauthenticate() {
-    if (screen.step === 'result' && channel.current && !screen.proof) {
+    if (
+      screen.step === 'result' &&
+      channel.current &&
+      !screen.proof &&
+      globalThis.performance.now() >= resultCheckAfter
+    ) {
       const { client, signal } = channel.current;
       const previous = screen;
       run(async (isCurrent) => {
@@ -738,6 +765,7 @@ export function useDeletionFlow(
     screen,
     error,
     busy,
+    resultCheckAfter,
     open,
     signIn,
     openRecovery,

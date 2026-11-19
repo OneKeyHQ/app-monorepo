@@ -154,7 +154,7 @@ function ConfirmStep({
   otpError?: ReactNode;
 }) {
   const intl = useIntl();
-  const { screen, busy, error } = flow;
+  const { screen, busy } = flow;
   const review = screen.step === 'confirm' ? screen : undefined;
   const cooldown = useCountdown(review?.deleteRetryAt ?? 0);
   const challenge = review?.challenge;
@@ -203,7 +203,6 @@ function ConfirmStep({
       !expired &&
       acknowledged &&
       enteredCode.length > 0 &&
-      error?.code !== 'OTP_EXPIRED' &&
       cooldown === 0,
   });
   function submit() {
@@ -384,9 +383,8 @@ function ConfirmStep({
 
 function ResultStep({ flow }: { flow: IFlow }) {
   const { locale } = useIntl();
-  const { screen, busy, error } = flow;
-  const checkAfter = screen.step === 'result' ? screen.checkAfter : undefined;
-  const cooldown = useCountdown(Math.max(checkAfter ?? 0, error?.retryAt ?? 0));
+  const { screen, busy, error, resultCheckAfter } = flow;
+  const cooldown = useCountdown(resultCheckAfter);
   if (screen.step !== 'result') {
     return null;
   }
@@ -460,10 +458,12 @@ function ResultStep({ flow }: { flow: IFlow }) {
       {needsSignIn ? (
         <Action
           data-testid="reauthenticate"
-          disabled={busy}
+          disabled={busy || cooldown > 0}
           onClick={flow.reauthenticate}
         >
-          {messages.reauthenticate}
+          {cooldown > 0
+            ? messages.statusCountdown(cooldown)
+            : messages.reauthenticate}
         </Action>
       ) : null}
       {!needsSignIn && result?.status !== 'completed' ? (

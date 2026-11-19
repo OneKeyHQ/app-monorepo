@@ -532,6 +532,51 @@ async function main() {
       },
     );
     await scenario(
+      'a server-expired OTP stays blocked when the resend is rate-limited',
+      {
+        reply: (endpoint, calls) => {
+          if (endpoint === '/delete') {
+            return { json: { code: 90_905, message: '验证码已过期。' } };
+          }
+          if (endpoint !== '/otp/send') return undefined;
+          const sends = calls.filter(
+            (call) => call.endpoint === endpoint,
+          ).length;
+          if (sends === 2) {
+            return {
+              json: { code: 90_906, message: '稍后重发。', retryAfterSec: 2 },
+            };
+          }
+          return {
+            json: success({
+              challengeId:
+                sends === 1 ? 'fixture-challenge' : 'fixture-new-challenge',
+              maskedEmail: 'd***@example.invalid',
+              expiresAt: '2030-01-01T00:10:00Z',
+              resendAfterSeconds: 0,
+              serverTime: time,
+            }),
+          };
+        },
+      },
+      async ({ page, id, verify, calls }) => {
+        await verify();
+        await id('submit-deletion').click();
+        await page.getByText('验证码已过期。', { exact: true }).waitFor();
+        assert.ok(await id('submit-deletion').isDisabled());
+        await id('send-code').click();
+        await id('flow-error').getByText('稍后重发。').waitFor();
+        assert.ok(await id('submit-deletion').isDisabled());
+        assert.ok(await id('deletion-code').isDisabled());
+        await id('send-code').click({ timeout: 5000 });
+        await verify();
+        assert.equal(
+          calls().filter((endpoint) => endpoint === '/delete').length,
+          1,
+        );
+      },
+    );
+    await scenario(
       'resending an OTP does not clear the deletion rate limit',
       {
         reply: (endpoint, calls) => {
@@ -703,6 +748,59 @@ async function main() {
             '/result',
             '/delete',
           ],
+        );
+      },
+    );
+    await scenario(
+      'result sign-in waits for HTTP 429 Retry-After and recovers the original request',
+      {
+        reply: (endpoint, calls) => {
+          if (endpoint === '/delete') {
+            return { json: { code: 90_902, message: '登录已过期。' } };
+          }
+          if (endpoint !== '/result') return undefined;
+          const first =
+            calls.filter((call) => call.endpoint === endpoint).length === 1;
+          return first
+            ? {
+                status: 429,
+                headers: {
+                  'Retry-After': '3',
+                  'Access-Control-Expose-Headers': 'Retry-After',
+                },
+                json: { code: 90_906, message: '稍后查询。' },
+              }
+            : undefined;
+        },
+      },
+      async ({ page, id, verify, calls }) => {
+        await verify();
+        await id('submit-deletion').click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByText('登录已过期。').waitFor();
+        await dialog.getByRole('button', { name: '我明白了' }).click();
+        const signIn = id('reauthenticate');
+        await signIn.click();
+        await id('flow-error').getByText('稍后查询。').waitFor();
+        assert.ok(await signIn.isDisabled());
+        assert.match(await signIn.innerText(), /秒后可查询/);
+        assert.equal(
+          calls().filter((endpoint) => endpoint === 'oauth-authorize').length,
+          2,
+        );
+        assert.equal(
+          calls().filter((endpoint) => endpoint === '/result').length,
+          1,
+        );
+        await signIn.click({ timeout: 6000 });
+        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        assert.equal(
+          calls().filter((endpoint) => endpoint === '/delete').length,
+          1,
+        );
+        assert.equal(
+          calls().filter((endpoint) => endpoint === '/result').length,
+          2,
         );
       },
     );
