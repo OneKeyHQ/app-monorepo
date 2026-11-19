@@ -85,6 +85,23 @@ export class PrimeUsageScene extends BaseScene {
   }
 
   /**
+   * Bulk send review (confirm) page shown, once per page instance.
+   * Splits the bulk send funnel between the amounts / interval steps and the
+   * review page, where fees and balances are checked. `entitlementSource` is
+   * the access the addresses page granted; unset when no access was decided
+   * (e.g. a route opened directly).
+   */
+  @LogToServer()
+  public bulkSendReviewShow(params: {
+    featureName: EPrimeFeatures.BulkSend;
+    featureId: EPrimeFeatures.BulkSend;
+    entitlementSource?: IPrimeEntitlementSource;
+    sendMode: EBulkSendMode;
+  }) {
+    return params;
+  }
+
+  /**
    * 使用批量撤销
    * 触发时机: Prime 用户成功执行一次"批量撤销"操作后触发
    */

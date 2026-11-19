@@ -31,7 +31,6 @@ import {
   mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
   EParseTxComponentRole,
   EParseTxComponentType,
@@ -75,7 +74,10 @@ import {
   shouldUseLocalPermit2Display,
 } from './utils/permit2SignatureConfirmUtils';
 
-import type { IBuildDecodedTxParams } from '../vaults/types';
+import type {
+  IBuildDecodedTxParams,
+  IPreActionsBeforeSendingParams,
+} from '../vaults/types';
 
 type ICheckTransactionSecurityParamsBase = {
   networkId: string;
@@ -965,14 +967,22 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @toastIfError()
   @backgroundMethod()
-  async preActionsBeforeSending(params: {
-    accountId: string;
-    networkId: string;
-    unsignedTxs: IUnsignedTxPro[];
-    tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }) {
-    const { accountId, networkId, unsignedTxs, tronResourceRentalInfo } =
-      params;
+  async preActionsBeforeSending(
+    params: {
+      accountId: string;
+      networkId: string;
+    } & IPreActionsBeforeSendingParams,
+  ) {
+    const {
+      accountId,
+      networkId,
+      unsignedTxs,
+      tronResourceRentalInfo,
+      signOnly,
+      beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
+      reviewQuoteValidUntil,
+    } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -980,6 +990,10 @@ class ServiceSignatureConfirm extends ServiceBase {
     return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
+      signOnly,
+      beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
+      reviewQuoteValidUntil,
     });
   }
 

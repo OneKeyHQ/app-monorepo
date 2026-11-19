@@ -172,6 +172,21 @@ function loadServiceWorker(cacheStorage = createMemoryCacheStorage()) {
     cacheStorage,
     handle: (url) => tradingViewRoute.handler({ request: new Request(url) }),
     matches: (url) => tradingViewRoute.match({ request: new Request(url) }),
+    async navigate(path) {
+      const respondWith = jest.fn();
+      const pending = [];
+      listeners.fetch({
+        request: {
+          mode: 'navigate',
+          url: new URL(path, globalThis.self.location).href,
+        },
+        respondWith,
+        waitUntil: (promise) => pending.push(promise),
+      });
+      const response = await respondWith.mock.calls[0]?.[0];
+      await Promise.all(pending);
+      return response;
+    },
     async postMessage(data) {
       const reply = jest.fn();
       const pending = [];
@@ -198,7 +213,7 @@ function prefetchMessage(manifest, manifestUrl = MANIFEST_URL) {
   };
 }
 
-describe('service worker TradingView release pinning', () => {
+describe('Web service worker', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
@@ -208,6 +223,35 @@ describe('service worker TradingView release pinning', () => {
     globalThis.fetch = originalFetch;
     delete globalThis.self;
     delete globalThis.caches;
+  });
+
+  test('loads the current app shell for only the Keyless entry and its marked callback', async () => {
+    const fetchMock = mockNetwork({ '/index.html': 'current shell' });
+    const { cacheStorage, navigate } = loadServiceWorker();
+    const state = await cacheStorage.open('onekey-web-version-state');
+    const html = await cacheStorage.open('onekey-web-html:previous-build');
+    await state.put(
+      'https://app.onekey.so/__onekey_web_version_state__',
+      Response.json({ activeVersion: 'previous-build' }),
+    );
+    await html.put('/index.html', new Response('cached wallet shell'));
+
+    for (const path of [
+      '/keyless-deletion#invitationToken=fixture',
+      '/oauth_callback_web/?onekey_keyless_deletion=1&code=fixture',
+    ]) {
+      const response = await navigate(path);
+      await expect(response.text()).resolves.toBe('current shell');
+    }
+    expect(fetchMock.mock.calls).toEqual([
+      ['/index.html', { cache: 'no-store', credentials: 'same-origin' }],
+      ['/index.html', { cache: 'no-store', credentials: 'same-origin' }],
+    ]);
+
+    for (const path of ['/', '/oauth_callback_web/']) {
+      const response = await navigate(path);
+      await expect(response.text()).resolves.toBe('cached wallet shell');
+    }
   });
 
   test('never trusts the mutable latest.json of a remote host', async () => {

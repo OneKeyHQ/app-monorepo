@@ -13,6 +13,7 @@ import type {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { buildMarketNativeSnapshot } from '../components/MarketNativeList/marketNativeListRows';
 
@@ -37,6 +38,8 @@ type IMockListContainerProps = {
 
 type IMockPagerProps = {
   children?: ReactNode;
+  header?: ReactNode;
+  headerHeight: number;
   stickyHeader?: ReactNode;
   stickyHeaderHeight?: number;
   stickyHeaderHeights?: readonly number[];
@@ -95,6 +98,8 @@ let mockUseRealTabsLogic = false;
 let mockPerpDisabled = false;
 const mockSetSelectedTab = jest.fn();
 let mockPagerProps: IMockPagerProps | undefined;
+let mockHighlights: IMarketHighlight[] | undefined = [];
+let mockHighlightsLoading: boolean | undefined;
 let mockCategorySelectorProps: IMockCategorySelectorProps | undefined;
 let mockSelection: IMarketSelectedTabAtom;
 let mockPreferences: IMarketHomePreferences;
@@ -149,6 +154,7 @@ jest.mock('react-native-pager-view', () => {
         }));
         return (
           <div>
+            {props.header}
             {props.stickyHeader}
             {props.children}
           </div>
@@ -254,6 +260,21 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
     getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
   },
+}));
+jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
+  useMarketHighlights: () => ({
+    items: mockHighlights,
+    isLoading: mockHighlightsLoading,
+  }),
+}));
+jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
+  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 52,
+  MarketHighlightStrip: ({ highlight }: { highlight?: IMarketHighlight }) =>
+    highlight ? (
+      <div>{highlight.title}</div>
+    ) : (
+      <div>Loading market hotspot</div>
+    ),
 }));
 jest.mock('../components/MarketBanner/MarketBannerList', () => ({
   MarketBannerList: () => null,
@@ -394,6 +415,8 @@ beforeEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
   mockPagerProps = undefined;
+  mockHighlights = [];
+  mockHighlightsLoading = false;
   mockStickyHeaderLayout = undefined;
   mockTrendingListContainerProps = undefined;
   mockWatchlistContainerProps = undefined;
@@ -666,6 +689,58 @@ it('keeps Market tabs opaque when native scroll edge support is available', () =
   );
   expect(backgrounds.length).toBeGreaterThan(0);
   expect(backgrounds.every((background) => background === '$bgApp')).toBe(true);
+});
+
+it('keeps the header height stable while the first hotspot loads', () => {
+  mockHighlights = undefined;
+  mockHighlightsLoading = undefined;
+  const { queryByText, getByText, rerender } = renderLayout();
+  const title = 'Market hotspot';
+  expect(queryByText(title)).toBeNull();
+  expect(getByText('Loading market hotspot')).toBeTruthy();
+  expect(mockPagerProps?.headerHeight).toBe(52);
+
+  mockHighlights = [
+    {
+      highlightId: 'highlight-1',
+      title,
+      description: 'An editorial summary',
+      publishedAt: '2026-11-04T02:00:00Z',
+      assets: [
+        {
+          type: 'asset',
+          assetId: 'bitcoin',
+          symbol: 'BTC',
+          favorite: { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+        },
+      ],
+      links: [],
+    },
+  ];
+  mockHighlightsLoading = false;
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+
+  expect(getByText(title)).toBeTruthy();
+  expect(queryByText('Loading market hotspot')).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(52);
+
+  mockHighlights = [];
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+  expect(queryByText(title)).toBeNull();
+  expect(queryByText('Loading market hotspot')).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(1);
 });
 
 const mockPresentation: IMarketNativeListPresentation = {

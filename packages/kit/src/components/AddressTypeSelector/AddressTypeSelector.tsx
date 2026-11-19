@@ -15,6 +15,7 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { useDeepCompareEffect } from '@onekeyhq/components/src/hooks/useDeepCompareEffect';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IAccountDeriveInfo,
@@ -56,6 +57,14 @@ import AddressTypeSelectorItem from './AddressTypeSelectorItem';
 import AddressTypeSelectorTrigger from './AddressTypeSelectorTrigger';
 
 import type { PopoverProps } from 'tamagui';
+
+type IDerivedAccount = {
+  account: INetworkAccount | undefined;
+  deriveInfo: IAccountDeriveInfo;
+  deriveType: IAccountDeriveTypes;
+};
+
+const EMPTY_DERIVED_ACCOUNTS: IDerivedAccount[] = [];
 
 const helpLinkMap: Record<string, string> = {
   [IMPL_BTC]: 'https://help.onekey.so/articles/11461370',
@@ -126,11 +135,7 @@ function AddressTypeSelectorContent(
   props: IProps & {
     isOpen?: boolean;
     closePopover: () => void;
-    networkAccounts: {
-      account: INetworkAccount | undefined;
-      deriveInfo: IAccountDeriveInfo;
-      deriveType: IAccountDeriveTypes;
-    }[];
+    networkAccounts: IDerivedAccount[];
     refreshNetworkAccounts: () => Promise<void>;
     selectorTitle: string | ReactNode;
   },
@@ -459,11 +464,7 @@ function AddressTypeSelectorPopoverContent({
 }: IProps & {
   stableContextValue: ContextType<typeof AddressTypeSelectorStableContext>;
   dynamicContextValue: ContextType<typeof AddressTypeSelectorDynamicContext>;
-  networkAccounts: {
-    account: INetworkAccount | undefined;
-    deriveInfo: IAccountDeriveInfo;
-    deriveType: IAccountDeriveTypes;
-  }[];
+  networkAccounts: IDerivedAccount[];
   refreshNetworkAccounts: () => Promise<void>;
   selectorTitle: IProps['title'];
   selectorHelpLink: string;
@@ -561,24 +562,38 @@ function AddressTypeSelector(props: IProps) {
       revalidateOnFocus: revalidateCollapseOnFocus,
     });
 
-  const { result: networkAccounts, run: refreshNetworkAccounts } =
-    usePromiseResult(
-      async () => {
-        const result =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-            {
-              networkId,
-              indexedAccountId,
-            },
-          );
+  const { result: accountResult, run: refreshNetworkAccounts } =
+    usePromiseResult(async () => {
+      const result =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId,
+            indexedAccountId,
+          },
+        );
 
-        return result.networkAccounts;
-      },
-      [networkId, indexedAccountId],
-      {
-        initResult: [],
-      },
-    );
+      return {
+        networkId,
+        indexedAccountId,
+        networkAccounts: result.networkAccounts,
+      };
+    }, [networkId, indexedAccountId]);
+  const networkAccounts =
+    accountResult?.networkId === networkId &&
+    accountResult.indexedAccountId === indexedAccountId
+      ? accountResult.networkAccounts
+      : EMPTY_DERIVED_ACCOUNTS;
+  const balanceAccountIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          networkAccounts.flatMap(({ account }) =>
+            account?.id ? [account.id] : [],
+          ),
+        ),
+      ].toSorted(),
+    [networkAccounts],
+  );
 
   const activeDeriveInfo = useMemo(() => {
     if (activeDeriveInfoProp) {
@@ -634,74 +649,78 @@ function AddressTypeSelector(props: IProps) {
     }
   }, [activeDeriveTypeProp, networkId]);
 
-  const fetchTokenMap = useCallback(async () => {
-    const networkAccountsWithAccountId = networkAccounts.filter(
-      (item) => item.account?.id,
-    );
-
-    if (networkAccountsWithAccountId.length === 0) {
-      setTokenMap(undefined);
-      return;
-    }
-
-    setIsFetchingTokenMap(true);
-
-    try {
-      const resp = await Promise.all(
-        networkAccountsWithAccountId.map((networkAccount) =>
-          backgroundApiProxy.serviceToken.fetchAccountTokens({
-            accountId: networkAccount.account?.id ?? '',
-            mergeTokens: true,
-            networkId,
-            flag: 'address-type-selector',
-            indexedAccountId,
-          }),
-        ),
-      );
-
-      const { tokenListMap } = getMergedDeriveTokenData({
-        data: resp,
-        mergeDeriveAssetsEnabled: false,
-      });
-      setTokenMap(tokenListMap);
-    } catch (error) {
-      // Both callers fire this with `void`, so nothing rejecting out of here is
-      // ever handled: it lands as an unhandled rejection. These balances only
-      // decorate the rows, so every failure degrades to a popover without fiat
-      // values instead.
-      //
-      // Aborting is routine — a superseded fetch or a closing selector cancels
-      // these requests — and has two shapes. Desktop and Web run background in
-      // this runtime and reject with the axios instance, which
-      // isUserCancelStyleError detects. Native and extension serialize the
-      // error across runtimes, which drops the axios cancel marker but keeps
-      // `name`. Anything else is a real failure worth a trace.
-      const isAborted =
-        errorToastUtils.isUserCancelStyleError(error) ||
-        (error as Error | undefined)?.name === 'CanceledError';
-      if (!isAborted) {
-        defaultLogger.token.request.fetchAccountTokensFailed({
-          errorMessage: (error as Error | undefined)?.message,
-          errorName: (error as Error | undefined)?.name,
-          flag: 'address-type-selector',
-          networkId,
-        });
-      }
-    } finally {
-      setIsFetchingTokenMap(false);
-    }
-  }, [networkAccounts, networkId, indexedAccountId]);
+  const refreshTokenMap = useCallback(
+    (accountIds: string[]) => {
+      let active = true;
+      const fetchBalances = async () => {
+        if (!accountIds.length) {
+          setTokenMap(undefined);
+          setIsFetchingTokenMap(false);
+          return;
+        }
+        setIsFetchingTokenMap(true);
+        try {
+          const balances = await Promise.all(
+            accountIds.map((accountId) =>
+              backgroundApiProxy.serviceToken.fetchAccountTokens({
+                accountId,
+                mergeTokens: true,
+                networkId,
+                flag: 'address-type-selector',
+                indexedAccountId,
+              }),
+            ),
+          );
+          if (active) {
+            const { tokenListMap } = getMergedDeriveTokenData({
+              data: balances,
+              mergeDeriveAssetsEnabled: false,
+            });
+            setTokenMap(tokenListMap);
+          }
+        } catch (error) {
+          // Native and extension preserve the error name across runtimes.
+          const isAborted =
+            errorToastUtils.isUserCancelStyleError(error) ||
+            (error as Error | undefined)?.name === 'CanceledError';
+          if (active && !isAborted) {
+            defaultLogger.token.request.fetchAccountTokensFailed({
+              errorMessage: (error as Error | undefined)?.message,
+              errorName: (error as Error | undefined)?.name,
+              flag: 'address-type-selector',
+              networkId,
+            });
+          }
+        } finally {
+          if (active) {
+            setIsFetchingTokenMap(false);
+          }
+        }
+      };
+      void fetchBalances();
+      return () => {
+        active = false;
+      };
+    },
+    [networkId, indexedAccountId],
+  );
 
   useEffect(() => {
     if (tokenMapProp) {
       setTokenMap(tokenMapProp);
+      setIsFetchingTokenMap(false);
       return;
     }
-
     if (!refreshOnOpen && !isHiddenByCollapse) {
-      void fetchTokenMap();
+      return refreshTokenMap(balanceAccountIds);
     }
-  }, [tokenMapProp, fetchTokenMap, refreshOnOpen, isHiddenByCollapse]);
+  }, [
+    tokenMapProp,
+    refreshTokenMap,
+    balanceAccountIds,
+    refreshOnOpen,
+    isHiddenByCollapse,
+  ]);
 
   useEffect(() => {
     const fn = () => {
@@ -715,10 +734,27 @@ function AddressTypeSelector(props: IProps) {
     };
   }, [refreshNetworkAccounts]);
 
-  // Only 'skip' needs the open state: the press has to be answered before the
-  // list may open. Everything else stays uncontrolled.
   const skipWhenCollapsed = whenCollapsed === 'skip';
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  // The menu content remounts when switching between a sheet and a popover.
+  useDeepCompareEffect(() => {
+    if (!isPopoverOpen) return;
+    if (isHiddenByCollapse || isSelectorDisabled) {
+      setIsPopoverOpen(false);
+      return;
+    }
+    if (refreshOnOpen) {
+      return refreshTokenMap(balanceAccountIds);
+    }
+  }, [
+    isPopoverOpen,
+    isHiddenByCollapse,
+    isSelectorDisabled,
+    refreshOnOpen,
+    refreshTokenMap,
+    balanceAccountIds,
+  ]);
+
   // On narrow web layouts the popover reports a single press twice, which
   // would run a skipped entry (open a page, start a purchase) twice.
   const isSkipPressPendingRef = useRef(false);
@@ -764,11 +800,8 @@ function AddressTypeSelector(props: IProps) {
         isSkipPressPendingRef.current = false;
       }
     }
-    if (skipWhenCollapsed) {
+    if (skipWhenCollapsed || refreshOnOpen) {
       setIsPopoverOpen(open);
-    }
-    if (open && refreshOnOpen) {
-      void fetchTokenMap();
     }
     if (!open && doubleConfirm) {
       void backgroundApiProxy.serviceNetwork

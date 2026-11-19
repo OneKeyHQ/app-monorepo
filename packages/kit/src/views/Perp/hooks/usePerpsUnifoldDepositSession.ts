@@ -42,6 +42,7 @@ import {
   filterUnifoldSupportedAssetsByWallets,
   findMatchingUnifoldSourceSelection,
   hasUsableUnifoldSupportedAssets,
+  pickUnifoldChainForAsset,
 } from '../utils/unifoldDestination';
 import { shouldEnableUnifoldLedgerUpdates } from '../utils/unifoldExecution';
 import {
@@ -467,13 +468,12 @@ export function usePerpsUnifoldDepositSession({
   }, [selectableSupportedAssets, applyAddressState, destination]);
 
   // Mirrors the SDK chain-snap rule: picking a token whose chains do not
-  // include the current chain snaps to that token's first chain.
+  // include the current chain snaps to that token's first chain. The chain is
+  // matched on type + id, since Solana, Bitcoin and Tron all use 'mainnet'.
   const selectToken = useCallback(
     (asset: IUnifoldSupportedAsset) => {
       setSelection((prev) => {
-        const chain =
-          asset.chains.find((c) => c.chain_id === prev?.chain.chain_id) ??
-          asset.chains[0];
+        const chain = pickUnifoldChainForAsset(asset, prev?.chain);
         const next = chain ? { asset, chain } : prev;
         if (next) {
           cacheSourceSelection(destination, next);

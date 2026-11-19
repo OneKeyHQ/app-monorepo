@@ -1171,6 +1171,31 @@ export function UniversalWithdraw({
       return;
     }
 
+    try {
+      await backgroundApiProxy.serviceStaking.assertEarnApproval({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+        provider: providerName ?? '',
+        symbol: protocolInfo?.symbol ?? tokenSymbol ?? '',
+        vault: protocolInfo?.vault,
+        action: 'unstake',
+        tokenAddress: approveTarget.token.address,
+        spenderAddress: approveTarget.spenderAddress,
+      });
+      if (
+        !isApprovalSendCurrent() ||
+        (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed()) ||
+        transactionConfirmationRequestKeyRef.current !==
+          transactionConfirmationRequestKey
+      ) {
+        releaseApproving();
+        return;
+      }
+    } catch (error) {
+      releaseApproving();
+      throw error;
+    }
+
     await navigationToTxConfirm({
       isNavigationCurrent: isApprovalSendCurrent,
       onBeforeSend: requiresConfirmedWithdrawal
@@ -1298,6 +1323,9 @@ export function UniversalWithdraw({
     retryAllowance,
     trackAllowance,
     waitForAllowanceAfterApprove,
+    protocolInfo?.symbol,
+    protocolInfo?.vault,
+    transactionConfirmationRequestKey,
     isWithdrawalGuardAllowed,
     intl,
   ]);
