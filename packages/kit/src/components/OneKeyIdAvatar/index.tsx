@@ -1,3 +1,4 @@
+/* cspell:ignore avator */
 import { memo, useMemo } from 'react';
 
 import type { IImageProps } from '@onekeyhq/components';
@@ -8,6 +9,19 @@ import {
   getBoundOAuthProviders,
   getOneKeyIdOAuthProviderIcon,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+
+import { OneKeyIdDefaultAvatar } from './OneKeyIdDefaultAvatar';
+
+// The server fills accounts without a photo with its own grey placeholder
+// (the "avator" spelling is the server's); treat it as no photo.
+const SERVER_PLACEHOLDER_AVATAR_PATH =
+  '/server-service-prime/default_avator.png';
+
+export function isOneKeyIdPlaceholderAvatar(url: string | undefined) {
+  return Boolean(
+    url?.split(/[?#]/)[0].endsWith(SERVER_PLACEHOLDER_AVATAR_PATH),
+  );
+}
 
 type IOneKeyIdAvatarProps = Omit<IImageProps, 'size' | 'source'> & {
   size?: IImageProps['width'];
@@ -49,10 +63,19 @@ function BasicOneKeyIdAvatar({
   ...rest
 }: IOneKeyIdAvatarProps) {
   const { user, isLoggedIn } = useOneKeyAuth();
-  const avatarUrl = user.avatar;
+  const avatarUrl = isOneKeyIdPlaceholderAvatar(user.avatar)
+    ? undefined
+    : user.avatar;
   const source =
     sourceOverride ??
     (isLoggedIn && avatarUrl ? { uri: avatarUrl } : avatarFallback);
+  // Signed in without a photo: the character drawn from the OneKey ID.
+  const defaultAvatarSeed = isLoggedIn ? user.onekeyUserId : undefined;
+  const fallback = defaultAvatarSeed ? (
+    <OneKeyIdDefaultAvatar seed={defaultAvatarSeed} size={size} />
+  ) : (
+    <OneKeyIdFallbackAvatar size={size} />
+  );
   const boundOAuthProviders = useMemo(
     () => getBoundOAuthProviders(user.onekeyAccount),
     [user.onekeyAccount],
@@ -80,11 +103,11 @@ function BasicOneKeyIdAvatar({
         borderCurve="continuous"
         overflow="hidden"
       >
-        <Image
-          size={size}
-          source={source}
-          fallback={<OneKeyIdFallbackAvatar size={size} />}
-        />
+        {!sourceOverride && !avatarUrl && defaultAvatarSeed ? (
+          <OneKeyIdDefaultAvatar seed={defaultAvatarSeed} size={size} />
+        ) : (
+          <Image size={size} source={source} fallback={fallback} />
+        )}
         <InnerStroke
           borderRadius="$full"
           borderColor="$borderSubdued"

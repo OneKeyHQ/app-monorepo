@@ -22881,6 +22881,8 @@
     "packages/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout.tsx": 24359,
     "packages/kit/src/components/OneKeyAuth/useIdentityExitFlow.tsx": 17849,
     "packages/kit/src/components/OneKeyAuth/useOneKeyAuth.tsx": 12462,
+    "packages/kit/src/components/OneKeyIdAvatar/OneKeyIdDefaultAvatar.tsx": 20871,
+    "packages/kit/src/components/OneKeyIdAvatar/defaultAvatarXml.ts": 23827,
     "packages/kit/src/components/OneKeyIdAvatar/index.tsx": 19006,
     "packages/kit/src/components/OpenInAppButton/index.tsx": 2086,
     "packages/kit/src/components/OptionCard/index.tsx": 13763,
