@@ -9,6 +9,11 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EtherFiLiquidReferContract,
+  EthereumWETH,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -250,14 +255,22 @@ class ServiceStaking extends ServiceBase {
     tokenAddress: string;
     spenderAddress: string;
     blockNumber?: number;
+    expectedAccountAddress?: string;
   }) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, expectedAccountAddress, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
         accountId,
       });
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? accountAddress.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Allowance account changed');
+    }
 
     const resp = await client.get<{
       data: IAllowanceOverview;
@@ -400,6 +413,7 @@ class ServiceStaking extends ServiceBase {
     const {
       networkId,
       accountId,
+      amount,
       provider,
       symbol,
       protocolVault,
@@ -425,6 +439,16 @@ class ServiceStaking extends ServiceBase {
     const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      {
+        networkId,
+        accountId,
+        provider,
+        symbol,
+        vault: protocolVault,
+      },
+      'deposit',
+    );
 
     // Determine publicKey: Stakefish validator pubkey takes priority
     let publicKey: string | undefined;
@@ -457,10 +481,11 @@ class ServiceStaking extends ServiceBase {
       message,
       effectiveApy,
       ...rest,
+      amount: /^\.\d+$/.test(amount) ? `0${amount}` : amount,
     };
 
     if (shouldSendProtocolVault) {
-      paramsToSend.vault = protocolVault;
+      paramsToSend.vault = registeredProtocol?.provider.vault ?? protocolVault;
     }
 
     const walletReferralCode = await this.backgroundApi.serviceReferralCode
@@ -481,12 +506,27 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
-      params;
+  async buildUnstakeTransaction(
+    params: IWithdrawBaseParams & { expectedAccountAddress?: string },
+  ) {
+    const {
+      networkId,
+      accountId,
+      protocolVault,
+      effectiveApy,
+      expectedAccountAddress,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? account.address.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : account.address === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Task account address changed');
+    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol: params.symbol,
@@ -719,6 +759,174 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  /** Match registered vaults for position access and enforce deposit eligibility before spending. */
+  private async _getValidatedEarnProtocol(
+    params: {
+      networkId: string;
+      provider: string;
+      symbol: string;
+      vault?: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    intent: 'position' | 'deposit',
+  ) {
+    if (
+      !earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
+    )
+      return undefined;
+    const protocols = await this.getProtocolList({
+      symbol: params.symbol,
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
+      networkId: params.networkId,
+      filterNetworkId: params.networkId,
+      includeWithdrawOnly: true,
+      skipStakingConfigFilter: intent === 'position',
+    });
+    const protocol = earnUtils.findEarnProtocol({
+      protocols,
+      networkId: params.networkId,
+      providerName: params.provider,
+      protocolVault: params.vault,
+    });
+    if (
+      !protocol ||
+      (intent === 'deposit' &&
+        protocol.provider.group === EStakeProtocolGroupEnum.WithdrawOnly)
+    ) {
+      throw new OneKeyLocalError('Earn protocol is unavailable');
+    }
+    return protocol;
+  }
+
+  /** Re-read authoritative approval metadata at the Earn signing boundary. */
+  @backgroundMethod()
+  async assertEarnApproval(params: {
+    networkId: string;
+    accountId: string;
+    provider: string;
+    symbol: string;
+    vault?: string;
+    action: 'stake' | 'unstake' | 'claim';
+    tokenAddress: string;
+    spenderAddress: string;
+  }) {
+    const protocol = await this._getValidatedEarnProtocol(
+      params,
+      params.action === 'stake' ? 'deposit' : 'position',
+    );
+    const vault = protocol?.provider.vault ?? params.vault;
+    const query = {
+      networkId: params.networkId,
+      accountId: params.accountId,
+      provider: params.provider,
+      symbol: params.symbol,
+      vault,
+    };
+    const sameAddress = (a?: string, b?: string) =>
+      !!a &&
+      !!b &&
+      earnUtils.normalizeBorrowAddress({
+        networkId: params.networkId,
+        address: a,
+      }) ===
+        earnUtils.normalizeBorrowAddress({
+          networkId: params.networkId,
+          address: b,
+        });
+    let target: string | undefined;
+    let tokenAddress: string | undefined;
+    if (params.action === 'claim') {
+      const claimable = await this.getClaimableList(query);
+      target = claimable.claimApprove?.approveTarget;
+      tokenAddress = claimable.claimApprove?.tokenAddress;
+    } else {
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: params.accountId,
+          networkId: params.networkId,
+        });
+      const data = await this.getManagePage({ ...query, accountAddress });
+      if (params.action === 'unstake') {
+        target = data.withdrawApprove?.approveTarget;
+        tokenAddress = data.withdrawApprove?.tokenAddress;
+        if (
+          !data.withdrawApprove &&
+          earnUtils.isEtherFiProvider({ providerName: params.provider }) &&
+          vault &&
+          sameAddress(data.withdraw?.data?.token?.info.address, vault) &&
+          data.deposit?.data?.token?.info &&
+          !sameAddress(data.deposit.data.token.info.address, vault) &&
+          !data.buy &&
+          !data.sell
+        ) {
+          const detail = await this.getProtocolDetailsV2(query);
+          if (sameAddress(detail.withdrawApprove?.tokenAddress, vault)) {
+            target = detail.withdrawApprove?.approveTarget;
+            tokenAddress = detail.withdrawApprove?.tokenAddress;
+          }
+        }
+        // Pendle spends the PT shown on the pay side, even when the user selects another receive asset.
+        if (earnUtils.isPendleProvider({ providerName: params.provider })) {
+          if (!target || !tokenAddress) {
+            tokenAddress = data.sell?.payButton?.data?.token?.info.address;
+          }
+          target = earnUtils.resolveEarnApproveSpenderAddress({
+            providerName: params.provider,
+          });
+        }
+      } else {
+        target = earnUtils.resolveEarnApproveSpenderAddress({
+          providerName: params.provider,
+          verifiedProtocolVault: protocol?.provider.vault,
+          backendApproveTarget:
+            data.approve?.approveTarget ?? data.approveTarget,
+        });
+        tokenAddress = (data.deposit ?? data.buy?.payButton)?.data?.token?.info
+          .address;
+        const isEtherFi = earnUtils.isEtherFiProvider({
+          providerName: params.provider,
+        });
+        if (isEtherFi) {
+          // The EtherFi receipt vault never spends deposits. Assets approved here
+          // must also belong to the selected vault's deposit catalog.
+          target =
+            params.networkId === getNetworkIdsMap().eth
+              ? EtherFiLiquidReferContract
+              : undefined;
+          if (
+            params.symbol.toUpperCase() === 'ETH' &&
+            data.deposit?.data?.token?.info.isNative
+          ) {
+            tokenAddress = EthereumWETH;
+          }
+        }
+        if (
+          !sameAddress(tokenAddress, params.tokenAddress) &&
+          (earnUtils.isPendleProvider({ providerName: params.provider }) ||
+            earnUtils.isNativeProvider({ providerName: params.provider }))
+        ) {
+          const assets = await this.getEarnAssetsList({
+            ...query,
+            action: 'stake',
+          });
+          tokenAddress = assets.assets?.find((item) =>
+            sameAddress(item.info.address, params.tokenAddress),
+          )?.info.address;
+        }
+      }
+    }
+    if (
+      !sameAddress(target, params.spenderAddress) ||
+      !sameAddress(tokenAddress, params.tokenAddress)
+    ) {
+      throw new OneKeyLocalError(
+        'Earn approval does not match the selected protocol',
+      );
+    }
+  }
+
   @backgroundMethod()
   async getProtocolDetails(params: {
     accountId?: string;
@@ -740,6 +948,13 @@ class ServiceStaking extends ServiceBase {
       vault?: string;
       kycAccountAddress?: string;
     } = { networkId, ...rest };
+
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      params,
+      'position',
+    );
+    if (registeredProtocol)
+      requestParams.vault = registeredProtocol.provider.vault;
 
     const isNoAccount = !accountId && !indexedAccountId;
     if (!isNoAccount) {
@@ -811,6 +1026,11 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
     accountId: string;
   }) {
+    const registeredProtocol = await this._getValidatedEarnProtocol(
+      params,
+      'position',
+    );
+    const protocolVault = registeredProtocol?.provider.vault ?? params.vault;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       networkId: string;
@@ -825,7 +1045,7 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider.toLowerCase(),
       symbol: params.symbol,
       accountAddress: params.accountAddress,
-      ...(params.vault && { vault: params.vault }),
+      ...(protocolVault && { vault: protocolVault }),
       ...(params.publicKey && { publicKey: params.publicKey }),
     };
 
@@ -919,11 +1139,13 @@ class ServiceStaking extends ServiceBase {
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
-    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
     const resp = await client.get<{
       data: IStakeTransactionConfirmation;
     }>(`/earn/v1/transaction-confirmation`, {
-      params,
+      params: {
+        ...params,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+      },
     });
     return resp.data.data;
   }
@@ -1184,10 +1406,19 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     provider: string;
     vault?: string;
+    expectedAccountAddress?: string;
   }) {
-    const { networkId, accountId, symbol, ...rest } = params;
+    const { networkId, accountId, symbol, expectedAccountAddress, ...rest } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
+    if (expectedAccountAddress !== undefined) {
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? acc.address.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : acc.address === expectedAccountAddress;
+      if (!expectedAccountAddress || !matches)
+        throw new OneKeyLocalError('Task account address changed');
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
@@ -2420,24 +2651,58 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addEarnOrder(order: IAddEarnOrderParams) {
+  async addEarnOrder(
+    order: IAddEarnOrderParams,
+    options?: { remoteSync: 'once'; preserveExistingTx?: true },
+  ) {
     defaultLogger.staking.order.addOrder({
       status: order.status,
       stakingLabel: order.stakingLabel,
       stakingProtocol: order.stakingProtocol,
       stakingTags: order.stakingTags,
     });
-    await simpleDb.earnOrders.addOrder(order);
+    let isCurrent: boolean | undefined;
+    try {
+      isCurrent = options?.preserveExistingTx
+        ? await simpleDb.earnOrders.addOrder(order, {
+            preserveExistingTx: true,
+          })
+        : await simpleDb.earnOrders.addOrder(order);
+    } catch (error) {
+      if (options?.remoteSync === 'once') {
+        return { localStatus: 'failed', remoteStatus: 'notAttempted' } as const;
+      }
+      throw error;
+    }
+    if (isCurrent === undefined && options?.remoteSync === 'once') {
+      return {
+        localStatus: 'unavailable',
+        remoteStatus: 'notAttempted',
+      } as const;
+    }
+    if (isCurrent === false) {
+      return {
+        localStatus: options?.preserveExistingTx ? 'existing' : 'superseded',
+        remoteStatus: 'skipped',
+      } as const;
+    }
+    let remoteStatus: 'synced' | 'failed' = 'synced';
     try {
       await this.updateEarnOrderStatusToServer({
         order: order as IEarnOrderItem,
+        ...(options?.remoteSync === 'once' ? { maxAttempts: 1 as const } : {}),
       });
     } catch (_e) {
       // ignore error, continue
+      remoteStatus = 'failed';
       defaultLogger.staking.order.updateOrderStatusError({
         status: order.status,
       });
     }
+    return {
+      localStatus: isCurrent === undefined ? 'unavailable' : 'saved',
+      remoteStatus,
+    } as const;
   }
 
   @backgroundMethod()
@@ -2495,8 +2760,17 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
-    const maxRetries = 3;
+  async updateEarnOrderStatusToServer({
+    order,
+    maxAttempts = 3,
+  }: {
+    order: IEarnOrderItem;
+    maxAttempts?: number;
+  }) {
+    if (maxAttempts !== 1 && maxAttempts !== 3) {
+      throw new OneKeyLocalError('Invalid Earn order retry policy');
+    }
+    const maxRetries = maxAttempts;
     let lastError;
 
     for (let i = 0; i < maxRetries; i += 1) {

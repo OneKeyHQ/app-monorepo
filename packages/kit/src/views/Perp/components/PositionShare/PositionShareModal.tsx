@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { useInPageDialog } from '@onekeyhq/components';
-import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
+import { Dialog, ScrollView, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -174,7 +174,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   }, [config.customText, onClose, waitForReferral]);
 
   const desktopLayout = (
-    <YStack gap="$5">
+    <>
       <ShareImageGenerator
         ref={generatorRef}
         data={data}
@@ -183,29 +183,34 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         referralDisplayText={referralDisplayText}
         isReferralReady={isReferralReady}
       />
-      <Stack justifyContent="center" alignItems="center">
-        <ShareView
-          data={data}
-          config={config}
-          referralQrCodeUrl={referralQrCodeUrl}
-          referralDisplayText={referralDisplayText}
-          isReferralReady={isReferralReady}
-          scale={0.5}
-          generatorRef={generatorRef}
-        />
-      </Stack>
-      <Stack maxWidth={380}>
-        <ControlPanel
-          config={config}
-          onChange={setConfig}
-          onSaveImage={handleSaveImage}
-          onShareImage={handleShareImage}
-          onCopyLink={handleCopyLink}
-          onShareToX={handleShareToX}
-          isLoading={isActionLoading}
-        />
-      </Stack>
-    </YStack>
+      {/* Reserve the dialog header (70px) and bottom padding (20px). */}
+      <ScrollView maxHeight="calc(90vh - 90px)">
+        <YStack gap="$5">
+          <Stack justifyContent="center" alignItems="center">
+            <ShareView
+              data={data}
+              config={config}
+              referralQrCodeUrl={referralQrCodeUrl}
+              referralDisplayText={referralDisplayText}
+              isReferralReady={isReferralReady}
+              scale={0.5}
+              generatorRef={generatorRef}
+            />
+          </Stack>
+          <Stack maxWidth={380}>
+            <ControlPanel
+              config={config}
+              onChange={setConfig}
+              onSaveImage={handleSaveImage}
+              onShareImage={handleShareImage}
+              onCopyLink={handleCopyLink}
+              onShareToX={handleShareToX}
+              isLoading={isActionLoading}
+            />
+          </Stack>
+        </YStack>
+      </ScrollView>
+    </>
   );
 
   const mobileLayout = (

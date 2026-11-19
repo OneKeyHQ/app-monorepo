@@ -192,6 +192,59 @@ describe('TradingViewNativeIntervalSelector', () => {
     );
   });
 
+  it('keeps four preferred intervals in a regular mobile toolbar', () => {
+    render(
+      <TradingViewNativeIntervalSelector
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    expect(mockUseNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visiblePreferredIntervalCount: 4 }),
+    );
+  });
+
+  it('offers the compact chart slot count in a wide regular mobile toolbar', () => {
+    render(
+      <TradingViewNativeIntervalSelector
+        wideMobileLayout
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    expect(mockUseNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visiblePreferredIntervalCount: 6 }),
+    );
+    // Wide toolbars keep the regular segment sizing.
+    expect(mockSegmentControl).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        flexShrink: undefined,
+        h: 30,
+        segmentControlItemStyleProps: expect.objectContaining({
+          minWidth: 42,
+          px: '$2.5',
+        }),
+      }),
+    );
+  });
+
+  it('keeps popover preferences unlimited in a wide toolbar', () => {
+    render(
+      <TradingViewNativeIntervalSelector
+        wideMobileLayout
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        intervalControlMode="popover"
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    expect(mockUseNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visiblePreferredIntervalCount: null }),
+    );
+  });
+
   it('keeps compact intervals compressible beside sibling controls', () => {
     const view = render(
       <TradingViewNativeIntervalSelector
