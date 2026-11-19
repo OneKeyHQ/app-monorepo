@@ -137,6 +137,10 @@ body {
     var(--bgApp);
 }
 
+[data-testid='perp-recent-trades-scroll'] {
+  overflow-anchor: none;
+}
+
 [data-testid='perp-desktop-table-scroll'][data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
   width: 4px;
   height: 4px;

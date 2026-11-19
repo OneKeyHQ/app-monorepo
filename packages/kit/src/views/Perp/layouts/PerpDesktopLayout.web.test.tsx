@@ -115,6 +115,7 @@ jest.mock('../components/FavoritesBar/FavoritesBar.web', () => ({
   FavoritesBar: () => <div>Favorites</div>,
 }));
 jest.mock('../components/MarketDetail/PerpMarketWorkspacePanel', () => ({
+  PerpDesktopOrderBookPanel: () => <div>Order book</div>,
   PerpMarketWorkspacePanel: () => {
     const React = jest.requireActual<typeof import('react')>('react');
     React.useEffect(() => {
@@ -129,9 +130,6 @@ jest.mock('../components/OrderInfoPanel/PerpOrderInfoPanel', () => ({
 }));
 jest.mock('../components/PerpNetworkAlert', () => ({
   PerpNetworkAlert: () => null,
-}));
-jest.mock('../components/PerpOrderBook', () => ({
-  PerpOrderBook: () => <div>Order book</div>,
 }));
 jest.mock('../components/PerpsRecallBanner', () => ({
   PerpsRecallBanner: () => <div>Recall banner</div>,

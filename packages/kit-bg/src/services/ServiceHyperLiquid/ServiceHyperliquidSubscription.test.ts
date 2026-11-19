@@ -4,7 +4,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
+  PERPS_RECENT_TRADES_LIMIT,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -547,15 +550,21 @@ describe('ServiceHyperliquidSubscription public trades', () => {
   const unsubscribe = jest.fn<Promise<void>, []>();
   const close = jest.fn<void, []>();
   const trades = jest.fn();
+  let socket: EventTarget;
+  let hlEvents: EventTarget;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    socket = new EventTarget();
+    hlEvents = new EventTarget();
     unsubscribe.mockResolvedValue(undefined);
     trades.mockResolvedValue({ unsubscribe });
     jest.mocked(WebSocketTransport).mockImplementation(
       () =>
         ({
           close,
+          socket,
+          _hlEvents: hlEvents,
         }) as unknown as WebSocketTransport,
     );
     jest.mocked(SubscriptionClient).mockImplementation(
@@ -584,7 +593,41 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('batches typed Hyperliquid trade updates before foreground delivery', async () => {
+  it('waits for the market subscription acknowledgement after the socket reopens', async () => {
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    try {
+      await service.subscribePublicTrades({ coin: 'BTC' });
+      socket.dispatchEvent(new Event('close'));
+      socket.dispatchEvent(new Event('open'));
+      expect(emit.mock.calls).toEqual([
+        [
+          EAppEventBusNames.HyperliquidPublicTradesStatus,
+          { status: 'disconnected' },
+        ],
+      ]);
+      hlEvents.dispatchEvent(
+        new CustomEvent('subscriptionResponse', {
+          detail: {
+            method: 'subscribe',
+            subscription: { type: 'trades', coin: 'BTC' },
+          },
+        }),
+      );
+      expect(emit).toHaveBeenLastCalledWith(
+        EAppEventBusNames.HyperliquidPublicTradesStatus,
+        {
+          status: 'connected',
+          coin: 'BTC',
+        },
+      );
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades({ coin: 'BTC' });
+    }
+  });
+
+  it('batches Swap-only trades for one second and delivers immediately while Perps also subscribes', async () => {
     jest.useFakeTimers();
     const service = createService();
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
@@ -598,6 +641,7 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       px: '64001',
       time: 1_700_000_000_987,
     } as IRecentTrade;
+    const perps = { coin: 'BTC', limit: PERPS_RECENT_TRADES_LIMIT };
 
     try {
       await service.subscribePublicTrades({ coin: 'BTC' });
@@ -605,11 +649,29 @@ describe('ServiceHyperliquidSubscription public trades', () => {
         data: IRecentTrade[],
       ) => void;
       listener([olderTrade]);
-      listener([newerTrade]);
-
+      jest.advanceTimersByTime(999);
       expect(emit).not.toHaveBeenCalled();
-      jest.advanceTimersByTime(1000);
+      await service.subscribePublicTrades(perps);
+      expect(trades).toHaveBeenCalledTimes(1);
+      listener([newerTrade]);
+      expect(emit).toHaveBeenLastCalledWith(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        {
+          type: 'market',
+          subType: ESubscriptionType.TRADES,
+          data: [newerTrade, olderTrade],
+        },
+      );
+      jest.advanceTimersByTime(1);
+      expect(emit).toHaveBeenCalledTimes(1);
 
+      await service.unsubscribePublicTrades(perps);
+      emit.mockClear();
+      listener([olderTrade]);
+      listener([newerTrade]);
+      jest.advanceTimersByTime(999);
+      expect(emit).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
       expect(emit).toHaveBeenCalledWith(
         EAppEventBusNames.HyperliquidDataUpdate,
         {

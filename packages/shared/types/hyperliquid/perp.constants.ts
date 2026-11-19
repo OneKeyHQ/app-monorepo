@@ -47,6 +47,7 @@ export interface IUsdcWithdrawFeeQuote {
 }
 
 export const MAX_DECIMALS_PERP = 6;
+export const PERPS_RECENT_TRADES_LIMIT = 50;
 export const MAX_DECIMALS_SPOT = 8;
 export const MAX_SIGNIFICANT_FIGURES = 5;
 export const MAX_PRICE_INTEGER_DIGITS = 12;

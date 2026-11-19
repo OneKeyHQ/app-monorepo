@@ -10,12 +10,10 @@ import type { CSSProperties } from 'react';
 
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
-import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   IconButton,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -23,14 +21,15 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
-import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketWorkspacePanel';
+import {
+  PerpDesktopOrderBookPanel,
+  PerpMarketWorkspacePanel,
+} from '../components/MarketDetail/PerpMarketWorkspacePanel';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpNetworkAlert } from '../components/PerpNetworkAlert';
-import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpsRecallBanner } from '../components/PerpsRecallBanner';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
@@ -52,7 +51,6 @@ import {
 import type { AllotmentHandle } from 'allotment';
 
 function PerpDesktopLayout() {
-  const intl = useIntl();
   const { gtXl } = useMedia();
   const theme = useTheme();
   const { width: viewportWidth, height: viewportHeight } =
@@ -238,26 +236,11 @@ function PerpDesktopLayout() {
           h="100%"
           overflow="hidden"
         >
-          <XStack
-            h={layout.panelHeaderHeight}
-            alignItems="center"
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
-            px="$2"
-          >
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.perps_order_book,
-              })}
-            </SizableText>
-          </XStack>
-          <YStack flex={1} overflow="hidden">
-            <PerpOrderBook
-              initialOrderBookHeight={
-                chartSplitSizes[0] - layout.panelHeaderHeight
-              }
-            />
-          </YStack>
+          <PerpDesktopOrderBookPanel
+            initialOrderBookHeight={
+              chartSplitSizes[0] - layout.panelHeaderHeight
+            }
+          />
         </YStack>
       ) : null}
     </XStack>

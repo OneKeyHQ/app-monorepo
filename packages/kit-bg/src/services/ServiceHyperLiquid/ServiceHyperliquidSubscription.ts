@@ -29,6 +29,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
+  PERPS_RECENT_TRADES_LIMIT,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IBook,
@@ -134,7 +135,9 @@ const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
 );
 
 interface IPublicTradesSubscription {
-  refCount: number;
+  batchLimits: number[];
+  connected: boolean;
+  failure?: Error;
   subscriptionPromise: Promise<IPerpsSubscription>;
 }
 
@@ -1994,6 +1997,43 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       resubscribe: true,
     });
     this._publicTradesTransport = transport;
+    transport.socket.addEventListener('close', () => {
+      if (this._publicTradesTransport !== transport) return;
+      this._clearAllPublicTradesBatches();
+      this._publicTradesSubscriptions.forEach((entry) => {
+        entry.connected = false;
+      });
+      appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
+        status: 'disconnected',
+      });
+    });
+    // A reconnect opens the socket before the SDK restores each market. Observe
+    // its parsed subscribe ack so even a quiet market can confirm recovery.
+    const { _hlEvents: events } = transport as unknown as {
+      _hlEvents: IHyperliquidEventTarget;
+    };
+    events.addEventListener('subscriptionResponse', (event) => {
+      const { method, subscription } = (
+        event as CustomEvent<{
+          method: string;
+          subscription: { type: string; coin: string };
+        }>
+      ).detail;
+      if (
+        this._publicTradesTransport !== transport ||
+        method !== 'subscribe' ||
+        subscription.type !== ESubscriptionType.TRADES
+      )
+        return;
+      const entry = this._publicTradesSubscriptions.get(subscription.coin);
+      if (entry && !entry.connected) {
+        entry.connected = true;
+        appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
+          status: 'connected',
+          coin: subscription.coin,
+        });
+      }
+    });
     this._publicTradesClient = new SubscriptionClient({ transport });
     return this._publicTradesClient;
   }
@@ -2017,16 +2057,28 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _queuePublicTradesUpdate(coin: string, trades: IWsTrades): void {
-    if (!this._publicTradesSubscriptions.has(coin) || trades.length === 0) {
+    const entry = this._publicTradesSubscriptions.get(coin);
+    if (!entry || trades.length === 0) {
       return;
     }
 
     const currentBatch = this._publicTradesBatches.get(coin);
+    const limit = Math.min(
+      PERPS_RECENT_TRADES_LIMIT,
+      Math.max(...entry.batchLimits),
+    );
     const batchedTrades = orderBy(
       [...(currentBatch?.trades ?? []), ...trades],
-      ['time'],
-      ['desc'],
-    ).slice(0, PUBLIC_TRADES_BATCH_LIMIT);
+      ['time', 'tid'],
+      ['desc', 'desc'],
+    ).slice(0, limit);
+    // The Perps tape requests the full window and follows the exchange's frame
+    // cadence. Include any pending Swap batch when it joins the same market.
+    if (limit === PERPS_RECENT_TRADES_LIMIT) {
+      this._clearPublicTradesBatch(coin);
+      this._emitHyperliquidDataUpdate(ESubscriptionType.TRADES, batchedTrades);
+      return;
+    }
     if (currentBatch) {
       currentBatch.trades = batchedTrades;
       return;
@@ -2064,10 +2116,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
-  async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+  async subscribePublicTrades({
+    coin,
+    limit = PUBLIC_TRADES_BATCH_LIMIT,
+  }: {
+    coin: string;
+    limit?: number;
+  }): Promise<boolean> {
     const normalizedCoin = coin.trim();
     if (!normalizedCoin) {
-      return;
+      return false;
     }
 
     await this._subscriptionMutationQueue.enqueue(
@@ -2075,18 +2133,37 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       async () => {
         const current = this._publicTradesSubscriptions.get(normalizedCoin);
         if (current) {
-          current.refCount += 1;
+          if (current.failure) throw current.failure;
+          current.batchLimits.push(limit);
           await current.subscriptionPromise;
           return;
         }
 
         const client = this._getPublicTradesClient();
         const entry: IPublicTradesSubscription = {
-          refCount: 1,
+          batchLimits: [limit],
+          connected: false,
           subscriptionPromise: client.trades(
             { coin: normalizedCoin },
             (trades: IWsTrades) => {
               this._queuePublicTradesUpdate(normalizedCoin, trades);
+            },
+            {
+              onError: (error) => {
+                if (
+                  this._publicTradesSubscriptions.get(normalizedCoin) === entry
+                ) {
+                  entry.connected = false;
+                  entry.failure = error;
+                  appEventBus.emit(
+                    EAppEventBusNames.HyperliquidPublicTradesStatus,
+                    {
+                      status: 'failed',
+                      coin: normalizedCoin,
+                    },
+                  );
+                }
+              },
             },
           ),
         };
@@ -2106,10 +2183,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         }
       },
     );
+    return (
+      this._publicTradesSubscriptions.get(normalizedCoin)?.connected ?? false
+    );
   }
 
   @backgroundMethod()
-  async unsubscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+  async unsubscribePublicTrades({
+    coin,
+    limit = PUBLIC_TRADES_BATCH_LIMIT,
+  }: {
+    coin: string;
+    limit?: number;
+  }): Promise<void> {
     const normalizedCoin = coin.trim();
     if (!normalizedCoin) {
       return;
@@ -2123,8 +2209,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           return;
         }
 
-        entry.refCount -= 1;
-        if (entry.refCount > 0) {
+        const index = entry.batchLimits.indexOf(limit);
+        if (index < 0) return;
+        entry.batchLimits.splice(index, 1);
+        if (entry.batchLimits.length > 0) {
           return;
         }
 

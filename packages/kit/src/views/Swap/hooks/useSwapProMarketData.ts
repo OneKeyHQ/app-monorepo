@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import {
   SWAP_PRO_TRANSACTION_LIMIT,
@@ -54,11 +48,6 @@ const swapProMarketDataCache = new LRUCache<string, ISwapProMarketDataState>({
 const MARKET_TRANSACTIONS_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
-const HYPERLIQUID_SUBSCRIPTION_RETRY_BASE_DELAY_MS =
-  timerUtils.getTimeDurationMs({ seconds: 1 });
-const HYPERLIQUID_SUBSCRIPTION_RETRY_MAX_DELAY_MS =
-  timerUtils.getTimeDurationMs({ seconds: 30 });
-
 function useSwapProMarketDataFeed({
   tokenAddress,
   networkId,
@@ -146,109 +135,6 @@ function useSwapProMarketDataFeed({
     hasLoadedSource:
       feedResult?.feedKey === feedKey || cachedFeedState !== undefined,
   };
-}
-
-function useHyperliquidTradesWebSocket({
-  coin,
-  enabled,
-  onNewTransactions,
-}: {
-  coin: string;
-  enabled: boolean;
-  onNewTransactions: (transactions: ISwapProMarketTransaction[]) => void;
-}) {
-  const onNewTransactionsRef = useRef(onNewTransactions);
-  onNewTransactionsRef.current = onNewTransactions;
-
-  useEffect(() => {
-    if (!enabled || !coin) {
-      return;
-    }
-
-    const handleHyperliquidDataUpdate = (
-      payload: IAppEventBusPayload[EAppEventBusNames.HyperliquidDataUpdate],
-    ) => {
-      if (
-        payload.subType !== ESubscriptionType.TRADES ||
-        !Array.isArray(payload.data)
-      ) {
-        return;
-      }
-
-      const trades = (payload.data as IWsTrades).filter(
-        (trade) => trade.coin === coin,
-      );
-      if (trades.length === 0) {
-        return;
-      }
-
-      onNewTransactionsRef.current(
-        mapHyperliquidTradesToSwapProTransactions(trades),
-      );
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.HyperliquidDataUpdate,
-      handleHyperliquidDataUpdate,
-    );
-    let disposed = false;
-    let subscriptionAcquired = false;
-    let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined;
-    let subscriptionRetryAttempt = 0;
-    const releaseSubscription = () => {
-      if (!subscriptionAcquired) {
-        return;
-      }
-      subscriptionAcquired = false;
-      void backgroundApiProxy.serviceHyperliquidSubscription
-        .unsubscribePublicTrades({ coin })
-        .catch((error) => {
-          console.error(
-            'Failed to unsubscribe from Hyperliquid public trades:',
-            error,
-          );
-        });
-    };
-    const subscribe = () => {
-      void backgroundApiProxy.serviceHyperliquidSubscription
-        .subscribePublicTrades({ coin })
-        .then(() => {
-          subscriptionAcquired = true;
-          if (disposed) {
-            releaseSubscription();
-          }
-        })
-        .catch((error) => {
-          console.error(
-            'Failed to subscribe to Hyperliquid public trades:',
-            error,
-          );
-          if (disposed) {
-            return;
-          }
-          const retryDelay = Math.min(
-            HYPERLIQUID_SUBSCRIPTION_RETRY_BASE_DELAY_MS *
-              2 ** subscriptionRetryAttempt,
-            HYPERLIQUID_SUBSCRIPTION_RETRY_MAX_DELAY_MS,
-          );
-          subscriptionRetryAttempt += 1;
-          subscriptionRetryTimer = setTimeout(subscribe, retryDelay);
-        });
-    };
-    subscribe();
-
-    return () => {
-      disposed = true;
-      if (subscriptionRetryTimer) {
-        clearTimeout(subscriptionRetryTimer);
-      }
-      appEventBus.off(
-        EAppEventBusNames.HyperliquidDataUpdate,
-        handleHyperliquidDataUpdate,
-      );
-      releaseSubscription();
-    };
-  }, [coin, enabled]);
 }
 
 function useSwapProMarketDataState({
@@ -367,11 +253,18 @@ export function useSwapProMarketData({
     maxPendingTransactions: SWAP_PRO_TRANSACTION_LIMIT,
     onNewTransactions: handleNewTransactions,
   });
-  useHyperliquidTradesWebSocket({
-    coin: 'BTC',
-    enabled: enabled && source === 'hyperliquid',
-    onNewTransactions: handleNewTransactions,
-  });
+  useEffect(() => {
+    if (enabled && source === 'hyperliquid') {
+      return watchHyperliquidPublicTrades({
+        coin: 'BTC',
+        onTrades: (trades) => {
+          handleNewTransactions(
+            mapHyperliquidTradesToSwapProTransactions(trades),
+          );
+        },
+      });
+    }
+  }, [enabled, source, handleNewTransactions]);
 
   return useMemo(() => {
     return buildSwapProMarketData({

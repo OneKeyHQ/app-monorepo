@@ -12,12 +12,16 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
 
-import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
+import {
+  PerpDesktopOrderBookPanel,
+  PerpMarketWorkspacePanel,
+} from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
 
 import type { IPerpTokenSelection } from './TokenSelector/PerpTokenSelector';
@@ -29,6 +33,9 @@ let mockSzDecimals: number | undefined = 2;
 let mockTradeDisplay: ReturnType<typeof buildActiveTradeDisplay> | undefined;
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
+const mockRecentTrades = jest.fn<null, [{ active: boolean; visible: boolean }]>(
+  () => null,
+);
 const mockChartUserAddress = jest.fn();
 const mockSetLayoutState = jest.fn();
 let mockCustomSettings: Pick<
@@ -69,6 +76,10 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
+}));
+
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
@@ -82,6 +93,8 @@ jest.mock('@onekeyhq/components', () => ({
   LottieView: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
   useMedia: () => ({ gtMd: true }),
+  getCurrentVisibilityState: () => true,
+  useVisibilityChange: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
@@ -204,6 +217,11 @@ jest.mock('./MarketDetail/PerpFundingChart', () => ({
 
 jest.mock('./PerpOrderBook', () => ({
   PerpOrderBook: () => null,
+}));
+
+jest.mock('./PerpRecentTrades', () => ({
+  PerpRecentTrades: (props: { active: boolean; visible: boolean }) =>
+    mockRecentTrades(props),
 }));
 
 jest.mock('./MarketDetail/PerpMarketDetailContent', () => ({
@@ -584,6 +602,50 @@ describe('PerpCandles account switch', () => {
     expect(mockChartUserAddress).toHaveBeenLastCalledWith(undefined);
     expect(mockChartUserAddress).toHaveBeenCalledWith('0xDEF');
   });
+});
+
+it('keeps the desktop trade feed warm for 30 seconds and drops it on a hidden market change', () => {
+  jest.useFakeTimers();
+  const web = jest.replaceProperty(platformEnv, 'isWeb', true);
+  const view = render(
+    <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />,
+  );
+  const select = (label: ETranslations) => {
+    act(view.UNSAFE_getByProps({ label }).props.onPress as () => void);
+  };
+  try {
+    expect(mockRecentTrades).not.toHaveBeenCalled();
+    select(ETranslations.swap_page_recent_trade);
+    expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+      active: true,
+      visible: true,
+    });
+    select(ETranslations.perps_order_book);
+    act(() => {
+      jest.advanceTimersByTime(29_999);
+    });
+    expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+      active: true,
+      visible: false,
+    });
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+      active: false,
+      visible: false,
+    });
+    select(ETranslations.swap_page_recent_trade);
+    select(ETranslations.perps_order_book);
+    mockRecentTrades.mockClear();
+    mockCoin = 'BTC';
+    view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
+    expect(mockRecentTrades).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    web.restore();
+    jest.useRealTimers();
+  }
 });
 
 describe.each([
