@@ -7,6 +7,7 @@ import {
   EOneKeyErrorClassNames,
 } from '../types/errorTypes';
 
+import { convertDeviceError } from './deviceErrorUtils';
 import {
   FIRMWARE_UPDATE_ERROR_DETAIL_MAX_LENGTH,
   buildFirmwareUpdateFailureReport,
@@ -183,6 +184,8 @@ describe('firmwareUpdateErrorUtils', () => {
     ],
     [HardwareErrorCode.UseDesktopToUpdateFirmware, 'requires_desktop'],
     [HardwareErrorCode.DeviceCheckDeviceIdError, 'device_mismatch'],
+    [ECustomOneKeyHardwareError.NeedOneKeyBridgeUpgrade, 'requires_bridge'],
+    [HardwareErrorCode.FirmwareUpdateLimitOneDevice, 'device_limit'],
     [HardwareErrorCode.BleForceCleanRunPromise, 'ble_interrupted'],
   ] as const)(
     'classifies gate or transport code %s as %s',
@@ -216,9 +219,8 @@ describe('firmwareUpdateErrorUtils', () => {
       buildFirmwareUpdateFailureReport({
         code: HardwareErrorCode.UnknownError,
       }),
-    ).toMatchObject({
+    ).toEqual({
       failureType: 'unknown',
-      failurePhase: 'execution',
       errorCode: String(HardwareErrorCode.UnknownError),
     });
 
@@ -226,6 +228,25 @@ describe('firmwareUpdateErrorUtils', () => {
       buildFirmwareUpdateFailureReport({
         code: -99_999,
         payload: { code: HardwareErrorCode.FirmwareError },
+      }).failureType,
+    ).toBe('install');
+  });
+
+  it('keeps a Protocol V2 install poll timeout out of the install bucket', () => {
+    const converted = convertDeviceError({
+      code: HardwareErrorCode.FirmwareError,
+      error: 'Protocol V2 firmware install timed out',
+      params: { firmwareUpdateCode: 'FirmwareInstallTimeout' },
+    });
+    const report = buildFirmwareUpdateFailureReport(converted);
+
+    expect(report.failureType).toBe('timeout');
+    expect(report.failurePhase).toBe('execution');
+    expect(report.errorCode).toBe(String(HardwareErrorCode.FirmwareError));
+    expect(
+      buildFirmwareUpdateFailureReport({
+        code: HardwareErrorCode.FirmwareError,
+        message: 'Firmware installation failed',
       }).failureType,
     ).toBe('install');
   });
@@ -250,6 +271,18 @@ describe('firmwareUpdateErrorUtils', () => {
       failureType: 'transfer',
       failurePhase: 'execution',
       errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+    });
+    expect(
+      resolveReportedFirmwareUpdateFailure({
+        error: { code: HardwareErrorCode.ActionCancelled },
+        previous: {
+          failureType: 'unknown',
+          errorCode: '-99999',
+        },
+      }),
+    ).toEqual({
+      failureType: 'unknown',
+      errorCode: '-99999',
     });
   });
 

@@ -25,17 +25,21 @@ export type IFirmwareUpdateFailureType =
   | 'low_battery'
   | 'requires_usb'
   | 'requires_desktop'
+  | 'requires_bridge'
+  | 'device_limit'
   | 'unknown';
 
 export type IFirmwareUpdateFailurePhase = 'precondition' | 'execution';
 
 export type IFirmwareUpdateFailureReport = {
   failureType: IFirmwareUpdateFailureType;
-  failurePhase: IFirmwareUpdateFailurePhase;
+  failurePhase?: IFirmwareUpdateFailurePhase;
   errorCode?: string;
   errorName?: string;
   errorDetail?: string;
 };
+
+const PROTOCOL_V2_FIRMWARE_INSTALL_TIMEOUT_CODE = 'FirmwareInstallTimeout';
 
 export const FIRMWARE_UPDATE_ERROR_DETAIL_MAX_LENGTH = 120;
 
@@ -96,6 +100,8 @@ const FIRMWARE_UPDATE_FAILURE_TYPE_BY_CODE = new Map<
     'requires_usb',
   ],
   [HardwareErrorCode.UseDesktopToUpdateFirmware, 'requires_desktop'],
+  [ECustomOneKeyHardwareError.NeedOneKeyBridgeUpgrade, 'requires_bridge'],
+  [HardwareErrorCode.FirmwareUpdateLimitOneDevice, 'device_limit'],
 ]);
 
 const FIRMWARE_UPDATE_PRECONDITION_FAILURE_TYPES =
@@ -105,6 +111,19 @@ const FIRMWARE_UPDATE_PRECONDITION_FAILURE_TYPES =
     'low_battery',
     'requires_usb',
     'requires_desktop',
+    'requires_bridge',
+    'device_limit',
+  ]);
+
+const FIRMWARE_UPDATE_EXECUTION_FAILURE_TYPES =
+  new Set<IFirmwareUpdateFailureType>([
+    'device_disconnected',
+    'download',
+    'transfer',
+    'install',
+    'verification',
+    'timeout',
+    'ble_interrupted',
   ]);
 
 const SAFE_FIRMWARE_UPDATE_ERROR_NAMES = new Set<string>([
@@ -185,6 +204,15 @@ function getFirstMappedFirmwareUpdateFailure(
     }
   }
   return undefined;
+}
+
+function isProtocolV2FirmwareInstallTimeout(
+  error: IOneKeyError | undefined,
+): boolean {
+  return (
+    error?.payload?.params?.firmwareUpdateCode ===
+    PROTOCOL_V2_FIRMWARE_INSTALL_TIMEOUT_CODE
+  );
 }
 
 function isArtifactDownloadErrorCode(code: string | undefined): boolean {
@@ -297,6 +325,13 @@ export function classifyFirmwareUpdateFailure(
     return 'cancelled';
   }
   const mappedFailure = getFirstMappedFirmwareUpdateFailure(error);
+  if (
+    mappedFailure?.failureType === 'install' &&
+    mappedFailure.code === HardwareErrorCode.FirmwareError &&
+    isProtocolV2FirmwareInstallTimeout(error)
+  ) {
+    return 'timeout';
+  }
   if (mappedFailure) {
     return mappedFailure.failureType;
   }
@@ -314,10 +349,14 @@ export function classifyFirmwareUpdateFailure(
 
 export function resolveFirmwareUpdateFailurePhase(
   failureType: IFirmwareUpdateFailureType,
-): IFirmwareUpdateFailurePhase {
-  return FIRMWARE_UPDATE_PRECONDITION_FAILURE_TYPES.has(failureType)
-    ? 'precondition'
-    : 'execution';
+): IFirmwareUpdateFailurePhase | undefined {
+  if (FIRMWARE_UPDATE_PRECONDITION_FAILURE_TYPES.has(failureType)) {
+    return 'precondition';
+  }
+  if (FIRMWARE_UPDATE_EXECUTION_FAILURE_TYPES.has(failureType)) {
+    return 'execution';
+  }
+  return undefined;
 }
 
 export function resolveFirmwareUpdateErrorName(
@@ -356,8 +395,11 @@ export function buildFirmwareUpdateFailureReport(
   const failureType = classifyFirmwareUpdateFailure(error);
   const report: IFirmwareUpdateFailureReport = {
     failureType,
-    failurePhase: resolveFirmwareUpdateFailurePhase(failureType),
   };
+  const failurePhase = resolveFirmwareUpdateFailurePhase(failureType);
+  if (failurePhase) {
+    report.failurePhase = failurePhase;
+  }
   const errorCode = resolveClassifiedFirmwareUpdateErrorCode(
     error,
     failureType,
@@ -419,17 +461,15 @@ export function resolveReportedFirmwareUpdateFailure({
   if (current.failureType !== 'cancelled') {
     return current;
   }
-  if (
-    !previous?.failureType ||
-    previous.failureType === 'cancelled' ||
-    !previous.failurePhase
-  ) {
+  if (!previous?.failureType || previous.failureType === 'cancelled') {
     return undefined;
   }
   const previousReport: IFirmwareUpdateFailureReport = {
     failureType: previous.failureType,
-    failurePhase: previous.failurePhase,
   };
+  if (previous.failurePhase) {
+    previousReport.failurePhase = previous.failurePhase;
+  }
   if (previous.errorCode) {
     previousReport.errorCode = previous.errorCode;
   }
