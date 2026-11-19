@@ -2,12 +2,19 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { FirmwareUpdateTasksClear } from '../errors/appErrors';
 import { DeviceDisconnectedError } from '../errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '../types/errorTypes';
+import {
+  ECustomOneKeyHardwareError,
+  EOneKeyErrorClassNames,
+} from '../types/errorTypes';
 
 import {
+  FIRMWARE_UPDATE_ERROR_DETAIL_MAX_LENGTH,
+  buildFirmwareUpdateFailureReport,
   classifyFirmwareUpdateFailure,
   isFirmwareUpdateCancellationError,
+  limitFirmwareUpdateErrorDetail,
   resolveFirmwareUpdateErrorCode,
+  resolveReportedFirmwareUpdateFailure,
   shouldHideFirmwareUpdateInternalError,
   toUserFacingFirmwareUpdateError,
 } from './firmwareUpdateErrorUtils';
@@ -165,5 +172,158 @@ describe('firmwareUpdateErrorUtils', () => {
     expect(
       classifyFirmwareUpdateFailure({ message: 'unexpected failure' }),
     ).toBe('unknown');
+  });
+
+  it.each([
+    [ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb, 'requires_web'],
+    [ECustomOneKeyHardwareError.FirmwareUpdateBatteryTooLow, 'low_battery'],
+    [
+      ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport,
+      'requires_usb',
+    ],
+    [HardwareErrorCode.UseDesktopToUpdateFirmware, 'requires_desktop'],
+    [HardwareErrorCode.DeviceCheckDeviceIdError, 'device_mismatch'],
+    [HardwareErrorCode.BleForceCleanRunPromise, 'ble_interrupted'],
+  ] as const)(
+    'classifies gate or transport code %s as %s',
+    (code, expected) => {
+      const report = buildFirmwareUpdateFailureReport({ code });
+
+      expect(report.failureType).toBe(expected);
+      expect(report.errorCode).toBe(String(code));
+      expect(report.failurePhase).toBe(
+        expected === 'ble_interrupted' ? 'execution' : 'precondition',
+      );
+    },
+  );
+
+  it('uses the first mapped code instead of a later category', () => {
+    const report = buildFirmwareUpdateFailureReport({
+      code: HardwareErrorCode.RuntimeError,
+      payload: {
+        code: HardwareErrorCode.BleTimeoutError,
+        params: { causeCode: HardwareErrorCode.FirmwareError },
+      },
+    });
+
+    expect(report.failureType).toBe('install');
+    expect(report.failurePhase).toBe('execution');
+    expect(report.errorCode).toBe(String(HardwareErrorCode.FirmwareError));
+  });
+
+  it('keeps an unmapped sentinel unknown until a later code maps', () => {
+    expect(
+      buildFirmwareUpdateFailureReport({
+        code: HardwareErrorCode.UnknownError,
+      }),
+    ).toMatchObject({
+      failureType: 'unknown',
+      failurePhase: 'execution',
+      errorCode: String(HardwareErrorCode.UnknownError),
+    });
+
+    expect(
+      buildFirmwareUpdateFailureReport({
+        code: -99_999,
+        payload: { code: HardwareErrorCode.FirmwareError },
+      }).failureType,
+    ).toBe('install');
+  });
+
+  it('does not report a pure cancellation, but keeps an earlier real failure', () => {
+    expect(
+      resolveReportedFirmwareUpdateFailure({
+        error: { message: 'updateTasksClear: exitUpdateWorkflow' },
+      }),
+    ).toBeUndefined();
+
+    expect(
+      resolveReportedFirmwareUpdateFailure({
+        error: { code: HardwareErrorCode.ActionCancelled },
+        previous: {
+          failureType: 'transfer',
+          failurePhase: 'execution',
+          errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+        },
+      }),
+    ).toEqual({
+      failureType: 'transfer',
+      failurePhase: 'execution',
+      errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+    });
+  });
+
+  it('still treats a cancellation code anywhere on the error as cancelled', () => {
+    expect(
+      classifyFirmwareUpdateFailure({
+        code: HardwareErrorCode.FirmwareError,
+        payload: { code: HardwareErrorCode.ActionCancelled },
+      }),
+    ).toBe('cancelled');
+  });
+
+  it('reports a replaced BLE call as a failed execution, not a cancellation', () => {
+    const report = buildFirmwareUpdateFailureReport({
+      code: HardwareErrorCode.BleForceCleanRunPromise,
+      message: 'Force clean Bluetooth run promise',
+    });
+
+    expect(report.failureType).toBe('ble_interrupted');
+    expect(
+      resolveReportedFirmwareUpdateFailure({
+        error: { code: HardwareErrorCode.BleForceCleanRunPromise },
+      })?.failureType,
+    ).toBe('ble_interrupted');
+    expect(report.errorDetail).toBe('Force clean Bluetooth run promise');
+  });
+
+  it('drops raw messages and only keeps an allowlisted detail', () => {
+    const secret =
+      'abandon abandon connectId SERIAL-1 https://firmware.onekey.so/fw?token=sekret';
+    const unsafe = buildFirmwareUpdateFailureReport({
+      code: ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
+      className: EOneKeyErrorClassNames.OneKeyHardwareError,
+      message: secret,
+      payload: {
+        message: secret,
+        connectId: 'SERIAL-1',
+      },
+    });
+    const safe = buildFirmwareUpdateFailureReport({
+      code: -99_999,
+      className: EOneKeyErrorClassNames.OneKeyLocalError,
+      name: EOneKeyErrorClassNames.OneKeyLocalError,
+      message: 'USB not connected',
+    });
+
+    expect(unsafe).toEqual({
+      failureType: 'requires_web',
+      failurePhase: 'precondition',
+      errorCode: String(ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb),
+      errorName: 'OneKeyHardwareError',
+    });
+    expect(JSON.stringify(unsafe)).not.toContain('sekret');
+    expect(JSON.stringify(unsafe)).not.toContain('SERIAL-1');
+    expect(JSON.stringify(unsafe)).not.toContain('abandon');
+    expect(safe).toMatchObject({
+      failureType: 'unknown',
+      errorCode: '-99999',
+      errorName: 'OneKeyLocalError',
+      errorDetail: 'USB not connected',
+    });
+    expect(
+      buildFirmwareUpdateFailureReport({
+        message: 'Protocol V2 firmware install timed out',
+      }).errorDetail,
+    ).toBeUndefined();
+  });
+
+  it('truncates an allowlisted diagnostic at the fixed length', () => {
+    const detail = 'U'.repeat(FIRMWARE_UPDATE_ERROR_DETAIL_MAX_LENGTH + 40);
+
+    expect(limitFirmwareUpdateErrorDetail(detail)).toHaveLength(
+      FIRMWARE_UPDATE_ERROR_DETAIL_MAX_LENGTH,
+    );
+    expect(limitFirmwareUpdateErrorDetail(detail).includes(' ')).toBe(false);
   });
 });
