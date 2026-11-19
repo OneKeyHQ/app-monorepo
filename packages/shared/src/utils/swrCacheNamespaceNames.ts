@@ -18,6 +18,7 @@ const NS = {
   discoveryHomeBookmarks: 'disHomeBookmarks',
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
+  perpsOiHistory: 'perpsOiHistory',
   historyTxDetail: 'historyTxDetail',
   marketHomeBanners: 'marketHomeBanners',
   marketHomeConfig: 'marketHomeConfig',
