@@ -4698,6 +4698,25 @@ class ServiceHardware extends ServiceBase {
     return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
       async () => {
         try {
+          if (platformEnv.isExtensionBackgroundServiceWorker) {
+            return await this.sdkInstanceMutex.runExclusive(async () => {
+              const targetType =
+                deviceUtils.normalizeHardwareTransportTypeForPlatform({
+                  transportType,
+                });
+              const instance = await this.getSDKInstanceWithLifecycleLock({
+                connectId: undefined,
+                hardwareTransportType: targetType,
+                persistTransportType: false,
+              });
+              if (this.activeHardwareTransportType !== targetType) {
+                throw new OneKeyLocalError('Hardware transport is locked');
+              }
+              await this.connectionManager.setCurrentTransportType(targetType);
+              return instance;
+            });
+          }
+
           // 1. Update transport type setting
           await this.backgroundApi.serviceSetting.setHardwareTransportType(
             transportType,
