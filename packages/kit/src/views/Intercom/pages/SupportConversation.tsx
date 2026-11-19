@@ -227,7 +227,9 @@ function SupportComposer({
           px="$5"
           pt="$4"
           pb="$2"
-          focusStyle={{ outlineWidth: 0 }}
+          // The outline reset is web-only. On Android a focus style drops the
+          // field's padding while it is focused.
+          focusStyle={platformEnv.isNative ? undefined : { outlineWidth: 0 }}
           maxLength={10_000}
           value={draft}
           onChangeText={setDraft}

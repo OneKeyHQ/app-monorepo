@@ -577,7 +577,7 @@ export function SupportInbox({
                 onMessages={showMessages}
                 homeLabel={homeContent.data?.homeLabel}
                 messagesLabel={homeContent.data?.messagesLabel}
-                loading={labelsLoading}
+                loading={homeLoading || labelsLoading}
               />
             </YStack>
           </Page.Footer>

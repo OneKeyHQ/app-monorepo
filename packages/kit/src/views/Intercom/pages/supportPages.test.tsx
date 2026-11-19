@@ -1377,31 +1377,40 @@ function holdRequest(heldPath: string) {
   return gate;
 }
 
-it('holds the home placeholders until every section has answered', async () => {
-  mockRoute.name = 'IntercomHome';
-  const session = deferred<IIntercomMessengerSession>();
-  mockCreateSession.mockReturnValueOnce(session.promise);
-  const home = holdRequest('home');
-  render(<SupportScreen />);
-  // The placeholders are the first paint, before a session exists.
-  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
-  expect(mockRequest).not.toHaveBeenCalled();
-  await act(async () => {
-    session.resolve(mockSession);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  // The inbox and composer answered, but their cards wait for the last section.
-  expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 });
-  expect(mockRequest).toHaveBeenCalledWith('new_conversation_content');
-  expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
-  expect(screen.queryByTestId('support-conversation-42')).toBeNull();
-  expect(screen.queryByText('Loading')).toBeNull();
-  await act(async () => home.resolve());
-  await screen.findByTestId('support-conversation-42');
-  expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
-  expect(screen.getByTestId('support-article-123')).toBeTruthy();
-  expect(screen.getByTestId('support-home-external-link')).toBeTruthy();
-});
+it.each(['home', 'conversations', 'new_conversation_content'])(
+  'holds the home placeholders until %s, the last section, has answered',
+  async (lastSection) => {
+    mockRoute.name = 'IntercomHome';
+    const session = deferred<IIntercomMessengerSession>();
+    mockCreateSession.mockReturnValueOnce(session.promise);
+    const last = holdRequest(lastSection);
+    render(<SupportScreen />);
+    // The placeholders are the first paint, before a session exists.
+    expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+    expect(mockRequest).not.toHaveBeenCalled();
+    await act(async () => {
+      session.resolve(mockSession);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // Two sections answered, but cards and tab labels wait for the last one.
+    expect(mockRequest).toHaveBeenCalledWith('conversations', { per_page: 20 });
+    expect(mockRequest).toHaveBeenCalledWith('new_conversation_content');
+    expect(mockRequest).toHaveBeenCalledWith('home');
+    expect(screen.getByTestId('support-home-header-skeleton')).toBeTruthy();
+    expect(screen.queryByTestId('support-conversation-42')).toBeNull();
+    expect(screen.queryByTestId('support-article-123')).toBeNull();
+    expect(screen.getByTestId('support-message-history').textContent).toBe('');
+    expect(screen.queryByText('Loading')).toBeNull();
+    await act(async () => last.resolve());
+    await screen.findByTestId('support-conversation-42');
+    expect(screen.queryByTestId('support-home-header-skeleton')).toBeNull();
+    expect(screen.getByTestId('support-article-123')).toBeTruthy();
+    expect(screen.getByTestId('support-home-external-link')).toBeTruthy();
+    expect(screen.getByTestId('support-message-history').textContent).toBe(
+      'Messages',
+    );
+  },
+);
 
 it('keeps the loaded home in place while a failed section retries', async () => {
   mockRoute.name = 'IntercomHome';
