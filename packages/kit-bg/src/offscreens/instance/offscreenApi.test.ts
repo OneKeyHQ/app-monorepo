@@ -1,4 +1,6 @@
-import { HardwareSDKLowLevel } from '@onekeyfe/hd-common-connect-sdk';
+import { execFileSync } from 'node:child_process';
+
+import { HardwareSDKLowLevel } from '@onekeyfe/hd-common-connect-sdk-extension';
 import bridgeSDK from '@onekeyfe/hd-web-sdk/dist';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -16,7 +18,7 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   default: {},
 }));
 
-jest.mock('@onekeyfe/hd-common-connect-sdk', () => ({
+jest.mock('@onekeyfe/hd-common-connect-sdk-extension', () => ({
   HardwareSDKLowLevel: {
     init: jest.fn(),
     call: jest.fn(),
@@ -65,6 +67,37 @@ const call = (
     method,
     params,
   });
+
+it('loads the low-level WebUSB exports from the published SDK', () => {
+  const published = jest.requireActual<
+    typeof import('@onekeyfe/hd-common-connect-sdk-extension')
+  >('@onekeyfe/hd-common-connect-sdk-extension');
+  expect(typeof published.HardwareSDKLowLevel.init).toBe('function');
+  expect(typeof published.HardwareSDKLowLevel.call).toBe('function');
+  expect(typeof published.probeUsbDeviceIdentities).toBe('function');
+});
+
+it('loads the extension transport with dynamic code generation disabled', () => {
+  execFileSync(process.execPath, [
+    '--disallow-code-generation-from-strings',
+    '-e',
+    `
+      const assert = require('node:assert/strict');
+      const fs = require('node:fs');
+      const Module = require('node:module');
+      const path = require('node:path');
+      const adapt = require('./development/rspack/static-protobuf-compat-loader.cjs');
+      const sdkRequire = Module.createRequire(
+        require.resolve('@onekeyfe/hd-common-connect-sdk-extension/package.json'),
+      );
+      const entry = sdkRequire.resolve('@onekeyfe/hd-transport');
+      const transport = new Module(entry, module);
+      transport.paths = Module._nodeModulePaths(path.dirname(entry));
+      transport._compile(adapt(fs.readFileSync(entry, 'utf8')), entry);
+      assert.equal(typeof transport.exports.default.parseTransportConfigure, 'function');
+    `,
+  ]);
+});
 
 describe('offscreenApi local hardware SDK', () => {
   let activeListener: ((message: CoreMessage) => void) | undefined;
