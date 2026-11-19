@@ -117,6 +117,14 @@ export type ISubsidyQueryOwner = {
   onekeyUserId?: string;
 };
 
+// The OneKey ID a TRON energy issuance the user starts by hand (free claim,
+// code redemption) is made for. The request is sent only as that member. The
+// field has to be stated even when the member is unknown: such an issuance is
+// refused, never sent anonymously. It is never sent to the server.
+export type ITronIssuanceOwner = {
+  onekeyUserId: string | undefined;
+};
+
 export type ISubsidySummary = {
   contractVersion: number;
   subjectScope: string;

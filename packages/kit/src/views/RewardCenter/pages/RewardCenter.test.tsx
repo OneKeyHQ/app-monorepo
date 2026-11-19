@@ -58,6 +58,15 @@ let mockInventoryFails = false;
 const mockPushModal = jest.fn();
 const mockResetField = jest.fn();
 const mockRedeem = jest.fn<Promise<IMockIssuanceResponse>, [unknown]>();
+// Every proxy request with the member it names: (url, issuedTo).
+const mockRequestOwner = jest.fn<void, [string, unknown]>();
+const CLAIM_URL = '/api/tronRent/addFreeTronRentRecord';
+const REDEEM_URL = '/api/v1/coupon/redeem';
+function ownersOf(url: string) {
+  return mockRequestOwner.mock.calls
+    .filter(([requestUrl]) => requestUrl === url)
+    .map(([, owner]) => owner);
+}
 const mockInventory = {
   remaining: 1,
   totalReceivedLimit: 500,
@@ -191,9 +200,12 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     serviceAccountProfile: {
       sendProxyRequestWithTrxRes: async ({
         body,
+        issuedTo,
       }: {
         body: { url: string };
+        issuedTo?: { onekeyUserId: string | undefined };
       }) => {
+        mockRequestOwner(body.url, issuedTo);
         if (body.url === '/api/tronRent/isReceived') {
           if (mockInventoryFails) {
             throw new OneKeyLocalError('Inventory request failed');
@@ -202,9 +214,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         }
         if (body.url === '/api/account')
           return { code: 0, data: { isActived: mockActivated } };
-        if (body.url === '/api/v1/coupon/redeem') return mockRedeem(body);
-        if (body.url === '/api/tronRent/addFreeTronRentRecord')
-          return mockClaim();
+        if (body.url === REDEEM_URL) return mockRedeem(body);
+        if (body.url === CLAIM_URL) return mockClaim();
         throw new OneKeyLocalError('Unexpected reward request');
       },
     },
@@ -342,6 +353,7 @@ describe('inline TRON energy claim', () => {
     mockActiveAccount = { account: mockAccount, network: mockNetwork };
     mockClaim.mockReset();
     mockRedeem.mockReset();
+    mockRequestOwner.mockClear();
     mockRedeemCode = '';
     clearTronPoolCache();
   });
@@ -353,10 +365,15 @@ describe('inline TRON energy claim', () => {
     mockInventory.monthIPRemain = 2;
   });
 
-  function inlineCenter(onClose?: () => void, onIssued?: () => void) {
+  function inlineCenter(
+    onClose?: () => void,
+    onIssued?: () => void,
+    onekeyUserId?: string,
+  ) {
     return (
       <TronRewardCenterContent
         params={{ accountId: '', networkId: mockNetwork.id, onClose }}
+        onekeyUserId={onekeyUserId}
         onIssued={onIssued}
         renderInline={({ claimed, validUntil, claimDetails }) => (
           <>
@@ -687,6 +704,58 @@ describe('inline TRON energy claim', () => {
       expect(replacedBy).not.toHaveBeenCalled();
     },
   );
+
+  // The request is sent only as the member it names, and the same member's
+  // records reload afterwards: both come from the moment of the press.
+  it.each([
+    ['claim', RewardCenterTestIDs.claimBtn, CLAIM_URL, mockClaim],
+    ['redemption', RewardCenterTestIDs.redeemBtn, REDEEM_URL, mockRedeem],
+  ])(
+    'issues a %s to the member signed in when it is requested',
+    async (_name, buttonTestID, url, request) => {
+      request.mockResolvedValue({ success: true });
+      mockRedeemCode = 'test-coupon';
+      const reloadUserA = jest.fn();
+      const reloadUserB = jest.fn();
+      const view = render(inlineCenter(undefined, reloadUserA, 'user-a'));
+      const button = await screen.findByTestId(buttonTestID);
+      await waitFor(() => expect(button).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+
+      // Another member signs in before the button is pressed.
+      view.rerender(inlineCenter(undefined, reloadUserB, 'user-b'));
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(ownersOf(url)).toEqual([{ onekeyUserId: 'user-b' }]);
+      expect(reloadUserB).toHaveBeenCalledTimes(1);
+      expect(reloadUserA).not.toHaveBeenCalled();
+    },
+  );
+
+  // Without a member the issuance still says so, which is what lets the
+  // service refuse it. Leaving the owner out would make it an anonymous
+  // request like the reads below.
+  it('names an owner for an issuance and none for the reads', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+
+    expect(ownersOf(CLAIM_URL)).toEqual([{ onekeyUserId: undefined }]);
+    const readOwners = [
+      ...ownersOf('/api/tronRent/isReceived'),
+      ...ownersOf('/api/account'),
+    ];
+    expect(readOwners.length).toBeGreaterThan(0);
+    expect(readOwners.every((owner) => owner === undefined)).toBe(true);
+  });
 
   // The live proxy answers a delivered claim with an empty body and throws
   // for every rejection (e.g. code 110 "already claimed within 24 hours").

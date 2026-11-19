@@ -9,11 +9,20 @@ exists and none when signed out, and the token is attached to that single
 request rather than to the shared Wallet client. The token must also stay out
 of a serialized request error: callers log those (the automatic claim before
 a TRON transfer does), and a timeout rejects with the request config attached.
+
+An issuance the user starts by hand (free claim, code redemption) names the
+member it was started for. It is posted only with that member's session: when
+the session is gone, belongs to someone else or its token cannot be read,
+nothing is sent, so the issuance is never accepted anonymously or for another
+member while the UI reports it to the one who asked.
 */
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
 const { AxiosError, AxiosHeaders } = require('axios') as typeof import('axios');
+
+const { ETranslations } =
+  require('@onekeyhq/shared/src/locale') as typeof import('@onekeyhq/shared/src/locale');
 
 const ServiceAccountProfile = require('./ServiceAccountProfile')
   .default as typeof import('./ServiceAccountProfile').default;
@@ -26,21 +35,60 @@ const body = {
   params: {},
 };
 
-function createService({ authToken }: { authToken?: string }) {
+// `authToken` is what the per-request header read returns (none when signed
+// out, and none when the token cannot be read). `signedInAs` is the member
+// ServicePrime can pin a session for.
+function createService({
+  authToken,
+  signedInAs,
+}: {
+  authToken?: string;
+  signedInAs?: string;
+}) {
   const post = jest.fn(async () => ({
     data: { code: 0, message: 'success', data: { success: true } },
   }));
+  const getOneKeyIdAuthHeaders = jest.fn(
+    async (): Promise<Record<string, string>> =>
+      authToken ? { 'X-Onekey-Request-Token': authToken } : {},
+  );
+  // What ServicePrime does: a snapshot can only be taken for the member that
+  // is signed in.
+  const captureOneKeyIdAuthRequestConfig = jest.fn(
+    async ({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    }: {
+      expectedOneKeyUserId: string;
+      createStateChangedError: () => Error;
+    }) => {
+      if (!expectedOneKeyUserId || expectedOneKeyUserId !== signedInAs) {
+        throw createStateChangedError();
+      }
+      return {
+        snapshot: { expectedOneKeyUserId },
+        requestConfig: {
+          headers: { 'X-Onekey-Request-Token': `token-${signedInAs}` },
+        },
+      };
+    },
+  );
   const service = Object.assign(
     Object.create(ServiceAccountProfile.prototype) as InstanceType<
       typeof ServiceAccountProfile
     >,
     {
       getClient: async () => ({ post }),
-      getOneKeyIdAuthHeaders: async () =>
-        authToken ? { 'X-Onekey-Request-Token': authToken } : {},
+      getOneKeyIdAuthHeaders,
+      backgroundApi: { servicePrime: { captureOneKeyIdAuthRequestConfig } },
     },
   );
-  return { service, post };
+  return {
+    service,
+    post,
+    getOneKeyIdAuthHeaders,
+    captureOneKeyIdAuthRequestConfig,
+  };
 }
 
 describe('ServiceAccountProfile.sendProxyRequestWithTrxRes auth header', () => {
@@ -97,5 +145,75 @@ describe('ServiceAccountProfile.sendProxyRequestWithTrxRes auth header', () => {
 
     expect(serialized).toContain('timeout exceeded');
     expect(serialized).not.toContain('token-a');
+  });
+});
+
+describe('ServiceAccountProfile.sendProxyRequestWithTrxRes explicit issuance', () => {
+  it('posts with the session of the member the issuance was started for', async () => {
+    const { service, post, getOneKeyIdAuthHeaders } = createService({
+      authToken: 'token-of-whoever-is-current',
+      signedInAs: 'user-a',
+    });
+
+    await service.sendProxyRequestWithTrxRes({
+      networkId,
+      body,
+      issuedTo: { onekeyUserId: 'user-a' },
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/proxy/trxres',
+      { networkId, ...body },
+      {
+        headers: { 'X-Onekey-Request-Token': 'token-user-a' },
+        redact: ['X-Onekey-Request-Token'],
+      },
+    );
+    // The member is never taken from whatever session is current.
+    expect(getOneKeyIdAuthHeaders).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the member signed out', undefined, 'user-a'],
+    ['another member signed in', 'user-b', 'user-a'],
+    ['the session carries no OneKey ID', 'user-a', undefined],
+  ])('posts nothing when %s', async (_name, signedInAs, onekeyUserId) => {
+    const { service, post } = createService({
+      authToken: signedInAs ? `token-${signedInAs}` : undefined,
+      signedInAs,
+    });
+
+    await expect(
+      service.sendProxyRequestWithTrxRes({
+        networkId,
+        body,
+        issuedTo: { onekeyUserId },
+      }),
+    ).rejects.toMatchObject({
+      key: ETranslations.id_login_expired_description,
+    });
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('posts nothing when the session token cannot be read', async () => {
+    // A failing token refresh: the per-request read degrades to no header,
+    // which would send the issuance anonymously.
+    const { service, post, captureOneKeyIdAuthRequestConfig } = createService({
+      signedInAs: 'user-a',
+    });
+    const refreshFailed = new Error('token refresh failed');
+    captureOneKeyIdAuthRequestConfig.mockRejectedValue(refreshFailed);
+
+    await expect(
+      service.sendProxyRequestWithTrxRes({
+        networkId,
+        body,
+        issuedTo: { onekeyUserId: 'user-a' },
+      }),
+    ).rejects.toBe(refreshFailed);
+
+    expect(post).not.toHaveBeenCalled();
   });
 });

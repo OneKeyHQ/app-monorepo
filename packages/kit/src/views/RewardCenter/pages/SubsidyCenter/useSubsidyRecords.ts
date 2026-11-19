@@ -46,6 +46,12 @@ export type ISubsidyHistoryView = {
 // is cached under it: it cannot tell two users apart.
 const UNKNOWN_IDENTITY = 'signed-in';
 
+// The OneKey ID behind an identity: what a request made for that member is
+// pinned to. Undefined when the session carries none.
+export function getSubsidyMemberId(identity: string | undefined) {
+  return identity === UNKNOWN_IDENTITY ? undefined : identity;
+}
+
 const HISTORY_PAGE_SCOPE = 'history-page';
 
 // Last result per signed-in identity, then per scope, kept for the app
@@ -262,9 +268,7 @@ function useSubsidyQuery<T>({
         return { ...idle, isLoading: true, isFetching: true };
       });
       try {
-        const data = await fetcherRef.current(
-          identity === UNKNOWN_IDENTITY ? undefined : identity,
-        );
+        const data = await fetcherRef.current(getSubsidyMemberId(identity));
         if (requestRef.current === request) {
           writeCache(identity, scope, data);
           setState({ ...idle, data, dataScope: scope });

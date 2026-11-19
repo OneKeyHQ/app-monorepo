@@ -128,18 +128,24 @@ function RewardCenterDetails({
   selectorSceneUrl,
   params: { accountId, networkId, onClose, showAccountSelector = true },
   renderInline,
+  onekeyUserId,
   onIssued,
 }: {
   selectorSceneUrl: string;
   params: IRewardCenterParams;
   renderInline?: IInlineRewardView;
+  onekeyUserId?: string;
   onIssued?: () => void;
 }) {
   const intl = useIntl();
-  const onIssuedRef = useRef(onIssued);
+  // What a claim or a redemption starts with: the member it is issued to and
+  // the callback that reloads that member's records. Both are read once, when
+  // the request is sent, so they name the same member even if another one
+  // signs in while it is in flight.
+  const issuanceRef = useRef({ onekeyUserId, onIssued });
   useEffect(() => {
-    onIssuedRef.current = onIssued;
-  }, [onIssued]);
+    issuanceRef.current = { onekeyUserId, onIssued };
+  }, [onekeyUserId, onIssued]);
   const form = useForm({
     defaultValues: {
       code: '',
@@ -577,7 +583,8 @@ function RewardCenterDetails({
       return;
     claimPending.current = true;
     setIsClaiming(true);
-    const onIssuedForRequest = onIssuedRef.current;
+    const { onekeyUserId: issuedToUserId, onIssued: onIssuedForRequest } =
+      issuanceRef.current;
     const startedAt = Date.now();
     try {
       const { timestamp, signed } =
@@ -604,6 +611,7 @@ function RewardCenterDetails({
             },
             params: {},
           },
+          issuedTo: { onekeyUserId: issuedToUserId },
         });
 
       // A successful issuance comes back with an empty body: the proxy turns
@@ -681,7 +689,8 @@ function RewardCenterDetails({
 
     redeemPending.current = true;
     setIsRedeeming(true);
-    const onIssuedForRequest = onIssuedRef.current;
+    const { onekeyUserId: issuedToUserId, onIssued: onIssuedForRequest } =
+      issuanceRef.current;
     try {
       const resp =
         await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
@@ -701,6 +710,7 @@ function RewardCenterDetails({
             },
             params: {},
           },
+          issuedTo: { onekeyUserId: issuedToUserId },
         });
 
       // Same contract as the free claim: an empty body is a success.
@@ -1430,11 +1440,16 @@ export function TronRewardCenterContent({
   params,
   renderInline,
   renderLoading,
+  onekeyUserId,
   onIssued,
 }: {
   params: IRewardCenterParams;
   renderInline?: IInlineRewardView;
   renderLoading?: () => ReactNode;
+  // The OneKey ID a free claim or a code redemption is issued to. The request
+  // is sent only as this member; without one it is refused, never sent
+  // anonymously.
+  onekeyUserId?: string;
   // Called after a successful free claim or code redemption.
   onIssued?: () => void;
 }) {
@@ -1458,6 +1473,7 @@ export function TronRewardCenterContent({
           selectorSceneUrl={selectorSceneUrl}
           params={params}
           renderInline={renderInline}
+          onekeyUserId={onekeyUserId}
           onIssued={onIssued}
         />
       </RewardCenterAccountSelectorSync>
@@ -1466,7 +1482,9 @@ export function TronRewardCenterContent({
 }
 
 // Standalone TRON energy page. It is no longer routed: the RewardCenter route
-// opens the subsidy center, which embeds TronRewardCenterContent inline.
+// opens the subsidy center, which embeds TronRewardCenterContent inline and
+// names the member a claim is issued to. This page names none, so a claim or
+// a redemption started here is refused.
 export default function RewardCenter() {
   const { params } =
     useRoute<

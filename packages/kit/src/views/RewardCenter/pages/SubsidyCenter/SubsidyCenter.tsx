@@ -62,6 +62,7 @@ import {
 } from './subsidyRecordUtils';
 import { TronClaimView, subsidyDialogProps } from './TronClaimDialog';
 import {
+  getSubsidyMemberId,
   refreshSubsidyRecords,
   useSubsidyIdentity,
   useSubsidyRecentHistory,
@@ -932,6 +933,7 @@ function SubsidyCenter() {
         }}
         renderLoading={renderSubsidyBenefits}
         renderInline={renderSubsidyBenefits}
+        onekeyUserId={getSubsidyMemberId(identity)}
         onIssued={handleIssued}
       />
     );
