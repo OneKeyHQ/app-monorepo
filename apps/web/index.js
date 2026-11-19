@@ -22,26 +22,36 @@ function showKeylessLoadError(root) {
     });
 }
 
+async function openKeylessRoute(root, kind) {
+  // Install in this branch so wallet hydration still precedes its lockdown.
+  await import(
+    /* webpackMode: "eager" */ '@onekeyhq/shared/src/security/sesHarden/installWeb'
+  );
+  if (kind === 'callback') {
+    root.textContent = messages.callback;
+    return;
+  }
+
+  const referrer = globalThis.document.createElement('meta');
+  referrer.name = 'referrer';
+  referrer.content = 'no-referrer';
+  globalThis.document.head.append(referrer);
+  globalThis.document
+    .querySelector('meta[name="viewport"]')
+    ?.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1, viewport-fit=cover',
+    );
+  const { mount } = await import('./src/keylessDeletion/mountAppRoute');
+  await mount(root);
+}
+
 const keylessEntry = getKeylessEntry(new URL(globalThis.location.href));
 if (!keylessEntry) {
   void import(/* webpackMode: "eager" */ './startWalletApp');
 } else {
   const root = globalThis.document.getElementById('root');
-  if (keylessEntry.kind === 'callback') {
-    root.textContent = messages.callback;
-  } else {
-    const referrer = globalThis.document.createElement('meta');
-    referrer.name = 'referrer';
-    referrer.content = 'no-referrer';
-    globalThis.document.head.append(referrer);
-    globalThis.document
-      .querySelector('meta[name="viewport"]')
-      ?.setAttribute(
-        'content',
-        'width=device-width, initial-scale=1, viewport-fit=cover',
-      );
-    void import('./src/keylessDeletion/mountAppRoute')
-      .then(({ mount }) => mount(root))
-      .catch(() => showKeylessLoadError(root));
-  }
+  void openKeylessRoute(root, keylessEntry.kind).catch(() =>
+    showKeylessLoadError(root),
+  );
 }

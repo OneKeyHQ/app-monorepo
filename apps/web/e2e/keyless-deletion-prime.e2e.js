@@ -1,4 +1,4 @@
-// cspell:ignore apikey
+// cspell:ignore apikey lockdown
 const assert = require('node:assert/strict');
 
 const createJiti = require('jiti');
@@ -177,6 +177,12 @@ async function main() {
           assert.equal(headers.cookie, undefined);
           assert.equal(headers.authorization, undefined);
           if (endpoint === '/link-info') {
+            const hardening = await page.evaluate(
+              () => globalThis.__ONEKEY_SES_HARDEN_STATE__,
+            );
+            assert.equal(hardening?.runtime, 'web');
+            assert.equal(hardening.lockdownApplied, true);
+            assert.equal(hardening.objectPrototypeFrozen, true);
             assert.deepEqual(body, { invitationToken: currentInvitation });
           } else if (endpoint === '/delete') {
             assert.ok(key);
