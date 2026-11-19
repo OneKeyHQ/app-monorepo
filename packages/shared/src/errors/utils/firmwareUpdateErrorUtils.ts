@@ -40,6 +40,7 @@ export type IFirmwareUpdateFailureReport = {
 };
 
 const PROTOCOL_V2_FIRMWARE_INSTALL_TIMEOUT_CODE = 'FirmwareInstallTimeout';
+const PROTOCOL_V2_RESPONSE_TIMEOUT_CAUSE = 'response-timeout';
 
 export const FIRMWARE_UPDATE_ERROR_DETAIL_MAX_LENGTH = 120;
 
@@ -215,6 +216,16 @@ function isProtocolV2FirmwareInstallTimeout(
   );
 }
 
+function isProtocolV2ResponseTimeoutCause(
+  error: IOneKeyError | undefined,
+): boolean {
+  const causeCode = error?.payload?.params?.causeCode;
+  return (
+    typeof causeCode === 'string' &&
+    causeCode.trim() === PROTOCOL_V2_RESPONSE_TIMEOUT_CAUSE
+  );
+}
+
 function isArtifactDownloadErrorCode(code: string | undefined): boolean {
   return (
     !!code &&
@@ -323,6 +334,9 @@ export function classifyFirmwareUpdateFailure(
 ): IFirmwareUpdateFailureType {
   if (isFirmwareUpdateCancellationError(error)) {
     return 'cancelled';
+  }
+  if (isProtocolV2ResponseTimeoutCause(error)) {
+    return 'timeout';
   }
   const mappedFailure = getFirstMappedFirmwareUpdateFailure(error);
   if (

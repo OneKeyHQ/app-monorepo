@@ -232,6 +232,34 @@ describe('firmwareUpdateErrorUtils', () => {
     ).toBe('install');
   });
 
+  it('keeps a WebUSB write response timeout out of the transfer bucket', () => {
+    const converted = convertDeviceError({
+      code: HardwareErrorCode.EmmcFileWriteFirmwareError,
+      error:
+        'transfer data error: Protocol V2 response timeout after 1000ms for FilesystemFileWrite',
+      params: { causeCode: 'response-timeout' },
+    });
+    const report = buildFirmwareUpdateFailureReport(converted);
+    const plainTransfer = buildFirmwareUpdateFailureReport(
+      convertDeviceError({
+        code: HardwareErrorCode.EmmcFileWriteFirmwareError,
+        error: 'transfer data error',
+      }),
+    );
+
+    expect(report).toMatchObject({
+      failureType: 'timeout',
+      failurePhase: 'execution',
+      errorCode: 'response-timeout',
+    });
+    expect(report.errorDetail).toBeUndefined();
+    expect(JSON.stringify(report)).not.toContain('FilesystemFileWrite');
+    expect(plainTransfer).toMatchObject({
+      failureType: 'transfer',
+      errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+    });
+  });
+
   it('keeps a Protocol V2 install poll timeout out of the install bucket', () => {
     const converted = convertDeviceError({
       code: HardwareErrorCode.FirmwareError,
