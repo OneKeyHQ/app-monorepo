@@ -1,7 +1,7 @@
 import type { ReactNode, RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -61,15 +61,14 @@ function PrivateKeyInput({
 }: ITextAreaInputProps) {
   const intl = useIntl();
   useRecoveryPhraseProtected({ dialogType: 'sensitiveInformation' });
-  const [privateKey, setPrivateKey] = useState(value);
   const { start: startScanQrCode } = useScanQrCodeLazy();
   const [encrypted, setEncrypted] = useState(true);
   const inputRef = useRef<IInputRef>(null);
   const encryptedRef = useRef(encrypted);
   encryptedRef.current = encrypted;
 
-  const privateKeyRef = useRef(privateKey);
-  privateKeyRef.current = privateKey;
+  const privateKeyRef = useRef(value);
+  privateKeyRef.current = value;
   const selectionRef = useRef({ start: 0, end: 0 });
 
   // Wrap startScanQrCode to force native TextInput refresh after scan.
@@ -80,9 +79,10 @@ function PrivateKeyInput({
       const result = await startScanQrCode(params);
       if (result?.raw && platformEnv.isNative) {
         requestAnimationFrame(() => {
+          const currentValue = privateKeyRef.current;
           const displayText = encryptedRef.current
-            ? '•'.repeat(result.raw.length)
-            : result.raw;
+            ? '•'.repeat(currentValue.length)
+            : currentValue;
           inputRef.current?.setNativeProps?.({ text: displayText });
         });
       }
@@ -98,19 +98,13 @@ function PrivateKeyInput({
     [],
   );
 
-  const formattedValue = useMemo(() => {
-    if (encrypted) {
-      return '•'.repeat(privateKey.length);
-    }
-    return privateKey;
-  }, [encrypted, privateKey]);
+  const formattedValue = encrypted ? '•'.repeat(value.length) : value;
 
   const updatePrivateKey = useCallback(
     (text: string) => {
       // Update ref immediately so subsequent onChangeText calls
       // (before re-render) see the latest value
       privateKeyRef.current = text;
-      setPrivateKey(text);
       onChangeText?.(text);
     },
     [onChangeText],
@@ -259,11 +253,23 @@ export default function ImportPhraseOrPrivateKey() {
   const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const selectedRef = useRef(selected);
   const confirmRequestRef = useRef<symbol | undefined>(undefined);
+  const isFocusedRef = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
   const privateKeyRef = useRef('');
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
+
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      setIsConfirming(false);
+      return () => {
+        isFocusedRef.current = false;
+        confirmRequestRef.current = undefined;
+      };
+    }, []),
+  );
 
   const sidebarFaqs =
     selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase
@@ -301,7 +307,13 @@ export default function ImportPhraseOrPrivateKey() {
 
   const handleConfirm = useCallback(
     async (tab: EOnboardingV2ImportPhraseOrPrivateKeyTab) => {
-      if (tab !== selectedRef.current || confirmRequestRef.current) return;
+      if (
+        !isFocusedRef.current ||
+        tab !== selectedRef.current ||
+        confirmRequestRef.current
+      ) {
+        return;
+      }
 
       const isPrivateKey =
         tab === EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -33,6 +34,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -41,6 +43,12 @@ type IFormValues = {
   input?: string;
   deriveType?: IAccountDeriveTypes;
   accountName?: string;
+};
+
+type IPendingSubmit = {
+  networkId: string;
+  input: string;
+  accountName: string;
 };
 
 export const fixInputImportSingleChain = (text: string) => trim(text);
@@ -95,6 +103,8 @@ export function ImportSingleChainBase({
 
   const { control, setValue } = form;
   const submittingRef = useRef(false);
+  const isFocusedRef = useRef(false);
+  const pendingSubmitRef = useRef<IPendingSubmit | undefined>(undefined);
   const networkId = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const normalizedInput = fixInputImportSingleChain(inputText ?? '');
@@ -104,6 +114,16 @@ export function ImportSingleChainBase({
   const accountNameDebounced = useDebounce(trimmedAccountName, 600);
 
   const deriveType = useFormWatch({ control, name: 'deriveType' });
+
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      return () => {
+        isFocusedRef.current = false;
+        pendingSubmitRef.current = undefined;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     setValue('deriveType', undefined);
@@ -135,7 +155,10 @@ export function ImportSingleChainBase({
     () => ({ id: Symbol('account name validation'), name: nameToValidate }),
     [nameToValidate],
   );
-  const [checkedNameRequestId, setCheckedNameRequestId] = useState<symbol>();
+  const [nameValidation, setNameValidation] = useState<{
+    requestId: symbol;
+    isValid: boolean;
+  }>();
 
   useEffect(() => {
     const { id, name } = nameRequest;
@@ -154,12 +177,13 @@ export function ImportSingleChainBase({
         });
         if (cancelled) return;
         form.clearErrors('accountName');
-        setCheckedNameRequestId(id);
+        setNameValidation({ requestId: id, isValid: true });
       } catch (error) {
         if (cancelled) return;
         form.setError('accountName', {
           message: (error as Error)?.message,
         });
+        setNameValidation({ requestId: id, isValid: false });
       }
     };
     void validateName();
@@ -231,6 +255,10 @@ export function ImportSingleChainBase({
     validation?.requestId === validationRequest.id ? validation : undefined;
   const validateResult = currentValidation?.result;
   const deriveItems = currentValidation?.deriveItems;
+  const nameIsValid =
+    nameValidation?.requestId === nameRequest.id
+      ? nameValidation.isValid
+      : undefined;
   const matchesValidationRequest = useCallback(
     (values: IFormValues) =>
       fixInputImportSingleChain(values.input ?? '') ===
@@ -260,7 +288,7 @@ export function ImportSingleChainBase({
     !validateResult?.isValid ||
     !isDeriveTypeReady(deriveType) ||
     nameRequest.name === undefined ||
-    (!!nameRequest.name && checkedNameRequestId !== nameRequest.id) ||
+    (!!nameRequest.name && nameIsValid !== true) ||
     Object.keys(form.formState.errors).length > 0;
 
   const submit = useCallback(async () => {
@@ -276,6 +304,7 @@ export function ImportSingleChainBase({
       return;
     }
 
+    pendingSubmitRef.current = undefined;
     submittingRef.current = true;
     try {
       await form.handleSubmit(onConfirm)();
@@ -291,7 +320,60 @@ export function ImportSingleChainBase({
     onConfirm,
   ]);
 
-  const formWithSubmit = useMemo(() => ({ ...form, submit }), [form, submit]);
+  const flushPendingSubmit = useCallback(() => {
+    const pending = pendingSubmitRef.current;
+    if (!pending) return;
+
+    const values = form.getValues();
+    const name = values.accountName?.trim() ?? '';
+    if (
+      pending.networkId !== values.networkId ||
+      pending.input !== fixInputImportSingleChain(values.input ?? '') ||
+      pending.accountName !== name ||
+      (matchesValidationRequest(values) && validateResult?.isValid === false) ||
+      (name === nameRequest.name && nameIsValid === false)
+    ) {
+      pendingSubmitRef.current = undefined;
+      return;
+    }
+    return submit();
+  }, [
+    form,
+    matchesValidationRequest,
+    nameIsValid,
+    nameRequest.name,
+    submit,
+    validateResult?.isValid,
+  ]);
+
+  useEffect(() => {
+    void flushPendingSubmit()?.catch(errorToastUtils.showToastOfError);
+  }, [flushPendingSubmit, networkId, normalizedInput, trimmedAccountName]);
+
+  const submitOnEnter = useCallback(async () => {
+    const values = form.getValues();
+    const input = fixInputImportSingleChain(values.input ?? '');
+    if (
+      !isFocusedRef.current ||
+      submittingRef.current ||
+      !input ||
+      !values.networkId
+    ) {
+      return;
+    }
+
+    pendingSubmitRef.current = {
+      input,
+      networkId: values.networkId,
+      accountName: values.accountName?.trim() ?? '',
+    };
+    await flushPendingSubmit();
+  }, [flushPendingSubmit, form]);
+
+  const formWithSubmit = useMemo(
+    () => ({ ...form, submit: submitOnEnter }),
+    [form, submitOnEnter],
+  );
 
   const { start } = useScanQrCodeLazy();
 
@@ -314,7 +396,7 @@ export function ImportSingleChainBase({
               testID={inputTestID}
               onPaste={onPasteClearText}
               returnKeyType="done"
-              onSubmitEditing={submit}
+              onSubmitEditing={submitOnEnter}
               addOns={[
                 {
                   iconName: 'ScanOutline',

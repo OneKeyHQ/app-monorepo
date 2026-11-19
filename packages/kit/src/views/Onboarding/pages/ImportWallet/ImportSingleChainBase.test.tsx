@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import type { ReactElement, ReactNode } from 'react';
-import { cloneElement } from 'react';
+import { cloneElement, useEffect } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FormProvider, useController } from 'react-hook-form';
@@ -37,6 +37,7 @@ const mockValidateInput = jest.fn(
 );
 const mockLoadDeriveItems = jest.fn(async () => btcDeriveItems);
 const mockDeriveTypeChange = jest.fn<void, [(value: string) => void]>();
+const mockOnBlur = jest.fn<void, [() => void]>();
 const mockCheckAccountName = jest.fn(async ({ name }: { name: string }) => {
   if (name === 'taken') {
     throw new OneKeyLocalError('Duplicate account name');
@@ -45,6 +46,16 @@ const mockCheckAccountName = jest.fn(async ({ name }: { name: string }) => {
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
+jest.mock('@react-navigation/core', () => ({
+  useFocusEffect: (effect: () => () => void) => {
+    useEffect(() => {
+      const cleanup = effect();
+      mockOnBlur(cleanup);
+      return cleanup;
+    }, [effect]);
+  },
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -152,7 +163,19 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
-  ControlledNetworkSelectorTrigger: () => null,
+  ControlledNetworkSelectorTrigger: ({
+    value,
+    onChangeText,
+  }: {
+    value?: string;
+    onChangeText?: (value: string) => void;
+  }) => (
+    <input
+      aria-label="Network"
+      value={value ?? ''}
+      onChange={(event) => onChangeText?.(event.target.value)}
+    />
+  ),
 }));
 jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger',
@@ -224,6 +247,62 @@ describe('private key import submission', () => {
     jest.useRealTimers();
   });
 
+  it('remembers Enter during debounce and submits the validated key once', async () => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    fireEvent.change(input, { target: { value: 'valid-test-input' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await finishValidation();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ input: 'valid-test-input' }),
+      undefined,
+    );
+  });
+
+  it('cancels a queued Enter when the screen loses focus', async () => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    fireEvent.change(input, { target: { value: 'valid-test-input' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const blur = mockOnBlur.mock.lastCall?.[0];
+    expect(blur).toBeDefined();
+    act(() => blur?.());
+    await finishValidation();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { field: 'Network', value: 'evm--1' },
+    { field: 'onboarding-input', value: 'New name' },
+    { field: 'private-key', value: 'replacement-test-input' },
+  ])('cancels a queued Enter when $field changes', async ({ field, value }) => {
+    const onConfirm = jest.fn(async () => undefined);
+    const input = renderImport(onConfirm);
+    fireEvent.change(input, { target: { value: 'valid-test-input' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const fieldInput =
+      field === 'Network'
+        ? screen.getByLabelText(field)
+        : screen.getByTestId(field);
+    mockValidateInput.mockResolvedValueOnce({ isValid: true });
+    fireEvent.change(fieldInput, { target: { value } });
+    await finishValidation();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Confirm' })
+        .disabled,
+    ).toBe(false);
+
+    await act(async () => fireEvent.keyDown(input, { key: 'Enter' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
   it('submits on Enter once while the import is in progress', async () => {
     let finishImport: (() => void) | undefined;
     const onConfirm = jest.fn(
@@ -260,7 +339,6 @@ describe('private key import submission', () => {
 
     pressEnter();
     fireEvent.change(input, { target: { value: 'valid-test-input' } });
-    pressEnter();
     await finishValidation();
     expect(footer.disabled).toBe(false);
     expect(onConfirm).not.toHaveBeenCalled();
@@ -277,6 +355,7 @@ describe('private key import submission', () => {
     fireEvent.change(screen.getByTestId('onboarding-input'), {
       target: { value: 'taken' },
     });
+    pressEnter();
     await finishValidation();
     pressEnter();
     expect(footer.disabled).toBe(true);
@@ -315,10 +394,8 @@ describe('private key import submission', () => {
     expect(footer.disabled).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
 
-    fireEvent.change(selector, { target: { value: 'BIP86' } });
-    expect(footer.disabled).toBe(false);
     await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
+      fireEvent.change(selector, { target: { value: 'BIP86' } });
     });
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ deriveType: 'BIP86' }),
@@ -352,9 +429,6 @@ describe('private key import submission', () => {
 
     await act(async () => nameCheck.resolve());
     expect(selector.value).toBe('BIP44');
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
-    });
     expect(mockValidateInput).toHaveBeenCalledTimes(1);
     expect(mockLoadDeriveItems).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith(

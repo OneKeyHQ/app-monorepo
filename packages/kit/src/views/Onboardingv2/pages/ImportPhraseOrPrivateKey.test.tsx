@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import type { ReactNode, RefObject } from 'react';
-import { useImperativeHandle } from 'react';
+import { useEffect, useImperativeHandle } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
@@ -27,8 +27,13 @@ const mockSubmitPhrase = jest.fn(async () => ({
   mnemonicType: EMnemonicType.BIP39,
 }));
 const mockShowError = jest.fn();
+let mockIsFocused = true;
 
 jest.mock('@react-navigation/core', () => ({
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const focused = mockIsFocused;
+    useEffect(() => (focused ? effect() : undefined), [effect, focused]);
+  },
   useRoute: () => ({}),
 }));
 jest.mock('react-native', () =>
@@ -159,7 +164,9 @@ jest.mock('../components/PhaseInputArea', () => ({
 
 function selectPrivateKeyTab() {
   fireEvent.click(screen.getByTestId(OnboardingTestIDs.importPrivateKeyTab));
-  const input = screen.getByTestId(OnboardingTestIDs.importPrivateKeyInput);
+  const input = screen.getByTestId<HTMLTextAreaElement>(
+    OnboardingTestIDs.importPrivateKeyInput,
+  );
   input.focus();
   return input;
 }
@@ -171,6 +178,7 @@ function enter(input: HTMLElement) {
 describe('Import Wallet keyboard submission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsFocused = true;
   });
 
   it('submits the focused private-key tab once on Enter and leaves phrase input separate', async () => {
@@ -184,6 +192,7 @@ describe('Import Wallet keyboard submission', () => {
     expect(document.activeElement).toBe(input);
     expect(screen.queryByTestId(OnboardingTestIDs.phraseInput(0))).toBeNull();
     fireEvent.change(input, { target: { value: 'dummy-private-key' } });
+    expect(input.value).toBe('•'.repeat('dummy-private-key'.length));
     const detection = Promise.withResolvers<typeof networkResult>();
     mockDetectNetworks.mockReturnValueOnce(detection.promise);
 
@@ -206,7 +215,46 @@ describe('Import Wallet keyboard submission', () => {
         importType: EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey,
       },
     );
+    expect(input.value).toBe('');
+    input.focus();
+    await act(async () => enter(input));
+    expect(mockEncode).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['blur', 'unmount'])(
+    'discards pending network detection on screen %s',
+    async (leaveScreen) => {
+      const { rerender, unmount } = render(<ImportPhraseOrPrivateKey />);
+      const input = selectPrivateKeyTab();
+      fireEvent.change(input, { target: { value: 'dummy-private-key' } });
+      const detection = Promise.withResolvers<typeof networkResult>();
+      mockDetectNetworks.mockReturnValueOnce(detection.promise);
+      await act(async () => enter(input));
+      expect(mockDetectNetworks).toHaveBeenCalledTimes(1);
+
+      if (leaveScreen === 'unmount') {
+        unmount();
+      } else {
+        mockIsFocused = false;
+        rerender(<ImportPhraseOrPrivateKey />);
+        await act(async () => enter(input));
+        expect(mockDetectNetworks).toHaveBeenCalledTimes(1);
+        mockIsFocused = true;
+        rerender(<ImportPhraseOrPrivateKey />);
+      }
+
+      await act(async () => detection.resolve(networkResult));
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockShowError).not.toHaveBeenCalled();
+
+      if (leaveScreen === 'blur') {
+        await act(async () => enter(input));
+        expect(mockDetectNetworks).toHaveBeenCalledTimes(2);
+        expect(mockPush).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
 
   it('lets a replacement key submit while the previous detection is pending', async () => {
     render(<ImportPhraseOrPrivateKey />);
