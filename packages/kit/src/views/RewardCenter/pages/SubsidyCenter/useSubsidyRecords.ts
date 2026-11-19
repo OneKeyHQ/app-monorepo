@@ -104,9 +104,7 @@ export function refreshSubsidyRecords(identity: string | undefined) {
       }
     });
   }
-  Array.from(subsidyRefreshListeners).forEach((listener) =>
-    listener(identity),
-  );
+  Array.from(subsidyRefreshListeners).forEach((listener) => listener(identity));
 }
 
 // Calls `listener` for the issuances of `identity` only.
