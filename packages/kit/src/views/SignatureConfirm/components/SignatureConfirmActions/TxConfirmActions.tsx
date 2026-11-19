@@ -531,6 +531,11 @@ function TxConfirmActions(props: IProps) {
             networkId,
             unsignedTxs,
             tronResourceRentalInfo,
+            // What the send below gets: the step pays for a tx signed next
+            // and is skipped when the send settles an earlier attempt.
+            signOnly,
+            beforeBroadcastAction,
+            wcPayPreBroadcastRecord,
           },
         );
 
