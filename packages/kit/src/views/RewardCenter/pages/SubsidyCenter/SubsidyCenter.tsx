@@ -31,7 +31,10 @@ import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { showOneKeyIdLoginFailedToast } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
-import { TronRewardCenterContent } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
+import {
+  TronRewardCenterContent,
+  getCachedTronPool,
+} from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
 import { getTronClaimLabel } from '@onekeyhq/kit/src/views/RewardCenter/tronClaimLabel';
 import { tronRewardActionSize } from '@onekeyhq/kit/src/views/RewardCenter/tronRewardActionSize';
 import { useSettingsPageStyle } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useSettingsPageStyle';
@@ -595,9 +598,14 @@ function SubsidyCenter() {
   }, [opensTronClaim, wide]);
   // What the claim panel shows until the account is resolved: the same
   // structure as the loaded panel, so it settles in place instead of
-  // replacing a single placeholder line.
+  // replacing a single placeholder line. Today's pool is shared by every
+  // address, so once it is known (any earlier open in this session) it is
+  // shown from the first frame; only the first open has nothing to show.
+  const cachedPool = getCachedTronPool(routeParams?.networkId || network?.id);
   const loadingClaimDetails = useMemo<ITronRewardCardState['claimDetails']>(
     () => ({
+      remaining: cachedPool?.remaining,
+      total: cachedPool?.total,
       inventoryLoading: true,
       inventoryFallback: <Skeleton.BodyLg />,
       accountSelector: <Skeleton width={96} height="$6" />,
@@ -614,7 +622,7 @@ function SubsidyCenter() {
       redeemField: null,
       redeemButton: null,
     }),
-    [intl],
+    [intl, cachedPool?.remaining, cachedPool?.total],
   );
   const showLogin = async (onSuccess?: () => void) => {
     if (loginPending.current) return;

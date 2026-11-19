@@ -13,7 +13,9 @@ import { Stack } from '@onekeyhq/components';
 export function InventoryProgress({ value }: { value: number }) {
   const target = Math.max(0, Math.min(100, value));
   const reducedMotion = useReducedMotion();
-  const progress = useSharedValue(reducedMotion ? target : 0);
+  // Start at the value known on mount: only a later change animates. Growing
+  // from zero on every mount would restart the bar each time the page opens.
+  const progress = useSharedValue(target);
 
   useEffect(() => {
     progress.value = reducedMotion

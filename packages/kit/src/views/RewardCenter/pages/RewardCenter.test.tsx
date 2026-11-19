@@ -16,7 +16,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RewardCenterTestIDs } from '../testIDs';
 
-import RewardCenter, { TronRewardCenterContent } from './RewardCenter';
+import RewardCenter, {
+  TronRewardCenterContent,
+  clearTronPoolCache,
+} from './RewardCenter';
 
 const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
 const mockWaitForAutoSelectUnlock = jest.fn(async () => undefined);
@@ -48,6 +51,7 @@ type IMockIssuanceResponse =
 const mockClaim = jest.fn<Promise<IMockIssuanceResponse>, []>();
 let mockRedeemCode = '';
 let mockActivated = true;
+let mockInventoryFails = false;
 const mockPushModal = jest.fn();
 const mockResetField = jest.fn();
 const mockRedeem = jest.fn<Promise<IMockIssuanceResponse>, [unknown]>();
@@ -184,7 +188,12 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       }: {
         body: { url: string };
       }) => {
-        if (body.url === '/api/tronRent/isReceived') return mockInventory;
+        if (body.url === '/api/tronRent/isReceived') {
+          if (mockInventoryFails) {
+            throw new OneKeyLocalError('Inventory request failed');
+          }
+          return mockInventory;
+        }
         if (body.url === '/api/account')
           return { code: 0, data: { isActived: mockActivated } };
         if (body.url === '/api/v1/coupon/redeem') return mockRedeem(body);
@@ -328,10 +337,12 @@ describe('inline TRON energy claim', () => {
     mockClaim.mockReset();
     mockRedeem.mockReset();
     mockRedeemCode = '';
+    clearTronPoolCache();
   });
   afterEach(() => {
     mockActiveAccount = {};
     mockActivated = true;
+    mockInventoryFails = false;
     mockInventory.monthRemain = 2;
     mockInventory.monthIPRemain = 2;
   });
@@ -349,6 +360,11 @@ describe('inline TRON energy claim', () => {
                 ? 'inventory-loading'
                 : 'inventory-ready'}
             </span>
+            <span>
+              pool:{claimDetails.remaining ?? 'none'}/
+              {claimDetails.total ?? 'none'}
+            </span>
+            <span>monthly:{claimDetails.monthlyRemaining ?? 'none'}</span>
             {validUntil ? <span>valid</span> : null}
             {claimDetails.claimButton}
             {claimDetails.redeemButton}
@@ -474,6 +490,124 @@ describe('inline TRON energy claim', () => {
         ),
       { timeout: 3000 },
     );
+  });
+
+  // Today's pool is shared by every address: only the first open of the
+  // session may show it as loading. The monthly quota belongs to an address
+  // and does reload.
+  it('keeps the daily pool on screen while another account loads', async () => {
+    const view = render(inlineCenter());
+    expect(await screen.findByText('pool:none/none')).toBeTruthy();
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+    expect(screen.getByText('monthly:2')).toBeTruthy();
+
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+
+    // The second account's inventory is still on its way. Its request has
+    // not even started on this frame, which must not read as "came back
+    // empty": no retry button, and the claim button stays in place.
+    expect(screen.getByText('inventory-loading')).toBeTruthy();
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+    expect(screen.getByText('monthly:none')).toBeTruthy();
+    expect(
+      screen.queryByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeNull();
+    expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+      'disabled',
+      true,
+    );
+
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      {
+        timeout: 3000,
+      },
+    );
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+    expect(screen.getByText('monthly:2')).toBeTruthy();
+  });
+
+  it('offers a retry once the inventory request has failed', async () => {
+    mockInventoryFails = true;
+    render(inlineCenter());
+
+    const retry = await screen.findByTestId(
+      RewardCenterTestIDs.retryInventoryBtn,
+      undefined,
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('inventory-ready')).toBeTruthy();
+    expect(screen.getByText('pool:none/none')).toBeTruthy();
+
+    mockInventoryFails = false;
+    fireEvent.click(retry);
+
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+  });
+
+  it('shows the last known pool at once when the page is reopened', async () => {
+    const first = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    first.unmount();
+
+    render(inlineCenter());
+
+    expect(await screen.findByText('inventory-loading')).toBeTruthy();
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+  });
+
+  it('carries the pool running dry over to the next account', async () => {
+    mockInventory.remaining = 0;
+    try {
+      const view = render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(
+        () =>
+          expect(claim.textContent).toBe(ETranslations.wallet_subsidy_all_used),
+        { timeout: 3000 },
+      );
+
+      mockActiveAccount = {
+        account: {
+          ...mockAccount,
+          id: 'hd-1--account-2',
+          address: 'second-address',
+        },
+        network: mockNetwork,
+      };
+      view.rerender(inlineCenter());
+
+      // No flash of "Claim" for a pool that is known to be empty.
+      expect(screen.getByText('inventory-loading')).toBeTruthy();
+      expect(screen.getByTestId(RewardCenterTestIDs.claimBtn).textContent).toBe(
+        ETranslations.wallet_subsidy_all_used,
+      );
+    } finally {
+      mockInventory.remaining = 1;
+    }
   });
 
   // The view keeps the space of the inventory rows while this flag is set,

@@ -70,6 +70,27 @@ import type { RouteProp } from '@react-navigation/core';
 
 const networkIdsMap = getNetworkIdsMap();
 
+// Today's free-energy inventory is one pool shared by every address, unlike
+// the claim state and the monthly quota, which belong to an address. The last
+// known pool of a network is kept for the app session: switching accounts or
+// reopening the page shows it at once and updates it in place, instead of
+// going back to a placeholder and restarting the progress bar from zero.
+const tronPoolCache = new Map<string, { remaining: number; total: number }>();
+
+export function clearTronPoolCache() {
+  tronPoolCache.clear();
+}
+
+// The last known pool of a TRON network, for a caller that has to paint the
+// claim view before this component has resolved an account.
+export function getCachedTronPool(networkId?: string) {
+  return tronPoolCache.get(
+    networkId && networkUtils.isTronNetworkByNetworkId(networkId)
+      ? networkId
+      : networkIdsMap.trx,
+  );
+}
+
 // The route params are all optional because the subsidy center can open
 // without an account; the TRON claim itself always works on a resolved one.
 type IRewardCenterParams = {
@@ -311,38 +332,51 @@ function RewardCenterDetails({
         return;
       }
 
+      // Every outcome names the account it belongs to, a failure included.
+      // That is how the view tells "the request for this account has come
+      // back" from "nothing has been asked for this account yet": the second
+      // must read as loading, or the no-inventory state and its retry button
+      // flash for a frame on every account change.
+      const owner = { accountId: account.id, networkId: network.id };
       const start = Date.now();
 
-      const resp =
-        await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
-          totalReceivedLimit: number;
-          remaining: number;
-          isReceived: boolean;
-          monthIPLimit: number;
-          monthIPRemain: number;
-          monthLimit: number;
-          monthRemain: number;
-          error?: string;
-          success: boolean;
-        }>({
-          networkId: network.id,
-          body: {
-            method: 'post',
-            url: '/api/tronRent/isReceived',
-            data: {
-              fromAddress: account.address,
-              sourceFlag: claimSource,
+      try {
+        const resp =
+          await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+            totalReceivedLimit: number;
+            remaining: number;
+            isReceived: boolean;
+            monthIPLimit: number;
+            monthIPRemain: number;
+            monthLimit: number;
+            monthRemain: number;
+            error?: string;
+            success: boolean;
+          }>({
+            networkId: network.id,
+            body: {
+              method: 'post',
+              url: '/api/tronRent/isReceived',
+              data: {
+                fromAddress: account.address,
+                sourceFlag: claimSource,
+              },
+              params: {},
             },
-            params: {},
-          },
-        });
+          });
 
-      const end = Date.now();
-      if (end - start < 800) {
-        await timerUtils.wait(800 - (end - start));
+        const end = Date.now();
+        if (end - start < 800) {
+          await timerUtils.wait(800 - (end - start));
+        }
+        if (!resp || resp.success === false) {
+          return { ...owner, failed: true as const };
+        }
+        return { ...resp, ...owner };
+      } catch {
+        // The proxy has already reported the error.
+        return { ...owner, failed: true as const };
       }
-      if (!resp || resp.success === false) return undefined;
-      return { ...resp, accountId: account.id, networkId: network.id };
     },
     [account, claimSource, network],
     {
@@ -351,19 +385,53 @@ function RewardCenterDetails({
       undefinedResultIfError: true,
     },
   );
-  const result =
+  const settledInventory =
     inventory &&
     inventory.accountId === account?.id &&
     inventory.networkId === network?.id
       ? inventory
       : undefined;
-  // The selected account is still being resolved, so no inventory request
-  // has started yet. Without this the view would flash its "no inventory"
-  // and "add account" states for a frame before the request begins.
-  const isInventoryPending = isLoadingResourceState || !currentRewardState;
+  const result =
+    settledInventory && !('failed' in settledInventory)
+      ? settledInventory
+      : undefined;
+  // Loading covers three stretches: the selected account is being resolved,
+  // its request has not started yet, and the request is in flight. Without
+  // the first two the view would flash its "no inventory", "add account" and
+  // retry states for a frame before the request begins.
+  const isInventoryPending =
+    isLoadingResourceState ||
+    !currentRewardState ||
+    Boolean(account && network && !settledInventory);
   const isClaimed = Boolean(result?.isReceived);
   const remaining = result?.remaining;
-  const exhausted = remaining === 0 || result?.totalReceivedLimit === 0;
+  // While the next account is being resolved there is no network yet; the
+  // pool to keep showing is the one of the network last on screen.
+  const [lastNetworkId, setLastNetworkId] = useState<string>();
+  useEffect(() => {
+    if (network?.id) {
+      setLastNetworkId(network.id);
+    }
+  }, [network?.id]);
+  useEffect(() => {
+    if (result) {
+      tronPoolCache.set(result.networkId, {
+        remaining: result.remaining,
+        total: result.totalReceivedLimit,
+      });
+    }
+  }, [result]);
+  const pool = result
+    ? { remaining: result.remaining, total: result.totalReceivedLimit }
+    : tronPoolCache.get(
+        network?.id ??
+          lastNetworkId ??
+          accountSelectorLinkNetworkId ??
+          networkIdsMap.trx,
+      );
+  // The pool running dry holds for every address, so it does not wait for
+  // the selected account's own inventory either.
+  const exhausted = pool?.remaining === 0 || pool?.total === 0;
   const validUntil =
     lastClaim &&
     lastClaim.accountId === account?.id &&
@@ -553,6 +621,7 @@ function RewardCenterDetails({
 
       setInventory((current) =>
         current &&
+        !('failed' in current) &&
         current.accountId === account.id &&
         current.networkId === network.id
           ? {
@@ -827,7 +896,10 @@ function RewardCenterDetails({
 
   const actionSize = renderInline ? tronRewardActionSize : undefined;
   const renderClaimButton = useCallback(() => {
-    if (!isClaimResourceAvailable) {
+    // Only a resolved account that cannot claim hides the button. While the
+    // next account is still being resolved the button stays (disabled), so
+    // switching accounts does not make it vanish and come back.
+    if (isClaimResourceAvailable === false) {
       return null;
     }
 
@@ -1091,7 +1163,7 @@ function RewardCenterDetails({
           })}
         </Button>
       );
-    } else if (!account) {
+    } else if (!account && !isInventoryPending) {
       accountAction = claimButton;
     } else if (isAccountNotActivated) {
       accountAction = (
@@ -1114,7 +1186,7 @@ function RewardCenterDetails({
     } else if (
       account &&
       !result &&
-      !isLoadingResourceState &&
+      !isInventoryPending &&
       isClaimResourceAvailable
     ) {
       claimButton = (
@@ -1134,8 +1206,8 @@ function RewardCenterDetails({
       validUntil: isClaimed ? validUntil : undefined,
       exhausted,
       claimDetails: {
-        remaining: result?.remaining,
-        total: result?.totalReceivedLimit,
+        remaining: pool?.remaining,
+        total: pool?.total,
         monthlyRemaining: result?.monthRemain,
         monthlyLimit: result?.monthLimit,
         inventoryLoading: isInventoryPending,
