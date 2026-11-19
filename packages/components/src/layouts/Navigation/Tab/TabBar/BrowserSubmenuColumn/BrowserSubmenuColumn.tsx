@@ -17,8 +17,8 @@ import {
   BrowserSubmenuCloseArmedContext,
   BrowserSubmenuContext,
 } from './BrowserSubmenuContext';
-import { createCloseArmGuard } from './closeArmGuard';
 import { EXPANDED_SUBMENU_WIDTH, SubmenuColumn } from './SubmenuColumn';
+import { useBrowserSubmenuCloseArm } from './useBrowserSubmenuCloseArm';
 import { VerticalDivider } from './VerticalDivider';
 
 export interface IBrowserSubmenuColumnProps {
@@ -47,13 +47,23 @@ export function BrowserSubmenuColumn({
   multiTabBrowserRouteName,
 }: IBrowserSubmenuColumnProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [isCloseArmed, setIsCloseArmed] = useState(false);
   const isHoveredRef = useRef(isHovered);
   isHoveredRef.current = isHovered;
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const popoverCountRef = useRef(0);
-  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const {
+    isCloseArmed,
+    lastPointerRef,
+    onPointerEnter,
+    onPointerMove,
+    onPointerLeave,
+    disarm,
+  } = useBrowserSubmenuCloseArm({
+    isExpanded: isHovered,
+    delayMs: CLOSE_ARM_DELAY_MS,
+    thresholdPx: POINTER_MOVE_THRESHOLD_PX,
+  });
 
   const clearHoverTimer = useCallback(() => {
     if (hoverTimerRef.current) {
@@ -76,7 +86,7 @@ export function BrowserSubmenuColumn({
       clearHoverTimer();
       setIsHovered(false);
     }
-  }, [clearHoverTimer]);
+  }, [clearHoverTimer, lastPointerRef]);
 
   const reportPopoverOpen = useCallback(
     (isOpen: boolean) => {
@@ -95,34 +105,41 @@ export function BrowserSubmenuColumn({
     [reportPopoverOpen],
   );
 
-  const handleHoverIn = useCallback(() => {
-    clearHoverTimer();
-    hoverTimerRef.current = setTimeout(() => {
-      // Disarm in the same batch as expanding, so no extra render is needed
-      // and rows never show a close button in the first expanded frame.
-      // Skip when already expanded (e.g. re-entering from a popover), since
-      // the arming effect would not re-run to arm it again.
-      if (!isHoveredRef.current) {
-        setIsCloseArmed(false);
-      }
-      setIsHovered(true);
-    }, HOVER_DELAY_MS);
-  }, [clearHoverTimer]);
+  const handleHoverIn = useCallback(
+    (e: { nativeEvent: { clientX: number; clientY: number } }) => {
+      // Record where the pointer entered: when the column appears under a
+      // stationary cursor there is no move before the close guard settles.
+      onPointerEnter({ x: e.nativeEvent.clientX, y: e.nativeEvent.clientY });
+      clearHoverTimer();
+      hoverTimerRef.current = setTimeout(() => {
+        // Disarm in the same batch as expanding, so no extra render is needed
+        // and rows never show a close button in the first expanded frame.
+        // Skip when already expanded (e.g. re-entering from a popover), since
+        // the arming effect would not re-run to arm it again.
+        if (!isHoveredRef.current) {
+          disarm();
+        }
+        setIsHovered(true);
+      }, HOVER_DELAY_MS);
+    },
+    [clearHoverTimer, disarm, onPointerEnter],
+  );
 
   // Keep the latest pointer position while collapsed too, so the close guard
   // can anchor its movement origin to where the pointer rested at expansion.
   const handleContainerPointerMove = useCallback(
     (e: { clientX: number; clientY: number }) => {
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      onPointerMove({ x: e.clientX, y: e.clientY });
     },
-    [],
+    [onPointerMove],
   );
 
   const handleHoverOut = useCallback(() => {
     clearHoverTimer();
     if (popoverCountRef.current > 0) return;
+    onPointerLeave();
     setIsHovered(false);
-  }, [clearHoverTimer]);
+  }, [clearHoverTimer, onPointerLeave]);
 
   // Check if Browser or MultiTabBrowser is currently selected
   const isBrowserSelected =
@@ -169,16 +186,8 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
-    const closeArmGuard = createCloseArmGuard({
-      delayMs: CLOSE_ARM_DELAY_MS,
-      thresholdPx: POINTER_MOVE_THRESHOLD_PX,
-      getLatestPointer: () => lastPointerRef.current,
-      onArm: () => setIsCloseArmed(true),
-    });
-
     const handlePointerMove = (e: PointerEvent) => {
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
-      closeArmGuard.onPointerMove(lastPointerRef.current);
+      onPointerMove({ x: e.clientX, y: e.clientY });
       if (popoverCountRef.current > 0) return;
 
       if (rafId !== null) return;
@@ -208,9 +217,8 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
-      closeArmGuard.dispose();
     };
-  }, [isHovered, clearHoverTimer]);
+  }, [isHovered, clearHoverTimer, lastPointerRef, onPointerMove]);
 
   type ITabBarProps = { inSubmenu?: boolean; isExpanded?: boolean };
 
