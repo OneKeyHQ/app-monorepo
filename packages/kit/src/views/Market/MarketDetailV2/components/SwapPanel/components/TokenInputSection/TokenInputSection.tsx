@@ -45,7 +45,7 @@ import type { IAmountEnterSource } from '../../types/analytics';
 import type BigNumber from 'bignumber.js';
 
 export interface ITokenInputSectionRef {
-  setValue: (value: string) => void;
+  setValue: (value: string, options?: { notifyChange?: boolean }) => void;
 }
 
 export interface ITokenInputSectionProps {
@@ -102,9 +102,9 @@ function TokenInputSectionComponent(
   useImperativeHandle(
     ref,
     () => ({
-      setValue: (newValue: string) => {
+      setValue: (newValue, { notifyChange = true } = {}) => {
         setInternalValue(newValue);
-        onChange(newValue);
+        if (notifyChange) onChange(newValue);
       },
     }),
     [onChange],

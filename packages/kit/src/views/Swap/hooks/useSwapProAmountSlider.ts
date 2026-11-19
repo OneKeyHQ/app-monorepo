@@ -36,9 +36,11 @@ const SLIDER_COMMIT_THROTTLE_MS = 100;
 export function useSwapProAmountSlider({
   inputAmount,
   onAmountChange,
+  onMaxAmountChange,
 }: {
   inputAmount: string;
   onAmountChange: (text: string) => void;
+  onMaxAmountChange?: (rawAmount: string) => void;
 }) {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
@@ -79,9 +81,18 @@ export function useSwapProAmountSlider({
   // Trade type is part of the key: a trailing commit must not survive a
   // MARKET/LIMIT flip either, since onAmountChange routes to a different
   // amount atom per trade type.
-  const inputTokenKey = `${swapProTradeType}_${getTokenIdentityKey(
-    inputToken,
-  )}_${inputToken?.balanceMultiplier ?? ''}`;
+  const balanceAccountAddress =
+    inputToken && 'accountAddress' in inputToken
+      ? inputToken.accountAddress
+      : undefined;
+  const inputTokenKey = [
+    swapProTradeType,
+    getTokenIdentityKey(inputToken),
+    inputToken?.balanceMultiplier,
+    balanceAccountAddress,
+    inputToken?.decimals,
+    availableBalance.toFixed(),
+  ].join('_');
   const [zeroBalanceSliderValue, setZeroBalanceSliderValue] = useState(0);
   useEffect(() => {
     lastDragPercentRef.current = 0;
@@ -117,6 +128,7 @@ export function useSwapProAmountSlider({
     decimals: inputToken?.decimals,
     balanceMultiplier: inputToken?.balanceMultiplier,
     onAmountChange,
+    onMaxAmountChange,
     inputTokenKey,
   };
   const commitContextRef = useRef(commitContext);
@@ -143,6 +155,13 @@ export function useSwapProAmountSlider({
             decimals: ctx.decimals,
           });
           if (amount !== undefined) {
+            if (
+              percent === SWAP_PRO_SLIDER_MAX_PERCENT &&
+              ctx.onMaxAmountChange
+            ) {
+              ctx.onMaxAmountChange(amount);
+              return;
+            }
             const displayAmount = getSwapDisplayAmount(
               amount,
               ctx.balanceMultiplier,

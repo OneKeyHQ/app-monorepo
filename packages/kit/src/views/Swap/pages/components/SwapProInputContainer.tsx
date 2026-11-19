@@ -17,7 +17,10 @@ import {
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
+  buildSwapMaxAmountSnapshot,
+  getSwapDisplayDecimals,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -27,6 +30,7 @@ import {
 
 import {
   useSwapLimitPriceCheck,
+  useSwapProAccount,
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
@@ -55,6 +59,7 @@ const SwapProInputContainer = ({
   const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const { result: proAccount } = useSwapProAccount();
   const handleInputChange = useCallback(
     (text: string) => {
       if (
@@ -92,6 +97,44 @@ const SwapProInputContainer = ({
       : fromInputAmount.value;
   }, [swapProTradeType, swapProInputAmount, fromInputAmount.value]);
 
+  const handleMaxAmountChange = useCallback(
+    (rawAmount: string) => {
+      const accountAddress = proAccount?.addressDetail.address;
+      if (
+        !inputToken ||
+        !('accountAddress' in inputToken) ||
+        inputToken.accountAddress !== accountAddress
+      )
+        return;
+      const maxAmountSnapshot = buildSwapMaxAmountSnapshot({
+        rawAmount,
+        token: inputToken,
+        accountId: proAccount?.id,
+        accountAddress,
+      });
+      if (!maxAmountSnapshot) return;
+      if (swapProTradeType === ESwapProTradeType.MARKET) {
+        setSwapProInputAmount(
+          maxAmountSnapshot.displayAmount,
+          maxAmountSnapshot,
+        );
+      } else {
+        setFromInputAmount({
+          value: maxAmountSnapshot.displayAmount,
+          isInput: true,
+          maxAmountSnapshot,
+        });
+      }
+    },
+    [
+      inputToken,
+      proAccount,
+      setFromInputAmount,
+      setSwapProInputAmount,
+      swapProTradeType,
+    ],
+  );
+
   const {
     sliderValue,
     sliderDisabled,
@@ -101,6 +144,7 @@ const SwapProInputContainer = ({
   } = useSwapProAmountSlider({
     inputAmount: inputValue,
     onAmountChange: handleInputChange,
+    onMaxAmountChange: handleMaxAmountChange,
   });
 
   // Reset scroll position to show text from the beginning when value changes and input is not focused

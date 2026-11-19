@@ -95,7 +95,7 @@ import {
   swapNetworkConfigStatusAtom,
   swapNetworks,
   swapProDirectionAtom,
-  swapProInputAmountAtom,
+  swapProInputAmountStateAtom,
   swapProPositionsCacheAtom,
   swapProPositionsRuntimeDataAtom,
   swapProSelectTokenAtom,
@@ -732,7 +732,7 @@ describe('useSwapActions', () => {
         store.set(swapProDirectionAtom(), ESwapDirection.BUY);
         store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
         store.set(swapProSelectTokenAtom(), usdcToken);
-        store.set(swapProInputAmountAtom(), '1');
+        store.set(swapProInputAmountStateAtom(), { value: '1', isInput: true });
         store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         store.set(swapQuoteActionLockAtom(), {
           ...store.get(swapQuoteActionLockAtom()),
@@ -772,7 +772,7 @@ describe('useSwapActions', () => {
         store.set(swapProSelectTokenAtom(), ethToken);
         store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
         store.set(swapProSellToTokenAtom(), bnbProToken);
-        store.set(swapProInputAmountAtom(), '1');
+        store.set(swapProInputAmountStateAtom(), { value: '1', isInput: true });
         await act(async () => {
           await result.current.resumeQuoteAction(resumeParams);
         });
@@ -1359,6 +1359,8 @@ describe('useSwapActions', () => {
           displayAmount,
           networkId: scaledToken.networkId,
           contractAddress: scaledToken.contractAddress,
+          decimals: scaledToken.decimals,
+          accountId: evmAccount.id,
           accountAddress: '0xabc',
           balanceMultiplier: scaledToken.balanceMultiplier,
         },
@@ -1384,6 +1386,47 @@ describe('useSwapActions', () => {
       expect.objectContaining({ fromTokenAmount: '0.02752389' }),
     );
   });
+
+  it.each(['1', '4'])(
+    'invalidates Max instead of quoting its old display amount with multiplier %s',
+    async (balanceMultiplier) => {
+      const scaledToken = { ...ethToken, balanceMultiplier };
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        currentStore.set(swapSelectFromTokenAtom(), scaledToken);
+        currentStore.set(swapSelectToTokenAtom(), bnbToken);
+        currentStore.set(swapFromTokenAmountAtom(), {
+          value: '20',
+          isInput: true,
+          maxAmountSnapshot: {
+            rawAmount: '10',
+            displayAmount: '20',
+            networkId: scaledToken.networkId,
+            contractAddress: scaledToken.contractAddress,
+            decimals: scaledToken.decimals,
+            accountId: evmAccount.id,
+            accountAddress: '0xabc',
+            balanceMultiplier: '2',
+          },
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.quoteAction(
+          { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+          '0xabc',
+          evmAccount.id,
+          undefined,
+          undefined,
+          ESwapQuoteKind.SELL,
+        );
+      });
+      expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+      expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    },
+  );
 
   it('reuses the raw amount without dividing it again on automatic refresh', async () => {
     jest.useFakeTimers();
@@ -1457,7 +1500,10 @@ describe('useSwapActions', () => {
       currentStore.set(swapProSelectTokenAtom(), usdcToken);
       currentStore.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
       currentStore.set(swapProDirectionAtom(), ESwapDirection.BUY);
-      currentStore.set(swapProInputAmountAtom(), '1');
+      currentStore.set(swapProInputAmountStateAtom(), {
+        value: '1',
+        isInput: true,
+      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,

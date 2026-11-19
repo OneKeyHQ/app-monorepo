@@ -52,9 +52,12 @@ import { useSwapStockSelectedBalanceSync } from '@onekeyhq/kit/src/views/Swap/ho
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { logDirectSwapGasAccountDecision } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import {
+  type ISwapMaxAmountSnapshot,
+  buildSwapMaxAmountSnapshot,
   getSwapDisplayAmount,
   getSwapDisplayRate,
   getSwapRawInputAmount,
+  isSwapMaxAmountCurrent,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
@@ -446,6 +449,7 @@ export function useSpeedSwapActions(props: {
   tradeType: ESwapDirection;
   swapType?: ESwapTabSwitchType;
   fromTokenAmount: string;
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
   slippageItem: ISwapSlippageSegmentItem;
   antiMEV: boolean;
   isCustomRpcUnavailable?: boolean;
@@ -462,6 +466,7 @@ export function useSpeedSwapActions(props: {
   const {
     marketToken,
     fromTokenAmount,
+    maxAmountSnapshot,
     tradeToken,
     tradeType,
     swapType = ESwapTabSwitchType.SWAP,
@@ -469,7 +474,7 @@ export function useSpeedSwapActions(props: {
     antiMEV,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
-    executionReady = true,
+    executionReady: pairExecutionReady = true,
     onCloseReviewDialog,
     stockIsOpen,
   } = props;
@@ -763,6 +768,32 @@ export function useSpeedSwapActions(props: {
     netAccountRes.result?.addressDetail.networkId === fromToken.networkId
       ? netAccountRes.result
       : undefined;
+  const fromAccountAddress = fromNetworkAccount?.addressDetail.address;
+  const fromAccountId = fromNetworkAccount?.id;
+  const maxAmountCurrent =
+    !maxAmountSnapshot ||
+    isSwapMaxAmountCurrent({
+      snapshot: maxAmountSnapshot,
+      displayAmount: fromTokenAmount,
+      token: fromToken,
+      accountId: fromAccountId,
+      accountAddress: fromAccountAddress,
+    });
+  const executionReady = pairExecutionReady && maxAmountCurrent;
+  const isMaxAmountStale =
+    multiplierMetadataReady && !!fromNetworkAccount && !maxAmountCurrent;
+  const createMaxAmountSnapshot = useCallback(
+    (rawAmount: string) =>
+      multiplierMetadataReady
+        ? buildSwapMaxAmountSnapshot({
+            rawAmount,
+            token: fromToken,
+            accountId: fromAccountId,
+            accountAddress: fromAccountAddress,
+          })
+        : undefined,
+    [fromToken, multiplierMetadataReady, fromAccountId, fromAccountAddress],
+  );
   let receivingNetworkAccount = receivingAccountRes.result;
   if (toToken.networkId === fromToken.networkId) {
     receivingNetworkAccount = fromNetworkAccount;
@@ -1035,6 +1066,7 @@ export function useSpeedSwapActions(props: {
         fromToken,
         toToken,
         fromTokenAmount: fromTokenAmountDebounced,
+        maxAmountSnapshot,
         type: swapType,
         source: ESwapQuoteSource.MARKET,
         manualRefresh: true,
@@ -1045,6 +1077,7 @@ export function useSpeedSwapActions(props: {
     multiplierMetadataReady,
     fromToken,
     fromTokenAmountDebounced,
+    maxAmountSnapshot,
     fromNetworkAccount?.addressDetail.address,
     fromNetworkAccount?.id,
     quoteAction,
@@ -1229,49 +1262,50 @@ export function useSpeedSwapActions(props: {
     [persistMarketSwapHistoryItem],
   );
 
-  const matchApproveTransaction = useCallback(
-    (
-      approvingTransaction?: ISwapApproveTransaction,
-      amount?: string,
-      currentFromToken?: ISwapTokenBase,
-      currentToToken?: ISwapTokenBase,
-    ) => {
-      return Boolean(
-        approvingTransaction &&
-        (areMarketApproveAmountsEqual(amount, approvingTransaction.amount) ||
-          areMarketApproveAmountsEqual(
-            amount,
-            approvingTransaction.resetApproveValue,
-          )) &&
-        equalTokenNoCaseSensitive({
-          token1: approvingTransaction.fromToken,
-          token2: currentFromToken,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: approvingTransaction.toToken,
-          token2: currentToToken,
-        }),
-      );
-    },
-    [],
-  );
-
   const swapApprovingMatchLoading = useMemo(() => {
+    const approval = inAppNotificationAtom.speedSwapApprovingTransaction;
+    if (
+      !inAppNotificationAtom.speedSwapApprovingLoading ||
+      !approval ||
+      !fromAccountAddress
+    ) {
+      return false;
+    }
+    const normalizeAddress = networkUtils.isEvmNetwork({
+      networkId: fromToken.networkId,
+    })
+      ? (address: string) => address.toLowerCase()
+      : (address: string) => address;
+    const rawAmount = maxAmountCurrent
+      ? (maxAmountSnapshot?.rawAmount ??
+        getSwapRawInputAmount(fromTokenAmount, fromToken, 'down'))
+      : undefined;
     return (
-      inAppNotificationAtom.speedSwapApprovingLoading &&
-      matchApproveTransaction(
-        inAppNotificationAtom.speedSwapApprovingTransaction,
-        fromTokenAmount,
-        fromToken,
-        toToken,
-      )
+      normalizeAddress(approval.useAddress) ===
+        normalizeAddress(fromAccountAddress) &&
+      (!effectiveSpenderAddress ||
+        normalizeAddress(approval.spenderAddress) ===
+          normalizeAddress(effectiveSpenderAddress)) &&
+      equalTokenNoCaseSensitive({
+        token1: approval.fromToken,
+        token2: fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: approval.toToken,
+        token2: toToken,
+      }) &&
+      (areMarketApproveAmountsEqual(rawAmount, approval.amount) ||
+        areMarketApproveAmountsEqual(rawAmount, approval.resetApproveValue))
     );
   }, [
+    effectiveSpenderAddress,
+    fromAccountAddress,
     fromTokenAmount,
     fromToken,
     inAppNotificationAtom.speedSwapApprovingLoading,
     inAppNotificationAtom.speedSwapApprovingTransaction,
-    matchApproveTransaction,
+    maxAmountCurrent,
+    maxAmountSnapshot,
     toToken,
   ]);
 
@@ -4085,6 +4119,7 @@ export function useSpeedSwapActions(props: {
       void selectStockExecutionTokens({
         fromToken: fromTokenRef.current,
         toToken: toTokenRef.current,
+        metadataReady: multiplierMetadataReady,
         syncId: stockExecutionTokenSyncIdRef.current,
       });
     } else {
@@ -4098,6 +4133,7 @@ export function useSpeedSwapActions(props: {
     fromToken.decimals,
     fromToken.isStock,
     fromToken.networkId,
+    multiplierMetadataReady,
     selectStockExecutionTokens,
     setManualSelectQuoteProvider,
     setSwapFromToken,
@@ -4124,6 +4160,7 @@ export function useSpeedSwapActions(props: {
     setSwapFromTokenAmount({
       value: fromTokenAmountDebounced,
       isInput: true,
+      maxAmountSnapshot,
     });
     // Read only as a re-run trigger. The quote request remains authoritative
     // for whether trading is available.
@@ -4155,6 +4192,7 @@ export function useSpeedSwapActions(props: {
           fromToken: fromTokenRef.current,
           toToken: toTokenRef.current,
           fromTokenAmount: fromTokenAmountDebounced,
+          maxAmountSnapshot,
           type: swapType,
           source: ESwapQuoteSource.MARKET,
         },
@@ -4174,6 +4212,7 @@ export function useSpeedSwapActions(props: {
     fromToken.balanceMultiplier,
     fromToken.networkId,
     fromTokenAmountDebounced,
+    maxAmountSnapshot,
     isReviewDialogOpen,
     isWrapped,
     fromNetworkAccount?.addressDetail.address,
@@ -4274,6 +4313,8 @@ export function useSpeedSwapActions(props: {
     fromToken,
     toToken,
     multiplierMetadataReady,
+    createMaxAmountSnapshot,
+    isMaxAmountStale,
     fetchBalanceLoading,
     swapNativeTokenReserveGas,
     paymentTokenPrice: effectiveTradeTokenPrice.gt(0)

@@ -70,6 +70,7 @@ import {
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
+  buildSwapMaxAmountSnapshot,
   getSwapDisplayAmount,
   getSwapDisplayRate,
   getSwapRawInputAmount,
@@ -971,32 +972,28 @@ const SwapMainLoad = ({
     if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
       return;
     }
-    const maxRawAmount = maxAmount.toFixed();
-    const maxAmountValue = getSwapDisplayAmount(
-      maxRawAmount,
-      fromSelectToken?.balanceMultiplier,
-    );
-    if (!maxAmountValue || !fromSelectToken) {
-      return;
-    }
+    if (!fromSelectToken) return;
+    const maxRawAmount = maxAmount
+      .decimalPlaces(fromSelectToken.decimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const maxAmountSnapshot = buildSwapMaxAmountSnapshot({
+      rawAmount: maxRawAmount,
+      token: fromSelectToken,
+      accountId: focusSwapPro
+        ? swapProAccount.result?.id
+        : swapFromAddressInfo.accountInfo?.account?.id,
+      accountAddress: focusSwapPro
+        ? swapProAccount.result?.addressDetail.address
+        : swapFromAddressInfo.address,
+    });
+    if (!maxAmountSnapshot) return;
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      setSwapProInputAmount(maxAmountValue);
+      setSwapProInputAmount(maxAmountSnapshot.displayAmount, maxAmountSnapshot);
     } else {
       setFromInputAmount({
-        value: maxAmountValue,
+        value: maxAmountSnapshot.displayAmount,
         isInput: true,
-        ...(swapFromAddressInfo.address
-          ? {
-              maxAmountSnapshot: {
-                rawAmount: maxRawAmount,
-                displayAmount: maxAmountValue,
-                networkId: fromSelectToken.networkId,
-                contractAddress: fromSelectToken.contractAddress,
-                accountAddress: swapFromAddressInfo.address,
-                balanceMultiplier: fromSelectToken.balanceMultiplier,
-              },
-            }
-          : {}),
+        maxAmountSnapshot,
       });
     }
   }, [
@@ -1004,6 +1001,9 @@ const SwapMainLoad = ({
     focusSwapPro,
     fromSelectToken,
     swapFromAddressInfo.address,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    swapProAccount.result?.addressDetail.address,
+    swapProAccount.result?.id,
     setFromInputAmount,
     setSwapProInputAmount,
     swapProTradeType,

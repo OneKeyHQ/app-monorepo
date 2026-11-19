@@ -20,6 +20,7 @@ import {
   swapStockExecutionTokensAtom,
   swapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import type { ISwapMaxAmountSnapshot } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   type ISwapReviewPreparation,
   createSwapReviewAnalytics,
@@ -179,9 +180,8 @@ let mockMarketDeriveInfoPromiseResult: {
   run: jest.Mock;
 };
 let mockInAppNotificationAtomState: {
-  speedSwapApprovingTransaction?: {
-    status?: string;
-  };
+  speedSwapApprovingLoading?: boolean;
+  speedSwapApprovingTransaction?: ISwapApproveTransaction;
 } = {};
 let mockCurrencyInfo = {
   id: 'usd',
@@ -659,6 +659,81 @@ describe('useSpeedSwapActions', () => {
       result: undefined,
       run: mockMarketDeriveInfoRun,
     };
+  });
+
+  it('matches a scaled Market approval by its raw amount and owner', async () => {
+    const scaledToken = { ...usdcToken, balanceMultiplier: '1.5' };
+    const approval: ISwapApproveTransaction = {
+      protocol: EProtocolOfExchange.SWAP,
+      swapType: ESwapTabSwitchType.SWAP,
+      provider: 'Provider',
+      providerName: 'Provider',
+      fromToken: scaledToken,
+      toToken: btcToken,
+      useAddress: '0xUSER',
+      spenderAddress: '0xspender',
+      amount: '10',
+      status: ESwapApproveTransactionStatus.PENDING,
+    };
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    mockInAppNotificationAtomState = {
+      speedSwapApprovingLoading: true,
+      speedSwapApprovingTransaction: approval,
+    };
+    const { result, rerender } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ tradeToken: scaledToken }),
+        fromTokenAmount: '15',
+      }),
+    );
+    await waitFor(() => {
+      expect(result.current.swapApprovingMatchLoading).toBe(true);
+    });
+
+    mockInAppNotificationAtomState = {
+      speedSwapApprovingLoading: true,
+      speedSwapApprovingTransaction: { ...approval, useAddress: '0xother' },
+    };
+    rerender();
+    expect(result.current.swapApprovingMatchLoading).toBe(false);
+  });
+
+  it('never requotes the old Market Max as a manual amount after the multiplier changes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const initialProps: {
+      multiplier: string;
+      amount: string;
+      snapshot?: ISwapMaxAmountSnapshot;
+    } = { multiplier: '2', amount: '0' };
+    const { result, rerender } = renderSwapHook(
+      ({ multiplier, amount, snapshot }) =>
+        useSpeedSwapActions({
+          ...createHookProps({
+            tradeToken: { ...usdcToken, balanceMultiplier: multiplier },
+          }),
+          fromTokenAmount: amount,
+          maxAmountSnapshot: snapshot,
+        }),
+      { initialProps },
+    );
+    await waitFor(() => {
+      expect(result.current.multiplierMetadataReady).toBe(true);
+    });
+    const snapshot = result.current.createMaxAmountSnapshot('10');
+    expect(snapshot?.displayAmount).toBe('20');
+    rerender({ multiplier: '2', amount: '20', snapshot });
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({ fromTokenAmount: '10' }),
+      );
+    });
+    rerender({ multiplier: '4', amount: '20', snapshot });
+    await waitFor(() => {
+      expect(result.current.isMaxAmountStale).toBe(true);
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '5' }),
+    );
   });
 
   it('clears allowance loading when an expired quote has no replacement request', async () => {

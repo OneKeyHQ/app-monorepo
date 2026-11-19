@@ -27,6 +27,7 @@ import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swa
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
 import SwapQuoteRiskAlert from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteRiskAlert';
 import {
+  type ISwapMaxAmountSnapshot,
   getSwapDisplayAmount,
   getSwapDisplayDecimals,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
@@ -100,6 +101,10 @@ export type ISwapPanelContentProps = {
   defaultTokens: IToken[];
   balance?: BigNumber;
   balanceToken?: IToken;
+  createMaxAmountSnapshot: (
+    rawAmount: string,
+  ) => ISwapMaxAmountSnapshot | undefined;
+  isMaxAmountStale: boolean;
   paymentTokenPrice?: BigNumber;
   paymentTokenDisplay?: IToken;
   paymentTokenDisplayLoading?: boolean;
@@ -156,6 +161,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     defaultTokens,
     balance,
     balanceToken,
+    createMaxAmountSnapshot,
+    isMaxAmountStale,
     paymentTokenPrice,
     paymentTokenDisplay,
     paymentTokenDisplayLoading,
@@ -186,8 +193,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   const {
     paymentAmount,
+    paymentMaxAmountSnapshot,
     paymentToken,
     sellAmount,
+    sellMaxAmountSnapshot,
     resetAmounts,
     setSellAmount,
     setPaymentAmount,
@@ -243,6 +252,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const currentInputAmount = useMemo(() => {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
   }, [tradeType, paymentAmount, sellAmount]);
+  const isMaxAmount = Boolean(
+    tradeType === ESwapDirection.BUY
+      ? paymentMaxAmountSnapshot
+      : sellMaxAmountSnapshot,
+  );
 
   const shouldReserveBalanceGas = shouldReserveSwapGas(balanceToken);
   const displayBalance = useMemo(
@@ -258,21 +272,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     [balance, balanceToken?.balanceMultiplier],
   );
   const handleBalanceClick = useCallback(() => {
-    if (!balance) {
-      return;
-    }
+    if (!balance || !balanceToken) return;
 
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
     )?.reserveGas;
+    let rawMaxAmount = balance;
     if (shouldReserveBalanceGas && reserveGas) {
-      const maxAmount = BigNumber.max(
-        0,
-        balance.minus(new BigNumber(reserveGas)),
-      ).decimalPlaces(
-        Number(balanceToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
+      rawMaxAmount = BigNumber.max(0, balance.minus(new BigNumber(reserveGas)));
 
       const reserveGasFormatted = numberFormat(reserveGas.toString(), {
         formatter: 'balance',
@@ -293,44 +300,47 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       Toast.message({
         title: message,
       });
-
-      const displayMax = new BigNumber(
-        getSwapDisplayAmount(
-          maxAmount.toFixed(),
-          balanceToken?.balanceMultiplier,
-        ) ?? 'NaN',
-      );
-
-      if (tradeType === ESwapDirection.BUY) {
-        setPaymentAmount(displayMax);
-        tokenBuyInputRef.current?.setValue(displayMax.toFixed());
-      } else {
-        setSellAmount(displayMax);
-        tokenSellInputRef.current?.setValue(displayMax.toFixed());
-      }
-    } else if (tradeType === ESwapDirection.BUY) {
-      if (!displayBalance || !displayBalance.isFinite()) return;
-      setPaymentAmount(displayBalance);
-      tokenBuyInputRef.current?.setValue(displayBalance.toFixed());
+    }
+    const maxAmountSnapshot = createMaxAmountSnapshot(
+      rawMaxAmount
+        .decimalPlaces(balanceToken.decimals, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    );
+    if (!maxAmountSnapshot) return;
+    const displayMax = new BigNumber(maxAmountSnapshot.displayAmount);
+    if (tradeType === ESwapDirection.BUY) {
+      setPaymentAmount(displayMax, maxAmountSnapshot);
+      tokenBuyInputRef.current?.setValue(maxAmountSnapshot.displayAmount, {
+        notifyChange: false,
+      });
     } else {
-      if (!displayBalance || !displayBalance.isFinite()) return;
-      setSellAmount(displayBalance);
-      tokenSellInputRef.current?.setValue(displayBalance.toFixed());
+      setSellAmount(displayMax, maxAmountSnapshot);
+      tokenSellInputRef.current?.setValue(maxAmountSnapshot.displayAmount, {
+        notifyChange: false,
+      });
     }
   }, [
     swapNativeTokenReserveGas,
     shouldReserveBalanceGas,
-    balanceToken?.networkId,
-    balanceToken?.decimals,
-    balanceToken?.symbol,
+    balanceToken,
     balance,
-    displayBalance,
-    balanceToken?.balanceMultiplier,
+    createMaxAmountSnapshot,
     setPaymentAmount,
     setSellAmount,
     tradeType,
     intl,
   ]);
+
+  useEffect(() => {
+    if (!isMaxAmountStale) return;
+    if (tradeType === ESwapDirection.BUY) {
+      setPaymentAmount(new BigNumber(0));
+      tokenBuyInputRef.current?.setValue('', { notifyChange: false });
+    } else {
+      setSellAmount(new BigNumber(0));
+      tokenSellInputRef.current?.setValue('', { notifyChange: false });
+    }
+  }, [isMaxAmountStale, setPaymentAmount, setSellAmount, tradeType]);
 
   const handlePercentageSelect = useCallback(
     (stage: number) => {
@@ -355,20 +365,29 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         );
       }
 
+      const maxAmountSnapshot =
+        stage === 100 ? createMaxAmountSnapshot(amount.toFixed()) : undefined;
+      if (stage === 100 && !maxAmountSnapshot) return;
       amount = new BigNumber(
-        getSwapDisplayAmount(
-          amount.toFixed(),
-          balanceToken.balanceMultiplier,
-        ) ?? 'NaN',
+        maxAmountSnapshot?.displayAmount ??
+          getSwapDisplayAmount(
+            amount.toFixed(),
+            balanceToken.balanceMultiplier,
+          ) ??
+          'NaN',
       );
       if (!amount.isFinite()) return;
 
       if (tradeType === ESwapDirection.BUY) {
-        setPaymentAmount(amount);
-        tokenBuyInputRef.current?.setValue(amount.toFixed());
+        setPaymentAmount(amount, maxAmountSnapshot);
+        tokenBuyInputRef.current?.setValue(amount.toFixed(), {
+          notifyChange: false,
+        });
       } else {
-        setSellAmount(amount);
-        tokenSellInputRef.current?.setValue(amount.toFixed());
+        setSellAmount(amount, maxAmountSnapshot);
+        tokenSellInputRef.current?.setValue(amount.toFixed(), {
+          notifyChange: false,
+        });
       }
 
       setAmountEnterType(amountEnterSource);
@@ -376,6 +395,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     [
       balance,
       balanceToken,
+      createMaxAmountSnapshot,
       setAmountEnterType,
       setPaymentAmount,
       setSellAmount,
@@ -732,6 +752,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             tradeType={tradeType}
             onPress={actionButtonOnPress}
             amount={currentInputAmount.toFixed()}
+            isMaxAmount={isMaxAmount}
             token={balanceToken}
             paymentToken={paymentToken}
             paymentTokenPrice={paymentTokenPrice}
@@ -894,6 +915,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tradeType={tradeType}
         onPress={actionButtonOnPress}
         amount={currentInputAmount.toFixed()}
+        isMaxAmount={isMaxAmount}
         token={balanceToken}
         paymentToken={paymentToken}
         paymentTokenPrice={paymentTokenPrice}

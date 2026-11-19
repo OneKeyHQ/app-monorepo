@@ -985,12 +985,15 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     },
   );
 
-  it.each(['ton--mainnet', 'evm--1'])(
-    'keeps scaled amounts local when partial server effects exist on %s',
+  it.each(['ton--mainnet', 'evm--1', 'sol--101'])(
+    'preserves server simulation with the right amount units on %s',
     async (currentNetworkId) => {
-      const tokenAddress = currentNetworkId.startsWith('ton')
-        ? `0:${'55'.repeat(32)}`
-        : `0x${'55'.repeat(20)}`;
+      let tokenAddress = evmLowerAddress;
+      if (currentNetworkId.startsWith('ton')) {
+        tokenAddress = `0:${'55'.repeat(32)}`;
+      } else if (currentNetworkId.startsWith('sol')) {
+        tokenAddress = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+      }
       const rawToken = {
         type: EParseTxComponentType.Token,
         label: 'Raw token amount',
@@ -1008,7 +1011,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
           price: 0,
         },
         amount: '1500000',
-        amountParsed: '1.5',
+        amountParsed: currentNetworkId.startsWith('evm') ? '3' : '1.5',
         networkId: currentNetworkId,
         showNetwork: false,
       } as const;
@@ -1027,6 +1030,15 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
         amount: '1',
         showNetwork: false,
       } as const;
+      const identityUnknown = {
+        type: EParseTxComponentType.InternalAssets,
+        label: 'Unidentified amount',
+        name: 'Another asset',
+        symbol: 'OTHER',
+        icon: '',
+        amount: '1500000',
+        amountParsed: '1.5',
+      } as const;
       const service = buildService(
         buildParsedTx({
           components: [
@@ -1035,7 +1047,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
             {
               type: EParseTxComponentType.Simulation,
               label: 'Simulation',
-              assets: [rawToken, nft],
+              assets: [rawToken, nft, identityUnknown],
             },
           ],
           alerts: ['Server risk alert'],
@@ -1056,7 +1068,9 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
               to: contractAddress,
               amount: '3',
               balanceMultiplier: '2',
-              tokenIdOnNetwork: tokenAddress,
+              tokenIdOnNetwork: currentNetworkId.startsWith('evm')
+                ? evmChecksumAddress
+                : tokenAddress,
               isNative: false,
               name: 'Scaled',
               symbol: 'SCALED',
@@ -1082,17 +1096,18 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       );
       expect(decoded.txDisplay?.components).not.toContainEqual(rawToken);
       expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
-      if (currentNetworkId.startsWith('ton')) {
-        expect(decoded.txDisplay?.components).toContainEqual({
-          type: EParseTxComponentType.Simulation,
-          label: 'Simulation',
-          assets: [nft],
-        });
-      } else {
-        expect(decoded.txDisplay?.components).not.toContainEqual(
-          expect.objectContaining({ type: EParseTxComponentType.Simulation }),
-        );
-      }
+      expect(decoded.txDisplay?.components).toContainEqual({
+        type: EParseTxComponentType.Simulation,
+        label: 'Simulation',
+        assets: currentNetworkId.startsWith('ton')
+          ? [nft]
+          : [
+              { ...rawToken, amountParsed: '3' },
+              nft,
+              { ...identityUnknown, amountParsed: '' },
+            ],
+      });
+      expect(decoded.encodedTx).toEqual(local.encodedTx);
     },
   );
 

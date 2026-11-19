@@ -16,7 +16,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapProDirectionAtom,
-  useSwapProInputAmountAtom,
+  useSwapProInputAmountStateAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -112,7 +112,8 @@ const SwapProActionButton = ({
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
   const [quoteFetching] = useSwapQuoteFetchingAtom();
-  const [swapProInputAmount] = useSwapProInputAmountAtom();
+  const [proInput] = useSwapProInputAmountStateAtom();
+  const swapProInputAmount = proInput.value;
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
@@ -235,15 +236,12 @@ const SwapProActionButton = ({
         void selectFromToken(swapProSelectToken);
       }
     }
-    if (swapProInputAmount) {
-      void setSwapFromInputAmount({
-        value: swapProInputAmount,
-        isInput: true,
-      });
+    if (proInput.value) {
+      void setSwapFromInputAmount(proInput);
     }
   }, [
     swapProDirection,
-    swapProInputAmount,
+    proInput,
     clearSwapTokenCarryIntent,
     setSwapTypeSwitch,
     swapSelectToken,

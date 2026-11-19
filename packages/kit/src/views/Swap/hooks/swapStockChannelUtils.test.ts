@@ -540,6 +540,42 @@ describe('swapStockChannelUtils', () => {
     ).toBeUndefined();
   });
 
+  it.each([ESwapStockTradeSide.Buy, ESwapStockTradeSide.Sell])(
+    'syncs both Stock multipliers for the same pair on %s',
+    (tradeSide) => {
+      const stockToken = { ...appleStockToken, balanceMultiplier: '2' };
+      const payToken = { ...usdcToken, balanceMultiplier: '1.5' };
+      const isBuy = tradeSide === ESwapStockTradeSide.Buy;
+      const fromToken = isBuy ? payToken : stockToken;
+      const toToken = isBuy ? stockToken : payToken;
+      const params = { tradeSide, payToken, stockToken, readyForQuote: true };
+      expect(
+        resolveStockExecutionTokensToSync({
+          ...params,
+          currentFromToken: { ...fromToken, balanceMultiplier: '1' },
+          currentToToken: toToken,
+        }),
+      ).toEqual({ fromToken, toToken });
+      expect(
+        resolveStockExecutionTokensToSync({
+          ...params,
+          currentFromToken: fromToken,
+          currentToToken: { ...toToken, balanceMultiplier: '1' },
+        }),
+      ).toEqual({ fromToken, toToken });
+      expect(
+        resolveStockExecutionTokensToSync({
+          ...params,
+          currentFromToken: {
+            ...fromToken,
+            balanceMultiplier: isBuy ? '1.50' : '2.0',
+          },
+          currentToToken: { ...toToken, price: '99' },
+        }),
+      ).toBeUndefined();
+    },
+  );
+
   it('ignores market status polling changes without losing execution metadata updates', () => {
     const token = {
       ...appleStockToken,

@@ -2372,7 +2372,7 @@ export function useSwapProActionsQuote() {
   const isFocused = useIsFocused();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
-  const [swapProInputAmount, setSwapProInputAmount] =
+  const [swapProInputAmount, setSwapProInputAmount, maxAmountSnapshot] =
     useSwapProInputAmountAtom();
   const debounceInputAmount = useDebounce(
     swapProInputAmount,
@@ -2429,6 +2429,7 @@ export function useSwapProActionsQuote() {
   const quoteToMultiplier = quoteToToken?.balanceMultiplier;
   const previousQuoteInputRef = useRef({
     amount: debounceInputAmount,
+    maxAmountSnapshot,
     stockIsOpen: selectedStockIsOpen,
     fromMultiplier: quoteFromMultiplier,
     toMultiplier: quoteToMultiplier,
@@ -2439,11 +2440,13 @@ export function useSwapProActionsQuote() {
     }
     const quoteInputChanged =
       previousQuoteInputRef.current.amount !== debounceInputAmount ||
+      previousQuoteInputRef.current.maxAmountSnapshot !== maxAmountSnapshot ||
       previousQuoteInputRef.current.stockIsOpen !== selectedStockIsOpen ||
       previousQuoteInputRef.current.fromMultiplier !== quoteFromMultiplier ||
       previousQuoteInputRef.current.toMultiplier !== quoteToMultiplier;
     previousQuoteInputRef.current = {
       amount: debounceInputAmount,
+      maxAmountSnapshot,
       stockIsOpen: selectedStockIsOpen,
       fromMultiplier: quoteFromMultiplier,
       toMultiplier: quoteToMultiplier,
@@ -2479,6 +2482,7 @@ export function useSwapProActionsQuote() {
     appIsLocked,
     isFocused,
     debounceInputAmount,
+    maxAmountSnapshot,
     quoteSpeedAction,
     resumeQuoteAction,
     swapProSelectToken?.contractAddress,

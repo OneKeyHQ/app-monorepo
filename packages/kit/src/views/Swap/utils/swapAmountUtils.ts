@@ -1,8 +1,77 @@
 import BigNumber from 'bignumber.js';
 
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
 const RateBigNumber = BigNumber.clone({ DECIMAL_PLACES: 60 });
+
+type ISwapAmountToken = Pick<
+  ISwapTokenBase,
+  'networkId' | 'contractAddress' | 'decimals' | 'balanceMultiplier'
+>;
+
+export type ISwapMaxAmountSnapshot = ISwapAmountToken & {
+  rawAmount: string;
+  displayAmount: string;
+  accountId: string;
+  accountAddress: string;
+};
+
+export function buildSwapMaxAmountSnapshot({
+  rawAmount,
+  token,
+  accountId,
+  accountAddress,
+}: {
+  rawAmount: string;
+  token: ISwapAmountToken | undefined;
+  accountId: string | undefined;
+  accountAddress: string | undefined;
+}): ISwapMaxAmountSnapshot | undefined {
+  if (!token || !accountId || !accountAddress) return undefined;
+  const displayAmount = getSwapDisplayAmount(
+    rawAmount,
+    token.balanceMultiplier,
+  );
+  if (!displayAmount) return undefined;
+  return {
+    rawAmount,
+    displayAmount,
+    accountId,
+    accountAddress,
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    decimals: token.decimals,
+    balanceMultiplier: token.balanceMultiplier,
+  };
+}
+
+export function isSwapMaxAmountCurrent({
+  snapshot,
+  displayAmount,
+  token,
+  accountId,
+  accountAddress,
+}: {
+  snapshot: ISwapMaxAmountSnapshot;
+  displayAmount: string;
+  token: ISwapAmountToken | undefined;
+  accountId: string | undefined;
+  accountAddress: string | undefined;
+}): boolean {
+  return (
+    snapshot.displayAmount === displayAmount &&
+    snapshot.accountId === accountId &&
+    snapshot.accountAddress === accountAddress &&
+    snapshot.decimals === token?.decimals &&
+    equalTokenNoCaseSensitive({ token1: snapshot, token2: token }) &&
+    tokenRebaseUtils.equalBalanceMultipliers(
+      snapshot.balanceMultiplier,
+      token?.balanceMultiplier,
+    )
+  );
+}
 
 export function isSwapReviewMultiplierCurrent(
   reviewToken: { balanceMultiplier?: string } | undefined,

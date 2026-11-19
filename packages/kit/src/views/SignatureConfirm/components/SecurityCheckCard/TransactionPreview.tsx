@@ -58,7 +58,9 @@ function SimulationAssetText({ asset }: { asset: ISimulationAsset }) {
         overflowWrap: 'break-word',
       }}
     >
-      {`${sign}${amount}  ${getSimulationAssetLabel(asset)}`}
+      {amount
+        ? `${sign}${amount}  ${getSimulationAssetLabel(asset)}`
+        : getSimulationAssetLabel(asset)}
     </SizableText>
   );
 }

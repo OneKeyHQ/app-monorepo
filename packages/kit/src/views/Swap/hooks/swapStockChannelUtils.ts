@@ -6,6 +6,7 @@ import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/Marke
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketTokenDetail,
@@ -101,11 +102,20 @@ export function resolveStockExecutionTokensToSync({
     equalTokenNoCaseSensitive({
       token1: currentToToken,
       token2: toToken,
-    });
+    }) &&
+    currentFromToken?.decimals === fromToken.decimals &&
+    currentToToken?.decimals === toToken.decimals &&
+    tokenRebaseUtils.equalBalanceMultipliers(
+      currentFromToken?.balanceMultiplier,
+      fromToken.balanceMultiplier,
+    ) &&
+    tokenRebaseUtils.equalBalanceMultipliers(
+      currentToToken?.balanceMultiplier,
+      toToken.balanceMultiplier,
+    );
   const currentStockToken =
     tradeSide === ESwapStockTradeSide.Buy ? currentToToken : currentFromToken;
   const stockExecutionMetadataSynced =
-    currentStockToken?.decimals === stockToken.decimals &&
     Boolean(currentStockToken?.isStock) === Boolean(stockToken.isStock);
   return executionPairSynced && stockExecutionMetadataSynced
     ? undefined

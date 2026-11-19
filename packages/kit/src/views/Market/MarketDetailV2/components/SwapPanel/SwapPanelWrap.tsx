@@ -134,7 +134,9 @@ function SwapPanelWrapContent({
     setPaymentToken,
     paymentToken,
     paymentAmount,
+    paymentMaxAmountSnapshot,
     sellAmount,
+    sellMaxAmountSnapshot,
     tradeType,
     setSlippage,
     slippage,
@@ -536,6 +538,10 @@ function SwapPanelWrapContent({
     tradeType: tradeType || ESwapDirection.BUY,
     swapType: isStockRoute ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
     fromTokenAmount: currentFromTokenAmount,
+    maxAmountSnapshot:
+      tradeType === ESwapDirection.BUY
+        ? paymentMaxAmountSnapshot
+        : sellMaxAmountSnapshot,
     antiMEV: Array.isArray(swapMevNetConfig)
       ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
       : false,
@@ -555,6 +561,8 @@ function SwapPanelWrapContent({
     fromToken: executionFromToken,
     toToken: executionToToken,
     multiplierMetadataReady,
+    createMaxAmountSnapshot,
+    isMaxAmountStale,
     fetchBalanceLoading,
     priceRate,
     stockQuoteDisplay,
@@ -979,6 +987,8 @@ function SwapPanelWrapContent({
           : balance
       }
       balanceToken={balanceToken as IToken}
+      createMaxAmountSnapshot={createMaxAmountSnapshot}
+      isMaxAmountStale={isMaxAmountStale}
       balanceLoading={
         (stockDetailDesktopLayout || isStockRoute
           ? !executionReady
@@ -1001,6 +1011,7 @@ function SwapPanelWrapContent({
       }
       isActionDisabled={
         !executionReady ||
+        isMaxAmountStale ||
         (isStockRoute && !selectedVariantTradable) ||
         (selectedTokenVariant && !selectedVariantMatchesTokenDetail) ||
         marketPresetLoading ||
@@ -1025,7 +1036,7 @@ function SwapPanelWrapContent({
           tradeType === ESwapDirection.BUY
             ? executionFromToken
             : executionToToken,
-        tokenMetadataReady: multiplierMetadataReady,
+        tokenMetadataReady: multiplierMetadataReady && !isMaxAmountStale,
       }}
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}

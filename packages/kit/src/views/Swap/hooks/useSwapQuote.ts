@@ -42,6 +42,7 @@ import type {
 import { useDebounce } from '../../../hooks/useDebounce';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
+  type ISwapTokenAmountState,
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
@@ -61,10 +62,15 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import {
+  buildSwapManualProviderSelectionIntent,
+  isSameSwapQuoteAmountValue,
+} from '../../../states/jotai/contexts/swap/quoteProgress';
 import {
   getSwapDisplayAmount,
   getSwapDisplayDecimals,
+  getSwapRawInputAmount,
+  isSwapMaxAmountCurrent,
 } from '../utils/swapAmountUtils';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import {
@@ -230,9 +236,7 @@ export function useSwapQuote({
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
   const swapToAddressInfoRef = useRef(swapToAddressInfo);
-  const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
-    fromTokenAmount,
-  );
+  const fromTokenAmountRef = useRef<ISwapTokenAmountState>(fromTokenAmount);
   const toTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     toTokenAmount,
   );
@@ -616,6 +620,8 @@ export function useSwapQuote({
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
+      swapQuoteActionLockRef.current?.maxAmountSnapshot ===
+        fromAmountDebounce.maxAmountSnapshot &&
       tokenRebaseUtils.equalBalanceMultipliers(
         swapQuoteActionLockRef.current?.fromToken?.balanceMultiplier,
         fromToken?.balanceMultiplier,
@@ -858,12 +864,43 @@ export function useSwapQuote({
         (toAmount && displayToAmount === undefined)
       )
         return;
+      const fromInput = fromTokenAmountRef.current;
+      const maxAmountSnapshot = fromInput.maxAmountSnapshot;
+      let currentRawAmount: string | undefined;
+      if (maxAmountSnapshot) {
+        if (
+          isSwapMaxAmountCurrent({
+            snapshot: maxAmountSnapshot,
+            displayAmount: fromInput.value,
+            token: liveFromToken,
+            accountId: activeAccountRef.current?.accountInfo?.account?.id,
+            accountAddress: activeAccountRef.current?.address,
+          })
+        ) {
+          currentRawAmount = maxAmountSnapshot.rawAmount;
+        }
+      } else if (liveFromToken) {
+        currentRawAmount = getSwapRawInputAmount(
+          fromInput.value,
+          liveFromToken,
+          'down',
+        );
+      }
+      const currentRawToAmount = liveToToken
+        ? getSwapRawInputAmount(
+            toTokenAmountRef.current.value,
+            liveToToken,
+            'up',
+          )
+        : undefined;
       if (
         resolvedFromToken === liveFromToken &&
         resolvedToToken === liveToToken &&
-        (kind === ESwapQuoteKind.BUY
-          ? displayToAmount === toTokenAmountRef.current?.value
-          : displayFromAmount === fromTokenAmountRef.current?.value)
+        isSameSwapQuoteAmountValue({
+          currentAmount:
+            kind === ESwapQuoteKind.BUY ? currentRawToAmount : currentRawAmount,
+          requestAmount: kind === ESwapQuoteKind.BUY ? toAmount : amount,
+        })
       ) {
         void quoteAction(
           swapSlippageRef.current,

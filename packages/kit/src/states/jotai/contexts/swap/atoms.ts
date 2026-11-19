@@ -1,8 +1,13 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
+  type ISwapMaxAmountSnapshot,
+  getSwapDisplayDecimals,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
@@ -376,14 +381,7 @@ export const {
 export type ISwapTokenAmountState = {
   value: string;
   isInput: boolean;
-  maxAmountSnapshot?: {
-    rawAmount: string;
-    displayAmount: string;
-    networkId: string;
-    contractAddress: string;
-    accountAddress: string;
-    balanceMultiplier?: string;
-  };
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
 };
 
 export type ISwapInputAmountDraft = {
@@ -461,6 +459,7 @@ export const {
   toTokenAmount?: string;
   rawFromTokenAmount?: string;
   rawToTokenAmount?: string;
+  maxAmountSnapshot?: ISwapMaxAmountSnapshot;
   accountId?: string;
   kind?: ESwapQuoteKind;
   address?: string;
@@ -899,8 +898,20 @@ export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
 export const { atom: swapProTradeTypeAtom, use: useSwapProTradeTypeAtom } =
   contextAtom<ESwapProTradeType>(ESwapProTradeType.MARKET);
 
-export const { atom: swapProInputAmountAtom, use: useSwapProInputAmountAtom } =
-  contextAtom<string>('');
+export const {
+  atom: swapProInputAmountStateAtom,
+  use: useSwapProInputAmountStateAtom,
+} = contextAtom<ISwapTokenAmountState>({ value: '', isInput: false });
+
+export function useSwapProInputAmountAtom() {
+  const [input, setInput] = useSwapProInputAmountStateAtom();
+  const setAmount = useCallback(
+    (value: string, maxAmountSnapshot?: ISwapMaxAmountSnapshot) =>
+      setInput({ value, isInput: true, maxAmountSnapshot }),
+    [setInput],
+  );
+  return [input.value, setAmount, input.maxAmountSnapshot] as const;
+}
 
 export const {
   atom: swapProUseSelectBuyTokenAtom,

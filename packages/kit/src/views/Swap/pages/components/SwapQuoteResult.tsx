@@ -432,8 +432,8 @@ const SwapQuoteResult = ({
         <Divider mt="$4" />
         {quoteResultForDisplay?.allowanceResult ? (
           <SwapApproveAllowanceSelectContainer
-            allowanceResult={quoteResultForDisplay?.allowanceResult}
-            fromTokenSymbol={fromToken?.symbol ?? ''}
+            allowanceResult={quoteResultForDisplay.allowanceResult}
+            fromToken={quoteResultForDisplay.fromTokenInfo}
             isLoading={isQuotePresentationLoading}
           />
         ) : null}

@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapMaxAmountSnapshot,
   getSwapDisplayAmount,
   getSwapDisplayDecimals,
   getSwapDisplayRate,
@@ -291,12 +292,15 @@ function useStockInputTokenBalance({
                 : {}),
             }),
         });
-        const authoritativeBalance = details?.[0]?.balanceParsed;
+        const tokenDetail = details?.find((detail) =>
+          equalTokenNoCaseSensitive({ token1: detail, token2: token }),
+        );
+        const authoritativeBalance = tokenDetail?.balanceParsed;
         return completeRequestScope({
           scope: balanceScope,
           balance: authoritativeBalance,
           hasAuthoritativeBalance: authoritativeBalance !== undefined,
-          tokenDetail: markStockUsdPriceCurrency(details?.[0]),
+          tokenDetail: markStockUsdPriceCurrency(tokenDetail),
         });
       } catch {
         // Publish a settled failure for this scope instead of letting the
@@ -442,6 +446,7 @@ function useStockInputTokenBalance({
   return {
     authoritativeTokenDetail,
     accountAddress: networkAccount?.address,
+    accountId: networkAccount?.id,
     balance: balanceViewState.balance,
     displayBalance: balanceViewState.displayBalance,
     ownerScope: balanceOwnerScope,
@@ -780,10 +785,18 @@ export function useSwapStockAmountInputState({
       const rawAmount = amount
         .decimalPlaces(amountInputToken.decimals, BigNumber.ROUND_DOWN)
         .toFixed();
-      const amountValue = getSwapDisplayAmount(
-        rawAmount,
-        amountInputToken.balanceMultiplier,
-      );
+      const maxAmountSnapshot = isMax
+        ? buildSwapMaxAmountSnapshot({
+            rawAmount,
+            token: amountInputToken,
+            accountId: stockInputTokenBalance.accountId,
+            accountAddress: stockInputTokenBalance.accountAddress,
+          })
+        : undefined;
+      if (isMax && !maxAmountSnapshot) return;
+      const amountValue =
+        maxAmountSnapshot?.displayAmount ??
+        getSwapDisplayAmount(rawAmount, amountInputToken.balanceMultiplier);
       if (!amountValue) {
         return;
       }
@@ -794,23 +807,13 @@ export function useSwapStockAmountInputState({
       setFromTokenAmount({
         value: amountValue,
         isInput: true,
-        ...(isMax && stockInputTokenBalance.accountAddress
-          ? {
-              maxAmountSnapshot: {
-                rawAmount,
-                displayAmount: amountValue,
-                networkId: amountInputToken.networkId,
-                contractAddress: amountInputToken.contractAddress,
-                accountAddress: stockInputTokenBalance.accountAddress,
-                balanceMultiplier: amountInputToken.balanceMultiplier,
-              },
-            }
-          : {}),
+        maxAmountSnapshot,
       });
     },
     [
       amountInputToken,
       stockInputTokenBalance.accountAddress,
+      stockInputTokenBalance.accountId,
       setFromTokenAmount,
       setSwapAlerts,
     ],

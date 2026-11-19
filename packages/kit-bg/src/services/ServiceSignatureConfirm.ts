@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -12,6 +14,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   canAttemptTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityEncodedTx,
@@ -40,6 +44,7 @@ import {
 import type {
   IAfterSendTxActionParams,
   IDisplayComponent,
+  IDisplayComponentSimulation,
   IParseMessageParams,
   IParseMessageResp,
   IParseTransactionParams,
@@ -97,6 +102,103 @@ type ICheckTransactionSecurityParams = ICheckTransactionSecurityParamsBase &
 
 const TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE = 31_403;
 const TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE = 31_501;
+
+function formatScaledSimulation({
+  component,
+  decodedTx,
+  normalizeTonAddress,
+}: {
+  component: IDisplayComponentSimulation;
+  decodedTx: IDecodedTx;
+  normalizeTonAddress?: (address: string) => string;
+}): IDisplayComponentSimulation {
+  const getKey = (networkId: string, address: string) => {
+    const normalized =
+      normalizeTonAddress &&
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_TON
+        ? normalizeTonAddress(address)
+        : normalizeTokenContractAddress({
+            networkId,
+            contractAddress: address,
+          });
+    return `${networkId}:${normalized ?? address}`;
+  };
+  const multipliers = new Map<string, string>();
+  for (const { assetTransfer, tokenApprove } of decodedTx.actions) {
+    const tokens = [
+      ...(assetTransfer?.sends ?? []),
+      ...(assetTransfer?.receives ?? []),
+      ...(tokenApprove ? [{ ...tokenApprove, networkId: undefined }] : []),
+    ];
+    for (const token of tokens) {
+      if (tokenRebaseUtils.isValidBalanceMultiplier(token.balanceMultiplier)) {
+        multipliers.set(
+          getKey(
+            token.networkId ?? decodedTx.networkId,
+            token.tokenIdOnNetwork,
+          ),
+          token.balanceMultiplier,
+        );
+      }
+    }
+  }
+
+  return {
+    ...component,
+    assets: component.assets.flatMap(
+      (asset): IDisplayComponentSimulation['assets'] => {
+        if (asset.type === EParseTxComponentType.NFT) return [asset];
+        if (asset.type === EParseTxComponentType.InternalAssets) {
+          // Legacy rows carry no token ID. Keep the simulated effect visible.
+          return [asset.isNFT ? asset : { ...asset, amountParsed: '' }];
+        }
+        const info = asset.token?.info;
+        if (!info) return [];
+        const networkId =
+          asset.networkId || info.networkId || decodedTx.networkId;
+        if (
+          typeof info.address !== 'string' ||
+          (info.address === '' && info.isNative !== true) ||
+          (asset.networkId &&
+            info.networkId &&
+            asset.networkId !== info.networkId)
+        ) {
+          return [{ ...asset, amountParsed: '' }];
+        }
+        const multiplier = multipliers.get(getKey(networkId, info.address));
+        if (!tokenRebaseUtils.isScalingBalanceMultiplier(multiplier)) {
+          return [
+            multiplier === undefined &&
+            tokenRebaseUtils.isScalingBalanceMultiplier(
+              tokenRebaseUtils.pickBalanceMultiplier(asset.token),
+            )
+              ? { ...asset, amountParsed: '' }
+              : asset,
+          ];
+        }
+
+        // The simulation amount is a raw integer. Starting from it also handles
+        // responses whose parsed display amount has already been scaled.
+        const { decimals } = info;
+        if (
+          typeof asset.amount !== 'string' ||
+          asset.amount.length > 78 ||
+          !/^\d+$/.test(asset.amount) ||
+          !Number.isInteger(decimals) ||
+          decimals < 0 ||
+          decimals > 255
+        ) {
+          return [{ ...asset, amountParsed: '' }];
+        }
+        const amountParsed = tokenRebaseUtils.applyBalanceMultiplier({
+          amount: new BigNumber(asset.amount).shiftedBy(-decimals).toFixed(),
+          balanceMultiplier: multiplier,
+        });
+        return [{ ...asset, amountParsed }];
+      },
+    ),
+  };
+}
 
 function mergeAddressComponentTags(
   results: IParseTransactionResp[],
@@ -504,26 +606,30 @@ class ServiceSignatureConfirm extends ServiceBase {
           forceLocalTonTransfer) &&
         Boolean(parsedTx?.display);
 
-      // The rebase-forced path did not receive `parsedTx.display` above
-      // (shouldUseLocalDisplay was false), so `serverAlerts` is empty for
-      // it. Recompute alerts directly from the server display here so
-      // rebase-forced local rendering still surfaces server risk alerts.
-      // `simulationComponents` are deliberately NOT consumed here: a server
-      // Simulation panel carries raw (non-multiplied) server amounts and
-      // would reintroduce the display/raw mismatch this mechanism removes —
-      // do not "restore" it for the rebase-forced case. The TON-specific merge
-      // below filters known Jetton amounts before retaining unknown effects.
-      const rebaseDisplayExtras = isPayloadForcedLocal
-        ? getPermit2ServerDisplayExtras(parsedTx?.display)
-        : undefined;
+      const rebaseDisplayExtras =
+        isPayloadForcedLocal || hasScalingRebaseAction
+          ? getPermit2ServerDisplayExtras(parsedTx?.display)
+          : undefined;
 
       // Permit2 and payload-forced local displays must retain address-only server
       // risks even when display.alerts is empty.
       // Load TON address handling only when needed, outside background startup.
-      const normalizeAddress = forceLocalTonTransfer
-        ? (await import('../vaults/impls/ton/sdkTon/transactionParser'))
-            .normalizeTonAddress
-        : undefined;
+      const hasTonSimulationAsset =
+        rebaseDisplayExtras?.simulationComponents.some(({ assets }) =>
+          assets.some(
+            (asset) =>
+              asset.type === EParseTxComponentType.Token &&
+              networkUtils.getNetworkImpl({
+                networkId:
+                  asset.networkId || asset.token?.info?.networkId || networkId,
+              }) === IMPL_TON,
+          ),
+        );
+      const normalizeTonAddress =
+        forceLocalTonTransfer || hasTonSimulationAsset
+          ? (await import('../vaults/impls/ton/sdkTon/transactionParser'))
+              .normalizeTonAddress
+          : undefined;
       const mergeUnknownTonEffects =
         forceLocalTonTransfer &&
         Boolean(parsedTx?.display) &&
@@ -545,7 +651,9 @@ class ServiceSignatureConfirm extends ServiceBase {
           ? mergeServerAddressRiskTagsIntoComponents({
               localComponents: txDisplayComponents,
               serverComponents: parsedTx?.display?.components,
-              normalizeAddress,
+              normalizeAddress: forceLocalTonTransfer
+                ? normalizeTonAddress
+                : undefined,
               unmatchedAddressLabel: forceLocalTonTransfer
                 ? appLocale.intl.formatMessage({
                     id: ETranslations.global_address,
@@ -554,12 +662,26 @@ class ServiceSignatureConfirm extends ServiceBase {
             })
           : txDisplayComponents;
 
+      const previewComponents = hasScalingRebaseAction
+        ? (rebaseDisplayExtras?.simulationComponents ?? [])
+        : serverSimulationComponents;
+      const components = [
+        ...mergedComponents,
+        ...(mergeUnknownTonEffects ? [] : previewComponents),
+      ];
       decodedTx.txDisplay = {
         title: '',
-        components: [
-          ...mergedComponents,
-          ...(mergeUnknownTonEffects ? [] : serverSimulationComponents),
-        ],
+        components: hasScalingRebaseAction
+          ? components.map((component) =>
+              component.type === EParseTxComponentType.Simulation
+                ? formatScaledSimulation({
+                    component,
+                    decodedTx,
+                    normalizeTonAddress,
+                  })
+                : component,
+            )
+          : components,
         alerts: rebaseDisplayExtras?.alerts?.length
           ? rebaseDisplayExtras.alerts
           : serverAlerts,

@@ -234,6 +234,7 @@ function createProps(): ISwapPanelContentProps {
     enableAddressTypeSelector: false,
     swapPanel: {
       paymentAmount: new BigNumber(1),
+      paymentMaxAmountSnapshot: undefined,
       paymentToken: {
         networkId: 'evm--1',
         contractAddress: '0xpay',
@@ -242,6 +243,7 @@ function createProps(): ISwapPanelContentProps {
         speedSwapDefaultAmount: [],
       },
       sellAmount: new BigNumber(1),
+      sellMaxAmountSnapshot: undefined,
       setSellAmount: jest.fn(),
       setPaymentAmount: jest.fn(),
       resetAmounts: jest.fn(),
@@ -254,6 +256,8 @@ function createProps(): ISwapPanelContentProps {
       networkId: 'evm--1',
     },
     isLoading: false,
+    isMaxAmountStale: false,
+    createMaxAmountSnapshot: jest.fn(),
     balanceLoading: false,
     slippageAutoValue: 1,
     supportSpeedSwap: {

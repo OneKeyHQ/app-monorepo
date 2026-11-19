@@ -11,6 +11,7 @@ import {
   getSwapDisplayAmount,
   getSwapDisplayRate,
   getSwapRawInputAmount,
+  isSwapMaxAmountCurrent,
   isSwapQuoteMultiplierCompatible,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
@@ -156,7 +157,7 @@ import {
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
   swapProDirectionAtom,
-  swapProInputAmountAtom,
+  swapProInputAmountStateAtom,
   swapProPositionsCacheAtom,
   swapProPositionsRuntimeDataAtom,
   swapProSelectTokenAtom,
@@ -415,6 +416,7 @@ type ISwapQuoteActionOverride = {
   toToken: ISwapToken;
   fromTokenAmount: string;
   toTokenAmount?: string;
+  maxAmountSnapshot?: ISwapTokenAmountState['maxAmountSnapshot'];
   type: ESwapTabSwitchType;
   source?: ESwapQuoteSource;
   manualRefresh?: boolean;
@@ -571,7 +573,11 @@ function isStockExecutionTokensReady({
     equalTokenNoCaseSensitive({
       token1: executionTokens.toToken,
       token2: toToken,
-    }),
+    }) &&
+    executionTokens.fromToken.decimals === fromToken?.decimals &&
+    executionTokens.toToken.decimals === toToken?.decimals &&
+    isSwapReviewMultiplierCurrent(executionTokens.fromToken, fromToken) &&
+    isSwapReviewMultiplierCurrent(executionTokens.toToken, toToken),
   );
 }
 
@@ -668,6 +674,41 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           currentQuoteRequest.fromToken ?? get(swapSelectFromTokenAtom());
         const currentToToken =
           currentQuoteRequest.toToken ?? get(swapSelectToTokenAtom());
+        const isProMarketRequest =
+          currentQuoteRequest.source === ESwapQuoteSource.MARKET &&
+          get(swapTypeSwitchAtom()) === ESwapTabSwitchType.LIMIT &&
+          get(swapProTradeTypeAtom()) === ESwapProTradeType.MARKET;
+        const isProBuy = get(swapProDirectionAtom()) === ESwapDirection.BUY;
+        const liveFromToken = isProMarketRequest
+          ? get(
+              isProBuy
+                ? swapProUseSelectBuyTokenAtom()
+                : swapProSelectTokenAtom(),
+            )
+          : get(swapSelectFromTokenAtom());
+        const liveToToken = isProMarketRequest
+          ? get(isProBuy ? swapProSelectTokenAtom() : swapProSellToTokenAtom())
+          : get(swapSelectToTokenAtom());
+        const maxSnapshot = currentQuoteRequest.maxAmountSnapshot;
+        if (maxSnapshot) {
+          const liveInput = get(
+            isProMarketRequest
+              ? swapProInputAmountStateAtom()
+              : swapFromTokenAmountAtom(),
+          );
+          if (
+            liveInput.maxAmountSnapshot !== maxSnapshot ||
+            !isSwapMaxAmountCurrent({
+              snapshot: maxSnapshot,
+              displayAmount: liveInput.value,
+              token: liveFromToken,
+              accountId: event.accountId,
+              accountAddress: event.params.userAddress,
+            })
+          ) {
+            return;
+          }
+        }
         const quoteKind = event.params.kind ?? ESwapQuoteKind.SELL;
         const currentInputAmount =
           quoteKind === ESwapQuoteKind.BUY
@@ -689,6 +730,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             currentSwapType: activeSwapType,
             protocol: event.params.protocol,
           }) &&
+          (!liveFromToken ||
+            (equalTokenNoCaseSensitive({
+              token1: currentFromToken,
+              token2: liveFromToken,
+            }) &&
+              isSwapReviewMultiplierCurrent(
+                currentFromToken,
+                liveFromToken,
+              ))) &&
+          (!liveToToken ||
+            (equalTokenNoCaseSensitive({
+              token1: currentToToken,
+              token2: liveToToken,
+            }) &&
+              isSwapReviewMultiplierCurrent(currentToToken, liveToToken))) &&
           equalTokenNoCaseSensitive({
             token1: currentFromToken,
             token2: event.tokenPairs.fromToken,
@@ -743,6 +799,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             toToken: event.tokenPairs.toToken,
             fromTokenAmount: currentQuoteRequest.fromTokenAmount ?? '',
             toTokenAmount: currentQuoteRequest.toTokenAmount,
+            maxAmountSnapshot: maxSnapshot,
             rawAmounts: {
               fromTokenAmount: event.params.fromTokenAmount ?? '',
               toTokenAmount: event.params.toTokenAmount,
@@ -1244,7 +1301,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  // Stock-channel inputs cannot carry balanceMultiplier.
   selectStockExecutionTokens = contextAtomMethod(
     async (
       get,
@@ -1254,12 +1310,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toToken,
         clearFromToken = false,
         clearToToken = false,
+        metadataReady = true,
         syncId,
       }: {
         fromToken?: ISwapToken;
         toToken?: ISwapToken;
         clearFromToken?: boolean;
         clearToToken?: boolean;
+        metadataReady?: boolean;
         syncId: number;
       },
     ) => {
@@ -1283,7 +1341,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (stockSelectedToken) {
         set(swapStockSelectedTokenAtom(), stockSelectedToken);
       }
-      if (fromToken && toToken) {
+      if (fromToken && toToken && metadataReady) {
         set(swapStockExecutionTokensAtom(), {
           syncId,
           fromToken,
@@ -1291,6 +1349,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
       } else {
         set(swapStockExecutionTokensAtom(), undefined);
+      }
+      const quote = get(swapQuoteActionLockAtom());
+      if (
+        quote.type === ESwapTabSwitchType.STOCK &&
+        (quote.quoteRequestId || quote.actionLock) &&
+        !isStockExecutionTokensReady({
+          currentSyncId: syncId,
+          executionTokens: get(swapStockExecutionTokensAtom()),
+          fromToken: quote.fromToken,
+          toToken: quote.toToken,
+        })
+      ) {
+        void this.resetQuoteAction.call(set);
       }
       const stockInputAmountDraft = get(swapInputAmountDraftsAtom())[
         ESwapTabSwitchType.STOCK
@@ -2313,9 +2384,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         await this.resetQuoteAction.call(set);
         return;
       }
-      const fromAmount = isNativeProMarket
-        ? get(swapProInputAmountAtom())
-        : get(swapFromTokenAmountAtom()).value;
+      const fromInput = isNativeProMarket
+        ? get(swapProInputAmountStateAtom())
+        : get(swapFromTokenAmountAtom());
+      const fromAmount = fromInput.value;
       const toAmount = get(swapToTokenAmountAtom()).value;
       const effectiveIncognito =
         isNativeProMarket ||
@@ -2395,6 +2467,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               toToken,
               fromTokenAmount: fromAmount,
               toTokenAmount: toAmount,
+              maxAmountSnapshot: fromInput.maxAmountSnapshot,
               source: isNativeProMarket
                 ? ESwapQuoteSource.MARKET
                 : request.source,
@@ -2423,7 +2496,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         quoteOverride?.fromToken ?? get(swapSelectFromTokenAtom());
       let toToken = quoteOverride?.toToken ?? get(swapSelectToTokenAtom());
       const fromTokenAmount: ISwapTokenAmountState = quoteOverride
-        ? { value: quoteOverride.fromTokenAmount, isInput: true }
+        ? {
+            value: quoteOverride.fromTokenAmount,
+            isInput: true,
+            maxAmountSnapshot: quoteOverride.maxAmountSnapshot,
+          }
         : get(swapFromTokenAmountAtom());
       const swapTabSwitchType =
         quoteOverride?.type ?? get(swapTypeSwitchAtom());
@@ -2517,26 +2594,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
 
-      const maxSnapshot = !quoteOverride
-        ? fromTokenAmount.maxAmountSnapshot
-        : undefined;
-      const rawMaxAmount =
+      const maxSnapshot = fromTokenAmount.maxAmountSnapshot;
+      if (
         maxSnapshot &&
-        maxSnapshot.displayAmount === fromTokenAmount.value &&
-        maxSnapshot.accountAddress === address &&
-        tokenRebaseUtils.equalBalanceMultipliers(
-          maxSnapshot.balanceMultiplier,
-          fromToken.balanceMultiplier,
-        ) &&
-        equalTokenNoCaseSensitive({
-          token1: maxSnapshot,
-          token2: fromToken,
+        !isSwapMaxAmountCurrent({
+          snapshot: maxSnapshot,
+          displayAmount: fromTokenAmount.value,
+          token: fromToken,
+          accountId,
+          accountAddress: address,
         })
-          ? maxSnapshot.rawAmount
-          : undefined;
+      ) {
+        if (
+          get(swapProInputAmountStateAtom()).maxAmountSnapshot === maxSnapshot
+        ) {
+          set(swapProInputAmountStateAtom(), { value: '', isInput: true });
+        }
+        if (get(swapFromTokenAmountAtom()).maxAmountSnapshot === maxSnapshot) {
+          set(swapFromTokenAmountAtom(), { value: '', isInput: true });
+        }
+        void this.resetQuoteAction.call(set);
+        return;
+      }
       const rawFromTokenAmount =
         quoteOverride?.rawAmounts?.fromTokenAmount ??
-        rawMaxAmount ??
+        maxSnapshot?.rawAmount ??
         (swapTabSwitchType === ESwapTabSwitchType.PRIVATE_SEND
           ? fromTokenAmount.value
           : getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down'));
@@ -2573,6 +2655,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount: toTokenAmount.value,
         rawFromTokenAmount,
         rawToTokenAmount,
+        maxAmountSnapshot: maxSnapshot,
         kind: quoteKind,
         accountId,
         address,
@@ -2616,7 +2699,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const buySelectToken = get(swapProUseSelectBuyTokenAtom());
       const sellSelectToken = get(swapProSellToTokenAtom());
       const swapProDirection = get(swapProDirectionAtom());
-      const fromTokenAmount = get(swapProInputAmountAtom());
+      const fromInput = get(swapProInputAmountStateAtom());
       const fromToken =
         swapProDirection === ESwapDirection.BUY
           ? buySelectToken
@@ -2643,7 +2726,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         {
           fromToken,
           toToken,
-          fromTokenAmount,
+          fromTokenAmount: fromInput.value,
+          maxAmountSnapshot: fromInput.maxAmountSnapshot,
           source: ESwapQuoteSource.MARKET,
           type: ESwapTabSwitchType.SWAP,
         },

@@ -43,6 +43,7 @@ export interface IActionButtonProps extends IButtonProps {
   isAccountNetworkSupported: boolean;
   onlySupportCrossChain?: boolean;
   amount: string;
+  isMaxAmount?: boolean;
   token?: IToken;
   paymentToken?: IToken;
   paymentTokenPrice?: BigNumber;
@@ -58,6 +59,7 @@ export interface IActionButtonProps extends IButtonProps {
 export function ActionButton({
   tradeType,
   amount,
+  isMaxAmount,
   token,
   balance,
   supportSpeedSwap,
@@ -143,7 +145,7 @@ export function ActionButton({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        fromAmount: isValidAmount ? amount : '',
+        fromAmount: isValidAmount && !isMaxAmount ? amount : '',
         importToToken:
           tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
         importFromToken:
@@ -165,6 +167,7 @@ export function ActionButton({
   }, [
     isValidAmount,
     amount,
+    isMaxAmount,
     onlySupportCrossChain,
     actionToken,
     actionOtherToken,
