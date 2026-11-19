@@ -161,6 +161,21 @@ function CancelOrderButton({
   );
 }
 
+function getOrderTriggerRelation(
+  order: IPerpsFrontendOrder,
+  kind: 'tp' | 'sl',
+) {
+  const condition = order.triggerCondition?.toLowerCase();
+  if (condition?.includes('above')) return ETranslations.perp_tp_sl_above;
+  if (condition?.includes('below')) return ETranslations.perp_tp_sl_below;
+
+  // A sell TP or a buy SL triggers above the market.
+  const isAbove = kind === 'tp' ? order.side === 'A' : order.side === 'B';
+  return isAbove
+    ? ETranslations.perp_tp_sl_above
+    : ETranslations.perp_tp_sl_below;
+}
+
 function ExistingTpslOrderSummary({
   relationLabel,
   triggerPx,
@@ -658,9 +673,7 @@ const SetTpslForm = memo(
               {expectedProfit ? (
                 <ExistingTpslOrderSummary
                   relationLabel={intl.formatMessage({
-                    id: isLongPosition
-                      ? ETranslations.perp_tp_sl_above
-                      : ETranslations.perp_tp_sl_below,
+                    id: getOrderTriggerRelation(tpOrder, 'tp'),
                   })}
                   triggerPx={tpOrder.triggerPx}
                   pnlLabel={intl.formatMessage({
@@ -699,9 +712,7 @@ const SetTpslForm = memo(
               {expectedLoss ? (
                 <ExistingTpslOrderSummary
                   relationLabel={intl.formatMessage({
-                    id: isLongPosition
-                      ? ETranslations.perp_tp_sl_below
-                      : ETranslations.perp_tp_sl_above,
+                    id: getOrderTriggerRelation(slOrder, 'sl'),
                   })}
                   triggerPx={slOrder.triggerPx}
                   pnlLabel={intl.formatMessage({

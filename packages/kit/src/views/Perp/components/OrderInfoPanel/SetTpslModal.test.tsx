@@ -250,7 +250,7 @@ describe('position TP/SL confirmation', () => {
     { positionSize: '-1', kind: 'tp', triggerPx: '1800', relation: 'below' },
     { positionSize: '-1', kind: 'sl', triggerPx: '1850', relation: 'above' },
   ])(
-    'shows price $relation for an existing $kind on position $positionSize',
+    'keeps the existing $kind trigger direction when position $positionSize flips before orders update',
     ({ positionSize, kind, triggerPx, relation }) => {
       const order: IPerpsFrontendOrder = {
         coin: 'ETH',
@@ -270,12 +270,36 @@ describe('position TP/SL confirmation', () => {
         children: [],
         tif: 'Gtc',
       };
-      render(modalAtMid('1830', { positionSize, orders: [order] }));
+      const { rerender } = render(
+        modalAtMid('1830', { positionSize, orders: [order] }),
+      );
+      expect(screen.getByText(`Price ${relation}`)).toBeTruthy();
+
+      const flippedSize = positionSize === '1' ? '-1' : '1';
+      rerender(
+        modalAtMid('1830', { positionSize: flippedSize, orders: [order] }),
+      );
       expect(screen.getByText(`Price ${relation}`)).toBeTruthy();
       expect(screen.getByText(triggerPx)).toBeTruthy();
+
+      const replacement: IPerpsFrontendOrder = {
+        ...order,
+        oid: 2,
+        side: order.side === 'A' ? 'B' : 'A',
+        triggerCondition: '',
+        triggerPx: relation === 'above' ? '1790' : '1860',
+      };
+      rerender(
+        modalAtMid('1830', {
+          positionSize: flippedSize,
+          orders: [replacement],
+        }),
+      );
       expect(
-        screen.queryByText(`Price ${relation === 'above' ? 'below' : 'above'}`),
-      ).toBeNull();
+        screen.getByText(`Price ${relation === 'above' ? 'below' : 'above'}`),
+      ).toBeTruthy();
+      expect(screen.getByText(replacement.triggerPx)).toBeTruthy();
+      expect(screen.queryByText(triggerPx)).toBeNull();
     },
   );
 
