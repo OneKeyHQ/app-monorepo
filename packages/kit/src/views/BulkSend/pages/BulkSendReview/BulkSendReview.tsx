@@ -25,6 +25,7 @@ import {
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimeEntitlementSource } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalBulkSendRoutes,
@@ -78,9 +79,11 @@ const TX_DETAILS_CONTAINER_PROPS = { px: '$5' } as const;
 function BaseBulkSendReview({
   onSuccess,
   onFail,
+  entitlementSource,
 }: {
   onSuccess?: (data: any[]) => void;
   onFail?: (error: Error) => void;
+  entitlementSource?: IPrimeEntitlementSource;
 }) {
   const {
     networkId,
@@ -479,6 +482,16 @@ function BaseBulkSendReview({
     featureId: EPrimeFeatures.BulkSend,
   });
   const reviewUsageIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    defaultLogger.prime.usage.bulkSendReviewShow({
+      featureName: EPrimeFeatures.BulkSend,
+      featureId: EPrimeFeatures.BulkSend,
+      entitlementSource,
+      sendMode: bulkSendMode,
+    });
+    // Once per page instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Starting or checking a usage can take a while; a page closed meanwhile
   // must not send.
   const isUnmountedRef = useRef(false);
@@ -1115,6 +1128,7 @@ function BulkSendReviewContent({
   isMaxMode,
   ataCount,
   intervalSettings,
+  entitlementSource,
   onSuccess,
   onFail,
 }: IBulkSendReviewRouteParams) {
@@ -1212,7 +1226,11 @@ function BulkSendReviewContent({
 
   return (
     <BulkSendReviewContext.Provider value={contextValue}>
-      <BaseBulkSendReview onSuccess={onSuccess} onFail={onFail} />
+      <BaseBulkSendReview
+        onSuccess={onSuccess}
+        onFail={onFail}
+        entitlementSource={entitlementSource}
+      />
     </BulkSendReviewContext.Provider>
   );
 }

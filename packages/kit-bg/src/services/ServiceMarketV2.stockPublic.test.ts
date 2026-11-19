@@ -80,6 +80,36 @@ describe('ServiceMarketV2 public stock APIs', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses the canonical Bitcoin listing ID without changing the BTC perp', async () => {
+    const service = createService();
+    const bitcoin = {
+      type: 'asset',
+      symbol: 'BTC',
+      assetId: 'bitcoin',
+      favorite: { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+    };
+    const btcPerp = {
+      type: 'perp',
+      symbol: 'BTC',
+      perpsCoin: 'BTC',
+      favorite: { perpsCoin: 'BTC', chainId: '', contractAddress: '' },
+    };
+    mockGet.mockResolvedValueOnce({
+      data: { code: 0, data: { data: [{ assets: [bitcoin, btcPerp] }] } },
+    });
+
+    const [item] = await service.fetchMarketHighlights('en-US');
+
+    expect(item.assets).toEqual([
+      {
+        ...bitcoin,
+        assetId: 'btc',
+        favorite: { ...bitcoin.favorite, assetId: 'btc' },
+      },
+      btcPerp,
+    ]);
+  });
+
   it('keeps partial batch rows aligned and only retries missing tokens', async () => {
     const service = createService();
     const unknown = {
@@ -624,6 +654,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     const service = createService();
     mockPost.mockResolvedValueOnce({
       data: {
+        code: 0,
         data: {
           items: [
             { stockId: 'TSLA', symbol: 'TSLA', variants: [] },
@@ -656,6 +687,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     mockPost.mockImplementation(
       async (_url: string, body: { stockIds: string[] }) => ({
         data: {
+          code: 0,
           data: {
             items: body.stockIds.map((stockId) => ({ stockId })),
             total: body.stockIds.length,
@@ -670,6 +702,22 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(mockPost.mock.calls[0][1].stockIds).toHaveLength(100);
     expect(mockPost.mock.calls[1][1].stockIds).toEqual(['S100']);
     expect(result.map((item) => item.stockId)).toEqual(stockIds);
+  });
+
+  it('rejects failed stock batches and accepts successful empty lists', async () => {
+    const service = createService();
+    const params = { stockIds: ['AAPL'] };
+    mockPost.mockResolvedValueOnce({
+      data: { code: 1, message: 'Stock quotes unavailable', data: null },
+    });
+    await expect(service.fetchMarketStockBatch(params)).rejects.toThrow(
+      'Invalid market stock batch response',
+    );
+
+    mockPost.mockResolvedValueOnce({
+      data: { code: 0, data: { items: [], total: 0 } },
+    });
+    await expect(service.fetchMarketStockBatch(params)).resolves.toEqual([]);
   });
 
   it('skips the stock batch request for an empty ID list', async () => {
