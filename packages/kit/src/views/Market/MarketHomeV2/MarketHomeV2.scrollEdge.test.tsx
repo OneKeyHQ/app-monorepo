@@ -2,6 +2,7 @@
 import type { PropsWithChildren } from 'react';
 
 import { act, isInaccessible, render } from '@testing-library/react';
+import { Freeze as BottomTabFreeze } from 'react-freeze';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -325,6 +326,47 @@ it('renders the standalone native Market search header and forwards its measured
     });
   });
 
+  expect(mockLayoutProps).toMatchObject({
+    externalTopOverlayTag: headerTag,
+    externalTopOverlayHeight: 108,
+  });
+});
+
+it('retains the measured native header when a bottom tab suspends and restores Market', async () => {
+  mockBannerLoading = false;
+  mockCategoryLoading = false;
+  const screen = render(
+    <BottomTabFreeze freeze={false}>
+      <MarketHomeV2 />
+    </BottomTabFreeze>,
+  );
+  const headerTag = mockTags.get(mockHeaderNode as object) as number;
+  act(() => {
+    mockHeaderLayout?.({
+      nativeEvent: { target: headerTag, layout: { height: 108 } },
+    });
+  });
+  expect(mockLayoutProps).toMatchObject({
+    externalTopOverlayTag: headerTag,
+    externalTopOverlayHeight: 108,
+  });
+
+  mockIsFocused = false;
+  await act(async () =>
+    screen.rerender(
+      <BottomTabFreeze freeze>
+        <MarketHomeV2 />
+      </BottomTabFreeze>,
+    ),
+  );
+  mockIsFocused = true;
+  await act(async () =>
+    screen.rerender(
+      <BottomTabFreeze freeze={false}>
+        <MarketHomeV2 />
+      </BottomTabFreeze>,
+    ),
+  );
   expect(mockLayoutProps).toMatchObject({
     externalTopOverlayTag: headerTag,
     externalTopOverlayHeight: 108,
