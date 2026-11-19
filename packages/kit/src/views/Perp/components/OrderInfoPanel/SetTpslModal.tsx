@@ -658,7 +658,9 @@ const SetTpslForm = memo(
               {expectedProfit ? (
                 <ExistingTpslOrderSummary
                   relationLabel={intl.formatMessage({
-                    id: ETranslations.perp_tp_sl_above,
+                    id: isLongPosition
+                      ? ETranslations.perp_tp_sl_above
+                      : ETranslations.perp_tp_sl_below,
                   })}
                   triggerPx={tpOrder.triggerPx}
                   pnlLabel={intl.formatMessage({
@@ -697,7 +699,9 @@ const SetTpslForm = memo(
               {expectedLoss ? (
                 <ExistingTpslOrderSummary
                   relationLabel={intl.formatMessage({
-                    id: ETranslations.perp_tp_sl_below,
+                    id: isLongPosition
+                      ? ETranslations.perp_tp_sl_below
+                      : ETranslations.perp_tp_sl_above,
                   })}
                   triggerPx={slOrder.triggerPx}
                   pnlLabel={intl.formatMessage({
