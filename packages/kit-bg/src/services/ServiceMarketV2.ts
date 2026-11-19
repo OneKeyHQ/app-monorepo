@@ -200,11 +200,9 @@ class ServiceMarketV2 extends ServiceBase {
       assetId: string,
     ): Promise<IMarketListingWatchlistQuote | undefined> => {
       const { asset, market } =
-        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
+        await this.backgroundApi.serviceMarket.fetchMarketAssetDetailForWatchlistQuote(
           assetId,
-          currency: 'usd',
-          autoHandleError: false,
-        });
+        );
       return {
         ...market,
         symbol: asset.symbol,
