@@ -22830,6 +22830,7 @@
     "packages/kit/src/components/LightweightChart/utils/htmlTemplate.ts": 24071,
     "packages/kit/src/components/LightweightChart/utils/lightweightChartsRuntime.ts": 23767,
     "packages/kit/src/components/LightweightChart/utils/lightweightChartsRuntimeSource.ts": 2757,
+    "packages/kit/src/components/LightweightChart/utils/localTimeScale.ts": 8890,
     "packages/kit/src/components/LightweightChart/utils/monotoneCurve.ts": 15586,
     "packages/kit/src/components/LightweightChart/utils/priceFormatBase.ts": 14122,
     "packages/kit/src/components/LightweightChart/utils/priceFormatterType.ts": 2499,
