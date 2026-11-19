@@ -378,7 +378,23 @@ function FeaturedChangelogContent({
     return { height: carousel + footerHeight };
   });
 
-  if (!features.length) return null;
+  const footer = (
+    <FeaturedFooter
+      ctaText={ctaText}
+      onCtaPress={() => void onCtaPress()}
+      showFullChangelog={!isLiveLocked && !isPreview}
+      showContactSupport={isLiveLocked && !isPreview}
+      onContactSupportPress={() => void handleContactSupportPress()}
+      isPreInstall={isPreInstall}
+      closeDialog={closeDialog}
+      onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+    />
+  );
+
+  if (!features.length) {
+    // A refresh can remove the cards while the update still requires action.
+    return isPreInstall ? footer : null;
+  }
 
   const badgeText = intl.formatMessage({
     id: ETranslations.settings_whats_new,
@@ -411,16 +427,7 @@ function FeaturedChangelogContent({
         onActiveFeatureChange={onActiveFeatureChange}
         totalHeight={totalCarouselHeight}
       />
-      <FeaturedFooter
-        ctaText={ctaText}
-        onCtaPress={() => void onCtaPress()}
-        showFullChangelog={Boolean(!isLiveLocked && !isPreview)}
-        showContactSupport={Boolean(isLiveLocked && !isPreview)}
-        onContactSupportPress={() => void handleContactSupportPress()}
-        isPreInstall={isPreInstall}
-        closeDialog={closeDialog}
-        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
-      />
+      {footer}
     </Animated.View>
   );
 }

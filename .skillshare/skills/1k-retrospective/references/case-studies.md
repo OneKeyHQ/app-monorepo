@@ -1723,3 +1723,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
 **Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) â€” use the longest realistic content in each row, not only short sample text.
+
+## Case: Stale featured changelog and blank force-update dialog (OK-54862)
+**Date**: 2026-11-19 | **Platforms**: iOS and Android. Main and bg initialize independently with separate JS atom snapshots over shared native MMKV storage. The dialog also runs on single-runtime desktop and web.
+**Symptom**: Clearing the update cache could restore withdrawn release cards from the cold-start snapshot. A force-update dialog opened with cached cards could also become blank and stay locked after a refresh removed the cards.
+**Root Cause**: Omitted or undefined changelog fields could not overwrite the stale snapshot. Once an explicit clear reached the open dialog, its empty-card branch removed the update and support actions along with the carousel.
+**Fix**: Persist null for cleared cards and keep the existing pre-install actions when the carousel disappears. Regression tests exercise the stale snapshot merge and a force update whose cards disappear while its store action remains available.
+**Catchable by**: Sections 4 and 6: Check both the persisted clear across runtime boundaries and the live transition to empty optional content while a blocking dialog stays open.

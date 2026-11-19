@@ -2339,7 +2339,10 @@ describe('ServiceAppUpdate state transitions', () => {
     const staleFeatured = {
       version: '9906.15.1',
       features: [
-        { mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' as const },
+        {
+          mediaUrl: 'https://cdn.onekey.so/a.png',
+          mediaType: 'image' as const,
+        },
       ],
     };
     const mergeWithSnapshot = (value: IAppUpdateInfo) =>
