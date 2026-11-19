@@ -127,21 +127,6 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
-jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: ({
-    testID,
-    title,
-    onPress,
-  }: {
-    testID?: string;
-    title?: string;
-    onPress?: () => void;
-  }) => (
-    <button type="button" data-testid={testID} onClick={onPress}>
-      {title}
-    </button>
-  ),
-}));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => mockNavigation,
@@ -232,8 +217,18 @@ jest.mock('@onekeyhq/components', () => {
       bgSubdued: { val: '#eeeeee' },
     }),
     Page: Object.assign(View, {
-      Header: ({ headerRight }: { headerRight?: () => ReactNode }) =>
-        headerRight?.() ?? null,
+      Header: ({
+        headerTitle,
+        headerRight,
+      }: {
+        headerTitle?: () => ReactNode;
+        headerRight?: () => ReactNode;
+      }) => (
+        <div>
+          {headerTitle?.()}
+          {headerRight?.()}
+        </div>
+      ),
       Body: View,
       Footer: View,
     }),
@@ -1332,6 +1327,8 @@ it('keeps the acknowledged composer editable while the first conversation refres
   expect(screen.getByTestId('support-message-input')).toBe(input);
   expect(input.disabled).toBe(false);
   expect(document.activeElement).toBe(input);
+  // The creation receipt already carries the header shown above the thread.
+  expect(screen.queryByTestId('support-chat-header-skeleton')).toBeNull();
   await act(async () => refresh.resolve(conversation));
   expect(input.value).toBe('Next draft during refresh');
 });
@@ -1468,6 +1465,7 @@ it('shows message placeholders until the conversation first answers', async () =
   const loaded = holdRequest('conversations/42');
   render(<SupportScreen />);
   expect(screen.getByTestId('support-chat-skeleton')).toBeTruthy();
+  expect(screen.getByTestId('support-chat-header-skeleton')).toBeTruthy();
   await waitFor(() =>
     expect(mockRequest).toHaveBeenCalledWith(
       'conversations/42',
@@ -1479,6 +1477,7 @@ it('shows message placeholders until the conversation first answers', async () =
   await act(async () => loaded.resolve());
   await screen.findByTestId('support-message-part-1');
   expect(screen.queryByTestId('support-chat-skeleton')).toBeNull();
+  expect(screen.queryByTestId('support-chat-header-skeleton')).toBeNull();
 });
 
 it('shows article placeholders until the help suggestions answer', async () => {
@@ -1521,4 +1520,20 @@ it('sends on Enter while Shift+Enter and IME confirmation stay with the draft', 
   fireEvent.keyDown(input, { key: 'Enter' });
   await waitFor(() => expect(replied()).toBe(true));
   expect(input.value).toBe('');
+});
+
+it('offers a new conversation on the message list before the home content answers', async () => {
+  mockRoute.name = 'IntercomMessages';
+  const home = holdRequest('home');
+  render(<SupportScreen />);
+  const button = (await screen.findByTestId(
+    'support-new-conversation',
+  )) as HTMLButtonElement;
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
+    userId: null,
+    conversationId: undefined,
+  });
+  await act(async () => home.resolve());
 });

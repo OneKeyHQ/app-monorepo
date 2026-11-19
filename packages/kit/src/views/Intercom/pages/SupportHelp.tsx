@@ -6,14 +6,16 @@ import { FlatList } from 'react-native';
 
 import {
   Empty,
+  Icon,
   Input,
   Page,
+  SizableText,
   Skeleton,
   Spinner,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -27,6 +29,7 @@ import type {
   IIntercomParamList,
   IIntercomSupportRoute,
 } from '@onekeyhq/shared/src/routes/intercom';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { SupportNavigation } from '../components/SupportNavigation';
@@ -82,7 +85,7 @@ function SupportHelpContent({
   if (showSkeleton) {
     emptyState = (
       <YStack testID="support-help-skeleton">
-        {/* Same box as a ListItem row. */}
+        {/* Same box as a result row. */}
         {ARTICLE_PLACEHOLDER_WIDTHS.map((width) => (
           <YStack
             key={width}
@@ -155,14 +158,40 @@ function SupportHelpContent({
           }
           ListEmptyComponent={emptyState}
           renderItem={({ item }) => (
-            <ListItem
+            // Standard list-row spacing, so the highlight pads the text. The
+            // row keeps its own button role, which ListItem does not declare.
+            <XStack
               testID={`support-help-result-${item.id}`}
-              title={item.title}
-              subtitle={item.summary}
-              subtitleProps={{ numberOfLines: 2 }}
-              drillIn
+              role="button"
+              minHeight="$11"
+              mx="$2"
+              px="$3"
+              py="$2"
+              gap="$3"
+              alignItems="center"
+              borderRadius="$3"
+              borderCurve="continuous"
+              {...listItemPressStyle}
               onPress={() => openUrlExternal(item.url)}
-            />
+            >
+              <YStack flex={1} gap="$1">
+                <SizableText size="$bodyLgMedium">{item.title}</SizableText>
+                {item.summary ? (
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={2}
+                  >
+                    {item.summary}
+                  </SizableText>
+                ) : null}
+              </YStack>
+              <Icon
+                name="ChevronRightSmallOutline"
+                color="$iconSubdued"
+                flexShrink={0}
+              />
+            </XStack>
           )}
         />
       </Page.Body>

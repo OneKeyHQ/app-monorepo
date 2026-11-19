@@ -393,10 +393,17 @@ function SupportConversationContent({
     active && (current?.canReply ?? open?.canWriteMessage ?? false);
   const repliesBlocked = current?.repliesBlocked ?? false;
   const header = current?.header ?? open?.header;
+  // A conversation just created already has its header from the receipt, even
+  // though its first read is still pending.
+  const headerLoading = initialLoading && !header;
   const renderHeaderTitle = useCallback(
     () =>
-      initialLoading ? (
-        <XStack gap="$2.5" alignItems="center">
+      headerLoading ? (
+        <XStack
+          testID="support-chat-header-skeleton"
+          gap="$2.5"
+          alignItems="center"
+        >
           <Skeleton w={28} h={28} radius="round" />
           <Skeleton.HeadingMd />
         </XStack>
@@ -421,7 +428,7 @@ function SupportConversationContent({
           </YStack>
         </XStack>
       ),
-    [header, initialLoading],
+    [header, headerLoading],
   );
   const send = useCallback(
     async (outgoing: IOutgoing) => {

@@ -208,6 +208,10 @@ export function SupportInbox({
         testID="support-refresh"
         icon="RefreshCcwOutline"
         title={intl.formatMessage({ id: ETranslations.global_refresh })}
+        // `title` only feeds the tooltip; screen readers need the label.
+        accessibilityLabel={intl.formatMessage({
+          id: ETranslations.global_refresh,
+        })}
         onPress={() => {
           void refresh();
         }}
@@ -287,6 +291,8 @@ export function SupportInbox({
           <XStack
             testID="support-new-conversation"
             role="button"
+            // Names the card while its text is still a placeholder.
+            accessibilityLabel={newConversationLabel}
             accessibilityState={{ disabled: !open.data?.canCreateConversation }}
             onPress={
               open.data?.canCreateConversation ? startConversation : undefined
@@ -546,9 +552,9 @@ export function SupportInbox({
             <YStack bg="$bgApp">
               {!home && !open.failed ? (
                 <YStack px="$5" py="$3">
-                  {openLoading || labelsLoading ? (
-                    // Either response can carry the label; a button shown
-                    // earlier would change its text when the other lands.
+                  {openLoading ? (
+                    // Starting a conversation needs only this response, so a
+                    // slow home request must not keep the button back.
                     <Skeleton h={50} radius="round" />
                   ) : (
                     <Button
