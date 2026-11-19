@@ -26,7 +26,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { useHomeNativeListTheme } from '../../../Home/hooks/useHomeNativeListTheme';
-import { buildBrowserSiteRow } from '../../components/browserSiteNativeRow';
+import {
+  BROWSER_SITE_AUTO_ROW_HEIGHT,
+  buildBrowserSectionHeaderRow,
+  buildBrowserSectionSeparatorRow,
+  buildBrowserSiteRow,
+} from '../../components/browserSiteNativeRow';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -178,30 +183,21 @@ function HistoryListModal() {
   const snapshot = useMemo<NativeListSnapshot>(() => {
     generationRef.current += 1;
     const rows: RowModel[] = [];
-    memoizedDataSource.forEach((section) => {
+    memoizedDataSource.forEach((section, sectionIndex) => {
       const sectionKey = `section:${section.title}`;
-      rows.push({
-        key: `header:${section.title}`,
-        type: 'sectionHeader',
-        sectionKey,
-        title: section.title,
-        height: 36,
-        heightRounding: 'nearest',
-        pressDisabled: true,
-        style: {
-          container: { contentVerticalAlignment: 'bottom' },
-          horizontalPadding: 12,
-          verticalPadding: 4,
-          title: {
-            fontSize: 14,
-            lineHeight: 20,
-            fontWeight: 'medium',
-            color: theme.secondaryText,
-            lines: 1,
-            truncate: 'tail',
-          },
-        },
-      });
+      if (sectionIndex > 0) {
+        rows.push(
+          buildBrowserSectionSeparatorRow(`separator:${section.title}`),
+        );
+      }
+      rows.push(
+        buildBrowserSectionHeaderRow({
+          key: `header:${section.title}`,
+          sectionKey,
+          title: section.title,
+          theme,
+        }),
+      );
       section.data.forEach((item) => {
         rows.push({
           ...buildBrowserSiteRow({
@@ -213,10 +209,12 @@ function HistoryListModal() {
             borderColor: colors.borderSubdued.val,
             editing: isEditing,
             testID: `search-modal-${item.url.toLowerCase()}`,
+            height: BROWSER_SITE_AUTO_ROW_HEIGHT,
             trailing: [
               {
                 kind: 'icon',
                 name: 'DeleteOutline',
+                buttonStyle: 'tertiary',
                 actionKey: 'delete',
                 accessibilityLabel: intl.formatMessage({
                   id: ETranslations.global_remove,

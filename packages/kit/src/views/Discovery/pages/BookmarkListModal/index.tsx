@@ -231,6 +231,7 @@ function BookmarkListModal() {
           kind: 'icon',
           name: 'MinusCircleSolid',
           tintColor: colors.iconCritical.val,
+          buttonStyle: 'tertiary',
           actionKey: 'remove',
           accessibilityLabel: intl.formatMessage({
             id: ETranslations.global_remove,
@@ -240,6 +241,7 @@ function BookmarkListModal() {
           {
             kind: 'icon',
             name: 'PencilOutline',
+            buttonStyle: 'tertiary',
             actionKey: 'rename',
             testID: 'action-list-item-rename',
             accessibilityLabel: intl.formatMessage({

@@ -1,11 +1,26 @@
+import { PixelRatio, StyleSheet } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type {
   IdentityRow,
   NativeListTheme,
+  RowModel,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
 
+// Matches ListItem (py $2 around a 44pt text block) and the old CELL_HEIGHT.
 export const BROWSER_SITE_ROW_HEIGHT = 60;
+// React Native rounds every text box up to the next physical pixel on iOS and
+// Android, so the 24pt title and 20pt URL each occupy one extra pixel
+// (24.33/20.33 at 3x). React Native Web keeps the exact 24/20 line boxes.
+const PX = platformEnv.isNative ? 1 / PixelRatio.get() : 0;
+// Unconstrained ListItem height (History): py 8 + 24.33 + 20.33 on native.
+export const BROWSER_SITE_AUTO_ROW_HEIGHT = 60 + 2 * PX;
+// DiscoveryIcon size="$10".
 const ICON_SIZE = 40;
+// DiscoveryIcon borderRadius "$2".
+const ICON_RADIUS = 8;
 
 function decodeLogo(logo: string | undefined) {
   if (!logo) return undefined;
@@ -17,7 +32,10 @@ function decodeLogo(logo: string | undefined) {
 }
 
 // One website entry (bookmark or recently closed tab) as a NativeList identity
-// row: favicon, single-line title and single-line URL.
+// row, reproducing ListItem + DiscoveryIcon: 40pt favicon with an 8pt radius
+// and hairline border, $bodyLgMedium title and $bodyMd subdued URL. The
+// identity defaults already match ListItem's px $3 / gap $3, and leaving them
+// unset keeps the tertiary IconButton -7pt edge adjustments.
 export function buildBrowserSiteRow({
   key,
   title,
@@ -29,6 +47,7 @@ export function buildBrowserSiteRow({
   leadingAction,
   trailing,
   testID,
+  height = BROWSER_SITE_ROW_HEIGHT,
 }: {
   key: string;
   title: string;
@@ -40,15 +59,16 @@ export function buildBrowserSiteRow({
   leadingAction?: IdentityRow['leadingAction'];
   trailing?: readonly TrailingAccessory[];
   testID?: string;
+  height?: number;
 }): IdentityRow {
   const uri = decodeLogo(logo);
   return {
     key,
     type: 'identity',
     testID,
-    height: BROWSER_SITE_ROW_HEIGHT,
-    heightRounding: 'nearest',
+    height,
     pressDisabled: editing,
+    collapseEmptyTrailing: true,
     separator: false,
     leading: {
       kind: 'token',
@@ -62,12 +82,16 @@ export function buildBrowserSiteRow({
             loadingStrategy: 'static',
           }
         : undefined,
+      // Image.Fallback: a full-size globe icon on no fill.
       fallbackIcon: {
         name: 'GlobusOutline',
         tintColor: theme.iconSubdued,
         size: ICON_SIZE,
+        backgroundColor: '#00000000',
       },
+      backgroundColor: '#00000000',
       borderColor,
+      borderWidth: StyleSheet.hairlineWidth,
     },
     leadingAction: editing ? leadingAction : undefined,
     title: title || url,
@@ -76,13 +100,86 @@ export function buildBrowserSiteRow({
     subtitleLines: 1,
     trailing: editing ? trailing : undefined,
     style: {
+      // ListItem (alignItems center) centers the favicon, the text block and
+      // the edit buttons; the padding leaves exactly the text block's height.
       container: { cornerRadius: 12 },
-      horizontalPadding: 12,
-      verticalPadding: 8,
-      leadingGap: 12,
-      trailingGap: 12,
-      title: { lines: 1, truncate: 'tail' },
-      subtitle: { lines: 1, truncate: 'tail' },
+      verticalPadding: (height - (44 + 2 * PX)) / 2,
+      // Edit buttons sit in <XStack gap="$6">.
+      trailingGap: 24,
+      image: { cornerRadius: ICON_RADIUS },
+      // ListItem.Text stacks the two lines with no gap.
+      lineGap: 0,
+      title: {
+        fontSize: 16,
+        lineHeight: 24 + PX,
+        fontWeight: 'medium',
+        letterSpacing: 0,
+        color: theme.primaryText,
+        lines: 1,
+        truncate: 'tail',
+      },
+      subtitle: {
+        fontSize: 14,
+        lineHeight: 20 + PX,
+        fontWeight: 'regular',
+        letterSpacing: 0,
+        color: theme.secondaryText,
+        lines: 1,
+        truncate: 'tail',
+      },
     },
+  };
+}
+
+// SectionList.SectionHeader: h $9, px $5, $headingSm in $textSubdued.
+export function buildBrowserSectionHeaderRow({
+  key,
+  sectionKey,
+  title,
+  theme,
+}: {
+  key: string;
+  sectionKey: string;
+  title: string;
+  theme: NativeListTheme;
+}): RowModel {
+  return {
+    key,
+    type: 'sectionHeader',
+    sectionKey,
+    title,
+    height: 36,
+    pressDisabled: true,
+    separator: false,
+    style: {
+      container: { contentVerticalAlignment: 'top' },
+      // The list's 8pt content inset plus 12 gives SectionHeader's 20pt.
+      horizontalPadding: 12,
+      verticalPadding: PX
+        ? Math.floor((36 - (20 + PX)) / 2 / PX + 1e-6) * PX
+        : (36 - 20) / 2,
+      title: {
+        fontSize: 14,
+        lineHeight: 20 + PX,
+        fontWeight: 'semibold',
+        letterSpacing: 0,
+        color: theme.secondaryText,
+        lines: 1,
+        truncate: 'tail',
+      },
+    },
+  };
+}
+
+// SectionList's default SectionSeparatorComponent: <Stack h="$5" />.
+export function buildBrowserSectionSeparatorRow(key: string): RowModel {
+  return {
+    key,
+    type: 'system',
+    variant: 'spacer',
+    height: 20,
+    heightRounding: 'nearest',
+    pressDisabled: true,
+    separator: false,
   };
 }
