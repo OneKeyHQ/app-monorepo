@@ -27113,6 +27113,7 @@
     "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchAccountAssetItem.tsx": 19515,
     "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchAddressItem.tsx": 732,
     "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchDappItem.tsx": 3861,
+    "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchHelpCenterItem.tsx": 13006,
     "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchPerpItem.tsx": 15209,
     "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchSettingsItem.tsx": 15905,
     "packages/kit/src/views/UniversalSearch/components/SearchResultItems/UniversalSearchV2MarketTokenItem.tsx": 13896,
