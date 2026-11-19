@@ -247,10 +247,39 @@ function refreshStaleIosPodspecs(iosDirectory) {
   }
 }
 
-function installIosPods() {
-  const iosDirectory = path.join(MOBILE_ROOT, 'ios');
+const SPEC_CHECKSUM_CHANGE =
+  /There were changes to the lockfile in deployment mode[\s\S]*SPEC CHECKSUMS:/u;
+
+function installIosPods(iosDirectory = path.join(MOBILE_ROOT, 'ios')) {
   refreshStaleIosPodspecs(iosDirectory);
-  runChecked('pod', ['install', '--deployment'], { cwd: iosDirectory });
+  const install = (extraArgs) => {
+    const result = spawnSync('pod', ['install', '--deployment', ...extraArgs], {
+      cwd: iosDirectory,
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+    });
+    process.stdout.write(result.stdout || '');
+    process.stderr.write(result.stderr || '');
+    return result;
+  };
+  let result = install([]);
+  if (
+    result.status !== 0 &&
+    !result.error &&
+    SPEC_CHECKSUM_CHANGE.test(`${result.stdout}\n${result.stderr}`)
+  ) {
+    // A Specs checkout older or newer than the lockfile hashes changed podspecs (such as trunk deprecations)
+    // differently. Refresh the spec repos once; the retry still verifies the lockfile.
+    console.log(
+      '[buildMobileDevShell] Spec checksums differ from the local spec repos; updating them and retrying once.',
+    );
+    result = install(['--repo-update']);
+  }
+  if (result.status !== 0 || result.error) {
+    throw new Error('[buildMobileDevShell] Command failed: pod install', {
+      cause: result.error,
+    });
+  }
 }
 
 function buildIosSimulator({ artifactPath, nativeContractKey }) {
@@ -404,6 +433,7 @@ module.exports = {
   getIosDevShellInfoPlistEntries,
   getNativeBuildEnvironment,
   injectIosDevShellInfoPlist,
+  installIosPods,
   packageIosSimulatorApp,
   parseArgs,
   refreshStaleIosPodspecs,
