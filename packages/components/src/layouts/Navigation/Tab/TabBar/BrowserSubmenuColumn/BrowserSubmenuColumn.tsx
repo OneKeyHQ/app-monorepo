@@ -17,6 +17,7 @@ import {
   BrowserSubmenuCloseArmedContext,
   BrowserSubmenuContext,
 } from './BrowserSubmenuContext';
+import { createCloseArmGuard } from './closeArmGuard';
 import { EXPANDED_SUBMENU_WIDTH, SubmenuColumn } from './SubmenuColumn';
 import { VerticalDivider } from './VerticalDivider';
 
@@ -108,6 +109,15 @@ export function BrowserSubmenuColumn({
     }, HOVER_DELAY_MS);
   }, [clearHoverTimer]);
 
+  // Keep the latest pointer position while collapsed too, so the close guard
+  // can anchor its movement origin to where the pointer rested at expansion.
+  const handleContainerPointerMove = useCallback(
+    (e: { clientX: number; clientY: number }) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    },
+    [],
+  );
+
   const handleHoverOut = useCallback(() => {
     clearHoverTimer();
     if (popoverCountRef.current > 0) return;
@@ -159,26 +169,16 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
-    let moveOrigin: { x: number; y: number } | null = null;
-    let hasMoved = false;
-    let hasSettled = false;
-    const settleTimer = setTimeout(() => {
-      hasSettled = true;
-    }, CLOSE_ARM_DELAY_MS);
+    const closeArmGuard = createCloseArmGuard({
+      delayMs: CLOSE_ARM_DELAY_MS,
+      thresholdPx: POINTER_MOVE_THRESHOLD_PX,
+      getLatestPointer: () => lastPointerRef.current,
+      onArm: () => setIsCloseArmed(true),
+    });
 
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
-      if (hasSettled && !hasMoved) {
-        if (!moveOrigin) {
-          moveOrigin = { x: e.clientX, y: e.clientY };
-        } else if (
-          Math.abs(e.clientX - moveOrigin.x) >= POINTER_MOVE_THRESHOLD_PX ||
-          Math.abs(e.clientY - moveOrigin.y) >= POINTER_MOVE_THRESHOLD_PX
-        ) {
-          hasMoved = true;
-          setIsCloseArmed(true);
-        }
-      }
+      closeArmGuard.onPointerMove(lastPointerRef.current);
       if (popoverCountRef.current > 0) return;
 
       if (rafId !== null) return;
@@ -208,7 +208,7 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
-      clearTimeout(settleTimer);
+      closeArmGuard.dispose();
     };
   }, [isHovered, clearHoverTimer]);
 
@@ -234,6 +234,7 @@ export function BrowserSubmenuColumn({
         ref={containerRef as unknown as Ref<TamaguiElement>}
         position="relative"
         flex={1}
+        onPointerMove={handleContainerPointerMove}
         onMouseEnter={handleHoverIn}
         onMouseLeave={handleHoverOut}
       >
