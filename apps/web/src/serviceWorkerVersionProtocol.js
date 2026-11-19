@@ -25,6 +25,7 @@ export function createServiceWorkerVersionProtocol({
   let pendingActivation;
   let nextActivationRequestId = 0;
   let isAutoReloading = false;
+  let isListeningForVersionUpdates = false;
   let latestReadyVersion = '';
   let latestActiveVersion = '';
 
@@ -63,7 +64,7 @@ export function createServiceWorkerVersionProtocol({
   }
 
   function requestVersionCheck() {
-    if (!navigator.serviceWorker?.controller) {
+    if (!isListeningForVersionUpdates || !navigator.serviceWorker?.controller) {
       return;
     }
     postMessage(MESSAGE_TYPES.GET_VERSION_STATE);
@@ -79,106 +80,71 @@ export function createServiceWorkerVersionProtocol({
     globalThis.location.reload();
   }
 
-  function reloadPageAutomatically(autoReloadedVersion) {
-    if (isAutoReloading) {
-      return;
-    }
+  function reloadPageAutomatically(version) {
     isAutoReloading = true;
     removeUpdateBanner();
-    if (autoReloadedVersion) {
-      try {
-        globalThis.sessionStorage?.setItem(
-          AUTO_RELOAD_STORAGE_KEY,
-          getAutoReloadTargetKey(autoReloadedVersion),
-        );
-      } catch {
-        // Ignore sessionStorage restrictions in private/sandboxed contexts.
-      }
+    try {
+      globalThis.sessionStorage?.setItem(
+        AUTO_RELOAD_STORAGE_KEY,
+        getAutoReloadTargetKey(version),
+      );
+    } catch {
+      // Ignore sessionStorage restrictions in private/sandboxed contexts.
     }
     globalThis.location.reload();
   }
 
   function showManualUpdateBanner() {
     if (latestActiveVersion && latestActiveVersion !== getCurrentWebVersion()) {
-      showUpdateBanner(reloadPageManually);
+      offerVersionUpdate(latestActiveVersion, true);
     } else if (latestReadyVersion) {
-      const version = latestReadyVersion;
-      showUpdateBanner(() => activateReadyVersion(version, 'manual'));
-    } else {
+      offerVersionUpdate(latestReadyVersion, false);
+    } else if (!pendingActivation && !isAutoReloading) {
       removeUpdateBanner();
     }
   }
 
-  function finishActivation(activation, confirmed) {
+  function finishActivation(activation) {
     if (pendingActivation !== activation) {
       return;
     }
     pendingActivation = undefined;
-    if (activation.intent === 'manual') {
-      showManualUpdateBanner();
-      reloadPageManually();
-    } else if (canAutoReload(activation.version)) {
-      // The fallback may still load the old version if promotion has not finished.
-      reloadPageAutomatically(confirmed ? activation.version : undefined);
-    } else {
-      showManualUpdateBanner();
-    }
+    showManualUpdateBanner();
+    reloadPageManually();
   }
 
-  function activateReadyVersion(version, intent) {
-    if (isAutoReloading || pendingActivation?.intent === 'manual') {
+  function activateReadyVersion(version) {
+    if (isAutoReloading || pendingActivation) {
       return;
     }
     nextActivationRequestId += 1;
     const activation = {
       version,
-      intent,
       requestId: nextActivationRequestId,
     };
     pendingActivation = activation;
-    if (intent === 'automatic') {
-      removeUpdateBanner();
-    }
     postMessage(MESSAGE_TYPES.ACTIVATE_VERSION, {
       version,
       requestId: activation.requestId,
     });
-    setTimeout(
-      () => finishActivation(activation, false),
-      ACTIVATION_TIMEOUT_MS,
-    );
+    setTimeout(() => finishActivation(activation), ACTIVATION_TIMEOUT_MS);
   }
 
-  function tryAutoReloadOnPageError() {
+  function requestRecoveryCheck() {
     if (!isPageInErrorState() || isAutoReloading || pendingActivation) {
       return;
     }
-    if (canAutoReload(latestActiveVersion)) {
-      reloadPageAutomatically(latestActiveVersion);
-    } else if (canAutoReload(latestReadyVersion)) {
-      activateReadyVersion(latestReadyVersion, 'automatic');
-    } else if (
-      typeof navigator !== 'undefined' &&
-      'serviceWorker' in navigator
-    ) {
-      requestVersionCheck();
-    }
+    requestVersionCheck();
   }
 
   function offerVersionUpdate(version, isActive) {
     if (isAutoReloading || pendingActivation) {
       return;
     }
-    if (canAutoReload(version)) {
-      if (isActive) {
-        reloadPageAutomatically(version);
-      } else {
-        activateReadyVersion(version, 'automatic');
-      }
-    } else if (isActive) {
+    if (isActive) {
       showUpdateBanner(reloadPageManually);
     } else {
-      showUpdateBanner(() => activateReadyVersion(version, 'manual'));
+      showUpdateBanner(() => activateReadyVersion(version));
     }
   }
 
@@ -203,16 +169,7 @@ export function createServiceWorkerVersionProtocol({
       ) {
         pendingActivation = undefined;
       }
-      if (
-        latestActiveVersion &&
-        latestActiveVersion !== getCurrentWebVersion()
-      ) {
-        offerVersionUpdate(latestActiveVersion, true);
-      } else if (latestReadyVersion) {
-        offerVersionUpdate(latestReadyVersion, false);
-      } else if (!pendingActivation && !isAutoReloading) {
-        removeUpdateBanner();
-      }
+      showManualUpdateBanner();
     }
 
     if (
@@ -236,7 +193,14 @@ export function createServiceWorkerVersionProtocol({
         latestReadyVersion = '';
       }
       if (pendingActivation?.version === version) {
-        finishActivation(pendingActivation, true);
+        finishActivation(pendingActivation);
+      } else if (
+        payload.autoReload === true &&
+        !pendingActivation &&
+        !isAutoReloading &&
+        canAutoReload(version)
+      ) {
+        reloadPageAutomatically(version);
       } else if (version !== getCurrentWebVersion()) {
         offerVersionUpdate(version, true);
       }
@@ -249,6 +213,7 @@ export function createServiceWorkerVersionProtocol({
       'controllerchange',
       requestVersionCheck,
     );
+    isListeningForVersionUpdates = true;
     requestVersionCheck();
     setInterval(requestVersionCheck, checkIntervalMs);
     document.addEventListener('visibilitychange', () => {
@@ -261,22 +226,17 @@ export function createServiceWorkerVersionProtocol({
   if (typeof globalThis.addEventListener === 'function') {
     globalThis.addEventListener(
       WEB_ROUTE_NOT_FOUND_EVENT,
-      tryAutoReloadOnPageError,
+      requestRecoveryCheck,
     );
     globalThis.addEventListener(WEB_ROUTE_RECOVERED_EVENT, () => {
       postMessage(MESSAGE_TYPES.REPORT_CLIENT_STATE);
-      if (pendingActivation?.intent === 'automatic' && !isPageInErrorState()) {
-        pendingActivation = undefined;
-        showManualUpdateBanner();
-      }
     });
   }
 
   return {
-    isReloadPending: () =>
-      isAutoReloading || pendingActivation?.intent === 'automatic',
+    isReloadPending: () => isAutoReloading,
     requestVersionCheck,
     setup,
-    tryAutoReloadOnPageError,
+    requestRecoveryCheck,
   };
 }

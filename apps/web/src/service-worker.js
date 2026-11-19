@@ -1638,7 +1638,7 @@ function updateClientRuntimeState(client, payload = {}) {
     return;
   }
   const existing = clientRuntimeStates.get(client.id) || {};
-  clientRuntimeStates.set(client.id, {
+  const nextState = {
     clientVersion:
       typeof payload.clientVersion === 'string' && payload.clientVersion
         ? payload.clientVersion
@@ -1651,7 +1651,12 @@ function updateClientRuntimeState(client, payload = {}) {
       typeof payload.hasPageError === 'boolean'
         ? payload.hasPageError
         : Boolean(existing.hasPageError),
-  });
+  };
+  clientRuntimeStates.set(client.id, nextState);
+  if (nextState.clientAutoReloadCapable && payload.hasPageError === false) {
+    // A recovered page can ignore an automatic instruction already in flight.
+    autoReloadedClientVersions.delete(client.id);
+  }
 }
 
 function isLegacyClientUrlCrashingOnOldBuild(rawUrl) {
@@ -1711,13 +1716,6 @@ function shouldClientAutoReload(client, targetVersion) {
   return false;
 }
 
-function shouldLegacyClientRecover(client, targetVersion) {
-  return (
-    shouldClientAutoReload(client, targetVersion) &&
-    !clientRuntimeStates.get(client.id)?.clientAutoReloadCapable
-  );
-}
-
 async function getControlledClientsWithRequestingClient(requestingClient) {
   const matchedClients = await self.clients
     .matchAll({
@@ -1749,7 +1747,7 @@ async function getControlledClientsWithRequestingClient(requestingClient) {
   return result;
 }
 
-async function prepareActiveVersionForLegacyRecovery(state, requestingClient) {
+async function prepareActiveVersionForRecovery(state, requestingClient) {
   const { activeVersion, activeManifest } = state;
   if (!activeManifest || isVersionRetryDeferred(state, activeVersion)) {
     return state;
@@ -1757,9 +1755,7 @@ async function prepareActiveVersionForLegacyRecovery(state, requestingClient) {
   const clients =
     await getControlledClientsWithRequestingClient(requestingClient);
   if (
-    !clients.some((client) =>
-      shouldLegacyClientRecover(client, activeVersion),
-    ) ||
+    !clients.some((client) => shouldClientAutoReload(client, activeVersion)) ||
     (await isVersionCacheValid(activeVersion, activeManifest).catch(
       () => false,
     ))
@@ -1898,7 +1894,7 @@ async function runVersionUpdateCheck({ client } = {}) {
           return nextState;
         });
       }
-      state = await prepareActiveVersionForLegacyRecovery(state, client);
+      state = await prepareActiveVersionForRecovery(state, client);
       const { autoActivated, state: resolvedState } =
         await maybeAutoActivateAndReloadClients(state, client);
       if (!autoActivated) {
@@ -2043,7 +2039,7 @@ async function checkForVersionUpdate({ client, retryJoinedCheck = true } = {}) {
     retryJoinedCheck &&
     !autoActivated &&
     !resolvedState.readyVersion &&
-    shouldLegacyClientRecover(client, resolvedState.activeVersion) &&
+    shouldClientAutoReload(client, resolvedState.activeVersion) &&
     !isVersionRetryDeferred(resolvedState, resolvedState.activeVersion)
   ) {
     // The shared check may have captured the client list before this request.

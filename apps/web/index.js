@@ -54,7 +54,7 @@ class WebRootErrorBoundary extends React.PureComponent {
   componentDidCatch(error) {
     this.setState({ error });
     hasRootPageError = true;
-    versionProtocol.tryAutoReloadOnPageError();
+    versionProtocol.requestRecoveryCheck();
     void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
       ({ captureException, initSentry }) => {
         initSentry();

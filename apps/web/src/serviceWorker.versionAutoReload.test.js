@@ -171,6 +171,16 @@ function createV670Bundle() {
   });
 }
 
+function createV680Bundle() {
+  return createVersionBundle({
+    version: V_NEXT,
+    buildTime: 1_700_000_200_000,
+    html: '<!doctype html><html><body>v6.8.0-new-route</body></html>',
+    scriptUrl: `${ORIGIN}/main.v680.js`,
+    scriptContent: 'console.log("v6.8.0");',
+  });
+}
+
 function createServiceWorkerTestBed({
   cacheStorage = createMemoryCacheStorage(),
   serverBundle,
@@ -975,14 +985,90 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     await client.triggerRootErrorBoundary(
       new Error('Unknown provider: provider'),
     );
+    expect(client.sentMessages).not.toHaveBeenCalled();
     await client.bootServiceWorkerProtocol();
 
     expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    expect(client.receivedWorkerMessages).toContainEqual({
+      type: 'VERSION_ACTIVATED',
+      payload: { version: V_NEXT, autoReload: true },
+    });
     expect(client.clientHandle.getBannerElement()).toBeNull();
     const reloadedHtml = await testBed.navigate(
       `${ORIGIN}/earn/bsc/TOKEN/provider`,
     );
     expect(reloadedHtml).toContain('v6.8.0-new-protocol');
+  });
+
+  test('an HTML-only active release does not reload an errored page until its critical script is verified', async () => {
+    const bundle = await createV680Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
+    await testBed.navigate(`${ORIGIN}/swap`);
+
+    const client = createModernWebClientWithRealIndexJs({
+      testBed,
+      url: `${ORIGIN}/new-campaign-v680?utm_source=email`,
+    });
+    await client.bootServiceWorkerProtocol();
+    expect(client.receivedWorkerMessages).toContainEqual({
+      type: 'VERSION_STATE',
+      payload: expect.objectContaining({ activeVersion: V_NEXT }),
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      bundle.scriptUrl,
+      expect.anything(),
+    );
+    expect(client.clientHandle.getBannerElement()).not.toBeNull();
+
+    const fetchFromTestServer = globalThis.fetch.getMockImplementation();
+    globalThis.fetch.mockImplementation((url, options) =>
+      url === bundle.scriptUrl
+        ? Promise.resolve(new Response('', { status: 503 }))
+        : fetchFromTestServer(url, options),
+    );
+    client.receivedWorkerMessages.length = 0;
+    await client.triggerRouteNotFound();
+    expect(client.receivedWorkerMessages).toContainEqual({
+      type: 'UPDATE_FAILED',
+      payload: {
+        errorCode: 'asset_http_503',
+        operation: 'CHECK_VERSION',
+        version: V_NEXT,
+      },
+    });
+    expect(client.receivedWorkerMessages).toContainEqual({
+      type: 'VERSION_STATE',
+      payload: expect.objectContaining({ activeVersion: V_NEXT }),
+    });
+    expect(client.receivedWorkerMessages).not.toContainEqual({
+      type: 'VERSION_ACTIVATED',
+      payload: { version: V_NEXT, autoReload: true },
+    });
+    expect(client.reloadMock).not.toHaveBeenCalled();
+    expect(client.storageMap.size).toBe(0);
+
+    globalThis.fetch.mockImplementation(fetchFromTestServer);
+    await client.triggerRouteNotFound();
+    expect(
+      globalThis.fetch.mock.calls.filter(([url]) => url === bundle.scriptUrl),
+    ).toHaveLength(1);
+    expect(client.reloadMock).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    await client.triggerRouteNotFound();
+    expect(client.receivedWorkerMessages).toContainEqual({
+      type: 'VERSION_ACTIVATED',
+      payload: { version: V_NEXT, autoReload: true },
+    });
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    const criticalCache = await testBed.cacheStorage.open(
+      `onekey-web-critical:${V_NEXT}`,
+    );
+    const response = await criticalCache.match(bundle.scriptUrl);
+    expect(await response.text()).toBe(bundle.scriptContent);
+    expect(client.storageMap.get('__onekey_sw_error_auto_reload__')).toBe(
+      `${V_NEXT}:/new-campaign-v680`,
+    );
   });
 
   test('v6.7.0+ client auto-reloads on unmatched route (NotFound) and respects loop guard', async () => {
@@ -1017,9 +1103,12 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(client.reloadMock).not.toHaveBeenCalled();
     expect(client.clientHandle.getBannerElement()).not.toBeNull();
 
-    // Now user navigates to an unmatched route -> immediately activates & reloads!
+    // The Worker confirms that the cached update can recover the unmatched route.
     await client.triggerRouteNotFound();
     expect(client.reloadMock).toHaveBeenCalledTimes(1);
+    expect(client.sentMessages).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ACTIVATE_VERSION' }),
+    );
     expect(client.clientHandle.getBannerElement()).toBeNull();
     expect(client.storageMap.get('__onekey_sw_error_auto_reload__')).toBe(
       `${V_NEXT}:/new-campaign-v680`,
@@ -1309,60 +1398,80 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     expect(client.clientHandle.getBannerElement()).not.toBeNull();
   });
 
-  test.each(['confirmation', 'timeout'])(
-    'checks live route state before reloading for an automatic activation %s',
-    async (completion) => {
-      const bundleV670 = await createVersionBundle({
-        version: V_NEW,
-        buildTime: 1_700_000_100_000,
-        html: '<!doctype html><html><body>v6.7.0</body></html>',
-        scriptUrl: `${ORIGIN}/main.v670.js`,
-        scriptContent: 'console.log("v6.7.0");',
-      });
-      const testBed = createServiceWorkerTestBed({ serverBundle: bundleV670 });
+  test.each(['before', 'after'])(
+    'passive version messages cannot initiate recovery when the page errors %s the messages',
+    async (timing) => {
+      const bundle = await createV670Bundle();
+      const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
       const client = createModernWebClientWithRealIndexJs({
         testBed,
         url: `${ORIGIN}/typo-route`,
-        holdActivationRequests: true,
       });
       await client.bootServiceWorkerProtocol();
-      await client.triggerRouteNotFound();
+      if (timing === 'before') {
+        await client.triggerRouteNotFound();
+      }
       client.clientHandle.postMessage({
         type: 'UPDATE_READY',
         payload: { version: V_NEXT },
       });
-      expect(client.sentMessages).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'ACTIVATE_VERSION',
-          payload: expect.objectContaining({ version: V_NEXT }),
-        }),
-      );
-      expect(client.clientHandle.getBannerElement()).toBeNull();
-
-      // Exercise both completion guards independently of cancellation by the recovery event.
-      globalThis.__onekeyWebRouteNotFound = false;
-      if (completion === 'confirmation') {
-        client.clientHandle.postMessage({
-          type: 'VERSION_ACTIVATED',
-          payload: { version: V_NEXT },
-        });
+      client.clientHandle.postMessage({
+        type: 'VERSION_STATE',
+        payload: { activeVersion: V_NEXT, readyVersion: '' },
+      });
+      client.clientHandle.postMessage({
+        type: 'VERSION_ACTIVATED',
+        payload: { version: V_NEXT },
+      });
+      expect(client.clientHandle.getBannerElement()).not.toBeNull();
+      if (timing === 'after') {
+        await client.triggerRouteNotFound();
       }
       jest.advanceTimersByTime(3000);
+      expect(client.sentMessages).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'ACTIVATE_VERSION' }),
+      );
       expect(client.reloadMock).not.toHaveBeenCalled();
       expect(client.storageMap.size).toBe(0);
-      expect(client.clientHandle.getBannerElement()).not.toBeNull();
     },
   );
 
-  test('recovery restores Refresh and a stale automatic failure preserves a later manual request for the same version', async () => {
-    const bundleV670 = await createVersionBundle({
-      version: V_NEW,
-      buildTime: 1_700_000_100_000,
-      html: '<!doctype html><html><body>v6.7.0</body></html>',
-      scriptUrl: `${ORIGIN}/main.v670.js`,
-      scriptContent: 'console.log("v6.7.0");',
+  test('a new error can recover after an earlier Worker instruction arrived on a healthy page', async () => {
+    const bundle = await createV680Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
+    const client = createModernWebClientWithRealIndexJs({
+      testBed,
+      url: `${ORIGIN}/typo-route`,
     });
-    const testBed = createServiceWorkerTestBed({ serverBundle: bundleV670 });
+    await client.bootServiceWorkerProtocol();
+    const verifiedRecovery = {
+      type: 'VERSION_ACTIVATED',
+      payload: { version: V_NEXT, autoReload: true },
+    };
+    const clientState = { clientVersion: V_NEW, clientAutoReloadCapable: true };
+
+    // Deliver an explicit Worker instruction based on a stale page-error report.
+    await testBed.sendFromClient(client.clientHandle, {
+      type: 'CHECK_VERSION',
+      payload: { ...clientState, hasPageError: true },
+    });
+    expect(client.receivedWorkerMessages).toContainEqual(verifiedRecovery);
+    expect(client.reloadMock).not.toHaveBeenCalled();
+    expect(client.storageMap.size).toBe(0);
+
+    await testBed.sendFromClient(client.clientHandle, {
+      type: 'REPORT_CLIENT_STATE',
+      payload: { ...clientState, hasPageError: false },
+    });
+    client.receivedWorkerMessages.length = 0;
+    await client.triggerRouteNotFound();
+    expect(client.receivedWorkerMessages).toContainEqual(verifiedRecovery);
+    expect(client.reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('an unrelated failure and route recovery preserve a retried manual activation', async () => {
+    const bundle = await createV670Bundle();
+    const testBed = createServiceWorkerTestBed({ serverBundle: bundle });
     const client = createModernWebClientWithRealIndexJs({
       testBed,
       url: `${ORIGIN}/typo-route`,
@@ -1370,32 +1479,38 @@ describe('Web Service Worker & Root ErrorBoundary auto-reload integration', () =
     });
     await client.bootServiceWorkerProtocol();
     await client.triggerRouteNotFound();
-    client.clientHandle.postMessage({
-      type: 'UPDATE_READY',
-      payload: { version: V_NEXT },
-    });
-    const automaticRequest = client.sentMessages.mock.lastCall[0];
-    expect(automaticRequest.type).toBe('ACTIVATE_VERSION');
-    expect(client.clientHandle.getBannerElement()).toBeNull();
-
-    await client.recoverRoute();
-    expect(client.clientHandle.getBannerElement()).not.toBeNull();
-    // The previous automatic timeout must expire before the manual request's timeout.
-    jest.advanceTimersByTime(1000);
+    const ready = { type: 'UPDATE_READY', payload: { version: V_NEXT } };
+    client.clientHandle.postMessage(ready);
     client.clickRefresh();
-    const manualRequest = client.sentMessages.mock.lastCall[0];
-    expect(manualRequest.type).toBe('ACTIVATE_VERSION');
-    expect(manualRequest.payload.requestId).not.toBe(
-      automaticRequest.payload.requestId,
-    );
-    client.clientHandle.postMessage({
+    const initialRequest = client.sentMessages.mock.lastCall[0];
+    expect(initialRequest.type).toBe('ACTIVATE_VERSION');
+    const failure = {
       type: 'UPDATE_FAILED',
       payload: {
         operation: 'ACTIVATE_VERSION',
         version: V_NEXT,
-        requestId: automaticRequest.payload.requestId,
+        requestId: initialRequest.payload.requestId,
+      },
+    };
+    client.clientHandle.postMessage(failure);
+    expect(client.clientHandle.getBannerElement()).toBeNull();
+
+    jest.advanceTimersByTime(1000);
+    client.clientHandle.postMessage(ready);
+    client.clickRefresh();
+    const retry = client.sentMessages.mock.lastCall[0];
+    expect(retry.type).toBe('ACTIVATE_VERSION');
+    expect(retry.payload.requestId).not.toBe(initialRequest.payload.requestId);
+    client.clientHandle.postMessage(failure);
+    client.clientHandle.postMessage({
+      type: 'UPDATE_FAILED',
+      payload: {
+        ...failure.payload,
+        requestId: retry.payload.requestId,
+        version: V_OLD,
       },
     });
+    await client.recoverRoute();
     jest.advanceTimersByTime(2000);
     expect(client.reloadMock).not.toHaveBeenCalled();
 
