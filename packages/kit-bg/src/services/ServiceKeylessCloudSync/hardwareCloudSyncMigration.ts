@@ -263,7 +263,10 @@ async function reencryptLocalItems(
     await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
       includeUnsupportedDataTypes: true,
     });
-  const originals = items.filter((item) => item.pwdHash === from.pwdHash);
+  const originals = items.filter(
+    (item) =>
+      item.pwdHash === from.pwdHash && !item.pendingPublicAccountDeletionAt,
+  );
   const replacements = await reencryptHardwareCloudSyncItems({
     items: originals,
     from: dataKey(from),

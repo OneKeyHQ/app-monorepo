@@ -39,6 +39,7 @@ export async function prepareHardwareCloudSyncLocalRecovery({
       !item.rawData && item.data && knownPwdHashes.has(item.pwdHash);
     return (
       !canRetainCiphertext &&
+      !item.pendingPublicAccountDeletionAt &&
       isSupportedCloudSyncDataType(item.dataType) &&
       item.dataType !== EPrimeCloudSyncDataType.Lock &&
       (!item.pwdHash ||

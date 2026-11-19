@@ -1,5 +1,6 @@
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessBackendShare } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 
 type IMigrationPersistForTest = {
@@ -58,10 +59,15 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
   revealEntropyToMnemonic: jest.fn(),
 }));
 
+const mockBackendShareUploadReceipt = jest.fn();
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   function createLoggerProxy(): any {
     return new Proxy(jest.fn(), {
-      get: () => createLoggerProxy(),
+      get: (_target, prop) =>
+        prop === 'backendShareUploadReceipt'
+          ? mockBackendShareUploadReceipt
+          : createLoggerProxy(),
     });
   }
   return {
@@ -1987,66 +1993,137 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  test('rejects upload when server response hash or revision is inconsistent', async () => {
-    const { serviceAny } = createService();
-    const post = jest
-      .fn()
-      .mockResolvedValueOnce({
+  test.each([
+    ['businessReceiptRejected', { code: 73 }, {}, 0],
+    ['businessReceiptRejected', { message: 'unexpected text' }, {}, 0],
+    ['okNotConfirmed', {}, { ok: false }, 0],
+    ['hashIdMissing', {}, { hashId: undefined }, 0],
+    ['hashIdMismatch', {}, { hashId: 'other-hash-id' }, 0],
+    ['revisionMissing', {}, { revision: undefined }, 0],
+    ['revisionInvalid', {}, { revision: '1' }, 0],
+    ['revisionInvalid', {}, { revision: Number.POSITIVE_INFINITY }, 0],
+    ['revisionNotAdvanced', {}, {}, 1],
+    ['accepted', {}, {}, 0],
+  ] as const)(
+    'logs upload receipt status %s without changing the upload decision',
+    async (status, envelopeOverrides, receiptOverrides, baseRevision) => {
+      const { serviceAny } = createService();
+      const requestId = 'ddbb3b03-4edb-46d1-bc6d-397969533aaa';
+      const receipt = {
+        ok: true,
+        revision: 1,
+        hashId: HASH_ID,
+        ...receiptOverrides,
+      };
+      const post = jest.fn(async () => ({
         data: {
           code: 0,
           message: 'success',
-          data: {
-            ok: true,
-            revision: 1,
-            hashId: 'other-hash-id',
-          },
+          ...envelopeOverrides,
+          data: receipt,
         },
-      })
-      .mockResolvedValueOnce({
-        data: {
-          code: 0,
-          message: 'success',
-          data: {
-            ok: true,
-            revision: 0,
-            hashId: HASH_ID,
-          },
-        },
+        $requestId: requestId,
+      }));
+      serviceAny.getClient = jest.fn(async () => ({ post }));
+      serviceAny.encryptKeylessBackendSharePayloadV2 = jest.fn(
+        async () => 'backend-share-raw-v2',
+      );
+      serviceAny.decryptKeylessBackendSharePayloadV2 = jest.fn(async () => ({
+        backendShareData,
+        ownerId: OWNER_ID,
+        ownerProvider: EOAuthSocialLoginProvider.Google,
+      }));
+      serviceAny.decryptKeylessBackendSharePayloadV1 = jest.fn(
+        async () => backendShareData,
+      );
+
+      const upload = serviceAny.uploadKeylessBackendShare({
+        token: TOKEN,
+        lockId: 'lock-1',
+        hashId: HASH_ID,
+        ownerId: OWNER_ID,
+        baseRevision,
+        encryptedMnemonic: backendShareData.encryptedMnemonic,
+        backendShare: backendShareData.backendShare,
+        juiceboxShareX: backendShareData.juiceboxShareX,
+        keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
       });
-    serviceAny.getClient = jest.fn(async () => ({ post }));
-    serviceAny.encryptKeylessBackendSharePayloadV2 = jest.fn(
-      async () => 'backend-share-raw-v2',
-    );
-    serviceAny.decryptKeylessBackendSharePayloadV2 = jest.fn(async () => ({
-      backendShareData,
-      ownerId: OWNER_ID,
-      ownerProvider: EOAuthSocialLoginProvider.Google,
-    }));
-    serviceAny.decryptKeylessBackendSharePayloadV1 = jest.fn(
-      async () => backendShareData,
-    );
+      if (status === 'accepted') {
+        await expect(upload).resolves.toEqual(backendShareData);
+      } else {
+        await expect(upload).rejects.toThrow(
+          'Failed to upload keyless backend share',
+        );
+      }
 
-    const params = {
-      token: TOKEN,
-      lockId: 'lock-1',
-      hashId: HASH_ID,
-      ownerId: OWNER_ID,
-      baseRevision: 0,
-      encryptedMnemonic: backendShareData.encryptedMnemonic,
-      backendShare: backendShareData.backendShare,
-      juiceboxShareX: backendShareData.juiceboxShareX,
-      keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
-    };
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(mockBackendShareUploadReceipt).toHaveBeenCalledTimes(1);
+      expect(mockBackendShareUploadReceipt).toHaveBeenCalledWith({
+        status,
+        baseRevision,
+        revision: Number.isFinite(receipt.revision)
+          ? receipt.revision
+          : undefined,
+        responseCode: 'code' in envelopeOverrides ? envelopeOverrides.code : 0,
+        hashIdMatches: receipt.hashId ? receipt.hashId === HASH_ID : undefined,
+        requestId,
+      });
+    },
+  );
 
-    await expect(serviceAny.uploadKeylessBackendShare(params)).rejects.toThrow(
-      'Failed to upload keyless backend share',
-    );
-    await expect(serviceAny.uploadKeylessBackendShare(params)).rejects.toThrow(
-      'Failed to upload keyless backend share',
-    );
+  test.each([
+    [
+      new OneKeyServerApiError({
+        message: 'synthetic receipt message',
+        code: 73,
+        httpStatusCode: 200,
+      }),
+      'businessReceiptRejected',
+      73,
+    ],
+    [new Error('synthetic network error'), 'requestFailed', undefined],
+  ] as const)(
+    'preserves rejected upload errors and only logs safe fields',
+    async (error, status, responseCode) => {
+      const { serviceAny } = createService();
+      serviceAny.getClient = jest.fn(async () => ({
+        post: jest.fn().mockRejectedValue(error),
+      }));
+      serviceAny.encryptKeylessBackendSharePayloadV2 = jest.fn(
+        async () => 'backend-share-raw-v2',
+      );
+      serviceAny.decryptKeylessBackendSharePayloadV2 = jest.fn(async () => ({
+        backendShareData,
+        ownerId: OWNER_ID,
+        ownerProvider: EOAuthSocialLoginProvider.Google,
+      }));
+      serviceAny.decryptKeylessBackendSharePayloadV1 = jest.fn(
+        async () => backendShareData,
+      );
 
-    expect(post).toHaveBeenCalledTimes(2);
-  });
+      await expect(
+        serviceAny.uploadKeylessBackendShare({
+          token: TOKEN,
+          lockId: 'lock-1',
+          hashId: HASH_ID,
+          ownerId: OWNER_ID,
+          baseRevision: 0,
+          encryptedMnemonic: backendShareData.encryptedMnemonic,
+          backendShare: backendShareData.backendShare,
+          juiceboxShareX: backendShareData.juiceboxShareX,
+          keylessBackendShareV1Mirror: 'backend-share-raw-v1-mirror',
+        }),
+      ).rejects.toBe(error);
+
+      expect(mockBackendShareUploadReceipt).toHaveBeenCalledTimes(1);
+      expect(mockBackendShareUploadReceipt).toHaveBeenCalledWith({
+        status,
+        baseRevision: 0,
+        responseCode,
+        requestId: undefined,
+      });
+    },
+  );
 
   test('reuses existing v1 payload as mirror when migrating to v2', async () => {
     const { serviceAny } = createService();

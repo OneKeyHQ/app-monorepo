@@ -7,6 +7,7 @@ import {
   generateMnemonic,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
@@ -33,6 +34,7 @@ import {
   IncorrectPinError,
   KeylessDataCorruptedError,
   OneKeyLocalError,
+  OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -55,6 +57,7 @@ import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWallet
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
+  IKeylessBackendShareUploadDiagnostic,
   IKeylessRealmOperation,
   IKeylessRealmTokenDiagnosticContext,
 } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
@@ -1186,30 +1189,70 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     const client = await this.getClient(EServiceEndpointEnum.Prime);
-    const res = await client.post<
-      IApiClientResponse<{
-        ok: boolean;
-        revision: number;
-        hashId: string;
-      }>
-    >('/prime/v1/keyless-wallet/createKeylessBackendShareV2', {
-      token,
-      lockId,
-      baseRevision,
-      keylessBackendShareV2: encryptedPayloadWithPrefix,
-      keylessBackendShareV1Mirror,
-    });
+    type IUploadReceipt = IApiClientResponse<{
+      ok: boolean;
+      revision: number;
+      hashId: string;
+    }>;
+    const res = await client
+      .post<IUploadReceipt, IAxiosResponse<IUploadReceipt>>(
+        '/prime/v1/keyless-wallet/createKeylessBackendShareV2',
+        {
+          token,
+          lockId,
+          baseRevision,
+          keylessBackendShareV2: encryptedPayloadWithPrefix,
+          keylessBackendShareV1Mirror,
+        },
+      )
+      .catch((error: unknown) => {
+        // The shared interceptor rejects HTTP 200 business errors before this method sees a receipt.
+        const businessError =
+          error instanceof OneKeyServerApiError && error.httpStatusCode === 200
+            ? error
+            : undefined;
+        defaultLogger.wallet.keyless.backendShareUploadReceipt({
+          status: businessError ? 'businessReceiptRejected' : 'requestFailed',
+          baseRevision,
+          responseCode:
+            typeof businessError?.code === 'number'
+              ? businessError.code
+              : undefined,
+          requestId:
+            error instanceof OneKeyServerApiError ? error.requestId : undefined,
+        });
+        throw error;
+      });
 
     const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
     const uploadData = res?.data?.data;
-    if (
-      isSuccess &&
-      uploadData?.ok === true &&
-      uploadData.hashId === hashId &&
-      typeof uploadData.revision === 'number' &&
-      Number.isFinite(uploadData.revision) &&
-      uploadData.revision > baseRevision
-    ) {
+    const hashIdMatches = uploadData?.hashId === hashId;
+    const revision = uploadData?.revision;
+    let status: IKeylessBackendShareUploadDiagnostic['status'];
+    if (!isSuccess) {
+      status = 'businessReceiptRejected';
+    } else if (uploadData?.ok !== true) {
+      status = 'okNotConfirmed';
+    } else if (!hashIdMatches) {
+      status = uploadData.hashId ? 'hashIdMismatch' : 'hashIdMissing';
+    } else if (revision === undefined || revision === null) {
+      status = 'revisionMissing';
+    } else if (typeof revision !== 'number' || !Number.isFinite(revision)) {
+      status = 'revisionInvalid';
+    } else {
+      status = revision > baseRevision ? 'accepted' : 'revisionNotAdvanced';
+    }
+    defaultLogger.wallet.keyless.backendShareUploadReceipt({
+      status,
+      baseRevision,
+      revision: Number.isFinite(revision) ? revision : undefined,
+      responseCode: Number.isFinite(res?.data?.code)
+        ? res.data.code
+        : undefined,
+      hashIdMatches: uploadData?.hashId ? hashIdMatches : undefined,
+      requestId: res?.$requestId,
+    });
+    if (status === 'accepted') {
       return backendShareData;
     }
 
@@ -3024,7 +3067,7 @@ class ServiceKeylessWallet extends ServiceBase {
     return this.withKeylessBackendShareWriteLock(
       token,
       async ({ lockId, hashId }) => {
-        defaultLogger.wallet.keyless.createKeylessLockAcquired({ lockId });
+        defaultLogger.wallet.keyless.createKeylessLockAcquired();
 
         // 2. Double-check if already created (check inside lock for safety)
         const { isCreated, baseRevision } =
@@ -3032,10 +3075,13 @@ class ServiceKeylessWallet extends ServiceBase {
             token,
           });
 
+        defaultLogger.wallet.keyless.createKeylessBackendShareRead({
+          isCreated,
+          baseRevision,
+        });
         if (isCreated) {
           throw new OneKeyLocalError('Keyless wallet already created');
         }
-        defaultLogger.wallet.keyless.createKeylessWalletNotYetCreated();
 
         const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
           token,

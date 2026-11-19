@@ -2285,7 +2285,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const { syncItems } = await localDb.getAllSyncItems();
     const itemsToConvert = syncItems.filter(
-      (item) => item.dataType !== EPrimeCloudSyncDataType.Lock,
+      (item) =>
+        item.dataType !== EPrimeCloudSyncDataType.Lock &&
+        !item.pendingPublicAccountDeletionAt,
     );
 
     if (itemsToConvert.length === 0) {

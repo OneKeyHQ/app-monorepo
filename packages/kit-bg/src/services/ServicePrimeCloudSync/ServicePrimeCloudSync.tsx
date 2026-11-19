@@ -118,6 +118,7 @@ import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 import {
   PUBLIC_ACCOUNT_SNAPSHOT_PREFIX,
   PublicAccountSnapshotUnsupportedError,
+  getPublicAccountSnapshotIdentityHash,
   normalizePublicAccountSnapshotRecord,
 } from './publicAccountSnapshot';
 import {
@@ -688,7 +689,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (!isCurrent() || this.cloudSyncNetworkReachable === false) return;
       if (
         items.some(
-          (item) => item.pwdHash === spaceId && item.serverUploaded === false,
+          (item) =>
+            item.pwdHash === spaceId &&
+            (!item.serverUploaded || !!item.pendingPublicAccountDeletionAt),
         )
       )
         return this.startServerSyncFlowSilently({
@@ -797,6 +800,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.dataType === EPrimeCloudSyncDataType.Account &&
         item.pwdHash === spaceId &&
         item.serverUploaded &&
+        !item.pendingPublicAccountDeletionAt &&
         !item.localSceneUpdated &&
         item.data &&
         item.dataTime,
@@ -1010,7 +1014,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       reconciliation?: ICloudSyncCheckServerStatusPostData['reconciliation'];
     } = {},
   ): Promise<ICloudSyncCheckServerStatusResult> {
-    const items = localItems || [];
+    const items = (localItems ?? []).filter(
+      (item) => !item.pendingPublicAccountDeletionAt,
+    );
     const onlyCheckLocalDataType = buildOnlyCheckLocalDataTypes({
       isFullDBChecking,
     });
@@ -1309,8 +1315,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     const uploadGeneration = this.publicAccountSnapshotImportGeneration;
     const now = await this.getCloudSyncDataTime();
     const localData: ICloudSyncServerItem[] = localItems
-      .filter((item) => isSupportedCloudSyncDataType(item.dataType))
-      .filter((item) => !isRejectedPublicAccountSnapshotWrite(item))
+      .filter(
+        (item) =>
+          isSupportedCloudSyncDataType(item.dataType) &&
+          !item.pendingPublicAccountDeletionAt &&
+          !isRejectedPublicAccountSnapshotWrite(item),
+      )
       .map((item) => {
         let dataTimestamp = item.dataTime;
         if (setUndefinedTimeToNow && isNil(dataTimestamp)) {
@@ -1613,7 +1623,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     const addressBookItems: IDBCloudSyncItem[] = [];
 
     for (const item of items) {
-      if (!isSupportedCloudSyncDataType(item.dataType)) continue;
+      if (
+        item.pendingPublicAccountDeletionAt ||
+        !isSupportedCloudSyncDataType(item.dataType)
+      )
+        continue;
       switch (item.dataType) {
         case EPrimeCloudSyncDataType.Wallet:
           walletItems.push(item);
@@ -2337,6 +2351,7 @@ class ServicePrimeCloudSync extends ServiceBase {
             latestItems = all.items.filter(
               (item) =>
                 item.pwdHash === spaceId &&
+                !item.pendingPublicAccountDeletionAt &&
                 (item.dataType !== EPrimeCloudSyncDataType.Account ||
                   item.isDeleted ||
                   !!item.data),
@@ -2695,7 +2710,11 @@ class ServicePrimeCloudSync extends ServiceBase {
             console.log('invalidItems', invalidItems);
           }
           const removedItems = allLocalItems.filter(
-            (item) => !item.rawData && item.pwdHash && item.pwdHash !== pwdHash,
+            (item) =>
+              !item.pendingPublicAccountDeletionAt &&
+              !item.rawData &&
+              item.pwdHash &&
+              item.pwdHash !== pwdHash,
           );
           if (removedItems.length) {
             void localDb.removeCloudSyncPoolItems({
@@ -3919,6 +3938,44 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
   }
 
+  private async resolvePendingPublicAccountDeletion(
+    item: IDBCloudSyncItem,
+    syncCredential: ICloudSyncCredential,
+    dataTime: number,
+  ) {
+    const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+      item: { ...item },
+      syncCredential,
+    });
+    const { rawKey, snapshot } =
+      normalizePublicAccountSnapshotRecord(rawDataJson);
+    if (
+      !item.data ||
+      item.dataType !== EPrimeCloudSyncDataType.Account ||
+      this.syncManagers.account.rawKeyToHashKey(rawKey) !== item.id ||
+      getPublicAccountSnapshotIdentityHash(snapshot) !==
+        item.pendingPublicAccountDeletionHash
+    )
+      throw new OneKeyLocalError('Invalid public account sync identity');
+
+    // The tombstone uses the authenticated snapshot's ciphertext. Its version
+    // is the time of local removal, even if this key came back much later.
+    return rememberPublicAccountSnapshotWrite(
+      {
+        ...item,
+        rawKey,
+        rawData: '',
+        dataTime,
+        isDeleted: true,
+        localSceneUpdated: true,
+        serverUploaded: false,
+        pendingPublicAccountDeletionAt: undefined,
+        pendingPublicAccountDeletionHash: undefined,
+      },
+      item,
+    );
+  }
+
   async fillingSyncItemsMissingDataFromRawData({
     skipUploadToServer,
     isCurrent,
@@ -3959,6 +4016,29 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.dataType === EPrimeCloudSyncDataType.Lock &&
         keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
       ) {
+        continue;
+      }
+      if (item.pendingPublicAccountDeletionAt) {
+        if (item.pwdHash && item.pwdHash === currentPwdHash) {
+          try {
+            itemsToUpdate.push(
+              await this.resolvePendingPublicAccountDeletion(
+                item,
+                syncCredential,
+                item.pendingPublicAccountDeletionAt,
+              ),
+            );
+            issueUpdates.push({ id: item.id });
+          } catch (error) {
+            issueUpdates.push({
+              id: item.id,
+              issue:
+                error instanceof PublicAccountSnapshotUnsupportedError
+                  ? 'needsUpdate'
+                  : 'rejected',
+            });
+          }
+        }
         continue;
       }
       try {
@@ -4301,10 +4381,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     localItem: IDBCloudSyncItem;
     dataTimestamp?: number;
   }): ICloudSyncServerItem | null {
-    // Skip Lock items with keyless pwdHash
     if (
-      localItem.dataType === EPrimeCloudSyncDataType.Lock &&
-      keylessCloudSyncUtils.isKeylessPwdHash(localItem.pwdHash)
+      localItem.pendingPublicAccountDeletionAt ||
+      (localItem.dataType === EPrimeCloudSyncDataType.Lock &&
+        keylessCloudSyncUtils.isKeylessPwdHash(localItem.pwdHash))
     ) {
       return null;
     }
