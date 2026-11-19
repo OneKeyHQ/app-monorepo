@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "Comprar {token} al contado",
   "perps_spot_deposit_to_usdc__desc": "Deposita activos on-chain en tu cuenta",
   "perps_spot_deposit_to_usdc__title": "Depositar a USDC",
+  "perps_tp_long_loss__desc": "El precio de activación está por debajo del precio de entrada. Se prevé que el cierre de la posición siga generando una pérdida.",
+  "perps_tp_short_loss__desc": "El precio de activación está por encima del precio de entrada. Se prevé que el cierre de la posición siga generando una pérdida.",
   "perps_trading_page_chart__title": "Gráfico de velas de la página de trading",
   "perps_trigger_price_equal_current": "El precio de activación debe ser diferente al precio actual",
   "photo_library_access_denied__desc": "OneKey requiere acceso a la fototeca para guardar imágenes. Vaya a Ajustes y habilite los permisos de la fototeca.",

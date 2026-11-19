@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "Buy {token} Spot",
   "perps_spot_deposit_to_usdc__desc": "Deposit on-chain assets to your account",
   "perps_spot_deposit_to_usdc__title": "Deposit to USDC",
+  "perps_tp_long_loss__desc": "The trigger price is below the entry price. Closing the position is still expected to result in a loss.",
+  "perps_tp_short_loss__desc": "The trigger price is above the entry price. Closing the position is still expected to result in a loss.",
   "perps_trading_page_chart__title": "Trading page K-line chart",
   "perps_trigger_price_equal_current": "Trigger price must differ from current price",
   "photo_library_access_denied__desc": "OneKey requires photo library access to save images. Please go to Settings and enable photo library permissions.",

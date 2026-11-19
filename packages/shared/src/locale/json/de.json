@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "{token} Spot kaufen",
   "perps_spot_deposit_to_usdc__desc": "Zahlen Sie On-Chain-Assets auf Ihr Konto ein",
   "perps_spot_deposit_to_usdc__title": "In USDC einzahlen",
+  "perps_tp_long_loss__desc": "Der Auslösepreis liegt unter dem Einstiegspreis. Beim Schließen der Position ist weiterhin mit einem Verlust zu rechnen.",
+  "perps_tp_short_loss__desc": "Der Auslösepreis liegt über dem Einstiegspreis. Beim Schließen der Position ist weiterhin mit einem Verlust zu rechnen.",
   "perps_trading_page_chart__title": "Candlestick-Chart auf der Handelsseite",
   "perps_trigger_price_equal_current": "Auslösepreis muss sich vom aktuellen Preis unterscheiden",
   "photo_library_access_denied__desc": "OneKey benötigt Zugriff auf die Fotomediathek, um Bilder zu speichern. Bitte gehen Sie zu den Einstellungen und aktivieren Sie die Berechtigungen für die Fotomediathek.",

@@ -4327,6 +4327,8 @@
   "perps_spot_buy_token_spot__action": "Acquista Spot {token}",
   "perps_spot_deposit_to_usdc__desc": "Deposita asset on-chain nel tuo account",
   "perps_spot_deposit_to_usdc__title": "Deposita in USDC",
+  "perps_tp_long_loss__desc": "Il prezzo di attivazione è inferiore al prezzo di entrata. Si prevede che la chiusura della posizione comporti comunque una perdita.",
+  "perps_tp_short_loss__desc": "Il prezzo di attivazione è superiore al prezzo di entrata. Si prevede che la chiusura della posizione comporti comunque una perdita.",
   "perps_trading_page_chart__title": "Grafico a candele della pagina di trading",
   "perps_trigger_price_equal_current": "Il prezzo trigger deve differire dal prezzo attuale",
   "photo_library_access_denied__desc": "OneKey richiede l'accesso alla libreria foto per salvare le immagini. Vai su Impostazioni e abilita i permessi della libreria foto.",
