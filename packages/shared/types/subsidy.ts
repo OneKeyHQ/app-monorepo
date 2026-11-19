@@ -91,6 +91,10 @@ export type ISubsidyHistory = {
   // false when a source failed: the list is partial, not empty.
   complete: boolean;
   sources: { kind: string; status: string }[];
+  // Records in the 90-day window that match the query's filter. Sent with the
+  // first page only: later pages omit it and the first page's value stands.
+  // 0 means no records; null means the count is temporarily unavailable.
+  total?: number | null;
 };
 
 export type ISubsidyHistoryParams = {
@@ -99,6 +103,10 @@ export type ISubsidyHistoryParams = {
   address?: string;
   // 1-50, server default 20.
   limit?: number;
+  // Two ways to move through the list, never both in one request (the server
+  // answers 90001): `page` (1-based) jumps to any page, `cursor` continues
+  // from the `nextCursor` of the previous response.
+  page?: number;
   cursor?: string;
 };
 

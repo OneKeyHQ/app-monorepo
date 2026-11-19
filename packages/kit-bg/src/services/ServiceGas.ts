@@ -107,6 +107,14 @@ class ServiceGas extends ServiceBase {
   async fetchSubsidyHistory(
     params: ISubsidyHistoryParams = {},
   ): Promise<ISubsidyHistory> {
+    if (params.page !== undefined && params.cursor) {
+      // The server rejects the pair with a generic 90001; fail here with a
+      // message that names the mistake.
+      throw new OneKeyLocalError({
+        message: 'Subsidy history takes either page or cursor, not both',
+        autoToast: false,
+      });
+    }
     return this.requestSubsidyQuery<ISubsidyHistory>({
       url: '/prime/v1/subsidy/history',
       params,

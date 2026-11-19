@@ -22,11 +22,13 @@ export const desktopSubsidySidebarWidth = '40%';
 
 function PanelLink({
   label,
+  trailingLabel,
   selected,
   testID,
   onPress,
 }: {
   label: string;
+  trailingLabel?: string;
   selected: boolean;
   testID: string;
   onPress: () => void;
@@ -53,7 +55,18 @@ function PanelLink({
       <SizableText size="$headingSm" color={textColor}>
         {label}
       </SizableText>
-      <ListItem.DrillIn color={selected ? '$iconActive' : '$iconSubdued'} />
+      <XStack alignItems="center" gap="$2">
+        {trailingLabel ? (
+          <SizableText
+            size="$bodyMdMedium"
+            color={textColor}
+            fontVariant={['tabular-nums']}
+          >
+            {trailingLabel}
+          </SizableText>
+        ) : null}
+        <ListItem.DrillIn color={selected ? '$iconActive' : '$iconSubdued'} />
+      </XStack>
     </Button>
   );
 }
@@ -63,6 +76,7 @@ export function DesktopSubsidyLayout({
   totalLabel,
   total,
   summary,
+  recordCount,
   benefitCards,
   activePanel,
   onSelectPanel,
@@ -72,6 +86,8 @@ export function DesktopSubsidyLayout({
   totalLabel: string;
   total: ReactNode;
   summary: ReactNode;
+  // Records in the last 90 days; omitted while unknown.
+  recordCount?: number;
   benefitCards: ReactNode;
   activePanel: ISubsidyPanel;
   onSelectPanel: (panel: ISubsidyPanel) => void;
@@ -118,6 +134,9 @@ export function DesktopSubsidyLayout({
             <YStack gap="$1.5">
               <PanelLink
                 label={subsidyRecordsCopy.title}
+                trailingLabel={
+                  recordCount === undefined ? undefined : String(recordCount)
+                }
                 selected={activePanel === 'history'}
                 testID="subsidy-view-all-records"
                 onPress={() => onSelectPanel('history')}

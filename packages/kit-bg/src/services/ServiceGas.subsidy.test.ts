@@ -103,6 +103,27 @@ describe('ServiceGas subsidy record queries', () => {
     });
   });
 
+  it('jumps to a page by number', async () => {
+    const get = jest.fn(async () => ({ data: { code: 0, data: {} } }));
+    const service = createService(get);
+
+    await service.fetchSubsidyHistory({ page: 3, limit: 20 });
+
+    expect(get).toHaveBeenCalledWith('/prime/v1/subsidy/history', {
+      params: { page: 3, limit: 20 },
+    });
+  });
+
+  it('refuses page and cursor together before any request is sent', async () => {
+    const get = jest.fn(async () => ({ data: { code: 0, data: {} } }));
+    const service = createService(get);
+
+    await expect(
+      service.fetchSubsidyHistory({ page: 2, cursor: 'cursor-1' }),
+    ).rejects.toMatchObject({ autoToast: false });
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it('queries the summary without any parameter', async () => {
     const summary = { contractVersion: 1, subjectScope: 'canonical' };
     const get = jest.fn(async () => ({ data: { code: 0, data: summary } }));

@@ -1,10 +1,15 @@
+import { useCallback, useEffect, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   Empty,
   Icon,
+  IconButton,
   NumberSizeableText,
+  Page,
+  Pagination,
   ScrollView,
   SizableText,
   Skeleton,
@@ -16,15 +21,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
-  SUBSIDY_HISTORY_LIMIT,
   SUBSIDY_RECENT_RECORD_LIMIT,
+  getSubsidyPageCount,
+  getSubsidyPageSize,
 } from './subsidyRecordUtils';
+import { useSubsidyHistoryPage } from './useSubsidyRecords';
 
 import type {
   ISubsidyHistoryView,
   ISubsidyQuery,
   ISubsidyRecordListItem,
 } from './useSubsidyRecords';
+import type { LayoutChangeEvent } from 'react-native';
 
 // TODO(OK-67058): move to i18n keys once the copy is final.
 export const subsidyRecordsCopy = {
@@ -33,7 +41,6 @@ export const subsidyRecordsCopy = {
   loadFailed: '补贴记录暂时无法加载',
   partial: '部分记录暂时无法加载',
   timeWindow: '最近 90 天',
-  truncated: `仅显示最近 ${SUBSIDY_HISTORY_LIMIT} 笔记录`,
 };
 
 const cardStyle = {
@@ -256,23 +263,107 @@ export function SubsidyRecentRecords({
   );
 }
 
-// The scrollable record list of the desktop panel (`compact`) and of the
-// mobile history page. Pagination is not wired yet: it shows the first page.
-export function SubsidyRecordsPanel({
-  query,
+// Space the pager takes under the list. It is kept even when there is a
+// single page: the list area above must not change height when the pager
+// appears, because its height decides how many records a page holds.
+const pagerHeight = 36;
+
+// Previous / next for the case where the server could not count the records,
+// so the number of pages is unknown.
+function SubsidyPrevNext({
+  page,
+  hasNext,
+  onChange,
+}: {
+  page: number;
+  hasNext: boolean;
+  onChange: (page: number) => void;
+}) {
+  return (
+    <XStack alignItems="center" gap="$2" testID="subsidy-history-prev-next">
+      <IconButton
+        icon="ChevronLeftSmallOutline"
+        variant="tertiary"
+        size="small"
+        disabled={page <= 1}
+        onPress={() => onChange(page - 1)}
+        testID="subsidy-history-prev"
+      />
+      <SizableText size="$bodyMdMedium" fontVariant={['tabular-nums']}>
+        {page}
+      </SizableText>
+      <IconButton
+        icon="ChevronRightSmallOutline"
+        variant="tertiary"
+        size="small"
+        disabled={!hasNext}
+        onPress={() => onChange(page + 1)}
+        testID="subsidy-history-next"
+      />
+    </XStack>
+  );
+}
+
+// The full record list, one page at a time: the desktop panel (`compact`)
+// and the mobile history page. A page holds as many records as fit the list
+// area, so it never scrolls; the page size therefore follows the layout.
+export function SubsidyRecordsPaged({
+  identity,
   compact = false,
 }: {
-  query: ISubsidyQuery<ISubsidyHistoryView>;
+  identity: string | undefined;
   compact?: boolean;
 }) {
-  const { data, isLoading, isError, reload } = query;
   const rowHeight = compact ? 52 : 64;
-  const isEmpty = !isLoading && !isError && data?.items.length === 0;
+  const [pageSize, setPageSize] = useState<number>();
+  const [page, setPage] = useState(1);
+  const query = useSubsidyHistoryPage(identity, { page, pageSize });
+  const { data, isLoading, isError, isPreviousData, reload } = query;
+
+  // Only a first page carries the total; it stands for the later pages.
+  const [total, setTotal] = useState<number | null>();
+  const pageTotal = isPreviousData ? undefined : data?.total;
+  useEffect(() => {
+    if (pageTotal !== undefined) {
+      setTotal(pageTotal);
+    }
+  }, [pageTotal]);
+
+  const handleListLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { height } = event.nativeEvent.layout;
+      if (height <= 0) {
+        return;
+      }
+      const next = getSubsidyPageSize(height, rowHeight);
+      setPageSize((prev) => {
+        if (prev !== undefined && prev !== next) {
+          // Page boundaries moved; the current page number no longer means
+          // the same records.
+          setPage(1);
+        }
+        return next;
+      });
+    },
+    [rowHeight],
+  );
+
+  // A page past the end comes back empty (records can leave the 90-day
+  // window between two requests): return to the first page.
+  const isPastEnd =
+    !isPreviousData && !isLoading && page > 1 && data?.items.length === 0;
+  useEffect(() => {
+    if (isPastEnd) {
+      setPage(1);
+    }
+  }, [isPastEnd]);
+
+  const pageCount = getSubsidyPageCount(total, pageSize);
 
   let content;
   if (isError) {
     content = (
-      <YStack flexGrow={1} justifyContent="center">
+      <YStack flex={1} justifyContent="center">
         <SubsidyLoadFailed
           message={subsidyRecordsCopy.loadFailed}
           onRetry={reload}
@@ -281,10 +372,12 @@ export function SubsidyRecordsPanel({
       </YStack>
     );
   } else if (isLoading || !data) {
-    content = <SubsidyRecordSkeleton rowHeight={rowHeight} />;
+    content = (
+      <SubsidyRecordSkeleton rowHeight={rowHeight} rows={pageSize ?? 3} />
+    );
   } else if (data.items.length === 0) {
     content = data.isPartial ? (
-      <YStack flexGrow={1} justifyContent="center">
+      <YStack flex={1} justifyContent="center">
         <SubsidyLoadFailed
           message={subsidyRecordsCopy.partial}
           onRetry={reload}
@@ -293,7 +386,7 @@ export function SubsidyRecordsPanel({
       </YStack>
     ) : (
       <Empty
-        flexGrow={1}
+        flex={1}
         {...(compact
           ? {
               illustration: 'Orders',
@@ -310,31 +403,87 @@ export function SubsidyRecordsPanel({
     );
   } else {
     content = (
-      <YStack gap="$3">
-        <SizableText size="$bodySm" color="$textSubdued">
+      // The rows fit by construction; the scroll view only matters when a
+      // large system font makes a row taller than its nominal height.
+      <ScrollView flex={1} opacity={isPreviousData ? 0.5 : 1}>
+        <SubsidyRecordList items={data.items} rowHeight={rowHeight} />
+      </ScrollView>
+    );
+  }
+
+  const list = (
+    <YStack flex={1} minHeight={0} gap="$3" testID="subsidy-records-panel">
+      <XStack alignItems="center" gap="$3">
+        <SizableText size="$bodySm" color="$textSubdued" flex={1}>
           {subsidyRecordsCopy.timeWindow}
         </SizableText>
-        <SubsidyRecordList items={data.items} rowHeight={rowHeight} />
-        {data.isPartial ? (
-          <SubsidyNotice>{subsidyRecordsCopy.partial}</SubsidyNotice>
+        {data?.isPartial && data.items.length > 0 ? (
+          <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+            {subsidyRecordsCopy.partial}
+          </SizableText>
         ) : null}
-        {data.hasMore ? (
-          <SubsidyNotice>{subsidyRecordsCopy.truncated}</SubsidyNotice>
-        ) : null}
+      </XStack>
+      <YStack flex={1} minHeight={0} onLayout={handleListLayout}>
+        {content}
+      </YStack>
+    </YStack>
+  );
+
+  let pager = null;
+  if (pageCount !== undefined) {
+    if (pageCount > 1) {
+      pager = (
+        <Pagination
+          current={Math.min(page, pageCount)}
+          total={pageCount}
+          siblingCount={0}
+          onChange={setPage}
+          testID={
+            compact
+              ? 'subsidy-desktop-history-pagination'
+              : 'subsidy-history-pagination'
+          }
+        />
+      );
+    }
+  } else if (total === null && (page > 1 || data?.hasMore)) {
+    pager = (
+      <SubsidyPrevNext
+        page={page}
+        hasNext={Boolean(data?.hasMore) && !isPreviousData}
+        onChange={setPage}
+      />
+    );
+  }
+  const pagerRow = (
+    <XStack
+      height={pagerHeight}
+      flexShrink={0}
+      alignItems="center"
+      justifyContent={compact ? 'flex-end' : 'center'}
+    >
+      {pager}
+    </XStack>
+  );
+
+  if (compact) {
+    return (
+      <YStack flex={1} minHeight={0} gap="$3">
+        {list}
+        {pagerRow}
       </YStack>
     );
   }
 
   return (
-    <ScrollView
-      flex={1}
-      minHeight={0}
-      contentContainerStyle={
-        isError || isEmpty ? { flexGrow: 1 } : { pb: '$4' }
-      }
-      testID="subsidy-records-panel"
-    >
-      {content}
-    </ScrollView>
+    <Page>
+      <Page.Header title={subsidyRecordsCopy.title} />
+      <Page.Body px="$5" pt="$2">
+        {list}
+      </Page.Body>
+      <Page.Footer>
+        <YStack py="$3">{pagerRow}</YStack>
+      </Page.Footer>
+    </Page>
   );
 }

@@ -48,7 +48,7 @@ import {
 import { EnergyArtwork } from './EnergyArtwork';
 import {
   SubsidyRecentRecords,
-  SubsidyRecordsPanel,
+  SubsidyRecordsPaged,
   SubsidySummaryLoadFailed,
   subsidyRecordsCopy,
 } from './SubsidyRecords';
@@ -59,8 +59,8 @@ import {
 } from './subsidyRecordUtils';
 import { TronClaimView, subsidyDialogProps } from './TronClaimDialog';
 import {
-  useSubsidyHistory,
   useSubsidyIdentity,
+  useSubsidyRecentHistory,
   useSubsidySummary,
 } from './useSubsidyRecords';
 
@@ -543,7 +543,17 @@ function SubsidyCenter() {
   const signedIn = Boolean(isLoggedIn);
   const identity = useSubsidyIdentity();
   const summaryQuery = useSubsidySummary(identity);
-  const historyQuery = useSubsidyHistory(identity);
+  const historyQuery = useSubsidyRecentHistory(identity);
+  // Records in the 90-day window: a number, or unknown while loading or when
+  // the server could not count them (then the count is simply not shown).
+  const recordTotal =
+    typeof historyQuery.data?.total === 'number'
+      ? historyQuery.data.total
+      : undefined;
+  const hasMoreRecords =
+    recordTotal === undefined
+      ? Boolean(historyQuery.data?.hasMore)
+      : recordTotal > SUBSIDY_RECENT_RECORD_LIMIT;
   // A claim or redemption adds a record and can change the totals.
   const { reload: reloadSummary } = summaryQuery;
   const { reload: reloadHistory } = historyQuery;
@@ -843,7 +853,7 @@ function SubsidyCenter() {
           break;
         case 'history':
           detailTitle = subsidyRecordsCopy.title;
-          detail = <SubsidyRecordsPanel compact query={historyQuery} />;
+          detail = <SubsidyRecordsPaged compact identity={identity} />;
           break;
         case 'help':
           detailTitle = intl.formatMessage({ id: ETranslations.global_faqs });
@@ -866,6 +876,7 @@ function SubsidyCenter() {
             />
           }
           summary={<SubsidySummaryStats compact query={summaryQuery} />}
+          recordCount={recordTotal}
           benefitCards={
             <>
               {tronCard}
@@ -958,8 +969,7 @@ function SubsidyCenter() {
                     <SizableText size="$headingMd">
                       {subsidyRecordsCopy.title}
                     </SizableText>
-                    {(historyQuery.data?.items.length ?? 0) >
-                    SUBSIDY_RECENT_RECORD_LIMIT ? (
+                    {hasMoreRecords ? (
                       <Button
                         testID="subsidy-view-all-records"
                         childrenAsText={false}

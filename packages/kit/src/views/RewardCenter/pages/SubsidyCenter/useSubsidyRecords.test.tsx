@@ -6,8 +6,9 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
   clearSubsidyRecordsCache,
-  useSubsidyHistory,
+  useSubsidyHistoryPage,
   useSubsidyIdentity,
+  useSubsidyRecentHistory,
   useSubsidySummary,
 } from './useSubsidyRecords';
 
@@ -64,6 +65,7 @@ function historyResponse(overrides: Record<string, unknown> = {}) {
     nextCursor: null,
     complete: true,
     sources: [],
+    total: 1,
     ...overrides,
   };
 }
@@ -103,9 +105,9 @@ describe('useSubsidyIdentity', () => {
   });
 });
 
-describe('useSubsidyHistory', () => {
+describe('useSubsidyRecentHistory', () => {
   it('sends nothing while signed out', async () => {
-    const { result } = renderHook(() => useSubsidyHistory(undefined));
+    const { result } = renderHook(() => useSubsidyRecentHistory(undefined));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(mockFetchSubsidyHistory).not.toHaveBeenCalled();
@@ -116,12 +118,15 @@ describe('useSubsidyHistory', () => {
   it('loads the first page once and names the network of each record', async () => {
     mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
 
-    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
 
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(1);
-    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({ limit: 50 });
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({
+      limit: 6,
+      page: undefined,
+    });
     expect(result.current.data).toEqual({
       items: [
         expect.objectContaining({
@@ -133,6 +138,7 @@ describe('useSubsidyHistory', () => {
       ],
       isPartial: false,
       hasMore: false,
+      total: 1,
     });
   });
 
@@ -140,7 +146,7 @@ describe('useSubsidyHistory', () => {
     mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
     mockGetNetworksByIds.mockRejectedValue(new Error('network lookup failed'));
 
-    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
 
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(result.current.data?.items[0].networkName).toBe('tron--0x2b6653dc');
@@ -152,21 +158,35 @@ describe('useSubsidyHistory', () => {
       historyResponse({ items: [], complete: false, nextCursor: 'cursor-1' }),
     );
 
-    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
 
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(result.current.data).toEqual({
       items: [],
       isPartial: true,
       hasMore: true,
+      total: 1,
     });
+  });
+
+  it.each([
+    ['null', null],
+    ['missing', undefined],
+  ])('reports an unknown total when the count is %s', async (_name, total) => {
+    mockFetchSubsidyHistory.mockResolvedValue(historyResponse({ total }));
+
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    // Unknown is not zero: the caller hides the count instead of showing 0.
+    expect(result.current.data?.total).toBeNull();
   });
 
   it('turns a failed query into an error state that a reload clears', async () => {
     mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90801'));
     mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
 
-    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.data).toBeUndefined();
@@ -183,7 +203,7 @@ describe('useSubsidyHistory', () => {
     mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
     mockFetchSubsidyHistory.mockReturnValueOnce(refreshed.promise);
 
-    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
     await waitFor(() => expect(result.current.data).toBeDefined());
 
     act(() => result.current.reload());
@@ -209,7 +229,7 @@ describe('useSubsidyHistory', () => {
     mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
     mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90804'));
 
-    const { result } = renderHook(() => useSubsidyHistory('user-a'));
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
     await waitFor(() => expect(result.current.data).toBeDefined());
 
     await act(async () => {
@@ -228,12 +248,12 @@ describe('useSubsidyHistory', () => {
     mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
     mockFetchSubsidyHistory.mockReturnValueOnce(refreshed.promise);
 
-    const first = renderHook(() => useSubsidyHistory('user-a'));
+    const first = renderHook(() => useSubsidyRecentHistory('user-a'));
     await waitFor(() => expect(first.result.current.data).toBeDefined());
     first.unmount();
 
     // Reopening the page: no placeholder frame, so nothing reflows.
-    const second = renderHook(() => useSubsidyHistory('user-a'));
+    const second = renderHook(() => useSubsidyRecentHistory('user-a'));
     expect(second.result.current.isLoading).toBe(false);
     expect(second.result.current.data?.items).toHaveLength(1);
     expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2);
@@ -252,11 +272,11 @@ describe('useSubsidyHistory', () => {
     mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
     mockFetchSubsidyHistory.mockReturnValueOnce(pending.promise);
 
-    const first = renderHook(() => useSubsidyHistory('user-a'));
+    const first = renderHook(() => useSubsidyRecentHistory('user-a'));
     await waitFor(() => expect(first.result.current.data).toBeDefined());
     first.unmount();
 
-    const second = renderHook(() => useSubsidyHistory('user-b'));
+    const second = renderHook(() => useSubsidyRecentHistory('user-b'));
     expect(second.result.current.data).toBeUndefined();
     expect(second.result.current.isLoading).toBe(true);
     second.unmount();
@@ -267,11 +287,11 @@ describe('useSubsidyHistory', () => {
     const identity = renderHook(() => useSubsidyIdentity()).result.current;
     mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
 
-    const first = renderHook(() => useSubsidyHistory(identity));
+    const first = renderHook(() => useSubsidyRecentHistory(identity));
     await waitFor(() => expect(first.result.current.data).toBeDefined());
     first.unmount();
 
-    const second = renderHook(() => useSubsidyHistory(identity));
+    const second = renderHook(() => useSubsidyRecentHistory(identity));
     expect(second.result.current.data).toBeUndefined();
     expect(second.result.current.isLoading).toBe(true);
     second.unmount();
@@ -286,7 +306,7 @@ describe('useSubsidyHistory', () => {
 
     const { result, rerender } = renderHook(
       ({ identity }: { identity: string | undefined }) =>
-        useSubsidyHistory(identity),
+        useSubsidyRecentHistory(identity),
       { initialProps: { identity: 'user-a' } },
     );
     rerender({ identity: 'user-b' });
@@ -306,7 +326,7 @@ describe('useSubsidyHistory', () => {
 
     const { result, rerender } = renderHook(
       ({ identity }: { identity: string | undefined }) =>
-        useSubsidyHistory(identity),
+        useSubsidyRecentHistory(identity),
       { initialProps: { identity: 'user-a' as string | undefined } },
     );
     await waitFor(() => expect(result.current.data).toBeDefined());
@@ -315,6 +335,162 @@ describe('useSubsidyHistory', () => {
 
     await waitFor(() => expect(result.current.data).toBeUndefined());
     expect(result.current.isLoading).toBe(false);
+  });
+});
+
+describe('useSubsidyHistoryPage', () => {
+  const pageOf = (id: string, overrides: Record<string, unknown> = {}) =>
+    historyResponse({ items: [{ ...tronRecord, id }], ...overrides });
+
+  it('sends nothing until the list has been measured', async () => {
+    const { result, rerender } = renderHook(
+      ({ pageSize }: { pageSize: number | undefined }) =>
+        useSubsidyHistoryPage('user-a', { page: 1, pageSize }),
+      { initialProps: { pageSize: undefined as number | undefined } },
+    );
+
+    expect(result.current.isLoading).toBe(true);
+    expect(mockFetchSubsidyHistory).not.toHaveBeenCalled();
+
+    mockFetchSubsidyHistory.mockResolvedValue(pageOf('tron_energy:1'));
+    rerender({ pageSize: 7 });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for the plain first page, which carries the total', async () => {
+    mockFetchSubsidyHistory.mockResolvedValue(
+      pageOf('tron_energy:1', { total: 15 }),
+    );
+
+    const { result } = renderHook(() =>
+      useSubsidyHistoryPage('user-a', { page: 1, pageSize: 7 }),
+    );
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({
+      limit: 7,
+      page: undefined,
+    });
+    expect(result.current.data?.total).toBe(15);
+  });
+
+  it('jumps to a page by number and leaves its total undefined', async () => {
+    mockFetchSubsidyHistory.mockResolvedValue(
+      pageOf('tron_energy:15', { total: undefined }),
+    );
+
+    const { result } = renderHook(() =>
+      useSubsidyHistoryPage('user-a', { page: 3, pageSize: 7 }),
+    );
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledWith({ limit: 7, page: 3 });
+    // Later pages omit the total; the first page's value stands.
+    expect(result.current.data?.total).toBeUndefined();
+  });
+
+  it('keeps the previous page on screen while the next one loads', async () => {
+    const next = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockResolvedValueOnce(pageOf('tron_energy:1'));
+    mockFetchSubsidyHistory.mockReturnValueOnce(next.promise);
+
+    const { result, rerender } = renderHook(
+      ({ page }: { page: number }) =>
+        useSubsidyHistoryPage('user-a', { page, pageSize: 7 }),
+      { initialProps: { page: 1 } },
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.isPreviousData).toBe(false);
+
+    rerender({ page: 2 });
+
+    // No blank list between pages; the rows are flagged as the old page.
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isPreviousData).toBe(true);
+    expect(result.current.data?.items[0].id).toBe('tron_energy:1');
+
+    await act(async () => {
+      next.resolve(pageOf('tron_energy:8', { total: undefined }));
+      await next.promise;
+    });
+
+    await waitFor(() => expect(result.current.isPreviousData).toBe(false));
+    expect(result.current.data?.items[0].id).toBe('tron_energy:8');
+  });
+
+  it('shows a retry instead of the previous page when the next page fails', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(pageOf('tron_energy:1'));
+    mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90801'));
+
+    const { result, rerender } = renderHook(
+      ({ page }: { page: number }) =>
+        useSubsidyHistoryPage('user-a', { page, pageSize: 7 }),
+      { initialProps: { page: 1 } },
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    rerender({ page: 2 });
+
+    // Page 1's rows under "page 2" would be mislabelled.
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('returns to a visited page from the cache and refreshes it', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(pageOf('tron_energy:1'));
+    mockFetchSubsidyHistory.mockResolvedValueOnce(
+      pageOf('tron_energy:8', { total: undefined }),
+    );
+    const refreshed = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockReturnValueOnce(refreshed.promise);
+
+    const { result, rerender } = renderHook(
+      ({ page }: { page: number }) =>
+        useSubsidyHistoryPage('user-a', { page, pageSize: 7 }),
+      { initialProps: { page: 1 } },
+    );
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:1'),
+    );
+    rerender({ page: 2 });
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:8'),
+    );
+
+    rerender({ page: 1 });
+
+    expect(result.current.isPreviousData).toBe(false);
+    expect(result.current.data?.items[0].id).toBe('tron_energy:1');
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(3);
+    await act(async () => {
+      refreshed.resolve(pageOf('tron_energy:0'));
+      await refreshed.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.data?.items[0].id).toBe('tron_energy:0'),
+    );
+  });
+
+  it('starts over when the page size changes', async () => {
+    mockFetchSubsidyHistory.mockResolvedValue(pageOf('tron_energy:1'));
+
+    const { result, rerender } = renderHook(
+      ({ pageSize }: { pageSize: number }) =>
+        useSubsidyHistoryPage('user-a', { page: 1, pageSize }),
+      { initialProps: { pageSize: 7 } },
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    rerender({ pageSize: 6 });
+
+    await waitFor(() =>
+      expect(mockFetchSubsidyHistory).toHaveBeenLastCalledWith({
+        limit: 6,
+        page: undefined,
+      }),
+    );
   });
 });
 

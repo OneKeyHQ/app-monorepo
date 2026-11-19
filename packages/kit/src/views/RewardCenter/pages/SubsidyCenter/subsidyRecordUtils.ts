@@ -12,10 +12,29 @@ import type {
   ISubsidyTronRecord,
 } from '@onekeyhq/shared/types/subsidy';
 
-// One request serves both the recent list and the full list; pagination is
-// not wired yet, so the full list shows this first page only.
-export const SUBSIDY_HISTORY_LIMIT = 50;
+// Records shown on the overview.
 export const SUBSIDY_RECENT_RECORD_LIMIT = 6;
+// The server accepts 1-50 records per page.
+export const SUBSIDY_PAGE_SIZE_MAX = 50;
+
+// How many rows of `rowHeight` fit a list area of `height`: the page size of
+// the full list, so a page never needs to scroll.
+export function getSubsidyPageSize(height: number, rowHeight: number): number {
+  const rows = Math.floor(height / rowHeight);
+  return Math.min(SUBSIDY_PAGE_SIZE_MAX, Math.max(1, rows));
+}
+
+// Undefined when the total is unknown, in which case only previous / next
+// can be offered.
+export function getSubsidyPageCount(
+  total: number | null | undefined,
+  pageSize: number | undefined,
+): number | undefined {
+  if (typeof total !== 'number' || !pageSize) {
+    return undefined;
+  }
+  return Math.max(1, Math.ceil(total / pageSize));
+}
 
 // TODO(OK-67058): move to i18n keys once the copy is final.
 export const subsidyRecordCopy = {

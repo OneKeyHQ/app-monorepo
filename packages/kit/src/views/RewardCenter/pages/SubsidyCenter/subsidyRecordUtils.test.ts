@@ -16,6 +16,8 @@ import {
   buildSubsidyRecordRow,
   buildSubsidySummaryView,
   formatSubsidyCount,
+  getSubsidyPageCount,
+  getSubsidyPageSize,
 } from './subsidyRecordUtils';
 
 function gaRecord(ga: Partial<ISubsidyGaRecord['ga']> = {}): ISubsidyGaRecord {
@@ -200,5 +202,34 @@ describe('buildSubsidySummaryView', () => {
       tronAcceptedCount: undefined,
     });
     expect(formatSubsidyCount(undefined, '次')).toBe('—');
+  });
+});
+
+describe('getSubsidyPageSize', () => {
+  it('fits whole rows into the list area', () => {
+    expect(getSubsidyPageSize(340, 52)).toBe(6);
+    expect(getSubsidyPageSize(700, 64)).toBe(10);
+  });
+
+  it('stays within what the server accepts (1-50)', () => {
+    expect(getSubsidyPageSize(10, 52)).toBe(1);
+    expect(getSubsidyPageSize(5000, 52)).toBe(50);
+  });
+});
+
+describe('getSubsidyPageCount', () => {
+  it('rounds the last partial page up', () => {
+    expect(getSubsidyPageCount(15, 7)).toBe(3);
+    expect(getSubsidyPageCount(14, 7)).toBe(2);
+  });
+
+  it('is one page for an empty list', () => {
+    expect(getSubsidyPageCount(0, 7)).toBe(1);
+  });
+
+  it('is unknown when the total or the page size is unknown', () => {
+    expect(getSubsidyPageCount(null, 7)).toBeUndefined();
+    expect(getSubsidyPageCount(undefined, 7)).toBeUndefined();
+    expect(getSubsidyPageCount(15, undefined)).toBeUndefined();
   });
 });

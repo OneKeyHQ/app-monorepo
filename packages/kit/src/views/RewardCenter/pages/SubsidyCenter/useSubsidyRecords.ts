@@ -4,7 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 
 import {
-  SUBSIDY_HISTORY_LIMIT,
+  SUBSIDY_RECENT_RECORD_LIMIT,
   buildSubsidyRecordRow,
   buildSubsidySummaryView,
 } from './subsidyRecordUtils';
@@ -18,6 +18,9 @@ export type ISubsidyQuery<T> = {
   data: T | undefined;
   isLoading: boolean;
   isError: boolean;
+  // `data` still belongs to the previous scope (the page shown before a page
+  // change) while the requested one is on its way.
+  isPreviousData: boolean;
   reload: () => void;
 };
 
@@ -29,18 +32,21 @@ export type ISubsidyHistoryView = {
   items: ISubsidyRecordListItem[];
   // A source failed, so the list may miss records. Not the same as empty.
   isPartial: boolean;
-  // More records exist beyond the first page.
+  // More records exist after this page.
   hasMore: boolean;
+  // Records in the 90-day window. A number on a first page (0 = none), null
+  // when the server could not count them, undefined on every later page.
+  total: number | null | undefined;
 };
 
 // The identity used when a signed-in session carries no OneKey ID. Nothing
 // is cached under it: it cannot tell two users apart.
 const UNKNOWN_IDENTITY = 'signed-in';
 
-// Last result per signed-in identity, kept for the app session. Reopening the
-// page paints it at once and refreshes behind it, so the page does not
-// rebuild from placeholders (and reflow) on every open. Keyed by identity:
-// one user's records are never painted for another.
+// Last result per signed-in identity and scope, kept for the app session.
+// Reopening the page paints it at once and refreshes behind it, so the page
+// does not rebuild from placeholders (and reflow) on every open. Keyed by
+// identity: one user's records are never painted for another.
 const subsidyQueryCache = new Map<string, unknown>();
 
 export function clearSubsidyRecordsCache() {
@@ -49,100 +55,144 @@ export function clearSubsidyRecordsCache() {
 
 type ISubsidyQueryState<T> = {
   data: T | undefined;
+  // The scope `data` was loaded for.
+  dataScope: string | undefined;
   isLoading: boolean;
   isError: boolean;
 };
 
-function initialQueryState<T>(
-  identity: string | undefined,
-  cacheKey: string | undefined,
-): ISubsidyQueryState<T> {
-  const cached = cacheKey
-    ? (subsidyQueryCache.get(cacheKey) as T | undefined)
-    : undefined;
-  return {
-    data: cached,
-    isLoading: Boolean(identity) && cached === undefined,
-    isError: false,
-  };
-}
+const emptyQueryState = {
+  data: undefined,
+  dataScope: undefined,
+  isLoading: false,
+  isError: false,
+};
+const loadingQueryState = { ...emptyQueryState, isLoading: true };
+const errorQueryState = { ...emptyQueryState, isError: true };
 
-// Loads once per signed-in identity. History and summary share a per-member
-// rate limit on the server, so there is no polling and no refetch on focus;
-// the only other trigger is an explicit reload (a retry, or a refresh after a
-// claim). A reload keeps the data already on screen: it is replaced when the
-// new response arrives and stays put if the refresh fails.
+// Loads once per signed-in identity and scope. History and summary share a
+// per-member rate limit on the server, so there is no polling and no refetch
+// on focus; the other triggers are a scope change (another page) and an
+// explicit reload (a retry, or a refresh after a claim).
+//
+// What stays on screen while a request is in flight:
+// - reload: the current data, replaced when the response arrives and kept if
+//   the refresh fails;
+// - scope change with `keepPreviousData`: the previous scope's data, so a
+//   page change does not blank the list;
+// - identity change: nothing. Another user's records never stay visible.
 function useSubsidyQuery<T>({
   identity,
-  cacheName,
+  scope,
+  enabled = true,
+  keepPreviousData = false,
   fetcher,
 }: {
   identity: string | undefined;
-  cacheName: string;
+  scope: string;
+  // False while an input of the request is still unknown; sends nothing.
+  enabled?: boolean;
+  keepPreviousData?: boolean;
   fetcher: () => Promise<T>;
 }): ISubsidyQuery<T> {
   const cacheKey =
     identity && identity !== UNKNOWN_IDENTITY
-      ? `${cacheName}:${identity}`
+      ? `${scope}:${identity}`
       : undefined;
-  const [state, setState] = useState<ISubsidyQueryState<T>>(() =>
-    initialQueryState<T>(identity, cacheKey),
-  );
+  const [state, setState] = useState<ISubsidyQueryState<T>>(() => {
+    if (!identity) {
+      return emptyQueryState;
+    }
+    const cached = cacheKey
+      ? (subsidyQueryCache.get(cacheKey) as T | undefined)
+      : undefined;
+    return cached === undefined
+      ? loadingQueryState
+      : { ...emptyQueryState, data: cached, dataScope: scope };
+  });
   const requestRef = useRef(0);
+  const dataIdentityRef = useRef(identity);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
   const load = useCallback(
-    async ({ keepData }: { keepData: boolean }) => {
+    async ({ isReload }: { isReload: boolean }) => {
       requestRef.current += 1;
       const request = requestRef.current;
       if (!identity) {
-        setState({ data: undefined, isLoading: false, isError: false });
+        dataIdentityRef.current = identity;
+        setState(emptyQueryState);
         return;
       }
-      setState((prev) =>
-        keepData && prev.data !== undefined
-          ? prev
-          : initialQueryState<T>(identity, cacheKey),
-      );
+      const identityChanged = dataIdentityRef.current !== identity;
+      dataIdentityRef.current = identity;
+      if (!enabled) {
+        setState((prev) =>
+          !identityChanged && prev.data !== undefined
+            ? prev
+            : loadingQueryState,
+        );
+        return;
+      }
+      const cached = cacheKey
+        ? (subsidyQueryCache.get(cacheKey) as T | undefined)
+        : undefined;
+      setState((prev) => {
+        const hasOwnData = prev.data !== undefined && prev.dataScope === scope;
+        if (isReload && hasOwnData && !identityChanged) {
+          return prev;
+        }
+        if (cached !== undefined) {
+          return { ...emptyQueryState, data: cached, dataScope: scope };
+        }
+        if (keepPreviousData && !identityChanged && prev.data !== undefined) {
+          return { ...prev, isError: false };
+        }
+        return loadingQueryState;
+      });
       try {
         const data = await fetcherRef.current();
         if (requestRef.current === request) {
           if (cacheKey) {
             subsidyQueryCache.set(cacheKey, data);
           }
-          setState({ data, isLoading: false, isError: false });
+          setState({ ...emptyQueryState, data, dataScope: scope });
         }
       } catch {
-        // The service already silenced the toast. Without data the caller
-        // renders a retry; with data the stale list is better than an error.
+        // The service already silenced the toast. Data of this scope is
+        // better than an error; data of another scope would be mislabelled,
+        // so it gives way to the retry state.
         if (requestRef.current === request) {
           setState((prev) =>
-            prev.data !== undefined
+            prev.data !== undefined && prev.dataScope === scope
               ? prev
-              : { data: undefined, isLoading: false, isError: true },
+              : errorQueryState,
           );
         }
       }
     },
-    [identity, cacheKey],
+    [identity, scope, enabled, cacheKey, keepPreviousData],
   );
 
   useEffect(() => {
-    // Records of another identity must never stay on screen: this starts
-    // from that identity's own cached result, or from nothing.
-    void load({ keepData: false });
+    void load({ isReload: false });
     return () => {
-      // Drop the response of a request that outlives its identity or page.
+      // Drop the response of a request that outlives its identity or scope.
       requestRef.current += 1;
     };
   }, [load]);
 
   const reload = useCallback(() => {
-    void load({ keepData: true });
+    void load({ isReload: true });
   }, [load]);
 
-  return { ...state, reload };
+  return {
+    data: state.data,
+    isLoading: state.isLoading,
+    isError: state.isError,
+    isPreviousData: state.data !== undefined && state.dataScope !== scope,
+    reload,
+  };
 }
 
 async function fetchSubsidySummaryView(): Promise<ISubsidySummaryView> {
@@ -151,9 +201,17 @@ async function fetchSubsidySummaryView(): Promise<ISubsidySummaryView> {
   );
 }
 
-async function fetchSubsidyHistoryView(): Promise<ISubsidyHistoryView> {
+async function fetchSubsidyHistoryView({
+  page,
+  limit,
+}: {
+  page: number;
+  limit: number;
+}): Promise<ISubsidyHistoryView> {
   const history = await backgroundApiProxy.serviceGas.fetchSubsidyHistory({
-    limit: SUBSIDY_HISTORY_LIMIT,
+    limit,
+    // The plain first page is the one that carries `total`.
+    page: page > 1 ? page : undefined,
   });
   const rows = (Array.isArray(history?.items) ? history.items : []).map(
     buildSubsidyRecordRow,
@@ -170,6 +228,13 @@ async function fetchSubsidyHistoryView(): Promise<ISubsidyHistoryView> {
   } catch {
     // Fall back to the raw network id below.
   }
+  let total: number | null | undefined;
+  if (page === 1) {
+    total =
+      typeof history?.total === 'number' && Number.isFinite(history.total)
+        ? history.total
+        : null;
+  }
   return {
     items: rows.map((row) => ({
       ...row,
@@ -177,6 +242,7 @@ async function fetchSubsidyHistoryView(): Promise<ISubsidyHistoryView> {
     })),
     isPartial: history?.complete === false,
     hasMore: Boolean(history?.nextCursor),
+    total,
   };
 }
 
@@ -193,15 +259,33 @@ export function useSubsidyIdentity(): string | undefined {
 export function useSubsidySummary(identity: string | undefined) {
   return useSubsidyQuery({
     identity,
-    cacheName: 'summary',
+    scope: 'summary',
     fetcher: fetchSubsidySummaryView,
   });
 }
 
-export function useSubsidyHistory(identity: string | undefined) {
+// The newest records for the overview, plus the 90-day total.
+export function useSubsidyRecentHistory(identity: string | undefined) {
   return useSubsidyQuery({
     identity,
-    cacheName: 'history',
-    fetcher: fetchSubsidyHistoryView,
+    scope: 'history-recent',
+    fetcher: () =>
+      fetchSubsidyHistoryView({ page: 1, limit: SUBSIDY_RECENT_RECORD_LIMIT }),
+  });
+}
+
+// One page of the full list. `pageSize` is undefined until the list has been
+// laid out; nothing is requested before that. Changing the page keeps the
+// previous page on screen until the new one arrives.
+export function useSubsidyHistoryPage(
+  identity: string | undefined,
+  { page, pageSize }: { page: number; pageSize: number | undefined },
+) {
+  return useSubsidyQuery({
+    identity,
+    scope: `history-page:${pageSize ?? 0}:${page}`,
+    enabled: pageSize !== undefined,
+    keepPreviousData: true,
+    fetcher: () => fetchSubsidyHistoryView({ page, limit: pageSize ?? 1 }),
   });
 }
