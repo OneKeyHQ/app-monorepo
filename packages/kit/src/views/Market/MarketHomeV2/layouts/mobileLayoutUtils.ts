@@ -88,9 +88,6 @@ export function resolveMarketBannerHeaderDecision({
   return current;
 }
 
-const MARKET_MOBILE_COMPACT_HEADER_OFFSET =
-  MARKET_MOBILE_COMPACT_SECONDARY_HEADER_HEIGHT -
-  MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
 const MARKET_MOBILE_EMPTY_CONTENT_OFFSET =
   MARKET_MOBILE_CONTENT_TOP_GAP - MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
 
@@ -109,14 +106,6 @@ export function getMarketEmptyWatchlistContainerProps({
 
 export function getMarketMobileSecondaryHeaderHeight() {
   return MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
-}
-
-export function getMarketNativeCompactListStyle(isCompact: boolean) {
-  return isCompact
-    ? ({
-        transform: [{ translateY: MARKET_MOBILE_COMPACT_HEADER_OFFSET }],
-      } as const)
-    : ({} as const);
 }
 
 // The empty watchlist content sits a fixed distance below the tab bar

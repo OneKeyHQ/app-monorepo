@@ -44,14 +44,23 @@ function TestStack(props: Parameters<typeof useNavigationBuilder>[1]) {
   );
   return (
     <NavigationContent>
-      {state.routes.map((route, index) => (
-        <div key={route.key} hidden={index !== state.index}>
-          {(
-            descriptors[route.key].options as { headerLeft?: () => ReactNode }
-          ).headerLeft?.()}
-          {descriptors[route.key].render()}
-        </div>
-      ))}
+      {state.routes.map((route, index) => {
+        const options = descriptors[route.key].options as {
+          headerLeft?: () => ReactNode;
+          cardStyle?: { backgroundColor?: string };
+        };
+        return (
+          <div
+            key={route.key}
+            hidden={index !== state.index}
+            data-stack-card
+            data-card-bg={options.cardStyle?.backgroundColor}
+          >
+            {options.headerLeft?.()}
+            {descriptors[route.key].render()}
+          </div>
+        );
+      })}
     </NavigationContent>
   );
 }
@@ -1142,6 +1151,25 @@ it('shows the Home tab top bar on the desktop tab route', () => {
   expect(screen.queryByTestId('tab-page-header')).toBeTruthy();
   expect(screen.queryByTestId('dust-sweep-back')).toBeNull();
 });
+
+it.each([
+  { native: false, overlay: false, cardBg: 'transparent' },
+  { native: false, overlay: true, cardBg: null },
+  { native: true, overlay: false, cardBg: null },
+])(
+  'only clears the nested card background on the web tab route (native: $native, overlay: $overlay)',
+  ({ native, overlay, cardBg }) => {
+    mockNative = native;
+    mockOverlay = overlay;
+    mountFlow();
+    expect(
+      screen
+        .getByTestId('dust-sweep-page')
+        .closest('[data-stack-card]')
+        ?.getAttribute('data-card-bg'),
+    ).toBe(cardBg);
+  },
+);
 
 it('keeps a back control in a desktop-width modal without the Home tab top bar', () => {
   mountFlow();

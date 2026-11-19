@@ -311,7 +311,7 @@ function RiskIntelligenceBlock({
           <YStack key={item.key}>
             {index > 0 ? <Divider /> : null}
             <XStack px="$4" py="$2.5" ai="center" jc="space-between" gap="$2">
-              <YStack gap="$0.5" minWidth={0}>
+              <YStack gap="$0.5" flex={1} minWidth={0}>
                 <SizableText size="$bodyMdMedium">
                   {getCategoryTitle(item.key)}
                 </SizableText>
@@ -321,7 +321,11 @@ function RiskIntelligenceBlock({
                   </SizableText>
                 ) : null}
               </YStack>
-              <SizableText size="$bodyMdMedium" textAlign="right">
+              <SizableText
+                size="$bodyMdMedium"
+                textAlign="right"
+                flexShrink={0}
+              >
                 {intl.formatMessage(
                   { id: ETranslations.address_risk_check_signals__msg },
                   { count: item.count },

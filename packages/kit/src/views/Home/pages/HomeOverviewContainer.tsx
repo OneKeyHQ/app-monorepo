@@ -287,7 +287,7 @@ function HomeOverviewContainer() {
   //
   // Gated on the session-level `__onekeyBalanceDisplayed` flag (set on the
   // first balance render) so the fast path only fires on the actual cold-start
-  // mount, not on every fresh mount triggered by Tabs.Container remount during
+  // mount, not on fresh native pager mounts during
   // network/account switches — otherwise the previous owner's `.latest` value
   // briefly leaks into the new owner's overview.
   const isFirstColdStartMountRef = useRef(

@@ -29,14 +29,14 @@ import {
 } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { normalizeGasEIP1559Presets } from '../../../utils';
+import {
+  getBulkSendSolanaAccountReserve,
+  getBulkSendSolanaAtaRent,
+  getBulkSendSolanaBalance,
+  normalizeGasEIP1559Presets,
+} from '../../../utils';
 
 import type { IBulkSendFeeState } from '../components/Context';
-
-// Rent cost per ATA creation on Solana (from kit-bg/src/vaults/impls/sol/utils.ts)
-const SOL_CREATE_TOKEN_ACCOUNT_RENT = '0.00203928';
-// Rent-exempt minimum for a basic system account (0 data bytes) = 890880 lamports
-const SOL_ACCOUNT_RENT_EXEMPT_MIN = '0.00089088';
 
 type IUseBulkSendFeeEstimationParams = {
   networkId: string;
@@ -441,44 +441,51 @@ export function useBulkSendFeeEstimation({
         let solBalanceNeeded: string | undefined;
 
         if (networkUtils.isSolanaNetworkByNetworkId(networkId)) {
-          if (ataCount && ataCount > 0) {
-            ataRentFeeNative = new BigNumber(SOL_CREATE_TOKEN_ACCOUNT_RENT)
-              .times(ataCount)
-              .toFixed();
-          }
+          ataRentFeeNative = getBulkSendSolanaAtaRent({
+            unsignedTxs,
+            ataCount,
+          });
 
           // Skip SOL balance check for ManyToOne/ManyToMany.
           // Those transactions are handled one by one in BulkSendProcess.
           if (!isManyToManyOrManyToOne) {
-            const nativeTransferAmount = tokenInfo?.isNative
-              ? new BigNumber(totalTokenAmount ?? '0')
-              : new BigNumber(0);
-            const totalSolNeeded = totalNative
-              .plus(ataRentFeeNative ?? '0')
-              .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
-              .plus(nativeTransferAmount)
-              .toFixed();
-            solBalanceNeeded = totalSolNeeded;
-
+            // The reserve the sender must keep comes with its balance; until
+            // that arrives the legacy reserve stands in.
+            let solBalance: string | undefined;
+            let solAccountReserve = getBulkSendSolanaAccountReserve(undefined);
             try {
-              const accountDetails =
+              ({ solBalance, solAccountReserve } = getBulkSendSolanaBalance(
                 await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
                   {
                     accountId: accountId ?? '',
                     networkId,
                     withNetWorth: false,
+                    withFrozenBalance: true,
                   },
-                );
-              const solBalance = accountDetails?.balanceParsed ?? '0';
-              insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
-
-              setFeeState((prev) => ({
-                ...prev,
-                solBalance,
-              }));
+                ),
+              ));
             } catch {
               // If balance fetch fails, don't block the user
-              insufficientSol = undefined;
+            }
+
+            const nativeTransferAmount = tokenInfo?.isNative
+              ? new BigNumber(totalTokenAmount ?? '0')
+              : new BigNumber(0);
+            const totalSolNeeded = totalNative
+              .plus(ataRentFeeNative ?? '0')
+              .plus(solAccountReserve)
+              .plus(nativeTransferAmount)
+              .toFixed();
+            solBalanceNeeded = totalSolNeeded;
+
+            if (solBalance !== undefined) {
+              const fetchedSolBalance = solBalance;
+              insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
+              setFeeState((prev) => ({
+                ...prev,
+                solBalance: fetchedSolBalance,
+                solAccountReserve,
+              }));
             }
           }
         }
@@ -694,7 +701,7 @@ export function useBulkSendFeeEstimation({
             : new BigNumber(0);
           const newTotalSolNeeded = totalNative
             .plus(prev.ataRentFeeNative ?? '0')
-            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+            .plus(getBulkSendSolanaAccountReserve(prev.solAccountReserve))
             .plus(nativeTransferAmount)
             .toFixed();
           updated.insufficientSol = new BigNumber(newTotalSolNeeded).gt(

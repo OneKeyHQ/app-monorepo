@@ -68,7 +68,7 @@ function TranslateSettings({
         segmentControlItemStyleProps: {
           h: '100%',
           py: '$0',
-          px: '$5',
+          px: '$2',
           justifyContent: 'center',
         },
       } as const)
@@ -647,12 +647,13 @@ export function usePageTranslation(tabId: string) {
           }),
           actionsAlign: 'left',
           actions: [
-            <Button
-              key="switch"
-              testID={DiscoveryTestIDs.pageTranslationSwitchEngineBtn}
-              variant="primary"
-              size="small"
-              onPressIn={() => {
+            {
+              testID: DiscoveryTestIDs.pageTranslationSwitchEngineBtn,
+              variant: 'primary',
+              label: intl.formatMessage({
+                id: ETranslations.prime_ai_translate_unavailable_toast_action,
+              }),
+              onPress: () => {
                 const isOriginalPageStillActive =
                   pageContextVersionRef.current === failedPageContextVersion &&
                   activeTabIdRef.current === tabId &&
@@ -679,12 +680,8 @@ export function usePageTranslation(tabId: string) {
                     url: tab?.url ?? '',
                   }),
                 });
-              }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.prime_ai_translate_unavailable_toast_action,
-              })}
-            </Button>,
+              },
+            },
           ],
         });
       },

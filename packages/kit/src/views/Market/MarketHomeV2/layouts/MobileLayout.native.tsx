@@ -13,10 +13,7 @@ import type { RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import {
-  CollapsiblePagerView,
-  ScrollEdgeEffect,
-} from 'react-native-pager-view';
+import { CollapsiblePagerView } from 'react-native-pager-view';
 
 import {
   IconButton,
@@ -24,7 +21,6 @@ import {
   YStack,
   useScrollContentTabBarOffset,
   useTheme,
-  useThemeName,
 } from '@onekeyhq/components';
 import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
@@ -108,8 +104,6 @@ interface IMobileLayoutProps {
   tabsRef?: RefObject<IAppPagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
-  externalTopOverlayTag?: number;
-  externalTopOverlayHeight?: number;
 }
 
 interface ITabBarDynamicContext {
@@ -208,7 +202,6 @@ interface IMarketHomeTabBarProps {
   onTabPress: (name: string) => void;
   useNativeTabBar: boolean;
   useNativeCategorySubHeader: boolean;
-  scrollEdgeEnabled: boolean;
   wideColumns: boolean;
 }
 
@@ -219,7 +212,6 @@ function MarketHomeTabBar({
   onTabPress,
   useNativeTabBar,
   useNativeCategorySubHeader,
-  scrollEdgeEnabled,
   wideColumns,
 }: IMarketHomeTabBarProps) {
   const ctx = useContext(TabBarDynamicContext)!;
@@ -341,14 +333,8 @@ function MarketHomeTabBar({
   );
 
   return (
-    <YStack
-      pointerEvents="box-none"
-      bg={scrollEdgeEnabled ? undefined : '$bgApp'}
-    >
-      <YStack
-        bg={scrollEdgeEnabled ? undefined : '$bgApp'}
-        height={MARKET_TAB_BAR_HEIGHT}
-      >
+    <YStack pointerEvents="box-none" bg="$bgApp">
+      <YStack bg="$bgApp" height={MARKET_TAB_BAR_HEIGHT}>
         {useNativeTabBar ? null : (
           <TabBar
             focusedTab={focusedTab}
@@ -369,29 +355,17 @@ function MarketHomeTabBar({
           position="relative"
         >
           {showWatchlistSubHeader ? (
-            <YStack
-              height="100%"
-              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
-              justifyContent="flex-end"
-            >
+            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
               {renderWatchlistSubHeaderContent()}
             </YStack>
           ) : null}
           {showSpotSubHeader ? (
-            <YStack
-              height="100%"
-              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
-              justifyContent="flex-end"
-            >
+            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
               {renderSpotSubHeaderContent()}
             </YStack>
           ) : null}
           {showPerpsSubHeader ? (
-            <YStack
-              height="100%"
-              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
-              justifyContent="flex-end"
-            >
+            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
               {renderPerpsSubHeaderContent()}
             </YStack>
           ) : null}
@@ -408,8 +382,6 @@ function MobileLayoutComponent({
   tabsRef,
   isFocused = true,
   nestedPager = false,
-  externalTopOverlayTag,
-  externalTopOverlayHeight,
 }: IMobileLayoutProps) {
   const intl = useIntl();
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
@@ -524,11 +496,6 @@ function MobileLayoutComponent({
     columnModes[headerTabName] === 'two' ||
     columnModes[headerTabName] === 'three';
   const theme = useTheme();
-  const themeName = useThemeName();
-  const [scrollEdgeAvailable, setScrollEdgeAvailable] = useState(false);
-  const scrollEdgeEnabled = Boolean(
-    platformEnv.isNativeIOS && scrollEdgeAvailable,
-  );
   const nativeTabBar = useMemo<CollapsiblePagerNativeTabBarConfig | undefined>(
     () =>
       platformEnv.isNative
@@ -548,9 +515,7 @@ function MobileLayoutComponent({
               itemSpacing: 8,
               fontSize: 16,
               fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
-              backgroundColor: scrollEdgeEnabled
-                ? 'transparent'
-                : theme.bgApp.val,
+              backgroundColor: theme.bgApp.val,
               activeTextColor: theme.text.val,
               inactiveTextColor: theme.textSubdued.val,
               indicatorColor: theme.text.val,
@@ -559,13 +524,7 @@ function MobileLayoutComponent({
             },
           }
         : undefined,
-    [
-      scrollEdgeEnabled,
-      tabNames,
-      theme.bgApp.val,
-      theme.text.val,
-      theme.textSubdued.val,
-    ],
+    [tabNames, theme.bgApp.val, theme.text.val, theme.textSubdued.val],
   );
   const {
     bannerList,
@@ -874,10 +833,6 @@ function MobileLayoutComponent({
     ? (scrollContentTabBarOffset ?? 0)
     : tabBarHeight + 40;
 
-  const externalOverlayInset =
-    scrollEdgeEnabled && (externalTopOverlayTag ?? 0) > 0
-      ? (externalTopOverlayHeight ?? 0)
-      : 0;
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
       filterBarProps,
@@ -948,8 +903,7 @@ function MobileLayoutComponent({
   );
 
   const getListContainerProps = useMemo(() => {
-    const availableHeight =
-      pagerHeight - externalOverlayInset - contentPaddingBottom;
+    const availableHeight = pagerHeight - contentPaddingBottom;
     const createListContainerProps = (pageStickyHeaderHeight: number) => ({
       // The native pager already offsets the empty ScrollView below its headers.
       emptyContentPaddingTop: 16,
@@ -971,7 +925,6 @@ function MobileLayoutComponent({
     return (tabName: string) => propsByTab.get(tabName) ?? defaultProps;
   }, [
     contentPaddingBottom,
-    externalOverlayInset,
     headerHeight,
     pagerHeight,
     stickyHeaderHeight,
@@ -986,10 +939,7 @@ function MobileLayoutComponent({
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <YStack
-        flex={1}
-        pt={scrollEdgeEnabled ? 0 : (externalTopOverlayHeight ?? 0)}
-      >
+      <YStack flex={1}>
         <CollapsiblePagerView
           ref={pagerRef}
           style={STYLES.pager}
@@ -1006,16 +956,6 @@ function MobileLayoutComponent({
           scrollEnabled
           nestedScrollEnabled={nestedPager}
           nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
-          topScrollEdgeEffect={
-            scrollEdgeEnabled ? ScrollEdgeEffect.Hard : undefined
-          }
-          topOverlayColorScheme={scrollEdgeEnabled ? themeName : undefined}
-          externalTopOverlayTag={
-            scrollEdgeEnabled ? externalTopOverlayTag : undefined
-          }
-          onScrollEdgeCapability={(event) =>
-            setScrollEdgeAvailable(event.nativeEvent.available)
-          }
           testID="market-native-collapsible-pager"
           nativeTabBar={nativeTabBar}
           nativeTabPressAnimationEnabled={false}
@@ -1031,7 +971,7 @@ function MobileLayoutComponent({
           }
           stickyHeader={
             <YStack
-              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              bg="$bgApp"
               pointerEvents="box-none"
               onLayout={
                 platformEnv.isNativeIOS
@@ -1049,7 +989,6 @@ function MobileLayoutComponent({
                 onTabPress={handleTabPress}
                 useNativeTabBar={Boolean(nativeTabBar)}
                 useNativeCategorySubHeader={Boolean(nativeSubHeader)}
-                scrollEdgeEnabled={scrollEdgeEnabled}
                 wideColumns={wideColumns}
               />
             </YStack>

@@ -2,7 +2,6 @@ import {
   getMarketEmptyWatchlistContainerProps,
   getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
-  getMarketNativeCompactListStyle,
   getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
@@ -135,18 +134,6 @@ describe('getMarketEmptyWatchlistContainerProps', () => {
         isWeb: false,
       }),
     ).toEqual({ y: -72 });
-  });
-});
-
-describe('getMarketNativeCompactListStyle', () => {
-  it('visually reclaims the unused space without overriding list padding', () => {
-    expect(getMarketNativeCompactListStyle(true)).toEqual({
-      transform: [{ translateY: -44 }],
-    });
-  });
-
-  it('does not transform tabs that render secondary controls', () => {
-    expect(getMarketNativeCompactListStyle(false)).toEqual({});
   });
 });
 

@@ -6,6 +6,7 @@ import { Toast, ToastContent } from '.';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   dismissNativeStorageRecovery,
@@ -14,20 +15,43 @@ import {
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
-import { Button } from '../../primitives/Button';
+import {
+  TOAST_COLOR_KEYS,
+  TOAST_FONT_KEYS,
+  setToastStyleContext,
+} from './toastStyleContext';
 
-import type { IToastMessageOptions } from './type';
+import type {
+  IToastColorKey,
+  IToastFont,
+  IToastFontKey,
+  IToastStyleContext,
+} from './toastStyleContext';
+import type {
+  IOverlayToastHandlers,
+  IOverlayToastSpec,
+  IOverlayToastText,
+} from '@onekeyfe/react-native-native-overlay';
 
-const mockClose = jest.fn<void, []>();
 const mockMount = jest.fn<
   { destroy: () => void },
   [{ node: ReactNode; target: string }]
 >(() => ({
   destroy: jest.fn(),
 }));
-const mockShowMessage = jest.fn((_options: IToastMessageOptions) => ({
-  close: mockClose,
-}));
+const { OverlayToastStore: ActualOverlayToastStore } = jest.requireActual<
+  typeof import('@onekeyfe/react-native-native-overlay')
+>('@onekeyfe/react-native-native-overlay');
+const realToastStore = new ActualOverlayToastStore();
+const mockShow = jest.fn(
+  (spec: IOverlayToastSpec, handlers: IOverlayToastHandlers) =>
+    realToastStore.show(spec, handlers),
+);
+const mockUpdate = jest.fn((spec: IOverlayToastSpec) =>
+  realToastStore.update(spec),
+);
+const mockDismiss = jest.fn((id: string) => realToastStore.dismiss(id));
+let mockNextId = 0;
 function mockView({
   children,
   onPress,
@@ -37,8 +61,26 @@ function mockView({
 }) {
   return <div onClick={onPress}>{children}</div>;
 }
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  OverlayToastHost: () => null,
+  overlayToastStore: {
+    createId: () => {
+      mockNextId += 1;
+      return `toast-${mockNextId}`;
+    },
+    getSnapshot: () => realToastStore.getSnapshot(),
+    subscribe: (listener: () => void) => realToastStore.subscribe(listener),
+    show: (spec: IOverlayToastSpec, handlers: IOverlayToastHandlers) =>
+      mockShow(spec, handlers),
+    update: (spec: IOverlayToastSpec) => mockUpdate(spec),
+    dismiss: (id: string) => mockDismiss(id),
+    dismissAll: () => realToastStore.dismissAll(),
+    configure: jest.fn(),
+  },
+}));
 jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ height: 900 }),
+  I18nManager: { isRTL: false },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -50,8 +92,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/keyboard', () => ({
   dismissKeyboard: jest.fn(),
 }));
-jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
-  ToastProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  openUrlExternal: jest.fn(),
 }));
 jest.mock('../../shared/imperativeOverlayMount', () => ({
   mountImperativeOverlay: (options: { node: ReactNode; target: string }) =>
@@ -69,14 +111,13 @@ jest.mock('../../hooks/useStyle', () => ({
   useMedia: () => ({ gtMd: false }),
 }));
 jest.mock('../../primitives', () => ({
-  Icon: () => <i />,
-  Image: () => null,
-  SizableText: mockView,
   View: mockView,
   XStack: mockView,
   YStack: mockView,
 }));
-jest.mock('../../primitives/Spinner/Spinner', () => ({ Spinner: () => null }));
+jest.mock('../../primitives/Icon/Icons', () => ({
+  resolveIconName: (name: string) => name,
+}));
 jest.mock('../../primitives/Button', () => ({
   Button: ({
     children,
@@ -103,26 +144,109 @@ jest.mock('./ShowCustom', () => ({
   ShowCustom: ({ children }: { children: ReactNode }) => <>{children}</>,
   ShowToasterClose: () => null,
 }));
-jest.mock('./showMessage', () => ({
-  showMessage: (options: IToastMessageOptions) => mockShowMessage(options),
-  dismissToast: jest.fn(),
-}));
-jest.mock('./Toaster', () => ({ __esModule: true, default: () => null }));
+jest.mock('./ToastHost', () => ({ ToastHost: () => null }));
+jest.mock('./toastIconHref', () => ({ getToastIconHref: () => undefined }));
 
+const RECOVERY_TEST_ID = 'native-storage-repair-toast-action';
 const appStorageError =
   createNativeStorageMigrationInconsistentErrorMessage('appStorage');
 const jotaiError =
   createNativeStorageMigrationInconsistentErrorMessage('jotai');
-function showLatest() {
-  const options = mockShowMessage.mock.calls.at(-1)![0];
-  return render(options.renderContent());
+
+function createContext(): IToastStyleContext {
+  const colors = {} as Record<IToastColorKey, string>;
+  TOAST_COLOR_KEYS.forEach((key) => {
+    colors[key] = `color-${key}`;
+  });
+  const fonts = {} as Record<IToastFontKey, IToastFont>;
+  TOAST_FONT_KEYS.forEach((key) => {
+    fonts[key] = {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '400',
+      letterSpacing: 0,
+    };
+  });
+  return {
+    colors,
+    fonts,
+    isWide: false,
+    isRTL: false,
+    // The line is its own default message; plain text passes through.
+    intl: {
+      formatMessage: ({
+        id,
+        defaultMessage,
+      }: {
+        id: string;
+        defaultMessage?: string;
+      }) => defaultMessage ?? id,
+    } as unknown as IToastStyleContext['intl'],
+  };
 }
+
+function latest() {
+  const [spec, handlers] = mockShow.mock.calls.at(-1)!;
+  return { spec, handlers };
+}
+
+function textOf(text?: IOverlayToastText) {
+  return (text?.paragraphs ?? [])
+    .map((runs) => runs.map((run) => run.text).join(''))
+    .join('\n');
+}
+
+function pressAction(testID: string) {
+  const { spec, handlers } = latest();
+  const action = spec.actions?.find((item) => item.testID === testID);
+  expect(action).toBeTruthy();
+  handlers.onAction?.(action!.id);
+}
+
+function recoveryActions() {
+  return (latest().spec.actions ?? []).filter(
+    (action) => action.testID === RECOVERY_TEST_ID,
+  );
+}
+
 beforeEach(() => {
+  realToastStore.dismissAll();
   jest.clearAllMocks();
   jest.replaceProperty(platformEnv, 'isNative', true);
   dismissNativeStorageRecovery();
+  setToastStyleContext(createContext());
 });
 afterEach(() => jest.restoreAllMocks());
+
+it.each([true, false])(
+  'renders ordinary notification actions with isNative=%s',
+  (isNative) => {
+    jest.replaceProperty(platformEnv, 'isNative', isNative);
+    const open = jest.fn();
+    const pressCard = jest.fn();
+    Toast.notification({
+      title: 'Support reply',
+      message: 'A test reply',
+      onPress: pressCard,
+      actions: {
+        label: 'View conversation',
+        testID: 'test-support-notification-open',
+        onPress: open,
+      },
+      actionsAlign: 'left',
+    });
+    const { spec } = latest();
+    expect(spec.layout).toBe('notification');
+    expect(spec.actionsAlign).toBe('left');
+    expect(spec.actions?.map((action) => action.label)).toEqual([
+      'View conversation',
+    ]);
+    expect(recoveryActions()).toHaveLength(0);
+    pressAction('test-support-notification-open');
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(pressCard).not.toHaveBeenCalled();
+  },
+);
 
 it.each(['error', 'warning', 'success', 'message', 'loading'] as const)(
   'adds one recovery action to direct Toast.%s without changing text or presentation',
@@ -135,28 +259,23 @@ it.each(['error', 'warning', 'success', 'message', 'loading'] as const)(
       icon: 'ErrorOutline',
       toastId: `direct-${method}`,
     });
-    const options = mockShowMessage.mock.calls[0][0];
-    expect(options).toMatchObject({
+    const { spec } = latest();
+    expect(spec).toMatchObject({
+      id: `direct-${method}`,
+      layout: 'message',
       duration: 8123,
-      toastId: `direct-${method}`,
-      haptic: method === 'message' ? 'info' : method,
     });
-    const content = options.renderContent();
-    expect(content.props).toMatchObject({
-      title,
-      message: 'Original message\nkept verbatim',
-    });
-    expect(content.props.icon.props.name).toBe('ErrorOutline');
-    render(content);
-    expect(
-      screen.getAllByTestId('native-storage-repair-toast-action'),
-    ).toHaveLength(1);
+    expect(textOf(spec.title)).toBe(title);
+    expect(textOf(spec.message)).toBe('Original message\nkept verbatim');
+    expect(spec.icon).toMatchObject({ kind: 'icon', name: 'ErrorOutline' });
+    expect(recoveryActions()).toHaveLength(1);
     expect(getRequestedNativeStorageRecovery()).toBeUndefined();
-    fireEvent.click(screen.getByTestId('native-storage-repair-toast-action'));
+    pressAction(RECOVERY_TEST_ID);
     await waitFor(() =>
       expect(getRequestedNativeStorageRecovery()).toBe('appStorage'),
     );
-    expect(mockClose).toHaveBeenCalledTimes(1);
+    expect(mockDismiss).toHaveBeenCalledTimes(1);
+    expect(mockDismiss).toHaveBeenCalledWith(`direct-${method}`);
   },
 );
 
@@ -165,18 +284,17 @@ it('matches a diagnostic only in message and preserves existing actions', async 
   Toast.error({
     title: 'Original title',
     message: jotaiError,
-    actions: (
-      <button type="button" onClick={copy}>
-        Copy diagnostic
-      </button>
-    ),
+    actions: { label: 'Copy diagnostic', testID: 'copy', onPress: copy },
     nativeStorageRecoveryTestSessionId: 'storage-repair-test-123-abc',
   });
-  showLatest();
-  fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostic' }));
+  expect(latest().spec.actions?.map((action) => action.label)).toEqual([
+    'Copy diagnostic',
+    'global.retry',
+  ]);
+  pressAction('copy');
   expect(copy).toHaveBeenCalledTimes(1);
   expect(getRequestedNativeStorageRecovery()).toBeUndefined();
-  fireEvent.click(screen.getByTestId('native-storage-repair-toast-action'));
+  pressAction(RECOVERY_TEST_ID);
   await waitFor(() =>
     expect(getRequestedNativeStorageRecovery()).toBe('jotai'),
   );
@@ -188,8 +306,7 @@ it('retains isolated AppStorage test routing', async () => {
     title: appStorageError,
     nativeStorageRecoveryTestSessionId: 'storage-repair-test-123-abc',
   });
-  showLatest();
-  fireEvent.click(screen.getByTestId('native-storage-repair-toast-action'));
+  pressAction(RECOVERY_TEST_ID);
   await waitFor(() =>
     expect(getRequestedNativeStorageRecoveryTestSessionId()).toBe(
       'storage-repair-test-123-abc',
@@ -197,22 +314,13 @@ it('retains isolated AppStorage test routing', async () => {
   );
 });
 
-it('does not append a second managed recovery button inside existing actions', () => {
+it('does not append a second managed recovery button to existing actions', () => {
   Toast.error({
     title: appStorageError,
-    actions: (
-      <>
-        <Button testID="native-storage-repair-toast-action">
-          Existing repair
-        </Button>
-      </>
-    ),
+    actions: [{ label: 'Existing repair', testID: RECOVERY_TEST_ID }],
   });
-  showLatest();
-  expect(
-    screen.getAllByTestId('native-storage-repair-toast-action'),
-  ).toHaveLength(1);
-  expect(screen.getByRole('button', { name: 'Existing repair' })).toBeTruthy();
+  expect(recoveryActions()).toHaveLength(1);
+  expect(recoveryActions()[0]?.label).toBe('Existing repair');
 });
 
 it.each([
@@ -225,15 +333,12 @@ it.each([
   (title) => {
     Toast.error({
       title,
-      actions: <button type="button">Existing action</button>,
+      actions: { label: 'Existing action' },
     });
-    showLatest();
-    expect(
-      screen.queryByTestId('native-storage-repair-toast-action'),
-    ).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Existing action' }),
-    ).toBeTruthy();
+    expect(recoveryActions()).toHaveLength(0);
+    expect(latest().spec.actions?.map((action) => action.label)).toEqual([
+      'Existing action',
+    ]);
   },
 );
 
@@ -242,12 +347,12 @@ it('does not add a repair action on non-native platforms', () => {
   Toast.error({
     title: appStorageError,
     message: 'Unchanged',
-    actions: <button type="button">Existing action</button>,
+    actions: { label: 'Existing action' },
   });
-  showLatest();
-  expect(screen.queryByTestId('native-storage-repair-toast-action')).toBeNull();
-  expect(screen.getByText(appStorageError)).toBeTruthy();
-  expect(screen.getByText('Unchanged')).toBeTruthy();
+  const { spec } = latest();
+  expect(recoveryActions()).toHaveLength(0);
+  expect(textOf(spec.title)).toBe(appStorageError);
+  expect(textOf(spec.message)).toBe('Unchanged');
 });
 
 it('covers notifications without replacing their click action or icon', async () => {
@@ -258,16 +363,28 @@ it('covers notifications without replacing their click action or icon', async ()
     icon: 'ErrorOutline',
     onPress,
   });
-  const content = mockShowMessage.mock.calls[0][0].renderContent();
-  expect(content.props.icon).toBe('ErrorOutline');
-  render(content);
-  fireEvent.click(screen.getByText('Original notification'));
+  const { spec, handlers } = latest();
+  expect(spec.layout).toBe('notification');
+  expect(spec.icon).toMatchObject({ kind: 'icon', name: 'ErrorOutline' });
+  handlers.onPress?.();
   expect(onPress).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByTestId('native-storage-repair-toast-action'));
+  pressAction(RECOVERY_TEST_ID);
   await waitFor(() =>
     expect(getRequestedNativeStorageRecovery()).toBe('appStorage'),
   );
   expect(onPress).toHaveBeenCalledTimes(1);
+});
+
+it('waits for the style context, then draws the pending toast', () => {
+  setToastStyleContext(undefined);
+  const onClose = jest.fn();
+  const toast = Toast.success({ title: 'Early', onClose });
+  expect(mockShow).not.toHaveBeenCalled();
+  setToastStyleContext(createContext());
+  expect(mockShow).toHaveBeenCalledTimes(1);
+  expect(textOf(latest().spec.title)).toBe('Early');
+  toast?.close();
+  expect(mockDismiss).toHaveBeenCalledTimes(1);
 });
 
 it('covers Toast.show when custom content uses ToastContent', async () => {
@@ -277,8 +394,164 @@ it('covers Toast.show when custom content uses ToastContent', async () => {
   expect(mockMount.mock.calls[0][0].target).toBe('global');
   render(mockMount.mock.calls[0][0].node);
   expect(screen.getByText('Custom details')).toBeTruthy();
-  fireEvent.click(screen.getByTestId('native-storage-repair-toast-action'));
+  fireEvent.click(screen.getByTestId(RECOVERY_TEST_ID));
   await waitFor(() =>
     expect(getRequestedNativeStorageRecovery()).toBe('appStorage'),
   );
+});
+
+it('logs button click analytics with testID when pressing a toast action', () => {
+  const clickSpy = jest.spyOn(defaultLogger.ui.button, 'click');
+  const onPress = jest.fn();
+  Toast.message({
+    title: 'Action analytics',
+    actions: {
+      label: 'Track me',
+      testID: 'tracked-toast-action',
+      onPress,
+    },
+  });
+  pressAction('tracked-toast-action');
+  expect(clickSpy).toHaveBeenCalledWith({
+    trackId: 'tracked-toast-action',
+  });
+  expect(onPress).toHaveBeenCalledTimes(1);
+});
+
+it('evicts the oldest toast past 20 items, fires its onClose once, and stops rebuilding it', () => {
+  const closeCallbacks = Array.from({ length: 21 }, () => jest.fn());
+  const instances = closeCallbacks.map((onClose, index) =>
+    Toast.message({
+      toastId: `queue-toast-${index + 1}`,
+      title: `Toast ${index + 1}`,
+      onClose,
+    }),
+  );
+
+  expect(realToastStore.getSnapshot().items).toHaveLength(20);
+  expect(
+    realToastStore.getSnapshot().items.map((item) => item.spec.id),
+  ).not.toContain('queue-toast-1');
+  expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
+  closeCallbacks.slice(1).forEach((callback) => {
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  mockUpdate.mockClear();
+  setToastStyleContext(createContext());
+  expect(mockUpdate).toHaveBeenCalledTimes(20);
+  expect(mockUpdate.mock.calls.map(([spec]) => spec.id)).not.toContain(
+    'queue-toast-1',
+  );
+
+  instances[0]?.close();
+  expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
+});
+
+it('preserves deduplication record when replacing an unclosed toast with the same toastId', () => {
+  let now = 1_000_000;
+  jest.spyOn(Date, 'now').mockImplementation(() => now);
+  const firstClose = jest.fn();
+  const secondClose = jest.fn();
+  const thirdClose = jest.fn();
+
+  Toast.error({
+    toastId: 'rate-limit-429',
+    title: 'First 429',
+    duration: 1000,
+    onClose: firstClose,
+  });
+  const firstHandlers = latest().handlers;
+  expect(mockShow).toHaveBeenCalledTimes(1);
+
+  // Advance past the first deduplication window (duration + 500ms) while the
+  // first card is still active (e.g. paused or in exit animation).
+  now += 1600;
+  Toast.error({
+    toastId: 'rate-limit-429',
+    title: 'Second 429',
+    duration: 1000,
+    onClose: secondClose,
+  });
+  expect(firstClose).toHaveBeenCalledTimes(1);
+  expect(mockShow).toHaveBeenCalledTimes(2);
+
+  // Even if the first card's SDK onClose fires late, the second card's
+  // deduplication window must remain intact.
+  firstHandlers.onClose?.('timeout');
+  now += 100;
+  const duplicateResult = Toast.error({
+    toastId: 'rate-limit-429',
+    title: 'Duplicate 429 within window',
+    duration: 1000,
+    onClose: thirdClose,
+  });
+  expect(duplicateResult).toBeUndefined();
+  expect(mockShow).toHaveBeenCalledTimes(2);
+  expect(secondClose).not.toHaveBeenCalled();
+  expect(thirdClose).not.toHaveBeenCalled();
+});
+
+it('does not prematurely finish a follow-up toast created inside an evicted onClose callback', () => {
+  const followUpOnClose = jest.fn();
+  let followUpInstance: { close: () => void } | undefined;
+
+  Toast.message({
+    toastId: 'evict-trigger-1',
+    title: 'Toast 1',
+    onClose: () => {
+      followUpInstance = Toast.message({
+        toastId: 'follow-up-toast',
+        title: 'Follow-up toast',
+        onClose: followUpOnClose,
+      });
+    },
+  });
+
+  for (let i = 2; i <= 21; i += 1) {
+    Toast.message({
+      toastId: `evict-trigger-${i}`,
+      title: `Toast ${i}`,
+    });
+  }
+
+  expect(followUpInstance).toBeDefined();
+  expect(followUpOnClose).not.toHaveBeenCalled();
+  expect(
+    realToastStore.getSnapshot().items.map((item) => item.spec.id),
+  ).toContain('follow-up-toast');
+
+  mockUpdate.mockClear();
+  setToastStyleContext(createContext());
+  expect(mockUpdate.mock.calls.map(([spec]) => spec.id)).toContain(
+    'follow-up-toast',
+  );
+
+  followUpInstance?.close();
+  expect(mockDismiss).toHaveBeenCalledWith('follow-up-toast');
+  expect(followUpOnClose).toHaveBeenCalledTimes(1);
+});
+
+it('passes raw notification badge and thumbnail image URIs to the overlay spec', () => {
+  const rawUri = 'https://uni.onekey-asset.com/push/banner.png';
+  Toast.notification({
+    title: 'Push with image',
+    message: 'Preserve original URL',
+    iconImageUri: rawUri,
+    imageUri: rawUri,
+  });
+  const { spec } = latest();
+  expect(spec.layout).toBe('notification');
+  if (spec.layout === 'notification') {
+    expect(spec.icon).toEqual({
+      kind: 'image',
+      uri: rawUri,
+      size: 18,
+    });
+    expect(spec.image).toEqual({
+      uri: rawUri,
+      size: 48,
+      borderRadius: 4,
+    });
+  }
 });
