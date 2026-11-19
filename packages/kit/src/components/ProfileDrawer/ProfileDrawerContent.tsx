@@ -65,6 +65,9 @@ const ROW_HOVER_STYLE = platformEnv.isNative
   ? undefined
   : ({ bg: '$bgHover' } as const);
 const IDENTITY_PRESS_STYLE = { opacity: 0.6 } as const;
+// The extension's narrower drawer takes the avatar at 44, 0.8 of the
+// phone's 56, as its header does (40 to 32).
+const DRAWER_AVATAR_SIZE = platformEnv.isNative ? '$14' : '$11';
 // A pointer over the OneKey ID avatar dims it a little; pressing dims more.
 const AVATAR_HOVER_STYLE = platformEnv.isNative
   ? undefined
@@ -426,7 +429,7 @@ function DrawerIdentity() {
           {...DELAYED_PRESS_IN}
           onPress={handleOneKeyId}
         >
-          <OneKeyIdAvatar size="$14" showSocialBadge={false} />
+          <OneKeyIdAvatar size={DRAWER_AVATAR_SIZE} showSocialBadge={false} />
         </Stack>
         {/* 20 apart: the 48pt touch areas keep 8 between them, so lock,
             whose mis-tap costs an unlock, stays clear of the busier scan. */}
