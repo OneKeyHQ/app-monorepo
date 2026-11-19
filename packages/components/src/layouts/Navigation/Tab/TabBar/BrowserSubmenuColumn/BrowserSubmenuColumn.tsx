@@ -27,6 +27,9 @@ export interface IBrowserSubmenuColumnProps {
 // responsive, long enough that a cursor passing through the narrow column
 // (e.g. on its way to the primary sidebar) does not pop the overlay open.
 const HOVER_DELAY_MS = 300;
+// Pointer travel after expanding that counts as intentional movement;
+// absorbs pointer jitter produced while clicking.
+const POINTER_MOVE_THRESHOLD_PX = 4;
 
 // Browser submenu only shows in the desktop app.
 const isShowWebTabBar = platformEnv.isDesktop;
@@ -37,6 +40,8 @@ export function BrowserSubmenuColumn({
   multiTabBrowserRouteName,
 }: IBrowserSubmenuColumnProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [hasPointerMovedSinceExpand, setHasPointerMovedSinceExpand] =
+    useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const popoverCountRef = useRef(0);
@@ -78,8 +83,8 @@ export function BrowserSubmenuColumn({
   );
 
   const contextValue = useMemo(
-    () => ({ reportPopoverOpen }),
-    [reportPopoverOpen],
+    () => ({ reportPopoverOpen, hasPointerMovedSinceExpand }),
+    [reportPopoverOpen, hasPointerMovedSinceExpand],
   );
 
   const handleHoverIn = useCallback(() => {
@@ -140,9 +145,22 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
+    let moveOrigin: { x: number; y: number } | null = null;
+    let hasMoved = false;
 
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      if (!hasMoved) {
+        if (!moveOrigin) {
+          moveOrigin = { x: e.clientX, y: e.clientY };
+        } else if (
+          Math.abs(e.clientX - moveOrigin.x) >= POINTER_MOVE_THRESHOLD_PX ||
+          Math.abs(e.clientY - moveOrigin.y) >= POINTER_MOVE_THRESHOLD_PX
+        ) {
+          hasMoved = true;
+          setHasPointerMovedSinceExpand(true);
+        }
+      }
       if (popoverCountRef.current > 0) return;
 
       if (rafId !== null) return;
@@ -172,6 +190,7 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
+      setHasPointerMovedSinceExpand(false);
     };
   }, [isHovered, clearHoverTimer]);
 

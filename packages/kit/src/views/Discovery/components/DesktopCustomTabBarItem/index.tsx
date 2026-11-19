@@ -8,6 +8,7 @@ import type {
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import { Tooltip } from '@onekeyhq/components/src/actions';
+import { useBrowserSubmenu } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/BrowserSubmenuColumn/BrowserSubmenuContext';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -74,6 +75,7 @@ function DesktopCustomTabBarItem({
   const { copyText } = useClipboard();
   const { handleRenameTab } = useBrowserOptionsAction();
   const { activeTabId } = useActiveTabId();
+  const { hasPointerMovedSinceExpand } = useBrowserSubmenu();
   const isActive = activeTabId === id;
   const closeOrUnpinTab = useCallback(() => {
     if (tab?.isPinned) {
@@ -220,7 +222,9 @@ function DesktopCustomTabBarItem({
   const tabItem = useMemo(() => {
     return (
       <DesktopTabItem
-        hideCloseButton={isCollapse}
+        hideCloseButton={
+          isCollapse || (!tab?.isPinned && !hasPointerMovedSinceExpand)
+        }
         size="small"
         showAvatar={!isHomeTab}
         icon={isHomeTab ? 'EarthOutline' : undefined}
@@ -237,10 +241,10 @@ function DesktopCustomTabBarItem({
         closeButtonIcon={tab?.isPinned ? 'ThumbtackOutline' : undefined}
         closeButtonTitle={closeButtonTitle}
         alwaysShowCloseButton={!!tab?.isPinned}
-        // Unpinned tabs swap the favicon for the close button in place, so
-        // closing needs no travel to the far edge of the expanded column.
-        // Pinned tabs keep the trailing unpin button.
-        leadingCloseButton={!isCollapse && !tab?.isPinned}
+        // Unpinned tabs show the close button over the favicon, so closing
+        // needs no travel to the far edge of the expanded column. Pinned tabs
+        // keep the trailing unpin button.
+        leadingCloseButton={!tab?.isPinned}
         tabBarStyle={
           isCollapse ? { justifyContent: 'center' as const } : undefined
         }
@@ -248,6 +252,7 @@ function DesktopCustomTabBarItem({
     );
   }, [
     isCollapse,
+    hasPointerMovedSinceExpand,
     isHomeTab,
     shortcutKey,
     id,

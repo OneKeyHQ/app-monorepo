@@ -1,12 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -81,15 +73,11 @@ export interface IDesktopTabItemProps {
   closeButtonTitle?: React.ReactNode;
   alwaysShowCloseButton?: boolean;
   /**
-   * Render the close button in the leading icon slot (swapped in on hover)
-   * instead of at the trailing edge, so closing needs no horizontal travel.
+   * Show the close button over the leading icon slot (on hover) instead of at
+   * the trailing edge, so closing needs no horizontal travel.
    */
   leadingCloseButton?: boolean;
 }
-
-// Pointer travel required before a stationary-cursor row arms its leading
-// close button; absorbs pointer jitter produced while clicking.
-const LEADING_CLOSE_ARM_DISTANCE_PX = 4;
 
 function BasicDesktopTabItemImage({
   avatarSrc,
@@ -180,49 +168,6 @@ export function DesktopTabItem(
   const openActionList = useRef<() => void | undefined>(undefined);
   const [isHovered, setIsHovered] = useState(false);
   const [isContextMenuOpened, setIsContextMenuOpened] = useState(false);
-  // The leading close button replaces the icon the user may be aiming at.
-  // When the slot turns into a close button under a cursor that has not
-  // moved (e.g. the browser column expanding beneath it), keep showing the
-  // icon until the pointer clearly moves, so a click meant to switch tabs
-  // does not close the tab.
-  const [isLeadingCloseArmed, setIsLeadingCloseArmed] = useState(false);
-  const isLeadingCloseArmedRef = useRef(false);
-  const armOriginRef = useRef<{ x: number; y: number } | null>(null);
-  const updateLeadingCloseArmed = useCallback((armed: boolean) => {
-    isLeadingCloseArmedRef.current = armed;
-    armOriginRef.current = null;
-    setIsLeadingCloseArmed(armed);
-  }, []);
-  // Layout effect: disarm before paint so the close button never flashes
-  // under the cursor in the frame the column expands.
-  useLayoutEffect(() => {
-    if (leadingCloseButton) {
-      updateLeadingCloseArmed(false);
-    }
-  }, [leadingCloseButton, updateLeadingCloseArmed]);
-  useEffect(() => {
-    if (platformEnv.isNative || !leadingCloseButton) return;
-    const element = stackRef.current as HTMLElement | null;
-    if (!element) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isLeadingCloseArmedRef.current) return;
-      const origin = armOriginRef.current;
-      if (!origin) {
-        armOriginRef.current = { x: e.clientX, y: e.clientY };
-        return;
-      }
-      if (
-        Math.abs(e.clientX - origin.x) >= LEADING_CLOSE_ARM_DISTANCE_PX ||
-        Math.abs(e.clientY - origin.y) >= LEADING_CLOSE_ARM_DISTANCE_PX
-      ) {
-        updateLeadingCloseArmed(true);
-      }
-    };
-    element.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      element.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [leadingCloseButton, updateLeadingCloseArmed]);
   const onOpenContextMenu = useCallback((e: Event) => {
     e.preventDefault();
     openActionList?.current?.();
@@ -239,14 +184,10 @@ export function DesktopTabItem(
   }, [onOpenContextMenu]);
   const onMouseEnter = useCallback(() => {
     setIsHovered(true);
-    // A real pointer entry is an explicit intent; arm immediately so the
-    // next tab sliding under the cursor after a close can be closed too.
-    updateLeadingCloseArmed(true);
-  }, [updateLeadingCloseArmed]);
+  }, []);
   const onMouseLeave = useCallback(() => {
     setIsHovered(false);
-    updateLeadingCloseArmed(false);
-  }, [updateLeadingCloseArmed]);
+  }, []);
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
       setIsHovered(false);
@@ -303,41 +244,15 @@ export function DesktopTabItem(
     ),
     [intl],
   );
-  const isCloseButtonVisible =
-    !hideCloseButton &&
-    !!actionList &&
+  const canClose = !hideCloseButton && !!actionList;
+  const showLeadingCloseButton = leadingCloseButton && canClose && isHovered;
+  const showTrailingCloseButton =
+    !leadingCloseButton &&
+    canClose &&
     (alwaysShowCloseButton || selected || isHovered || isContainerHovered);
-  const showLeadingCloseButton =
-    leadingCloseButton &&
-    !hideCloseButton &&
-    !!actionList &&
-    isHovered &&
-    isLeadingCloseArmed;
-  const showTrailingCloseButton = !leadingCloseButton && isCloseButtonVisible;
-  const closeButtonElement = useMemo(
-    () => (
-      <IconButton
-        size="small"
-        icon={closeButtonIcon ?? 'CrossedSmallOutline'}
-        {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
-        variant="tertiary"
-        focusVisibleStyle={undefined}
-        title={closeButtonTitle ?? defaultCloseButtonTitle}
-        // Leading: keep the 20px footprint of the icon slot to avoid shifting
-        // the label. Trailing: hug the row edge.
-        m={leadingCloseButton ? -2 : -3}
-        testID="browser-bar-options"
-        onPress={onClose}
-      />
-    ),
-    [
-      closeButtonIcon,
-      closeButtonTitle,
-      defaultCloseButtonTitle,
-      leadingCloseButton,
-      onClose,
-    ],
-  );
+  // The leading icon stays mounted (only faded) while the close button
+  // overlays it, so hovering does not reload the favicon image.
+  const leadingIconOpacity = showLeadingCloseButton ? 0 : 1;
   const trigger = useMemo(
     () => (
       <YStack
@@ -364,10 +279,11 @@ export function DesktopTabItem(
             : `tab-modal-no-active-item-${rest.id || icon || ''}`
         }
       >
-        {icon && !showLeadingCloseButton ? (
+        {icon ? (
           <XStack
             className="sidebar-tab-item-icon"
             flexShrink={0}
+            opacity={leadingIconOpacity}
             width={size === 'small' ? '$5' : '$6'}
             height={size === 'small' ? '$5' : '$6'}
             alignItems="center"
@@ -395,9 +311,33 @@ export function DesktopTabItem(
             ) : null}
           </XStack>
         ) : null}
-        {showLeadingCloseButton ? closeButtonElement : null}
-        {showAvatar && !showLeadingCloseButton ? (
-          <DesktopTabItemImage avatarSrc={avatarSrc} selected={selected} />
+        {showAvatar ? (
+          <Stack opacity={leadingIconOpacity}>
+            <DesktopTabItemImage avatarSrc={avatarSrc} selected={selected} />
+          </Stack>
+        ) : null}
+        {showLeadingCloseButton ? (
+          <XStack
+            position="absolute"
+            left="$2"
+            top={0}
+            bottom={0}
+            width="$5"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <IconButton
+              size="small"
+              icon="CrossedSmallOutline"
+              p="$0.5"
+              variant="tertiary"
+              focusVisibleStyle={undefined}
+              title={defaultCloseButtonTitle}
+              m={-3}
+              testID="browser-bar-options"
+              onPress={onClose}
+            />
+          </XStack>
         ) : null}
         {label ? (
           <SizableText
@@ -411,7 +351,19 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
-        {showTrailingCloseButton ? closeButtonElement : null}
+        {showTrailingCloseButton ? (
+          <IconButton
+            size="small"
+            icon={closeButtonIcon ?? 'CrossedSmallOutline'}
+            {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
+            variant="tertiary"
+            focusVisibleStyle={undefined}
+            title={closeButtonTitle ?? defaultCloseButtonTitle}
+            m={-3}
+            testID="browser-bar-options"
+            onPress={onClose}
+          />
+        ) : null}
         {actionList ? (
           <ActionList
             title=""
@@ -444,12 +396,16 @@ export function DesktopTabItem(
       avatarSrc,
       label,
       tabBarLabelStyle,
+      leadingIconOpacity,
       showLeadingCloseButton,
       showTrailingCloseButton,
-      closeButtonElement,
+      closeButtonIcon,
+      closeButtonTitle,
+      defaultCloseButtonTitle,
       actionList,
       handleRenderItems,
       handleActionListOpenChange,
+      onClose,
       children,
     ],
   );
