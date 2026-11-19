@@ -81,6 +81,7 @@ import {
 import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
+  prepareHardwareCloudSyncMigrationSource,
   recoverHardwareCloudSyncMigration,
 } from './hardwareCloudSyncMigration';
 import {
@@ -1717,10 +1718,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
           targetCredentialId === device.credentialId &&
           device.source?.credentialId === device.credentialId
         ) {
-          const { items: migrationItems } =
-            await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(
-              { includeUnsupportedDataTypes: true },
-            );
+          const migrationItems = await prepareHardwareCloudSyncMigrationSource({
+            backgroundApi: this.backgroundApi,
+            sourcePwdHash: credential.pwdHash,
+            reconcile: true,
+          });
           this.assertUnknownSyncItemsCanMigrate(migrationItems, [
             credential.pwdHash,
           ]);
@@ -1751,7 +1753,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
             source: credential,
             target,
             isCurrent,
-            beforeFlush,
+            beforeFlush: async () => {
+              await prepareHardwareCloudSyncMigrationSource({
+                backgroundApi: this.backgroundApi,
+                sourcePwdHash: credential.pwdHash,
+              });
+              await beforeFlush();
+            },
             overwriteTargetSnapshot,
             savePending: async (pendingHardwareKeyMigration) => {
               migrationSource = await this.saveHardwareCredential({

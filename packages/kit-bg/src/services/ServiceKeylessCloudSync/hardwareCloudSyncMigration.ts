@@ -24,11 +24,55 @@ import {
 
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBCloudSyncItem } from '../../dbs/local/types';
 import type { AxiosInstance } from 'axios';
 
 type IMigration = NonNullable<
   IKeylessCloudSyncCredential['pendingHardwareKeyMigration']
 >;
+
+function hasPendingAccountDeletion(items: IDBCloudSyncItem[], pwdHash: string) {
+  return items.some(
+    (item) => item.pwdHash === pwdHash && !!item.pendingPublicAccountDeletionAt,
+  );
+}
+
+class PendingAccountDeletionError extends HardwareCloudSyncError {
+  constructor() {
+    super(
+      ETranslations.cloud_sync_data_changed_during_key_change__msg,
+      'Sync pending account deletions with the current Cloud key before switching wallets.',
+    );
+  }
+}
+
+export async function prepareHardwareCloudSyncMigrationSource({
+  backgroundApi,
+  sourcePwdHash,
+  reconcile = false,
+}: {
+  backgroundApi: IBackgroundApi;
+  sourcePwdHash: string;
+  reconcile?: boolean;
+}) {
+  const cloud = backgroundApi.servicePrimeCloudSync;
+  let { items } = await cloud.getAllLocalSyncItems({
+    includeUnsupportedDataTypes: true,
+  });
+  if (reconcile && hasPendingAccountDeletion(items, sourcePwdHash)) {
+    const synced = await cloud.startServerSyncFlow({
+      callerName: 'Sync account deletions before switching hardware wallets',
+      forceSync: true,
+    });
+    if (!synced) throw new PendingAccountDeletionError();
+    ({ items } = await cloud.getAllLocalSyncItems({
+      includeUnsupportedDataTypes: true,
+    }));
+  }
+  if (hasPendingAccountDeletion(items, sourcePwdHash))
+    throw new PendingAccountDeletionError();
+  return items;
+}
 
 function recordsHash(records: IServerSyncRecord[]) {
   const canonical = records
@@ -258,11 +302,18 @@ async function reencryptLocalItems(
   backgroundApi: IBackgroundApi,
   from: IKeylessCloudSyncCredential,
   to: IKeylessCloudSyncCredential,
+  { rollingBack = false }: { rollingBack?: boolean } = {},
 ) {
-  const { items } =
-    await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
-      includeUnsupportedDataTypes: true,
-    });
+  const items = rollingBack
+    ? (
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        })
+      ).items
+    : await prepareHardwareCloudSyncMigrationSource({
+        backgroundApi,
+        sourcePwdHash: from.pwdHash,
+      });
   const originals = items.filter(
     (item) =>
       item.pwdHash === from.pwdHash && !item.pendingPublicAccountDeletionAt,
@@ -279,6 +330,13 @@ async function reencryptLocalItems(
     updater: (record) => {
       const before = beforeById.get(record.id);
       const after = byId.get(record.id);
+      // The in-process lock does not cover a write from a different Web tab.
+      if (
+        !rollingBack &&
+        record.pwdHash === from.pwdHash &&
+        record.pendingPublicAccountDeletionAt
+      )
+        throw new PendingAccountDeletionError();
       if (
         before &&
         after &&
@@ -286,7 +344,11 @@ async function reencryptLocalItems(
         record.data === before.data &&
         record.rawData === before.rawData &&
         record.dataTime === before.dataTime &&
-        record.isDeleted === before.isDeleted
+        record.isDeleted === before.isDeleted &&
+        record.pendingPublicAccountDeletionAt ===
+          before.pendingPublicAccountDeletionAt &&
+        record.pendingPublicAccountDeletionHash ===
+          before.pendingPublicAccountDeletionHash
       ) {
         record.data = after.data;
         record.pwdHash = after.pwdHash;
@@ -294,6 +356,11 @@ async function reencryptLocalItems(
       return record;
     },
   });
+  if (!rollingBack)
+    await prepareHardwareCloudSyncMigrationSource({
+      backgroundApi,
+      sourcePwdHash: from.pwdHash,
+    });
 }
 
 // Recovery follows the persisted selection: before the selection write it
@@ -308,13 +375,7 @@ export async function recoverHardwareCloudSyncMigration(
     await keylessSyncCredentialStorage.getPendingHardwareKeyMigration();
   const pending = source?.pendingHardwareKeyMigration;
   if (!source || !pending || pending.phase !== 'committing') return;
-  if (selected === source.keylessWalletId) {
-    await reencryptLocalItems(backgroundApi, pending.target, source);
-    await keylessSyncCredentialStorage.saveCredential({
-      ...source,
-      pendingHardwareKeyMigration: { ...pending, phase: 'prepared' },
-    });
-  } else if (selected === pending.target.keylessWalletId) {
+  if (selected === pending.target.keylessWalletId) {
     // atomWithStorage updates memory before its storage write settles. Re-write
     // a fresh object durably before removing the old key and recovery journal.
     await primeCloudSyncPersistAtom.set((current) => {
@@ -325,9 +386,40 @@ export async function recoverHardwareCloudSyncMigration(
         throw new HardwareCloudSyncCancelledError();
       return { ...current };
     });
-    await reencryptLocalItems(backgroundApi, source, pending.target);
-    await keylessSyncCredentialStorage.saveCredential(pending.target);
+    try {
+      await reencryptLocalItems(backgroundApi, source, pending.target);
+      await keylessSyncCredentialStorage.saveCredential(pending.target);
+      return;
+    } catch (error) {
+      if (!(error instanceof PendingAccountDeletionError) || !source.source)
+        throw error;
+      const originalSource = source.source;
+      // Keep both keys until the source selection is durable again. A crash
+      // after this write resumes the ordinary rollback below.
+      await primeCloudSyncPersistAtom.set((current) => {
+        if (
+          current.hardwareCloudSyncKeySource?.credentialId !==
+          pending.target.keylessWalletId
+        )
+          throw new HardwareCloudSyncCancelledError();
+        return {
+          ...current,
+          hardwareCloudSyncKeySource: originalSource,
+          currentCloudSyncKeylessWalletId: source.keylessWalletId,
+        };
+      });
+    }
+  } else if (selected !== source.keylessWalletId) {
+    return;
   }
+
+  await reencryptLocalItems(backgroundApi, pending.target, source, {
+    rollingBack: true,
+  });
+  await keylessSyncCredentialStorage.saveCredential({
+    ...source,
+    pendingHardwareKeyMigration: { ...pending, phase: 'prepared' },
+  });
 }
 
 export async function commitHardwareCloudSyncMigration({
@@ -352,6 +444,10 @@ export async function commitHardwareCloudSyncMigration({
     pending.target.keylessWalletId !== target.keylessWalletId
   )
     throw new HardwareCloudSyncCancelledError();
+  await prepareHardwareCloudSyncMigrationSource({
+    backgroundApi,
+    sourcePwdHash: source.pwdHash,
+  });
   await keylessSyncCredentialStorage.saveCredential({
     ...source,
     pendingHardwareKeyMigration: { ...pending, target, phase: 'committing' },
