@@ -177,6 +177,9 @@ const LeverageContent = memo(
               gap="$4"
             >
               <PerpsSlider
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.perp_trading_adjust_leverage,
+                })}
                 value={value || 1}
                 onChange={handleSliderChange}
                 min={1}

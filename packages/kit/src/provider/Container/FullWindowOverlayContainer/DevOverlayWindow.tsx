@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { isObject } from 'lodash';
 import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
@@ -70,6 +70,35 @@ export function DevPerpsWebSocketUpdateView() {
         重置计数
       </Button>
     </YStack>
+  );
+}
+
+function DevOverlayTopPosition({
+  initialValue,
+  onChange,
+}: {
+  initialValue: number;
+  onChange: (value: number) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+
+  return (
+    <XStack gap="$2" alignItems="center">
+      <SizableText>TOP</SizableText>
+      <Stack flex={1}>
+        <SegmentSlider
+          aria-label="TOP"
+          value={value}
+          min={1}
+          max={100}
+          segments={0}
+          onChange={(next) => {
+            setValue(next);
+            onChange(next);
+          }}
+        />
+      </Stack>
+    </XStack>
   );
 }
 
@@ -169,20 +198,10 @@ function DevOverlayWindow() {
             </Button>
           </XStack>
 
-          <XStack gap="$2" alignItems="center">
-            <SizableText>TOP</SizableText>
-            <Stack flex={1}>
-              <SegmentSlider
-                value={positionInfo.top}
-                min={1}
-                max={100}
-                segments={0}
-                onChange={(v) => {
-                  updateTopPosition(v);
-                }}
-              />
-            </Stack>
-          </XStack>
+          <DevOverlayTopPosition
+            initialValue={positionInfo.top}
+            onChange={updateTopPosition}
+          />
 
           <XStack gap="$2" alignItems="center">
             <SizableText>ALIGN</SizableText>

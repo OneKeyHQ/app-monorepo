@@ -21,6 +21,7 @@ export interface IPerpsSliderProps {
   max?: number;
   segments?: number;
   disabled?: boolean;
+  accessibilityLabel?: string;
   sliderHeight?: number;
   showBubble?: boolean;
   step?: number;
@@ -37,6 +38,7 @@ function PerpsSliderComponent({
   max = 100,
   segments = 0,
   disabled = false,
+  accessibilityLabel,
   sliderHeight,
   showBubble = false,
   centerOrigin = false,
@@ -50,6 +52,7 @@ function PerpsSliderComponent({
       max={max}
       segments={segments}
       disabled={disabled}
+      aria-label={accessibilityLabel}
       sliderHeight={sliderHeight}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
