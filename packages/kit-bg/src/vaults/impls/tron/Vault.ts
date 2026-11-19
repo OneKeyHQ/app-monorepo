@@ -30,6 +30,7 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -62,6 +63,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import { EEarlierBroadcastAttempt } from '../../types';
 import { EErc20MethodSelectors } from '../evm/decoder/abi';
 
 import { KeyringExternal } from './KeyringExternal';
@@ -98,6 +100,27 @@ import type { Types } from 'tronweb';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+// What a TRON tx does, apart from when it was built: a rebuild keeps the
+// contract and only moves the ref block, the expiration and the timestamp.
+function getTronTxContract(
+  tx: Pick<IEncodedTxTron, 'raw_data'> | null | undefined,
+): string | undefined {
+  const contract = tx?.raw_data?.contract;
+  return contract?.length ? stringUtils.stableStringify(contract) : undefined;
+}
+
+// The contract of the payload that went on the wire, read from the payload
+// itself: a TRON rawTx is the signed tx as JSON.
+function getSignedTronTxContract(signedTx: ISignedTxPro): string | undefined {
+  try {
+    return getTronTxContract(
+      JSON.parse(signedTx.rawTx) as Pick<IEncodedTxTron, 'raw_data'> | null,
+    );
+  } catch {
+    return undefined;
+  }
+}
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.tron.hd;
@@ -1176,6 +1199,11 @@ export default class Vault extends VaultBase {
   // one, on a later ref block and expiration) would execute next to the
   // first, so it is not signed: the stored payload is sent again instead,
   // and the chain takes that one at most once (OK-67168).
+  // That stands only while the stored payload still does what the page
+  // shows. A tx edited since (an approve with another allowance) can be
+  // neither: signing it lets the earlier payload land next to it, and the
+  // stored payload would carry out what the user changed away from. The
+  // retry stops, and the record stays until the earlier attempt is settled.
   override async isUnsignedTxConflictingWithSignedTx({
     unsignedTx,
     signedTx,
@@ -1183,10 +1211,18 @@ export default class Vault extends VaultBase {
     unsignedTx: IUnsignedTxPro;
     signedTx: ISignedTxPro;
   }): Promise<boolean> {
-    const txid = (unsignedTx.encodedTx as IEncodedTxTron | null)?.txID;
-    return (
-      Boolean(txid) && txid?.toLowerCase() === signedTx.txid?.toLowerCase()
-    );
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxTron | null;
+    const txid = encodedTx?.txID;
+    if (Boolean(txid) && txid?.toLowerCase() === signedTx.txid?.toLowerCase()) {
+      return true;
+    }
+    const contract = getTronTxContract(encodedTx);
+    if (!contract || contract !== getSignedTronTxContract(signedTx)) {
+      throw new OneKeyLocalError(
+        'An earlier attempt of this transaction may still go through, and it differs from what is shown now. Check your transaction history before sending again.',
+      );
+    }
+    return false;
   }
 
   // Only the positive verdict is taken here. A lookup that cannot find the
@@ -1486,16 +1522,57 @@ export default class Vault extends VaultBase {
     return tx;
   }
 
+  // Whether no tx of the send that follows waits for energy from a new
+  // order (OK-67168). A tx signed as new does. One a node already took is
+  // only replayed, so a rental ordered now would pay for a tx that is never
+  // sent. One that left the device with no verdict is sent again as it was
+  // signed (`isUnsignedTxConflictingWithSignedTx`) and still needs energy:
+  // an earlier attempt's order covers it, and without one (the rental was
+  // switched on since) it is ordered now.
+  async _isRentalSettledByEarlierAttempts({
+    unsignedTxs,
+    signOnly,
+    beforeBroadcastAction,
+    wcPayPreBroadcastRecord,
+  }: IPreActionsBeforeSendingParams): Promise<boolean> {
+    if (!unsignedTxs.length) {
+      return false;
+    }
+    const { serviceSend, simpleDb } = this.backgroundApi;
+    for (const unsignedTx of unsignedTxs) {
+      const hasRentalOrder = unsignedTx.uuid
+        ? await simpleDb.chainResource.hasTronRentalOrder({
+            uuid: unsignedTx.uuid,
+          })
+        : false;
+      const attempt = await serviceSend.getEarlierBroadcastAttempt({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTx,
+        signOnly,
+        beforeBroadcastAction,
+        wcPayPreBroadcastRecord,
+        // With an order on record the answer is the same whether or not the
+        // payload landed, and a TRON lookup never rules a payload out
+        // (`checkSignedTxBroadcastStatus`), so the record on the device is
+        // enough and the send's own lookup stays the only request. Without
+        // one the chain decides whether an order is still worth paying for.
+        askChain: !hasRentalOrder,
+      });
+      const isSettled =
+        attempt === EEarlierBroadcastAttempt.OnNetwork ||
+        (attempt === EEarlierBroadcastAttempt.NoVerdict && hasRentalOrder);
+      if (!isSettled) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   override async preActionsBeforeSending(
     params: IPreActionsBeforeSendingParams & { feeInfo?: IFeeInfoUnit },
   ) {
-    const {
-      unsignedTxs,
-      tronResourceRentalInfo,
-      signOnly,
-      beforeBroadcastAction,
-      wcPayPreBroadcastRecord,
-    } = params;
+    const { unsignedTxs, tronResourceRentalInfo } = params;
 
     if (!tronResourceRentalInfo) {
       return;
@@ -1508,21 +1585,7 @@ export default class Vault extends VaultBase {
       return;
     }
 
-    // A retry that settles an earlier attempt puts no new tx on the wire:
-    // it replays that attempt or sends its payload again, as it was signed
-    // (`isUnsignedTxConflictingWithSignedTx`). A rental ordered now would
-    // be paid for a tx that is never sent, on top of the one the earlier
-    // attempt may have ordered (OK-67168).
-    if (
-      await this.backgroundApi.serviceSend.hasEarlierBroadcastAttempt({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        unsignedTxs,
-        signOnly,
-        beforeBroadcastAction,
-        wcPayPreBroadcastRecord,
-      })
-    ) {
+    if (await this._isRentalSettledByEarlierAttempts(params)) {
       return;
     }
 
@@ -1540,6 +1603,16 @@ export default class Vault extends VaultBase {
       orderId: rentalOrder.orderId,
       signedTx: signedRentalTx,
     });
+
+    // The order is paid for from here on. A failure to note it must not
+    // stop the send it was paid for; a retry would then order once more.
+    try {
+      await this.backgroundApi.simpleDb.chainResource.addTronRentalOrders({
+        uuids: unsignedTxs.flatMap(({ uuid }) => (uuid ? [uuid] : [])),
+      });
+    } catch (error) {
+      console.error('addTronRentalOrders ERROR:', error);
+    }
 
     return {
       preSendTx: {

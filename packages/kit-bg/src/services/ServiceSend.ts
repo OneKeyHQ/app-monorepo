@@ -104,7 +104,10 @@ import type {
 
 import { vaultFactory } from '../vaults/factory';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
-import { ESignedTxBroadcastStatus } from '../vaults/types';
+import {
+  EEarlierBroadcastAttempt,
+  ESignedTxBroadcastStatus,
+} from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -784,41 +787,48 @@ class ServiceSend extends ServiceBase {
   }
 
   // For a step that runs before the send and pays for the tx signed next
-  // (TRON rents energy for it, OK-67168): whether the send that follows
-  // settles one of these txs against an earlier attempt instead of taking
-  // it as new. A payload a node took is replayed in every flow; one that
+  // (TRON rents energy for it, OK-67168): what the send that follows does
+  // with this tx. A payload a node took is replayed in every flow; one that
   // left the device with no verdict is judged against the stored payload
-  // (`takeSignedTxToRebroadcast`) unless the flow keeps signing again. The
-  // chain is asked the way the send asks it, so a lookup error propagates
-  // here as well. Not a background method: the caller is a vault.
-  async hasEarlierBroadcastAttempt(
+  // (`takeSignedTxToRebroadcast`) unless the flow keeps signing again.
+  // `askChain` asks the chain the way the send asks it, so a lookup error
+  // propagates here as well. Without it the record is read as the device
+  // has it, at no request: enough for a caller whose answer is the same
+  // whether or not the payload landed, on a chain whose lookup never rules
+  // a payload out. Not a background method: the caller is a vault.
+  async getEarlierBroadcastAttempt(
     params: ISendTxBaseParams &
       Pick<
         IBatchSignTransactionParamsBase,
-        | 'unsignedTxs'
         | 'signOnly'
         | 'beforeBroadcastAction'
         | 'wcPayPreBroadcastRecord'
         | 'replaceTxInfo'
-      >,
-  ): Promise<boolean> {
-    const { accountId, networkId, unsignedTxs, signOnly } = params;
-    if (signOnly) {
-      return false;
+      > & {
+        unsignedTx: IUnsignedTxPro;
+        askChain: boolean;
+      },
+  ): Promise<EEarlierBroadcastAttempt> {
+    const { accountId, networkId, unsignedTx, signOnly, askChain } = params;
+    const { uuid } = unsignedTx;
+    if (signOnly || !uuid) {
+      return EEarlierBroadcastAttempt.None;
     }
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    for (const { uuid } of unsignedTxs) {
-      const record = uuid
-        ? await this.resolveBroadcastRecord({ uuid, vault })
-        : undefined;
-      if (
-        record &&
-        (record.isBroadcast || canRebroadcastStoredPayload(params))
-      ) {
-        return true;
-      }
+    const record = askChain
+      ? await this.resolveBroadcastRecord({
+          uuid,
+          vault: await vaultFactory.getVault({ networkId, accountId }),
+        })
+      : await this.broadcastRecords.getRecord(uuid);
+    if (!record) {
+      return EEarlierBroadcastAttempt.None;
     }
-    return false;
+    if (record.isBroadcast) {
+      return EEarlierBroadcastAttempt.OnNetwork;
+    }
+    return canRebroadcastStoredPayload(params)
+      ? EEarlierBroadcastAttempt.NoVerdict
+      : EEarlierBroadcastAttempt.None;
   }
 
   @backgroundMethod()

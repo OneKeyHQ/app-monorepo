@@ -102,6 +102,20 @@ export enum ESignedTxBroadcastStatus {
   Unknown = 'unknown',
 }
 
+// What a send does with a tx, given an earlier attempt under its uuid. For
+// a step that runs before the send and pays for the tx signed next (TRON
+// rents energy for it, OK-67168).
+export enum EEarlierBroadcastAttempt {
+  // A new tx is signed: nothing is on record, the request is sign-only, or
+  // the flow keeps signing again on a retry.
+  None = 'none',
+  // A node took the tx: its signed result is replayed and nothing is sent.
+  OnNetwork = 'onNetwork',
+  // The payload left the device with no verdict: it is sent again, or the
+  // very tx that was signed is signed again.
+  NoVerdict = 'noVerdict',
+}
+
 export enum EVaultKeyringTypes {
   hd = 'hd',
   qr = 'qr',

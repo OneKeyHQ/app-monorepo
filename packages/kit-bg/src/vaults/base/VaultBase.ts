@@ -558,6 +558,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // is sent again, because a tx built on fresh inputs or a fresh nonce pays
   // a second time when the first one did land (OK-67090). The default keeps
   // the earlier retry behavior of chains that have no such proof.
+  // An override throws when neither holds: the tx no longer matches the
+  // stored payload, so sending that again would not do what the caller
+  // shows, and signing it could execute next to the earlier one. The retry
+  // then stops and the record is kept.
   async isUnsignedTxConflictingWithSignedTx(_params: {
     unsignedTx: IUnsignedTxPro;
     signedTx: ISignedTxPro;
