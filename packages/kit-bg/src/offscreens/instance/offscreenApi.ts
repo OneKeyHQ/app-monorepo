@@ -52,7 +52,7 @@ const createOffscreenApiModule = memoizee(
         if (!HardwareLowLevelSDK) {
           // The direct SDK owns Core and its transport outside the service worker.
           HardwareLowLevelSDK = (
-            await import('@onekeyfe/hd-common-connect-sdk')
+            await import('@onekeyfe/hd-common-connect-sdk-extension')
           ).HardwareSDKLowLevel;
           registerHardwareGlobalEventListener(HardwareLowLevelSDK);
         }

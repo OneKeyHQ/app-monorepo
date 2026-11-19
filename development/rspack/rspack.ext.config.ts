@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { createRequire } from 'node:module';
 import path from 'path';
 
 import { rspack } from '@rspack/core';
@@ -25,6 +26,24 @@ import type {
 } from '@rspack/core';
 
 const platform = 'ext';
+
+// Yarn may install the extension SDK's transitive packages at several paths.
+// Use one physical module per SDK entry within each extension compiler.
+const requireExtensionSDK = createRequire(
+  require.resolve('@onekeyfe/hd-common-connect-sdk-extension/package.json'),
+);
+const hardwareSDKAliases = Object.fromEntries(
+  [
+    '@onekeyfe/hd-core',
+    '@onekeyfe/hd-shared',
+    '@onekeyfe/hd-transport',
+    '@onekeyfe/hd-transport-emulator',
+    '@onekeyfe/hd-transport-http',
+    '@onekeyfe/hd-transport-lowlevel',
+    '@onekeyfe/hd-transport-usb',
+    '@onekeyfe/hd-transport-web-device',
+  ].map((name) => [`${name}$`, requireExtensionSDK.resolve(name)]),
+);
 
 const compilerNames = {
   pages: 'pages',
@@ -306,6 +325,19 @@ function createCompilerConfig({
     baseConfig,
     environmentConfig,
     createOutputConfig({ basePath, compilerName }),
+    {
+      resolve: { alias: hardwareSDKAliases },
+      module: {
+        rules: [
+          {
+            test: (resource) =>
+              resource === hardwareSDKAliases['@onekeyfe/hd-transport$'],
+            enforce: 'pre',
+            loader: path.join(__dirname, 'static-protobuf-compat-loader.cjs'),
+          },
+        ],
+      },
+    },
   );
   config.name = compilerName;
   config.entry = entry;

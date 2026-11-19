@@ -12,7 +12,7 @@ jest.mock('@onekeyfe/hd-web-sdk', () => {
   throw new OneKeyLocalError('Extension hardware must not load the iframe SDK');
 });
 
-jest.mock('@onekeyfe/hd-common-connect-sdk', () => {
+jest.mock('@onekeyfe/hd-common-connect-sdk-extension', () => {
   throw new OneKeyLocalError(
     'The service worker must not load the local hardware Core',
   );

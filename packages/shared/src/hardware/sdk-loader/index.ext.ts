@@ -10,9 +10,9 @@ import type {
 export const probeUsbDeviceIdentities = async (params: {
   commType: UsbDeviceIdentity['commType'];
 }): Promise<UsbDeviceIdentity[]> =>
-  (await import('@onekeyfe/hd-common-connect-sdk')).probeUsbDeviceIdentities(
-    params,
-  );
+  (
+    await import('@onekeyfe/hd-common-connect-sdk-extension')
+  ).probeUsbDeviceIdentities(params);
 
 // Extension UI only grants USB access. The background loader owns the RPC facade.
 export const importHardwareSDK = async (_params: {
