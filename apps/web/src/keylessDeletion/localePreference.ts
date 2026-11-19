@@ -12,8 +12,10 @@ import {
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale/localeOptions';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 const settingsKey = buildJotaiStorageKey(EAtomNames.settingsPersistAtom);
+export const OPTIONAL_SETTINGS_TIMEOUT_MS = 1000;
 
 async function readAppSettings() {
   return (await onekeyJotaiStorage.getItem(
@@ -35,13 +37,12 @@ export function resolveLocale(preference: ILocaleSymbol) {
 }
 
 export async function readLocalePreference(): Promise<ILocaleSymbol> {
-  const settings = await readAppSettings().catch(() => undefined);
+  const settings = await createTimeoutPromise({
+    asyncFunc: () => readAppSettings().catch(() => undefined),
+    timeout: OPTIONAL_SETTINGS_TIMEOUT_MS,
+    timeoutResult: undefined,
+  });
   return getPreferredLocale(settings?.locale);
-}
-
-export async function saveLocalePreference(locale: ILocaleSymbol) {
-  const settings = await readAppSettings();
-  await onekeyJotaiStorage.setItem(settingsKey, { ...settings, locale });
 }
 
 export async function loadStartupRetryLabel() {

@@ -3,8 +3,7 @@ import {
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 
-export const KEYLESS_DELETION_PATH = '/keyless-deletion';
-export const KEYLESS_OAUTH_MARKER = 'onekey_keyless_deletion';
+import { getKeylessRouteKind } from './paths';
 
 export function getKeylessSite(url: URL) {
   if (url.origin === WEB_APP_URL) return 'prod';
@@ -32,17 +31,14 @@ function readInvitation(url: URL) {
 }
 
 export function getKeylessEntry(url: URL) {
-  const path = url.pathname.replace(/\/$/, '');
-  if (path === KEYLESS_DELETION_PATH) {
+  const kind = getKeylessRouteKind(url);
+  if (kind === 'invitation') {
     return {
       kind: 'invitation',
       invitationToken: readInvitation(url),
     } as const;
   }
-  if (
-    path === '/oauth_callback_web' &&
-    url.searchParams.get(KEYLESS_OAUTH_MARKER) === '1'
-  ) {
+  if (kind === 'callback') {
     return { kind: 'callback' } as const;
   }
   return undefined;

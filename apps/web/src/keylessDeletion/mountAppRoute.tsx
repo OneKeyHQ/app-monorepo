@@ -35,19 +35,21 @@ import { ETranslations, type ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import { THEME_PRELOAD_STORAGE_KEY } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { exchangeOAuthAccessToken } from './authentication';
 import { createDeletionTransport } from './connection';
 import { DeletionPage } from './DeletionPage';
-import { KEYLESS_OAUTH_MARKER, getKeylessEntry } from './entry';
+import { getKeylessEntry, getKeylessSite } from './entry';
 import {
+  OPTIONAL_SETTINGS_TIMEOUT_MS,
   getPreferredLocale,
   readLocalePreference,
   resolveLocale,
-  saveLocalePreference,
 } from './localePreference';
 import { messages } from './messages';
 import { resetOnHistoryRestore } from './pageLifecycle';
+import { KEYLESS_OAUTH_MARKER } from './paths';
 import './styles.css';
 
 import type { IBusinessAuth } from './useDeletionFlow';
@@ -286,11 +288,6 @@ function LocalizedInvite({
     save.current = save.current
       .then(async () => {
         await loadLocaleMessages(resolveLocale(locale));
-        try {
-          await saveLocalePreference(locale);
-        } catch {
-          // The active language can still change when browser storage is unavailable.
-        }
         setPreference(locale);
       })
       .catch(() => {
@@ -310,16 +307,23 @@ function LocalizedInvite({
   );
 }
 
-export async function mount(container: HTMLElement, invitationToken: string) {
+export async function mount(container: HTMLElement) {
   const page = new URL(globalThis.location.href);
   const defaults = { enabled: true, settings: { enableTestEndpoint: true } };
   const [devSettings, initialPreference] = await Promise.all([
-    onekeyJotaiStorage
-      .getItem(
-        buildJotaiStorageKey(EAtomNames.devSettingsPersistAtom),
-        defaults,
-      )
-      .catch(() => defaults),
+    getKeylessSite(page) === 'local'
+      ? createTimeoutPromise({
+          asyncFunc: () =>
+            onekeyJotaiStorage
+              .getItem(
+                buildJotaiStorageKey(EAtomNames.devSettingsPersistAtom),
+                defaults,
+              )
+              .catch(() => defaults),
+          timeout: OPTIONAL_SETTINGS_TIMEOUT_MS,
+          timeoutResult: defaults,
+        })
+      : defaults,
     readLocalePreference(),
   ]);
   const connection = createDeletionTransport(page, {
@@ -344,12 +348,12 @@ export async function mount(container: HTMLElement, invitationToken: string) {
       />,
     );
   };
-  render(invitationToken);
   const onHashChange = () => {
     const entry = getKeylessEntry(new URL(globalThis.location.href));
     if (entry?.kind === 'invitation') render(entry.invitationToken);
   };
   globalThis.addEventListener('hashchange', onHashChange);
+  onHashChange();
   globalThis.addEventListener(
     'pagehide',
     () => globalThis.removeEventListener('hashchange', onHashChange),

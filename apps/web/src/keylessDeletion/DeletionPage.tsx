@@ -72,6 +72,7 @@ const errorMessages: Partial<Record<IFlowErrorCode, ITextKey>> = {
   IDENTITY_MISMATCH: 'wrongAccount',
   OTP_EXPIRED: 'expiredCode',
   OTP_SEND_UNCERTAIN: 'uncertainCode',
+  OTP_SEND_RATE_LIMITED: 'rateLimited',
   RATE_LIMITED: 'rateLimited',
   AUTH_EXPIRED: 'reverify',
   AUTH_INVALID: 'reverify',
@@ -110,14 +111,15 @@ function Action({
 
 function SendCode({ flow }: { flow: IFlow }) {
   const intl = useIntl();
-  const { screen, busy, error } = flow;
-  const resendAt = screen.step === 'confirm' ? screen.resendAt : 0;
-  const { seconds, disabled, visible } = useOtpResend({
-    deadline: Math.max(resendAt, error?.retryAt ?? 0),
+  const { screen, busy } = flow;
+  const visible = screen.step === 'email' || screen.step === 'confirm';
+  const resend = useOtpResend({
+    deadline: visible ? (screen.resendAt ?? 0) : 0,
     busy,
-    visible: screen.step === 'email' || screen.step === 'confirm',
+    visible,
   });
-  if (!visible) return null;
+  if (!resend.visible) return null;
+  const { seconds, disabled } = resend;
 
   let label = intl.formatMessage({ id: ETranslations.prime_code_resend });
   if (seconds > 0) {
@@ -153,8 +155,8 @@ function ConfirmStep({
 }) {
   const intl = useIntl();
   const { screen, busy, error } = flow;
-  const cooldown = useCountdown(error?.retryAt ?? 0);
   const review = screen.step === 'confirm' ? screen : undefined;
+  const cooldown = useCountdown(review?.deleteRetryAt ?? 0);
   const challenge = review?.challenge;
   const challengeId = challenge?.challengeId;
   const [codeInputState, setCodeInputState] = useState({

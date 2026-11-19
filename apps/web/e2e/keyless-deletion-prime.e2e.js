@@ -51,6 +51,8 @@ async function main() {
         linkOnly = false,
         viewport,
         recoveryProofs = [],
+        prepare,
+        alternateInvitation,
       },
       run,
     ) => {
@@ -70,6 +72,7 @@ async function main() {
       page.on('pageerror', (error) => errors.push(error.message));
       let currentVersion = version;
       let currentProof = oauthProof;
+      let currentInvitation = token;
       const cors = {
         'access-control-allow-origin': appOrigin,
         'access-control-allow-headers':
@@ -85,7 +88,15 @@ async function main() {
             unexpected.push('Unexpected App request');
             return route.abort();
           }
-          if (loopback) return route.continue();
+          if (loopback) {
+            if (alternateInvitation && url.pathname.includes('mountAppRoute')) {
+              currentInvitation = alternateInvitation;
+              await page.evaluate((invitation) => {
+                location.hash = `invitationToken=${encodeURIComponent(invitation)}`;
+              }, currentInvitation);
+            }
+            return route.continue();
+          }
           // Serve the worktree bundle in an isolated Chrome context.
           try {
             const served = await route.fetch({
@@ -166,11 +177,11 @@ async function main() {
           assert.equal(headers.cookie, undefined);
           assert.equal(headers.authorization, undefined);
           if (endpoint === '/link-info') {
-            assert.deepEqual(body, { invitationToken: token });
+            assert.deepEqual(body, { invitationToken: currentInvitation });
           } else if (endpoint === '/delete') {
             assert.ok(key);
             assert.deepEqual(body, {
-              invitationToken: token,
+              invitationToken: currentInvitation,
               provider,
               supabaseAccessToken: currentProof,
               challengeId: 'fixture-challenge',
@@ -180,7 +191,7 @@ async function main() {
             });
           } else {
             assert.deepEqual(body, {
-              invitationToken: token,
+              invitationToken: currentInvitation,
               provider,
               supabaseAccessToken: currentProof,
             });
@@ -251,10 +262,12 @@ async function main() {
         assert.ok(await id('submit-deletion').isEnabled());
       };
       try {
+        await prepare?.(page);
         const invitationUrl = `${appOrigin}/keyless-deletion#invitationToken=${encodeURIComponent(token)}`;
         await page.goto(invitationUrl);
         await id('app-keyless-deletion').waitFor();
-        assert.equal(page.url(), invitationUrl);
+        const expectedUrl = `${appOrigin}/keyless-deletion#invitationToken=${encodeURIComponent(alternateInvitation ?? token)}`;
+        assert.equal(page.url(), expectedUrl);
         assert.equal(await id('app-environment-picker').count(), 0);
         assert.equal(await id('keyless-language-button').count(), 1);
         if (!linkOnly) {
@@ -336,6 +349,42 @@ async function main() {
         }
         await step('identity');
         assert.equal(await loading.count(), 0);
+        assert.deepEqual(calls(), ['/link-info']);
+      },
+    );
+    for (const mode of ['reject', 'hang']) {
+      await scenario(
+        `invitation loading continues when wallet IndexedDB reads ${mode}`,
+        {
+          appOrigin: local,
+          linkOnly: true,
+          prepare: (page) =>
+            page.addInitScript((behavior) => {
+              const open = IDBFactory.prototype.open;
+              IDBFactory.prototype.open = function openDatabase(name, ...args) {
+                if (name !== 'OneKeyGlobalStates')
+                  return open.call(this, name, ...args);
+                if (behavior === 'reject')
+                  throw new DOMException('Unavailable', 'SecurityError');
+                return new EventTarget();
+              };
+            }, mode),
+        },
+        async ({ step, calls }) => {
+          await step('identity');
+          assert.deepEqual(calls(), ['/link-info']);
+        },
+      );
+    }
+    await scenario(
+      'changing the invitation before the route loads reads only the new fragment',
+      {
+        appOrigin: local,
+        linkOnly: true,
+        alternateInvitation: 'fixture-new-invitation',
+      },
+      async ({ step, calls }) => {
+        await step('identity');
         assert.deepEqual(calls(), ['/link-info']);
       },
     );
@@ -435,6 +484,92 @@ async function main() {
           calls().filter((endpoint) => endpoint === '/otp/send').length,
           1,
         );
+      },
+    );
+    await scenario(
+      'a rate-limited resend leaves the active OTP and confirmation usable',
+      {
+        reply: (endpoint, calls) => {
+          if (endpoint !== '/otp/send') return undefined;
+          if (calls.filter((call) => call.endpoint === endpoint).length === 1) {
+            return {
+              json: success({
+                challengeId: 'fixture-challenge',
+                maskedEmail: 'd***@example.invalid',
+                expiresAt: '2030-01-01T00:10:00Z',
+                resendAfterSeconds: 0,
+                serverTime: time,
+              }),
+            };
+          }
+          return {
+            json: { code: 90_906, message: '稍后重发。', retryAfterSec: 60 },
+          };
+        },
+      },
+      async ({ page, id, verify, calls }) => {
+        await verify();
+        await id('send-code').click();
+        await id('flow-error').getByText('稍后重发。').waitFor();
+        assert.ok(await id('send-code').isDisabled());
+        assert.equal(await id('deletion-code').inputValue(), '01234567');
+        assert.ok(await id('acknowledge').isChecked());
+        assert.ok(await id('acknowledge-new-wallet').isChecked());
+        assert.ok(await id('submit-deletion').isEnabled());
+        await id('submit-deletion').click();
+        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        assert.deepEqual(calls().slice(-3), [
+          '/otp/send',
+          '/otp/send',
+          '/delete',
+        ]);
+      },
+    );
+    await scenario(
+      'resending an OTP does not clear the deletion rate limit',
+      {
+        reply: (endpoint, calls) => {
+          if (endpoint === '/delete') {
+            return {
+              json: { code: 90_906, message: '稍后删除。', retryAfterSec: 60 },
+            };
+          }
+          if (endpoint === '/otp/send') {
+            const first =
+              calls.filter((call) => call.endpoint === endpoint).length === 1;
+            return {
+              json: success({
+                challengeId: first
+                  ? 'fixture-challenge'
+                  : 'fixture-new-challenge',
+                maskedEmail: 'd***@example.invalid',
+                expiresAt: '2030-01-01T00:10:00Z',
+                resendAfterSeconds: first ? 0 : 30,
+                serverTime: time,
+              }),
+            };
+          }
+          return undefined;
+        },
+      },
+      async ({ id, verify, calls }) => {
+        await verify();
+        await id('submit-deletion').click();
+        await id('flow-error').getByText('稍后删除。').waitFor();
+        assert.ok(await id('submit-deletion').isDisabled());
+        await id('send-code').click();
+        await id('flow-error').waitFor({ state: 'hidden' });
+        assert.ok(await id('send-code').isDisabled());
+        assert.equal(await id('deletion-code').inputValue(), '');
+        await id('deletion-code').fill('01234567');
+        await id('acknowledge').check();
+        await id('acknowledge-new-wallet').check();
+        assert.ok(await id('submit-deletion').isDisabled());
+        assert.deepEqual(calls().slice(-3), [
+          '/otp/send',
+          '/delete',
+          '/otp/send',
+        ]);
       },
     );
     await scenario(
@@ -602,6 +737,51 @@ async function main() {
       },
     );
     await scenario(
+      'result connection failure is shown inline without losing the known processing state',
+      {
+        reply: (endpoint, calls) => {
+          if (endpoint === '/delete') return 'disconnect';
+          if (endpoint === '/result') {
+            const reads = calls.filter(
+              (call) => call.endpoint === endpoint,
+            ).length;
+            if (reads === 1)
+              return {
+                json: success({
+                  status: 'processing',
+                  resultId: receipt.resultId,
+                  supportReference: reference,
+                  retryAfterSeconds: 0,
+                }),
+              };
+            if (reads === 2) return 'disconnect';
+          }
+          return undefined;
+        },
+      },
+      async ({ page, id, verify, calls }) => {
+        await verify();
+        await id('submit-deletion').click();
+        const processing = page.getByRole('heading', { name: '处理中' });
+        await processing.waitFor();
+        await id('check-status').click();
+        await id('flow-error')
+          .getByText('暂时无法查询处理状态，请稍后再查。')
+          .waitFor();
+        assert.ok(await processing.isVisible());
+        assert.equal(await id('support-reference').textContent(), reference);
+        assert.equal(await id('retry-original').count(), 0);
+        await id('check-status').click();
+        await page.getByRole('heading', { name: '删除完成' }).waitFor();
+        assert.deepEqual(calls().slice(-4), [
+          '/delete',
+          '/result',
+          '/result',
+          '/result',
+        ]);
+      },
+    );
+    await scenario(
       'HTTP 200 manual review displays the server reference and stops duplicate deletion',
       {
         reply: (endpoint) =>
@@ -630,6 +810,16 @@ async function main() {
         appOrigin: local,
         refreshTest: true,
         viewport: { width: 320, height: 650 },
+        prepare: (page) =>
+          page.addInitScript(() => {
+            const put = IDBObjectStore.prototype.put;
+            globalThis.walletSettingsWrites = 0;
+            IDBObjectStore.prototype.put = function putEntry(value, key) {
+              if (key === 'g_states_v5:settingsPersistAtom')
+                globalThis.walletSettingsWrites += 1;
+              return put.call(this, value, key);
+            };
+          }),
       },
       async ({ page, id, verify, calls }) => {
         await verify();
@@ -680,6 +870,10 @@ async function main() {
         assert.equal(page.url(), initialUrl);
         assert.deepEqual(calls(), beforeSwitch);
         assert.equal(await page.locator('html').getAttribute('lang'), 'ja-JP');
+        assert.equal(
+          await page.evaluate(() => globalThis.walletSettingsWrites),
+          0,
+        );
         await id('submit-deletion').click();
         await page.getByRole('heading', { name: '删除完成' }).waitFor();
         await id('keyless-language-button').click();
@@ -706,7 +900,7 @@ async function main() {
           await id('app-open-invitation').waitFor();
         }
         assert.deepEqual(calls(), [...beforeSwitch, '/delete']);
-        assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+        assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
       },
     );
     await scenario(

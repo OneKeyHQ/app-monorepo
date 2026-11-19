@@ -41,7 +41,7 @@ if (!keylessEntry) {
         'width=device-width, initial-scale=1, viewport-fit=cover',
       );
     void import('./src/keylessDeletion/mountAppRoute')
-      .then(({ mount }) => mount(root, keylessEntry.invitationToken))
+      .then(({ mount }) => mount(root))
       .catch(() => showKeylessLoadError(root));
   }
 }

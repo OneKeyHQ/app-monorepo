@@ -35,6 +35,8 @@ export type IBusinessAuth = {
 type ILink = { info: ILinkInfo };
 type IEmail = ILink & {
   proof: IProof;
+  resendAt?: number;
+  deleteRetryAt?: number;
   confirmationUpdated?: boolean;
   confirmationReset?: number;
   key?: string;
@@ -44,6 +46,9 @@ type IReview = IEmail & {
   resendAt: number;
   challengeExpiresAt: number;
 };
+type IOtpScreen =
+  | ({ step: 'email' } & IEmail)
+  | ({ step: 'confirm' } & IReview);
 type IAttempt = {
   body: Omit<IDeleteRequest, keyof IProof>;
   key: string;
@@ -81,14 +86,14 @@ type IScreen =
         | 'rejected';
     }
   | ({ step: 'identity' } & ILink)
-  | ({ step: 'email' } & IEmail)
-  | ({ step: 'confirm' } & IReview)
+  | IOtpScreen
   | IResultScreen;
 
 export type IFlowErrorCode =
   | IErrorCode
   | 'UNKNOWN'
   | 'UNSUPPORTED_CONFIRMATION'
+  | 'OTP_SEND_RATE_LIMITED'
   | 'OTP_SEND_UNCERTAIN';
 
 type IFlowError = {
@@ -328,7 +333,7 @@ export function useDeletionFlow(
         return;
       }
       const email = { step: 'email', info, proof } as const;
-      await requestOtp(client, email, isCurrent, true);
+      await requestOtp(client, email, isCurrent);
     });
   }
 
@@ -365,10 +370,28 @@ export function useDeletionFlow(
 
   async function requestOtp(
     client: IDeletionClient,
-    email: { step: 'email' } & IEmail,
+    previous: IOtpScreen,
     isCurrent: () => boolean,
-    fromSignIn = false,
   ) {
+    const {
+      info,
+      proof,
+      key,
+      confirmationUpdated,
+      confirmationReset,
+      resendAt,
+      deleteRetryAt,
+    } = previous;
+    const email = {
+      step: 'email',
+      info,
+      proof,
+      key,
+      confirmationUpdated,
+      confirmationReset,
+      resendAt,
+      deleteRetryAt,
+    } as const;
     let challenge: IActiveChallenge;
     let resendAfterSeconds: number;
     try {
@@ -391,7 +414,11 @@ export function useDeletionFlow(
         !(cause instanceof DeletionError) ||
         cause.response.code === 'SERVICE_UNAVAILABLE'
       ) {
-        setScreen(email);
+        const seconds =
+          cause instanceof DeletionError
+            ? (cause.response.retryAfterSeconds ?? OTP_RESEND_SECONDS)
+            : OTP_RESEND_SECONDS;
+        setScreen({ ...email, resendAt: otpCooldownDeadline(seconds) });
         showError(cause, 'OTP_SEND_UNCERTAIN', OTP_RESEND_SECONDS);
         return;
       }
@@ -400,7 +427,20 @@ export function useDeletionFlow(
         showError(cause);
         return;
       }
-      if (fromSignIn || cause.response.code === 'RATE_LIMITED') {
+      if (cause.response.code === 'RATE_LIMITED') {
+        const active =
+          previous.step === 'confirm' &&
+          globalThis.performance.now() < previous.challengeExpiresAt;
+        setScreen({
+          ...(active ? previous : email),
+          resendAt: otpCooldownDeadline(
+            cause.response.retryAfterSeconds ?? OTP_RESEND_SECONDS,
+          ),
+        });
+        showError(cause, 'OTP_SEND_RATE_LIMITED');
+        return;
+      }
+      if (previous.step === 'email') {
         setScreen(email);
       }
       handleError(cause);
@@ -427,28 +467,11 @@ export function useDeletionFlow(
     ) {
       return;
     }
-    const { info, proof, key, confirmationUpdated, confirmationReset } = screen;
-    const resendAt = screen.step === 'confirm' ? screen.resendAt : 0;
-    if (
-      globalThis.performance.now() < Math.max(resendAt, error?.retryAt ?? 0)
-    ) {
+    if (globalThis.performance.now() < (screen.resendAt ?? 0)) {
       return;
     }
     const { client } = channel.current;
-    run((isCurrent) =>
-      requestOtp(
-        client,
-        {
-          step: 'email',
-          info,
-          proof,
-          key,
-          confirmationUpdated,
-          confirmationReset,
-        },
-        isCurrent,
-      ),
-    );
+    run((isCurrent) => requestOtp(client, screen, isCurrent));
   }
 
   async function loadResult(
@@ -525,7 +548,10 @@ export function useDeletionFlow(
               : previous.proof,
           canRetry: false,
         });
-        showError(cause);
+        const transportFailed =
+          cause instanceof TypeError ||
+          (cause instanceof DOMException && cause.name === 'TimeoutError');
+        showError(cause, transportFailed ? 'SERVICE_UNAVAILABLE' : undefined);
       }
     }
   }
@@ -574,6 +600,12 @@ export function useDeletionFlow(
             step: 'confirm',
             proof,
             key: attempt.key,
+            deleteRetryAt:
+              code === 'RATE_LIMITED'
+                ? otpCooldownDeadline(
+                    response?.retryAfterSeconds ?? OTP_RESEND_SECONDS,
+                  )
+                : attempt.review.deleteRetryAt,
           });
           showError(cause);
           return;
@@ -640,6 +672,7 @@ export function useDeletionFlow(
       screen.step !== 'confirm' ||
       !code ||
       !matchesWarnings(acknowledgements, screen.info.warningCodes) ||
+      globalThis.performance.now() < (screen.deleteRetryAt ?? 0) ||
       globalThis.performance.now() >= screen.challengeExpiresAt
     ) {
       return;
