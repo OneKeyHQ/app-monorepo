@@ -127,20 +127,26 @@ export function TokenList({
             });
 
           const swapTokenDetail = details?.[0];
+          const balance = swapTokenDetail?.balanceParsed ?? '0';
+          const balanceMultiplier =
+            swapTokenDetail?.balanceMultiplier ?? token.balanceMultiplier;
           const priceBN = new BigNumber(swapTokenDetail?.price || 0);
-          const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
+          const displayBalance = getSwapDisplayAmount(
+            balance,
+            balanceMultiplier,
+          );
+          const fiatValue = priceBN.multipliedBy(displayBalance ?? 'NaN');
           const valueProps =
-            swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
+            priceBN.gt(0) && fiatValue.isFinite()
               ? {
-                  value: priceBN.multipliedBy(balanceBN).toFixed(2),
+                  value: fiatValue.toFixed(2),
                   currency: currencySymbol,
                 }
               : undefined;
           return {
             ...token,
-            balance: swapTokenDetail?.balanceParsed ?? '0',
-            balanceMultiplier:
-              swapTokenDetail?.balanceMultiplier ?? token.balanceMultiplier,
+            balance,
+            balanceMultiplier,
             price: swapTokenDetail?.price,
             valueProps,
           };

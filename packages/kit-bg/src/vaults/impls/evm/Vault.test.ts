@@ -1,6 +1,7 @@
 import { ethers } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineConsts';
 import { JsonRPCResponseError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -34,6 +35,107 @@ const baseEncodedTx: IEncodedTxEvm = {
   value: '0x0',
   data: '0x',
 };
+
+describe('EvmVault Swap approval confirmation', () => {
+  const owner = '0x1111111111111111111111111111111111111111';
+  const spender = '0x3333333333333333333333333333333333333333';
+  const token = {
+    address: baseEncodedTx.to,
+    name: 'Test token',
+    symbol: 'TEST',
+    networkId: presetNetworksMap.base.id,
+    decimals: 2,
+    isNative: false,
+  };
+  const quoteApproval = {
+    owner,
+    spender,
+    amount: '2',
+    tokenInfo: { ...token, balanceMultiplier: '2' },
+  };
+
+  it.each<{
+    label: string;
+    isInternalSwap: boolean;
+    overrides: Partial<typeof quoteApproval>;
+    expected: string;
+  }>([
+    {
+      label: 'matching Swap',
+      isInternalSwap: true,
+      overrides: {},
+      expected: '4',
+    },
+    {
+      label: 'different owner',
+      isInternalSwap: true,
+      overrides: { owner: spender },
+      expected: '6',
+    },
+    {
+      label: 'different spender',
+      isInternalSwap: true,
+      overrides: { spender: owner },
+      expected: '6',
+    },
+    {
+      label: 'different network',
+      isInternalSwap: true,
+      overrides: {
+        tokenInfo: { ...token, networkId: 'evm--1', balanceMultiplier: '2' },
+      },
+      expected: '6',
+    },
+    {
+      label: 'different token',
+      isInternalSwap: true,
+      overrides: {
+        tokenInfo: { ...token, address: spender, balanceMultiplier: '2' },
+      },
+      expected: '6',
+    },
+    {
+      label: 'external approval',
+      isInternalSwap: false,
+      overrides: {},
+      expected: '6',
+    },
+  ])(
+    'displays decoded calldata with the $label multiplier',
+    async ({ isInternalSwap, overrides, expected }) => {
+      const vault = buildVault();
+      jest.spyOn(vault, 'getNetwork').mockResolvedValue(presetNetworksMap.base);
+      jest.spyOn(vault, 'getAccountAddress').mockResolvedValue(owner);
+      Object.defineProperty(vault, 'backgroundApi', {
+        value: {
+          serviceToken: {
+            getToken: jest
+              .fn()
+              .mockResolvedValue({ ...token, balanceMultiplier: '3' }),
+          },
+        },
+      });
+      const encodedTx = await vault.buildEncodedTx({
+        approveInfo: quoteApproval,
+      });
+      const decoded = await vault.buildDecodedTx({
+        unsignedTx: {
+          encodedTx,
+          isInternalSwap,
+          approveInfo: { ...quoteApproval, ...overrides },
+        },
+      });
+      expect(decoded.actions[0]?.tokenApprove?.amount).toBe(expected);
+      expect(decoded.encodedTx).toEqual(encodedTx);
+      const decoder = new ethers.utils.Interface([
+        'function approve(address spender, uint256 value)',
+      ]);
+      expect(
+        decoder.decodeFunctionData('approve', encodedTx.data ?? '0x')[1],
+      ).toEqual(ethers.BigNumber.from(200));
+    },
+  );
+});
 
 describe('EvmVault.buildUnsignedTx nonce chaining', () => {
   it('assigns nonce prevNonce + 1 when prevNonce is 0', async () => {

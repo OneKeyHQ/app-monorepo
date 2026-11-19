@@ -835,6 +835,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={displayBalance}
+          onMaxPress={handleBalanceClick}
           onAmountEnterTypeChange={setAmountEnterType}
         />
 

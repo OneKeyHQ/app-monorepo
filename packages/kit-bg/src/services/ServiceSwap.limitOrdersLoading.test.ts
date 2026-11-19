@@ -1,4 +1,6 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapLimitOrderStatus,
@@ -153,6 +155,43 @@ describe('limit order loading broadcasts', () => {
     restoreBroadcast.mockRestore();
     appGlobals.$jotaiBgSync = previousBgSync;
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
+  });
+
+  it('shows filled Limit amounts with the multiplier of each token', async () => {
+    const open = createOrder('account-a', ESwapLimitOrderStatus.OPEN);
+    const filled = {
+      ...open,
+      status: ESwapLimitOrderStatus.FULFILLED,
+      fromTokenInfo: {
+        ...open.fromTokenInfo,
+        symbol: 'FROM',
+        decimals: 2,
+        balanceMultiplier: '2',
+      },
+      toTokenInfo: {
+        ...open.toTokenInfo,
+        symbol: 'TO',
+        decimals: 2,
+        balanceMultiplier: '0.5',
+      },
+      executedSellAmount: '200',
+      executedBuyAmount: '800',
+    };
+    const showToast = jest.fn();
+    const service = new ServiceSwap({
+      backgroundApi: { serviceApp: { showToast } },
+    });
+
+    await service.checkLimitOrderStatus([filled], [open]);
+
+    expect(showToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: appLocale.intl.formatMessage(
+          { id: ETranslations.limit_toast_order_content },
+          { num1: '4', num2: '4', token1: 'FROM', token2: 'TO' },
+        ),
+      }),
+    );
   });
 
   it('registers a non-persistent false default and resets loading independently', async () => {

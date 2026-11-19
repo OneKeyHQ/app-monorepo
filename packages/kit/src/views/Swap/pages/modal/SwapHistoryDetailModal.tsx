@@ -27,7 +27,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
-import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   settingsAtom,
   useCurrencyPersistAtom,
@@ -1567,7 +1570,11 @@ const SwapHistoryDetailModal = () => {
       rate =
         displayRate.isFinite() && displayRate.gt(0)
           ? displayRate.toFixed()
-          : undefined;
+          : getSwapDisplayRate(
+              rate ?? '',
+              txHistory.baseInfo.fromToken.balanceMultiplier,
+              txHistory.baseInfo.toToken.balanceMultiplier,
+            );
     }
     return (
       <SwapRateInfoItem

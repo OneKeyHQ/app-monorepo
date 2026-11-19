@@ -3700,13 +3700,19 @@ export default class ServiceSwap extends ServiceBase {
             updatedOrder.executedBuyAmount ?? '0',
           ).shiftedBy(-(updatedOrder.toTokenInfo?.decimals ?? 0));
           const formattedExecutedBuyAmount = formatBalance(
-            executedBuyAmountBN.toFixed(),
+            tokenRebaseUtils.applyBalanceMultiplier({
+              amount: executedBuyAmountBN.toFixed(),
+              balanceMultiplier: updatedOrder.toTokenInfo.balanceMultiplier,
+            }),
           );
           const executedSellAmountBN = new BigNumber(
             updatedOrder.executedSellAmount ?? '0',
           ).shiftedBy(-(updatedOrder.fromTokenInfo?.decimals ?? 0));
           const formattedExecutedSellAmount = formatBalance(
-            executedSellAmountBN.toFixed(),
+            tokenRebaseUtils.applyBalanceMultiplier({
+              amount: executedSellAmountBN.toFixed(),
+              balanceMultiplier: updatedOrder.fromTokenInfo.balanceMultiplier,
+            }),
           );
           toastTitle = appLocale.intl.formatMessage({
             id: ETranslations.limit_toast_order_filled,

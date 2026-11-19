@@ -425,6 +425,7 @@ function TokenInputSectionComponent(
           selectedTokenIsNative={selectedToken?.isNative}
           selectedTokenContractAddress={selectedToken?.contractAddress}
           onSelect={handlePresetAmountSelect}
+          onMaxPress={onMaxPress}
           onPresetSelect={onAmountEnterTypeChange}
           tradeType={tradeType}
           balance={balance}

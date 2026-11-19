@@ -86,6 +86,7 @@ import {
   buildErc20ApproveEncodedTx,
   buildPermit2ApproveAction,
   buildPermit2ApproveEncodedTx,
+  isSameEvmAddress,
   resolveTrustedPermit2Address,
 } from './approveTransactionUtils';
 import { EVMContractDecoder } from './decoder';
@@ -343,6 +344,10 @@ export default class Vault extends VaultBase {
         const actionFromContract = await this._buildTxActionFromContract({
           encodedTx,
           transferPayload,
+          swapApproveInfo:
+            unsignedTx.isInternalSwap || approveInfo?.swapApproveRes
+              ? approveInfo
+              : undefined,
         });
         if (actionFromContract) {
           action = actionFromContract;
@@ -374,9 +379,10 @@ export default class Vault extends VaultBase {
   async _buildTxActionFromContract(params: {
     encodedTx: IEncodedTxEvm;
     transferPayload?: ITransferPayload;
+    swapApproveInfo?: IApproveInfo;
   }) {
     let action: IDecodedTxAction | undefined;
-    const { encodedTx, transferPayload } = params;
+    const { encodedTx, transferPayload, swapApproveInfo } = params;
     const nativeTx = await parseToNativeTx({
       encodedTx,
     });
@@ -387,6 +393,7 @@ export default class Vault extends VaultBase {
         encodedTx,
         txDesc: erc20TxDesc,
         transferPayload,
+        swapApproveInfo,
       });
       if (action) return action;
     }
@@ -1210,8 +1217,9 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxEvm;
     txDesc: ethers.utils.TransactionDescription;
     transferPayload?: ITransferPayload;
+    swapApproveInfo?: IApproveInfo;
   }) {
-    const { encodedTx, txDesc, transferPayload } = params;
+    const { encodedTx, txDesc, transferPayload, swapApproveInfo } = params;
 
     const token = await this.backgroundApi.serviceToken.getToken({
       accountId: this.accountId,
@@ -1242,6 +1250,7 @@ export default class Vault extends VaultBase {
         encodedTx,
         txDesc,
         token,
+        swapApproveInfo,
       });
     }
   }
@@ -1327,22 +1336,32 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxEvm;
     txDesc: ethers.utils.TransactionDescription;
     token: IToken;
+    swapApproveInfo?: IApproveInfo;
   }): Promise<IDecodedTxAction> {
-    const { encodedTx, txDesc, token } = params;
+    const { encodedTx, txDesc, token, swapApproveInfo } = params;
     const spender = txDesc?.args[0] as string;
     const value = txDesc?.args[1] as ethers.BigNumber;
     const rawAmountText = formatValue(value, token.decimals);
-    // Scaled-UI (rebase) tokens: show the display-basis approve amount.
-    // dApp approves have no send-page snapshot, so the fetched token is the
-    // only multiplier source. The 'Infinite' sentinel is non-finite and
-    // passes through applyBalanceMultiplier unchanged (pinned by test);
-    // revoke (0) is multiplier-invariant.
-    const balanceMultiplier = token.balanceMultiplier;
+    const accountAddress = await this.getAccountAddress();
+    const snapshotToken = swapApproveInfo?.tokenInfo;
+    // Decode the amount from calldata and reuse the matching Review multiplier.
+    const balanceMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
+      snapshotToken:
+        swapApproveInfo &&
+        snapshotToken?.networkId === this.networkId &&
+        isSameEvmAddress(swapApproveInfo.owner, accountAddress) &&
+        (!encodedTx.from || isSameEvmAddress(encodedTx.from, accountAddress)) &&
+        isSameEvmAddress(swapApproveInfo.spender, spender)
+          ? snapshotToken
+          : undefined,
+      fetchedToken: token,
+      tokenAddress: encodedTx.to,
+      addressCaseInsensitive: true,
+    });
     const amount = tokenRebaseUtils.applyBalanceMultiplier({
       amount: rawAmountText,
       balanceMultiplier,
     });
-    const accountAddress = await this.getAccountAddress();
 
     const approveType =
       APPROVE_TYPE_BY_DESC_NAME[txDesc.name as EErc20TxDescriptionName] ??
