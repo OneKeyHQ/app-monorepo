@@ -196,6 +196,12 @@ keep the single chart.
   The selection is saved only once the switch has landed, so a failed one
   leaves the layout as it was, also when the chart mode changed meanwhile.
   Selecting the traded token's panel again drops a switch still on its way.
+  Enter or Space on anything focused in a panel, e.g. its chart, selects it
+  like a press, so the controls row can be moved from the keyboard.
+- A layout with fewer charts can hide the selected panel. The first panel then
+  shows the trade instrument in its place; the token still belongs to the
+  hidden panel, so selecting another chart leaves it there and the first panel
+  returns to its own token.
 - Instead of its own controls, each chart in a split has a header with its
   token picker, live price and 24h change, from the same asset contexts as the
   favorites bar. Each header holds one quote, subscribed to its own token

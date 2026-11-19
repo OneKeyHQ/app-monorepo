@@ -279,6 +279,17 @@ export function getTradingViewNativeMultiChartActivePanelId(
 }
 
 /**
+ * The panel the host's source belongs to: the selected panel, also while a
+ * smaller preset hides it and the first panel shows the source in its place.
+ * That stand-in keeps its own token for when another panel is selected.
+ */
+export function getTradingViewNativeMultiChartSourceOwnerPanelId(
+  layout: ITradingViewNativeMultiChartLayout,
+): string {
+  return layout.activePanelId ?? TRADING_VIEW_NATIVE_MULTI_CHART_MAIN_PANEL_ID;
+}
+
+/**
  * Selects a visible panel. `keptSources` are the tokens of the panels selected
  * until now: each showed the host's source without storing it and goes on
  * showing it, so no chart changes its token. Panels left out, e.g. while every

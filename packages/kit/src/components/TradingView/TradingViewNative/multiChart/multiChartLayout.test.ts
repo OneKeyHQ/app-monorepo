@@ -11,6 +11,7 @@ import {
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
   getTradingViewNativeMultiChartSizes,
+  getTradingViewNativeMultiChartSourceOwnerPanelId,
   getTradingViewNativeMultiChartSync,
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
@@ -384,6 +385,20 @@ describe('panel selection', () => {
     // The selection returns with a preset that shows the panel again.
     expect(
       getTradingViewNativeMultiChartActivePanelId({ ...selected, preset: '3' }),
+    ).toBe('panel-3');
+  });
+
+  it('leaves the host token with a selected panel the preset hides', () => {
+    expect(getTradingViewNativeMultiChartSourceOwnerPanelId(layout)).toBe(
+      'main',
+    );
+    // The first panel only stands in for panel-3 here.
+    expect(
+      getTradingViewNativeMultiChartSourceOwnerPanelId({
+        ...layout,
+        activePanelId: 'panel-3',
+        preset: '2h',
+      }),
     ).toBe('panel-3');
   });
 

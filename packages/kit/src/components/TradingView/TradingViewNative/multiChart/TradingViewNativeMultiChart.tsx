@@ -27,6 +27,7 @@ import {
   getTradingViewNativeMultiChartPanelIds,
   getTradingViewNativeMultiChartRects,
   getTradingViewNativeMultiChartSizes,
+  getTradingViewNativeMultiChartSourceOwnerPanelId,
   getTradingViewNativeMultiChartSync,
   hasUnfilledTradingViewNativeMultiChartPanel,
   normalizeTradingViewNativeMultiChartLayout,
@@ -67,6 +68,17 @@ const KEEP_SELECTION_SELECTOR = Object.keys(
 )
   .map((name) => `[${name}]`)
   .join(',');
+
+// Whether a press or key on `target` is one on the panel itself. An overlay
+// the panel opened, e.g. a token list, is rendered elsewhere and only reaches
+// the panel through React.
+function isOnPanel(panel: Element, target: EventTarget): target is Element {
+  return (
+    target instanceof Element &&
+    panel.contains(target) &&
+    !target.closest(KEEP_SELECTION_SELECTOR)
+  );
+}
 
 const NO_CONTROLS_SLOT: ITradingViewNativeMultiChartControlsSlot = {
   renderControls: () => null,
@@ -406,14 +418,18 @@ export function TradingViewNativeMultiChart({
         ? state.shownActiveSource
         : state.layout.panels[panelId]?.source;
       if (!source) return;
+      // The token on screen belongs to the selected panel, also while the
+      // preset hides it: the first panel standing in for it keeps its own.
+      const ownerPanelId = getTradingViewNativeMultiChartSourceOwnerPanelId(
+        state.layout,
+      );
       const keepsOwnToken =
         state.isSymbolSynced &&
-        Boolean(state.layout.panels[previousPanelId]?.source);
+        Boolean(state.layout.panels[ownerPanelId]?.source);
       const keptSources: IKeptSources = { ...state.selection?.keptSources };
       // The selected panel follows the host from here on.
       delete keptSources[panelId];
-      if (!keepsOwnToken)
-        keptSources[previousPanelId] = state.shownActiveSource;
+      if (!keepsOwnToken) keptSources[ownerPanelId] = state.shownActiveSource;
       const waitsForHost =
         getTradingViewNativeSourceKey(source) !== state.activeSourceKey;
       selectionSeq.current += 1;
@@ -508,7 +524,7 @@ export function TradingViewNativeMultiChart({
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
       const state = latestSelectionState.current;
-      const selectedPanelId = getTradingViewNativeMultiChartActivePanelId(
+      const selectedPanelId = getTradingViewNativeMultiChartSourceOwnerPanelId(
         state.layout,
       );
       onLayoutChange((current) => {
@@ -728,17 +744,34 @@ export function TradingViewNativeMultiChart({
                   isActive
                     ? undefined
                     : (event) => {
-                        const { currentTarget, target } = event;
                         if (
-                          event.button !== 0 ||
-                          !(target instanceof Element) ||
-                          // An overlay the panel opened, e.g. a token list,
-                          // is rendered elsewhere and reaches here through
-                          // React only.
-                          !currentTarget.contains(target) ||
-                          target.closest(KEEP_SELECTION_SELECTOR)
+                          event.button === 0 &&
+                          isOnPanel(event.currentTarget, event.target)
+                        ) {
+                          handleSelectPanel(id);
+                        }
+                      }
+                }
+                // The same from the keyboard: Enter or Space on anything
+                // focused in the panel, e.g. its chart.
+                onKeyDownCapture={
+                  isActive
+                    ? undefined
+                    : (event) => {
+                        const { target } = event;
+                        if (
+                          (event.key !== 'Enter' && event.key !== ' ') ||
+                          event.altKey ||
+                          event.ctrlKey ||
+                          event.metaKey ||
+                          !isOnPanel(event.currentTarget, target) ||
+                          target.closest('input, textarea, [contenteditable]')
                         ) {
                           return;
+                        }
+                        // On the chart, Space would scroll the page.
+                        if (target instanceof HTMLCanvasElement) {
+                          event.preventDefault();
                         }
                         handleSelectPanel(id);
                       }

@@ -25,7 +25,12 @@ under separate owners:
   again while an earlier switch is on its way, which drops that switch.
   Presses inside `TRADING_VIEW_NATIVE_MULTI_CHART_KEEP_SELECTION_PROPS`, e.g. a
   token picker, and in overlays rendered outside the panel do not select, so a
-  picker in a panel that is not selected changes that panel's token only. The
+  picker in a panel that is not selected changes that panel's token only.
+  Enter or Space on anything focused in a panel, e.g. its chart canvas, selects
+  it the same way. While a preset hides the selected panel the first panel
+  shows the host's source in its place; the source still belongs to the hidden
+  panel (`getTradingViewNativeMultiChartSourceOwnerPanelId`), so a selection
+  made then saves it there and never over the first panel's own token. The
   grid shows one controls row above all
   panels, the selected panel's, through
   `TradingViewNativeMultiChartControlsContext`; the other charts render none,

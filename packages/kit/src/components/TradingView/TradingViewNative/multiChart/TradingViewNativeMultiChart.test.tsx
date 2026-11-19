@@ -53,18 +53,31 @@ jest.mock('./TradingViewNativeMultiChartDivider', () => ({
 
 jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
   TradingViewNativeMultiChartLayoutSelect: ({
+    onChange,
     onSyncChange,
     sync,
   }: {
+    onChange: (preset: '2h' | '4') => void;
     onSyncChange: (option: 'symbol', isSynced: boolean) => void;
     sync: { symbol: boolean };
   }) => (
-    <button
-      type="button"
-      aria-label="symbol sync"
-      data-testid="layout-select"
-      onClick={() => onSyncChange('symbol', !sync.symbol)}
-    />
+    <span data-testid="layout-select">
+      <button
+        type="button"
+        aria-label="symbol sync"
+        data-testid="sync-symbol"
+        onClick={() => onSyncChange('symbol', !sync.symbol)}
+      />
+      {(['2h', '4'] as const).map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          aria-label={preset}
+          data-testid={`preset-${preset}`}
+          onClick={() => onChange(preset)}
+        />
+      ))}
+    </span>
   ),
 }));
 
@@ -362,6 +375,40 @@ it('ignores a rejection that lands after a newer selection', async () => {
   });
 });
 
+it('returns to the last saved panel when two switches in a row fail', async () => {
+  const finishes: ((switched: boolean) => void)[] = [];
+  const harness = renderGrid({
+    layout: {
+      preset: '4',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: () =>
+      new Promise((resolve) => {
+        finishes.push(resolve);
+      }),
+  });
+  const saved = harness.layout;
+
+  // The second press replaces a selection the host never followed.
+  act(() => press('panel-2'));
+  act(() => press('panel-3'));
+  await act(async () => {
+    finishes[0](false);
+    finishes[1](false);
+  });
+
+  // Not panel-2, which was never the host's panel.
+  expectScreen(
+    { main: 'BTC', 'panel-2': 'ETH', 'panel-3': 'SOL', 'panel-4': 'HYPE' },
+    'main',
+  );
+  expect(harness.layout).toBe(saved);
+});
+
 it('drops a switch still on its way when the host token is selected again', async () => {
   const finishes: ((switched: boolean) => void)[] = [];
   const onSelectPanel = jest.fn(
@@ -471,6 +518,40 @@ it('leaves the selection alone for the selected panel and other buttons', () => 
   press('panel-2', 2);
 
   expect(onSelectPanel).not.toHaveBeenCalled();
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+});
+
+it('selects a panel from the keyboard', async () => {
+  const onSelectPanel = jest.fn(
+    async (source: ITradingViewNativeSource, harness: IHarness) => {
+      harness.setActiveSource(source);
+      return true;
+    },
+  );
+  renderGrid({ onSelectPanel });
+  const chart = screen.getByTestId('chart-panel-2');
+
+  // Other keys, shortcuts and a picker's own keys leave the selection alone.
+  fireEvent.keyDown(chart, { key: 'Tab' });
+  fireEvent.keyDown(chart, { key: 'Enter', metaKey: true });
+  fireEvent.keyDown(screen.getByTestId('picker-panel-2'), { key: 'Enter' });
+  fireEvent.keyDown(screen.getByTestId('pick-panel-2'), { key: ' ' });
+  expect(onSelectPanel).not.toHaveBeenCalled();
+
+  await act(async () => {
+    fireEvent.keyDown(chart, { key: 'Enter' });
+  });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+  // The controls row follows, as with a press.
+  expect(
+    screen
+      .getByTestId('trading-view-multi-chart-controls')
+      .contains(screen.getByTestId('controls-panel-2')),
+  ).toBe(true);
+
+  await act(async () => {
+    fireEvent.keyDown(screen.getByTestId('chart-main'), { key: ' ' });
+  });
   expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
 });
 
@@ -613,7 +694,7 @@ it('returns a panel to the token it showed before the tokens were synced', async
   });
   const toggleSymbolSync = () => {
     act(() => {
-      fireEvent.click(screen.getByTestId('layout-select'));
+      fireEvent.click(screen.getByTestId('sync-symbol'));
     });
   };
 
@@ -630,4 +711,76 @@ it('returns a panel to the token it showed before the tokens were synced', async
   toggleSymbolSync();
   expectScreen({ main: 'DOGE', 'panel-2': 'DOGE' }, 'main');
   expect(harness.layout.panels['panel-2']?.source).toEqual(coin('DOGE'));
+});
+
+it('keeps the token of the first panel while it stands in for a hidden selection', async () => {
+  const harness = renderGrid({
+    layout: {
+      preset: '4',
+      panels: {
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  const setPreset = (preset: '2h' | '4') => {
+    act(() => {
+      fireEvent.click(screen.getByTestId(`preset-${preset}`));
+    });
+  };
+  const four = {
+    main: 'BTC',
+    'panel-2': 'ETH',
+    'panel-3': 'SOL',
+    'panel-4': 'HYPE',
+  };
+
+  await act(async () => press('panel-4'));
+  expectScreen(four, 'panel-4');
+
+  // Two charts: the first panel shows the traded HYPE for the hidden panel.
+  setPreset('2h');
+  expectScreen({ main: 'HYPE', 'panel-2': 'ETH' }, 'main');
+
+  // Selecting the other chart hands HYPE back to the hidden panel, and the
+  // first panel returns to its own token.
+  await act(async () => press('panel-2'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+
+  setPreset('4');
+  expectScreen(four, 'panel-2');
+  expect(harness.layout.panels.main?.source).toEqual(coin('BTC'));
+});
+
+it('saves the hidden selected panel token when the tokens are synced', async () => {
+  const harness = renderGrid({
+    layout: {
+      preset: '2h',
+      activePanelId: 'panel-4',
+      panels: {
+        main: { source: coin('BTC') },
+        'panel-2': { source: coin('ETH'), indicatorSettings },
+        'panel-3': { source: coin('SOL'), indicatorSettings },
+        'panel-4': { source: coin('HYPE'), indicatorSettings },
+      },
+    },
+    onSelectPanel: async () => true,
+  });
+  // The first panel shows the host's BTC here for the hidden panel-4.
+  act(() => harness.setActiveSource(coin('DOGE')));
+  expectScreen({ main: 'DOGE', 'panel-2': 'ETH' }, 'main');
+
+  act(() => {
+    fireEvent.click(screen.getByTestId('sync-symbol'));
+  });
+
+  expect(harness.layout.panels).toMatchObject({
+    main: { source: coin('BTC') },
+    'panel-4': { source: coin('DOGE') },
+  });
 });
