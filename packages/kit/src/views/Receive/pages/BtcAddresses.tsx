@@ -711,7 +711,7 @@ function BtcAddresses() {
               {showDeriveTypeSelector && addressTypeLabel ? (
                 <AddressTypeSelector
                   placement="bottom-end"
-                  whenCollapsed="hide"
+                  changeDefaultAddressTypeAfterSelect={false}
                   walletId={effectiveWalletId ?? ''}
                   networkId={networkId}
                   indexedAccountId={headerRightIndexedAccountId}
