@@ -11,10 +11,13 @@ import {
   EProtocolOfExchange,
   ESwapCrossChainStatus,
   ESwapExtraStatus,
+  ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import tokenRebaseUtils from './tokenRebaseUtils';
 
 const PRIVATE_SEND_FAILED_DISPLAY_STATUSES = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.FAILED,
@@ -51,6 +54,19 @@ const PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>(
 );
 
 export const SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS = 90 * 60 * 1000;
+
+export function getSwapHistoryDisplayFromAmount(
+  item: ISwapTxHistory,
+  amount = item.baseInfo.fromAmount,
+) {
+  return tokenRebaseUtils.applyBalanceMultiplier({
+    amount,
+    balanceMultiplier:
+      item.quoteSource === ESwapQuoteSource.SWEEP
+        ? item.baseInfo.fromToken.balanceMultiplier
+        : undefined,
+  });
+}
 
 export function isSwapHistoryTerminalStatus(status?: ESwapTxHistoryStatus) {
   return status ? SWAP_HISTORY_TERMINAL_STATUSES.has(status) : false;

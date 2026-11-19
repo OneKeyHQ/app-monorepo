@@ -47,9 +47,11 @@ import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFe
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
+  getSwapHistoryDisplayFromAmount,
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
@@ -64,6 +66,7 @@ import {
   ESwapCleanHistorySource,
   ESwapCrossChainStatus,
   ESwapExtraStatus,
+  ESwapQuoteSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
@@ -1148,7 +1151,11 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
           isAllNetworks
-          amount={fromTokenAmount ?? '0'}
+          amount={
+            txHistory
+              ? getSwapHistoryDisplayFromAmount(txHistory, fromTokenAmount)
+              : '0'
+          }
           networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1537,20 +1544,27 @@ const SwapHistoryDetailModal = () => {
     txHistory,
   ]);
 
-  const renderRate = useCallback(
-    () => (
+  const renderRate = useCallback(() => {
+    let rate = txHistory?.swapInfo.instantRate;
+    if (
+      txHistory?.quoteSource === ESwapQuoteSource.SWEEP &&
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        txHistory.baseInfo.fromToken.balanceMultiplier,
+      )
+    ) {
+      const displayFromAmount = getSwapHistoryDisplayFromAmount(txHistory);
+      rate = new BigNumber(txHistory.baseInfo.toAmount)
+        .dividedBy(displayFromAmount)
+        .toFixed();
+    }
+    return (
       <SwapRateInfoItem
-        rate={txHistory?.swapInfo.instantRate}
+        rate={rate}
         fromToken={txHistory?.baseInfo.fromToken}
         toToken={txHistory?.baseInfo.toToken}
       />
-    ),
-    [
-      txHistory?.baseInfo.fromToken,
-      txHistory?.baseInfo.toToken,
-      txHistory?.swapInfo.instantRate,
-    ],
-  );
+    );
+  }, [txHistory]);
 
   const renderProtocolFee = useCallback(() => {
     if (txHistory?.swapInfo.hideProtocolFee) {

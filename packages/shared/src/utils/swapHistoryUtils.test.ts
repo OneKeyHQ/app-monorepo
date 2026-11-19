@@ -1,6 +1,7 @@
 import { privateSendProvider } from '../../types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
   type ISwapToken,
@@ -10,6 +11,7 @@ import {
 import {
   SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS,
   buildSwapOrderLongPendingWarningPayload,
+  getSwapHistoryDisplayFromAmount,
   getSwapHistoryLongPendingWarningDelayMs,
   isSwapHistoryTerminalStatus,
   shouldShowSwapHistoryLongPendingWarning,
@@ -82,6 +84,30 @@ function makeHistory(overrides: Partial<ISwapTxHistory> = {}): ISwapTxHistory {
     ...overrides,
   };
 }
+
+describe('Dust Sweep history amounts', () => {
+  it.each([
+    [ESwapQuoteSource.SWEEP, '1.8518505', '2.0018505'],
+    [undefined, '1.234567', '1.334567'],
+  ])(
+    'formats the saved raw amount for its source (%s)',
+    (quoteSource, amount, withFee) => {
+      const { baseInfo } = makeHistory();
+      const item = makeHistory({
+        quoteSource,
+        baseInfo: {
+          ...baseInfo,
+          fromAmount: '1.234567',
+          fromToken: { ...baseInfo.fromToken, balanceMultiplier: '1.5' },
+        },
+      });
+
+      expect(getSwapHistoryDisplayFromAmount(item)).toBe(amount);
+      expect(getSwapHistoryDisplayFromAmount(item, '1.334567')).toBe(withFee);
+      expect(item.baseInfo.fromAmount).toBe('1.234567');
+    },
+  );
+});
 
 describe('swapHistoryUtils long pending warning', () => {
   it('shows the warning at the 90 minute boundary', () => {

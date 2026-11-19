@@ -52,6 +52,7 @@ import {
 } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
 import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
+  getSwapHistoryDisplayFromAmount,
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryTerminalStatus,
@@ -2936,7 +2937,7 @@ export default class ServiceSwap extends ServiceBase {
           title: appLocale.intl.formatMessage({
             id: toastTitleId,
           }),
-          message: `${numberFormat(enrichedItem.baseInfo.fromAmount, formatter)} ${
+          message: `${numberFormat(getSwapHistoryDisplayFromAmount(enrichedItem), formatter)} ${
             enrichedItem.baseInfo.fromToken.symbol
           } → ${numberFormat(enrichedItem.baseInfo.toAmount, formatter)} ${
             enrichedItem.baseInfo.toToken.symbol

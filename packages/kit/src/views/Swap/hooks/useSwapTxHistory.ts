@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import {
   EProtocolOfExchange,
+  ESwapQuoteSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -81,15 +84,25 @@ export async function generateSwapHistoryItemForContext(
       protocol: swapTxInfo.protocol,
       txId,
     });
-    const fromToken = buildSwapHistoryToken({
-      buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
-      selectedToken: swapTxInfo.sender.token,
-    });
+    const usesWalletDisplayPrice =
+      swapTxInfo.quoteSource === ESwapQuoteSource.SWEEP &&
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        swapTxInfo.sender.token.balanceMultiplier,
+      );
+    const fromToken = usesWalletDisplayPrice
+      ? { ...swapTxInfo.sender.token, currency: USD_CURRENCY_ID }
+      : buildSwapHistoryToken({
+          buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
+          selectedToken: swapTxInfo.sender.token,
+        });
     const toToken = buildSwapHistoryToken({
       buildToken: swapTxInfo.swapBuildResData.result?.toTokenInfo,
       selectedToken: swapTxInfo.receiver.token,
     });
     const swapHistoryItem: ISwapTxHistory = {
+      ...(swapTxInfo.quoteSource
+        ? { quoteSource: swapTxInfo.quoteSource }
+        : {}),
       protocol: swapTxInfo.protocol,
       status: ESwapTxHistoryStatus.PENDING,
       currency: context.currencyInfo?.symbol,

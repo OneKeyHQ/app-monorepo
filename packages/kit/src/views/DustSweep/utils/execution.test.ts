@@ -939,11 +939,22 @@ describe('Dust Sweep serial execution boundaries', () => {
       tokenInfo: { balanceMultiplier: '2' },
     });
     expect(
-      mockSend.mock.calls[1][0].buildUnsignedParams.swapInfo?.sender,
+      mockSend.mock.calls[1][0].buildUnsignedParams.swapInfo,
     ).toMatchObject({
-      amount: options.token.amount,
-      token: { balanceMultiplier: '2' },
+      quoteSource: 'Sweep',
+      sender: {
+        amount: options.token.amount,
+        token: { balanceMultiplier: '2' },
+      },
     });
+    expect(mockHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        swapInfo: expect.objectContaining({
+          quoteSource: 'Sweep',
+          sender: expect.objectContaining({ amount: options.token.amount }),
+        }),
+      }),
+    );
   });
 
   it.each([

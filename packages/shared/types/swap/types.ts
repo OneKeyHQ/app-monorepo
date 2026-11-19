@@ -1097,6 +1097,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  quoteSource?: ESwapQuoteSource;
   reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
@@ -1190,6 +1191,7 @@ export interface ISwapCheckSupportResponse {
 }
 
 export interface ISwapTxHistory {
+  quoteSource?: ESwapQuoteSource;
   protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;

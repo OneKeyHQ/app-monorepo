@@ -498,6 +498,7 @@ async function prepareDustSweepItem(
       orderId: quote.quoteId,
     };
     const swapInfo: ISwapTxInfo = {
+      quoteSource: ESwapQuoteSource.SWEEP,
       protocol: EProtocolOfExchange.SWAP,
       sender: {
         amount: token.amount,
@@ -618,7 +619,14 @@ async function prepareDustSweepItem(
         options,
         requiredInputAmount,
       );
-  return { buildRes, execution, approvalInfos };
+  return {
+    buildRes,
+    execution: {
+      ...execution,
+      swapInfo: { ...execution.swapInfo, quoteSource: ESwapQuoteSource.SWEEP },
+    },
+    approvalInfos,
+  };
 }
 
 function increaseApprovalGasBudget(entry: IMarketGasInfoEntry) {
