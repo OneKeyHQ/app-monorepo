@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "转为隐私",
   "privacy_balance_small_change__msg": "包含 {amount} 零钱，金额过小，无法单独发送",
   "privacy_balance_unavailable__msg": "余额暂不可用",
+  "privacy_balance_unshield__action": "转为公开",
   "privacy_balance_verification__desc": "确认 {amount} 是否可用",
   "privacy_balance_verification__title": "验证余额",
   "privacy_balance_verification_pending__msg": "验证后更新余额",

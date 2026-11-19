@@ -7,7 +7,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IStrk20TransferKind } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { ITokenSelectorParamList } from './assetSelector';
@@ -17,6 +16,30 @@ import type { IAccountHistoryTx } from '../../types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 import type { IZcashMemoEncoding } from '../utils/zcashMemo';
+
+export type ISendBalance = {
+  available?: string;
+  retryLabel?: string;
+};
+
+export type ISendInputOptions = {
+  validateRecipient?: (address: string) => Promise<string | undefined>;
+  amount: {
+    allowMax?: boolean;
+    loadBalance?: (options: { allowPrompt: boolean }) => Promise<ISendBalance>;
+    validate: (params: {
+      amount: string;
+      balance?: string;
+      decimals?: number;
+    }) => string | undefined;
+    prepareTransaction: (params: {
+      amount: string;
+      recipientAddress: string;
+      decimals: number;
+    }) => Promise<IUnsignedTxPro>;
+    getPreparationError: (error: unknown) => string | undefined;
+  };
+};
 
 export enum EModalSendRoutes {
   SendDataInput = 'SendDataInput',
@@ -31,13 +54,12 @@ export enum EModalSendRoutes {
   SendSelectToken = 'SendSelectToken',
   SendSelectDeriveAddress = 'SendSelectDeriveAddress',
   CoinControl = 'CoinControl',
-  // STRK20 private transfers on Starknet: deposit / withdraw / private send
-  SendStarknetPrivateTransfer = 'SendStarknetPrivateTransfer',
 }
 
 export type IModalSendParamList = {
   [EModalSendRoutes.SendSelectToken]: ITokenSelectorParamList;
   [EModalSendRoutes.SendDataInput]: {
+    sendOptions?: ISendInputOptions;
     networkId: string;
     accountId: string;
     isNFT: boolean;
@@ -52,6 +74,7 @@ export type IModalSendParamList = {
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSendRoutes.SendAmountInput]: {
+    sendOptions?: ISendInputOptions;
     networkId: string;
     accountId: string;
     isNFT: boolean;
@@ -135,11 +158,5 @@ export type IModalSendParamList = {
   [EModalSendRoutes.CoinControl]: {
     networkId: string;
     accountId: string;
-  };
-  [EModalSendRoutes.SendStarknetPrivateTransfer]: {
-    networkId: string;
-    accountId: string;
-    kind: IStrk20TransferKind;
-    token: IToken;
   };
 };

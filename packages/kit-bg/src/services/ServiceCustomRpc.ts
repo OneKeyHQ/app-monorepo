@@ -676,8 +676,9 @@ class ServiceCustomRpc extends ServiceBase {
         !presetNetworkIds.includes(n.id) &&
         networkUtils.isEvmNetwork({ networkId: n.id }),
     );
-    // Only local-wallet presets read their entry: TRASH hides the preset,
-    // LISTED or no entry keeps it. Every other preset ignores the server.
+    // Only privacy presets read their entry. Local-wallet ones take all of it:
+    // TRASH hides the preset, LISTED or no entry keeps it. Privacy-pool ones
+    // take only the config. Every other preset ignores the server.
     const delisted: string[] = [];
     const localWalletConfigs: Record<string, ILocalWalletRemoteConfig> = {};
     for (const n of serverNetworks) {
@@ -685,16 +686,15 @@ class ServiceCustomRpc extends ServiceBase {
       const isTrash = n.status === ENetworkStatus.TRASH;
       const config = parseLocalWalletRemoteConfig(n.extensions?.localWallet);
       const hasEffect = isTrash || config !== undefined;
-      if (
-        isPreset &&
-        hasEffect &&
+      if (isPreset && hasEffect) {
         // eslint-disable-next-line no-await-in-loop
-        (await getVaultSettings({ networkId: n.id })).localWallet
-      ) {
-        if (isTrash) {
+        const settings = await getVaultSettings({ networkId: n.id });
+        const isLocalWallet = !!settings.localWallet;
+        const hasPrivacyPool = !!settings.privacyPool;
+        if (isLocalWallet && isTrash) {
           delisted.push(n.id);
         }
-        if (config) {
+        if (config && (isLocalWallet || hasPrivacyPool)) {
           localWalletConfigs[n.id] = config;
         }
       }

@@ -429,19 +429,6 @@ export class SimpleDb {
     return value;
   }
 
-  get starknetPrivacyConfig() {
-    const value = createLazyServiceProxy({
-      serviceName: 'simpleDb@starknetPrivacyConfig',
-      loader: () =>
-        import('../entity/SimpleDbEntityStarknetPrivacyConfig').then(
-          ({ SimpleDbEntityStarknetPrivacyConfig }) =>
-            new SimpleDbEntityStarknetPrivacyConfig(),
-        ),
-    });
-    Object.defineProperty(this, 'starknetPrivacyConfig', { value });
-    return value;
-  }
-
   get feeInfo() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@feeInfo',

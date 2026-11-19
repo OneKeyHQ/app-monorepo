@@ -21,6 +21,7 @@ import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 import { fetchLocalWalletNativeTokenPrice } from '../vaults/localWallet/nativeTokenPrice';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -61,13 +62,36 @@ class ServiceGas extends ServiceBase {
   @backgroundMethod()
   async batchEstimateFee(params: IBatchEstimateFeeParams) {
     if (
-      await isLocalWalletNetwork({
+      (await isLocalWalletNetwork({
         networkId: params.networkId,
-      })
+      })) ||
+      (await getVaultSettings({ networkId: params.networkId }))
+        .supportBatchEstimateFee?.[params.networkId] === 'local'
     ) {
-      throw new OneKeyLocalError(
-        'Privacy transaction fees must be estimated locally',
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: params.accountId,
+          networkId: params.networkId,
+        });
+      const fees = await Promise.all(
+        params.encodedTxs.map((encodedTx) =>
+          this.estimateFee({
+            accountId: params.accountId,
+            networkId: params.networkId,
+            accountAddress,
+            encodedTx,
+          }),
+        ),
       );
+      if (!fees.length)
+        throw new OneKeyLocalError('No transactions to estimate');
+      const txFees: IServerBatchEstimateFeeResponse['data']['result'] =
+        fees.map((fee) => ({
+          ...fee,
+          gas: fee.gas ?? [],
+          gasEIP1559: fee.gasEIP1559 ?? [],
+        }));
+      return { common: fees[0].common, txFees };
     }
     const controller = new AbortController();
     this._estimateFeeController = controller;

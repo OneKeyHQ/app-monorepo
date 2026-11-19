@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "Экранировать",
   "privacy_balance_small_change__msg": "Включает остаток {amount}, который слишком мал для отдельной отправки.",
   "privacy_balance_unavailable__msg": "Баланс недоступен",
+  "privacy_balance_unshield__action": "Перевести на публичный баланс",
   "privacy_balance_verification__desc": "Проверьте, можно ли потратить {amount}.",
   "privacy_balance_verification__title": "Проверить баланс",
   "privacy_balance_verification_pending__msg": "Проверьте баланс, чтобы обновить его",

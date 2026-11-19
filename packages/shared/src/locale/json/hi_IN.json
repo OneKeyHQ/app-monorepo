@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "शील्ड करें",
   "privacy_balance_small_change__msg": "इसमें {amount} की बची हुई राशि शामिल है, जो अलग से भेजने के लिए बहुत कम है।",
   "privacy_balance_unavailable__msg": "बैलेंस उपलब्ध नहीं",
+  "privacy_balance_unshield__action": "सार्वजनिक बैलेंस में ले जाएँ",
   "privacy_balance_verification__desc": "जाँचें कि {amount} खर्च करने के लिए उपलब्ध है या नहीं।",
   "privacy_balance_verification__title": "बैलेंस सत्यापित करें",
   "privacy_balance_verification_pending__msg": "बैलेंस अपडेट करने के लिए सत्यापित करें",

@@ -463,11 +463,6 @@ describe('Network Detection by Private Key', () => {
       expect(result.networks).toContainEqual(
         networkDetectUtils.buildDetectedNetwork(presetNetworksMap.starknet),
       );
-      expect(result.networks).toContainEqual(
-        networkDetectUtils.buildDetectedNetwork(
-          presetNetworksMap.starknetSepolia,
-        ),
-      );
       // still offered for the chains that already claimed this format
       expect(result.networks).toContainEqual(
         networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),

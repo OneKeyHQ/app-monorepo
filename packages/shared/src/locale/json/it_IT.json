@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "Schermare",
   "privacy_balance_small_change__msg": "Include {amount} di resto, un importo troppo piccolo per essere inviato separatamente.",
   "privacy_balance_unavailable__msg": "Saldo non disponibile",
+  "privacy_balance_unshield__action": "Sposta nel saldo pubblico",
   "privacy_balance_verification__desc": "Verifica se puoi spendere {amount}.",
   "privacy_balance_verification__title": "Verifica il saldo",
   "privacy_balance_verification_pending__msg": "Verifica per aggiornare il saldo",

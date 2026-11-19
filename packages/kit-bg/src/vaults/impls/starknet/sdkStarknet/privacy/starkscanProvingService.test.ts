@@ -40,8 +40,7 @@ jest.mock(
   { virtual: true },
 );
 
-const BASE_URL = 'https://api.starkscan.co/v1/SN_MAIN';
-const API_KEY = 'test-api-key';
+const BASE_URL = 'https://proxy.example/v1/SN_MAIN';
 const IDEMPOTENCY_KEY = 'fixed-idempotency-key-0001';
 const POOL = '0x1234';
 
@@ -105,7 +104,6 @@ function createHarness(
   };
   const service = new StarkscanProvingService({
     baseUrl: `${BASE_URL}/`,
-    apiKey: API_KEY,
     fetchImpl,
     sleep: async (ms) => {
       sleeps.push(ms);
@@ -145,7 +143,8 @@ describe('StarkscanProvingService', () => {
     const [submit, poll] = calls;
     expect(submit.url).toBe(`${BASE_URL}/prove`);
     expect(submit.init?.method).toBe('POST');
-    expect(header(submit, 'X-Starkscan-Api-Key')).toBe(API_KEY);
+    // the proxy adds the key; the client must never send one
+    expect(header(submit, 'X-Starkscan-Api-Key')).toBeNull();
     expect(header(submit, 'Idempotency-Key')).toBe(IDEMPOTENCY_KEY);
     expect(header(submit, 'content-type')).toBe('application/json');
     expect(JSON.parse(String(submit.init?.body))).toEqual({
@@ -157,7 +156,7 @@ describe('StarkscanProvingService', () => {
     expect(poll.url).toBe(`${BASE_URL}/prove/job-1`);
     expect(poll.init?.method).toBe('GET');
     expect(poll.init?.body).toBeUndefined();
-    expect(header(poll, 'X-Starkscan-Api-Key')).toBe(API_KEY);
+    expect(header(poll, 'X-Starkscan-Api-Key')).toBeNull();
     expect(calls[2].url).toBe(`${BASE_URL}/prove/job-1`);
     expect(sleeps).toEqual([2000, 2000]);
   });
@@ -349,7 +348,7 @@ describe('StarkscanProvingService', () => {
     expect(sleeps).toEqual([]);
   });
 
-  it('maps 401 to code unauthorized without leaking the API key', async () => {
+  it('maps 401 to code unauthorized', async () => {
     const { service, calls } = createHarness([
       json(401, {
         code: 'unauthorized',
@@ -362,7 +361,6 @@ describe('StarkscanProvingService', () => {
     const error = await rejection(service.proveTransaction(1, transaction));
 
     expect(error).toMatchObject({ code: 'unauthorized', status: 401 });
-    expect(String((error as Error).message)).not.toContain(API_KEY);
     expect(calls).toHaveLength(1);
   });
 
@@ -512,6 +510,45 @@ describe('StarkscanProvingService', () => {
 });
 
 describe('ProvingServiceProofProvider with an injected transport', () => {
+  it('fetches and caches the nonce through the injected wallet transport', async () => {
+    const getNonce = jest.fn(async () => 7n);
+    const provider = new ProvingServiceProofProvider(
+      '',
+      constants.StarknetChainId.SN_MAIN,
+      {
+        getNonce,
+        transport: { proveTransaction: jest.fn(async () => proverResult) },
+      },
+    );
+    await expect(provider.getDefaultDetails()).resolves.toMatchObject({
+      nonce: 7n,
+    });
+    await expect(provider.getDefaultDetails()).resolves.toMatchObject({
+      nonce: 7n,
+    });
+    expect(getNonce).toHaveBeenCalledTimes(1);
+    provider.invalidateNonceCache();
+    getNonce.mockResolvedValue(8n);
+    await expect(provider.getDefaultDetails()).resolves.toMatchObject({
+      nonce: 8n,
+    });
+    expect(getNonce).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates nonce failures instead of signing with the default zero', async () => {
+    const failure = new Error('wallet proxy unavailable');
+    const getNonce = jest.fn<Promise<bigint>, []>().mockRejectedValue(failure);
+    const provider = new ProvingServiceProofProvider(
+      '',
+      constants.StarknetChainId.SN_MAIN,
+      {
+        getNonce,
+        transport: { proveTransaction: jest.fn(async () => proverResult) },
+      },
+    );
+    await expect(provider.getDefaultDetails()).rejects.toBe(failure);
+  });
+
   it('returns a Proof from the transport without touching the network', async () => {
     const originalFetch = globalThis.fetch;
     const networkCalls: unknown[] = [];

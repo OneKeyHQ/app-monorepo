@@ -10,7 +10,7 @@ import { OHTTPClient, KeyConfig } from "ohttp-ts";
 // supply pure-JS primitives; upstream constructed it inline from `hpke` here.
 import { decompressResponseText } from "../platform/decompressResponseText";
 import { createHpkeSuite } from "../platform/hpkeSuiteRegistry";
-import { ReorgError } from "./errors";
+import { ReorgError, ServiceHttpError } from "./errors";
 
 /** HTTP 409 — the discovery service returns this exclusively for block reorgs (BLOCK_REORGED). */
 const REORG_STATUS = 409;
@@ -95,18 +95,16 @@ export class OhttpClient {
     // Pre-decryption errors come as plain HTTP responses
     if (response.status === 422) {
       this.invalidate();
-      const text = await response.text().catch(() => "");
-      throw new Error(`OHTTP decapsulation failed on server: ${text}`);
+      throw new Error("OHTTP decapsulation failed on server");
     }
 
     // Defense-in-depth: catch non-encapsulated error responses (e.g. from a relay).
     // In normal OHTTP operation, error responses are encapsulated and handled below.
     if (!response.ok && response.headers.get("content-type") !== "message/ohttp-res") {
-      const text = await response.text().catch(() => "");
       if (response.status === REORG_STATUS) {
-        throw new ReorgError(`Block reorged during ${path}: ${text}`);
+        throw new ReorgError(`Block reorged during ${path}`);
       }
-      throw new Error(`OHTTP request ${path} failed (${response.status}): ${text}`);
+      throw new ServiceHttpError(`OHTTP request ${path}`, response.status, response.headers.get("Retry-After"));
     }
 
     // Decrypt the OHTTP response
@@ -120,13 +118,11 @@ export class OhttpClient {
     // envelope with outer status 200. A 409 BLOCK_REORGED from the discovery API
     // appears here as the inner HTTP status — this is the primary reorg detection path.
     if (innerResponse.status === REORG_STATUS) {
-      throw new ReorgError(`Block reorged during ${path}: ${innerBody}`);
+      throw new ReorgError(`Block reorged during ${path}`);
     }
 
     if (innerResponse.status !== 200) {
-      throw new Error(
-        `OHTTP inner response ${path} failed (${innerResponse.status}): ${innerBody}`
-      );
+      throw new ServiceHttpError(`OHTTP inner response ${path}`, innerResponse.status, innerResponse.headers.get("Retry-After"));
     }
 
     return JSON.parse(innerBody) as T;

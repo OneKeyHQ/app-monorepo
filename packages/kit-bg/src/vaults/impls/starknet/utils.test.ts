@@ -168,15 +168,35 @@ describe('starknet utils: resource bounds', () => {
 
   it('converts bounds to the decimal FRI shape the fee UI reads', () => {
     expect(
-      resourceBoundsToFee({
-        l1_gas: { max_amount: '0xa', max_price_per_unit: '0xb' },
-        l2_gas: { max_amount: '0xc', max_price_per_unit: '0xd' },
-        l1_data_gas: { max_amount: '0xe', max_price_per_unit: '0xf' },
-      }),
+      resourceBoundsToFee(
+        {
+          l1_gas: { max_amount: '0xa', max_price_per_unit: '0xb' },
+          l2_gas: { max_amount: '0xc', max_price_per_unit: '0xd' },
+          l1_data_gas: { max_amount: '0xe', max_price_per_unit: '0xf' },
+        },
+        {
+          ...LIVE_ESTIMATE,
+          l1_gas_price: '0x7',
+          l2_gas_price: '0x8',
+          l1_data_gas_price: '0x9',
+        },
+      ),
     ).toEqual({
-      l1Gas: { maxAmount: '10', maxPricePerUnit: '11' },
-      l2Gas: { maxAmount: '12', maxPricePerUnit: '13' },
-      l1DataGas: { maxAmount: '14', maxPricePerUnit: '15' },
+      l1Gas: {
+        maxAmount: '10',
+        maxPricePerUnit: '11',
+        estimatedPricePerUnit: '7',
+      },
+      l2Gas: {
+        maxAmount: '12',
+        maxPricePerUnit: '13',
+        estimatedPricePerUnit: '8',
+      },
+      l1DataGas: {
+        maxAmount: '14',
+        maxPricePerUnit: '15',
+        estimatedPricePerUnit: '9',
+      },
     });
   });
 

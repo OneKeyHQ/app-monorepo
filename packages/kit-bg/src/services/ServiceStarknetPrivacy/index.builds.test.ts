@@ -12,19 +12,12 @@ const starknetPrivacy = {
   setOptInStatus: jest.fn(),
   findAccountRecord: jest.fn(),
 };
-const starknetPrivacyConfig = {
-  getEnvelope: jest.fn(),
-  saveEnvelope: jest.fn(),
-};
 
 jest.mock('../../dbs/simple/simpleDb', () => ({
   __esModule: true,
   default: {
     get starknetPrivacy() {
       return starknetPrivacy;
-    },
-    get starknetPrivacyConfig() {
-      return starknetPrivacyConfig;
     },
   },
 }));
@@ -50,7 +43,8 @@ const transfer = jest.fn();
 jest.mock('./strk20Sdk', () => ({
   __esModule: true,
   buildOhttpOption: () => undefined,
-  createStrk20Signer: () => ({}),
+  createStrk20ProverProxyFetch: jest.fn(() => jest.fn()),
+  createStrk20Signer: jest.fn(() => ({})),
   createStrk20Transfers: jest.fn(async () => ({
     discoverNotes,
     discoverRequirement,
@@ -59,11 +53,19 @@ jest.mock('./strk20Sdk', () => ({
       register: () => ({ createProofInvocation }),
       with: (...args: unknown[]) => {
         withToken(...args);
-        return { deposit, withdraw, transfer, createProofInvocation };
+        const tokenOps = {
+          deposit,
+          withdraw,
+          transfer,
+          createProofInvocation,
+          surplusTo: () => tokenOps,
+        };
+        return tokenOps;
       },
     }),
   })),
   fetchStrk20HistoryPage: jest.fn(),
+  getStrk20HistoryTransfers: jest.fn(async () => []),
   resolvePrivateHistoryKind: () => 'transfer',
   serializeHistoryCursor: (cursor: unknown) => cursor,
 }));
@@ -71,10 +73,30 @@ jest.mock('./strk20Sdk', () => ({
 // eslint-disable-next-line import/first, import-path/forbidden
 import ServiceStarknetPrivacy from './index';
 
-const NETWORK_ID = 'starknet--sepolia';
+// eslint-disable-next-line import/first
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+// eslint-disable-next-line import/first
+import type { IProxyRequest } from '@onekeyhq/shared/types/proxy';
+// eslint-disable-next-line import/first
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+// eslint-disable-next-line import/first
+import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
+// eslint-disable-next-line import/first
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+// eslint-disable-next-line import/first
+import {
+  createStrk20ProverProxyFetch,
+  createStrk20Signer,
+  createStrk20Transfers,
+  fetchStrk20HistoryPage,
+  getStrk20HistoryTransfers,
+} from './strk20Sdk';
+
+const NETWORK_ID = 'starknet--mainnet';
 const ACCOUNT_ID = "hd-1--m/44'/9004'/0'/0/0";
-const SEPOLIA_POOL =
-  '0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91';
+const MAINNET_POOL =
+  '0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a';
 const ACCOUNT_ADDRESS =
   '0x0157d9497dee8bbdc5e6a968a96a2408d10c6bf6cfe2b4509602952429d094ec';
 const STRK =
@@ -85,19 +107,8 @@ const VIEWING_KEY =
   '0x0195e031668fd442f9057e4f5b22c9297e98046dfc06b2efb9083f2fd79239af';
 const PUBLIC_KEY_X =
   '0x0775de99ba0b481868ff5513344a5f97729558afb6783033ec8fea502ec19d15';
-// two STRK, what the live Sepolia pool reports for get_fee_amount
+// two STRK; the live value comes from the pool's get_fee_amount
 const PROTOCOL_FEE = '2000000000000000000';
-
-const enabledConfig = {
-  networkId: NETWORK_ID,
-  enabled: true,
-  poolAddress: SEPOLIA_POOL,
-  discoveryUrl: 'https://discovery.example',
-  provingUrl: 'https://prover.example',
-  ohttp: { enabled: true, publicKeyConfig: '0xaabb' },
-  auditorPublicKey: '0x01d17f',
-  minRpcSpecVersion: '0.10.1',
-};
 
 function build(options?: {
   isPoolPaused?: boolean;
@@ -105,11 +116,15 @@ function build(options?: {
   lastTxBlockNumber?: number;
 }) {
   const client = {
+    getNonce: jest.fn(async () => '0x7'),
     getSpecVersion: jest.fn(async () => '0.10.2'),
     isAccountDeployed: jest.fn(async () => true),
     getBlockNumber: jest.fn(async () => 1000),
     isPoolPaused: jest.fn(async () => options?.isPoolPaused ?? false),
     getPoolFeeAmount: jest.fn(async () => PROTOCOL_FEE),
+    getTransactionReceipt: jest.fn<Promise<unknown>, [string]>(
+      async () => null,
+    ),
     getPoolRegisteredPublicKey: jest.fn(
       async () => options?.registeredPublicKey,
     ),
@@ -126,11 +141,23 @@ function build(options?: {
     getAccountAddress: async () => ACCOUNT_ADDRESS,
     getAccount: async () => ({ address: ACCOUNT_ADDRESS, path: 'm/1' }),
     getNetwork: async () => ({
-      chainId: '0x534e5f5345504f4c4941',
+      chainId: '0x534e5f4d41494e',
       feeMeta: { decimals: 18 },
     }),
     keyring: { deriveStrk20ViewingKey },
     buildPrivacyEncodedTx,
+    buildTxTransferAssetAction: jest.fn(async (params: object) => ({
+      type: 'assetTransfer',
+      assetTransfer: {
+        ...params,
+        sends: (params as { transfers: { from: string }[] }).transfers.filter(
+          (item) => item.from === ACCOUNT_ADDRESS,
+        ),
+        receives: (
+          params as { transfers: { from: string }[] }
+        ).transfers.filter((item) => item.from !== ACCOUNT_ADDRESS),
+      },
+    })),
     buildUnsignedTx: jest.fn(async (p: { encodedTx: unknown }) => ({
       encodedTx: p.encodedTx,
     })),
@@ -140,7 +167,16 @@ function build(options?: {
   const promptPasswordVerifyByAccount = jest.fn(async () => ({
     password: 'pw',
   }));
+  const getCachedPasswordForBackgroundRead = jest.fn<
+    Promise<string | undefined>,
+    []
+  >(async () => undefined);
   const backgroundApi = {
+    serviceHardwareUI: {
+      withHardwareProcessing: jest.fn(async (run: () => Promise<unknown>) =>
+        run(),
+      ),
+    },
     serviceNetwork: {
       getVaultSettings: jest.fn(async () => ({
         privacyPool: {
@@ -152,29 +188,116 @@ function build(options?: {
         },
       })),
     },
-    servicePassword: { promptPasswordVerifyByAccount },
+    servicePassword: {
+      promptPasswordVerifyByAccount,
+      getCachedPasswordForBackgroundRead,
+    },
+    serviceHistory: {
+      getAccountLocalHistoryPendingTxs: jest.fn<
+        Promise<import('@onekeyhq/shared/types/history').IAccountHistoryTx[]>,
+        [object]
+      >(async () => []),
+      getAccountLocalHistoryConfirmedTxs: jest.fn<
+        Promise<import('@onekeyhq/shared/types/history').IAccountHistoryTx[]>,
+        [object]
+      >(async () => []),
+      updateLocalHistoryConfirmedTxStatus: jest.fn(async () => undefined),
+    },
+    serviceToken: {
+      fetchTokensDetails: jest.fn(async () => [
+        {
+          info: {
+            address: STRK,
+            name: 'Starknet',
+            symbol: 'STRK',
+            decimals: 18,
+            isNative: true,
+          },
+        },
+      ]),
+    },
+    serviceCustomRpc: {
+      ensureLocalWalletRemoteConfigLoaded: jest.fn(async () => undefined),
+    },
   };
   const service = new ServiceStarknetPrivacy({ backgroundApi });
-  starknetPrivacy.getRecord.mockResolvedValue(
-    options?.lastTxBlockNumber === undefined
-      ? undefined
-      : {
-          networkId: NETWORK_ID,
-          accountId: ACCOUNT_ID,
-          lastTxBlockNumber: options.lastTxBlockNumber,
-          optInStatus: 'registered',
-        },
-  );
+  starknetPrivacy.getRecord.mockResolvedValue({
+    networkId: NETWORK_ID,
+    accountId: ACCOUNT_ID,
+    lastTxBlockNumber: options?.lastTxBlockNumber,
+    optInStatus: 'registered',
+    registeredPublicKey: PUBLIC_KEY_X,
+  });
   return {
     service,
     client,
     vault,
+    backgroundApi,
     buildPrivacyEncodedTx,
     promptPasswordVerifyByAccount,
   };
 }
 
 const key = { networkId: NETWORK_ID, accountId: ACCOUNT_ID };
+
+describe('prover HTTP idempotency header', () => {
+  it('forwards the SDK key on the actual HTTP request and preserves it on retries', async () => {
+    const { service } = build();
+    const httpPost = jest.fn(async () => ({
+      data: {
+        data: {
+          data: [{ success: true, status: 202, data: { jobId: 'test-job' } }],
+        },
+      },
+    }));
+    Object.assign(service, { getClient: async () => ({ post: httpPost }) });
+    await service.buildRegisterTx(key);
+    const [proxy] = jest.mocked(createStrk20ProverProxyFetch).mock.calls[0];
+    const request: IProxyRequest = {
+      networkId: NETWORK_ID,
+      body: [
+        {
+          route: 'prover',
+          params: {
+            method: 'POST',
+            url: '/prove',
+            params: [],
+            data: {},
+            headers: { 'Idempotency-Key': 'test-key-preserved-0001' },
+          },
+        },
+      ],
+    };
+    const signal = new AbortController().signal;
+    await proxy.post(request, signal);
+    await proxy.post(request, signal);
+    expect(httpPost).toHaveBeenCalledTimes(2);
+    for (const call of httpPost.mock.calls) {
+      expect(call).toEqual([
+        '/wallet/v1/proxy/wallet',
+        request,
+        {
+          signal,
+          headers: { 'Idempotency-Key': 'test-key-preserved-0001' },
+        },
+      ]);
+    }
+    httpPost.mockClear();
+    const poll: IProxyRequest = {
+      networkId: NETWORK_ID,
+      body: [
+        {
+          route: 'prover',
+          params: { method: 'GET', url: '/prove/test-job', params: [] },
+        },
+      ],
+    };
+    await proxy.post(poll, signal);
+    expect(httpPost).toHaveBeenCalledWith('/wallet/v1/proxy/wallet', poll, {
+      signal,
+    });
+  });
+});
 const previousBackgroundScope = globalThis.$onekeyIsInBackground;
 
 beforeAll(() => {
@@ -187,20 +310,15 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  starknetPrivacyConfig.getEnvelope.mockResolvedValue({
-    envelope: {
-      version: 1,
-      updatedAt: 1,
-      configs: { [NETWORK_ID]: enabledConfig },
-    },
-    syncedAt: Date.now(),
-  });
+  starknetPrivacy.patchRecord.mockReset();
+  jest.mocked(getStrk20HistoryTransfers).mockReset();
+  jest.mocked(getStrk20HistoryTransfers).mockResolvedValue([]);
   starknetPrivacy.getRecord.mockResolvedValue(undefined);
   createProofInvocation.mockResolvedValue({ invocation: {}, registry: {} });
   executeWithInvocation.mockResolvedValue({
     callAndProof: {
       call: {
-        contractAddress: SEPOLIA_POOL,
+        contractAddress: MAINNET_POOL,
         entrypoint: 'apply_actions',
         calldata: ['0x1', '0x2'],
       },
@@ -224,6 +342,39 @@ function callsOf(buildPrivacyEncodedTx: jest.Mock) {
 }
 
 describe('build gates', () => {
+  it('uses the original hardware processing flow and reuses empty-password device credentials', async () => {
+    const { service, vault, backgroundApi, promptPasswordVerifyByAccount } =
+      build();
+    const deviceParams = {
+      dbDevice: { connectId: 'test-connection', deviceId: 'test-device' },
+      deviceCommonParams: {},
+    };
+    promptPasswordVerifyByAccount.mockResolvedValueOnce(
+      Object.assign({ password: '' }, { deviceParams }),
+    );
+    await service.buildRegisterTx({
+      ...key,
+      accountId: "hw-1--m/44'/9004'/0'/0/0",
+    });
+    expect(vault.keyring.deriveStrk20ViewingKey).toHaveBeenCalledWith(
+      expect.objectContaining({ password: '', deviceParams }),
+    );
+    expect(
+      backgroundApi.serviceHardwareUI.withHardwareProcessing,
+    ).toHaveBeenCalledTimes(1);
+    const signer = checkIsDefined(
+      jest.mocked(createStrk20Signer).mock.lastCall?.[0],
+    );
+    await expect(signer.resolvePassword()).resolves.toBe('');
+    await expect(signer.resolveDeviceParams?.()).resolves.toBe(deviceParams);
+    await expect(signer.resolvePassword()).resolves.toBe('');
+    expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+    expect(promptPasswordVerifyByAccount).toHaveBeenCalledWith({
+      accountId: "hw-1--m/44'/9004'/0'/0/0",
+      reason: EReasonForNeedPassword.CreateTransaction,
+    });
+  });
+
   it.each([
     ['buildRegisterTx', (s: ServiceStarknetPrivacy) => s.buildRegisterTx(key)],
     [
@@ -263,6 +414,15 @@ describe('build gates', () => {
 });
 
 describe('buildRegisterTx mismatch rule', () => {
+  it('supplies a latest-block pool nonce reader instead of a direct RPC URL', async () => {
+    const { service, client } = build();
+    await service.buildRegisterTx(key);
+    const [params] = jest.mocked(createStrk20Transfers).mock.calls[0];
+    await expect(params.getProofNonce?.()).resolves.toBe(7n);
+    expect(client.getNonce).toHaveBeenCalledWith(MAINNET_POOL, 'latest');
+    expect(params).not.toHaveProperty('nodeUrl');
+  });
+
   it('records mismatch and refuses when the pool holds a different key', async () => {
     const { service } = build({ registeredPublicKey: '0x'.padEnd(66, 'f') });
 
@@ -289,11 +449,138 @@ describe('buildRegisterTx mismatch rule', () => {
     );
   });
 
-  it('proceeds when the pool key already matches this device', async () => {
+  it('marks registered without a second register when the pool key matches', async () => {
     const { service } = build({ registeredPublicKey: PUBLIC_KEY_X });
 
-    await service.buildRegisterTx(key);
-    expect(createProofInvocation).toHaveBeenCalledTimes(1);
+    await expect(service.buildRegisterTx(key)).resolves.toEqual({
+      alreadyRegistered: true,
+    });
+    expect(starknetPrivacy.patchRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: {
+          optInStatus: 'registered',
+          registeredPublicKey: PUBLIC_KEY_X,
+        },
+      }),
+    );
+    expect(createProofInvocation).not.toHaveBeenCalled();
+  });
+});
+
+describe('register pending', () => {
+  const TXID =
+    '0x593f717be8ffc4966659dd53ff2708c8830687886dcd74a0c4807b7843ea74a';
+  const pendingRecord = {
+    networkId: NETWORK_ID,
+    accountId: ACCOUNT_ID,
+    accountAddress: ACCOUNT_ADDRESS,
+    poolAddress: MAINNET_POOL,
+    optInStatus: 'registerPending',
+    registerTxid: TXID,
+  };
+
+  function buildPending(options: {
+    receipt: unknown;
+    submittedAgoMs?: number;
+    registeredPublicKey?: string;
+  }) {
+    const built = build({ registeredPublicKey: options.registeredPublicKey });
+    const getTransactionReceipt = jest.fn(async () => options.receipt);
+    Object.assign(built.client, { getTransactionReceipt });
+    starknetPrivacy.getRecord.mockResolvedValue({
+      ...pendingRecord,
+      registerSubmittedAt: Date.now() - (options.submittedAgoMs ?? 0),
+    });
+    starknetPrivacy.patchRecord.mockImplementation(
+      async ({ patch }: { patch: object }) => ({ ...pendingRecord, ...patch }),
+    );
+    return { ...built, getTransactionReceipt };
+  }
+
+  it('records the submitted register tx as pending', async () => {
+    const { service } = build();
+
+    await service.noteRegisterSubmitted({
+      ...key,
+      poolAddress: MAINNET_POOL,
+      txid: TXID,
+    });
+
+    expect(starknetPrivacy.patchRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        poolAddress: MAINNET_POOL,
+        patch: expect.objectContaining({
+          optInStatus: 'registerPending',
+          registerTxid: TXID,
+          registerSubmittedAt: expect.any(Number),
+        }),
+      }),
+    );
+  });
+
+  it('settles to registered once the register tx is accepted', async () => {
+    const { service, getTransactionReceipt } = buildPending({
+      receipt: {
+        finality_status: 'ACCEPTED_ON_L2',
+        execution_status: 'SUCCEEDED',
+      },
+      registeredPublicKey: PUBLIC_KEY_X,
+    });
+
+    const state = await service.getAccountPrivacyState(key);
+
+    expect(getTransactionReceipt).toHaveBeenCalledWith(TXID);
+    expect(state.optInStatus).toBe('registered');
+    expect(state.registeredPublicKey).toBe(PUBLIC_KEY_X);
+  });
+
+  it('keeps a successful receipt pending until the pool exposes its registered key', async () => {
+    const { service } = buildPending({
+      receipt: {
+        finality_status: 'ACCEPTED_ON_L2',
+        execution_status: 'SUCCEEDED',
+      },
+    });
+    const state = await service.getAccountPrivacyState(key);
+    expect(state.optInStatus).toBe('registerPending');
+    expect(starknetPrivacy.patchRecord).not.toHaveBeenCalled();
+  });
+
+  it('falls back to consented when the register tx reverted', async () => {
+    const { service } = buildPending({
+      receipt: {
+        finality_status: 'ACCEPTED_ON_L2',
+        execution_status: 'REVERTED',
+      },
+    });
+
+    const state = await service.getAccountPrivacyState(key);
+
+    expect(state.optInStatus).toBe('consented');
+    expect(state.registerTxid).toBe(TXID);
+    expect(state.registerTxFailed).toBe(true);
+  });
+
+  it('keeps a missing receipt pending even after a long wait', async () => {
+    const { service } = buildPending({
+      receipt: null,
+      submittedAgoMs: 20 * 60 * 1000,
+    });
+
+    const state = await service.getAccountPrivacyState(key);
+
+    expect(state.optInStatus).toBe('registerPending');
+    expect(state.registerTxid).toBe(TXID);
+    expect(starknetPrivacy.patchRecord).not.toHaveBeenCalled();
+  });
+
+  it('stays pending while the receipt is not in yet', async () => {
+    const { service } = buildPending({ receipt: null, submittedAgoMs: 5000 });
+
+    const state = await service.getAccountPrivacyState(key);
+
+    expect(state.optInStatus).toBe('registerPending');
+    expect(starknetPrivacy.patchRecord).not.toHaveBeenCalled();
   });
 });
 
@@ -385,6 +672,7 @@ describe('multicall assembly', () => {
   it('omits the approve entirely when the pool charges nothing', async () => {
     const { service, client, buildPrivacyEncodedTx } = build();
     client.getPoolFeeAmount.mockResolvedValue('0');
+    client.getPoolRegisteredPublicKey.mockResolvedValueOnce(PUBLIC_KEY_X);
 
     await service.buildPrivateTransferTx({
       ...key,
@@ -397,6 +685,25 @@ describe('multicall assembly', () => {
     expect(callsOf(buildPrivacyEncodedTx).map((c) => c.entrypoint)).toEqual([
       'apply_actions',
     ]);
+  });
+
+  it('rejects a recipient missing from the pool before requesting a proof', async () => {
+    const { service, buildPrivacyEncodedTx } = build();
+
+    await expect(
+      service.buildPrivateTransferTx({
+        ...key,
+        kind: 'transfer',
+        tokenAddress: ETH,
+        amount: '3',
+        recipient: ACCOUNT_ADDRESS,
+      }),
+    ).rejects.toMatchObject({
+      data: {
+        starknetPrivacyErrorCode: EStrk20ErrorCode.RecipientNotRegistered,
+      },
+    });
+    expect(buildPrivacyEncodedTx).not.toHaveBeenCalled();
   });
 
   it.each(['1.5', '-1', 'abc', ''])(
@@ -435,6 +742,120 @@ describe('multicall assembly', () => {
 });
 
 describe('read paths never prompt', () => {
+  it('loads a cold private balance with the unlocked software wallet password', async () => {
+    const { service, backgroundApi, vault, promptPasswordVerifyByAccount } =
+      build();
+    backgroundApi.servicePassword.getCachedPasswordForBackgroundRead.mockResolvedValue(
+      'cached-password',
+    );
+    discoverNotes.mockResolvedValue({
+      notes: new Map([[BigInt(STRK), [{ amount: BigInt(4) }]]]),
+    });
+
+    await expect(service.getPrivateBalances(key)).resolves.toMatchObject({
+      byToken: { [STRK]: '4' },
+    });
+    expect(vault.keyring.deriveStrk20ViewingKey).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'cached-password' }),
+    );
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(createProofInvocation).not.toHaveBeenCalled();
+  });
+
+  it('checks a silently derived key against the registered key before discovery', async () => {
+    const { service, backgroundApi, promptPasswordVerifyByAccount } = build();
+    backgroundApi.servicePassword.getCachedPasswordForBackgroundRead.mockResolvedValue(
+      'cached-password',
+    );
+    starknetPrivacy.getRecord.mockResolvedValue({
+      optInStatus: 'registered',
+      registeredPublicKey: '0xdead',
+    });
+
+    await expect(service.getPrivateBalances(key)).rejects.toMatchObject({
+      data: { starknetPrivacyErrorCode: EStrk20ErrorCode.KeyMismatch },
+    });
+    expect(discoverNotes).not.toHaveBeenCalled();
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+  });
+
+  it('does not use the app password for a hardware wallet without a viewing key', async () => {
+    const { service, backgroundApi, vault, promptPasswordVerifyByAccount } =
+      build();
+    backgroundApi.servicePassword.getCachedPasswordForBackgroundRead.mockResolvedValue(
+      'cached-password',
+    );
+
+    await expect(
+      service.getPrivateBalances({
+        ...key,
+        accountId: "hw-1--m/44'/9004'/0'/0/0",
+      }),
+    ).rejects.toMatchObject({
+      data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Locked },
+    });
+    expect(vault.keyring.deriveStrk20ViewingKey).not.toHaveBeenCalled();
+    expect(discoverNotes).not.toHaveBeenCalled();
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+  });
+
+  it('allows an explicit registered-account refresh to unlock without creating a proof', async () => {
+    const { service, promptPasswordVerifyByAccount } = build();
+    starknetPrivacy.getRecord.mockResolvedValue({
+      optInStatus: 'registered',
+      registeredPublicKey: PUBLIC_KEY_X,
+    });
+    discoverNotes.mockResolvedValue({
+      notes: new Map<bigint, { amount: bigint }[]>(),
+    });
+    await expect(
+      service.refreshPrivateBalances({ ...key, allowPrompt: true }),
+    ).resolves.toMatchObject({ noteCount: 0 });
+    expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+    expect(promptPasswordVerifyByAccount).toHaveBeenCalledWith({
+      accountId: key.accountId,
+      reason: EReasonForNeedPassword.Default,
+    });
+    expect(createProofInvocation).not.toHaveBeenCalled();
+    expect(executeWithInvocation).not.toHaveBeenCalled();
+  });
+
+  it('never prompts or syncs an account that has opted out', async () => {
+    const { service, promptPasswordVerifyByAccount } = build();
+    starknetPrivacy.getRecord.mockResolvedValue({ optInStatus: 'none' });
+    await expect(
+      service.refreshPrivateBalances({ ...key, allowPrompt: true }),
+    ).rejects.toMatchObject({ key: expect.any(String) });
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(discoverNotes).not.toHaveBeenCalled();
+  });
+
+  it('does not send a mismatching viewing key to Discovery after unlocking', async () => {
+    const { service } = build();
+    starknetPrivacy.getRecord.mockResolvedValue({
+      optInStatus: 'registered',
+      registeredPublicKey: '0xdead',
+    });
+    await expect(
+      service.refreshPrivateBalances({ ...key, allowPrompt: true }),
+    ).rejects.toMatchObject({ key: expect.any(String) });
+    expect(discoverNotes).not.toHaveBeenCalled();
+    await expect(service.refreshPrivateBalances(key)).rejects.toMatchObject({
+      key: expect.any(String),
+    });
+    expect(discoverNotes).not.toHaveBeenCalled();
+  });
+
+  it('does not sync if privacy is turned off while unlocking', async () => {
+    const { service } = build();
+    starknetPrivacy.getRecord
+      .mockResolvedValueOnce({ optInStatus: 'registered' })
+      .mockResolvedValueOnce({ optInStatus: 'none' });
+    await expect(
+      service.refreshPrivateBalances({ ...key, allowPrompt: true }),
+    ).rejects.toMatchObject({ key: expect.any(String) });
+    expect(discoverNotes).not.toHaveBeenCalled();
+  });
   it.each([
     [
       'refreshPrivateBalances',
@@ -475,5 +896,599 @@ describe('read paths never prompt', () => {
     expect(balances.blockNumber).toBe(1000);
     // one prompt covered both derivation and signing; the read added none
     expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses fresh display balances, then shares one discovery when they expire', async () => {
+    const { service, promptPasswordVerifyByAccount } = build();
+    const query = { ...key, tokenAddresses: [STRK] };
+    starknetPrivacy.getRecord.mockResolvedValue({
+      optInStatus: 'registered',
+      registeredPublicKey: PUBLIC_KEY_X,
+    });
+    discoverNotes.mockResolvedValue({ notes: new Map() });
+    const initial = await service.refreshPrivateBalances({
+      ...query,
+      allowPrompt: true,
+    });
+
+    await expect(service.getCachedPrivateBalances(query)).resolves.toEqual(
+      initial,
+    );
+    await expect(service.getPrivateBalances(query)).resolves.toEqual(initial);
+    await expect(
+      service.getCachedPrivateBalances({ ...query, tokenAddresses: [ETH] }),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.getCachedPrivateBalances({
+        ...query,
+        accountId: 'another-account',
+      }),
+    ).resolves.toBeUndefined();
+    expect(discoverNotes).toHaveBeenCalledTimes(1);
+
+    const dateNow = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(initial.lastSyncedAt + 60_000);
+    try {
+      const results = await Promise.all([
+        service.getPrivateBalances(query),
+        service.getPrivateBalances(query),
+      ]);
+      expect(discoverNotes).toHaveBeenCalledTimes(2);
+      expect(results[0].lastSyncedAt).toBe(Date.now());
+      expect(results[1]).toEqual(results[0]);
+      expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+
+      dateNow.mockReturnValue(initial.lastSyncedAt + 5 * 60_000 + 1);
+      await expect(service.getPrivateBalances(query)).rejects.toMatchObject({
+        data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Locked },
+      });
+      await expect(service.getCachedPrivateBalances(query)).resolves.toEqual(
+        results[0],
+      );
+
+      await service.clearViewingKeyCache();
+      await expect(
+        service.getCachedPrivateBalances(query),
+      ).resolves.toBeUndefined();
+      await expect(service.getPrivateBalances(query)).rejects.toMatchObject({
+        data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Locked },
+      });
+      expect(discoverNotes).toHaveBeenCalledTimes(2);
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it('uses the in-flight manual refresh instead of publishing an older snapshot', async () => {
+    const { service } = build();
+    starknetPrivacy.getRecord.mockResolvedValue({
+      optInStatus: 'registered',
+      registeredPublicKey: PUBLIC_KEY_X,
+    });
+    discoverNotes.mockResolvedValue({ notes: new Map() });
+    await service.refreshPrivateBalances({ ...key, allowPrompt: true });
+
+    const started = Promise.withResolvers<void>();
+    const discovery = Promise.withResolvers<{
+      notes: Map<bigint, { amount: bigint }[]>;
+    }>();
+    discoverNotes.mockImplementationOnce(() => {
+      started.resolve();
+      return discovery.promise;
+    });
+    const manual = service.refreshPrivateBalances({
+      ...key,
+      allowPrompt: true,
+    });
+    await started.promise;
+    const automatic = service.getPrivateBalances(key);
+    discovery.resolve({ notes: new Map([[BigInt(STRK), [{ amount: 10n }]]]) });
+
+    const [manualSnapshot, automaticSnapshot] = await Promise.all([
+      manual,
+      automatic,
+    ]);
+    expect(automaticSnapshot).toEqual(manualSnapshot);
+    expect(automaticSnapshot.byToken[STRK]).toBe('10');
+    expect(discoverNotes).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('submitted private transfers', () => {
+  const pending = {
+    txid: '0xabc',
+    kind: 'deposit',
+    status: 'pending',
+    submittedAt: 123,
+  };
+  function pendingTransfer(receipt: unknown) {
+    const fixture = build();
+    const record = {
+      networkId: NETWORK_ID,
+      accountId: ACCOUNT_ID,
+      poolAddress: MAINNET_POOL,
+      accountAddress: ACCOUNT_ADDRESS,
+      optInStatus: 'registered',
+      registeredPublicKey: PUBLIC_KEY_X,
+      lastTransfer: pending,
+    };
+    starknetPrivacy.getRecord.mockResolvedValue(record);
+    starknetPrivacy.patchRecord.mockImplementation(
+      async ({ patch }: { patch: object }) => ({ ...record, ...patch }),
+    );
+    fixture.client.getTransactionReceipt.mockResolvedValue(receipt);
+    return fixture;
+  }
+  it('persists only the public transaction identity after submission', async () => {
+    const { service } = build();
+    await service.notePrivateTransferSubmitted({
+      ...key,
+      poolAddress: MAINNET_POOL,
+      txid: '0xabc',
+      kind: 'deposit',
+    });
+    expect(starknetPrivacy.patchRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: {
+          lastTransfer: { ...pending, submittedAt: expect.any(Number) },
+        },
+      }),
+    );
+  });
+  it('retains a missing receipt as pending and blocks another proof', async () => {
+    const { service } = pendingTransfer(null);
+    expect(
+      (await service.getAccountPrivacyState(key)).lastTransfer?.status,
+    ).toBe('pending');
+    await expect(
+      service.buildPrivateTransferTx({
+        ...key,
+        kind: 'deposit',
+        tokenAddress: STRK,
+        amount: '1',
+      }),
+    ).rejects.toBeDefined();
+    expect(createProofInvocation).not.toHaveBeenCalled();
+  });
+  it('settles a successful receipt and starts the cooldown', async () => {
+    const { service } = pendingTransfer({
+      execution_status: 'SUCCEEDED',
+      finality_status: 'ACCEPTED_ON_L2',
+      block_number: 999,
+    });
+    const state = await service.getAccountPrivacyState(key);
+    expect(state.lastTransfer?.status).toBe('confirmed');
+    expect(state.lastTxBlockNumber).toBe(999);
+    expect(starknetPrivacy.patchRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ expected: { lastTransferTxid: '0xabc' } }),
+    );
+  });
+  it('keeps privacy enabled after an explicit failed transfer', async () => {
+    const { service } = pendingTransfer({
+      execution_status: 'REVERTED',
+      finality_status: 'ACCEPTED_ON_L2',
+      block_number: 999,
+    });
+    const state = await service.getAccountPrivacyState(key);
+    expect(state.optInStatus).toBe('registered');
+    expect(state.lastTransfer?.status).toBe('failed');
+  });
+  it('refuses to prompt or prove after opt-out', async () => {
+    const { service, promptPasswordVerifyByAccount } = build();
+    starknetPrivacy.getRecord.mockResolvedValue({ optInStatus: 'none' });
+    await expect(
+      service.buildPrivateTransferTx({
+        ...key,
+        kind: 'deposit',
+        tokenAddress: STRK,
+        amount: '1',
+      }),
+    ).rejects.toBeDefined();
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(createProofInvocation).not.toHaveBeenCalled();
+  });
+  it('checks the remote switch again before broadcast', async () => {
+    const { service } = build();
+    Object.assign(service, { isDisabledByServer: async () => true });
+    await expect(
+      service.assertPrivacyTxCanSubmit({ ...key, kind: 'deposit' }),
+    ).rejects.toBeDefined();
+  });
+});
+
+describe('private history display', () => {
+  it('filters by token, preserves pagination, and loads metadata only once', async () => {
+    const { service, backgroundApi, vault } = build();
+    await service.buildRegisterTx(key);
+    const cursor = { subchannels: [], historyComplete: false };
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+      transactions: [1n, 2n].map((transactionHash) => ({
+        transactionHash,
+        blockNumber: 100,
+        notes: [],
+        deposits: [],
+        withdrawals: [],
+        openNoteDeposits: [],
+      })),
+      cursor,
+    });
+    jest.mocked(getStrk20HistoryTransfers).mockResolvedValue([
+      {
+        kind: 'transfer',
+        from: BigInt(ACCOUNT_ADDRESS),
+        to: 123n,
+        token: BigInt(STRK),
+        amount: 1_500_000_000_000_000_000n,
+      },
+      {
+        kind: 'transfer',
+        from: 123n,
+        to: BigInt(ACCOUNT_ADDRESS),
+        token: BigInt(ETH),
+        amount: 999n,
+      },
+    ]);
+    const result = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(result.hasMore).toBe(true);
+    expect(result.cursor).toEqual(cursor);
+    expect(result.txs).toHaveLength(2);
+    expect(backgroundApi.serviceToken.fetchTokensDetails).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(vault.buildTxTransferAssetAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transfers: [
+          expect.objectContaining({
+            amount: '1.5',
+            symbol: 'STRK',
+            tokenIdOnNetwork: STRK,
+          }),
+        ],
+      }),
+    );
+    expect(result.txs[0].decodedTx.block).toBe(100);
+    expect(result.txs[0].decodedTx.createdAt).toBeUndefined();
+    expect(result.txs[0].decodedTx.totalFeeInNative).toBeUndefined();
+  });
+  it('does not manufacture a zero-value row for a synthetic registration', async () => {
+    const { service, backgroundApi } = build();
+    await service.buildRegisterTx(key);
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+      transactions: [
+        {
+          transactionHash: 0n,
+          blockNumber: 100,
+          notes: [],
+          deposits: [],
+          withdrawals: [],
+          openNoteDeposits: [],
+          registeredPubkey: 1n,
+        },
+      ],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    const result = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(result.txs).toEqual([]);
+    expect(
+      backgroundApi.serviceToken.fetchTokensDetails,
+    ).not.toHaveBeenCalled();
+  });
+});
+
+it('resumes an existing registration without creating a proof', async () => {
+  const { service } = build({ registeredPublicKey: PUBLIC_KEY_X });
+  await expect(
+    service.buildRegisterTx({ ...key, resumeOnly: true }),
+  ).resolves.toEqual({ alreadyRegistered: true });
+  expect(createProofInvocation).not.toHaveBeenCalled();
+});
+it('never silently turns resume into a paid registration', async () => {
+  const { service } = build();
+  await expect(
+    service.buildRegisterTx({ ...key, resumeOnly: true }),
+  ).rejects.toBeDefined();
+  expect(createProofInvocation).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['deposit', ACCOUNT_ADDRESS, MAINNET_POOL, 'receives'],
+  ['withdraw', MAINNET_POOL, ACCOUNT_ADDRESS, 'sends'],
+  ['transfer', '0x7b', ACCOUNT_ADDRESS, 'receives'],
+] as const)(
+  'projects %s from the private balance and preserves the real source',
+  async (kind, from, to, direction) => {
+    const { service } = build();
+    await service.buildRegisterTx(key);
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+      transactions: [
+        {
+          transactionHash: 1n,
+          blockNumber: 100,
+          notes: [],
+          deposits: [],
+          withdrawals: [],
+          openNoteDeposits: [],
+        },
+      ],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    jest.mocked(getStrk20HistoryTransfers).mockResolvedValue([
+      {
+        kind,
+        from: BigInt(from),
+        to: BigInt(to),
+        token: BigInt(STRK),
+        amount: 3_000_000_000_000_000_000n,
+      },
+    ]);
+    const { txs } = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(
+      txs[0].decodedTx.actions[0].assetTransfer?.[direction][0].amount,
+    ).toBe('3');
+    expect(BigInt(txs[0].decodedTx.signer)).toBe(BigInt(from));
+  },
+);
+
+it.each([
+  [null, EDecodedTxStatus.Pending],
+  [
+    { execution_status: 'REVERTED', finality_status: 'ACCEPTED_ON_L2' },
+    EDecodedTxStatus.Failed,
+  ],
+] as const)(
+  'keeps local private history when Discovery has no row and settles its receipt',
+  async (receipt, expectedStatus) => {
+    const { service, client, backgroundApi } = build();
+    await service.buildRegisterTx(key);
+    client.getTransactionReceipt.mockResolvedValue(receipt);
+    jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+      transactions: [],
+      cursor: { subchannels: [], historyComplete: true },
+    });
+    backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs.mockResolvedValue(
+      [
+        {
+          id: 'local-private',
+          isLocalCreated: true,
+          decodedTx: {
+            txid: '0x123',
+            owner: ACCOUNT_ADDRESS,
+            signer: ACCOUNT_ADDRESS,
+            networkId: NETWORK_ID,
+            accountId: ACCOUNT_ID,
+            nonce: 0,
+            status: EDecodedTxStatus.Pending,
+            totalFeeInNative: '2',
+            extraInfo: {
+              privacy: {
+                kind: 'transfer',
+                poolAddress: MAINNET_POOL,
+                tokenAddress: STRK,
+                amount: '10000000000000000000',
+                recipient: '0x7b',
+              },
+            },
+            actions: [
+              {
+                type: 'assetTransfer',
+                assetTransfer: {
+                  from: ACCOUNT_ADDRESS,
+                  to: '0x7b',
+                  sends: [
+                    {
+                      from: ACCOUNT_ADDRESS,
+                      to: '0x7b',
+                      amount: '10',
+                      tokenIdOnNetwork: STRK,
+                    },
+                  ],
+                  receives: [],
+                },
+              },
+            ],
+          },
+        },
+      ] as unknown as import('@onekeyhq/shared/types/history').IAccountHistoryTx[],
+    );
+    const { txs } = await service.fetchPrivateHistory({
+      ...key,
+      tokenAddress: STRK,
+    });
+    expect(txs).toHaveLength(1);
+    expect(txs[0].decodedTx.status).toBe(expectedStatus);
+    expect(txs[0].decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '10',
+    );
+    expect(
+      backgroundApi.serviceHistory.updateLocalHistoryConfirmedTxStatus,
+    ).toHaveBeenCalledTimes(
+      expectedStatus === EDecodedTxStatus.Pending ? 0 : 1,
+    );
+  },
+);
+
+it('does not repopulate the viewing-key cache when derivation finishes after a lock', async () => {
+  const { service, vault } = build();
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let finish!: (value: {
+    viewingKey: string;
+    publicKeyX: string;
+    counter: number;
+  }) => void;
+  vault.keyring.deriveStrk20ViewingKey.mockImplementationOnce(async () => {
+    entered();
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  });
+  const building = service.buildRegisterTx(key);
+  await started;
+  await service.clearViewingKeyCache();
+  finish({ viewingKey: VIEWING_KEY, publicKeyX: PUBLIC_KEY_X, counter: 0 });
+  await expect(building).rejects.toBeDefined();
+  await expect(service.refreshPrivateBalances(key)).rejects.toBeDefined();
+  expect(discoverNotes).not.toHaveBeenCalled();
+});
+
+it('does not build a transaction from a proof that completed after a lock', async () => {
+  const { service, buildPrivacyEncodedTx } = build();
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let finish!: (value: object) => void;
+  executeWithInvocation.mockImplementationOnce(async () => {
+    entered();
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  });
+  const building = service.buildPrivateTransferTx({
+    ...key,
+    kind: 'withdraw',
+    tokenAddress: STRK,
+    amount: '1',
+  });
+  await started;
+  await service.clearViewingKeyCache();
+  finish({});
+  await expect(building).rejects.toBeDefined();
+  expect(buildPrivacyEncodedTx).not.toHaveBeenCalled();
+});
+
+it('keeps paid fees and the local privacy intent when Discovery replaces the same transaction', async () => {
+  const { service, backgroundApi } = build();
+  await service.buildRegisterTx(key);
+  jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+    transactions: [
+      {
+        transactionHash: 1n,
+        blockNumber: 100,
+        notes: [],
+        deposits: [],
+        withdrawals: [],
+        openNoteDeposits: [],
+      },
+    ],
+    cursor: { subchannels: [], historyComplete: true },
+  });
+  jest.mocked(getStrk20HistoryTransfers).mockResolvedValue([
+    {
+      kind: 'transfer',
+      from: BigInt(ACCOUNT_ADDRESS),
+      to: 123n,
+      token: BigInt(STRK),
+      amount: 1_000_000_000_000_000_000n,
+    },
+  ]);
+  backgroundApi.serviceHistory.getAccountLocalHistoryConfirmedTxs.mockResolvedValue(
+    [
+      {
+        id: 'local',
+        isLocalCreated: true,
+        decodedTx: {
+          txid: '0x01',
+          owner: ACCOUNT_ADDRESS,
+          signer: ACCOUNT_ADDRESS,
+          networkId: NETWORK_ID,
+          accountId: ACCOUNT_ID,
+          nonce: 7,
+          actions: [],
+          status: EDecodedTxStatus.Confirmed,
+          totalFeeInNative: '2.2',
+          totalFeeFiatValue: '0.1',
+          createdAt: 100,
+          extraInfo: {
+            privacy: {
+              kind: 'transfer',
+              poolAddress: MAINNET_POOL,
+              tokenAddress: STRK,
+              amount: '1000000000000000000',
+              recipient: '0x7b',
+              protocolFee: PROTOCOL_FEE,
+            },
+          },
+        },
+      },
+    ],
+  );
+  const result = await service.fetchPrivateHistory({
+    ...key,
+    tokenAddress: STRK,
+  });
+  expect(result.txs).toHaveLength(1);
+  expect(result.txs[0].decodedTx).toMatchObject({
+    totalFeeInNative: '2.2',
+    totalFeeFiatValue: '0.1',
+    nonce: 7,
+    createdAt: 100,
+    extraInfo: { privacy: { protocolFee: PROTOCOL_FEE, tokenAddress: STRK } },
+  });
+  expect(result.txs[0].isLocalCreated).toBe(true);
+});
+
+it('uses the receipt fee instead of the estimate when private-history polling confirms a local transfer', async () => {
+  const { service, client, backgroundApi } = build();
+  await service.buildRegisterTx(key);
+  client.getTransactionReceipt.mockResolvedValue({
+    execution_status: 'SUCCEEDED',
+    finality_status: 'ACCEPTED_ON_L2',
+    actual_fee: { amount: '0xde0b6b3a7640000', unit: 'FRI' },
+  });
+  jest.mocked(fetchStrk20HistoryPage).mockResolvedValue({
+    transactions: [],
+    cursor: { subchannels: [], historyComplete: true },
+  });
+  backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs.mockResolvedValue(
+    [
+      {
+        id: 'local',
+        isLocalCreated: true,
+        decodedTx: {
+          txid: '0x01',
+          owner: ACCOUNT_ADDRESS,
+          signer: ACCOUNT_ADDRESS,
+          networkId: NETWORK_ID,
+          accountId: ACCOUNT_ID,
+          nonce: 7,
+          actions: [],
+          status: EDecodedTxStatus.Pending,
+          totalFeeInNative: '2',
+          totalFeeFiatValue: '0.1',
+          extraInfo: {
+            privacy: {
+              kind: 'transfer',
+              poolAddress: MAINNET_POOL,
+              tokenAddress: STRK,
+              amount: '1000000000000000000',
+              recipient: '0x7b',
+              protocolFee: PROTOCOL_FEE,
+            },
+          },
+        },
+      },
+    ],
+  );
+  const result = await service.fetchPrivateHistory({
+    ...key,
+    tokenAddress: STRK,
+  });
+  expect(result.txs[0].decodedTx).toMatchObject({
+    status: EDecodedTxStatus.Confirmed,
+    totalFeeInNative: '1',
+    totalFeeFiatValue: '0.05',
   });
 });

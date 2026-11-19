@@ -35,6 +35,7 @@ export type IStarknetDeployAccountParams = {
 
 // Invoke v3. Numerics stay hex strings: encodedTx crosses the bg/main boundary
 export type IEncodedTxStarknet = {
+  type?: 'DEPLOY_ACCOUNT';
   chainId: string;
   from: string;
   version: '0x3';
@@ -47,6 +48,8 @@ export type IEncodedTxStarknet = {
   nonceDataAvailabilityMode: IStarknetDataAvailabilityMode;
   feeDataAvailabilityMode: IStarknetDataAvailabilityMode;
   deployAccount?: IStarknetDeployAccountParams;
+  /** Estimate the invoke against this deployment until the first batch item lands. */
+  deploymentDependency?: IStarknetDeployAccountParams;
   /**
    * Present only on a STRK20 private transfer. One nullable block rather than
    * loose optional fields, so the ordinary path is provably untouched: every
@@ -137,7 +140,14 @@ export type IStarknetRawTx = {
   proof?: string;
 };
 
+export type IStarknetRawDeployAccountTx = {
+  type: 'DEPLOY_ACCOUNT';
+  deployAccount: IStarknetSignedDeployAccount;
+  deployAccountTxHash: string;
+};
+
 export interface IDecodedTxExtraStarknet {
+  accountDeployment?: true;
   // Set only when this tx also deploys the account. Fee is a decimal string in FRI.
   deployAccountFee?: string;
   // tx hash of the counterfactual DEPLOY_ACCOUNT broadcast alongside the invoke

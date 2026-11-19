@@ -58,6 +58,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
 import {
+  formatMockMessage,
+  getStarknetPrivacyFeeDisplay,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
+import {
   applyEvmThorSwapGasLimit,
   getEvmThorSwapGasLimit,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
@@ -73,7 +77,11 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_APTOS, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_APTOS,
+  IMPL_SOL,
+  IMPL_STARKNET,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IOneKeyError,
   IOneKeyRpcError,
@@ -83,7 +91,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -1308,11 +1316,26 @@ function TxFeeInfo(props: IProps) {
           };
         }
 
+        const estimatedStarknetFee =
+          txFee.feeStarknet?.[sendSelectedFee.presetIndex] ??
+          txFee.feeStarknet?.[0];
+        if (estimatedStarknetFee) {
+          const bounds = customFee?.feeStarknet ?? estimatedStarknetFee;
+          customFeeInfo.feeStarknet = {
+            ...estimatedStarknetFee,
+            l1Gas: bounds.l1Gas,
+            l2Gas: bounds.l2Gas,
+            l1DataGas: bounds.l1DataGas,
+          };
+        }
+
         if (network && !feeInTxUpdated.current) {
           let originalFeeChanged = false;
 
           const defaultCustomFeeEnabled =
-            defaultCustomFeeInfo?.enabled && defaultCustomFeeInfo?.feeInfo;
+            !estimatedStarknetFee &&
+            defaultCustomFeeInfo?.enabled &&
+            defaultCustomFeeInfo?.feeInfo;
 
           // Saved custom fee has the highest priority
           if (defaultCustomFeeEnabled) {
@@ -1556,6 +1579,7 @@ function TxFeeInfo(props: IProps) {
     customFee?.feeDot,
     customFee?.feeBudget,
     customFee?.feeNeoN3,
+    customFee?.feeStarknet,
     defaultCustomFeeInfo?.enabled,
     defaultCustomFeeInfo?.feeInfo,
     estimateFeeParams,
@@ -1568,13 +1592,18 @@ function TxFeeInfo(props: IProps) {
 
     if (multiTxsFee) {
       const feeItem = multiTxsFee.txFees[0];
-      const feeLength = feeItem.gasEIP1559?.length || feeItem.gas?.length || 0;
+      const feeLength =
+        feeItem.gasEIP1559?.length ||
+        feeItem.gas?.length ||
+        feeItem.feeStarknet?.length ||
+        0;
 
       for (let i = 0; i < feeLength; i += 1) {
         const feeInfos: IFeeInfoUnit[] = multiTxsFee.txFees.map((fee) => ({
           common: multiTxsFee.common,
           gas: fee.gas?.[i],
           gasEIP1559: fee.gasEIP1559?.[i],
+          feeStarknet: fee.feeStarknet?.[i],
         }));
 
         items.push({
@@ -2446,12 +2475,14 @@ function TxFeeInfo(props: IProps) {
     unsignedTxs,
   ]);
 
+  const showFeeEditor =
+    vaultSettings?.editFeeEnabled &&
+    feeInfoEditable &&
+    !isPayerManagedByService &&
+    !(isMultiTxs && vaultSettings.impl === IMPL_STARKNET);
+
   const renderFeeEditor = useCallback(() => {
-    if (
-      !vaultSettings?.editFeeEnabled ||
-      !feeInfoEditable ||
-      isPayerManagedByService
-    ) {
+    if (!showFeeEditor) {
       return null;
     }
 
@@ -2488,19 +2519,51 @@ function TxFeeInfo(props: IProps) {
       />
     );
   }, [
-    feeInfoEditable,
     handlePress,
     intl,
-    isPayerManagedByService,
     isSinglePreset,
     openFeeEditorEnabled,
     sendFeeStatus.errMessage,
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
+    showFeeEditor,
     txFeeInfoInit,
-    vaultSettings?.editFeeEnabled,
   ]);
+
+  // Protocol fees are already part of decoded native spending. Add them only
+  // to the displayed fee total, leaving gas estimates and balance checks intact.
+  const starknetNetworkFee =
+    txFeeInfoInit &&
+    sendFeeStatus.status !== ESendFeeStatus.Error &&
+    selectedFee?.feeInfos.length &&
+    selectedFee.feeInfos.every(({ feeInfo }) => !!feeInfo.feeStarknet)
+      ? selectedFee.totalNativeMinForDisplay
+      : undefined;
+  const privacyFeeDisplay = useMemo(
+    () =>
+      network?.impl === IMPL_STARKNET
+        ? getStarknetPrivacyFeeDisplay({
+            extraInfos: decodedTxs.map((tx) => tx.extraInfo),
+            decimals: network.feeMeta.decimals,
+            networkFeeNative: starknetNetworkFee,
+            nativeTokenPrice: txFeeCommon?.nativeTokenPrice,
+          })
+        : undefined,
+    [
+      decodedTxs,
+      network?.impl,
+      network?.feeMeta.decimals,
+      starknetNetworkFee,
+      txFeeCommon?.nativeTokenPrice,
+    ],
+  );
+  const displayedTotalNative = privacyFeeDisplay
+    ? privacyFeeDisplay.totalNative
+    : selectedFee?.totalNativeMinForDisplay;
+  const displayedTotalFiat = privacyFeeDisplay
+    ? privacyFeeDisplay.totalFiat
+    : selectedFee?.totalFiatMinForDisplay;
 
   const renderTotalNative = useCallback(() => {
     if (isPayerManagedByService) {
@@ -2539,7 +2602,7 @@ function TxFeeInfo(props: IProps) {
           keepLeadingZero: true,
         }}
       >
-        {selectedFee?.totalNativeMinForDisplay ?? '-'}
+        {displayedTotalNative ?? '-'}
       </NumberSizeableText>
     );
   }, [
@@ -2549,7 +2612,7 @@ function TxFeeInfo(props: IProps) {
     isSwapTrxEnabled,
     payTokenInfo,
     payType,
-    selectedFee?.totalNativeMinForDisplay,
+    displayedTotalNative,
     txFeeCommon?.nativeSymbol,
   ]);
 
@@ -2598,14 +2661,14 @@ function TxFeeInfo(props: IProps) {
             currency: settings.currencyInfo.symbol,
           }}
         >
-          {selectedFee?.totalFiatMinForDisplay ?? '-'}
+          {displayedTotalFiat ?? '-'}
         </NumberSizeableText>
         )
       </SizableText>
     );
   }, [
     isPayerManagedByService,
-    selectedFee?.totalFiatMinForDisplay,
+    displayedTotalFiat,
     isResourceRentalNeeded,
     isResourceRentalEnabled,
     payTokenInfo,
@@ -2806,9 +2869,7 @@ function TxFeeInfo(props: IProps) {
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInfoInit && !isNil(selectedFee?.totalFiatMinForDisplay)
-          ? renderTotalFiat()
-          : null}
+        {txFeeInfoInit && !isNil(displayedTotalFiat) ? renderTotalFiat() : null}
       </XStack>
     );
   }, [
@@ -2816,7 +2877,7 @@ function TxFeeInfo(props: IProps) {
     renderGasAccountSummary,
     renderTotalFiat,
     renderTotalNative,
-    selectedFee?.totalFiatMinForDisplay,
+    displayedTotalFiat,
     shouldShowFreeBadge,
     txFeeInfoInit,
   ]);
@@ -2829,14 +2890,16 @@ function TxFeeInfo(props: IProps) {
         <>
           <XStack gap="$2" alignItems="center" flexWrap="wrap" pb="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.global_est_network_fee,
-              })}
+              {privacyFeeDisplay
+                ? formatMockMessage(
+                    intl,
+                    ETranslationsMock.starknet_privacy_estimated_total_fee,
+                  )
+                : intl.formatMessage({
+                    id: ETranslations.global_est_network_fee,
+                  })}
             </SizableText>
-            {vaultSettings?.editFeeEnabled &&
-            feeInfoEditable &&
-            !sendFeeStatus.errMessage &&
-            !isPayerManagedByService ? (
+            {showFeeEditor && !sendFeeStatus.errMessage ? (
               <SizableText size="$bodyMd" color="$textSubdued">
                 •
               </SizableText>

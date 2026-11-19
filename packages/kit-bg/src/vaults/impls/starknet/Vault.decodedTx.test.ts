@@ -152,6 +152,61 @@ describe('StarknetVault.buildDecodedTx deploy extra info', () => {
   });
 });
 
+describe('Starknet private transaction public spending', () => {
+  it.each([
+    ['register', STRK, '0', '4.5'],
+    ['transfer', STRK, '100000000000000000000', '4.5'],
+    ['withdraw', STRK, '100000000000000000000', '4.5'],
+    ['deposit', STRK, '100000000000000000000', '104.5'],
+    ['deposit', '0x123', '100000000000000000000', '4.5'],
+  ] as const)(
+    'checks only public STRK spent by %s',
+    async (kind, tokenAddress, amount, expected) => {
+      const encodedTx = buildEncodedTx(false);
+      encodedTx.privacy = {
+        kind,
+        tokenAddress,
+        amount,
+        poolAddress: '0x456',
+        protocolFee: '4500000000000000000',
+        proof: '0x01',
+        proofFacts: [],
+        provingBlockId: 991,
+        builtAt: Date.now(),
+      };
+      const result = await buildVault().buildDecodedTx({
+        unsignedTx: { encodedTx },
+      });
+      expect(result.nativeAmount).toBe(expected);
+    },
+  );
+
+  it('uses the account as the default public withdrawal recipient', async () => {
+    const vault = buildVault();
+    const buildAction = jest.fn(async () => ({ type: 'ASSET_TRANSFER' }));
+    Object.assign(vault, { buildTxTransferAssetAction: buildAction });
+    const encodedTx = buildEncodedTx(false);
+    encodedTx.privacy = {
+      kind: 'withdraw',
+      tokenAddress: STRK,
+      amount: '1000000000000000000',
+      poolAddress: '0x456',
+      protocolFee: '4500000000000000000',
+      proof: '0x01',
+      proofFacts: [],
+      provingBlockId: 991,
+      builtAt: Date.now(),
+    };
+    await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
+    expect(buildAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: sdkStarknet.normalizeAddress('0x456'),
+        to: ACCOUNT_ADDRESS,
+      }),
+    );
+  });
+});
+
 /**
  * Guards the signing recipe liveRpc.probe.test.ts uses for its opt-in real
  * broadcast. That harness cannot run in CI, so this proves the payload shape

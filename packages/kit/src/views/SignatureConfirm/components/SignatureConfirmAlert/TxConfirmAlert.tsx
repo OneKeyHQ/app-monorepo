@@ -383,39 +383,14 @@ function TxConfirmAlert(props: IProps) {
     }
 
     // Starknet STRK20 private transfers. Keyed off the impl rather than
-    // getNetworkIdsMap() so mainnet, sepolia and a custom Starknet RPC all
-    // match, mirroring the Tron branch below.
+    // getNetworkIdsMap() so a custom Starknet RPC matches too, mirroring the
+    // Tron branch below.
     if (isStarknetNetwork) {
       const privacy = readStarknetPrivacyBlock(decodedTxs?.[0]?.extraInfo);
       if (!privacy) {
         return null;
       }
       const privacyAlerts: { title: string; type: IAlertType }[] = [];
-      // the fee this tx was built with, read from chain at build time
-      const feeDecimals = network?.feeMeta?.decimals;
-      if (privacy.protocolFee && feeDecimals !== undefined) {
-        privacyAlerts.push({
-          title: formatMockMessage(
-            intl,
-            ETranslationsMock.starknet_privacy_banner_protocol_fee,
-            {
-              amount: new BigNumber(privacy.protocolFee)
-                .shiftedBy(-feeDecimals)
-                .toFixed(),
-            },
-          ),
-          type: 'info',
-        });
-      }
-      if (privacy.kind === 'deposit') {
-        privacyAlerts.push({
-          title: formatMockMessage(
-            intl,
-            ETranslationsMock.starknet_privacy_banner_screening_window,
-          ),
-          type: 'info',
-        });
-      }
       for (const warning of privacy.warnings ?? []) {
         privacyAlerts.push({
           title:
@@ -483,7 +458,6 @@ function TxConfirmAlert(props: IProps) {
     intl,
     networkId,
     isStarknetNetwork,
-    network?.feeMeta?.decimals,
     sendSelectedFeeInfo?.totalNative,
     transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.tokenInfo,

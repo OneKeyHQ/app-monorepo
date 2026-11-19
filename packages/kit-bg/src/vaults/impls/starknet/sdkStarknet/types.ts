@@ -3,6 +3,13 @@ import type {
   IStarknetSignedInvoke,
 } from '@onekeyhq/core/src/chains/starknet/types';
 
+export type IStarknetPresetToken = {
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+};
+
 /** What ClientStarknet talks through: direct JSON-RPC or the backend proxy. */
 export interface IStarknetTransport {
   /** the endpoint being called, or '' when requests go through the proxy */
@@ -55,6 +62,7 @@ export type IStarknetReceipt = {
   block_number?: number;
   block_hash?: string;
   revert_reason?: string;
+  events?: { from_address: string; keys: string[]; data: string[] }[];
 };
 
 /**

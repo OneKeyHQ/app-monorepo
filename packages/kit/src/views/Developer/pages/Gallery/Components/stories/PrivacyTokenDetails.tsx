@@ -756,11 +756,13 @@ export default function PrivacyTokenDetailsGallery() {
               {intl.formatMessage({ id: ETranslations.global_manage_accounts })}
             </Button>
           </XStack>
-          {preview === 'home' ? <PrivacyHomeTokenPreview /> : null}
-          {preview === 'token' ? <PrivacyTokenDetailsPreview /> : null}
-          {preview === 'management' ? (
-            <PrivacyAccountManagementPreview />
-          ) : null}
+          {
+            {
+              token: <PrivacyTokenDetailsPreview />,
+              management: <PrivacyAccountManagementPreview />,
+              home: <PrivacyHomeTokenPreview />,
+            }[preview]
+          }
         </ScrollView>
       </Page.Body>
     </Page>

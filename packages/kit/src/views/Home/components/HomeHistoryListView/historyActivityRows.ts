@@ -17,6 +17,10 @@ import {
   toPrivacyChainLocalWalletDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import type { IPrivacyChainLocalWalletSettings } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
+import {
+  formatMockMessage,
+  getStarknetHistoryOperationTitle,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -565,6 +569,10 @@ function buildHistoryActivityRowUnchecked({
         tone: 'warning',
       });
   }
+  const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo);
+  if (operation) {
+    title = formatMockMessage(intl, operation);
+  }
   const time = decodedTx.updatedAt ?? decodedTx.createdAt;
   const shortAddress =
     accountUtils.shortenAddress({ address }) || shieldedTargetLabel;
@@ -585,6 +593,7 @@ function buildHistoryActivityRowUnchecked({
     descriptionPrefix,
     row: {
       key: history.id,
+      testID: `tx-history-item-${history.decodedTx.txid}`,
       type: 'activity',
       leading,
       secondaryLeading: tableLayout ? undefined : secondaryLeading,

@@ -5,6 +5,8 @@ import type {
 } from '@onekeyhq/core/src/chains/starknet/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IProxyRequest } from '@onekeyhq/shared/types/proxy';
 import type {
   EStrk20PrivateTxKind,
   IStrk20HistoryChannelKind,
@@ -42,7 +44,7 @@ export type IStrk20SdkOhttpOption =
  * The only place kit-bg touches the vendored privacy SDK (`sdkStarknet/privacy`). The import is
  * dynamic so the bg bundle does not pay for the SDK (and its OHTTP/HPKE graph)
  * on every launch: nothing loads until a privacy call is actually made, which
- * cannot happen while the remote config is disabled.
+ * cannot happen while the server switches privacy off.
  */
 async function loadSdk() {
   return import('../../vaults/impls/starknet/sdkStarknet/privacy');
@@ -101,6 +103,7 @@ export function createStrk20Signer(params: {
    * password: discovery never signs, and the read paths must not be able to.
    */
   resolvePassword: () => Promise<string>;
+  resolveDeviceParams?: () => Promise<IDeviceSharedCallParams | undefined>;
   chainId: string;
   poolAddress: string;
 }): SignerInterface {
@@ -161,6 +164,9 @@ export function createStrk20Signer(params: {
 
       const [r, s] = await params.keyring.signStrk20ProofInvocation({
         password: await params.resolvePassword(),
+        ...(params.resolveDeviceParams
+          ? { deviceParams: await params.resolveDeviceParams() }
+          : {}),
         invocation,
       });
       return [r, s];
@@ -168,6 +174,86 @@ export function createStrk20Signer(params: {
   } as SignerInterface;
 
   return signer;
+}
+
+/** Wallet-proxy route the backend maps to the Starkscan prover, adding the API key. */
+export const STRK20_PROVER_PROXY_ROUTE = 'prover';
+
+/**
+ * One wallet-proxy item on the prover route. Unlike other routes it keeps the
+ * upstream status, Retry-After and error body: job polling and the retry
+ * policy run on them.
+ */
+export type IStrk20ProverProxyItem = {
+  success: boolean;
+  status?: number;
+  retryAfter?: string;
+  data?: unknown;
+  error?: string;
+};
+
+/** Response status for a proxy item; one without a usable upstream status is a gateway error. */
+function getProverProxyItemStatus(item: IStrk20ProverProxyItem): number {
+  const { status } = item;
+  if (typeof status === 'number' && status >= 200 && status <= 599) {
+    return status;
+  }
+  return item.success ? 200 : 502;
+}
+
+/**
+ * A fetch for StarkscanProvingService that tunnels each call through the
+ * wallet proxy, so the client never holds the Starkscan key. The service runs
+ * with an empty baseUrl, so the url it builds is the upstream path.
+ */
+export function createStrk20ProverProxyFetch(params: {
+  networkId: string;
+  post: (
+    request: IProxyRequest,
+    signal?: AbortSignal,
+  ) => Promise<IStrk20ProverProxyItem | undefined>;
+}): typeof fetch {
+  return async (input, init) => {
+    const idempotencyKey = new Headers(init?.headers).get('Idempotency-Key');
+    const request: IProxyRequest = {
+      networkId: params.networkId,
+      body: [
+        {
+          route: STRK20_PROVER_PROXY_ROUTE,
+          params: {
+            method: init?.method ?? 'GET',
+            url: String(input),
+            params: [],
+            ...(typeof init?.body === 'string'
+              ? { data: JSON.parse(init.body) as unknown }
+              : {}),
+            ...(idempotencyKey
+              ? { headers: { 'Idempotency-Key': idempotencyKey } }
+              : {}),
+          },
+        },
+      ],
+    };
+    let item: IStrk20ProverProxyItem | undefined;
+    try {
+      item = await params.post(request, init?.signal ?? undefined);
+    } catch (error) {
+      // fetch rejects with a TypeError when no response arrives; the job poller
+      // retries that on the same job instead of failing the proof
+      throw new TypeError(error instanceof Error ? error.message : '', {
+        cause: error,
+      });
+    }
+    if (!item) {
+      throw new TypeError('Empty response from the STRK20 prover proxy');
+    }
+    const body =
+      item.data ?? (item.error ? { message: item.error } : undefined);
+    return new Response(body === undefined ? null : JSON.stringify(body), {
+      status: getProverProxyItemStatus(item),
+      headers: item.retryAfter ? { 'Retry-After': item.retryAfter } : undefined,
+    });
+  };
 }
 
 export async function createStrk20Transfers(params: {
@@ -180,7 +266,10 @@ export async function createStrk20Transfers(params: {
   discoveryUrl: string;
   provingUrl: string;
   provingKind?: IStrk20ProvingKind;
-  provingApiKey?: string;
+  /** Required for `starkscan`: see createStrk20ProverProxyFetch. */
+  proverFetch?: typeof fetch;
+  /** Reads the pool nonce through the same RPC transport as the wallet. */
+  getProofNonce?: () => Promise<bigint>;
   nodeUrl?: string;
   ohttp?: IStrk20SdkOhttpOption;
 }): Promise<PrivateTransfersInterface> {
@@ -195,19 +284,23 @@ export async function createStrk20Transfers(params: {
   const chainId = params.chainId as never;
   let provingProvider: ProofProviderInterface | ProofProviderConfig;
   if (params.provingKind === 'starkscan') {
-    if (!params.provingApiKey) {
+    if (!params.proverFetch) {
       throw new OneKeyLocalError(
-        'STRK20 Starkscan proving requires an API key',
+        'STRK20 Starkscan proving needs the wallet proxy fetch',
+      );
+    }
+    if (!params.getProofNonce) {
+      throw new OneKeyLocalError(
+        'STRK20 Starkscan proving needs the wallet pool nonce reader',
       );
     }
     const transport = new StarkscanProvingService({
-      baseUrl: params.provingUrl,
-      apiKey: params.provingApiKey,
+      baseUrl: '',
+      fetchImpl: params.proverFetch,
     });
     provingProvider = new ProvingServiceProofProvider('', chainId, {
       transport,
-      nodeUrl: params.nodeUrl,
-      poolAddress: params.poolAddress,
+      getNonce: params.getProofNonce,
     });
   } else {
     provingProvider = {
@@ -284,11 +377,10 @@ export function deserializeHistoryCursor(
 }
 
 /**
- * Maps the remote config's OHTTP block onto the SDK's option. The gateway is
- * always the discovery or proving base URL the client is already using, so only
- * the relay and the pinned key config travel. The parser rejects an enabled
- * config with no pinned key, so by here `publicKeyConfig` is present whenever
- * the feature is on.
+ * Maps the config's OHTTP block onto the SDK's option. The gateway is always
+ * the discovery or proving base URL the client is already using, so only the
+ * relay and the pinned key config travel. The built-in config always pins the
+ * key (a test guards it), so `publicKeyConfig` is present here.
  */
 export function buildOhttpOption(
   ohttp: IStrk20OhttpConfig | undefined,
@@ -362,7 +454,10 @@ export async function fetchStrk20HistoryPage(params: {
     );
     transactions.push(...result.transactions);
     historyCursor = result.cursor;
-    if (result.cursor.historyComplete) {
+    if (
+      result.cursor.historyComplete ||
+      transactions.length >= HISTORY_MAX_TRANSACTIONS
+    ) {
       break;
     }
   }
@@ -387,8 +482,12 @@ export function resolvePrivateHistoryKind(transaction: {
   withdrawals: unknown[];
   openNoteDeposits: unknown[];
   registration?: unknown;
+  registeredPubkey?: bigint;
 }): EStrk20PrivateTxKind {
-  if (transaction.registration !== undefined) {
+  if (
+    transaction.registration !== undefined ||
+    transaction.registeredPubkey !== undefined
+  ) {
     return 'register';
   }
   if (transaction.withdrawals.length > 0) {
@@ -401,4 +500,43 @@ export function resolvePrivateHistoryKind(transaction: {
     return 'deposit';
   }
   return 'transfer';
+}
+
+/** Only attribute asset movements whose sender or beneficiary is known. */
+export async function getStrk20HistoryTransfers(
+  transaction: HistoryTransaction,
+  account: bigint,
+  pool: bigint,
+) {
+  const { classifyTransaction } = await loadSdk();
+  const { actions } = classifyTransaction(transaction);
+  const transfers: {
+    kind: 'deposit' | 'withdraw' | 'transfer';
+    from: bigint;
+    to: bigint;
+    token: bigint;
+    amount: bigint;
+  }[] = [];
+  for (const action of actions) {
+    if (action.type === 'deposit' && action.fromAddress === account) {
+      transfers.push({ ...action, kind: 'deposit', from: account, to: pool });
+    } else if (action.type === 'withdrawal' && action.toAddress === account) {
+      transfers.push({ ...action, kind: 'withdraw', from: pool, to: account });
+    } else if (action.type === 'transferSent') {
+      transfers.push({
+        ...action,
+        kind: 'transfer',
+        from: account,
+        to: action.toAddress,
+      });
+    } else if (action.type === 'transferReceived') {
+      transfers.push({
+        ...action,
+        kind: 'transfer',
+        from: action.fromAddress,
+        to: account,
+      });
+    }
+  }
+  return transfers;
 }

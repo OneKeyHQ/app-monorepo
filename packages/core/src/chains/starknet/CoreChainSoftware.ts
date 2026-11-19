@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { batchGetPrivateKeys, decryptAsync, encryptAsync } from '../../secret';
@@ -34,6 +35,7 @@ import type { IStarknetAccountContract } from './sdkStarknet';
 import type { IStrk20ViewingKeyResult } from './sdkStarknet/viewingKey';
 import type {
   IEncodedTxStarknet,
+  IStarknetRawDeployAccountTx,
   IStarknetRawTx,
   IStarknetSignature,
   IStarknetSignedDeployAccount,
@@ -202,12 +204,72 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return { [account.path]: encryptedStarkKey };
   }
 
+  private signDeployment(
+    encodedTx: IEncodedTxStarknet,
+    starkPrivateKey: string,
+  ): Pick<
+    IStarknetRawDeployAccountTx,
+    'deployAccount' | 'deployAccountTxHash'
+  > {
+    const deployAccount = checkIsDefined(encodedTx.deployAccount);
+    const deployAccountTxHash = sdkStarknet.calculateDeployAccountTxHash({
+      contractAddress: encodedTx.from,
+      classHash: deployAccount.classHash,
+      constructorCalldata: deployAccount.constructorCalldata,
+      addressSalt: deployAccount.addressSalt,
+      version: encodedTx.version,
+      chainId: encodedTx.chainId,
+      nonce: deployAccount.nonce,
+      nonceDataAvailabilityMode: encodedTx.nonceDataAvailabilityMode,
+      feeDataAvailabilityMode: encodedTx.feeDataAvailabilityMode,
+      resourceBounds: deployAccount.resourceBounds,
+      tip: encodedTx.tip,
+      paymasterData: encodedTx.paymasterData,
+    });
+    const signedDeployAccount: IStarknetSignedDeployAccount = {
+      type: 'DEPLOY_ACCOUNT',
+      version: encodedTx.version,
+      class_hash: sdkStarknet.toFelt(deployAccount.classHash),
+      contract_address_salt: sdkStarknet.toFelt(deployAccount.addressSalt),
+      constructor_calldata: sdkStarknet.toFeltArray(
+        deployAccount.constructorCalldata,
+      ),
+      signature: sdkStarknet.signHash(deployAccountTxHash, starkPrivateKey),
+      nonce: sdkStarknet.toFelt(deployAccount.nonce),
+      resource_bounds: sdkStarknet.toRpcResourceBounds(
+        deployAccount.resourceBounds,
+      ),
+      tip: sdkStarknet.toFelt(encodedTx.tip),
+      paymaster_data: sdkStarknet.toFeltArray(encodedTx.paymasterData),
+      nonce_data_availability_mode: encodedTx.nonceDataAvailabilityMode,
+      fee_data_availability_mode: encodedTx.feeDataAvailabilityMode,
+    };
+    return { deployAccount: signedDeployAccount, deployAccountTxHash };
+  }
+
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = payload;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxStarknet;
     const starkPrivateKey = await this.getStarkPrivateKeyFromPayload(payload);
+
+    if (encodedTx.type === 'DEPLOY_ACCOUNT') {
+      if (encodedTx.calls.length || encodedTx.privacy) {
+        throw new OneKeyLocalError(
+          'Starknet: invalid account activation transaction',
+        );
+      }
+      const rawTx: IStarknetRawDeployAccountTx = {
+        type: 'DEPLOY_ACCOUNT',
+        ...this.signDeployment(encodedTx, starkPrivateKey),
+      };
+      return {
+        encodedTx,
+        txid: rawTx.deployAccountTxHash,
+        rawTx: stringUtils.stableStringify(rawTx),
+      };
+    }
 
     const { txHash: invokeTxHash, compiledCalldata } =
       sdkStarknet.calculateInvokeTxHash({
@@ -257,48 +319,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       rawTxPayload.proof = encodedTx.privacy.proof;
     }
 
-    const { deployAccount } = encodedTx;
-    if (deployAccount) {
-      const deployAccountTxHash = sdkStarknet.calculateDeployAccountTxHash({
-        contractAddress: encodedTx.from,
-        classHash: deployAccount.classHash,
-        constructorCalldata: deployAccount.constructorCalldata,
-        addressSalt: deployAccount.addressSalt,
-        version: encodedTx.version,
-        chainId: encodedTx.chainId,
-        nonce: deployAccount.nonce,
-        nonceDataAvailabilityMode: encodedTx.nonceDataAvailabilityMode,
-        feeDataAvailabilityMode: encodedTx.feeDataAvailabilityMode,
-        resourceBounds: deployAccount.resourceBounds,
-        tip: encodedTx.tip,
-        paymasterData: encodedTx.paymasterData,
-      });
-      const signedDeployAccount: IStarknetSignedDeployAccount = {
-        type: 'DEPLOY_ACCOUNT',
-        version: encodedTx.version,
-        class_hash: sdkStarknet.toFelt(deployAccount.classHash),
-        contract_address_salt: sdkStarknet.toFelt(deployAccount.addressSalt),
-        constructor_calldata: sdkStarknet.toFeltArray(
-          deployAccount.constructorCalldata,
-        ),
-        signature: sdkStarknet.signHash(deployAccountTxHash, starkPrivateKey),
-        nonce: sdkStarknet.toFelt(deployAccount.nonce),
-        resource_bounds: sdkStarknet.toRpcResourceBounds(
-          deployAccount.resourceBounds,
-        ),
-        tip: sdkStarknet.toFelt(encodedTx.tip),
-        paymaster_data: sdkStarknet.toFeltArray(encodedTx.paymasterData),
-        nonce_data_availability_mode: encodedTx.nonceDataAvailabilityMode,
-        fee_data_availability_mode: encodedTx.feeDataAvailabilityMode,
-      };
-      rawTxPayload.deployAccount = signedDeployAccount;
-      rawTxPayload.deployAccountTxHash = deployAccountTxHash;
+    if (encodedTx.deployAccount) {
+      Object.assign(
+        rawTxPayload,
+        this.signDeployment(encodedTx, starkPrivateKey),
+      );
     }
 
     return {
       encodedTx: unsignedTx.encodedTx,
       txid: invokeTxHash,
-      rawTx: JSON.stringify(rawTxPayload),
+      rawTx: stringUtils.stableStringify(rawTxPayload),
     };
   }
 

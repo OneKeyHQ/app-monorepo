@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "Che chắn",
   "privacy_balance_small_change__msg": "Bao gồm {amount} tiền lẻ quá nhỏ để gửi riêng.",
   "privacy_balance_unavailable__msg": "Không có số dư",
+  "privacy_balance_unshield__action": "Chuyển sang số dư công khai",
   "privacy_balance_verification__desc": "Kiểm tra xem có thể chi tiêu {amount} hay không.",
   "privacy_balance_verification__title": "Xác minh số dư",
   "privacy_balance_verification_pending__msg": "Xác minh để cập nhật số dư",

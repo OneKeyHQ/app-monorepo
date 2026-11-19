@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "Protéger",
   "privacy_balance_small_change__msg": "Comprend {amount} de monnaie, un montant trop faible pour être envoyé séparément.",
   "privacy_balance_unavailable__msg": "Solde indisponible",
+  "privacy_balance_unshield__action": "Transférer vers le solde public",
   "privacy_balance_verification__desc": "Vérifiez si vous pouvez dépenser {amount}.",
   "privacy_balance_verification__title": "Vérifier le solde",
   "privacy_balance_verification_pending__msg": "Vérifiez pour actualiser votre solde",

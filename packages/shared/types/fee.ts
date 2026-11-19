@@ -157,6 +157,7 @@ export type IFeeNeoN3 = {
 export type IFeeStarknetResourceBound = {
   maxAmount: string;
   maxPricePerUnit: string;
+  estimatedPricePerUnit?: string;
 };
 
 // Amounts are decimal strings in FRI (STRK base unit).
@@ -383,6 +384,7 @@ export type IServerBatchEstimateFeeResponse = {
     result: {
       gas: IGasLegacy[];
       gasEIP1559: IGasEIP1559[];
+      feeStarknet?: IFeeStarknet[];
     }[];
   };
 };

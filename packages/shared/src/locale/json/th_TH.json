@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "ชิลด์",
   "privacy_balance_small_change__msg": "รวมเศษเงิน {amount} ซึ่งน้อยเกินกว่าจะส่งแยกต่างหากได้",
   "privacy_balance_unavailable__msg": "ไม่สามารถแสดงยอดคงเหลือ",
+  "privacy_balance_unshield__action": "ย้ายไปยังยอดคงเหลือสาธารณะ",
   "privacy_balance_verification__desc": "ตรวจสอบว่าสามารถใช้จ่าย {amount} ได้หรือไม่",
   "privacy_balance_verification__title": "ตรวจสอบยอดคงเหลือ",
   "privacy_balance_verification_pending__msg": "ตรวจสอบเพื่ออัปเดตยอดคงเหลือ",

@@ -4773,6 +4773,7 @@
   "privacy_balance_shield__action": "Proteger",
   "privacy_balance_small_change__msg": "Inclui {amount} de troco, um valor pequeno demais para ser enviado separadamente.",
   "privacy_balance_unavailable__msg": "Saldo indisponível",
+  "privacy_balance_unshield__action": "Mover para o saldo público",
   "privacy_balance_verification__desc": "Verifique se você pode gastar {amount}.",
   "privacy_balance_verification__title": "Verificar saldo",
   "privacy_balance_verification_pending__msg": "Verifique para atualizar seu saldo",

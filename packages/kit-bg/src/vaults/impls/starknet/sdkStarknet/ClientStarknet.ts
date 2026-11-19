@@ -21,8 +21,6 @@ import {
   EStarknetRpcErrorCode,
   SIMULATION_FLAG_SKIP_VALIDATE,
   SPEC_VERSION_PRE_CONFIRMED,
-  STARKNET_BACKEND_PROXY_ENABLED,
-  STARKNET_DEFAULT_RPC_URLS,
   STRK20_POOL_SELECTOR,
 } from './consts';
 import { JsonRpcTransport } from './JsonRpcTransport';
@@ -44,9 +42,8 @@ import type {
  * bundle on every platform, and the split-runtime targets (iOS, Android,
  * extension) load `bg` as its own JS heap.
  *
- * Transport selection mirrors ClientStellar: a custom RPC url goes direct,
- * otherwise the default transport is whichever STARKNET_BACKEND_PROXY_ENABLED
- * names. There is no fallback between the two.
+ * A user-configured RPC goes direct. All default RPC requests use OneKey's
+ * backend proxy, with no fallback to a third-party endpoint.
  */
 export default class ClientStarknet {
   readonly networkId: string;
@@ -89,21 +86,12 @@ export default class ClientStarknet {
     if (customRpcUrl) {
       return new JsonRpcTransport({ rpcUrl: customRpcUrl, networkId });
     }
-    if (STARKNET_BACKEND_PROXY_ENABLED) {
-      if (!backgroundApi) {
-        throw new OneKeyLocalError(
-          'Starknet proxy transport requires a backgroundApi',
-        );
-      }
-      return new OneKeyTransport({ backgroundApi, networkId });
-    }
-    const rpcUrl = STARKNET_DEFAULT_RPC_URLS[networkId];
-    if (!rpcUrl) {
+    if (!backgroundApi) {
       throw new OneKeyLocalError(
-        `No Starknet RPC url configured for network: ${networkId}`,
+        'Starknet proxy transport requires a backgroundApi',
       );
     }
-    return new JsonRpcTransport({ rpcUrl, networkId });
+    return new OneKeyTransport({ backgroundApi, networkId });
   }
 
   private async call<T>(method: string, params: unknown[]): Promise<T> {
@@ -152,8 +140,8 @@ export default class ClientStarknet {
   }
 
   /** Next usable nonce, read from the open block so back-to-back sends differ. */
-  async getNonce(address: string): Promise<string> {
-    const blockTag = await this.getPreConfirmedBlockTag();
+  async getNonce(address: string, blockId?: IStarknetBlockId): Promise<string> {
+    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
     return this.call<string>('starknet_getNonce', [
       blockTag,
       sdkStarknet.toFelt(address),
@@ -165,8 +153,11 @@ export default class ClientStarknet {
    * address. Only CONTRACT_NOT_FOUND means undeployed; every other error
    * propagates, or a flaky endpoint turns into a duplicate deploy attempt.
    */
-  async isAccountDeployed(address: string): Promise<boolean> {
-    const blockTag = await this.getPreConfirmedBlockTag();
+  async isAccountDeployed(
+    address: string,
+    blockId?: IStarknetBlockId,
+  ): Promise<boolean> {
+    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
     try {
       await this.call<string>('starknet_getClassHashAt', [
         blockTag,
@@ -201,12 +192,36 @@ export default class ClientStarknet {
    * STRK20 pool views. Read against `latest`, never the pre-confirmed tag: the
    * fee and pause state decide whether a transaction is worth building at all.
    */
-  async getPoolFeeAmount(poolAddress: string): Promise<string> {
+  async getPoolFeeAmount(
+    poolAddress: string,
+    blockId?: IStarknetBlockId,
+  ): Promise<string> {
     const result = await this.callContract({
       contractAddress: poolAddress,
       selector: STRK20_POOL_SELECTOR.getFeeAmount,
+      blockId,
     });
     return u256ToDecimalString(result[0] ?? '0x0', result[1] ?? '0x0');
+  }
+
+  async getPoolFeeCollector(
+    poolAddress: string,
+    blockId: IStarknetBlockId,
+  ): Promise<string> {
+    const selector = sdkStarknet.buildExecuteCalldata([
+      {
+        contractAddress: poolAddress,
+        entrypoint: 'get_fee_collector',
+        calldata: [],
+      },
+    ])[2];
+    const result = await this.callContract({
+      contractAddress: poolAddress,
+      selector,
+      blockId,
+    });
+    if (!result[0]) throw new OneKeyLocalError('Missing pool fee collector');
+    return result[0];
   }
 
   async isPoolPaused(poolAddress: string): Promise<boolean> {

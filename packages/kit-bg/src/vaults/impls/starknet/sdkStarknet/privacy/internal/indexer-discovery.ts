@@ -15,7 +15,7 @@ import { Channel, Witness } from "./channel";
 // onekey: AbortSignal.timeout is absent on Hermes and older WebViews.
 import { timeoutSignal } from "../platform/timeoutSignal";
 import { OhttpClient } from "./ohttp-client";
-import { ReorgError } from "./errors";
+import { ReorgError, ServiceHttpError } from "./errors";
 import type {
   ChannelCursor,
   IncomingChannelCursor,
@@ -27,6 +27,9 @@ import { buildHistoryCursor, historyCursorToApi, apiResponseToHistoryPage } from
 
 /** HTTP 409 — the discovery service returns this exclusively for block reorgs (BLOCK_REORGED). */
 const REORG_STATUS = 409;
+// onekey: bounded retries for the operator's per-IP limit and temporary outages.
+const MAX_DISCOVERY_RETRIES = 2;
+const MAX_DISCOVERY_RETRY_DELAY_MS = 10_000;
 
 // API JSON wire types
 
@@ -418,35 +421,63 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
   }
 
   private async get<T>(path: string): Promise<T> {
-    if (this.ohttpClient) {
-      return this.ohttpClient.get<T>(path);
-    }
-    const resp = await fetch(`${this.apiUrl}${path}`, {
-      signal: timeoutSignal(8_000),
+    return this.withRetry(async () => {
+      if (this.ohttpClient) {
+        return this.ohttpClient.get<T>(path);
+      }
+      const resp = await fetch(`${this.apiUrl}${path}`, {
+        signal: timeoutSignal(8_000),
+      });
+      if (!resp.ok) {
+        throw new ServiceHttpError(`Indexer API ${path}`, resp.status, resp.headers.get("Retry-After"));
+      }
+      return resp.json() as Promise<T>;
     });
-    if (!resp.ok) {
-      throw new Error(`Indexer API ${path} failed (${resp.status})`);
-    }
-    return resp.json() as Promise<T>;
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
-    if (this.ohttpClient) {
-      return this.ohttpClient.post<T>(path, body);
-    }
-    const resp = await fetch(`${this.apiUrl}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      if (resp.status === REORG_STATUS) {
-        throw new ReorgError(`Block reorged during ${path}: ${text}`);
+    return this.withRetry(async () => {
+      if (this.ohttpClient) {
+        return this.ohttpClient.post<T>(path, body);
       }
-      throw new Error(`Indexer API ${path} failed (${resp.status}): ${text}`);
+      const resp = await fetch(`${this.apiUrl}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        if (resp.status === REORG_STATUS) {
+          throw new ReorgError(`Block reorged during ${path}`);
+        }
+        throw new ServiceHttpError(`Indexer API ${path}`, resp.status, resp.headers.get("Retry-After"));
+      }
+      return resp.json() as Promise<T>;
+    });
+  }
+
+  private async withRetry<T>(request: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await request();
+      } catch (error) {
+        if (!(error instanceof ServiceHttpError) ||
+            (error.status !== 429 && error.status !== 503) ||
+            attempt >= MAX_DISCOVERY_RETRIES) {
+          throw error;
+        }
+        let delay = 1000 * 2 ** attempt;
+        if (error.retryAfter) {
+          const seconds = Number(error.retryAfter);
+          const retryAfterMs = Number.isFinite(seconds)
+            ? seconds * 1000
+            : Date.parse(error.retryAfter) - Date.now();
+          if (Number.isFinite(retryAfterMs)) delay = Math.max(delay, retryAfterMs);
+        }
+        // A longer cooldown is surfaced to the caller; never retry before it expires.
+        if (delay > MAX_DISCOVERY_RETRY_DELAY_MS) throw error;
+        await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      }
     }
-    return resp.json() as Promise<T>;
   }
 }
 

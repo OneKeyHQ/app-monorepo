@@ -26,6 +26,4 @@ export enum EAddressEncodings {
   // starknet: the default derive type is the Argent account
   STARKNET_OZ = 'StarknetOZ',
   STARKNET_OKX = 'StarknetOKX',
-  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
-  STARKNET_OZ_V017 = 'StarknetOZ017',
 }

@@ -156,6 +156,8 @@ export type IDecodedTx = {
   approveInfo?: IApproveInfo;
   totalFeeInNative?: string;
   totalFeeFiatValue?: string;
+  /** Actual protocol payment; totalFeeInNative remains the network fee. */
+  protocolFeeInNative?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
 
@@ -170,6 +172,8 @@ export type IDecodedTx = {
   nativeAmount?: string;
   nativeAmountValue?: string;
   riskyLevel?: number;
+  /** Setup with no principal movement; the vault ignores native amount updates for it. */
+  isFeeOnly?: boolean;
   kytRiskLevel?: EKytRiskLevel;
   // Full KYT block carried from the history list so the detail page can render
   // optimistically before its own request resolves.

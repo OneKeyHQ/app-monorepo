@@ -9,6 +9,8 @@ import {
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
+import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
+import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
@@ -116,6 +118,20 @@ function setup() {
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+it('offers the configured TON wallet contract when importing a valid key', async () => {
+  const { vault } = setup();
+  jest.spyOn(vault, 'validatePrivateKey').mockResolvedValue({ isValid: true });
+
+  const result = await vault.validateGeneralInput({
+    input: await encodeSensitiveTextAsync({ text: '01'.repeat(32) }),
+    validatePrivateKey: true,
+  });
+
+  expect(result.deriveInfoItems?.map((item) => item.addressEncoding)).toEqual([
+    EAddressEncodings.TON_V4R2,
+  ]);
 });
 
 describe('TON Jetton confirmation integrity', () => {

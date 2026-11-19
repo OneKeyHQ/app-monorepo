@@ -3,9 +3,7 @@ import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type { IStarknetTransport } from './types';
 
 /**
- * Direct JSON-RPC 2.0 transport, used for a user-configured custom RPC and,
- * until the backend proxy supports Starknet, for the bundled default endpoint
- * too. See STARKNET_BACKEND_PROXY_ENABLED in ./consts.
+ * Direct JSON-RPC 2.0 transport for a user-configured custom RPC only.
  *
  * The url is used exactly as configured: providers disagree about spec paths
  * (`/rpc/v0_9` is required by some and a 404 on others), so appending one to a
