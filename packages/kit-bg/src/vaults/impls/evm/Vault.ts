@@ -1143,6 +1143,7 @@ export default class Vault extends VaultBase {
       // allowance and must not pass with a scaling multiplier.
       if (!isMaxUint256 && !allowanceBn.isZero()) {
         if (
+          action.tokenApprove.disableAllowanceEditing ||
           tokenRebaseUtils.isScalingBalanceMultiplier(
             action.tokenApprove.balanceMultiplier,
           )
@@ -1345,7 +1346,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const snapshotToken = swapApproveInfo?.tokenInfo;
     // Decode the amount from calldata and reuse the matching Review multiplier.
-    const balanceMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
+    const reviewMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
       snapshotToken:
         swapApproveInfo &&
         snapshotToken?.networkId === this.networkId &&
@@ -1354,10 +1355,19 @@ export default class Vault extends VaultBase {
         isSameEvmAddress(swapApproveInfo.spender, spender)
           ? snapshotToken
           : undefined,
-      fetchedToken: token,
+      fetchedToken: undefined,
       tokenAddress: encodedTx.to,
       addressCaseInsensitive: true,
     });
+    const walletMultiplier = tokenRebaseUtils.pickBalanceMultiplier(token);
+    const balanceMultiplier = tokenRebaseUtils.isValidBalanceMultiplier(
+      reviewMultiplier,
+    )
+      ? reviewMultiplier
+      : walletMultiplier;
+    const disableAllowanceEditing =
+      tokenRebaseUtils.isScalingBalanceMultiplier(walletMultiplier) ||
+      tokenRebaseUtils.isScalingBalanceMultiplier(balanceMultiplier);
     const amount = tokenRebaseUtils.applyBalanceMultiplier({
       amount: rawAmountText,
       balanceMultiplier,
@@ -1384,6 +1394,7 @@ export default class Vault extends VaultBase {
           rawAmountText === InfiniteAmountText,
         approveType,
         balanceMultiplier,
+        disableAllowanceEditing,
       },
     };
 

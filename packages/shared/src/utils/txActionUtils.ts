@@ -659,7 +659,11 @@ function convertTokenApproveActionToSignatureConfirmComponent({
       },
     },
     amountParsed: action.amount,
-    isEditable: !isRevoke && !isMultiTxs && !isScalingMultiplier,
+    isEditable:
+      !isRevoke &&
+      !isMultiTxs &&
+      !isScalingMultiplier &&
+      !action.disableAllowanceEditing,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
     approveType: action.approveType,

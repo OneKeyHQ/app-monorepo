@@ -572,6 +572,11 @@ class ServiceSignatureConfirm extends ServiceBase {
     // force the local path. Server risk alerts are retained below.
     const hasScalingRebaseAction =
       checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+    const requiresLocalRebaseDisplay =
+      hasScalingRebaseAction ||
+      decodedTx.actions.some(
+        (action) => action.tokenApprove?.disableAllowanceEditing,
+      );
     const forceLocalTonTransfer =
       networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
       decodedTx.actions.some((action) => Boolean(action.assetTransfer));
@@ -579,7 +584,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     if (
       parsedTx?.display &&
       !shouldUseLocalDisplay &&
-      !hasScalingRebaseAction &&
+      !requiresLocalRebaseDisplay &&
       !forceLocalTonTransfer
     ) {
       decodedTx.txDisplay = parsedTx.display;
@@ -602,12 +607,12 @@ class ServiceSignatureConfirm extends ServiceBase {
       // Signed TON transfer facts and scaled amounts remain local. Partial
       // TON decoding also retains identifiable server effects below.
       const isPayloadForcedLocal =
-        ((hasScalingRebaseAction && !shouldUseLocalDisplay) ||
+        ((requiresLocalRebaseDisplay && !shouldUseLocalDisplay) ||
           forceLocalTonTransfer) &&
         Boolean(parsedTx?.display);
 
       const rebaseDisplayExtras =
-        isPayloadForcedLocal || hasScalingRebaseAction
+        isPayloadForcedLocal || requiresLocalRebaseDisplay
           ? getPermit2ServerDisplayExtras(parsedTx?.display)
           : undefined;
 

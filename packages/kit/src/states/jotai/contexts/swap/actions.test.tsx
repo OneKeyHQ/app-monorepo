@@ -835,7 +835,7 @@ describe('useSwapActions', () => {
     );
   });
 
-  describe('quote token price refresh', () => {
+  describe('quote refresh and token metadata', () => {
     const fromToken = {
       ...ethToken,
       price: '119',
@@ -855,13 +855,15 @@ describe('useSwapActions', () => {
     function prepare({
       swapType = ESwapTabSwitchType.SWAP,
       source,
+      quotedFromToken = fromToken,
     }: {
       swapType?: ESwapTabSwitchType;
       source?: ESwapQuoteSource;
+      quotedFromToken?: typeof fromToken;
     } = {}) {
       const { store, Wrapper } = createWrapperWithStore((currentStore) => {
         currentStore.set(swapTypeSwitchAtom(), swapType);
-        currentStore.set(swapSelectFromTokenAtom(), fromToken);
+        currentStore.set(swapSelectFromTokenAtom(), quotedFromToken);
         currentStore.set(swapSelectToTokenAtom(), toToken);
         currentStore.set(swapFromTokenAmountAtom(), {
           value: '1',
@@ -872,7 +874,7 @@ describe('useSwapActions', () => {
           quoteRequestId: 'price-refresh-request',
           type: swapType,
           source,
-          fromToken,
+          fromToken: quotedFromToken,
           toToken,
           fromTokenAmount: '1',
         });
@@ -888,7 +890,7 @@ describe('useSwapActions', () => {
             ...(data ? { data: JSON.stringify(data) } : {}),
           } as ISwapQuoteEvent,
           quoteRequestId: 'price-refresh-request',
-          tokenPairs: { fromToken, toToken },
+          tokenPairs: { fromToken: quotedFromToken, toToken },
           params: {
             source,
             protocol: protocols[swapType],
@@ -903,6 +905,108 @@ describe('useSwapActions', () => {
       };
       return { store, publish, actions: result.current };
     }
+
+    it('keeps a newer multiplier from a response without a price and accepts the pending raw balance', async () => {
+      const quotedFromToken = { ...fromToken, balanceMultiplier: '2' };
+      const pendingBalance = createDeferred<Partial<ISwapToken>[]>();
+      mockFetchSwapTokenDetails.mockImplementation(async (params) => {
+        if (params.direction) return pendingBalance.promise;
+        return [
+          {
+            networkId: params.networkId,
+            contractAddress: params.contractAddress,
+            balanceMultiplier: '3',
+          },
+        ];
+      });
+      const { store, publish, actions } = prepare({ quotedFromToken });
+      let balanceRequest: Promise<void> | undefined;
+      await act(async () => {
+        balanceRequest = actions.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          fromAddressInfo,
+          true,
+        );
+      });
+      await waitFor(() =>
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+          expect.objectContaining({
+            direction: ESwapDirectionType.FROM,
+            balanceMultiplier: '2',
+          }),
+        ),
+      );
+      await act(async () => {
+        publish('done');
+      });
+      expect(store.get(swapSelectFromTokenAtom())?.balanceMultiplier).toBe('3');
+      await act(async () => {
+        pendingBalance.resolve([{ ...quotedFromToken, balanceParsed: '8' }]);
+        await balanceRequest;
+      });
+      expect(store.get(swapSelectFromTokenAtom())).toMatchObject({
+        balanceMultiplier: '3',
+        balanceParsed: '8',
+      });
+      expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('8');
+    });
+
+    it.each([false, true])(
+      'rejects a previous Market quote after a multiplier mismatch (other provider: %s)',
+      async (hasOtherProvider) => {
+        const { store, publish } = prepare({ source: ESwapQuoteSource.MARKET });
+        const previousQuote = {
+          eventId: 'previous-event',
+          quoteId: 'previous-quote',
+          kind: ESwapQuoteKind.SELL,
+          protocol: EProtocolOfExchange.SWAP,
+          info: { provider: 'first', providerName: 'First' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+          fromAmount: '1',
+          toAmount: '2',
+        } as IFetchQuoteResult;
+        const eventId = 'refresh-event';
+        const conflictingQuote = {
+          ...previousQuote,
+          eventId,
+          quoteId: 'conflicting-quote',
+          toTokenInfo: { ...toToken, balanceMultiplier: '2' },
+        };
+        const otherQuote = {
+          ...previousQuote,
+          eventId,
+          quoteId: 'other-quote',
+          info: {
+            ...previousQuote.info,
+            provider: 'second',
+            providerName: 'Second',
+          },
+        };
+        store.set(swapQuoteListAtom(), [previousQuote]);
+        expect(store.get(swapQuoteCurrentSelectAtom())?.quoteId).toBe(
+          previousQuote.quoteId,
+        );
+        act(() => {
+          publish('message', {
+            eventId,
+            totalQuoteCount: hasOtherProvider ? 2 : 1,
+          });
+          publish('message', {
+            data: [conflictingQuote, ...(hasOtherProvider ? [otherQuote] : [])],
+          });
+          publish('done');
+        });
+        expect(store.get(swapQuoteEventCompletedAtom())).toBe(true);
+        expect(
+          store.get(swapQuoteListAtom()).map((quote) => quote.quoteId),
+        ).toEqual(hasOtherProvider ? [otherQuote.quoteId] : []);
+        expect(store.get(swapQuoteCurrentSelectAtom())?.quoteId).toBe(
+          hasOtherProvider ? otherQuote.quoteId : undefined,
+        );
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(!hasOtherProvider);
+      },
+    );
 
     it('keeps a refreshed price when an older balance request finishes later', async () => {
       const pendingBalance = createDeferred<Partial<ISwapToken>[]>();
@@ -1529,55 +1633,72 @@ describe('useSwapActions', () => {
     }
   });
 
-  it('quotes Swap Pro market orders through the standard Swap event endpoint', async () => {
-    jest.mocked(settingsAtom.get).mockResolvedValueOnce({
-      swapEnableRecipientAddress: false,
-      swapIncognitoMode: true,
-      swapSlippagePercentageCustomValue: 0,
-      swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
-      swapToAnotherAccountSwitchOn: false,
-    });
-    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
-      currentStore.set(swapProSelectTokenAtom(), usdcToken);
-      currentStore.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
-      currentStore.set(swapProDirectionAtom(), ESwapDirection.BUY);
-      currentStore.set(swapProInputAmountStateAtom(), {
-        value: '1',
-        isInput: true,
+  it.each([false, true])(
+    'quotes Swap Pro Market through the Swap endpoint even if ordinary effects run on native (%s)',
+    async (isNative) => {
+      platformEnv.isNative = isNative;
+      jest.mocked(settingsAtom.get).mockResolvedValueOnce({
+        swapEnableRecipientAddress: false,
+        swapIncognitoMode: true,
+        swapSlippagePercentageCustomValue: 0,
+        swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
+        swapToAnotherAccountSwitchOn: false,
       });
-    });
-    const { result } = renderHook(() => useSwapActions().current, {
-      wrapper: Wrapper,
-    });
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+        currentStore.set(swapProTradeTypeAtom(), ESwapProTradeType.MARKET);
+        currentStore.set(swapProSelectTokenAtom(), usdcToken);
+        currentStore.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+        currentStore.set(swapProDirectionAtom(), ESwapDirection.BUY);
+        currentStore.set(swapProInputAmountStateAtom(), {
+          value: '1',
+          isInput: true,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
 
-    await act(async () => {
-      await result.current.quoteSpeedAction(
-        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
-        '0xabc',
-        'account-1',
-        '0xabc',
-      );
-    });
+      const slippageItem = { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 };
+      await act(async () => {
+        void result.current.quoteSpeedAction(
+          slippageItem,
+          '0xabc',
+          'account-1',
+          '0xabc',
+        );
+        if (isNative) {
+          await result.current.quoteAction(
+            slippageItem,
+            '0xabc',
+            'account-1',
+            undefined,
+            undefined,
+            ESwapQuoteKind.SELL,
+          );
+        }
+      });
 
-    await waitFor(() => {
-      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
-        expect.objectContaining({
-          protocol: ESwapTabSwitchType.SWAP,
-          fromTokenAmount: '1',
-          fromToken: bnbProToken,
-          source: ESwapQuoteSource.MARKET,
-          incognito: false,
-          toToken: usdcToken,
-        }),
-      );
-    });
-    expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
-      type: ESwapTabSwitchType.SWAP,
-      fromToken: bnbProToken,
-      toToken: usdcToken,
-      fromTokenAmount: '1',
-    });
-  });
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+          expect.objectContaining({
+            protocol: ESwapTabSwitchType.SWAP,
+            fromTokenAmount: '1',
+            fromToken: bnbProToken,
+            source: ESwapQuoteSource.MARKET,
+            incognito: false,
+            toToken: usdcToken,
+          }),
+        );
+      });
+      expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
+        type: ESwapTabSwitchType.SWAP,
+        fromToken: bnbProToken,
+        toToken: usdcToken,
+        fromTokenAmount: '1',
+      });
+    },
+  );
 
   it('uses the complete Stock list limit for child-network balance requests', async () => {
     mockGetSupportSwapAllAccounts.mockResolvedValue({

@@ -6,9 +6,11 @@ import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineCo
 import { JsonRPCResponseError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { GAS_ACCOUNT_SUBMIT_REJECTED_CODES } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
-import { ESignedTxBroadcastStatus } from '../../types';
+import { ESignedTxBroadcastStatus, type IApproveInfo } from '../../types';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
 // IndexedDB at module load and crashes under jest's node environment.
@@ -47,7 +49,7 @@ describe('EvmVault Swap approval confirmation', () => {
     decimals: 2,
     isNative: false,
   };
-  const quoteApproval = {
+  const quoteApproval: IApproveInfo = {
     owner,
     spender,
     amount: '2',
@@ -65,6 +67,18 @@ describe('EvmVault Swap approval confirmation', () => {
       isInternalSwap: true,
       overrides: {},
       expected: '4',
+    },
+    {
+      label: 'Wallet fallback for a matching Swap without a multiplier',
+      isInternalSwap: true,
+      overrides: { tokenInfo: token },
+      expected: '6',
+    },
+    {
+      label: 'matching identity multiplier with Wallet editing disabled',
+      isInternalSwap: true,
+      overrides: { tokenInfo: { ...token, balanceMultiplier: '1' } },
+      expected: '2.0',
     },
     {
       label: 'different owner',
@@ -126,6 +140,18 @@ describe('EvmVault Swap approval confirmation', () => {
         },
       });
       expect(decoded.actions[0]?.tokenApprove?.amount).toBe(expected);
+      const components =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx: decoded,
+          unsignedTx: { encodedTx },
+        });
+      expect(components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Approve,
+          amountParsed: expected,
+          isEditable: false,
+        }),
+      );
       expect(decoded.encodedTx).toEqual(encodedTx);
       const decoder = new ethers.utils.Interface([
         'function approve(address spender, uint256 value)',

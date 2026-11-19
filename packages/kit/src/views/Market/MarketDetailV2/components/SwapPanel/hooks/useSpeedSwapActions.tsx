@@ -1038,7 +1038,7 @@ export function useSpeedSwapActions(props: {
 
   const forceRefreshMarketQuote = useCallback(() => {
     if (!executionReady) return;
-    if (!multiplierMetadataReady) {
+    if (!multiplierMetadataReady || quoteActionLock.hasMultiplierMismatch) {
       setMultiplierRequestVersion((version) => version + 1);
       return;
     }
@@ -1075,6 +1075,7 @@ export function useSpeedSwapActions(props: {
   }, [
     executionReady,
     multiplierMetadataReady,
+    quoteActionLock.hasMultiplierMismatch,
     fromToken,
     fromTokenAmountDebounced,
     maxAmountSnapshot,

@@ -29,6 +29,7 @@ import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import {
+  getMarketTradeFallbackInput,
   resolveMarketTradeActionState,
   resolveMarketTradeFallbackSwapType,
 } from './ActionButton.utils';
@@ -141,39 +142,39 @@ export function ActionButton({
     amountBN,
   ]);
 
+  const fallbackInput = useMemo(
+    () =>
+      getMarketTradeFallbackInput({
+        marketToken: actionToken,
+        paymentToken: actionOtherToken,
+        tokenMetadataReady,
+        tradeType,
+        amount: isValidAmount && !isMaxAmount ? amount : '',
+      }),
+    [
+      actionToken,
+      actionOtherToken,
+      tokenMetadataReady,
+      tradeType,
+      isValidAmount,
+      isMaxAmount,
+      amount,
+    ],
+  );
   const handleJumpToSwapAction = useCallback(() => {
+    if (!fallbackInput) return;
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        fromAmount: isValidAmount && !isMaxAmount ? amount : '',
-        importToToken:
-          tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
-        importFromToken:
-          tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
+        ...fallbackInput,
         swapTabSwitchType: resolveMarketTradeFallbackSwapType({
           isStock: actionToken?.isStock,
           onlySupportCrossChain,
         }),
         swapSource: ESwapSource.MARKET,
-        marketPresetToken: actionToken
-          ? {
-              networkId: actionToken.networkId,
-              contractAddress: actionToken.contractAddress,
-              isNative: actionToken.isNative,
-            }
-          : undefined,
       },
     });
-  }, [
-    isValidAmount,
-    amount,
-    isMaxAmount,
-    onlySupportCrossChain,
-    actionToken,
-    actionOtherToken,
-    tradeType,
-    navigation,
-  ]);
+  }, [fallbackInput, onlySupportCrossChain, actionToken?.isStock, navigation]);
 
   // Truncate symbol if it exceeds 20 characters
   const truncatedSymbol = useMemo(() => {
@@ -320,9 +321,9 @@ export function ActionButton({
   );
 
   if (shouldJumpToSwap) {
-    shouldUseColoredStyle = tokenMetadataReady;
-    isButtonDisabled = !tokenMetadataReady;
-    if (!hasAmount) {
+    shouldUseColoredStyle = Boolean(fallbackInput);
+    isButtonDisabled = !fallbackInput;
+    if (!hasAmount || !fallbackInput?.fromAmount) {
       buttonText = `${actionText} ${truncatedMarketSymbol}`.trim();
     }
   }
@@ -352,7 +353,6 @@ export function ActionButton({
         return;
       }
       if (shouldJumpToSwap) {
-        if (!tokenMetadataReady) return;
         handleJumpToSwapAction();
         return;
       }
@@ -411,7 +411,6 @@ export function ActionButton({
     },
     [
       shouldJumpToSwap,
-      tokenMetadataReady,
       quoteRefreshAvailable,
       hasAmount,
       noAccount,

@@ -30,6 +30,7 @@ import { isSwapQuoteInputAmountMatched } from '@onekeyhq/kit/src/states/jotai/co
 import {
   getSwapDisplayAmount,
   getSwapRawInputAmount,
+  isSwapMaxAmountCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -125,6 +126,33 @@ const SwapProActionButton = ({
     }
     return swapFromInputAmount.value;
   }, [swapProTradeType, swapProInputAmount, swapFromInputAmount.value]);
+  const isProMarket = swapProTradeType === ESwapProTradeType.MARKET;
+  const maxSnapshot = isProMarket
+    ? proInput.maxAmountSnapshot
+    : swapFromInputAmount.maxAmountSnapshot;
+  const rawFromAmount =
+    maxSnapshot &&
+    isSwapMaxAmountCurrent({
+      snapshot: maxSnapshot,
+      displayAmount: inputAmount,
+      token: inputToken,
+      accountId: swapProAccount.result?.id,
+      accountAddress: swapProAccount.result?.addressDetail.address,
+    })
+      ? maxSnapshot.rawAmount
+      : inputToken && getSwapRawInputAmount(inputAmount, inputToken, 'down');
+  const displayAmountBN = new BigNumber(inputAmount || '0');
+  const rawFromAmountBN = new BigNumber(rawFromAmount ?? '');
+  const minimumDisplayAmount =
+    isProMarket &&
+    inputToken &&
+    displayAmountBN.gt(0) &&
+    rawFromAmountBN.isZero()
+      ? getSwapDisplayAmount(
+          new BigNumber(1).shiftedBy(-inputToken.decimals).toFixed(),
+          inputToken.balanceMultiplier,
+        )
+      : undefined;
   const quoteToAmount = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return swapQuoteResult?.toAmount
@@ -322,6 +350,7 @@ const SwapProActionButton = ({
     }
     let originalDisabled =
       !!isActionDisabled ||
+      Boolean(minimumDisplayAmount) ||
       !hasEnoughBalance ||
       shouldShowNoProviderSupport ||
       !currentQuoteRes?.toAmount ||
@@ -335,6 +364,7 @@ const SwapProActionButton = ({
     shouldDepositToTrade,
     onDepositToTrade,
     isActionDisabled,
+    minimumDisplayAmount,
     hasEnoughBalance,
     currentQuoteRes?.toAmount,
     shouldShowNoProviderSupport,
@@ -399,6 +429,16 @@ const SwapProActionButton = ({
       };
     }
 
+    if (canExecuteInPro && minimumDisplayAmount) {
+      return {
+        plainText: intl.formatMessage(
+          { id: ETranslations.swap_page_alert_minimum_amount },
+          { number: minimumDisplayAmount, symbol: inputToken?.symbol ?? '' },
+        ),
+        subValue: '',
+      };
+    }
+
     if (shouldShowNoProviderSupport) {
       return {
         plainText: intl.formatMessage({
@@ -440,6 +480,8 @@ const SwapProActionButton = ({
     swapProAccount?.result?.addressDetail.address,
     swapProAccount?.accountStatus,
     isWrapped,
+    canExecuteInPro,
+    minimumDisplayAmount,
     shouldShowNoProviderSupport,
     inputTokenValue,
     toToken?.symbol,
@@ -464,9 +506,7 @@ const SwapProActionButton = ({
   // locked button.
   const isQuoteAmountMatched = isSwapQuoteInputAmountMatched({
     quote: currentQuoteRes,
-    fromAmount: inputToken
-      ? (getSwapRawInputAmount(inputAmount, inputToken, 'down') ?? '')
-      : inputAmount,
+    fromAmount: rawFromAmount ?? '',
     toAmount: toToken
       ? (getSwapRawInputAmount(toTokenAmount.value, toToken, 'up') ?? '')
       : toTokenAmount.value,
@@ -476,12 +516,12 @@ const SwapProActionButton = ({
   // LIMIT interval refreshes keep the previous quote's label instead of
   // blanking to a spinner on every cycle (previous-quote state belongs to
   // the standard quote stream, so it only applies to LIMIT).
-  const inputAmountBN = new BigNumber(inputAmount || '0');
-  const hasPositiveInputAmount = !inputAmountBN.isNaN() && inputAmountBN.gt(0);
+  const quoteInputBN = isProMarket ? rawFromAmountBN : displayAmountBN;
   const isQuoting =
     !shouldDepositToTrade &&
     canExecuteInPro &&
-    hasPositiveInputAmount &&
+    quoteInputBN.isFinite() &&
+    quoteInputBN.gt(0) &&
     hasEnoughBalance &&
     !shouldShowNoProviderSupport &&
     (currentQuoteLoading || !isQuoteAmountMatched) &&

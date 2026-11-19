@@ -190,10 +190,11 @@ export function useSwapQuote({
       platformEnv.isNative && swapTabSwitchType === ESwapTabSwitchType.LIMIT
     );
   }, [swapTabSwitchType]);
+  const isProMarket =
+    Boolean(focusSwapPro) && swapProTradeType === ESwapProTradeType.MARKET;
   const proMarketInputRef = useRef({ enabled: false, amount: '' });
   proMarketInputRef.current = {
-    enabled:
-      Boolean(focusSwapPro) && swapProTradeType === ESwapProTradeType.MARKET,
+    enabled: isProMarket,
     amount: swapProInputAmount,
   };
   const fromToken = useMemo(() => {
@@ -599,6 +600,7 @@ export function useSwapQuote({
     ) {
       return;
     }
+    if (isProMarket) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
@@ -683,6 +685,7 @@ export function useSwapQuote({
     swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
+    isProMarket,
     shouldPauseQuote,
   ]);
 
@@ -724,7 +727,7 @@ export function useSwapQuote({
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
       return;
     }
-    if (!toAmountDebounce.isInput) {
+    if (isProMarket || !toAmountDebounce.isInput) {
       return;
     }
     if (
@@ -805,6 +808,7 @@ export function useSwapQuote({
     toToken?.balanceMultiplier,
     alignmentToDecimal,
     toAmountDebounce,
+    isProMarket,
     shouldPauseQuote,
   ]);
 

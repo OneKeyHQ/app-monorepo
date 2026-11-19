@@ -466,6 +466,7 @@ export const {
   receivingAddress?: string;
   quoteRequestId?: string;
   manualRefresh?: boolean;
+  hasMultiplierMismatch?: boolean;
   slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
   incognito?: boolean;
 }>({ actionLock: false });
@@ -641,6 +642,10 @@ export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
 >({ from: 0, to: 0 });
 
 export const { atom: swapSelectTokenPriceRevisionAtom } = contextAtom<
+  Record<ESwapDirectionType, number>
+>({ from: 0, to: 0 });
+
+export const { atom: swapSelectTokenMultiplierRevisionAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });
 
