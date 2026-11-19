@@ -93,6 +93,7 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAccountManagerStacksRoutes,
@@ -252,6 +253,11 @@ type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
+// Same width as Page.Container's `compact` layout.
+const SWAP_FOLDABLE_FORM_WIDTH_PROPS = {
+  maxWidth: 520,
+  alignSelf: 'center',
+} as const;
 
 function supportsSwapReviewPreBuild({
   quote,
@@ -2102,6 +2108,9 @@ const SwapMainLoad = ({
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
           hideRecentTokenPairs={isMarketEmbeddedSwap}
+          // Embedded in a Market page, the swap panel is not what the user
+          // came for, so it must not take the focus.
+          autoFocusFromInput={!isMarketEmbeddedSwap}
           showThirdPartyNotice={showThirdPartyNotice}
           headerContent={
             gtLg &&
@@ -2223,6 +2232,18 @@ const SwapMainLoad = ({
     return 'regular' as const;
   }, [pageType, swapTypeSwitch, showDesktopProviderPanel, gtLg]);
 
+  // The media driver keeps iPhones on phone breakpoints, so the container's
+  // own $gtMd width cap never applies on an unfolded iPhone and the form would
+  // stretch the amount and the token selector to opposite edges. Cap the page
+  // directly; the folded screen is narrower than the cap. Every tab shares the
+  // cap so the header does not shift sideways when switching tabs. Embedded
+  // panels are sized by their host.
+  const capFoldableFormWidth =
+    isFoldableIPhone() &&
+    pageType !== EPageType.modal &&
+    !embeddedStockTrade &&
+    !isMarketEmbeddedSwap;
+
   // Native iOS: zero top padding so the header row (given a fixed h=56 in
   // SwapHeaderContainer) occupies [top, top+56] — structurally identical to the
   // Wallet header's Row 1 (h=56, mt=top). Both then center their content at
@@ -2328,7 +2349,12 @@ const SwapMainLoad = ({
 
   const pageContent = (
     <StockReceiveSnapshotProvider>
-      <Page.Container flex={1} layout={containerLayout} padded={false}>
+      <Page.Container
+        flex={1}
+        layout={containerLayout}
+        padded={false}
+        {...(capFoldableFormWidth ? SWAP_FOLDABLE_FORM_WIDTH_PROPS : undefined)}
+      >
         <YStack
           testID={SwapTestIDs.pageContainer}
           flex={1}

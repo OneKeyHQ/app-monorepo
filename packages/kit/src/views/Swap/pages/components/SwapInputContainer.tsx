@@ -1,15 +1,26 @@
-import { memo, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import {
+  Dimensions,
   InputAccessoryView,
   type StyleProp,
   type TextStyle,
 } from 'react-native';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { XStack, YStack, getFontSize } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useRateDifferenceAtom,
   useSwapActions,
@@ -17,6 +28,7 @@ import {
   useSwapBalanceDisplayCacheAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
+  useSwapNetworksIncludeAllNetworkAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -30,8 +42,10 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -74,6 +88,47 @@ import SwapInputActions from './SwapInputActions';
 
 export { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKeyboard';
 
+// The pay card is where the user types, so it is the larger of the two: a
+// taller input and a bigger amount. Around the input both cards share 68pt of
+// chrome (30 label row, 6 margin, 32 footer), giving 162 against 108: 3:2.
+const SWAP_FROM_AMOUNT_INPUT_HEIGHT = 94;
+const SWAP_TO_AMOUNT_INPUT_HEIGHT = 40;
+
+// The pay amount starts large and steps down as it grows, so a long amount
+// still fits beside the token selector instead of being clipped.
+function getSwapFromAmountFontSize(amountLength: number) {
+  if (amountLength <= 8) {
+    return getFontSize('$heading5xl');
+  }
+  if (amountLength <= 11) {
+    return getFontSize('$heading4xl');
+  }
+  if (amountLength <= 13) {
+    return getFontSize('$heading3xl');
+  }
+  if (amountLength <= 15) {
+    return getFontSize('$heading2xl');
+  }
+  return getFontSize('$headingXl');
+}
+
+// A foldable iPhone's folded screen is phone sized; a window whose shorter
+// side reaches this is the unfolded inner screen, in either orientation.
+const FOLDABLE_IPHONE_UNFOLDED_MIN_SHORT_SIDE = 600;
+
+// Read when the page gains focus rather than subscribed to: folding the device
+// while the page is open must not raise or dismiss the keyboard.
+function isFoldableIPhoneUnfolded() {
+  if (!isFoldableIPhone()) {
+    return false;
+  }
+  const { width, height } = Dimensions.get('window');
+  return Math.min(width, height) >= FOLDABLE_IPHONE_UNFOLDED_MIN_SHORT_SIDE;
+}
+
+// Lets the page transition settle before the keyboard is raised.
+const SWAP_AMOUNT_AUTO_FOCUS_DELAY_MS = 350;
+
 interface ISwapInputContainerProps {
   inputAccessoryViewID: string;
   direction: ESwapDirectionType;
@@ -88,6 +143,9 @@ interface ISwapInputContainerProps {
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
   onSelectPercentageStage?: (stage: number) => void;
+  // Focuses the amount input each time the page gains focus with no amount
+  // entered yet, so the user can type without tapping the input first.
+  autoFocusOnPageFocus?: boolean;
 }
 
 const SwapInputContainer = ({
@@ -103,6 +161,7 @@ const SwapInputContainer = ({
   onSelectPercentageStage,
   balance,
   balanceLoading,
+  autoFocusOnPageFocus,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
     token,
@@ -173,6 +232,25 @@ const SwapInputContainer = ({
     [address, balanceDisplayToken, currentBalanceDisplayAccountKey],
   );
   const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
+  const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();
+  // The network badge on the token icon is the only place the card names the
+  // network, so it falls back through every source that may know the logo.
+  const tokenSelectorNetworkLogoURI = useMemo(() => {
+    const networkId = tokenSelectorDisplayToken?.networkId;
+    if (!networkId) {
+      return undefined;
+    }
+    return (
+      swapSupportAllNetwork.find((net) => net.networkId === networkId)
+        ?.logoURI ??
+      tokenSelectorDisplayToken?.networkLogoURI ??
+      networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+    );
+  }, [
+    swapSupportAllNetwork,
+    tokenSelectorDisplayToken?.networkId,
+    tokenSelectorDisplayToken?.networkLogoURI,
+  ]);
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
     (tokenSelectionState.status === 'loading' ||
@@ -188,9 +266,12 @@ const SwapInputContainer = ({
           : SwapTestIDs.toTokenSelector,
       minWidth: tokenSelectorMinWidth,
       justifyContent: 'flex-end' as const,
+      // Matches the receive card's shorter input so the row stays compact.
+      ...(direction === ESwapDirectionType.TO ? { py: '$1.5' as const } : {}),
       loading: showTokenSelectorSkeleton,
       selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
       selectedTokenImageRecyclingKey,
+      selectedNetworkImageUri: tokenSelectorNetworkLogoURI,
       selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
       onPress: handleSelectToken,
     }),
@@ -202,6 +283,7 @@ const SwapInputContainer = ({
       tokenSelectorDisplayToken?.logoURI,
       tokenSelectorDisplayToken?.symbol,
       tokenSelectorMinWidth,
+      tokenSelectorNetworkLogoURI,
     ],
   );
   const displayBalance = useMemo(() => {
@@ -297,6 +379,27 @@ const SwapInputContainer = ({
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
+
+  const amountInputRef = useRef<IInputRef>(null);
+  const isRouteFocused = useRouteIsFocused();
+  const hasAmountValueRef = useRef(!!amountValue);
+  hasAmountValueRef.current = !!amountValue;
+  useEffect(() => {
+    // An amount already on screen means the user is reviewing a quote; raising
+    // the keyboard then would cover it.
+    if (!autoFocusOnPageFocus || !isRouteFocused || hasAmountValueRef.current) {
+      return;
+    }
+    // The unfolded screen is short for its width, so the keyboard would cover
+    // the action button as soon as the page opens.
+    if (isFoldableIPhoneUnfolded()) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      amountInputRef.current?.focus();
+    }, SWAP_AMOUNT_AUTO_FOCUS_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [autoFocusOnPageFocus, isRouteFocused]);
 
   const onFromInputFocus = () => {
     setPercentageInputStageShow(true);
@@ -417,30 +520,39 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
+  // Subdued only while the receive amount is a computed result; in Limit mode
+  // it is editable and must not look disabled.
+  const amountInputColor =
+    direction === ESwapDirectionType.TO && readOnly
+      ? '$textSubdued'
+      : undefined;
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
-      <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
-        <SwapAccountAddressContainer
-          type={direction}
-          displayToken={tokenSelectorDisplayToken}
-          networkLoading={showTokenSelectorSkeleton}
-          onClickNetwork={onSelectToken}
-        />
-        <SwapInputActions
-          fromToken={fromToken}
-          // Withheld while the cross-network account lookup is pending so the
-          // chip cannot open Receive for the previous network's account; a tap
-          // in that window resolves the account from activeAccount instead.
-          accountInfo={
-            swapAddressInfo.isAddressInfoReady ? accountInfo : undefined
-          }
-          activeAccount={activeAccount}
-          showPercentageInput={showPercentageInputDebounce}
-          showActionBuy={showActionBuy}
-          actionBuyHighlighted={!isFromBalanceLoadedZero}
-          onDepositClose={refreshTokenBalance}
-          onSelectStage={onSelectPercentageStage}
-        />
+      <XStack
+        pt="$2.5"
+        px="$3.5"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <SwapAccountAddressContainer type={direction} />
+        {direction === ESwapDirectionType.FROM ? (
+          <SwapInputActions
+            fromToken={fromToken}
+            // Withheld while the cross-network account lookup is pending so
+            // the chip cannot open Receive for the previous network's account;
+            // a tap in that window resolves the account from activeAccount
+            // instead.
+            accountInfo={
+              swapAddressInfo.isAddressInfoReady ? accountInfo : undefined
+            }
+            activeAccount={activeAccount}
+            showPercentageInput={showPercentageInputDebounce}
+            showActionBuy={showActionBuy}
+            actionBuyHighlighted={!isFromBalanceLoadedZero}
+            onDepositClose={refreshTokenBalance}
+            onSelectStage={onSelectPercentageStage}
+          />
+        ) : null}
       </XStack>
       <AmountInput
         borderRadius="$0"
@@ -465,9 +577,22 @@ const SwapInputContainer = ({
           moreComponent: valueMoreComponent,
         }}
         inputProps={{
+          ref: amountInputRef,
+          // The receive amount is the quieter of the two: smaller, lighter and
+          // subdued, so the amount the user types stays the focal point.
+          ...(direction === ESwapDirectionType.FROM
+            ? {
+                height: SWAP_FROM_AMOUNT_INPUT_HEIGHT,
+                fontSize: getSwapFromAmountFontSize(amountValue?.length ?? 0),
+              }
+            : {
+                height: SWAP_TO_AMOUNT_INPUT_HEIGHT,
+                fontSize: getFontSize('$heading2xl'),
+                fontWeight: '500' as const,
+              }),
           placeholder: '0.0',
           readonly: readOnly || inputIsLoading,
-          color: inputIsLoading ? '$textPlaceholder' : undefined,
+          color: inputIsLoading ? '$textPlaceholder' : amountInputColor,
           style:
             !platformEnv.isNative && readOnly
               ? ({

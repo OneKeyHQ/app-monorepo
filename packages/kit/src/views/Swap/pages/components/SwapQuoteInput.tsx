@@ -1,4 +1,4 @@
-import { memo, useCallback, useId } from 'react';
+import { memo, useCallback, useId, useState } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
@@ -26,11 +26,17 @@ import { SwapTestIDs } from '../../testIDs';
 
 import SwapInputContainer from './SwapInputContainer';
 
+import type { LayoutChangeEvent } from 'react-native';
+
+// Half of the $2 gap between the two cards.
+const SWAP_CARDS_HALF_GAP = 4;
+
 interface ISwapQuoteInputProps {
   selectLoading?: boolean;
   onSelectToken: (type: ESwapDirectionType) => void;
   onSelectPercentageStage?: (stage: number) => void;
   onBalanceMaxPress?: () => void;
+  autoFocusFromInput?: boolean;
 }
 
 const SwapQuoteInput = ({
@@ -38,6 +44,7 @@ const SwapQuoteInput = ({
   selectLoading,
   onBalanceMaxPress,
   onSelectPercentageStage,
+  autoFocusFromInput,
 }: ISwapQuoteInputProps) => {
   const inputId = useId();
   // Recycled native inputs need a new accessory ID when this pair mounts.
@@ -64,66 +71,81 @@ const SwapQuoteInput = ({
 
   useSwapLimitPriceCheck(fromToken, toToken);
 
+  // The cards have different heights, so the seam between them is measured
+  // rather than assumed to be the vertical center.
+  const [cardsSeamY, setCardsSeamY] = useState<number>();
+  const handleFromCardLayout = useCallback((event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    setCardsSeamY(y + height + SWAP_CARDS_HALF_GAP);
+  }, []);
+
   return (
     <YStack gap="$2">
-      <SwapInputContainer
-        inputAccessoryViewID={inputAccessoryViewID}
-        token={fromToken}
-        direction={ESwapDirectionType.FROM}
-        inputLoading={isQuotePresentationLoading}
-        selectTokenLoading={selectLoading}
-        onAmountChange={(value) => {
-          if (
-            validateAmountInput(
-              value,
-              getSwapDisplayDecimals(
-                fromToken?.decimals,
-                fromToken?.balanceMultiplier,
-              ),
-            )
-          ) {
-            setFromInputAmount({
-              value,
-              isInput: true,
-            });
-          }
-        }}
-        onSelectPercentageStage={onSelectPercentageStage}
-        amountValue={fromInputAmount.value}
-        onBalanceMaxPress={onBalanceMaxPress}
-        onSelectToken={onSelectToken}
-        balance={fromTokenBalance}
-        balanceLoading={swapTokenDetailLoading.from}
-      />
-      <Stack
-        borderRadius="$full"
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          zIndex: 10,
-          ...getTransform(),
-        }}
-      >
-        <IconButton
-          testID={SwapTestIDs.switchTokensButton}
-          alignSelf="center"
-          bg="$bgApp"
-          variant="tertiary"
-          icon="SwitchVerOutline"
-          iconProps={{
-            color: '$icon',
+      <Stack onLayout={handleFromCardLayout}>
+        <SwapInputContainer
+          autoFocusOnPageFocus={autoFocusFromInput}
+          inputAccessoryViewID={inputAccessoryViewID}
+          token={fromToken}
+          direction={ESwapDirectionType.FROM}
+          inputLoading={isQuotePresentationLoading}
+          selectTokenLoading={selectLoading}
+          onAmountChange={(value) => {
+            if (
+              validateAmountInput(
+                value,
+                getSwapDisplayDecimals(
+                  fromToken?.decimals,
+                  fromToken?.balanceMultiplier,
+                ),
+              )
+            ) {
+              setFromInputAmount({
+                value,
+                isInput: true,
+              });
+            }
           }}
-          size="small"
-          disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
-          onPress={alternationToken}
-          borderWidth="$1"
-          cursor="pointer"
-          hoverStyle={{}}
-          pressStyle={{}}
-          opacity={1}
+          onSelectPercentageStage={onSelectPercentageStage}
+          amountValue={fromInputAmount.value}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onSelectToken={onSelectToken}
+          balance={fromTokenBalance}
+          balanceLoading={swapTokenDetailLoading.from}
         />
       </Stack>
+      {cardsSeamY === undefined ? null : (
+        <Stack
+          borderRadius="$full"
+          style={{
+            position: 'absolute',
+            top: cardsSeamY,
+            left: '50%',
+            zIndex: 10,
+            ...getTransform(),
+          }}
+        >
+          <IconButton
+            testID={SwapTestIDs.switchTokensButton}
+            alignSelf="center"
+            bg="$bgApp"
+            variant="tertiary"
+            // A one-way arrow shows the trade direction; pressing it still
+            // swaps the two tokens.
+            icon="ArrowBottomOutline"
+            iconProps={{
+              color: '$icon',
+            }}
+            size="small"
+            disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
+            onPress={alternationToken}
+            borderWidth="$1"
+            cursor="pointer"
+            hoverStyle={{}}
+            pressStyle={{}}
+            opacity={1}
+          />
+        </Stack>
+      )}
       <SwapInputContainer
         inputAccessoryViewID={inputAccessoryViewID}
         token={toToken}

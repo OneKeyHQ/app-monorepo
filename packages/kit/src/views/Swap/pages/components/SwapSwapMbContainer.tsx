@@ -132,6 +132,7 @@ const SwapSwapMbContainer = ({
         pb="$5"
       >
         <SwapQuoteInput
+          autoFocusFromInput
           onSelectToken={onSelectToken}
           selectLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
