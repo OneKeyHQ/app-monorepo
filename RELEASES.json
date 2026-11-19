@@ -20,5 +20,35 @@
       "#14551"
     ],
     "notes": "feat: integrate EtherFi Liquid Vaults (OK-64586, OK-67394, OK-67395, OK-67393, OK-67392, OK-67353) (#14333), fix: Solana account rent still used the pre-reduction value(OK-66906) (#14463), fix: bound perps dialogs to the viewport OK-67311 (#14541), feat: add Pro 2 Prime claim entry on Prime page (OK-66273) (#14551)"
+  },
+  {
+    "seq": 3,
+    "commit": "84d2f0ed6860bbd2e491c6a93d6bfc3d62feac78",
+    "date": "2026-11-19T11:10:01Z",
+    "prs": [
+      "#14313",
+      "#14499",
+      "#14552",
+      "#14554",
+      "#14557",
+      "#14563",
+      "#14564",
+      "#14574",
+      "#14576",
+      "#14580",
+      "#14594",
+      "#14604",
+      "#14610",
+      "#14613",
+      "#14614",
+      "#14616",
+      "#14617",
+      "#14620",
+      "#14621",
+      "#14627",
+      "#14630",
+      "#14643"
+    ],
+    "notes": "feat: add perps comeback rewards (OK-66438) (#14313), fix: improve Swap and Dust Sweep (OK-65985, OK-65986, OK-59494, OK-67083, OK-67348, OK-67340, OK-67345, OK-67341) (#14499), fix: show Prime plan loading failure states (OK-61369) (#14552), feat: add market highlights carousel and details modal ｜OK-66406 (#14554), fix: validate Earn approval targets against registered protocols (OK-… (#14557), fix: allow six preferred chart intervals on wide tablet toolbars OK-67328 (#14563), fix: handle Tron and the tracker overlap in the Unifold deposit modal (#14564), fix: open legacy market favorites in updated details ｜OK-67377 (#14574), fix: keep Perps indicators scrollable in Android split view(OK-67065) (#14576), fix: show stock token tradability in token price status (#14580), fix: refresh reverse positions and keep page dialogs visible behind modals OK-65651 OK-67016 (#14594), feat: pull app translations from onekey-i18n on release/v6.7.0 (#14604), feat: add ROE presets to position TP/SL(OK-67523) (#14610), feat: track bulk send review and OAuth sign-in steps for Prime free trial (OK-64235) (#14613), fix: keep the portfolio guide visible during refresh (OK-67525) (#14614), feat: search help center articles in universal search (OK-66268) (#14616), fix: remove seam line in address input on Android(OK-37850) [6.7.0] (#14617), fix: detect foldable iPhone by iPhone Duo model id on iOS hardware (#14620), fix: restore mobile account back animation (OK-50497) (#14621), fix: prevent desktop crash for unknown wallet avatars (#14627), fix: restore the previous iOS send recipient layout (#14630), fix: fade changelog footer edge and move it out of the page body(OK-56138) (#14643)"
   }
 ]
