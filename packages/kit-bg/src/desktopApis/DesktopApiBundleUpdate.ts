@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -62,6 +63,9 @@ const BUNDLE_RETRY_MAX_DELAY_MS = 1000 * 10;
 
 export const MAX_BUNDLE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
 export const MAX_BUNDLE_ENTRY_COUNT = 4096;
+export const MAX_CONTROL_JSON_BYTES = 16 * 1024 * 1024;
+export const DIFF_DOWNLOAD_DIR_NAME = '.diff';
+export const DIFF_STAGING_DIR_NAME = '.diff-staging';
 
 // OCDS §4 failure classification. Every non-2xx HTTP status resolves to exactly
 // one of two classes with opposite recoveries: a Permanent failure means the
@@ -260,7 +264,88 @@ function isValidHttpsUrl(url: unknown): url is string {
 }
 
 function isValidSha256Hex(hash: unknown): hash is string {
-  return typeof hash === 'string' && /^[a-fA-F0-9]{64}$/.test(hash);
+  return typeof hash === 'string' && /^[a-fA-F0-9]{64}$/.test(hash.trim());
+}
+
+function isValidSha512Hex(hash: unknown): hash is string {
+  return typeof hash === 'string' && /^[a-fA-F0-9]{128}$/.test(hash.trim());
+}
+
+function normalizeSha256Hex(hash: unknown): string {
+  return isValidSha256Hex(hash) ? hash.trim().toLowerCase() : '';
+}
+
+function isSafeRelativeManifestPath(relPath: unknown): relPath is string {
+  if (typeof relPath !== 'string' || !relPath || relPath.startsWith('/')) {
+    return false;
+  }
+  if (
+    relPath.includes('\\') ||
+    relPath.includes('\0') ||
+    path.isAbsolute(relPath)
+  ) {
+    return false;
+  }
+  const segments = relPath.split('/');
+  return segments.every((seg) => seg.length > 0 && seg !== '.' && seg !== '..');
+}
+
+function hasSymlinkOnPathWithinRoot(
+  rootDir: string,
+  targetPath: string,
+): boolean {
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(targetPath);
+  if (
+    resolvedTarget !== resolvedRoot &&
+    !resolvedTarget.startsWith(`${resolvedRoot}${path.sep}`)
+  ) {
+    return true;
+  }
+  try {
+    if (
+      fs.lstatSync(resolvedRoot, { throwIfNoEntry: false })?.isSymbolicLink()
+    ) {
+      return true;
+    }
+  } catch {
+    // ignore virtual path lstat error (e.g. inside app.asar)
+  }
+  const rel = path.relative(resolvedRoot, resolvedTarget);
+  if (!rel) {
+    return false;
+  }
+  const parts = rel.split(path.sep);
+  let current = resolvedRoot;
+  for (const part of parts) {
+    current = path.join(current, part);
+    try {
+      const stat = fs.lstatSync(current, { throwIfNoEntry: false });
+      if (!stat) {
+        break;
+      }
+      if (stat.isSymbolicLink()) {
+        return true;
+      }
+    } catch {
+      // ignore virtual path lstat error (e.g. inside app.asar)
+    }
+  }
+  try {
+    if (fs.existsSync(resolvedRoot) && fs.existsSync(resolvedTarget)) {
+      const realRoot = fs.realpathSync(resolvedRoot);
+      const realTarget = fs.realpathSync(resolvedTarget);
+      if (
+        realTarget !== realRoot &&
+        !realTarget.startsWith(`${realRoot}${path.sep}`)
+      ) {
+        return true;
+      }
+    }
+  } catch {
+    // ignore realpath error on virtual asar paths
+  }
+  return false;
 }
 
 function normalizePositiveInt(value: unknown): number | undefined {
@@ -278,6 +363,18 @@ interface IDiffManifest {
   targetMetadataSha256: string;
   changedFiles: Record<string, string>;
   reusedFiles: Record<string, string>;
+  deletedFiles?: string[];
+}
+
+interface IDiffArchiveDescriptor {
+  appVersion: string;
+  bundleVersion: string;
+  downloadUrl: string;
+  fileSize?: number;
+  sha256: string;
+  diffSha256: string;
+  signature?: string;
+  fallbackRequired?: boolean;
 }
 
 const diffGpgErrors = new WeakSet<object>();
@@ -286,6 +383,11 @@ class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
   private diffFallbackTargets = new Set<string>();
+
+  private activeVerifications = new Set<{
+    cancel: () => void;
+    promise: Promise<void>;
+  }>();
 
   get isDownloading(): boolean {
     return this.cancelByDest.size > 0;
@@ -383,6 +485,14 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
+  private getDiffDownloadDir() {
+    const diffDir = path.join(this.getDownloadDir(), DIFF_DOWNLOAD_DIR_NAME);
+    if (!fs.existsSync(diffDir)) {
+      fs.mkdirSync(diffDir, { recursive: true });
+    }
+    return diffDir;
+  }
+
   private getDestDiffZipPath(
     params?: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
   ): string | null {
@@ -390,21 +500,136 @@ class DesktopApiAppBundleUpdate {
     assertSafeBundleVersion(appVersion);
     assertSafeBundleVersion(bundleVersion);
     return resolveBundlePath(
-      this.getDownloadDir(),
-      `${appVersion}-${bundleVersion}-diff.zip`,
+      this.getDiffDownloadDir(),
+      `${appVersion}-${bundleVersion}.diff.zip`,
+    );
+  }
+
+  private getDestDiffDescriptorPath(diffZipPath: string): string {
+    return `${diffZipPath}.meta.json`;
+  }
+
+  private readDiffDescriptor(
+    diffZipPath: string | null,
+  ): IDiffArchiveDescriptor | null {
+    if (!diffZipPath) {
+      return null;
+    }
+    const metaPath = this.getDestDiffDescriptorPath(diffZipPath);
+    if (!fs.existsSync(metaPath)) {
+      return null;
+    }
+    try {
+      const stat = fs.lstatSync(metaPath, { throwIfNoEntry: false });
+      if (
+        !stat ||
+        stat.isSymbolicLink() ||
+        stat.size <= 0 ||
+        stat.size > 65_536
+      ) {
+        return null;
+      }
+      const raw = JSON.parse(
+        fs.readFileSync(metaPath, 'utf8'),
+      ) as Partial<IDiffArchiveDescriptor>;
+      const sha256 = normalizeSha256Hex(raw?.sha256);
+      const diffSha256 = normalizeSha256Hex(raw?.diffSha256);
+      if (
+        !raw ||
+        typeof raw.appVersion !== 'string' ||
+        !raw.appVersion ||
+        typeof raw.bundleVersion !== 'string' ||
+        !raw.bundleVersion ||
+        !isValidHttpsUrl(raw.downloadUrl) ||
+        !sha256 ||
+        !diffSha256
+      ) {
+        return null;
+      }
+      return {
+        appVersion: raw.appVersion,
+        bundleVersion: raw.bundleVersion,
+        downloadUrl: raw.downloadUrl,
+        fileSize: normalizePositiveInt(raw.fileSize),
+        sha256,
+        diffSha256,
+        signature:
+          typeof raw.signature === 'string' && raw.signature.trim().length > 0
+            ? raw.signature
+            : undefined,
+        fallbackRequired: Boolean(raw.fallbackRequired),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private writeDiffDescriptor(
+    diffZipPath: string | null,
+    descriptor: IDiffArchiveDescriptor,
+  ) {
+    if (!diffZipPath) {
+      return;
+    }
+    try {
+      const existing = this.readDiffDescriptor(diffZipPath);
+      const preservedSignature =
+        descriptor.signature ??
+        (existing &&
+        existing.appVersion === descriptor.appVersion &&
+        existing.bundleVersion === descriptor.bundleVersion &&
+        existing.sha256 === descriptor.sha256
+          ? existing.signature
+          : undefined);
+      const payload: IDiffArchiveDescriptor = {
+        ...descriptor,
+        signature: preservedSignature,
+      };
+      const metaPath = this.getDestDiffDescriptorPath(diffZipPath);
+      const tmpPath = `${metaPath}.tmp`;
+      fs.mkdirSync(path.dirname(metaPath), { recursive: true });
+      fs.writeFileSync(tmpPath, JSON.stringify(payload), 'utf8');
+      fs.renameSync(tmpPath, metaPath);
+    } catch {
+      // ignore descriptor write failure
+    }
+  }
+
+  private createDiffStagingDir(
+    appVersion: string,
+    bundleVersion: string,
+  ): string {
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    const stagingRoot = path.join(getBundleDirName(), DIFF_STAGING_DIR_NAME);
+    if (!fs.existsSync(stagingRoot)) {
+      fs.mkdirSync(stagingRoot, { recursive: true });
+    }
+    const runId = crypto.randomUUID().replace(/-/g, '');
+    return resolveBundlePath(
+      stagingRoot,
+      `${appVersion}-${bundleVersion}-${runId}`,
     );
   }
 
   private cleanupDiffArtifacts(
     diffZipPath: string | null,
     stagingDir?: string,
+    options?: { keepDescriptor?: boolean },
   ) {
     if (diffZipPath) {
-      for (const target of [
+      const targets = [
         diffZipPath,
         `${diffZipPath}.partial`,
         `${diffZipPath}.partial.progress.json`,
-      ]) {
+      ];
+      if (!options?.keepDescriptor) {
+        targets.push(
+          this.getDestDiffDescriptorPath(diffZipPath),
+          `${this.getDestDiffDescriptorPath(diffZipPath)}.tmp`,
+        );
+      }
+      for (const target of targets) {
         try {
           fs.rmSync(target, { force: true });
         } catch {
@@ -546,12 +771,8 @@ class DesktopApiAppBundleUpdate {
       skipGPGVerification,
       headers,
     } = params || {};
-    if (
-      !latestVersion ||
-      !bundleVersion ||
-      !downloadUrl ||
-      !isValidSha256Hex(sha256)
-    ) {
+    const normalizedSha256 = normalizeSha256Hex(sha256);
+    if (!latestVersion || !bundleVersion || !downloadUrl || !normalizedSha256) {
       throw createUpdateError({
         code: EUpdateErrorCode.invalidArgument,
         step: 'download',
@@ -566,66 +787,88 @@ class DesktopApiAppBundleUpdate {
     }
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     const targetKey = this.getBundleTargetKey(latestVersion, bundleVersion);
+    const normalizedDiffSha256 = normalizeSha256Hex(diffSha256);
     const hasValidDiffSignature =
       (typeof diffSignature === 'string' && diffSignature.trim().length > 0) ||
       allowSkipGPG;
+    const diffZipPath = this.getDestDiffZipPath(params);
+    const existingDescriptor = this.readDiffDescriptor(diffZipPath);
+    const isFallbackRequiredForCurrentRelease = Boolean(
+      existingDescriptor?.fallbackRequired &&
+      existingDescriptor.appVersion === latestVersion &&
+      existingDescriptor.bundleVersion === bundleVersion &&
+      existingDescriptor.sha256 === normalizedSha256,
+    );
     const isDiffEligible =
       isValidHttpsUrl(diffDownloadUrl) &&
-      isValidSha256Hex(diffSha256) &&
+      Boolean(normalizedDiffSha256) &&
       hasValidDiffSignature &&
-      !this.diffFallbackTargets.has(targetKey);
+      !this.diffFallbackTargets.has(targetKey) &&
+      !isFallbackRequiredForCurrentRelease;
 
-    if (isDiffEligible) {
-      const diffZipPath = this.getDestDiffZipPath(params);
-      if (diffZipPath) {
-        const diffController = new AbortController();
-        try {
-          await this.downloadArchiveFile({
-            url: diffDownloadUrl,
-            targetPath: diffZipPath,
-            identity: `bundle-diff:${latestVersion}:${bundleVersion}:${diffSha256}`,
-            headers,
-            expectedBytes: diffFileSize,
-            expectedSha256: diffSha256,
-            latestVersion,
-            bundleVersion,
-            controller: diffController,
-          });
-          return {
-            downloadUrl,
-            latestVersion,
-            bundleVersion,
-            sha256,
-            signature,
-            diffDownloadUrl,
-            diffFileSize,
-            diffSha256,
-            diffSignature,
-          };
-        } catch (diffError) {
-          const wrappedDiffError = wrapDownloadError(diffError);
-          const errorCode = getUpdateError(wrappedDiffError, 'download').code;
-          if (
-            diffController.signal.aborted ||
-            errorCode === EUpdateErrorCode.cancelled
-          ) {
-            throw wrappedDiffError;
-          }
-          logger.warn(
-            'bundle-download',
-            'Diff bundle download failed, falling back to full bundle',
-            {
-              latestVersion,
-              bundleVersion,
-              error:
-                diffError instanceof Error
-                  ? diffError.message
-                  : String(diffError),
-            },
-          );
-          this.diffFallbackTargets.add(targetKey);
-          this.cleanupDiffArtifacts(diffZipPath);
+    if (isDiffEligible && diffZipPath) {
+      const diffController = new AbortController();
+      try {
+        await this.downloadArchiveFile({
+          url: diffDownloadUrl,
+          targetPath: diffZipPath,
+          identity: `bundle-diff:${latestVersion}:${bundleVersion}:${normalizedDiffSha256}`,
+          headers,
+          expectedBytes: diffFileSize,
+          expectedSha256: normalizedDiffSha256,
+          latestVersion,
+          bundleVersion,
+          controller: diffController,
+        });
+        this.writeDiffDescriptor(diffZipPath, {
+          appVersion: latestVersion,
+          bundleVersion,
+          downloadUrl,
+          fileSize: normalizePositiveInt(fileSize),
+          sha256: normalizedSha256,
+          diffSha256: normalizedDiffSha256,
+          signature:
+            typeof signature === 'string' && signature.trim().length > 0
+              ? signature
+              : undefined,
+          fallbackRequired: false,
+        });
+        return {
+          downloadUrl,
+          latestVersion,
+          bundleVersion,
+          sha256: normalizedSha256,
+          signature,
+          diffDownloadUrl,
+          diffFileSize,
+          diffSha256: normalizedDiffSha256,
+          diffSignature,
+        };
+      } catch (diffError) {
+        const wrappedDiffError = wrapDownloadError(diffError);
+        const errorCode = getUpdateError(wrappedDiffError, 'download').code;
+        if (
+          diffController.signal.aborted ||
+          errorCode === EUpdateErrorCode.cancelled ||
+          errorCode === EUpdateErrorCode.networkError ||
+          errorCode === EUpdateErrorCode.timeout
+        ) {
+          throw wrappedDiffError;
         }
+        logger.warn(
+          'bundle-download',
+          'Diff bundle download failed, falling back to full bundle',
+          {
+            latestVersion,
+            bundleVersion,
+            error:
+              diffError instanceof Error
+                ? diffError.message
+                : String(diffError),
+          },
+        );
+        this.diffFallbackTargets.add(targetKey);
+        this.cleanupDiffArtifacts(diffZipPath);
       }
     }
 
@@ -634,10 +877,10 @@ class DesktopApiAppBundleUpdate {
       await this.downloadArchiveFile({
         url: downloadUrl,
         targetPath: filePath,
-        identity: `bundle:${latestVersion}:${bundleVersion}:${sha256}`,
+        identity: `bundle:${latestVersion}:${bundleVersion}:${normalizedSha256}`,
         headers,
         expectedBytes: fileSize,
-        expectedSha256: sha256,
+        expectedSha256: normalizedSha256,
         latestVersion,
         bundleVersion,
         controller,
@@ -646,7 +889,7 @@ class DesktopApiAppBundleUpdate {
         downloadUrl,
         latestVersion,
         bundleVersion,
-        sha256,
+        sha256: normalizedSha256,
         signature,
       };
     } catch (error) {
@@ -688,6 +931,55 @@ class DesktopApiAppBundleUpdate {
     }
   }
 
+  private resolvePersistedTrustAnchorSignature(
+    appVersion: string,
+    bundleVersion: string,
+    normalizedSha256: string,
+    explicitSignature?: string,
+  ): string | undefined {
+    if (typeof explicitSignature === 'string' && explicitSignature.trim()) {
+      return explicitSignature;
+    }
+    const diffZipPath = this.getDestDiffZipPath({
+      latestVersion: appVersion,
+      bundleVersion,
+    });
+    const descriptor = this.readDiffDescriptor(diffZipPath);
+    if (
+      descriptor &&
+      descriptor.appVersion === appVersion &&
+      descriptor.bundleVersion === bundleVersion &&
+      descriptor.sha256 === normalizedSha256 &&
+      descriptor.signature
+    ) {
+      return descriptor.signature;
+    }
+    const activeBundle = store.getUpdateBundleData();
+    if (
+      activeBundle &&
+      activeBundle.appVersion === appVersion &&
+      activeBundle.bundleVersion === bundleVersion &&
+      typeof activeBundle.signature === 'string' &&
+      activeBundle.signature.trim()
+    ) {
+      return activeBundle.signature;
+    }
+    const fallbackBundles = store.getFallbackUpdateBundleData();
+    if (Array.isArray(fallbackBundles)) {
+      const matched = fallbackBundles.find(
+        (entry) =>
+          entry?.appVersion === appVersion &&
+          entry.bundleVersion === bundleVersion &&
+          typeof entry.signature === 'string' &&
+          entry.signature.trim().length > 0,
+      );
+      if (matched?.signature) {
+        return matched.signature;
+      }
+    }
+    return undefined;
+  }
+
   private async verifyBundleInternal(params: IUpdateOperationParams) {
     const {
       sha256,
@@ -695,31 +987,152 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
       signature,
       skipGPGVerification,
+      diffSha256,
     } = params || {};
     assertUpdateBundleVersion(appVersion, 'verifyPackage');
     assertUpdateBundleVersion(bundleVersion, 'verifyPackage');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
-    if (
-      !sha256 ||
-      !appVersion ||
-      !bundleVersion ||
-      (!signature && !allowSkipGPG)
-    ) {
+    const normalizedSha256 = normalizeSha256Hex(sha256);
+    if (!normalizedSha256 || !appVersion || !bundleVersion) {
       throw createUpdateError({
         code: EUpdateErrorCode.invalidArgument,
         step: 'verifyPackage',
       });
     }
-    if (!allowSkipGPG) {
-      await verifySignedMetadata(
-        {
-          appVersion,
-          bundleVersion,
-          signature: signature!,
-        },
-        'verifyPackage',
+
+    const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    const metadataFilePath = path.join(extractDir, 'metadata.json');
+    if (fs.existsSync(extractDir) && fs.existsSync(metadataFilePath)) {
+      if (
+        fs.lstatSync(extractDir, { throwIfNoEntry: false })?.isSymbolicLink() ||
+        fs
+          .lstatSync(metadataFilePath, { throwIfNoEntry: false })
+          ?.isSymbolicLink()
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyPackage',
+        });
+      }
+      const metadataStat = fs.statSync(metadataFilePath);
+      if (
+        metadataStat.size <= 0 ||
+        metadataStat.size > MAX_CONTROL_JSON_BYTES
+      ) {
+        throw createUpdateError({
+          code:
+            metadataStat.size > MAX_CONTROL_JSON_BYTES
+              ? EUpdateErrorCode.securityRejected
+              : EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
+      }
+      const effectiveSignature = this.resolvePersistedTrustAnchorSignature(
+        appVersion,
+        bundleVersion,
+        normalizedSha256,
+        signature,
       );
+      if (!allowSkipGPG) {
+        if (!effectiveSignature) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.invalidArgument,
+            step: 'verifyPackage',
+          });
+        }
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: effectiveSignature,
+          },
+          'verifyPackage',
+        );
+      }
+      const metadata = JSON.parse(
+        fs.readFileSync(metadataFilePath, 'utf8'),
+      ) as Record<string, string>;
+      if (
+        !metadata ||
+        typeof metadata !== 'object' ||
+        Array.isArray(metadata)
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
+      }
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      return;
     }
+
+    const downloadedFile = this.getDestZipPath({
+      latestVersion: appVersion,
+      bundleVersion,
+    });
+    if (downloadedFile && fs.existsSync(downloadedFile)) {
+      const resolvedRoot = fs.realpathSync(this.getDownloadDir());
+      const resolvedFile = fs.realpathSync(downloadedFile);
+      if (!resolvedFile.startsWith(`${resolvedRoot}${path.sep}`)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyPackage',
+        });
+      }
+      if (!verifySha256(downloadedFile, normalizedSha256)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
+      }
+      return;
+    }
+
+    const diffZipPath = this.getDestDiffZipPath({
+      latestVersion: appVersion,
+      bundleVersion,
+    });
+    if (diffZipPath && fs.existsSync(diffZipPath)) {
+      const resolvedRoot = fs.realpathSync(this.getDownloadDir());
+      const resolvedDiffFile = fs.realpathSync(diffZipPath);
+      if (!resolvedDiffFile.startsWith(`${resolvedRoot}${path.sep}`)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyPackage',
+        });
+      }
+      const descriptor = this.readDiffDescriptor(diffZipPath);
+      const expectedDiffSha256 =
+        normalizeSha256Hex(diffSha256) ||
+        (descriptor &&
+        descriptor.appVersion === appVersion &&
+        descriptor.bundleVersion === bundleVersion &&
+        descriptor.sha256 === normalizedSha256
+          ? descriptor.diffSha256
+          : '');
+      if (
+        !expectedDiffSha256 ||
+        !verifySha256(diffZipPath, expectedDiffSha256)
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
+      }
+      return;
+    }
+
+    if (!signature && !allowSkipGPG) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyPackage',
+      });
+    }
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'verifyPackage',
+    });
   }
 
   /**
@@ -885,7 +1298,7 @@ class DesktopApiAppBundleUpdate {
     if (bundleDir && fs.existsSync(bundleDir)) {
       const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() && !entry.name.endsWith('.diff-staging')) {
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
           const lastDash = entry.name.lastIndexOf('-');
           if (lastDash > 0) {
             const entryAppVersion = entry.name.substring(0, lastDash);
@@ -938,57 +1351,57 @@ class DesktopApiAppBundleUpdate {
     candidateBuildDirs: string[],
     relPath: string,
     expectedSha512: string,
-  ): string | null {
-    if (!relPath || path.isAbsolute(relPath)) {
+    remainingBytes: number,
+  ): { sourcePath: string; size: number } | null {
+    if (!isSafeRelativeManifestPath(relPath)) {
       return null;
     }
+    const checkCandidate = (rootDir: string, candidateRelPath: string) => {
+      const resolvedRoot = path.resolve(rootDir);
+      const candidatePath = path.resolve(resolvedRoot, candidateRelPath);
+      if (!candidatePath.startsWith(`${resolvedRoot}${path.sep}`)) {
+        return null;
+      }
+      if (hasSymlinkOnPathWithinRoot(resolvedRoot, candidatePath)) {
+        return null;
+      }
+      if (!fs.existsSync(candidatePath)) {
+        return null;
+      }
+      // Verify SHA-512 match BEFORE enforcing the remaining byte budget so
+      // an oversized unmatched candidate in an earlier directory is skipped
+      // instead of blocking a smaller matching file in a later candidate.
+      if (!checkFileSha512(candidatePath, expectedSha512)) {
+        return null;
+      }
+      const stat = fs.statSync(candidatePath);
+      if (
+        !stat.isFile() ||
+        !Number.isFinite(stat.size) ||
+        stat.size < 0 ||
+        stat.size > remainingBytes
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      return { sourcePath: candidatePath, size: stat.size };
+    };
+
     for (const buildDir of candidateBuildDirs) {
-      const resolvedBuildDir = path.resolve(buildDir);
-      const candidatePath = path.resolve(resolvedBuildDir, relPath);
-      if (candidatePath.startsWith(`${resolvedBuildDir}${path.sep}`)) {
-        let isSymlink = false;
-        try {
-          isSymlink = Boolean(
-            fs
-              .lstatSync(candidatePath, { throwIfNoEntry: false })
-              ?.isSymbolicLink(),
-          );
-        } catch {
-          // ignore lstat errors on virtual paths (e.g. inside app.asar)
-        }
-        if (
-          !isSymlink &&
-          fs.existsSync(candidatePath) &&
-          checkFileSha512(candidatePath, expectedSha512)
-        ) {
-          return candidatePath;
-        }
+      const matched = checkCandidate(buildDir, relPath);
+      if (matched) {
+        return matched;
       }
     }
     const resourcesPath =
       typeof process.resourcesPath === 'string' ? process.resourcesPath : '';
     if (resourcesPath) {
-      const resolvedResourcesDir = path.resolve(resourcesPath);
       for (const extraRel of this.getExtraResourceCandidateRelPaths(relPath)) {
-        const candidatePath = path.resolve(resolvedResourcesDir, extraRel);
-        if (candidatePath.startsWith(`${resolvedResourcesDir}${path.sep}`)) {
-          let isSymlink = false;
-          try {
-            isSymlink = Boolean(
-              fs
-                .lstatSync(candidatePath, { throwIfNoEntry: false })
-                ?.isSymbolicLink(),
-            );
-          } catch {
-            // ignore
-          }
-          if (
-            !isSymlink &&
-            fs.existsSync(candidatePath) &&
-            checkFileSha512(candidatePath, expectedSha512)
-          ) {
-            return candidatePath;
-          }
+        const matched = checkCandidate(resourcesPath, extraRel);
+        if (matched) {
+          return matched;
         }
       }
     }
@@ -1005,6 +1418,8 @@ class DesktopApiAppBundleUpdate {
     signature,
     diffSha256,
     diffSignature,
+    isInstalled,
+    signal,
   }: {
     appVersion: string;
     bundleVersion: string;
@@ -1015,16 +1430,33 @@ class DesktopApiAppBundleUpdate {
     signature?: string;
     diffSha256?: string;
     diffSignature?: string;
+    isInstalled?: boolean;
+    signal?: AbortSignal;
   }) {
-    let signedDiffManifestSha256 = '';
-    let signedMetadataSha256 = '';
-    if (!allowSkipGPG) {
-      if (!diffSha256 || !verifySha256(diffZipPath, diffSha256)) {
+    const throwIfAborted = () => {
+      if (signal?.aborted) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.cancelled,
+          step: 'verifyASC',
+        });
+      }
+    };
+    throwIfAborted();
+    const normalizedDiffSha256 = normalizeSha256Hex(diffSha256);
+    if (!allowSkipGPG || normalizedDiffSha256) {
+      if (
+        !normalizedDiffSha256 ||
+        !verifySha256(diffZipPath, normalizedDiffSha256)
+      ) {
         throw createUpdateError({
           code: EUpdateErrorCode.integrityFailed,
           step: 'verifyASC',
         });
       }
+    }
+    let signedDiffManifestSha256 = '';
+    let signedMetadataSha256 = '';
+    if (!allowSkipGPG) {
       if (!diffSignature) {
         throw createUpdateError({
           code: EUpdateErrorCode.invalidArgument,
@@ -1060,24 +1492,63 @@ class DesktopApiAppBundleUpdate {
         throw wrapped;
       }
     }
+    throwIfAborted();
+
+    if (isInstalled && fs.existsSync(extractDir)) {
+      const metadataFilePath = this.getMetadataFilePath({
+        appVersion,
+        bundleVersion,
+      });
+      if (!fs.existsSync(metadataFilePath)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
+      }
+      if (!allowSkipGPG) {
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
+      }
+      const metadata = JSON.parse(
+        fs.readFileSync(metadataFilePath, 'utf8'),
+      ) as Record<string, string>;
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      return;
+    }
 
     const zip = new AdmZip(diffZipPath);
     const entries = this.validateAndGetZipEntries(zip, stagingDir, 'verifyASC');
-    const hasDiffManifest = entries.some(
+    const diffManifestEntry = entries.find(
       (e) =>
         !e.isDirectory &&
         e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
           'diff-manifest.json',
     );
-    const hasMetadata = entries.some(
+    const metadataEntry = entries.find(
       (e) =>
         !e.isDirectory &&
         e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
           'metadata.json',
     );
-    if (!hasDiffManifest || !hasMetadata) {
+    if (!diffManifestEntry || !metadataEntry) {
       throw createUpdateError({
         code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      });
+    }
+    if (
+      diffManifestEntry.header.size > MAX_CONTROL_JSON_BYTES ||
+      metadataEntry.header.size > MAX_CONTROL_JSON_BYTES
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
         step: 'verifyASC',
       });
     }
@@ -1085,6 +1556,7 @@ class DesktopApiAppBundleUpdate {
     fs.rmSync(stagingDir, { recursive: true, force: true });
     fs.mkdirSync(stagingDir, { recursive: true });
     zip.extractAllTo(stagingDir, true);
+    throwIfAborted();
 
     const diffManifestPath = path.join(stagingDir, 'diff-manifest.json');
     const metadataPath = path.join(stagingDir, 'metadata.json');
@@ -1096,6 +1568,23 @@ class DesktopApiAppBundleUpdate {
     ) {
       throw createUpdateError({
         code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      });
+    }
+    const diffManifestStat = fs.statSync(diffManifestPath);
+    const metadataStat = fs.statSync(metadataPath);
+    if (
+      diffManifestStat.size > MAX_CONTROL_JSON_BYTES ||
+      metadataStat.size > MAX_CONTROL_JSON_BYTES
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'verifyASC',
+      });
+    }
+    if (diffManifestStat.size <= 0 || metadataStat.size <= 0) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
         step: 'verifyASC',
       });
     }
@@ -1122,14 +1611,16 @@ class DesktopApiAppBundleUpdate {
       diffManifest.targetBundleVersion !== bundleVersion ||
       diffManifest.hashAlgorithm !== 'sha512' ||
       !isValidSha256Hex(diffManifest.targetMetadataSha256) ||
-      diffManifest.targetMetadataSha256.toLowerCase() !==
+      diffManifest.targetMetadataSha256.trim().toLowerCase() !==
         actualMetadataSha256.toLowerCase() ||
       !diffManifest.changedFiles ||
       typeof diffManifest.changedFiles !== 'object' ||
       Array.isArray(diffManifest.changedFiles) ||
       !diffManifest.reusedFiles ||
       typeof diffManifest.reusedFiles !== 'object' ||
-      Array.isArray(diffManifest.reusedFiles)
+      Array.isArray(diffManifest.reusedFiles) ||
+      (diffManifest.deletedFiles !== undefined &&
+        !Array.isArray(diffManifest.deletedFiles))
     ) {
       throw createUpdateError({
         code: EUpdateErrorCode.integrityFailed,
@@ -1154,22 +1645,61 @@ class DesktopApiAppBundleUpdate {
     const changedEntries = Object.entries(diffManifest.changedFiles);
     const reusedEntries = Object.entries(diffManifest.reusedFiles);
     const targetEntries = Object.entries(targetMetadata);
+    if (changedEntries.length + reusedEntries.length > MAX_BUNDLE_ENTRY_COUNT) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'verifyASC',
+      });
+    }
     if (changedEntries.length + reusedEntries.length !== targetEntries.length) {
       throw createUpdateError({
         code: EUpdateErrorCode.integrityFailed,
         step: 'verifyASC',
       });
     }
+    if (Array.isArray(diffManifest.deletedFiles)) {
+      for (const deletedPath of diffManifest.deletedFiles) {
+        if (!isSafeRelativeManifestPath(deletedPath)) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
+        }
+        if (
+          Object.prototype.hasOwnProperty.call(
+            diffManifest.changedFiles,
+            deletedPath,
+          ) ||
+          Object.prototype.hasOwnProperty.call(
+            diffManifest.reusedFiles,
+            deletedPath,
+          ) ||
+          Object.prototype.hasOwnProperty.call(targetMetadata, deletedPath)
+        ) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyASC',
+          });
+        }
+      }
+    }
     for (const [relPath, expectedSha512] of changedEntries) {
+      if (!isSafeRelativeManifestPath(relPath)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
       if (
+        !isValidSha512Hex(expectedSha512) ||
         Object.prototype.hasOwnProperty.call(
           diffManifest.reusedFiles,
           relPath,
         ) ||
         !Object.prototype.hasOwnProperty.call(targetMetadata, relPath) ||
         typeof targetMetadata[relPath] !== 'string' ||
-        targetMetadata[relPath].toLowerCase() !==
-          String(expectedSha512).toLowerCase()
+        targetMetadata[relPath].trim().toLowerCase() !==
+          expectedSha512.trim().toLowerCase()
       ) {
         throw createUpdateError({
           code: EUpdateErrorCode.integrityFailed,
@@ -1178,11 +1708,18 @@ class DesktopApiAppBundleUpdate {
       }
     }
     for (const [relPath, expectedSha512] of reusedEntries) {
+      if (!isSafeRelativeManifestPath(relPath)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
       if (
+        !isValidSha512Hex(expectedSha512) ||
         !Object.prototype.hasOwnProperty.call(targetMetadata, relPath) ||
         typeof targetMetadata[relPath] !== 'string' ||
-        targetMetadata[relPath].toLowerCase() !==
-          String(expectedSha512).toLowerCase()
+        targetMetadata[relPath].trim().toLowerCase() !==
+          expectedSha512.trim().toLowerCase()
       ) {
         throw createUpdateError({
           code: EUpdateErrorCode.integrityFailed,
@@ -1192,16 +1729,14 @@ class DesktopApiAppBundleUpdate {
     }
 
     const stagingBuildDir = path.resolve(stagingDir, 'build');
-    for (const [relPath, expectedSha512] of Object.entries(
-      diffManifest.changedFiles,
-    )) {
+    let totalReconstructedBytes = 0;
+    for (const [relPath, expectedSha512] of changedEntries) {
+      throwIfAborted();
       const filePath = path.resolve(stagingBuildDir, relPath);
       if (
-        !relPath ||
-        path.isAbsolute(relPath) ||
+        !isSafeRelativeManifestPath(relPath) ||
         !filePath.startsWith(`${stagingBuildDir}${path.sep}`) ||
-        typeof expectedSha512 !== 'string' ||
-        !expectedSha512
+        hasSymlinkOnPathWithinRoot(stagingDir, filePath)
       ) {
         throw createUpdateError({
           code: EUpdateErrorCode.securityRejected,
@@ -1209,12 +1744,19 @@ class DesktopApiAppBundleUpdate {
         });
       }
       if (
-        fs.lstatSync(filePath, { throwIfNoEntry: false })?.isSymbolicLink() ||
         !fs.existsSync(filePath) ||
         !checkFileSha512(filePath, expectedSha512)
       ) {
         throw createUpdateError({
           code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
+      }
+      const stat = fs.statSync(filePath);
+      totalReconstructedBytes += stat.size;
+      if (totalReconstructedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
           step: 'verifyASC',
         });
       }
@@ -1224,45 +1766,90 @@ class DesktopApiAppBundleUpdate {
       appVersion,
       bundleVersion,
     );
-    for (const [relPath, expectedSha512] of Object.entries(
-      diffManifest.reusedFiles,
-    )) {
+    for (const [relPath, expectedSha512] of reusedEntries) {
+      throwIfAborted();
       const destFilePath = path.resolve(stagingBuildDir, relPath);
       if (
-        !relPath ||
-        path.isAbsolute(relPath) ||
+        !isSafeRelativeManifestPath(relPath) ||
         !destFilePath.startsWith(`${stagingBuildDir}${path.sep}`) ||
-        typeof expectedSha512 !== 'string' ||
-        !expectedSha512
+        hasSymlinkOnPathWithinRoot(stagingDir, destFilePath)
       ) {
         throw createUpdateError({
           code: EUpdateErrorCode.securityRejected,
           step: 'verifyASC',
         });
       }
-      const matchedSourcePath = this.findMatchingLocalFile(
+      const remainingBytes =
+        MAX_BUNDLE_UNCOMPRESSED_BYTES - totalReconstructedBytes;
+      const matched = this.findMatchingLocalFile(
         candidateBuildDirs,
         relPath,
         expectedSha512,
+        remainingBytes,
       );
-      if (!matchedSourcePath) {
+      if (!matched) {
         throw createUpdateError({
           code: EUpdateErrorCode.packageMissing,
           step: 'verifyASC',
         });
       }
+      totalReconstructedBytes += matched.size;
+      if (totalReconstructedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
       fs.mkdirSync(path.dirname(destFilePath), { recursive: true });
-      fs.writeFileSync(destFilePath, fs.readFileSync(matchedSourcePath));
+      if (hasSymlinkOnPathWithinRoot(stagingDir, destFilePath)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      fs.writeFileSync(destFilePath, fs.readFileSync(matched.sourcePath));
     }
 
     fs.rmSync(diffManifestPath, { force: true });
     this.verifyAllExtractedFiles(stagingDir, targetMetadata, stagingDir);
+    throwIfAborted();
 
     fs.rmSync(extractDir, { recursive: true, force: true });
     fs.renameSync(stagingDir, extractDir);
   }
 
   private async verifyBundleASCInternal(params: IUpdateOperationParams) {
+    while (this.cacheClearPromise) await this.cacheClearPromise;
+    const verifyController = new AbortController();
+    let resolveVerifyDone!: () => void;
+    const verifyPromise = new Promise<void>((resolve) => {
+      resolveVerifyDone = resolve;
+    });
+    const verificationHandle = {
+      cancel: () => verifyController.abort(),
+      promise: verifyPromise,
+    };
+    this.activeVerifications.add(verificationHandle);
+    try {
+      await this.runVerifyBundleASC(params, verifyController);
+    } finally {
+      this.activeVerifications.delete(verificationHandle);
+      resolveVerifyDone();
+    }
+  }
+
+  private async runVerifyBundleASC(
+    params: IUpdateOperationParams,
+    verifyController: AbortController,
+  ) {
+    const throwIfAborted = () => {
+      if (verifyController.signal.aborted) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.cancelled,
+          step: 'verifyASC',
+        });
+      }
+    };
     const {
       sha256,
       latestVersion: appVersion,
@@ -1283,9 +1870,10 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
     });
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
+    const normalizedSha256 = normalizeSha256Hex(sha256);
     if (
       !downloadedFile ||
-      !sha256 ||
+      !normalizedSha256 ||
       !appVersion ||
       !bundleVersion ||
       (!signature && !allowSkipGPG)
@@ -1305,11 +1893,66 @@ class DesktopApiAppBundleUpdate {
       });
     }
     const targetKey = this.getBundleTargetKey(appVersion, bundleVersion);
+    const persistedDescriptor = this.readDiffDescriptor(diffZipPath);
+    const activeBundle = store.getUpdateBundleData();
+    const fallbackBundles = store.getFallbackUpdateBundleData();
+    const isInstalled =
+      (activeBundle?.appVersion === appVersion &&
+        activeBundle.bundleVersion === bundleVersion) ||
+      (Array.isArray(fallbackBundles) &&
+        fallbackBundles.some(
+          (entry) =>
+            entry?.appVersion === appVersion &&
+            entry.bundleVersion === bundleVersion,
+        ));
+
+    const resolveFullFallbackDownloadParams = ():
+      | (IDownloadPackageParams & { downloadUrl: string })
+      | null => {
+      let fallbackUrl = '';
+      if (isValidHttpsUrl(params?.downloadUrl)) {
+        fallbackUrl = params.downloadUrl;
+      } else if (
+        persistedDescriptor &&
+        persistedDescriptor.appVersion === appVersion &&
+        persistedDescriptor.bundleVersion === bundleVersion &&
+        persistedDescriptor.sha256 === normalizedSha256 &&
+        isValidHttpsUrl(persistedDescriptor.downloadUrl)
+      ) {
+        fallbackUrl = persistedDescriptor.downloadUrl;
+      }
+      if (!fallbackUrl) {
+        return null;
+      }
+      const fallbackFileSize =
+        normalizePositiveInt(params?.fileSize) ?? persistedDescriptor?.fileSize;
+      return {
+        ...params,
+        latestVersion: appVersion,
+        bundleVersion,
+        downloadUrl: fallbackUrl,
+        fileSize: fallbackFileSize,
+        sha256: normalizedSha256,
+        diffDownloadUrl: undefined,
+        diffFileSize: undefined,
+        diffSha256: undefined,
+        diffSignature: undefined,
+      };
+    };
+
+    const isFallbackRequiredForRelease = Boolean(
+      persistedDescriptor?.fallbackRequired &&
+      persistedDescriptor.appVersion === appVersion &&
+      persistedDescriptor.bundleVersion === bundleVersion &&
+      persistedDescriptor.sha256 === normalizedSha256,
+    );
+
     if (
       !fs.existsSync(downloadedFile) &&
       diffZipPath &&
       fs.existsSync(diffZipPath) &&
-      !this.diffFallbackTargets.has(targetKey)
+      !this.diffFallbackTargets.has(targetKey) &&
+      !isFallbackRequiredForRelease
     ) {
       const resolvedRoot = fs.realpathSync(this.getDownloadDir());
       const resolvedDiffFile = fs.realpathSync(diffZipPath);
@@ -1331,7 +1974,15 @@ class DesktopApiAppBundleUpdate {
           step: 'verifyASC',
         });
       }
-      const stagingDir = `${extractDir}.diff-staging`;
+      const stagingDir = this.createDiffStagingDir(appVersion, bundleVersion);
+      const effectiveDiffSha256 =
+        normalizeSha256Hex(diffSha256) ||
+        (persistedDescriptor &&
+        persistedDescriptor.appVersion === appVersion &&
+        persistedDescriptor.bundleVersion === bundleVersion &&
+        persistedDescriptor.sha256 === normalizedSha256
+          ? persistedDescriptor.diffSha256
+          : '');
       try {
         await this.reconstructDiffBundle({
           appVersion,
@@ -1341,14 +1992,51 @@ class DesktopApiAppBundleUpdate {
           extractDir,
           allowSkipGPG,
           signature,
-          diffSha256,
+          diffSha256: effectiveDiffSha256,
           diffSignature,
+          isInstalled,
+          signal: verifyController.signal,
         });
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+        if (diffZipPath) {
+          this.writeDiffDescriptor(diffZipPath, {
+            appVersion,
+            bundleVersion,
+            downloadUrl:
+              (isValidHttpsUrl(params?.downloadUrl)
+                ? params.downloadUrl
+                : persistedDescriptor?.downloadUrl) || 'https://onekey.so',
+            fileSize:
+              normalizePositiveInt(params?.fileSize) ??
+              persistedDescriptor?.fileSize,
+            sha256: normalizedSha256,
+            diffSha256: effectiveDiffSha256 || normalizedSha256,
+            signature:
+              typeof signature === 'string' && signature.trim().length > 0
+                ? signature
+                : persistedDescriptor?.signature,
+            fallbackRequired: false,
+          });
+        }
         return;
       } catch (error) {
-        this.cleanupDiffArtifacts(diffZipPath, stagingDir);
-        this.diffFallbackTargets.add(targetKey);
-        if (error && typeof error === 'object' && diffGpgErrors.has(error)) {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+        const errCode = getUpdateError(error, 'verifyASC').code;
+        if (
+          verifyController.signal.aborted ||
+          errCode === EUpdateErrorCode.cancelled
+        ) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.cancelled,
+            step: 'verifyASC',
+          });
+        }
+        if (
+          (error && typeof error === 'object' && diffGpgErrors.has(error)) ||
+          errCode === EUpdateErrorCode.securityRejected
+        ) {
+          this.cleanupDiffArtifacts(diffZipPath, stagingDir);
+          this.diffFallbackTargets.add(targetKey);
           throw error;
         }
         logger.warn(
@@ -1360,15 +2048,51 @@ class DesktopApiAppBundleUpdate {
             error: error instanceof Error ? error.message : String(error),
           },
         );
-        if (!params?.downloadUrl || !params?.sha256) {
+        this.diffFallbackTargets.add(targetKey);
+        const fallbackParams = resolveFullFallbackDownloadParams();
+        if (diffZipPath && fallbackParams) {
+          this.writeDiffDescriptor(diffZipPath, {
+            appVersion,
+            bundleVersion,
+            downloadUrl: fallbackParams.downloadUrl,
+            fileSize: fallbackParams.fileSize,
+            sha256: normalizedSha256,
+            diffSha256: effectiveDiffSha256 || normalizedSha256,
+            signature:
+              typeof signature === 'string' && signature.trim().length > 0
+                ? signature
+                : persistedDescriptor?.signature,
+            fallbackRequired: true,
+          });
+        }
+        this.cleanupDiffArtifacts(diffZipPath, stagingDir, {
+          keepDescriptor: Boolean(fallbackParams),
+        });
+        if (!fallbackParams) {
           throw createUpdateError({
             code: EUpdateErrorCode.packageMissing,
             step: 'verifyASC',
           });
         }
-        await this.runDownloadBundle(params);
+        throwIfAborted();
+        await this.runDownloadBundle(fallbackParams);
+        throwIfAborted();
+      }
+    } else if (
+      !fs.existsSync(downloadedFile) &&
+      (isFallbackRequiredForRelease || this.diffFallbackTargets.has(targetKey))
+    ) {
+      const fallbackParams = resolveFullFallbackDownloadParams();
+      if (fallbackParams) {
+        this.cleanupDiffArtifacts(diffZipPath, undefined, {
+          keepDescriptor: true,
+        });
+        throwIfAborted();
+        await this.runDownloadBundle(fallbackParams);
+        throwIfAborted();
       }
     }
+    throwIfAborted();
     if (fs.existsSync(downloadedFile)) {
       const resolvedRoot = fs.realpathSync(this.getDownloadDir());
       const resolvedFile = fs.realpathSync(downloadedFile);
@@ -1386,7 +2110,7 @@ class DesktopApiAppBundleUpdate {
       });
     }
     if (!allowSkipGPG) {
-      const isBundleVerified = verifySha256(downloadedFile, sha256);
+      const isBundleVerified = verifySha256(downloadedFile, normalizedSha256);
       if (!isBundleVerified) {
         // Keep detailed SHA failures local; the bridge reports one fixed code.
         const reason = lastSHA256FailureReason() ?? 'MISMATCH';
@@ -1414,6 +2138,7 @@ class DesktopApiAppBundleUpdate {
         throw wrapSignedMetadataError(error, 'verifyASC');
       }
     }
+    throwIfAborted();
     const extractDir = getBundleExtractDir({
       appVersion,
       bundleVersion,
@@ -1424,17 +2149,6 @@ class DesktopApiAppBundleUpdate {
         step: 'verifyASC',
       });
     }
-    const activeBundle = store.getUpdateBundleData();
-    const fallbackBundles = store.getFallbackUpdateBundleData();
-    const isInstalled =
-      (activeBundle?.appVersion === appVersion &&
-        activeBundle.bundleVersion === bundleVersion) ||
-      (Array.isArray(fallbackBundles) &&
-        fallbackBundles.some(
-          (entry) =>
-            entry?.appVersion === appVersion &&
-            entry.bundleVersion === bundleVersion,
-        ));
     if (isInstalled) {
       const metadataFilePath = this.getMetadataFilePath({
         appVersion,
@@ -1455,6 +2169,29 @@ class DesktopApiAppBundleUpdate {
         fs.readFileSync(metadataFilePath, 'utf8'),
       ) as Record<string, string>;
       this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      if (diffZipPath) {
+        this.writeDiffDescriptor(diffZipPath, {
+          appVersion,
+          bundleVersion,
+          downloadUrl:
+            (isValidHttpsUrl(params?.downloadUrl)
+              ? params.downloadUrl
+              : persistedDescriptor?.downloadUrl) || 'https://onekey.so',
+          fileSize:
+            normalizePositiveInt(params?.fileSize) ??
+            persistedDescriptor?.fileSize,
+          sha256: normalizedSha256,
+          diffSha256:
+            normalizeSha256Hex(diffSha256) ||
+            persistedDescriptor?.diffSha256 ||
+            normalizedSha256,
+          signature:
+            typeof signature === 'string' && signature.trim().length > 0
+              ? signature
+              : persistedDescriptor?.signature,
+          fallbackRequired: false,
+        });
+      }
       return;
     }
 
@@ -1474,6 +2211,12 @@ class DesktopApiAppBundleUpdate {
       if (!metadataEntry || !(metadataEntry.header.size > 0)) {
         throw createUpdateError({
           code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
+      }
+      if (metadataEntry.header.size > MAX_CONTROL_JSON_BYTES) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
           step: 'verifyASC',
         });
       }
@@ -1536,6 +2279,29 @@ class DesktopApiAppBundleUpdate {
       const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
       const metadata = JSON.parse(metadataContent) as Record<string, string>;
       this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      if (diffZipPath) {
+        this.writeDiffDescriptor(diffZipPath, {
+          appVersion,
+          bundleVersion,
+          downloadUrl:
+            (isValidHttpsUrl(params?.downloadUrl)
+              ? params.downloadUrl
+              : persistedDescriptor?.downloadUrl) || 'https://onekey.so',
+          fileSize:
+            normalizePositiveInt(params?.fileSize) ??
+            persistedDescriptor?.fileSize,
+          sha256: normalizedSha256,
+          diffSha256:
+            normalizeSha256Hex(diffSha256) ||
+            persistedDescriptor?.diffSha256 ||
+            normalizedSha256,
+          signature:
+            typeof signature === 'string' && signature.trim().length > 0
+              ? signature
+              : persistedDescriptor?.signature,
+          fallbackRequired: false,
+        });
+      }
     } catch (error) {
       // Cleanup extracted directory on verification failure
       if (fs.existsSync(extractDir)) {
@@ -1637,7 +2403,7 @@ class DesktopApiAppBundleUpdate {
     const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
     const results: { appVersion: string; bundleVersion: string }[] = [];
     for (const entry of entries) {
-      if (entry.isDirectory() && !entry.name.endsWith('.diff-staging')) {
+      if (entry.isDirectory() && !entry.name.startsWith('.')) {
         const lastDash = entry.name.lastIndexOf('-');
         if (lastDash > 0) {
           const appVersion = entry.name.substring(0, lastDash);
@@ -1651,20 +2417,39 @@ class DesktopApiAppBundleUpdate {
     return results;
   }
 
-  // Parse "{appVersion}-{bundleVersion}" using the IDENTICAL convention as
-  // listLocalBundles(): split on the LAST dash so semver appVersions that
-  // themselves contain dashes (e.g. "6.4.0-beta") stay intact and behavior
-  // matches the rest of the codebase.
+  // Parse "{appVersion}-{bundleVersion}" for installed extract directories in
+  // onekey-bundle/ without stripping ".diff" or ".diff-staging" so bundleVersion
+  // values like "42.diff" or "42.diff-staging" remain intact.
+  private parseAppVersionFromExtractDirName(name: string): string | null {
+    if (!name || name.startsWith('.')) {
+      return null;
+    }
+    const lastDash = name.lastIndexOf('-');
+    if (lastDash <= 0) {
+      return null;
+    }
+    const appVersion = name.substring(0, lastDash);
+    const bundleVersion = name.substring(lastDash + 1);
+    if (!appVersion || !bundleVersion) {
+      return null;
+    }
+    return appVersion;
+  }
+
+  // Parse "{appVersion}-{bundleVersion}" for download artifacts in
+  // onekey-bundle-download/ and onekey-bundle-download/.diff/.
   private parseAppVersionFromName(name: string): string | null {
-    // Strip the known download-artifact suffixes so the same parser works for
-    // both extract dir names and download file names.
+    if (!name || name.startsWith('.')) {
+      return null;
+    }
     let base = name;
     for (const suffix of [
+      '.meta.json.tmp',
+      '.meta.json',
       '.progress.json',
       '.partial',
+      '.diff.zip',
       '.zip',
-      '-diff',
-      '.diff-staging',
     ] as const) {
       if (base.endsWith(suffix)) {
         base = base.slice(0, -suffix.length);
@@ -1688,7 +2473,9 @@ class DesktopApiAppBundleUpdate {
    * appVersion (current + same-version fallbacks + pending install — OTA never
    * crosses native version). Cleans:
    *   - onekey-bundle/{appV}-{bV}/                         (extract dirs)
+   *   - onekey-bundle/.diff-staging/                       (stale diff staging)
    *   - onekey-bundle-download/{appV}-{bV}.zip(.partial)(.progress.json)
+   *   - onekey-bundle-download/.diff/{appV}-{bV}.diff.zip(.partial)(.progress.json)(.meta.json)
    *   - store fallback entries with appV != currentAppV   (disk<->store sync)
    *
    * Safety net: never deletes the current appVersion's artifacts, and never
@@ -1713,39 +2500,54 @@ class DesktopApiAppBundleUpdate {
     if (bundleDir && fs.existsSync(bundleDir)) {
       const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
       for (const entry of entries) {
-        const appV = entry.isDirectory()
-          ? this.parseAppVersionFromName(entry.name)
-          : null;
-        // Safety net: keep current appVersion AND the active install dir.
-        const isActiveInstall = Boolean(
-          activeAppV &&
-          activeBundleV &&
-          entry.name === `${activeAppV}-${activeBundleV}`,
-        );
-        if (appV && appV !== currentAppV && !isActiveInstall) {
-          const dirPath = path.join(bundleDir, entry.name);
-          try {
-            fs.rmSync(dirPath, { recursive: true, force: true });
-            deletedDirCount += 1;
-            logger.info(
-              'bundle-prune',
-              `Deleted stale extract dir: ${entry.name}`,
-            );
-          } catch (error) {
-            logger.error(
-              'bundle-prune',
-              `Failed to delete stale extract dir ${entry.name}:`,
-              error,
-            );
+        if (entry.isDirectory() && entry.name === DIFF_STAGING_DIR_NAME) {
+          if (this.activeVerifications.size === 0) {
+            try {
+              fs.rmSync(path.join(bundleDir, entry.name), {
+                recursive: true,
+                force: true,
+              });
+            } catch {
+              // ignore
+            }
+          }
+        } else {
+          const appV = entry.isDirectory()
+            ? this.parseAppVersionFromExtractDirName(entry.name)
+            : null;
+          // Safety net: keep current appVersion AND the active install dir.
+          const isActiveInstall = Boolean(
+            activeAppV &&
+            activeBundleV &&
+            entry.name === `${activeAppV}-${activeBundleV}`,
+          );
+          if (appV && appV !== currentAppV && !isActiveInstall) {
+            const dirPath = path.join(bundleDir, entry.name);
+            try {
+              fs.rmSync(dirPath, { recursive: true, force: true });
+              deletedDirCount += 1;
+              logger.info(
+                'bundle-prune',
+                `Deleted stale extract dir: ${entry.name}`,
+              );
+            } catch (error) {
+              logger.error(
+                'bundle-prune',
+                `Failed to delete stale extract dir ${entry.name}:`,
+                error,
+              );
+            }
           }
         }
       }
     }
 
-    // 2) Download artifacts: onekey-bundle-download/{appV}-{bV}.zip(.partial)(.progress.json)
-    const downloadDir = this.getDownloadDir();
-    if (fs.existsSync(downloadDir)) {
-      const downloadEntries = fs.readdirSync(downloadDir, {
+    // 2) Download artifacts: onekey-bundle-download/ and onekey-bundle-download/.diff/
+    const pruneDownloadDirFiles = (dir: string) => {
+      if (!fs.existsSync(dir)) {
+        return;
+      }
+      const downloadEntries = fs.readdirSync(dir, {
         withFileTypes: true,
       });
       for (const entry of downloadEntries) {
@@ -1754,7 +2556,7 @@ class DesktopApiAppBundleUpdate {
           : null;
         // Safety net: never delete current appVersion's download artifacts.
         if (appV && appV !== currentAppV) {
-          const filePath = path.join(downloadDir, entry.name);
+          const filePath = path.join(dir, entry.name);
           try {
             fs.rmSync(filePath, { force: true });
             logger.info(
@@ -1770,7 +2572,10 @@ class DesktopApiAppBundleUpdate {
           }
         }
       }
-    }
+    };
+    const downloadDir = this.getDownloadDir();
+    pruneDownloadDirFiles(downloadDir);
+    pruneDownloadDirFiles(path.join(downloadDir, DIFF_DOWNLOAD_DIR_NAME));
 
     // 3) Store fallback entries: drop appVersion != currentAppV so the store
     // stays consistent with disk (no ghost dev-switcher entries, no orphan asc
@@ -2037,14 +2842,12 @@ class DesktopApiAppBundleUpdate {
       return;
     }
     try {
-      const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.name.endsWith('.diff-staging')) {
-          fs.rmSync(path.join(bundleDir, entry.name), {
-            recursive: true,
-            force: true,
-          });
-        }
+      const stagingRoot = path.join(bundleDir, DIFF_STAGING_DIR_NAME);
+      if (fs.existsSync(stagingRoot)) {
+        fs.rmSync(stagingRoot, {
+          recursive: true,
+          force: true,
+        });
       }
     } catch (error) {
       logger.error('Failed to clean up diff staging dirs:', error);
@@ -2057,9 +2860,11 @@ class DesktopApiAppBundleUpdate {
     const clear = Promise.resolve()
       .then(async () => {
         for (const cancel of this.cancelByDest.values()) cancel();
-        await Promise.allSettled(
-          [...this.inflightDownloads.values()].map(({ run }) => run),
-        );
+        for (const active of this.activeVerifications) active.cancel();
+        await Promise.allSettled([
+          ...[...this.inflightDownloads.values()].map(({ run }) => run),
+          ...[...this.activeVerifications].map(({ promise }) => promise),
+        ]);
         fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
         this.cleanupDiffStagingDirs();
       })

@@ -160,12 +160,13 @@ describe('calculateSHA256', () => {
 // verifySha256
 // ---------------------------------------------------------------------------
 describe('verifySha256', () => {
-  test('returns true when SHA256 matches', () => {
+  test('returns true when SHA256 matches (including uppercase and surrounding whitespace)', () => {
     const content = 'verification test';
     const filePath = createTempFile(content);
     try {
       const sha256 = computeSha256(content);
       expect(verifySha256(filePath, sha256)).toBe(true);
+      expect(verifySha256(filePath, `  ${sha256.toUpperCase()}  `)).toBe(true);
     } finally {
       cleanupTempFile(filePath);
     }
@@ -202,12 +203,15 @@ describe('verifySha256', () => {
 // checkFileSha512
 // ---------------------------------------------------------------------------
 describe('checkFileSha512', () => {
-  test('returns true when SHA512 matches', () => {
+  test('returns true when SHA512 matches (including uppercase and surrounding whitespace)', () => {
     const content = 'sha512 test';
     const filePath = createTempFile(content);
     try {
       const sha512 = computeSha512(content);
       expect(checkFileSha512(filePath, sha512)).toBe(true);
+      expect(checkFileSha512(filePath, `  ${sha512.toUpperCase()}  `)).toBe(
+        true,
+      );
     } finally {
       cleanupTempFile(filePath);
     }

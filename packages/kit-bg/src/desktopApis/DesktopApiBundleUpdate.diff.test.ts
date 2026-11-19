@@ -19,7 +19,11 @@ import {
   getUpdateError,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
-import DesktopApiBundleUpdate from './DesktopApiBundleUpdate';
+import DesktopApiBundleUpdate, {
+  DIFF_DOWNLOAD_DIR_NAME,
+  DIFF_STAGING_DIR_NAME,
+  MAX_BUNDLE_UNCOMPRESSED_BYTES,
+} from './DesktopApiBundleUpdate';
 
 import type { IDesktopApi } from './base/types';
 import type { INodeDownloadOptions } from './nodeDownload';
@@ -286,7 +290,8 @@ describe('DesktopApiBundleUpdate incremental diff OTA', () => {
     expect(mockDownloadNodeFile.mock.calls[0][0].targetPath).toBe(
       path.join(
         api.getDownloadDir(),
-        `${fixture.appVersion}-${fixture.targetBundleVersion}-diff.zip`,
+        DIFF_DOWNLOAD_DIR_NAME,
+        `${fixture.appVersion}-${fixture.targetBundleVersion}.diff.zip`,
       ),
     );
     expect(downloadedEvent).toEqual({
@@ -300,6 +305,16 @@ describe('DesktopApiBundleUpdate incremental diff OTA', () => {
       diffSha256: downloadParams.diffSha256,
       diffSignature: downloadParams.diffSignature,
     });
+
+    // verifyBundle called after downloadBundle and BEFORE verifyBundleASC validates the downloaded .diff.zip
+    await expect(
+      api.verifyBundle({
+        latestVersion: fixture.appVersion,
+        bundleVersion: fixture.targetBundleVersion,
+        sha256: fixture.fullZipSha256.toUpperCase(),
+        signature: 'SIG_METADATA',
+      }),
+    ).resolves.toBeUndefined();
 
     const readSpy = jest
       .spyOn(openpgp, 'readCleartextMessage')
@@ -450,7 +465,8 @@ describe('DesktopApiBundleUpdate incremental diff OTA', () => {
       fs.existsSync(
         path.join(
           api.getDownloadDir(),
-          `${fixture.appVersion}-${fixture.targetBundleVersion}-diff.zip`,
+          DIFF_DOWNLOAD_DIR_NAME,
+          `${fixture.appVersion}-${fixture.targetBundleVersion}.diff.zip`,
         ),
       ),
     ).toBe(false);
@@ -586,7 +602,8 @@ describe('DesktopApiBundleUpdate incremental diff OTA', () => {
       fs.existsSync(
         path.join(
           api.getDownloadDir(),
-          `${fixture.appVersion}-${fixture.targetBundleVersion}-diff.zip`,
+          DIFF_DOWNLOAD_DIR_NAME,
+          `${fixture.appVersion}-${fixture.targetBundleVersion}.diff.zip`,
         ),
       ),
     ).toBe(false);
@@ -674,42 +691,319 @@ describe('DesktopApiBundleUpdate incremental diff OTA', () => {
     );
   });
 
-  test('listLocalBundles ignores .diff-staging and clearDownload/prune clean *-diff.zip and *.diff-staging', async () => {
+  test('listLocalBundles ignores .diff-staging, preserves 42.diff bundles, and clearDownload/prune clean .diff and .diff-staging', async () => {
     const extractDir = getBundleExtractDir({
       appVersion: '6.6.0',
       bundleVersion: '200',
     });
-    const stagingDir = `${extractDir}.diff-staging`;
-    const staleStagingDir = `${getBundleExtractDir({
+    const legacyDiffBundleDir = getBundleExtractDir({
+      appVersion: '6.6.0',
+      bundleVersion: '42.diff',
+    });
+    const staleExtractDir = getBundleExtractDir({
       appVersion: '6.5.0',
       bundleVersion: '100',
-    })}.diff-staging`;
-    const diffZipPath = path.join(api.getDownloadDir(), '6.6.0-200-diff.zip');
-    const staleDiffZipPath = path.join(
-      api.getDownloadDir(),
-      '6.5.0-100-diff.zip',
+    });
+    const stagingRoot = path.join(
+      path.dirname(extractDir),
+      DIFF_STAGING_DIR_NAME,
     );
+    const stagingRunDir = path.join(stagingRoot, '6.6.0-200-run123');
+    const diffDir = path.join(api.getDownloadDir(), DIFF_DOWNLOAD_DIR_NAME);
+    const diffZipPath = path.join(diffDir, '6.6.0-200.diff.zip');
+    const staleDiffZipPath = path.join(diffDir, '6.5.0-100.diff.zip');
 
     fs.mkdirSync(extractDir, { recursive: true });
-    fs.mkdirSync(stagingDir, { recursive: true });
-    fs.mkdirSync(staleStagingDir, { recursive: true });
+    fs.mkdirSync(legacyDiffBundleDir, { recursive: true });
+    fs.mkdirSync(staleExtractDir, { recursive: true });
+    fs.mkdirSync(stagingRunDir, { recursive: true });
+    fs.mkdirSync(diffDir, { recursive: true });
     fs.writeFileSync(diffZipPath, 'diff-data');
     fs.writeFileSync(staleDiffZipPath, 'stale-diff-data');
 
-    expect(await api.listLocalBundles()).toEqual([
+    expect(
+      (await api.listLocalBundles()).toSorted((a, b) =>
+        `${a.appVersion}-${a.bundleVersion}`.localeCompare(
+          `${b.appVersion}-${b.bundleVersion}`,
+        ),
+      ),
+    ).toEqual([
+      { appVersion: '6.5.0', bundleVersion: '100' },
       { appVersion: '6.6.0', bundleVersion: '200' },
+      { appVersion: '6.6.0', bundleVersion: '42.diff' },
     ]);
 
     const pruned = await api.pruneStaleAppVersionBundles();
     expect(pruned).toBe(1);
-    expect(fs.existsSync(staleStagingDir)).toBe(false);
+    expect(fs.existsSync(staleExtractDir)).toBe(false);
     expect(fs.existsSync(staleDiffZipPath)).toBe(false);
+    // Legacy 42.diff bundle for current appVersion must NOT be parsed as stale and deleted!
+    expect(fs.existsSync(legacyDiffBundleDir)).toBe(true);
     expect(fs.existsSync(diffZipPath)).toBe(true);
-    expect(fs.existsSync(stagingDir)).toBe(true);
+    expect(fs.existsSync(stagingRoot)).toBe(false);
 
+    fs.mkdirSync(stagingRunDir, { recursive: true });
     await api.clearDownload();
     expect(fs.existsSync(diffZipPath)).toBe(false);
-    expect(fs.existsSync(stagingDir)).toBe(false);
+    expect(fs.existsSync(stagingRoot)).toBe(false);
     expect(fs.existsSync(extractDir)).toBe(true);
+    expect(fs.existsSync(legacyDiffBundleDir)).toBe(true);
+  });
+
+  test('preserves resumable diff download on transient NETWORK_ERROR/TIMEOUT and resumes interrupted full fallback in verifyBundleASC', async () => {
+    const fixture = buildDiffAndFullFixture();
+
+    // 1. Transient NETWORK_ERROR during diff download rethrows without falling back to full bundle
+    mockDownloadNodeFile.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.networkError,
+        step: 'download',
+      }),
+    );
+
+    const params = {
+      latestVersion: fixture.appVersion,
+      bundleVersion: fixture.targetBundleVersion,
+      downloadUrl: 'https://cdn.onekey.test/full.zip',
+      fileSize: fixture.fullZipBuffer.length,
+      sha256: fixture.fullZipSha256,
+      signature: 'SIG_METADATA',
+      diffDownloadUrl: 'https://cdn.onekey.test/diff.zip',
+      diffFileSize: fixture.diffZipBuffer.length,
+      diffSha256: fixture.diffZipSha256,
+      diffSignature: 'SIG_DIFF_MANIFEST',
+    };
+
+    const transientErr = await api
+      .downloadBundle(params)
+      .catch((e: unknown) => e);
+    expect(getUpdateError(transientErr, 'download').code).toBe(
+      EUpdateErrorCode.networkError,
+    );
+    expect(mockDownloadNodeFile).toHaveBeenCalledTimes(1);
+
+    // 2. Retrying downloadBundle still attempts diff download because transient error did not blacklist diff
+    mockDownloadNodeFile.mockImplementation(async (opts) => {
+      fs.mkdirSync(path.dirname(opts.targetPath), { recursive: true });
+      if (opts.url.includes('diff.zip')) {
+        fs.writeFileSync(opts.targetPath, fixture.diffZipBuffer);
+        return {
+          filePath: opts.targetPath,
+          totalBytes: fixture.diffZipBuffer.length,
+        };
+      }
+      throw createUpdateError({
+        code: EUpdateErrorCode.networkError,
+        step: 'download',
+      });
+    });
+
+    const downloadedEvent = await api.downloadBundle(params);
+    expect(mockDownloadNodeFile).toHaveBeenCalledTimes(2);
+    expect(mockDownloadNodeFile.mock.calls[1][0].url).toBe(
+      'https://cdn.onekey.test/diff.zip',
+    );
+
+    jest
+      .spyOn(openpgp, 'readCleartextMessage')
+      .mockImplementation(async ({ cleartextMessage }) => {
+        if (cleartextMessage === 'SIG_DIFF_MANIFEST') {
+          return makeSignedCleartextMock({
+            fileName: 'diff-manifest.json',
+            sha256: fixture.diffManifestSha256,
+            appVersion: fixture.appVersion,
+            bundleVersion: fixture.targetBundleVersion,
+          });
+        }
+        return makeSignedCleartextMock({
+          fileName: 'metadata.json',
+          sha256: fixture.metadataSha256,
+          appVersion: fixture.appVersion,
+          bundleVersion: fixture.targetBundleVersion,
+        });
+      });
+
+    // 3. verifyBundleASC triggers full fallback (reused files missing), and full fallback download fails with transient networkError
+    const fallbackErr = await api
+      .verifyBundleASC(downloadedEvent)
+      .catch((e: unknown) => e);
+    expect(getUpdateError(fallbackErr, 'verifyASC').code).toBe(
+      EUpdateErrorCode.networkError,
+    );
+
+    // 4. Retrying verifyBundleASC (even on a fresh instance without downloadUrl in params) resumes the full fallback download from persisted .diff.zip.meta.json
+    mockDownloadNodeFile.mockImplementation(async (opts) => {
+      fs.mkdirSync(path.dirname(opts.targetPath), { recursive: true });
+      fs.writeFileSync(opts.targetPath, fixture.fullZipBuffer);
+      return {
+        filePath: opts.targetPath,
+        totalBytes: fixture.fullZipBuffer.length,
+      };
+    });
+
+    const restartedApi = new DesktopApiBundleUpdate({
+      desktopApi: {} as IDesktopApi,
+    });
+    await restartedApi.verifyBundleASC({
+      latestVersion: fixture.appVersion,
+      bundleVersion: fixture.targetBundleVersion,
+      sha256: fixture.fullZipSha256,
+      signature: 'SIG_METADATA',
+    });
+
+    // 5. After restart, verifyBundle without explicit signature uses the persisted descriptor trust anchor
+    await expect(
+      restartedApi.verifyBundle({
+        latestVersion: fixture.appVersion,
+        bundleVersion: fixture.targetBundleVersion,
+        sha256: fixture.fullZipSha256,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('skips oversized non-matching candidate file before checking budget, and rejects SECURITY_REJECTED without full fallback', async () => {
+    const fixture = buildDiffAndFullFixture();
+
+    // Put an oversized non-matching static/vendor.js in active OTA dir (earlier candidate)
+    // and the valid matching static/vendor.js in built-in mockAppPath/build (later candidate).
+    const activeOtaDir = getBundleExtractDir({
+      appVersion: fixture.appVersion,
+      bundleVersion: '100',
+    });
+    writeLocalBuildFiles(activeOtaDir, {
+      'static/vendor.js': 'wrong-content-in-active-ota',
+      'assets/shared.txt': fixture.reusedFiles['assets/shared.txt'],
+    });
+    writeLocalBuildFiles(mockAppPath, {
+      'static/vendor.js': fixture.reusedFiles['static/vendor.js'],
+    });
+    mockStore.getUpdateBundleData.mockReturnValue({
+      appVersion: fixture.appVersion,
+      bundleVersion: '100',
+      signature: 'active-sig',
+    });
+
+    const readRealStat = (targetPath: fs.PathLike): fs.Stats =>
+      fs.lstatSync(targetPath);
+    const oversizedCandidatePath = path.resolve(
+      activeOtaDir,
+      'build',
+      'static/vendor.js',
+    );
+    const statSpy = jest
+      .spyOn(fs, 'statSync')
+      .mockImplementation((targetPath) => {
+        const realStat = readRealStat(targetPath);
+        if (path.resolve(String(targetPath)) === oversizedCandidatePath) {
+          realStat.size = MAX_BUNDLE_UNCOMPRESSED_BYTES + 1024;
+        }
+        return realStat;
+      });
+
+    mockDownloadNodeFile.mockImplementation(async (opts) => {
+      fs.mkdirSync(path.dirname(opts.targetPath), { recursive: true });
+      fs.writeFileSync(opts.targetPath, fixture.diffZipBuffer);
+      return {
+        filePath: opts.targetPath,
+        totalBytes: fixture.diffZipBuffer.length,
+      };
+    });
+
+    jest
+      .spyOn(openpgp, 'readCleartextMessage')
+      .mockImplementation(async ({ cleartextMessage }) => {
+        if (cleartextMessage === 'SIG_DIFF_MANIFEST') {
+          return makeSignedCleartextMock({
+            fileName: 'diff-manifest.json',
+            sha256: fixture.diffManifestSha256,
+            appVersion: fixture.appVersion,
+            bundleVersion: fixture.targetBundleVersion,
+          });
+        }
+        return makeSignedCleartextMock({
+          fileName: 'metadata.json',
+          sha256: fixture.metadataSha256,
+          appVersion: fixture.appVersion,
+          bundleVersion: fixture.targetBundleVersion,
+        });
+      });
+
+    const params = {
+      latestVersion: fixture.appVersion,
+      bundleVersion: fixture.targetBundleVersion,
+      downloadUrl: 'https://cdn.onekey.test/full.zip',
+      fileSize: fixture.fullZipBuffer.length,
+      sha256: fixture.fullZipSha256,
+      signature: 'SIG_METADATA',
+      diffDownloadUrl: 'https://cdn.onekey.test/diff.zip',
+      diffFileSize: fixture.diffZipBuffer.length,
+      diffSha256: fixture.diffZipSha256,
+      diffSignature: 'SIG_DIFF_MANIFEST',
+    };
+
+    const downloadedEvent = await api.downloadBundle(params);
+    // Should succeed using mockAppPath/build/static/vendor.js without throwing SECURITY_REJECTED on the non-matching activeOtaDir file
+    await expect(api.verifyBundleASC(downloadedEvent)).resolves.toBeUndefined();
+
+    // Now simulate any matching static/vendor.js candidate exceeding MAX_BUNDLE_UNCOMPRESSED_BYTES -> must throw SECURITY_REJECTED without full fallback
+    statSpy.mockImplementation((targetPath) => {
+      const realStat = readRealStat(targetPath);
+      if (
+        path
+          .resolve(String(targetPath))
+          .endsWith(path.join('build', 'static', 'vendor.js'))
+      ) {
+        realStat.size = MAX_BUNDLE_UNCOMPRESSED_BYTES + 1024;
+      }
+      return realStat;
+    });
+
+    const secondParams = {
+      ...params,
+      bundleVersion: '201',
+    };
+    const fixture201 = buildDiffAndFullFixture({
+      targetBundleVersion: '201',
+    });
+    mockDownloadNodeFile.mockClear();
+    mockDownloadNodeFile.mockImplementation(async (opts) => {
+      fs.mkdirSync(path.dirname(opts.targetPath), { recursive: true });
+      fs.writeFileSync(opts.targetPath, fixture201.diffZipBuffer);
+      return {
+        filePath: opts.targetPath,
+        totalBytes: fixture201.diffZipBuffer.length,
+      };
+    });
+    jest
+      .spyOn(openpgp, 'readCleartextMessage')
+      .mockImplementation(async ({ cleartextMessage }) => {
+        if (cleartextMessage === 'SIG_DIFF_MANIFEST') {
+          return makeSignedCleartextMock({
+            fileName: 'diff-manifest.json',
+            sha256: fixture201.diffManifestSha256,
+            appVersion: fixture201.appVersion,
+            bundleVersion: '201',
+          });
+        }
+        return makeSignedCleartextMock({
+          fileName: 'metadata.json',
+          sha256: fixture201.metadataSha256,
+          appVersion: fixture201.appVersion,
+          bundleVersion: '201',
+        });
+      });
+
+    const event201 = await api.downloadBundle({
+      ...secondParams,
+      sha256: fixture201.fullZipSha256,
+      diffSha256: fixture201.diffZipSha256,
+    });
+    const secErr = await api.verifyBundleASC(event201).catch((e: unknown) => e);
+    expect(getUpdateError(secErr, 'verifyASC').code).toBe(
+      EUpdateErrorCode.securityRejected,
+    );
+    // Must NOT fall back to downloading full bundle on SECURITY_REJECTED
+    expect(mockDownloadNodeFile).toHaveBeenCalledTimes(1);
+    statSpy.mockRestore();
   });
 });

@@ -197,7 +197,8 @@ export const verifySha256 = (filePath: string, sha256: string) => {
     stampSHA256Failure('EMPTY_PATH');
     return false;
   }
-  if (!sha256) {
+  const normalizedExpected = (sha256 ?? '').trim().toLowerCase();
+  if (!normalizedExpected) {
     stampSHA256Failure('EMPTY_EXPECTED_HASH');
     return false;
   }
@@ -213,8 +214,13 @@ export const verifySha256 = (filePath: string, sha256: string) => {
   if (!fileSha256) {
     return false;
   }
-  logger.info('bundle-download-verifySha256', sha256, fileSha256);
-  if (fileSha256 !== sha256) {
+  logger.info('bundle-download-verifySha256', normalizedExpected, fileSha256);
+  const actualBuf = Buffer.from(fileSha256, 'utf8');
+  const expectedBuf = Buffer.from(normalizedExpected, 'utf8');
+  if (
+    actualBuf.length !== expectedBuf.length ||
+    !crypto.timingSafeEqual(actualBuf, expectedBuf)
+  ) {
     stampSHA256Failure('MISMATCH');
     return false;
   }
@@ -315,9 +321,18 @@ export const getBundleIndexHtmlPath = ({
 
 export const checkFileSha512 = (filePath: string, sha512: string) => {
   try {
+    const normalizedExpected = (sha512 ?? '').trim().toLowerCase();
+    if (!normalizedExpected) {
+      return false;
+    }
     const file = fs.readFileSync(filePath);
     const hash = crypto.createHash('sha512').update(file).digest('hex');
-    return hash === sha512;
+    const actualBuf = Buffer.from(hash, 'utf8');
+    const expectedBuf = Buffer.from(normalizedExpected, 'utf8');
+    return (
+      actualBuf.length === expectedBuf.length &&
+      crypto.timingSafeEqual(actualBuf, expectedBuf)
+    );
   } catch {
     return false;
   }
@@ -342,16 +357,20 @@ export const verifyMetadataFileSha256 = async ({
   expectedAppVersion,
   bundleVersion,
   signature,
+  metadataFilePath: customMetadataFilePath,
 }: {
   appVersion: string;
   expectedAppVersion?: string;
   bundleVersion: string;
   signature: string;
+  metadataFilePath?: string;
 }) => {
-  const metadataFilePath = getMetadataFilePath({
-    appVersion,
-    bundleVersion,
-  });
+  const metadataFilePath =
+    customMetadataFilePath ||
+    getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
   const targetAppVersion = expectedAppVersion ?? appVersion;
   const metadataFilesSha256 = await readMetadataFileSha256(signature, {
