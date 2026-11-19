@@ -56,13 +56,6 @@ const TERTIARY_TRIGGER_HIT_SLOP = { top: 5, bottom: 5 };
 // The chevron sits right after the name and the fill ends 2 past it, so the
 // fill hangs 9 past the label on the left and 3 on the right.
 const TERTIARY_TRIGGER_CHEVRON_PROPS = { ml: '$0' } as const;
-// On web a box sized to the button (the extension's name-and-copy row) is
-// those 12 narrower than the button, so a plain 100% would cut the name
-// short there; the 12 lets the label itself fill the box. The phone's row
-// spans the page, where 100% holds.
-const TERTIARY_TRIGGER_MAX_WIDTH = platformEnv.isNative
-  ? '100%'
-  : 'calc(100% + 12px)';
 
 export function DesktopHeaderHitArea() {
   return <Stack position="absolute" top={-4} bottom={-4} left={0} right={0} />;
@@ -173,23 +166,31 @@ export function AccountSelectorTriggerBase({
     }
 
     if (tertiaryButton) {
+      // The fill's overhang (9 left, 3 right) sits on this box, not on the
+      // button: in a box sized to its content, a button carrying those margins
+      // gets a 100% max width 12 short of itself, and its centered name slips
+      // 6 to the left.
       return (
-        <Button
-          testID={AccountSelectorTestIDs.trigger}
-          variant="tertiary"
-          iconAfter={isTriggerDisabled ? undefined : 'ChevronDownSmallOutline'}
-          iconAfterProps={TERTIARY_TRIGGER_CHEVRON_PROPS}
-          disabled={isTriggerDisabled}
-          textEllipsis
-          alignSelf="flex-start"
-          maxWidth={TERTIARY_TRIGGER_MAX_WIDTH}
-          pr="$0.5"
-          mr={-3}
-          hitSlop={TERTIARY_TRIGGER_HIT_SLOP}
-          onPress={handleAccountSelectorPress}
-        >
-          {displayLabel}
-        </Button>
+        <Stack ml={-9} mr={-3}>
+          <Button
+            testID={AccountSelectorTestIDs.trigger}
+            variant="tertiary"
+            iconAfter={
+              isTriggerDisabled ? undefined : 'ChevronDownSmallOutline'
+            }
+            iconAfterProps={TERTIARY_TRIGGER_CHEVRON_PROPS}
+            disabled={isTriggerDisabled}
+            textEllipsis
+            alignSelf="flex-start"
+            maxWidth="100%"
+            mx={0}
+            pr="$0.5"
+            hitSlop={TERTIARY_TRIGGER_HIT_SLOP}
+            onPress={handleAccountSelectorPress}
+          >
+            {displayLabel}
+          </Button>
+        </Stack>
       );
     }
 

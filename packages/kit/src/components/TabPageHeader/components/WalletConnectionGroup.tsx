@@ -83,9 +83,8 @@ const MemoizedAccountSelectorTriggerWithSpotlight = memo(
   AccountSelectorTriggerWithSpotlight,
 );
 
-// The extension keeps one-click copy beside the account name, as its old
-// header had it: there the address goes into exchanges, dApps and explorers
-// on the same computer. The phone copies from Receive.
+// One-click copy beside the account name, as the extension's old header had
+// it, on every platform.
 function HomeBalanceAccountCopy() {
   const {
     activeAccount: { wallet, account },
@@ -124,10 +123,7 @@ export function HomeBalanceAccountTrigger() {
       tertiaryButton
     />
   );
-  if (platformEnv.isNative) {
-    return trigger;
-  }
-  // The account button's hover fill reaches 3 past its chevron and the copy
+  // The account button's fill reaches 3 past its chevron and the copy
   // button's 4 to 5 past its icon, so 8 lets the two fills meet.
   return (
     <XStack alignItems="center" gap="$2">
