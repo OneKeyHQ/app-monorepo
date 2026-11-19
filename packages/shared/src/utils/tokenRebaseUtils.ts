@@ -67,16 +67,24 @@ function isValidBalanceMultiplier(
   return parseBalanceMultiplier(balanceMultiplier) !== undefined;
 }
 
+function supportsBalanceMultiplierLookup(token: {
+  networkId: string;
+  contractAddress: string | undefined;
+}): boolean {
+  const [impl] = token.networkId.split(SEPERATOR, 1);
+  return Boolean(
+    token.contractAddress && (impl === IMPL_SOL || impl === IMPL_TON),
+  );
+}
+
 function needsBalanceMultiplierLookup(token: {
   networkId: string;
   contractAddress: string | undefined;
   balanceMultiplier?: string;
 }): boolean {
-  const [impl] = token.networkId.split(SEPERATOR, 1);
-  return Boolean(
-    token.contractAddress &&
-    (impl === IMPL_SOL || impl === IMPL_TON) &&
-    !isValidBalanceMultiplier(token.balanceMultiplier),
+  return (
+    supportsBalanceMultiplierLookup(token) &&
+    !isValidBalanceMultiplier(token.balanceMultiplier)
   );
 }
 
@@ -368,6 +376,7 @@ function normalizeAccountTokensRespBalanceMultiplier(
 export default {
   equalBalanceMultipliers,
   isValidBalanceMultiplier,
+  supportsBalanceMultiplierLookup,
   needsBalanceMultiplierLookup,
   isScalingBalanceMultiplier,
   applyBalanceMultiplier,

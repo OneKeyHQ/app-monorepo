@@ -26,6 +26,7 @@ import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/mark
 import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -606,6 +607,48 @@ export const {
 } = contextAtom<Record<ESwapDirectionType, boolean>>({
   from: false,
   to: false,
+});
+
+export const { atom: swapTokenMultiplierLookupFailureAtom } = contextAtom<
+  Partial<Record<ESwapDirectionType, ISwapToken>>
+>({});
+
+export const {
+  atom: swapSelectedTokenMultiplierStatusAtom,
+  use: useSwapSelectedTokenMultiplierStatusAtom,
+} = contextAtomComputed<'ready' | 'checking' | 'failed'>((get) => {
+  const swapType = get(swapTypeSwitchAtom());
+  if (
+    swapType !== ESwapTabSwitchType.SWAP &&
+    swapType !== ESwapTabSwitchType.BRIDGE
+  ) {
+    return 'ready';
+  }
+  const requested = get(swapSelectedTokenBalanceRefreshRequestedAtom());
+  const fetching = get(swapSelectTokenDetailFetchingAtom());
+  const failed = get(swapTokenMultiplierLookupFailureAtom());
+  const sides = [
+    ['from', get(swapSelectFromTokenAtom())],
+    ['to', get(swapSelectToTokenAtom())],
+  ] as const;
+  let hasFailure = false;
+  for (const [direction, token] of sides) {
+    if (
+      token &&
+      !token.isNative &&
+      tokenRebaseUtils.supportsBalanceMultiplierLookup(token)
+    ) {
+      if (requested[direction] || fetching[direction]) return 'checking';
+      if (
+        equalTokenNoCaseSensitive({ token1: token, token2: failed[direction] })
+      ) {
+        hasFailure = true;
+      } else if (tokenRebaseUtils.needsBalanceMultiplierLookup(token)) {
+        return 'checking';
+      }
+    }
+  }
+  return hasFailure ? 'failed' : 'ready';
 });
 
 // Bookkeeping for the stored From/To balance: which token + account it was

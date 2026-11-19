@@ -123,6 +123,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
   swapSelectedTokenBalanceRefreshRequestedAtom,
+  swapSelectedTokenMultiplierStatusAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapStockExecutionTokenSyncIdAtom,
@@ -1572,6 +1573,143 @@ describe('useSwapActions', () => {
       expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
     },
   );
+
+  it.each(['sol--101', 'ton--mainnet'])(
+    'invalidates a unit-multiplier Max and quote after verifying %s',
+    async (networkId) => {
+      const addressInfo = { ...fromAddressInfo, networkId, address: '0xabc' };
+      const token = {
+        ...ethToken,
+        networkId,
+        contractAddress: 'scaled-token',
+        isNative: false,
+        balanceMultiplier: '1',
+        decimals: 6,
+        balanceParsed: '10',
+        accountAddress: addressInfo.address,
+      };
+      const oldQuote = {
+        quoteId: 'old-unit-multiplier-quote',
+        fromAmount: '10',
+        toAmount: '3',
+        fromTokenInfo: token,
+        toTokenInfo: usdcToken,
+        info: { provider: 'mock', providerName: 'Mock' },
+      } as IFetchQuoteResult;
+      const { store, Wrapper } = createWrapperWithStore((s) => {
+        s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        s.set(swapSelectFromTokenAtom(), token);
+        s.set(swapSelectToTokenAtom(), usdcToken);
+        s.set(swapFromTokenAmountAtom(), {
+          value: '10',
+          isInput: true,
+          maxAmountSnapshot: {
+            rawAmount: '10',
+            displayAmount: '10',
+            networkId,
+            contractAddress: token.contractAddress,
+            decimals: token.decimals,
+            accountId: evmAccount.id,
+            accountAddress: addressInfo.address,
+            balanceMultiplier: '1',
+          },
+        });
+        s.set(swapQuoteListAtom(), [oldQuote]);
+        s.set(swapQuoteActionLockAtom(), {
+          actionLock: false,
+          quoteRequestId: 'unit-request',
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const pending = createDeferred<ISwapToken[]>();
+      mockFetchSwapTokenDetails.mockReturnValueOnce(pending.promise);
+      let refresh: Promise<void> | undefined;
+      await act(async () => {
+        refresh = result.current.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          addressInfo,
+          true,
+        );
+      });
+      expect(store.get(swapSelectedTokenMultiplierStatusAtom())).toBe(
+        'checking',
+      );
+      const quote = () =>
+        result.current.quoteAction(
+          { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+          addressInfo.address,
+          evmAccount.id,
+          undefined,
+          undefined,
+          ESwapQuoteKind.SELL,
+        );
+      await act(quote);
+      expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+      expect(
+        store.get(swapFromTokenAmountAtom()).maxAmountSnapshot?.rawAmount,
+      ).toBe('10');
+      await act(async () => {
+        pending.resolve([{ ...token, balanceMultiplier: '2' }]);
+        await refresh;
+      });
+      expect(store.get(swapSelectedTokenMultiplierStatusAtom())).toBe('ready');
+      expect(store.get(swapSelectFromTokenAtom())?.balanceMultiplier).toBe('2');
+      expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('10');
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
+        value: '',
+        isInput: true,
+      });
+      expect(store.get(swapQuoteCurrentSelectAtom())).toBeUndefined();
+      expect(
+        store.get(swapQuoteActionLockAtom()).quoteRequestId,
+      ).toBeUndefined();
+
+      act(() =>
+        store.set(swapFromTokenAmountAtom(), { value: '20', isInput: true }),
+      );
+      await act(quote);
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({ fromTokenAmount: '10' }),
+      );
+    },
+  );
+
+  it('retries verification of the restored receiving token after a missing detail', async () => {
+    const token = {
+      ...usdcToken,
+      networkId: 'sol--101',
+      contractAddress: 'receiving-mint',
+      balanceMultiplier: undefined,
+    };
+    const { store, Wrapper } = createWrapperWithStore((s) => {
+      s.set(swapTypeSwitchAtom(), ESwapTabSwitchType.BRIDGE);
+      s.set(swapSelectFromTokenAtom(), ethToken);
+      s.set(swapSelectToTokenAtom(), token);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const refresh = () =>
+      result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.TO,
+        fromAddressInfo,
+        true,
+      );
+    expect(store.get(swapSelectedTokenMultiplierStatusAtom())).toBe('checking');
+    mockFetchSwapTokenDetails.mockResolvedValueOnce([]);
+    await act(refresh);
+    expect(store.get(swapSelectedTokenMultiplierStatusAtom())).toBe('failed');
+    expect(
+      store.get(swapSelectToTokenAtom())?.balanceMultiplier,
+    ).toBeUndefined();
+    mockFetchSwapTokenDetails.mockResolvedValueOnce([
+      { ...token, balanceMultiplier: '1' },
+    ]);
+    await act(refresh);
+    expect(store.get(swapSelectedTokenMultiplierStatusAtom())).toBe('ready');
+  });
 
   it('reuses the raw amount without dividing it again on automatic refresh', async () => {
     jest.useFakeTimers();

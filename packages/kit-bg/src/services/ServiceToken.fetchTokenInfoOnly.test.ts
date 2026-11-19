@@ -130,4 +130,28 @@ describe('ServiceToken.fetchTokenInfoOnly', () => {
     ]);
     expect(fetchTokenDetails).toHaveBeenCalledTimes(1);
   });
+
+  it('reads fresh Wallet metadata when a multiplier is rechecked', async () => {
+    const service = new ServiceToken({ backgroundApi: {} });
+    const params = { networkId: 'sol--101', tokenAddress: 'token-address' };
+    const fetchTokenDetails = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: { data: [{ info: { balanceMultiplier: '1' } }] },
+      })
+      .mockResolvedValueOnce({
+        data: { data: [{ info: { balanceMultiplier: '2' } }] },
+      });
+    mockGetChainOnlyVault.mockResolvedValue({ fetchTokenDetails });
+
+    await expect(service.fetchTokenInfoOnly(params)).resolves.toEqual({
+      info: { balanceMultiplier: '1' },
+    });
+    await expect(
+      service.fetchTokenInfoOnly({ ...params, forceRefresh: true }),
+    ).resolves.toEqual({
+      info: { balanceMultiplier: '2' },
+    });
+    expect(fetchTokenDetails).toHaveBeenCalledTimes(2);
+  });
 });

@@ -144,6 +144,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     useSwapSelectFromTokenAtom: () => [undefined, setter],
     useSwapSelectToTokenAtom: () => [undefined, setter],
     useSwapSelectTokenNetworkAtom: () => [undefined],
+    useSwapSelectedTokenMultiplierStatusAtom: () => ['ready'],
     useSwapSlippageDialogOpeningAtom: () => [{ status: false }],
     useSwapApproveAllowanceSelectOpenAtom: () => [false],
     useSwapFromTokenAmountAtom: () => [

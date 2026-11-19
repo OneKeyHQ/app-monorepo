@@ -62,6 +62,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
@@ -365,6 +366,7 @@ const SwapMainLoad = ({
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
   useSwapLimitOrdersVisibilityRefresh({
     enabled: isFocused && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
   });
@@ -756,10 +758,12 @@ const SwapMainLoad = ({
   const selectedReviewTokensRef = useRef({
     from: fromSelectToken,
     to: toSelectToken,
+    multiplierStatus,
   });
   selectedReviewTokensRef.current = {
     from: fromSelectToken,
     to: toSelectToken,
+    multiplierStatus,
   };
 
   const preSwapDataRef = useRef<ISwapPreSwapData | undefined>(undefined);
@@ -968,6 +972,7 @@ const SwapMainLoad = ({
   ]);
 
   const onBalanceMaxPress = useCallback(() => {
+    if (multiplierStatus !== 'ready') return;
     const maxAmount = checkNativeTokenGasToast();
     if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
       return;
@@ -998,6 +1003,7 @@ const SwapMainLoad = ({
     }
   }, [
     checkNativeTokenGasToast,
+    multiplierStatus,
     focusSwapPro,
     fromSelectToken,
     swapFromAddressInfo.address,
@@ -1247,7 +1253,8 @@ const SwapMainLoad = ({
       const selected = selectedReviewTokensRef.current;
       if (
         data &&
-        (!isSwapReviewMultiplierCurrent(data.fromToken, selected.from) ||
+        (selected.multiplierStatus !== 'ready' ||
+          !isSwapReviewMultiplierCurrent(data.fromToken, selected.from) ||
           !isSwapReviewMultiplierCurrent(data.toToken, selected.to))
       ) {
         dialogClose('reviewChanged');
@@ -1422,6 +1429,7 @@ const SwapMainLoad = ({
         return;
       }
       if (
+        multiplierStatus !== 'ready' ||
         !currentQuoteRes ||
         !isSwapReviewMultiplierCurrent(
           currentQuoteRes.fromTokenInfo,
@@ -1696,6 +1704,7 @@ const SwapMainLoad = ({
       swapProAccount?.result?.addressDetail.address,
       isSwapProMarketPresetLoading,
       currentQuoteRes,
+      multiplierStatus,
       fromSelectToken,
       toSelectToken,
       beginGasAccountReviewSession,

@@ -136,6 +136,7 @@ import {
   ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
   filterSwapHistoryPendingList,
@@ -1280,41 +1281,75 @@ export default class ServiceSwap extends ServiceBase {
         equalTokenNoCaseSensitive({ token1: item, token2: identity }),
       );
       if (!token) return tokens;
+      // A selected token's multiplier is a snapshot. A cached unit multiplier
+      // must not bypass Wallet when Swap omits SOL/TON metadata.
+      const needsWalletMultiplier =
+        tokenRebaseUtils.needsBalanceMultiplierLookup(token);
       let resolvedMultiplier = [
         token.balanceMultiplier,
-        balanceMultiplier,
+        needsWalletMultiplier ? undefined : balanceMultiplier,
       ].find(tokenRebaseUtils.isValidBalanceMultiplier);
+      const matchesWalletToken = ({ info }: IFetchTokenDetailItem) =>
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: info?.networkId ?? networkId,
+            contractAddress: info?.address,
+          },
+          token2: identity,
+        });
+      let walletToken: IFetchTokenDetailItem | undefined;
+      let walletRawBalance: string | undefined;
       if (
-        tokenRebaseUtils.needsBalanceMultiplierLookup({
-          ...identity,
-          balanceMultiplier: resolvedMultiplier,
-        })
+        requestAccountId &&
+        requestAccountAddress &&
+        (needsWalletMultiplier ||
+          tokenRebaseUtils.isScalingBalanceMultiplier(resolvedMultiplier))
       ) {
-        const walletDetail =
-          await this.backgroundApi.serviceToken.fetchTokenInfoOnly({
+        // Older Swap deployments may already scale balanceParsed. Use the
+        // same account-bound Wallet response for the multiplier and raw balance.
+        const walletTokens =
+          await this.backgroundApi.serviceToken.fetchTokensDetails({
+            accountId: requestAccountId,
             networkId,
-            tokenAddress: contractAddress,
+            contractList: [contractAddress],
+            expectedAccountAddress: requestAccountAddress,
+            withFrozenBalance: true,
+            withCheckInscription: params.withCheckInscription,
           });
+        walletToken = walletTokens.find(matchesWalletToken);
+        const balance = new BigNumber(walletToken?.balanceParsed ?? '');
         if (
-          walletDetail?.info?.decimals !== token.decimals ||
-          !equalTokenNoCaseSensitive({
-            token1: {
-              networkId: walletDetail?.info?.networkId ?? networkId,
-              contractAddress: walletDetail?.info?.address,
-            },
-            token2: identity,
-          })
+          !walletToken ||
+          walletToken.info.decimals !== token.decimals ||
+          !balance.isFinite() ||
+          balance.isNegative()
+        ) {
+          throw new OneKeyLocalError('Scaled token balance is unavailable');
+        }
+        walletRawBalance = balance.toFixed();
+      } else if (needsWalletMultiplier) {
+        walletToken = await this.backgroundApi.serviceToken.fetchTokenInfoOnly({
+          networkId,
+          tokenAddress: contractAddress,
+          forceRefresh: true,
+        });
+        if (
+          !walletToken ||
+          walletToken.info?.decimals !== token.decimals ||
+          !matchesWalletToken(walletToken)
         ) {
           throw new OneKeyLocalError(
             'Swap token amount metadata is unavailable',
           );
         }
-        resolvedMultiplier =
-          tokenRebaseUtils.pickBalanceMultiplier(walletDetail);
-        if (!resolvedMultiplier) {
+      }
+      if (walletToken) {
+        const walletMultiplier =
+          tokenRebaseUtils.pickBalanceMultiplier(walletToken);
+        if (needsWalletMultiplier && walletMultiplier === undefined) {
           if (
-            walletDetail.balanceMultiplier !== undefined ||
-            walletDetail.info.balanceMultiplier !== undefined
+            walletToken.balanceMultiplier !== undefined ||
+            walletToken.info.balanceMultiplier !== undefined
           ) {
             throw new OneKeyLocalError(
               'Swap token balance multiplier is invalid',
@@ -1322,62 +1357,25 @@ export default class ServiceSwap extends ServiceBase {
           }
           // A matching Wallet response without scaling metadata is a unit token.
           resolvedMultiplier = '1';
+        } else {
+          resolvedMultiplier = walletMultiplier ?? resolvedMultiplier;
         }
       }
-      const isScaled =
-        tokenRebaseUtils.isScalingBalanceMultiplier(resolvedMultiplier);
-      if (!requestAccountId || !requestAccountAddress || !isScaled) {
-        const balanceParsed = isScaled ? undefined : token.balanceParsed;
-        if (
-          resolvedMultiplier === token.balanceMultiplier &&
-          balanceParsed === token.balanceParsed
-        ) {
-          return tokens;
-        }
-        return tokens.map((item) =>
-          item === token
-            ? { ...item, balanceParsed, balanceMultiplier: resolvedMultiplier }
-            : item,
-        );
-      }
-      // Older Swap deployments may already scale balanceParsed. Wallet is the
-      // authoritative source of raw units for this identified token/account.
-      const walletTokens =
-        await this.backgroundApi.serviceToken.fetchTokensDetails({
-          accountId: requestAccountId,
-          networkId,
-          contractList: [contractAddress],
-          expectedAccountAddress: requestAccountAddress,
-          withFrozenBalance: true,
-          withCheckInscription: params.withCheckInscription,
-        });
-      const walletToken = walletTokens.find(({ info }) =>
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: info?.networkId ?? networkId,
-            contractAddress: info?.address,
-          },
-          token2: identity,
-        }),
-      );
-      const balance = new BigNumber(walletToken?.balanceParsed ?? '');
+      const balanceParsed =
+        walletRawBalance ??
+        (needsWalletMultiplier ||
+        tokenRebaseUtils.isScalingBalanceMultiplier(resolvedMultiplier)
+          ? undefined
+          : token.balanceParsed);
       if (
-        !walletToken ||
-        walletToken.info.decimals !== token.decimals ||
-        !balance.isFinite() ||
-        balance.isNegative()
+        resolvedMultiplier === token.balanceMultiplier &&
+        balanceParsed === token.balanceParsed
       ) {
-        throw new OneKeyLocalError('Scaled token balance is unavailable');
+        return tokens;
       }
       return tokens.map((item) =>
         item === token
-          ? {
-              ...item,
-              balanceParsed: balance.toFixed(),
-              balanceMultiplier:
-                tokenRebaseUtils.pickBalanceMultiplier(walletToken) ??
-                resolvedMultiplier,
-            }
+          ? { ...item, balanceParsed, balanceMultiplier: resolvedMultiplier }
           : item,
       );
     } catch (e) {

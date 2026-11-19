@@ -194,6 +194,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
   swapSelectedTokenBalanceRefreshRequestedAtom,
+  swapSelectedTokenMultiplierStatusAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -205,6 +206,7 @@ import {
   swapTokenFetchingAtom,
   swapTokenListRequestsAtom,
   swapTokenMapAtom,
+  swapTokenMultiplierLookupFailureAtom,
   swapTypeSwitchAtom,
   swapWarningRequestIdAtom,
 } from './atoms';
@@ -2569,6 +2571,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // The native Pro Market panel owns its quote lifecycle.
         return;
       }
+      if (
+        isSwapOrBridgeQuoteType(swapTabSwitchType) &&
+        quoteOverride?.source !== ESwapQuoteSource.MARKET &&
+        get(swapSelectedTokenMultiplierStatusAtom()) !== 'ready'
+      ) {
+        return;
+      }
       set(swapQuoteEventErrorAtom(), undefined);
       if (
         !quoteOverride &&
@@ -3606,6 +3615,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         currentSwapType !== ESwapTabSwitchType.PRIVATE_SEND &&
         tokenRebaseUtils.needsBalanceMultiplierLookup(token),
       );
+      const verifyingMultiplier = Boolean(
+        token &&
+        !token.isNative &&
+        isSwapOrBridgeQuoteType(currentSwapType) &&
+        tokenRebaseUtils.supportsBalanceMultiplierLookup(token),
+      );
       const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
       const priceRevision = get(swapSelectTokenPriceRevisionAtom())[type];
       const multiplierRevision = get(swapSelectTokenMultiplierRevisionAtom())[
@@ -3621,7 +3636,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       // Resolved together with the result below, so a refresh keeps the
       // previous verdict on screen instead of briefly clearing a stale error.
       let balanceFetchFailed = false;
-      if (shouldFetchBalance) {
+      let multiplierVerified = false;
+      if (shouldFetchBalance || verifyingMultiplier) {
         set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
           ...previous,
           [type]: true,
@@ -3698,22 +3714,25 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         return;
       }
-      set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
-        ...previous,
-        [type]: false,
-      }));
+      if (!verifyingMultiplier) {
+        set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+          ...previous,
+          [type]: false,
+        }));
+      }
       if (
         (token &&
           accountAddress &&
           accountNetworkId &&
           accountNetworkId === token?.networkId) ||
-        (token && (needsMultiplier || !token.price))
+        (token && (needsMultiplier || verifyingMultiplier || !token.price))
       ) {
         if (
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
           !needsMultiplier &&
+          !verifyingMultiplier &&
           !tokenRebaseUtils.isScalingBalanceMultiplier(
             token.balanceMultiplier,
           ) &&
@@ -3771,15 +3790,25 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             if (!isCurrentRequest()) {
               return;
             }
-            if (detailInfo?.[0]) {
-              const balanceParsedBN = new BigNumber(
-                detailInfo[0].balanceParsed ?? 0,
-              );
+            const detail = verifyingMultiplier
+              ? detailInfo?.find(
+                  (item) =>
+                    item.decimals === token.decimals &&
+                    equalTokenNoCaseSensitive({
+                      token1: item,
+                      token2: { networkId: token.networkId, contractAddress },
+                    }) &&
+                    tokenRebaseUtils.isValidBalanceMultiplier(
+                      item.balanceMultiplier,
+                    ),
+                )
+              : detailInfo?.[0];
+            if (detail) {
+              const balanceParsedBN = new BigNumber(detail.balanceParsed ?? 0);
               balanceDisplay = balanceParsedBN.isNaN()
                 ? '0.0'
                 : balanceParsedBN.toFixed();
-              hasAuthoritativeBalance =
-                detailInfo[0].balanceParsed !== undefined;
+              hasAuthoritativeBalance = detail.balanceParsed !== undefined;
               const condition: {
                 price?: string;
                 fiatValue?: string;
@@ -3800,22 +3829,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 newToken?.price === token.price &&
                 newToken?.currency === token.currency
               ) {
-                if (detailInfo[0].price) {
-                  condition.price = detailInfo[0].price;
+                if (detail.price) {
+                  condition.price = detail.price;
                 }
-                if (detailInfo[0].fiatValue) {
-                  condition.fiatValue = detailInfo[0].fiatValue;
+                if (detail.fiatValue) {
+                  condition.fiatValue = detail.fiatValue;
                 }
                 if (condition.price || condition.fiatValue) {
                   condition.currency = USD_CURRENCY_ID;
                 }
               }
-              if (detailInfo[0].balanceParsed) {
-                condition.balanceParsed = detailInfo[0].balanceParsed;
+              if (detail.balanceParsed) {
+                condition.balanceParsed = detail.balanceParsed;
               }
-              const balanceMultiplier = tokenRebaseUtils.pickBalanceMultiplier(
-                detailInfo[0],
-              );
+              const balanceMultiplier =
+                tokenRebaseUtils.pickBalanceMultiplier(detail);
+              multiplierVerified = balanceMultiplier !== undefined;
               if (
                 balanceMultiplier !== undefined &&
                 get(swapSelectTokenMultiplierRevisionAtom())[type] ===
@@ -3824,11 +3853,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ) {
                 condition.balanceMultiplier = balanceMultiplier;
               }
-              if (detailInfo[0].reservationValue) {
-                condition.reservationValue = detailInfo[0].reservationValue;
+              if (detail.reservationValue) {
+                condition.reservationValue = detail.reservationValue;
               }
-              if (detailInfo[0].logoURI) {
-                condition.logoURI = detailInfo[0].logoURI;
+              if (detail.logoURI) {
+                condition.logoURI = detail.logoURI;
               }
               if (
                 equalTokenNoCaseSensitive({
@@ -3836,6 +3865,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   token2: token,
                 })
               ) {
+                if (
+                  verifyingMultiplier &&
+                  condition.balanceMultiplier !== undefined &&
+                  (needsMultiplier ||
+                    !tokenRebaseUtils.equalBalanceMultipliers(
+                      newToken?.balanceMultiplier,
+                      condition.balanceMultiplier,
+                    ))
+                ) {
+                  if (
+                    type === ESwapDirectionType.FROM &&
+                    get(swapFromTokenAmountAtom()).maxAmountSnapshot
+                  ) {
+                    set(swapFromTokenAmountAtom(), {
+                      value: '',
+                      isInput: true,
+                    });
+                  }
+                  void this.resetQuoteAction.call(set);
+                  set(swapQuoteActionLockAtom(), (lock) => ({
+                    ...lock,
+                    quoteRequestId: undefined,
+                  }));
+                }
                 if (type === ESwapDirectionType.FROM) {
                   set(swapSelectFromTokenAtom(), (pre) => {
                     if (pre) {
@@ -3866,7 +3919,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               balanceFetchFailed = true;
             }
           } finally {
-            if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
+            if (
+              get(swapSelectTokenDetailRequestIdAtom())[type] === requestId &&
+              (!verifyingMultiplier || !isCurrentRequest())
+            ) {
               set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
                 ...pre,
                 [type]: false,
@@ -3950,6 +4006,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               token,
             }),
           );
+        }
+        if (verifyingMultiplier) {
+          set(swapTokenMultiplierLookupFailureAtom(), (previous) => ({
+            ...previous,
+            [type]: multiplierVerified ? undefined : token,
+          }));
+          set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+            ...previous,
+            [type]: false,
+          }));
         }
       }
     },

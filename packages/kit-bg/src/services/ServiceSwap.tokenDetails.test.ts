@@ -43,11 +43,14 @@ describe('ServiceSwap token detail errors', () => {
       }
     },
   );
-  it.each([false, true])(
-    'resolves missing Solana scaling metadata from Wallet (with account: %s)',
-    async (withAccount) => {
-      const networkId = 'sol--101';
-      const contractAddress = 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh';
+  it.each([
+    ['sol--101', 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh', false],
+    ['sol--101', 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh', true],
+    ['ton--mainnet', 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs', false],
+    ['ton--mainnet', 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs', true],
+  ] as const)(
+    'rechecks a previous unit multiplier when Swap omits it (%s, %s, account %s)',
+    async (networkId, contractAddress, withAccount) => {
       const accountAddress = 'account-address';
       const accountId = 'account-id';
       const info = {
@@ -99,6 +102,7 @@ describe('ServiceSwap token detail errors', () => {
           networkId,
           contractAddress,
           ...(withAccount ? { accountAddress, accountId } : {}),
+          balanceMultiplier: '1',
           throwOnError: true,
         }),
       ).resolves.toEqual([
@@ -108,11 +112,24 @@ describe('ServiceSwap token detail errors', () => {
           balanceParsed: withAccount ? '10' : undefined,
         },
       ]);
-      expect(fetchTokenInfoOnly).toHaveBeenCalledWith({
-        networkId,
-        tokenAddress: contractAddress,
-      });
-      expect(fetchTokensDetails).toHaveBeenCalledTimes(withAccount ? 1 : 0);
+      if (withAccount) {
+        expect(fetchTokenInfoOnly).not.toHaveBeenCalled();
+        expect(fetchTokensDetails).toHaveBeenCalledWith({
+          accountId,
+          networkId,
+          contractList: [contractAddress],
+          expectedAccountAddress: accountAddress,
+          withFrozenBalance: true,
+          withCheckInscription: false,
+        });
+      } else {
+        expect(fetchTokenInfoOnly).toHaveBeenCalledWith({
+          networkId,
+          tokenAddress: contractAddress,
+          forceRefresh: true,
+        });
+        expect(fetchTokensDetails).not.toHaveBeenCalled();
+      }
       expect(get.mock.calls[0][1]?.params).not.toHaveProperty(
         'balanceMultiplier',
       );

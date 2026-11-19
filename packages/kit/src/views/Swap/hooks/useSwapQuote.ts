@@ -56,6 +56,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapStockExecutionTokenSyncIdAtom,
@@ -183,6 +184,7 @@ export function useSwapQuote({
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const shouldPauseQuote = Boolean(currentSelectNetwork?.networkId);
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -600,7 +602,7 @@ export function useSwapQuote({
     ) {
       return;
     }
-    if (isProMarket) return;
+    if (isProMarket || multiplierStatus !== 'ready') return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
@@ -686,6 +688,7 @@ export function useSwapQuote({
     alignmentDecimal,
     fromAmountDebounce,
     isProMarket,
+    multiplierStatus,
     shouldPauseQuote,
   ]);
 
